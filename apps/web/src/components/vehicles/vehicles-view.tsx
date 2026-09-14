@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {Search, Truck, Phone, User, MapPin, ChevronRight, Plus, Loader2} from "lucide-react";
@@ -415,20 +416,11 @@ function VehicleDetailDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [trips, setTrips] = useState<VehicleTripRow[] | null>(null);
-  const [loading, setLoading] = useState(false);
-
   // Load trips when a vehicle is selected
-  useEffect(() => {
-    if (!vehicle) { setTrips(null); return; }
-    setLoading(true);
-    setTrips(null);
-    fetch(`/api/vehicles/${vehicle.id}/trips`)
-      .then((r) => r.ok ? r.json() : [])
-      .then((data) => setTrips(data))
-      .catch(() => setTrips([]))
-      .finally(() => setLoading(false));
-  }, [vehicle]);
+  const { data: tripsData, loading } = useFetch<VehicleTripRow[]>(
+    open && vehicle ? `/api/vehicles/${vehicle.id}/trips` : null,
+  );
+  const trips = vehicle ? (tripsData ?? null) : null;
 
   if (!vehicle) return null;
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { Wallet, Plus, Eye, CheckCircle, DollarSign, Pencil, X, TrendingUp, Users, SearchX, BookOpen, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -24,6 +25,28 @@ const STATUS_CONFIG: Record<PayrollStatus, { label: string; class: string; dotCl
   DRAFT: { label: "Draft", class: "bg-warning/10 text-warning", dotClass: "bg-warning", step: 1 },
   PROCESSED: { label: "Processed", class: "bg-info/10 text-info", dotClass: "bg-info", step: 2 },
   PAID: { label: "Paid", class: "bg-success/10 text-success", dotClass: "bg-success", step: 3 },
+};
+
+type PayrollLine = {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  trade: string | null;
+  wageType: string;
+  daysWorked: number;
+  basicAmount: number;
+  overtimeAmount: number;
+  allowance: number;
+  bonus: number;
+  pf: number;
+  employerPf: number;
+  esi: number;
+  professionTax: number;
+  tax: number;
+  deductions: number;
+  grossPay: number;
+  totalDeductions: number;
+  netPay: number;
 };
 
 export type PayrollRow = {
@@ -621,40 +644,20 @@ function PayrollDetailDialog({
   onClose: () => void;
   onUpdated: () => void;
 }) {
-  const [lines, setLines] = useState<Array<{
-    id: string;
-    employeeId: string;
-    employeeName: string;
-    trade: string | null;
-    wageType: string;
-    daysWorked: number;
-    basicAmount: number;
-    overtimeAmount: number;
-    allowance: number;
-    bonus: number;
-    pf: number;
-    employerPf: number;
-    esi: number;
-    professionTax: number;
-    tax: number;
-    deductions: number;
-    grossPay: number;
-    totalDeductions: number;
-    netPay: number;
-  }> | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [lines, setLines] = useState<PayrollLine[] | null>(null);
   const [editingLine, setEditingLine] = useState<string | null>(null);
   const [editValues, setEditValues] = useState<Record<string, string>>({});
 
+  const { data: periodData, loading, error: linesError } = useFetch<{ lines?: PayrollLine[] }>(
+    `/api/payroll/${period.id}`,
+  );
+  // Local copy so a saved line can be merged back without a full refetch.
   useEffect(() => {
-    fetch(`/api/payroll/${period.id}`)
-      .then((r) => r.json())
-      .then((data) => {
-        setLines(data.lines ?? []);
-        setLoading(false);
-      })
-      .catch(() => { setLoading(false); toast.error("Failed to load payroll details"); });
-  }, [period.id]);
+    if (periodData?.lines) setLines(periodData.lines);
+  }, [periodData]);
+  useEffect(() => {
+    if (linesError) toast.error("Failed to load payroll details");
+  }, [linesError]);
 
   const handleSaveLine = async (lineId: string) => {
     const v = editValues;

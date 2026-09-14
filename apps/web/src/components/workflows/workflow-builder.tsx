@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -698,10 +698,11 @@ function CreateTaskConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: (u
 }
 
 function NotificationConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: (u: Partial<WorkflowStep>) => void }) {
-  const [users, setUsers] = useState<{ id: string; name: string; role: string }[]>([]);
+  const { data: usersData, error: usersError } = useFetch<{ id: string; name: string; role: string }[]>("/api/users");
+  const users = usersData ?? [];
   useEffect(() => {
-    fetch("/api/users").then((r) => r.json()).then((d) => { if (Array.isArray(d)) setUsers(d); }).catch(() => toast.error("Failed to load users"));
-  }, []);
+    if (usersError) toast.error("Failed to load users");
+  }, [usersError]);
 
   return (
     <div className="space-y-2">
@@ -831,12 +832,14 @@ function ConditionConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: (u:
 }
 
 function AutoRequisitionConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: (u: Partial<WorkflowStep>) => void }) {
-  const [projects, setProjects] = useState<{ id: string; name: string }[]>([]);
+  const { data: projectsData, error: projectsError } = useFetch<{ id: string; name: string }[]>("/api/projects");
+  const projects = useMemo(
+    () => (Array.isArray(projectsData) ? projectsData.map((p) => ({ id: p.id, name: p.name })) : []),
+    [projectsData],
+  );
   useEffect(() => {
-    fetch("/api/projects").then((r) => r.json()).then((d) => {
-      if (Array.isArray(d)) setProjects(d.map((p: { id: string; name: string }) => ({ id: p.id, name: p.name })));
-    }).catch(() => toast.error("Failed to load projects"));
-  }, []);
+    if (projectsError) toast.error("Failed to load projects");
+  }, [projectsError]);
 
   return (
     <div className="space-y-2">

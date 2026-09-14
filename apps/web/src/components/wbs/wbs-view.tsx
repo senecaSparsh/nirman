@@ -1328,7 +1328,7 @@ function WbsDetailDialog({ node, onClose, canEdit, allNodes, onReload, projectId
   );
   const entries = entriesData ?? [];
   type WbsDep = { id: string; type: string; lagDays: number; predecessor: { id: string; code: string; name: string }; successor: { id: string; code: string; name: string }; direction: string };
-  const { data: depsData, loading: depsLoading } = useFetch<WbsDep[]>(
+  const { data: depsData, loading: depsLoading, retry: reloadDeps } = useFetch<WbsDep[]>(
     node ? `/api/wbs/dependencies?nodeId=${node.id}` : null,
   );
   const deps = Array.isArray(depsData) ? depsData : [];
@@ -1591,7 +1591,7 @@ function WbsDetailDialog({ node, onClose, canEdit, allNodes, onReload, projectId
                           const res = await fetch(`/api/wbs/dependencies/${d.id}`, { method: "DELETE" });
                           if (!res.ok) throw new Error("Failed");
                           toast.success("Dependency removed");
-                          setDeps((prev) => prev.filter((x) => x.id !== d.id));
+                          reloadDeps();
                           onReload();
                         } catch { toast.error("Failed to remove dependency"); }
                       }}
@@ -1670,8 +1670,7 @@ function WbsDetailDialog({ node, onClose, canEdit, allNodes, onReload, projectId
                       toast.success("Dependency added");
                       setShowAddDep(false);
                       // Refetch deps
-                      const dr = await fetch(`/api/wbs/dependencies?nodeId=${node.id}`);
-                      if (dr.ok) setDeps(await dr.json());
+                      reloadDeps();
                       onReload();
                     } catch (err: unknown) {
                       toast.error(err instanceof Error ? err.message : "Failed");

@@ -218,9 +218,9 @@ function RateContractDialog({
     maxQty: "",
     notes: "",
   });
-  const { data: suppliersData } = useFetch<{ suppliers?: { id: string; name: string }[] } | { id: string; name: string }[]>("/api/suppliers");
+  const { data: suppliersData, retry: reloadSuppliers } = useFetch<{ suppliers?: { id: string; name: string }[] } | { id: string; name: string }[]>("/api/suppliers");
   const suppliers: { id: string; name: string }[] = Array.isArray(suppliersData) ? suppliersData : (suppliersData?.suppliers ?? []);
-  const { data: materialsData } = useFetch<{ rows?: { id: string; code: string; name: string; unit: string }[]; materials?: { id: string; code: string; name: string; unit: string }[] } | { id: string; code: string; name: string; unit: string }[]>("/api/materials");
+  const { data: materialsData, retry: reloadMaterials } = useFetch<{ rows?: { id: string; code: string; name: string; unit: string }[]; materials?: { id: string; code: string; name: string; unit: string }[] } | { id: string; code: string; name: string; unit: string }[]>("/api/materials");
   const materials: { id: string; code: string; name: string; unit: string }[] = Array.isArray(materialsData) ? materialsData : (materialsData?.rows ?? materialsData?.materials ?? []);
   const [saving, setSaving] = useState(false);
 
@@ -281,7 +281,7 @@ function RateContractDialog({
               createLabel="supplier"
               options={suppliers.map((s) => ({ value: s.id, label: s.name }))}
               renderCreateDialog={({ open: o, onCreated, onClose }) => (
-                <SupplierFormDialog open={o} onOpenChange={onClose} supplier={null} onCreated={(e) => { setSuppliers((p) => [...p, { id: e.id, name: e.label ?? "" }]); onCreated(e); }} />
+                <SupplierFormDialog open={o} onOpenChange={onClose} supplier={null} onCreated={(e) => { reloadSuppliers(); onCreated(e); }} />
               )}
             />
           </Field>
@@ -294,7 +294,7 @@ function RateContractDialog({
               createLabel="material"
               options={materials.map((m) => ({ value: m.id, label: `${m.code} — ${m.name}` }))}
               renderCreateDialog={({ open: o, onCreated, onClose }) => (
-                <MaterialFormDialog open={o} onOpenChange={onClose} categories={categories} material={null} onCreated={(e) => { setMaterials((p) => [...p, { id: e.id, code: "", name: e.label ?? "", unit: "" }]); onCreated(e); }} />
+                <MaterialFormDialog open={o} onOpenChange={onClose} categories={categories} material={null} onCreated={(e) => { reloadMaterials(); onCreated(e); }} />
               )}
             />
           </Field>
