@@ -245,9 +245,23 @@ async function main() {
     },
   );
 
+  // Project-scoped members need UserScope rows or every scoped picker renders
+  // empty — SUPERVISOR (ravi) resolves to PROJECT scope by role default.
+  const raviMembership = await prisma.userCompany.findUnique({
+    where: { userId_companyId: { userId: U.supervisor!, companyId: company.id } },
+  });
+  if (raviMembership) {
+    const existingScope = await prisma.userScope.findFirst({
+      where: { userCompanyId: raviMembership.id, scopeKind: "PROJECT", projectId: project1.id },
+    });
+    if (!existingScope) {
+      await prisma.userScope.create({
+        data: { userCompanyId: raviMembership.id, scopeKind: "PROJECT", projectId: project1.id },
+      });
+    }
+  }
+
   const phase1A = await ensure(
-    "projectPhase",
-    { projectId: project1.id, name: "Tower A" },
     { projectId: project1.id, name: "Tower A", status: "ACTIVE", budget: 45000000, startDate: new Date("2024-02-01"), sortOrder: 1 },
   );
   const phase1B = await ensure(

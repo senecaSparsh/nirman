@@ -359,6 +359,125 @@ async function main() {
     console.log(`  ${u.name} → reports to ${reportsToUser.name}`);
   }
 
+  // ── 3.5. Working project environment ──
+  // Without this the app boots to empty pickers: field roles resolve to
+  // PROJECT scope but have no UserScope rows, and there is no project/
+  // stock/material data to act on. Seed the minimum a site engineer needs.
+  console.log("");
+  console.log("── Step 3.5: Project + Site Store + Materials + Workers ────");
+
+  const project = await prisma.project.create({
+    data: {
+      companyId,
+      name: "SRG Skyline Heights",
+      type: "RESIDENTIAL",
+      status: "ACTIVE",
+      startDate: new Date(),
+    },
+  });
+  console.log(`  Project: ${project.name} (id: ${project.id})`);
+
+  const siteStore = await prisma.stockLocation.create({
+    data: {
+      companyId,
+      projectId: project.id,
+      type: "PROJECT_SITE",
+      name: "Skyline Site Store",
+    },
+  });
+  const warehouse = await prisma.stockLocation.create({
+    data: {
+      companyId,
+      type: "WAREHOUSE",
+      name: "SRG Central Store",
+    },
+  });
+  console.log(`  Locations: ${siteStore.name}, ${warehouse.name}`);
+
+  const catDefs = [
+    { name: "Cement", unit: "BAG" },
+    { name: "Steel", unit: "KG" },
+    { name: "Aggregates", unit: "CFT" },
+    { name: "Bricks & Blocks", unit: "NOS" },
+  ];
+  const cats = {};
+  for (const c of catDefs) {
+    cats[c.name] = await prisma.materialCategory.create({
+      data: { companyId, name: c.name, unit: c.unit },
+    });
+  }
+
+  const matDefs = [
+    { code: "CEM-001", name: "Cement OPC53", grade: "OPC 53", cat: "Cement", unit: "BAG", cost: 350 },
+    { code: "STL-001", name: "TMT Steel Fe500", grade: "Fe500", cat: "Steel", unit: "KG", cost: 58 },
+    { code: "SND-001", name: "River Sand", cat: "Aggregates", unit: "CFT", cost: 55 },
+    { code: "AGG-001", name: "Aggregate 20mm", grade: "20mm", cat: "Aggregates", unit: "CFT", cost: 48 },
+    { code: "BRK-001", name: "Fly Ash Bricks", cat: "Bricks & Blocks", unit: "NOS", cost: 7 },
+  ];
+  const mats = [];
+  for (const m of matDefs) {
+    mats.push(await prisma.material.create({
+      data: {
+        companyId, code: m.code, name: m.name, grade: m.grade ?? null,
+        categoryId: cats[m.cat].id, unit: m.unit,
+        standardCost: m.cost, currentCost: m.cost,
+      },
+    }));
+  }
+  console.log(`  Materials: ${mats.length} created across ${catDefs.length} categories`);
+
+  // Opening stock — enough for issue/transfer flows to exercise.
+  const stockSeed = [
+    { matIdx: 0, qty: 200 }, // cement bags
+    { matIdx: 1, qty: 1000 }, // steel kg
+    { matIdx: 2, qty: 300 }, // sand cft
+    { matIdx: 3, qty: 400 }, // aggregate cft
+    { matIdx: 4, qty: 5000 }, // bricks
+  ];
+  for (const loc of [siteStore, warehouse]) {
+    for (const s of stockSeed) {
+      await prisma.stockLocationItem.create({
+        data: { locationId: loc.id, materialId: mats[s.matIdx].id, qty: s.qty, movingAvgCost: matDefs[s.matIdx].cost },
+      });
+    }
+  }
+  console.log(`  Stock: ${stockSeed.length} items at 2 locations`);
+
+  // Field workers (employees without user accounts — for DPR labour lines
+  // and attendance marking).
+  const workerDefs = [
+    { name: "Rakesh Mistri", trade: "Masonry", dailyRate: 850 },
+    { name: "Sunil Yadav", trade: "Helper", dailyRate: 550 },
+    { name: "Prakash Jadhav", trade: "Carpentry", dailyRate: 800 },
+    { name: "Dinesh Kumar", trade: "Electrical", dailyRate: 750 },
+  ];
+  for (const w of workerDefs) {
+    await prisma.employee.create({
+      data: {
+        name: w.name, trade: w.trade, dailyRate: w.dailyRate,
+        wageType: "DAILY", joinDate: new Date(), active: true,
+        companyId,
+      },
+    });
+  }
+  console.log(`  Workers: ${workerDefs.length} field workers`);
+
+  // UserScope rows for PROJECT-scoped members — SITE_ENGINEER et al. resolve
+  // to PROJECT scope by role default; without a scope row their pickers are
+  // empty and the emptyHint tells them to ask an admin forever.
+  const PROJECT_SCOPED = new Set(["SITE_ENGINEER", "STORE_KEEPER", "SUPERVISOR", "QAQC_ENGINEER"]);
+  for (const u of USERS) {
+    if (!PROJECT_SCOPED.has(u.role)) continue;
+    await prisma.userScope.create({
+      data: {
+        userCompanyId: userCompanyIds[u.key],
+        scopeKind: "PROJECT",
+        projectId: project.id,
+      },
+    });
+    console.log(`  Scope: ${u.name} → ${project.name}`);
+  }
+
   // ── 4. Summary ──
   console.log("");
   console.log("═══════════════════════════════════════════════════════════════");
