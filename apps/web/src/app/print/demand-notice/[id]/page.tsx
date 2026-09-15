@@ -1,7 +1,8 @@
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, getCurrentUser, getUserRole, toNum } from "@/lib/server";
+import { getPortalCustomer } from "@/lib/portal-auth";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
@@ -24,34 +25,57 @@ export default async function DemandNoticePage({
 }) {
   await connection();
   const { id } = await params;
-  const role = await getUserRole();
-  const company = await getCompany();
-
-  if (!hasPermission(role, PERM.SALES_VIEW)) {
-    return <div className="p-8 text-center text-muted-foreground">No access</div>;
-  }
-
-  const item = await prisma.paymentScheduleItem.findFirst({
-    where: { id },
-    include: {
-      paymentSchedule: {
-        include: {
-          assetSale: {
-            include: {
-              customer: { select: { name: true, phone: true, email: true, address: true } },
-              project: { select: { name: true } },
-            },
+  const itemInclude = {
+    paymentSchedule: {
+      include: {
+        assetSale: {
+          include: {
+            customer: { select: { name: true, phone: true, email: true, address: true } },
+            project: { select: { name: true } },
           },
         },
       },
-      wbsNode: { select: { name: true, code: true } },
     },
-  });
+    wbsNode: { select: { name: true, code: true } },
+  } as const;
 
-  if (!item || !item.paymentSchedule?.assetSale) notFound();
+  let company: { id: string; name: string; address: string | null; gstin: string | null; phone: string | null; email: string | null } | null = null;
+  let item = null;
+
+  const user = await getCurrentUser();
+  if (user) {
+    const role = await getUserRole();
+    company = await getCompany();
+    if (!hasPermission(role, PERM.SALES_VIEW)) {
+      return <div className="p-8 text-center text-muted-foreground">No access</div>;
+    }
+    item = await prisma.paymentScheduleItem.findFirst({
+      where: { id },
+      include: itemInclude,
+    });
+  } else {
+    // Customer portal: the demanded installment must belong to the
+    // logged-in customer's sale.
+    const customer = await getPortalCustomer();
+    if (customer) {
+      item = await prisma.paymentScheduleItem.findFirst({
+        where: { id, paymentSchedule: { assetSale: { customerId: customer.id } } },
+        include: itemInclude,
+      });
+      const saleCompanyId = item?.paymentSchedule?.assetSale?.companyId;
+      if (saleCompanyId) {
+        company = await prisma.company.findUnique({
+          where: { id: saleCompanyId },
+          select: { id: true, name: true, address: true, gstin: true, phone: true, email: true },
+        });
+      }
+    }
+  }
+
+  if (!item || !item.paymentSchedule?.assetSale || !company) notFound();
 
   const sale = item.paymentSchedule.assetSale;
-  if (sale.companyId !== company.id) notFound();
+  if (user && sale.companyId !== company.id) notFound();
 
   const [landParcel, builtUnit] = await Promise.all([
     sale.landParcelId

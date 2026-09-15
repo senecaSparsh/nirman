@@ -438,14 +438,21 @@ function SaleDetailModal({ sale, onClose }: { sale: PortalSale; onClose: () => v
           >
             Print Allotment Letter
           </a>
-          <a
-            href={`/print/demand-notice/${sale.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="portal-btn portal-btn-secondary flex-1 text-xs"
-          >
-            Print Demand Notice
-          </a>
+          {(() => {
+            const demandItem =
+              sale.paymentSchedule?.items.find((i) => i.status !== "PAID") ??
+              sale.paymentSchedule?.items[sale.paymentSchedule.items.length - 1];
+            return demandItem ? (
+              <a
+                href={`/print/demand-notice/${demandItem.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="portal-btn portal-btn-secondary flex-1 text-xs"
+              >
+                Print Demand Notice
+              </a>
+            ) : null;
+          })()}
         </div>
       </div>
     </div>

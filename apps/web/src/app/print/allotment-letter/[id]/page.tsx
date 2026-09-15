@@ -1,7 +1,8 @@
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
+import { getCompany, getCurrentUser, getUserRole, toNum, scopeWhere } from "@/lib/server";
+import { getPortalCustomer } from "@/lib/portal-auth";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
@@ -22,23 +23,44 @@ export default async function AllotmentLetterPage({
 }) {
   await connection();
   const { id } = await params;
-  const role = await getUserRole();
-  const company = await getCompany();
+  const saleInclude = {
+    customer: { select: { name: true, phone: true, email: true, address: true, gstin: true } },
+    project: { select: { name: true } },
+    paymentSchedule: { include: { items: { orderBy: { installmentNo: "asc" } } } },
+  } as const;
 
-  if (!hasPermission(role, PERM.SALES_VIEW)) {
-    return <div className="p-8 text-center text-muted-foreground">No access</div>;
+  let company: { id: string; name: string; address: string | null; gstin: string | null; phone: string | null; email: string | null } | null = null;
+  let sale = null;
+
+  const user = await getCurrentUser();
+  if (user) {
+    const role = await getUserRole();
+    company = await getCompany();
+    if (!hasPermission(role, PERM.SALES_VIEW)) {
+      return <div className="p-8 text-center text-muted-foreground">No access</div>;
+    }
+    sale = await prisma.assetSale.findFirst({
+      where: {...await scopeWhere("AssetSale"),  id, companyId: company.id },
+      include: saleInclude,
+    });
+  } else {
+    // Customer portal: the sale must belong to the logged-in customer.
+    const customer = await getPortalCustomer();
+    if (customer) {
+      sale = await prisma.assetSale.findFirst({
+        where: { id, customerId: customer.id },
+        include: saleInclude,
+      });
+      if (sale) {
+        company = await prisma.company.findUnique({
+          where: { id: sale.companyId },
+          select: { id: true, name: true, address: true, gstin: true, phone: true, email: true },
+        });
+      }
+    }
   }
 
-  const sale = await prisma.assetSale.findFirst({
-    where: {...await scopeWhere("AssetSale"),  id, companyId: company.id },
-    include: {
-      customer: { select: { name: true, phone: true, email: true, address: true, gstin: true } },
-      project: { select: { name: true } },
-      paymentSchedule: { include: { items: { orderBy: { installmentNo: "asc" } } } },
-    },
-  });
-
-  if (!sale) notFound();
+  if (!sale || !company) notFound();
 
   const [landParcel, builtUnit] = await Promise.all([
     sale.landParcelId

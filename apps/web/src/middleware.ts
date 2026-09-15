@@ -275,6 +275,16 @@ export function middleware(req: NextRequest) {
     req.cookies.get("__Secure-better-auth.session_token.sig")?.value;
 
   if (!sessionCookie) {
+    // Print pages are also reachable by customer-portal users (allotment
+    // letter, demand notice) — let the request through when a portal cookie
+    // exists; each print page verifies the signed cookie and scopes the
+    // document to that customer before rendering anything.
+    if (
+      pathname.startsWith("/print") &&
+      req.cookies.get("nirman-portal-customer")?.value
+    ) {
+      return NextResponse.next();
+    }
     const signInUrl = new URL("/sign-in", req.url);
     // Preserve the intended destination so we can redirect after sign-in.
     // For mobile users hitting "/", redirect to "/m" after sign-in (not "/")

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
 import { ServiceError } from "@nirman/services";
 import { normalizePhone } from "@/lib/phone-otp";
-import { PORTAL_COOKIE_NAME, PORTAL_COOKIE_MAX_AGE } from "@/lib/portal-auth";
+import { PORTAL_COOKIE_NAME, PORTAL_COOKIE_MAX_AGE, signPortalCookie } from "@/lib/portal-auth";
 import { json, ForbiddenError, UnauthorizedError } from "@/lib/server";
 
 /**
@@ -121,7 +121,7 @@ export const POST = async (req: NextRequest) => {
         companyName: customer.company.name,
       },
     });
-    res.cookies.set(PORTAL_COOKIE_NAME, customer.id, {
+    res.cookies.set(PORTAL_COOKIE_NAME, signPortalCookie(customer.id), {
       httpOnly: true,
       sameSite: "lax",
       maxAge: PORTAL_COOKIE_MAX_AGE,

@@ -67,7 +67,9 @@ export interface PortalCustomer {
  */
 export async function getPortalCustomer(): Promise<PortalCustomer | null> {
   const cookieStore = await cookies();
-  const customerId = cookieStore.get(PORTAL_COOKIE_NAME)?.value;
+  const raw = cookieStore.get(PORTAL_COOKIE_NAME)?.value;
+  if (!raw) return null;
+  const customerId = verifyPortalCookie(raw);
   if (!customerId) return null;
 
   const customer = await prisma.customer.findUnique({
