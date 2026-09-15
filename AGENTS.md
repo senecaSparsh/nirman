@@ -6,6 +6,32 @@
 > finding: the schema is ~95% complete — most "gaps" are UI-wiring gaps, not
 > missing modules. Check the schema before assuming anything needs building.
 
+## Production Access (VPS + Coolify)
+
+Credentials are saved in `.env.prod-secrets` (gitignored). Run
+`./scripts/setup-prod-access.sh` to recreate it if missing.
+
+- **VPS**: `ssh nirman-vps` (SSH key `~/.ssh/devin_nirman`, alias in `~/.ssh/config`)
+- **Domain**: `https://nirman.life`
+- **Coolify dashboard**: `http://82.41.67.34:8000`
+- **Coolify API token**: Deploy permission (30-day expiry — renew before Oct 15, 2026)
+- **VirtFusion panel**: `https://compute.heavencloud.online/server/2bd51fbb-4772-403b-af19-c6b1bbf0154e`
+- **VNC**: `82.41.67.106:5917` (password in `.env.prod-secrets`, enable from panel)
+
+**Scripts:**
+
+- `./scripts/deploy-prod.sh` — trigger deploy via Coolify API + wait for health
+- `./scripts/prod-health-check.sh` — check all containers, proxy, health; auto-fix common issues
+- `./scripts/setup-prod-access.sh` — one-time setup to save credentials
+
+**Known issue — sidecar containers after deploy**: If `scheduler` or `backup`
+containers crash-loop after a deploy, their script files may be missing from
+the VPS. Fix: `./scripts/prod-health-check.sh` (auto-uploads + restarts).
+
+**Known issue — proxy network after deploy**: If HTTPS times out but HTTP works,
+the `coolify-proxy` container isn't on the app network. Fix:
+`ssh nirman-vps 'docker network connect oa346mulnes3pgn6gmij6dih coolify-proxy'`
+
 ## Commands
 
 - `pnpm dev` — run web dev server (Turbopack) with **auto-recovery wrapper**. The
