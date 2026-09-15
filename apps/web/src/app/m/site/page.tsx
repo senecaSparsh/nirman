@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@nirman/db";
-import { getCurrentUser, scopeWhere } from "@/lib/server";
+import { getCurrentUser, getUserPermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
 import { formatDate } from "@/lib/utils";
@@ -24,6 +24,8 @@ export default function SitePage() {
     <MobileHubPage perm={PERM.TASKS_VIEW} what="site" permission="tasks.view">
       {async ({ company }) => {
         const user = await getCurrentUser();
+        const perms = await getUserPermissions();
+        const canSubmitDpr = perms.includes(PERM.DPR_SUBMIT);
 
         const today = new Date();
         const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -67,7 +69,7 @@ export default function SitePage() {
         // ── Attention banners ──
         const attentionBanners: AttentionBanner[] = [];
 
-        if (!myDprToday) {
+        if (canSubmitDpr && !myDprToday) {
           attentionBanners.push({
             id: "dpr",
             title: "Today's Daily Progress Report not submitted",
@@ -109,7 +111,7 @@ export default function SitePage() {
           attentionBanners.push({
             id: "clear",
             title: "All caught up!",
-            subtitle: `${myTasks.length} open task${myTasks.length !== 1 ? "s" : ""} · ${inTransitPOs.length} in transit · Daily Progress Report ${myDprToday ? "submitted" : "pending"}`,
+            subtitle: `${myTasks.length} open task${myTasks.length !== 1 ? "s" : ""} · ${inTransitPOs.length} in transit${canSubmitDpr ? ` · Daily Progress Report ${myDprToday ? "submitted" : "pending"}` : ""}`,
             href: "/m/site",
             severity: "clear",
             qtyText: "✓",
