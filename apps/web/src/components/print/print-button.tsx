@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Printer,
@@ -8,6 +9,7 @@ import {
   ImageDown,
   Loader2,
   Share2,
+  X,
 } from "lucide-react";
 
 /**
@@ -34,6 +36,22 @@ export function PrintToolbar({
 }) {
   const [busy, setBusy] = useState<DownloadFormat | "share" | null>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+
+  // ── Close — inside the mobile DocumentViewer iframe, ask the parent to
+  // close the overlay. Otherwise go back; if the doc was opened in its own
+  // tab (no history), close the tab. Never strands the user on a dead-end.
+  const handleClose = () => {
+    if (window.self !== window.top) {
+      window.parent.postMessage({ type: "nirman:close-doc" }, window.location.origin);
+      return;
+    }
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      window.close();
+    }
+  };
 
   /** Find the .print-page element (the actual document content). */
   const getPrintElement = useCallback((): HTMLElement | null => {
@@ -199,6 +217,16 @@ export function PrintToolbar({
           <Share2 className="h-3.5 w-3.5" />
         )}
         Share
+      </button>
+
+      <button
+        type="button"
+        onClick={handleClose}
+        title="Close"
+        className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+      >
+        <X className="h-3.5 w-3.5" />
+        Close
       </button>
     </div>
   );

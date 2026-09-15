@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { ActionBar } from "@/components/mobile/v2/primitives";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 
 type Status = "DRAFT" | "ISSUED" | "ACTIVE" | "COMPLETED" | "CLOSED";
 
@@ -26,6 +27,7 @@ export function MobileWorkOrderActions({
   advanceBalance: number;
 }) {
   const router = useRouter();
+  const docViewer = useDocumentViewer();
   const [acting, setActing] = useState<string | null>(null);
   const [showAdvance, setShowAdvance] = useState(false);
   const [advanceAmount, setAdvanceAmount] = useState("");
@@ -142,16 +144,15 @@ export function MobileWorkOrderActions({
 
         {showReleaseRetention ? (
           <>
-          <a
-            href={`/api/work-orders/${workOrderId}/print`}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => docViewer.openDoc(`/api/work-orders/${workOrderId}/print`, "Work Order")}
             className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] border-2 font-bold text-m-section text-m-body press active:scale-95"
             style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
           >
             <Printer className="size-4" />
             Print
-          </a>
+          </button>
           <button
             onClick={() => setShowRetention(true)}
             disabled={acting !== null}
@@ -316,6 +317,7 @@ export function MobileWorkOrderActions({
           </div>
         </div>
       ) : null}
+      <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
     </>
   );
 }

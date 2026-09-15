@@ -114,7 +114,7 @@ export default function MobileMbDetailPage({
               title={entry.boqItem.description}
               subtitle={`BOQ ${entry.boqItem.serialNo} · ${entry.project.name}${entry.phase ? ` · ${entry.phase.name}` : ""}`}
               status={entry.status}
-              action={<DetailPrintButton href={`/print/measurement-book/${entry.id}`} />}
+              action={<DetailPrintButton href={`/m/print/measurement-book/${entry.id}`} />}
             >
               <p className="text-m-label font-bold tabular-nums mt-2" style={{ color: "var(--color-ink-500)" }}>
                 {entry.mbNumber}

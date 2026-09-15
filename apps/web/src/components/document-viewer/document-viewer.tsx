@@ -52,6 +52,18 @@ export function DocumentViewer({ url, title = "Document", onClose }: DocumentVie
     return () => window.removeEventListener("keydown", handleKey);
   }, [url, handleClose]);
 
+  // Close when the document inside the iframe posts a close request
+  // (PrintToolbar's Close button delegates to the parent when framed).
+  useEffect(() => {
+    if (!url) return;
+    function handleMessage(e: MessageEvent) {
+      if (e.origin !== window.location.origin) return;
+      if ((e.data as { type?: string })?.type === "nirman:close-doc") handleClose();
+    }
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [url, handleClose]);
+
   if (!url) return null;
 
   return (
@@ -102,12 +114,23 @@ export function DocumentViewer({ url, title = "Document", onClose }: DocumentVie
           </div>
         )}
 
-        {/* Document iframe */}
+        {/* Document iframe — scaled down on narrow screens so print-sized
+            text fits a phone viewport */}
         <iframe
           src={url}
           className="flex-1 w-full border-0"
           style={{ minHeight: 0, display: loading ? "none" : "block" }}
-          onLoad={() => setLoading(false)}
+          onLoad={(e) => {
+            setLoading(false);
+            try {
+              const doc = e.currentTarget.contentDocument;
+              if (doc && window.innerWidth < 640) {
+                doc.documentElement.style.zoom = "0.72";
+              }
+            } catch {
+              // cross-origin or detached frame — leave as-is
+            }
+          }}
           title={title}
         />
       </div>

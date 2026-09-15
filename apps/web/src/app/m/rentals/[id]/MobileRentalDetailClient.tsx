@@ -16,6 +16,7 @@ import { MobileDocUploader } from "../../MobileDocUploader";
 import { ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { DetailAlertBanner } from "@/components/mobile/v2/detail-primitives";
+import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 import { useTodayDateState } from "@/lib/use-today-date";
 
 /* ─── Types ─── */
@@ -105,6 +106,7 @@ export function MobileRentalDetailClient({
   notFound?: boolean;
 }) {
   const router = useRouter();
+  const docViewer = useDocumentViewer();
   const [showPayment, setShowPayment] = useState(false);
   const [showAction, setShowAction] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -558,15 +560,14 @@ export function MobileRentalDetailClient({
         ) : null}
         {/* Print Draft / LOI */}
         <div className="px-3 pb-3">
-          <a
-            href={`/print/tenancy-draft/${data.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => docViewer.openDoc(`/m/print/tenancy-draft/${data.id}`, "Tenancy Draft")}
             className="inline-flex items-center gap-1 text-m-caption font-semibold"
             style={{ color: "var(--color-brand)" }}
           >
             <Printer className="size-3" /> Print Draft / LOI
-          </a>
+          </button>
         </div>
 
         {/* Rent Agreement Document */}
@@ -774,6 +775,8 @@ export function MobileRentalDetailClient({
           onClose={() => setShowChangeTenant(false)}
         />
       ) : null}
+
+      <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
     </div>
   );
 }

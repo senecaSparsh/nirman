@@ -13,6 +13,7 @@ import { PageLead, NextActionCard } from "@/components/mobile/v2/guidance";
 import { SwipeableListItem } from "@/components/mobile/swipeable-item";
 import { MobileContextMenu, type ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import { useLongPress } from "@/lib/use-long-press";
+import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 import { useUrlFilter, useUrlQuery } from "@/lib/use-url-filter";
 import { PERM } from "@/lib/roles";
 import {
@@ -444,13 +445,14 @@ function TabSwitcher({
 function DirectPurchaseCard({ dp }: { dp: DirectPurchaseListItem }) {
   const isCancelled = dp.status === "CANCELLED";
   const accentColor = isCancelled ? "var(--color-stop)" : "var(--color-go)";
+  const docViewer = useDocumentViewer();
 
   return (
-    <a
-      href={`/print/direct-purchase/${dp.id}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden active:scale-[0.98] transition-transform"
+    <>
+    <button
+      type="button"
+      onClick={() => docViewer.openDoc(`/m/print/direct-purchase/${dp.id}`, `Direct Purchase ${dp.billNumber}`)}
+      className="flex flex-col rounded-[0.625rem] border text-m-body overflow-hidden active:scale-[0.98] transition-transform text-left w-full"
       style={{
         borderColor: "var(--color-line)",
         backgroundColor: "var(--color-paper)",
@@ -511,7 +513,9 @@ function DirectPurchaseCard({ dp }: { dp: DirectPurchaseListItem }) {
           <Printer className="size-3 shrink-0" style={{ color: "var(--color-brand)" }} />
         </div>
       </div>
-    </a>
+    </button>
+    <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
+    </>
   );
 }
 

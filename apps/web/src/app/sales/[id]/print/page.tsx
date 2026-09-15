@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getPrintableSaleData } from "@nirman/services";
 import { PrintHeader } from "@/components/print/print-header";
-import { PrintButton } from "./print-button";
+import { PrintButton, CloseButton } from "./print-button";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { toNum, getCompany, getUserRole } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
@@ -64,7 +64,8 @@ export default async function PrintableSaleFormPage({
       />
 
       {/* Print button (hidden on print) */}
-      <div className="mt-4 flex justify-end print:hidden">
+      <div className="mt-4 flex items-center justify-between print:hidden">
+        <CloseButton />
         <PrintButton />
       </div>
 

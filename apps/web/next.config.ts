@@ -91,8 +91,9 @@ const nextConfig: NextConfig = {
           { key: "Vary", value: "Sec-CH-Device-Memory" },
           // HSTS — enforce HTTPS for 1 year, include subdomains
           { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains; preload" },
-          // Prevent clickjacking — deny all framing
-          { key: "X-Frame-Options", value: "DENY" },
+          // Prevent clickjacking — allow same-origin framing only (the
+          // in-app DocumentViewer iframes /m/print pages for overlay docs)
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
           // Prevent MIME-type sniffing
           { key: "X-Content-Type-Options", value: "nosniff" },
           // Control referrer information sent to other origins
@@ -107,7 +108,7 @@ const nextConfig: NextConfig = {
             "img-src 'self' data: blob: https:",
             "font-src 'self' data:",
             "connect-src 'self' https: data: blob:",
-            "frame-ancestors 'none'",
+            "frame-ancestors 'self'",
             "base-uri 'self'",
             "form-action 'self'",
             "object-src 'none'",

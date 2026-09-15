@@ -19,6 +19,7 @@ import { ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { DetailKeyValueCard } from "@/components/mobile/v2/detail-primitives";
+import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 
 type AssetType = "LAND" | "BUILT_UNIT" | "PROJECT";
 type SaleStatus = "PENDING" | "ACTIVE" | "CANCELLED";
@@ -198,6 +199,7 @@ export function MobileSaleDetailClient({
   draftDate?: string | null;
 }) {
   const router = useRouter();
+  const docViewer = useDocumentViewer();
   const [showPayment, setShowPayment] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
@@ -336,7 +338,7 @@ export function MobileSaleDetailClient({
       toast.success(payMode === "CHEQUE" ? "Cheque payment recorded (pending clearance)" : "Payment recorded", {
         action: paymentId ? {
           label: "Print Receipt",
-          onClick: () => window.open(`/print/payment-receipt/${paymentId}`, "_blank"),
+          onClick: () => docViewer.openDoc(`/m/print/payment-receipt/${paymentId}`, "Payment Receipt"),
         } : undefined,
       });
       setShowPayment(false);
@@ -656,36 +658,33 @@ export function MobileSaleDetailClient({
             <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-300)" }}>—</span>
           </div>
         )}
-        <a
-          href={`/sales/${saleId}/print`}
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          type="button"
+          onClick={() => docViewer.openDoc(`/m/print/sale-form/${saleId}`, "Sale Booking Form")}
           className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <Printer className="size-3.5 mb-0.5" style={{ color: "var(--color-ink-700)" }} />
           <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Form</span>
-        </a>
-        <a
-          href={`/print/sale-invoice/${saleId}`}
-          target="_blank"
-          rel="noopener noreferrer"
+        </button>
+        <button
+          type="button"
+          onClick={() => docViewer.openDoc(`/m/print/sale-invoice/${saleId}`, "Sale Invoice")}
           className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <Printer className="size-3.5 mb-0.5" style={{ color: "var(--color-ink-700)" }} />
           <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Invoice</span>
-        </a>
-        <a
-          href={`/print/allotment-letter/${saleId}`}
-          target="_blank"
-          rel="noopener noreferrer"
+        </button>
+        <button
+          type="button"
+          onClick={() => docViewer.openDoc(`/m/print/allotment-letter/${saleId}`, "Allotment Letter")}
           className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <Printer className="size-3.5 mb-0.5" style={{ color: "var(--color-ink-700)" }} />
           <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Allotment</span>
-        </a>
+        </button>
       </div>
 
       {/* ── Info + Deal Details grid (2 columns) ── */}
@@ -874,15 +873,14 @@ export function MobileSaleDetailClient({
 
           {/* Print Draft / LOI */}
           <div className="px-2 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
-            <a
-              href={`/print/sale-draft/${saleId}`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={() => docViewer.openDoc(`/m/print/sale-draft/${saleId}`, "Sale Draft / LOI")}
               className="inline-flex items-center gap-1 text-m-caption font-semibold"
               style={{ color: "var(--color-brand)" }}
             >
               <Printer className="size-3" /> Print Draft / LOI
-            </a>
+            </button>
           </div>
         </div>
 
@@ -1030,15 +1028,14 @@ export function MobileSaleDetailClient({
                   )}
                 </div>
                 {it.status !== "PAID" && (
-                  <a
-                    href={`/print/demand-notice/${it.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <button
+                    type="button"
+                    onClick={() => docViewer.openDoc(`/m/print/demand-notice/${it.id}`, "Demand Notice")}
                     className="ml-2 shrink-0"
                     title="Print demand notice"
                   >
                     <Printer className="size-3" style={{ color: "var(--color-ink-500)" }} />
-                  </a>
+                  </button>
                 )}
               </div>
             ))}
@@ -1062,11 +1059,10 @@ export function MobileSaleDetailClient({
                 className="flex items-center gap-2 px-2.5 py-1.5"
                 style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
               >
-                <a
-                  href={`/print/payment-receipt/${p.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 flex-1 min-w-0 text-m-body press"
+                <button
+                  type="button"
+                  onClick={() => docViewer.openDoc(`/m/print/payment-receipt/${p.id}`, "Payment Receipt")}
+                  className="flex items-center gap-2 flex-1 min-w-0 text-m-body press text-left"
                 >
                   <span
                     className="grid place-items-center size-6 rounded-full shrink-0"
@@ -1097,7 +1093,7 @@ export function MobileSaleDetailClient({
                     {formatCurrencyCompact(p.amount)}
                   </p>
                   <Printer className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
-                </a>
+                </button>
                 {canManage && (
                   <button
                     onClick={(e) => { e.preventDefault(); sendWhatsAppConfirmation(p.id); }}
@@ -1844,6 +1840,8 @@ export function MobileSaleDetailClient({
           </div>
         </Modal>
       ) : null}
+
+      <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
     </div>
   );
 }

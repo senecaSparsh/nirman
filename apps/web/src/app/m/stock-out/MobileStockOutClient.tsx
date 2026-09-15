@@ -19,6 +19,7 @@ import { MobileNewStockLocationDialog } from "@/app/m/stock-locations/MobileNewS
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
 import { VehicleCapture, type VehicleData } from "@/components/mobile/vehicle-capture";
+import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 import { } from "@/components/mobile/v2/bottom-sheet";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { SelectorModal } from "@/components/mobile/v2/form-primitives";
@@ -87,6 +88,7 @@ export function MobileStockOutClient({
   const { online, enqueue } = useOfflineQueue();
 
   // ── Mode ──
+  const docViewer = useDocumentViewer();
   const [mode, setMode] = useState<Mode>(initialMode);
 
   // ── Data ──
@@ -562,16 +564,15 @@ export function MobileStockOutClient({
               >
                 View Issue
               </button>
-              <a
-                href={`/print/issue/${success.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() => docViewer.openDoc(`/m/print/issue/${success.id}`, "Issue Slip")}
                 className="rounded-[0.5rem] px-4 py-2 text-m-body font-bold text-m-body press"
                 style={{ backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)", border: "1px solid var(--color-line)" }}
               >
                 <Printer className="size-3.5 inline mr-1" />
                 Print
-              </a>
+              </button>
             </>
           ) : null}
           {isGatePass ? (
@@ -1293,6 +1294,7 @@ export function MobileStockOutClient({
           }}
         />
       ) : null}
+      <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
     </>
   );
 }

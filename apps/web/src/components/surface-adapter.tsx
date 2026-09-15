@@ -87,6 +87,9 @@ const SKIP_PREFIXES = [
 ];
 export function shouldSkip(pathname: string): boolean {
   if (SKIP_PREFIXES.some((p) => pathname.startsWith(p))) return true;
+  // Print-style routes outside /print/* (e.g. /sales/[id]/print) — documents
+  // must render in place; there is no /m equivalent to redirect to.
+  if (pathname.endsWith("/print")) return true;
   if (pathname === "/favicon.ico" || /\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|map|webmanifest|txt)$/.test(pathname)) return true;
   return false;
 }

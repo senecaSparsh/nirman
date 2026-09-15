@@ -37,6 +37,7 @@ import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { MobileProjectSelect, MobileStockLocationSelect } from "@/components/mobile/selectors";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 
 type GatePassRow = {
   id: string;
@@ -133,6 +134,7 @@ export function MobileGatePassList({
   exportSummary?: string;
 }) {
   const router = useRouter();
+  const docViewer = useDocumentViewer();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -418,7 +420,7 @@ export function MobileGatePassList({
                 {/* Actions */}
                 <div className="flex flex-wrap gap-2 pt-1">
                   <button
-                    onClick={() => window.open(`/print/gate-pass/${gp.id}`, "_blank")}
+                    onClick={() => docViewer.openDoc(`/m/print/gate-pass/${gp.id}`, "Gate Pass")}
                     className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-m-caption active:opacity-70 press"
                     style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}
                   >
@@ -649,6 +651,7 @@ export function MobileGatePassList({
             </div>
           </MobileDialog>
       )}
+      <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
     </div>
   );
 }

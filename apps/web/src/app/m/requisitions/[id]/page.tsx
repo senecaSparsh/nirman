@@ -285,7 +285,7 @@ export default function MobileRequisitionDetailPage({
               title={req.reqNumber}
               titleMono
               status={req.status}
-              action={<DetailPrintButton href={`/print/requisition/${req.id}`} />}
+              action={<DetailPrintButton href={`/m/print/requisition/${req.id}`} />}
             >
               <div className="flex items-center gap-3 text-m-body mt-2" style={{ color: "var(--color-ink-500)" }}>
                 <Link

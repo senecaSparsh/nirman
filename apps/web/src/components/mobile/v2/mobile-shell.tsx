@@ -607,6 +607,13 @@ function MobileShellInner({
     },
   };
 
+  // Print documents (/m/print/*) render bare — no header/tab bar/offline
+  // banner. They display inside the DocumentViewer overlay iframe or as a
+  // standalone print view; shell chrome would clutter the document.
+  if (pathname.startsWith("/m/print")) {
+    return <>{children}</>;
+  }
+
   return (
     <div className="flex h-dvh flex-col overflow-hidden" style={{ backgroundColor: "var(--color-paper-2)" }}>
       <CommandPalette userRole={companyInfo.role as string} />

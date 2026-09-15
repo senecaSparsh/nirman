@@ -329,7 +329,7 @@ export function MobileNewSaleForm({
         toast.success(`Booking ${data.saleNumber} created`, {
           action: {
             label: "Print Form",
-            onClick: () => router.push(`/sales/${saleId}/print`),
+            onClick: () => router.push(`/m/print/sale-form/${saleId}`),
           },
         });
         router.push(`/m/sales/${saleId}`);

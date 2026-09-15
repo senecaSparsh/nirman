@@ -238,7 +238,7 @@ export default function MobileUnitDetailPage({
                 <ShareButton
                   title={`Unit ${unit.unitNumber} — ${unit.project.name}`}
                   text={`Unit ${unit.unitNumber} (${typeLabel}) at ${unit.project.name}${askingPrice ? ` — Price: ${formatCurrency(askingPrice)}` : ""}`}
-                  url={`/print/unit-spec/${unit.id}`}
+                  url={`/m/print/unit-spec/${unit.id}`}
                   variant="outline"
                   size="touch"
                   label="Share Unit Details"

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, Loader2, Sparkles, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 
 /**
  * Triggers DPR variance analysis via POST /api/dprs/[id]/variance.
@@ -25,6 +26,7 @@ export function MobileDprVarianceButton({
   canRun: boolean;
 }) {
   const router = useRouter();
+  const docViewer = useDocumentViewer();
   const [busy, setBusy] = useState(false);
 
   if (!canRun || !hasWorkType) return null;
@@ -80,10 +82,9 @@ export function MobileDprVarianceButton({
         )}
         {hasVariance ? "Re-run Variance" : "Run Variance"}
       </button>
-      <a
-        href={`/api/dprs/${dprId}/print`}
-        target="_blank"
-        rel="noopener noreferrer"
+      <button
+        type="button"
+        onClick={() => docViewer.openDoc(`/api/dprs/${dprId}/print`, "DPR Report")}
         className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] border-2 font-bold text-m-section text-m-body press active:scale-95"
         style={{
           borderColor: "var(--color-line)",
@@ -93,7 +94,8 @@ export function MobileDprVarianceButton({
       >
         <Printer className="size-4" />
         Print
-      </a>
+      </button>
+      <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
     </div>
   );
 }

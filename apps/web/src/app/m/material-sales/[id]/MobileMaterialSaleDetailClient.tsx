@@ -16,6 +16,7 @@ import { AttachmentList } from "@/components/attachments/attachment-list";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { DetailStatGrid } from "@/components/mobile/v2/detail-primitives";
+import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 
 type SaleStatus = "PENDING" | "ACTIVE" | "CANCELLED";
 type PaymentStatus = "PENDING" | "PARTIAL" | "PAID";
@@ -107,6 +108,7 @@ export function MobileMaterialSaleDetailClient({
   notFound?: boolean;
 }) {
   const router = useRouter();
+  const docViewer = useDocumentViewer();
   const [showPayment, setShowPayment] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -358,23 +360,25 @@ export function MobileMaterialSaleDetailClient({
             <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Payment</span>
           </button>
         ) : (
-          <Link
-            href={`/print/material-sale/${saleId}`}
+          <button
+            type="button"
+            onClick={() => docViewer.openDoc(`/m/print/material-sale/${saleId}`, "Material Sale")}
             className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
             <Printer className="size-3.5 mb-0.5" style={{ color: "var(--color-ink-700)" }} />
             <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Print</span>
-          </Link>
+          </button>
         )}
-        <Link
-          href={`/print/material-sale/${saleId}`}
+        <button
+          type="button"
+          onClick={() => docViewer.openDoc(`/m/print/material-sale/${saleId}`, "Material Sale Invoice")}
           className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <Printer className="size-3.5 mb-0.5" style={{ color: "var(--color-ink-700)" }} />
           <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Invoice</span>
-        </Link>
+        </button>
       </div>
 
       {/* ── Info row ── */}
@@ -540,12 +544,11 @@ export function MobileMaterialSaleDetailClient({
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
             {payments.map((p, i) => (
-              <a
+              <button
                 key={p.id}
-                href={`/print/material-sale-receipt/${p.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 px-2.5 py-2 text-m-body press"
+                type="button"
+                onClick={() => docViewer.openDoc(`/m/print/material-sale-receipt/${p.id}`, "Sale Receipt")}
+                className="w-full flex items-center gap-2 px-2.5 py-2 text-m-body press text-left"
                 style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
               >
                 <span
@@ -573,7 +576,7 @@ export function MobileMaterialSaleDetailClient({
                   {formatCurrencyCompact(p.amount)}
                 </p>
                 <Printer className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
-              </a>
+              </button>
             ))}
           </div>
         </>
@@ -689,6 +692,7 @@ export function MobileMaterialSaleDetailClient({
           </form>
         </Modal>
       ) : null}
+      <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
     </div>
   );
 }

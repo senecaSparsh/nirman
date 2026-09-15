@@ -9,6 +9,7 @@ import { haptic } from "@/lib/haptic";
 import { MobileSectionTitle, MobileRow, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 
 export type ExpenseListItem = {
   id: string;
@@ -79,6 +80,7 @@ export function MobileFinanceList({
   canManageInvoices?: boolean;
 }) {
   const router = useRouter();
+  const docViewer = useDocumentViewer();
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<FinanceTab>("expenses");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -293,15 +295,14 @@ export function MobileFinanceList({
                             <IndianRupee className="size-3.5" /> Record payment
                           </a>
                         ) : null}
-                        <a
-                          href={`/print/supplier-invoice/${inv.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => docViewer.openDoc(`/m/print/supplier-invoice/${inv.id}`, "Supplier Invoice")}
                           className="flex-1 flex items-center justify-center gap-1 rounded-[0.5rem] py-2 text-m-caption font-bold border-2 press active:scale-95"
                           style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
                         >
                           <Printer className="size-3.5" /> Print
-                        </a>
+                        </button>
                       </div>
                     ) : null}
                   </div>
@@ -347,6 +348,7 @@ export function MobileFinanceList({
           )}
         </>
       )}
+      <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
     </div>
   );
 }

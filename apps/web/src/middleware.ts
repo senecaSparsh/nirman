@@ -185,6 +185,9 @@ export function middleware(req: NextRequest) {
     !pathname.startsWith("/m/") &&
     pathname !== "/m" &&
     !pathname.startsWith("/print") &&
+    // Print-style routes outside /print/* (e.g. /sales/[id]/print) have no
+    // /m equivalent — render the document in place on mobile too.
+    !pathname.endsWith("/print") &&
     !pathname.startsWith("/portal") &&
     !pathname.startsWith("/api") &&
     !isPublicRoute(pathname) &&

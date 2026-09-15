@@ -11,6 +11,7 @@ import { formatNumber, formatCurrency } from "@/lib/utils";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { useFetch } from "@/lib/use-fetch";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import {
@@ -83,6 +84,7 @@ export function MobileReceiveDialog({
 }) {
   const router = useRouter();
   const now = useHydratedDate();
+  const docViewer = useDocumentViewer();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"receive" | "reject">("receive");
   const [receipts, setReceipts] = useState<Record<string, string>>({});
@@ -716,16 +718,15 @@ export function MobileReceiveDialog({
           </p>
 
           <div className="w-full mt-6 flex gap-2">
-            <a
-              href={`/print/goods-receipt/${lastGrnId}`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={() => docViewer.openDoc(`/m/print/goods-receipt/${lastGrnId}`, "Goods Receipt")}
               className="flex-1 flex items-center justify-center gap-2 rounded-[0.625rem] py-3 text-m-section font-bold text-m-body press transition-colors"
               style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               <Printer className="size-4" />
               Print GRN / Delivery Challan
-            </a>
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -1388,6 +1389,7 @@ export function MobileReceiveDialog({
             </div>
           </div>
         ) : null}
+      <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
     </MobileDialog>
   );
 }

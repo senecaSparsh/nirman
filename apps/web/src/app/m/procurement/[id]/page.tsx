@@ -358,7 +358,7 @@ export default function MobilePoDetailPage({
               subtitle={po.supplier.name}
               subtitleHref={`/m/suppliers/${po.supplierId}`}
               status={po.status}
-              action={<DetailPrintButton href={`/print/purchase-order/${po.id}`} />}
+              action={<DetailPrintButton href={`/m/print/purchase-order/${po.id}`} />}
             >
               {/* Rejection banner — shown if a delivery was rejected */}
               {po.rejectedAt ? (
@@ -584,15 +584,7 @@ export default function MobilePoDetailPage({
                           {formatNumber(r.qty, 0)} units
                         </p>
                         <div className="mt-1 flex gap-1.5">
-                          <a
-                            href={`/print/goods-receipt/${r.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-m-caption font-semibold rounded px-1.5 py-0.5"
-                            style={{ color: "var(--color-ink-700)", backgroundColor: "var(--color-paper-2)" }}
-                          >
-                            Print GRN
-                          </a>
+                          <DetailPrintButton href={`/m/print/goods-receipt/${r.id}`} title="Goods Receipt" />
                           {canManagePayments ? <MobileGrnBillButton goodsReceiptId={r.id} /> : null}
                           {canInspect && r.inspectionStatus === "PENDING" ? <MobileGrnInspectButton goodsReceiptId={r.id} /> : null}
                         </div>
@@ -666,16 +658,12 @@ export default function MobilePoDetailPage({
                       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
                     >
                       <div className="min-w-0">
-                        <a
-                          href={`/print/supplier-payment/${p.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-m-label font-bold truncate inline-flex items-center gap-1 text-m-body press"
-                          style={{ color: "var(--color-brand)" }}
-                        >
-                          {p.paymentNumber}
-                          <Printer className="size-2.5 shrink-0" style={{ color: "var(--color-ink-500)" }} />
-                        </a>
+                        <DetailPrintButton href={`/m/print/supplier-payment/${p.id}`} title={`Payment ${p.paymentNumber}`}>
+                          <span className="text-m-label font-bold truncate inline-flex items-center gap-1" style={{ color: "var(--color-brand)" }}>
+                            {p.paymentNumber}
+                            <Printer className="size-2.5 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+                          </span>
+                        </DetailPrintButton>
                         <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                           {formatDate(p.paymentDate)} · {p.paymentMode}
                           {p.referenceNo ? ` · ${p.referenceNo}` : ""}

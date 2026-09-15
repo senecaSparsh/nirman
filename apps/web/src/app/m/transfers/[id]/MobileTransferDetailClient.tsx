@@ -295,7 +295,7 @@ export function MobileTransferDetailClient({
         icon={ArrowLeftRight}
         title="Stock Transfer"
         status={transfer.status}
-        action={<DetailPrintButton href={`/print/stock-transfer/${transfer.id}`} />}
+        action={<DetailPrintButton href={`/m/print/stock-transfer/${transfer.id}`} />}
       />
 
       {/* ── From → To banner ── */}

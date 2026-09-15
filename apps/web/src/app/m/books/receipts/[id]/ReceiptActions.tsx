@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Printer, Share2, Loader2 } from "lucide-react";
+import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 
 /**
  * Action buttons for the mobile receipt detail page:
@@ -21,9 +22,10 @@ export function ReceiptActions({
 }) {
   const [sharing, setSharing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const docViewer = useDocumentViewer();
 
   function handlePrint() {
-    window.open(printUrl, "_blank", "noopener,noreferrer");
+    docViewer.openDoc(printUrl, shareTitle);
   }
 
   async function handleShare() {
@@ -37,7 +39,7 @@ export function ReceiptActions({
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       } else {
-        window.open(printUrl, "_blank", "noopener,noreferrer");
+        docViewer.openDoc(printUrl, shareTitle);
       }
     } catch {
       // user cancelled or share failed — no-op
@@ -66,6 +68,7 @@ export function ReceiptActions({
         {sharing ? <Loader2 className="size-4 animate-spin" /> : <Share2 className="size-4" />}
         {copied ? "Link Copied" : "Share"}
       </button>
+      <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
     </div>
   );
 }

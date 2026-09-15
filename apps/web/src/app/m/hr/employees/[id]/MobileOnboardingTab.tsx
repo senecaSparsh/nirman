@@ -1541,7 +1541,7 @@ function OfferLetterSubTab({
 
           {issued && (
             <button
-              onClick={() => openDoc(`/print/offer-letter/${employee.id}`, "Offer Letter")}
+              onClick={() => openDoc(`/m/print/offer-letter/${employee.id}`, "Offer Letter")}
               className="flex-1 h-10 rounded-[0.5rem] text-m-section font-semibold press flex items-center justify-center gap-1.5"
               style={{
                 backgroundColor: "var(--color-concrete)",
@@ -1667,7 +1667,7 @@ function IdCardSubTab({
 
           {issued && (
             <button
-              onClick={() => openDoc(`/print/employee-id-card/${employee.id}`, "ID Card")}
+              onClick={() => openDoc(`/m/print/employee-id-card/${employee.id}`, "ID Card")}
               className="flex-1 h-10 rounded-[0.5rem] text-m-section font-semibold press flex items-center justify-center gap-1.5"
               style={{
                 backgroundColor: "var(--color-concrete)",
@@ -1810,7 +1810,7 @@ function AgreementSubTab({
           {/* View / Print — always available once issued */}
           {issued && (
             <button
-              onClick={() => openDoc(`/print/employment-agreement/${employee.id}`, "Employment Agreement")}
+              onClick={() => openDoc(`/m/print/employment-agreement/${employee.id}`, "Employment Agreement")}
               className="w-full rounded-[0.75rem] p-3 flex items-center gap-3 press text-left"
               style={{ backgroundColor: "var(--color-paper)", border: "1px solid var(--color-line)" }}
             >
@@ -2027,7 +2027,7 @@ function AppointmentLetterSubTab({
 
           {issued && (
             <button
-              onClick={() => openDoc(`/print/appointment-letter/${employee.id}`, "Appointment Letter")}
+              onClick={() => openDoc(`/m/print/appointment-letter/${employee.id}`, "Appointment Letter")}
               className="flex-1 h-10 rounded-[0.5rem] text-m-section font-semibold press flex items-center justify-center gap-1.5"
               style={{
                 backgroundColor: "var(--color-concrete)",

@@ -837,7 +837,7 @@ export function MobileEmployeeDetailClient({
           const confirmed = employee.offerLetterStatus === "CONFIRMED";
           return (
             <button
-              onClick={() => issued && docViewer.openDoc(`/print/offer-letter/${employee.id}`, "Offer Letter")}
+              onClick={() => issued && docViewer.openDoc(`/m/print/offer-letter/${employee.id}`, "Offer Letter")}
               disabled={!issued}
               className={`rounded-[0.5rem] p-2 text-left ${issued ? "press" : "cursor-default"}`}
               style={{
@@ -871,7 +871,7 @@ export function MobileEmployeeDetailClient({
           const confirmed = employee.contractStatus === "CONFIRMED";
           return (
             <button
-              onClick={() => issued && docViewer.openDoc(`/print/employment-agreement/${employee.id}`, "Employment Agreement")}
+              onClick={() => issued && docViewer.openDoc(`/m/print/employment-agreement/${employee.id}`, "Employment Agreement")}
               disabled={!issued}
               className={`rounded-[0.5rem] p-2 text-left ${issued ? "press" : "cursor-default"}`}
               style={{
@@ -904,7 +904,7 @@ export function MobileEmployeeDetailClient({
           const issued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.appointmentLetterStatus ?? "");
           return (
             <button
-              onClick={() => issued && docViewer.openDoc(`/print/appointment-letter/${employee.id}`, "Appointment Letter")}
+              onClick={() => issued && docViewer.openDoc(`/m/print/appointment-letter/${employee.id}`, "Appointment Letter")}
               disabled={!issued}
               className={`rounded-[0.5rem] p-2 text-left ${issued ? "press" : "cursor-default"}`}
               style={{
@@ -937,7 +937,7 @@ export function MobileEmployeeDetailClient({
           const issued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.idCardStatus ?? "");
           return (
             <button
-              onClick={() => issued && docViewer.openDoc(`/print/id-card/${employee.id}`, "ID Card")}
+              onClick={() => issued && docViewer.openDoc(`/m/print/employee-id-card/${employee.id}`, "ID Card")}
               disabled={!issued}
               className={`rounded-[0.5rem] p-2 text-left ${issued ? "press" : "cursor-default"}`}
               style={{

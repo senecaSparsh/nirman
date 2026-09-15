@@ -195,7 +195,7 @@ async function AssetReceiptView({ id, companyId, companyName }: { id: string; co
       receiptNo={receiptNo}
       kindLabel="Property Sale"
       amount={amount}
-      printUrl={`/print/payment-receipt/${payment.id}`}
+      printUrl={`/m/print/payment-receipt/${payment.id}`}
       shareTitle={`Receipt ${receiptNo} — ${companyName}`}
       shareText={`Payment receipt ${receiptNo} for ${formatCurrency(amount)} from ${sale.customer.name}`}
     >
@@ -322,7 +322,7 @@ async function MaterialReceiptView({ id, companyId, companyName }: { id: string;
       receiptNo={receiptNo}
       kindLabel="Material Sale"
       amount={amount}
-      printUrl={`/print/material-sale-receipt/${payment.id}`}
+      printUrl={`/m/print/material-sale-receipt/${payment.id}`}
       shareTitle={`Receipt ${receiptNo} — ${companyName}`}
       shareText={`Payment receipt ${receiptNo} for ${formatCurrency(amount)} from ${partyName}`}
     >

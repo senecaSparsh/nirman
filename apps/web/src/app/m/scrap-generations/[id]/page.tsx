@@ -85,7 +85,7 @@ export default function MobileScrapDetailPage({
                     <SourceIcon className="size-2.5" />
                     {isAuto ? "Auto" : "Manual"}
                   </span>
-                  <DetailPrintButton href={`/print/scrap/${scrap.id}`} />
+                  <DetailPrintButton href={`/m/print/scrap/${scrap.id}`} />
                 </div>
               }
             />

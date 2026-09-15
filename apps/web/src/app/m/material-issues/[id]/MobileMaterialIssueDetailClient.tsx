@@ -19,6 +19,7 @@ import {
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { AttachmentList } from "@/components/attachments/attachment-list";
+import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 import { toast } from "sonner";
 
 interface IssueLine {
@@ -72,6 +73,7 @@ export function MobileMaterialIssueDetailClient({
   notFound?: boolean;
 }) {
   const router = useRouter();
+  const docViewer = useDocumentViewer();
   const [showCancel, setShowCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [executing, setExecuting] = useState(false);
@@ -168,16 +170,15 @@ export function MobileMaterialIssueDetailClient({
           NextActionCard anchor target for PENDING issues. */}
       <div id="approve" className="flex gap-2">
         {issue.issueNumber ? (
-          <a
-            href={`/print/issue/${issue.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => docViewer.openDoc(`/m/print/issue/${issue.id}`, "Issue Slip")}
             className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] border py-2 text-m-label font-bold text-m-body press"
             style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
           >
             <Printer className="size-3.5" />
             Print Slip
-          </a>
+          </button>
         ) : null}
         {canExecute && !isCancelled ? (
           <button
@@ -354,6 +355,7 @@ export function MobileMaterialIssueDetailClient({
             </div>
         </MobileDialog>
       ) : null}
+      <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
     </div>
   );
 }

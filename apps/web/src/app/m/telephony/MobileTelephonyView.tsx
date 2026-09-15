@@ -637,6 +637,31 @@ function RecordingTab({ company, members, canManage }: { company: CompanyConfig;
 
 // ── Consent Tab ──
 function ConsentTab({ policy, company, canManage }: { policy: ConsentPolicy | null; company: CompanyConfig; canManage: boolean }) {
+  const [showEdit, setShowEdit] = useState(false);
+  const [policyText, setPolicyText] = useState(policy?.policyText ?? "");
+  const [saving, setSaving] = useState(false);
+
+  async function savePolicy() {
+    setSaving(true);
+    try {
+      const res = await fetch("/api/telephony/consent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ policyText }),
+      });
+      if (res.ok) {
+        toast.success(policy ? "Policy v" + (policy.version + 1) + " published" : "Policy published");
+        haptic();
+        window.location.reload();
+      } else {
+        toast.error("Could not save policy");
+      }
+    } catch {
+      toast.error("Network error");
+    }
+    setSaving(false);
+  }
+
   return (
     <div className="space-y-3">
       {/* Recording config */}
@@ -675,9 +700,14 @@ function ConsentTab({ policy, company, canManage }: { policy: ConsentPolicy | nu
         <SectionHead
           title="Consent Policy"
           action={canManage ? (
-            <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-              Manage on desktop
-            </span>
+            <button
+              type="button"
+              onClick={() => { setPolicyText(policy?.policyText ?? ""); setShowEdit(!showEdit); }}
+              className="text-m-caption font-semibold"
+              style={{ color: "var(--color-signal)" }}
+            >
+              {policy ? "Revise" : "Create"}
+            </button>
           ) : undefined}
         />
         {policy ? (
@@ -703,10 +733,50 @@ function ConsentTab({ policy, company, canManage }: { policy: ConsentPolicy | nu
           </>
         ) : (
           <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-            No consent policy published. Create one on desktop to ensure legal compliance.
+            No consent policy published. Create one to ensure legal compliance before enabling call recording.
           </p>
         )}
       </Card>
+
+      {/* Edit form */}
+      {showEdit && canManage && (
+        <Card className="p-3">
+          <SectionHead title={policy ? "Revise consent policy" : "Create consent policy"} />
+          {policy && (
+            <p className="text-m-caption mb-2" style={{ color: "var(--color-ink-500)" }}>
+              Revising creates a new version. All staff must re-accept on next login.
+            </p>
+          )}
+          <textarea
+            value={policyText}
+            onChange={(e) => setPolicyText(e.target.value)}
+            placeholder="Enter the full consent policy text. This will be shown to all staff on login…"
+            rows={6}
+            className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
+            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-900)" }}
+          />
+          <div className="flex gap-2 mt-3">
+            <Button
+              variant="primary"
+              size="md"
+              className="flex-1"
+              onClick={savePolicy}
+              disabled={saving || !policyText.trim()}
+            >
+              {saving && <Loader2 className="size-4 animate-spin" />}
+              {policy ? "Publish new version" : "Publish policy"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="md"
+              className="flex-1"
+              onClick={() => setShowEdit(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
