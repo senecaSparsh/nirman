@@ -2,7 +2,8 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { readRecording, recordingMimeType, recordingFormatFromUrl } from "@/lib/recording-storage";
+import { readRecording, saveRecording, recordingMimeType, recordingFormatFromUrl } from "@/lib/recording-storage";
+import { fetchRecordingMedia } from "@/lib/twilio-service";
 
 /**
  * GET /api/calls/[id]/recording — stream the recording audio file.
@@ -27,15 +28,40 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
 
   const recording = call.recording;
 
-  // Read the file from local storage
+  // Read the file — local path or remote provider URL (Twilio stores the
+  // media URL; fetch it with account auth and cache to local disk so future
+  // plays and retention don't depend on Twilio keeping the recording).
   let buffer: Buffer;
-  try {
-    buffer = readRecording(recording.storageUrl);
-  } catch {
-    return json({ error: "Recording file not found on disk" }, { status: 404 });
+  if (/^https?:\/\//.test(recording.storageUrl)) {
+    const remote = await fetchRecordingMedia(recording.storageUrl);
+    if (!remote) {
+      return json({ error: "Recording unavailable from provider" }, { status: 404 });
+    }
+    try {
+      const saved = await saveRecording(remote, recording.format || "mp3");
+      await prisma.callRecording.update({
+        where: { id: recording.id },
+        data: {
+          storageUrl: saved.url,
+          storageProvider: "local",
+          checksum: saved.checksum,
+          fileSizeBytes: saved.size,
+        },
+      });
+    } catch (err) {
+      // Cache failure shouldn't block playback — stream what we fetched.
+      console.error("[recording] local cache write failed:", err);
+    }
+    buffer = remote;
+  } else {
+    try {
+      buffer = readRecording(recording.storageUrl);
+    } catch {
+      return json({ error: "Recording file not found on disk" }, { status: 404 });
+    }
   }
 
-  const format = recordingFormatFromUrl(recording.storageUrl);
+  const format = recording.format || recordingFormatFromUrl(recording.storageUrl);
   const contentType = recordingMimeType(format);
 
   // Log the access for compliance

@@ -247,6 +247,28 @@ export async function fetchCallRecordings(callSid: string): Promise<{
   }));
 }
 
+/**
+ * Download a recording's audio bytes from Twilio.
+ * Twilio media URLs require HTTP basic auth (accountSid:authToken).
+ * Returns null when Twilio isn't configured or the fetch fails.
+ */
+export async function fetchRecordingMedia(url: string): Promise<Buffer | null> {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  if (!accountSid || !authToken) return null;
+  if (!isSafeRecordingUrl(url)) return null;
+
+  const mediaUrl = /\.(mp3|wav|ogg)$/i.test(url) ? url : `${url}.mp3`;
+  const res = await fetch(mediaUrl, {
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`,
+    },
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) return null;
+  return Buffer.from(await res.arrayBuffer());
+}
+
 // ── Webhook configuration (free, no credits consumed) ──
 
 /**
