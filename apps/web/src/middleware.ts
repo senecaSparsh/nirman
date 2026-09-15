@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { resolveTarget } from "@/lib/surface-map";
 
 /**
  * Auth + surface-selection middleware.
@@ -176,6 +177,14 @@ export function middleware(req: NextRequest) {
   // orientation change), but this server-side redirect is the reliable
   // fallback that doesn't depend on JavaScript hydration.
   //
+  // The target is resolved through lib/surface-map's manifest-aware
+  // mapping — the SAME logic the client adapter uses. A blind "/m" prefix
+  // is NOT safe: several desktop homes live at different mobile paths
+  // ("/hr/dprs" → "/m/dprs", "/finance" → "/m/accounts"), and prefixing
+  // produced a "/m/hr/dprs" 404 as the very first screen a site engineer
+  // saw after sign-in. When no mobile equivalent exists we land on
+  // "/m/home" instead of a nonexistent path — same as the client adapter.
+  //
   // Skip: /m routes (already mobile), /print (print pages), /portal
   // (customer portal), /api, public routes, and the nirman-desktop cookie
   // escape hatch.
@@ -193,12 +202,9 @@ export function middleware(req: NextRequest) {
     !isPublicRoute(pathname) &&
     pathname !== "/"
   ) {
-    const mobileUrl = new URL("/m" + pathname, req.url);
-    // Preserve search params
-    searchParams.forEach((value, key) => {
-      mobileUrl.searchParams.set(key, value);
-    });
-    return NextResponse.redirect(mobileUrl);
+    const search = searchParams.size ? `?${searchParams.toString()}` : "";
+    const target = resolveTarget(pathname, search, true) ?? "/m/home" + search;
+    return NextResponse.redirect(new URL(target, req.url));
   }
 
   // Landing page redirect (kept separate for the /m → /m/home redirect)

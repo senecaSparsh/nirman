@@ -1376,6 +1376,19 @@ export function MobileTransferDetailClient({
                     )}
                     Complete
                   </button>
+                  {transfer.gatePass &&
+                  transfer.gatePass.status !== "APPROVED" &&
+                  transfer.gatePass.status !== "EXITED" ? (
+                    <button
+                      disabled
+                      title={`Gate pass ${transfer.gatePass.gatePassNumber} is ${transfer.gatePass.status} — dispatch is blocked until it's approved`}
+                      className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] font-bold text-m-section opacity-60 cursor-not-allowed"
+                      style={{ backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)" }}
+                    >
+                      <ShieldCheck className="size-4" />
+                      Awaiting GP approval
+                    </button>
+                  ) : (
                   <MobileTransferDispatchDialog
                     transferId={transfer.id}
                     fromLocationName={transfer.fromLocation.name}
@@ -1391,6 +1404,7 @@ export function MobileTransferDetailClient({
                       gstRate: l.gstRate,
                     }))}
                   />
+                  )}
                 </>
               ) : (
                 <div

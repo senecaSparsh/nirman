@@ -199,6 +199,7 @@ async function AccountsOverviewContent() {
     recentExpenses,
     recentProjectCosts,
     qaCtx,
+    pendingFinanceApprovals,
   ] = await Promise.all([
     getTallySyncStats(company.id).catch(() => ({
       total: 0, synced: 0, failed: 0, pending: 0, imported: 0, variance: 0,
@@ -251,6 +252,15 @@ async function AccountsOverviewContent() {
       })
       .catch(() => []),
     loadQuickActionContext("accounts"),
+    // Finance-category approvals — same statuses the approvals queue surfaces
+    // (expense PENDING · expense claim SUBMITTED · RA bill SUBMITTED).
+    Promise.all([
+      prisma.expense.count({ where: { companyId: company.id, status: "PENDING" } }),
+      prisma.expenseClaim.count({ where: { companyId: company.id, status: "SUBMITTED" } }),
+      prisma.raBill.count({ where: { companyId: company.id, status: "SUBMITTED" } }),
+    ])
+      .then(([e, c, b]) => e + c + b)
+      .catch(() => 0),
   ]);
 
   // Only suppliers with outstanding balance > 0 are "payable"
@@ -359,7 +369,7 @@ async function AccountsOverviewContent() {
       {/* ── 1. Attention banner carousel ── */}
       <AttentionBannerCarousel
         banners={attentionBanners}
-        approvalsCount={totalPending}
+        approvalsCount={pendingFinanceApprovals}
       />
 
       <DepartmentActivityFeed department="finance" />
