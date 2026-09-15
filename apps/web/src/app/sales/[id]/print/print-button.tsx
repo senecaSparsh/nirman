@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Printer, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -15,6 +16,13 @@ export function PrintButton() {
 
 export function CloseButton() {
   const router = useRouter();
+  // Inside the mobile DocumentViewer iframe the overlay's own X closes —
+  // hide this duplicate so there aren't two close buttons.
+  const [framed, setFramed] = useState(false);
+  useEffect(() => {
+    setFramed(window.self !== window.top);
+  }, []);
+  if (framed) return null;
   return (
     <Button
       type="button"

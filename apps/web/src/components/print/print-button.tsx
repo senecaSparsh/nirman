@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -38,14 +38,17 @@ export function PrintToolbar({
   const toolbarRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  // ── Close — inside the mobile DocumentViewer iframe, ask the parent to
-  // close the overlay. Otherwise go back; if the doc was opened in its own
-  // tab (no history), close the tab. Never strands the user on a dead-end.
+  // ── Framed inside the mobile DocumentViewer overlay? Then the overlay's
+  // own top-right X is the single close — this toolbar hides its Close so
+  // there aren't two competing close affordances.
+  const [framed, setFramed] = useState(false);
+  useEffect(() => {
+    setFramed(window.self !== window.top);
+  }, []);
+
+  // ── Close — standalone doc page: go back; if the doc was opened in its
+  // own tab (no history), close the tab. Never strands the user.
   const handleClose = () => {
-    if (window.self !== window.top) {
-      window.parent.postMessage({ type: "nirman:close-doc" }, window.location.origin);
-      return;
-    }
     if (window.history.length > 1) {
       router.back();
     } else {
@@ -219,15 +222,17 @@ export function PrintToolbar({
         Share
       </button>
 
-      <button
-        type="button"
-        onClick={handleClose}
-        title="Close"
-        className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors"
-      >
-        <X className="h-3.5 w-3.5" />
-        Close
-      </button>
+      {!framed && (
+        <button
+          type="button"
+          onClick={handleClose}
+          title="Close"
+          className="inline-flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+        >
+          <X className="h-3.5 w-3.5" />
+          Close
+        </button>
+      )}
     </div>
   );
 }
