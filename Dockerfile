@@ -94,10 +94,10 @@ FROM node:22-bookworm-slim AS runner
 # detection (eliminates the "failed to detect libssl/openssl version" warning),
 # and postgresql-client-16 (pg_dump) for the pre-migration database snapshot
 # the entrypoint takes before applying migrations.
-RUN apt-get update && apt-get install -y --no-install-recommends procps openssl ca-certificates wget gnupg \
+RUN apt-get update && apt-get install -y --no-install-recommends procps openssl ca-certificates wget \
     && install -d /usr/share/postgresql-common/pgdg \
     && wget -qO /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
-    && echo "deb http://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] http://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
     && apt-get update && apt-get install -y --no-install-recommends postgresql-client-16 \
     && rm -rf /var/lib/apt/lists/*
 
