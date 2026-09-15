@@ -68,7 +68,7 @@ DEPLOY_RESPONSE=$(curl -sS -m 15 \
   -w '\n%{http_code}' 2>&1)
 
 HTTP_CODE=$(echo "$DEPLOY_RESPONSE" | tail -1)
-BODY=$(echo "$DEPLOY_RESPONSE" | head -n -1)
+BODY=$(echo "$DEPLOY_RESPONSE" | sed '$d')
 
 if [ "$HTTP_CODE" != "200" ]; then
   err "Deploy trigger failed (HTTP $HTTP_CODE): $BODY"
