@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { resolveScopeType } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
-import { PERM } from "@/lib/roles";
+import { PERM, ALL_ROLES } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.USERS_VIEW);
@@ -49,6 +49,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!userId || !projectId) {
     return json({ error: "userId and projectId are required" }, { status: 400 });
   }
+  if (scopedRole != null && !(ALL_ROLES as readonly string[]).includes(scopedRole)) {
+    return json({ error: `Invalid scoped role "${scopedRole}"` }, { status: 400 });
+  }
   try {
     await assertScopeAllows({ projectId, departmentId: null });
   } catch (err) {
@@ -59,9 +62,14 @@ export const POST = apiHandler(async (req: NextRequest) => {
     where: { id: projectId, companyId: company.id, deletedAt: null },
   });
   if (!project) return json({ error: "Project not found" }, { status: 404 });
-  // Validate user exists
-  const targetUser = await prisma.user.findUnique({ where: { id: userId } });
-  if (!targetUser) return json({ error: "User not found" }, { status: 404 });
+  // Validate user exists AND is a member of this company — a project
+  // assignment for a non-member is a dangling row that grants nothing but
+  // still renders in the roster.
+  const targetMembership = await prisma.userCompany.findUnique({
+    where: { userId_companyId: { userId, companyId: company.id } },
+    include: { user: { select: { id: true } } },
+  });
+  if (!targetMembership) return json({ error: "User is not a member of this company" }, { status: 404 });
 
   try {
     const assignment = await prisma.projectAssignment.upsert({
@@ -74,9 +82,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     // UserScope rows on the membership — the roster row alone doesn't unlock
     // pickers. Mirror the assignment into UserScope so assigning someone to a
     // project here actually grants them that project's data.
-    const membership = await prisma.userCompany.findUnique({
-      where: { userId_companyId: { userId, companyId: company.id } },
-    });
+    const membership = targetMembership;
     if (membership && resolveScopeType(membership) === "PROJECT") {
       const existing = await prisma.userScope.findFirst({
         where: { userCompanyId: membership.id, scopeKind: "PROJECT", projectId },

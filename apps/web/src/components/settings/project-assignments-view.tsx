@@ -13,6 +13,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { formatDate } from "@/lib/utils";
+import { ROLES, type Role } from "@/lib/roles";
 
 export type AssignmentRow = {
   id: string;
@@ -26,14 +27,7 @@ export type AssignmentRow = {
   assignedAt: string;
 };
 
-const ROLE_LABELS: Record<string, string> = {
-  OWNER: "Owner",
-  ADMIN: "Admin",
-  MANAGER: "Manager",
-  SUPERVISOR: "Supervisor",
-  SALES: "Sales",
-  ACCOUNTANT: "Accountant",
-};
+const roleLabel = (r: string) => ROLES[r as Role]?.label ?? r;
 
 export function ProjectAssignmentsView({
   assignments,
@@ -125,10 +119,10 @@ export function ProjectAssignmentsView({
               <div className="flex-1 space-y-0.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium text-foreground">{a.userName}</span>
-                  <Badge variant="outline">{ROLE_LABELS[a.userRole] ?? a.userRole}</Badge>
+                  <Badge variant="outline">{roleLabel(a.userRole)}</Badge>
                   <span className="text-muted-foreground">→</span>
                   <span className="font-medium text-foreground">{a.projectName}</span>
-                  <Badge variant="default">as {ROLE_LABELS[a.scopedRole] ?? a.scopedRole}</Badge>
+                  <Badge variant="default">as {roleLabel(a.scopedRole)}</Badge>
                 </div>
                 <div className="text-meta text-muted-foreground">
                   {a.userEmail} · assigned {formatDate(a.assignedAt)}
@@ -156,7 +150,7 @@ export function ProjectAssignmentsView({
             <Select value={fUser} onChange={(e) => setFUser(e.target.value)}>
               <option value="">Select user…</option>
               {users.map((u) => (
-                <option key={u.id} value={u.id}>{u.name} ({ROLE_LABELS[u.role] ?? u.role})</option>
+                <option key={u.id} value={u.id}>{u.name} ({roleLabel(u.role)})</option>
               ))}
             </Select>
           </div>
