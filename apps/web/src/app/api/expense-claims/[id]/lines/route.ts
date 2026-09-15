@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
+import { prisma } from "@nirman/db";
 import { addClaimLine, removeClaimLine, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
-import { PERM } from "@/lib/roles";
+import { apiHandler, getCompany, json, requireAnyPermission, scopeWhere } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 import { z } from "zod";
 
 const lineSchema = z.object({
@@ -15,10 +16,26 @@ const lineSchema = z.object({
   notes: z.string().optional().nullable(),
 });
 
+/** Self-service claimants (claim.create only) may only touch their own claims. */
+async function assertClaimantAccess(claimId: string, companyId: string, user: { id: string; role: string | null }) {
+  if (hasPermission(user.role, PERM.EXPENSE_CREATE)) return null;
+  const claim = await prisma.expenseClaim.findFirst({
+    where: { id: claimId, companyId, ...await scopeWhere("ExpenseClaim") },
+    select: { claimantId: true },
+  });
+  if (!claim) return json({ error: "Expense claim not found or out of scope" }, { status: 404 });
+  if (claim.claimantId !== user.id) {
+    return json({ error: "You can only edit your own claims" }, { status: 403 });
+  }
+  return null;
+}
+
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.EXPENSE_CREATE);
+  const user = await requireAnyPermission(PERM.EXPENSE_CREATE, PERM.CLAIM_CREATE);
   const company = await getCompany();
   const { id } = await params;
+  const denied = await assertClaimantAccess(id, company.id, user);
+  if (denied) return denied;
   const body = await req.json();
   const parsed = lineSchema.safeParse(body);
   if (!parsed.success) {
@@ -47,9 +64,11 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
 });
 
 export const DELETE = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.EXPENSE_CREATE);
+  const user = await requireAnyPermission(PERM.EXPENSE_CREATE, PERM.CLAIM_CREATE);
   const company = await getCompany();
-  await params; // validate the route param exists
+  const { id } = await params;
+  const denied = await assertClaimantAccess(id, company.id, user);
+  if (denied) return denied;
   const lineId = new URL(req.url).searchParams.get("lineId");
   if (!lineId) return json({ error: "lineId query param is required" }, { status: 400 });
   try {

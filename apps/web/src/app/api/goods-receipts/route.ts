@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { receiveGoods, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, receiveGoodsSchema, requireAnyPermission, toNum, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, getUserScope, json, receiveGoodsSchema, requireAnyPermission, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -19,12 +19,27 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const receivableOnly = searchParams.get("receivable") === "true";
 
+  // Receivable lists use the same scope as the POST: a project-scoped
+  // receiver sees POs for their projects, delivering to their project
+  // stores, or fully company-level (shared stores).
+  const scope = await getUserScope();
+  const poScope =
+    receivableOnly && scope.scopeType === "PROJECT" && scope.projectIds.length > 0
+      ? {
+          OR: [
+            { projectId: { in: scope.projectIds } },
+            { destinationLocation: { projectId: { in: scope.projectIds } } },
+            { projectId: null, destinationLocation: { projectId: null } },
+          ],
+        }
+      : await scopeWhere("PurchaseOrder");
+
   const pos = await prisma.purchaseOrder.findMany({
     take: 500,
     where: {
       companyId: company.id,
       ...(receivableOnly ? { status: { in: ["ORDERED", "PARTIAL"] } } : {}),
-      ...await scopeWhere("PurchaseOrder"),
+      ...poScope,
     },
     orderBy: { createdAt: "desc" },
     include: {
@@ -99,9 +114,23 @@ export const POST = apiHandler(async (req: NextRequest) => {
   };
   if (!purchaseOrderId) return json({ error: "purchaseOrderId is required" }, { status: 400 });
   if (!locationId) return json({ error: "locationId is required" }, { status: 400 });
-  // Validate the PO belongs to the user's company
+  // Validate the PO belongs to the user's company and is receivable in the
+  // viewer's scope. A project-scoped receiver can take a delivery when the
+  // PO is for their project, delivers to their project's store, or is fully
+  // company-level (no project on the PO or the destination store — shared
+  // stores receive for everyone). scopeWhere("PurchaseOrder") alone would
+  // exclude company-level POs entirely for scoped users.
+  const scope = await getUserScope();
+  const poWhere: Record<string, unknown> = { id: purchaseOrderId, companyId: company.id };
+  if (scope.scopeType === "PROJECT" && scope.projectIds.length > 0) {
+    poWhere.OR = [
+      { projectId: { in: scope.projectIds } },
+      { destinationLocation: { projectId: { in: scope.projectIds } } },
+      { projectId: null, destinationLocation: { projectId: null } },
+    ];
+  }
   const po = await prisma.purchaseOrder.findFirst({
-    where: { id: purchaseOrderId, companyId: company.id, ...await scopeWhere("PurchaseOrder") },
+    where: poWhere,
     select: { id: true },
   });
   if (!po) return json({ error: "Purchase order not found in this company" }, { status: 404 });

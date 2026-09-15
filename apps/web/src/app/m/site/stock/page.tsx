@@ -37,7 +37,7 @@ async function SiteStockContent() {
       orderBy: { name: "asc" },
     }),
     prisma.stockMovement.findMany({
-      where: {...await scopeWhere("StockMovement"),  OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }] },
+      where: {...await scopeWhere("StockMovement"),  AND: [{ OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }] }] },
       orderBy: { timestamp: "desc" },
       take: 5,
       include: {

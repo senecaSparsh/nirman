@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getCompanyGroupIds, getUserRole } from "@/lib/server";
+import { getCompany, getCompanyGroupIds, getUserRole, getUserScope } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { PackageCheck } from "lucide-react";
 import { FieldReceive } from "@/components/field/field-receive";
@@ -55,8 +55,22 @@ async function MobileFieldReceiveContent({
   }
   const company = await getCompany();
   const groupCompanyIds = await getCompanyGroupIds(company);
+  // List only POs the viewer can actually receive — same scope rule as
+  // POST /api/goods-receipts (project-scoped receivers take deliveries for
+  // their projects, their project stores, or fully company-level POs).
+  const scope = await getUserScope();
+  const receiveScope =
+    scope.scopeType === "PROJECT" && scope.projectIds.length > 0
+      ? {
+          OR: [
+            { projectId: { in: scope.projectIds } },
+            { destinationLocation: { projectId: { in: scope.projectIds } } },
+            { projectId: null, destinationLocation: { projectId: null } },
+          ],
+        }
+      : {};
   const pos = await prisma.purchaseOrder.findMany({
-    where: { companyId: { in: groupCompanyIds }, status: { in: ["ORDERED", "PARTIAL"] } },
+    where: { companyId: { in: groupCompanyIds }, status: { in: ["ORDERED", "PARTIAL"] }, ...receiveScope },
     orderBy: { createdAt: "desc" },
     take: 50,
     include: {

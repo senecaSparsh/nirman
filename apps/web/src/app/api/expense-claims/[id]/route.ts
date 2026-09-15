@@ -9,8 +9,8 @@ import {
   canAutoApprove,
   ServiceError,
 } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, requirePermission, scopeWhere } from "@/lib/server";
-import { PERM } from "@/lib/roles";
+import { apiHandler, getCompany, json, toNum, requirePermission, requireAnyPermission, scopeWhere } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 import { z } from "zod";
 
 const actionSchema = z.object({
@@ -22,11 +22,17 @@ const actionSchema = z.object({
 });
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.FINANCE_VIEW);
   const company = await getCompany();
+  const user = await requireAnyPermission(PERM.FINANCE_VIEW, PERM.EXPENSE_CREATE, PERM.CLAIM_CREATE);
   const { id } = await params;
   const c = await prisma.expenseClaim.findFirst({
-    where: { id, companyId: company.id, ...await scopeWhere("ExpenseClaim", {}) },
+    where: {
+      id,
+      companyId: company.id,
+      ...await scopeWhere("ExpenseClaim", {}),
+      // Self-service claimants can read only their own claims.
+      ...(hasPermission(user.role, PERM.FINANCE_VIEW) ? {} : { claimantId: user.id }),
+    },
     include: {
       claimant: { select: { id: true, name: true } },
       project: { select: { id: true, name: true } },
@@ -86,7 +92,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   try {
     if (d.action === "submit") {
-      const user = await requirePermission(PERM.EXPENSE_CREATE);
+      const user = await requireAnyPermission(PERM.EXPENSE_CREATE, PERM.CLAIM_CREATE);
+      // Self-service claimants can submit only their own claims.
+      if (!hasPermission(user.role, PERM.EXPENSE_CREATE) && existing.claimantId !== user.id) {
+        return json({ error: "You can only submit your own claims" }, { status: 403 });
+      }
       await submitExpenseClaim(id, company.id, user.id);
       // Tier-1 creators (OWNER/ADMIN) auto-approve — no higher approver exists
       // above them, so submitting their own claim completes it. Everyone else's

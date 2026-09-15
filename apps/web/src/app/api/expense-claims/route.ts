@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createExpenseClaim, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
-import { PERM } from "@/lib/roles";
+import { apiHandler, getCompany, json, toNum, requireAnyPermission, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 import { z } from "zod";
 
 const claimSchema = z.object({
@@ -13,10 +13,16 @@ const claimSchema = z.object({
 });
 
 export const GET = apiHandler(async (_req: NextRequest) => {
-  await requirePermission(PERM.FINANCE_VIEW);
   const company = await getCompany();
+  const user = await requireAnyPermission(PERM.FINANCE_VIEW, PERM.EXPENSE_CREATE, PERM.CLAIM_CREATE);
+  const canSeeAll = hasPermission(user.role, PERM.FINANCE_VIEW);
   const claims = await prisma.expenseClaim.findMany({
-    where: { companyId: company.id, ...await scopeWhere("ExpenseClaim", {}) },
+    where: {
+      companyId: company.id,
+      ...await scopeWhere("ExpenseClaim", {}),
+      // Self-service claimants see only their own claims.
+      ...(canSeeAll ? {} : { claimantId: user.id }),
+    },
     orderBy: { createdAt: "desc" },
     take: 200,
     include: {
@@ -45,13 +51,18 @@ export const GET = apiHandler(async (_req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.EXPENSE_CREATE);
   const company = await getCompany();
+  const user = await requireAnyPermission(PERM.EXPENSE_CREATE, PERM.CLAIM_CREATE);
   const body = await req.json();
   const parsed = claimSchema.safeParse(body);
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
+  // Self-service claimants can only file for themselves; expense.create
+  // holders (finance/admin) may file on behalf of another employee.
+  const claimantId = hasPermission(user.role, PERM.EXPENSE_CREATE)
+    ? parsed.data.claimantId
+    : user.id;
   try {
     await assertScopeAllows({
       projectId: parsed.data.projectId ?? null,
@@ -66,7 +77,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   try {
     const claim = await createExpenseClaim({
       companyId: company.id,
-      claimantId: parsed.data.claimantId,
+      claimantId,
       projectId: parsed.data.projectId ?? null,
       description: parsed.data.description ?? null,
       userId: user.id,

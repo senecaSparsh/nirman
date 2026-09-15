@@ -58,9 +58,9 @@ export default function MobileMaterialDetailPage({
             orderBy: { location: { name: "asc" } },
           }),
           prisma.stockMovement.findMany({
-            where: {...await scopeWhere("StockMovement"), 
+            where: {...await scopeWhere("StockMovement"),
               materialId: id,
-              OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }],
+              AND: [{ OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }] }],
             },
             orderBy: { timestamp: "desc" },
             take: 10,

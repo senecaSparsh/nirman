@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
-import { getCompany, getCurrentUser } from "@/lib/server";
-import { PERM } from "@/lib/roles";
+import { getCompany, getCurrentUser, getUserRole, projectScopeFilter } from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import { MobileNewExpenseClaimClient } from "./MobileNewExpenseClaimClient";
 
@@ -12,19 +12,26 @@ import { MobileNewExpenseClaimClient } from "./MobileNewExpenseClaimClient";
  */
 export default function MobileNewExpenseClaimPage() {
   return (
-    <MobileNewEntityPage perm={PERM.EXPENSE_CREATE} what="submit expense claims" permission="expense.create" fields={3}>
+    <MobileNewEntityPage perm={PERM.CLAIM_CREATE} what="submit expense claims" permission="claim.create" fields={3}>
       {async () => {
         const company = await getCompany();
         const currentUser = await getCurrentUser();
+        const role = await getUserRole();
+        // Only expense.create holders may file a claim on behalf of someone
+        // else — self-service claimants file for themselves. The project
+        // picker is also scope-limited for project-scoped users.
+        const canPickClaimant = hasPermission(role, PERM.EXPENSE_CREATE);
 
         const [employees, projects, categories] = await Promise.all([
-          prisma.user.findMany({
-            where: { memberships: { some: { companyId: company.id } } },
-            orderBy: { name: "asc" },
-            select: { id: true, name: true },
-          }),
+          canPickClaimant
+            ? prisma.user.findMany({
+                where: { memberships: { some: { companyId: company.id } } },
+                orderBy: { name: "asc" },
+                select: { id: true, name: true },
+              })
+            : Promise.resolve(currentUser ? [{ id: currentUser.id, name: currentUser.name ?? "Me" }] : []),
           prisma.project.findMany({
-            where: { companyId: company.id, deletedAt: null },
+            where: { companyId: company.id, deletedAt: null, ...await projectScopeFilter() },
             orderBy: { name: "asc" },
             select: { id: true, name: true },
           }),

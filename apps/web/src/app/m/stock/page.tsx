@@ -42,8 +42,8 @@ export default function MobileStockPage({
             // (line 30) ensures locationId belongs to company.id, so any
             // movement from/to that location is inherently within the company.
             prisma.stockMovement.findMany({
-              where: {...await scopeWhere("StockMovement"), 
-                OR: [{ fromLocationId: locationId }, { toLocationId: locationId }],
+              where: {...await scopeWhere("StockMovement"),
+                AND: [{ OR: [{ fromLocationId: locationId }, { toLocationId: locationId }] }],
               },
               orderBy: { timestamp: "desc" },
               take: 50,
@@ -168,7 +168,7 @@ export default function MobileStockPage({
           prisma.stockMovement.findMany({
             where: {...await scopeWhere("StockMovement"),
               ...(materialId ? { materialId } : {}),
-              OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }],
+              AND: [{ OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }] }],
             },
             orderBy: { timestamp: "desc" },
             take: 80,

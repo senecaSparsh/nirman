@@ -41,7 +41,7 @@ export default function SitePage() {
             select: { id: true, date: true },
           }),
           prisma.materialIssue.findMany({
-            where: {...await scopeWhere("MaterialIssue"),  project: { companyId: company.id } },
+            where: {...await scopeWhere("MaterialIssue"),  project: { companyId: company.id }, status: { not: "CANCELLED" } },
             orderBy: { createdAt: "desc" },
             take: 5,
             include: {
@@ -51,13 +51,13 @@ export default function SitePage() {
             },
           }),
           prisma.purchaseOrder.findMany({
-            where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] } },
+            where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] }, ...await scopeWhere("PurchaseOrder") },
             orderBy: { expectedDate: "asc" },
             take: 5,
             include: { supplier: { select: { name: true } } },
           }),
           prisma.project.findMany({
-            where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+            where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] }, ...await scopeWhere("Project") },
             select: { id: true, name: true, status: true },
             take: 5,
           }),

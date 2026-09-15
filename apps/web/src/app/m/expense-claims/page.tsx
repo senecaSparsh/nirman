@@ -1,25 +1,41 @@
 import { prisma } from "@nirman/db";
-import { toNum, scopeWhere } from "@/lib/server";
+import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
+import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { MobileExpenseClaimsList, type ExpenseClaimListItem } from "./MobileExpenseClaimsList";
 import { MobileFab } from "@/components/mobile/v2/scaffold";
 
 /**
- * /m/expense-claims — mobile expense claim list. Shows employee
- * reimbursement claims with status, amount, and claimant so
- * approvers can review and approve on the go.
+ * /m/expense-claims — mobile expense claim list.
+ *
+ * Finance roles (finance.view) see all claims and can approve.
+ * Anyone else with claim.create (field staff, site engineers, sales)
+ * sees ONLY their own claims — reimbursement is self-service, so a
+ * site engineer must be able to file a claim and track its status
+ * without ever seeing another employee's claims.
  */
 export default function MobileExpenseClaimsPage() {
   return (
-    <MobileListPage perm={PERM.FINANCE_VIEW}>
+    <MobileListPage>
       {async ({ company, role }) => {
+        const canSeeAll = hasPermission(role, PERM.FINANCE_VIEW);
+        const canCreate = hasPermission(role, PERM.EXPENSE_CREATE) || hasPermission(role, PERM.CLAIM_CREATE);
         const canApprove = hasPermission(role, PERM.EXPENSE_APPROVE);
-        const canCreate = hasPermission(role, PERM.EXPENSE_CREATE);
+        const user = await getCurrentUser();
+
+        if (!canSeeAll && !canCreate) {
+          return <MobileNoAccess what="expense claims" permission="claim.create" />;
+        }
 
         const BATCH_SIZE = 40;
         const claims = await prisma.expenseClaim.findMany({
-          where: {...await scopeWhere("ExpenseClaim"),  companyId: company.id },
+          where: {
+            ...await scopeWhere("ExpenseClaim"),
+            companyId: company.id,
+            // Self-service claimants see only their own claims.
+            ...(canSeeAll ? {} : { claimantId: user?.id ?? "none" }),
+          },
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           take: BATCH_SIZE + 1,
           include: {
@@ -54,7 +70,7 @@ export default function MobileExpenseClaimsPage() {
               items={rows}
               totalAmount={totalAmount}
               pendingCount={pendingCount}
-              canApprove={canApprove}
+              canApprove={canSeeAll && canApprove}
               canCreate={canCreate}
               loadMoreUrl="/api/mobile/list/expense-claims"
               initialCursor={nextCursor}

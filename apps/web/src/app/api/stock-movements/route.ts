@@ -37,20 +37,23 @@ export const GET = apiHandler(async (req: NextRequest) => {
   // A movement belongs to the company if either its from/to location is in the company.
   const where: Record<string, unknown> = {
     ...await scopeWhere("StockMovement"),
-    OR: [
-      { fromLocationId: { in: companyLocationIds } },
-      { toLocationId: { in: companyLocationIds } },
-    ],
+    AND: [{
+      OR: [
+        { fromLocationId: { in: companyLocationIds } },
+        { toLocationId: { in: companyLocationIds } },
+      ],
+    }],
   };
   if (materialId) where.materialId = materialId;
   if (type) where.movementType = type;
   if (locationId) {
-    // Override the OR with a specific location filter
-    delete where.OR;
-    where.OR = [
-      { fromLocationId: locationId, toLocationId: { in: companyLocationIds } },
-      { toLocationId: locationId, fromLocationId: { in: companyLocationIds } },
-    ];
+    // Narrow the company OR to a specific location — must not clobber scopeWhere's OR
+    (where.AND as Record<string, unknown>[]).push({
+      OR: [
+        { fromLocationId: locationId, toLocationId: { in: companyLocationIds } },
+        { toLocationId: locationId, fromLocationId: { in: companyLocationIds } },
+      ],
+    });
   }
 
   const movements = await prisma.stockMovement.findMany({

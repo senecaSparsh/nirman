@@ -76,7 +76,9 @@ const PERSONA_LINKS: Record<Persona, { label: string; href: string; icon: Lucide
     { label: "Gate Pass", href: "/m/gate-pass", icon: Package },
     { label: "HR / Leaves", href: "/m/hr/leaves", icon: Users },
     { label: "Procurement", href: "/m/procurement", icon: ShoppingCart },
-    { label: "Expenses", href: "/m/expenses", icon: Wallet },
+    // Field staff file reimbursement claims — company expense booking
+    // (/m/expenses) needs finance.view and isn't their surface.
+    { label: "Expenses", href: "/m/expense-claims", icon: Wallet },
   ],
 
   // Sales lives in /m/sales; these are the supporting functions.

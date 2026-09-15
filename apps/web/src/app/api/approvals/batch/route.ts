@@ -124,8 +124,16 @@ export const POST = apiHandler(async (req: NextRequest) => {
           results.push({ type: item.type, id: item.id, success: false, error: "Gate pass not found, not pending, or you cannot approve your own gate pass" });
           continue;
         }
-        await approveGatePass(item.id, user.id);
-        results.push({ type: item.type, id: item.id, success: true });
+        const approved = await approveGatePass(item.id, user.id, undefined, user.role);
+        // Approval succeeded but the linked transaction may have failed to
+        // auto-execute (e.g. insufficient stock) — surface that to the
+        // approver instead of silently leaving a PENDING issue.
+        results.push({
+          type: item.type,
+          id: item.id,
+          success: true,
+          ...(approved?.executionError ? { warning: approved.executionError } : {}),
+        });
       }
     } catch (err) {
       results.push({

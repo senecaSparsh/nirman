@@ -117,7 +117,7 @@ async function StockContent() {
     }),
     // ── Movements ──
     prisma.stockMovement.findMany({
-      where: {...await scopeWhere("StockMovement"),  OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }] },
+      where: {...await scopeWhere("StockMovement"),  AND: [{ OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }] }] },
       orderBy: { timestamp: "desc" },
       take: 200,
       include: {

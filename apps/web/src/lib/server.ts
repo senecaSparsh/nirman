@@ -1756,7 +1756,7 @@ export async function scopeWhere(
   if (scope.scopeType === "COMPANY") return baseWhere;
 
   // Map each model to its scope-relevant foreign key
-  const SCOPE_FIELDS: Record<string, { department?: string; project?: string }> = {
+  const SCOPE_FIELDS: Record<string, { department?: string | string[]; project?: string | string[] }> = {
     // HR
     Employee:             { department: "departmentId", project: "activeProjectId" },
     WorkerAttendance:     { project: "projectId" },
@@ -1765,8 +1765,13 @@ export async function scopeWhere(
     // Inventory
     MaterialIssue:        { project: "projectId", department: "departmentId" },
     MaterialRequisition:  { project: "projectId", department: "departmentId" },
-    StockMovement:        { project: "projectId" },
-    GoodsReceipt:         { project: "projectId" },
+    // Movements have no projectId — they scope through their locations: a
+    // project-scoped user sees any movement touching a location that belongs
+    // to their projects (either end), incl. warehouse → site receipts.
+    StockMovement:        { project: ["fromLocation.projectId", "toLocation.projectId"] },
+    // GRNs have no projectId — they scope via their PO's project or the
+    // receiving location's project (site stores).
+    GoodsReceipt:         { project: ["purchaseOrder.projectId", "location.projectId"] },
     MaterialReconciliation: { project: "projectId" },
     // Projects / Construction
     // Task is intentionally not scopeable — see KNOWN_UNSCOPABLE below.
@@ -1840,27 +1845,23 @@ export async function scopeWhere(
 
   const filter: Record<string, unknown> = {};
 
+  const buildFieldFilter = (fieldSpec: string | string[], ids: string[]) => {
+    const specs = Array.isArray(fieldSpec) ? fieldSpec : [fieldSpec];
+    const clauses = specs.map((spec) => {
+      if (spec.includes(".")) {
+        // Nested relation filter (e.g. "employee.departmentId")
+        const [rel, key] = spec.split(".");
+        return { [rel!]: { [key!]: { in: ids } } };
+      }
+      return { [spec]: { in: ids } };
+    });
+    return clauses.length === 1 ? clauses[0]! : { OR: clauses };
+  };
+
   if (scope.scopeType === "DEPARTMENT" && scope.departmentIds.length > 0 && fields.department) {
-    const deptField = fields.department;
-    if (deptField.includes(".")) {
-      // Nested relation filter (e.g. "employee.departmentId")
-      const parts = deptField.split(".");
-      const rel = parts[0]!;
-      const key = parts[1]!;
-      filter[rel] = { [key]: { in: scope.departmentIds } };
-    } else {
-      filter[deptField] = { in: scope.departmentIds };
-    }
+    Object.assign(filter, buildFieldFilter(fields.department, scope.departmentIds));
   } else if (scope.scopeType === "PROJECT" && scope.projectIds.length > 0 && fields.project) {
-    const projField = fields.project;
-    if (projField.includes(".")) {
-      const parts = projField.split(".");
-      const rel = parts[0]!;
-      const key = parts[1]!;
-      filter[rel] = { [key]: { in: scope.projectIds } };
-    } else {
-      filter[projField] = { in: scope.projectIds };
-    }
+    Object.assign(filter, buildFieldFilter(fields.project, scope.projectIds));
   }
 
   // Merge scope filter with the base where clause

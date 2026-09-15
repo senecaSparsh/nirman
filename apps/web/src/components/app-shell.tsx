@@ -91,6 +91,12 @@ function isAuthRoute(pathname: string): boolean {
     pathname.startsWith("/forgot-password/") ||
     pathname === "/reset-password" ||
     pathname.startsWith("/reset-password/") ||
+    // Blocking gates that render their own full-screen layout — the
+    // desktop shell (sidebar/topbar) must never wrap them on mobile.
+    pathname === "/change-password" ||
+    pathname.startsWith("/change-password/") ||
+    pathname === "/consent" ||
+    pathname.startsWith("/consent/") ||
     // Customer portal is a public surface — the internal shell (sidebar,
     // briefing badge, staff nav) must never wrap it.
     pathname === "/portal" ||

@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { deleteAttendance, logAction, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, attendanceSchema, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, attendanceSchema, requirePermission, requireAnyPermission, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.HR_MANAGE);
+  const user = await requireAnyPermission(PERM.HR_MANAGE, PERM.ATTENDANCE_LOG);
   const company = await getCompany();
   const { id } = await params;
   const body = await req.json();

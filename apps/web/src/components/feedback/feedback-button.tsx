@@ -52,7 +52,7 @@ export function FeedbackButton() {
           rail's avatar/sign-out cluster. */}
       <div
         data-feedback-button
-        className="fixed z-40 flex flex-col items-start gap-2 no-print left-4 bottom-[calc(3.5rem+max(env(safe-area-inset-bottom),0px)+0.75rem)] lg:left-auto lg:right-4 lg:bottom-4 lg:items-end"
+        className="fixed z-40 flex flex-col items-start gap-2 no-print left-4 bottom-[calc(4.75rem+max(env(safe-area-inset-bottom),0px)+0.5rem)] lg:left-auto lg:right-4 lg:bottom-4 lg:items-end"
       >
         {/* Feedback inbox badge for developer/owner/admin */}
         {unreadCount > 0 && (

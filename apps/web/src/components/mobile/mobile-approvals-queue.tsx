@@ -289,6 +289,10 @@ const [claimRejectReason, setClaimRejectReason] = useState("");
  if (failed > 0) {
  toast.error(`${failed} item${failed === 1 ? "" : "s"} failed to approve`);
  }
+ const warned = data.results.filter((r: { warning?: string }) => r.warning).length;
+ if (warned > 0) {
+   toast.warning(`${warned} approved but the linked material movement failed — check stock levels and retry`);
+ }
 
  // Update local states based on results
  for (const result of data.results) {
@@ -784,9 +788,13 @@ async function approveGp(gp: GatePassRow) {
  });
  const data = await res.json();
  if (!res.ok) throw new Error(data.error ?? "Failed to approve gate pass");
- toast.success(`Gate pass ${gp.gatePassNumber} approved`, {
-   action: { label: "View Gate Passes", onClick: () => router.push("/m/gate-pass") },
- });
+ if (data.executionWarning) {
+   toast.warning(`Gate pass ${gp.gatePassNumber} approved, but the material movement failed: ${data.executionWarning}`);
+ } else {
+   toast.success(`Gate pass ${gp.gatePassNumber} approved`, {
+     action: { label: "View Gate Passes", onClick: () => router.push("/m/gate-pass") },
+   });
+ }
  setGpStates((s) => ({ ...s, [gp.id]: "approved" }));
  advanceToNext("gatePass", gp.id);
  router.refresh();

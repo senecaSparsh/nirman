@@ -35,8 +35,8 @@ async function MobileAttendanceContent() {
   const role = await getUserRole();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.HR_MANAGE)) {
-    return <MobileNoAccess what="log attendance" permission="hr.manage" />;
+  if (!hasPermission(role, PERM.HR_MANAGE) && !hasPermission(role, PERM.ATTENDANCE_LOG)) {
+    return <MobileNoAccess what="log attendance" permission="attendance.log" />;
   }
 
   const today = new Date();
