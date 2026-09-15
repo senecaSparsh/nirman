@@ -92,8 +92,21 @@ export const POST = async (req: NextRequest) => {
     // Determine the staff member's phone to dial. We use the assigned
     // user's phone number. If the CompanyPhone has no assignee, or the
     // assignee has no phone, we fall back to voicemail recording.
-    const staffPhone = companyPhone?.assignedTo?.phoneNormalized
-      ?? companyPhone?.assignedTo?.phone;
+    // Twilio requires E.164 for outbound <Dial> — phoneNormalized stores
+    // the 10-digit local number, so prefer the raw phone (which carries
+    // the country code) and re-add the + prefix when missing.
+    const toE164 = (raw: string | null | undefined, normalized: string | null | undefined): string | null => {
+      const src = (raw && raw.trim().length > 0 ? raw : normalized) ?? "";
+      const digits = src.replace(/\D/g, "");
+      if (!digits) return null;
+      if (src.startsWith("+")) return `+${digits}`;
+      if (digits.length === 10) return `+91${digits}`; // India default
+      return `+${digits}`;
+    };
+    const staffPhone = toE164(
+      companyPhone?.assignedTo?.phone,
+      companyPhone?.assignedTo?.phoneNormalized,
+    );
 
     const hasStaffToDial = !!staffPhone && staffPhone.replace(/\D/g, "").length >= 8;
 

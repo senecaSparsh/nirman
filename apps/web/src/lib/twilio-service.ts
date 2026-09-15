@@ -105,7 +105,14 @@ export function verifyTwilioSignature(
     ? `${publicBaseUrl.replace(/\/$/, "")}${fullPath}`
     : req.url;
 
-  return TwilioSDK.validateRequestWithBody(authToken, signature, fullUrl, rawBody);
+  // Twilio voice/status webhooks POST application/x-www-form-urlencoded.
+  // The signature covers the full URL + each POST param sorted by key —
+  // use validateRequest (NOT validateRequestWithBody, which validates the
+  // signature against an empty params object and additionally requires a
+  // bodySHA256 query param that voice webhooks don't send — so it would
+  // reject every real Twilio call).
+  const params = Object.fromEntries(new URLSearchParams(rawBody));
+  return TwilioSDK.validateRequest(authToken, signature, fullUrl, params);
 }
 
 // ── Types ──
