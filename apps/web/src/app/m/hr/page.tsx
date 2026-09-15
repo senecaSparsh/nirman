@@ -264,7 +264,7 @@ export default function HrHomePage() {
 
             {/* ── 2. Field / People toggle + quick actions ── */}
             <Suspense fallback={null}>
-              <HrInteractive persona={qaCtx.persona} savedLayouts={qaCtx.savedLayouts} extraActions={qaCtx.extraActions} />
+              <HrInteractive persona={qaCtx.persona} savedLayouts={qaCtx.savedLayouts} extraActions={qaCtx.extraActions} permissions={qaCtx.permissions} />
             </Suspense>
 
             {/* ── 3. Organization tree — reporting line + scope assignments ── */}

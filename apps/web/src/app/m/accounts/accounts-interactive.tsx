@@ -18,9 +18,10 @@ interface AccountsInteractiveProps {
   persona: Persona;
   savedLayouts?: Record<string, string[]>;
   extraActions?: ExtraActionDef[];
+  permissions?: string[];
 }
 
-export function AccountsInteractive({ persona, savedLayouts, extraActions }: AccountsInteractiveProps) {
+export function AccountsInteractive({ persona, savedLayouts, extraActions, permissions }: AccountsInteractiveProps) {
   return (
     <QuickActionsBar
       module="accounts"
@@ -28,6 +29,7 @@ export function AccountsInteractive({ persona, savedLayouts, extraActions }: Acc
       tabs={ACCOUNTS_QUICK_ACTIONS as QuickActionTab[]}
       savedLayouts={savedLayouts}
       extraActions={extraActions}
+      permissions={permissions}
     />
   );
 }

@@ -18,9 +18,10 @@ interface HrInteractiveProps {
   persona: Persona;
   savedLayouts?: Record<string, string[]>;
   extraActions?: ExtraActionDef[];
+  permissions?: string[];
 }
 
-export function HrInteractive({ persona, savedLayouts, extraActions }: HrInteractiveProps) {
+export function HrInteractive({ persona, savedLayouts, extraActions, permissions }: HrInteractiveProps) {
   return (
     <QuickActionsBar
       module="hr"
@@ -28,6 +29,7 @@ export function HrInteractive({ persona, savedLayouts, extraActions }: HrInterac
       tabs={HR_QUICK_ACTIONS as QuickActionTab[]}
       savedLayouts={savedLayouts}
       extraActions={extraActions}
+      permissions={permissions}
     />
   );
 }

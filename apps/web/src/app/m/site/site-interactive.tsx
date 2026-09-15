@@ -18,9 +18,10 @@ interface SiteInteractiveProps {
   persona: Persona;
   savedLayouts?: Record<string, string[]>;
   extraActions?: ExtraActionDef[];
+  permissions?: string[];
 }
 
-export function SiteInteractive({ persona, savedLayouts, extraActions }: SiteInteractiveProps) {
+export function SiteInteractive({ persona, savedLayouts, extraActions, permissions }: SiteInteractiveProps) {
   return (
     <QuickActionsBar
       module="site"
@@ -28,6 +29,7 @@ export function SiteInteractive({ persona, savedLayouts, extraActions }: SiteInt
       tabs={SITE_QUICK_ACTIONS as QuickActionTab[]}
       savedLayouts={savedLayouts}
       extraActions={extraActions}
+      permissions={permissions}
     />
   );
 }

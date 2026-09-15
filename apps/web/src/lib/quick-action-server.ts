@@ -93,12 +93,13 @@ export async function loadQuickActionContext(
   persona: Persona;
   savedLayouts: Record<string, string[]>;
   extraActions: ExtraActionDef[];
+  permissions: string[];
 }> {
   try {
     const user = await getCurrentUser();
     const persona = user ? roleToPersona(user.role) : "executive";
 
-    if (!user) return { persona, savedLayouts: {}, extraActions: [] };
+    if (!user) return { persona, savedLayouts: {}, extraActions: [], permissions: [] };
 
     // getCompany() can throw if the company cookie is missing. Catch and
     // return empty layouts so the page renders with persona defaults.
@@ -106,7 +107,7 @@ export async function loadQuickActionContext(
     try {
       company = await getCompany();
     } catch {
-      return { persona, savedLayouts: {}, extraActions: [] };
+      return { persona, savedLayouts: {}, extraActions: [], permissions: [] };
     }
 
     // Load saved layouts + user permissions in parallel.
@@ -134,10 +135,10 @@ export async function loadQuickActionContext(
 
     const extraActions = accessibleExtraActions(module, permissions, catalogHrefs);
 
-    return { persona, savedLayouts, extraActions };
+    return { persona, savedLayouts, extraActions, permissions };
   } catch {
     // Ultimate fallback — never break the page render.
-    return { persona: "executive", savedLayouts: {}, extraActions: [] };
+    return { persona: "executive", savedLayouts: {}, extraActions: [], permissions: [] };
   }
 }
 

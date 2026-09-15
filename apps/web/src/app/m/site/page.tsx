@@ -123,7 +123,7 @@ export default function SitePage() {
             <AttentionBannerCarousel banners={attentionBanners} />
 
             {/* ── Quick actions — editable, drag-to-reorder (same as inventory) ── */}
-            <SiteInteractive persona={qaCtx.persona} savedLayouts={qaCtx.savedLayouts} extraActions={qaCtx.extraActions} />
+            <SiteInteractive persona={qaCtx.persona} savedLayouts={qaCtx.savedLayouts} extraActions={qaCtx.extraActions} permissions={qaCtx.permissions} />
 
             {/* ── My Tasks — dense rows, overdue first ── */}
             <MobileSectionTitle

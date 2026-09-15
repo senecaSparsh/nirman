@@ -376,7 +376,7 @@ async function AccountsOverviewContent() {
 
       {/* ── 2. Cash / Books toggle + quick actions ── */}
       <Suspense fallback={null}>
-        <AccountsInteractive persona={qaCtx.persona} savedLayouts={qaCtx.savedLayouts} extraActions={qaCtx.extraActions} />
+        <AccountsInteractive persona={qaCtx.persona} savedLayouts={qaCtx.savedLayouts} extraActions={qaCtx.extraActions} permissions={qaCtx.permissions} />
       </Suspense>
 
       {/* ── 3. Today — compact 3-line summary with status flags ──

@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import type { Persona } from "@/lib/mobile-nav-v2";
 import { useFetch } from "@/lib/use-fetch";
-import { ROUTE_BY_PATH } from "@/lib/route-manifest";
+import { ROUTE_BY_PATH, canAccess } from "@/lib/route-manifest";
 import { RegisterTabs } from "./register-tabs";
 
 /** A serializable extra action from the server (no icon — resolved from the
@@ -109,6 +109,11 @@ interface QuickActionsBarProps {
    *  They appear in the "Add" picker so users can pin any route they have
    *  permission to open. Icons are resolved from the route manifest. */
   extraActions?: ExtraActionDef[];
+  /** The caller's permission strings. When provided, catalog actions whose
+   *  target route is permission-gated and not in this list are hidden —
+   *  a persona is a coarse grouping, and narrow roles inside it (e.g.
+   *  SECURITY_GUARD on "field") must not see chips they can't open. */
+  permissions?: string[];
   /** Show the "Quick actions" label above the toggle. Default true. */
   showLabel?: boolean;
   /** Sync tab state to the URL (shareable, back-button friendly). Default
@@ -124,6 +129,7 @@ export function QuickActionsBar({
   tabs,
   savedLayouts: initialSaved,
   extraActions = [],
+  permissions,
   showLabel = true,
   syncUrl = true,
 }: QuickActionsBarProps) {
@@ -186,9 +192,16 @@ export function QuickActionsBar({
       if (a.href.split("?")[0] === hubPath) return false;
       if (seenHrefs.has(a.href)) return false;
       seenHrefs.add(a.href);
+      // Permission gate: drop chips that resolve to a gated route the user
+      // can't open (matched on the base path — query variants share the
+      // target page's perm).
+      if (permissions) {
+        const route = ROUTE_BY_PATH.get(a.href.split("?")[0]!);
+        if (route && !canAccess(route, permissions)) return false;
+      }
       return true;
     });
-  }, [activeTab, hubPath]);
+  }, [activeTab, hubPath, permissions]);
   const allByKey = React.useMemo(
     () => new Map(allTabActions.map((a) => [a.key, a])),
     [allTabActions],

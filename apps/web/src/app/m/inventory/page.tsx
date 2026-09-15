@@ -174,7 +174,7 @@ export default function InventoryHomePage() {
 
       {/* ── Category tabs + quick actions (Raw Material / Real Estate) ── */}
       <Suspense fallback={null}>
-        <InventoryInteractive persona={qaCtx.persona} savedLayouts={qaCtx.savedLayouts} extraActions={qaCtx.extraActions} />
+        <InventoryInteractive persona={qaCtx.persona} savedLayouts={qaCtx.savedLayouts} extraActions={qaCtx.extraActions} permissions={qaCtx.permissions} />
       </Suspense>
 
       {/* ── Group inventory tree — parent → children → projects ── */}

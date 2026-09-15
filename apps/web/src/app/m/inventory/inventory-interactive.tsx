@@ -18,9 +18,10 @@ interface InventoryInteractiveProps {
   persona: Persona;
   savedLayouts?: Record<string, string[]>;
   extraActions?: ExtraActionDef[];
+  permissions?: string[];
 }
 
-export function InventoryInteractive({ persona, savedLayouts, extraActions }: InventoryInteractiveProps) {
+export function InventoryInteractive({ persona, savedLayouts, extraActions, permissions }: InventoryInteractiveProps) {
   return (
     <QuickActionsBar
       module="inventory"
@@ -28,6 +29,7 @@ export function InventoryInteractive({ persona, savedLayouts, extraActions }: In
       tabs={INVENTORY_QUICK_ACTIONS as QuickActionTab[]}
       savedLayouts={savedLayouts}
       extraActions={extraActions}
+      permissions={permissions}
     />
   );
 }

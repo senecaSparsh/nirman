@@ -14,6 +14,7 @@ import { DraftBanner } from "@/components/mobile/draft-banner";
 import { formatRelativeTime, localDateISO } from "@/lib/utils";
 import { useSmartDefaults } from "@/lib/use-smart-defaults";
 import { useNearestProject } from "@/lib/use-nearest-project";
+import { useConfirm } from "@/lib/use-confirm";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileProjectSelect, MobileEmployeeSelect } from "@/components/mobile/selectors";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
@@ -126,6 +127,7 @@ export function MobileDprForm({
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
   const { getDefault, recordDefaults } = useSmartDefaults("dpr");
   const { nearestProjectId, nearestProjectName, distanceMeters, loading: gpsLoading, request: requestGps } = useNearestProject();
 
@@ -535,6 +537,24 @@ export function MobileDprForm({
       return toast.error("Work summary is required");
     }
 
+    // A DPR with no labour or material data is meaningless on the server
+    // (submitDPR 400s) — but a genuine no-work day is valid. Surface the
+    // distinction instead of a bare error: confirm it's a no-work day, then
+    // send skipAttendanceCheck so the server accepts it.
+    const hasMaterials = materialLines.some((l) => l.materialId && Number(l.qty) > 0);
+    const hasLabor = laborLines.some((l) => (l.employeeId || l.crewId) && Number(l.hoursWorked) > 0 && l.taskDescription);
+    let skipAttendanceCheck = false;
+    if (!hasMaterials && !hasLabor) {
+      const ok = await confirm({
+        title: "No labour or materials recorded",
+        description: "This DPR has no labour lines and no materials used. Submit it anyway as a no-work day?",
+        confirmLabel: "Submit no-work day",
+        cancelLabel: "Add lines",
+      });
+      if (!ok) return;
+      skipAttendanceCheck = true;
+    }
+
     setSubmitting(true);
     haptic(10);
     try {
@@ -569,6 +589,7 @@ export function MobileDprForm({
               hoursWorked: Number(l.hoursWorked),
               taskDescription: l.taskDescription,
             })),
+          skipAttendanceCheck,
         }),
       });
       const data = await res.json();
@@ -1042,6 +1063,7 @@ export function MobileDprForm({
           </button>
         </div>
       </div>
+      {confirmDialog}
     </div>
   );
 }
