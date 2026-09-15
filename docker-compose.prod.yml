@@ -93,6 +93,11 @@ services:
       # BETTER_AUTH_URL must match NEXT_PUBLIC_APP_URL (the public URL).
       BETTER_AUTH_URL: ${NEXT_PUBLIC_APP_URL}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      # Customer-portal session signing (falls back to BETTER_AUTH_SECRET).
+      PORTAL_COOKIE_SECRET: ${PORTAL_COOKIE_SECRET:-${BETTER_AUTH_SECRET}}
+      # ── Telephony (optional — calls/SMS disabled without these) ──
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
       # ── App config ──
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
       SEED_PASSWORD: ${SEED_PASSWORD:-nirman123}

@@ -18,7 +18,21 @@ import { } from "@/lib/phone-otp";
 export const PORTAL_COOKIE_NAME = "nirman-portal-customer";
 export const PORTAL_COOKIE_MAX_AGE = 7 * 24 * 60 * 60; // 7 days
 
-const PORTAL_SECRET = process.env.PORTAL_COOKIE_SECRET ?? process.env.NEXTAUTH_SECRET ?? "dev-portal-secret";
+// Secret chain: dedicated portal secret → NextAuth secret → Better-Auth
+// secret (the one actually configured in deploys) → dev-only fallback.
+// In production there is NO safe default — a hardcoded secret would let
+// anyone who reads the source forge a signed customer cookie.
+const PORTAL_SECRET =
+  process.env.PORTAL_COOKIE_SECRET ??
+  process.env.NEXTAUTH_SECRET ??
+  process.env.BETTER_AUTH_SECRET ??
+  (process.env.NODE_ENV === "production" ? "" : "dev-portal-secret");
+
+if (process.env.NODE_ENV === "production" && !PORTAL_SECRET) {
+  throw new Error(
+    "Portal auth: no signing secret configured. Set PORTAL_COOKIE_SECRET (or NEXTAUTH_SECRET/BETTER_AUTH_SECRET) — refusing to sign customer sessions with a public default.",
+  );
+}
 
 /**
  * Sign a customer ID with HMAC-SHA256.

@@ -36,6 +36,11 @@ const ENV_VARS: EnvVarSpec[] = [
     description: "Secret key for signing auth sessions (long random string)",
   },
   {
+    key: "PORTAL_COOKIE_SECRET",
+    required: false,
+    description: "HMAC secret for customer-portal session cookies (falls back to BETTER_AUTH_SECRET when unset)",
+  },
+  {
     key: "NEXT_PUBLIC_APP_URL",
     required: true,
     description: "Public URL of the app (e.g. https://nirman-inventory.onrender.com)",

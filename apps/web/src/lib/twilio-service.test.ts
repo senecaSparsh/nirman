@@ -8,12 +8,15 @@
  *   isSafeRecordingUrl     — validate a recording URL to prevent SSRF
  */
 import { describe, it, expect } from "vitest";
+import { createHmac } from "crypto";
+import type { NextRequest } from "next/server";
 import {
   normalizeTwilioNumber,
   isTwilioNumber,
   mapTwilioCallStatus,
   mapTwilioDirection,
   isSafeRecordingUrl,
+  verifyTwilioSignature,
 } from "./twilio-service";
 
 describe("normalizeTwilioNumber", () => {
@@ -185,5 +188,74 @@ describe("isSafeRecordingUrl", () => {
 
   it("returns false for fake twilio domain", () => {
     expect(isSafeRecordingUrl("https://faketwilio.com/recording")).toBe(false);
+  });
+});
+
+/**
+ * Regression: voice/status webhooks POST form-encoded bodies whose
+ * signatures cover the URL + sorted POST params. A previous version used
+ * validateRequestWithBody (empty params + required bodySHA256 query
+ * param) which rejected every real Twilio call.
+ */
+describe("verifyTwilioSignature", () => {
+  const AUTH_TOKEN = "test-auth-token-123";
+  const BASE = "https://nirman.example.com";
+  const PATH = "/api/telephony/webhook/twilio/voice";
+  const COMPANY = "co_123";
+
+  function signedRequest(params: Record<string, string>, tamperedParams?: Record<string, string>) {
+    const url = `${BASE}${PATH}?companyId=${COMPANY}`;
+    const bodyParams = tamperedParams ?? params;
+    // Twilio algorithm: HMAC-SHA1 over url + each param sorted by key.
+    let data = url;
+    for (const k of Object.keys(params).sort()) data += k + params[k];
+    const signature = createHmac("sha1", AUTH_TOKEN).update(data).digest("base64");
+    const rawBody = new URLSearchParams(bodyParams).toString();
+    const req = {
+      url: `http://internal:3000${PATH}?companyId=${COMPANY}`,
+      headers: { get: (h: string) => (h === "x-twilio-signature" ? signature : null) },
+    } as unknown as NextRequest;
+    return { req, rawBody };
+  }
+
+  const PARAMS = {
+    CallSid: "CA_abc",
+    From: "+919812345678",
+    To: "+17123181444",
+    CallStatus: "ringing",
+    Direction: "inbound",
+  };
+
+  it("accepts a correctly-signed form-encoded webhook body", () => {
+    process.env.TWILIO_AUTH_TOKEN = AUTH_TOKEN;
+    process.env.NEXT_PUBLIC_APP_URL = BASE;
+    const { req, rawBody } = signedRequest(PARAMS);
+    expect(verifyTwilioSignature(req, rawBody)).toBe(true);
+  });
+
+  it("rejects a body whose params were tampered with", () => {
+    process.env.TWILIO_AUTH_TOKEN = AUTH_TOKEN;
+    process.env.NEXT_PUBLIC_APP_URL = BASE;
+    const { req, rawBody } = signedRequest(PARAMS, { ...PARAMS, From: "+910000000000" });
+    expect(verifyTwilioSignature(req, rawBody)).toBe(false);
+  });
+
+  it("rejects a garbage signature", () => {
+    process.env.TWILIO_AUTH_TOKEN = AUTH_TOKEN;
+    process.env.NEXT_PUBLIC_APP_URL = BASE;
+    const req = {
+      url: `http://internal:3000${PATH}?companyId=${COMPANY}`,
+      headers: { get: () => "notasignature==" },
+    } as unknown as NextRequest;
+    expect(verifyTwilioSignature(req, new URLSearchParams(PARAMS).toString())).toBe(false);
+  });
+
+  it("rejects when no auth token is configured in production", () => {
+    const saved = process.env.TWILIO_AUTH_TOKEN;
+    delete process.env.TWILIO_AUTH_TOKEN;
+    process.env.NODE_ENV = "production";
+    const { req, rawBody } = signedRequest(PARAMS);
+    expect(verifyTwilioSignature(req, rawBody)).toBe(false);
+    process.env.TWILIO_AUTH_TOKEN = saved;
   });
 });
