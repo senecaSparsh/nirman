@@ -473,10 +473,31 @@ async function main() {
   }
   console.log(`  Workers: ${workerDefs.length} field workers`);
 
+  // Expense categories — the claim form's category picker is free-text
+  // with suggestions from this table; empty table = no suggestions.
+  // glAccountCode must exist in GlAccount (6000 = Operating Expenses,
+  // 6100 = Salaries & Wages — both seeded by the chart of accounts).
+  const expCatDefs = [
+    { name: "Travel & Fuel", gl: "6000" },
+    { name: "Meals & Refreshments", gl: "6000" },
+    { name: "Tools & Consumables", gl: "6000" },
+    { name: "Site Materials (Minor)", gl: "6000" },
+    { name: "Transport & Freight", gl: "6000" },
+    { name: "Mobile & Internet", gl: "6000" },
+    { name: "Office Supplies", gl: "6000" },
+    { name: "Staff Welfare", gl: "6100" },
+  ];
+  for (const c of expCatDefs) {
+    await prisma.expenseCategory.create({
+      data: { companyId, name: c.name, glAccountCode: c.gl, isActive: true },
+    });
+  }
+  console.log(`  Expense categories: ${expCatDefs.length}`);
+
   // UserScope rows for PROJECT-scoped members — SITE_ENGINEER et al. resolve
   // to PROJECT scope by role default; without a scope row their pickers are
   // empty and the emptyHint tells them to ask an admin forever.
-  const PROJECT_SCOPED = new Set(["SITE_ENGINEER", "STORE_KEEPER", "SUPERVISOR", "QAQC_ENGINEER"]);
+  const PROJECT_SCOPED = new Set(["SITE_ENGINEER", "STORE_KEEPER", "SUPERVISOR", "QAQC_ENGINEER", "SECURITY_GUARD"]);
   for (const u of USERS) {
     if (!PROJECT_SCOPED.has(u.role)) continue;
     await prisma.userScope.create({
