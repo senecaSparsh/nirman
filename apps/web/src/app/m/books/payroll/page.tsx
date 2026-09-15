@@ -67,6 +67,7 @@ async function BooksPayrollContent() {
       ) : (
         <MobilePayrollList
           items={serialized}
+          canManage={canManage}
           exportTitle="Payroll"
           exportRows={serialized as unknown as Record<string, unknown>[]}
           exportColumns={[

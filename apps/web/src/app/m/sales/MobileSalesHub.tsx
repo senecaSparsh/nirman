@@ -12,6 +12,7 @@ import type { LeadRow, LeadStage } from "@/lib/types";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileSearchHeader, MobileFilterIcon, MobileFab, MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { RegisterTabs } from "@/components/mobile/v2/register-tabs";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileSalesCollection, type CollectionStats, type SaleItem } from "./MobileSalesCollection";
 
@@ -62,27 +63,15 @@ export function MobileSalesHub({
 
   return (
     <div className="pb-6">
-      <div
-        className="mb-3 grid grid-cols-2 gap-1 rounded-[0.625rem] border p-1"
-        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-      >
-        <button
-          type="button"
-          onClick={() => setView("pipeline")}
-          className="h-9 rounded-[0.5rem] text-m-body font-bold press transition-colors"
-          style={{ backgroundColor: view === "pipeline" ? "var(--color-ink-950)" : "transparent", color: view === "pipeline" ? "var(--color-paper)" : "var(--color-ink-500)" }}
-        >
-          Pipeline · {leads.filter((lead) => !["BOOKED", "LOST"].includes(lead.stage)).length}
-        </button>
-        <button
-          type="button"
-          onClick={() => setView("collections")}
-          className="h-9 rounded-[0.5rem] text-m-body font-bold press transition-colors"
-          style={{ backgroundColor: view === "collections" ? "var(--color-ink-950)" : "transparent", color: view === "collections" ? "var(--color-paper)" : "var(--color-ink-500)" }}
-        >
-          Collections · {stats.outstandingCount}
-        </button>
-      </div>
+      <RegisterTabs
+        tabs={[
+          { value: "pipeline", label: "Pipeline", count: leads.filter((lead) => !["BOOKED", "LOST"].includes(lead.stage)).length },
+          { value: "collections", label: "Collections", count: stats.outstandingCount },
+        ]}
+        value={view}
+        onChange={setView}
+        sticky={false}
+      />
 
       {view === "pipeline" ? (
         <MobileLeadPipeline leads={leads} projects={projects} units={units} assignees={assignees} canManage={canManage} currentUserId={currentUserId} />

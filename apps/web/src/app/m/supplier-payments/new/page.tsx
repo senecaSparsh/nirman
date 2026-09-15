@@ -42,7 +42,7 @@ export default function MobileNewSupplierPaymentPage() {
           prisma.supplierInvoice.findMany({
             where: {
               companyId: company.id,
-              status: { in: ["PENDING", "PARTIAL"] },
+              status: { in: ["APPROVED", "MATCHED"] },
             },
             orderBy: { createdAt: "desc" },
             select: {

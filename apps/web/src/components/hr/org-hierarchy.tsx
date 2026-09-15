@@ -73,7 +73,7 @@ export function OrgHierarchyDesktop({ tree }: { tree: OrgTreeData }) {
             </Badge>
           </div>
           {/* View toggle */}
-          <div className="flex rounded-md border border-border bg-subtle p-0.5">
+          <div className="flex items-center gap-3">
             <ToggleButtonD active={view === "reporting"} onClick={() => setView("reporting")}>
               Reporting line
             </ToggleButtonD>
@@ -123,9 +123,9 @@ function ToggleButtonD({
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-[5px] px-3 py-1 text-meta font-medium transition-colors",
+        "border-b-2 border-transparent py-1 text-meta font-medium transition-colors",
         active
-          ? "bg-primary text-primary-foreground"
+          ? "border-brand text-foreground"
           : "text-muted-foreground hover:text-foreground",
       )}
     >
@@ -163,7 +163,7 @@ function ReportingTreeD({
           key={person.id}
           person={person}
           isLast={i === roots.length - 1 && !hasLabour}
-          depth={1}
+          depth={0}
           ancestorLast={[]}
           defaultOpen={roots.length <= 2}
         />
@@ -399,7 +399,7 @@ function PersonNodeD({
   //    a custom role can be placed at any intermediate depth.
   //    Never let it fall below parent_depth + 1. ──
   const hDepth = person.hierarchyLevel != null ? person.hierarchyLevel * 2 - 1 : depth;
-  const visualDepth = useHierarchyDepth && person.hierarchyLevel != null
+  const visualDepth = useHierarchyDepth && person.hierarchyLevel != null && depth > 0
     ? Math.max(hDepth, depth)
     : depth;
 

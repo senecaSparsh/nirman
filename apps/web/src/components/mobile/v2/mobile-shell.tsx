@@ -55,8 +55,9 @@ import type { NavBootstrap } from "@/lib/server";
      on right. No project switcher, search, notifications, field mode,
      desktop switcher, or theme toggle (those moved to module homes /me).
    - Scrollable content area (max-w-[34rem], pb-nav).
-   - Fixed bottom tab bar: 3 module tabs (Inventory / HR / Accounts),
-     56px touch targets, amber underline for active, badges for pending.
+   - Fixed bottom tab bar: 4-5 module tabs per persona (executive gets a
+     fifth Expenses slot), 56px touch targets, amber underline for active,
+     badges for pending.
 
    Preserved from old shell:
    - Auth guard (redirect to /sign-in when no session)

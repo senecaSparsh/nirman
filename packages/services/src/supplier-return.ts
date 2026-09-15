@@ -260,11 +260,17 @@ export async function completeSupplierReturn(input: CompleteSupplierReturnInput)
       })),
     });
 
-    // Reduce supplier balanceOwed by the return total
-    const returnTotal = ret.lines.reduce(
-      (s, l) => s.plus(new Decimal(l.qty).times(new Decimal(l.unitCost))),
-      new Decimal(0),
-    );
+    // Reduce supplier balanceOwed by the return total INCLUDING GST —
+    // balanceOwed is defined as the billed amount owed (GRN increments it by
+    // subtotal + GST), so the credit note must mirror the full AP debit,
+    // not just the material cost. Otherwise the ITC portion leaks and the
+    // supplier balance drifts from the AP ledger.
+    const returnTotal = ret.lines.reduce((s, l) => {
+      const lineGst = gstByMaterial.get(l.materialId) ?? new Decimal(0);
+      return s.plus(
+        new Decimal(l.qty).times(new Decimal(l.unitCost)).times(lineGst.plus(100).div(100)),
+      );
+    }, new Decimal(0));
     if (ret.supplierId) {
       await tx.supplier.update({
         where: { id: ret.supplierId },

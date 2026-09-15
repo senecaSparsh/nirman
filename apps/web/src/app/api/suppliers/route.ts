@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { logAction } from "@nirman/services";
+import { logAction, ServiceError } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, requirePermission, supplierSchema, toNum } from "@/lib/server";
 import { withSerializableTransaction } from "@nirman/services";
@@ -51,6 +51,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
   const created = await withSerializableTransaction(async (tx) => {
     const company = await getCompany();
+    const existing = await tx.supplier.findFirst({
+      where: { companyId: company.id, name: { equals: parsed.data.name, mode: "insensitive" }, deletedAt: null },
+      select: { id: true, name: true },
+    });
+    if (existing) {
+      throw new ServiceError(`Supplier "${existing.name}" already exists`, 409);
+    }
     const supplier = await tx.supplier.create({ data: { ...parsed.data, companyId: company.id } });
     await logAction(tx, {
       userId: user.id,

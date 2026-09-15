@@ -340,6 +340,11 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
         // Registry document
         registryDocumentUrl: parsed.data.registryDocumentUrl ?? undefined,
         registryDocumentName: parsed.data.registryDocumentName ?? undefined,
+        // Agreement documents — one of ATS/BBA required for completion
+        atsDocumentUrl: parsed.data.atsDocumentUrl ?? undefined,
+        atsDocumentName: parsed.data.atsDocumentName ?? undefined,
+        bbaDocumentUrl: parsed.data.bbaDocumentUrl ?? undefined,
+        bbaDocumentName: parsed.data.bbaDocumentName ?? undefined,
         userId: user.id,
       });
       // Send WhatsApp payment confirmation to the customer

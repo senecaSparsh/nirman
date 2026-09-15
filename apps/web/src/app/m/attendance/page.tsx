@@ -20,10 +20,15 @@ import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
  * self-check-in widget on /m/home instead. So the CTA is only shown to users
  * with HR_MANAGE permission — everyone else just sees their attendance history.
  */
-export default function MobileAttendancePage() {
+export default function MobileAttendancePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ projectId?: string }>;
+}) {
   return (
     <MobileListPage perm={PERM.HR_VIEW} what="attendance" permission="hr.view">
       {async ({ company, role }) => {
+        const { projectId } = await searchParams;
         const canManageAttendance = hasPermission(role, PERM.HR_MANAGE);
         const isFieldStaff = roleTier(role) >= 4;
         // Fetch attendance with traffic-light tiers via the service rollup
@@ -85,6 +90,7 @@ export default function MobileAttendancePage() {
             )}
 
             <MobileAttendanceList
+              initialProject={projectId ?? null}
               items={serialized}
               projects={projectOptions}
               exportTitle="Attendance"

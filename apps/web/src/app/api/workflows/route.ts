@@ -50,6 +50,29 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
 
+  // Templates ship with blank runtime configs — inject the create-time
+  // context so every generated workflow is executable: conditions need the
+  // companyId for predicate evaluation, task/notification steps need an
+  // assignee (default: the creator, who is the manager configuring it), and
+  // auto_requisition needs a target project (default: first active project).
+  const graph = parsed.data.graphJson as { steps?: Array<{ type?: string; config?: Record<string, unknown> }> };
+  const needsDefaultProject = (graph?.steps ?? []).some(
+    (s) => s.type === "auto_requisition" && !(s.config?.projectId),
+  );
+  const defaultProject = needsDefaultProject
+    ? await prisma.project.findFirst({
+        where: { companyId: company.id, deletedAt: null, status: { notIn: ["COMPLETED", "ON_HOLD"] } },
+        orderBy: { createdAt: "asc" },
+        select: { id: true },
+      })
+    : null;
+  for (const step of graph?.steps ?? []) {
+    const cfg = (step.config ??= {});
+    if ((step.type === "condition" || step.type === "auto_requisition") && !cfg.companyId) cfg.companyId = company.id;
+    if ((step.type === "create_task" || step.type === "send_notification") && !cfg.assignedToId) cfg.assignedToId = user.id;
+    if (step.type === "auto_requisition" && !cfg.projectId && defaultProject) cfg.projectId = defaultProject.id;
+  }
+
   const created = await withSerializableTransaction(async (tx) => {
     const wf = await tx.workflow.create({
       data: {

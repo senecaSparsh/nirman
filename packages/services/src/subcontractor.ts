@@ -988,9 +988,12 @@ export async function listTdsSubcontractors(
   const fyStart = new Date(`${startYear}-04-01T00:00:00.000Z`);
   const fyEnd = new Date(`${startYear + 1}-03-31T23:59:59.999Z`);
 
+  // TDS is deducted at bill approval (the JE credits TDS Payable then), so
+  // certificates must include APPROVED bills too — filtering on PAID alone
+  // understates deductions vs the GL liability.
   const raBills = await prisma.raBill.findMany({
     where: {
-      status: "PAID",
+      status: { in: ["APPROVED", "PAID"] },
       companyId,
       billDate: { gte: fyStart, lte: fyEnd },
       tdsAmount: { gt: 0 },

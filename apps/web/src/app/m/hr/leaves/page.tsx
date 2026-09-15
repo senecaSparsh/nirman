@@ -100,6 +100,7 @@ async function MobileLeavesContent() {
 
       <MobileLeavesList
         items={serialized}
+        canManage={canManage}
         exportTitle="Leaves"
         exportRows={serialized as unknown as Record<string, unknown>[]}
         exportColumns={csvColumns}

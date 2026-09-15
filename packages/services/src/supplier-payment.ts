@@ -213,12 +213,49 @@ export async function createSupplierPayment(input: {
       lines,
     });
 
-    // 6b. If linked to an invoice, mark it as PAID.
-    if (input.invoiceId) {
-      await tx.supplierInvoice.update({
-        where: { id: input.invoiceId },
-        data: { status: "PAID" },
-      });
+    // 6b. Reconcile invoice statuses. An invoice is PAID once cumulative
+    // payments cover its total — linked payments earmark their invoice;
+    // unlinked payments allocate FIFO (oldest first) across the supplier's
+    // open invoices. A partial payment never marks an invoice PAID.
+    const openInvoices = await tx.supplierInvoice.findMany({
+      where: {
+        supplierId: input.supplierId,
+        companyId: input.companyId,
+        status: { in: ["APPROVED", "MATCHED"] },
+      },
+      orderBy: [{ invoiceDate: "asc" }, { createdAt: "asc" }],
+      select: { id: true, totalAmount: true },
+    });
+    if (openInvoices.length > 0) {
+      const [linkedGroups, unlinkedSum] = await Promise.all([
+        tx.supplierPayment.groupBy({
+          by: ["invoiceId"],
+          where: { supplierId: input.supplierId, companyId: input.companyId, invoiceId: { not: null } },
+          _sum: { amount: true },
+        }),
+        tx.supplierPayment.aggregate({
+          where: { supplierId: input.supplierId, companyId: input.companyId, invoiceId: null },
+          _sum: { amount: true },
+        }),
+      ]);
+      const linkedByInvoice = new Map(
+        linkedGroups.map((g) => [g.invoiceId as string, new Decimal(g._sum.amount ?? 0)]),
+      );
+      let unlinkedAvailable = new Decimal(unlinkedSum._sum.amount ?? 0);
+      const toMarkPaid: string[] = [];
+      for (const inv of openInvoices) {
+        const need = new Decimal(inv.totalAmount).minus(linkedByInvoice.get(inv.id) ?? new Decimal(0));
+        if (need.lte(0) || unlinkedAvailable.gte(need)) {
+          if (need.gt(0)) unlinkedAvailable = unlinkedAvailable.minus(need);
+          toMarkPaid.push(inv.id);
+        }
+      }
+      if (toMarkPaid.length > 0) {
+        await tx.supplierInvoice.updateMany({
+          where: { id: { in: toMarkPaid } },
+          data: { status: "PAID" },
+        });
+      }
     }
 
     // 7. Log action

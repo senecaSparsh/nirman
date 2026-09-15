@@ -43,14 +43,15 @@ export function validateRentPayment(
  * Compute rent GST breakdown.
  * Pure function — no DB access.
  *
- *   gstAmount      = amount × gstRate / 100
+ *   The collected amount is GST-inclusive, so the tax fraction is:
+ *   gstAmount      = amount × gstRate / (100 + gstRate)
  *   revenueAmount  = amount − gstAmount
  */
 export function computeRentGst(
   amount: Decimal,
   gstRate: Decimal,
 ): { gstAmount: Decimal; revenueAmount: Decimal } {
-  const gstAmount = amount.mul(gstRate).div(100);
+  const gstAmount = amount.mul(gstRate).div(gstRate.plus(100));
   const revenueAmount = amount.minus(gstAmount);
   return { gstAmount, revenueAmount };
 }
@@ -603,8 +604,9 @@ export async function recordRentPayment(input: RecordRentInput) {
         gstRate = new Decimal(sacEntry.gstRate);
       }
     }
-    const gstAmount = amount.mul(gstRate).div(100);
-    const revenueAmount = amount.minus(gstAmount);
+    // The recorded amount is what the tenant paid (GST-inclusive), so the
+    // tax fraction is amount × rate / (100 + rate) — not amount × rate.
+    const { gstAmount, revenueAmount } = computeRentGst(amount, gstRate);
 
     const payment = await tx.rentalPayment.create({
       data: {

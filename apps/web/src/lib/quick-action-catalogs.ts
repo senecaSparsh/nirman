@@ -203,7 +203,7 @@ export const SALES_QUICK_ACTIONS: QuickActionTab[] = [
       { key: "projects", href: "/m/projects", icon: Building2, label: "Projects", personas: ["sales", "executive", "ops", "field"] },
       { key: "land", href: "/m/land", icon: LandPlot, label: "Land", personas: ["executive", "sales", "ops"] },
       { key: "tasks", href: "/m/site/tasks", icon: ListChecks, label: "Tasks", personas: ["sales", "ops", "field", "hr", "executive"] },
-      { key: "bookings", href: "/m/sales?tab=bookings", icon: KeyRound, label: "Bookings", personas: ["sales", "executive"] },
+      { key: "bookings", href: "/m/sales", icon: KeyRound, label: "Bookings", personas: ["sales", "executive"] },
       { key: "payments", href: "/m/sales?tab=collections", icon: Wallet, label: "Collections", personas: ["sales", "finance", "executive"] },
       { key: "reports", href: "/m/reports/sales-revenue", icon: TrendingUp, label: "Sales Reports", personas: ["sales", "executive", "finance"] },
     ],

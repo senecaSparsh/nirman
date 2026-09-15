@@ -315,7 +315,7 @@ export function MobileNewSaleForm({
                   dueDate: item.dueDate || null,
                 })),
               }
-            : null,
+            : undefined,
         }),
       });
       const data = await res.json();

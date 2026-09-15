@@ -130,7 +130,7 @@ export interface RouteEntry {
   title: string;
   /** Shorter label for the bottom tab bar — e.g. "Field" for "Field Dashboard".
    *  Falls back to `title` when omitted. Only needed on tab-root routes whose
-   *  `title` is too long for the 4-tab bar. */
+   *  `title` is too long for the tab bar. */
   shortTitle?: string;
   /** The Up target — where the back chevron goes. `null` only for the
    *  module hubs, which are tab roots with nothing above them. */
@@ -216,7 +216,7 @@ export const ROUTES: RouteEntry[] = [
   { path: "/m/expense-claims", title: "Expense Claims", parent: "/m/accounts", kind: "list", module: "accounts", perm: "finance.view", icon: FileText, hint: "Employee reimbursement claims — submit, approve, and pay out", desktopPath: "/finance?tab=claims", keywords: ["claim", "reimbursement", "employee expense", "travel", "site expense"], sharesListWith: ["/m/accounts"] },
   { path: "/m/expense-claims/new", title: "New Expense Claim", parent: "/m/expense-claims", kind: "create", module: "accounts", perm: "expense.create", icon: FileText },
   { path: "/m/expense-claims/[id]", title: "Expense Claim", parent: "/m/expense-claims", kind: "detail", module: "accounts", perm: "finance.view", icon: FileText },
-  { path: "/m/expenses", title: "Operating Expenses", parent: "/m/accounts", kind: "list", module: "accounts", perm: "finance.view", icon: BookOpen, hint: "Book and approve operating expenses — categories, payment mode, GST, receipts, and approval workflow", desktopPath: "/finance?tab=expenses", keywords: ["expense", "spend", "opex", "voucher", "bill", "reimbursement", "petty cash", "approval"], sharesListWith: ["/m/accounts"] },
+  { path: "/m/expenses", title: "Operating Expenses", shortTitle: "Expenses", parent: "/m/accounts", kind: "list", module: "accounts", perm: "finance.view", icon: Wallet, hint: "Book and approve operating expenses — categories, payment mode, GST, receipts, and approval workflow", desktopPath: "/finance?tab=expenses", keywords: ["expense", "spend", "opex", "voucher", "bill", "reimbursement", "petty cash", "approval"], sharesListWith: ["/m/accounts"] },
   { path: "/m/expenses/new", title: "New Expense", parent: "/m/expenses", kind: "create", module: "accounts", perm: "expense.create", icon: Plus, hint: "Record a new operating expense — amount, category, payment mode, and optional receipt" },
   { path: "/m/expenses/[id]", title: "Expense", parent: "/m/expenses", kind: "detail", module: "accounts", perm: "finance.view", icon: BookOpen },
   { path: "/m/gate-pass", title: "Gate Pass", parent: "/m/inventory", kind: "list", module: "inventory", perm: "gate_pass.view", icon: ShieldCheck, hint: "Approve items leaving the gate", desktopPath: "/gate-passes", personas: ["executive", "ops", "procurement", "field"] },
@@ -367,7 +367,8 @@ export const ROUTES: RouteEntry[] = [
    PERSONA TAB ROOTS
 
    Four destinations per persona — Search and the menu live in the header, so
-   no slot is spent on them (see docs/NAVIGATION.md §3.3). Every entry MUST be
+   no slot is spent on them (see docs/NAVIGATION.md §3.3). Executive gets five:
+   the owner explicitly asked for a dedicated Expenses tab. Every entry MUST be
    a real, non-redirect path in ROUTES; guard G3 enforces that.
 
    EVERY persona has Home as tab 1. That is not symmetry for its own sake: Home
@@ -385,7 +386,7 @@ export const ROUTES: RouteEntry[] = [
    ═══════════════════════════════════════════════════════════════════════════ */
 
 export const PERSONA_TAB_PATHS: Record<Persona, string[]> = {
-  executive: ["/m/home", "/m/inventory", "/m/hr", "/m/accounts"],
+  executive: ["/m/home", "/m/inventory", "/m/hr", "/m/accounts", "/m/expenses"],
   ops: ["/m/home", "/m/inventory", "/m/stock", "/m/site"],
   procurement: ["/m/home", "/m/procurement", "/m/stock", "/m/suppliers"],
   field: ["/m/home", "/m/site", "/m/dprs", "/m/stock"],
@@ -526,19 +527,22 @@ export function canAccess(route: RouteEntry, permissions: string[]): boolean {
 
 /**
  * Fallback tab order, used to backfill when a persona's preferred tabs are not
- * all permitted. Ordered most- to least-broadly-useful. The last four entries
- * are universal, which is what guarantees every user gets four valid tabs no
+ * all permitted. Ordered most- to least-broadly-useful. The last entries are
+ * universal, which is what guarantees every user gets a full tab bar no
  * matter how narrow their permission set.
  */
 const TAB_BACKFILL: string[] = [
   "/m/home", "/m/inventory", "/m/hr", "/m/accounts", "/m/stock",
   "/m/procurement", "/m/sales", "/m/site", "/m/reports",
   "/m/settings", "/m/me", "/m/queue",
+  // Deliberately universal — last resort for the executive's fifth slot.
+  "/m/approvals",
 ];
 
 /**
- * The four bottom tabs for this user: the persona's preferences, minus
- * anything they cannot access, backfilled to exactly four.
+ * The bottom tabs for this user: the persona's preferences, minus
+ * anything they cannot access, backfilled to the persona's slot count
+ * (four for most personas, five for executive).
  *
  * A store keeper granted `finance.view` keeps their store-keeper tabs — the
  * grant surfaces in the menu, not by silently rearranging the bar underneath
@@ -548,7 +552,7 @@ export function tabsFor(ctx: NavContext): RouteEntry[] {
   const preferred = PERSONA_TAB_PATHS[ctx.persona] ?? PERSONA_TAB_PATHS.executive;
   const picked: RouteEntry[] = [];
   const take = (p: string) => {
-    if (picked.length >= 4 || picked.some((r) => r.path === p)) return;
+    if (picked.length >= preferred.length || picked.some((r) => r.path === p)) return;
     const entry = ROUTE_BY_PATH.get(p);
     if (entry && entry.kind !== "redirect" && canAccess(entry, ctx.permissions)) picked.push(entry);
   };

@@ -24,6 +24,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { RegisterTabs } from "@/components/mobile/v2/register-tabs";
 import type {
   OrgScope,
   OrgTask,
@@ -75,18 +76,16 @@ export function OrgHierarchy({ tree }: { tree: OrgTreeData }) {
 
   return (
     <section className="mb-4">
-      {/* ── Toggle ── */}
-      <div
-        className="flex rounded-[0.5rem] border p-0.5 mb-2"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
-      >
-        <ToggleButton active={view === "reporting"} onClick={() => setView("reporting")}>
-          Reporting line
-        </ToggleButton>
-        <ToggleButton active={view === "assignment"} onClick={() => setView("assignment")}>
-          By assignment
-        </ToggleButton>
-      </div>
+      {/* ── Toggle — transparent text tabs with sliding underline ── */}
+      <RegisterTabs
+        tabs={[
+          { value: "reporting" as const, label: "Reporting line" },
+          { value: "assignment" as const, label: "By assignment" },
+        ]}
+        value={view}
+        onChange={setView}
+        sticky={false}
+      />
 
       {/* ── Tree container ── */}
       <div
@@ -115,31 +114,6 @@ export function OrgHierarchy({ tree }: { tree: OrgTreeData }) {
         )}
       </div>
     </section>
-  );
-}
-
-function ToggleButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex-1 rounded-[0.375rem] py-1.5 text-m-label font-semibold transition-colors press"
-      style={
-        active
-          ? { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }
-          : { color: "var(--color-ink-500)" }
-      }
-    >
-      {children}
-    </button>
   );
 }
 
@@ -172,7 +146,7 @@ function ReportingTree({
           key={person.id}
           person={person}
           isLast={i === roots.length - 1 && !hasLabour}
-          depth={1}
+          depth={0}
           ancestorLast={[]}
           defaultOpen={roots.length <= 1}
         />
@@ -426,7 +400,7 @@ function PersonNode({
   //    a custom role can be placed at any intermediate depth.
   //    Never let it fall below parent_depth + 1. ──
   const hDepth = person.hierarchyLevel != null ? person.hierarchyLevel * 2 - 1 : depth;
-  const visualDepth = useHierarchyDepth && person.hierarchyLevel != null
+  const visualDepth = useHierarchyDepth && person.hierarchyLevel != null && depth > 0
     ? Math.max(hDepth, depth)
     : depth;
 

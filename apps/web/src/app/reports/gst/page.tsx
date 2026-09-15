@@ -97,8 +97,11 @@ async function GstReportContent({
     for (const line of entry.lines) {
       const debit = toNum(line.debit);
       const credit = toNum(line.credit);
-      if (line.account.code === INPUT_GST) row.inputGst += debit;
-      else if (line.account.code === OUTPUT_GST) row.outputGst += credit;
+      // Net each account: ITC reversals (supplier returns) post credits to
+      // 1400 and JE reversals post opposite-side lines — only netting keeps
+      // the payable correct.
+      if (line.account.code === INPUT_GST) row.inputGst += debit - credit;
+      else if (line.account.code === OUTPUT_GST) row.outputGst += credit - debit;
     }
   }
 

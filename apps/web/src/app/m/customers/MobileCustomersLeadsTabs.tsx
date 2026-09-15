@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Users, Flame } from "lucide-react";
 import { MobileCustomersList, type CustomerListItem } from "./MobileCustomersList";
 import { MobileLeadsList, type LeadListItem } from "../leads/MobileLeadsList";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
+import { RegisterTabs } from "@/components/mobile/v2/register-tabs";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
@@ -46,53 +46,15 @@ export function MobileCustomersLeadsTabs({
 
   return (
     <div>
-      {/* Tab toggle */}
-      <div
-        className="sticky top-0 z-20 grid grid-cols-2 gap-2 p-1"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderBottom: "1px solid var(--color-line)",
-        }}
-      >
-        <button
-          onClick={() => setTab("customers")}
-          className="flex items-center justify-center gap-1.5 h-9 rounded-[0.375rem] text-m-body font-bold transition-colors press"
-          style={{
-            backgroundColor: tab === "customers" ? "var(--color-ink-950)" : "transparent",
-            color: tab === "customers" ? "var(--color-paper)" : "var(--color-ink-500)",
-          }}
-        >
-          <Users className="size-3.5" />
-          Customers
-          <span
-            className="ml-0.5 px-1.5 rounded-full text-m-caption"
-            style={{
-              backgroundColor: tab === "customers" ? "color-mix(in srgb, var(--color-paper) 20%, transparent)" : "var(--color-concrete)",
-            }}
-          >
-            {customers.length}
-          </span>
-        </button>
-        <button
-          onClick={() => setTab("leads")}
-          className="flex items-center justify-center gap-1.5 h-9 rounded-[0.375rem] text-m-body font-bold transition-colors press"
-          style={{
-            backgroundColor: tab === "leads" ? "var(--color-ink-950)" : "transparent",
-            color: tab === "leads" ? "var(--color-paper)" : "var(--color-ink-500)",
-          }}
-        >
-          <Flame className="size-3.5" />
-          Leads
-          <span
-            className="ml-0.5 px-1.5 rounded-full text-m-caption"
-            style={{
-              backgroundColor: tab === "leads" ? "color-mix(in srgb, var(--color-paper) 20%, transparent)" : "var(--color-concrete)",
-            }}
-          >
-            {leadCount}
-          </span>
-        </button>
-      </div>
+      {/* Tab toggle — transparent text tabs with sliding underline */}
+      <RegisterTabs
+        tabs={[
+          { value: "customers" as const, label: "Customers", count: customers.length },
+          { value: "leads" as const, label: "Leads", count: leadCount },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
 
       {/* Tab content */}
       {tab === "customers" ? (

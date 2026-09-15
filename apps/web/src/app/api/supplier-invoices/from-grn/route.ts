@@ -60,22 +60,23 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: "Goods receipt not found" }, { status: 404 });
   }
 
-  // Check if an invoice already exists for this GRN's invoice number + supplier
-  if (grn.invoiceNumber) {
-    const existing = await prisma.supplierInvoice.findFirst({
-      where: {
-        invoiceNumber: grn.invoiceNumber,
-        supplierId: po.supplierId,
-        companyId: po.companyId,
-      },
-    });
-    if (existing) {
-      return json({
-        error: "Invoice already exists",
-        invoiceId: existing.id,
-        invoiceNumber: existing.invoiceNumber,
-      }, { status: 409 });
-    }
+  // Check if an invoice already exists for this GRN — by the supplier's
+  // invoice number when captured, otherwise by the deterministic draft number.
+  // One supplier invoice per GRN regardless of which path created it.
+  const dedupeNumber = grn.invoiceNumber ?? `DRAFT-GRN-${grn.id.slice(-8).toUpperCase()}`;
+  const existing = await prisma.supplierInvoice.findFirst({
+    where: {
+      invoiceNumber: dedupeNumber,
+      supplierId: po.supplierId,
+      companyId: po.companyId,
+    },
+  });
+  if (existing) {
+    return json({
+      error: "Invoice already exists",
+      invoiceId: existing.id,
+      invoiceNumber: existing.invoiceNumber,
+    }, { status: 409 });
   }
 
   // Build invoice lines from GRN lines, enriched with GST rate from PO lines

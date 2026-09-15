@@ -122,7 +122,7 @@ export function ProcurementView({
               phases={phases}
               materials={materialOptions}
               suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
-              locations={locationOptions.map((l) => ({ id: l.id, name: l.name, type: l.type }))}
+              locations={locationOptions.map((l) => ({ id: l.id, name: l.name, type: l.type, projectId: l.projectId }))}
               categories={categories.map((c) => ({ id: c.id, name: c.name, unit: c.unit }))}
               permissions={{ canCreate, canApprove: canApproveRequisitions, canSelfApprove }}
               currentUserId={currentUserId}

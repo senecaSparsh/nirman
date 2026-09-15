@@ -47,9 +47,9 @@ const FILTER_CHIPS: { label: string; value: ListingFilter }[] = [
  * (Sync Failed → Listed → Draft → Delisted), surfacing failures first.
  * When a filter or search is active, a flat result list is shown.
  *
- * Rows use MobileRow (not tappable to a detail page) because there
- * is no mobile portal-listing detail page — but listed rows with a
- * listingUrl render an external-link affordance.
+ * Rows tap through to /m/portal-listings/[id] for sync/delist/edit
+ * actions; listed rows with a listingUrl also render an external-link
+ * affordance for the live portal page.
  */
 export function MobilePortalListingsList({
   items,
@@ -218,6 +218,7 @@ function ListingRow({ l }: { l: PortalListingItem }) {
   }`;
   return (
     <MobileRow
+      href={`/m/portal-listings/${l.id}`}
       icon={Globe}
       title={l.title}
       subtitle={subtitle}

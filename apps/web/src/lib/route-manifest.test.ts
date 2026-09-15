@@ -467,12 +467,13 @@ describe("G7 — no granted capability is invisible", () => {
   });
 });
 
-describe("G8 — the tab bar is always exactly four valid destinations", () => {
+describe("G8 — the tab bar is always exactly the persona's slot count of valid destinations", () => {
   it("holds for every sampled permission set", () => {
     for (const { label, ctx } of permissionSamples()) {
       const tabs = tabsFor(ctx);
-      expect(tabs, `${label}: got ${tabs.length} tabs`).toHaveLength(4);
-      expect(new Set(tabs.map((t) => t.path)).size, `${label}: duplicate tabs`).toBe(4);
+      const expected = (PERSONA_TAB_PATHS[ctx.persona] ?? PERSONA_TAB_PATHS.executive).length;
+      expect(tabs, `${label}: got ${tabs.length} tabs`).toHaveLength(expected);
+      expect(new Set(tabs.map((t) => t.path)).size, `${label}: duplicate tabs`).toBe(expected);
       for (const t of tabs) expect(t.kind).not.toBe("redirect");
     }
   });

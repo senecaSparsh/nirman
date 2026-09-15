@@ -2,6 +2,7 @@ import { prisma } from "@nirman/db";
 import type { Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { recordMovement, withStockTransaction, refreshMaterialCurrentCost } from "./stock-ledger";
+import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { postScrapGeneration, reverseJournalEntry } from "./gl-posting";
@@ -177,6 +178,13 @@ export async function createScrapGeneration(input: CreateScrapGenerationInput) {
       postedById: input.createdById,
     });
 
+    // The GL credits WIP immediately — keep the cached Project.totalProjectCost /
+    // costPerSqft in sync so reports don't overstate construction cost until the
+    // next incidental reallocation runs.
+    if (input.projectId) {
+      await reallocateProjectCosts(tx, input.projectId);
+    }
+
     await logAction(tx, {
       userId: input.createdById,
       action: "SCRAP_GENERATION_CREATE",
@@ -282,6 +290,11 @@ export async function cancelScrapGeneration(id: string, userId?: string) {
     });
     for (const je of journalEntries) {
       await reverseJournalEntry(tx, je.id, { postedById: userId, memo: `Reversal of ${je.memo}` });
+    }
+
+    // The WIP credit is reversed — restore the cached project cost totals.
+    if (scrap.projectId) {
+      await reallocateProjectCosts(tx, scrap.projectId);
     }
 
     const updated = await tx.scrapGeneration.update({

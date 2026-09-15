@@ -17,6 +17,7 @@ export function RegisterTabs<T extends string>({
   tabs,
   value,
   onChange,
+  sticky = true,
 }: {
   tabs: {
     value: T;
@@ -26,6 +27,9 @@ export function RegisterTabs<T extends string>({
   }[];
   value: T;
   onChange: (next: T) => void;
+  /** Pin to the top while scrolling (hub pages). Default true — set false
+   *  for toggles embedded mid-page inside a section. */
+  sticky?: boolean;
 }) {
   const activeIndex = Math.max(
     0,
@@ -35,7 +39,7 @@ export function RegisterTabs<T extends string>({
 
   return (
     <div
-      className="sticky top-0 z-20 py-1 mb-2"
+      className={sticky ? "sticky top-0 z-20 py-1 mb-2" : "py-1 mb-2"}
       style={{ backgroundColor: "var(--color-paper-2)" }}
     >
       <div className="relative flex w-full">

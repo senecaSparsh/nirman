@@ -90,11 +90,14 @@ const ACTIVITY_ICONS: Record<string, typeof Phone> = {
 };
 
 // Stage progression map — which stages can follow the current one.
+// Mirrors LEAD_TRANSITIONS in @nirman/services/crm (BOOKED excluded —
+// the stage API rejects it; conversion goes through Convert & book).
 const NEXT_STAGES: Record<string, string[]> = {
-  NEW: ["CONTACTED", "SITE_VISIT", "NEGOTIATION", "LOST"],
+  NEW: ["CONTACTED", "LOST"],
   CONTACTED: ["SITE_VISIT", "NEGOTIATION", "LOST"],
   SITE_VISIT: ["NEGOTIATION", "LOST"],
-  NEGOTIATION: ["LOST"],
+  NEGOTIATION: ["SITE_VISIT", "LOST"],
+  LOST: ["CONTACTED"],
 };
 
 export function MobileLeadDetailClient({

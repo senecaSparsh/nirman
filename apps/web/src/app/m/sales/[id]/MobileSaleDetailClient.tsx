@@ -249,6 +249,7 @@ export function MobileSaleDetailClient({
   const [compChequeNo, setCompChequeNo] = useState("");
   const [compChequeDate, setCompChequeDate] = useState("");
   const [compChequeBank, setCompChequeBank] = useState("");
+  const [compFinalAmount, setCompFinalAmount] = useState("");
 
   if (notFound) {
     return (
@@ -358,6 +359,11 @@ export function MobileSaleDetailClient({
       toast.error("Registry document upload is required to complete the sale");
       return;
     }
+    const hasAgreementDoc = !!(atsDocumentUrl || compAtsDocUrl || bbaDocumentUrl || compBbaDocUrl);
+    if (!hasAgreementDoc) {
+      toast.error("Upload at least one of ATS or BBA document to complete the sale");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch(`/api/sales/${saleId}`, {
@@ -366,6 +372,7 @@ export function MobileSaleDetailClient({
         body: JSON.stringify({
           action: "complete",
           paymentMode: compPayMode,
+          finalPaymentAmount: compFinalAmount ? Number(compFinalAmount) : undefined,
           reference: compRef || undefined,
           saleDeedNo: compSaleDeedNo || undefined,
           allotmentLetterNo: compAllotmentNo || undefined,
@@ -1144,8 +1151,10 @@ export function MobileSaleDetailClient({
               </span>
               {atsDocumentUrl ? (
                 <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-go)" }}>Uploaded</span>
-              ) : (
+              ) : bbaDocumentUrl ? (
                 <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-400)" }}>Optional</span>
+              ) : (
+                <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-signal)" }}>One required</span>
               )}
             </div>
             {atsDocumentUrl ? (
@@ -1172,8 +1181,10 @@ export function MobileSaleDetailClient({
               </span>
               {bbaDocumentUrl ? (
                 <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-go)" }}>Uploaded</span>
-              ) : (
+              ) : atsDocumentUrl ? (
                 <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-400)" }}>Optional</span>
+              ) : (
+                <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-signal)" }}>One required</span>
               )}
             </div>
             {bbaDocumentUrl ? (
@@ -1516,6 +1527,28 @@ export function MobileSaleDetailClient({
               Completing the sale registers the sale deed, recognises revenue, and transfers title. Balance due: <strong style={{ color: "var(--color-go)" }}>{formatCurrency(balanceDue)}</strong>
             </p>
 
+            <div>
+              <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                Final payment received now (₹) — leave blank to record full balance
+              </label>
+              <input
+                type="number"
+                inputMode="decimal"
+                min="0"
+                max={balanceDue}
+                value={compFinalAmount}
+                onChange={(e) => setCompFinalAmount(e.target.value)}
+                placeholder={balanceDue.toFixed(2)}
+                className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
+              />
+              {compFinalAmount && Number(compFinalAmount) < balanceDue ? (
+                <p className="text-m-caption mt-0.5" style={{ color: "var(--color-signal)" }}>
+                  {formatCurrency(balanceDue - Number(compFinalAmount))} will remain as receivable.
+                </p>
+              ) : null}
+            </div>
+
             <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                 Registry Details
@@ -1625,7 +1658,7 @@ export function MobileSaleDetailClient({
               </p>
               <div>
                 <label className="text-m-caption font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
-                  Agreement to Sell (ATS) — optional
+                  Agreement to Sell (ATS) — one of ATS/BBA required *
                 </label>
                 <MobileDocUploader
                   url={atsDocumentUrl || compAtsDocUrl}
@@ -1637,7 +1670,7 @@ export function MobileSaleDetailClient({
               </div>
               <div>
                 <label className="text-m-caption font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
-                  Builder-Buyer Agreement (BBA) — optional
+                  Builder-Buyer Agreement (BBA) — one of ATS/BBA required *
                 </label>
                 <MobileDocUploader
                   url={bbaDocumentUrl || compBbaDocUrl}

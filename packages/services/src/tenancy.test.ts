@@ -48,10 +48,11 @@ describe("validateRentPayment", () => {
 });
 
 describe("computeRentGst", () => {
-  it("computes GST at 18% (default for commercial rent)", () => {
-    const r = computeRentGst(new Decimal(50000), new Decimal(18));
+  it("computes GST at 18% on an inclusive amount", () => {
+    const r = computeRentGst(new Decimal(59000), new Decimal(18));
+    // 59,000 inclusive = 50,000 base + 9,000 GST
     expect(r.gstAmount.toNumber()).toBe(9000);
-    expect(r.revenueAmount.toNumber()).toBe(41000);
+    expect(r.revenueAmount.toNumber()).toBe(50000);
   });
 
   it("computes GST at 0% (residential rent exemption)", () => {
@@ -61,9 +62,10 @@ describe("computeRentGst", () => {
   });
 
   it("handles fractional GST rate", () => {
-    const r = computeRentGst(new Decimal(10000), new Decimal(12.5));
+    const r = computeRentGst(new Decimal(11250), new Decimal(12.5));
+    // 11,250 inclusive = 10,000 base + 1,250 GST
     expect(r.gstAmount.toNumber()).toBe(1250);
-    expect(r.revenueAmount.toNumber()).toBe(8750);
+    expect(r.revenueAmount.toNumber()).toBe(10000);
   });
 
   it("handles zero amount", () => {

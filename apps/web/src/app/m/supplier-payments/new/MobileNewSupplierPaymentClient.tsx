@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
 import { Loader2, Camera, X, Send, CheckCircle2, Eye, Plus } from "lucide-react";
@@ -42,10 +42,14 @@ export function MobileNewSupplierPaymentClient({
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState<{ id: string; amount: number; supplierName: string } | null>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
-  const [supplierId, setSupplierId] = useState("");
+  const searchParams = useSearchParams();
+  const [supplierId, setSupplierId] = useState(() => searchParams.get("supplier") ?? "");
   const [purchaseOrderId, setPurchaseOrderId] = useState("");
-  const [invoiceId, setInvoiceId] = useState("");
-  const [amount, setAmount] = useState("");
+  const [invoiceId, setInvoiceId] = useState(() => searchParams.get("invoice") ?? "");
+  const [amount, setAmount] = useState(() => {
+    const inv = invoices.find((i) => i.id === (searchParams.get("invoice") ?? ""));
+    return inv ? inv.totalAmount : "";
+  });
   const [tdsAmount, setTdsAmount] = useState("");
   const [tdsSection, setTdsSection] = useState("");
   const [paymentDate, setPaymentDate] = useTodayDateState();

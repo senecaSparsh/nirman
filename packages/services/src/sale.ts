@@ -873,6 +873,12 @@ export interface CompleteSaleInput {
   // Registry document upload — REQUIRED for completion
   registryDocumentUrl?: string;
   registryDocumentName?: string;
+  // Agreement documents — at least one of ATS/BBA required for completion;
+  // may be supplied here if not already uploaded on the sale record.
+  atsDocumentUrl?: string;
+  atsDocumentName?: string;
+  bbaDocumentUrl?: string;
+  bbaDocumentName?: string;
 }
 
 export async function completeSale(input: CompleteSaleInput) {
@@ -905,8 +911,8 @@ export async function completeSale(input: CompleteSaleInput) {
         "Sale cannot be completed without uploading the registry document. Please upload the sale deed / registry document first.",
       );
     }
-    const atsDocUrl = sale.atsDocumentUrl;
-    const bbaDocUrl = sale.bbaDocumentUrl;
+    const atsDocUrl = input.atsDocumentUrl ?? sale.atsDocumentUrl;
+    const bbaDocUrl = input.bbaDocumentUrl ?? sale.bbaDocumentUrl;
     if (!atsDocUrl && !bbaDocUrl) {
       throw new ServiceError(
         "Sale cannot be completed without uploading at least one of ATS or BBA document. Please upload the ATS or BBA document first.",
@@ -959,13 +965,18 @@ export async function completeSale(input: CompleteSaleInput) {
       data: {
         saleStage: "COMPLETED",
         finalSaleDate: new Date(),
-        paymentStatus: "PAID",
+        // PAID only when the recorded payments cover the full price —
+        // a partial final payment leaves the remainder as receivable.
+        paymentStatus: totalPaidSoFar.plus(finalPayment).gte(salePrice.plus(gstAmount)) ? "PAID" : "PARTIAL",
         ...(input.saleDeedNo ? { saleDeedNo: input.saleDeedNo } : {}),
         // ATS fields — either atsNo OR saleDeedNo is the registered document
         ...(input.atsNo ? { atsNo: input.atsNo } : {}),
         ...(input.atsDate ? { atsDate: new Date(input.atsDate) } : {}),
         // Registry document
         ...(input.registryDocumentUrl ? { registryDocumentUrl: input.registryDocumentUrl, registryDocumentName: input.registryDocumentName ?? null } : {}),
+        // Agreement documents — captured at completion if not already uploaded
+        ...(input.atsDocumentUrl ? { atsDocumentUrl: input.atsDocumentUrl, atsDocumentName: input.atsDocumentName ?? null } : {}),
+        ...(input.bbaDocumentUrl ? { bbaDocumentUrl: input.bbaDocumentUrl, bbaDocumentName: input.bbaDocumentName ?? null } : {}),
         // Compliance fields captured at completion
         ...(input.allotmentLetterNo ? { allotmentLetterNo: input.allotmentLetterNo } : {}),
         ...(input.allotmentDate ? { allotmentDate: new Date(input.allotmentDate) } : {}),

@@ -34,6 +34,7 @@ import {
 import type { Persona } from "@/lib/mobile-nav-v2";
 import { useFetch } from "@/lib/use-fetch";
 import { ROUTE_BY_PATH } from "@/lib/route-manifest";
+import { RegisterTabs } from "./register-tabs";
 
 /** A serializable extra action from the server (no icon — resolved from the
  *  route manifest client-side). */
@@ -173,10 +174,21 @@ export function QuickActionsBar({
   //    The FULL catalog for this tab (all personas) — used to resolve
   //    saved-layout keys so users can add actions outside their persona.
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0]!;
-  const allTabActions = React.useMemo(
-    () => activeTab.actions,
-    [activeTab],
-  );
+  // Drop dead tiles from the catalog itself: (a) actions whose base path is
+  // this module's own hub — that includes `?tab=` deep-links, which only
+  // switch a tab that's already on this page — and (b) second tiles that
+  // point at an identical href. This removes them from the grid AND the
+  // Add picker, and makes stale saved-layout keys unresolvable below.
+  const hubPath = `/m/${module}`;
+  const allTabActions = React.useMemo(() => {
+    const seenHrefs = new Set<string>();
+    return activeTab.actions.filter((a) => {
+      if (a.href.split("?")[0] === hubPath) return false;
+      if (seenHrefs.has(a.href)) return false;
+      seenHrefs.add(a.href);
+      return true;
+    });
+  }, [activeTab, hubPath]);
   const allByKey = React.useMemo(
     () => new Map(allTabActions.map((a) => [a.key, a])),
     [allTabActions],
@@ -223,15 +235,24 @@ export function QuickActionsBar({
   //   the user's explicit selection, and unselected actions must remain
   //   available in the "Add" picker.
   const orderedActions = React.useMemo(() => {
-    if (!savedOrder || savedOrder.length === 0) return personaActions;
-    const ordered: QuickActionDef[] = [];
-    const seen = new Set<string>();
-    for (const k of savedOrder) {
-      const a = combinedByKey.get(k);
-      if (a && !seen.has(k)) { ordered.push(a); seen.add(k); }
-    }
-    return ordered;
-  }, [personaActions, savedOrder, combinedByKey]);
+    const list =
+      !savedOrder || savedOrder.length === 0
+        ? personaActions
+        : (() => {
+            const ordered: QuickActionDef[] = [];
+            const seen = new Set<string>();
+            for (const k of savedOrder) {
+              const a = combinedByKey.get(k);
+              if (a && !seen.has(k)) { ordered.push(a); seen.add(k); }
+            }
+            return ordered;
+          })();
+    // The module's own hub route is a dead tap on this page — drop it
+    // whether it came from a saved layout or a pinned route, including
+    // `?tab=` deep-links to this page's own tab bar. (Already-saved keys
+    // are dropped from the layout on the user's next save.)
+    return list.filter((a) => a.href.split("?")[0] !== hubPath);
+  }, [personaActions, savedOrder, combinedByKey, hubPath]);
 
   // ── Local edit buffer (only mutated during edit mode) ──
   const [editActions, setEditActions] = React.useState<QuickActionDef[]>([]);
@@ -363,33 +384,13 @@ export function QuickActionsBar({
         )}
       </div>
 
-      {/* ── Toggle tabs — segmented control, not a button pair ── */}
-      <div
-        className="grid gap-0.5 rounded-[0.625rem] p-0.5 mb-3"
-        style={{
-          gridTemplateColumns: `repeat(${tabs.length}, 1fr)`,
-          backgroundColor: "var(--color-concrete)",
-        }}
-      >
-        {tabs.map((tab) => {
-          const isActive = tab.id === activeTabId;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => selectTab(tab.id)}
-              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-1.5 text-m-body press transition-colors"
-              style={{
-                backgroundColor: isActive ? "var(--color-paper)" : "transparent",
-                color: isActive ? "var(--color-ink-950)" : "var(--color-ink-500)",
-                boxShadow: isActive ? "0 1px 2px rgba(0,0,0,0.08)" : "none",
-              }}
-            >
-              <span className="text-m-body leading-none">{tab.icon}</span>
-              <span className="text-m-label font-semibold">{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* ── Toggle tabs — transparent text tabs with sliding underline ── */}
+      <RegisterTabs
+        tabs={tabs.map((t) => ({ value: t.id, label: t.label }))}
+        value={activeTabId}
+        onChange={selectTab}
+        sticky={false}
+      />
 
       {/* ── Quick actions grid ── */}
       {editMode ? (

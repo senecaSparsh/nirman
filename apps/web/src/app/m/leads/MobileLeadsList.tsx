@@ -105,6 +105,7 @@ export function MobileLeadsList({
   newLeadProjects,
   newLeadUnits,
   newLeadAssignees,
+  initialStage,
 }: {
   items: LeadListItem[];
   hotCount: number;
@@ -121,11 +122,18 @@ export function MobileLeadsList({
   newLeadProjects?: { id: string; name: string }[];
   newLeadUnits?: { id: string; projectId: string; projectName: string; label: string }[];
   newLeadAssignees?: { id: string; name: string }[];
+  /** Deep-linked stage filter (e.g. /m/leads?stage=NEGOTIATION from the
+      home funnel). Anything that isn't a real stage falls back to ALL. */
+  initialStage?: string | null;
 }) {
   const fab = useFabModal();
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [stageFilter, setStageFilter] = useState<StageFilter>("ALL");
+  const [stageFilter, setStageFilter] = useState<StageFilter>(() =>
+    FILTER_OPTIONS.some((o) => o.value === initialStage)
+      ? (initialStage as StageFilter)
+      : "ALL",
+  );
 
   const { items, loading, hasMore, loadMore } = usePaginatedList<LeadListItem>(
     initialItems,

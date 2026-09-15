@@ -52,9 +52,12 @@ async function MobileReportsContent() {
       where: { assetSale: { companyId: company.id }, status: "RECEIVED" },
       select: { amount: true },
     }),
-    prisma.projectCost.findMany({
-      where: {...await scopeWhere("ProjectCost"),  project: { companyId: company.id } },
-      select: { amount: true },
+    // Project.totalProjectCost is the aggregate cache (material issues +
+    // purchases + ProjectCost rows via reallocateProjectCosts) — ProjectCost
+    // rows alone are only explicit/manual costs and would under-report.
+    prisma.project.findMany({
+      where: {...await scopeWhere("Project"),  companyId: company.id, deletedAt: null },
+      select: { totalProjectCost: true },
     }),
     prisma.expense.findMany({
       where: {...await scopeWhere("Expense"),  companyId: company.id },
@@ -67,7 +70,7 @@ async function MobileReportsContent() {
   const salesBooked = sales.reduce((s, sale) => s + toNum(sale.salePrice), 0);
   const purchaseSpend = purchaseOrders.reduce((s, p) => s + toNum(p.total), 0);
   const totalReceived = pendingPayments.reduce((s, p) => s + toNum(p.amount), 0);
-  const totalProjectCosts = projectCosts.reduce((s, c) => s + toNum(c.amount), 0);
+  const totalProjectCosts = projectCosts.reduce((s, c) => s + toNum(c.totalProjectCost), 0);
   const totalExpenses = expenses.reduce((s, e) => s + toNum(e.amount), 0);
 
   const allZero =

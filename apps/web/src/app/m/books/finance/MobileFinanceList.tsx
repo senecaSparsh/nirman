@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Wallet, Building2, FileText, Printer } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Wallet, Building2, FileText, Printer, CheckCircle2, XCircle, IndianRupee } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { MobileSectionTitle, MobileRow, MobileEmptyState } from "@/components/mobile/v2/primitives";
@@ -29,6 +31,7 @@ export type SupplierInvoiceListItem = {
   id: string;
   invoiceNumber: string;
   supplierName: string;
+  supplierId: string;
   poNumber: string | null;
   invoiceDate: string;
   dueDate: string | null;
@@ -63,6 +66,7 @@ export function MobileFinanceList({
   exportSummary,
   supplierInvoices = [],
   invoiceExportRows,
+  canManageInvoices = false,
 }: {
   expenses: ExpenseListItem[];
   projectCosts: ProjectCostListItem[];
@@ -72,9 +76,33 @@ export function MobileFinanceList({
   exportSummary?: string;
   supplierInvoices?: SupplierInvoiceListItem[];
   invoiceExportRows?: Record<string, unknown>[];
+  canManageInvoices?: boolean;
 }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<FinanceTab>("expenses");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [acting, setActing] = useState(false);
+
+  async function invoiceAction(id: string, action: "approve" | "reject") {
+    setActing(true);
+    try {
+      const res = await fetch(`/api/supplier-invoices/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Action failed");
+      toast.success(action === "approve" ? "Invoice approved" : "Invoice disputed");
+      setExpandedId(null);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Action failed");
+    } finally {
+      setActing(false);
+    }
+  }
 
   const filteredExpenses = useMemo(() => {
     if (!query.trim()) return expenses;
@@ -191,46 +219,92 @@ export function MobileFinanceList({
               {filteredInvoices.map((inv) => {
                 const style = INVOICE_STATUS_STYLE[inv.status] ?? INVOICE_STATUS_STYLE.PENDING!;
                 const isOverdue = inv.dueDate && inv.status === "PENDING" && new Date(inv.dueDate) < new Date();
+                const expanded = expandedId === inv.id;
+                const canAct = canManageInvoices && !acting;
                 return (
-                  <a
+                  <div
                     key={inv.id}
-                    href={`/print/supplier-invoice/${inv.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2.5 rounded-[0.5rem] border px-2.5 py-2 text-m-body press"
+                    className="rounded-[0.5rem] border"
                     style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
                   >
-                    <span
-                      className="grid place-items-center size-7 rounded-full shrink-0"
-                      style={{ backgroundColor: `color-mix(in srgb, ${style.color} 12%, transparent)` }}
+                    <button
+                      type="button"
+                      onClick={() => { haptic(5); setExpandedId(expanded ? null : inv.id); }}
+                      className="flex w-full items-center gap-2.5 px-2.5 py-2 text-m-body text-left press"
                     >
-                      <FileText className="size-3.5" style={{ color: style.color }} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-m-body font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
-                        {inv.invoiceNumber}
-                      </p>
-                      <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
-                        {inv.supplierName}
-                        {inv.poNumber ? ` · ${inv.poNumber}` : ""}
-                        {" · "}{formatDate(inv.invoiceDate)}
-                      </p>
-                      {isOverdue ? (
-                        <p className="text-m-caption font-semibold" style={{ color: "var(--color-stop)" }}>
-                          Overdue
+                      <span
+                        className="grid place-items-center size-7 rounded-full shrink-0"
+                        style={{ backgroundColor: `color-mix(in srgb, ${style.color} 12%, transparent)` }}
+                      >
+                        <FileText className="size-3.5" style={{ color: style.color }} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-m-body font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                          {inv.invoiceNumber}
                         </p>
-                      ) : null}
-                    </div>
-                    <div className="text-right shrink-0 flex flex-col items-end">
-                      <span className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-                        {formatCurrency(inv.totalAmount)}
-                      </span>
-                      <span className="text-m-caption font-bold uppercase" style={{ color: style.color }}>
-                        {style.label}
-                      </span>
-                    </div>
-                    <Printer className="size-3 shrink-0" style={{ color: "var(--color-brand)" }} />
-                  </a>
+                        <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
+                          {inv.supplierName}
+                          {inv.poNumber ? ` · ${inv.poNumber}` : ""}
+                          {" · "}{formatDate(inv.invoiceDate)}
+                        </p>
+                        {isOverdue ? (
+                          <p className="text-m-caption font-semibold" style={{ color: "var(--color-stop)" }}>
+                            Overdue
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="text-right shrink-0 flex flex-col items-end">
+                        <span className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                          {formatCurrency(inv.totalAmount)}
+                        </span>
+                        <span className="text-m-caption font-bold uppercase" style={{ color: style.color }}>
+                          {style.label}
+                        </span>
+                      </div>
+                    </button>
+                    {expanded ? (
+                      <div className="flex gap-2 border-t px-2.5 py-2" style={{ borderColor: "var(--color-line)" }}>
+                        {canAct && (inv.status === "PENDING" || inv.status === "MATCHED") ? (
+                          <button
+                            type="button"
+                            onClick={() => invoiceAction(inv.id, "approve")}
+                            className="flex-1 flex items-center justify-center gap-1 rounded-[0.5rem] py-2 text-m-caption font-bold press active:scale-95"
+                            style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
+                          >
+                            <CheckCircle2 className="size-3.5" /> Approve
+                          </button>
+                        ) : null}
+                        {canAct && (inv.status === "PENDING" || inv.status === "MATCHED") ? (
+                          <button
+                            type="button"
+                            onClick={() => invoiceAction(inv.id, "reject")}
+                            className="flex-1 flex items-center justify-center gap-1 rounded-[0.5rem] py-2 text-m-caption font-bold border-2 press active:scale-95"
+                            style={{ borderColor: "var(--color-stop)", color: "var(--color-stop)", backgroundColor: "var(--color-paper)" }}
+                          >
+                            <XCircle className="size-3.5" /> Dispute
+                          </button>
+                        ) : null}
+                        {canManageInvoices && (inv.status === "APPROVED" || inv.status === "MATCHED") ? (
+                          <a
+                            href={`/m/supplier-payments/new?supplier=${inv.supplierId}&invoice=${inv.id}`}
+                            className="flex-1 flex items-center justify-center gap-1 rounded-[0.5rem] py-2 text-m-caption font-bold press active:scale-95"
+                            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+                          >
+                            <IndianRupee className="size-3.5" /> Record payment
+                          </a>
+                        ) : null}
+                        <a
+                          href={`/print/supplier-invoice/${inv.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 flex items-center justify-center gap-1 rounded-[0.5rem] py-2 text-m-caption font-bold border-2 press active:scale-95"
+                          style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
+                        >
+                          <Printer className="size-3.5" /> Print
+                        </a>
+                      </div>
+                    ) : null}
+                  </div>
                 );
               })}
             </div>

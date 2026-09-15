@@ -376,7 +376,7 @@ export function SellAssetDialog({
                 wbsNodeId: item.wbsNodeId || null,
               })),
             }
-          : null,
+          : undefined,
       };
 
       if (form.assetType === "LAND") payload.landParcelId = form.assetId;

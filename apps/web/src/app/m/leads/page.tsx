@@ -9,10 +9,15 @@ import { MobileLeadsList, type LeadListItem } from "./MobileLeadsList";
  * /m/leads — mobile lead pipeline. Shows stage, priority and follow-up
  * info so sales reps and managers can triage who to call next.
  */
-export default function MobileLeadsPage() {
+export default function MobileLeadsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ stage?: string }>;
+}) {
   return (
     <MobileListPage perm={PERM.SALES_VIEW} managePerm={PERM.SALE_CREATE} what="leads" permission="sales.view">
       {async ({ company, canManage }) => {
+        const { stage } = await searchParams;
         const actions = await getActionPermissions();
         const canCreate = actions?.canCreateLead ?? canManage;
         const BATCH_SIZE = 40;
@@ -108,6 +113,7 @@ export default function MobileLeadsPage() {
         return (
           <div>
             <MobileLeadsList
+              initialStage={stage ?? null}
               items={rows}
               hotCount={hotCount}
               bookedCount={bookedCount}

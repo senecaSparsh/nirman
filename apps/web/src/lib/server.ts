@@ -843,7 +843,7 @@ export const sellAssetSchema = z.object({
   homeLoanSanctionNo: z.string().max(200).optional().nullable(),
   homeLoanSanctionDate: z.string().optional().nullable(),
   // Deal terms
-  dealMaturityMonths: z.coerce.number().int().positive().optional().nullable(),
+  dealMaturityMonths: z.coerce.number().int().positive().max(600).optional().nullable(),
   paymentCycle: z.string().max(500).optional().nullable(),
   // Sale expenses
   expenses: z.array(z.object({
@@ -963,6 +963,10 @@ export const completeSaleSchema = z.object({
   // Registry document upload
   registryDocumentUrl: z.string().optional().nullable(),
   registryDocumentName: z.string().optional().nullable(),
+  atsDocumentUrl: z.string().optional().nullable(),
+  atsDocumentName: z.string().optional().nullable(),
+  bbaDocumentUrl: z.string().optional().nullable(),
+  bbaDocumentName: z.string().optional().nullable(),
 });
 
 // ── Material Sales ──

@@ -73,6 +73,7 @@ export function MobileAttendanceList({
   exportRows,
   exportColumns,
   exportSummary,
+  initialProject,
 }: {
   items: AttendanceListItem[];
   projects?: ProjectOption[];
@@ -80,12 +81,19 @@ export function MobileAttendanceList({
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
   exportSummary?: string;
+  /** Deep-linked project filter (e.g. /m/attendance?projectId=… from the
+      home muster ring). Applied to the project filter on mount. */
+  initialProject?: string | null;
 }) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] =
     useState<AttendanceStatusFilter>("ALL");
   const [dateFilter, setDateFilter] = useState("");
-  const [projectFilter, setProjectFilter] = useState("");
+  const [projectFilter, setProjectFilter] = useState(() =>
+    initialProject && projects.some((p) => p.id === initialProject)
+      ? initialProject
+      : "",
+  );
 
   const filtered = useMemo(() => {
     let result = items;

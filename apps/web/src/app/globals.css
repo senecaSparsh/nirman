@@ -1157,6 +1157,38 @@ input[type="number"] {
   }
 }
 
+/* ── Persona signature — entrance for the per-role home components.
+   The shell rises once; its rows stagger in behind it. Transform+opacity
+   only, and `both` so the pre-delay state is the "from" frame rather than
+   a flash of the settled position. Stagger stays ≤ 40ms/row (Emil: long
+   stagger reads as slow), and nothing here blocks interaction. ── */
+@utility sig-in {
+  animation: sig-in 300ms var(--ease-out) both;
+}
+@keyframes sig-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@utility sig-row {
+  animation: sig-row 260ms var(--ease-out) both;
+}
+@keyframes sig-row {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ── Hide scrollbar on horizontal chip rows. ── */
 @utility scrollbar-hide {
   -ms-overflow-style: none;
@@ -1612,7 +1644,9 @@ input[type="number"] {
   .fade-in,
   .press,
   .sheet-in,
-  .sheet-out {
+  .sheet-out,
+  .sig-in,
+  .sig-row {
     animation-duration: 200ms !important;
     transition-property:
       opacity, color, background-color, border-color !important;

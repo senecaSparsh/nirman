@@ -29,6 +29,8 @@ import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobileReceiveDialog } from "./MobileReceiveDialog";
+import { MobileGrnBillButton } from "./MobileGrnBillButton";
+import { MobileGrnInspectButton } from "./MobileGrnInspectButton";
 
 /**
  * /m/procurement/[id] — PO detail with lines, totals, receipts, and inline
@@ -99,6 +101,7 @@ export default function MobilePoDetailPage({
         const canApprove = hasPermission(role, PERM.PO_APPROVE) &&
           (po.createdById !== currentUserId || canAutoApprove(role));
         const canManagePayments = hasPermission(role, PERM.FINANCE_MANAGE);
+        const canInspect = hasPermission(role, PERM.QC_MANAGE);
         const canReceive = hasPermission(role, PERM.PROCUREMENT_VIEW);
         const isReceivable = po.status === "ORDERED" || po.status === "PARTIAL";
 
@@ -580,15 +583,19 @@ export default function MobilePoDetailPage({
                         <p className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-steel)" }}>
                           {formatNumber(r.qty, 0)} units
                         </p>
-                        <a
-                          href={`/print/goods-receipt/${r.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="mt-1 inline-flex items-center gap-1 text-m-caption font-semibold rounded px-1.5 py-0.5"
-                          style={{ color: "var(--color-ink-700)", backgroundColor: "var(--color-paper-2)" }}
-                        >
-                          Print GRN
-                        </a>
+                        <div className="mt-1 flex gap-1.5">
+                          <a
+                            href={`/print/goods-receipt/${r.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-m-caption font-semibold rounded px-1.5 py-0.5"
+                            style={{ color: "var(--color-ink-700)", backgroundColor: "var(--color-paper-2)" }}
+                          >
+                            Print GRN
+                          </a>
+                          {canManagePayments ? <MobileGrnBillButton goodsReceiptId={r.id} /> : null}
+                          {canInspect && r.inspectionStatus === "PENDING" ? <MobileGrnInspectButton goodsReceiptId={r.id} /> : null}
+                        </div>
                       </div>
                     );
                   })

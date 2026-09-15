@@ -31,6 +31,7 @@ async function MobileFinanceContent() {
   const company = await getCompany();
   const canCreateExpense = hasPermission(role, PERM.EXPENSE_CREATE);
   const canCreateProjectCost = hasPermission(role, PERM.FINANCE_MANAGE);
+  const canManageInvoices = hasPermission(role, PERM.FINANCE_MANAGE);
 
   const [expenses, projectCosts, projects, subcontractors, supplierInvoices] = await Promise.all([
     prisma.expense.findMany({
@@ -64,7 +65,7 @@ async function MobileFinanceContent() {
       orderBy: { invoiceDate: "desc" },
       take: 30,
       include: {
-        supplier: { select: { name: true } },
+        supplier: { select: { id: true, name: true } },
         purchaseOrder: { select: { poNumber: true } },
       },
     }),
@@ -95,6 +96,7 @@ async function MobileFinanceContent() {
     id: inv.id,
     invoiceNumber: inv.invoiceNumber,
     supplierName: inv.supplier.name,
+    supplierId: inv.supplier.id,
     poNumber: inv.purchaseOrder?.poNumber ?? null,
     invoiceDate: inv.invoiceDate.toISOString(),
     dueDate: inv.dueDate?.toISOString() ?? null,
@@ -141,6 +143,7 @@ async function MobileFinanceContent() {
           exportSummary={`${expenses.length} expenses · ${projectCosts.length} project costs`}
           supplierInvoices={invoiceItems}
           invoiceExportRows={invoiceExportRows}
+          canManageInvoices={canManageInvoices}
         />
       )}
 

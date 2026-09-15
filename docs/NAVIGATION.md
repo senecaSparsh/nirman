@@ -257,19 +257,20 @@ Everything below is _derived_, never re-declared:
 
 ### 3.3 The four layers (and only four)
 
-**1. Bottom tab bar — 4 destinations. No Search tab, no More tab.**
+**1. Bottom tab bar — 4 destinations (5 for executive). No Search tab, no More tab.**
 Freed by moving Search _and_ the menu into the header. Tab hrefs must be plain
-pathnames (no `?tab=`), which is what fixes D4 structurally.
+pathnames (no `?tab=`), which is what fixes D4 structurally. Executive gets a
+fifth slot — the owner explicitly asked for a dedicated Expenses tab.
 
-| Persona     | Tab 1 | Tab 2     | Tab 3      | Tab 4     |
-| ----------- | ----- | --------- | ---------- | --------- |
-| executive   | Home  | Inventory | People     | Books     |
-| ops         | Home  | Inventory | Stock      | Site      |
-| procurement | Home  | POs       | Stock      | Suppliers |
-| field       | Site  | Tasks     | DPR        | Stock     |
-| sales       | Home  | Sales     | Customers  | Leads     |
-| finance     | Home  | Books     | Reports    | Expenses  |
-| hr          | Home  | People    | Attendance | DPR       |
+| Persona     | Tab 1 | Tab 2     | Tab 3      | Tab 4     | Tab 5    |
+| ----------- | ----- | --------- | ---------- | --------- | -------- |
+| executive   | Home  | Inventory | People     | Books     | Expenses |
+| ops         | Home  | Inventory | Stock      | Site      |          |
+| procurement | Home  | POs       | Stock      | Suppliers |          |
+| field       | Site  | Tasks     | DPR        | Stock     |          |
+| sales       | Home  | Sales     | Customers  | Leads     |          |
+| finance     | Home  | Books     | Reports    | Expenses  |          |
+| hr          | Home  | People    | Attendance | DPR       |          |
 
 _(Draft — §7 Q1 asks whether to validate these against real usage before locking.)_
 
@@ -377,9 +378,10 @@ nothing in `route-manifest.ts` changes.
   shell already fetches `/api/me`, so this costs no extra round-trip.
 - `canAccess(route, permissions)` gates the menu, the tab bar **and search** —
   search included, or search becomes a way to walk into a 403.
-- `tabsFor(ctx)` takes the persona's four preferred tabs, drops any the user
-  cannot access, and backfills from a global priority list ending in four
-  universal routes — so **every user gets exactly four valid tabs**, however
+- `tabsFor(ctx)` takes the persona's preferred tabs, drops any the user
+  cannot access, and backfills from a global priority list ending in
+  universal routes — so **every user gets exactly their persona's slot count
+  of valid tabs** (four for most personas, five for executive), however
   narrow their grants. Prominence is deliberately _stable_: an unrelated grant
   must not rearrange the bar under the user's thumb (guard G7).
 - `menuFor(ctx)` returns every accessible route grouped by module, with
@@ -475,7 +477,7 @@ Observed behaviour after the fix:
 | `STORE_KEEPER`                  | Home / POs / Stock / Suppliers               | 46          |
 | `STORE_KEEPER` + `finance.view` | Home / POs / Stock / Suppliers _(unchanged)_ | 71          |
 | `SITE_ENGINEER`                 | Home / Field Dashboard / DPRs / Stock        | 62          |
-| `OWNER`                         | Home / Inventory / HR / Accounts             | 104         |
+| `OWNER`                         | Home / Inventory / HR / Accounts / Expenses  | 104         |
 
 The third row is the point: one extra grant widens what they can reach by 25
 routes without disturbing the tab bar under their thumb.

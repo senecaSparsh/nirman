@@ -47,6 +47,11 @@ function accessibleExtraActions(
     if (EXCLUDED_KINDS.has(r.kind)) continue;
     if (r.hidden) continue;
     if (!canAccess(r, permissions)) continue;
+    // Never offer the module's own hub — a quick action that links to
+    // the page you're already on is a dead tap. Same for routes that
+    // redirect back onto it (e.g. a legacy hub path).
+    if (r.path === `/m/${module}`) continue;
+    if (r.redirectTo && r.redirectTo.split("?")[0] === `/m/${module}`) continue;
     // Skip routes already in the curated catalog (matched by href prefix,
     // since catalog hrefs may have query params like /m/procurement?tab=indents).
     const basePath = r.path;
