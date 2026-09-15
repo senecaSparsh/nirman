@@ -252,10 +252,12 @@ describe("verifyTwilioSignature", () => {
 
   it("rejects when no auth token is configured in production", () => {
     const saved = process.env.TWILIO_AUTH_TOKEN;
+    const savedEnv = process.env.NODE_ENV;
     delete process.env.TWILIO_AUTH_TOKEN;
-    process.env.NODE_ENV = "production";
+    (process.env as Record<string, string>).NODE_ENV = "production";
     const { req, rawBody } = signedRequest(PARAMS);
     expect(verifyTwilioSignature(req, rawBody)).toBe(false);
     process.env.TWILIO_AUTH_TOKEN = saved;
+    (process.env as Record<string, string>).NODE_ENV = savedEnv ?? "test";
   });
 });

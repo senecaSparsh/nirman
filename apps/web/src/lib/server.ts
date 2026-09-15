@@ -2,6 +2,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { prisma } from "@nirman/db";
 import { z } from "zod";
 import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import {
   normalizeRole,
@@ -86,10 +87,14 @@ export async function getCompany() {
   // ── Fail closed: no company resolution without authentication ──
   // Without an authenticated user (and not in dev-bypass), we must NOT
   // resolve an arbitrary company from a cookie, and we must NOT create one
-  // as a side effect of a GET. Throw so the caller surfaces a 401 instead
-  // of silently operating on the wrong tenant.
+  // as a side effect of a GET. Redirect to sign-in: middleware only checks
+  // session-cookie *presence*, so a stale cookie (expired session, DB reset)
+  // reaches here — the user must land on /sign-in, not a 500 error boundary.
+  // API routes never reach this branch: apiHandler's getSession() gate
+  // returns 401 first. If one ever does, NEXT_REDIRECT is caught by
+  // apiHandler's error mapping and still surfaces as a JSON error.
   if (!user && !isDevBypass) {
-    throw new Error("getCompany() called without an authenticated user");
+    redirect("/sign-in");
   }
 
   if (selectedId && user) {
