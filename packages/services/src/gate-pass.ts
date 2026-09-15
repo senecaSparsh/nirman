@@ -266,7 +266,18 @@ export async function approveGatePass(id: string, approverId: string, notes?: st
       await executeMaterialSale(result.updated.refId, approverId);
     } else if (result.updated.refType === "StockTransfer" && result.updated.refId) {
       const { dispatchTransfer } = await import("./transfer");
-      await dispatchTransfer(result.updated.refId, approverId);
+      // Carry the gate pass's transport details onto the transfer — the mobile
+      // dispatch dialog marks these mandatory, so an auto-dispatch must not
+      // leave them "Not specified". GP fields win over the transfer's own
+      // create-time values (the GP reflects what's actually at the gate).
+      const gp = result.updated;
+      await dispatchTransfer(result.updated.refId, approverId, {
+        vehicleType: gp.vehicleType ?? undefined,
+        vehicleNumber: gp.vehicleNumber ?? undefined,
+        driverName: gp.driverName ?? undefined,
+        driverPhone: gp.driverPhone ?? undefined,
+        transporterName: gp.transporterName ?? undefined,
+      });
     }
   } catch (err) {
     // The gate pass is still approved even if auto-execution fails — but the

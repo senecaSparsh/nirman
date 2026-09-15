@@ -391,6 +391,12 @@ export function MobileStockOutClient({
           freight: freight ? Number(freight) : undefined,
           handlingFee: handlingFee ? Number(handlingFee) : undefined,
           markupPct: markupPct ? Number(markupPct) : undefined,
+          // Vehicle / transport — carried to the gate pass and the dispatch.
+          vehicleType: vehicle.vehicleType || undefined,
+          vehicleNumber: vehicle.vehicleNumber.trim() || undefined,
+          driverName: vehicle.driverName,
+          driverPhone: vehicle.driverPhone,
+          transporterName: vehicle.transporterName || undefined,
           lines: validLines.map((l) => ({
             materialId: l.materialId, qty: Number(l.qty),
             lotNumber: l.lotNumber.trim() || null,
@@ -938,25 +944,27 @@ export function MobileStockOutClient({
                   </div>
                 </div>
               </div>
-
-              {/* ══════ SECTION: VEHICLE ══════ */}
-              <div
-                className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-              >
-                <div
-                  className="flex items-center gap-1.5 border-b pb-2"
-                  style={{ borderColor: "var(--color-line)" }}
-                >
-                  <Truck className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
-                  <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-700)" }}>
-                    Vehicle / Carrier
-                  </span>
-                </div>
-                <VehicleCapture value={vehicle} onChange={setVehicle} compact />
-              </div>
             </>
           ) : null}
+
+          {/* ══════ SECTION: VEHICLE — any goods leaving the gate (issue or
+              transfer) should record the carrier so the gate pass shows it
+              and the dispatch isn't "Not specified". ══════ */}
+          <div
+            className="rounded-[0.625rem] border p-3 flex flex-col gap-3"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          >
+            <div
+              className="flex items-center gap-1.5 border-b pb-2"
+              style={{ borderColor: "var(--color-line)" }}
+            >
+              <Truck className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
+              <span className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-700)" }}>
+                Vehicle / Carrier
+              </span>
+            </div>
+            <VehicleCapture value={vehicle} onChange={setVehicle} compact />
+          </div>
 
           {/* ══════ SECTION: ITEMS ══════ */}
           <div

@@ -72,6 +72,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
       freight: parsed.data.freight,
       handlingFee: parsed.data.handlingFee,
       markupPct: parsed.data.markupPct,
+      vehicleType: parsed.data.vehicleType,
+      vehicleNumber: parsed.data.vehicleNumber,
+      driverName: parsed.data.driverName,
+      driverPhone: parsed.data.driverPhone,
+      transporterName: parsed.data.transporterName,
+      referenceNo: parsed.data.referenceNo ?? undefined,
+      ewayBillNo: parsed.data.ewayBillNo ?? undefined,
       lines: parsed.data.lines,
       userId: user.id,
     });

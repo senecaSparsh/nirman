@@ -553,6 +553,15 @@ export const transferSchema = z.object({
   freight: z.coerce.number().min(0).optional(),
   handlingFee: z.coerce.number().min(0).optional(),
   markupPct: z.coerce.number().min(0).max(100).optional(),
+  // Vehicle / transport — captured at creation, carried onto the auto-created
+  // gate pass and written back to the transfer on dispatch.
+  vehicleType: z.string().max(50).optional(),
+  vehicleNumber: z.string().max(50).optional(),
+  driverName: z.string().max(100).optional(),
+  driverPhone: z.string().max(20).optional(),
+  transporterName: z.string().max(100).optional(),
+  referenceNo: z.string().max(100).optional(),
+  ewayBillNo: z.string().max(100).optional(),
   lines: z.array(transferLineSchema).min(1, "At least one line is required"),
 });
 

@@ -153,7 +153,10 @@ interface CreateTransferInput {
   /** Transport / dispatch details */
   referenceNo?: string;
   ewayBillNo?: string;
+  vehicleType?: string;
   vehicleNumber?: string;
+  driverName?: string;
+  driverPhone?: string;
   transporterName?: string;
   lines: {
     materialId: string;
@@ -210,7 +213,10 @@ export async function createTransfer(input: CreateTransferInput) {
         markupPct,
         referenceNo: input.referenceNo ?? null,
         ewayBillNo: input.ewayBillNo ?? null,
+        vehicleType: input.vehicleType ?? null,
         vehicleNumber: input.vehicleNumber ?? null,
+        driverName: input.driverName ?? null,
+        driverPhone: input.driverPhone ?? null,
         transporterName: input.transporterName ?? null,
         lines: {
           create: input.lines.map((l) => ({
@@ -239,7 +245,9 @@ export async function createTransfer(input: CreateTransferInput) {
       });
     }
 
-    // Auto-create a gate pass (PENDING) for the outbound items
+    // Auto-create a gate pass (PENDING) for the outbound items — carry the
+    // vehicle/transporter the transfer captured so the gate guard sees what's
+    // leaving and the approval can write them back onto the dispatch.
     await autoCreateGatePassFromRef(tx, {
       companyId: fromLoc.companyId,
       locationId: input.fromLocationId,
@@ -248,6 +256,11 @@ export async function createTransfer(input: CreateTransferInput) {
       refId: transfer.id,
       lines: input.lines.map((l) => ({ materialId: l.materialId, qty: l.qty })),
       destination: toLoc.name,
+      vehicleType: input.vehicleType ?? undefined,
+      vehicleNumber: input.vehicleNumber ?? undefined,
+      driverName: input.driverName ?? undefined,
+      driverPhone: input.driverPhone ?? undefined,
+      transporterName: input.transporterName ?? undefined,
       createdById: input.userId,
     });
 
