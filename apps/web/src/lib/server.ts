@@ -1499,7 +1499,7 @@ async function getDevBypassUser() {
   if (_devUser) return _devUser;
   // Prefer the first OWNER (full permissions); fall back to ADMIN, then any
   // user; fall back to synthetic "dev" only if the DB has no users at all.
-  const rolePriority = ["OWNER","ADMIN","DEVELOPER","PROJECT_DIRECTOR","FINANCE_HEAD","PROJECT_MANAGER","PROCUREMENT_MANAGER","HR_MANAGER","SITE_ENGINEER","STORE_KEEPER","ACCOUNTANT","SALES_MANAGER","SUPERVISOR","QAQC_ENGINEER"];
+  const rolePriority = ["OWNER","ADMIN","DEVELOPER","PROJECT_DIRECTOR","FINANCE_HEAD","PROJECT_MANAGER","PROCUREMENT_MANAGER","HR_MANAGER","SITE_ENGINEER","STORE_KEEPER","ACCOUNTANT","SALES_MANAGER","SUPERVISOR","QAQC_ENGINEER","SECURITY_GUARD"];
   let u = null;
   for (const role of rolePriority) {
     u = await prisma.user.findFirst({

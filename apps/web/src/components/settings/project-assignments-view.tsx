@@ -178,6 +178,7 @@ export function ProjectAssignmentsView({
             <Select value={fScopedRole} onChange={(e) => setFScopedRole(e.target.value)}>
               <option value="SUPERVISOR">Supervisor</option>
               <option value="QAQC_ENGINEER">QA/QC Engineer</option>
+              <option value="SECURITY_GUARD">Security Guard</option>
               <option value="SITE_ENGINEER">Site Engineer</option>
               <option value="STORE_KEEPER">Store Keeper</option>
               <option value="SALES_MANAGER">Sales Manager</option>

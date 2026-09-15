@@ -7,7 +7,7 @@
  * Tier 2 — Senior Mgmt:   PROJECT_DIRECTOR, FINANCE_HEAD
  * Tier 3 — Middle Mgmt:   PROJECT_MANAGER, PROCUREMENT_MANAGER, HR_MANAGER
  * Tier 4 — Execution:     SITE_ENGINEER, STORE_KEEPER, ACCOUNTANT, SALES_MANAGER
- * Tier 5 — Field:         SUPERVISOR, QAQC_ENGINEER
+ * Tier 5 — Field:         SUPERVISOR, QAQC_ENGINEER, SECURITY_GUARD
  *
  * Permission model: each module has a `*.view` (read) and
  * `*.manage` (write) permission, plus approval / high-impact actions.
@@ -32,7 +32,8 @@ export type Role =
   | "ACCOUNTANT"
   | "SALES_MANAGER"
   | "SUPERVISOR"
-  | "QAQC_ENGINEER";
+  | "QAQC_ENGINEER"
+  | "SECURITY_GUARD";
 
 export const ALL_ROLES: Role[] = [
   "OWNER",
@@ -49,6 +50,7 @@ export const ALL_ROLES: Role[] = [
   "SALES_MANAGER",
   "SUPERVISOR",
   "QAQC_ENGINEER",
+  "SECURITY_GUARD",
 ];
 
 // ── 5-Tier Delegation Hierarchy ──
@@ -74,6 +76,7 @@ const ROLE_TIER: Record<Role, number> = {
   SALES_MANAGER: 4,
   SUPERVISOR: 5,
   QAQC_ENGINEER: 5,
+  SECURITY_GUARD: 5,
 };
 
 /** Numeric tier for a role (1 = top, 5 = bottom). */
@@ -692,6 +695,25 @@ export const ROLES: Record<Role, RoleDef> = {
     tier: 5,
     category: "Field",
   },
+  SECURITY_GUARD: {
+    key: "SECURITY_GUARD",
+    label: "Security Guard",
+    description: "Gate security — verifies vehicles against approved gate passes and confirms exits.",
+    permissions: [
+      PERM.PROJECTS_VIEW,
+      PERM.TASKS_VIEW,
+      PERM.GATE_PASS_VIEW, PERM.GATE_PASS_EXIT,
+      PERM.VEHICLE_VIEW,
+      PERM.SAFETY_VIEW,
+      PERM.CALL_VIEW, PERM.CALL_CREATE,
+      PERM.CLAIM_CREATE,
+    ],
+    canManageUsers: false,
+    canAssignTasks: false,
+    canManageWorkflows: false,
+    tier: 5,
+    category: "Field",
+  },
 };
 
 export const ROLE_LIST: RoleDef[] = ALL_ROLES.map((r) => ROLES[r]);
@@ -821,4 +843,5 @@ export const ROLE_META: Record<Role, { color: string; label: string; icon: strin
   SALES_MANAGER: { color: "var(--color-signal)", label: "Sales Manager", icon: "CircleDot" },
   SUPERVISOR: { color: "var(--color-signal)", label: "Supervisor", icon: "CircleDot" },
   QAQC_ENGINEER: { color: "var(--color-signal)", label: "QA/QC Engineer", icon: "CircleDot" },
+  SECURITY_GUARD: { color: "var(--color-signal)", label: "Security Guard", icon: "ShieldCheck" },
 };

@@ -98,6 +98,8 @@ export const EVERYONE = [
 ];
 /** Roles that run the business day-to-day (operations). */
 const OPS = ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "PROJECT_MANAGER", "PROCUREMENT_MANAGER", "SITE_ENGINEER", "STORE_KEEPER", "SUPERVISOR", "QAQC_ENGINEER"];
+/** Gate staff — guards need gate passes + vehicles, nothing else. */
+const GATE_STAFF = [...OPS, "SECURITY_GUARD"];
 /** Roles that touch money. */
 const BOOKS = ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "FINANCE_HEAD", "PROJECT_MANAGER", "ACCOUNTANT"];
 /** Roles that touch selling. */
@@ -405,7 +407,7 @@ export const WORLDS: World[] = [
             href: "/gate-passes",
             icon: ShieldCheck,
             hint: "Outbound gate passes — items cannot leave the gate until an authorized person approves",
-            roles: OPS,
+            roles: GATE_STAFF,
             badge: { endpoint: "/api/gate-passes?status=PENDING" },
             keywords: ["gate pass", "gate out", "exit pass", "outward", "security", "approval", "dispatch approval"],
           },
@@ -438,7 +440,7 @@ export const WORLDS: World[] = [
             href: "/vehicles",
             icon: Truck,
             hint: "Auto-built vehicle master — every goods movement (receive, issue, transfer, sale) logs a trip. Track vehicle numbers, drivers, transporters, and trip history.",
-            roles: OPS,
+            roles: GATE_STAFF,
             keywords: ["vehicle", "truck", "tempo", "pickup", "tractor", "transporter", "driver", "trip", "logistics", "transport"],
           },
           // ── Stock reports (hidden from sidebar, on /reports) ──

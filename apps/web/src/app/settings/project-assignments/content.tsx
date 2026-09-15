@@ -34,7 +34,7 @@ export async function ProjectAssignmentsContent() {
       take: 200,
       where: {
         active: true,
-        role: { in: ["SUPERVISOR", "QAQC_ENGINEER", "SALES_MANAGER", "ACCOUNTANT", "SITE_ENGINEER", "STORE_KEEPER"] },
+        role: { in: ["SUPERVISOR", "QAQC_ENGINEER", "SECURITY_GUARD", "SALES_MANAGER", "ACCOUNTANT", "SITE_ENGINEER", "STORE_KEEPER"] },
         memberships: { some: { companyId: company.id } },
       },
       select: { id: true, name: true, email: true, role: true },

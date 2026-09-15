@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
-import {Loader2, Send, Check, X, Ban, Trash2, Play, ShieldCheck} from "lucide-react";
+import {Loader2, Send, Check, X, Ban, Trash2, Play, ShieldCheck, Pencil} from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { actionPastTense, formatDate } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
@@ -143,19 +143,37 @@ export function MobileNcrDetailClient({
     }
   }
 
-  async function createCapa() {
+  const CAPA_PLACEHOLDER = /^To be determined/;
+
+  function openCapaForm() {
+    // Editing an existing (usually auto-created placeholder) CAPA pre-fills
+    // its current values so the PATCH only changes what the user typed.
+    if (ncr.capa) {
+      setCapaForm({
+        rootCause: CAPA_PLACEHOLDER.test(ncr.capa.rootCause ?? "") ? "" : ncr.capa.rootCause ?? "",
+        correctiveAction: CAPA_PLACEHOLDER.test(ncr.capa.correctiveAction ?? "") ? "" : ncr.capa.correctiveAction ?? "",
+        preventiveAction: CAPA_PLACEHOLDER.test(ncr.capa.preventiveAction ?? "") ? "" : ncr.capa.preventiveAction ?? "",
+        correctiveDueDate: ncr.capa.correctiveDueDate ? String(ncr.capa.correctiveDueDate).slice(0, 10) : "",
+        preventiveDueDate: ncr.capa.preventiveDueDate ? String(ncr.capa.preventiveDueDate).slice(0, 10) : "",
+      });
+    }
+    setShowCapa(true);
+  }
+
+  async function saveCapa() {
     if (!capaForm.rootCause.trim() || !capaForm.correctiveAction.trim() || !capaForm.preventiveAction.trim()) {
       toast.error("Root cause, corrective action, and preventive action are all required");
       return;
     }
-    setActing("create_capa");
+    const editing = !!ncr.capa;
+    setActing("save_capa");
     haptic(20);
     try {
-      const res = await fetch("/api/quality-control/capa", {
-        method: "POST",
+      const res = await fetch(editing ? `/api/quality-control/capa/${ncr.capa!.id}` : "/api/quality-control/capa", {
+        method: editing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ncrId: ncr.id,
+          ...(editing ? {} : { ncrId: ncr.id }),
           rootCause: capaForm.rootCause.trim(),
           correctiveAction: capaForm.correctiveAction.trim(),
           preventiveAction: capaForm.preventiveAction.trim(),
@@ -165,7 +183,7 @@ export function MobileNcrDetailClient({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
-      toast.success("CAPA created");
+      toast.success(editing ? "CAPA updated" : "CAPA created");
       setShowCapa(false);
       router.refresh();
     } catch (err: unknown) {
@@ -259,7 +277,7 @@ export function MobileNcrDetailClient({
       ) : ncr.status === "CAPA_REQUIRED" && canManage ? (
         <DetailAlertBanner tone="warning" title="CAPA Required" description="Create a Corrective And Preventive Action plan for this NCR.">
           <button
-            onClick={() => setShowCapa(true)}
+            onClick={openCapaForm}
             className="w-full h-10 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press mt-2"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
@@ -300,8 +318,26 @@ export function MobileNcrDetailClient({
           {/* CAPA actions */}
           {ncr.capa && (
             <>
+              {/* CAPA text is editable only in DRAFT/REJECTED (server enforces).
+                  An auto-created CAPA carries placeholders — Edit surfaces the
+                  form pre-filled; Start is gated below until real text is in. */}
+              {(ncr.capa.status === "DRAFT" || ncr.capa.status === "REJECTED") && (
+                <ActionButton onClick={openCapaForm} loading={false} icon={Pencil} label="Edit CAPA" variant="secondary" />
+              )}
               {ncr.capa.status === "DRAFT" && (
-                <ActionButton onClick={() => capaAction("start")} loading={acting === "start"} icon={Play} label="Start CAPA" variant="primary" />
+                <ActionButton
+                  onClick={() => {
+                    if (CAPA_PLACEHOLDER.test(ncr.capa!.rootCause ?? "") || CAPA_PLACEHOLDER.test(ncr.capa!.correctiveAction ?? "") || CAPA_PLACEHOLDER.test(ncr.capa!.preventiveAction ?? "")) {
+                      toast.error("Fill in the root cause and actions before starting — tap Edit CAPA");
+                      return;
+                    }
+                    capaAction("start");
+                  }}
+                  loading={acting === "start"}
+                  icon={Play}
+                  label="Start CAPA"
+                  variant="primary"
+                />
               )}
               {ncr.capa.status === "IN_PROGRESS" && !ncr.capa.correctiveDoneAt && (
                 <ActionButton onClick={() => capaAction("corrective_done")} loading={acting === "corrective_done"} icon={Check} label="Corrective Done" variant="go" />
@@ -410,7 +446,7 @@ export function MobileNcrDetailClient({
 
       {/* Create CAPA dialog */}
       {showCapa && (
-        <MobileDialog open={showCapa} onClose={() => setShowCapa(false)} title="Create CAPA">
+        <MobileDialog open={showCapa} onClose={() => setShowCapa(false)} title={ncr.capa ? "Edit CAPA" : "Create CAPA"}>
           <div className="flex flex-col gap-3">
             <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
@@ -444,9 +480,9 @@ export function MobileNcrDetailClient({
                 </div>
               </div>
             </div>
-            <button onClick={createCapa} disabled={acting === "create_capa"} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
-              {acting === "create_capa" ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
-              Create CAPA
+            <button onClick={saveCapa} disabled={acting === "save_capa"} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+              {acting === "save_capa" ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />}
+              {ncr.capa ? "Save CAPA" : "Create CAPA"}
             </button>
           </div>
         </MobileDialog>

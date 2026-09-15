@@ -52,6 +52,7 @@ const PREFERRED_PARENT_ROLE: Record<string, string | null> = {
   STORE_KEEPER: "SITE_ENGINEER",     // on-site, under the site engineer
   SUPERVISOR: "SITE_ENGINEER",
   QAQC_ENGINEER: "PROJECT_MANAGER",   // independent from site engineer
+  SECURITY_GUARD: "SITE_ENGINEER",    // gate staff report to the site engineer
 };
 
 /**

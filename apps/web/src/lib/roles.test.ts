@@ -409,8 +409,8 @@ describe("APPROVER_ROLES", () => {
 // ─────────────────────────────────────────────────────────────────
 
 describe("ALL_ROLES", () => {
-  it("has 14 roles", () => {
-    expect(ALL_ROLES).toHaveLength(14);
+  it("has 15 roles", () => {
+    expect(ALL_ROLES).toHaveLength(15);
   });
 
   it("includes DEVELOPER", () => {

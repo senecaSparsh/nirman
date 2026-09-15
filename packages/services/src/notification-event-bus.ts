@@ -685,6 +685,7 @@ export function shouldRoleReceiveEvent(role: string, eventType: NotificationEven
   if (role === "SALES_MANAGER") return SALES_EVENTS.has(eventType) || LAND_EVENTS.has(eventType);
   if (role === "ACCOUNTANT") return FINANCE_EVENTS.has(eventType) || SALES_EVENTS.has(eventType) || LAND_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType);
   if (role === "STORE_KEEPER") return PROCUREMENT_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType) || GATE_PASS_EVENTS.has(eventType);
+  if (role === "SECURITY_GUARD") return GATE_PASS_EVENTS.has(eventType);
   return false;
 }
 

@@ -36,6 +36,7 @@ const ROLE_RANK: Record<string, number> = {
   ACCOUNTANT: 0,
   SITE_ENGINEER: 0,
   STORE_KEEPER: 0,
+  SECURITY_GUARD: 0,
   // Tier 3 — Middle Mgmt: can approve low-value POs (< manager threshold)
   PROJECT_MANAGER: 1,
   PROCUREMENT_MANAGER: 1,

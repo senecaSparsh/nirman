@@ -543,6 +543,13 @@ export async function startCapa(id: string, userId: string) {
     if (capa.status !== "DRAFT" && capa.status !== "REJECTED") {
       throw new ServiceError(`Cannot start CAPA in ${capa.status} status`, 400);
     }
+    // An auto-created CAPA carries "To be determined" placeholders — block
+    // starting until the real plan is written, or the record goes through
+    // its whole lifecycle empty.
+    const placeholder = /^To be determined/;
+    if (placeholder.test(capa.rootCause) || placeholder.test(capa.correctiveAction) || placeholder.test(capa.preventiveAction)) {
+      throw new ServiceError("Fill in the root cause, corrective action, and preventive action before starting the CAPA", 400);
+    }
     const updated = await tx.capa.update({ where: { id }, data: { status: "IN_PROGRESS" } });
     await logAction(tx, { userId, action: "CAPA_START", entityType: "Capa", entityId: id, after: { capaNumber: capa.capaNumber, status: "IN_PROGRESS" } });
     return updated;

@@ -53,11 +53,13 @@ const ROLE_LABELS: Record<string, string> = {
   SALES_MANAGER: "Sales Mgr",
   SUPERVISOR: "Supervisor",
   QAQC_ENGINEER: "QA/QC Engineer",
+  SECURITY_GUARD: "Security Guard",
 };
 
 const SCOPED_ROLE_OPTIONS = [
   { value: "SUPERVISOR", label: "Supervisor" },
   { value: "QAQC_ENGINEER", label: "QA/QC Engineer" },
+  { value: "SECURITY_GUARD", label: "Security Guard" },
   { value: "SITE_ENGINEER", label: "Site Engineer" },
   { value: "STORE_KEEPER", label: "Store Keeper" },
   { value: "SALES_MANAGER", label: "Sales Manager" },

@@ -67,6 +67,7 @@ export function roleToPersona(role: string): Persona {
     case "SITE_ENGINEER":
     case "SUPERVISOR":
     case "QAQC_ENGINEER":
+    case "SECURITY_GUARD":
       return "field";
     case "SALES_MANAGER":
       return "sales";

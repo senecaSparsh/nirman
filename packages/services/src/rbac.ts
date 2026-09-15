@@ -58,6 +58,7 @@ export function defaultScopeType(role: string): ScopeType {
     case "STORE_KEEPER":
     case "SUPERVISOR":
     case "QAQC_ENGINEER":
+    case "SECURITY_GUARD":
       return "PROJECT"; // field/execution roles are project-scoped
     case "ACCOUNTANT":
     case "SALES_MANAGER":
@@ -243,6 +244,7 @@ const SVC_ROLE_TIER: Record<string, number> = {
   SALES_MANAGER: 4,
   SUPERVISOR: 5,
   QAQC_ENGINEER: 5,
+  SECURITY_GUARD: 5,
 };
 
 function svcRoleTier(role: string): number {

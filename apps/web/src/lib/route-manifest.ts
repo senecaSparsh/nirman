@@ -253,6 +253,7 @@ export const ROUTES: RouteEntry[] = [
   { path: "/m/portal-listings", title: "Portal Listings", parent: "/m/inventory", kind: "list", module: "inventory", perm: "sales.view", icon: Globe, hint: "99acres, MagicBricks sync", personas: ["executive", "ops", "sales"] },
   { path: "/m/portal-listings/[id]", title: "Portal Listing", parent: "/m/portal-listings", kind: "detail", module: "inventory", icon: Globe },
   { path: "/m/portal-listings/new", title: "New Portal Listing", parent: "/m/portal-listings", kind: "create", module: "inventory", perm: "sales.manage", icon: Globe },
+  { path: "/m/print/[type]/[id]", title: "Document", parent: "/m/home", kind: "tool", module: "home", icon: FileText, hidden: true },
   { path: "/m/procurement", title: "Procurement", parent: "/m/inventory", kind: "hub", module: "inventory", perm: "procurement.view", icon: FileText, hint: "What you've ordered, from whom, and what's still to arrive at site", flowId: "procurement", desktopPath: "/procurement", personas: ["executive", "ops", "procurement", "field"], keywords: ["po", "order", "buy", "procure", "procurement", "purchase order"], badge: { endpoint: "/api/purchase-orders?status=DRAFT" } },
   { path: "/m/procurement/[id]", title: "Purchase Order", parent: "/m/procurement", kind: "detail", module: "inventory", perm: "procurement.view", icon: FileText, flowId: "procurement" },
   { path: "/m/procurement/new", title: "New Purchase Order", parent: "/m/procurement", kind: "create", module: "inventory", perm: "procurement.manage", icon: FileText },

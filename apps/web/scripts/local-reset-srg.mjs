@@ -1,6 +1,6 @@
 /**
  * local-reset-srg.mjs — LOCAL DEV ONLY. Wipes ALL data from the database
- * and creates the 7 SRG REALCON team member accounts with a shared dev
+ * and creates the 8 SRG REALCON team member accounts with a shared dev
  * password ("nirman123") so the one-click quick-login buttons work
  * seamlessly.
  *
@@ -11,12 +11,12 @@
  *     gone: companies, users, projects, stock, sales, etc. This is a
  *     full reset. Use only on a local dev database.
  *  2. Creates the "SRG REALCON" company.
- *  3. Creates 7 users with RBAC roles + phone-based login (phoneNormalized).
- *  4. Creates 7 UserCompany memberships with reportsTo hierarchy wiring.
- *  5. Creates 7 credential Accounts (scrypt-hashed, shared password
+ *  3. Creates 8 users with RBAC roles + phone-based login (phoneNormalized).
+ *  4. Creates 8 UserCompany memberships with reportsTo hierarchy wiring.
+ *  5. Creates 8 credential Accounts (scrypt-hashed, shared password
  *     "nirman123" — same as the demo-login endpoint).
- *  6. Creates 7 Employee records with hierarchyLevel (H1–H4).
- *  7. Creates 7 CompanyPhone records + 7 PhoneAssignment records.
+ *  6. Creates 8 Employee records with hierarchyLevel (H1–H4).
+ *  7. Creates 8 CompanyPhone records + 8 PhoneAssignment records.
  *
  *  HIERARCHY:
  *    H1  Vardaan Kumar   OWNER              7017988293  reportsTo: null
@@ -26,6 +26,7 @@
  *    H3  Raviraj Singh   PROCUREMENT_MGR    9520002752  reportsTo: Vardaan
  *    H4  Mani Singh      SALES_MANAGER      7302920203  reportsTo: Manish
  *    H4  Yash Saxena     SITE_ENGINEER      7302920205  reportsTo: Anurag
+ *    H4  Ramesh Guard    SECURITY_GUARD     7302920206  reportsTo: Yash
  *
  *  PASSWORD: "nirman123" for ALL accounts (shared dev password — matches
  *  the demo-login endpoint so quick-login buttons just work).
@@ -129,6 +130,16 @@ const USERS = [
     phone: "7302920205",
     reportsTo: "anurag",
     department: "Construction",
+  },
+  {
+    key: "ramesh",
+    name: "Ramesh Guard",
+    designation: "Security Guard",
+    role: "SECURITY_GUARD",
+    hierarchyLevel: 4,
+    phone: "7302920206",
+    reportsTo: "yash",
+    department: "Security",
   },
 ];
 
