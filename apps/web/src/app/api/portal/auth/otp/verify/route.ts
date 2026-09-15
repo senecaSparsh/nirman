@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
 import { ServiceError } from "@nirman/services";
 import { normalizePhone } from "@/lib/phone-otp";
-import { PORTAL_COOKIE_NAME, PORTAL_COOKIE_MAX_AGE, signPortalCookie } from "@/lib/portal-auth";
+import { PORTAL_COOKIE_NAME, PORTAL_COOKIE_MAX_AGE, PORTAL_PREAUTH_COOKIE_NAME, PORTAL_PREAUTH_MAX_AGE, signPortalCookie, signPortalPreauthToken } from "@/lib/portal-auth";
 import { json, ForbiddenError, UnauthorizedError } from "@/lib/server";
 
 /**
@@ -98,9 +98,11 @@ export const POST = async (req: NextRequest) => {
       return NextResponse.json({ error: "No account found for this phone number." }, { status: 404 });
     }
 
-    // If multiple customers, return the list for selection
+    // If multiple customers, return the list for selection.
+    // Issue a short-lived pre-auth cookie proving OTP was verified —
+    // the select endpoint requires it before issuing a session cookie.
     if (customers.length > 1) {
-      return NextResponse.json({
+      const res = NextResponse.json({
         requiresSelection: true,
         customers: customers.map((c) => ({
           id: c.id,
@@ -109,6 +111,13 @@ export const POST = async (req: NextRequest) => {
           activeBookings: c._count.assetSales,
         })),
       });
+      res.cookies.set(PORTAL_PREAUTH_COOKIE_NAME, signPortalPreauthToken(phone), {
+        httpOnly: true,
+        sameSite: "lax",
+        maxAge: PORTAL_PREAUTH_MAX_AGE,
+        path: "/",
+      });
+      return res;
     }
 
     // Single customer — set cookie and return

@@ -18,6 +18,14 @@ import { } from "@/lib/phone-otp";
 export const PORTAL_COOKIE_NAME = "nirman-portal-customer";
 export const PORTAL_COOKIE_MAX_AGE = 7 * 24 * 60 * 60; // 7 days
 
+/**
+ * Short-lived pre-auth token cookie name.
+ * Issued by otp/verify when multiple customers share a phone, consumed
+ * by the select endpoint. Proves the caller completed OTP verification.
+ */
+export const PORTAL_PREAUTH_COOKIE_NAME = "nirman-portal-preauth";
+export const PORTAL_PREAUTH_MAX_AGE = 5 * 60; // 5 minutes
+
 // Secret chain: dedicated portal secret → NextAuth secret → Better-Auth
 // secret (the one actually configured in deploys) → dev-only fallback.
 // In production there is NO safe default — a hardcoded secret would let
@@ -41,6 +49,45 @@ if (process.env.NODE_ENV === "production" && !PORTAL_SECRET) {
 export function signPortalCookie(customerId: string): string {
   const hmac = createHmac("sha256", PORTAL_SECRET).update(customerId).digest("hex");
   return `${customerId}.${hmac}`;
+}
+
+/**
+ * Sign a pre-auth token proving OTP verification was completed.
+ * The token encodes the verified phone number + expiry, signed with the
+ * portal secret. The select endpoint verifies this before issuing a
+ * session cookie.
+ */
+export function signPortalPreauthToken(phone: string): string {
+  const expiresAt = Date.now() + PORTAL_PREAUTH_MAX_AGE * 1000;
+  const payload = `${phone}.${expiresAt}`;
+  const hmac = createHmac("sha256", PORTAL_SECRET).update(payload).digest("hex");
+  return `${payload}.${hmac}`;
+}
+
+/**
+ * Verify a pre-auth token. Returns the phone number if valid and not
+ * expired, null otherwise.
+ */
+export function verifyPortalPreauthToken(token: string, expectedPhone: string): boolean {
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  const [phone, expiresAtStr, signature] = parts;
+  if (!phone || !expiresAtStr || !signature) return false;
+  if (!/^[0-9a-f]+$/i.test(signature)) return false;
+  // Check expiry
+  const expiresAt = parseInt(expiresAtStr, 10);
+  if (isNaN(expiresAt) || Date.now() > expiresAt) return false;
+  // Check phone matches
+  if (phone !== expectedPhone) return false;
+  // Verify signature
+  const payload = `${phone}.${expiresAtStr}`;
+  const expected = createHmac("sha256", PORTAL_SECRET).update(payload).digest("hex");
+  if (signature.length !== expected.length) return false;
+  try {
+    return timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+  } catch {
+    return false;
+  }
 }
 
 /**

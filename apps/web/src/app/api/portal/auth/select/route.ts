@@ -1,18 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
 import { ServiceError } from "@nirman/services";
-import { PORTAL_COOKIE_NAME, PORTAL_COOKIE_MAX_AGE, signPortalCookie } from "@/lib/portal-auth";
+import { PORTAL_COOKIE_NAME, PORTAL_COOKIE_MAX_AGE, PORTAL_PREAUTH_COOKIE_NAME, signPortalCookie, verifyPortalPreauthToken } from "@/lib/portal-auth";
 import { json, ForbiddenError, UnauthorizedError } from "@/lib/server";
+import { normalizePhone } from "@/lib/phone-otp";
 
 /**
  * POST /api/portal/auth/select — select which customer to log in as
  * (when multiple customers share the same phone number).
  *
- * Body: `{ customerId: string }`
+ * Body: `{ customerId: string, phone: string }`
+ *
+ * Security: requires a valid pre-auth cookie (issued by otp/verify when
+ * multiple customers match the phone). This proves the caller completed
+ * OTP verification before selecting a customer — prevents IDOR attacks
+ * where an attacker who knows a customer ID could impersonate them.
  */
 export const POST = async (req: NextRequest) => {
   try {
-    let body: { customerId?: string };
+    let body: { customerId?: string; phone?: string };
     try {
       body = await req.json();
     } catch {
@@ -22,14 +28,40 @@ export const POST = async (req: NextRequest) => {
     if (!body.customerId) {
       return NextResponse.json({ error: "Customer ID is required." }, { status: 400 });
     }
+    if (!body.phone?.trim()) {
+      return NextResponse.json({ error: "Phone number is required." }, { status: 400 });
+    }
 
+    // Verify the pre-auth cookie — proves OTP was completed for this phone
+    const preauthToken = req.cookies.get(PORTAL_PREAUTH_COOKIE_NAME)?.value;
+    if (!preauthToken) {
+      return NextResponse.json({ error: "OTP verification required. Please request a new code." }, { status: 401 });
+    }
+    const normalizedPhone = normalizePhone(body.phone);
+    if (!verifyPortalPreauthToken(preauthToken, normalizedPhone)) {
+      return NextResponse.json({ error: "OTP session expired. Please request a new code." }, { status: 401 });
+    }
+
+    // Look up the customer and verify their phone matches the verified phone
     const customer = await prisma.customer.findUnique({
       where: { id: body.customerId, deletedAt: null },
-      select: { id: true, name: true, company: { select: { name: true } } },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        company: { select: { name: true } },
+      },
     });
 
     if (!customer) {
       return NextResponse.json({ error: "Customer not found." }, { status: 404 });
+    }
+
+    // Verify the selected customer's phone matches the OTP-verified phone
+    const customerPhoneDigits = customer.phone?.replace(/\D/g, "").slice(-10) ?? "";
+    const verifiedPhoneDigits = normalizedPhone.slice(-10);
+    if (!customerPhoneDigits || customerPhoneDigits !== verifiedPhoneDigits) {
+      return NextResponse.json({ error: "Customer does not match the verified phone number." }, { status: 403 });
     }
 
     const res = NextResponse.json({
@@ -45,6 +77,8 @@ export const POST = async (req: NextRequest) => {
       maxAge: PORTAL_COOKIE_MAX_AGE,
       path: "/",
     });
+    // Clear the pre-auth cookie — it's single-use
+    res.cookies.delete(PORTAL_PREAUTH_COOKIE_NAME);
     return res;
   } catch (err: unknown) {
     if (err instanceof ServiceError) {

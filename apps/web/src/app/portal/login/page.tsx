@@ -71,7 +71,7 @@ export default function PortalLoginPage() {
       const res = await fetch("/api/portal/auth/select", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customerId }),
+        body: JSON.stringify({ customerId, phone }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Selection failed");
