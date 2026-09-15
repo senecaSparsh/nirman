@@ -34,6 +34,9 @@ import { SignatureShell, SignatureNote, clock, type Tone } from "./shared";
 export interface ShiftData {
   employee: { id: string; name: string } | null;
   site: { id: string; name: string } | null;
+  /** Capability flags — which steps this user can actually take. Missing
+   *  (e.g. older cached payloads) → show everything, matching old behaviour. */
+  can?: { dpr: boolean; attendanceLog: boolean };
   attendance: {
     checkIn: string | null;
     checkOut: string | null;
@@ -65,7 +68,8 @@ interface RailEvent {
   time: string | null;
   title: string;
   sub?: string;
-  href: string;
+  /** null = display-only row (no destination the user can open). */
+  href: string | null;
   done: boolean;
   tone?: Tone;
 }
@@ -75,6 +79,10 @@ export function ShiftRail({ data }: { data: ShiftData }) {
   const checkedIn = !!attendance?.checkIn;
   const checkedOut = !!attendance?.checkOut;
   const openTasks = tasks.length;
+  const canDpr = data.can?.dpr ?? true;
+  // Without crew-marking rights the check-in/out rows would link to a page
+  // the user can't open — self check-in lives in the widget above the rail.
+  const canMarkAttendance = data.can?.attendanceLog ?? true;
 
   // The day, in the order it actually happens. Deliveries and tasks sit
   // between the two attendance anchors because that is when they occur —
@@ -89,8 +97,10 @@ export function ShiftRail({ data }: { data: ShiftData }) {
     title: checkedIn ? "Checked in" : "Check in",
     sub: checkedIn
       ? (attendance?.location ?? site?.name ?? undefined)
-      : "Tap to mark attendance",
-    href: "/m/site/attendance",
+      : canMarkAttendance
+        ? "Tap to mark attendance"
+        : "Use the check-in card above",
+    href: canMarkAttendance ? "/m/site/attendance" : null,
     done: checkedIn,
   });
 
@@ -123,19 +133,21 @@ export function ShiftRail({ data }: { data: ShiftData }) {
     });
   }
 
-  events.push({
-    key: "dpr",
-    icon: ClipboardList,
-    time: null,
-    title: dpr.submitted ? "DPR filed" : "File today's DPR",
-    sub: dpr.submitted
-      ? (dpr.status ?? "Submitted").toLowerCase().replace(/_/g, " ")
-      : site
-        ? site.name
-        : "Daily progress report",
-    href: dpr.submitted && dpr.id ? `/m/dprs/${dpr.id}` : "/m/site/dpr",
-    done: dpr.submitted,
-  });
+  if (canDpr) {
+    events.push({
+      key: "dpr",
+      icon: ClipboardList,
+      time: null,
+      title: dpr.submitted ? "DPR filed" : "File today's DPR",
+      sub: dpr.submitted
+        ? (dpr.status ?? "Submitted").toLowerCase().replace(/_/g, " ")
+        : site
+          ? site.name
+          : "Daily progress report",
+      href: dpr.submitted && dpr.id ? `/m/dprs/${dpr.id}` : "/m/site/dpr",
+      done: dpr.submitted,
+    });
+  }
 
   events.push({
     key: "out",
@@ -146,8 +158,10 @@ export function ShiftRail({ data }: { data: ShiftData }) {
       ? attendance?.hoursWorked != null
         ? `${attendance.hoursWorked.toFixed(1)} h on site`
         : undefined
-      : "End of shift",
-    href: "/m/site/attendance",
+      : canMarkAttendance
+        ? "End of shift"
+        : "Use the check-out card above",
+    href: canMarkAttendance ? "/m/site/attendance" : null,
     done: checkedOut,
   });
 
@@ -225,12 +239,10 @@ function RailRow({
   const spineAbove = state === "done" ? "var(--color-go)" : "var(--color-line)";
   const spineBelow = state === "done" ? "var(--color-go)" : "var(--color-line)";
 
-  return (
-    <Link
-      href={event.href}
-      className="sig-row press relative flex gap-2.5 items-stretch"
-      style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
-    >
+  const rowClass = "sig-row press relative flex gap-2.5 items-stretch";
+  const rowStyle = { animationDelay: `${Math.min(index, 8) * 40}ms` };
+  const inner = (
+    <>
       {/* Spine + dot */}
       <div className="relative flex flex-col items-center w-3 shrink-0">
         <div
@@ -303,6 +315,16 @@ function RailRow({
           </span>
         )}
       </div>
+    </>
+  );
+
+  return event.href ? (
+    <Link href={event.href} className={rowClass} style={rowStyle}>
+      {inner}
     </Link>
+  ) : (
+    <div className={rowClass} style={rowStyle}>
+      {inner}
+    </div>
   );
 }

@@ -790,6 +790,7 @@ export {
   approveLeaveRequest,
   cancelLeaveRequest,
   leaveBalance,
+  ANNUAL_LEAVE_ENTITLEMENT,
   type CreateLeaveInput,
   type ApproveLeaveInput,
 } from "./leave";

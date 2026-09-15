@@ -6,6 +6,7 @@ import { prisma } from "@nirman/db";
 import { CalendarDays, Plus } from "lucide-react";
 import { getCompany, getUserRole, getActionPermissions, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
+import { ANNUAL_LEAVE_ENTITLEMENT } from "@nirman/services";
 import {
   MobileEmptyState,
   MobileStatCard,
@@ -65,6 +66,26 @@ async function MobileLeavesContent() {
   const pending = leaves.filter((l) => l.status === "PENDING").length;
   const approved = leaves.filter((l) => l.status === "APPROVED").length;
 
+  // For each leave, the viewer should see the employee's used-vs-entitled
+  // balance for that type+year — on pending cards it informs the approve
+  // decision; on approved cards it shows the running balance. Sum approved
+  // days per (employee, type) across the years the displayed leaves fall in.
+  const usageYears = [...new Set(leaves.map((l) => new Date(l.startDate).getUTCFullYear()))];
+  const usageRows = leaves.length > 0
+    ? (await Promise.all(usageYears.map((y) =>
+        prisma.leaveRequest.groupBy({
+          by: ["employeeId", "type"],
+          where: {
+            companyId: company.id,
+            status: "APPROVED",
+            startDate: { gte: new Date(Date.UTC(y, 0, 1)), lte: new Date(Date.UTC(y, 11, 31, 23, 59, 59)) },
+          },
+          _sum: { days: true },
+        }).then((rows) => rows.map((r) => ({ employeeId: r.employeeId, type: r.type, year: y, days: r._sum.days }))),
+      ))).flat()
+    : [];
+  const usageByKey = new Map(usageRows.map((r) => [`${r.employeeId}:${r.type}:${r.year}`, Number(r.days ?? 0)]));
+
   const serialized = leaves.map((l) => ({
     id: l.id,
     employeeId: l.employeeId,
@@ -78,6 +99,8 @@ async function MobileLeavesContent() {
     days: Math.ceil(
       (new Date(l.endDate).getTime() - new Date(l.startDate).getTime()) / (24 * 60 * 60 * 1000),
     ) + 1,
+    usedDays: usageByKey.get(`${l.employeeId}:${l.type}:${new Date(l.startDate).getUTCFullYear()}`) ?? 0,
+    entitlement: ANNUAL_LEAVE_ENTITLEMENT[l.type] ?? 0,
   }));
 
   const csvColumns: MobileColumnSpec[] = [

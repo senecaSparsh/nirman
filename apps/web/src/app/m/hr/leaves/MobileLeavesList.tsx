@@ -26,6 +26,8 @@ export type LeaveListItem = {
   endDate: string;
   reason: string | null;
   days: number;
+  usedDays: number;
+  entitlement: number;
 };
 
 type LeaveFilter = "ALL" | "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
@@ -83,6 +85,22 @@ export function MobileLeavesList({
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Action failed");
+    } finally {
+      setActing(false);
+    }
+  }
+
+  async function cancelLeave(id: string) {
+    setActing(true);
+    try {
+      const res = await fetch(`/api/leaves/${id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to cancel leave");
+      toast.success("Leave cancelled");
+      setExpandedId(null);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to cancel leave");
     } finally {
       setActing(false);
     }
@@ -159,6 +177,7 @@ export function MobileLeavesList({
               acting={acting}
               onToggle={() => { haptic(5); setExpandedId(expandedId === l.id ? null : l.id); }}
               onAction={(approve) => leaveAction(l.id, approve)}
+              onCancel={() => cancelLeave(l.id)}
             />
           ))}
         </div>
@@ -175,6 +194,7 @@ function LeaveCard({
   acting,
   onToggle,
   onAction,
+  onCancel,
 }: {
   leave: LeaveListItem;
   canManage: boolean;
@@ -182,7 +202,12 @@ function LeaveCard({
   acting: boolean;
   onToggle: () => void;
   onAction: (approve: boolean) => void;
+  onCancel: () => void;
 }) {
+  const entitlement = l.entitlement ?? 0;
+  const usedDays = l.usedDays ?? 0;
+  const remaining = entitlement - usedDays;
+  const insufficient = l.status === "PENDING" && entitlement > 0 && l.days > remaining;
   return (
     <div
       className="rounded-[0.5rem] border p-2.5 press cursor-pointer"
@@ -224,9 +249,18 @@ function LeaveCard({
         </p>
       )}
       {expanded ? (
-        <div className="mt-2 flex gap-2" onClick={(e) => e.stopPropagation()}>
+        <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+          {/* Balance context — an approver should see the employee's used-vs-
+              entitled days for this type before approving (entitlement 0 →
+              uncapped, e.g. UNPAID). */}
+          {entitlement > 0 && (
+            <p className="text-m-caption mb-1.5" style={{ color: insufficient ? "var(--color-stop)" : "var(--color-ink-500)" }}>
+              {LEAVE_TYPE_LABELS[l.type] ?? l.type} balance: {usedDays} of {entitlement} used
+              {insufficient ? ` — only ${Math.max(remaining, 0)} left, this requests ${l.days}` : remaining >= 0 ? ` · ${remaining} left` : ""}
+            </p>
+          )}
           {canManage && l.status === "PENDING" ? (
-            <>
+            <div className="flex gap-2">
               <button
                 disabled={acting}
                 onClick={() => onAction(true)}
@@ -243,7 +277,24 @@ function LeaveCard({
               >
                 Reject
               </button>
-            </>
+              <button
+                disabled={acting}
+                onClick={onCancel}
+                className="h-9 px-3 rounded-[0.5rem] text-m-label font-bold text-m-body press border"
+                style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : canManage && l.status === "APPROVED" ? (
+            <button
+              disabled={acting}
+              onClick={onCancel}
+              className="w-full h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press border"
+              style={{ borderColor: "var(--color-stop)", color: "var(--color-stop)" }}
+            >
+              {acting ? "Cancelling…" : "Cancel approved leave"}
+            </button>
           ) : (
             <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
               {l.status === "PENDING" ? "Awaiting HR approval." : `Leave ${l.status.toLowerCase()}.`}

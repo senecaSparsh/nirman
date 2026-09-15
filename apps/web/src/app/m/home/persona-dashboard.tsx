@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { Persona } from "@/lib/mobile-nav-v2";
 import { PersonaSignature } from "@/components/mobile/v2/persona-signature";
+import { hasPermission, PERM } from "@/lib/roles";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    PERSONA HOME DASHBOARD
@@ -52,66 +53,71 @@ interface PersonaHomeDashboardProps {
  * module is intentionally excluded: it already has a tab, and repeating
  * it here is the same duplication the quick-action grid was guilty of.
  */
-const PERSONA_LINKS: Record<Persona, { label: string; href: string; icon: LucideIcon }[]> = {
+const PERSONA_LINKS: Record<Persona, { label: string; href: string; icon: LucideIcon; perm?: string }[]> = {
   executive: [],
 
   // A PM lives in /m/site; these are the governance surfaces around it.
   ops: [
     { label: "Approvals", href: "/m/approvals", icon: ClipboardCheck },
-    { label: "Change Orders", href: "/m/change-orders", icon: GitBranch },
-    { label: "WBS", href: "/m/wbs", icon: ListTree },
-    { label: "Quality Control", href: "/m/quality-control", icon: ShieldAlert },
+    { label: "Change Orders", href: "/m/change-orders", icon: GitBranch, perm: PERM.PROJECTS_VIEW },
+    { label: "WBS", href: "/m/wbs", icon: ListTree, perm: PERM.WBS_VIEW },
+    { label: "Quality Control", href: "/m/quality-control", icon: ShieldAlert, perm: PERM.QC_VIEW },
   ],
 
   // Procurement lives in /m/inventory; these are the supply-side records.
   procurement: [
-    { label: "Suppliers", href: "/m/suppliers", icon: Truck },
-    { label: "Rate Contracts", href: "/m/rate-contracts", icon: FileText },
-    { label: "Gate Pass", href: "/m/gate-pass", icon: Package },
-    { label: "Equipment", href: "/m/equipment", icon: Wrench },
+    { label: "Suppliers", href: "/m/suppliers", icon: Truck, perm: PERM.PROCUREMENT_VIEW },
+    { label: "Rate Contracts", href: "/m/rate-contracts", icon: FileText, perm: PERM.PROCUREMENT_VIEW },
+    { label: "Gate Pass", href: "/m/gate-pass", icon: Package, perm: PERM.GATE_PASS_VIEW },
+    { label: "Equipment", href: "/m/equipment", icon: Wrench, perm: PERM.ASSETS_VIEW },
   ],
 
   // Field lives in /m/site; these are the off-site errands.
   field: [
-    { label: "Gate Pass", href: "/m/gate-pass", icon: Package },
-    { label: "HR / Leaves", href: "/m/hr/leaves", icon: Users },
-    { label: "Procurement", href: "/m/procurement", icon: ShoppingCart },
+    { label: "Gate Pass", href: "/m/gate-pass", icon: Package, perm: PERM.GATE_PASS_VIEW },
+    { label: "HR / Leaves", href: "/m/hr/leaves", icon: Users, perm: PERM.HR_VIEW },
+    { label: "Procurement", href: "/m/procurement", icon: ShoppingCart, perm: PERM.PROCUREMENT_VIEW },
     // Field staff file reimbursement claims — company expense booking
     // (/m/expenses) needs finance.view and isn't their surface.
-    { label: "Expenses", href: "/m/expense-claims", icon: Wallet },
+    { label: "Expenses", href: "/m/expense-claims", icon: Wallet, perm: PERM.CLAIM_CREATE },
   ],
 
   // Sales lives in /m/sales; these are the supporting functions.
   sales: [
-    { label: "Inventory", href: "/m/inventory", icon: Boxes },
-    { label: "Accounts", href: "/m/accounts", icon: BookOpen },
-    { label: "Procurement", href: "/m/procurement", icon: ShoppingCart },
-    { label: "HR", href: "/m/hr", icon: Users },
+    { label: "Inventory", href: "/m/inventory", icon: Boxes, perm: PERM.INVENTORY_VIEW },
+    { label: "Accounts", href: "/m/accounts", icon: BookOpen, perm: PERM.FINANCE_VIEW },
+    { label: "Procurement", href: "/m/procurement", icon: ShoppingCart, perm: PERM.PROCUREMENT_VIEW },
+    { label: "HR", href: "/m/hr", icon: Users, perm: PERM.HR_VIEW },
   ],
 
   // Finance lives in /m/accounts; these are the sources of its numbers.
   finance: [
-    { label: "Procurement", href: "/m/procurement", icon: ShoppingCart },
-    { label: "Suppliers", href: "/m/suppliers", icon: Truck },
-    { label: "Projects", href: "/m/projects", icon: Boxes },
-    { label: "HR", href: "/m/hr", icon: Users },
+    { label: "Procurement", href: "/m/procurement", icon: ShoppingCart, perm: PERM.PROCUREMENT_VIEW },
+    { label: "Suppliers", href: "/m/suppliers", icon: Truck, perm: PERM.PROCUREMENT_VIEW },
+    { label: "Projects", href: "/m/projects", icon: Boxes, perm: PERM.PROJECTS_VIEW },
+    { label: "HR", href: "/m/hr", icon: Users, perm: PERM.HR_VIEW },
   ],
 
   // HR lives in /m/hr; these are the places its people show up.
   hr: [
-    { label: "Departments", href: "/m/departments", icon: Boxes },
-    { label: "Quality Control", href: "/m/quality-control", icon: ShieldAlert },
-    { label: "Equipment", href: "/m/equipment", icon: Wrench },
-    { label: "Accounts", href: "/m/accounts", icon: BookOpen },
+    { label: "Departments", href: "/m/departments", icon: Boxes, perm: PERM.COMPANY_MANAGE },
+    { label: "Quality Control", href: "/m/quality-control", icon: ShieldAlert, perm: PERM.QC_VIEW },
+    { label: "Equipment", href: "/m/equipment", icon: Wrench, perm: PERM.ASSETS_VIEW },
+    { label: "Accounts", href: "/m/accounts", icon: BookOpen, perm: PERM.FINANCE_VIEW },
   ],
 };
 
 export function PersonaHomeDashboard({
   persona,
-  role: _role,
+  role,
   currentCompany: _currentCompany,
 }: PersonaHomeDashboardProps) {
-  const links = PERSONA_LINKS[persona] ?? [];
+  // Filter by the role's actual grants — a persona is a coarse grouping, and
+  // narrow roles inside it (e.g. SECURITY_GUARD on "field") must not see
+  // links they can't open.
+  const links = (PERSONA_LINKS[persona] ?? []).filter(
+    (l) => !l.perm || hasPermission(role, l.perm),
+  );
 
   return (
     <div className="space-y-3">

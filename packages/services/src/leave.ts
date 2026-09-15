@@ -106,8 +106,10 @@ export interface ApproveLeaveInput {
  * Default annual leave entitlement (in days) per leave type. UNPAID leave has
  * no cap. These defaults apply because the schema does not yet model per-
  * employee entitlements; the balance check prevents over-approving paid leave.
+ * Exported so the UI can show "X of Y used" against the same source of truth
+ * the approval guard enforces.
  */
-const ANNUAL_LEAVE_ENTITLEMENT: Record<LeaveType, number> = {
+export const ANNUAL_LEAVE_ENTITLEMENT: Record<LeaveType, number> = {
   CASUAL: 12,
   SICK: 12,
   EARNED: 20,
@@ -268,9 +270,27 @@ export async function cancelLeaveRequest(leaveId: string, companyId: string, use
       where: { id: leaveId, companyId },
     });
     if (!leave) throw new ServiceError("Leave request not found", 404);
-    if (leave.status !== "PENDING") {
+    if (leave.status !== "PENDING" && leave.status !== "APPROVED") {
       throw new ServiceError(`Cannot cancel a leave in status ${leave.status}`);
     }
+
+    // Cancelling an APPROVED leave must also undo the attendance rows the
+    // approval auto-created — otherwise the days stay PAID_LEAVE/NON_PAID_LEAVE
+    // and payroll still counts them. Only rows this approval created are
+    // touched (they carry `(${leave.id})` in their notes); manually-adjusted
+    // attendance is left alone. The balance itself needs no decrement — it's
+    // derived from APPROVED requests, so the status change un-counts it.
+    if (leave.status === "APPROVED") {
+      await tx.workerAttendance.deleteMany({
+        where: {
+          employeeId: leave.employeeId,
+          companyId,
+          date: { gte: leave.startDate, lte: leave.endDate },
+          notes: { contains: leave.id },
+        },
+      });
+    }
+
     const updated = await tx.leaveRequest.update({
       where: { id: leave.id },
       data: { status: "CANCELLED" },

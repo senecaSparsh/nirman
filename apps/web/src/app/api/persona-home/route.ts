@@ -162,6 +162,13 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       employee: employee
         ? { id: employee.id, name: employee.name }
         : null,
+      // Capability flags — the rail renders steps only for actions the
+      // caller can actually take (e.g. a SECURITY_GUARD checks in but
+      // never files a DPR and never marks crew attendance).
+      can: {
+        dpr: has(PERM.DPR_VIEW) || has(PERM.DPR_SUBMIT),
+        attendanceLog: has(PERM.HR_VIEW) || has(PERM.ATTENDANCE_LOG),
+      },
       site: employee?.activeProject
         ? { id: employee.activeProject.id, name: employee.activeProject.name }
         : null,
