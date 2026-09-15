@@ -38,7 +38,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-nirman}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_please}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata-v2:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nirman} -d ${POSTGRES_DB:-nirman_inventory}"]
       interval: 10s
@@ -200,7 +200,7 @@ networks:
     external: true
 
 volumes:
-  pgdata:
+  pgdata-v2:
     # Postgres data — CRITICAL: back this up. The `backup` service dumps it
     # daily into pgbackups; also enable Coolify → db → Backups for off-VPS.
   uploads:
