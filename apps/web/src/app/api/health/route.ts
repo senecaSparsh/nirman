@@ -5,16 +5,20 @@
  *  - The production start wrapper (scripts/start-with-recovery.mjs) to
  *    detect zombie states (server up but not responding).
  *  - Render's health check path (render.yaml `healthCheckPath`).
+ *  - Coolify's container healthcheck (docker-compose.prod.yml).
+ *  - External uptime monitors (UptimeRobot etc.) hitting `/api/health`.
  *
- * Two modes:
- *  - `/api/health` (default) — LIVENESS check. Returns 200 if the Node.js
+ * Three modes:
+ *  - `/api/health` (default) — READINESS check. Pings the DB with a 3s
+ *    timeout. Returns 200 if process alive AND DB reachable, 503 if DB
+ *    is down. This is the right default for Coolify (local DB is always
+ *    on) and for external monitors (they should alert on DB issues).
+ *  - `/api/health?liveness=1` — LIVENESS only. Returns 200 if the Node.js
  *    process is alive and can respond to HTTP. Does NOT query the DB.
- *    This is what Render's health check uses — a DB cold-start should NOT
- *    trigger a service restart (the process is fine, the DB just needs a
- *    moment to wake up).
- *  - `/api/health?deep=1` — READINESS check. Also pings the DB. Used by
- *    the start wrapper's internal health monitor (which restarts on
- *    repeated failures, not just one).
+ *    Use this for platforms where the DB may cold-start (Render free
+ *    tier) and a DB wake-up delay should NOT trigger a restart.
+ *  - `/api/health?deep=1` — alias for the default readiness check (kept
+ *    for backward compatibility with the start wrapper).
  *
  * Returns 200 if alive (liveness) or alive+DB reachable (readiness).
  * Returns 503 only for readiness failures (DB unreachable).
@@ -55,7 +59,11 @@ function detectMemoryMB(): { totalMB: number; source: string } {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const deep = url.searchParams.get("deep") === "1";
+  const livenessOnly = url.searchParams.get("liveness") === "1";
+  // deep=1 is kept as an alias for the default (readiness) mode for
+  // backward compatibility with the start wrapper — no need to read it
+  // separately since the default already checks DB.
+  const checkDb = !livenessOnly; // default: check DB (readiness)
 
   // Report memory info so the auto-scaling config is visible.
   const mem = detectMemoryMB();
@@ -79,12 +87,11 @@ export async function GET(request: Request) {
     db: "unknown" as string,
   };
 
-  // Liveness check (default): just return 200. The process is alive if
-  // it can respond to this request. Don't query the DB — on Render free
-  // tier, the Postgres sleeps after 15min and the first query on wake-up
-  // may take 2-5s or fail. A 503 here would make Render restart the
-  // service, which is wrong (the process is fine, the DB just woke up).
-  if (!deep) {
+  // Liveness check (?liveness=1): just return 200. The process is alive
+  // if it can respond to this request. Don't query the DB — on platforms
+  // where the DB may cold-start (Render free tier), a DB wake-up delay
+  // should NOT trigger a service restart.
+  if (!checkDb) {
     baseResponse.db = "not-checked";
     return NextResponse.json(baseResponse, {
       status: 200,
@@ -92,12 +99,22 @@ export async function GET(request: Request) {
     });
   }
 
-  // Readiness check (deep=1): also ping the DB. Used by the start
-  // wrapper's internal health monitor. The wrapper tolerates a few
-  // failures before restarting, so a cold-start DB delay won't cause
-  // an immediate restart.
+  // Readiness check (default, or ?deep=1): ping the DB with a 3s timeout.
+  // On Coolify the DB is local and always on, so this is safe. The start
+  // wrapper tolerates a few failures before restarting, so a transient
+  // DB delay won't cause an immediate restart.
   try {
-    await prisma.$queryRaw`SELECT 1`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    await Promise.race([
+      prisma.$queryRaw`SELECT 1`,
+      new Promise((_, reject) =>
+        controller.signal.addEventListener("abort", () =>
+          reject(new Error("DB ping timeout")),
+        ),
+      ),
+    ]);
+    clearTimeout(timeout);
     baseResponse.db = "ok";
     return NextResponse.json(baseResponse, {
       status: 200,

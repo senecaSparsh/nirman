@@ -453,3 +453,85 @@ docker network connect <app-network> coolify-proxy
 | `docker-compose.yml`                    | **Unchanged** — local dev Postgres on port 5433                      |
 | `apps/web/scripts/docker-entrypoint.sh` | Runs migrations + seed, then execs the start wrapper                 |
 | `render.yaml`                           | **Unchanged** — Render deploy config, still works                    |
+
+---
+
+## Production monitoring
+
+A self-hosted monitor runs on the VPS every 5 minutes via cron
+(`/opt/nirman-monitor.sh`). It checks:
+
+1. **Web container health** — is the container running and marked healthy?
+2. **Disk usage** — alerts if >80% full
+3. **Backup age** — alerts if the latest PG dump is >24h old
+4. **Container restart counts** — warns if any service restarted >3 times
+5. **HTTPS endpoint** — `https://nirman.life/api/health` must return 200
+
+Logs are at `/var/log/nirman-monitor.log` on the VPS. Active alerts are
+written as files in `/var/lib/nirman-alerts/`.
+
+```bash
+# Check recent monitor output
+ssh nirman-vps 'tail -20 /var/log/nirman-monitor.log'
+
+# Check active alerts
+ssh nirman-vps 'ls /var/lib/nirman-alerts/ 2>/dev/null'
+```
+
+### Health endpoint
+
+`/api/health` now checks DB connectivity by default (readiness mode):
+
+- `GET /api/health` — pings DB with 3s timeout, returns 200 if DB reachable
+- `GET /api/health?liveness=1` — liveness only (no DB check), for platforms
+  where DB cold-starts (Render free tier)
+- `GET /api/health?deep=1` — alias for the default (backward compat)
+
+The docker-compose healthcheck uses the default (readiness) mode, so
+Coolify will mark the container unhealthy if the DB is unreachable.
+
+### Backup verification
+
+Backups have been verified restorable:
+
+- PG dumps restore cleanly into a fresh Postgres 16 container
+- Uploads archives extract with valid files
+- Restore drill: `docker run --rm -v <backup-vol>:/backups:ro postgres:16-alpine ...`
+
+---
+
+## GitHub auto-deploy webhook
+
+To enable `git push → auto-deploy`:
+
+1. In Coolify → your app → **Webhooks** section, copy the **manual webhook URL**
+   (looks like `http://82.41.67.34:8000/webhooks/source/github/events/manual`)
+2. In GitHub → `senecaSparsh/nirman` → Settings → Webhooks → Add webhook:
+   - **Payload URL**: the URL from step 1
+   - **Content type**: `application/json`
+   - **Secret**: the webhook secret shown in Coolify
+   - **Events**: Just the `push` event
+3. Test with a push to `main` — Coolify should queue a deploy automatically
+
+---
+
+## Remaining production setup (requires your accounts)
+
+These need external accounts I can't create for you:
+
+1. **Off-site backups** — Backblaze B2 (free 10 GB) or any S3-compatible
+   storage. Set `RCLONE_REMOTE`, `RCLONE_CONFIG_B2_TYPE`,
+   `RCLONE_CONFIG_B2_ACCOUNT`, `RCLONE_CONFIG_B2_KEY` in Coolify env vars,
+   then restart. The backup sidecar will sync dumps off-site automatically.
+
+2. **External uptime monitoring** — UptimeRobot (free) or equivalent.
+   Monitor `https://nirman.life/api/health` every 5 min with email/SMS alerts.
+   This catches outages even when the VPS monitor can't reach you.
+
+3. **Sentry** — sentry.io (free tier). Create a project, get the DSN, set
+   `SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_DSN` in Coolify env vars, redeploy.
+   Currently production errors are invisible.
+
+4. **Coolify API token renewal** — the deploy token expires Oct 15, 2026.
+   Create a new one in Coolify → Keys & Tokens → API Tokens with Deploy +
+   Read permissions, update `.env.prod-secrets`.
