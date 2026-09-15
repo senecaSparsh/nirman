@@ -38,7 +38,7 @@ export function MobileRaBillActions({
   const [showReject, setShowReject] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [showPay, setShowPay] = useState(false);
-  const [payMode, setPayMode] = useState("BANK");
+  const [payMode, setPayMode] = useState("BANK_TRANSFER");
   const [payRef, setPayRef] = useState("");
 
   async function doAction(action: string, extra?: Record<string, unknown>) {
@@ -79,7 +79,11 @@ export function MobileRaBillActions({
   const showSubmitBtn = canSubmit && (status === "DRAFT" || status === "REJECTED") && !isCreator;
   const showApproveBtn = canApprove && status === "SUBMITTED" && !selfBlock;
   const showRejectBtn = canApprove && status === "SUBMITTED" && !selfBlock;
-  const showPayBtn = canPay && status === "APPROVED";
+  // Pay is segregation-of-duties: the server unconditionally blocks the
+  // bill's creator/submitter from paying it (no tier-1 exemption — paying
+  // your own bill is the classic disbursement fraud path). Match that
+  // here instead of showing a button that 403s.
+  const showPayBtn = canPay && status === "APPROVED" && !isCreator && !isSubmitter;
 
   if (!showSubmitBtn && !showApproveBtn && !showRejectBtn && !showPayBtn) return null;
 
@@ -228,7 +232,7 @@ export function MobileRaBillActions({
                       value={payMode}
                       onChange={setPayMode}
                       options={[
-                        { value: "BANK", label: "Bank Transfer" },
+                        { value: "BANK_TRANSFER", label: "Bank Transfer" },
                         { value: "CASH", label: "Cash" },
                         { value: "CHEQUE", label: "Cheque" },
                         { value: "UPI", label: "UPI" },

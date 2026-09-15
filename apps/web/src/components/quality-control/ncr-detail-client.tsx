@@ -10,7 +10,7 @@ import { Field } from "@/components/field";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { useConfirm } from "@/lib/use-confirm";
-import { formatDate } from "@/lib/utils";
+import { actionPastTense, formatDate } from "@/lib/utils";
 import { statusBadgeVariant } from "@/components/page";
 import {Send, Check, X, Ban, Trash2, Play, ShieldCheck, Loader2, Pencil} from "lucide-react";
 
@@ -84,7 +84,7 @@ export function NcrDetailClient({ ncr, canManage }: { ncr: NcrDetail; canManage:
       const res = await fetch(`/api/quality-control/ncr/${ncr.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, ...extra }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
-      toast.success(`NCR ${action}ed`);
+      toast.success(`NCR ${actionPastTense(action)}`);
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");

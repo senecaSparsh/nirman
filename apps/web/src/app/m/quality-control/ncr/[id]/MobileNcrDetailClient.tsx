@@ -6,7 +6,7 @@ import Image from "next/image";
 import { toast } from "sonner";
 import {Loader2, Send, Check, X, Ban, Trash2, Play, ShieldCheck} from "lucide-react";
 import { haptic } from "@/lib/haptic";
-import { formatDate } from "@/lib/utils";
+import { actionPastTense, formatDate } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import { ActionBar, MobileStatusBadge } from "@/components/mobile/v2/primitives";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
@@ -105,7 +105,7 @@ export function MobileNcrDetailClient({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
-      toast.success(`NCR ${action}ed`);
+      toast.success(`NCR ${actionPastTense(action)}`);
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");

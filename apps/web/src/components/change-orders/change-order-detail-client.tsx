@@ -8,7 +8,7 @@ import { Input, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
-import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { actionPastTense, cn, formatCurrency, formatDate } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import {Send, Check, X, Ban, Trash2, Loader2} from "lucide-react";
 
@@ -105,7 +105,7 @@ export function ChangeOrderDetailClient({
           description: "The BOQ and project budget have been updated automatically.",
         });
       } else {
-        toast.success(`Change order ${action}ed`);
+        toast.success(`Change order ${actionPastTense(action)}`);
       }
       router.refresh();
     } catch (err: unknown) {

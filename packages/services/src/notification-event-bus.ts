@@ -15,6 +15,7 @@
  */
 
 import { prisma, type Prisma } from "@nirman/db";
+import { resolveScopeType } from "./rbac";
 import { sendPushToUser } from "./push";
 
 /**
@@ -516,14 +517,87 @@ export async function emitNotificationEvent(event: NotificationEvent): Promise<v
 async function resolveRecipients(event: NotificationEvent): Promise<string[]> {
   const memberships = await prisma.userCompany.findMany({
     where: { companyId: event.companyId },
-    include: { user: { select: { id: true, active: true } } },
+    include: { user: { select: { id: true, active: true } }, scopes: true },
   });
+
+  // Events tied to a project should only reach project-scoped members whose
+  // scope covers it — otherwise a site engineer at Tower A gets pings for
+  // every other site's transfers, POs and scrap.
+  const eventProjectId = await resolveEventProjectId(event);
 
   return memberships
     .filter((m) => m.user.active)
     .filter((m) => shouldRoleReceiveEvent(m.role, event.eventType))
+    .filter((m) => {
+      if (!eventProjectId) return true;
+      if (resolveScopeType(m) !== "PROJECT") return true;
+      return m.scopes.some((s) => s.scopeKind === "PROJECT" && s.projectId === eventProjectId);
+    })
     .map((m) => m.user.id);
 }
+
+/**
+ * Resolve the project an event belongs to, if any. Entities without a project
+ * (or unresolvable ones) return null → role-based delivery unchanged.
+ */
+async function resolveEventProjectId(event: NotificationEvent): Promise<string | null> {
+  const { entityType, entityId } = event;
+  if (!entityType || !entityId) return null;
+  try {
+    switch (entityType) {
+      case "VendorQuote": {
+        const q = await prisma.vendorQuote.findUnique({
+          where: { id: entityId },
+          select: { requisition: { select: { projectId: true } } },
+        });
+        return q?.requisition?.projectId ?? null;
+      }
+      case "StockTransfer": {
+        const t = await prisma.stockTransfer.findUnique({
+          where: { id: entityId },
+          select: { fromLocation: { select: { projectId: true } }, toLocation: { select: { projectId: true } } },
+        });
+        return t?.fromLocation?.projectId ?? t?.toLocation?.projectId ?? null;
+      }
+      case "StockMovement": {
+        const mv = await prisma.stockMovement.findUnique({
+          where: { id: entityId },
+          select: { fromLocation: { select: { projectId: true } }, toLocation: { select: { projectId: true } } },
+        });
+        return mv?.fromLocation?.projectId ?? mv?.toLocation?.projectId ?? null;
+      }
+      default: {
+        const model = EVENT_PROJECT_MODELS[entityType];
+        if (!model) return null;
+        const delegate = (prisma as unknown as Record<string, { findUnique: (a: unknown) => Promise<{ projectId: string | null } | null> } | undefined>)[model];
+        if (!delegate) return null;
+        const row = await delegate.findUnique({ where: { id: entityId }, select: { projectId: true } });
+        return row?.projectId ?? null;
+      }
+    }
+  } catch {
+    return null;
+  }
+}
+
+/** entityType → Prisma delegate for entities carrying a direct projectId. */
+const EVENT_PROJECT_MODELS: Record<string, string> = {
+  MaterialRequisition: "materialRequisition",
+  PurchaseOrder: "purchaseOrder",
+  DailyProgressReport: "dailyProgressReport",
+  MaterialIssue: "materialIssue",
+  ExpenseClaim: "expenseClaim",
+  MeasurementBookEntry: "measurementBookEntry",
+  GatePass: "gatePass",
+  SubcontractorWorkOrder: "subcontractorWorkOrder",
+  NonConformanceReport: "nonConformanceReport",
+  SafetyIncident: "safetyIncident",
+  ChangeOrder: "changeOrder",
+  RaBill: "raBill",
+  MaterialSale: "materialSale",
+  Sale: "materialSale",
+  Lead: "lead",
+};
 
 const PROCUREMENT_EVENTS = new Set([
   NotificationEventType.REQUISITION_SUBMITTED,

@@ -6,7 +6,7 @@ import Image from "next/image";
 import { toast } from "sonner";
 import {Loader2, Send, Check, Ban, Trash2, Pencil} from "lucide-react";
 import { haptic } from "@/lib/haptic";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { actionPastTense, formatCurrency, formatDate } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import { ActionBar } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
@@ -70,7 +70,7 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
       const res = await fetch(`/api/safety/incidents/${incident.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, ...extra }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
-      toast.success(`Incident ${action}ed`); router.refresh();
+      toast.success(`Incident ${actionPastTense(action)}`); router.refresh();
     } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Failed"); }
     finally { setActing(null); setShowInvestigate(false); setShowClose(false); setInvestigateForm({ rootCause: "", correctiveActions: "" }); setClosureNotes(""); }
   }

@@ -10,7 +10,7 @@ import { Field } from "@/components/field";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { useConfirm } from "@/lib/use-confirm";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { actionPastTense, formatCurrency, formatDate } from "@/lib/utils";
 import { statusBadgeVariant } from "@/components/page";
 import { Send, Check, Ban, Trash2, Loader2 } from "lucide-react";
 
@@ -51,7 +51,7 @@ export function IncidentDetailClient({ incident, canManage }: { incident: Incide
       const res = await fetch(`/api/safety/incidents/${incident.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, ...extra }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
-      toast.success(`Incident ${action}ed`); router.refresh();
+      toast.success(`Incident ${actionPastTense(action)}`); router.refresh();
     } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Failed"); }
     finally { setActing(null); setShowInvestigate(false); setShowClose(false); setInvestigateForm({ rootCause: "", correctiveActions: "" }); setClosureNotes(""); }
   }

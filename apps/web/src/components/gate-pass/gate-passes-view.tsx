@@ -16,7 +16,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { GatePassFormDialog } from "./gate-pass-form-dialog";
 import { GatePassDetailDialog } from "./gate-pass-detail-dialog";
-import { formatDate } from "@/lib/utils";
+import { actionPastTense, formatDate } from "@/lib/utils";
 
 export type GatePassRow = {
   id: string;
@@ -126,11 +126,7 @@ export function GatePassesView({
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Action failed");
-        const actionLabels: Record<string, string> = {
-          submit: "submitted", approve: "approved", reject: "rejected",
-          resubmit: "resubmitted", confirmExit: "exit confirmed", cancel: "cancelled",
-        };
-        toast.success(`Gate pass ${actionLabels[action] ?? action}ed`);
+        toast.success(`Gate pass ${actionPastTense(action)}`);
         router.refresh();
       } catch (err: unknown) {
         toast.error(err instanceof Error ? err.message : "Action failed");

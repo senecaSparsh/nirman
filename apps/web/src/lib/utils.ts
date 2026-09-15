@@ -270,6 +270,22 @@ export function formatRelativeTime(date: Date): string {
  * human-readable label (e.g. "Material issue created"). Used in activity feeds
  * so users don't see technical codes.
  */
+/** Past-tense label for workflow actions in toasts — "submit"→"submitted",
+ *  "approve"→"approved", etc. Replaces the `${action}ed` pattern that produced
+ *  "submited"/"approveed"/"confirmExited". */
+export function actionPastTense(action: string): string {
+  const MAP: Record<string, string> = {
+    submit: "submitted", approve: "approved", reject: "rejected",
+    resubmit: "resubmitted", cancel: "cancelled", delete: "deleted",
+    verify: "verified", confirmExit: "exit confirmed", pay: "paid",
+    issue: "issued", complete: "completed", close: "closed",
+    investigate: "marked under investigation", review: "sent for review",
+    start: "started", corrective_done: "corrective action done",
+    preventive_done: "preventive action done",
+  };
+  return MAP[action] ?? `${action}ed`;
+}
+
 export function humanizeAuditAction(action: string): string {
   // Special cases with irregular verbs
   const SPECIAL: Record<string, string> = {

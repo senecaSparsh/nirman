@@ -13,7 +13,7 @@ import { PageLoading } from "@/components/page-loading";
 import { StatusPill } from "@/components/page";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
-import { cn, formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { actionPastTense, cn, formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import type { ProjectOption } from "@/lib/types";
 import {
   HardHat,
@@ -966,7 +966,7 @@ async function onRaBillAction(id: string, action: string, onRefresh: () => void,
         action: { label: "View GL", onClick: () => window.open("/gl", "_blank") },
       });
     } else {
-      toast.success(`RA bill ${action}ed`);
+      toast.success(`RA bill ${actionPastTense(action)}`);
     }
     onRefresh();
   } catch (err: unknown) {

@@ -13,7 +13,7 @@ import { PageLoading } from "@/components/page-loading";
 import { EmptyState } from "@/components/empty-state";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
-import {formatCurrency, formatNumber, formatDate} from "@/lib/utils";
+import {actionPastTense, formatCurrency, formatNumber, formatDate} from "@/lib/utils";
 import type { ProjectOption } from "@/lib/types";
 import { Ruler, Plus, CheckCircle, XCircle, ShieldCheck, Printer } from "lucide-react";
 
@@ -227,7 +227,7 @@ export function MeasurementBookView({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
-      toast.success(`Entry ${action}ed`);
+      toast.success(`Entry ${actionPastTense(action)}`);
       if (action === "approve") {
         toast.info("Approved — ready for billing", { description: "Include this entry in the next RA Bill from the work order page.", action: { label: "Go to Work Orders", onClick: () => window.location.href = "/work-orders" } });
       }

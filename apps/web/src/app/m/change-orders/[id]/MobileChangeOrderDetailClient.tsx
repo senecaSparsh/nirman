@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Send, Check, X, Ban, Trash2, Pencil } from "lucide-react";
 import { haptic } from "@/lib/haptic";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { actionPastTense, formatCurrency, formatDate } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import { ActionBar } from "@/components/mobile/v2/primitives";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
@@ -131,7 +131,7 @@ export function MobileChangeOrderDetailClient({
           description: "The BOQ and project budget have been updated automatically.",
         });
       } else {
-        toast.success(`Change order ${action}ed`);
+        toast.success(`Change order ${actionPastTense(action)}`);
       }
       router.refresh();
     } catch (err: unknown) {

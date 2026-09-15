@@ -31,7 +31,7 @@ export function MobileWorkOrderActions({
   const [acting, setActing] = useState<string | null>(null);
   const [showAdvance, setShowAdvance] = useState(false);
   const [advanceAmount, setAdvanceAmount] = useState("");
-  const [advanceMode, setAdvanceMode] = useState("BANK");
+  const [advanceMode, setAdvanceMode] = useState("BANK_TRANSFER");
   const [advanceRef, setAdvanceRef] = useState("");
   const [showRetention, setShowRetention] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
@@ -204,7 +204,7 @@ export function MobileWorkOrderActions({
                       value={advanceMode}
                       onChange={setAdvanceMode}
                       options={[
-                        { value: "BANK", label: "Bank Transfer" },
+                        { value: "BANK_TRANSFER", label: "Bank Transfer" },
                         { value: "CASH", label: "Cash" },
                         { value: "CHEQUE", label: "Cheque" },
                         { value: "UPI", label: "UPI" },

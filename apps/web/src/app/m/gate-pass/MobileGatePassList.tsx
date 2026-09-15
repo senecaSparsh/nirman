@@ -23,7 +23,7 @@ import {
   X,
   FolderOpen,
 } from "lucide-react";
-import { formatNumber, formatDate } from "@/lib/utils";
+import { actionPastTense, formatNumber, formatDate } from "@/lib/utils";
 import {
   MobileSearchHeader,
   MobileNoResults,
@@ -209,7 +209,7 @@ export function MobileGatePassList({
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Action failed");
-        toast.success(`Gate pass ${action}ed`);
+        toast.success(`Gate pass ${actionPastTense(action)}`);
         router.refresh();
       } catch (err: unknown) {
         // ── Revert: restore the original status from server props ──

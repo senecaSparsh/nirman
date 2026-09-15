@@ -79,8 +79,10 @@ export async function MobileDetailPage({
   children,
 }: {
   params: Promise<{ id: string }>;
-  /** View permission — hard gate. Omit for no gate. */
-  perm?: Permission;
+  /** View permission — hard gate. An array is OR-ed (any-of), for pages
+   *  reachable by multiple roles (e.g. a work order a finance payer must
+   *  open to pay its RA bills). Omit for no gate. */
+  perm?: Permission | Permission[];
   /** Manage permission — computed as canManage and passed to children. */
   managePerm?: Permission;
   what?: string;
@@ -97,8 +99,13 @@ export async function MobileDetailPage({
     const role = await getUserRole();
     const overrides = await getUserPermissions();
 
-    if (perm && !hasPermission(role, perm, overrides)) {
-      return <MobileNoAccess what={what ?? "this page"} permission={permission} />;
+    if (perm) {
+      const allowed = Array.isArray(perm)
+        ? perm.some((p) => hasPermission(role, p, overrides))
+        : hasPermission(role, perm, overrides);
+      if (!allowed) {
+        return <MobileNoAccess what={what ?? "this page"} permission={permission} />;
+      }
     }
 
     const canManage = managePerm ? hasPermission(role, managePerm, overrides) : true;
