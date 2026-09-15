@@ -34,6 +34,7 @@ const DEMO_ROLES: Role[] = [
   "PROCUREMENT_MANAGER",
   "SALES_MANAGER",
   "SITE_ENGINEER",
+  "SECURITY_GUARD",
 ];
 
 // Real team member names for the quick-login buttons.
@@ -45,6 +46,7 @@ const DEMO_NAMES: Partial<Record<Role, string>> = {
   PROCUREMENT_MANAGER: "Raviraj Singh",
   SALES_MANAGER: "Mani Singh",
   SITE_ENGINEER: "Yash Saxena",
+  SECURITY_GUARD: "Ramesh Guard",
 };
 
 /**

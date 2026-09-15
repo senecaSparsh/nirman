@@ -31,7 +31,7 @@ import { withSerializableTransaction, ServiceError } from "@nirman/services";
  */
 const DEMO_PASSWORD = "nirman123";
 
-// The 7 SRG REALCON team members (shown as quick-login buttons).
+// The 8 SRG REALCON team members (shown as quick-login buttons).
 // These match the accounts created by scripts/local-reset-srg.mjs and
 // scripts/create-srg-users.mjs. Each user has a phone-based login with
 // phoneNormalized; the email is a placeholder (phone+91…@nirman.internal).
@@ -46,6 +46,7 @@ const DEMO_ROLES: Role[] = [
   "PROCUREMENT_MANAGER",
   "SALES_MANAGER",
   "SITE_ENGINEER",
+  "SECURITY_GUARD",
 ];
 
 const ROLE_NAMES: Partial<Record<Role, string>> = {
@@ -56,6 +57,7 @@ const ROLE_NAMES: Partial<Record<Role, string>> = {
   PROCUREMENT_MANAGER: "Raviraj Singh",
   SALES_MANAGER: "Mani Singh",
   SITE_ENGINEER: "Yash Saxena",
+  SECURITY_GUARD: "Ramesh Guard",
 };
 
 const ROLE_EMAILS: Partial<Record<Role, string>> = {
@@ -66,6 +68,7 @@ const ROLE_EMAILS: Partial<Record<Role, string>> = {
   PROCUREMENT_MANAGER: "phone+919520002752@nirman.internal",
   SALES_MANAGER: "phone+917302920203@nirman.internal",
   SITE_ENGINEER: "phone+917302920205@nirman.internal",
+  SECURITY_GUARD: "phone+917302920206@nirman.internal",
 };
 
 export const POST = async (req: NextRequest) => {
