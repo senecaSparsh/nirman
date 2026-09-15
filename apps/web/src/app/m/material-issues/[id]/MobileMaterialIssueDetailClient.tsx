@@ -30,6 +30,7 @@ interface IssueLine {
   qty: number;
   unitCost: number;
   lineTotal: number;
+  costEstimated?: boolean;
 }
 
 interface IssueData {
@@ -305,7 +306,10 @@ export function MobileMaterialIssueDetailClient({
               <div className="flex items-center gap-2 mt-1.5 text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                 <span className="tabular-nums">{l.qty} {l.materialUnit ?? ""}</span>
                 <span>×</span>
-                <span className="tabular-nums">{formatCurrency(l.unitCost)}/{l.materialUnit ?? "unit"}</span>
+                <span className="tabular-nums">
+                  {formatCurrency(l.unitCost)}/{l.materialUnit ?? "unit"}
+                  {l.costEstimated ? " · est." : ""}
+                </span>
               </div>
             </div>
           ))}

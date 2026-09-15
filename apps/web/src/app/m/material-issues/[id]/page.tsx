@@ -49,6 +49,21 @@ export default function MobileMaterialIssueDetailPage({
           return <MobileMaterialIssueDetailClient notFound canCancel={false} />;
         }
 
+        // Pending issues snapshot unitCost=0 (cost posts at execution). For
+        // display, fall back to the material's current MAC at the source
+        // location so the slip shows qty × estimated cost instead of ₹0.
+        const pendingCostMap = new Map<string, number>();
+        if (issue.status === "PENDING" && issue.lines.some((l) => toNum(l.unitCost) === 0)) {
+          const macRows = await prisma.stockLocationItem.findMany({
+            where: {
+              locationId: issue.fromLocationId,
+              materialId: { in: issue.lines.map((l) => l.material.id) },
+            },
+            select: { materialId: true, movingAvgCost: true },
+          });
+          for (const r of macRows) pendingCostMap.set(r.materialId, toNum(r.movingAvgCost));
+        }
+
         const data = {
           id: issue.id,
           issueNumber: issue.issueNumber,
@@ -64,7 +79,10 @@ export default function MobileMaterialIssueDetailPage({
           vehicleType: issue.vehicleType,
           driverName: issue.driverName,
           driverPhone: issue.driverPhone,
-          totalCost: toNum(issue.totalCost),
+          totalCost: toNum(issue.totalCost) || issue.lines.reduce(
+            (s, l) => s + toNum(l.qty) * (toNum(l.unitCost) || pendingCostMap.get(l.material.id) || 0),
+            0,
+          ),
           roundOff: toNum(issue.roundOff),
           totalAmount: toNum(issue.totalAmount),
           projectName: issue.project?.name ?? null,
@@ -81,8 +99,9 @@ export default function MobileMaterialIssueDetailPage({
             materialName: l.material.name,
             materialUnit: l.material.unit,
             qty: toNum(l.qty),
-            unitCost: toNum(l.unitCost),
-            lineTotal: toNum(l.qty) * toNum(l.unitCost),
+            unitCost: toNum(l.unitCost) || pendingCostMap.get(l.material.id) || 0,
+            lineTotal: toNum(l.qty) * (toNum(l.unitCost) || pendingCostMap.get(l.material.id) || 0),
+            costEstimated: toNum(l.unitCost) === 0 && (pendingCostMap.get(l.material.id) ?? 0) > 0,
           })),
         };
 

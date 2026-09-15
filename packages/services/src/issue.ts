@@ -241,6 +241,29 @@ export async function createMaterialIssueRequest(input: IssueMaterialsInput) {
     if (!new Decimal(line.qty).gt(0)) throw new ServiceError("Issue qty must be > 0");
   }
 
+  // Early availability check — the authoritative stock check still runs at
+  // execution (gate-pass approval), but failing here prevents absurd PENDING
+  // requests (e.g. 9999 bags against 120 on hand) from reaching the gate.
+  // Aggregate duplicate lines per material so combined qty is checked.
+  const requested = new Map<string, Decimal>();
+  for (const line of input.lines) {
+    requested.set(line.materialId, (requested.get(line.materialId) ?? new Decimal(0)).plus(line.qty));
+  }
+  const stockRows = await prisma.stockLocationItem.findMany({
+    where: { locationId: input.fromLocationId, materialId: { in: [...requested.keys()] } },
+    select: { materialId: true, qty: true },
+  });
+  const onHand = new Map(stockRows.map((s) => [s.materialId, new Decimal(s.qty)]));
+  const materialName = new Map(materials.map((m) => [m.id, m.name]));
+  for (const [materialId, qty] of requested) {
+    const available = onHand.get(materialId) ?? new Decimal(0);
+    if (available.lt(qty)) {
+      throw new ServiceError(
+        `Insufficient stock: ${materialName.get(materialId) ?? materialId} — requested ${qty}, only ${available} available at ${location.name}`,
+      );
+    }
+  }
+
   return withSerializableTransaction(async (tx) => {
     // Create MaterialIssue in PENDING state (no stock movements yet)
     const materialIssue = await tx.materialIssue.create({
