@@ -36,6 +36,10 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-nirman_inventory}
       POSTGRES_USER: ${POSTGRES_USER:-nirman}
+      # ⚠️  POSTGRES_PASSWORD is read ONLY at first database init (empty volume).
+      # Changing it in Coolify env afterwards does NOT update the database —
+      # but web's DATABASE_URL picks up the NEW value → instant auth-failure
+      # outage. To rotate: ALTER USER inside psql, then update the env to match.
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_please}
     volumes:
       - pgdata-v2:/var/lib/postgresql/data
@@ -116,6 +120,9 @@ services:
       # Uploaded files (cheque photos, BBA/ATS docs, legal docs, expense
       # receipts, call recordings) persist across deploys/restarts.
       - uploads:/app/storage/uploads
+      # Pre-migration pg_dump snapshots land here (see docker-entrypoint.sh).
+      # Shared with the `backup` service — same volume, same retention story.
+      - pgbackups:/backups
     healthcheck:
       # Liveness check — no DB query (returns 200 if the process is alive).
       # The start-with-recovery wrapper does its own deep health check

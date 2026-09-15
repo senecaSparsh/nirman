@@ -47,7 +47,7 @@ COPY packages/services/package.json ./packages/services/
 # --ignore-scripts skips the root postinstall (which runs prisma generate
 # and needs the schema file that isn't copied yet at this stage).
 # We run prisma generate explicitly later in the builder stage.
-RUN pnpm install --no-frozen-lockfile --ignore-scripts
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # ── Stage 2: Build ──────────────────────────────────────────────────────────
 FROM deps AS builder
@@ -91,8 +91,14 @@ FROM node:22-bookworm-slim AS runner
 
 # Install procps (provides `ps`) — needed by the start-with-recovery wrapper
 # for process-group memory monitoring. Also install openssl for Prisma engine
-# detection (eliminates the "failed to detect libssl/openssl version" warning).
-RUN apt-get update && apt-get install -y --no-install-recommends procps openssl \
+# detection (eliminates the "failed to detect libssl/openssl version" warning),
+# and postgresql-client-16 (pg_dump) for the pre-migration database snapshot
+# the entrypoint takes before applying migrations.
+RUN apt-get update && apt-get install -y --no-install-recommends procps openssl ca-certificates wget gnupg \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && wget -qO /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    && echo "deb http://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update && apt-get install -y --no-install-recommends postgresql-client-16 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN npm install -g pnpm@11.18.0

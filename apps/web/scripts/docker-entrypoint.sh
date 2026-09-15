@@ -39,7 +39,42 @@ echo "=== Nirman Inventory OS — Container Startup ==="
 echo "Time: $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 echo ""
 
-# ── 1. Database migrations ──────────────────────────────────────────────────
+# ── 1. Pre-migration database snapshot ──────────────────────────────────────
+# Before touching the schema, dump the current database to the pgbackups
+# volume. If a migration ever applies cleanly but corrupts data (bad backfill,
+# wrong type change), restore with:
+#   gunzip -c /backups/pre-deploy-<TS>.sql.gz | psql "$DATABASE_URL_without_params"
+# Keeps the newest 30 snapshots. Non-fatal by design: a failed dump must not
+# block the deploy — the daily `backup` service still provides restore points.
+if command -v pg_dump >/dev/null 2>&1; then
+  echo "── Pre-migration database snapshot ──"
+  SNAPDIR="/backups/pre-deploy"
+  if [ -d "$SNAPDIR" ] && [ -w "$SNAPDIR" ]; then
+    # DATABASE_URL carries Prisma-only params (?connection_limit=...) that
+    # libpq rejects — strip the query string for pg_dump.
+    DUMP_URL="${DIRECT_URL:-$DATABASE_URL}"
+    DUMP_URL="${DUMP_URL%%\?*}"
+    STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+    TMP="$SNAPDIR/.snapshot-$STAMP.sql"
+    if pg_dump "$DUMP_URL" --no-owner --no-privileges > "$TMP" 2> "$TMP.err"; then
+      gzip -1 -f "$TMP" && mv "$TMP.gz" "$SNAPDIR/pre-deploy-$STAMP.sql.gz"
+      rm -f "$TMP.err"
+      echo "✓ Snapshot: $SNAPDIR/pre-deploy-$STAMP.sql.gz ($(du -h "$SNAPDIR/pre-deploy-$STAMP.sql.gz" | cut -f1))"
+      # Prune: keep the newest 30 pre-deploy snapshots.
+      ls -1t "$SNAPDIR"/pre-deploy-*.sql.gz 2>/dev/null | tail -n +31 | xargs -r rm -f 2>/dev/null || true
+    else
+      echo "⚠ pg_dump failed — deploy continues WITHOUT a fresh snapshot:"
+      sed 's/^/    /' "$TMP.err" 2>/dev/null | head -5
+      rm -f "$TMP" "$TMP.err"
+    fi
+  else
+    echo "⚠ $SNAPDIR not writable — skipping pre-migration snapshot"
+    echo "   (created by the backup sidecar; resolves itself after its first run)"
+  fi
+  echo ""
+fi
+
+# ── 2. Database migrations ──────────────────────────────────────────────────
 echo "── Running Prisma migrations ──"
 cd /app/packages/db
 node scripts/migrate-deploy.mjs

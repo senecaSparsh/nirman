@@ -125,6 +125,14 @@ jobs:
           --shadow-database-url "postgresql://postgres:postgres@localhost:5432/shadow"
           --exit-code
 
+      # Flag SQL that can lose data or fail mid-deploy on a populated DB
+      # (DROP COLUMN, NOT NULL without DEFAULT, ALTER TYPE, etc.) unless the
+      # statement carries an explicit `-- nirman:accept-risk` marker. A
+      # migration can "cover" the schema perfectly and still destroy data.
+      - name: Flag risky migration SQL
+        working-directory: packages/db
+        run: node scripts/check-migration-risk.mjs
+
   # ── Production Build ──────────────────────────────────────────
   # Verifies the webpack build succeeds (catches build-time errors
   # before they reach Render).

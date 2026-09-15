@@ -42,6 +42,10 @@ echo "Target DB: $PGUSER@$PGHOST/$PGDATABASE  | retention: ${RETENTION_DAYS}d | 
 [ -n "${RCLONE_REMOTE:-}" ] && echo "Off-site upload: $RCLONE_REMOTE" || echo "Off-site upload: disabled (set RCLONE_REMOTE to enable)"
 
 mkdir -p "$BACKUP_DIR/pg" "$BACKUP_DIR/uploads"
+# Pre-deploy snapshots: the web entrypoint (running as uid 1001) pg_dumps here
+# before applying migrations. World-writable + sticky so nirman can write and
+# prune its own files inside this root-owned volume. Synced off-site too.
+mkdir -p "$BACKUP_DIR/pre-deploy" && chmod 1777 "$BACKUP_DIR/pre-deploy"
 
 run_backup() {
   ts="$(date -u +%Y%m%d-%H%M%S)"

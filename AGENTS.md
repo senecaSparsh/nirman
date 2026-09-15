@@ -193,12 +193,27 @@ msg)` that returns 504 on timeout. Applied to `/api/cron/backup` (120s) and
   failure once made a deploy unbootable. Two guards enforce this: the CI "Migration coverage"
   job fails if committed migrations don't produce the current schema, and `migrate-deploy`
   aborts the deploy with a loud banner if residual drift remains after migrations + db push.
+  **Risky SQL needs an explicit opt-in**: `pnpm --filter @nirman/db migrate:check` (also a CI
+  step) scans every migration for statements that lose data or fail mid-deploy on a populated
+  DB — `DROP COLUMN/TABLE`, `TRUNCATE`, `DELETE`, `ADD COLUMN ... NOT NULL` without `DEFAULT`,
+  `SET NOT NULL`, `ALTER COLUMN TYPE`, `UNIQUE INDEX`/`UNIQUE CONSTRAINT` on existing tables,
+  `RENAME`. A flagged statement must carry `-- nirman:accept-risk <reason>` on the line above
+  it or CI fails. Safe pattern for required columns: add nullable column → `UPDATE` backfill →
+  `SET NOT NULL` (marked). Keep ALL DDL inside migrations — objects created outside them
+  (including via `data-fixes.sql`, which is DML-only) trip the deploy-time drift check forever.
   **Production migrations**
   use `pnpm --filter @nirman/db migrate:deploy` which runs `prisma migrate deploy` (safe, ordered,
   atomic). The schema has `directUrl = env("DIRECT_URL")` for non-pooled migration connections.
   Never use `db push --accept-data-loss` in production — it can drop columns/tables. Use
   `pnpm --filter @nirman/db migrate:status` to check migration state. The `DATABASE_URL` should
   include `connection_limit=5&pool_timeout=10` (Render free Postgres has only 20 connections).
+  **Pre-migration snapshot**: the Docker entrypoint runs `pg_dump` to
+  `/backups/pre-deploy-<UTC>.sql.gz` (kept: newest 30) BEFORE migrations, so a bad migration
+  is recoverable without waiting for the nightly backup. Restore: drop+recreate the `public`
+  schema, then `gunzip -c <snapshot> | psql` inside the db container.
+  **`POSTGRES_PASSWORD` trap**: Postgres reads it only at first init (empty volume). Changing
+  it in Coolify later does NOT update the DB but DOES change web's `DATABASE_URL` → instant
+  auth-failure outage. Rotate via `ALTER USER` in psql, then sync the env value.
 - **Money/quantities**: use `Decimal` (`@db.Decimal(14,2)` for money, `(14,3)` for quantities).
   Never use JS `number` for money in the DB layer.
 - **Stock ledger**: NEVER mutate stock by updating a "current stock" column directly. Always use
