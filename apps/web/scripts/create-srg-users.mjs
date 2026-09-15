@@ -223,6 +223,16 @@ const USERS = [
     reportsTo: "anurag",
     department: "Construction",
   },
+  {
+    key: "ramesh",
+    name: "Ramesh Guard",
+    designation: "Security Guard",
+    role: "SECURITY_GUARD",
+    hierarchyLevel: 4,
+    phone: "7302920206",
+    reportsTo: "yash",
+    department: "Security",
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════
