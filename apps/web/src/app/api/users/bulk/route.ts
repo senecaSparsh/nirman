@@ -151,7 +151,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
           designation: row.designation?.trim() || null,
           department: row.department?.trim() || null,
           joiningDate: row.joiningDate ? new Date(row.joiningDate) : null,
-          mustChangePassword: false, // admin manages passwords
+          mustChangePassword: true, // force password change on first login
         },
         select: { id: true, name: true },
       });
