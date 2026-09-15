@@ -7,9 +7,11 @@ import { apiHandler, getCompany, json, requirePermission, toNum, scopeWhere } fr
 import { PERM } from "@/lib/roles";
 
 const stageSchema = z.object({
-  stage: z.enum(["NEW", "CONTACTED", "SITE_VISIT", "NEGOTIATION", "LOST"]),
+  stage: z.enum(["NEW", "CONTACTED", "SITE_VISIT", "NEGOTIATION", "LOST"]).optional(),
   lostReason: z.string().trim().max(500).optional(),
   nextFollowUpAt: z.coerce.date().optional().nullable(),
+  // Reassign the lead to another sales-team member (or null to unassign).
+  assignedToId: z.string().optional().nullable(),
 });
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -64,6 +66,33 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const { id } = await params;
   const parsed = stageSchema.safeParse(await req.json());
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+
+  // Assignment-only update (no stage change) — validate the assignee is a
+  // company member, then update directly (updateLeadStage requires a stage).
+  if (parsed.data.assignedToId !== undefined) {
+    if (parsed.data.assignedToId) {
+      const member = await prisma.userCompany.findFirst({
+        where: { userId: parsed.data.assignedToId, companyId: company.id },
+        select: { id: true },
+      });
+      if (!member) return json({ error: "Assignee is not a member of this company" }, { status: 400 });
+    }
+    const lead = await prisma.lead.findFirst({
+      where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("Lead") },
+      select: { id: true },
+    });
+    if (!lead) return json({ error: "Lead not found" }, { status: 404 });
+    const updated = await prisma.lead.update({
+      where: { id },
+      data: { assignedToId: parsed.data.assignedToId },
+      select: { id: true, stage: true },
+    });
+    revalidatePath("/sales");
+    revalidatePath("/m/sales");
+    return json({ id: updated.id, stage: updated.stage });
+  }
+
+  if (!parsed.data.stage) return json({ error: "stage is required" }, { status: 400 });
   const lead = await updateLeadStage({
     leadId: id,
     companyId: company.id,

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { logAction } from "@nirman/services";
+import { logAction, resolveScopeType } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
@@ -56,6 +56,17 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   try {
     await withSerializableTransaction(async (tx) => {
       await tx.projectAssignment.delete({ where: { id } });
+      // Mirror the removal into UserScope — the POST route syncs assignments
+      // into scope rows for PROJECT-scoped members, so deleting the roster row
+      // must revoke the scope it granted.
+      const membership = await tx.userCompany.findUnique({
+        where: { userId_companyId: { userId: existing.userId, companyId: company.id } },
+      });
+      if (membership && resolveScopeType(membership) === "PROJECT") {
+        await tx.userScope.deleteMany({
+          where: { userCompanyId: membership.id, scopeKind: "PROJECT", projectId: existing.projectId },
+        });
+      }
       await logAction(tx, {
         userId: user.id,
         action: "PROJECT_ASSIGNMENT_DELETE",

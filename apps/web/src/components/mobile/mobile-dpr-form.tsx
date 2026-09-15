@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { mutate } from "swr";
 import { Plus, X, CheckCircle2, Repeat, Zap, Loader2, Send, MapPin, ScanLine, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
@@ -574,6 +575,8 @@ export function MobileDprForm({
       if (!res.ok) throw new Error(data.error ?? "Failed to submit DPR");
       haptic([10, 40, 80]);
       toast.success(editingDprId ? "DPR updated" : "DPR submitted");
+      // Bust the briefing cache — home still showed "Submit DPR" otherwise.
+      void mutate("/api/briefing");
       // Record smart defaults for next time
       recordDefaults({ project: fProject, workType: fWorkType, weather: fWeather });
       clearDraft();

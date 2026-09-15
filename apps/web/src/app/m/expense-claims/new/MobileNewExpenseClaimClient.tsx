@@ -523,6 +523,7 @@ export function MobileNewExpenseClaimClient({
           onClose={() => setModal(null)}
           onCreate={() => setShowCreateProject(true)}
           createLabel="Create new project"
+          emptyHint="No projects are assigned to you yet — ask your admin to add you under Settings → Project Assignments."
         />
       ) : null}
 

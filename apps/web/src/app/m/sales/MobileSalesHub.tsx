@@ -254,7 +254,7 @@ function MobileLeadPipeline({
           />
         </MobileFabModal>
       )}
-      <LeadDetailDialog lead={selected} open={selected != null} onOpenChange={(value) => !value && setSelected(null)} canManage={canManage} bookingHref="/m/sales/new" />
+      <LeadDetailDialog lead={selected} open={selected != null} onOpenChange={(value) => !value && setSelected(null)} canManage={canManage} bookingHref="/m/sales/new" assignees={assignees} />
     </>
   );
 }

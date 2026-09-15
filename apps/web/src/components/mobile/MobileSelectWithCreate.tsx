@@ -53,6 +53,7 @@ export function MobileSelectWithCreate({
   subvalue,
   compact,
   disabled,
+  emptyHint,
   /** Stacked mode — renders label above + h-7 tappable value below (matches
    *  UnderlineInput). Use when placed side-by-side with plain <input> fields
    *  in a grid-cols-2 row so baselines and borders align. */
@@ -82,6 +83,9 @@ export function MobileSelectWithCreate({
   compact?: boolean;
   /** When true, the trigger is disabled (e.g. while loading options). */
   disabled?: boolean;
+  /** Shown in the picker when the list is empty before search — explains why
+   *  and what to do next (e.g. scope-empty projects). */
+  emptyHint?: string;
   /** Stacked mode — label above + h-7 value below (matches UnderlineInput). */
   stacked?: boolean;
   /** @deprecated Use the default SelectorCard styling. */
@@ -149,6 +153,7 @@ export function MobileSelectWithCreate({
           onClose={() => setShowPicker(false)}
           onCreate={renderDialog ? handleOpenCreate : undefined}
           createLabel={`Create new ${createLabel || label || "item"}`}
+          emptyHint={emptyHint}
         />
       ) : null}
 

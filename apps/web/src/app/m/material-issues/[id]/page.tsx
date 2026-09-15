@@ -64,6 +64,15 @@ export default function MobileMaterialIssueDetailPage({
           for (const r of macRows) pendingCostMap.set(r.materialId, toNum(r.movingAvgCost));
         }
 
+        // The auto-created gate pass gates execution. Resolve its live
+        // status so the next-action card and the Execute button reflect
+        // reality — "Approve the gate pass" only while it's pending.
+        const linkedGp = await prisma.gatePass.findFirst({
+          where: { refType: "MaterialIssue", refId: issue.id },
+          select: { id: true, status: true, gatePassNumber: true },
+          orderBy: { createdAt: "desc" },
+        });
+
         const data = {
           id: issue.id,
           issueNumber: issue.issueNumber,
@@ -79,6 +88,9 @@ export default function MobileMaterialIssueDetailPage({
           vehicleType: issue.vehicleType,
           driverName: issue.driverName,
           driverPhone: issue.driverPhone,
+          gatePassStatus: linkedGp?.status ?? null,
+          gatePassId: linkedGp?.id ?? null,
+          gatePassNumber: linkedGp?.gatePassNumber ?? null,
           totalCost: toNum(issue.totalCost) || issue.lines.reduce(
             (s, l) => s + toNum(l.qty) * (toNum(l.unitCost) || pendingCostMap.get(l.material.id) || 0),
             0,
@@ -118,7 +130,19 @@ export default function MobileMaterialIssueDetailPage({
               { label: "Cancelled", state: "pending" },
             ];
 
-        const nextAction = resolveNextAction("materialIssue", issue.status, role, overrides);
+        let nextAction = resolveNextAction("materialIssue", issue.status, role, overrides);
+        // When the linked gate pass is already approved, the "Approve the
+        // gate pass" prompt is stale — the real next step is executing.
+        if (issue.status === "PENDING" && linkedGp?.status === "APPROVED") {
+          nextAction = {
+            when: "PENDING",
+            label: "Execute the issue",
+            reason: `Gate pass ${linkedGp.gatePassNumber} is approved — stock can move now.`,
+            action: { type: "anchor", hash: "#approve" },
+            perm: PERM.STOCK_ISSUE,
+            tone: "signal" as const,
+          };
+        }
 
         const canActions: string[] = [];
         if (canIssue) canActions.push(PERM.STOCK_ISSUE);
@@ -148,7 +172,7 @@ export default function MobileMaterialIssueDetailPage({
             <div className="mb-3 rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <MobilePipelineStepper steps={issuePipelineSteps} />
             </div>
-            <MobileMaterialIssueDetailClient issue={data} canCancel={canIssue && issue.status === "COMPLETED"} canExecute={canIssue && issue.status === "PENDING"} />
+            <MobileMaterialIssueDetailClient issue={data} canCancel={canIssue && issue.status === "COMPLETED"} canExecute={canIssue && issue.status === "PENDING" && (!linkedGp || linkedGp.status === "APPROVED")} />
           </>
           </PageContextProvider>
         );

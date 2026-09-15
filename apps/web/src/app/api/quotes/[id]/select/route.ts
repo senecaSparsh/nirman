@@ -93,7 +93,11 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
         if (cached) scope = cached;
       } catch { /* use default */ }
 
-      // Auto-resolve destination location
+      // Auto-resolve destination location. When the project has no site
+      // store, fall back to the company warehouse — the goods can transfer
+      // onward from there. Never skip PO creation just because a project
+      // lacks a site location; that strands the indent with a selected
+      // quote and no PO.
       let destLocationId: string | null = null;
       if (scope === "PROJECT" && req.projectId) {
         const projectLocation = await prisma.stockLocation.findFirst({
@@ -101,7 +105,8 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
           select: { id: true },
         });
         destLocationId = projectLocation?.id ?? null;
-      } else {
+      }
+      if (!destLocationId) {
         const companyLocation = await prisma.stockLocation.findFirst({
           where: { companyId: company.id, type: "COMPANY_WAREHOUSE", deletedAt: null },
           select: { id: true },
@@ -164,6 +169,11 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   revalidatePath("/procurement");
   revalidatePath("/m/procurement");
   revalidatePath("/approvals");
+  // The mobile detail page computes the winning-quote convert affordance —
+  // without this, it serves a stale RSC payload that hides "Convert to PO".
+  if (existing.requisitionId) {
+    revalidatePath(`/m/requisitions/${existing.requisitionId}`);
+  }
   return json({
     ok: true,
     id: updated.id,

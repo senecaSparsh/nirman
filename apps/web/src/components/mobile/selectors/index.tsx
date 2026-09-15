@@ -31,11 +31,12 @@ type BaseProps = Omit<
 };
 
 /* ── Project ── */
-export function MobileProjectSelect({ label = "Project", ...props }: BaseProps) {
+export function MobileProjectSelect({ label = "Project", emptyHint = "No projects are assigned to you yet — ask your admin to add you under Settings → Project Assignments.", ...props }: BaseProps) {
   return (
     <MobileSelectWithCreate
       {...props}
       label={label}
+      emptyHint={emptyHint}
       renderDialog={({ open, onClose, onCreated, originRect }) => (
         <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project" nested>
           <MobileNewProjectDialog

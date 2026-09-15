@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
+import { resolveScopeType } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -68,6 +69,24 @@ export const POST = apiHandler(async (req: NextRequest) => {
       create: { userId, projectId, scopedRole: scopedRole ?? "SUPERVISOR", assignedById: user.id },
       update: { scopedRole: scopedRole ?? "SUPERVISOR", assignedById: user.id },
     });
+
+    // Project-scoped roles (SITE_ENGINEER, SUPERVISOR, …) read their scope from
+    // UserScope rows on the membership — the roster row alone doesn't unlock
+    // pickers. Mirror the assignment into UserScope so assigning someone to a
+    // project here actually grants them that project's data.
+    const membership = await prisma.userCompany.findUnique({
+      where: { userId_companyId: { userId, companyId: company.id } },
+    });
+    if (membership && resolveScopeType(membership) === "PROJECT") {
+      const existing = await prisma.userScope.findFirst({
+        where: { userCompanyId: membership.id, scopeKind: "PROJECT", projectId },
+      });
+      if (!existing) {
+        await prisma.userScope.create({
+          data: { userCompanyId: membership.id, scopeKind: "PROJECT", projectId },
+        });
+      }
+    }
     return json({ ok: true, id: assignment.id }, { status: 201 });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to create assignment") }, { status: 400 });

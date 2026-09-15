@@ -311,6 +311,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
                 value={projectId}
                 onChange={setProjectId}
                 options={data.projects.map((p) => ({ value: p.id, label: p.name }))}
+                emptyHint="No projects are assigned to you yet — ask your admin to add you under Settings → Project Assignments."
                 inputClass={inputClass}
                 inputStyle={inputStyle}
                 renderDialog={({ open, onClose, onCreated, originRect }) => (

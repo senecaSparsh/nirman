@@ -477,6 +477,7 @@ export function SelectorModal({
   onClose,
   onCreate,
   createLabel,
+  emptyHint,
 }: {
   title: string;
   items: { id: string; label: string; sub?: string }[];
@@ -485,6 +486,9 @@ export function SelectorModal({
   onClose: () => void;
   onCreate?: () => void;
   createLabel?: string;
+  /** Shown when the list is empty *before* any search — explains why and
+   *  what to do (e.g. "No projects assigned — ask your admin…"). */
+  emptyHint?: string;
 }) {
   const [query, setQuery] = useState("");
   // Portal to document.body so the sheet escapes any parent modal's
@@ -543,9 +547,12 @@ export function SelectorModal({
         {/* List */}
         <div className="flex-1 overflow-y-auto overscroll-contain">
           {filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
+            <div className="flex flex-col items-center justify-center py-8 px-6 text-center">
               <Search className="size-5 mb-1.5" style={{ color: "var(--color-ink-300)" }} />
               <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-500)" }}>No results</p>
+              {emptyHint && !query.trim() ? (
+                <p className="mt-1.5 text-m-caption" style={{ color: "var(--color-ink-400)" }}>{emptyHint}</p>
+              ) : null}
             </div>
           ) : (
             filtered.map((item, i) => {

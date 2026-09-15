@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
+import { resolveScopeType } from "@nirman/services";
 import { apiHandler, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
@@ -32,7 +33,10 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
       id: m.id,
       userId: m.userId,
       role: m.role,
-      scopeType: m.scopeType,
+      // Resolved (not raw) scopeType — a SITE_ENGINEER with scopeType NULL is
+      // still PROJECT-scoped via role default; showing "Company-wide" here
+      // would mislead admins verifying who can see what.
+      scopeType: resolveScopeType(m),
       reportsToUserCompanyId: m.reportsToUserCompanyId,
       name: m.user.name,
       email: m.user.email,

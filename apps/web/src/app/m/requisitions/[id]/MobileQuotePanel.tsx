@@ -771,6 +771,18 @@ function MobileQuoteUploadDialog({
 
     const total = landedTotal ? Number(landedTotal) : computedTotal;
     if (total <= 0) return toast.error("Landed total must be > 0");
+    // Guard against swapped entries: if both line prices and a landed total
+    // were entered and they disagree by >10%, the user likely typed the
+    // total into a per-unit field (or vice-versa). Block and say why —
+    // the landed total drives winner selection and the PO value.
+    if (landedTotal && computedTotal > 0) {
+      const divergence = Math.abs(total - computedTotal) / computedTotal;
+      if (divergence > 0.10) {
+        return toast.error(
+          `Landed total ${formatCurrency(total)} doesn't match line math ${formatCurrency(computedTotal)}. Check whether you entered a per-unit price into the total field.`,
+        );
+      }
+    }
 
     setSaving(true);
     try {

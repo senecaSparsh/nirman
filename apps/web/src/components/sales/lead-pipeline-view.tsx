@@ -173,7 +173,7 @@ export function LeadPipelineView({
 
       <LeadFormDialog open={formOpen} onOpenChange={setFormOpen} projects={projects} units={units} assignees={assignees} />
       <LeadDedupDialog open={dedupOpen} onOpenChange={setDedupOpen} />
-      <LeadDetailDialog lead={selected} open={selected != null} onOpenChange={(value) => !value && setSelected(null)} canManage={canManage} />
+      <LeadDetailDialog lead={selected} open={selected != null} onOpenChange={(value) => !value && setSelected(null)} canManage={canManage} assignees={assignees} />
     </div>
   );
 }

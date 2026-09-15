@@ -1,5 +1,7 @@
 "use client";
 
+import { mutate } from "swr";
+
 import * as React from "react";
 import Link from "next/link";
 import { MapPin, CheckCircle2, AlertTriangle, Loader2, Clock, LogOut, FileText } from "lucide-react";
@@ -77,6 +79,8 @@ export function MobileSelfCheckIn({
         location: data.reportingLocation ?? null,
       });
       setCheckedIn(true);
+      // Bust briefing cache so home shows "Checked in" without a reload.
+      void mutate("/api/briefing");
     } catch (err) {
       if (err instanceof GeolocationPositionError) {
         setError("Could not get your location. Please enable GPS and try again.");
@@ -114,6 +118,7 @@ export function MobileSelfCheckIn({
       setCheckedOut(true);
       setCheckOutTime(new Date().toTimeString().slice(0, 5));
       setHoursWorked(data.hoursWorked ?? null);
+      void mutate("/api/briefing");
     } catch (err) {
       if (err instanceof GeolocationPositionError) {
         setError("Could not get your location. Please enable GPS and try again.");

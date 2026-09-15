@@ -28,18 +28,21 @@ export function LeadDetailDialog({
   onOpenChange,
   canManage,
   bookingHref,
+  assignees,
 }: {
   lead: LeadRow | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   canManage: boolean;
   bookingHref?: string;
+  assignees?: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const { data: detail, loading, error } = useFetch<LeadDetail>(
     open && lead ? `/api/leads/${lead.id}` : null,
   );
   const [saving, setSaving] = useState(false);
+  const [assignedToId, setAssignedToId] = useState<string>("");
   const [stage, setStage] = useState<LeadStage>("CONTACTED");
   const [lostReason, setLostReason] = useState("");
   const [activity, setActivity] = useState({
@@ -50,7 +53,10 @@ export function LeadDetailDialog({
   });
 
   useEffect(() => {
-    if (detail) setStage(NEXT_STAGES[detail.stage as LeadStage][0] ?? detail.stage);
+    if (detail) {
+      setStage(NEXT_STAGES[detail.stage as LeadStage][0] ?? detail.stage);
+      setAssignedToId(detail.assignedToId ?? "");
+    }
   }, [detail]);
 
   useEffect(() => {
@@ -99,6 +105,27 @@ export function LeadDetailDialog({
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to move lead");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function reassign(userId: string) {
+    if (!lead) return;
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/leads/${lead.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignedToId: userId || null }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Failed to assign lead");
+      setAssignedToId(userId);
+      toast.success(userId ? "Lead assigned" : "Lead unassigned");
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to assign lead");
     } finally {
       setSaving(false);
     }
@@ -198,7 +225,25 @@ export function LeadDetailDialog({
             <div className="rounded-lg border border-border p-3">
               <p className="text-label text-muted-foreground">Next action</p>
               <p className="mt-1 text-body font-medium">{current.nextFollowUpAt ? formatDate(current.nextFollowUpAt) : "No follow-up scheduled"}</p>
-              <p className="mt-0.5 text-meta text-muted-foreground">Owner: {current.assignedToName ?? "Unassigned"}</p>
+              {canManage && assignees && assignees.length > 0 ? (
+                <div className="mt-0.5 flex items-center gap-1.5">
+                  <span className="text-meta text-muted-foreground">Owner:</span>
+                  <Select
+                    aria-label="Assign lead owner"
+                    className="h-7 w-auto min-w-0 flex-1 text-meta"
+                    value={assignedToId}
+                    disabled={saving}
+                    onChange={(event) => reassign(event.target.value)}
+                  >
+                    <option value="">Unassigned</option>
+                    {assignees.map((a) => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </Select>
+                </div>
+              ) : (
+                <p className="mt-0.5 text-meta text-muted-foreground">Owner: {current.assignedToName ?? "Unassigned"}</p>
+              )}
             </div>
           </div>
 
