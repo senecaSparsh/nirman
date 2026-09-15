@@ -69,7 +69,7 @@ async function MobileEmployeeDetailContent({
             orderBy: { type: "asc" },
           },
           payrollLines: {
-            orderBy: { payrollPeriod: { year: "desc" } },
+            orderBy: [{ payrollPeriod: { year: "desc" } }, { payrollPeriod: { month: "desc" } }],
             take: 24,
             include: {
               payrollPeriod: {

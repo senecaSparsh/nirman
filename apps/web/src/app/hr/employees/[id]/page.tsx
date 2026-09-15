@@ -76,7 +76,7 @@ async function EmployeeProfileContent({
         include: { project: { select: { id: true, name: true } } },
       },
       payrollLines: {
-        orderBy: { payrollPeriod: { year: "desc" } },
+        orderBy: [{ payrollPeriod: { year: "desc" } }, { payrollPeriod: { month: "desc" } }],
         take: 24,
         include: {
           payrollPeriod: {

@@ -110,7 +110,7 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
       // Latest PAID payslip — what the worker actually got last.
       prisma.payrollLine.findFirst({
         where: { employeeId: employee.id, payrollPeriod: { status: "PAID" } },
-        orderBy: { payrollPeriod: { year: "desc" } },
+        orderBy: [{ payrollPeriod: { year: "desc" } }, { payrollPeriod: { month: "desc" } }],
         select: {
           daysWorked: true,
           grossPay: true,
