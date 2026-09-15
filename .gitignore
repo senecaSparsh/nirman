@@ -42,3 +42,4 @@ onboarding-queue.txt
 
 # Sentry build artifacts
 .sentry/
+.env.prod-secrets
