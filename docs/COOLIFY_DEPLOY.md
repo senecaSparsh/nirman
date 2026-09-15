@@ -535,3 +535,57 @@ These need external accounts I can't create for you:
 4. **Coolify API token renewal** — the deploy token expires Oct 15, 2026.
    Create a new one in Coolify → Keys & Tokens → API Tokens with Deploy +
    Read permissions, update `.env.prod-secrets`.
+
+---
+
+## Database migration rollback
+
+The production database has a single migration (`0001_init`). The
+`migrate-deploy` script handles forward migrations automatically (with
+P3005/P3018/P3009 auto-resolution and a drift check). For rollbacks:
+
+### Before a risky deploy
+
+A pre-deploy snapshot is automatically created by the backup sidecar:
+
+```bash
+# Verify the latest pre-deploy snapshot exists
+ssh nirman-vps 'docker run --rm -v oa346mulnes3pgn6gmij6dih_pgbackups:/backups:ro alpine ls /backups/pre-deploy/'
+```
+
+### Rollback procedure
+
+If a deploy introduces a bad migration or schema change:
+
+1. **Stop the app** (prevents further writes):
+
+   ```bash
+   ssh nirman-vps 'cd /data/coolify/applications/oa346mulnes3pgn6gmij6dih && docker compose --project-name oa346mulnes3pgn6gmij6dih stop web'
+   ```
+
+2. **Restore the database** from the pre-deploy snapshot:
+
+   ```bash
+   ssh nirman-vps 'LATEST=$(docker run --rm -v oa346mulnes3pgn6gmij6dih_pgbackups:/backups:ro alpine ls /backups/pre-deploy/ | sort | tail -1) && docker exec db-<container-name> sh -c "gunzip -c /backups/pre-deploy/$LATEST | psql -U nirman -d nirman_inventory"'
+   ```
+
+3. **Redeploy the previous commit**:
+
+   ```bash
+   git revert <bad-commit> && git push origin main
+   # Or trigger a deploy of a known-good commit via Coolify UI
+   ```
+
+4. **Verify**:
+   ```bash
+   ./scripts/prod-health-check.sh
+   ```
+
+### Notes
+
+- Prisma migrations are forward-only by design. Rollback = restore from
+  backup + redeploy old code. There is no `prisma migrate rollback`.
+- The `migrate-deploy` script's drift check (`migrate diff --exit-code`)
+  aborts the deploy if schema.prisma doesn't match the DB — this catches
+  missing migrations before the app boots.
+- `db push --accept-data-loss` is NEVER used in production (per AGENTS.md).
