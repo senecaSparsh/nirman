@@ -351,3 +351,13 @@ export function humanizeAuditAction(action: string): string {
 
   return `${subject} ${pastTense}`.trim().replace(/\b\w/g, (c) => c.toUpperCase());
 }
+/**
+ * displayEmail — phone-login accounts get a synthetic email
+ * (`phone+91…@nirman.internal`) that is not a real mailbox. Returns null for
+ * synthetic addresses so UIs show the phone (or "—") instead of a broken
+ * mailto: link.
+ */
+export function displayEmail(email: string | null | undefined): string | null {
+  if (!email || email.endsWith("@nirman.internal")) return null;
+  return email;
+}

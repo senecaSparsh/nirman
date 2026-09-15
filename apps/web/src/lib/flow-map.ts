@@ -194,7 +194,7 @@ const REQUISITION_FLOW: FlowDef = {
       label: "Submit for approval",
       reason: "A draft stays with you until you submit it to an approver.",
       action: { type: "anchor", hash: "#submit" },
-      perm: PERM.PROCUREMENT_MANAGE,
+      perm: PERM.REQUISITION_CREATE,
       tone: "signal",
     },
     {
@@ -218,7 +218,7 @@ const REQUISITION_FLOW: FlowDef = {
       label: "Fix & resubmit",
       reason: "This indent was rejected — correct the quantities or notes and resubmit.",
       action: { type: "anchor", hash: "#submit" },
-      perm: PERM.PROCUREMENT_MANAGE,
+      perm: PERM.REQUISITION_CREATE,
       tone: "signal",
     },
     {

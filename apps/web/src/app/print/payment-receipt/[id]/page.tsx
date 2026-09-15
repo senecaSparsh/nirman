@@ -150,7 +150,7 @@ export default async function PaymentReceiptPage({
           <div className="text-xs font-semibold uppercase text-gray-500">Amount Received</div>
           <div className="text-2xl font-bold tnum">{formatCurrency(amount)}</div>
         </div>
-        <div className="mt-1 text-sm italic text-gray-600">Rupees (in words): {words} only</div>
+        <div className="mt-1 text-sm italic text-gray-600">In words: {words}</div>
       </div>
 
       {/* ── Payment instrument ── */}

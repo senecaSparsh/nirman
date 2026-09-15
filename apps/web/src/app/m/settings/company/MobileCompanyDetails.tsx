@@ -12,7 +12,7 @@ import {
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { canAssignRole, ROLE_META, type Role } from "@/lib/roles";
-import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+import { formatCurrency, formatDate, formatDateTime, displayEmail } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import type { CompanyProfileData } from "@/components/companies/company-profile-client";
 import { SectionCard, UnderlineInput, EnumSelect } from "@/components/mobile/v2/form-primitives";
@@ -257,7 +257,7 @@ function MembersOverview({ data, canManage }: { data: CompanyProfileData; canMan
         <div key={m.id} className="rounded-[0.5rem] border p-2 flex items-center gap-2" style={{ borderColor: "var(--color-line)" }}>
           <div className="min-w-0 flex-1">
             <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>{m.name}</p>
-            <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>{m.email}</p>
+            <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>{displayEmail(m.email) ?? m.phone ?? "—"}</p>
             {m.phone && (
               <p className="text-m-caption truncate flex items-center gap-1" style={{ color: "var(--color-ink-500)" }}>
                 <Phone className="size-2.5" /> {m.phone}

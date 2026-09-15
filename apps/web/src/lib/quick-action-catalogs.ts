@@ -155,6 +155,7 @@ export const SITE_QUICK_ACTIONS: QuickActionTab[] = [
     icon: "📋",
     actions: [
       { key: "quick-issue", href: "/m/stock-out?mode=issue", icon: Send, label: "Quick Issue", personas: ["field", "ops", "procurement"] },
+      { key: "new-indent", href: "/m/requisitions/new", icon: ClipboardList, label: "New Indent", personas: ["field", "ops", "procurement"] },
       { key: "receive", href: "/m/site/receive", icon: Truck, label: "Receive Stock", personas: ["field", "procurement", "ops"] },
       { key: "dpr", href: "/m/site/dpr", icon: ClipboardList, label: "Submit DPR", personas: ["field", "ops", "hr", "executive"] },
       { key: "attendance", href: "/m/site/attendance", icon: CalendarCheck, label: "Attendance", personas: ["field", "hr", "ops", "executive"] },

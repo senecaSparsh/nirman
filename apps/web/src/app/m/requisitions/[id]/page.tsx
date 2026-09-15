@@ -182,10 +182,15 @@ export default function MobileRequisitionDetailPage({
           nextAction = undefined;
         }
 
+        // A field creator (requisition.create) can submit/resubmit their own
+        // draft — the API enforces own-indent-only for non-manage users.
+        const canSubmit = canManage || (isSelfCreated && hasPermission(role, PERM.REQUISITION_CREATE, overrides));
+
         // Permissions to announce to the NavSheet's Next Step resolver
         const canActions: string[] = [];
         if (canApprove) canActions.push(PERM.REQUISITION_APPROVE);
         if (canManage) canActions.push(PERM.PROCUREMENT_MANAGE);
+        if (canSubmit) canActions.push(PERM.REQUISITION_CREATE);
 
         // ── Workflow timeline steps ──
         const timelineSteps: TimelineStepData[] = [
@@ -416,6 +421,7 @@ export default function MobileRequisitionDetailPage({
                   locations={locations.map((l) => ({ id: l.id, name: l.name, type: l.type, projectId: l.projectId }))}
                   canApprove={canApprove}
                   canManage={canManage}
+                  canSubmit={canSubmit}
                   quoteCount={quoteCount}
                   minQuotesRequired={req.minQuotesRequired}
                   quotesWaived={req.quotesWaived}

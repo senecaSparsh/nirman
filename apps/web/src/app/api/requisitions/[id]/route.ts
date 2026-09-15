@@ -11,7 +11,7 @@ import {
   canAutoApprove,
 } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, ForbiddenError, getCompany, json, requirePermission, requireUser, toNum, UnauthorizedError, scopeWhere } from "@/lib/server";
+import { apiHandler, ForbiddenError, getCompany, getUserPermissions, json, requirePermission, requireAnyPermission, requireUser, toNum, UnauthorizedError, scopeWhere } from "@/lib/server";
 import { z } from "zod";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -137,7 +137,19 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   try {
     if (action === "submit") {
-      const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+      const user = await requireAnyPermission(PERM.PROCUREMENT_MANAGE, PERM.REQUISITION_CREATE);
+      // Field creators (requisition.create without procurement.manage) may
+      // only submit their own indents — never someone else's draft.
+      const perms = await getUserPermissions();
+      if (!perms.includes("*") && !perms.includes(PERM.PROCUREMENT_MANAGE)) {
+        const own = await prisma.materialRequisition.findFirst({
+          where: { id, OR: [{ requestedById: user.id }, { submittedById: user.id }] },
+          select: { id: true },
+        });
+        if (!own) {
+          return json({ error: "You can only submit your own indents." }, { status: 403 });
+        }
+      }
       await submitRequisition(id, user.id);
       // A tier-1 creator (OWNER/ADMIN) is the top of the approval hierarchy —
       // no higher approver exists, so submitting auto-approves their indent.

@@ -225,7 +225,7 @@ export default async function DemandNoticePage({
               <td className="py-2 text-base font-bold">
                 {formatCurrency(balanceDue)}
                 <span className="ml-2 text-xs font-normal text-gray-500">
-                  ({amountInWords(balanceDue)} only)
+                  ({amountInWords(balanceDue)})
                 </span>
               </td>
             </tr>

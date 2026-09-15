@@ -436,7 +436,7 @@ function DetailShell({
           <span className="text-m-label font-semibold uppercase" style={{ color: "var(--color-ink-300)" }}>Amount Received</span>
           <span className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-go)" }}>{formatCurrency(amount)}</span>
         </div>
-        <div className="mt-1 text-m-body italic" style={{ color: "var(--color-ink-500)" }}>In words: {words} only</div>
+        <div className="mt-1 text-m-body italic" style={{ color: "var(--color-ink-500)" }}>In words: {words}</div>
       </DetailHeroCard>
 
       {children}

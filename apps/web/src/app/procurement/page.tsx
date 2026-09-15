@@ -39,6 +39,7 @@ async function ProcurementContent() {
 
   const perms = {
     canCreate: hasPermission(role, PERM.PROCUREMENT_MANAGE),
+    canCreateRequisition: hasPermission(role, PERM.REQUISITION_CREATE),
     canApprove: hasPermission(role, PERM.PO_APPROVE),
     canSelfApprove: canAutoApprove(role),
     canManagePayments: hasPermission(role, PERM.FINANCE_MANAGE),

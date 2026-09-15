@@ -50,7 +50,7 @@ import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primiti
 import { OnboardingProgress } from "@/components/mobile/v2/onboarding-progress";
 import { buildOnboardingSteps } from "@/lib/onboarding-steps";
 import { ROLES } from "@/lib/roles";
-import { formatDate } from "@/lib/utils";
+import { formatDate, displayEmail } from "@/lib/utils";
 import { toast } from "sonner";
 
 /**
@@ -191,7 +191,7 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
     if (!d) return;
     if (d.name) setUserName(d.name);
     if (d.role) setUserRole(d.role);
-    if (d.email) setUserEmail(d.email);
+    if (d.email) setUserEmail(displayEmail(d.email) ?? "");
     if (d.phone) setUserPhone(d.phone);
     if (d.image !== undefined) setUserImage(d.image ?? null);
     if (d.active !== undefined) setUserActive(d.active ?? true);
@@ -614,7 +614,7 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
                 </p>
               )}
               <p className="text-m-caption mt-2" style={{ color: "var(--color-ink-500)" }}>
-                Present this month: <span className="font-bold" style={{ color: "var(--color-ink-950)" }}>{initial.hr.presentDaysThisMonth} days</span>
+                Present this month: <span className="font-bold" style={{ color: "var(--color-ink-950)" }}>{initial.hr.presentDaysThisMonth} day{initial.hr.presentDaysThisMonth === 1 ? "" : "s"}</span>
               </p>
             </Card>
           </div>

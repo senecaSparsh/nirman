@@ -152,7 +152,7 @@ export default async function SaleDraftPage({
               <td className="py-1.5 pr-4 font-semibold text-gray-600">Sale Price</td>
               <td className="py-1.5">
                 <span className="font-bold">{formatCurrency(salePrice)}</span>
-                <span className="ml-2 text-xs text-gray-500">({amountInWords(salePrice)} only)</span>
+                <span className="ml-2 text-xs text-gray-500">({amountInWords(salePrice)})</span>
               </td>
             </tr>
             {gstRate > 0 && (
@@ -167,7 +167,7 @@ export default async function SaleDraftPage({
               <td className="py-1.5 pr-4 font-semibold text-gray-600">Total Consideration</td>
               <td className="py-1.5">
                 <span className="font-bold">{formatCurrency(total)}</span>
-                <span className="ml-2 text-xs text-gray-500">({amountInWords(total)} only)</span>
+                <span className="ml-2 text-xs text-gray-500">({amountInWords(total)})</span>
               </td>
             </tr>
             {sale.paymentCycle && (

@@ -75,6 +75,7 @@ export function MobileRequisitionActions({
   locations,
   canApprove,
   canManage,
+  canSubmit,
   quoteCount = 0,
   minQuotesRequired = 3,
   quotesWaived = false,
@@ -86,6 +87,9 @@ export function MobileRequisitionActions({
   locations: LocationOpt[];
   canApprove: boolean;
   canManage: boolean;
+  /** True when the viewer can submit this draft — manage users, or the
+   *  indent's own creator holding requisition.create (site engineers). */
+  canSubmit?: boolean;
   quoteCount?: number;
   minQuotesRequired?: number;
   quotesWaived?: boolean;
@@ -96,7 +100,7 @@ export function MobileRequisitionActions({
   const [showConvert, setShowConvert] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const showSubmit = (requisition.status === "DRAFT" || requisition.status === "REJECTED") && canManage;
+  const showSubmit = (requisition.status === "DRAFT" || requisition.status === "REJECTED") && (canManage || canSubmit);
   const showApproveReject = requisition.status === "SUBMITTED" && canApprove;
   // Only show the manual convert button when quotes are waived (no winning
   // quote to auto-convert from) or when a winning quote exists but auto-

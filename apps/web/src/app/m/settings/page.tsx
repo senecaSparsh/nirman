@@ -21,7 +21,7 @@ import {
   getTallySyncStats,
 } from "@nirman/services";
 import { getCurrentUser, toNum } from "@/lib/server";
-import {formatCurrencyCompact, formatNumber, formatDate, humanizeAuditAction} from "@/lib/utils";
+import {formatCurrencyCompact, formatNumber, formatDate, humanizeAuditAction, displayEmail} from "@/lib/utils";
 import {
   MobileRow,
   Badge,
@@ -207,7 +207,7 @@ export default function SettingsPage() {
                 href="/m/me"
                 icon={User}
                 title={user?.name ?? "Profile"}
-                subtitle={user?.email ?? "—"}
+                subtitle={displayEmail(user?.email) ?? user?.phone ?? "—"}
                 meta="Edit"
                 badge={<Badge tone="steel">{user?.role ?? "—"}</Badge>}
               />

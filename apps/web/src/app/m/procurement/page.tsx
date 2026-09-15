@@ -3,7 +3,7 @@ import { prisma } from "@nirman/db";
 
 import { getCompanyGroupIds,
   toNum,
-  getCurrentUserMembership, scopeWhere } from "@/lib/server";
+  getCurrentUserMembership, scopeWhere, projectScopeFilter } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
@@ -17,6 +17,9 @@ export default function MobileProcurementPage() {
       {async ({ company, role }) => {
         const groupCompanyIds = await getCompanyGroupIds(company);
         const canCreate = hasPermission(role, PERM.PROCUREMENT_MANAGE);
+        // Indent creation is field-facing too (site engineers raise indents) —
+        // REQUISITION_CREATE is granted to all roles that hold PROCUREMENT_MANAGE.
+        const canCreateIndent = hasPermission(role, PERM.REQUISITION_CREATE);
         const canApprove = hasPermission(role, PERM.PO_APPROVE);
         const canApproveRequisition = hasPermission(role, PERM.REQUISITION_APPROVE);
         const canCreateQuotation = hasPermission(role, PERM.QUOTATION_MANAGE);
@@ -80,7 +83,7 @@ export default function MobileProcurementPage() {
             },
           }),
           prisma.project.findMany({
-            where: { companyId: company.id, deletedAt: null },
+            where: { companyId: company.id, deletedAt: null, ...await projectScopeFilter() },
             select: { id: true, name: true },
             orderBy: { name: "asc" },
           }),
@@ -348,7 +351,7 @@ export default function MobileProcurementPage() {
         return (
           <MobileProcurementHubTabs
             indentItems={indentItems}
-            indentCanCreate={canCreate}
+            indentCanCreate={canCreateIndent}
             indentCanApprove={canApproveRequisition}
             indentCanSelfApprove={canAutoApprove(role)}
             indentSubmittedCount={reqSubmittedCount}

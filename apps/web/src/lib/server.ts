@@ -1561,6 +1561,8 @@ export interface CurrentUser {
   id: string;
   email: string;
   name: string;
+  /** Phone number, when the account has one (phone-login users always do). */
+  phone?: string | null;
   role: Role;
   companyId: string | null;
   active: boolean;
@@ -1613,7 +1615,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   // foreign key in transactional records.
   const exists = await prisma.user.findUnique({
     where: { id: u.id },
-    select: { id: true, role: true, companyId: true, active: true },
+    select: { id: true, role: true, companyId: true, active: true, phone: true },
   });
   if (!exists) return null;
   const role = normalizeRole(exists.role ?? u.role);
@@ -1621,6 +1623,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     id: u.id,
     email: u.email ?? "",
     name: u.name ?? "",
+    phone: exists.phone ?? null,
     role,
     companyId: exists.companyId ?? null,
     active: exists.active ?? true,

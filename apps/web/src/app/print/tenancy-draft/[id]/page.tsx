@@ -173,7 +173,7 @@ export default async function TenancyDraftPage({
               <td className="py-1.5 pr-4 font-semibold text-gray-600">Monthly Rent</td>
               <td className="py-1.5">
                 <span className="font-bold">{formatCurrency(monthlyRent)}</span>
-                <span className="ml-2 text-xs text-gray-500">({amountInWords(monthlyRent)} only)</span>
+                <span className="ml-2 text-xs text-gray-500">({amountInWords(monthlyRent)})</span>
               </td>
             </tr>
             {securityDeposit > 0 && (
@@ -181,7 +181,7 @@ export default async function TenancyDraftPage({
                 <td className="py-1.5 pr-4 font-semibold text-gray-600">Security Deposit</td>
                 <td className="py-1.5">
                   <span className="font-bold">{formatCurrency(securityDeposit)}</span>
-                  <span className="ml-2 text-xs text-gray-500">({amountInWords(securityDeposit)} only)</span>
+                  <span className="ml-2 text-xs text-gray-500">({amountInWords(securityDeposit)})</span>
                 </td>
               </tr>
             )}

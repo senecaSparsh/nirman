@@ -50,7 +50,7 @@ export function ProcurementView({
   supplierReturns?: SupplierReturnRow[];
   quotationRequests?: QuotationRequestRow[];
   reportIds?: Set<string>;
-  permissions?: { canCreate?: boolean; canApprove?: boolean; canSelfApprove?: boolean; canManagePayments?: boolean; canApproveRequisitions?: boolean; canReceiveGoods?: boolean };
+  permissions?: { canCreate?: boolean; canCreateRequisition?: boolean; canApprove?: boolean; canSelfApprove?: boolean; canManagePayments?: boolean; canApproveRequisitions?: boolean; canReceiveGoods?: boolean };
   currentUserId?: string;
 }) {
   const [tab, setTab] = useTabParam(
@@ -58,6 +58,9 @@ export function ProcurementView({
     "purchase-orders",
   );
   const canCreate = permissions?.canCreate ?? false;
+  // Indent creation is field-facing — falls back to canCreate for callers
+  // that don't pass the narrower flag (e.g. tests, embedded views).
+  const canCreateRequisition = permissions?.canCreateRequisition ?? canCreate;
   const canApprove = permissions?.canApprove ?? false;
   const canSelfApprove = permissions?.canSelfApprove ?? false;
   const canManagePayments = permissions?.canManagePayments ?? false;
@@ -124,7 +127,7 @@ export function ProcurementView({
               suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
               locations={locationOptions.map((l) => ({ id: l.id, name: l.name, type: l.type, projectId: l.projectId }))}
               categories={categories.map((c) => ({ id: c.id, name: c.name, unit: c.unit }))}
-              permissions={{ canCreate, canApprove: canApproveRequisitions, canSelfApprove }}
+              permissions={{ canCreate: canCreateRequisition, canApprove: canApproveRequisitions, canSelfApprove }}
               currentUserId={currentUserId}
             />
           ) : null}

@@ -1,5 +1,6 @@
 import { prisma } from "@nirman/db";
 import { getCurrentUser, getCompany } from "@/lib/server";
+import { displayEmail } from "@/lib/utils";
 import { MePageClient, type MePageInitial } from "./MePageClient";
 
 /**
@@ -168,7 +169,7 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
     name: user.name,
     role,
     roleLabel,
-    email: user.email,
+    email: displayEmail(user.email) ?? "",
     phone: dbUser?.phone ?? null,
     image: dbUser?.image ?? null,
     active: dbUser?.active ?? true,

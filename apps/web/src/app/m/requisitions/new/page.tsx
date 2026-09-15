@@ -1,18 +1,18 @@
 import { prisma } from "@nirman/db";
-import { getCompany } from "@/lib/server";
+import { getCompany, projectScopeFilter } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import { MobileNewRequisitionClient } from "./MobileNewRequisitionClient";
 
 export default function MobileNewRequisitionPage() {
   return (
-    <MobileNewEntityPage perm={PERM.PROCUREMENT_MANAGE} what="create material indents" permission="procurement.manage" fields={4}>
+    <MobileNewEntityPage perm={PERM.REQUISITION_CREATE} what="create material indents" permission="requisition.create" fields={4}>
       {async () => {
         const company = await getCompany();
 
         const [projects, materials, suppliers, stockItems] = await Promise.all([
           prisma.project.findMany({
-            where: { companyId: company.id, deletedAt: null },
+            where: { companyId: company.id, deletedAt: null, ...await projectScopeFilter() },
             select: { id: true, name: true },
             orderBy: { name: "asc" },
           }),
