@@ -190,6 +190,47 @@ async function main() {
     console.log("[migrate:deploy] data-fixes.sql skipped (may not exist or be empty)");
   }
 
+  // Step 4: Residual drift check — after migrations + the additive
+  // db-push safety net, the database must match schema.prisma EXACTLY.
+  // Any remaining diff means a schema change shipped without a migration
+  // file (db push cannot add required columns to populated tables).
+  // Booting anyway surfaces the drift later as cryptic P2022 "column does
+  // not exist" runtime errors — fail fast here with a clear, actionable
+  // message instead. `--exit-code` makes migrate diff exit 2 when a diff
+  // exists (0 = in sync).
+  console.log("[migrate:deploy] running: prisma migrate diff (residual drift check)");
+  const driftResult = await runCommand(
+    ["prisma", "migrate", "diff",
+      "--from-url", env.DIRECT_URL ?? "",
+      "--to-schema-datamodel", "./prisma/schema.prisma",
+      "--exit-code"],
+    "drift check",
+  );
+  if (driftResult.code === 2) {
+    console.error("");
+    console.error("╔══════════════════════════════════════════════════════════════╗");
+    console.error("║  ✗  SCHEMA DRIFT DETECTED — deploy aborted                  ║");
+    console.error("║                                                              ║");
+    console.error("║  The database does not match schema.prisma and the diff      ║");
+    console.error("║  above cannot be applied automatically. This happens when    ║");
+    console.error("║  a schema change ships without a migration file — db push    ║");
+    console.error("║  cannot add required columns to populated tables.            ║");
+    console.error("║                                                              ║");
+    console.error("║  Fix: author a migration covering the drift —                ║");
+    console.error("║     pnpm --filter @nirman/db migrate:dev --name <name>       ║");
+    console.error("║  or reset the database if its data is disposable.            ║");
+    console.error("╚══════════════════════════════════════════════════════════════╝");
+    console.error("");
+    process.exit(2);
+  }
+  if (driftResult.code !== 0) {
+    // The check itself errored (bad URL, engine missing, etc.) — don't
+    // block the deploy on a tooling hiccup, but say so visibly.
+    console.log("[migrate:deploy] drift check could not run — continuing");
+  } else {
+    console.log("[migrate:deploy] no residual drift — schema in sync");
+  }
+
   console.log("[migrate:deploy] done");
   process.exit(0);
 }

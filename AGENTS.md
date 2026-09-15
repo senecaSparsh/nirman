@@ -185,7 +185,15 @@ msg)` that returns 504 on timeout. Applied to `/api/cron/backup` (120s) and
   `SENTRY_DSN`).
 - **DB**: all Prisma models live in `packages/db/prisma/schema.prisma`. Import the client and
   types from `@nirman/db` (`import { prisma, ... } from "@nirman/db"`). After any schema change,
-  run `pnpm db:generate` (and `pnpm db:push` against a running Postgres). **Production migrations**
+  run `pnpm db:generate` (and `pnpm db:push` against a running Postgres). **Every schema.prisma
+  change must ship a migration** — run `pnpm --filter @nirman/db migrate:dev --name <desc>` and
+  commit the new `prisma/migrations/<dir>` together with the schema change. `db push` cannot
+  express data migrations (backfills, required-column additions on populated tables), so a
+  schema change without a migration file produces unreconcilable production drift — this exact
+  failure once made a deploy unbootable. Two guards enforce this: the CI "Migration coverage"
+  job fails if committed migrations don't produce the current schema, and `migrate-deploy`
+  aborts the deploy with a loud banner if residual drift remains after migrations + db push.
+  **Production migrations**
   use `pnpm --filter @nirman/db migrate:deploy` which runs `prisma migrate deploy` (safe, ordered,
   atomic). The schema has `directUrl = env("DIRECT_URL")` for non-pooled migration connections.
   Never use `db push --accept-data-loss` in production — it can drop columns/tables. Use
