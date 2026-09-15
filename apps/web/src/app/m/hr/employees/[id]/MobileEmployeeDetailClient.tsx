@@ -13,7 +13,7 @@ import {
   AlertCircle, ShieldCheck, XCircle, KeyRound, Shield, Paperclip,
   Package,
 } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, displayEmail } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import {
   MobileSectionTitle,
@@ -290,7 +290,7 @@ export function MobileEmployeeDetailClient({
       : "—";
 
   const phone = employee.phone ?? employee.user?.phone ?? null;
-  const email = employee.email ?? employee.user?.email ?? null;
+  const email = displayEmail(employee.email) ?? displayEmail(employee.user?.email) ?? null;
   const photoUrl = employee.user?.image ?? null;
 
   // ── Payroll summary ──
@@ -548,7 +548,7 @@ export function MobileEmployeeDetailClient({
           </div>
           {employee.user && (
             <div className="grid grid-cols-2 gap-x-3 gap-y-2 pt-2 border-t" style={{ borderColor: "var(--color-line)" }}>
-              <InfoField icon={<Mail className="size-3" />} label="Login" value={employee.user.email} />
+              <InfoField icon={<Mail className="size-3" />} label="Login" value={displayEmail(employee.user.email) ?? employee.user.phone ?? "—"} />
               {employee.user.role && <InfoField icon={<UserCircle className="size-3" />} label="Role" value={employee.user.role.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())} />}
               {employee.user.department && <InfoField icon={<Briefcase className="size-3" />} label="Dept" value={employee.user.department} />}
               {employee.user.lastLoginAt && <InfoField icon={<Clock className="size-3" />} label="Last Login" value={formatDate(employee.user.lastLoginAt)} />}

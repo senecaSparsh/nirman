@@ -26,7 +26,7 @@ import {
   IndianRupee,
   ChevronRight,
 } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, displayEmail } from "@/lib/utils";
 import { fieldError } from "@/lib/field-error";
 import { OnboardingNav, type OnboardingSubTab } from "./OnboardingNav";
 import { TermsEditor } from "./TermsEditor";
@@ -821,7 +821,7 @@ function AccountSubTab({
             </div>
             <div className="px-3 pb-3">
               <InfoGrid items={[
-                { label: "Email", value: u.email },
+                { label: "Email", value: displayEmail(u.email) ?? loginPhone ?? "—" },
                 { label: "Role", value: u.role.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) },
                 ...(u.employeeCode ? [{ label: "Code", value: u.employeeCode }] : []),
                 ...(u.department ? [{ label: "Dept", value: u.department }] : []),

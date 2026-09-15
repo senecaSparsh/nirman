@@ -20,7 +20,7 @@ import {
 import { toast } from "sonner";
 import { ROLES, type Role, ROLE_META } from "@/lib/roles";
 import { haptic } from "@/lib/haptic";
-import { formatDate } from "@/lib/utils";
+import { formatDate, displayEmail } from "@/lib/utils";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { Button } from "@/components/mobile/v2/primitives";
 import { ScopeEditorDialog } from "@/components/settings/scope-editor-dialog";
@@ -515,7 +515,7 @@ function AccessManagementCard({
               Access & Login
             </p>
             <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
-              {user.email}
+              {displayEmail(user.email) ?? user.phone ?? "—"}
             </p>
           </div>
           <span
