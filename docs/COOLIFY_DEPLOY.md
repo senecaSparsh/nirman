@@ -408,6 +408,39 @@ rebuild in Coolify: **Deploy** → **Rebuild from scratch**.
 `render.yaml` is untouched. Just deploy to Render as before — nothing in the
 Render workflow was changed by adding these Docker files.
 
+### Container killed ~60s after deploy (SIGTERM loop)
+
+**Symptom**: web container starts, goes healthy, then receives SIGTERM exactly
+~55-60s later. Coolify shows "exited:unhealthy" and "restart limit reached".
+
+**Root cause**: The `scheduler` and `backup` sidecar containers crash immediately
+(exit 0, empty logs) because their script files (`scheduler.sh`, `backup.sh`)
+are missing from the deploy directory on the VPS. Docker creates empty
+**directories** instead of file mounts when the source file doesn't exist.
+Coolify's `ContainerStatusAggregator` sees the exited sidecars → marks the
+entire application unhealthy → `StopApplication` kills all containers including
+the healthy web. This repeats every Sentinel push (~60s) until the restart
+limit (10) is reached.
+
+**Fix**: Ensure the scripts exist on the VPS at the path the compose file
+expects (`./apps/web/scripts/`). If deploying manually (not via Coolify UI),
+copy them:
+
+```bash
+scp apps/web/scripts/{scheduler,backup}.sh root@<vps>:/data/coolify/applications/<app-uuid>/apps/web/scripts/
+```
+
+Then `docker rm -f` the sidecar containers and `docker compose up -d` to
+recreate them with correct file mounts.
+
+**Also check**: the `coolify-proxy` container must be on the same Docker
+network as the web container (the one specified in `traefik.docker.network`
+label). If HTTPS times out but HTTP works, connect the proxy:
+
+```bash
+docker network connect <app-network> coolify-proxy
+```
+
 ---
 
 ## File reference
