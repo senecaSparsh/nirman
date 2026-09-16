@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, getUserScope } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getUserScope, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
@@ -20,11 +20,11 @@ export default function JobCostingPage() {
 
 async function JobCostingContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
   const scope = await getUserScope();
 
-  if (!hasPermission(role, PERM.FINANCE_VIEW)) {
+  if (!__effPerms.includes(PERM.FINANCE_VIEW)) {
     return <NoAccess what="the job costing report" />;
   }
 

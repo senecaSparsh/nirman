@@ -15,9 +15,8 @@ import { prisma } from "@nirman/db";
 import {
   lowStockAlerts,
   getCompanyPortfolioSummary,
-  trialBalance,
-} from "@nirman/services";
-import {apiHandler, json, requireUser, getCompany, toNum, scopeWhere} from "@/lib/server";
+  trialBalance} from "@nirman/services";
+import { apiHandler, json, requireUser, getActingRole, getCompany, toNum, scopeWhere } from "@/lib/server";
 import { parseIntent, type Intent } from "@/lib/assistant/nlu";
 import { processConversation, type ConversationContext } from "@/lib/assistant/conversation";
 import { hasPermission, PERM, ROLES, type Role } from "@/lib/roles";
@@ -70,9 +69,11 @@ interface ParsedEntities {
 // ═══════════════════════════════════════════════════════════════════════════
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requireUser();
+  await requireUser();
   const company = await getCompany();
-  const role = (user.role ?? "PROJECT_MANAGER") as Role;
+  // Acting role — a delegate asking "what's pending" should see the
+  // delegator's scope, not their own narrower one.
+  const role = (await getActingRole()) ?? "PROJECT_MANAGER";
 
   const body = await req.json();
   const text: string = (body?.text ?? "").trim();
@@ -95,8 +96,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       intent: conv.intent,
       confidence: parsed.confidence,
       needsInput: true,
-      context: conv.updatedContext,
-    });
+      context: conv.updatedContext});
   }
 
   // If this is a multi-step task, return the step prompt
@@ -106,8 +106,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       intent: conv.intent,
       confidence: parsed.confidence,
       hasMoreSteps: true,
-      context: conv.updatedContext,
-    });
+      context: conv.updatedContext});
   }
 
   // ── Execute the intent with resolved entities ──
@@ -128,9 +127,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     hasMoreSteps: conv.hasMoreSteps,
     context: {
       history: updatedHistory,
-      currentTask: conv.updatedContext.currentTask,
-    },
-  });
+      currentTask: conv.updatedContext.currentTask}});
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -151,8 +148,7 @@ async function executeIntent(
       text: `Aapke role (${roleLabel(role)}) ke liye ye action allowed nahi hai.\n\n${permCheck.reason ?? ""}`,
       intent,
       confidence: 0.9,
-      cards: [{ type: "link", label: "Dashboard", href: "/m/home" }],
-    };
+      cards: [{ type: "link", label: "Dashboard", href: "/m/home" }]};
   }
 
   switch (intent) {
@@ -331,8 +327,7 @@ function checkIntentPermission(intent: Intent, role: Role): { allowed: boolean; 
     // Composite add workflows
     ADD_TO_PROJECT: PERM.PROJECTS_VIEW,
     ADD_PROJECT_COST: PERM.PROJECTS_VIEW,
-    ADD_UNIT: PERM.ASSETS_VIEW,
-  };
+    ADD_UNIT: PERM.ASSETS_VIEW};
 
   // Write/action intents — require the specific action permission
   const WRITE_PERMS: Partial<Record<Intent, string>> = {
@@ -349,8 +344,7 @@ function checkIntentPermission(intent: Intent, role: Role): { allowed: boolean; 
     TRANSFER_STOCK: PERM.STOCK_TRANSFER,
     ISSUE_MATERIAL: PERM.STOCK_ISSUE,
     ADD_PROJECT_COST: PERM.EXPENSE_CREATE,
-    ADD_UNIT: PERM.ASSETS_MANAGE,
-  };
+    ADD_UNIT: PERM.ASSETS_MANAGE};
 
   const readPerm = READ_PERMS[intent];
   const writePerm = WRITE_PERMS[intent];
@@ -367,8 +361,7 @@ function checkIntentPermission(intent: Intent, role: Role): { allowed: boolean; 
 
   return {
     allowed: false,
-    reason: `Ye feature "${requiredPerm}" permission chahiye. Aapke role (${roleLabel(role)}) mein ye nahi hai.`,
-  };
+    reason: `Ye feature "${requiredPerm}" permission chahiye. Aapke role (${roleLabel(role)}) mein ye nahi hai.`};
 }
 
 function roleLabel(role: Role): string {
@@ -404,15 +397,13 @@ function greetingResponse(role: Role): AssistantResponse {
     ACCOUNTANT: [
       "Namaste! Accountant mode. Finance, expenses, GL, payroll — sab ready. Bolo?",
       "Hello! Books ready hain. Trial balance, expenses, payments — kya dekhna hai?",
-    ],
-  };
+    ]};
   const opts = greetings[role] ?? greetings.PROJECT_MANAGER ?? ["Namaste! Main Sahayak hoon. Kya help karu?"];
   return {
     text: opts[Math.floor(Math.random() * opts.length)] ?? opts[0]!,
     intent: "GREETING",
     confidence: 1,
-    cards: roleAwareQuickLinks(role),
-  };
+    cards: roleAwareQuickLinks(role)};
 }
 
 function roleAwareQuickLinks(role: Role): ActionCard[] {
@@ -524,8 +515,7 @@ function helpResponse(role: Role): AssistantResponse {
   return {
     text: `Main ye sab kar sakta hoon:\n\n${sections.join("\n\n")}\n\nBolo ya type karo — Hindi, English, ya dono!`,
     intent: "HELP",
-    confidence: 1,
-  };
+    confidence: 1};
 }
 
 
@@ -537,21 +527,17 @@ async function stockQueryResponse(companyId: string, entities: ParsedEntities): 
         companyId,
         deletedAt: null,
         name: { contains: entities.materialName, mode: "insensitive" },
-        stockItems: { some: { location: { companyId, deletedAt: null } } },
-      },
+        stockItems: { some: { location: { companyId, deletedAt: null } } }},
       include: {
-        stockItems: { include: { location: true } },
-      },
-      take: 5,
-    });
+        stockItems: { include: { location: true } }},
+      take: 5});
 
     if (materials.length === 0) {
       return {
         text: `"${entities.materialName}" nahi mila. Kya naam exactly hai?`,
         intent: "STOCK_QUERY",
         confidence: 0.8,
-        cards: [{ type: "link", label: "All materials", href: "/m/materials" }],
-      };
+        cards: [{ type: "link", label: "All materials", href: "/m/materials" }]};
     }
 
     let text = `📦 **${entities.materialName.toUpperCase()}** stock:\n\n`;
@@ -566,8 +552,7 @@ async function stockQueryResponse(companyId: string, entities: ParsedEntities): 
       text,
       intent: "STOCK_QUERY",
       confidence: 0.9,
-      cards: [{ type: "link", label: "Full inventory", href: "/m/materials" }],
-    };
+      cards: [{ type: "link", label: "Full inventory", href: "/m/materials" }]};
   }
 
   // General stock summary — top items by qty across company locations
@@ -577,11 +562,9 @@ async function stockQueryResponse(companyId: string, entities: ParsedEntities): 
       qty: true,
       movingAvgCost: true,
       material: { select: { name: true, unit: true } },
-      location: { select: { name: true } },
-    },
+      location: { select: { name: true } }},
     orderBy: { qty: "desc" },
-    take: 10,
-  });
+    take: 10});
 
   const totalValue = stockItems.reduce(
     (s, si) => s + toNum(si.qty) * toNum(si.movingAvgCost),
@@ -589,8 +572,7 @@ async function stockQueryResponse(companyId: string, entities: ParsedEntities): 
   );
 
   const locations = await prisma.stockLocation.count({
-    where: { companyId, deletedAt: null },
-  });
+    where: { companyId, deletedAt: null }});
 
   let text = `📦 **Stock Summary**\n`;
   text += `${locations} locations | Top ${stockItems.length} items:\n\n`;
@@ -607,8 +589,7 @@ async function stockQueryResponse(companyId: string, entities: ParsedEntities): 
     cards: [
       { type: "link", label: "Full inventory", href: "/m/materials" },
       { type: "link", label: "Stock movements", href: "/m/stock-movements" },
-    ],
-  };
+    ]};
 }
 
 async function lowStockResponse(companyId: string): Promise<AssistantResponse> {
@@ -619,8 +600,7 @@ async function lowStockResponse(companyId: string): Promise<AssistantResponse> {
       text: "✅ Sab kuch sufficient hai! Koi material low stock par nahi hai.",
       intent: "LOW_STOCK",
       confidence: 0.9,
-      cards: [{ type: "link", label: "Inventory", href: "/m/materials" }],
-    };
+      cards: [{ type: "link", label: "Inventory", href: "/m/materials" }]};
   }
 
   let text = `⚠️ **${alerts.length} materials low stock par hain:**\n\n`;
@@ -636,8 +616,7 @@ async function lowStockResponse(companyId: string): Promise<AssistantResponse> {
     cards: [
       { type: "link", label: "Reorder now", href: "/m/procurement?tab=indents" },
       { type: "button", label: "Auto-generate indent", endpoint: "/api/requisitions/auto", method: "POST", variant: "primary" },
-    ],
-  };
+    ]};
 }
 
 async function approvalsListResponse(companyId: string): Promise<AssistantResponse> {
@@ -646,14 +625,12 @@ async function approvalsListResponse(companyId: string): Promise<AssistantRespon
       where: { companyId, status: "DRAFT" },
       include: { supplier: true, _count: { select: { lines: true } } },
       orderBy: { createdAt: "desc" },
-      take: 10,
-    }),
+      take: 10}),
     prisma.materialRequisition.findMany({
       where: { OR: [{ project: { companyId } }, { department: { companyId } }], status: "SUBMITTED" },
       include: { project: true, _count: { select: { lines: true } } },
       orderBy: { createdAt: "desc" },
-      take: 10,
-    }),
+      take: 10}),
   ]);
 
   let text = `📋 **Pending Approvals:**\n\n`;
@@ -693,8 +670,7 @@ async function approvePoResponse(companyId: string, entities: ParsedEntities): P
       where: { companyId, status: "DRAFT" },
       include: { supplier: true },
       orderBy: { createdAt: "desc" },
-      take: 10,
-    });
+      take: 10});
 
     if (draftPOs.length === 0) {
       return { text: "Koi draft PO nahi hai approve karne ke liye.", intent: "APPROVE_PO", confidence: 0.8 };
@@ -707,16 +683,14 @@ async function approvePoResponse(companyId: string, entities: ParsedEntities): P
       endpoint: `/api/purchase-orders/${po.id}`,
       method: "PATCH",
       body: { action: "approve" },
-      variant: "primary" as const,
-    }));
+      variant: "primary" as const}));
 
     return { text, cards, intent: "APPROVE_PO", confidence: 0.8 };
   }
 
   const po = await prisma.purchaseOrder.findFirst({
     where: { companyId, poNumber: { contains: entities.poNumber.replace("PO-", ""), mode: "insensitive" } },
-    include: { supplier: true },
-  });
+    include: { supplier: true }});
 
   if (!po) {
     return { text: `PO "${entities.poNumber}" nahi mila. Sahi number dijiye.`, intent: "APPROVE_PO", confidence: 0.7 };
@@ -737,10 +711,8 @@ async function approvePoResponse(companyId: string, entities: ParsedEntities): P
         endpoint: `/api/purchase-orders/${po.id}`,
         method: "PATCH",
         body: { action: "approve" },
-        variant: "primary",
-      },
-    ],
-  };
+        variant: "primary"},
+    ]};
 }
 
 async function approveReqResponse(companyId: string, entities: ParsedEntities): Promise<AssistantResponse> {
@@ -749,8 +721,7 @@ async function approveReqResponse(companyId: string, entities: ParsedEntities): 
       where: { OR: [{ project: { companyId } }, { department: { companyId } }], status: "SUBMITTED" },
       include: { project: true },
       orderBy: { createdAt: "desc" },
-      take: 10,
-    });
+      take: 10});
 
     if (pendingReqs.length === 0) {
       return { text: "Koi pending indent nahi hai.", intent: "APPROVE_REQUISITION", confidence: 0.8 };
@@ -763,16 +734,14 @@ async function approveReqResponse(companyId: string, entities: ParsedEntities): 
       endpoint: `/api/requisitions/${r.id}`,
       method: "PATCH",
       body: { action: "approve" },
-      variant: "primary" as const,
-    }));
+      variant: "primary" as const}));
 
     return { text, cards, intent: "APPROVE_REQUISITION", confidence: 0.8 };
   }
 
   const req = await prisma.materialRequisition.findFirst({
     where: { reqNumber: { contains: entities.reqNumber.replace("REQ-", ""), mode: "insensitive" } },
-    include: { project: true },
-  });
+    include: { project: true }});
 
   if (!req) {
     return { text: `Indent "${entities.reqNumber}" nahi mili.`, intent: "APPROVE_REQUISITION", confidence: 0.7 };
@@ -793,10 +762,8 @@ async function approveReqResponse(companyId: string, entities: ParsedEntities): 
         endpoint: `/api/requisitions/${req.id}`,
         method: "PATCH",
         body: { action: "approve" },
-        variant: "primary",
-      },
-    ],
-  };
+        variant: "primary"},
+    ]};
 }
 
 async function rejectPoResponse(companyId: string, entities: ParsedEntities): Promise<AssistantResponse> {
@@ -804,8 +771,7 @@ async function rejectPoResponse(companyId: string, entities: ParsedEntities): Pr
     return { text: "Kaunsa PO reject karna hai? PO number bataiye (jaise PO-0011).", intent: "REJECT_PO", confidence: 0.7 };
   }
   const po = await prisma.purchaseOrder.findFirst({
-    where: { companyId, poNumber: { contains: entities.poNumber.replace("PO-", ""), mode: "insensitive" } },
-  });
+    where: { companyId, poNumber: { contains: entities.poNumber.replace("PO-", ""), mode: "insensitive" } }});
   if (!po) return { text: `PO "${entities.poNumber}" nahi mila.`, intent: "REJECT_PO", confidence: 0.7 };
 
   return {
@@ -819,10 +785,8 @@ async function rejectPoResponse(companyId: string, entities: ParsedEntities): Pr
         endpoint: `/api/purchase-orders/${po.id}`,
         method: "PATCH",
         body: { action: "cancel" },
-        variant: "danger",
-      },
-    ],
-  };
+        variant: "danger"},
+    ]};
 }
 
 async function rejectReqResponse(companyId: string, entities: ParsedEntities): Promise<AssistantResponse> {
@@ -830,8 +794,7 @@ async function rejectReqResponse(companyId: string, entities: ParsedEntities): P
     return { text: "Kaunsa indent reject karna hai? Number bataiye.", intent: "REJECT_REQUISITION", confidence: 0.7 };
   }
   const req = await prisma.materialRequisition.findFirst({
-    where: { reqNumber: { contains: entities.reqNumber.replace("REQ-", ""), mode: "insensitive" } },
-  });
+    where: { reqNumber: { contains: entities.reqNumber.replace("REQ-", ""), mode: "insensitive" } }});
   if (!req) return { text: `Indent "${entities.reqNumber}" nahi mili.`, intent: "REJECT_REQUISITION", confidence: 0.7 };
 
   return {
@@ -845,10 +808,8 @@ async function rejectReqResponse(companyId: string, entities: ParsedEntities): P
         endpoint: `/api/requisitions/${req.id}`,
         method: "PATCH",
         body: { action: "reject" },
-        variant: "danger",
-      },
-    ],
-  };
+        variant: "danger"},
+    ]};
 }
 
 async function salesListResponse(companyId: string): Promise<AssistantResponse> {
@@ -856,8 +817,7 @@ async function salesListResponse(companyId: string): Promise<AssistantResponse> 
     where: { companyId },
     include: { customer: true, payments: { select: { amount: true } } },
     orderBy: { createdAt: "desc" },
-    take: 10,
-  });
+    take: 10});
 
   if (sales.length === 0) {
     return { text: "Abhi tak koi sale nahi hui. Pehli sale banaiye!", intent: "SALES_LIST", confidence: 0.8, cards: [{ type: "link", label: "New sale", href: "/m/sales/new", variant: "primary" }] };
@@ -884,8 +844,7 @@ async function salesListResponse(companyId: string): Promise<AssistantResponse> 
     cards: [
       { type: "link", label: "All sales", href: "/m/material-sales" },
       { type: "link", label: "New sale", href: "/m/sales/new", variant: "primary" },
-    ],
-  };
+    ]};
 }
 
 function saleCreateResponse(): AssistantResponse {
@@ -893,8 +852,7 @@ function saleCreateResponse(): AssistantResponse {
     text: `Nayi sale banani hai? Customer, material, aur quantity bataiye.\n\nYa direct form kholein:`,
     intent: "SALE_CREATE",
     confidence: 0.8,
-    cards: [{ type: "link", label: "➕ New Sale Form", href: "/m/sales/new", variant: "primary" }],
-  };
+    cards: [{ type: "link", label: "➕ New Sale Form", href: "/m/sales/new", variant: "primary" }]};
 }
 
 async function paymentStatusResponse(companyId: string): Promise<AssistantResponse> {
@@ -902,8 +860,7 @@ async function paymentStatusResponse(companyId: string): Promise<AssistantRespon
     where: { companyId, paymentStatus: { in: ["PENDING", "PARTIAL"] } },
     include: { customer: true, payments: { select: { amount: true } } },
     orderBy: { createdAt: "desc" },
-    take: 10,
-  });
+    take: 10});
 
   let totalPending = 0;
   for (const s of sales) {
@@ -925,8 +882,7 @@ async function paymentStatusResponse(companyId: string): Promise<AssistantRespon
     text,
     intent: "PAYMENT_STATUS",
     confidence: 0.9,
-    cards: [{ type: "link", label: "All sales", href: "/m/material-sales" }],
-  };
+    cards: [{ type: "link", label: "All sales", href: "/m/material-sales" }]};
 }
 
 async function projectListResponse(companyId: string): Promise<AssistantResponse> {
@@ -935,8 +891,7 @@ async function projectListResponse(companyId: string): Promise<AssistantResponse
   const projects = await prisma.project.findMany({
     where: { companyId, deletedAt: null },
     orderBy: { createdAt: "desc" },
-    take: 10,
-  });
+    take: 10});
 
   if (projects.length === 0) {
     return { text: "Koi project nahi hai. Naya project banaiye.", intent: "PROJECT_LIST", confidence: 0.8 };
@@ -958,8 +913,7 @@ async function projectListResponse(companyId: string): Promise<AssistantResponse
     text,
     intent: "PROJECT_LIST",
     confidence: 0.9,
-    cards: [{ type: "link", label: "All projects", href: "/m/real-estate?tab=projects" }],
-  };
+    cards: [{ type: "link", label: "All projects", href: "/m/real-estate?tab=projects" }]};
 }
 
 async function cashPositionResponse(companyId: string): Promise<AssistantResponse> {
@@ -982,15 +936,13 @@ async function cashPositionResponse(companyId: string): Promise<AssistantRespons
   // Supplier payables
   const suppliers = await prisma.supplier.findMany({
     where: { companyId, deletedAt: null },
-    select: { balanceOwed: true },
-  });
+    select: { balanceOwed: true }});
   const totalPayable = suppliers.reduce((s, sup) => s + toNum(sup.balanceOwed), 0);
 
   // Customer receivables from pending sales
   const pendingSales = await prisma.materialSale.findMany({
     where: { companyId, paymentStatus: { in: ["PENDING", "PARTIAL"] } },
-    include: { payments: { select: { amount: true } } },
-  });
+    include: { payments: { select: { amount: true } } }});
   let totalReceivable = 0;
   for (const s of pendingSales) {
     totalReceivable += toNum(s.totalAmount) - s.payments.reduce((ps, p) => ps + toNum(p.amount), 0);
@@ -1016,16 +968,14 @@ async function cashPositionResponse(companyId: string): Promise<AssistantRespons
     cards: [
       { type: "link", label: "Trial balance", href: "/m/books/gl" },
       { type: "link", label: "Cash flow", href: "/m/reports/cash-flow" },
-    ],
-  };
+    ]};
 }
 
 async function supplierPayableResponse(companyId: string): Promise<AssistantResponse> {
   const suppliers = await prisma.supplier.findMany({
     where: { companyId, deletedAt: null, balanceOwed: { gt: 0 } },
     orderBy: { balanceOwed: "desc" },
-    take: 10,
-  });
+    take: 10});
 
   const totalOwed = suppliers.reduce((s, sup) => s + toNum(sup.balanceOwed), 0);
 
@@ -1047,8 +997,7 @@ async function supplierPayableResponse(companyId: string): Promise<AssistantResp
     cards: [
       { type: "link", label: "All suppliers", href: "/m/suppliers" },
       { type: "link", label: "Make payment", href: "/m/accounts?tab=payments", variant: "primary" },
-    ],
-  };
+    ]};
 }
 
 async function supplierListResponse(companyId: string): Promise<AssistantResponse> {
@@ -1056,8 +1005,7 @@ async function supplierListResponse(companyId: string): Promise<AssistantRespons
     where: { companyId, deletedAt: null },
     orderBy: { name: "asc" },
     take: 10,
-    select: { id: true, name: true, balanceOwed: true, phone: true },
-  });
+    select: { id: true, name: true, balanceOwed: true, phone: true }});
 
   let text = `🚚 **Suppliers (${suppliers.length}):**\n\n`;
   for (const s of suppliers.slice(0, 8)) {
@@ -1068,8 +1016,7 @@ async function supplierListResponse(companyId: string): Promise<AssistantRespons
     text,
     intent: "SUPPLIER_LIST",
     confidence: 0.9,
-    cards: [{ type: "link", label: "All suppliers", href: "/m/suppliers" }],
-  };
+    cards: [{ type: "link", label: "All suppliers", href: "/m/suppliers" }]};
 }
 
 async function attendanceResponse(companyId: string): Promise<AssistantResponse> {
@@ -1080,16 +1027,14 @@ async function attendanceResponse(companyId: string): Promise<AssistantResponse>
   const records = await prisma.workerAttendance.findMany({
     where: { companyId, date: today, ...await scopeWhere("WorkerAttendance") },
     include: { employee: true },
-    take: 20,
-  });
+    take: 20});
 
   if (records.length === 0) {
     return {
       text: `📝 Aaj (${todayStr}) ka attendance abhi tak nahi bhar gaya.\n\nSite par attendance mark karein:`,
       intent: "ATTENDANCE_TODAY",
       confidence: 0.9,
-      cards: [{ type: "link", label: "📝 Mark attendance", href: "/m/site/attendance", variant: "primary" }],
-    };
+      cards: [{ type: "link", label: "📝 Mark attendance", href: "/m/site/attendance", variant: "primary" }]};
   }
 
   const present = records.filter((r) => r.status === "PRESENT").length;
@@ -1106,8 +1051,7 @@ async function attendanceResponse(companyId: string): Promise<AssistantResponse>
     text,
     intent: "ATTENDANCE_TODAY",
     confidence: 0.9,
-    cards: [{ type: "link", label: "Full attendance", href: "/m/site/attendance" }],
-  };
+    cards: [{ type: "link", label: "Full attendance", href: "/m/site/attendance" }]};
 }
 
 function createPoResponse(): AssistantResponse {
@@ -1115,8 +1059,7 @@ function createPoResponse(): AssistantResponse {
     text: `Naya Purchase Order banani hai?\n\nSupplier, material, quantity, aur cost bataiye. Ya direct form kholein:`,
     intent: "CREATE_PO",
     confidence: 0.8,
-    cards: [{ type: "link", label: "➕ New PO Form", href: "/m/procurement/new", variant: "primary" }],
-  };
+    cards: [{ type: "link", label: "➕ New PO Form", href: "/m/procurement/new", variant: "primary" }]};
 }
 
 function createReqResponse(): AssistantResponse {
@@ -1124,8 +1067,7 @@ function createReqResponse(): AssistantResponse {
     text: `Nayi Requisition banani hai?\n\nMaterial aur quantity bataiye. Ya form kholein:`,
     intent: "CREATE_REQUISITION",
     confidence: 0.8,
-    cards: [{ type: "link", label: "➕ New Indent", href: "/m/procurement?tab=indents", variant: "primary" }],
-  };
+    cards: [{ type: "link", label: "➕ New Indent", href: "/m/procurement?tab=indents", variant: "primary" }]};
 }
 
 function autoReqResponse(): AssistantResponse {
@@ -1139,10 +1081,8 @@ function autoReqResponse(): AssistantResponse {
         label: "🔄 Auto-generate indents",
         endpoint: "/api/requisitions/auto",
         method: "POST",
-        variant: "primary",
-      },
-    ],
-  };
+        variant: "primary"},
+    ]};
 }
 
 async function dprListResponse(companyId: string): Promise<AssistantResponse> {
@@ -1150,8 +1090,7 @@ async function dprListResponse(companyId: string): Promise<AssistantResponse> {
     where: { companyId, ...await scopeWhere("DailyProgressReport") },
     orderBy: { createdAt: "desc" },
     take: 10,
-    include: { project: true, submittedBy: true },
-  });
+    include: { project: true, submittedBy: true }});
 
   if (dprs.length === 0) {
     return { text: "Koi DPR nahi mila. Naya DPR banaiye.", intent: "DPR_LIST", confidence: 0.8, cards: [{ type: "link", label: "New DPR", href: "/m/hr?tab=dprs", variant: "primary" }] };
@@ -1170,8 +1109,7 @@ async function dprListResponse(companyId: string): Promise<AssistantResponse> {
     text,
     intent: "DPR_LIST",
     confidence: 0.9,
-    cards: [{ type: "link", label: "All DPRs", href: "/m/hr?tab=dprs" }],
-  };
+    cards: [{ type: "link", label: "All DPRs", href: "/m/hr?tab=dprs" }]};
 }
 
 async function trialBalanceResponse(companyId: string): Promise<AssistantResponse> {
@@ -1196,8 +1134,7 @@ async function trialBalanceResponse(companyId: string): Promise<AssistantRespons
     text,
     intent: "TRIAL_BALANCE",
     confidence: 0.9,
-    cards: [{ type: "link", label: "Full GL", href: "/m/books/gl" }],
-  };
+    cards: [{ type: "link", label: "Full GL", href: "/m/books/gl" }]};
 }
 
 async function equipmentResponse(companyId: string): Promise<AssistantResponse> {
@@ -1205,8 +1142,7 @@ async function equipmentResponse(companyId: string): Promise<AssistantResponse> 
     where: { companyId, deletedAt: null },
     include: { assignments: { where: { status: "ACTIVE" }, include: { project: true }, take: 1 } },
     take: 10,
-    orderBy: { createdAt: "desc" },
-  });
+    orderBy: { createdAt: "desc" }});
 
   if (equipment.length === 0) {
     return { text: "Koi equipment registered nahi hai.", intent: "EQUIPMENT_STATUS", confidence: 0.8 };
@@ -1228,8 +1164,7 @@ async function equipmentResponse(companyId: string): Promise<AssistantResponse> 
     text,
     intent: "EQUIPMENT_STATUS",
     confidence: 0.9,
-    cards: [{ type: "link", label: "All equipment", href: "/m/equipment" }],
-  };
+    cards: [{ type: "link", label: "All equipment", href: "/m/equipment" }]};
 }
 
 async function expenseResponse(companyId: string): Promise<AssistantResponse> {
@@ -1237,8 +1172,7 @@ async function expenseResponse(companyId: string): Promise<AssistantResponse> {
     where: { companyId },
     orderBy: { createdAt: "desc" },
     take: 10,
-    include: { project: true },
-  });
+    include: { project: true }});
 
   if (expenses.length === 0) {
     return { text: "Koi expense recorded nahi hai.", intent: "EXPENSE_LIST", confidence: 0.8 };
@@ -1256,8 +1190,7 @@ async function expenseResponse(companyId: string): Promise<AssistantResponse> {
     text,
     intent: "EXPENSE_LIST",
     confidence: 0.9,
-    cards: [{ type: "link", label: "All expenses", href: "/m/accounts?tab=expenses" }],
-  };
+    cards: [{ type: "link", label: "All expenses", href: "/m/accounts?tab=expenses" }]};
 }
 
 async function taskResponse(_companyId: string): Promise<AssistantResponse> {
@@ -1266,8 +1199,7 @@ async function taskResponse(_companyId: string): Promise<AssistantResponse> {
     where: { status: { in: ["PENDING", "IN_PROGRESS"] } },
     include: { assignedTo: true },
     orderBy: { createdAt: "desc" },
-    take: 10,
-  });
+    take: 10});
 
   if (tasks.length === 0) {
     return { text: "✅ Koi pending task nahi hai!", intent: "TASK_LIST", confidence: 0.9 };
@@ -1282,8 +1214,7 @@ async function taskResponse(_companyId: string): Promise<AssistantResponse> {
     text,
     intent: "TASK_LIST",
     confidence: 0.9,
-    cards: [{ type: "link", label: "All tasks", href: "/m/site/tasks" }],
-  };
+    cards: [{ type: "link", label: "All tasks", href: "/m/site/tasks" }]};
 }
 
 async function workerListResponse(companyId: string): Promise<AssistantResponse> {
@@ -1291,8 +1222,7 @@ async function workerListResponse(companyId: string): Promise<AssistantResponse>
     where: { companyId, active: true, ...await scopeWhere("Employee") },
     orderBy: { name: "asc" },
     take: 10,
-    select: { id: true, name: true, trade: true, phone: true },
-  });
+    select: { id: true, name: true, trade: true, phone: true }});
 
   let text = `👷 **Workers (${workers.length}):**\n\n`;
   for (const w of workers.slice(0, 8)) {
@@ -1303,8 +1233,7 @@ async function workerListResponse(companyId: string): Promise<AssistantResponse>
     text,
     intent: "WORKER_LIST",
     confidence: 0.9,
-    cards: [{ type: "link", label: "All workers", href: "/m/hr/workers" }],
-  };
+    cards: [{ type: "link", label: "All workers", href: "/m/hr/workers" }]};
 }
 
 function unknownResponse(rawText: string): AssistantResponse {
@@ -1315,16 +1244,14 @@ function unknownResponse(rawText: string): AssistantResponse {
       text: `Samajh nahi aaya. Ye try karein:\n\n• "Stock kya hai?"\n• "Approvals pending?"\n• "Cash position"\n• "Help"`,
       intent: "UNKNOWN",
       confidence: 0,
-      cards: [{ type: "button", label: "Help", endpoint: "/api/assistant", method: "POST", body: { text: "help" } }],
-    };
+      cards: [{ type: "button", label: "Help", endpoint: "/api/assistant", method: "POST", body: { text: "help" } }]};
   }
 
   return {
     text: `Maaf kijiye, samajh nahi aaya. "Help" likhein ya ye try karein:\n\n• "Stock kya hai?"\n• "Approvals pending?"\n• "Aaj ki sales"`,
     intent: "UNKNOWN",
     confidence: 0,
-    cards: [{ type: "button", label: "Help", endpoint: "/api/assistant", method: "POST", body: { text: "help" } }],
-  };
+    cards: [{ type: "button", label: "Help", endpoint: "/api/assistant", method: "POST", body: { text: "help" } }]};
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1337,8 +1264,7 @@ async function attentionResponse(companyId: string): Promise<AssistantResponse> 
     prisma.purchaseOrder.count({ where: { companyId, status: "DRAFT" } }),
     prisma.materialRequisition.count({ where: { OR: [{ project: { companyId } }, { department: { companyId } }], status: "SUBMITTED" } }),
     prisma.purchaseOrder.count({
-      where: { companyId, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() } },
-    }),
+      where: { companyId, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() } }}),
     lowStockAlerts(companyId).catch(() => []),
     prisma.dailyProgressReport.count({ where: { companyId, approvalStatus: "SUBMITTED", ...dprScope } }),
   ]);
@@ -1354,8 +1280,7 @@ async function attentionResponse(companyId: string): Promise<AssistantResponse> 
     return {
       text: "✅ Sab smooth hai! Koi urgent attention nahi chahiye. 🎉",
       intent: "ATTENTION",
-      confidence: 0.9,
-    };
+      confidence: 0.9};
   }
 
   let text = `🔔 **Aapka attention chahiye:**\n\n`;
@@ -1381,24 +1306,18 @@ async function monthlySummaryResponse(companyId: string): Promise<AssistantRespo
   const [sales, expenses, poCount, poTotal, newReqs, attendanceDays] = await Promise.all([
     prisma.materialSale.findMany({
       where: { companyId, createdAt: { gte: monthStart } },
-      include: { payments: { select: { amount: true } } },
-    }),
+      include: { payments: { select: { amount: true } } }}),
     prisma.expense.findMany({
-      where: { companyId, createdAt: { gte: monthStart } },
-    }),
+      where: { companyId, createdAt: { gte: monthStart } }}),
     prisma.purchaseOrder.count({
-      where: { companyId, createdAt: { gte: monthStart } },
-    }),
+      where: { companyId, createdAt: { gte: monthStart } }}),
     prisma.purchaseOrder.aggregate({
       where: { companyId, createdAt: { gte: monthStart } },
-      _sum: { total: true },
-    }),
+      _sum: { total: true }}),
     prisma.materialRequisition.count({
-      where: { project: { companyId }, createdAt: { gte: monthStart } },
-    }),
+      where: { project: { companyId }, createdAt: { gte: monthStart } }}),
     prisma.workerAttendance.count({
-      where: { companyId, date: { gte: monthStart }, ...attendanceScope },
-    }),
+      where: { companyId, date: { gte: monthStart }, ...attendanceScope }}),
   ]);
 
   const totalSales = sales.reduce((s, sale) => s + toNum(sale.totalAmount), 0);
@@ -1428,8 +1347,7 @@ async function monthlySummaryResponse(companyId: string): Promise<AssistantRespo
     cards: [
       { type: "link", label: "Sales detail", href: "/m/material-sales" },
       { type: "link", label: "GL / P&L", href: "/m/books/gl" },
-    ],
-  };
+    ]};
 }
 
 async function profitLossResponse(companyId: string): Promise<AssistantResponse> {
@@ -1469,8 +1387,7 @@ async function profitLossResponse(companyId: string): Promise<AssistantResponse>
     text,
     intent: "PROFIT_LOSS",
     confidence: 0.9,
-    cards: [{ type: "link", label: "Full GL", href: "/m/books/gl" }],
-  };
+    cards: [{ type: "link", label: "Full GL", href: "/m/books/gl" }]};
 }
 
 async function spendAnalysisResponse(companyId: string, entities: ParsedEntities): Promise<AssistantResponse> {
@@ -1479,15 +1396,12 @@ async function spendAnalysisResponse(companyId: string, entities: ParsedEntities
     const receipts = await prisma.goodsReceipt.findMany({
       where: {
         purchaseOrder: { companyId },
-        lines: { some: { material: { name: { contains: entities.materialName, mode: "insensitive" } } } },
-      },
+        lines: { some: { material: { name: { contains: entities.materialName, mode: "insensitive" } } } }},
       include: {
         lines: { include: { material: true } },
-        purchaseOrder: { include: { supplier: true } },
-      },
+        purchaseOrder: { include: { supplier: true } }},
       orderBy: { createdAt: "desc" },
-      take: 10,
-    });
+      take: 10});
 
     let totalSpend = 0;
     let text = `💸 **${entities.materialName.toUpperCase()} spend analysis:**\n\n`;
@@ -1515,8 +1429,7 @@ async function spendAnalysisResponse(companyId: string, entities: ParsedEntities
   const expenses = await prisma.expense.findMany({
     where: { companyId },
     orderBy: { createdAt: "desc" },
-    take: 50,
-  });
+    take: 50});
 
   const byCategory = new Map<string, number>();
   for (const e of expenses) {
@@ -1538,8 +1451,7 @@ async function spendAnalysisResponse(companyId: string, entities: ParsedEntities
     text,
     intent: "SPEND_ANALYSIS",
     confidence: 0.9,
-    cards: [{ type: "link", label: "All expenses", href: "/m/accounts?tab=expenses" }],
-  };
+    cards: [{ type: "link", label: "All expenses", href: "/m/accounts?tab=expenses" }]};
 }
 
 async function approveAllResponse(companyId: string): Promise<AssistantResponse> {
@@ -1547,15 +1459,13 @@ async function approveAllResponse(companyId: string): Promise<AssistantResponse>
     where: { companyId, status: "DRAFT" },
     include: { supplier: true },
     orderBy: { createdAt: "desc" },
-    take: 20,
-  });
+    take: 20});
 
   const pendingReqs = await prisma.materialRequisition.findMany({
     where: { OR: [{ project: { companyId } }, { department: { companyId } }], status: "SUBMITTED" },
     include: { project: true },
     orderBy: { createdAt: "desc" },
-    take: 20,
-  });
+    take: 20});
 
   if (draftPOs.length === 0 && pendingReqs.length === 0) {
     return { text: "✅ Koi pending approval nahi hai!", intent: "APPROVE_ALL", confidence: 0.9 };
@@ -1576,8 +1486,7 @@ async function approveAllResponse(companyId: string): Promise<AssistantResponse>
       endpoint: `/api/purchase-orders/${po.id}`,
       method: "PATCH",
       body: { action: "approve" },
-      variant: "primary",
-    });
+      variant: "primary"});
   }
   for (const req of pendingReqs.slice(0, 10)) {
     cards.push({
@@ -1586,8 +1495,7 @@ async function approveAllResponse(companyId: string): Promise<AssistantResponse>
       endpoint: `/api/requisitions/${req.id}`,
       method: "PATCH",
       body: { action: "approve" },
-      variant: "primary",
-    });
+      variant: "primary"});
   }
 
   return { text, cards, intent: "APPROVE_ALL", confidence: 0.9 };
@@ -1597,8 +1505,7 @@ async function supplierPaymentResponse(companyId: string): Promise<AssistantResp
   const suppliers = await prisma.supplier.findMany({
     where: { companyId, deletedAt: null, balanceOwed: { gt: 0 } },
     orderBy: { balanceOwed: "desc" },
-    take: 10,
-  });
+    take: 10});
 
   if (suppliers.length === 0) {
     return { text: "✅ Kisi supplier ko kuch nahi dena!", intent: "SUPPLIER_PAYMENT", confidence: 0.9 };
@@ -1609,8 +1516,7 @@ async function supplierPaymentResponse(companyId: string): Promise<AssistantResp
     type: "link" as const,
     label: `Pay ${s.name} (${formatCurrency(toNum(s.balanceOwed))})`,
     href: `/m/supplier-payments?supplierId=${s.id}`,
-    variant: "primary" as const,
-  }));
+    variant: "primary" as const}));
 
   return { text, cards, intent: "SUPPLIER_PAYMENT", confidence: 0.9 };
 }
@@ -1650,8 +1556,7 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const todaySales = await prisma.materialSale.count({
-      where: { companyId, createdAt: { gte: todayStart } },
-    });
+      where: { companyId, createdAt: { gte: todayStart } }});
     if (todaySales > 0) {
       items.push(`Aaj ${todaySales} sales hui`);
       cards.push({ type: "link", label: "Sales dekho", href: "/m/material-sales" });
@@ -1661,8 +1566,7 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
   if (hasPermission(role, PERM.FINANCE_VIEW)) {
     const suppliers = await prisma.supplier.findMany({
       where: { companyId, deletedAt: null, balanceOwed: { gt: 0 } },
-      select: { balanceOwed: true },
-    });
+      select: { balanceOwed: true }});
     const totalPayable = suppliers.reduce((s, sup) => s + toNum(sup.balanceOwed), 0);
     if (totalPayable > 0) {
       items.push(`Supplier payable: ${formatCurrency(totalPayable)}`);
@@ -1673,8 +1577,7 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const attendanceToday = await prisma.workerAttendance.count({
-      where: { companyId, date: { gte: todayStart }, ...await scopeWhere("WorkerAttendance") },
-    });
+      where: { companyId, date: { gte: todayStart }, ...await scopeWhere("WorkerAttendance") }});
     if (attendanceToday > 0) {
       items.push(`Aaj ${attendanceToday} attendance records`);
     }
@@ -1684,14 +1587,11 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
   if (hasPermission(role, PERM.ASSETS_VIEW)) {
     const [availableUnits, reservedUnits, depositSales] = await Promise.all([
       prisma.builtUnit.count({
-        where: { project: { companyId, deletedAt: null }, status: "AVAILABLE", deletedAt: null },
-      }),
+        where: { project: { companyId, deletedAt: null }, status: "AVAILABLE", deletedAt: null }}),
       prisma.builtUnit.count({
-        where: { project: { companyId, deletedAt: null }, status: "RESERVED", deletedAt: null },
-      }),
+        where: { project: { companyId, deletedAt: null }, status: "RESERVED", deletedAt: null }}),
       prisma.assetSale.count({
-        where: { companyId, saleStage: "DEPOSIT_RECEIVED" },
-      }),
+        where: { companyId, saleStage: "DEPOSIT_RECEIVED" }}),
     ]);
     if (availableUnits > 0) {
       items.push(`${availableUnits} flats available for sale`);
@@ -1704,8 +1604,7 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
 
   if (hasPermission(role, PERM.PROJECTS_VIEW)) {
     const activeProjects = await prisma.project.count({
-      where: { companyId, deletedAt: null, status: "ACTIVE" },
-    });
+      where: { companyId, deletedAt: null, status: "ACTIVE" }});
     if (activeProjects > 0) {
       items.push(`${activeProjects} active projects under construction`);
     }
@@ -1716,8 +1615,7 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
       text: `Sab smooth hai! Koi urgent item nahi hai. Kya specific dekhna hai?`,
       intent: "DASHBOARD",
       confidence: 0.9,
-      cards: roleAwareQuickLinks(role),
-    };
+      cards: roleAwareQuickLinks(role)};
   }
 
   let text = `**Aapka Dashboard:**\n\n`;
@@ -1732,8 +1630,7 @@ async function landQueryResponse(companyId: string): Promise<AssistantResponse> 
     where: { landPurchase: { companyId }, deletedAt: null },
     include: { landPurchase: true },
     orderBy: { createdAt: "desc" },
-    take: 10,
-  });
+    take: 10});
 
   if (parcels.length === 0) {
     return { text: "Koi land parcel registered nahi hai.", intent: "LAND_QUERY", confidence: 0.8, cards: [{ type: "link", label: "Land module", href: "/m/real-estate?tab=land" }] };
@@ -1757,8 +1654,7 @@ async function customerListResponse(companyId: string): Promise<AssistantRespons
     where: { companyId, deletedAt: null },
     orderBy: { name: "asc" },
     take: 10,
-    select: { id: true, name: true, phone: true, email: true },
-  });
+    select: { id: true, name: true, phone: true, email: true }});
 
   if (customers.length === 0) {
     return { text: "Koi customer registered nahi hai.", intent: "CUSTOMER_LIST", confidence: 0.8, cards: [{ type: "link", label: "Add customer", href: "/m/customers/new", variant: "primary" }] };
@@ -1779,8 +1675,7 @@ async function payrollResponse(companyId: string): Promise<AssistantResponse> {
     where: { companyId, startDate: { gte: monthStart } },
     orderBy: { createdAt: "desc" },
     take: 5,
-    include: { _count: { select: { lines: true } } },
-  });
+    include: { _count: { select: { lines: true } } }});
 
   if (payrolls.length === 0) {
     return { text: "Is mahine ka payroll abhi generate nahi hua.", intent: "PAYROLL_STATUS", confidence: 0.8, cards: [{ type: "link", label: "Payroll module", href: "/m/hr?tab=payroll", variant: "primary" }] };
@@ -1800,8 +1695,7 @@ async function workOrderResponse(companyId: string): Promise<AssistantResponse> 
     where: { companyId },
     orderBy: { createdAt: "desc" },
     take: 10,
-    include: { subcontractor: { select: { name: true } }, project: { select: { name: true } } },
-  });
+    include: { subcontractor: { select: { name: true } }, project: { select: { name: true } } }});
 
   if (wos.length === 0) {
     return { text: "Koi work order nahi hai.", intent: "WORK_ORDER_LIST", confidence: 0.8 };
@@ -1820,8 +1714,7 @@ async function boqResponse(companyId: string): Promise<AssistantResponse> {
     where: { project: { companyId, deletedAt: null }, type: "LINE_ITEM" },
     orderBy: { createdAt: "desc" },
     take: 10,
-    include: { project: { select: { name: true } } },
-  });
+    include: { project: { select: { name: true } } }});
 
   if (items.length === 0) {
     return { text: "Koi BOQ item nahi hai.", intent: "BOQ_QUERY", confidence: 0.8, cards: [{ type: "link", label: "BOQ module", href: "/m/construction?tab=boq" }] };
@@ -1843,8 +1736,7 @@ async function wbsResponse(companyId: string): Promise<AssistantResponse> {
     where: { project: { companyId, deletedAt: null } },
     orderBy: { createdAt: "asc" },
     take: 15,
-    include: { project: { select: { name: true } } },
-  });
+    include: { project: { select: { name: true } } }});
 
   if (nodes.length === 0) {
     return { text: "Koi WBS node nahi hai.", intent: "WBS_QUERY", confidence: 0.8, cards: [{ type: "link", label: "WBS module", href: "/m/construction?tab=wbs" }] };
@@ -1862,8 +1754,7 @@ async function budgetVarianceResponse(companyId: string): Promise<AssistantRespo
   const projects = await prisma.project.findMany({
     where: { companyId, deletedAt: null, totalProjectCost: { not: null } },
     take: 10,
-    select: { id: true, name: true, totalProjectCost: true, totalBudget: true },
-  });
+    select: { id: true, name: true, totalProjectCost: true, totalBudget: true }});
 
   if (projects.length === 0) {
     return { text: "Koi budget data nahi hai.", intent: "BUDGET_VARIANCE", confidence: 0.8, cards: [{ type: "link", label: "Budget variance", href: "/m/budget-variance" }] };
@@ -1887,8 +1778,7 @@ async function portalListingResponse(companyId: string): Promise<AssistantRespon
     where: { builtUnit: { project: { companyId, deletedAt: null } } },
     orderBy: { createdAt: "desc" },
     take: 10,
-    include: { builtUnit: { select: { unitNumber: true, project: { select: { name: true } } } } },
-  });
+    include: { builtUnit: { select: { unitNumber: true, project: { select: { name: true } } } } }});
 
   if (listings.length === 0) {
     return { text: "Koi portal listing nahi hai.", intent: "PORTAL_LISTING", confidence: 0.8, cards: [{ type: "link", label: "Portal listings", href: "/m/portal-listings" }] };
@@ -1911,8 +1801,7 @@ async function scrapResponse(companyId: string): Promise<AssistantResponse> {
     where: { companyId },
     orderBy: { createdAt: "desc" },
     take: 10,
-    include: { _count: { select: { lines: true } } },
-  });
+    include: { _count: { select: { lines: true } } }});
 
   if (scraps.length === 0) {
     return { text: "Koi scrap generation nahi hai.", intent: "SCRAP_STATUS", confidence: 0.8, cards: [{ type: "link", label: "Scrap module", href: "/m/stock?tab=scrap" }] };
@@ -1955,8 +1844,7 @@ function transferStockResponse(): AssistantResponse {
     text: `Stock transfer karna hai?\n\nKaunsa material, kahan se, kahan tak, aur kitna? Ya direct form kholein:`,
     intent: "TRANSFER_STOCK",
     confidence: 0.8,
-    cards: [{ type: "link", label: "New Transfer", href: "/m/transfers/new", variant: "primary" }],
-  };
+    cards: [{ type: "link", label: "New Transfer", href: "/m/transfers/new", variant: "primary" }]};
 }
 
 function issueMaterialResponse(): AssistantResponse {
@@ -1964,8 +1852,7 @@ function issueMaterialResponse(): AssistantResponse {
     text: `Material issue karna hai?\n\nKaunsa material, kaunse project/site ko, aur kitna? Ya form kholein:`,
     intent: "ISSUE_MATERIAL",
     confidence: 0.8,
-    cards: [{ type: "link", label: "Issue Material", href: "/m/site/issue", variant: "primary" }],
-  };
+    cards: [{ type: "link", label: "Issue Material", href: "/m/site/issue", variant: "primary" }]};
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1981,8 +1868,7 @@ async function portfolioOverviewResponse(companyId: string): Promise<AssistantRe
       text: "Portfolio summary nahi mil paayi. Thodi der baad try karein.",
       intent: "PORTFOLIO_OVERVIEW",
       confidence: 0.7,
-      cards: [{ type: "link", label: "Dashboard", href: "/m/home" }],
-    };
+      cards: [{ type: "link", label: "Dashboard", href: "/m/home" }]};
   }
 
   const text = `**Aapka Portfolio Overview:**\n
@@ -2006,8 +1892,7 @@ Kya detail mein dekhna hai? Project-wise profit ya available units?`;
     cards: [
       { type: "link", label: "Available units", href: "/m/real-estate?tab=units" },
       { type: "link", label: "Projects", href: "/m/real-estate?tab=projects" },
-    ],
-  };
+    ]};
 }
 
 // ── Unit Status — flat/shop counts by status ──────────────────────────────
@@ -2015,14 +1900,12 @@ async function unitStatusResponse(companyId: string, entities: ParsedEntities): 
   // If a specific project is mentioned, filter by it
   let projectFilter: { companyId: string; deletedAt: null; id?: string } = {
     companyId,
-    deletedAt: null,
-  };
+    deletedAt: null};
 
   if (entities.projectName) {
     const proj = await prisma.project.findFirst({
       where: { companyId, deletedAt: null, name: { contains: entities.projectName, mode: "insensitive" } },
-      select: { id: true, name: true },
-    });
+      select: { id: true, name: true }});
     if (proj) {
       projectFilter = { ...projectFilter, id: proj.id };
     }
@@ -2030,16 +1913,14 @@ async function unitStatusResponse(companyId: string, entities: ParsedEntities): 
 
   const units = await prisma.builtUnit.findMany({
     where: { project: projectFilter, deletedAt: null },
-    select: { status: true, unitType: true, area: true, askingPrice: true },
-  });
+    select: { status: true, unitType: true, area: true, askingPrice: true }});
 
   if (units.length === 0) {
     return {
       text: "Koi unit registered nahi hai. Pehle project aur units banao.",
       intent: "UNIT_STATUS",
       confidence: 0.8,
-      cards: [{ type: "link", label: "Projects", href: "/m/real-estate?tab=projects" }],
-    };
+      cards: [{ type: "link", label: "Projects", href: "/m/real-estate?tab=projects" }]};
   }
 
   // Count by status
@@ -2058,8 +1939,7 @@ async function unitStatusResponse(companyId: string, entities: ParsedEntities): 
     RESERVED: "Reserved (deposit aaya)",
     HOLD: "On Hold",
     SOLD: "Sold (bech gaye)",
-    RENTED: "Rented (kiraye par)",
-  };
+    RENTED: "Rented (kiraye par)"};
   for (const [status, count] of Object.entries(byStatus)) {
     text += `• ${statusLabels[status] ?? status}: ${count}\n`;
   }
@@ -2068,8 +1948,7 @@ async function unitStatusResponse(companyId: string, entities: ParsedEntities): 
   const typeLabels: Record<string, string> = {
     BHK_1: "1 BHK", BHK_2: "2 BHK", BHK_3: "3 BHK", BHK_4: "4 BHK",
     SHOP: "Shop", OFFICE: "Office", WAREHOUSE_UNIT: "Warehouse",
-    VILLA: "Villa", OTHER: "Other",
-  };
+    VILLA: "Villa", OTHER: "Other"};
   text += `\n**Type wise:**\n`;
   for (const [type, count] of Object.entries(byType)) {
     text += `• ${typeLabels[type] ?? type}: ${count}\n`;
@@ -2079,8 +1958,7 @@ async function unitStatusResponse(companyId: string, entities: ParsedEntities): 
     text,
     intent: "UNIT_STATUS",
     confidence: 0.9,
-    cards: [{ type: "link", label: "All units", href: "/m/real-estate?tab=units" }],
-  };
+    cards: [{ type: "link", label: "All units", href: "/m/real-estate?tab=units" }]};
 }
 
 // ── Unit Valuation — asking price, current valuation ──────────────────────
@@ -2088,8 +1966,7 @@ async function unitValuationResponse(companyId: string, entities: ParsedEntities
   // If a specific project is mentioned, filter by it
   const whereClause: { project: { companyId: string; deletedAt: null; name?: { contains: string; mode: "insensitive" } }, deletedAt: null, status?: string } = {
     project: { companyId, deletedAt: null },
-    deletedAt: null,
-  };
+    deletedAt: null};
 
   if (entities.projectName) {
     whereClause.project.name = { contains: entities.projectName, mode: "insensitive" };
@@ -2105,25 +1982,21 @@ async function unitValuationResponse(companyId: string, entities: ParsedEntities
       askingPrice: true,
       currentValuation: true,
       productionCost: true,
-      project: { select: { name: true } },
-    },
+      project: { select: { name: true } }},
     orderBy: { askingPrice: "desc" },
-    take: 10,
-  });
+    take: 10});
 
   if (units.length === 0) {
     return {
       text: "Koi available/reserved unit nahi hai valuation dikhane ke liye.",
       intent: "UNIT_VALUATION",
       confidence: 0.8,
-      cards: [{ type: "link", label: "All units", href: "/m/real-estate?tab=units" }],
-    };
+      cards: [{ type: "link", label: "All units", href: "/m/real-estate?tab=units" }]};
   }
 
   const typeLabels: Record<string, string> = {
     BHK_1: "1BHK", BHK_2: "2BHK", BHK_3: "3BHK", BHK_4: "4BHK",
-    SHOP: "Shop", OFFICE: "Office", VILLA: "Villa",
-  };
+    SHOP: "Shop", OFFICE: "Office", VILLA: "Villa"};
 
   let text = `**Unit Valuation (${units.length} available/reserved):**\n\n`;
   for (const u of units.slice(0, 8)) {
@@ -2141,8 +2014,7 @@ async function unitValuationResponse(companyId: string, entities: ParsedEntities
     text,
     intent: "UNIT_VALUATION",
     confidence: 0.9,
-    cards: [{ type: "link", label: "All units", href: "/m/real-estate?tab=units" }],
-  };
+    cards: [{ type: "link", label: "All units", href: "/m/real-estate?tab=units" }]};
 }
 
 // ── Cost per Sqft — project construction cost per sqft ────────────────────
@@ -2152,18 +2024,15 @@ async function costPerSqftResponse(companyId: string): Promise<AssistantResponse
     select: {
       id: true, name: true, type: true,
       totalBudget: true, totalProjectCost: true,
-      costPerSqft: true, totalSellableArea: true,
-    },
-    orderBy: { name: "asc" },
-  });
+      costPerSqft: true, totalSellableArea: true},
+    orderBy: { name: "asc" }});
 
   if (projects.length === 0) {
     return {
       text: "Koi active project nahi hai cost per sqft dikhane ke liye.",
       intent: "COST_PER_SQFT",
       confidence: 0.8,
-      cards: [{ type: "link", label: "Projects", href: "/m/real-estate?tab=projects" }],
-    };
+      cards: [{ type: "link", label: "Projects", href: "/m/real-estate?tab=projects" }]};
   }
 
   let text = `**Cost per Sqft (Active Projects):**\n\n`;
@@ -2179,8 +2048,7 @@ async function costPerSqftResponse(companyId: string): Promise<AssistantResponse
     text,
     intent: "COST_PER_SQFT",
     confidence: 0.9,
-    cards: [{ type: "link", label: "Budget variance", href: "/m/budget-variance" }],
-  };
+    cards: [{ type: "link", label: "Budget variance", href: "/m/budget-variance" }]};
 }
 
 // ── Sales Pipeline — booking/deposit/completion stages ────────────────────
@@ -2200,10 +2068,8 @@ async function salesPipelineResponse(companyId: string): Promise<AssistantRespon
       salePrice: true,
       assetType: true,
       customer: { select: { name: true } },
-      builtUnit: { select: { unitNumber: true } },
-    },
-    take: 5,
-  });
+      builtUnit: { select: { unitNumber: true } }},
+    take: 5});
 
   const totalDeposit = depositSales.reduce((s, sale) => s + toNum(sale.depositAmount), 0);
   const totalPendingValue = depositSales.reduce((s, sale) => s + toNum(sale.salePrice), 0);
@@ -2229,8 +2095,7 @@ async function salesPipelineResponse(companyId: string): Promise<AssistantRespon
     text,
     intent: "SALES_PIPELINE",
     confidence: 0.9,
-    cards: [{ type: "link", label: "Sales detail", href: "/m/sales" }],
-  };
+    cards: [{ type: "link", label: "Sales detail", href: "/m/sales" }]};
 }
 
 // ── Payment Schedule — installment status ─────────────────────────────────
@@ -2239,10 +2104,8 @@ async function paymentScheduleResponse(companyId: string, _entities: ParsedEntit
   const items = await prisma.paymentScheduleItem.findMany({
     where: {
       paymentSchedule: {
-        assetSale: { companyId },
-      },
-      status: { in: ["DUE", "PARTIAL", "PENDING"] },
-    },
+        assetSale: { companyId }},
+      status: { in: ["DUE", "PARTIAL", "PENDING"] }},
     include: {
       paymentSchedule: {
         include: {
@@ -2250,22 +2113,15 @@ async function paymentScheduleResponse(companyId: string, _entities: ParsedEntit
             select: {
               customer: { select: { name: true } },
               salePrice: true,
-              builtUnit: { select: { unitNumber: true } },
-            },
-          },
-        },
-      },
-    },
+              builtUnit: { select: { unitNumber: true } }}}}}},
     orderBy: { dueDate: "asc" },
-    take: 10,
-  });
+    take: 10});
 
   if (items.length === 0) {
     return {
       text: "Koi pending installment nahi hai. Sab payment collect ho gayi!",
       intent: "PAYMENT_SCHEDULE",
-      confidence: 0.9,
-    };
+      confidence: 0.9};
   }
 
   const totalDue = items.reduce((s, i) => s + toNum(i.amount) - toNum(i.paidAmount), 0);
@@ -2285,8 +2141,7 @@ async function paymentScheduleResponse(companyId: string, _entities: ParsedEntit
     text,
     intent: "PAYMENT_SCHEDULE",
     confidence: 0.9,
-    cards: [{ type: "link", label: "Sales detail", href: "/m/sales" }],
-  };
+    cards: [{ type: "link", label: "Sales detail", href: "/m/sales" }]};
 }
 
 // ── Profit Margin per Project ─────────────────────────────────────────────
@@ -2294,15 +2149,13 @@ async function profitMarginResponse(companyId: string): Promise<AssistantRespons
   const projects = await prisma.project.findMany({
     where: { companyId, deletedAt: null },
     select: { id: true, name: true, totalBudget: true, totalProjectCost: true, totalSellableArea: true },
-    orderBy: { name: "asc" },
-  });
+    orderBy: { name: "asc" }});
 
   if (projects.length === 0) {
     return {
       text: "Koi project nahi hai profit margin dikhane ke liye.",
       intent: "PROFIT_MARGIN",
-      confidence: 0.8,
-    };
+      confidence: 0.8};
   }
 
   let text = `**Project Profitability:**\n\n`;
@@ -2311,8 +2164,7 @@ async function profitMarginResponse(companyId: string): Promise<AssistantRespons
     // Get total revenue from completed sales for this project
     const sales = await prisma.assetSale.findMany({
       where: { companyId, projectId: p.id, saleStage: "COMPLETED" },
-      select: { salePrice: true },
-    });
+      select: { salePrice: true }});
     const revenue = sales.reduce((s, sale) => s + toNum(sale.salePrice), 0);
     const cost = toNum(p.totalProjectCost);
     const profit = revenue - cost;
@@ -2325,8 +2177,7 @@ async function profitMarginResponse(companyId: string): Promise<AssistantRespons
     text,
     intent: "PROFIT_MARGIN",
     confidence: 0.9,
-    cards: [{ type: "link", label: "P&L detail", href: "/m/books/gl" }],
-  };
+    cards: [{ type: "link", label: "P&L detail", href: "/m/books/gl" }]};
 }
 
 // ── Available Inventory — what can I sell? ────────────────────────────────
@@ -2334,23 +2185,19 @@ async function availableInventoryResponse(companyId: string): Promise<AssistantR
   const [availableUnits, availableLand, reservedUnits] = await Promise.all([
     prisma.builtUnit.findMany({
       where: { project: { companyId, deletedAt: null }, status: "AVAILABLE", deletedAt: null },
-      select: { unitType: true, area: true, askingPrice: true },
-    }),
+      select: { unitType: true, area: true, askingPrice: true }}),
     prisma.landParcel.findMany({
       where: { landPurchase: { companyId }, status: "AVAILABLE", deletedAt: null, isInfrastructure: false },
-      select: { area: true, askingPrice: true, currentValuation: true },
-    }),
+      select: { area: true, askingPrice: true, currentValuation: true }}),
     prisma.builtUnit.count({
-      where: { project: { companyId, deletedAt: null }, status: "RESERVED", deletedAt: null },
-    }),
+      where: { project: { companyId, deletedAt: null }, status: "RESERVED", deletedAt: null }}),
   ]);
 
   if (availableUnits.length === 0 && availableLand.length === 0) {
     return {
       text: "Kuch bechne ke liye available nahi hai. Sab sold ya under construction hai.",
       intent: "AVAILABLE_INVENTORY",
-      confidence: 0.8,
-    };
+      confidence: 0.8};
   }
 
   // Aggregate units by type
@@ -2366,8 +2213,7 @@ async function availableInventoryResponse(companyId: string): Promise<AssistantR
   const typeLabels: Record<string, string> = {
     BHK_1: "1 BHK", BHK_2: "2 BHK", BHK_3: "3 BHK", BHK_4: "4 BHK",
     SHOP: "Shop", OFFICE: "Office", WAREHOUSE_UNIT: "Warehouse",
-    VILLA: "Villa", OTHER: "Other",
-  };
+    VILLA: "Villa", OTHER: "Other"};
 
   let text = `**Available Inventory (bechne ke liye):**\n\n`;
 
@@ -2396,8 +2242,7 @@ async function availableInventoryResponse(companyId: string): Promise<AssistantR
     cards: [
       { type: "link", label: "Units", href: "/m/real-estate?tab=units" },
       { type: "link", label: "Land", href: "/m/real-estate?tab=land" },
-    ],
-  };
+    ]};
 }
 
 // ── Construction Progress ─────────────────────────────────────────────────
@@ -2407,17 +2252,14 @@ async function constructionProgressResponse(companyId: string): Promise<Assistan
     select: {
       id: true, name: true, type: true, status: true,
       startDate: true, endDate: true,
-      totalBudget: true, totalProjectCost: true, totalSellableArea: true,
-    },
-    orderBy: { name: "asc" },
-  });
+      totalBudget: true, totalProjectCost: true, totalSellableArea: true},
+    orderBy: { name: "asc" }});
 
   if (projects.length === 0) {
     return {
       text: "Koi active project nahi hai progress dikhane ke liye.",
       intent: "CONSTRUCTION_PROGRESS",
-      confidence: 0.8,
-    };
+      confidence: 0.8};
   }
 
   let text = `**Construction Progress:**\n\n`;
@@ -2427,8 +2269,7 @@ async function constructionProgressResponse(companyId: string): Promise<Assistan
     const units = await prisma.builtUnit.groupBy({
       by: ["status"],
       where: { projectId: p.id, deletedAt: null },
-      _count: true,
-    });
+      _count: true});
 
     const total = units.reduce((s, u) => s + u._count, 0);
     const completed = units.find((u) => u.status === "AVAILABLE" || u.status === "SOLD")?._count ?? 0;
@@ -2439,8 +2280,7 @@ async function constructionProgressResponse(companyId: string): Promise<Assistan
     // WBS progress
     const wbsNodes = await prisma.wbsNode.findMany({
       where: { projectId: p.id },
-      select: { progressPct: true },
-    });
+      select: { progressPct: true }});
     const avgWbsProgress = wbsNodes.length > 0
       ? Math.round(wbsNodes.reduce((s, n) => s + toNum(n.progressPct), 0) / wbsNodes.length)
       : 0;
@@ -2461,8 +2301,7 @@ async function constructionProgressResponse(companyId: string): Promise<Assistan
     cards: [
       { type: "link", label: "WBS", href: "/m/construction?tab=wbs" },
       { type: "link", label: "DPR", href: "/m/hr?tab=dprs" },
-    ],
-  };
+    ]};
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2475,13 +2314,11 @@ async function findProjectByName(companyId: string, name: string) {
   // Try exact match first, then contains
   const exact = await prisma.project.findFirst({
     where: { companyId, deletedAt: null, name: { equals: name, mode: "insensitive" } },
-    select: { id: true, name: true, type: true, status: true },
-  });
+    select: { id: true, name: true, type: true, status: true }});
   if (exact) return exact;
   return prisma.project.findFirst({
     where: { companyId, deletedAt: null, name: { contains: name, mode: "insensitive" } },
-    select: { id: true, name: true, type: true, status: true },
-  });
+    select: { id: true, name: true, type: true, status: true }});
 }
 
 // ── Helper: find material by name (fuzzy) ─────────────────────────────────
@@ -2490,13 +2327,11 @@ async function _findMaterialByName(companyId: string, name: string) {
   // Materials are company-scoped (Material.companyId).
   const exact = await prisma.material.findFirst({
     where: { companyId, deletedAt: null, name: { equals: name, mode: "insensitive" } },
-    select: { id: true, name: true, code: true, unit: true },
-  });
+    select: { id: true, name: true, code: true, unit: true }});
   if (exact) return exact;
   return prisma.material.findFirst({
     where: { companyId, deletedAt: null, name: { contains: name, mode: "insensitive" } },
-    select: { id: true, name: true, code: true, unit: true },
-  });
+    select: { id: true, name: true, code: true, unit: true }});
 }
 
 // ── ADD_TO_PROJECT — ambiguous, needs disambiguation ──────────────────────
@@ -2509,8 +2344,7 @@ async function addToProjectResponse(companyId: string, entities: ParsedEntities)
     return {
       text: "Kaunse project me add karna hai? Project ka naam bataiye.",
       intent: "ADD_TO_PROJECT",
-      confidence: 0.8,
-    };
+      confidence: 0.8};
   }
 
   const project = await findProjectByName(companyId, projectName);
@@ -2518,13 +2352,11 @@ async function addToProjectResponse(companyId: string, entities: ParsedEntities)
     const projects = await prisma.project.findMany({
       where: { companyId, deletedAt: null },
       select: { name: true },
-      take: 5,
-    });
+      take: 5});
     return {
       text: `Project "${projectName}" nahi mila.\n\nAvailable projects:\n${projects.map(p => `• ${p.name}`).join("\n")}\n\nSahi naam bataiye.`,
       intent: "ADD_TO_PROJECT",
-      confidence: 0.7,
-    };
+      confidence: 0.7};
   }
 
   // If we don't know what to add, ask
@@ -2537,8 +2369,7 @@ async function addToProjectResponse(companyId: string, entities: ParsedEntities)
         { type: "link", label: "Issue material", href: `/m/site/issue?project=${project.id}` },
         { type: "link", label: "Add cost", href: `/m/books/finance?project=${project.id}` },
         { type: "link", label: "Add unit", href: `/m/units?project=${project.id}` },
-      ],
-    };
+      ]};
   }
 
   // Route to the specific add intent based on addType
@@ -2549,8 +2380,7 @@ async function addToProjectResponse(companyId: string, entities: ParsedEntities)
       text: `${project.name} me material issue karna hai.\n\nKaunsa material aur kitni quantity? Ya form kholein:`,
       intent: "ADD_TO_PROJECT",
       confidence: 0.85,
-      cards: [{ type: "link", label: "Issue Material Form", href: `/m/site/issue?project=${project.id}`, variant: "primary" }],
-    };
+      cards: [{ type: "link", label: "Issue Material Form", href: `/m/site/issue?project=${project.id}`, variant: "primary" }]};
   }
   if (lower.includes("cost") || lower.includes("kharcha") || lower.includes("labour") || lower.includes("mazdoori") || lower.includes("overhead") || lower.includes("contractor") || lower.includes("thekedaar")) {
     return addProjectCostResponse(companyId, { ...entities, projectName: project.name });
@@ -2563,15 +2393,13 @@ async function addToProjectResponse(companyId: string, entities: ParsedEntities)
       text: `${project.name} ke liye Purchase Order banani hai.\n\nSupplier, material, quantity, aur cost bataiye. Ya form kholein:`,
       intent: "ADD_TO_PROJECT",
       confidence: 0.85,
-      cards: [{ type: "link", label: "New PO Form", href: `/m/procurement/new?project=${project.id}`, variant: "primary" }],
-    };
+      cards: [{ type: "link", label: "New PO Form", href: `/m/procurement/new?project=${project.id}`, variant: "primary" }]};
   }
 
   return {
     text: `Samajh nahi aaya ki kya add karna hai.\n\n"material", "cost", "unit", ya "PO" bolo.`,
     intent: "ADD_TO_PROJECT",
-    confidence: 0.6,
-  };
+    confidence: 0.6};
 }
 
 // ── ADD_PROJECT_COST — add labour/overhead/contractor cost to project ─────
@@ -2586,8 +2414,7 @@ async function addProjectCostResponse(companyId: string, entities: ParsedEntitie
     return {
       text: "Kaunse project me cost add karna hai? Project ka naam bataiye.",
       intent: "ADD_PROJECT_COST",
-      confidence: 0.8,
-    };
+      confidence: 0.8};
   }
 
   const project = await findProjectByName(companyId, projectName);
@@ -2595,8 +2422,7 @@ async function addProjectCostResponse(companyId: string, entities: ParsedEntitie
     return {
       text: `Project "${projectName}" nahi mila. Sahi naam bataiye.`,
       intent: "ADD_PROJECT_COST",
-      confidence: 0.7,
-    };
+      confidence: 0.7};
   }
 
   // Need cost type
@@ -2604,8 +2430,7 @@ async function addProjectCostResponse(companyId: string, entities: ParsedEntitie
     return {
       text: `${project.name} me kis type ka kharcha add karna hai?\n\n• **Labour** (mazdoori)\n• **Overhead** (overhead)\n• **Contractor** (thekedaar bill)\n• **Equipment** (machine rent)\n• **Permit** (permit/approval fee)\n• **Other** (anya)\n\nType bolo:`,
       intent: "ADD_PROJECT_COST",
-      confidence: 0.8,
-    };
+      confidence: 0.8};
   }
 
   // Normalize cost type
@@ -2629,8 +2454,7 @@ async function addProjectCostResponse(companyId: string, entities: ParsedEntitie
     return {
       text: `${project.name} me ${typeLabel} cost add karna hai. Kitna amount hai?\n\n(jaise "50000" ya "pachaas hazaar")`,
       intent: "ADD_PROJECT_COST",
-      confidence: 0.8,
-    };
+      confidence: 0.8};
   }
 
   const amt = toNum(amount);
@@ -2638,8 +2462,7 @@ async function addProjectCostResponse(companyId: string, entities: ParsedEntitie
     return {
       text: "Amount sahi nahi hai. Dobara bataiye (jaise '50000').",
       intent: "ADD_PROJECT_COST",
-      confidence: 0.7,
-    };
+      confidence: 0.7};
   }
 
   // We have all required info — show confirmation with pre-filled form link
@@ -2653,10 +2476,8 @@ async function addProjectCostResponse(companyId: string, entities: ParsedEntitie
         type: "link",
         label: `Add ${typeLabel} Cost`,
         href: `/m/books/finance?project=${project.id}&type=${normalizedType}&amount=${amt}${vendor && vendor !== "skip" ? `&vendor=${encodeURIComponent(vendor)}` : ""}`,
-        variant: "primary",
-      },
-    ],
-  };
+        variant: "primary"},
+    ]};
 }
 
 // ── ADD_UNIT — add flat/shop/office to project ────────────────────────────
@@ -2672,8 +2493,7 @@ async function addUnitResponse(companyId: string, entities: ParsedEntities): Pro
     return {
       text: "Kaunse project me unit add karna hai? Project ka naam bataiye.",
       intent: "ADD_UNIT",
-      confidence: 0.8,
-    };
+      confidence: 0.8};
   }
 
   const project = await findProjectByName(companyId, projectName);
@@ -2681,8 +2501,7 @@ async function addUnitResponse(companyId: string, entities: ParsedEntities): Pro
     return {
       text: `Project "${projectName}" nahi mila. Sahi naam bataiye.`,
       intent: "ADD_UNIT",
-      confidence: 0.7,
-    };
+      confidence: 0.7};
   }
 
   // Need unit type
@@ -2690,8 +2509,7 @@ async function addUnitResponse(companyId: string, entities: ParsedEntities): Pro
     return {
       text: `${project.name} me kis type ka unit add karna hai?\n\n• 1BHK, 2BHK, 3BHK, 4BHK\n• Shop, Office, Villa, Warehouse\n\nType bolo:`,
       intent: "ADD_UNIT",
-      confidence: 0.8,
-    };
+      confidence: 0.8};
   }
 
   // Normalize unit type
@@ -2721,8 +2539,7 @@ async function addUnitResponse(companyId: string, entities: ParsedEntities): Pro
     return {
       text: `${project.name} me ${typeLabel} unit add karna hai. Unit number kya hai?\n\n(jaise 'A-101', '201', 'G-1')`,
       intent: "ADD_UNIT",
-      confidence: 0.8,
-    };
+      confidence: 0.8};
   }
 
   // Need area
@@ -2730,8 +2547,7 @@ async function addUnitResponse(companyId: string, entities: ParsedEntities): Pro
     return {
       text: `${typeLabel} ${unitNumber} ki area kitni hai sqft me?\n\n(jaise '850', '1200')`,
       intent: "ADD_UNIT",
-      confidence: 0.8,
-    };
+      confidence: 0.8};
   }
 
   const areaNum = toNum(area);
@@ -2739,8 +2555,7 @@ async function addUnitResponse(companyId: string, entities: ParsedEntities): Pro
     return {
       text: "Area sahi nahi hai. Dobara bataiye (jaise '850').",
       intent: "ADD_UNIT",
-      confidence: 0.7,
-    };
+      confidence: 0.7};
   }
 
   // We have all required info — show confirmation
@@ -2755,8 +2570,6 @@ async function addUnitResponse(companyId: string, entities: ParsedEntities): Pro
         type: "link",
         label: `Add ${typeLabel} Unit`,
         href: `/m/units?project=${project.id}&type=${normalizedType}&number=${encodeURIComponent(unitNumber)}&area=${areaNum}${hasPrice ? `&price=${toNum(askingPrice)}` : ""}`,
-        variant: "primary",
-      },
-    ],
-  };
+        variant: "primary"},
+    ]};
 }

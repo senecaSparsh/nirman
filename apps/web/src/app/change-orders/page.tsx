@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, getUserScope, toNum, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getUserScope, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
 import { PageHeader } from "@/components/page-header";
@@ -20,11 +20,11 @@ export default function ChangeOrdersPage() {
 
 async function CoContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
   const scope = await getUserScope();
 
-  if (!hasPermission(role, PERM.ASSETS_VIEW)) {
+  if (!__effPerms.includes(PERM.ASSETS_VIEW)) {
     return <NoAccess what="change orders" />;
   }
 
@@ -52,7 +52,7 @@ async function CoContent() {
     }),
   ]);
 
-  const canManage = hasPermission(role, PERM.WO_MANAGE);
+  const canManage = __effPerms.includes(PERM.WO_MANAGE);
 
   const serialized = changeOrders.map((c) => ({
     id: c.id,

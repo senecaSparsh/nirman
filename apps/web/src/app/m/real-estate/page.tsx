@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum, scopeWhere, getActionPermissions } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, scopeWhere, getActionPermissions, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
 import { MobileRealEstateHubTabs } from "../MobileRealEstateHubTabs";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
@@ -24,8 +24,7 @@ type Portfolio = ComponentProps<typeof MobileLandList>["portfolio"];
  * as /m/stock.
  */
 export default function MobileRealEstateHubPage({
-  searchParams,
-}: {
+  searchParams}: {
   searchParams: Promise<{ tab?: string }>;
 }) {
   return (
@@ -68,8 +67,8 @@ export default function MobileRealEstateHubPage({
 /** Projects tab — mirrors /m/projects */
 async function RealEstateProjectsTab() {
   const company = await getCompany();
-  const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.PROJECTS_MANAGE);
+  const __effPerms = await getUserPermissions();
+  const canManage = __effPerms.includes(PERM.PROJECTS_MANAGE);
 
   const projects = await prisma.project.findMany({
     where: { companyId: company.id, deletedAt: null },
@@ -78,9 +77,7 @@ async function RealEstateProjectsTab() {
       id: true, name: true, status: true, type: true,
       totalBudget: true, totalProjectCost: true, costPerSqft: true,
       reraNumber: true,
-      _count: { select: { builtUnits: { where: { deletedAt: null } } } },
-    },
-  });
+      _count: { select: { builtUnits: { where: { deletedAt: null } } } }}});
 
   const items: ProjectListItem[] = projects.map((p) => ({
     id: p.id,
@@ -89,8 +86,7 @@ async function RealEstateProjectsTab() {
     type: p.type,
     totalBudget: p.totalBudget ? toNum(p.totalBudget) : null,
     reraNumber: p.reraNumber,
-    unitCount: p._count.builtUnits,
-  }));
+    unitCount: p._count.builtUnits}));
 
   return (
     <MobileProjectsList
@@ -113,22 +109,20 @@ async function RealEstateProjectsTab() {
 /** Units tab — mirrors /m/units */
 async function RealEstateUnitsTab() {
   const company = await getCompany();
-  const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.ASSETS_MANAGE);
+  const __effPerms = await getUserPermissions();
+  const canManage = __effPerms.includes(PERM.ASSETS_MANAGE);
 
   const [units, _projects] = await Promise.all([
     prisma.builtUnit.findMany({
       where: {...await scopeWhere("BuiltUnit"),  deletedAt: null, project: { companyId: company.id, deletedAt: null } },
       orderBy: [{ project: { name: "asc" } }, { unitNumber: "asc" }],
       take: 200,
-      include: { project: { select: { id: true, name: true } } },
-    }),
+      include: { project: { select: { id: true, name: true } } }}),
     canManage
       ? prisma.project.findMany({
           where: { companyId: company.id, deletedAt: null },
           orderBy: { name: "asc" },
-          select: { id: true, name: true },
-        })
+          select: { id: true, name: true }})
       : [],
   ]);
 
@@ -141,8 +135,7 @@ async function RealEstateUnitsTab() {
     areaUnit: u.areaUnit,
     askingPrice: u.askingPrice ? toNum(u.askingPrice) : null,
     projectId: u.project.id,
-    projectName: u.project.name,
-  }));
+    projectName: u.project.name}));
 
   return (
     <MobileUnitsList
@@ -165,8 +158,8 @@ async function RealEstateUnitsTab() {
 /** Land tab — mirrors /m/land */
 async function RealEstateLandTab() {
   const company = await getCompany();
-  const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.ASSETS_MANAGE);
+  const __effPerms = await getUserPermissions();
+  const canManage = __effPerms.includes(PERM.ASSETS_MANAGE);
   const actions = await getActionPermissions();
 
   const [landPurchases, projects, sellers] = await Promise.all([
@@ -182,24 +175,18 @@ async function RealEstateLandTab() {
             purpose: true, acquisitionCost: true, currentValuation: true,
             askingPrice: true, parentParcelId: true,
             sale: { select: { id: true } },
-            _count: { select: { children: true } },
-          },
-        },
-      },
-    }),
+            _count: { select: { children: true } }}}}}),
     canManage
       ? prisma.project.findMany({
           where: { companyId: company.id, deletedAt: null },
           select: { id: true, name: true },
-          orderBy: { name: "asc" },
-        })
+          orderBy: { name: "asc" }})
       : [],
     canManage
       ? prisma.landSeller.findMany({
           where: { companyId: company.id, deletedAt: null },
           select: { id: true, name: true, phone: true },
-          orderBy: { name: "asc" },
-        })
+          orderBy: { name: "asc" }})
       : [],
   ]);
 
@@ -251,9 +238,7 @@ async function RealEstateLandTab() {
         currentValuation: toNum(p.currentValuation),
         askingPrice: p.askingPrice ? toNum(p.askingPrice) : null,
         parentParcelId: p.parentParcelId,
-        childCount: p._count.children,
-      })),
-    };
+        childCount: p._count.children}))};
   });
 
   const portfolio: Portfolio = {
@@ -267,8 +252,7 @@ async function RealEstateLandTab() {
     partitionedCount: items.reduce((s, i) => s + i.partitionedCount, 0),
     availableArea: items.reduce((s, i) => s + i.availableArea, 0),
     unsoldValue: items.reduce((s, i) => s + i.unsoldValue, 0),
-    costBasis: items.reduce((s, i) => s + i.costBasis, 0),
-  };
+    costBasis: items.reduce((s, i) => s + i.costBasis, 0)};
 
   return (
     <MobileLandList
@@ -286,10 +270,10 @@ async function RealEstateLandTab() {
 /** Customers tab — mirrors /m/customers */
 async function RealEstateCustomersTab() {
   const company = await getCompany();
-  const role = await getUserRole();
-  const canCreate = hasPermission(role, PERM.SALE_CREATE);
-  const canEdit = hasPermission(role, PERM.SALE_CREATE);
-  const canDelete = hasPermission(role, PERM.SALES_MANAGE);
+  const __effPerms = await getUserPermissions();
+  const canCreate = __effPerms.includes(PERM.SALE_CREATE);
+  const canEdit = __effPerms.includes(PERM.SALE_CREATE);
+  const canDelete = __effPerms.includes(PERM.SALES_MANAGE);
 
   const [customers, leads] = await Promise.all([
     prisma.customer.findMany({
@@ -300,15 +284,11 @@ async function RealEstateCustomersTab() {
         assetSales: {
           where: { companyId: company.id, status: "ACTIVE" },
           select: { salePrice: true, gstAmount: true, paymentStatus: true,
-            payments: { where: { status: "RECEIVED" }, select: { amount: true } } },
-        },
+            payments: { where: { status: "RECEIVED" }, select: { amount: true } } }},
         materialSales: {
           where: { companyId: company.id, status: "ACTIVE" },
           select: { totalAmount: true, paymentStatus: true,
-            payments: { select: { amount: true } } },
-        },
-      },
-    }),
+            payments: { select: { amount: true } } }}}}),
     prisma.lead.findMany({
       where: {...await scopeWhere("Lead"),  companyId: company.id, deletedAt: null, stage: { not: "LOST" } },
       orderBy: { createdAt: "desc" },
@@ -320,9 +300,7 @@ async function RealEstateCustomersTab() {
         createdAt: true, budgetMin: true, budgetMax: true,
         interestedUnitType: true,
         project: { select: { name: true } },
-        assignedTo: { select: { name: true } },
-      },
-    }),
+        assignedTo: { select: { name: true } }}}),
   ]);
 
   // Compute real customer stats from the loaded data.
@@ -358,8 +336,7 @@ async function RealEstateCustomersTab() {
       customerCount: customers.length,
       withDues,
       totalOutstanding,
-      pipelineValue,
-    };
+      pipelineValue};
   })();
 
   return (
@@ -378,17 +355,16 @@ async function RealEstateCustomersTab() {
 /** Brokers tab — mirrors /m/brokers */
 async function RealEstateBrokersTab() {
   const company = await getCompany();
-  const role = await getUserRole();
-  const canCreate = hasPermission(role, PERM.SALES_MANAGE);
-  const canEdit = hasPermission(role, PERM.SALES_MANAGE);
-  const canDelete = hasPermission(role, PERM.SALES_MANAGE);
+  const __effPerms = await getUserPermissions();
+  const canCreate = __effPerms.includes(PERM.SALES_MANAGE);
+  const canEdit = __effPerms.includes(PERM.SALES_MANAGE);
+  const canDelete = __effPerms.includes(PERM.SALES_MANAGE);
 
   const brokers = await prisma.broker.findMany({
     where: { companyId: company.id, deletedAt: null },
     orderBy: { name: "asc" },
     take: 100,
-    include: { _count: { select: { assetSales: true } } },
-  });
+    include: { _count: { select: { assetSales: true } } }});
 
   const items: BrokerListItem[] = brokers.map((b) => ({
     id: b.id,
@@ -397,8 +373,7 @@ async function RealEstateBrokersTab() {
     agency: b.agency,
     defaultCommissionPercent: b.defaultCommissionPercent ? toNum(b.defaultCommissionPercent) : null,
     notes: b.notes,
-    dealCount: b._count.assetSales,
-  }));
+    dealCount: b._count.assetSales}));
 
   return (
     <MobileBrokersList
@@ -413,30 +388,25 @@ async function RealEstateBrokersTab() {
 /** Rentals tab — mirrors /m/rentals */
 async function RealEstateRentalsTab() {
   const company = await getCompany();
-  const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.ASSETS_MANAGE);
+  const __effPerms = await getUserPermissions();
+  const canManage = __effPerms.includes(PERM.ASSETS_MANAGE);
 
   const [tenancies, unitAssets, parcelAssets, customers] = await Promise.all([
     prisma.tenancy.findMany({
       where: {...await scopeWhere("Tenancy"),  companyId: company.id, status: { in: ["ACTIVE", "PENDING"] } },
       orderBy: [{ status: "asc" }, { endDate: "asc" }],
       include: {
-        payments: { orderBy: { dueDate: "desc" }, select: { amount: true, dueDate: true, status: true, paymentDate: true } },
-      },
-    }),
+        payments: { orderBy: { dueDate: "desc" }, select: { amount: true, dueDate: true, status: true, paymentDate: true } }}}),
     prisma.builtUnit.findMany({
       where: {...await scopeWhere("BuiltUnit"),  project: { companyId: company.id }, deletedAt: null, status: { in: ["AVAILABLE", "UNDER_CONSTRUCTION"] } },
-      select: { id: true, unitNumber: true, project: { select: { name: true } } },
-    }),
+      select: { id: true, unitNumber: true, project: { select: { name: true } } }}),
     prisma.landParcel.findMany({
       where: {...await scopeWhere("LandParcel"),  deletedAt: null, landPurchase: { companyId: company.id }, status: "AVAILABLE" },
-      select: { id: true, number: true, landPurchase: { select: { sellerName: true, location: true } } },
-    }),
+      select: { id: true, number: true, landPurchase: { select: { sellerName: true, location: true } } }}),
     prisma.customer.findMany({
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
+      select: { id: true, name: true }}),
   ]);
 
   const unitMap = new Map(unitAssets.map((u) => [u.id, { label: u.unitNumber, project: u.project.name }]));
@@ -478,8 +448,7 @@ async function RealEstateRentalsTab() {
       daysToExpiry,
       expiringSoon: daysToExpiry <= 30 && daysToExpiry >= 0,
       expired: daysToExpiry < 0,
-      paymentCount: t.payments.length,
-    };
+      paymentCount: t.payments.length};
   });
 
   const stats = {
@@ -488,8 +457,7 @@ async function RealEstateRentalsTab() {
     totalOverdue: items.reduce((s, i) => s + i.overdueAmount, 0),
     activeCount: items.filter((i) => i.status === "ACTIVE").length,
     pendingCount: items.filter((i) => i.status === "PENDING").length,
-    expiringCount: items.filter((i) => i.expiringSoon).length,
-  };
+    expiringCount: items.filter((i) => i.expiringSoon).length};
 
   return (
     <MobileRentalsList

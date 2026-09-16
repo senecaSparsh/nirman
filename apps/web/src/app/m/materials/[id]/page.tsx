@@ -1,21 +1,18 @@
 import Link from "next/link";
 import { prisma } from "@nirman/db";
 import {
-  Package, ArrowLeftRight, AlertTriangle, ArrowLeft,
-} from "lucide-react";
+  Package, ArrowLeftRight, AlertTriangle, ArrowLeft} from "lucide-react";
 import { toNum, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
 import {
   MobileEmptyState,
-  MobileCta,
-} from "@/components/mobile/v2/primitives";
+  MobileCta} from "@/components/mobile/v2/primitives";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import {
   DetailHeroCard,
   DetailProgress,
-  DetailKeyValueCard,
-} from "@/components/mobile/v2/detail-primitives";
+  DetailKeyValueCard} from "@/components/mobile/v2/detail-primitives";
 
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
@@ -33,8 +30,7 @@ import { MobileAdjustStockBtn } from "./MobileAdjustStockBtn";
  *   5. Stock by location + Recent movements — 2-col side by side
  */
 export default function MobileMaterialDetailPage({
-  params,
-}: {
+  params}: {
   params: Promise<{ id: string }>;
 }) {
   return (
@@ -46,34 +42,29 @@ export default function MobileMaterialDetailPage({
       permission={PERM.INVENTORY_VIEW}
       skeletonSections={6}
     >
-      {async ({ id, company, canManage, role }) => {
+      {async ({ id, company, canManage, perms }) => {
         const [material, stockItems, movements, locationRows] = await Promise.all([
           prisma.material.findFirst({
             where: { id, companyId: company.id, deletedAt: null },
-            include: { category: { select: { name: true } } },
-          }),
+            include: { category: { select: { name: true } } }}),
           prisma.stockLocationItem.findMany({
             where: { materialId: id, location: { companyId: company.id } },
             include: { location: { select: { id: true, name: true, type: true } } },
-            orderBy: { location: { name: "asc" } },
-          }),
+            orderBy: { location: { name: "asc" } }}),
           prisma.stockMovement.findMany({
             where: {...await scopeWhere("StockMovement"),
               materialId: id,
-              AND: [{ OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }] }],
-            },
+              AND: [{ OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }] }]},
             orderBy: { timestamp: "desc" },
             take: 10,
-            include: { fromLocation: { select: { name: true } }, toLocation: { select: { name: true } } },
-          }),
+            include: { fromLocation: { select: { name: true } }, toLocation: { select: { name: true } } }}),
 
           // All company stock locations — passed to the adjust-stock sheet so the
           // location select is never empty, even when this material has zero stock.
           prisma.stockLocation.findMany({
             where: { companyId: company.id, deletedAt: null },
             orderBy: [{ type: "asc" }, { name: "asc" }],
-            include: { project: { select: { id: true, name: true } } },
-          }),
+            include: { project: { select: { id: true, name: true } } }}),
         ]);
 
         if (!material) {
@@ -89,7 +80,7 @@ export default function MobileMaterialDetailPage({
 
         // Anyone who can raise an indent gets a direct "Raise indent" on a
         // low/out material — otherwise they'd navigate away and re-pick it.
-        const canIndent = hasPermission(role, PERM.REQUISITION_CREATE);
+        const canIndent = perms.includes(PERM.REQUISITION_CREATE);
         const totalQty = stockItems.reduce((s, i) => s + toNum(i.qty), 0);
         const totalValue = stockItems.reduce((s, i) => s + toNum(i.qty) * toNum(i.movingAvgCost), 0);
         // Aggregate MAC = weighted average across all locations (qty-weighted).
@@ -130,8 +121,7 @@ export default function MobileMaterialDetailPage({
             entityType: "material",
             label: material.name,
             subtitle: material.code,
-            recordId: material.id,
-          }}>
+            recordId: material.id}}>
           <div>
             <RecordRecentItem type="material" id={material.id} label={material.name} sublabel={material.code} href={`/m/materials/${material.id}`} />
 
@@ -157,8 +147,7 @@ export default function MobileMaterialDetailPage({
                 className="rounded-[0.5rem] border p-3 flex items-center gap-2 mb-2"
                 style={{
                   borderColor: isOut ? "color-mix(in srgb, var(--color-stop) 30%, var(--color-line))" : "color-mix(in srgb, var(--color-signal) 30%, var(--color-line))",
-                  backgroundColor: isOut ? "color-mix(in srgb, var(--color-stop) 6%, var(--color-paper))" : "color-mix(in srgb, var(--color-signal) 6%, var(--color-paper))",
-                }}
+                  backgroundColor: isOut ? "color-mix(in srgb, var(--color-stop) 6%, var(--color-paper))" : "color-mix(in srgb, var(--color-signal) 6%, var(--color-paper))"}}
               >
                 <AlertTriangle className="size-4 shrink-0" style={{ color: isOut ? "var(--color-stop)" : "var(--color-signal-dark)" }} />
                 <p className="text-m-caption font-bold" style={{ color: isOut ? "var(--color-stop)" : "var(--color-signal-dark)" }}>
@@ -297,13 +286,11 @@ export default function MobileMaterialDetailPage({
                   locationId: i.locationId,
                   locationName: i.location.name,
                   qty: toNum(i.qty),
-                  movingAvgCost: toNum(i.movingAvgCost),
-                }))}
+                  movingAvgCost: toNum(i.movingAvgCost)}))}
                 locations={locationRows.map((l) => ({
                   id: l.id,
                   name: l.name,
-                  projectName: l.project?.name ?? null,
-                }))}
+                  projectName: l.project?.name ?? null}))}
               />
             )}
           </div>

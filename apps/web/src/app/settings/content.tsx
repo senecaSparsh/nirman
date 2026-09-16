@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCurrentUser, getCompany, getUserRole, toNum, projectScopeFilter } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCurrentUser, getCompany, getUserRole, toNum, projectScopeFilter, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { SettingsView } from "@/components/settings/settings-view";
 import { HsnMasterAdmin } from "@/components/settings/hsn-master-admin";
 import { NotificationsPanel } from "@/components/notifications/notifications-panel";
@@ -14,11 +14,12 @@ export async function SettingsContent() {
   await connection();
   const user = await getCurrentUser();
   const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
 
   // Server-side gate: settings requires COMPANY_MANAGE permission.
   // OWNER/ADMIN (Admin tier) see everything; MANAGER (Sub-Admin) can access
   // to manage members below them in the hierarchy.
-  if (!hasPermission(role, PERM.COMPANY_MANAGE)) {
+  if (!__effPerms.includes(PERM.COMPANY_MANAGE)) {
     return <NoAccess what="company settings" />;
   }
 
@@ -146,6 +147,7 @@ export async function SettingsContent() {
         lciThresholdDefault: company.lciThresholdDefault ? toNum(company.lciThresholdDefault) : null,
         poApprovalThresholdManager: company.poApprovalThresholdManager ? toNum(company.poApprovalThresholdManager) : null,
         poApprovalThresholdAdmin: company.poApprovalThresholdAdmin ? toNum(company.poApprovalThresholdAdmin) : null,
+        approvalAgingHours: company.approvalAgingHours ?? 48,
       }}
       users={users.map((u) => ({
         id: u.id,
@@ -185,12 +187,12 @@ export async function SettingsContent() {
       managers={memberships.map((m) => ({ membershipId: m.id, userId: m.userId, name: m.user.name, role: m.role }))}
       customRoles={customRoles.map((cr) => ({ id: cr.id, key: cr.key, label: cr.label, description: cr.description, baseRole: cr.baseRole, tier: cr.tier, permissions: cr.permissions }))}
     />
-      {hasPermission(role, PERM.FINANCE_MANAGE) && (
+      {__effPerms.includes(PERM.FINANCE_MANAGE) && (
         <div className="mt-6">
           <HsnMasterAdmin />
         </div>
       )}
-      {hasPermission(role, PERM.FINANCE_MANAGE) && (
+      {__effPerms.includes(PERM.FINANCE_MANAGE) && (
         <div className="mt-6">
           <NotificationsPanel />
         </div>

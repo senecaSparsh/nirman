@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, scopeWhere, projectScopeFilter } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, scopeWhere, projectScopeFilter, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
 import { DepartmentActivityFeed } from "@/components/department-activity-feed";
@@ -21,10 +21,10 @@ export default function SafetyPage() {
 
 async function SafetyContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.SAFETY_VIEW)) {
+  if (!__effPerms.includes(PERM.SAFETY_VIEW)) {
     return <NoAccess what="safety management" />;
   }
 
@@ -55,7 +55,7 @@ async function SafetyContent() {
     }),
   ]);
 
-  const canManage = hasPermission(role, PERM.SAFETY_MANAGE);
+  const canManage = __effPerms.includes(PERM.SAFETY_MANAGE);
 
   const serializedIncidents = incidents.map((i) => ({
     id: i.id, incidentNumber: i.incidentNumber, title: i.title, type: i.type, severity: i.severity, status: i.status,

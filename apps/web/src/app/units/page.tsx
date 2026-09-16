@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { UnitsHub } from "@/components/built-units/units-hub";
 import { PageLoading } from "@/components/page-loading";
@@ -21,21 +21,21 @@ export default function BuiltUnitsPage() {
 
 async function BuiltUnitsContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.ASSETS_VIEW)) {
+  if (!__effPerms.includes(PERM.ASSETS_VIEW)) {
     return (
       <NoAccess what="built units" />
     );
   }
 
-  const canViewPortals = hasPermission(role, PERM.SALES_VIEW);
+  const canViewPortals = __effPerms.includes(PERM.SALES_VIEW);
 
   const perms = {
-    canCreate: hasPermission(role, PERM.ASSETS_MANAGE),
-    canEdit: hasPermission(role, PERM.ASSETS_MANAGE),
-    canSell: hasPermission(role, PERM.SALE_CREATE),
+    canCreate: __effPerms.includes(PERM.ASSETS_MANAGE),
+    canEdit: __effPerms.includes(PERM.ASSETS_MANAGE),
+    canSell: __effPerms.includes(PERM.SALE_CREATE),
   };
 
   const [builtUnits, projects, phases, customers, portalListings, portalBuiltUnits, portalProj] = await Promise.all([
@@ -190,7 +190,7 @@ async function BuiltUnitsContent() {
 
   const customerRows = customers.map((c) => ({ id: c.id, name: c.name }));
 
-  const canManagePortals = canViewPortals && hasPermission(role, PERM.SALES_MANAGE);
+  const canManagePortals = canViewPortals && __effPerms.includes(PERM.SALES_MANAGE);
 
   const portalListingRows = portalListings.map((l) => ({
     id: l.id,
@@ -244,7 +244,7 @@ async function BuiltUnitsContent() {
   const portalProjects = portalProj.map((p) => ({ id: p.id, name: p.name }));
 
   // ── Renovation data (renovations improve existing built units / land parcels) ──
-  const canManageRenovations = hasPermission(role, PERM.ASSETS_MANAGE);
+  const canManageRenovations = __effPerms.includes(PERM.ASSETS_MANAGE);
   const [renovations, renProjects, renBuiltUnits, renLandParcels] = await Promise.all([
     prisma.renovationProject.findMany({
       where: { companyId: company.id },

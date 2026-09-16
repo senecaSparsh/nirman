@@ -1,6 +1,6 @@
 import { Suspense, type ReactNode } from "react";
 import { connection } from "next/server";
-import { getCompany, getUserRole, getUserPermissions } from "@/lib/server";
+import { getActingRole, getCompany, getUserRole, getUserPermissions } from "@/lib/server";
 import { hasPermission, type Permission } from "@/lib/roles";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
@@ -36,6 +36,10 @@ export interface MobileDetailPageCtx {
   company: Awaited<ReturnType<typeof getCompany>>;
   /** The user's role string (from getUserRole()). */
   role: string;
+  /** The highest-authority role incl. live delegations (getActingRole()). */
+  actingRole: string;
+  /** Effective permission union (role matrix + grants + delegation). */
+  perms: string[];
   /** True if the user has the managePerm (or if no managePerm was requested). */
   canManage: boolean;
 }
@@ -97,6 +101,7 @@ export async function MobileDetailPage({
     await connection();
     const company = await getCompany();
     const role = await getUserRole();
+    const actingRole = await getActingRole();
     const overrides = await getUserPermissions();
 
     if (perm) {
@@ -110,7 +115,7 @@ export async function MobileDetailPage({
 
     const canManage = managePerm ? hasPermission(role, managePerm, overrides) : true;
 
-    return children({ id, company, role, canManage });
+    return children({ id, company, role, actingRole, perms: overrides, canManage });
   };
 
   return (

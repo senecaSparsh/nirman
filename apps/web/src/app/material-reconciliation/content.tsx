@@ -1,18 +1,18 @@
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, getUserScope } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getUserScope, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { NoAccess } from "@/components/no-access";
 import { MaterialReconciliationView } from "@/components/material-reconciliation/reconciliation-view";
 
 export async function ReconContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
   const scope = await getUserScope();
 
-  if (!hasPermission(role, PERM.PROJECT_CONTROL_VIEW)) {
+  if (!__effPerms.includes(PERM.PROJECT_CONTROL_VIEW)) {
     return <NoAccess what="material reconciliation" />;
   }
 

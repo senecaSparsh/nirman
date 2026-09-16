@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { prisma } from "@nirman/db";
 import { getCompany, getCurrentUser, scopeWhere, getActionPermissions } from "@/lib/server";
 import { roleTier } from "@/lib/roles";
-import { getUserRole } from "@/lib/server";
+import { getUserPermissions, getUserRole } from "@/lib/server";
 import { roleToPersona, type Persona } from "@/lib/mobile-nav-v2";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
 import { type CompanyCardData } from "./home-client";
@@ -174,6 +174,7 @@ async function HomeContent() {
     canCreateCompany,
     userName: user?.name ?? null,
     role,
+    permissions: await getUserPermissions(),
     persona: roleToPersona(role) as Persona,
     myEmployee: myEmployee ? { id: myEmployee.id, name: myEmployee.name } : null,
     myAttendance: myAttendance

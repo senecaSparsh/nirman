@@ -300,7 +300,7 @@ export function computeNrvWriteDown(costBasis: Decimal, nrv: Decimal): Decimal {
  * and the lease still active (not soft-deleted). Each alert includes the
  * days until expiry and a severity bucket.
  */
-export async function leaseExpiryAlerts(companyId?: string) {
+export async function leaseExpiryAlerts(companyId?: string, opts?: { emit?: boolean }) {
   const now = new Date();
   const purchases = await prisma.landPurchase.findMany({
     where: {
@@ -356,8 +356,11 @@ export async function leaseExpiryAlerts(companyId?: string) {
   // Sort: expired first, then by days until expiry ascending
   alerts.sort((a, b) => a.daysUntilExpiry - b.daysUntilExpiry);
 
-  // Emit LEASE_EXPIRY_WARNING notifications for each alert (best-effort)
-  for (const alert of alerts) {
+  // Emit LEASE_EXPIRY_WARNING notifications for each alert (best-effort).
+  // Skippable: the daily digest calls this with emit:false — it folds the
+  // count into one digest line instead of per-lease notifications, which
+  // would spam execs every single day for the same expiring lease.
+  if (opts?.emit !== false) for (const alert of alerts) {
     void emitNotificationEvent({
       eventType: NotificationEventType.LEASE_EXPIRY_WARNING,
       companyId: alert.companyId,

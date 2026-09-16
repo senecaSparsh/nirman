@@ -1,24 +1,23 @@
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, projectScopeFilter } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, projectScopeFilter, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { ProjectAssignmentsView } from "@/components/settings/project-assignments-view";
 import { NoAccess } from "@/components/no-access";
 
 export async function ProjectAssignmentsContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.USERS_VIEW)) {
+  if (!__effPerms.includes(PERM.USERS_VIEW)) {
     return (
       <NoAccess what="project assignments" />
     );
   }
 
   const perms = {
-    canManage: hasPermission(role, PERM.USERS_MANAGE),
-  };
+    canManage: __effPerms.includes(PERM.USERS_MANAGE)};
 
   const [assignments, users, projects] = await Promise.all([
     prisma.projectAssignment.findMany({
@@ -26,26 +25,21 @@ export async function ProjectAssignmentsContent() {
       where: { project: { companyId: company.id } },
       include: {
         user: { select: { id: true, name: true, email: true, role: true } },
-        project: { select: { id: true, name: true } },
-      },
-      orderBy: { assignedAt: "desc" },
-    }),
+        project: { select: { id: true, name: true } }},
+      orderBy: { assignedAt: "desc" }}),
     prisma.user.findMany({
       take: 200,
       where: {
         active: true,
         role: { in: ["SUPERVISOR", "QAQC_ENGINEER", "SECURITY_GUARD", "SALES_MANAGER", "ACCOUNTANT", "SITE_ENGINEER", "STORE_KEEPER"] },
-        memberships: { some: { companyId: company.id } },
-      },
+        memberships: { some: { companyId: company.id } }},
       select: { id: true, name: true, email: true, role: true },
-      orderBy: { name: "asc" },
-    }),
+      orderBy: { name: "asc" }}),
     prisma.project.findMany({
       take: 200,
       where: { companyId: company.id, deletedAt: null, ...await projectScopeFilter() ?? {} },
       select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
+      orderBy: { name: "asc" }}),
   ]);
 
   const assignmentRows = assignments.map((a) => ({
@@ -57,8 +51,7 @@ export async function ProjectAssignmentsContent() {
     projectId: a.projectId,
     projectName: a.project.name,
     scopedRole: a.scopedRole,
-    assignedAt: a.assignedAt.toISOString(),
-  }));
+    assignedAt: a.assignedAt.toISOString()}));
 
   return (
     <ProjectAssignmentsView

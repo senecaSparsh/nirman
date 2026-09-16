@@ -84,7 +84,7 @@ export default function SettingsPage() {
           // User's companies (for switcher)
           user
             ? prisma.userCompany.findMany({
-                where: { userId: user.id },
+                where: { userId: user.id, active: true },
                 include: { company: { select: { id: true, name: true, deletedAt: true } } },
               }).then((m) => m.filter((m) => m.company.deletedAt === null))
             : [],

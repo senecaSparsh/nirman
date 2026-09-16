@@ -481,7 +481,7 @@ export function MobileNoAccess({
         <Lock className="size-5" style={{ color: "var(--color-ink-300)" }} />
       </div>
       <p className="text-m-section" style={{ color: "var(--color-ink-950)" }}>
-        {what.charAt(0).toUpperCase() + what.slice(1)} isn&apos;t part of your role
+        {`${what.charAt(0).toUpperCase() + what.slice(1)} isn't part of your role`}
       </p>
       <p className="text-m-caption mt-1.5 max-w-[18rem]" style={{ color: "var(--color-ink-500)" }}>
         Your account doesn&apos;t include access to {what}. An owner or administrator can

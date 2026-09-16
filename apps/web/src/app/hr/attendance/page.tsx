@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { computeAttendanceTier, canAutoApprove } from "@nirman/services";
-import { getCompany, toNum, getUserRole, getUserScope, scopeWhere, getScopedFormOptions, getCurrentUser } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getActingRole, getCompany, toNum, getUserScope, scopeWhere, getScopedFormOptions, getCurrentUser, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
 import { AttendanceView } from "@/components/hr/attendance-view";
@@ -19,10 +19,11 @@ export default function AttendancePage() {
 
 async function AttendanceContent() {
   await connection();
-  const role = await getUserRole();
+  const actingRole = await getActingRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.HR_VIEW)) {
+  if (!__effPerms.includes(PERM.HR_VIEW)) {
     return (
       <NoAccess what="attendance" />
     );
@@ -30,9 +31,8 @@ async function AttendanceContent() {
 
   const currentUser = await getCurrentUser();
   const perms = {
-    canEdit: hasPermission(role, PERM.HR_MANAGE),
-    canManage: hasPermission(role, PERM.HR_MANAGE),
-  };
+    canEdit: __effPerms.includes(PERM.HR_MANAGE),
+    canManage: __effPerms.includes(PERM.HR_MANAGE)};
 
   const today = new Date();
   const todayDateOnly = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
@@ -61,8 +61,7 @@ async function AttendanceContent() {
       take: 200,
       where: { companyId: company.id, deletedAt: null, active: true, ...await scopeWhere("Employee") },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, trade: true, activeProjectId: true, crewId: true },
-    }),
+      select: { id: true, name: true, trade: true, activeProjectId: true, crewId: true }}),
     Promise.resolve(scopedOpts.projects),
     prisma.workerAttendance.findMany({
       where: {...await scopeWhere("WorkerAttendance"),  companyId: company.id, date: { gte: weekAgo }, ...projectFilter },
@@ -70,24 +69,19 @@ async function AttendanceContent() {
       take: 100,
       include: {
         employee: { select: { id: true, name: true, trade: true } },
-        project: { select: { id: true, name: true } },
-      },
-    }),
+        project: { select: { id: true, name: true } }}}),
     prisma.leaveRequest.findMany({
       take: 500,
       where: {...await scopeWhere("LeaveRequest"),  companyId: company.id },
       orderBy: { createdAt: "desc" },
       include: {
         employee: { select: { id: true, name: true, trade: true, designation: true, userId: true } },
-        approvedBy: { select: { id: true, name: true } },
-      },
-    }),
+        approvedBy: { select: { id: true, name: true } }}}),
     prisma.employee.findMany({
       take: 200,
       where: { companyId: company.id, deletedAt: null, active: true, ...await scopeWhere("Employee") },
       select: { id: true, name: true, trade: true, designation: true },
-      orderBy: { name: "asc" },
-    }),
+      orderBy: { name: "asc" }}),
   ]);
 
   // ── Traffic-light tier computation (D10) ──────────────────────
@@ -102,8 +96,7 @@ async function AttendanceContent() {
     const dprs = await prisma.dailyProgressReport.findMany({
       take: 200,
       where: {...await scopeWhere("DailyProgressReport"),  project: { companyId: company.id } },
-      select: { projectId: true, date: true, approvalStatus: true },
-    });
+      select: { projectId: true, date: true, approvalStatus: true }});
     for (const dpr of dprs) {
       const key = `${dpr.projectId}|${dpr.date.toISOString().slice(0, 10)}`;
       if (projectDateKeys.has(key)) {
@@ -119,8 +112,7 @@ async function AttendanceContent() {
     const tier = computeAttendanceTier({
       status: r.status,
       hasGpsCheckIn,
-      dprApproved,
-    });
+      dprApproved});
     return {
       id: r.id,
       employeeId: r.employeeId,
@@ -140,8 +132,7 @@ async function AttendanceContent() {
       checkOutLat: r.checkOutLat,
       checkOutLng: r.checkOutLng,
       checkInLocation: r.checkInLocation,
-      checkOutLocation: r.checkOutLocation,
-    };
+      checkOutLocation: r.checkOutLocation};
   });
 
   const leaveRows = leaves.map((l) => ({
@@ -160,8 +151,7 @@ async function AttendanceContent() {
     approvedByName: l.approvedBy?.name ?? null,
     approvedAt: l.approvedAt?.toISOString() ?? null,
     rejectedReason: l.rejectedReason,
-    createdAt: l.createdAt.toISOString(),
-  }));
+    createdAt: l.createdAt.toISOString()}));
 
   return (
     <>
@@ -182,7 +172,7 @@ async function AttendanceContent() {
         leaveRows={leaveRows}
         leaveEmployees={leaveEmployees.map((e) => ({ id: e.id, name: e.name, trade: e.trade, designation: e.designation }))}
         currentUserId={currentUser?.id ?? null}
-        canSelfApprove={canAutoApprove(role)}
+        canSelfApprove={canAutoApprove(actingRole)}
       />
     </>
   );

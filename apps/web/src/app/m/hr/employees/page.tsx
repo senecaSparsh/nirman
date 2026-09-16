@@ -4,8 +4,8 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { Users } from "lucide-react";
-import { getCompany, getUserRole, toNum, getEmployeeAccessScope, getActionPermissions, filterOptionsByScope, getCompanyGroupIds, getCurrentUser } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getEmployeeAccessScope, getActionPermissions, filterOptionsByScope, getCompanyGroupIds, getCurrentUser, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -31,9 +31,9 @@ export default function MobileEmployeesPage() {
 async function MobileEmployeesContent() {
   await connection();
   const company = await getCompany();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   // Gate: require HR_VIEW to access the employee roster
-  if (!hasPermission(role, PERM.HR_VIEW)) {
+  if (!__effPerms.includes(PERM.HR_VIEW)) {
     redirect("/m");
   }
   // Root-level access scope: department + field gating

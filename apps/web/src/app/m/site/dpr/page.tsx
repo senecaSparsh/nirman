@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum, scopeWhere, getScopedFormOptions } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, scopeWhere, getScopedFormOptions, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { ClipboardList } from "lucide-react";
 import { MobileDprForm } from "@/components/mobile/mobile-dpr-form";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
@@ -32,10 +32,10 @@ export default function MobileDprPage() {
 
 async function MobileDprContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.DPR_SUBMIT)) {
+  if (!__effPerms.includes(PERM.DPR_SUBMIT)) {
     return <MobileNoAccess what="submit DPRs" permission="dpr.submit" />;
   }
 

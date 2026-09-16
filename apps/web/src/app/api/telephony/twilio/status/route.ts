@@ -1,6 +1,6 @@
 import { } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { getActingRole, apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { getAccountInfo, isTwilioConfigured, getTwilioAccountSid, fetchTwilioNumbers } from "@/lib/twilio-service";
 
@@ -16,8 +16,8 @@ import { getAccountInfo, isTwilioConfigured, getTwilioAccountSid, fetchTwilioNum
  */
 export const GET = apiHandler(async () => {
   // Only OWNER can view Twilio config
-  const user = await requirePermission(PERM.TELEPHONY_MANAGE);
-  if (user.role !== "OWNER") {
+  await requirePermission(PERM.TELEPHONY_MANAGE);
+  if ((await getActingRole()) !== "OWNER") {
     return json({ error: "Only the owner can manage Twilio integration" }, { status: 403 });
   }
   const company = await getCompany();

@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { NoAccess } from "@/components/no-access";
 import type { DepartmentRow } from "@/lib/types";
 import { PageHeader } from "@/components/page-header";
@@ -9,10 +9,10 @@ import { DepartmentsView } from "@/components/departments/departments-view";
 
 export async function DepartmentsContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.INVENTORY_VIEW)) {
+  if (!__effPerms.includes(PERM.INVENTORY_VIEW)) {
     return <NoAccess what="departments" />;
   }
 
@@ -38,9 +38,9 @@ export async function DepartmentsContent() {
   }));
 
   const perms = {
-    canCreate: hasPermission(role, PERM.INVENTORY_MANAGE),
-    canEdit: hasPermission(role, PERM.INVENTORY_MANAGE),
-    canDelete: hasPermission(role, PERM.INVENTORY_MANAGE),
+    canCreate: __effPerms.includes(PERM.INVENTORY_MANAGE),
+    canEdit: __effPerms.includes(PERM.INVENTORY_MANAGE),
+    canDelete: __effPerms.includes(PERM.INVENTORY_MANAGE),
   };
 
   return (

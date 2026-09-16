@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole, scopeWhere, getCurrentUser, getActionPermissions, getScopedFormOptions } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, scopeWhere, getCurrentUser, getActionPermissions, getScopedFormOptions, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
 import { EmployeesView } from "@/components/hr/employees-view";
@@ -18,10 +18,10 @@ export default function EmployeesPage() {
 
 async function EmployeesContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.HR_VIEW)) {
+  if (!__effPerms.includes(PERM.HR_VIEW)) {
     return (
       <NoAccess what="employees" />
     );
@@ -30,10 +30,9 @@ async function EmployeesContent() {
   const actions = await getActionPermissions();
   const scopedOpts = await getScopedFormOptions();
   const perms = {
-    canCreate: actions?.canCreateEmployee ?? hasPermission(role, PERM.HR_MANAGE),
-    canEdit: actions?.canCreateEmployee ?? hasPermission(role, PERM.HR_MANAGE),
-    canManage: hasPermission(role, PERM.HR_MANAGE),
-  };
+    canCreate: actions?.canCreateEmployee ?? __effPerms.includes(PERM.HR_MANAGE),
+    canEdit: actions?.canCreateEmployee ?? __effPerms.includes(PERM.HR_MANAGE),
+    canManage: __effPerms.includes(PERM.HR_MANAGE)};
 
   const [employees, crews, crewRows, locations, memberships] = await Promise.all([
     prisma.employee.findMany({
@@ -43,15 +42,12 @@ async function EmployeesContent() {
       include: {
         crew: { select: { id: true, name: true } },
         activeProject: { select: { id: true, name: true } },
-        reportingLocation: { select: { id: true, name: true } },
-      },
-    }),
+        reportingLocation: { select: { id: true, name: true } }}}),
     prisma.crew.findMany({
       take: 200,
       where: {...await scopeWhere("Crew"),  companyId: company.id, active: true },
       select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
+      orderBy: { name: "asc" }}),
     prisma.crew.findMany({
       take: 500,
       where: {...await scopeWhere("Crew"),  companyId: company.id },
@@ -62,19 +58,14 @@ async function EmployeesContent() {
         members: {
           where: { deletedAt: null },
           select: { id: true, name: true, trade: true, dailyRate: true, wageType: true, active: true },
-          orderBy: { name: "asc" },
-        },
-      },
-    }),
+          orderBy: { name: "asc" }}}}),
     prisma.stockLocation.findMany({
       take: 200,
       where: {
         companyId: company.id, deletedAt: null,
-        ...(actions.allowedProjectIds ? { projectId: { in: actions.allowedProjectIds } } : {}),
-      },
+        ...(actions.allowedProjectIds ? { projectId: { in: actions.allowedProjectIds } } : {})},
       select: { id: true, name: true, type: true },
-      orderBy: { name: "asc" },
-    }),
+      orderBy: { name: "asc" }}),
     // All company memberships — used to populate the Reports To selector and
     // to resolve each employee's current reportsToUserCompanyId.
     // Filtered to the viewer's scope: only users with an employee record in scope.
@@ -83,17 +74,13 @@ async function EmployeesContent() {
         companyId: company.id,
         user: {
           active: true,
-          employees: { some: { ...await scopeWhere("Employee"), companyId: company.id, deletedAt: null } },
-        },
-      },
+          employees: { some: { ...await scopeWhere("Employee"), companyId: company.id, deletedAt: null } }}},
       select: {
         id: true,
         userId: true,
         role: true,
         reportsToUserCompanyId: true,
-        user: { select: { id: true, name: true, active: true } },
-      },
-    }),
+        user: { select: { id: true, name: true, active: true } }}}),
   ]);
   const projects = scopedOpts.projects;
 
@@ -104,8 +91,7 @@ async function EmployeesContent() {
   const currentUser = await getCurrentUser();
   const viewerEmployee = await prisma.employee.findFirst({
     where: { userId: currentUser?.id, companyId: company.id, deletedAt: null },
-    select: { hierarchyLevel: true },
-  }).catch(() => null);
+    select: { hierarchyLevel: true }}).catch(() => null);
 
   // Map userId → membershipId + reportsToUserCompanyId for quick lookup.
   const membershipByUserId = new Map(memberships.map((m) => [m.userId, m]));
@@ -155,8 +141,7 @@ async function EmployeesContent() {
     dateOfBirth: e.dateOfBirth?.toISOString() ?? null,
     bloodGroup: e.bloodGroup,
     userId: e.userId,
-    reportsToMembershipId: e.userId ? (membershipByUserId.get(e.userId)?.reportsToUserCompanyId ?? null) : null,
-  }));
+    reportsToMembershipId: e.userId ? (membershipByUserId.get(e.userId)?.reportsToUserCompanyId ?? null) : null}));
 
   const crewRowsMapped = crewRows.map((c) => ({
     id: c.id,
@@ -172,9 +157,7 @@ async function EmployeesContent() {
       trade: m.trade,
       dailyRate: toNum(m.dailyRate),
       wageType: m.wageType,
-      active: m.active,
-    })),
-  }));
+      active: m.active}))}));
 
   return (
     <>

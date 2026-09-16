@@ -1,8 +1,8 @@
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { MaterialsView } from "@/components/materials/materials-view";
 import type { MaterialCategory, MaterialRow, LowStockRow } from "@/lib/types";
@@ -10,19 +10,19 @@ import { NoAccess } from "@/components/no-access";
 
 export async function MaterialsContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.INVENTORY_VIEW)) {
+  if (!__effPerms.includes(PERM.INVENTORY_VIEW)) {
     return (
       <NoAccess what="the material catalogue" />
     );
   }
 
   const perms = {
-    canCreate: hasPermission(role, PERM.INVENTORY_MANAGE),
-    canEdit: hasPermission(role, PERM.INVENTORY_MANAGE),
-    canDelete: hasPermission(role, PERM.INVENTORY_MANAGE),
+    canCreate: __effPerms.includes(PERM.INVENTORY_MANAGE),
+    canEdit: __effPerms.includes(PERM.INVENTORY_MANAGE),
+    canDelete: __effPerms.includes(PERM.INVENTORY_MANAGE),
   };
 
   const [categories, materials, lowStockMaterials, suppliers] = await Promise.all([

@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { prisma, type DprApprovalStatus } from "@nirman/db";
-import { getCompany, getUserRole, getUserPermissions, getCurrentUser, toNum, scopeWhere } from "@/lib/server";
+import { getActingRole, getCompany, getUserRole, getUserPermissions, getCurrentUser, toNum, scopeWhere  } from "@/lib/server";
 import { canAutoApprove } from "@nirman/services";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobilePageHeader } from "@/components/mobile/v2/primitives";
@@ -20,6 +20,7 @@ import { MobileApprovalsQueue } from "@/components/mobile/mobile-approvals-queue
 export async function MobileApprovals({ title }: { title: string }) {
   await connection();
   const role = await getUserRole();
+  const actingRole = await getActingRole();
   const company = await getCompany();
   // Effective permissions = role matrix + RolePermission overrides + per-user
   // UserPermission grants. Passing as `overrides` to hasPermission means a
@@ -30,7 +31,7 @@ export async function MobileApprovals({ title }: { title: string }) {
   // Tier-1 approvers (OWNER/ADMIN) may approve their own creations — no higher
   // approver exists — so their own pending items still appear in the queue.
   // Everyone else's own items are hidden (they can't self-approve anyway).
-  const hideSelf = !canAutoApprove(role);
+  const hideSelf = !canAutoApprove(actingRole);
 
   const canApprovePo = hasPermission(role, PERM.PO_APPROVE, overrides);
   const canApproveReq = hasPermission(role, PERM.REQUISITION_APPROVE, overrides);

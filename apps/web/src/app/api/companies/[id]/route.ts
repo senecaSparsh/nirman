@@ -49,6 +49,9 @@ const companyUpdateSchema = z.object({
   lciThresholdDefault: z.coerce.number().min(0).max(100).optional().nullable(),
   poApprovalThresholdManager: z.coerce.number().min(0).optional().nullable(),
   poApprovalThresholdAdmin: z.coerce.number().min(0).optional().nullable(),
+  // Hours before a pending approval is "stalled" and hits the escalation
+  // digest. 1–336 (2 weeks); default 48.
+  approvalAgingHours: z.coerce.number().min(1).max(336).optional(),
   // ── Password policy (tenancy-level) ──
   passwordMinLength: z.coerce.number().min(4).max(128).optional(),
   passwordRequireSpecial: z.boolean().optional(),

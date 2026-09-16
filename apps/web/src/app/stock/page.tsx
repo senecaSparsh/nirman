@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getCompanyGroupIds, toNum, getUserRole, scopeWhere } from "@/lib/server";
+import { getCompany, getCompanyGroupIds, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { StockHubView } from "@/components/stock/stock-hub-view";
@@ -46,17 +46,17 @@ export default function StockPage() {
 
 async function StockContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.INVENTORY_VIEW)) {
+  if (!__effPerms.includes(PERM.INVENTORY_VIEW)) {
     return <NoAccess what="stock operations" />;
   }
 
   const perms = {
-    canTransfer: hasPermission(role, PERM.STOCK_TRANSFER),
-    canIssue: hasPermission(role, PERM.STOCK_ISSUE),
-    canManage: hasPermission(role, PERM.INVENTORY_MANAGE),
+    canTransfer: __effPerms.includes(PERM.STOCK_TRANSFER),
+    canIssue: __effPerms.includes(PERM.STOCK_ISSUE),
+    canManage: __effPerms.includes(PERM.INVENTORY_MANAGE),
   };
 
   // Inter-company STO destinations span the whole company group.

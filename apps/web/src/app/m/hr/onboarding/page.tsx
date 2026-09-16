@@ -3,16 +3,14 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { UserPlus, ChevronRight } from "lucide-react";
-import { getCompany, getUserRole, getUserScope } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getUserScope, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import {
-  MobileEmptyState,
-} from "@/components/mobile/v2/primitives";
+  MobileEmptyState} from "@/components/mobile/v2/primitives";
 import {
   OnboardingProgress,
-  type OnboardingStep,
-} from "@/components/mobile/v2/onboarding-progress";
+  type OnboardingStep} from "@/components/mobile/v2/onboarding-progress";
 import { buildOnboardingSteps } from "@/lib/onboarding-steps";
 
 type ProgressStep = OnboardingStep;
@@ -44,9 +42,9 @@ export default function MobileOnboardingQueuePage() {
 async function MobileOnboardingQueueContent() {
   await connection();
   const company = await getCompany();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
 
-  if (!hasPermission(role, PERM.HR_VIEW)) {
+  if (!__effPerms.includes(PERM.HR_VIEW)) {
     return (
       <div className="p-4 text-center">
         <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>You don&apos;t have access to the onboarding queue.</p>
@@ -54,7 +52,7 @@ async function MobileOnboardingQueueContent() {
     );
   }
 
-  const _canManage = hasPermission(role, PERM.HR_MANAGE);
+  const _canManage = __effPerms.includes(PERM.HR_MANAGE);
   const scope = await getUserScope();
   // PROJECT-scoped users see only employees on their assigned sites.
   // A PROJECT-scoped user with no project assignments sees no employees.
@@ -67,8 +65,7 @@ async function MobileOnboardingQueueContent() {
     where: {
       companyId: company.id,
       deletedAt: null,
-      ...employeeProjectFilter,
-    },
+      ...employeeProjectFilter},
     orderBy: [{ active: "desc" }, { name: "asc" }],
     take: 200,
     select: {
@@ -101,9 +98,7 @@ async function MobileOnboardingQueueContent() {
       onboardingComplete: true,
       user: { select: { id: true, active: true, role: true } },
       activeProject: { select: { name: true } },
-      salaryComponents: { where: { active: true }, select: { id: true } },
-    },
-  });
+      salaryComponents: { where: { active: true }, select: { id: true } }}});
 
   // ── Compute onboarding progress for each employee ──
   // Uses the shared buildOnboardingSteps so "complete" means the same
@@ -127,8 +122,7 @@ async function MobileOnboardingQueueContent() {
       agreementConfirmed: ["CONFIRMED", "EXPIRED"].includes(e.contractStatus ?? ""),
       appointmentLetterIssued: ["ISSUED", "CONFIRMED", "EXPIRED"].includes(e.appointmentLetterStatus ?? ""),
       idCardIssued: ["ISSUED", "CONFIRMED", "EXPIRED"].includes(e.idCardStatus ?? ""),
-      hasAutoDeposit: e.autoDepositEnabled === true,
-    });
+      hasAutoDeposit: e.autoDepositEnabled === true});
 
     return {
       id: e.id,
@@ -143,8 +137,7 @@ async function MobileOnboardingQueueContent() {
       // autoCompleteOnboarding sets this when all 12 steps pass.
       // The manual complete-onboarding endpoint can also set it.
       // buildOnboardingSteps is only for showing progress (which steps are done).
-      isComplete: e.onboardingComplete === true,
-    };
+      isComplete: e.onboardingComplete === true};
   });
 
   // ── Group: Incomplete first, then complete ──
@@ -244,8 +237,7 @@ function SummaryStat({ label, value, tone }: { label: string; value: number; ton
   const colors = {
     go: { fg: "var(--color-go)", bg: "color-mix(in srgb, var(--color-go) 10%, transparent)" },
     signal: { fg: "var(--color-signal-dark)", bg: "color-mix(in srgb, var(--color-signal) 12%, transparent)" },
-    neutral: { fg: "var(--color-ink-500)", bg: "var(--color-concrete)" },
-  }[tone];
+    neutral: { fg: "var(--color-ink-500)", bg: "var(--color-concrete)" }}[tone];
 
   return (
     <div
@@ -265,8 +257,7 @@ function SummaryStat({ label, value, tone }: { label: string; value: number; ton
 /* ── Queue card — shows employee + progress bar + step dots ── */
 function OnboardingQueueCard({
   item,
-  canManage,
-}: {
+  canManage}: {
   item: QueueItem;
   canManage: boolean;
 }) {
@@ -277,8 +268,7 @@ function OnboardingQueueCard({
       style={{
         backgroundColor: "var(--color-paper)",
         border: "1px solid var(--color-line)",
-        opacity: item.active ? 1 : 0.6,
-      }}
+        opacity: item.active ? 1 : 0.6}}
     >
       {/* Top row: name + progress count */}
       <div className="flex items-center justify-between gap-2 mb-2">

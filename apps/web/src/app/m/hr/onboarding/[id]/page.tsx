@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum, getUserScope } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getUserRole, toNum, getUserScope, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
 import { MobileOnboardingPageClient } from "./MobileOnboardingPageClient";
@@ -33,8 +33,9 @@ async function MobileOnboardingDetailContent({
   await connection();
   const company = await getCompany();
   const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
 
-  if (!hasPermission(role, PERM.HR_VIEW)) {
+  if (!__effPerms.includes(PERM.HR_VIEW)) {
     return (
       <div className="p-4 text-center">
         <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>You don&apos;t have access to this page.</p>
@@ -42,8 +43,8 @@ async function MobileOnboardingDetailContent({
     );
   }
 
-  const canManage = hasPermission(role, PERM.HR_MANAGE);
-  const canManagePayroll = hasPermission(role, PERM.PAYROLL_MANAGE);
+  const canManage = __effPerms.includes(PERM.HR_MANAGE);
+  const canManagePayroll = __effPerms.includes(PERM.PAYROLL_MANAGE);
   const { id } = await params;
 
   // Hierarchical RBAC: a PROJECT-scoped user only sees employees on their sites.

@@ -1,19 +1,18 @@
 import { prisma } from "@nirman/db";
 import { toNum, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
 import { MobileSaleDetailClient } from "./MobileSaleDetailClient";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 export default function MobileSaleDetailPage({
-  params,
-}: {
+  params}: {
   params: Promise<{ id: string }>;
 }) {
   return (
     <MobileDetailPage params={params} skeletonSections={6}>
-      {async ({ id, company, role }) => {
+      {async ({ id, company, perms }) => {
         const sale = await prisma.assetSale.findFirst({
           where: {...await scopeWhere("AssetSale"),  id, companyId: company.id },
           include: {
@@ -27,22 +26,17 @@ export default function MobileSaleDetailPage({
                 mode: true, reference: true, status: true,
                 chequeStatus: true,
                 chequeNo: true, chequeBank: true, chequeDate: true,
-                chequePhotoUrl: true,
-              },
-            },
+                chequePhotoUrl: true}},
             expenses: { orderBy: { sortOrder: "asc" } },
             terms: { orderBy: { sortOrder: "asc" } },
             broker: { select: { id: true, name: true, phone: true, agency: true } },
-            paymentSchedule: { include: { items: { orderBy: { installmentNo: "asc" } } } },
-          },
-        });
+            paymentSchedule: { include: { items: { orderBy: { installmentNo: "asc" } } } }}});
 
         // AssetSale has no landParcel relation (only landParcelId) — fetch separately.
         const landParcel = sale?.landParcelId
           ? await prisma.landParcel.findFirst({
               where: {...await scopeWhere("LandParcel"),  id: sale.landParcelId, deletedAt: null },
-              select: { id: true, number: true, area: true, areaUnit: true },
-            })
+              select: { id: true, number: true, area: true, areaUnit: true }})
           : null;
 
         if (!sale) {
@@ -111,7 +105,7 @@ export default function MobileSaleDetailPage({
           );
         }
 
-        const canManage = hasPermission(role, PERM.SALES_MANAGE);
+        const canManage = perms.includes(PERM.SALES_MANAGE);
         // Only count CLEARED payments — exclude PENDING and BOUNCED cheques
         const totalPaid = sale.payments
           .filter((p) => p.status !== "BOUNCED" && p.chequeStatus !== "BOUNCED" && p.chequeStatus !== "PENDING")
@@ -124,8 +118,7 @@ export default function MobileSaleDetailPage({
                 id: landParcel.id,
                 label: `Parcel ${landParcel.number}`,
                 area: toNum(landParcel.area),
-                areaUnit: landParcel.areaUnit,
-              }
+                areaUnit: landParcel.areaUnit}
             : null
           : sale.builtUnit
             ? {
@@ -134,8 +127,7 @@ export default function MobileSaleDetailPage({
                 label: sale.builtUnit.unitNumber,
                 unitType: sale.builtUnit.unitType,
                 area: toNum(sale.builtUnit.area),
-                areaUnit: sale.builtUnit.areaUnit,
-              }
+                areaUnit: sale.builtUnit.areaUnit}
             : null;
 
         // Lifecycle pipeline: PENDING → DEPOSIT_RECEIVED → COMPLETED (or CANCELLED)
@@ -159,8 +151,7 @@ export default function MobileSaleDetailPage({
             status: sale.status,
             label: sale.saleNumber,
             subtitle: sale.customer?.name,
-            recordId: sale.id,
-          }}>
+            recordId: sale.id}}>
           <>
             <div className="mb-3 rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <MobilePipelineStepper steps={salePipelineSteps} />
@@ -213,8 +204,7 @@ export default function MobileSaleDetailPage({
               chequeNo: p.chequeNo,
               chequeBank: p.chequeBank,
               chequeDate: p.chequeDate ? p.chequeDate.toISOString() : null,
-              chequePhotoUrl: p.chequePhotoUrl,
-            }))}
+              chequePhotoUrl: p.chequePhotoUrl}))}
             canManage={canManage}
             // New sales-module fields
             dealSource={sale.dealSource}
@@ -230,14 +220,12 @@ export default function MobileSaleDetailPage({
               head: e.head,
               amount: toNum(e.amount),
               borneBy: e.borneBy,
-              isIncluded: e.isIncluded,
-            }))}
+              isIncluded: e.isIncluded}))}
             terms={sale.terms.map((t) => ({
               id: t.id,
               description: t.description,
               extraAmount: t.extraAmount ? toNum(t.extraAmount) : null,
-              isIncluded: t.isIncluded,
-            }))}
+              isIncluded: t.isIncluded}))}
             paymentSchedule={sale.paymentSchedule
               ? {
                   type: sale.paymentSchedule.type,
@@ -250,9 +238,7 @@ export default function MobileSaleDetailPage({
                     dueDate: it.dueDate ? it.dueDate.toISOString() : null,
                     paidAmount: toNum(it.paidAmount),
                     status: it.status,
-                    wbsNodeId: it.wbsNodeId,
-                  })),
-                }
+                    wbsNodeId: it.wbsNodeId}))}
               : null}
             // Document URLs
             atsDocumentUrl={sale.atsDocumentUrl}

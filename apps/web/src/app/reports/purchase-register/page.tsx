@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { PurchaseRegisterReport } from "@/components/reports/purchase-register-report";
@@ -37,10 +37,10 @@ async function PurchaseRegisterContent({
 }) {
   await connection();
   const { from: fromParam, to: toParam } = await searchParams;
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.PROCUREMENT_VIEW)) {
+  if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) {
     return <NoAccess what="the purchase register" />;
   }
 

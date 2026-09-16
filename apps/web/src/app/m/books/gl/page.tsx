@@ -4,8 +4,8 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { BookOpen } from "lucide-react";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatCurrencyCompact } from "@/lib/utils";
 import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
 import { MobileGlList } from "./MobileGlList";
@@ -28,8 +28,8 @@ export default function MobileGlPage() {
 
 async function MobileGlContent() {
   await connection();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
   const company = await getCompany();
 
   const accounts = await prisma.glAccount.findMany({

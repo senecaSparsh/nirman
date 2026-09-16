@@ -1,12 +1,11 @@
 import { prisma } from "@nirman/db";
 import { toNum, scopeWhere } from "@/lib/server";
-import { hasPermission, PERM } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { Users, Phone, UserPlus, TrendingUp } from "lucide-react";
 import {
   MobileSectionTitle,
   MobileRow,
-  MobileStatCard,
-} from "@/components/mobile/v2/primitives";
+  MobileStatCard} from "@/components/mobile/v2/primitives";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import { formatCurrencyCompact } from "@/lib/utils";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
@@ -20,9 +19,9 @@ import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 export default function MobileCrmPage() {
   return (
     <MobileHubPage perm={PERM.SALES_VIEW} what="CRM" permission="sales.view">
-      {async ({ company, role }) => {
+      {async ({ company, perms }) => {
         const canSales =
-          hasPermission(role, PERM.SALES_VIEW) || hasPermission(role, PERM.SALES_MANAGE);
+          perms.includes(PERM.SALES_VIEW) || perms.includes(PERM.SALES_MANAGE);
 
         if (!canSales) {
           return (
@@ -38,21 +37,15 @@ export default function MobileCrmPage() {
             where: {
               companyId: company.id,
               stage: { in: ["NEW", "CONTACTED", "SITE_VISIT", "NEGOTIATION"] },
-              deletedAt: null,
-            },
-          }),
+              deletedAt: null}}),
           prisma.callLog.count({
             where: {
               companyId: company.id,
-              startedAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
-            },
-          }),
+              startedAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) }}}),
           prisma.customer.count({
-            where: { companyId: company.id, deletedAt: null },
-          }),
+            where: { companyId: company.id, deletedAt: null }}),
           prisma.assetSale.count({
-            where: { companyId: company.id, status: "ACTIVE" },
-          }),
+            where: { companyId: company.id, status: "ACTIVE" }}),
         ]);
 
         // Total outstanding from active sales
@@ -61,9 +54,7 @@ export default function MobileCrmPage() {
           select: {
             salePrice: true,
             gstAmount: true,
-            payments: { select: { amount: true, status: true, chequeStatus: true } },
-          },
-        });
+            payments: { select: { amount: true, status: true, chequeStatus: true } }}});
         const totalOutstanding = sales.reduce((sum, s) => {
           const total = toNum(s.salePrice) + toNum(s.gstAmount);
           const paid = s.payments

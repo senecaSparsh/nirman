@@ -4,28 +4,26 @@ import { prisma } from "@nirman/db";
 import { getBoqTree } from "@nirman/services";
 import {FileText, ListTree, Package} from "lucide-react";
 import { toNum, getActionPermissions } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileEmptyState,
   MobileStatCard,
-  Badge,
-} from "@/components/mobile/v2/primitives";
+  Badge} from "@/components/mobile/v2/primitives";
 import { MobileProjectScopedPage } from "@/components/mobile/v2/project-scoped-page";
 import { MobileBoqProjectSelector, type BoqProjectOption } from "./MobileBoqProjectSelector";
 import { MobileBoqFab } from "./MobileNewBoqItemDialog";
 
 /** Mobile BOQ (Bill of Quantities) page — shows the BOQ tree for a selected project. */
 export default function MobileBoqPage({
-  searchParams,
-}: {
+  searchParams}: {
   searchParams: Promise<{ project?: string }>;
 }) {
   return (
     <MobileProjectScopedPage searchParams={searchParams}>
-      {async ({ company, role, projectId }) => {
-        if (!hasPermission(role, PERM.BOQ_VIEW)) notFound();
+      {async ({ company, projectId, perms }) => {
+        if (!perms.includes(PERM.BOQ_VIEW)) notFound();
 
         // Fetch active/planned projects for the selector.
         const [projects, canCreateProject] = await Promise.all([
@@ -33,12 +31,10 @@ export default function MobileBoqPage({
             where: {
               companyId: company.id,
               deletedAt: null,
-              status: { in: ["PLANNED", "ACTIVE"] },
-            },
+              status: { in: ["PLANNED", "ACTIVE"] }},
             orderBy: { name: "asc" },
-            select: { id: true, name: true },
-          }) as Promise<BoqProjectOption[]>,
-          Promise.resolve(hasPermission(role, PERM.PROJECTS_MANAGE)),
+            select: { id: true, name: true }}) as Promise<BoqProjectOption[]>,
+          Promise.resolve(perms.includes(PERM.PROJECTS_MANAGE)),
         ]);
 
         const selectedProject = projectId
@@ -61,15 +57,14 @@ export default function MobileBoqPage({
 
         // Fetch the BOQ tree for the selected project.
         const actions = await getActionPermissions();
-        const canCreateBoq = actions?.canCreateBoq ?? hasPermission(role, PERM.BOQ_MANAGE);
+        const canCreateBoq = actions?.canCreateBoq ?? perms.includes(PERM.BOQ_MANAGE);
         const [boqResult, materials] = await Promise.all([
           getBoqTree(projectId),
           canCreateBoq
             ? prisma.material.findMany({
                 where: { companyId: company.id, deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
                 orderBy: { name: "asc" },
-                select: { id: true, name: true, unit: true },
-              })
+                select: { id: true, name: true, unit: true }})
             : [],
         ]);
 
@@ -185,8 +180,7 @@ function flattenTree(
       unit: node.unit,
       estimatedQty: node.estimatedQty != null ? toNum(node.estimatedQty) : null,
       rate: node.rate != null ? toNum(node.rate) : null,
-      estimatedAmount: node.estimatedAmount != null ? toNum(node.estimatedAmount) : null,
-    });
+      estimatedAmount: node.estimatedAmount != null ? toNum(node.estimatedAmount) : null});
     if (node.children && node.children.length > 0) {
       flattenTree(node.children, level + 1, out);
     }
@@ -209,8 +203,7 @@ function BoqRowCard({ row }: { row: BoqRow }) {
       style={{
         backgroundColor: "var(--color-paper)",
         borderColor: "var(--color-line)",
-        marginLeft: indent,
-      }}
+        marginLeft: indent}}
     >
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">

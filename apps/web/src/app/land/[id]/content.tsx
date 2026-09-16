@@ -2,15 +2,15 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { scheduledTotal, refreshLandTotalCost } from "@nirman/services";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { LandHub, type LandHubData } from "@/components/land/land-hub";
 import type { LandParcelRow, LandParcelSummary, ProjectOption } from "@/lib/types";
 
 export async function LandDetailContent({ params }: { params: Promise<{ id: string }> }) {
   await connection();
   const { id } = await params;
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
   // Lazy recompute — advance recurring cost accruals as time passes so the
@@ -273,11 +273,11 @@ export async function LandDetailContent({ params }: { params: Promise<{ id: stri
       soldProfit,
     },
     permissions: {
-      canEdit: hasPermission(role, PERM.ASSETS_MANAGE),
-      canDelete: hasPermission(role, PERM.ASSETS_MANAGE),
-      canPartition: hasPermission(role, PERM.LAND_PARTITION),
-      canSell: hasPermission(role, PERM.SALE_CREATE),
-      canManageLegal: hasPermission(role, PERM.LEGAL_MANAGE),
+      canEdit: __effPerms.includes(PERM.ASSETS_MANAGE),
+      canDelete: __effPerms.includes(PERM.ASSETS_MANAGE),
+      canPartition: __effPerms.includes(PERM.LAND_PARTITION),
+      canSell: __effPerms.includes(PERM.SALE_CREATE),
+      canManageLegal: __effPerms.includes(PERM.LEGAL_MANAGE),
     },
     customers: customers.map((c) => ({ id: c.id, name: c.name })),
     projectOptions,

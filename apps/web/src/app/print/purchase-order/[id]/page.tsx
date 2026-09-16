@@ -2,8 +2,8 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getUserRole, getCompany, getCompanyGroupIds } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { toNum, getCompany, getCompanyGroupIds, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { amountInWords } from "@nirman/services";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
@@ -22,8 +22,9 @@ export default async function PurchaseOrderPrintPage({
   await connection();
   const { id } = await params;
 
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.PROCUREMENT_VIEW)) {
+
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) {
     notFound();
   }
   const company = await getCompany();

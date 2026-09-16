@@ -4,8 +4,8 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { getRealEstateInventory } from "@nirman/services";
 import {Building2, TrendingUp} from "lucide-react";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -29,8 +29,8 @@ export default function MobileRealEstateInventoryPage() {
 
 async function MobileRealEstateInventoryContent() {
   await connection();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.ASSETS_VIEW)) notFound();
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.ASSETS_VIEW)) notFound();
   const company = await getCompany();
 
   const data = await getRealEstateInventory(company.id);

@@ -3,8 +3,8 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { CheckSquare, Plus } from "lucide-react";
-import { getCurrentUser, getCompany, getUserRole, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission, ROLES } from "@/lib/roles";
+import { getCurrentUser, getCompany, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM, ROLES } from "@/lib/roles";
 import { MobileStatCard, MobileEmptyState, MobileCta } from "@/components/mobile/v2/primitives";
 import { MobileTaskList } from "@/components/mobile/mobile-task-list";
 import { MobileTasksFab } from "./MobileTasksFab";
@@ -22,8 +22,8 @@ async function SiteTasksContent() {
   await connection();
   const user = await getCurrentUser();
   const company = await getCompany();
-  const role = await getUserRole();
-  const canAssign = hasPermission(role, PERM.TASKS_ASSIGN);
+  const __effPerms = await getUserPermissions();
+  const canAssign = __effPerms.includes(PERM.TASKS_ASSIGN);
 
   const [tasks, teamMembers] = await Promise.all([
     prisma.task.findMany({
@@ -37,15 +37,12 @@ async function SiteTasksContent() {
         priority: true,
         dueDate: true,
         description: true,
-        instructions: true,
-      },
-    }),
+        instructions: true}}),
     canAssign
       ? prisma.userCompany.findMany({
           where: { companyId: company.id, user: { active: true, isHidden: { not: true } } },
           include: { user: { select: { id: true, name: true } } },
-          orderBy: { user: { name: "asc" } },
-        })
+          orderBy: { user: { name: "asc" } }})
       : [],
   ]);
 
@@ -56,8 +53,7 @@ async function SiteTasksContent() {
     priority: t.priority,
     dueDate: t.dueDate?.toISOString() ?? null,
     description: t.description,
-    instructions: t.instructions,
-  }));
+    instructions: t.instructions}));
 
   const pending = tasks.filter((t) => t.status === "PENDING").length;
   const inProgress = tasks.filter((t) => t.status === "IN_PROGRESS").length;
@@ -87,8 +83,7 @@ async function SiteTasksContent() {
           assignees={teamMembers.map((m) => ({
             id: m.user.id,
             name: m.user.name,
-            role: ROLES[m.role as keyof typeof ROLES]?.label ?? m.role,
-          }))}
+            role: ROLES[m.role as keyof typeof ROLES]?.label ?? m.role}))}
         />
       )}
     </div>

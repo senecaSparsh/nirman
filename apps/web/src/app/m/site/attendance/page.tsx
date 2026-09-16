@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum, scopeWhere, getScopedFormOptions } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, scopeWhere, getScopedFormOptions, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { Users } from "lucide-react";
 import { MobileAttendanceForm } from "@/components/mobile/mobile-attendance-form";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
@@ -32,10 +32,10 @@ export default function MobileAttendancePage() {
 
 async function MobileAttendanceContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.HR_MANAGE) && !hasPermission(role, PERM.ATTENDANCE_LOG)) {
+  if (!__effPerms.includes(PERM.HR_MANAGE) && !__effPerms.includes(PERM.ATTENDANCE_LOG)) {
     return <MobileNoAccess what="log attendance" permission="attendance.log" />;
   }
 

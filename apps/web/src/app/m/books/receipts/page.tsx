@@ -4,8 +4,8 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { Wallet } from "lucide-react";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
@@ -22,8 +22,8 @@ export default function BooksReceiptsPage() {
 
 async function BooksReceiptsContent() {
   await connection();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
   const company = await getCompany();
 
   const [assetPayments, materialPayments] = await Promise.all([

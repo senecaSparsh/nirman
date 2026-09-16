@@ -46,6 +46,7 @@ export type CompanyProfileData = {
   lciWeights: Record<string, number> | null;
   poApprovalThresholdManager: number | null;
   poApprovalThresholdAdmin: number | null;
+  approvalAgingHours: number;
   // Password policy
   passwordMinLength: number;
   passwordRequireSpecial: boolean;

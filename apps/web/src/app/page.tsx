@@ -3,15 +3,13 @@ import { Suspense } from "react";
 import { prisma } from "@nirman/db";
 import { trialBalance, projectPnl, materialInventoryValue } from "@nirman/services";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
-import { getCompany, toNum, getUserRole, getCurrentUser, scopeWhere } from "@/lib/server";
+import { getCompany, toNum, getUserRole, getCurrentUser, scopeWhere, getUserPermissions } from "@/lib/server";
 import {
   PERM,
   ROLES,
-  hasPermission,
-  normalizeRole,
+    normalizeRole,
   effectivePermissions,
-  PERMISSION_MODULES,
-} from "@/lib/roles";
+  PERMISSION_MODULES} from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { Page } from "@/components/page";
 import { PageHeader } from "@/components/page-header";
@@ -25,8 +23,7 @@ import {
   type ActivityCount,
   type AuditLogEntry,
   type Capability,
-  type PermModule,
-} from "@/components/profile/profile-tabs";
+  type PermModule} from "@/components/profile/profile-tabs";
 
 /**
  * ═══════════════════════════════════════════════════════════════════
@@ -54,18 +51,19 @@ async function CommandCenterContent() {
   await connection();
   const company = await getCompany();
   const role = normalizeRole(await getUserRole());
+  const __effPerms = await getUserPermissions();
   const currentUser = await getCurrentUser();
   const userId = currentUser?.id;
   const isDevBypass = userId === "dev";
 
   // ── Permission flags ─────────────────────────────────────────────
-  const canApprovePO = hasPermission(role, PERM.PO_APPROVE);
-  const canApproveReq = hasPermission(role, PERM.REQUISITION_APPROVE);
-  const canSeeStock = hasPermission(role, PERM.INVENTORY_VIEW);
-  const canSeeProcurement = hasPermission(role, PERM.PROCUREMENT_VIEW);
-  const canSeeSales = hasPermission(role, PERM.SALES_VIEW);
-  const canManageStock = hasPermission(role, PERM.INVENTORY_MANAGE);
-  const canManageCompany = hasPermission(role, PERM.COMPANY_MANAGE);
+  const canApprovePO = __effPerms.includes(PERM.PO_APPROVE);
+  const canApproveReq = __effPerms.includes(PERM.REQUISITION_APPROVE);
+  const canSeeStock = __effPerms.includes(PERM.INVENTORY_VIEW);
+  const canSeeProcurement = __effPerms.includes(PERM.PROCUREMENT_VIEW);
+  const canSeeSales = __effPerms.includes(PERM.SALES_VIEW);
+  const canManageStock = __effPerms.includes(PERM.INVENTORY_MANAGE);
+  const canManageCompany = __effPerms.includes(PERM.COMPANY_MANAGE);
 
   // ── Procurement trend window (last 6 months) ────────────────────
   const now = new Date();
@@ -92,83 +90,67 @@ async function CommandCenterContent() {
   ] = await Promise.all([
     isDevBypass ? null : prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, name: true, email: true, phone: true, image: true, role: true, active: true, createdAt: true },
-    }),
+      select: { id: true, name: true, email: true, phone: true, image: true, role: true, active: true, createdAt: true }}),
     isDevBypass ? [] : prisma.userCompany.findMany({
       take: 500,
       where: { userId },
       include: { company: { select: { id: true, name: true, businessType: true } } },
-      orderBy: { createdAt: "asc" },
-    }),
+      orderBy: { createdAt: "asc" }}),
     isDevBypass ? [] : prisma.projectAssignment.findMany({
       take: 500,
       where: {...await scopeWhere("ProjectAssignment"),  userId },
       include: { project: { select: { id: true, name: true, status: true } } },
-      orderBy: { assignedAt: "desc" },
-    }),
+      orderBy: { assignedAt: "desc" }}),
     prisma.material.findMany({
       take: 200,
       where: { companyId: company.id, deletedAt: null, minStock: { not: null } },
       select: { id: true, name: true, unit: true, minStock: true,
-        stockItems: { where: { location: { deletedAt: null, companyId: company.id } }, select: { qty: true } } },
-    }),
+        stockItems: { where: { location: { deletedAt: null, companyId: company.id } }, select: { qty: true } } }}),
     prisma.purchaseOrder.findMany({
       where: { companyId: company.id, status: "DRAFT", createdById: { not: userId } },
       orderBy: { createdAt: "desc" }, take: 5,
-      include: { supplier: { select: { name: true } } },
-    }),
+      include: { supplier: { select: { name: true } } }}),
     prisma.materialRequisition.findMany({
       where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED", requestedById: { not: userId } },
       orderBy: { createdAt: "desc" }, take: 5,
-      include: { project: { select: { name: true } }, lines: { select: { qtyRequested: true } } },
-    }),
+      include: { project: { select: { name: true } }, lines: { select: { qtyRequested: true } } }}),
     prisma.purchaseOrder.findMany({
       where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() } },
       orderBy: { expectedDate: "asc" }, take: 5,
-      include: { supplier: { select: { name: true } } },
-    }),
+      include: { supplier: { select: { name: true } } }}),
     prisma.assetSale.findMany({
       where: {...await scopeWhere("AssetSale"),  companyId: company.id, status: "ACTIVE" },
       orderBy: { createdAt: "desc" }, take: 10,
-      include: { customer: { select: { name: true } }, payments: { select: { amount: true } } },
-    }),
+      include: { customer: { select: { name: true } }, payments: { select: { amount: true } } }}),
     prisma.stockCount.findMany({
       where: { location: { companyId: company.id }, status: { in: ["DRAFT", "COUNTED"] } },
       orderBy: { countDate: "desc" }, take: 5,
-      include: { location: { select: { name: true } } },
-    }),
+      include: { location: { select: { name: true } } }}),
     prisma.builtUnit.findMany({
       where: {...await scopeWhere("BuiltUnit"),  project: { companyId: company.id }, deletedAt: null, status: "AVAILABLE" },
       orderBy: { updatedAt: "desc" }, take: 5,
-      include: { project: { select: { name: true } } },
-    }),
+      include: { project: { select: { name: true } } }}),
     prisma.materialRequisition.findMany({
       where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "APPROVED" },
       orderBy: { approvedAt: "asc" as const }, take: 5,
-      include: { project: { select: { name: true } } },
-    }),
+      include: { project: { select: { name: true } } }}),
     prisma.purchaseOrder.findMany({
       where: { companyId: company.id, status: "APPROVED" },
       orderBy: { approvedAt: "asc" as const }, take: 5,
-      include: { supplier: { select: { name: true } } },
-    }),
+      include: { supplier: { select: { name: true } } }}),
     prisma.purchaseOrder.findMany({
       take: 200,
       where: {
         companyId: company.id,
         status: { not: "CANCELLED" },
-        orderDate: { gte: sixMonthsAgo },
-      },
+        orderDate: { gte: sixMonthsAgo }},
       select: { orderDate: true, total: true },
-      orderBy: { orderDate: "asc" },
-    }),
+      orderBy: { orderDate: "asc" }}),
     isDevBypass ? null : prisma.auditLog.groupBy({
       by: ["action"], where: { userId },
-      _count: { action: true }, orderBy: { _count: { action: "desc" } }, take: 12,
-    }),
+      _count: { action: true }, orderBy: { _count: { action: "desc" } }, take: 12}),
     isDevBypass ? [] : prisma.auditLog.findMany({
-      where: { userId }, orderBy: { timestamp: "desc" }, take: 10,
-    }),
+      where: { userId }, orderBy: { timestamp: "desc" }, take: 10}),
   ]);
 
   // ── Owner Financial Dashboard data (OWNER/ADMIN only) ───────────
@@ -183,8 +165,7 @@ async function CommandCenterContent() {
         take: 200,
         where: { companyId: company.id, deletedAt: null },
         select: { id: true, name: true, status: true },
-        orderBy: { name: "asc" },
-      }),
+        orderBy: { name: "asc" }}),
       materialInventoryValue(company.id),
     ]);
 
@@ -197,8 +178,7 @@ async function CommandCenterContent() {
       cashBalance: findBalance("1000"),
       arBalance: findBalance("1200"),
       apBalance: findBalance("2000"),
-      inventoryValue: toNum(invVal),
-    };
+      inventoryValue: toNum(invVal)};
 
     // Compute P&L per project (limit to 10 for performance)
     const pnlResults = await Promise.all(
@@ -211,8 +191,7 @@ async function CommandCenterContent() {
           revenue: toNum(pnl.revenue),
           cost: toNum(pnl.total),
           profit: toNum(pnl.profit),
-          margin: toNum(pnl.margin),
-        } satisfies ProjectProfitRow;
+          margin: toNum(pnl.margin)} satisfies ProjectProfitRow;
       }),
     );
     projectProfitRows = pnlResults;
@@ -275,38 +254,32 @@ async function CommandCenterContent() {
     key: "req", title: "Indents waiting for approval",
     consequence: "Site can't order material until you approve these",
     count: pendingRequisitions.length, href: "/approvals", cta: "Review", urgency: "blocking", icon: "clipboardList",
-    items: pendingRequisitions.map((r) => ({ label: r.project?.name ?? "N/A", sub: `${formatNumber(r.lines.reduce((s, l) => s + toNum(l.qtyRequested), 0), 0)} units requested` })),
-  });
+    items: pendingRequisitions.map((r) => ({ label: r.project?.name ?? "N/A", sub: `${formatNumber(r.lines.reduce((s, l) => s + toNum(l.qtyRequested), 0), 0)} units requested` }))});
   if (canApprovePO && draftPOs.length > 0) queues.push({
     key: "po", title: "Purchase orders to approve",
     consequence: "Nothing is ordered from the supplier until these are signed off",
     count: draftPOs.length, href: "/approvals", cta: "Review", urgency: "blocking", icon: "clipboardCheck",
-    items: draftPOs.map((po) => ({ label: po.poNumber, sub: po.supplier.name })),
-  });
+    items: draftPOs.map((po) => ({ label: po.poNumber, sub: po.supplier.name }))});
   if (canSeeProcurement && overduePOs.length > 0) queues.push({
     key: "overdue", title: "Deliveries past their date",
     consequence: "Chase the supplier — site is expecting this material",
     count: overduePOs.length, href: "/procurement", cta: "Chase", urgency: "blocking", icon: "truck",
-    items: overduePOs.map((po) => ({ label: po.poNumber, sub: `${po.supplier.name} · due ${po.expectedDate ? formatDate(po.expectedDate) : "—"}` })),
-  });
+    items: overduePOs.map((po) => ({ label: po.poNumber, sub: `${po.supplier.name} · due ${po.expectedDate ? formatDate(po.expectedDate) : "—"}` }))});
   if (canSeeStock && lowStock.length > 0) queues.push({
     key: "low", title: "Materials below their reorder point",
     consequence: "Raise an indent before site runs out",
-    count: lowStock.length, href: "/materials", cta: hasPermission(role, PERM.PROCUREMENT_MANAGE) || canApproveReq ? "Reorder" : "View", urgency: "soon", icon: "package",
-    items: lowStock.map((m) => ({ label: m.name, sub: `${formatNumber(m.totalQty, 0)} ${m.unit} left · need ${formatNumber(m.minStock, 0)}` })),
-  });
+    count: lowStock.length, href: "/materials", cta: __effPerms.includes(PERM.PROCUREMENT_MANAGE) || canApproveReq ? "Reorder" : "View", urgency: "soon", icon: "package",
+    items: lowStock.map((m) => ({ label: m.name, sub: `${formatNumber(m.totalQty, 0)} ${m.unit} left · need ${formatNumber(m.minStock, 0)}` }))});
   if (canApproveReq && approvedReqs.length > 0) queues.push({
     key: "approved-req", title: "Approved indents ready to order",
     consequence: "Convert these to purchase orders so the supplier can be engaged",
     count: approvedReqs.length, href: "/requisitions", cta: "Convert", urgency: "soon", icon: "clipboardList",
-    items: approvedReqs.map((r) => ({ label: r.reqNumber ?? r.id.slice(0, 8), sub: r.project?.name ?? "N/A" })),
-  });
+    items: approvedReqs.map((r) => ({ label: r.reqNumber ?? r.id.slice(0, 8), sub: r.project?.name ?? "N/A" }))});
   if (canApprovePO && approvedPOs.length > 0) queues.push({
     key: "approved-po", title: "Approved POs ready to send",
     consequence: "Mark these as ordered so the supplier starts fulfilling",
     count: approvedPOs.length, href: "/procurement", cta: "Order", urgency: "soon", icon: "clipboardCheck",
-    items: approvedPOs.map((po) => ({ label: po.poNumber, sub: po.supplier.name })),
-  });
+    items: approvedPOs.map((po) => ({ label: po.poNumber, sub: po.supplier.name }))});
   const salesWithBalance = activeSales.filter((s) => s.paymentStatus === "PENDING" || s.paymentStatus === "PARTIAL");
   if (canSeeSales && salesWithBalance.length > 0) queues.push({
     key: "sales-balance", title: "Sales awaiting payment",
@@ -315,20 +288,17 @@ async function CommandCenterContent() {
     items: salesWithBalance.map((s) => {
       const totalPaid = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
       return { label: s.customer.name, sub: `${formatCurrency(toNum(s.salePrice) - totalPaid)} balance due` };
-    }),
-  });
+    })});
   if (canManageStock && pendingStockCounts.length > 0) queues.push({
     key: "stock-count", title: "Stock inventories to process",
     consequence: "Confirm counts and reconcile variances to keep stock accurate",
     count: pendingStockCounts.length, href: "/stock?tab=counts", cta: "Process", urgency: "soon", icon: "clipboardCheck",
-    items: pendingStockCounts.map((c) => ({ label: c.location.name, sub: c.status === "DRAFT" ? "Awaiting confirmation" : "Awaiting reconciliation" })),
-  });
+    items: pendingStockCounts.map((c) => ({ label: c.location.name, sub: c.status === "DRAFT" ? "Awaiting confirmation" : "Awaiting reconciliation" }))});
   if (canSeeSales && availableUnits.length > 0) queues.push({
     key: "units-sell", title: "Units ready to sell",
     consequence: "These built units are available — find buyers and close sales",
-    count: availableUnits.length, href: "/units", cta: hasPermission(role, PERM.SALE_CREATE) ? "Sell" : "View", urgency: "soon", icon: "home",
-    items: availableUnits.map((u) => ({ label: u.unitNumber, sub: u.project.name })),
-  });
+    count: availableUnits.length, href: "/units", cta: __effPerms.includes(PERM.SALE_CREATE) ? "Sell" : "View", urgency: "soon", icon: "home",
+    items: availableUnits.map((u) => ({ label: u.unitNumber, sub: u.project.name }))});
 
   const blockingQueues = queues.filter((q) => q.urgency === "blocking").reduce((n, q) => n + q.count, 0);
   const totalQueues = queues.reduce((n, q) => n + q.count, 0);
@@ -362,7 +332,7 @@ async function CommandCenterContent() {
     ...PERMISSION_MODULES.map((mod) => {
       // "Actionable" = any permission in this module that isn't just a view permission
       const hasActionable = mod.permissions.some((p) => {
-        if (!p.endsWith(".view")) return hasPermission(role, p);
+        if (!p.endsWith(".view")) return __effPerms.includes(p);
         return false;
       });
       // Use the module's icon name (lowercased to match the icon key convention)
@@ -385,21 +355,18 @@ async function CommandCenterContent() {
         .replace(/([a-z])([A-Z])/g, "$1 $2")
         .trim()
         .replace(/\b\w/g, (c) => c.toUpperCase()); // capitalize each word
-      return { key: action, label, has: hasPermission(role, perm) };
-    }),
-  }));
+      return { key: action, label, has: __effPerms.includes(perm) };
+    })}));
 
   // ── Activity data ────────────────────────────────────────────────
   const activityCounts: ActivityCount[] = (userActivityCounts ?? []).map((g) => ({
     action: g.action,
-    count: g._count.action,
-  }));
+    count: g._count.action}));
   const auditLogs: AuditLogEntry[] = userAuditLogs.map((log) => ({
     id: log.id,
     action: log.action,
     entityType: log.entityType,
-    timestamp: log.timestamp.toISOString(),
-  }));
+    timestamp: log.timestamp.toISOString()}));
   const totalActions = activityCounts.reduce((s, g) => s + g.count, 0);
   const hasActivity = !isDevBypass && activityCounts.length > 0;
 
@@ -408,15 +375,13 @@ async function CommandCenterContent() {
     id: m.id,
     company: { id: m.company.id, name: m.company.name, businessType: m.company.businessType },
     role: m.role,
-    isCurrent: m.company.id === company.id,
-  }));
+    isCurrent: m.company.id === company.id}));
 
   // ── Project assignments ──────────────────────────────────────────
   const assignmentData: ProjectAssignmentData[] = projectAssignments.map((a) => ({
     id: a.id,
     scopedRole: a.scopedRole,
-    project: { id: a.project.id, name: a.project.name, status: a.project.status },
-  }));
+    project: { id: a.project.id, name: a.project.name, status: a.project.status }}));
 
   // ── PageHeader stats — the dashboard's instrument panel ──────────
   const headerStats: { label: string; value: string | number; tone?: "default" | "warning" | "danger" }[] = [
@@ -474,7 +439,7 @@ async function CommandCenterContent() {
         totalQueues={totalQueues}
         blockingQueues={blockingQueues}
         canApprove={canApprovePO || canApproveReq}
-        canSeeTasks={hasPermission(role, PERM.TASKS_VIEW)}
+        canSeeTasks={__effPerms.includes(PERM.TASKS_VIEW)}
         canSeeProcurement={canSeeProcurement}
         canSeeStock={canSeeStock}
         procurementTrend={procurementTrend}

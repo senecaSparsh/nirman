@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobileCustomerDetailClient } from "./MobileCustomerDetailClient";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
@@ -17,15 +17,14 @@ import { PageContextProvider } from "@/components/mobile/v2/page-context";
  * the anchor; their sales and payments radiate from here.
  */
 export default function MobileCustomerDetailPage({
-  params,
-}: {
+  params}: {
   params: Promise<{ id: string }>;
 }) {
   return (
     <MobileDetailPage params={params}>
-      {async ({ id, company, role }) => {
-        const canSell = hasPermission(role, PERM.SALE_CREATE);
-        const canManage = hasPermission(role, PERM.SALES_MANAGE);
+      {async ({ id, company, perms }) => {
+        const canSell = perms.includes(PERM.SALE_CREATE);
+        const canManage = perms.includes(PERM.SALES_MANAGE);
 
         const customer = await prisma.customer.findFirst({
           where: { id, companyId: company.id, deletedAt: null },
@@ -35,19 +34,13 @@ export default function MobileCustomerDetailPage({
               orderBy: { createdAt: "desc" },
               include: {
                 project: { select: { id: true, name: true } },
-                payments: { orderBy: { paymentDate: "asc" } },
-              },
-            },
+                payments: { orderBy: { paymentDate: "asc" } }}},
             materialSales: {
               where: { companyId: company.id, status: "ACTIVE" },
               orderBy: { createdAt: "desc" },
               include: {
                 project: { select: { id: true, name: true } },
-                payments: { orderBy: { paymentDate: "asc" } },
-              },
-            },
-          },
-        });
+                payments: { orderBy: { paymentDate: "asc" } }}}}});
 
         if (!customer) {
           return (
@@ -74,8 +67,7 @@ export default function MobileCustomerDetailPage({
             saleDate: s.saleDate.toISOString(),
             saleStage: s.saleStage,
             paymentStatus: s.paymentStatus,
-            projectName: s.project?.name ?? "Standalone",
-          };
+            projectName: s.project?.name ?? "Standalone"};
         });
 
         // ── Material sales (raw materials / scrap) ──
@@ -94,8 +86,7 @@ export default function MobileCustomerDetailPage({
             saleDate: s.saleDate.toISOString(),
             saleStage: s.status, // ACTIVE/CANCELLED
             paymentStatus: s.paymentStatus,
-            projectName: s.project?.name ?? null,
-          };
+            projectName: s.project?.name ?? null};
         });
 
         const allSales = [...assetSales, ...materialSales].sort(
@@ -122,17 +113,14 @@ export default function MobileCustomerDetailPage({
             totalPaid,
             totalOutstanding,
             activeDeals,
-            saleCount: allSales.length,
-          },
-        };
+            saleCount: allSales.length}};
 
         return (
           <PageContextProvider value={{
             entityType: "customer",
             label: customer.name,
             subtitle: customer.phone ?? undefined,
-            recordId: customer.id,
-          }}>
+            recordId: customer.id}}>
           <>
             <RecordRecentItem type="customer" id={customer.id} label={customer.name} sublabel={customer.phone ?? undefined} href={`/m/customers/${customer.id}`} />
             <MobileCustomerDetailClient

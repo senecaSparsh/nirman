@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { toNum, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
 import { MobileLeadDetailClient } from "./MobileLeadDetailClient";
@@ -14,15 +14,14 @@ import { PageContextProvider } from "@/components/mobile/v2/page-context";
  * timeline — then take action: call, email, or convert to customer.
  */
 export default function MobileLeadDetailPage({
-  params,
-}: {
+  params}: {
   params: Promise<{ id: string }>;
 }) {
   return (
     <MobileDetailPage params={params}>
-      {async ({ id, company, role }) => {
-        const canCreate = hasPermission(role, PERM.SALE_CREATE);
-        const canManage = hasPermission(role, PERM.SALES_MANAGE);
+      {async ({ id, company, perms }) => {
+        const canCreate = perms.includes(PERM.SALE_CREATE);
+        const canManage = perms.includes(PERM.SALES_MANAGE);
 
         const lead = await prisma.lead.findFirst({
           where: {...await scopeWhere("Lead"),  id, companyId: company.id, deletedAt: null },
@@ -33,10 +32,7 @@ export default function MobileLeadDetailPage({
             convertedCustomer: { select: { id: true, name: true } },
             activities: {
               orderBy: { occurredAt: "desc" },
-              take: 20,
-            },
-          },
-        });
+              take: 20}}});
 
         if (!lead) {
           return (
@@ -80,14 +76,11 @@ export default function MobileLeadDetailPage({
             note: a.note ?? null,
             outcome: a.outcome ?? null,
             occurredAt: a.occurredAt.toISOString(),
-            nextFollowUpAt: a.nextFollowUpAt ? a.nextFollowUpAt.toISOString() : null,
-          })),
+            nextFollowUpAt: a.nextFollowUpAt ? a.nextFollowUpAt.toISOString() : null})),
           stats: {
             score: lead.score,
             activityCount: lead.activities.length,
-            daysSinceContact,
-          },
-        };
+            daysSinceContact}};
 
         // Lifecycle pipeline: NEW → CONTACTED → SITE_VISIT → NEGOTIATION → BOOKED (or LOST)
         const leadStages = ["NEW", "CONTACTED", "SITE_VISIT", "NEGOTIATION", "BOOKED"];
@@ -95,8 +88,7 @@ export default function MobileLeadDetailPage({
         const isLost = lead.stage === "LOST";
         const leadPipelineSteps: MobilePipelineStep[] = leadStages.map((s, i) => ({
           label: s.charAt(0) + s.slice(1).toLowerCase().replace("_", " "),
-          state: isLost ? (i === 0 ? "done" : "skipped") : i < stageIdx ? "done" : i === stageIdx ? "current" : "pending",
-        }));
+          state: isLost ? (i === 0 ? "done" : "skipped") : i < stageIdx ? "done" : i === stageIdx ? "current" : "pending"}));
         if (isLost) leadPipelineSteps.push({ label: "Lost", state: "current" });
 
         return (
@@ -105,8 +97,7 @@ export default function MobileLeadDetailPage({
             status: lead.stage,
             label: lead.name,
             subtitle: lead.project?.name ?? lead.phone ?? undefined,
-            recordId: lead.id,
-          }}>
+            recordId: lead.id}}>
           <>
             <div className="mb-3 rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <MobilePipelineStepper steps={leadPipelineSteps} />

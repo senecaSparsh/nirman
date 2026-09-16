@@ -2,17 +2,16 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { notFound } from "next/navigation";
-import { getCompany, getUserRole, toNum, scopeWhere, getCurrentUser } from "@/lib/server";
+import { getActingRole, getCompany, toNum, scopeWhere, getCurrentUser, getUserPermissions } from "@/lib/server";
 import { canAutoApprove } from "@nirman/services";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
 import { PageHeader } from "@/components/page-header";
 import { ChangeOrderDetailClient } from "@/components/change-orders/change-order-detail-client";
 
 export default async function ChangeOrderDetailPage({
-  params,
-}: {
+  params}: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
@@ -26,11 +25,12 @@ export default async function ChangeOrderDetailPage({
 async function CoDetailContent({ id }: { id: string }) {
   await connection();
   const company = await getCompany();
-  const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.WO_MANAGE);
+  const actingRole = await getActingRole();
+  const __effPerms = await getUserPermissions();
+  const canManage = __effPerms.includes(PERM.WO_MANAGE);
   const currentUser = await getCurrentUser();
 
-  if (!hasPermission(role, PERM.ASSETS_VIEW)) {
+  if (!__effPerms.includes(PERM.ASSETS_VIEW)) {
     return <NoAccess what="change order" />;
   }
 
@@ -42,14 +42,10 @@ async function CoDetailContent({ id }: { id: string }) {
       lines: {
         orderBy: { sortOrder: "asc" },
         include: {
-          boqItem: { select: { id: true, serialNo: true, description: true, unit: true } },
-        },
-      },
+          boqItem: { select: { id: true, serialNo: true, description: true, unit: true } }}},
       submittedBy: { select: { id: true, name: true } },
       approvedBy: { select: { id: true, name: true } },
-      implementedBy: { select: { id: true, name: true } },
-    },
-  });
+      implementedBy: { select: { id: true, name: true } }}});
 
   if (!co || co.companyId !== company.id) notFound();
 
@@ -93,9 +89,7 @@ async function CoDetailContent({ id }: { id: string }) {
       amountDelta: toNum(l.amountDelta),
       boqItemSerial: l.boqItem?.serialNo ?? null,
       boqItemDescription: l.boqItem?.description ?? null,
-      notes: l.notes,
-    })),
-  };
+      notes: l.notes}))};
 
   return (
     <>
@@ -103,7 +97,7 @@ async function CoDetailContent({ id }: { id: string }) {
         title={co.title}
         description={`${co.changeOrderNo} · ${co.project.name}`}
       />
-      <ChangeOrderDetailClient co={serialized} canManage={canManage} currentUserId={currentUser?.id ?? null} canSelfApprove={canAutoApprove(role)} />
+      <ChangeOrderDetailClient co={serialized} canManage={canManage} currentUserId={currentUser?.id ?? null} canSelfApprove={canAutoApprove(actingRole)} />
     </>
   );
 }

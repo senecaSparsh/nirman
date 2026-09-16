@@ -9,20 +9,18 @@ import {
   ArrowRight,
   Circle,
   ArrowDownLeft,
-  Users,
-} from "lucide-react";
+  Users} from "lucide-react";
 import { prisma } from "@nirman/db";
 import { getTallySyncStats, getSupplierOutstanding } from "@nirman/services";
-import { getCompany, getUserRole, getCurrentUser, toNum, scopeWhere } from "@/lib/server";
+import { getCompany, getCurrentUser, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
 import { DepartmentActivityFeed } from "@/components/department-activity-feed";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
 import { formatCurrency, formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
   MobileEmptyState,
   SectionHead,
-  MobileStatCard,
-} from "@/components/mobile/v2/primitives";
+  MobileStatCard} from "@/components/mobile/v2/primitives";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
 import { TallySyncButton } from "@/components/mobile/tally-sync-button";
 import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
@@ -45,21 +43,20 @@ import { MobileReseedAccountsButton } from "../books/gl/MobileReseedAccountsButt
  * one tabbed page — same pattern as /m/stock.
  */
 export default function AccountsHomePage({
-  searchParams,
-}: {
+  searchParams}: {
   searchParams: Promise<{ tab?: string }>;
 }) {
   return (
     <MobileHubPage perm={PERM.FINANCE_VIEW} what="accounts" permission="finance.view">
-      {async ({ company, role }) => {
+      {async ({ company, perms }) => {
         const { tab } = await searchParams;
 
         // ── Permission flags for FABs ──
-        const canCreateExpense = hasPermission(role, PERM.EXPENSE_CREATE);
-        const canCreateProjectCost = hasPermission(role, PERM.FINANCE_MANAGE);
-        const canCreateClaim = hasPermission(role, PERM.EXPENSE_CREATE);
-        const canManagePettyCash = hasPermission(role, PERM.FINANCE_MANAGE);
-        const canManagePayments = hasPermission(role, PERM.FINANCE_MANAGE);
+        const canCreateExpense = perms.includes(PERM.EXPENSE_CREATE);
+        const canCreateProjectCost = perms.includes(PERM.FINANCE_MANAGE);
+        const canCreateClaim = perms.includes(PERM.EXPENSE_CREATE);
+        const canManagePettyCash = perms.includes(PERM.FINANCE_MANAGE);
+        const canManagePayments = perms.includes(PERM.FINANCE_MANAGE);
 
         // ── Fetch badge counts for the tab bar ──
         const needEmployees = canCreateClaim || canManagePettyCash;
@@ -68,28 +65,24 @@ export default function AccountsHomePage({
         const currentUser = await getCurrentUser();
         const [pendingClaimsCount, projects, subcontractors, employees, paymentForm, expenseCategories] = await Promise.all([
           prisma.expenseClaim.count({
-            where: { companyId: company.id, status: "SUBMITTED" },
-          }).catch(() => 0),
+            where: { companyId: company.id, status: "SUBMITTED" }}).catch(() => 0),
           (canCreateExpense || canCreateProjectCost || canCreateClaim || canManagePettyCash)
             ? prisma.project.findMany({
                 where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
                 select: { id: true, name: true },
-                orderBy: { name: "asc" },
-              })
+                orderBy: { name: "asc" }})
             : [],
           canCreateProjectCost
             ? prisma.subcontractor.findMany({
                 where: { companyId: company.id, deletedAt: null },
                 select: { id: true, name: true, trade: true },
-                orderBy: { name: "asc" },
-              })
+                orderBy: { name: "asc" }})
             : [],
           needEmployees
             ? prisma.user.findMany({
                 where: { memberships: { some: { companyId: company.id } }, isHidden: { not: true } },
                 orderBy: { name: "asc" },
-                select: { id: true, name: true },
-              })
+                select: { id: true, name: true }})
             : [],
           needPayments
             ? (async () => {
@@ -98,44 +91,37 @@ export default function AccountsHomePage({
                     where: { companyId: company.id, deletedAt: null },
                     select: { id: true, name: true, balanceOwed: true },
                     orderBy: { name: "asc" },
-                    take: 200,
-                  }),
+                    take: 200}),
                   prisma.purchaseOrder.findMany({
                     where: {
                       companyId: company.id,
                       supplierId: { not: undefined as unknown as string },
-                      status: { in: ["APPROVED", "ORDERED", "PARTIAL", "RECEIVED"] },
-                    },
+                      status: { in: ["APPROVED", "ORDERED", "PARTIAL", "RECEIVED"] }},
                     select: { id: true, poNumber: true, supplierId: true, total: true, status: true },
                     orderBy: { createdAt: "desc" },
-                    take: 100,
-                  }),
+                    take: 100}),
                   prisma.supplierInvoice.findMany({
                     where: { companyId: company.id, status: { in: ["PENDING", "PARTIAL"] } },
                     select: { id: true, invoiceNumber: true, supplierId: true, totalAmount: true, status: true },
                     orderBy: { createdAt: "desc" },
-                    take: 100,
-                  }),
+                    take: 100}),
                 ]);
                 return {
                   suppliers: suppliers.map((s) => ({ id: s.id, name: s.name, balanceOwed: s.balanceOwed?.toString() ?? "0" })),
                   purchaseOrders: purchaseOrders.map((p) => ({ id: p.id, poNumber: p.poNumber, supplierId: p.supplierId, total: p.total.toString(), status: p.status })),
-                  invoices: invoices.map((i) => ({ id: i.id, invoiceNumber: i.invoiceNumber, supplierId: i.supplierId, totalAmount: i.totalAmount.toString(), status: i.status })),
-                };
+                  invoices: invoices.map((i) => ({ id: i.id, invoiceNumber: i.invoiceNumber, supplierId: i.supplierId, totalAmount: i.totalAmount.toString(), status: i.status }))};
               })()
             : { suppliers: [], purchaseOrders: [], invoices: [] },
           needCategories
             ? prisma.expenseCategory.findMany({
                 where: { companyId: company.id, isActive: true },
                 orderBy: { name: "asc" },
-                select: { id: true, name: true, isActive: true },
-              })
+                select: { id: true, name: true, isActive: true }})
             : [],
         ]);
 
         const counts = {
-          claims: pendingClaimsCount,
-        };
+          claims: pendingClaimsCount};
 
         // ── Render the active tab's content ──
         const validTabs = ["overview", "expenses", "claims", "petty-cash", "payments", "receipts", "gl"];
@@ -202,17 +188,14 @@ async function AccountsOverviewContent() {
     pendingFinanceApprovals,
   ] = await Promise.all([
     getTallySyncStats(company.id).catch(() => ({
-      total: 0, synced: 0, failed: 0, pending: 0, imported: 0, variance: 0,
-    })),
+      total: 0, synced: 0, failed: 0, pending: 0, imported: 0, variance: 0})),
     prisma.assetSalePayment
       .findMany({
         where: { assetSale: { companyId: company.id } },
         orderBy: { paymentDate: "desc" },
         take: 5,
         include: {
-          assetSale: { select: { customer: { select: { name: true } } } },
-        },
-      })
+          assetSale: { select: { customer: { select: { name: true } } } }}})
       .catch(() => []),
     // Use the same service function as Settings page for consistency
     getSupplierOutstanding(company.id).catch(() => []),
@@ -220,8 +203,7 @@ async function AccountsOverviewContent() {
       .findFirst({
         where: { companyId: company.id, status: "DRAFT" },
         orderBy: [{ year: "desc" }, { month: "desc" }],
-        select: { id: true, month: true, year: true, totalNet: true },
-      })
+        select: { id: true, month: true, year: true, totalNet: true }})
       .catch(() => null),
     prisma.expense
       .findMany({
@@ -233,9 +215,7 @@ async function AccountsOverviewContent() {
           category: true,
           amount: true,
           date: true,
-          project: { select: { name: true } },
-        },
-      })
+          project: { select: { name: true } }}})
       .catch(() => []),
     prisma.projectCost
       .findMany({
@@ -247,9 +227,7 @@ async function AccountsOverviewContent() {
           costType: true,
           amount: true,
           date: true,
-          project: { select: { name: true } },
-        },
-      })
+          project: { select: { name: true } }}})
       .catch(() => []),
     loadQuickActionContext("accounts"),
     // Finance-category approvals — same statuses the approvals queue surfaces
@@ -298,8 +276,7 @@ async function AccountsOverviewContent() {
       href: "/m/accounts?tab=gl",
       severity: "out",
       qtyText: String(tallyStats.failed),
-      category: "Tally Sync",
-    });
+      category: "Tally Sync"});
   }
 
   // Tally pending
@@ -311,8 +288,7 @@ async function AccountsOverviewContent() {
       href: "/m/accounts?tab=gl",
       severity: "low",
       qtyText: String(tallyStats.pending),
-      category: "Tally Sync",
-    });
+      category: "Tally Sync"});
   }
 
   // Outstanding payables — one per top vendor
@@ -324,8 +300,7 @@ async function AccountsOverviewContent() {
       href: "/m/suppliers",
       severity: "low",
       qtyText: formatCurrency(toNum(s.balanceOwed)),
-      category: "Payable",
-    });
+      category: "Payable"});
   }
 
   // Draft payroll
@@ -344,8 +319,7 @@ async function AccountsOverviewContent() {
       href: "/m/accounts?tab=gl",
       severity: "low",
       qtyText: "Draft",
-      category: "Payroll",
-    });
+      category: "Payroll"});
   }
 
   // If no alerts, show green "all caught up"
@@ -357,8 +331,7 @@ async function AccountsOverviewContent() {
       href: "/m/accounts",
       severity: "clear",
       qtyText: "✓",
-      category: "Everything looks good",
-    });
+      category: "Everything looks good"});
   }
 
   const totalPending =
@@ -388,8 +361,7 @@ async function AccountsOverviewContent() {
         className="rounded-[0.625rem] border overflow-hidden mb-4"
         style={{
           borderColor: "var(--color-line)",
-          backgroundColor: "var(--color-paper)",
-        }}
+          backgroundColor: "var(--color-paper)"}}
       >
         {/* Cash position line — flag: green if net positive, red if negative */}
         <Link
@@ -400,8 +372,7 @@ async function AccountsOverviewContent() {
           <Circle
             className="size-2 shrink-0 fill-current"
             style={{
-              color: netFlow >= 0 ? "var(--color-go)" : "var(--color-stop)",
-            }}
+              color: netFlow >= 0 ? "var(--color-go)" : "var(--color-stop)"}}
           />
           <ArrowDownLeft className="size-4 shrink-0" style={{ color: "var(--color-go)" }} />
           <span className="flex-1 text-m-body" style={{ color: "var(--color-ink-950)" }}>
@@ -426,8 +397,7 @@ async function AccountsOverviewContent() {
           <Circle
             className="size-2 shrink-0 fill-current"
             style={{
-              color: topPayable ? "var(--color-signal)" : "var(--color-go)",
-            }}
+              color: topPayable ? "var(--color-signal)" : "var(--color-go)"}}
           />
           <Users className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
           <span className="flex-1 text-m-body truncate" style={{ color: "var(--color-ink-950)" }}>
@@ -457,8 +427,7 @@ async function AccountsOverviewContent() {
             style={{
               color: tallyStats.failed > 0 ? "var(--color-stop)"
                 : totalPending > 0 ? "var(--color-signal)"
-                : "var(--color-go)",
-            }}
+                : "var(--color-go)"}}
           />
           <RefreshCw className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
           <span className="flex-1 text-m-body" style={{ color: "var(--color-ink-950)" }}>
@@ -500,9 +469,9 @@ async function AccountsOverviewContent() {
 /** Expenses tab — mirrors /m/expenses */
 async function AccountsExpensesTab() {
   const company = await getCompany();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
-  const canCreate = hasPermission(role, PERM.EXPENSE_CREATE);
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
+  const canCreate = __effPerms.includes(PERM.EXPENSE_CREATE);
   const canView = true; // already gated by FINANCE_VIEW above
 
   const BATCH_SIZE = 40;
@@ -513,9 +482,7 @@ async function AccountsExpensesTab() {
     include: {
       project: { select: { id: true, name: true } },
       categoryMaster: { select: { id: true, name: true } },
-      supplier: { select: { id: true, name: true } },
-    },
-  });
+      supplier: { select: { id: true, name: true } }}});
 
   const hasMore = expenses.length > BATCH_SIZE;
   const batch = hasMore ? expenses.slice(0, BATCH_SIZE) : expenses;
@@ -535,8 +502,7 @@ async function AccountsExpensesTab() {
     paymentMode: e.paymentMode,
     payeeName: e.payeeName,
     supplierName: e.supplier?.name ?? null,
-    receiptUrl: e.receiptUrl,
-  }));
+    receiptUrl: e.receiptUrl}));
 
   const totalAmount = rows.reduce((s, e) => s + e.amount, 0);
   const categories = new Set(rows.map((e) => e.category));
@@ -571,10 +537,10 @@ async function AccountsExpensesTab() {
 /** Claims tab — mirrors /m/expense-claims */
 async function AccountsClaimsTab() {
   const company = await getCompany();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
-  const canApprove = hasPermission(role, PERM.EXPENSE_APPROVE);
-  const canCreate = hasPermission(role, PERM.EXPENSE_CREATE);
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
+  const canApprove = __effPerms.includes(PERM.EXPENSE_APPROVE);
+  const canCreate = __effPerms.includes(PERM.EXPENSE_CREATE);
 
   const BATCH_SIZE = 40;
   const claims = await prisma.expenseClaim.findMany({
@@ -583,9 +549,7 @@ async function AccountsClaimsTab() {
     take: BATCH_SIZE + 1,
     include: {
       claimant: { select: { id: true, name: true } },
-      project: { select: { id: true, name: true } },
-    },
-  });
+      project: { select: { id: true, name: true } }}});
 
   const hasMore = claims.length > BATCH_SIZE;
   const batch = hasMore ? claims.slice(0, BATCH_SIZE) : claims;
@@ -601,8 +565,7 @@ async function AccountsClaimsTab() {
     status: c.status,
     totalAmount: toNum(c.totalAmount),
     submittedAt: c.submittedAt?.toISOString() ?? c.createdAt.toISOString(),
-    description: c.description ?? null,
-  }));
+    description: c.description ?? null}));
 
   const totalAmount = rows.reduce((s, c) => s + c.totalAmount, 0);
   const pendingCount = rows.filter((c) => c.status === "SUBMITTED").length;
@@ -623,10 +586,10 @@ async function AccountsClaimsTab() {
 /** Petty Cash tab — mirrors /m/petty-cash */
 async function AccountsPettyCashTab() {
   const company = await getCompany();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
-  const canManage = hasPermission(role, PERM.FINANCE_MANAGE);
-  const canSpend = hasPermission(role, PERM.EXPENSE_CREATE);
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
+  const canManage = __effPerms.includes(PERM.FINANCE_MANAGE);
+  const canSpend = __effPerms.includes(PERM.EXPENSE_CREATE);
 
   const floats = await prisma.pettyCashFloat.findMany({
     where: {...await scopeWhere("PettyCashFloat"),  companyId: company.id },
@@ -634,9 +597,7 @@ async function AccountsPettyCashTab() {
     include: {
       project: { select: { id: true, name: true } },
       custodian: { select: { id: true, name: true } },
-      topUps: { orderBy: { date: "desc" }, take: 5 },
-    },
-  });
+      topUps: { orderBy: { date: "desc" }, take: 5 }}});
 
   const currentUser = await getCurrentUser();
   const rows: PettyCashFloatListItem[] = floats.map((f) => ({
@@ -649,8 +610,7 @@ async function AccountsPettyCashTab() {
     topUpTotal: toNum(f.topUpTotal),
     spentTotal: toNum(f.spentTotal),
     topUpCount: f.topUps.length,
-    lastTopUpDate: f.topUps[0]?.date.toISOString() ?? null,
-  }));
+    lastTopUpDate: f.topUps[0]?.date.toISOString() ?? null}));
 
   // floatAmount is the running balance (already net of top-ups + spends)
   const totalBalance = rows.reduce((s, f) => s + f.floatAmount, 0);
@@ -671,10 +631,10 @@ async function AccountsPettyCashTab() {
 /** Supplier Payments tab — mirrors /m/supplier-payments */
 async function AccountsPaymentsTab() {
   const company = await getCompany();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
-  const canManage = hasPermission(role, PERM.FINANCE_MANAGE);
-  const canViewProcurement = hasPermission(role, PERM.PROCUREMENT_VIEW);
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
+  const canManage = __effPerms.includes(PERM.FINANCE_MANAGE);
+  const canViewProcurement = __effPerms.includes(PERM.PROCUREMENT_VIEW);
 
   const BATCH_SIZE = 40;
   const payments = await prisma.supplierPayment.findMany({
@@ -684,9 +644,7 @@ async function AccountsPaymentsTab() {
     include: {
       supplier: { select: { id: true, name: true } },
       purchaseOrder: { select: { id: true, poNumber: true } },
-      invoice: { select: { invoiceNumber: true } },
-    },
-  });
+      invoice: { select: { invoiceNumber: true } }}});
 
   const hasMore = payments.length > BATCH_SIZE;
   const batch = hasMore ? payments.slice(0, BATCH_SIZE) : payments;
@@ -705,8 +663,7 @@ async function AccountsPaymentsTab() {
     invoiceNumber: p.invoice?.invoiceNumber ?? null,
     amount: toNum(p.amount),
     paymentDate: p.paymentDate.toISOString(),
-    paymentMode: p.paymentMode,
-  }));
+    paymentMode: p.paymentMode}));
 
   const totalAmount = rows.reduce((s, p) => s + p.amount, 0);
 
@@ -725,35 +682,31 @@ async function AccountsPaymentsTab() {
 /** Receipts tab — mirrors /m/books/receipts */
 async function AccountsReceiptsTab() {
   const company = await getCompany();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
 
   const [assetPayments, materialPayments] = await Promise.all([
     prisma.assetSalePayment.findMany({
       where: { assetSale: { companyId: company.id }, status: "RECEIVED" },
       orderBy: { paymentDate: "desc" },
       take: 50,
-      include: { assetSale: { select: { customer: { select: { name: true } }, saleNumber: true } } },
-    }).catch(() => []),
+      include: { assetSale: { select: { customer: { select: { name: true } }, saleNumber: true } } }}).catch(() => []),
     prisma.materialSalePayment.findMany({
       where: { sale: { companyId: company.id } },
       orderBy: { paymentDate: "desc" },
       take: 50,
-      include: { sale: { select: { customer: { select: { name: true } }, saleNumber: true, partyName: true } } },
-    }).catch(() => []),
+      include: { sale: { select: { customer: { select: { name: true } }, saleNumber: true, partyName: true } } }}).catch(() => []),
   ]);
 
   const items: ReceiptListItem[] = [
     ...assetPayments.map((r) => ({
       id: r.id, kind: "ASSET" as const, customerName: r.assetSale.customer.name,
       saleNumber: r.assetSale.saleNumber, mode: r.mode, amount: toNum(r.amount),
-      paymentDate: r.paymentDate.toISOString(),
-    })),
+      paymentDate: r.paymentDate.toISOString()})),
     ...materialPayments.map((r) => ({
       id: r.id, kind: "MATERIAL" as const, customerName: r.sale.partyName ?? r.sale.customer.name,
       saleNumber: r.sale.saleNumber, mode: r.paymentMode, amount: toNum(r.amount),
-      paymentDate: r.paymentDate.toISOString(),
-    })),
+      paymentDate: r.paymentDate.toISOString()})),
   ].sort((a, b) => +new Date(b.paymentDate) - +new Date(a.paymentDate));
 
   const total = items.reduce((s, r) => s + r.amount, 0);
@@ -791,8 +744,8 @@ async function AccountsReceiptsTab() {
 /** GL tab — mirrors /m/books/gl */
 async function AccountsGlTab() {
   const company = await getCompany();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
 
   const accounts = await prisma.glAccount.findMany({
     where: { companyId: company.id },
@@ -800,10 +753,7 @@ async function AccountsGlTab() {
     include: {
       journalLines: {
         where: { journalEntry: { companyId: company.id } },
-        select: { debit: true, credit: true },
-      },
-    },
-  });
+        select: { debit: true, credit: true }}}});
 
   const rows = accounts
     .map((a) => {
@@ -819,8 +769,7 @@ async function AccountsGlTab() {
 
   const serialized: GlListItem[] = rows.map((r) => ({
     code: r.code, name: r.name, type: r.type,
-    debit: r.debit, credit: r.credit, balance: r.balance,
-  }));
+    debit: r.debit, credit: r.credit, balance: r.balance}));
 
   return (
     <div>
@@ -837,8 +786,7 @@ async function AccountsGlTab() {
           style={{
             borderColor: "color-mix(in srgb, var(--color-stop) 30%, transparent)",
             backgroundColor: "color-mix(in srgb, var(--color-stop) 5%, transparent)",
-            color: "var(--color-stop)",
-          }}
+            color: "var(--color-stop)"}}
         >
           Out of balance by {formatCurrencyCompact(Math.abs(totalDebit - totalCredit))}
         </div>

@@ -2,13 +2,12 @@ import Link from "next/link";
 import { prisma } from "@nirman/db";
 import { BookOpen, Plus } from "lucide-react";
 import { toNum, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
 import {
   MobileEmptyState,
   MobileStatCard,
-  MobileCta,
-} from "@/components/mobile/v2/primitives";
+  MobileCta} from "@/components/mobile/v2/primitives";
 import { MobileProjectScopedPage } from "@/components/mobile/v2/project-scoped-page";
 import { MobileMbProjectSelector } from "./MobileMbProjectSelector";
 import { MobileMbFab } from "./MobileNewMbEntryDialog";
@@ -18,20 +17,18 @@ import { MobileMbFab } from "./MobileNewMbEntryDialog";
  * Records of measured work executed against BOQ items (earned value basis).
  */
 export default function MobileMeasurementBookPage({
-  searchParams,
-}: {
+  searchParams}: {
   searchParams: Promise<{ project?: string }>;
 }) {
   return (
     <MobileProjectScopedPage searchParams={searchParams} skeletonRows={6}>
-      {async ({ company, role, projectId }) => {
-        const canCreateProject = hasPermission(role, PERM.PROJECTS_MANAGE);
+      {async ({ company, projectId, perms }) => {
+        const canCreateProject = perms.includes(PERM.PROJECTS_MANAGE);
 
         const projects = await prisma.project.findMany({
           where: { companyId: company.id, deletedAt: null },
           orderBy: { name: "asc" },
-          select: { id: true, name: true },
-        });
+          select: { id: true, name: true }});
 
         if (!projectId) {
           return (
@@ -53,20 +50,16 @@ export default function MobileMeasurementBookPage({
             take: 50,
             include: {
               boqItem: { select: { id: true, serialNo: true, description: true, unit: true, rate: true } },
-              measuredBy: { select: { id: true, name: true } },
-            },
-          }),
+              measuredBy: { select: { id: true, name: true } }}}),
           prisma.boqItem.findMany({
             where: {...await scopeWhere("BoqItem"),  projectId, type: "LINE_ITEM" },
             orderBy: { serialNo: "asc" },
-            select: { id: true, serialNo: true, description: true, unit: true, rate: true },
-          }),
+            select: { id: true, serialNo: true, description: true, unit: true, rate: true }}),
           prisma.wbsNode.findMany({
             where: {...await scopeWhere("WbsNode"),  projectId },
             orderBy: { code: "asc" },
-            select: { id: true, code: true, name: true, boqItemId: true },
-          }),
-          Promise.resolve(hasPermission(role, PERM.MB_VERIFY)),
+            select: { id: true, code: true, name: true, boqItemId: true }}),
+          Promise.resolve(perms.includes(PERM.MB_VERIFY)),
         ]);
 
         const totalMeasured = entries.reduce((s, e) => s + toNum(e.measuredQty), 0);
@@ -87,8 +80,7 @@ export default function MobileMeasurementBookPage({
           measureDate: e.measureDate.toISOString(),
           description: e.description,
           measuredByName: e.measuredBy?.name ?? "—",
-          status: e.status,
-        }));
+          status: e.status}));
 
         return (
           <div>
@@ -133,14 +125,12 @@ export default function MobileMeasurementBookPage({
                   serialNo: b.serialNo,
                   description: b.description,
                   unit: b.unit,
-                  rate: b.rate ? toNum(b.rate) : null,
-                }))}
+                  rate: b.rate ? toNum(b.rate) : null}))}
                 wbsNodes={wbsNodes.map((w) => ({
                   id: w.id,
                   code: w.code,
                   name: w.name,
-                  boqItemId: w.boqItemId,
-                }))}
+                  boqItemId: w.boqItemId}))}
               />
             )}
           </div>

@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, scopeWhere, projectScopeFilter } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, scopeWhere, projectScopeFilter, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
 import { DepartmentActivityFeed } from "@/components/department-activity-feed";
@@ -21,10 +21,10 @@ export default function QualityControlPage() {
 
 async function QcContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.QC_VIEW)) {
+  if (!__effPerms.includes(PERM.QC_VIEW)) {
     return <NoAccess what="quality control" />;
   }
 
@@ -53,7 +53,7 @@ async function QcContent() {
     }),
   ]);
 
-  const canManage = hasPermission(role, PERM.QC_MANAGE);
+  const canManage = __effPerms.includes(PERM.QC_MANAGE);
 
   const serialized = ncrs.map((n) => ({
     id: n.id,

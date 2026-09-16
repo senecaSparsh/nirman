@@ -177,6 +177,12 @@ the `coolify-proxy` container isn't on the app network. Fix:
   endpoint at `/api/health` (public, no auth — reports liveness + DB reachability,
   200/503). Render config in `render.yaml` uses `healthCheckPath: /api/health` and
   `startCommand: node scripts/start-with-recovery.mjs`.
+  **Scheduled endpoints must be called from both deploy targets** — every
+  `/api/cron/*` endpoint + `/api/workflow-scheduler` is wired into
+  `apps/web/scripts/scheduler.sh` (Coolify sidecar loops) AND `render.yaml`
+  cronJobs (Render cron jobs do NOT inherit web-service env vars — declare
+  `CRON_SECRET`/`SCHEDULER_SECRET` per job). Adding a new cron route without
+  both callers means it silently never runs in production.
   **Resilience (added round 2):** (13) **DB migration safety** — `migrate:deploy`
   now uses `prisma migrate deploy` (not `db push --accept-data-loss`). The schema
   has `directUrl = env("DIRECT_URL")` for non-pooled migration connections. Use
@@ -399,6 +405,16 @@ msg)` that returns 504 on timeout. Applied to `/api/cron/backup` (120s) and
     routes pass it to service `actorRole` checks. Audit rows record
     `onBehalfOfId` = the delegator. One level, same-company, no cycles,
     max 90 days.
+    **Acting-role rule:** company-scoped authority checks must use
+    `await getActingRole()` (or the permission union via
+    `getUserPermissions()`/`hasPermission(role, perm, overrides)`), never a
+    bare `user.role === "OWNER"`-style test — otherwise delegated admins are
+    wrongly denied. Cross-company scope bypasses are the exception and keep
+    the real role deliberately: `/api/company/switch`, the superuser branch of
+    `GET /api/companies`, and the cross-company upload access check in
+    `GET /api/uploads/[id]` — delegation in company A must not leak authority
+    into company B. Same for delegation config itself (`/api/delegation`
+    PUT/DELETE targeting another membership) — delegation does not re-delegate.
   - _Approval aging_: `/api/cron/approval-aging` (daily via
     `apps/web/scripts/scheduler.sh` sidecar + render.yaml cronJob,
     CRON_SECRET) digests approvals waiting >48h to

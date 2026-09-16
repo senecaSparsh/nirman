@@ -7,17 +7,15 @@ import {
   ListTree,
   BookOpen,
   FileText,
-  Package,
-} from "lucide-react";
-import { getCompany, getUserRole, toNum, scopeWhere, getActionPermissions, filterOptionsByScope } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+  Package} from "lucide-react";
+import { getCompany, toNum, scopeWhere, getActionPermissions, filterOptionsByScope, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileEmptyState,
   MobileStatCard,
-  Badge,
-} from "@/components/mobile/v2/primitives";
+  Badge} from "@/components/mobile/v2/primitives";
 import { PageLead, NextActionCardView } from "@/components/mobile/v2/guidance";
 import { FLOWS } from "@/lib/flow-map";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
@@ -42,8 +40,7 @@ import {
   MobileSafetyContent,
   type IncidentListItem,
   type HazardListItem,
-  type InspectionListItem,
-} from "../safety/MobileSafetyContent";
+  type InspectionListItem} from "../safety/MobileSafetyContent";
 
 /**
  * /m/construction — Construction hub. Groups Work Orders, Change Orders,
@@ -54,8 +51,7 @@ import {
  * and accept a `?project=` param (preserved alongside `?tab=`).
  */
 export default function MobileConstructionHubPage({
-  searchParams,
-}: {
+  searchParams}: {
   searchParams: Promise<{ tab?: string; project?: string }>;
 }) {
   return (
@@ -111,16 +107,13 @@ async function ConstructionWorkOrdersTab() {
       include: {
         subcontractor: { select: { id: true, name: true, trade: true } },
         project: { select: { id: true, name: true } },
-        _count: { select: { raBills: true, lines: true } },
-      },
-    }),
+        _count: { select: { raBills: true, lines: true } }}}),
     actions.canCreateWorkOrder
       ? filterOptionsByScope(
           await prisma.project.findMany({
             where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
             orderBy: { name: "asc" },
-            select: { id: true, name: true },
-          }),
+            select: { id: true, name: true }}),
           actions.allowedProjectIds,
         )
       : [],
@@ -128,8 +121,7 @@ async function ConstructionWorkOrdersTab() {
       ? prisma.subcontractor.findMany({
           where: { companyId: company.id, deletedAt: null },
           orderBy: { name: "asc" },
-          select: { id: true, name: true, trade: true },
-        })
+          select: { id: true, name: true, trade: true }})
       : [],
   ]);
 
@@ -150,8 +142,7 @@ async function ConstructionWorkOrdersTab() {
     startDate: w.startDate?.toISOString() ?? null,
     endDate: w.endDate?.toISOString() ?? null,
     retentionPct: toNum(w.retentionPct),
-    advanceAmount: w.advanceAmount ? toNum(w.advanceAmount) : null,
-  }));
+    advanceAmount: w.advanceAmount ? toNum(w.advanceAmount) : null}));
 
   return (
     <div>
@@ -191,8 +182,8 @@ async function ConstructionWorkOrdersTab() {
 /** Change Orders tab — mirrors /m/change-orders */
 async function ConstructionChangeOrdersTab() {
   const company = await getCompany();
-  const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.WO_MANAGE);
+  const __effPerms = await getUserPermissions();
+  const canManage = __effPerms.includes(PERM.WO_MANAGE);
   const actions = await getActionPermissions();
 
   const [changeOrders, projects] = await Promise.all([
@@ -203,15 +194,12 @@ async function ConstructionChangeOrdersTab() {
       include: {
         project: { select: { id: true, name: true } },
         phase: { select: { id: true, name: true } },
-        _count: { select: { lines: true } },
-      },
-    }),
+        _count: { select: { lines: true } }}}),
     canManage
       ? prisma.project.findMany({
           where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
           orderBy: { name: "asc" },
-          select: { id: true, name: true },
-        })
+          select: { id: true, name: true }})
       : [],
   ]);
 
@@ -231,8 +219,7 @@ async function ConstructionChangeOrdersTab() {
     lineCount: c._count.lines,
     costDelta: toNum(c.costDelta),
     scheduleDeltaDays: c.scheduleDeltaDays,
-    createdAt: c.createdAt.toISOString(),
-  }));
+    createdAt: c.createdAt.toISOString()}));
 
   return (
     <div>
@@ -263,8 +250,8 @@ async function ConstructionChangeOrdersTab() {
 /** Quality Control tab — mirrors /m/quality-control */
 async function ConstructionQualityTab() {
   const company = await getCompany();
-  const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.WO_MANAGE);
+  const __effPerms = await getUserPermissions();
+  const canManage = __effPerms.includes(PERM.WO_MANAGE);
   const actions = await getActionPermissions();
 
   const [ncrs, projects, subcontractors] = await Promise.all([
@@ -275,22 +262,18 @@ async function ConstructionQualityTab() {
       include: {
         project: { select: { id: true, name: true } },
         subcontractor: { select: { id: true, name: true, trade: true } },
-        capa: { select: { id: true, status: true, capaNumber: true } },
-      },
-    }),
+        capa: { select: { id: true, status: true, capaNumber: true } }}}),
     canManage
       ? prisma.project.findMany({
           where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
           orderBy: { name: "asc" },
-          select: { id: true, name: true },
-        })
+          select: { id: true, name: true }})
       : [],
     canManage
       ? prisma.subcontractor.findMany({
           where: { companyId: company.id, deletedAt: null },
           orderBy: { name: "asc" },
-          select: { id: true, name: true, trade: true },
-        })
+          select: { id: true, name: true, trade: true }})
       : [],
   ]);
 
@@ -312,8 +295,7 @@ async function ConstructionQualityTab() {
     location: n.location,
     hasCapa: !!n.capa,
     capaStatus: n.capa?.status ?? null,
-    raisedAt: n.raisedAt.toISOString(),
-  }));
+    raisedAt: n.raisedAt.toISOString()}));
 
   return (
     <div>
@@ -362,34 +344,30 @@ async function ConstructionQualityTab() {
 /** Safety tab — mirrors /m/safety */
 async function ConstructionSafetyTab() {
   const company = await getCompany();
-  const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.WO_MANAGE);
+  const __effPerms = await getUserPermissions();
+  const canManage = __effPerms.includes(PERM.WO_MANAGE);
 
   const [incidents, hazards, inspections, projects] = await Promise.all([
     prisma.safetyIncident.findMany({
       where: {...await scopeWhere("SafetyIncident"),  companyId: company.id },
       orderBy: { incidentDate: "desc" },
       take: 50,
-      include: { project: { select: { id: true, name: true } } },
-    }),
+      include: { project: { select: { id: true, name: true } } }}),
     prisma.safetyHazard.findMany({
       where: {...await scopeWhere("SafetyHazard"),  companyId: company.id },
       orderBy: [{ riskLevel: "desc" }, { createdAt: "desc" }],
       take: 50,
-      include: { project: { select: { id: true, name: true } } },
-    }),
+      include: { project: { select: { id: true, name: true } } }}),
     prisma.safetyInspection.findMany({
       where: {...await scopeWhere("SafetyInspection"),  companyId: company.id },
       orderBy: { scheduledDate: "desc" },
       take: 50,
-      include: { project: { select: { id: true, name: true } } },
-    }),
+      include: { project: { select: { id: true, name: true } } }}),
     canManage
       ? prisma.project.findMany({
           where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
           orderBy: { name: "asc" },
-          select: { id: true, name: true },
-        })
+          select: { id: true, name: true }})
       : [],
   ]);
 
@@ -404,8 +382,7 @@ async function ConstructionSafetyTab() {
     location: i.location,
     injuredCount: i.injuredCount,
     fatalities: i.fatalities,
-    incidentDate: i.incidentDate.toISOString(),
-  }));
+    incidentDate: i.incidentDate.toISOString()}));
 
   const serializedHazards: HazardListItem[] = hazards.map((h) => ({
     id: h.id,
@@ -418,8 +395,7 @@ async function ConstructionSafetyTab() {
     projectName: h.project.name,
     location: h.location,
     targetResolutionDate: h.targetResolutionDate?.toISOString() ?? null,
-    createdAt: h.createdAt.toISOString(),
-  }));
+    createdAt: h.createdAt.toISOString()}));
 
   const serializedInspections: InspectionListItem[] = inspections.map((i) => ({
     id: i.id,
@@ -430,8 +406,7 @@ async function ConstructionSafetyTab() {
     projectName: i.project.name,
     scheduledDate: i.scheduledDate.toISOString(),
     conductedDate: i.conductedDate?.toISOString() ?? null,
-    inspectorName: i.inspectorName,
-  }));
+    inspectorName: i.inspectorName}));
 
   return (
     <MobileSafetyContent
@@ -484,8 +459,7 @@ function flattenTree(nodes: BoqTreeNode[], level: number, out: BoqRow[]): void {
       unit: node.unit,
       estimatedQty: node.estimatedQty != null ? toNum(node.estimatedQty) : null,
       rate: node.rate != null ? toNum(node.rate) : null,
-      estimatedAmount: node.estimatedAmount != null ? toNum(node.estimatedAmount) : null,
-    });
+      estimatedAmount: node.estimatedAmount != null ? toNum(node.estimatedAmount) : null});
     if (node.children && node.children.length > 0) {
       flattenTree(node.children, level + 1, out);
     }
@@ -505,8 +479,7 @@ function BoqRowCard({ row }: { row: BoqRow }) {
       style={{
         marginLeft: indent,
         borderColor: "var(--color-line)",
-        backgroundColor: isLineItem ? "var(--color-paper)" : "color-mix(in srgb, var(--color-brand) 4%, var(--color-paper))",
-      }}
+        backgroundColor: isLineItem ? "var(--color-paper)" : "color-mix(in srgb, var(--color-brand) 4%, var(--color-paper))"}}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
@@ -539,17 +512,16 @@ function BoqRowCard({ row }: { row: BoqRow }) {
 /** BOQ tab — mirrors /m/boq (project-scoped) */
 async function ConstructionBoqTab({ projectId }: { projectId?: string }) {
   const company = await getCompany();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.BOQ_VIEW)) {
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.BOQ_VIEW)) {
     return <MobileEmptyState icon={ListTree} title="No access" hint="You don't have permission to view BOQ" />;
   }
-  const canCreateProject = hasPermission(role, PERM.PROJECTS_MANAGE);
+  const canCreateProject = __effPerms.includes(PERM.PROJECTS_MANAGE);
 
   const projects: BoqProjectOption[] = await prisma.project.findMany({
     where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
     orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
+    select: { id: true, name: true }});
 
   const selectedProject = projectId ? projects.find((p) => p.id === projectId) : undefined;
 
@@ -564,14 +536,13 @@ async function ConstructionBoqTab({ projectId }: { projectId?: string }) {
 
   const [boqResult, materials, canManage] = await Promise.all([
     getBoqTree(projectId),
-    hasPermission(role, PERM.BOQ_MANAGE)
+    __effPerms.includes(PERM.BOQ_MANAGE)
       ? prisma.material.findMany({
           where: { companyId: company.id, deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
           orderBy: { name: "asc" },
-          select: { id: true, name: true, unit: true },
-        })
+          select: { id: true, name: true, unit: true }})
       : [],
-    Promise.resolve(hasPermission(role, PERM.BOQ_MANAGE)),
+    Promise.resolve(__effPerms.includes(PERM.BOQ_MANAGE)),
   ]);
   const actions = await getActionPermissions();
 
@@ -616,16 +587,15 @@ async function ConstructionBoqTab({ projectId }: { projectId?: string }) {
 /** WBS tab — mirrors /m/wbs (project-scoped) */
 async function ConstructionWbsTab({ projectId }: { projectId?: string }) {
   const company = await getCompany();
-  const role = await getUserRole();
-  const canView = hasPermission(role, PERM.WBS_VIEW);
-  const canManage = hasPermission(role, PERM.WBS_MANAGE);
+  const __effPerms = await getUserPermissions();
+  const canView = __effPerms.includes(PERM.WBS_VIEW);
+  const canManage = __effPerms.includes(PERM.WBS_MANAGE);
   const actions = await getActionPermissions();
 
   const projects = await prisma.project.findMany({
     where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
     orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
+    select: { id: true, name: true }});
 
   if (!canView) {
     return <MobileEmptyState icon={ListTree} title="No access" hint="You don't have permission to view WBS" />;
@@ -646,8 +616,7 @@ async function ConstructionWbsTab({ projectId }: { projectId?: string }) {
       ? prisma.boqItem.findMany({
           where: {...await scopeWhere("BoqItem"),  projectId, type: "LINE_ITEM" },
           orderBy: { serialNo: "asc" },
-          select: { id: true, serialNo: true, description: true, unit: true },
-        })
+          select: { id: true, serialNo: true, description: true, unit: true }})
       : [],
   ]);
 
@@ -711,15 +680,14 @@ async function ConstructionWbsTab({ projectId }: { projectId?: string }) {
 /** Measurement Book tab — mirrors /m/measurement-book (project-scoped) */
 async function ConstructionMbTab({ projectId }: { projectId?: string }) {
   const company = await getCompany();
-  const role = await getUserRole();
-  const canCreate = hasPermission(role, PERM.MB_VERIFY);
-  const canCreateProject = hasPermission(role, PERM.PROJECTS_MANAGE);
+  const __effPerms = await getUserPermissions();
+  const canCreate = __effPerms.includes(PERM.MB_VERIFY);
+  const canCreateProject = __effPerms.includes(PERM.PROJECTS_MANAGE);
 
   const projects = await prisma.project.findMany({
     where: { companyId: company.id, deletedAt: null },
     orderBy: { name: "asc" },
-    select: { id: true, name: true },
-  });
+    select: { id: true, name: true }});
 
   if (!projectId) {
     return (
@@ -737,19 +705,15 @@ async function ConstructionMbTab({ projectId }: { projectId?: string }) {
       take: 50,
       include: {
         boqItem: { select: { id: true, serialNo: true, description: true, unit: true, rate: true } },
-        measuredBy: { select: { id: true, name: true } },
-      },
-    }),
+        measuredBy: { select: { id: true, name: true } }}}),
     prisma.boqItem.findMany({
       where: {...await scopeWhere("BoqItem"),  projectId, type: "LINE_ITEM" },
       orderBy: { serialNo: "asc" },
-      select: { id: true, serialNo: true, description: true, unit: true, rate: true },
-    }),
+      select: { id: true, serialNo: true, description: true, unit: true, rate: true }}),
     prisma.wbsNode.findMany({
       where: {...await scopeWhere("WbsNode"),  projectId },
       orderBy: { code: "asc" },
-      select: { id: true, code: true, name: true, boqItemId: true },
-    }),
+      select: { id: true, code: true, name: true, boqItemId: true }}),
   ]);
 
   const totalMeasured = entries.reduce((s, e) => s + toNum(e.measuredQty), 0);
@@ -770,8 +734,7 @@ async function ConstructionMbTab({ projectId }: { projectId?: string }) {
     measureDate: e.measureDate.toISOString(),
     description: e.description,
     measuredByName: e.measuredBy?.name ?? "—",
-    status: e.status,
-  }));
+    status: e.status}));
 
   return (
     <div>

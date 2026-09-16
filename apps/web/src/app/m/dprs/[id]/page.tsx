@@ -3,7 +3,7 @@ import Image from "next/image";
 import { prisma } from "@nirman/db";
 import { Cloud, Hammer, Users, CheckCircle2, XCircle } from "lucide-react";
 import { getUserPermissions, toNum, scopeWhere, getCurrentUser } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
 import { formatDate, formatNumber, formatCurrency } from "@/lib/utils";
 import { AttachmentList } from "@/components/attachments/attachment-list";
@@ -24,7 +24,7 @@ export default function MobileDprDetailPage({
 }) {
   return (
     <MobileDetailPage params={params} managePerm={PERM.HR_MANAGE} skeletonSections={6}>
-      {async ({ id, company, role, canManage }) => {
+      {async ({ id, company, role, canManage, actingRole, perms }) => {
         const overrides = await getUserPermissions();
 
         const dpr = await prisma.dailyProgressReport.findFirst({
@@ -56,10 +56,10 @@ export default function MobileDprDetailPage({
           );
         }
 
-        const canApproveSubAdmin = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN);
-        const canApproveAdmin = hasPermission(role, PERM.DPR_APPROVE_ADMIN);
-        const canResubmit = hasPermission(role, PERM.DPR_SUBMIT);
-        const canMarkCostPosted = hasPermission(role, PERM.FINANCE_VIEW);
+        const canApproveSubAdmin = perms.includes(PERM.DPR_APPROVE_SUB_ADMIN);
+        const canApproveAdmin = perms.includes(PERM.DPR_APPROVE_ADMIN);
+        const canResubmit = perms.includes(PERM.DPR_SUBMIT);
+        const canMarkCostPosted = perms.includes(PERM.FINANCE_VIEW);
         const currentUser = await getCurrentUser();
         const currentUserId = currentUser?.id ?? null;
 
@@ -108,7 +108,7 @@ export default function MobileDprDetailPage({
         let nextAction = resolveNextAction("dpr", dpr.approvalStatus, role, overrides);
         // Suppress approve cards for the submitter unless tier-1 (OWNER/ADMIN)
         // — they CAN self-approve, so the card is the correct next action.
-        if (isSubmitter && !canAutoApprove(role) && nextAction && (nextAction.perm === PERM.DPR_APPROVE_SUB_ADMIN || nextAction.perm === PERM.DPR_APPROVE_ADMIN)) {
+        if (isSubmitter && !canAutoApprove(actingRole) && nextAction && (nextAction.perm === PERM.DPR_APPROVE_SUB_ADMIN || nextAction.perm === PERM.DPR_APPROVE_ADMIN)) {
           nextAction = undefined;
         }
 
@@ -478,7 +478,7 @@ export default function MobileDprDetailPage({
               costPosted={!!dpr.costPostedDate}
               submittedById={dpr.submittedBy?.id ?? null}
               currentUserId={currentUserId}
-              canSelfApprove={canAutoApprove(role)}
+              canSelfApprove={canAutoApprove(actingRole)}
             />
           </div>
           </PageContextProvider>

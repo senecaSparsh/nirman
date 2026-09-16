@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getCompanyGroupIds, getCurrentUser, getCurrentUserMembership, toNum, getUserRole, scopeWhere, projectScopeFilter } from "@/lib/server";
+import { getActingRole, getCompany, getCompanyGroupIds, getCurrentUser, getCurrentUserMembership, toNum, scopeWhere, projectScopeFilter, getUserPermissions } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
 import { PageHeader } from "@/components/page-header";
 import { ProcurementView } from "@/components/procurement/procurement-view";
@@ -11,8 +11,7 @@ import { PageLoading } from "@/components/page-loading";
 import type {
   SupplierRow, PurchaseOrderRow, MaterialRow, StockLocationRow,
   ProjectOption, DirectPurchaseRow, MaterialCategory,
-  RequisitionRow, SupplierReturnRow, QuotationRequestRow,
-} from "@/lib/types";
+  RequisitionRow, SupplierReturnRow, QuotationRequestRow} from "@/lib/types";
 
 import { NoAccess } from "@/components/no-access";
 import { DepartmentActivityFeed } from "@/components/department-activity-feed";
@@ -28,24 +27,24 @@ export default function ProcurementPage() {
 
 async function ProcurementContent() {
   await connection();
-  const role = await getUserRole();
+  const actingRole = await getActingRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.PROCUREMENT_VIEW)) {
+  if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) {
     return (
       <NoAccess what="purchase orders" />
     );
   }
 
   const perms = {
-    canCreate: hasPermission(role, PERM.PROCUREMENT_MANAGE),
-    canCreateRequisition: hasPermission(role, PERM.REQUISITION_CREATE),
-    canApprove: hasPermission(role, PERM.PO_APPROVE),
-    canSelfApprove: canAutoApprove(role),
-    canManagePayments: hasPermission(role, PERM.FINANCE_MANAGE),
-    canApproveRequisitions: hasPermission(role, PERM.REQUISITION_APPROVE),
-    canReceiveGoods: hasPermission(role, PERM.PROCUREMENT_MANAGE) || hasPermission(role, PERM.INVENTORY_MANAGE),
-  };
+    canCreate: __effPerms.includes(PERM.PROCUREMENT_MANAGE),
+    canCreateRequisition: __effPerms.includes(PERM.REQUISITION_CREATE),
+    canApprove: __effPerms.includes(PERM.PO_APPROVE),
+    canSelfApprove: canAutoApprove(actingRole),
+    canManagePayments: __effPerms.includes(PERM.FINANCE_MANAGE),
+    canApproveRequisitions: __effPerms.includes(PERM.REQUISITION_APPROVE),
+    canReceiveGoods: __effPerms.includes(PERM.PROCUREMENT_MANAGE) || __effPerms.includes(PERM.INVENTORY_MANAGE)};
 
   // Company group: current company + siblings/parent/children. PO destination
   // locations (a project site in a sibling/child SPV) are selectable across
@@ -63,9 +62,7 @@ async function ProcurementContent() {
         supplier: { select: { id: true, name: true } },
         project: { select: { id: true, name: true } },
         destinationLocation: { select: { id: true, name: true, type: true } },
-        lines: { select: { qtyOrdered: true, qtyReceived: true } },
-      },
-    }),
+        lines: { select: { qtyOrdered: true, qtyReceived: true } }}}),
     prisma.supplier.findMany({
       take: 500,
       // All non-deleted suppliers in this company — not just those with existing POs.
@@ -74,11 +71,7 @@ async function ProcurementContent() {
       include: {
         _count: {
           select: {
-            purchaseOrders: { where: { companyId: company.id, status: { in: ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"] } } },
-          },
-        },
-      },
-    }),
+            purchaseOrders: { where: { companyId: company.id, status: { in: ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"] } } }}}}}),
     prisma.material.findMany({
       take: 500,
       where: { companyId: company.id, deletedAt: null },
@@ -87,10 +80,7 @@ async function ProcurementContent() {
         category: { select: { id: true, name: true, unit: true } },
         stockItems: {
           where: { location: { deletedAt: null, companyId: company.id } },
-          select: { qty: true, movingAvgCost: true },
-        },
-      },
-    }),
+          select: { qty: true, movingAvgCost: true }}}}),
     prisma.stockLocation.findMany({
       take: 500,
       // Include locations across the whole company group so PO destinations
@@ -100,15 +90,12 @@ async function ProcurementContent() {
       include: {
         company: { select: { id: true, name: true } },
         project: { select: { id: true, name: true } },
-        stockItems: { select: { qty: true, movingAvgCost: true } },
-      },
-    }),
+        stockItems: { select: { qty: true, movingAvgCost: true } }}}),
     prisma.project.findMany({
       take: 200,
       where: { companyId: company.id, deletedAt: null, ...await projectScopeFilter() ?? {} },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, type: true, status: true },
-    }),
+      select: { id: true, name: true, type: true, status: true }}),
     prisma.directPurchase.findMany({
       take: 500,
       where: { companyId: company.id },
@@ -118,19 +105,14 @@ async function ProcurementContent() {
         location: { select: { id: true, name: true } },
         lines: {
           include: {
-            material: { select: { id: true, code: true, name: true, unit: true } },
-          },
-        },
-      },
-    }),
+            material: { select: { id: true, code: true, name: true, unit: true } }}}}}),
     // Company-scoped catalog entity; needed by the inline material
     // creator inside the PO form's line items.
     prisma.materialCategory.findMany({
       take: 200,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, unit: true },
-    }),
+      select: { id: true, name: true, unit: true }}),
     // ── Requisitions (indents) — for the Indents tab ──
     prisma.materialRequisition.findMany({
       take: 500,
@@ -139,27 +121,21 @@ async function ProcurementContent() {
         OR: [
           { project: { companyId: company.id, deletedAt: null } },
           { department: { companyId: company.id, deletedAt: null } },
-        ],
-      },
+        ]},
       orderBy: { createdAt: "desc" },
       include: {
         project: { select: { name: true } },
         phase: { select: { name: true } },
         lines: {
-          include: { material: { select: { code: true, name: true, unit: true } } },
-        },
+          include: { material: { select: { code: true, name: true, unit: true } } }},
         vendorQuotes: {
           where: { status: { not: "REJECTED" } },
-          select: { id: true, landedTotal: true, isCheapest: true, status: true },
-        },
-      },
-    }),
+          select: { id: true, landedTotal: true, isCheapest: true, status: true }}}}),
     // Project phases — needed by the requisitions view's phase selector
     prisma.projectPhase.findMany({
       take: 200,
       where: {...await scopeWhere("ProjectPhase"),  project: { companyId: company.id, deletedAt: null } },
-      select: { id: true, name: true, projectId: true },
-    }),
+      select: { id: true, name: true, projectId: true }}),
     // ── Supplier returns — for the Returns tab ──
     prisma.supplierReturn.findMany({
       take: 500,
@@ -169,10 +145,7 @@ async function ProcurementContent() {
         supplier: { select: { name: true } },
         location: { select: { name: true } },
         lines: {
-          include: { material: { select: { code: true, name: true, unit: true } } },
-        },
-      },
-    }),
+          include: { material: { select: { code: true, name: true, unit: true } } }}}}),
     // ── Quotation requests — for the Quotations tab ──
     prisma.quotationRequest.findMany({
       where: { companyId: company.id },
@@ -184,18 +157,14 @@ async function ProcurementContent() {
         lines: { select: { id: true } },
         quotes: {
           where: { status: { not: "REJECTED" } },
-          select: { id: true, landedTotal: true, status: true, isCheapest: true },
-        },
-        convertedPo: { select: { id: true, poNumber: true, status: true } },
-      },
-    }),
+          select: { id: true, landedTotal: true, status: true, isCheapest: true }},
+        convertedPo: { select: { id: true, poNumber: true, status: true } }}}),
     // Direct reports — for the "Your approval" badge on quotation requests
     membership
       ? prisma.userCompany.findMany({
           take: 200,
           where: { reportsToUserCompanyId: membership.id, user: { isHidden: { not: true } } },
-          select: { id: true },
-        })
+          select: { id: true }})
       : [],
   ]);
 
@@ -224,8 +193,7 @@ async function ProcurementContent() {
       totalReceived,
       receivedPct: totalOrdered > 0 ? Math.round((totalReceived / totalOrdered) * 100) : 0,
       createdAt: po.createdAt.toISOString(),
-      createdById: po.createdById,
-    };
+      createdById: po.createdById};
   });
 
   const supplierRows: SupplierRow[] = suppliers.map((s) => ({
@@ -238,14 +206,12 @@ async function ProcurementContent() {
     balanceOwed: toNum(s.balanceOwed),
     openPOs: s._count.purchaseOrders,
     poCount: s._count.purchaseOrders,
-    leadTimeDays: s.leadTimeDays,
-  }));
+    leadTimeDays: s.leadTimeDays}));
 
   const categoryRows: MaterialCategory[] = categories.map((c) => ({
     id: c.id,
     name: c.name,
-    unit: c.unit,
-  }));
+    unit: c.unit}));
 
   const materialRows: MaterialRow[] = materials.map((m) => {
     const totalQty = m.stockItems.reduce((s, i) => s + toNum(i.qty), 0);
@@ -266,8 +232,7 @@ async function ProcurementContent() {
       secondaryUnit: m.secondaryUnit,
       uomConversionFactor: m.uomConversionFactor == null ? null : toNum(m.uomConversionFactor),
       description: m.description, totalQty, totalValue,
-      lowStock: m.minStock != null && totalQty < toNum(m.minStock),
-    };
+      lowStock: m.minStock != null && totalQty < toNum(m.minStock)};
   });
 
   const locationRows: StockLocationRow[] = locations.map((l) => ({
@@ -279,12 +244,10 @@ async function ProcurementContent() {
     companyName: l.company.name,
     lat: l.lat,
     lng: l.lng,
-    geoRadius: l.geoRadius,
-  }));
+    geoRadius: l.geoRadius}));
 
   const projectRows: ProjectOption[] = projects.map((p) => ({
-    id: p.id, name: p.name, type: p.type, status: p.status,
-  }));
+    id: p.id, name: p.name, type: p.type, status: p.status}));
 
   const directPurchaseRows: DirectPurchaseRow[] = directPurchases.map((p) => ({
     id: p.id,
@@ -316,9 +279,7 @@ async function ProcurementContent() {
       qty: toNum(l.qty),
       unitCost: toNum(l.unitCost),
       gstRate: toNum(l.gstRate),
-      lineTotal: toNum(l.qty) * toNum(l.unitCost),
-    })),
-  }));
+      lineTotal: toNum(l.qty) * toNum(l.unitCost)}))}));
 
   // ── Requisition rows (for Indents tab) ──
   const requisitionRows: RequisitionRow[] = requisitions.map((r) => ({
@@ -340,8 +301,7 @@ async function ProcurementContent() {
     minQuotesRequired: r.minQuotesRequired,
     quotesWaived: r.quotesWaived,
     hasWinningQuote: r.vendorQuotes.some((q) => q.status === "SELECTED"),
-    lciDecision: r.lciDecision as { recommendedScope: "COMPANY" | "PROJECT"; threshold: number } | null,
-  }));
+    lciDecision: r.lciDecision as { recommendedScope: "COMPANY" | "PROJECT"; threshold: number } | null}));
 
   // ── Supplier return rows (for Returns tab) ──
   const supplierReturnRows: SupplierReturnRow[] = supplierReturns.map((r) => ({
@@ -368,9 +328,7 @@ async function ProcurementContent() {
       materialName: l.material.name,
       materialUnit: l.material.unit,
       qty: toNum(l.qty),
-      reason: l.reason,
-    })),
-  }));
+      reason: l.reason}))}));
 
   // ── Quotation request rows (for Quotations tab) ──
   const reportIds = new Set(directReports.map((r) => r.id));
@@ -392,8 +350,7 @@ async function ProcurementContent() {
       cheapestLandedTotal: cheapest ? toNum(cheapest.landedTotal) : null,
       convertedPoId: r.convertedPo?.id ?? null,
       convertedPoNumber: r.convertedPo?.poNumber ?? null,
-      createdAt: r.createdAt.toISOString(),
-    };
+      createdAt: r.createdAt.toISOString()};
   });
 
   const openPoValue = poRows

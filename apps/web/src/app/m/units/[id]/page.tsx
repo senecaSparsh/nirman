@@ -1,22 +1,19 @@
 import { prisma } from "@nirman/db";
 import {
-  Home, ShoppingCart, Building2, TrendingUp,
-} from "lucide-react";
+  Home, ShoppingCart, Building2, TrendingUp} from "lucide-react";
 import { toNum, getUserPermissions, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
 import {
   MobileEmptyState,
-  MobileCta,
-} from "@/components/mobile/v2/primitives";
+  MobileCta} from "@/components/mobile/v2/primitives";
 import {
   DetailHeroCard,
   DetailProgress,
   DetailKeyValue,
   DetailKeyValueCard,
   DetailStatGrid,
-  DetailLinkRow,
-} from "@/components/mobile/v2/detail-primitives";
+  DetailLinkRow} from "@/components/mobile/v2/detail-primitives";
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
 import { resolveNextAction } from "@/lib/flow-map";
 import { ShareButton } from "@/components/share-button";
@@ -36,13 +33,12 @@ import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
  *   6. Actions — Sell CTA + Share (if sellable)
  */
 export default function MobileUnitDetailPage({
-  params,
-}: {
+  params}: {
   params: Promise<{ id: string }>;
 }) {
   return (
     <MobileDetailPage params={params} managePerm={PERM.ASSETS_MANAGE} skeletonSections={6}>
-      {async ({ id, company, role, canManage }) => {
+      {async ({ id, company, role, canManage, perms }) => {
         const overrides = await getUserPermissions();
 
         const unit = await prisma.builtUnit.findFirst({
@@ -53,10 +49,7 @@ export default function MobileUnitDetailPage({
             assetSales: {
               take: 1,
               orderBy: { createdAt: "desc" },
-              include: { customer: { select: { id: true, name: true, phone: true } } },
-            },
-          },
-        });
+              include: { customer: { select: { id: true, name: true, phone: true } } }}}});
 
         if (!unit) {
           return (
@@ -66,7 +59,7 @@ export default function MobileUnitDetailPage({
           );
         }
 
-        const canSell = hasPermission(role, PERM.SALE_CREATE);
+        const canSell = perms.includes(PERM.SALE_CREATE);
         const isSellable = unit.status === "AVAILABLE";
 
         const askingPrice = unit.askingPrice ? toNum(unit.askingPrice) : null;
@@ -141,8 +134,7 @@ export default function MobileUnitDetailPage({
             canActions: [
               ...(canManage ? [PERM.ASSETS_MANAGE] : []),
               ...(canSell ? [PERM.SALE_CREATE] : []),
-            ],
-          }}>
+            ]}}>
           <div>
             {/* ── Next action — the one thing to do, doable on this page ── */}
             {nextAction ? (
@@ -203,8 +195,7 @@ export default function MobileUnitDetailPage({
                 className="rounded-[0.625rem] border p-3 mb-3"
                 style={{
                   borderColor: "var(--color-line)",
-                  backgroundColor: unit.status === "SOLD" ? "var(--color-go-wash)" : "var(--color-signal-wash)",
-                }}
+                  backgroundColor: unit.status === "SOLD" ? "var(--color-go-wash)" : "var(--color-signal-wash)"}}
               >
                 <div className="flex items-center gap-1.5 mb-2">
                   <span

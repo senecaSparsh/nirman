@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import Link from "next/link";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, getCurrentUser, toNum, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getCurrentUser, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatDate, formatCurrencyCompact } from "@/lib/utils";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import {
@@ -35,12 +35,12 @@ export default function MobilePendingListPage() {
 
 async function MobilePendingListContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
   const currentUser = await getCurrentUser();
   const userId = currentUser?.id ?? "";
 
-  if (!hasPermission(role, PERM.HR_VIEW)) {
+  if (!__effPerms.includes(PERM.HR_VIEW)) {
     return (
       <div className="p-4 text-center">
         <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>You don&apos;t have access to the pending list.</p>

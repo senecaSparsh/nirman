@@ -4,8 +4,8 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { ClipboardList, FileText } from "lucide-react";
-import { getCompany, toNum, getUserRole, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -31,8 +31,8 @@ export default function MobileIssueRegisterPage() {
 
 async function MobileIssueRegisterContent() {
   await connection();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.INVENTORY_VIEW)) notFound();
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.INVENTORY_VIEW)) notFound();
   const company = await getCompany();
 
   // Current financial year (Apr 1 → now)

@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
-import { hasPermission, PERM } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
@@ -9,14 +9,12 @@ import {
   MobileStatusBadge,
   SectionHead,
   MobilePipelineStepper,
-  type MobilePipelineStep,
-} from "@/components/mobile/v2/primitives";
+  type MobilePipelineStep} from "@/components/mobile/v2/primitives";
 import {
   DetailHeroCard,
   DetailStatGrid,
   DetailKeyValueCard,
-  DetailLinkRow,
-} from "@/components/mobile/v2/detail-primitives";
+  DetailLinkRow} from "@/components/mobile/v2/detail-primitives";
 import { FileText, Wrench, IndianRupee, TrendingUp, Building } from "lucide-react";
 import { MobileWorkOrderActions } from "./MobileWorkOrderActions";
 import { MobileRaBillActions } from "./MobileRaBillActions";
@@ -26,13 +24,12 @@ import { PageContextProvider } from "@/components/mobile/v2/page-context";
 export const metadata = { title: "Work Order — Nirman" };
 
 export default function MobileWorkOrderDetailPage({
-  params,
-}: {
+  params}: {
   params: Promise<{ id: string }>;
 }) {
   return (
     <MobileDetailPage params={params} perm={[PERM.WO_MANAGE, PERM.RA_SUBMIT, PERM.RA_APPROVE, PERM.RA_PAY]} what="work order details" permission={PERM.WO_MANAGE} managePerm={PERM.WO_MANAGE} skeletonSections={5}>
-      {async ({ id, company, role, canManage }) => {
+      {async ({ id, company, canManage, actingRole, perms }) => {
         const wo = await prisma.subcontractorWorkOrder.findFirst({
           where: {...await scopeWhere("SubcontractorWorkOrder"),  id, companyId: company.id },
           include: {
@@ -41,10 +38,8 @@ export default function MobileWorkOrderDetailPage({
             phase: { select: { id: true, name: true } },
             lines: {
               include: {
-                boqItem: { select: { id: true, description: true, unit: true } },
-              },
-              orderBy: { agreedRate: "asc" },
-            },
+                boqItem: { select: { id: true, description: true, unit: true } }},
+              orderBy: { agreedRate: "asc" }},
             raBills: {
               orderBy: { billDate: "desc" },
               take: 10,
@@ -57,11 +52,7 @@ export default function MobileWorkOrderDetailPage({
                 netPayable: true,
                 cumulativeGross: true,
                 createdById: true,
-                submittedById: true,
-              },
-            },
-          },
-        });
+                submittedById: true}}}});
 
         if (!wo) {
           return (
@@ -73,9 +64,9 @@ export default function MobileWorkOrderDetailPage({
           );
         }
 
-        const canPay = hasPermission(role, PERM.RA_PAY);
-        const canSubmitRaBill = hasPermission(role, PERM.RA_SUBMIT);
-        const canApproveRaBill = hasPermission(role, PERM.RA_APPROVE);
+        const canPay = perms.includes(PERM.RA_PAY);
+        const canSubmitRaBill = perms.includes(PERM.RA_SUBMIT);
+        const canApproveRaBill = perms.includes(PERM.RA_APPROVE);
         const currentUser = await getCurrentUser();
         const currentUserId = currentUser?.id ?? "";
         const totalWorkDone = toNum(wo.totalWorkDone);
@@ -113,8 +104,7 @@ export default function MobileWorkOrderDetailPage({
             status: wo.status,
             label: wo.workOrderNumber,
             subtitle: wo.subcontractor.name,
-            recordId: wo.id,
-          }}>
+            recordId: wo.id}}>
           <div className="flex flex-col gap-4 pb-20">
             {/* ── Header card ── */}
             <DetailHeroCard
@@ -271,7 +261,7 @@ export default function MobileWorkOrderDetailPage({
                         canPay={canPay}
                         isCreator={bill.createdById === currentUserId}
                         isSubmitter={bill.submittedById === currentUserId}
-                        canSelfApprove={canAutoApprove(role)}
+                        canSelfApprove={canAutoApprove(actingRole)}
                       />
                     </div>
                   ))}

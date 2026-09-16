@@ -8,9 +8,13 @@ const switchSchema = z.object({ companyId: z.string().min(1) });
 
 /**
  * POST /api/companies/switch — set the active company for the current
- * user by writing a long-lived cookie. The user must be a member of the
- * target company (or be the dev-bypass user, who can switch to any).
- * Subsequent server-side getCompany() reads this cookie.
+ * user by writing a long-lived cookie. Subsequent server-side
+ * getCompany() reads this cookie.
+ *
+ * Access control (deliberate policy — matches /api/company/switch):
+ * only OWNER/ADMIN may switch, and only to companies where they hold an
+ * active membership. Field staff and other members can never switch —
+ * an accidental membership in another company stays unreachable.
  */
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requireUser();
@@ -22,6 +26,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const { companyId } = parsed.data;
 
   const isDevBypass = process.env.AUTH_BYPASS === "true" && process.env.NODE_ENV !== "production" && user.id === "dev";
+  if (!isDevBypass && user.role !== "OWNER" && user.role !== "ADMIN") {
+    return json({ error: "Only owners and admins can switch companies" }, { status: 403 });
+  }
   const company = await prisma.company.findFirst({
     where: {
       id: companyId,

@@ -4,8 +4,8 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { CalendarDays, Plus } from "lucide-react";
-import { getCompany, getUserRole, getActionPermissions, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getActionPermissions, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { ANNUAL_LEAVE_ENTITLEMENT } from "@nirman/services";
 import {
   MobileEmptyState,
@@ -33,11 +33,11 @@ export default function MobileLeavesPage() {
 async function MobileLeavesContent() {
   await connection();
   const company = await getCompany();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.HR_VIEW)) {
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.HR_VIEW)) {
     redirect("/m");
   }
-  const canManage = hasPermission(role, PERM.HR_MANAGE);
+  const canManage = __effPerms.includes(PERM.HR_MANAGE);
   // Scope-aware action permissions
   const actions = await getActionPermissions();
 

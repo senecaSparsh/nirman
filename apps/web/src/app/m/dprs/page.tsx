@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileDprsList } from "./MobileDprsList";
@@ -10,10 +10,10 @@ import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 export default function MobileDprsPage() {
   return (
     <MobileListPage perm={PERM.DPR_VIEW} what="DPRs" permission="dpr.view">
-      {async ({ company, role }) => {
-        const canSubmit = hasPermission(role, PERM.DPR_SUBMIT);
-        const canApproveSubAdmin = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN);
-        const canApproveAdmin = hasPermission(role, PERM.DPR_APPROVE_ADMIN);
+      {async ({ company, actingRole, perms }) => {
+        const canSubmit = perms.includes(PERM.DPR_SUBMIT);
+        const canApproveSubAdmin = perms.includes(PERM.DPR_APPROVE_SUB_ADMIN);
+        const canApproveAdmin = perms.includes(PERM.DPR_APPROVE_ADMIN);
         const currentUser = await getCurrentUser();
         const currentUserId = currentUser?.id ?? null;
 
@@ -24,9 +24,7 @@ export default function MobileDprsPage() {
           take: BATCH_SIZE + 1,
           include: {
             project: { select: { id: true, name: true } },
-            submittedBy: { select: { id: true, name: true } },
-          },
-        });
+            submittedBy: { select: { id: true, name: true } }}});
 
         const hasMore = dprs.length > BATCH_SIZE;
         const batch = hasMore ? dprs.slice(0, BATCH_SIZE) : dprs;
@@ -45,8 +43,7 @@ export default function MobileDprsPage() {
           submittedById: d.submittedBy?.id ?? null,
           approvalStatus: d.approvalStatus,
           progressPct: toNum(d.progressPct),
-          workType: d.workType ?? null,
-        }));
+          workType: d.workType ?? null}));
 
         const csvColumns: MobileColumnSpec[] = [
           { key: "date", label: "Date", format: "date" },
@@ -72,7 +69,7 @@ export default function MobileDprsPage() {
               canSubmit={canSubmit}
               canApproveSubAdmin={canApproveSubAdmin}
               canApproveAdmin={canApproveAdmin}
-              canSelfApprove={canAutoApprove(role)}
+              canSelfApprove={canAutoApprove(actingRole)}
               currentUserId={currentUserId}
               submittedCount={submittedCount}
               loadMoreUrl="/api/dprs"
@@ -113,33 +110,27 @@ async function fetchDprFormData(companyId: string) {
   const [todayDprs, yesterdayDprs, projects, employees, crews, materials] = await Promise.all([
     prisma.dailyProgressReport.findMany({
       where: {...await scopeWhere("DailyProgressReport"),  companyId, date: { gte: startOfToday, lt: endOfToday } },
-      include: { materialLines: true, laborLines: true },
-    }),
+      include: { materialLines: true, laborLines: true }}),
     prisma.dailyProgressReport.findMany({
       where: {...await scopeWhere("DailyProgressReport"),  companyId, date: { gte: startOfYesterday, lt: startOfToday } },
-      include: { materialLines: true, laborLines: true },
-    }),
+      include: { materialLines: true, laborLines: true }}),
     prisma.project.findMany({
       where: { companyId, deletedAt: null, status: { in: ["ACTIVE", "PLANNED"] } },
       select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
+      orderBy: { name: "asc" }}),
     prisma.employee.findMany({
       where: { companyId, deletedAt: null, active: true },
       select: { id: true, name: true, trade: true },
-      orderBy: { name: "asc" },
-    }),
+      orderBy: { name: "asc" }}),
     prisma.crew.findMany({
       where: {...await scopeWhere("Crew"),  companyId },
       select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
+      orderBy: { name: "asc" }}),
     prisma.material.findMany({
       where: { companyId, deletedAt: null, stockItems: { some: { location: { companyId } } } },
       select: { id: true, name: true, unit: true, standardCost: true },
       orderBy: { name: "asc" },
-      take: 100,
-    }),
+      take: 100}),
   ]);
 
   const existingDprsByProject: Record<string, {
@@ -175,15 +166,12 @@ async function fetchDprFormData(companyId: string) {
       materialLines: d.materialLines.map((l) => ({
         materialId: l.materialId,
         qty: toNum(l.qty),
-        unitCost: toNum(l.unitCost),
-      })),
+        unitCost: toNum(l.unitCost)})),
       laborLines: d.laborLines.map((l) => ({
         employeeId: l.employeeId,
         crewId: l.crewId,
         hoursWorked: toNum(l.hoursWorked),
-        taskDescription: l.taskDescription,
-      })),
-    };
+        taskDescription: l.taskDescription}))};
   }
 
   const yesterdayDprsByProject: Record<string, {
@@ -199,15 +187,12 @@ async function fetchDprFormData(companyId: string) {
       materialLines: d.materialLines.map((l) => ({
         materialId: l.materialId,
         qty: toNum(l.qty),
-        unitCost: toNum(l.unitCost),
-      })),
+        unitCost: toNum(l.unitCost)})),
       laborLines: d.laborLines.map((l) => ({
         employeeId: l.employeeId,
         crewId: l.crewId,
         hoursWorked: toNum(l.hoursWorked),
-        taskDescription: l.taskDescription,
-      })),
-    };
+        taskDescription: l.taskDescription}))};
   }
 
   return {
@@ -216,6 +201,5 @@ async function fetchDprFormData(companyId: string) {
     crews: crews.map((c) => ({ id: c.id, name: c.name })),
     materials: materials.map((m) => ({ id: m.id, name: m.name, unit: m.unit, standardCost: toNum(m.standardCost) })),
     existingDprsByProject,
-    yesterdayDprsByProject,
-  };
+    yesterdayDprsByProject};
 }

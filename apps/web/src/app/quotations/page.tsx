@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, getCurrentUserMembership, toNum, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getCurrentUserMembership, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
 import { PageHeader } from "@/components/page-header";
@@ -30,11 +30,11 @@ export default function QuotationsPage() {
 
 async function QuotationsContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
   const membership = await getCurrentUserMembership();
 
-  if (!hasPermission(role, PERM.QUOTATION_VIEW)) {
+  if (!__effPerms.includes(PERM.QUOTATION_VIEW)) {
     return <NoAccess what="quotations" />;
   }
 
@@ -49,17 +49,13 @@ async function QuotationsContent() {
         lines: { select: { id: true } },
         quotes: {
           where: { status: { not: "REJECTED" } },
-          select: { id: true, landedTotal: true, status: true, isCheapest: true },
-        },
-        convertedPo: { select: { id: true, poNumber: true, status: true } },
-      },
-    }),
+          select: { id: true, landedTotal: true, status: true, isCheapest: true }},
+        convertedPo: { select: { id: true, poNumber: true, status: true } }}}),
     membership
       ? prisma.userCompany.findMany({
           take: 200,
           where: { reportsToUserCompanyId: membership.id, user: { isHidden: { not: true } } },
-          select: { id: true },
-        })
+          select: { id: true }})
       : [],
   ]);
 
@@ -82,8 +78,7 @@ async function QuotationsContent() {
       cheapestLandedTotal: cheapest ? toNum(cheapest.landedTotal) : null,
       convertedPoId: r.convertedPo?.id ?? null,
       convertedPoNumber: r.convertedPo?.poNumber ?? null,
-      createdAt: r.createdAt.toISOString(),
-    };
+      createdAt: r.createdAt.toISOString()};
   });
 
   const pendingCount = quotationRequestRows.filter((r) => r.status === "OPEN" || r.status === "QUOTING").length;

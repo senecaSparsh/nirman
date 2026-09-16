@@ -5,8 +5,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { Scale, CheckCircle2, AlertTriangle } from "lucide-react";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, cn } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -25,8 +25,8 @@ export default function MobileBalanceSheetPage() {
 
 async function MobileBalanceSheetContent() {
   await connection();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
   const company = await getCompany();
 
   const asOf = new Date();

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { createFeedback, listFeedback } from "@nirman/services";
-import { apiHandler, getCompany, json, requireUser } from "@/lib/server";
+import { getActingRole, apiHandler, getCompany, json, requireUser } from "@/lib/server";
 
 /**
  * POST /api/feedback — submit instant feedback (any authenticated user).
@@ -67,9 +67,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
  *   - offset: number (default 0)
  */
 export const GET = apiHandler(async (req: NextRequest) => {
-  const user = await requireUser();
+  await requireUser();
   // Only the developer can view the feedback inbox.
-  if (user.role !== "DEVELOPER") {
+  if ((await getActingRole()) !== "DEVELOPER") {
     return json({ error: "Forbidden — only the developer can view feedback." }, { status: 403 });
   }
 

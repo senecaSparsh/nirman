@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma, type StockMovementType } from "@nirman/db";
-import { getCompany, toNum, getUserRole, scopeWhere } from "@/lib/server";
+import { getCompany, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { InventoryValueReport } from "@/components/reports/inventory-value-report";
@@ -39,10 +39,10 @@ async function InventoryValueContent({
 }) {
   await connection();
   const { asOn: asOnParam } = await searchParams;
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.INVENTORY_VIEW)) {
+  if (!__effPerms.includes(PERM.INVENTORY_VIEW)) {
     return <NoAccess what="the inventory value report" />;
   }
 

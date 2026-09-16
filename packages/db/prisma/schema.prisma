@@ -52,6 +52,10 @@ model Company {
   // an ADMIN; at or above the admin threshold require the OWNER.
   poApprovalThresholdManager Decimal? @db.Decimal(14, 2) // default 50,000
   poApprovalThresholdAdmin   Decimal? @db.Decimal(14, 2) // default 500,000
+  // Approvals waiting longer than this many hours trigger the daily
+  // escalation digest (/api/cron/approval-aging) to OWNER/ADMIN/
+  // PROJECT_DIRECTOR + active delegates.
+  approvalAgingHours         Int      @default(48)
   // ── Call recording config ──
   recordingConsentBeep       Boolean @default(true)   // play "calls may be recorded" beep
   recordingRetentionDays     Int     @default(365)     // how long to keep recordings

@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { BrokersView } from "@/components/brokers/brokers-view";
 import { NoAccess } from "@/components/no-access";
@@ -10,8 +10,8 @@ import type { BrokerRow } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 export default async function BrokersPage() {
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.SALES_VIEW)) return <NoAccess />;
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.SALES_VIEW)) return <NoAccess />;
 
   const company = await getCompany();
 
@@ -49,9 +49,9 @@ export default async function BrokersPage() {
   const totalUnpaid = rows.reduce((s, b) => s + (b.totalCommission - b.commissionPaid), 0);
 
   const perms = {
-    canCreate: hasPermission(role, PERM.SALE_CREATE),
-    canEdit: hasPermission(role, PERM.SALE_CREATE),
-    canDelete: hasPermission(role, PERM.SALE_CREATE),
+    canCreate: __effPerms.includes(PERM.SALE_CREATE),
+    canEdit: __effPerms.includes(PERM.SALE_CREATE),
+    canDelete: __effPerms.includes(PERM.SALE_CREATE),
   };
 
   return (

@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getCurrentUser, toNum, getUserRole, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission, migrateRole, ROLES } from "@/lib/roles";
+import { getCompany, getCurrentUser, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM, migrateRole, ROLES } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { RefreshButton } from "@/components/refresh-button";
 import { PageHeader } from "@/components/page-header";
@@ -23,11 +23,11 @@ export default function HrDashboardPage() {
 
 async function HrDashboardContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
   const currentUser = await getCurrentUser();
 
-  if (!hasPermission(role, PERM.HR_VIEW)) {
+  if (!__effPerms.includes(PERM.HR_VIEW)) {
     return <NoAccess what="the HR module" />;
   }
 
@@ -61,32 +61,27 @@ async function HrDashboardContent() {
     prisma.payrollPeriod.findFirst({
       where: { companyId: company.id },
       orderBy: [{ year: "desc" }, { month: "desc" }],
-      include: { _count: { select: { lines: true } } },
-    }),
+      include: { _count: { select: { lines: true } } }}),
     prisma.dailyProgressReport.findMany({
       where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, date: { gte: weekAgo } },
       orderBy: { date: "desc" },
       take: 8,
-      include: { project: { select: { name: true } }, submittedBy: { select: { name: true } } },
-    }),
+      include: { project: { select: { name: true } }, submittedBy: { select: { name: true } } }}),
     prisma.payrollPeriod.count({ where: { companyId: company.id, status: "DRAFT" } }),
     prisma.dailyProgressReport.count({ where: { companyId: company.id, approvalStatus: "SUBMITTED" } }),
     prisma.leaveRequest.count({ where: { companyId: company.id, status: "PENDING" } }),
     prisma.employee.findMany({
       take: 200,
       where: { companyId: company.id, deletedAt: null, active: true, ...await scopeWhere("Employee") },
-      select: { trade: true, dailyRate: true, wageType: true, monthlySalary: true },
-    }),
+      select: { trade: true, dailyRate: true, wageType: true, monthlySalary: true }}),
     prisma.workerAttendance.findMany({
       take: 200,
       where: {...await scopeWhere("WorkerAttendance"),  companyId: company.id, date: { gte: weekAgo } },
-      select: { date: true, status: true },
-    }),
+      select: { date: true, status: true }}),
     prisma.workerAttendance.findMany({
       take: 500,
       where: {...await scopeWhere("WorkerAttendance"),  companyId: company.id, date: todayDateOnly, status: { in: ["PRESENT", "OVERTIME"] } },
-      include: { project: { select: { name: true } } },
-    }),
+      include: { project: { select: { name: true } } }}),
     loadOrgTree(company.id, company.name, currentUser?.id ?? null),
   ]);
 
@@ -136,8 +131,7 @@ async function HrDashboardContent() {
     absent: v.absent,
     leave: v.leave,
     halfDay: v.halfDay,
-    overtime: v.overtime,
-  }));
+    overtime: v.overtime}));
 
   // Compute project presence today.
   // The denominator for each project is the number of workers who attended
@@ -189,8 +183,7 @@ async function HrDashboardContent() {
           totalGross: toNum(latestPayroll.totalGross),
           totalDeductions: toNum(latestPayroll.totalDeductions),
           totalNet: toNum(latestPayroll.totalNet),
-          employeeCount: latestPayroll._count.lines,
-        } : null}
+          employeeCount: latestPayroll._count.lines} : null}
         recentDprs={recentDprs.map((dpr) => ({
           id: dpr.id,
           workSummary: dpr.workSummary,
@@ -198,8 +191,7 @@ async function HrDashboardContent() {
           date: dpr.date.toISOString(),
           project: { name: dpr.project.name },
           submittedBy: dpr.submittedBy ? { name: dpr.submittedBy.name } : null,
-          approvalStatus: dpr.approvalStatus,
-        }))}
+          approvalStatus: dpr.approvalStatus}))}
         tradeBreakdown={tradeBreakdown}
         attendanceTrend={attendanceTrend}
         projectPresence={projectPresence}
@@ -238,25 +230,18 @@ async function loadOrgTree(
           active: true,
           designation: true,
           department: true,
-          employeeCode: true,
-        },
-      },
+          employeeCode: true}},
       scopes: {
         include: {
           department: { select: { name: true } },
-          project: { select: { name: true } },
-        },
-      },
-    },
-    orderBy: { user: { name: "asc" } },
-  });
+          project: { select: { name: true } }}}},
+    orderBy: { user: { name: "asc" } }});
 
   // ── Fetch hierarchy levels + employee IDs + on-site reporting lines from Employee records ──
   const userIds = memberships.map((m) => m.userId);
   const employees = await prisma.employee.findMany({
     where: { companyId, userId: { in: userIds }, deletedAt: null },
-    select: { id: true, userId: true, hierarchyLevel: true, reportsToEmployeeId: true },
-  });
+    select: { id: true, userId: true, hierarchyLevel: true, reportsToEmployeeId: true }});
   const employeeByUserId = new Map(employees.map((e) => [e.userId, e]));
 
   if (memberships.length === 0) {
@@ -269,28 +254,24 @@ async function loadOrgTree(
       projects: [],
       departments: [],
       labourByTrade: [],
-      labourCount: 0,
-    };
+      labourCount: 0};
   }
 
   const [tasks, allTasks, dprs, crews, unassignedEmployees, todayAttendanceRows, leaveRows] = await Promise.all([
     prisma.task.findMany({
       where: {...await scopeWhere("Task"),  assignedToId: { in: userIds }, status: { in: ["PENDING", "IN_PROGRESS"] } },
       select: { id: true, title: true, status: true, priority: true, dueDate: true, assignedToId: true },
-      orderBy: { createdAt: "desc" },
-    }),
+      orderBy: { createdAt: "desc" }}),
     prisma.task.findMany({
       where: {...await scopeWhere("Task"),  assignedToId: { in: userIds } },
       select: { id: true, title: true, status: true, priority: true, dueDate: true, assignedToId: true },
       orderBy: { createdAt: "desc" },
-      take: 500,
-    }),
+      take: 500}),
     prisma.dailyProgressReport.findMany({
       where: {...await scopeWhere("DailyProgressReport"),  submittedById: { in: userIds } },
       orderBy: { date: "desc" },
       take: userIds.length * 5,
-      select: { id: true, date: true, approvalStatus: true, submittedById: true, project: { select: { name: true } } },
-    }),
+      select: { id: true, date: true, approvalStatus: true, submittedById: true, project: { select: { name: true } } }}),
     prisma.crew.findMany({
       where: {...await scopeWhere("Crew"),  companyId, active: true },
       include: {
@@ -301,49 +282,36 @@ async function loadOrgTree(
           select: {
             id: true, name: true, trade: true, designation: true, wageType: true,
             dailyRate: true, monthlySalary: true, active: true, crewId: true,
-            phone: true, activeProject: { select: { name: true } },
-          },
-        },
-      },
-    }),
+            phone: true, activeProject: { select: { name: true } }}}}}),
     prisma.employee.findMany({
       where: { companyId, deletedAt: null, crewId: null, userId: { notIn: userIds } },
       select: {
         id: true, name: true, trade: true, designation: true, wageType: true,
         dailyRate: true, monthlySalary: true, active: true, crewId: true,
-        phone: true, activeProject: { select: { name: true } },
-      },
-    }),
+        phone: true, activeProject: { select: { name: true } }}}),
     prisma.workerAttendance.findMany({
       where: {...await scopeWhere("WorkerAttendance"), 
         company: { id: companyId },
         date: todayDateOnly,
-        employee: { userId: { in: userIds } },
-      },
+        employee: { userId: { in: userIds } }},
       select: {
         employeeId: true, status: true, checkIn: true, checkOut: true,
         employee: { select: { userId: true } },
-        project: { select: { name: true } },
-      },
-    }).catch(() => []),
+        project: { select: { name: true } }}}).catch(() => []),
     prisma.leaveRequest.findMany({
       where: {...await scopeWhere("LeaveRequest"), 
         company: { id: companyId },
         employee: { userId: { in: userIds } },
-        status: { in: ["PENDING", "APPROVED"] },
-      },
+        status: { in: ["PENDING", "APPROVED"] }},
       select: {
         id: true, employeeId: true, status: true, startDate: true, endDate: true,
-        employee: { select: { userId: true } },
-      },
-    }).catch(() => []),
+        employee: { select: { userId: true } }}}).catch(() => []),
   ]);
 
   // Fetch custom roles so the tree builder can resolve them
   const customRoles = await prisma.customRole.findMany({
     where: { companyId },
-    select: { key: true, label: true, baseRole: true, tier: true, hierarchyLevel: true },
-  }).catch(() => []);
+    select: { key: true, label: true, baseRole: true, tier: true, hierarchyLevel: true }}).catch(() => []);
   const customRoleMap = new Map(customRoles.map((r) => [r.key, r]));
 
   const roleTierFn = (role: string): number => {
@@ -373,8 +341,7 @@ async function loadOrgTree(
       ...m,
       hierarchyLevel: customRole?.hierarchyLevel ?? emp?.hierarchyLevel ?? null,
       employeeId: emp?.id ?? null,
-      reportsToEmployeeId: emp?.reportsToEmployeeId ?? null,
-    };
+      reportsToEmployeeId: emp?.reportsToEmployeeId ?? null};
   });
 
   const { roots, unassigned, projects, departments, labourByTrade, labourCount } = buildOrgTree(
@@ -401,6 +368,5 @@ async function loadOrgTree(
     projects,
     departments,
     labourByTrade,
-    labourCount,
-  };
+    labourCount};
 }

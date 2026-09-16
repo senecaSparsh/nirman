@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { MobileExpenseClaimsList, type ExpenseClaimListItem } from "./MobileExpenseClaimsList";
@@ -18,10 +18,10 @@ import { MobileFab } from "@/components/mobile/v2/scaffold";
 export default function MobileExpenseClaimsPage() {
   return (
     <MobileListPage>
-      {async ({ company, role }) => {
-        const canSeeAll = hasPermission(role, PERM.FINANCE_VIEW);
-        const canCreate = hasPermission(role, PERM.EXPENSE_CREATE) || hasPermission(role, PERM.CLAIM_CREATE);
-        const canApprove = hasPermission(role, PERM.EXPENSE_APPROVE);
+      {async ({ company, perms }) => {
+        const canSeeAll = perms.includes(PERM.FINANCE_VIEW);
+        const canCreate = perms.includes(PERM.EXPENSE_CREATE) || perms.includes(PERM.CLAIM_CREATE);
+        const canApprove = perms.includes(PERM.EXPENSE_APPROVE);
         const user = await getCurrentUser();
 
         if (!canSeeAll && !canCreate) {
@@ -34,15 +34,12 @@ export default function MobileExpenseClaimsPage() {
             ...await scopeWhere("ExpenseClaim"),
             companyId: company.id,
             // Self-service claimants see only their own claims.
-            ...(canSeeAll ? {} : { claimantId: user?.id ?? "none" }),
-          },
+            ...(canSeeAll ? {} : { claimantId: user?.id ?? "none" })},
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           take: BATCH_SIZE + 1,
           include: {
             claimant: { select: { id: true, name: true } },
-            project: { select: { id: true, name: true } },
-          },
-        });
+            project: { select: { id: true, name: true } }}});
 
         const hasMore = claims.length > BATCH_SIZE;
         const batch = hasMore ? claims.slice(0, BATCH_SIZE) : claims;
@@ -58,8 +55,7 @@ export default function MobileExpenseClaimsPage() {
           status: c.status,
           totalAmount: toNum(c.totalAmount),
           submittedAt: c.submittedAt?.toISOString() ?? c.createdAt.toISOString(),
-          description: c.description ?? null,
-        }));
+          description: c.description ?? null}));
 
         const totalAmount = rows.reduce((s, c) => s + c.totalAmount, 0);
         const pendingCount = rows.filter((c) => c.status === "SUBMITTED").length;

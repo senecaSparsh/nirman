@@ -5,8 +5,8 @@ import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { prisma } from "@nirman/db";
 import { amountInWords } from "@nirman/services";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
 import { ReceiptActions } from "./ReceiptActions";
@@ -50,8 +50,8 @@ async function MobileReceiptDetailContent({
 }) {
   await connection();
   const company = await getCompany();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.SALES_VIEW)) notFound();
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.SALES_VIEW)) notFound();
 
   const { id } = await params;
   const { kind } = await searchParams;

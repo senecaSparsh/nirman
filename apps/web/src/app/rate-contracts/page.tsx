@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getUserRole, getCompany } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
@@ -20,13 +20,13 @@ export default function RateContractsPage() {
 
 async function RcContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
 
-  if (!hasPermission(role, PERM.PROCUREMENT_VIEW)) {
+  if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) {
     return <NoAccess what="rate contracts" />;
   }
 
-  const canCreate = hasPermission(role, PERM.PROCUREMENT_MANAGE);
+  const canCreate = __effPerms.includes(PERM.PROCUREMENT_MANAGE);
 
   const company = await getCompany();
   const categories = await prisma.materialCategory.findMany({

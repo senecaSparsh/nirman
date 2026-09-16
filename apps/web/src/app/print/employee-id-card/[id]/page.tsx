@@ -1,8 +1,8 @@
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PrintToolbar } from "@/components/print/print-button";
 import { formatDate } from "@/lib/utils";
 
@@ -21,10 +21,10 @@ export default async function EmployeeIdCardPage({
 }) {
   await connection();
   const { id } = await params;
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.HR_VIEW)) {
+  if (!__effPerms.includes(PERM.HR_VIEW)) {
     return <div className="p-8 text-center text-muted-foreground">No access</div>;
   }
 

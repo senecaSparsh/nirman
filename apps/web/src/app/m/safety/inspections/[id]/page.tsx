@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { notFound } from "next/navigation";
-import { getCompany, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
 import { MobileInspectionDetailClient } from "./MobileInspectionDetailClient";
@@ -20,8 +20,8 @@ export default async function MobileInspectionDetailPage({ params }: { params: P
 async function MobileInspectionDetailContent({ id }: { id: string }) {
   await connection();
   const company = await getCompany();
-  const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.SAFETY_MANAGE);
+  const __effPerms = await getUserPermissions();
+  const canManage = __effPerms.includes(PERM.SAFETY_MANAGE);
 
   const insp = await prisma.safetyInspection.findUnique({
     where: { id },

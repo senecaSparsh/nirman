@@ -2,8 +2,8 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getUserRole, getCompany, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { toNum, getCompany, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import {formatNumber} from "@/lib/utils";
 import { notFound } from "next/navigation";
 
@@ -23,8 +23,9 @@ export default async function GatePassPrintPage({ params }: { params: Promise<{ 
   await connection();
   const { id } = await params;
 
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.GATE_PASS_VIEW)) {
+
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.GATE_PASS_VIEW)) {
     notFound();
   }
   const company = await getCompany();

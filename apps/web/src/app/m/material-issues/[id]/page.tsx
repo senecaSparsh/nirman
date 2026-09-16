@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { toNum, getUserPermissions, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
@@ -9,15 +9,14 @@ import { MobileMaterialIssueDetailClient } from "./MobileMaterialIssueDetailClie
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 export default function MobileMaterialIssueDetailPage({
-  params,
-}: {
+  params}: {
   params: Promise<{ id: string }>;
 }) {
   return (
     <MobileDetailPage params={params} skeletonSections={4}>
-      {async ({ id, company, role }) => {
+      {async ({ id, company, role, perms }) => {
         const overrides = await getUserPermissions();
-        const canIssue = hasPermission(role, PERM.STOCK_ISSUE);
+        const canIssue = perms.includes(PERM.STOCK_ISSUE);
 
         const issue = await prisma.materialIssue.findFirst({
           where: {...await scopeWhere("MaterialIssue"), 
@@ -25,8 +24,7 @@ export default function MobileMaterialIssueDetailPage({
             OR: [
               { project: { companyId: company.id } },
               { department: { companyId: company.id } },
-            ],
-          },
+            ]},
           include: {
             project: { select: { id: true, name: true } },
             department: { select: { id: true, code: true, name: true } },
@@ -38,12 +36,8 @@ export default function MobileMaterialIssueDetailPage({
             cancelledBy: { select: { name: true } },
             lines: {
               include: {
-                material: { select: { id: true, code: true, name: true, unit: true, hsnCode: true } },
-              },
-              orderBy: { material: { name: "asc" } },
-            },
-          },
-        });
+                material: { select: { id: true, code: true, name: true, unit: true, hsnCode: true } }},
+              orderBy: { material: { name: "asc" } }}}});
 
         if (!issue) {
           return <MobileMaterialIssueDetailClient notFound canCancel={false} />;
@@ -57,10 +51,8 @@ export default function MobileMaterialIssueDetailPage({
           const macRows = await prisma.stockLocationItem.findMany({
             where: {
               locationId: issue.fromLocationId,
-              materialId: { in: issue.lines.map((l) => l.material.id) },
-            },
-            select: { materialId: true, movingAvgCost: true },
-          });
+              materialId: { in: issue.lines.map((l) => l.material.id) }},
+            select: { materialId: true, movingAvgCost: true }});
           for (const r of macRows) pendingCostMap.set(r.materialId, toNum(r.movingAvgCost));
         }
 
@@ -70,8 +62,7 @@ export default function MobileMaterialIssueDetailPage({
         const linkedGp = await prisma.gatePass.findFirst({
           where: { refType: "MaterialIssue", refId: issue.id },
           select: { id: true, status: true, gatePassNumber: true },
-          orderBy: { createdAt: "desc" },
-        });
+          orderBy: { createdAt: "desc" }});
 
         const data = {
           id: issue.id,
@@ -113,9 +104,7 @@ export default function MobileMaterialIssueDetailPage({
             qty: toNum(l.qty),
             unitCost: toNum(l.unitCost) || pendingCostMap.get(l.material.id) || 0,
             lineTotal: toNum(l.qty) * (toNum(l.unitCost) || pendingCostMap.get(l.material.id) || 0),
-            costEstimated: toNum(l.unitCost) === 0 && (pendingCostMap.get(l.material.id) ?? 0) > 0,
-          })),
-        };
+            costEstimated: toNum(l.unitCost) === 0 && (pendingCostMap.get(l.material.id) ?? 0) > 0}))};
 
         // Lifecycle pipeline: PENDING → COMPLETED → CANCELLED
         const issuePipelineSteps: MobilePipelineStep[] = issue.status === "CANCELLED"
@@ -140,8 +129,7 @@ export default function MobileMaterialIssueDetailPage({
             reason: `Gate pass ${linkedGp.gatePassNumber} is approved — stock can move now.`,
             action: { type: "anchor", hash: "#approve" },
             perm: PERM.STOCK_ISSUE,
-            tone: "signal" as const,
-          };
+            tone: "signal" as const};
         }
 
         const canActions: string[] = [];
@@ -155,8 +143,7 @@ export default function MobileMaterialIssueDetailPage({
             label: issue.issueNumber ?? undefined,
             subtitle: issue.project?.name,
             recordId: issue.id,
-            canActions,
-          }}>
+            canActions}}>
           <>
             {/* ── Next action — the one thing to do, doable on this page ── */}
             {nextAction ? (

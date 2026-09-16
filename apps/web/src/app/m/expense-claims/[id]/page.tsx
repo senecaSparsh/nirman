@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobileExpenseClaimDetailClient } from "./MobileExpenseClaimDetailClient";
@@ -14,13 +14,12 @@ type CategoryRow = { id: string; name: string; isActive: boolean };
  * approve / reject / pay actions for approvers on the go.
  */
 export default function MobileExpenseClaimDetailPage({
-  params,
-}: {
+  params}: {
   params: Promise<{ id: string }>;
 }) {
   return (
     <MobileDetailPage params={params} skeletonSections={4}>
-      {async ({ id, company, role }) => {
+      {async ({ id, company, actingRole, perms }) => {
         const claim = await prisma.expenseClaim.findFirst({
           where: {...await scopeWhere("ExpenseClaim"),  id, companyId: company.id },
           include: {
@@ -31,26 +30,22 @@ export default function MobileExpenseClaimDetailPage({
             submittedBy: { select: { id: true, name: true } },
             lines: {
               include: { categoryMaster: { select: { id: true, name: true } } },
-              orderBy: { date: "desc" },
-            },
-          },
-        });
+              orderBy: { date: "desc" }}}});
 
         const currentUser = await getCurrentUser();
         // Self-approval is blocked server-side for non-tier-1 — mirror that so
         // the claimant doesn't see an Approve button that will fail. Tier-1
         // approvers (OWNER/ADMIN) CAN approve their own claim — no higher reviewer.
-        const canApprove = hasPermission(role, PERM.EXPENSE_APPROVE) &&
-          (claim?.claimantId !== currentUser?.id || canAutoApprove(role));
-        const canManage = hasPermission(role, PERM.FINANCE_MANAGE);
-        const canCreate = hasPermission(role, PERM.EXPENSE_CREATE);
+        const canApprove = perms.includes(PERM.EXPENSE_APPROVE) &&
+          (claim?.claimantId !== currentUser?.id || canAutoApprove(actingRole));
+        const canManage = perms.includes(PERM.FINANCE_MANAGE);
+        const canCreate = perms.includes(PERM.EXPENSE_CREATE);
 
         const categories: CategoryRow[] = canCreate
           ? await prisma.expenseCategory.findMany({
               where: { companyId: company.id, isActive: true },
               orderBy: { name: "asc" },
-              select: { id: true, name: true, isActive: true },
-            })
+              select: { id: true, name: true, isActive: true }})
           : [];
 
         if (!claim) {
@@ -88,8 +83,7 @@ export default function MobileExpenseClaimDetailPage({
             status: claim.status,
             label: claim.claimant.name,
             subtitle: claim.project?.name ?? undefined,
-            recordId: claim.id,
-          }}>
+            recordId: claim.id}}>
             <MobileExpenseClaimDetailClient
               id={claim.id}
               claimantName={claim.claimant.name}
@@ -114,8 +108,7 @@ export default function MobileExpenseClaimDetailPage({
                 gstAmount: l.gstAmount ? toNum(l.gstAmount) : null,
                 date: l.date.toISOString(),
                 receiptUrl: l.receiptUrl,
-                notes: l.notes,
-              }))}
+                notes: l.notes}))}
               canApprove={canApprove}
               canManage={canManage}
               canCreate={canCreate}

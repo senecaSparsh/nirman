@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
 import { PermissionsView, type PermissionRow } from "@/components/legal/permissions-view";
@@ -21,14 +21,14 @@ export default function PermissionsPage() {
 
 async function PermissionsContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.ASSETS_VIEW)) {
+  if (!__effPerms.includes(PERM.ASSETS_VIEW)) {
     return <NoAccess what="permissions & legal documents" />;
   }
 
-  const canManage = hasPermission(role, PERM.LEGAL_MANAGE);
+  const canManage = __effPerms.includes(PERM.LEGAL_MANAGE);
 
   // Fetch all legal documents for this company, with project + land names
   const docs = await prisma.legalDocument.findMany({

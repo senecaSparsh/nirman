@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { listWorkTypes } from "@nirman/services";
-import { getCompany, getCurrentUser, toNum, getUserRole, getUserScope, scopeWhere, getScopedFormOptions } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getActingRole, getCompany, getCurrentUser, toNum, getUserScope, scopeWhere, getScopedFormOptions, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
 import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
@@ -20,21 +20,21 @@ export default function DprsPage() {
 
 async function DprsContent() {
   await connection();
-  const role = await getUserRole();
+  const actingRole = await getActingRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.DPR_VIEW)) {
+  if (!__effPerms.includes(PERM.DPR_VIEW)) {
     return (
       <NoAccess what="DPRs" />
     );
   }
 
   const perms = {
-    canSubmit: hasPermission(role, PERM.DPR_SUBMIT),
-    canSubAdminApprove: hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN),
-    canAdminApprove: hasPermission(role, PERM.DPR_APPROVE_ADMIN),
-    canSelfApprove: canAutoApprove(role),
-  };
+    canSubmit: __effPerms.includes(PERM.DPR_SUBMIT),
+    canSubAdminApprove: __effPerms.includes(PERM.DPR_APPROVE_SUB_ADMIN),
+    canAdminApprove: __effPerms.includes(PERM.DPR_APPROVE_ADMIN),
+    canSelfApprove: canAutoApprove(actingRole)};
 
   const currentUser = await getCurrentUser();
 
@@ -62,22 +62,18 @@ async function DprsContent() {
         submittedBy: { select: { id: true, name: true } },
         subAdminApprovedBy: { select: { name: true } },
         adminApprovedBy: { select: { name: true } },
-        _count: { select: { materialLines: true, laborLines: true } },
-      },
-    }),
+        _count: { select: { materialLines: true, laborLines: true } }}}),
     Promise.resolve(scopedOpts.projects),
     prisma.material.findMany({
       where: { companyId: company.id, deletedAt: null },
       select: { id: true, name: true, unit: true, standardCost: true },
       orderBy: { name: "asc" },
-      take: 200,
-    }),
+      take: 200}),
     prisma.employee.findMany({
       take: 200,
       where: { companyId: company.id, deletedAt: null, active: true, ...await scopeWhere("Employee") },
       select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
+      orderBy: { name: "asc" }}),
     listWorkTypes(company.id),
   ]);
 
@@ -102,8 +98,7 @@ async function DprsContent() {
     totalProjectCost: d.project?.totalProjectCost ? toNum(d.project.totalProjectCost) : null,
     costPerSqft: d.project?.costPerSqft ? toNum(d.project.costPerSqft) : null,
     projectBudget: d.project?.totalBudget ? toNum(d.project.totalBudget) : null,
-    totalSellableArea: d.project?.totalSellableArea ? toNum(d.project.totalSellableArea) : null,
-  }));
+    totalSellableArea: d.project?.totalSellableArea ? toNum(d.project.totalSellableArea) : null}));
 
   return (
     <>

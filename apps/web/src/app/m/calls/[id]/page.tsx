@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { requireUser } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
@@ -10,21 +10,20 @@ import { MobileCallDetailClient } from "./MobileCallDetailClient";
 export const metadata = { title: "Call Detail · Nirman" };
 
 export default function MobileCallDetailPage({
-  params,
-}: {
+  params}: {
   params: Promise<{ id: string }>;
 }) {
   return (
     <MobileDetailPage params={params} perm={PERM.CALL_VIEW} what="call details" skeletonSections={5}>
-      {async ({ id, company, role }) => {
+      {async ({ id, company, perms }) => {
         const user = await requireUser();
 
-        const canViewAll = hasPermission(role, PERM.CALL_VIEW_ALL);
-        const canViewFullNumber = hasPermission(role, PERM.CALL_VIEW_FULL_NUMBER);
-        const canEdit = hasPermission(role, PERM.CALL_EDIT);
-        const canListenRecording = hasPermission(role, PERM.CALL_RECORDING_LISTEN);
-        const canDelete = hasPermission(role, PERM.CALL_DELETE);
-        const canManage = hasPermission(role, PERM.CALL_MANAGE);
+        const canViewAll = perms.includes(PERM.CALL_VIEW_ALL);
+        const canViewFullNumber = perms.includes(PERM.CALL_VIEW_FULL_NUMBER);
+        const canEdit = perms.includes(PERM.CALL_EDIT);
+        const canListenRecording = perms.includes(PERM.CALL_RECORDING_LISTEN);
+        const canDelete = perms.includes(PERM.CALL_DELETE);
+        const canManage = perms.includes(PERM.CALL_MANAGE);
 
         const call = await prisma.callLog.findFirst({
           where: {
@@ -32,8 +31,7 @@ export default function MobileCallDetailPage({
             companyId: company.id,
             deletedAt: null,
             // Without CALL_VIEW_ALL, users only see calls where they are caller or callee
-            ...(canViewAll ? {} : { OR: [{ callerUserId: user.id }, { calleeUserId: user.id }] }),
-          },
+            ...(canViewAll ? {} : { OR: [{ callerUserId: user.id }, { calleeUserId: user.id }] })},
           select: {
             id: true,
             direction: true,
@@ -68,17 +66,12 @@ export default function MobileCallDetailPage({
                 transcriptStatus: true,
                 uploadedAt: true,
                 expiresAt: true,
-                accessCount: true,
-              },
-            },
+                accessCount: true}},
             voicemail: { select: { id: true, audioUrl: true, durationSec: true, transcription: true } },
             callNotes: {
               select: { id: true, note: true, createdAt: true, user: { select: { id: true, name: true } } },
-              orderBy: { createdAt: "desc" },
-            },
-            tags: { include: { callTag: { select: { id: true, name: true, color: true } } } },
-          },
-        });
+              orderBy: { createdAt: "desc" }},
+            tags: { include: { callTag: { select: { id: true, name: true, color: true } } } }}});
 
         if (!call) {
           notFound();
@@ -96,13 +89,10 @@ export default function MobileCallDetailPage({
           recording: call.recording ? {
             ...call.recording,
             uploadedAt: call.recording.uploadedAt.toISOString(),
-            expiresAt: call.recording.expiresAt?.toISOString() ?? null,
-          } : null,
+            expiresAt: call.recording.expiresAt?.toISOString() ?? null} : null,
           callNotes: call.callNotes.map((n) => ({
             ...n,
-            createdAt: n.createdAt.toISOString(),
-          })),
-        };
+            createdAt: n.createdAt.toISOString()}))};
 
         return (
           <PageContextProvider value={{
@@ -110,8 +100,7 @@ export default function MobileCallDetailPage({
             status: call.status,
             label: `${call.direction === "INBOUND" ? "Incoming" : call.direction === "OUTBOUND" ? "Outgoing" : "Internal"} Call`,
             subtitle: call.caller?.name ?? call.callee?.name ?? undefined,
-            recordId: call.id,
-          }}>
+            recordId: call.id}}>
           <>
             <RecordRecentItem
               type="call"

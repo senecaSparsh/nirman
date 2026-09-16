@@ -1,12 +1,11 @@
 import { prisma } from "@nirman/db";
 import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
-import { hasPermission, PERM } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
 import {formatCurrencyCompact, formatDate, formatNumber} from "@/lib/utils";
 import {
   MobileEmptyState,
-  SectionHead,
-} from "@/components/mobile/v2/primitives";
+  SectionHead} from "@/components/mobile/v2/primitives";
 import { BookOpen, Package } from "lucide-react";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
@@ -16,14 +15,12 @@ import {
   DetailKeyValueCard,
   DetailStatGrid,
   DetailLinkRow,
-  DetailPrintButton,
-} from "@/components/mobile/v2/detail-primitives";
+  DetailPrintButton} from "@/components/mobile/v2/detail-primitives";
 
 export const metadata = { title: "Measurement Book Entry — Nirman" };
 
 export default function MobileMbDetailPage({
-  params,
-}: {
+  params}: {
   params: Promise<{ id: string }>;
 }) {
   return (
@@ -34,7 +31,7 @@ export default function MobileMbDetailPage({
       permission={PERM.MB_VIEW}
       skeletonSections={5}
     >
-      {async ({ id, company, role }) => {
+      {async ({ id, company, actingRole, perms }) => {
         const entry = await prisma.measurementBookEntry.findFirst({
           where: {...await scopeWhere("MeasurementBookEntry"),  id, project: { companyId: company.id } },
           include: {
@@ -44,9 +41,7 @@ export default function MobileMbDetailPage({
             wbsNode: { select: { id: true, code: true, name: true } },
             measuredBy: { select: { id: true, name: true } },
             verifiedBy: { select: { id: true, name: true } },
-            approvedBy: { select: { id: true, name: true } },
-          },
-        });
+            approvedBy: { select: { id: true, name: true } }}});
 
         if (!entry) {
           return (
@@ -71,8 +66,8 @@ export default function MobileMbDetailPage({
         // blocked server-side — unless a tier-1 approver (OWNER/ADMIN), where
         // no higher reviewer exists.
         const isSelfMeasured = entry.measuredById === currentUser?.id;
-        const canVerify = hasPermission(role, PERM.MB_VERIFY) && (!isSelfMeasured || canAutoApprove(role));
-        const canApprove = hasPermission(role, PERM.MB_APPROVE) && (!isSelfMeasured || canAutoApprove(role));
+        const canVerify = perms.includes(PERM.MB_VERIFY) && (!isSelfMeasured || canAutoApprove(actingRole));
+        const canApprove = perms.includes(PERM.MB_APPROVE) && (!isSelfMeasured || canAutoApprove(actingRole));
 
         const varianceEntries = [
           { label: "Estimated Qty", value: `${formatNumber(estimatedQty!, 3)} ${entry.boqItem.unit ?? ""}` },
@@ -105,8 +100,7 @@ export default function MobileMbDetailPage({
             status: entry.status,
             label: entry.mbNumber,
             subtitle: entry.project.name,
-            recordId: entry.id,
-          }}>
+            recordId: entry.id}}>
           <div className="flex flex-col gap-4 pb-20">
             {/* Header card */}
             <DetailHeroCard

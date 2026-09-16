@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
-import { apiHandler, json, requireUser, getCompany } from "@/lib/server";
-import { hasPermission, PERM } from "@/lib/roles";
+import { apiHandler, json, requireUser, getCompany, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 
 /**
  * GET /api/me/auth-info — returns auth-related info for the current session.
@@ -23,16 +23,13 @@ export const GET = apiHandler(async () => {
       passwordChangedAt: true,
       monitoringConsentAcceptedAt: true,
       monitoringConsentPolicyId: true,
-      lastLoginAt: true,
-    },
-  });
+      lastLoginAt: true}});
 
   // Check if there's an active consent policy and whether the user accepted it
   const activePolicy = await prisma.consentPolicy.findFirst({
     where: { companyId: company.id, retiredAt: null },
     orderBy: { effectiveAt: "desc" },
-    select: { id: true, version: true, policyText: true, effectiveAt: true },
-  });
+    select: { id: true, version: true, policyText: true, effectiveAt: true }});
 
   const consentAccepted = activePolicy
     ? (user?.monitoringConsentAcceptedAt !== null && user?.monitoringConsentPolicyId === activePolicy.id)
@@ -45,9 +42,7 @@ export const GET = apiHandler(async () => {
     consentPolicy: activePolicy ? {
       id: activePolicy.id,
       version: activePolicy.version,
-      policyText: activePolicy.policyText,
-    } : null,
-    hasCallPermissions: hasPermission(currentUser.role, PERM.CALL_VIEW),
-    lastLoginAt: user?.lastLoginAt ?? null,
-  });
+      policyText: activePolicy.policyText} : null,
+    hasCallPermissions: (await getUserPermissions()).includes(PERM.CALL_VIEW),
+    lastLoginAt: user?.lastLoginAt ?? null});
 });

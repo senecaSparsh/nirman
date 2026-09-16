@@ -19,10 +19,9 @@ import {
   trialBalance,
   getPurchaserPerformance,
   getProjectMaterialReconciliation,
-  projectPnl,
-} from "@nirman/services";
-import { PERM, hasPermission } from "@/lib/roles";
-import { apiHandler, getCompany, json, toNum, requireUser, getUserRole, scopeWhere, projectScopeFilter } from "@/lib/server";
+  projectPnl} from "@nirman/services";
+import { PERM } from "@/lib/roles";
+import { apiHandler, getCompany, json, toNum, requireUser, scopeWhere, projectScopeFilter, getUserPermissions } from "@/lib/server";
 import { localDateISO } from "@/lib/utils";
 
 /**
@@ -40,7 +39,7 @@ import { localDateISO } from "@/lib/utils";
  */
 export const GET = apiHandler(async (req: NextRequest) => {
   const _user = await requireUser();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
 
@@ -71,14 +70,13 @@ export const GET = apiHandler(async (req: NextRequest) => {
     "stock-issue-summary": PERM.INVENTORY_VIEW,
     "stock-movement-summary": PERM.INVENTORY_VIEW,
     "issue-register": PERM.INVENTORY_VIEW,
-    "purchase-register": PERM.PROCUREMENT_VIEW,
-  };
+    "purchase-register": PERM.PROCUREMENT_VIEW};
 
   const requiredPerm = PERM_MAP[type];
   if (!requiredPerm) {
     return json({ error: `Unknown export type: ${type}` }, { status: 400 });
   }
-  if (!hasPermission(role, requiredPerm)) {
+  if (!__effPerms.includes(requiredPerm)) {
     return json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -115,21 +113,16 @@ export const GET = apiHandler(async (req: NextRequest) => {
         const liveItems = await prisma.stockLocationItem.findMany({
           where: {
             location: { deletedAt: null, companyId: company.id },
-            material: { deletedAt: null },
-          },
+            material: { deletedAt: null }},
           include: {
             location: { select: { id: true, name: true, type: true } },
             material: {
-              select: { id: true, code: true, name: true, unit: true, category: { select: { id: true, name: true } } },
-            },
-          },
-        });
+              select: { id: true, code: true, name: true, unit: true, category: { select: { id: true, name: true } } }}}});
         items = liveItems.map((item) => ({
           locationId: item.location.id, locationName: item.location.name, locationType: item.location.type,
           materialId: item.material.id, materialCode: item.material.code, materialName: item.material.name,
           materialUnit: item.material.unit, categoryId: item.material.category.id, categoryName: item.material.category.name,
-          qty: toNum(item.qty), value: toNum(item.qty) * toNum(item.movingAvgCost),
-        }));
+          qty: toNum(item.qty), value: toNum(item.qty) * toNum(item.movingAvgCost)}));
       } else {
         const IN_TYPES: StockMovementType[] = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN"];
         const OUT_TYPES: StockMovementType[] = ["TRANSFER_OUT", "ISSUE_TO_PROJECT", "ISSUE_TO_DEPARTMENT", "ADJUSTMENT_OUT", "RETURN", "SALE"];
@@ -137,13 +130,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
           prisma.stockMovement.findMany({
             where: { movementType: { in: IN_TYPES }, toLocation: { companyId: company.id, deletedAt: null }, timestamp: { lte: asOnDate! }, ...smScope },
             include: { material: { select: { id: true, code: true, name: true, unit: true, category: { select: { id: true, name: true } } } }, toLocation: { select: { id: true, name: true, type: true } } },
-            orderBy: { timestamp: "desc" },
-          }),
+            orderBy: { timestamp: "desc" }}),
           prisma.stockMovement.findMany({
             where: { movementType: { in: OUT_TYPES }, fromLocation: { companyId: company.id, deletedAt: null }, timestamp: { lte: asOnDate! }, ...smScope },
             include: { material: { select: { id: true, code: true, name: true, unit: true, category: { select: { id: true, name: true } } } }, fromLocation: { select: { id: true, name: true, type: true } } },
-            orderBy: { timestamp: "desc" },
-          }),
+            orderBy: { timestamp: "desc" }}),
           prisma.stockLocation.findMany({ where: { companyId: company.id, deletedAt: null }, select: { id: true, name: true, type: true } }),
           prisma.material.findMany({ where: { companyId: company.id, deletedAt: null }, select: { id: true, code: true, name: true, unit: true, category: { select: { id: true, name: true } } } }),
         ]);
@@ -184,8 +175,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         items: items.map((i) => ({ locationName: i.locationName, materialCode: i.materialCode, materialName: i.materialName, categoryName: i.categoryName, unit: i.materialUnit, qty: i.qty, value: i.value })),
         byLocation: Array.from(byLocation.values()).sort((a, b) => b.value - a.value),
         byCategory: Array.from(byCategory.values()).sort((a, b) => b.value - a.value),
-        grandTotal, totalQty,
-      });
+        grandTotal, totalQty});
       break;
     }
 
@@ -196,8 +186,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       const orders = await prisma.purchaseOrder.findMany({
         where: { companyId: company.id, status: { not: "CANCELLED" }, orderDate: { gte: from12 }, ...poScope },
         select: { id: true, poNumber: true, orderDate: true, status: true, total: true, subtotal: true, gstTotal: true, supplier: { select: { name: true } } },
-        orderBy: { orderDate: "asc" },
-      });
+        orderBy: { orderDate: "asc" }});
       const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       const monthlyMap = new Map<string, { label: string; subtotal: number; gst: number; total: number; count: number }>();
       for (let i = 11; i >= 0; i--) {
@@ -231,8 +220,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       const sales = await prisma.assetSale.findMany({
         where: { companyId: company.id, status: "ACTIVE", saleDate: { gte: from12 }, ...asScope },
         include: { customer: { select: { name: true } }, project: { select: { name: true } }, payments: { select: { amount: true, paymentDate: true } } },
-        orderBy: { saleDate: "asc" },
-      });
+        orderBy: { saleDate: "asc" }});
       const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       const monthlyMap = new Map<string, { label: string; sales: number; collected: number; count: number }>();
       for (let i = 11; i >= 0; i--) {
@@ -276,12 +264,10 @@ export const GET = apiHandler(async (req: NextRequest) => {
       const projects = await prisma.project.findMany({
         where: { companyId: company.id, deletedAt: null, ...(projectScope ?? {}) },
         select: { id: true, name: true, type: true, status: true, totalBudget: true, totalProjectCost: true, costPerSqft: true, totalSellableArea: true, phases: { select: { id: true, name: true, status: true } }, _count: { select: { builtUnits: true } } },
-        orderBy: { name: "asc" },
-      });
+        orderBy: { name: "asc" }});
       const latestDprs = await prisma.dailyProgressReport.findMany({
         where: { companyId: company.id, ...dprScope }, orderBy: { date: "desc" }, distinct: ["projectId"],
-        select: { projectId: true, progressPct: true, date: true },
-      });
+        select: { projectId: true, progressPct: true, date: true }});
       const progressByProject = new Map(latestDprs.map((d) => [d.projectId, { progressPct: toNum(d.progressPct), date: d.date.toISOString() }]));
       const rows = await Promise.all(projects.map(async (p) => {
         const pnl = await projectPnl(p.id);
@@ -301,8 +287,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       const periods = await prisma.payrollPeriod.findMany({
         where: { companyId: company.id, startDate: { gte: from12 } },
         include: { lines: { where: { ...await scopeWhere("PayrollLine") }, include: { employee: { select: { id: true, name: true, trade: true, crewId: true, crew: { select: { name: true } } } } } } },
-        orderBy: [{ year: "asc" }, { month: "asc" }],
-      });
+        orderBy: [{ year: "asc" }, { month: "asc" }]});
       const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       const monthly = periods.map((p) => ({ label: `${MONTHS[p.month - 1]} ${String(p.year).slice(2)}`, gross: toNum(p.totalGross), overtime: toNum(p.totalOvertime), deductions: toNum(p.totalDeductions), net: toNum(p.totalNet), employees: p.lines.length, status: p.status }));
       const byTrade = new Map<string, { trade: string; gross: number; net: number; employees: Set<string> }>();
@@ -338,8 +323,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       const overduePOs = await prisma.purchaseOrder.findMany({
         where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: now }, ...poScope },
         include: { supplier: { select: { name: true } }, lines: { select: { qtyOrdered: true, qtyReceived: true, unitCost: true } } },
-        orderBy: { expectedDate: "asc" },
-      });
+        orderBy: { expectedDate: "asc" }});
       const overdueRows = overduePOs.map((po) => {
         const receivedValue = po.lines.reduce((s, l) => s + toNum(l.qtyReceived) * toNum(l.unitCost), 0);
         const orderedValue = po.lines.reduce((s, l) => s + toNum(l.qtyOrdered) * toNum(l.unitCost), 0);
@@ -349,8 +333,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       const sales = await prisma.assetSale.findMany({
         where: { companyId: company.id, status: "ACTIVE", paymentStatus: { in: ["PENDING", "PARTIAL"] }, ...asScope },
         include: { customer: { select: { name: true } }, project: { select: { name: true } }, payments: { select: { amount: true } } },
-        orderBy: { saleDate: "asc" },
-      });
+        orderBy: { saleDate: "asc" }});
       const receivableRows = sales.map((s) => {
         const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
         const daysSinceSale = Math.floor((now.getTime() - s.saleDate.getTime()) / 86400000);
@@ -359,8 +342,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       const draftPOs = await prisma.purchaseOrder.findMany({
         where: { companyId: company.id, status: "DRAFT" },
         include: { supplier: { select: { name: true } }, lines: { select: { qtyOrdered: true, unitCost: true } } },
-        orderBy: { createdAt: "desc" },
-      });
+        orderBy: { createdAt: "desc" }});
       const draftRows = draftPOs.map((po) => ({ poNumber: po.poNumber, supplier: po.supplier.name, value: po.lines.reduce((s, l) => s + toNum(l.qtyOrdered) * toNum(l.unitCost), 0), createdAt: po.createdAt.toISOString() }));
       const totalPayable = overdueRows.reduce((s, r) => s + r.payable, 0);
       const totalReceivable = receivableRows.reduce((s, r) => s + r.outstanding, 0);
@@ -374,8 +356,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       const tb = await trialBalance(company.id);
       sheets = buildTrialBalanceReport({
         accounts: tb.accounts.map((a) => ({ code: a.code, name: a.name, type: a.type, debit: a.debit.toNumber(), credit: a.credit.toNumber(), balance: a.balance.toNumber() })),
-        totalDebit: tb.totalDebit.toNumber(), totalCredit: tb.totalCredit.toNumber(), isBalanced: tb.isBalanced,
-      });
+        totalDebit: tb.totalDebit.toNumber(), totalCredit: tb.totalCredit.toNumber(), isBalanced: tb.isBalanced});
       break;
     }
 
@@ -384,15 +365,13 @@ export const GET = apiHandler(async (req: NextRequest) => {
       const MOVEMENT_LABELS: Record<string, string> = {
         PURCHASE_RECEIPT: "Receipt", TRANSFER_IN: "Transfer In", TRANSFER_OUT: "Transfer Out",
         ISSUE_TO_PROJECT: "Issue to Project", ISSUE_TO_DEPARTMENT: "Issue to Dept",
-        ADJUSTMENT_IN: "Adjustment (+)", ADJUSTMENT_OUT: "Adjustment (−)", RETURN: "Return", SALE: "Sale",
-      };
+        ADJUSTMENT_IN: "Adjustment (+)", ADJUSTMENT_OUT: "Adjustment (−)", RETURN: "Return", SALE: "Sale"};
       const companyLocationIds = new Set((await prisma.stockLocation.findMany({ where: { companyId: company.id }, select: { id: true } })).map((l) => l.id));
       const movements = await prisma.stockMovement.findMany({
         where: { timestamp: { gte: fromDate, lte: toDate }, ...smScope },
         orderBy: { timestamp: "desc" },
         take: 5000,
-        include: { material: { select: { id: true, code: true, name: true, unit: true } }, fromLocation: { select: { id: true, name: true } }, toLocation: { select: { id: true, name: true } } },
-      });
+        include: { material: { select: { id: true, code: true, name: true, unit: true } }, fromLocation: { select: { id: true, name: true } }, toLocation: { select: { id: true, name: true } } }});
       const rows = movements
         .filter((m) => (!m.fromLocationId || !m.toLocationId || companyLocationIds.has(m.fromLocationId) || companyLocationIds.has(m.toLocationId)))
         .map((m) => ({
@@ -400,8 +379,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
           movementLabel: MOVEMENT_LABELS[m.movementType] ?? m.movementType,
           materialName: m.material.name, materialCode: m.material.code,
           fromLocationName: m.fromLocation?.name ?? null, toLocationName: m.toLocation?.name ?? null,
-          qty: toNum(m.qty), unit: m.material.unit, unitCost: toNum(m.unitCost), balanceAfter: toNum(m.balanceAfter), reason: m.reason,
-        }));
+          qty: toNum(m.qty), unit: m.material.unit, unitCost: toNum(m.unitCost), balanceAfter: toNum(m.balanceAfter), reason: m.reason}));
       sheets = buildStockMovementReport({ movements: rows });
       break;
     }
@@ -415,8 +393,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         totalSpend: rows.reduce((s, r) => s + r.totalSpend.toNumber(), 0),
         totalSavings: rows.reduce((s, r) => s + r.potentialSavings.toNumber(), 0),
         from: from ?? fromDate.toISOString().slice(0, 10),
-        to: to ?? toDate.toISOString().slice(0, 10),
-      });
+        to: to ?? toDate.toISOString().slice(0, 10)});
       break;
     }
 
@@ -429,8 +406,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       sheets = buildReconciliationReport({
         projectName: project.name,
         items: recon.items.map((i) => ({ serialNo: i.serialNo, description: i.description, materialCode: i.materialCode, materialName: i.materialName, unit: i.unit, requiredQty: i.requiredQty.toNumber(), issuedQty: i.issuedQty.toNumber(), consumedQty: i.consumedQty.toNumber(), currentStock: i.currentStock.toNumber(), issueVariance: i.issueVariance.toNumber(), consumptionVariance: i.consumptionVariance.toNumber(), stockVariance: i.stockVariance.toNumber(), wastagePct: i.wastagePct.toNumber(), alertLevel: i.alertLevel })),
-        totalRequired: recon.totalRequired.toNumber(), totalIssued: recon.totalIssued.toNumber(), totalConsumed: recon.totalConsumed.toNumber(), totalWastage: recon.totalWastage.toNumber(), overToleranceCount: recon.overToleranceCount,
-      });
+        totalRequired: recon.totalRequired.toNumber(), totalIssued: recon.totalIssued.toNumber(), totalConsumed: recon.totalConsumed.toNumber(), totalWastage: recon.totalWastage.toNumber(), overToleranceCount: recon.overToleranceCount});
       break;
     }
 
@@ -448,14 +424,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
           department: { companyId: company.id, deletedAt: null },
           departmentId: { not: null },
           ...dateFilter,
-          ...miScope,
-        },
+          ...miScope},
         include: {
           department: { select: { id: true, name: true } },
-          lines: { select: { qty: true, unitCost: true } },
-        },
-        orderBy: { issueDate: "asc" },
-      });
+          lines: { select: { qty: true, unitCost: true } }},
+        orderBy: { issueDate: "asc" }});
       const byDept = new Map<string, { name: string; total: number }>();
       for (const issue of issues) {
         const dept = issue.department!;
@@ -479,26 +452,21 @@ export const GET = apiHandler(async (req: NextRequest) => {
       const [_inBefore, _outBefore, inPeriod, outPeriod, locationItems] = await Promise.all([
         prisma.stockMovement.findMany({
           where: { movementType: { in: IN_TYPES }, toLocation: { companyId: company.id, deletedAt: null }, timestamp: { lt: fromDate }, ...smScope },
-          select: { qty: true, unitCost: true, toLocationId: true, materialId: true },
-        }),
+          select: { qty: true, unitCost: true, toLocationId: true, materialId: true }}),
         prisma.stockMovement.findMany({
           where: { movementType: { in: OUT_TYPES }, fromLocation: { companyId: company.id, deletedAt: null }, timestamp: { lt: fromDate }, ...smScope },
-          select: { qty: true, unitCost: true, fromLocationId: true, materialId: true },
-        }),
+          select: { qty: true, unitCost: true, fromLocationId: true, materialId: true }}),
         prisma.stockMovement.findMany({
           where: { movementType: { in: IN_TYPES }, toLocation: { companyId: company.id, deletedAt: null }, timestamp: { gte: fromDate, lte: toDate }, ...smScope },
           include: { toLocation: { select: { id: true, name: true, type: true } } },
-          orderBy: { timestamp: "asc" },
-        }),
+          orderBy: { timestamp: "asc" }}),
         prisma.stockMovement.findMany({
           where: { movementType: { in: OUT_TYPES }, fromLocation: { companyId: company.id, deletedAt: null }, timestamp: { gte: fromDate, lte: toDate }, ...smScope },
           include: { fromLocation: { select: { id: true, name: true, type: true } } },
-          orderBy: { timestamp: "asc" },
-        }),
+          orderBy: { timestamp: "asc" }}),
         prisma.stockLocationItem.findMany({
           where: { location: { companyId: company.id, deletedAt: null }, material: { deletedAt: null } },
-          include: { location: { select: { id: true, name: true, type: true } } },
-        }),
+          include: { location: { select: { id: true, name: true, type: true } } }}),
       ]);
       const byLocation = new Map<string, { name: string; opening: number; received: number; issued: number; balance: number }>();
       for (const m of inPeriod) {
@@ -525,8 +493,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         openingAmount: rows.reduce((s, r) => s + r.openingAmount, 0),
         receivedAmount: rows.reduce((s, r) => s + r.receivedAmount, 0),
         issuedAmount: rows.reduce((s, r) => s + r.issuedAmount, 0),
-        balanceAmount: rows.reduce((s, r) => s + r.balanceAmount, 0),
-      };
+        balanceAmount: rows.reduce((s, r) => s + r.balanceAmount, 0)};
       sheets = buildStockMovementSummaryReport({ rows, firmTotal });
       break;
     }
@@ -547,14 +514,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
             { project: { companyId: company.id, deletedAt: null } },
           ],
           ...dateFilter,
-          ...miScope,
-        },
+          ...miScope},
         include: {
           department: { select: { code: true, name: true } },
-          project: { select: { name: true } },
-        },
-        orderBy: { issueDate: "asc" },
-      });
+          project: { select: { name: true } }},
+        orderBy: { issueDate: "asc" }});
       const rows = issues.map((issue) => {
         const targetName = issue.project?.name
           ?? (issue.department ? `${issue.department.code} — ${issue.department.name}` : "—");
@@ -562,8 +526,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
           issueNumber: issue.issueNumber ?? "—",
           issueDate: issue.issueDate.toISOString().slice(0, 10),
           departmentName: targetName,
-          totalAmount: toNum(issue.totalAmount),
-        };
+          totalAmount: toNum(issue.totalAmount)};
       });
       const totalAmount = rows.reduce((s, r) => s + r.totalAmount, 0);
       sheets = buildIssueRegisterReport({ rows, totalAmount });
@@ -586,13 +549,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
         prisma.directPurchase.findMany({
           where: { companyId: company.id, ...billDateFilter("billDate") },
           include: { supplier: { select: { name: true } } },
-          orderBy: { billDate: "asc" },
-        }),
+          orderBy: { billDate: "asc" }}),
         prisma.supplierReturn.findMany({
           where: { companyId: company.id, status: { in: ["SUBMITTED", "COMPLETED"] }, ...billDateFilter("returnDate") },
           include: { supplier: { select: { name: true } }, lines: { select: { qty: true, unitCost: true } } },
-          orderBy: { returnDate: "asc" },
-        }),
+          orderBy: { returnDate: "asc" }}),
       ]);
       type RegRow = { date: string; billNumber: string; supplierName: string; roundOff: number; billAmount: number };
       const regRows: RegRow[] = [];
@@ -602,8 +563,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
           date: p.billDate.toISOString().slice(0, 10),
           supplierName: p.supplier?.name ?? p.supplierName,
           roundOff: toNum(p.roundOff),
-          billAmount: toNum(p.billAmount),
-        });
+          billAmount: toNum(p.billAmount)});
       }
       for (const r of returns) {
         const returnAmount = r.lines.reduce((s, l) => s + toNum(l.qty) * toNum(l.unitCost), 0);
@@ -612,8 +572,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
           date: r.returnDate.toISOString().slice(0, 10),
           supplierName: r.supplier.name,
           roundOff: 0,
-          billAmount: -returnAmount,
-        });
+          billAmount: -returnAmount});
       }
       regRows.sort((a, b) => a.date.localeCompare(b.date));
       const netTotal = regRows.reduce((s, r) => s + r.billAmount, 0);
@@ -644,9 +603,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     return new Response(csv, {
       headers: {
         "Content-Type": "text/csv;charset=utf-8;",
-        "Content-Disposition": `attachment; filename="${filenameBase}.csv"`,
-      },
-    });
+        "Content-Disposition": `attachment; filename="${filenameBase}.csv"`}});
   }
 
   // Default: xlsx
@@ -655,7 +612,5 @@ export const GET = apiHandler(async (req: NextRequest) => {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": `attachment; filename="${filenameBase}.xlsx"`,
-      "Content-Length": String(buffer.length),
-    },
-  });
+      "Content-Length": String(buffer.length)}});
 });

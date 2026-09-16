@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { SubcontractorsView } from "@/components/subcontractors/subcontractors-view";
 import { NoAccess } from "@/components/no-access";
@@ -10,8 +10,8 @@ import type { SubcontractorRow } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 export default async function SubcontractorsPage() {
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.PROCUREMENT_VIEW)) return <NoAccess />;
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) return <NoAccess />;
 
   const company = await getCompany();
 
@@ -49,9 +49,9 @@ export default async function SubcontractorsPage() {
   const totalRetention = rows.reduce((s, r) => s + (r.retentionBalance ?? 0), 0);
 
   const perms = {
-    canCreate: hasPermission(role, PERM.PROCUREMENT_MANAGE),
-    canEdit: hasPermission(role, PERM.PROCUREMENT_MANAGE),
-    canDelete: hasPermission(role, PERM.PROCUREMENT_MANAGE),
+    canCreate: __effPerms.includes(PERM.PROCUREMENT_MANAGE),
+    canEdit: __effPerms.includes(PERM.PROCUREMENT_MANAGE),
+    canDelete: __effPerms.includes(PERM.PROCUREMENT_MANAGE),
   };
 
   return (

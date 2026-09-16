@@ -79,6 +79,17 @@ services:
     # The wrapper handles graceful shutdown, crash restart, and health checks.
     startCommand: cd apps/web && node scripts/start-with-recovery.mjs
 
+    # ⚠️ Uploads (photos, invoices, documents via /api/uploads) write to the
+    # filesystem at storage/uploads — on the free plan that filesystem is
+    # EPHEMERAL: every redeploy/restart wipes uploaded files. Coolify/VPS
+    # mounts a persistent volume (docker-compose), but Render free has no
+    # disk support. To persist uploads on Render, upgrade to a paid plan and
+    # uncomment the disk below:
+    # disk:
+    #   name: nirman-uploads
+    #   mountPath: /opt/render/project/src/apps/web/storage/uploads
+    #   sizeGB: 1
+
     # Env vars that come from other Render services
     envVars:
       - key: DATABASE_URL
@@ -169,6 +180,38 @@ cronJobs:
         -H "x-cron-secret: $CRON_SECRET" \
         https://nirman-inventory.onrender.com/api/cron/approval-aging \
         || echo "approval-aging failed"
+    instanceType: nano
+    scheduleTimezone: UTC
+    envVars:
+      - key: CRON_SECRET
+        sync: false
+  # ── Scheduled workflows — every 5 minutes ──
+  # Processes due ScheduledWorkflow rows (recurring report/notification
+  # automations). Bearer auth via SCHEDULER_SECRET — a different secret
+  # from CRON_SECRET (this endpoint predates the cron namespace).
+  - name: nirman-workflow-scheduler
+    schedule: "*/5 * * * *"  # every 5 minutes
+    command: |
+      curl -fsS -X POST \
+        -H "Authorization: Bearer $SCHEDULER_SECRET" \
+        https://nirman-inventory.onrender.com/api/workflow-scheduler \
+        || echo "workflow-scheduler failed"
+    instanceType: nano
+    scheduleTimezone: UTC
+    envVars:
+      - key: SCHEDULER_SECRET
+        sync: false
+  # ── Morning briefing — daily at 2:00 AM UTC (7:30 AM IST) ──
+  # Pushes one in-app notification per exec/delegate summarizing the day:
+  # approvals waiting, headcount on site, deliveries due, unpaid approved
+  # expenses, sites with no DPR filed. Deduped per calendar day.
+  - name: nirman-daily-digest
+    schedule: "0 2 * * *"  # daily at 2:00 AM UTC = 7:30 AM IST
+    command: |
+      curl -fsS -X POST \
+        -H "x-cron-secret: $CRON_SECRET" \
+        https://nirman-inventory.onrender.com/api/cron/daily-digest \
+        || echo "daily-digest failed"
     instanceType: nano
     scheduleTimezone: UTC
     envVars:

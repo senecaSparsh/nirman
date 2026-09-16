@@ -1,25 +1,25 @@
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole, projectScopeFilter } from "@/lib/server";
+import { getCompany, toNum, projectScopeFilter, getUserPermissions } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { NoAccess } from "@/components/no-access";
 import { StockLocationsView } from "@/components/stock-locations/stock-locations-view";
 
 export async function StockLocationsContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.INVENTORY_VIEW)) {
+  if (!__effPerms.includes(PERM.INVENTORY_VIEW)) {
     return (
       <NoAccess what="stock locations" />
     );
   }
 
   const perms = {
-    canManage: hasPermission(role, PERM.INVENTORY_MANAGE),
+    canManage: __effPerms.includes(PERM.INVENTORY_MANAGE),
   };
 
   const [locations, projects] = await Promise.all([

@@ -3,13 +3,14 @@ import { writeFile, unlink, mkdir, stat } from "node:fs/promises";
 import { join, isAbsolute } from "node:path";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission, requireUser } from "@/lib/server";
+import { apiHandler, getActingRole, getCompany, json, requirePermission, requireUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 // Files are stored OUTSIDE public/ so they are not served as static assets.
 // Access is mediated by GET /api/uploads/[id] which checks auth + company ownership.
-// Honor the UPLOAD_DIR env var (set in docker-compose/render.yaml) so deployments
-// that mount a volume at a different path actually persist files to the volume.
+// Honor the UPLOAD_DIR env var (set in docker-compose.yml — VPS/Coolify mount
+// a persistent volume there). Render free has no disk support — files here are
+// ephemeral on that target (see the commented disk block in render.yaml).
 const UPLOAD_DIR = process.env.UPLOAD_DIR
   ? (isAbsolute(process.env.UPLOAD_DIR) ? process.env.UPLOAD_DIR : join(process.cwd(), process.env.UPLOAD_DIR))
   : join(process.cwd(), "storage", "uploads");
@@ -241,9 +242,10 @@ export const DELETE = apiHandler(async (req: NextRequest) => {
 
   // Authorization: uploader or company admin can delete.
   const isUploader = upload.uploadedById === user.id;
+  const actingRole = await getActingRole();
   const isCompanyAdmin =
     upload.companyId === company.id &&
-    (user.role === "OWNER" || user.role === "ADMIN" || user.role === "DEVELOPER");
+    (actingRole === "OWNER" || actingRole === "ADMIN" || actingRole === "DEVELOPER");
   const hasManagePerm = await requirePermission(PERM.COMPANY_MANAGE).then(() => true).catch(() => false);
   if (!isUploader && !isCompanyAdmin && !hasManagePerm) {
     return json({ error: "Forbidden — you can only delete your own uploads." }, { status: 403 });

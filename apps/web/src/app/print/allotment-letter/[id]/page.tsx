@@ -1,9 +1,9 @@
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
-import { getCompany, getCurrentUser, getUserRole, toNum, scopeWhere } from "@/lib/server";
+import { getCompany, getCurrentUser, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
 import { getPortalCustomer } from "@/lib/portal-auth";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -34,9 +34,9 @@ export default async function AllotmentLetterPage({
 
   const user = await getCurrentUser();
   if (user) {
-    const role = await getUserRole();
+    const __effPerms = await getUserPermissions();
     company = await getCompany();
-    if (!hasPermission(role, PERM.SALES_VIEW)) {
+    if (!__effPerms.includes(PERM.SALES_VIEW)) {
       return <div className="p-8 text-center text-muted-foreground">No access</div>;
     }
     sale = await prisma.assetSale.findFirst({

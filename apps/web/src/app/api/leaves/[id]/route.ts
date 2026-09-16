@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { approveLeaveRequest, cancelLeaveRequest } from "@nirman/services";
-import { apiHandler, getCompany, json, leaveActionSchema, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getActingRole, getCompany, json, leaveActionSchema, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { prisma } from "@nirman/db";
 
@@ -28,7 +28,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       approvedById: user.id,
       approve: parsed.data.approve,
       rejectedReason: parsed.data.rejectedReason ?? undefined,
-      actorRole: user.role,
+      actorRole: await getActingRole(),
     });
     return json({ ok: true, id: leave.id, status: leave.status });
   } catch (err: unknown) {

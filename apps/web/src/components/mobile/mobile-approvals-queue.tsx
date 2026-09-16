@@ -863,6 +863,7 @@ async function approveGp(gp: GatePassRow) {
  title={po.supplierName}
  subtitle={`PO ${po.poNumber} · ${formatDate(po.createdAt)}`}
  meta={formatCurrency(po.total)}
+ ageAt={po.createdAt}
  state={state}
  onApprove={() => approvePo(po)}
  onReject={() => rejectPo(po)}
@@ -937,6 +938,7 @@ async function approveGp(gp: GatePassRow) {
  title={req.projectName ?? "N/A"}
  subtitle={`Indent ${req.requisitionNumber} · ${formatDate(req.createdAt)}`}
  meta={`${req.lines.length} line${req.lines.length === 1 ? "" : "s"}`}
+ ageAt={req.createdAt}
  state={state}
  onApprove={() => approveReq(req)}
  onReject={() => rejectReq(req)}
@@ -999,6 +1001,7 @@ async function approveGp(gp: GatePassRow) {
  title={gp.gatePassNumber}
  subtitle={`${categoryLabel} · ${gp.locationName}${gp.destination ? ` → ${gp.destination}` : ""}`}
  meta={`${gp.lineCount} item${gp.lineCount === 1 ? "" : "s"}`}
+ ageAt={gp.createdAt}
  state={state}
  onApprove={() => approveGp(gp)}
  onReject={() => { setRejectGp(gp); setGpRejectReason(""); }}
@@ -1064,6 +1067,7 @@ async function approveGp(gp: GatePassRow) {
  title={dpr.projectName ?? "N/A"}
  subtitle={`DPR · ${formatDate(dpr.date)} · ${approvalLabel} approval`}
  meta={`${dpr.progressPct}%`}
+ ageAt={dpr.createdAt}
  state={state}
  onApprove={() => approveDpr(dpr)}
  onReject={() => rejectDpr(dpr)}
@@ -1125,6 +1129,7 @@ async function approveGp(gp: GatePassRow) {
  title={exp.description || exp.category}
  subtitle={`${exp.category} · ${formatDate(exp.date)}`}
  meta={formatCurrency(exp.amount)}
+ ageAt={exp.createdAt}
  state={state}
  onApprove={() => approveExpense(exp)}
  onReject={() => rejectExpense(exp)}
@@ -1185,6 +1190,7 @@ async function approveGp(gp: GatePassRow) {
  title={c.claimantName}
  subtitle={`Claim · ${c.projectName ?? "No project"} · ${formatDate(c.submittedAt ?? c.createdAt)}`}
  meta={formatCurrency(c.totalAmount)}
+ ageAt={c.submittedAt ?? c.createdAt}
  state={state}
  onApprove={() => approveClaim(c)}
  onReject={() => rejectClaim(c)}
@@ -1241,6 +1247,7 @@ async function approveGp(gp: GatePassRow) {
  title={l.employeeName}
  subtitle={`${l.type.charAt(0) + l.type.slice(1).toLowerCase()} leave · ${l.days} day${l.days === 1 ? "" : "s"} · ${formatDate(l.startDate)}`}
  meta={formatDate(l.createdAt)}
+ ageAt={l.createdAt}
  state={state}
  onApprove={() => approveLeave(l)}
  onReject={() => rejectLeave(l)}
@@ -1302,6 +1309,7 @@ async function approveGp(gp: GatePassRow) {
  title={b.raBillNumber}
  subtitle={`${b.workOrderNumber ?? "WO"} · ${formatDate(b.periodFrom)} → ${formatDate(b.periodTo)}`}
  meta={formatCurrency(b.netPayable)}
+ ageAt={b.createdAt}
  state={state}
  onApprove={() => approveRaBill(b)}
  onReject={() => rejectRaBill(b)}
@@ -1636,6 +1644,7 @@ function ApprovalCard({
  title,
  subtitle,
  meta,
+ ageAt,
  state,
  onApprove,
  onReject,
@@ -1650,6 +1659,9 @@ function ApprovalCard({
  title: string;
  subtitle: string;
  meta: string;
+ /** ISO timestamp of when the item entered the approval queue — renders
+  *  a "waiting" chip once it crosses 24h (amber) / 48h (red). */
+ ageAt?: string;
  state: ItemState;
  onApprove: () => void;
  onReject?: () => void;
@@ -1673,6 +1685,23 @@ function ApprovalCard({
  <div className="truncate text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>{title}</div>
  <div className="truncate text-m-caption" style={{ color: "var(--color-ink-500)" }}>{subtitle}</div>
  </div>
+ {(() => {
+   if (!ageAt) return null;
+   const waitHrs = (new Date().getTime() - new Date(ageAt).getTime()) / 3_600_000;
+   if (waitHrs < 24) return null;
+   const stale = waitHrs >= 48;
+   return (
+     <span
+       className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold"
+       style={{
+         backgroundColor: stale ? "var(--color-danger-bg, rgba(220,38,38,.12))" : "var(--color-warning-bg, rgba(217,119,6,.12))",
+         color: stale ? "var(--color-danger, #dc2626)" : "var(--color-warning, #d97706)",
+       }}
+     >
+       {waitHrs < 48 ? `${Math.floor(waitHrs)}h` : `${Math.floor(waitHrs / 24)}d`}
+     </span>
+   );
+ })()}
  <span className="shrink-0 text-m-caption font-medium" style={{ color: "var(--color-ink-500)" }}>{meta}</span>
  {isOpen ? <ChevronDown className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} />}
  </button>

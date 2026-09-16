@@ -2,16 +2,15 @@ import { Suspense } from "react";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { displayEmail } from "@/lib/utils";
 import {
   MobileProjectAssignmentsClient,
   type AssignmentRow,
   type UserOption,
-  type ProjectOption,
-} from "./MobileProjectAssignmentsClient";
+  type ProjectOption} from "./MobileProjectAssignmentsClient";
 
 /**
  * /m/settings/project-assignments — mobile project assignment management.
@@ -28,38 +27,33 @@ export default function MobileProjectAssignmentsPage() {
 
 async function MobileProjectAssignmentsContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.USERS_VIEW)) {
+  if (!__effPerms.includes(PERM.USERS_VIEW)) {
     return <MobileNoAccess what="project assignments" />;
   }
 
-  const canManage = hasPermission(role, PERM.USERS_MANAGE);
+  const canManage = __effPerms.includes(PERM.USERS_MANAGE);
 
   const [assignments, users, projects] = await Promise.all([
     prisma.projectAssignment.findMany({
       where: {...await scopeWhere("ProjectAssignment"),  project: { companyId: company.id } },
       include: {
         user: { select: { id: true, name: true, email: true, role: true, phone: true } },
-        project: { select: { id: true, name: true } },
-      },
-      orderBy: { assignedAt: "desc" },
-    }),
+        project: { select: { id: true, name: true } }},
+      orderBy: { assignedAt: "desc" }}),
     prisma.user.findMany({
       where: {
         active: true,
         role: { in: ["SUPERVISOR", "QAQC_ENGINEER", "SECURITY_GUARD", "SALES_MANAGER", "ACCOUNTANT", "SITE_ENGINEER", "STORE_KEEPER"] },
-        memberships: { some: { companyId: company.id } },
-      },
+        memberships: { some: { companyId: company.id } }},
       select: { id: true, name: true, email: true, role: true, phone: true },
-      orderBy: { name: "asc" },
-    }),
+      orderBy: { name: "asc" }}),
     prisma.project.findMany({
       where: { companyId: company.id, deletedAt: null },
       select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
+      orderBy: { name: "asc" }}),
   ]);
 
   const assignmentRows: AssignmentRow[] = assignments.map((a) => ({
@@ -71,20 +65,17 @@ async function MobileProjectAssignmentsContent() {
     projectId: a.projectId,
     projectName: a.project.name,
     scopedRole: a.scopedRole,
-    assignedAt: a.assignedAt.toISOString(),
-  }));
+    assignedAt: a.assignedAt.toISOString()}));
 
   const userOptions: UserOption[] = users.map((u) => ({
     id: u.id,
     name: u.name,
     email: displayEmail(u.email) ?? u.phone ?? "",
-    role: u.role,
-  }));
+    role: u.role}));
 
   const projectOptions: ProjectOption[] = projects.map((p) => ({
     id: p.id,
-    name: p.name,
-  }));
+    name: p.name}));
 
   return (
     <MobileProjectAssignmentsClient

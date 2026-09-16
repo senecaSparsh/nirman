@@ -84,4 +84,11 @@ describe("CompanySwitcher", () => {
     const buttons = screen.getAllByRole("button");
     expect(buttons.some((b) => b.textContent?.includes("Company A"))).toBe(true);
   });
+
+  it("hides the switch chevron for non-OWNER/ADMIN (canSwitch=false)", () => {
+    render(<CompanySwitcher companies={companies} canSwitch={false} />);
+    // Company name still links to its profile — just no switch control.
+    expect(screen.getByRole("link", { name: /Company A/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Switch company" })).toBeNull();
+  });
 });

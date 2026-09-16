@@ -3,11 +3,10 @@ import Link from "next/link";
 import { prisma } from "@nirman/db";
 import { getEvmMetrics } from "@nirman/services";
 import { Gauge, TrendingUp, TrendingDown, AlertTriangle, Target, DollarSign } from "lucide-react";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
-  MobileEmptyState,
-} from "@/components/mobile/v2/primitives";
+  MobileEmptyState} from "@/components/mobile/v2/primitives";
 import { MobileProjectScopedPage } from "@/components/mobile/v2/project-scoped-page";
 import { MobileProjectControlSelector } from "./MobileProjectControlSelector";
 
@@ -17,21 +16,19 @@ import { MobileProjectControlSelector } from "./MobileProjectControlSelector";
  * CPI, SPI, EAC, and % complete for a selected project.
  */
 export default function MobileProjectControlPage({
-  searchParams,
-}: {
+  searchParams}: {
   searchParams: Promise<{ project?: string }>;
 }) {
   return (
     <MobileProjectScopedPage searchParams={searchParams} skeletonRows={6}>
-      {async ({ company, role, projectId }) => {
-        hasPermission(role, PERM.FINANCE_VIEW);
-        const canCreateProject = hasPermission(role, PERM.PROJECTS_MANAGE);
+      {async ({ company, projectId, perms }) => {
+        perms.includes(PERM.FINANCE_VIEW);
+        const canCreateProject = perms.includes(PERM.PROJECTS_MANAGE);
 
         const projects = await prisma.project.findMany({
           where: { companyId: company.id, deletedAt: null },
           orderBy: { name: "asc" },
-          select: { id: true, name: true },
-        });
+          select: { id: true, name: true }});
 
         if (!projectId) {
           return (
@@ -48,8 +45,7 @@ export default function MobileProjectControlPage({
 
         const project = await prisma.project.findFirst({
           where: { id: projectId, companyId: company.id, deletedAt: null },
-          select: { id: true, name: true, totalBudget: true },
-        });
+          select: { id: true, name: true, totalBudget: true }});
 
         if (!project) {
           return (

@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, getUserScope } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getUserScope, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
 import { PageHeader } from "@/components/page-header";
@@ -20,11 +20,11 @@ export default function WbsPage() {
 
 async function WbsContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
   const scope = await getUserScope();
 
-  if (!hasPermission(role, PERM.WBS_VIEW)) {
+  if (!__effPerms.includes(PERM.WBS_VIEW)) {
     return <NoAccess what="WBS" />;
   }
 
@@ -40,7 +40,7 @@ async function WbsContent() {
     select: { id: true, name: true },
   });
 
-  const canEdit = hasPermission(role, PERM.WBS_MANAGE);
+  const canEdit = __effPerms.includes(PERM.WBS_MANAGE);
 
   return (
     <>

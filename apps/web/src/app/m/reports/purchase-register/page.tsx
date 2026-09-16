@@ -4,8 +4,8 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import {FileText, TrendingDown, Truck} from "lucide-react";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -39,8 +39,8 @@ async function MobilePurchaseRegisterContent({
 }) {
   await connection();
   const { from: fromParam, to: toParam } = await searchParams;
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.PROCUREMENT_VIEW)) notFound();
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) notFound();
   const company = await getCompany();
 
   const now = new Date();

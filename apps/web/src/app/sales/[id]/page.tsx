@@ -4,8 +4,8 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
@@ -40,10 +40,10 @@ async function SaleDetailContent({
   params: Promise<{ id: string }>;
 }) {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.SALES_VIEW)) {
+  if (!__effPerms.includes(PERM.SALES_VIEW)) {
     return <NoAccess what="sales" />;
   }
 
@@ -82,7 +82,7 @@ async function SaleDetailContent({
   ]);
 
   const totalPaid = sale.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
-  const canManage = hasPermission(role, PERM.SALES_MANAGE);
+  const canManage = __effPerms.includes(PERM.SALES_MANAGE);
 
   const row: AssetSaleRow = {
     id: sale.id,

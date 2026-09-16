@@ -1,8 +1,8 @@
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole, scopeWhere, projectScopeFilter, getCurrentUser } from "@/lib/server";
+import { getActingRole, getCompany, toNum, scopeWhere, projectScopeFilter, getCurrentUser, getUserPermissions } from "@/lib/server";
 import { canAutoApprove } from "@nirman/services";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { NoAccess } from "@/components/no-access";
 import { GatePassesView } from "@/components/gate-pass/gate-passes-view";
@@ -10,20 +10,20 @@ import type { StockLocationRow, MaterialRow, ProjectOption } from "@/lib/types";
 
 export async function GatePassesContent() {
   await connection();
-  const role = await getUserRole();
+  const actingRole = await getActingRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.GATE_PASS_VIEW)) {
+  if (!__effPerms.includes(PERM.GATE_PASS_VIEW)) {
     return <NoAccess what="gate passes" />;
   }
 
   const perms = {
-    canCreate: hasPermission(role, PERM.GATE_PASS_CREATE),
-    canApprove: hasPermission(role, PERM.GATE_PASS_APPROVE),
-    canExit: hasPermission(role, PERM.GATE_PASS_EXIT),
-    canManage: hasPermission(role, PERM.GATE_PASS_MANAGE),
-    canSelfApprove: canAutoApprove(role),
-  };
+    canCreate: __effPerms.includes(PERM.GATE_PASS_CREATE),
+    canApprove: __effPerms.includes(PERM.GATE_PASS_APPROVE),
+    canExit: __effPerms.includes(PERM.GATE_PASS_EXIT),
+    canManage: __effPerms.includes(PERM.GATE_PASS_MANAGE),
+    canSelfApprove: canAutoApprove(actingRole)};
   const currentUser = await getCurrentUser();
 
   const projectScope = await projectScopeFilter();
@@ -41,27 +41,22 @@ export async function GatePassesContent() {
         submittedBy: { select: { id: true, name: true } },
         approvedBy: { select: { id: true, name: true } },
         rejectedBy: { select: { id: true, name: true } },
-        exitedBy: { select: { id: true, name: true } },
-      },
-    }),
+        exitedBy: { select: { id: true, name: true } }}}),
     prisma.stockLocation.findMany({
       take: 200,
       where: { companyId: company.id, deletedAt: null },
       orderBy: [{ type: "asc" }, { name: "asc" }],
-      select: { id: true, type: true, name: true, projectId: true, lat: true, lng: true, geoRadius: true },
-    }),
+      select: { id: true, type: true, name: true, projectId: true, lat: true, lng: true, geoRadius: true }}),
     prisma.material.findMany({
       take: 200,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
-      select: { id: true, code: true, name: true, grade: true, specification: true, unit: true, isLotTracked: true, isScrap: true, baseUnit: true, secondaryUnit: true, uomConversionFactor: true },
-    }),
+      select: { id: true, code: true, name: true, grade: true, specification: true, unit: true, isLotTracked: true, isScrap: true, baseUnit: true, secondaryUnit: true, uomConversionFactor: true }}),
     prisma.project.findMany({
       take: 200,
       where: { companyId: company.id, deletedAt: null, ...(projectScope ?? {}) },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, type: true, status: true },
-    }),
+      select: { id: true, name: true, type: true, status: true }}),
   ]);
 
   const gpRows = gatePasses.map((gp) => ({
@@ -106,9 +101,7 @@ export async function GatePassesContent() {
       materialName: l.materialName,
       unit: l.unit,
       qty: toNum(l.qty),
-      description: l.description,
-    })),
-  }));
+      description: l.description}))}));
 
   const locationRows: StockLocationRow[] = locations.map((l) => ({
     id: l.id,
@@ -123,8 +116,7 @@ export async function GatePassesContent() {
     companyName: company.name,
     lat: l.lat,
     lng: l.lng,
-    geoRadius: l.geoRadius,
-  }));
+    geoRadius: l.geoRadius}));
 
   const materialRows: MaterialRow[] = materials.map((m) => ({
     id: m.id,
@@ -152,15 +144,13 @@ export async function GatePassesContent() {
     description: null,
     totalQty: 0,
     totalValue: 0,
-    lowStock: false,
-  }));
+    lowStock: false}));
 
   const projectRows: ProjectOption[] = projects.map((p) => ({
     id: p.id,
     name: p.name,
     type: p.type,
-    status: p.status,
-  }));
+    status: p.status}));
 
   const pending = gpRows.filter((g) => g.status === "PENDING").length;
   const approved = gpRows.filter((g) => g.status === "APPROVED").length;

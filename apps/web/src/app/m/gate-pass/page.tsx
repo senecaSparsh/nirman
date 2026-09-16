@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { toNum, scopeWhere, projectScopeFilter, getCurrentUser } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
 import {ShieldCheck, Truck, Clock, CheckCircle, XCircle} from "lucide-react";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
@@ -13,12 +13,12 @@ export const metadata = { title: "Gate Pass · Nirman" };
 export default function MobileGatePassPage() {
   return (
     <MobileListPage>
-      {async ({ company, role }) => {
+      {async ({ company, actingRole, perms }) => {
         const currentUser = await getCurrentUser();
-        const canExit = hasPermission(role, PERM.GATE_PASS_EXIT);
-        const canApprove = hasPermission(role, PERM.GATE_PASS_APPROVE);
-        const canCreate = hasPermission(role, PERM.GATE_PASS_CREATE);
-        const canManage = hasPermission(role, PERM.GATE_PASS_MANAGE);
+        const canExit = perms.includes(PERM.GATE_PASS_EXIT);
+        const canApprove = perms.includes(PERM.GATE_PASS_APPROVE);
+        const canCreate = perms.includes(PERM.GATE_PASS_CREATE);
+        const canManage = perms.includes(PERM.GATE_PASS_MANAGE);
 
         const BATCH_SIZE = 40;
         const [gatePasses, locations, projects] = await Promise.all([
@@ -33,19 +33,15 @@ export default function MobileGatePassPage() {
               rejectedBy: { select: { name: true } },
               createdBy: { select: { name: true } },
               exitedBy: { select: { name: true } },
-              submittedBy: { select: { name: true } },
-            },
-          }),
+              submittedBy: { select: { name: true } }}}),
           prisma.stockLocation.findMany({
             where: { companyId: company.id, deletedAt: null },
             select: { id: true, name: true },
-            orderBy: { name: "asc" },
-          }),
+            orderBy: { name: "asc" }}),
           prisma.project.findMany({
             where: { companyId: company.id, deletedAt: null, ...await projectScopeFilter() ?? {} },
             select: { id: true, name: true },
-            orderBy: { name: "asc" },
-          }),
+            orderBy: { name: "asc" }}),
         ]);
 
         const hasMore = gatePasses.length > BATCH_SIZE;
@@ -94,9 +90,7 @@ export default function MobileGatePassPage() {
             materialName: l.materialName,
             unit: l.unit,
             qty: toNum(l.qty),
-            description: l.description,
-          })),
-        }));
+            description: l.description}))}));
 
         return (
           <div className="space-y-4 p-3">
@@ -142,7 +136,7 @@ export default function MobileGatePassPage() {
                 gatePasses={rows}
                 currentUserId={currentUser?.id ?? ""}
                 canApprove={canApprove}
-                canSelfApprove={canAutoApprove(role)}
+                canSelfApprove={canAutoApprove(actingRole)}
                 canExit={canExit}
                 canCreate={canCreate}
                 canManage={canManage}

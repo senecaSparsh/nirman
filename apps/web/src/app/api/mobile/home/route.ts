@@ -1,7 +1,6 @@
 import { prisma } from "@nirman/db";
-import { apiHandler, json, getCurrentUser, getCompany } from "@/lib/server";
+import { apiHandler, json, getCurrentUser, getCompany, getUserPermissions, getUserRole } from "@/lib/server";
 import { PERM, hasPermission, roleTier } from "@/lib/roles";
-import { getUserRole } from "@/lib/server";
 import { roleToPersona, type Persona } from "@/lib/mobile-nav-v2";
 
 /**
@@ -17,10 +16,11 @@ import { roleToPersona, type Persona } from "@/lib/mobile-nav-v2";
  * - myAttendance: { checkIn, checkOut, hoursWorked, status } | null
  */
 export const GET = apiHandler(async () => {
-  const [company, user, role] = await Promise.all([
+  const [company, user, role, permissions] = await Promise.all([
     getCompany(),
     getCurrentUser(),
     getUserRole(),
+    getUserPermissions().catch(() => [] as string[]),
   ]);
 
   const canCreateCompany =
@@ -139,6 +139,9 @@ export const GET = apiHandler(async () => {
     canCreateCompany,
     userName: user?.name ?? null,
     role,
+    // Effective permission union (incl. live delegations) — clients gate
+    // links/buttons on this, not the bare role matrix.
+    permissions,
     persona: roleToPersona(role) as Persona,
     myEmployee: myEmployee
       ? { id: myEmployee.id, name: myEmployee.name }

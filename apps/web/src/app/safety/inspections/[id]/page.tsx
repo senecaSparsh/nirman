@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { notFound } from "next/navigation";
-import { getCompany, getUserRole, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
 import { PageHeader } from "@/components/page-header";
@@ -21,10 +21,10 @@ export default async function InspectionDetailPage({ params }: { params: Promise
 async function InspectionDetailContent({ id }: { id: string }) {
   await connection();
   const company = await getCompany();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
 
-  if (!hasPermission(role, PERM.SAFETY_VIEW)) return <NoAccess what="inspection" />;
-  const canManage = hasPermission(role, PERM.SAFETY_MANAGE);
+  if (!__effPerms.includes(PERM.SAFETY_VIEW)) return <NoAccess what="inspection" />;
+  const canManage = __effPerms.includes(PERM.SAFETY_MANAGE);
 
   const insp = await prisma.safetyInspection.findFirst({
     where: {...await scopeWhere("SafetyInspection"),  id, companyId: company.id },

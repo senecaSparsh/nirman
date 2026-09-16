@@ -4,8 +4,8 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import {Wallet, Building2} from "lucide-react";
-import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import {formatCurrencyCompact} from "@/lib/utils";
 import {MobileEmptyState, MobileStatCard} from "@/components/mobile/v2/primitives";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
@@ -26,12 +26,12 @@ export default function MobileFinancePage() {
 
 async function MobileFinanceContent() {
   await connection();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
   const company = await getCompany();
-  const canCreateExpense = hasPermission(role, PERM.EXPENSE_CREATE);
-  const canCreateProjectCost = hasPermission(role, PERM.FINANCE_MANAGE);
-  const canManageInvoices = hasPermission(role, PERM.FINANCE_MANAGE);
+  const canCreateExpense = __effPerms.includes(PERM.EXPENSE_CREATE);
+  const canCreateProjectCost = __effPerms.includes(PERM.FINANCE_MANAGE);
+  const canManageInvoices = __effPerms.includes(PERM.FINANCE_MANAGE);
 
   const [expenses, projectCosts, projects, subcontractors, supplierInvoices] = await Promise.all([
     prisma.expense.findMany({

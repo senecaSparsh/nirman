@@ -4,8 +4,8 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { ArrowLeft } from "lucide-react";
 import { prisma } from "@nirman/db";
-import { getCompany, getCurrentUser, getUserRole, toNum, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getActingRole, getCompany, getCurrentUser, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
 import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
@@ -23,8 +23,7 @@ export const metadata = { title: "Purchase Order" };
  * `PurchaseOrderDetailDialog` (approve / order / cancel / receive / print).
  */
 export default function PurchaseOrderDetailPage({
-  params,
-}: {
+  params}: {
   params: Promise<{ id: string }>;
 }) {
   return (
@@ -35,15 +34,15 @@ export default function PurchaseOrderDetailPage({
 }
 
 async function PoDetailContent({
-  params,
-}: {
+  params}: {
   params: Promise<{ id: string }>;
 }) {
   await connection();
-  const role = await getUserRole();
+  const actingRole = await getActingRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.PROCUREMENT_VIEW)) {
+  if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) {
     return <NoAccess what="purchase orders" />;
   }
 
@@ -60,28 +59,23 @@ async function PoDetailContent({
       rejectedBy: { select: { id: true, name: true } },
       lines: {
         include: { material: { select: { id: true, code: true, name: true, unit: true, baseUnit: true, secondaryUnit: true, uomConversionFactor: true, isLotTracked: true } } },
-        orderBy: { material: { name: "asc" } },
-      },
+        orderBy: { material: { name: "asc" } }},
       charges: { orderBy: { createdAt: "asc" } },
       goodsReceipts: {
         include: { lines: { select: { materialId: true, qtyReceived: true, unitCost: true } } },
-        orderBy: { receiptDate: "desc" },
-      },
-    },
-  });
+        orderBy: { receiptDate: "desc" }}}});
 
   if (!po) notFound();
 
   // Tier-1 creators (OWNER/ADMIN) may approve their own PO — no higher approver.
-  const canApprove = hasPermission(role, PERM.PO_APPROVE) && (po.createdById !== currentUser?.id || canAutoApprove(role));
-  const canManage = hasPermission(role, PERM.PROCUREMENT_MANAGE);
-  const canReceiveGoods = hasPermission(role, PERM.PROCUREMENT_MANAGE) || hasPermission(role, PERM.INVENTORY_MANAGE);
+  const canApprove = __effPerms.includes(PERM.PO_APPROVE) && (po.createdById !== currentUser?.id || canAutoApprove(actingRole));
+  const canManage = __effPerms.includes(PERM.PROCUREMENT_MANAGE);
+  const canReceiveGoods = __effPerms.includes(PERM.PROCUREMENT_MANAGE) || __effPerms.includes(PERM.INVENTORY_MANAGE);
 
   // Fetch the source requisition (if this PO was converted from one)
   const sourceRequisition = await prisma.materialRequisition.findFirst({
     where: {...await scopeWhere("MaterialRequisition"),  convertedPoId: po.id },
-    select: { id: true, reqNumber: true },
-  });
+    select: { id: true, reqNumber: true }});
 
   const detail: PurchaseOrderDetail = {
     id: po.id,
@@ -93,8 +87,7 @@ async function PoDetailContent({
       gstin: po.supplier.gstin,
       phone: po.supplier.phone,
       email: po.supplier.email,
-      address: po.supplier.address,
-    },
+      address: po.supplier.address},
     procurementScope: po.procurementScope,
     projectId: po.projectId,
     projectName: po.project?.name ?? null,
@@ -103,8 +96,7 @@ async function PoDetailContent({
     destinationLocation: {
       id: po.destinationLocation!.id,
       name: po.destinationLocation!.name,
-      type: po.destinationLocation!.type,
-    },
+      type: po.destinationLocation!.type},
     status: po.status,
     orderDate: po.orderDate?.toISOString() ?? "",
     expectedDate: po.expectedDate?.toISOString() ?? null,
@@ -129,8 +121,7 @@ async function PoDetailContent({
       id: c.id,
       heading: c.heading,
       amount: toNum(c.amount),
-      notes: c.notes,
-    })),
+      notes: c.notes})),
     createdAt: po.createdAt.toISOString(),
     sourceRequisition: sourceRequisition
       ? { id: sourceRequisition.id, reqNumber: sourceRequisition.reqNumber }
@@ -150,8 +141,7 @@ async function PoDetailContent({
       unitCost: toNum(l.unitCost),
       gstRate: toNum(l.gstRate),
       lineTotal: toNum(l.lineTotal),
-      remaining: toNum(l.qtyOrdered) - toNum(l.qtyReceived),
-    })),
+      remaining: toNum(l.qtyOrdered) - toNum(l.qtyReceived)})),
     receipts: po.goodsReceipts.map((gr) => ({
       id: gr.id,
       receiptDate: gr.receiptDate.toISOString(),
@@ -167,9 +157,7 @@ async function PoDetailContent({
       invoiceNumber: gr.invoiceNumber,
       ewayBillNumber: gr.ewayBillNumber,
       lrNumber: gr.lrNumber,
-      packageCount: gr.packageCount,
-    })),
-  };
+      packageCount: gr.packageCount}))};
 
   return (
     <div className="space-y-6">

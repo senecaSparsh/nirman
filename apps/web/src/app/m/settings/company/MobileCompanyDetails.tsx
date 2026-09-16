@@ -1531,6 +1531,7 @@ function ProcurementSection({ data, canManage }: { data: CompanyProfileData; can
     lciThresholdDefault: data.lciThresholdDefault ?? 0,
     poApprovalThresholdManager: data.poApprovalThresholdManager ?? 0,
     poApprovalThresholdAdmin: data.poApprovalThresholdAdmin ?? 0,
+    approvalAgingHours: data.approvalAgingHours ?? 48,
   });
   const [previewAmount, setPreviewAmount] = React.useState("");
   const [saving, setSaving] = React.useState(false);
@@ -1545,6 +1546,7 @@ function ProcurementSection({ data, canManage }: { data: CompanyProfileData; can
           lciThresholdDefault: form.lciThresholdDefault || null,
           poApprovalThresholdManager: form.poApprovalThresholdManager || null,
           poApprovalThresholdAdmin: form.poApprovalThresholdAdmin || null,
+          approvalAgingHours: form.approvalAgingHours || 48,
         }),
       });
       const json = await res.json();
@@ -1608,6 +1610,17 @@ function ProcurementSection({ data, canManage }: { data: CompanyProfileData; can
         </div>
         <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
           Manager: POs below this can be approved by a Manager. Admin: POs at or above this require the Owner.
+        </p>
+        <UnderlineInput
+          label="Approval aging (hrs)"
+          value={form.approvalAgingHours ? String(form.approvalAgingHours) : ""}
+          onChange={(v) => setForm((f) => ({ ...f, approvalAgingHours: v === "" ? 48 : Number(v) }))}
+          placeholder="48"
+          type="number"
+          inputMode="numeric"
+        />
+        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+          Approvals waiting longer than this hit the daily escalation digest to Owner/Admin/Director and active delegates.
         </p>
         {canManage && (
           <button

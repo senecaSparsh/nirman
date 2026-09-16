@@ -4,13 +4,12 @@ import { prisma } from "@nirman/db";
 import { getWbsTree } from "@nirman/services";
 import { ListTree, ChevronRight, Calendar } from "lucide-react";
 import { toNum, scopeWhere, getActionPermissions } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { formatDate, formatNumber } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileEmptyState,
-  MobileStatCard,
-} from "@/components/mobile/v2/primitives";
+  MobileStatCard} from "@/components/mobile/v2/primitives";
 import { MobileProjectScopedPage } from "@/components/mobile/v2/project-scoped-page";
 import { MobileWbsProjectSelector } from "./MobileWbsProjectSelector";
 import { MobileWbsFab } from "./MobileNewWbsNodeDialog";
@@ -22,8 +21,7 @@ import { MobileWbsFab } from "./MobileNewWbsNodeDialog";
  * at the top switches via `?project=ID` search param.
  */
 export default function MobileWbsPage({
-  searchParams,
-}: {
+  searchParams}: {
   searchParams: Promise<{ project?: string }>;
 }) {
   return (
@@ -33,27 +31,23 @@ export default function MobileWbsPage({
       what="Work Breakdown Structure"
       permission={PERM.WBS_VIEW}
     >
-      {async ({ company, role, projectId }) => {
+      {async ({ company, projectId, perms }) => {
         // Fetch projects for the selector (PLANNED or ACTIVE only)
         const projects = await prisma.project.findMany({
           where: {
             companyId: company.id,
             deletedAt: null,
-            status: { in: ["PLANNED", "ACTIVE"] },
-          },
+            status: { in: ["PLANNED", "ACTIVE"] }},
           orderBy: { name: "asc" },
-          select: { id: true, name: true },
-        });
+          select: { id: true, name: true }});
 
         const selectedProject = projectId
           ? await prisma.project.findFirst({
               where: {
                 id: projectId,
                 companyId: company.id,
-                deletedAt: null,
-              },
-              select: { id: true, name: true },
-            })
+                deletedAt: null},
+              select: { id: true, name: true }})
           : null;
 
         // Fetch the WBS tree for the selected project
@@ -69,7 +63,7 @@ export default function MobileWbsPage({
           (n) => toNum(n.progressPct) > 0 && toNum(n.progressPct) < 100,
         ).length;
 
-        const canManage = hasPermission(role, PERM.WBS_MANAGE);
+        const canManage = perms.includes(PERM.WBS_MANAGE);
         const actions = await getActionPermissions();
 
         // Fetch BOQ line items + all WBS nodes (for parent selection) when user can manage
@@ -79,13 +73,11 @@ export default function MobileWbsPage({
                 prisma.boqItem.findMany({
                   where: {...await scopeWhere("BoqItem"),  projectId: selectedProject.id, type: "LINE_ITEM" },
                   orderBy: { serialNo: "asc" },
-                  select: { id: true, serialNo: true, description: true },
-                }),
+                  select: { id: true, serialNo: true, description: true }}),
                 prisma.wbsNode.findMany({
                   where: {...await scopeWhere("WbsNode"),  projectId: selectedProject.id },
                   orderBy: { code: "asc" },
-                  select: { id: true, code: true, name: true, type: true },
-                }),
+                  select: { id: true, code: true, name: true, type: true }}),
               ])
             : [[], []];
 
@@ -153,13 +145,11 @@ export default function MobileWbsPage({
                   id: n.id,
                   code: n.code,
                   name: n.name,
-                  type: n.type as "PROJECT_NODE" | "PHASE_NODE" | "ACTIVITY" | "SUB_ACTIVITY" | "MILESTONE",
-                }))}
+                  type: n.type as "PROJECT_NODE" | "PHASE_NODE" | "ACTIVITY" | "SUB_ACTIVITY" | "MILESTONE"}))}
                 boqItems={boqItems.map((b) => ({
                   id: b.id,
                   serialNo: b.serialNo,
-                  description: b.description,
-                }))}
+                  description: b.description}))}
               />
             )}
           </div>
@@ -194,8 +184,7 @@ function WbsNodeRow({ node, depth }: { node: WbsTreeNode; depth: number }) {
         style={{
           borderColor: "var(--color-line)",
           backgroundColor: "var(--color-paper)",
-          marginLeft: `${depth * 0.75}rem`,
-        }}
+          marginLeft: `${depth * 0.75}rem`}}
       >
         {/* Row 1: code + name + chevron */}
         <div className="flex items-center gap-1.5 mb-1">
@@ -254,15 +243,13 @@ function WbsNodeRow({ node, depth }: { node: WbsTreeNode; depth: number }) {
           className="h-1 rounded-full overflow-hidden"
           style={{
             backgroundColor: "var(--color-concrete)",
-            marginLeft: "1.125rem",
-          }}
+            marginLeft: "1.125rem"}}
         >
           <div
             className="h-full rounded-full transition-[width]"
             style={{
               width: `${Math.min(progress, 100)}%`,
-              backgroundColor: progressColor,
-            }}
+              backgroundColor: progressColor}}
           />
         </div>
       </Link>

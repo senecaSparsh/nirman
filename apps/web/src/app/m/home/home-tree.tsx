@@ -229,11 +229,11 @@ export function HomeTree({ userName }: { userName: string | null }) {
       {/* ── Compact greeting header ── */}
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-1.5">
-          <Sun className="size-3.5" style={{ color: "var(--color-signal)" }} />
-          <span className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
+          <Sun className="size-4" style={{ color: "var(--color-signal)" }} />
+          <span className="text-m-title" style={{ color: "var(--color-ink-950)" }}>
             {greeting}, {firstName}
           </span>
-          <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+          <span className="text-m-caption self-end pb-px" style={{ color: "var(--color-ink-500)" }}>
             · {now ? formatDate(now) : ""}
           </span>
         </div>
@@ -362,7 +362,7 @@ export function HomeTree({ userName }: { userName: string | null }) {
                 icon={<Clock className="size-2.5" style={{ color: "var(--color-ink-700)" }} />}
                 iconBg="var(--color-concrete)"
                 count={recentItems.length}
-                defaultOpen={true}
+                defaultOpen={false}
               >
                 {recentItems.slice(0, 10).map((item, i) => {
                   const Icon = RECENT_ICONS[item.type] ?? FileText;

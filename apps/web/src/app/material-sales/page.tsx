@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { MaterialSalesView } from "@/components/material-sales/material-sales-view";
@@ -25,19 +25,19 @@ export default function MaterialSalesPage() {
 
 async function MaterialSalesContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.SALES_VIEW)) {
+  if (!__effPerms.includes(PERM.SALES_VIEW)) {
     return (
       <NoAccess what="material sales" />
     );
   }
 
   const perms = {
-    canCreate: hasPermission(role, PERM.SALE_CREATE),
-    canCancel: hasPermission(role, PERM.SALES_MANAGE),
-    canRecordPayment: hasPermission(role, PERM.SALES_MANAGE) || hasPermission(role, PERM.FINANCE_MANAGE),
+    canCreate: __effPerms.includes(PERM.SALE_CREATE),
+    canCancel: __effPerms.includes(PERM.SALES_MANAGE),
+    canRecordPayment: __effPerms.includes(PERM.SALES_MANAGE) || __effPerms.includes(PERM.FINANCE_MANAGE),
   };
 
   const [sales, customers, stockLocations, materials, categories, projects] = await Promise.all([

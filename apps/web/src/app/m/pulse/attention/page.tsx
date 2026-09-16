@@ -8,7 +8,7 @@ import {
   CheckCircle2, ChevronRight, ArrowRight,
   TrendingDown, Building2, CalendarClock,
 } from "lucide-react";
-import { getCompany, getUserRole, getUserPermissions, getCurrentUser, toNum, scopeWhere } from "@/lib/server";
+import { getActingRole, getCompany, getUserRole, getUserPermissions, getCurrentUser, toNum, scopeWhere  } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 import { TallySyncButton } from "@/components/mobile/tally-sync-button";
@@ -48,13 +48,14 @@ async function AttentionContent() {
   await connection();
   const company = await getCompany();
   const role = await getUserRole();
+  const actingRole = await getActingRole();
   const overrides = await getUserPermissions();
   const user = await getCurrentUser();
   const userId = user?.id ?? "";
   // Tier-1 approvers (OWNER/ADMIN) may approve their own creations — no higher
   // approver exists — so their own pending items still surface. Everyone else's
   // own items are hidden (they can't self-approve anyway).
-  const hideSelf = !canAutoApprove(role);
+  const hideSelf = !canAutoApprove(actingRole);
 
   // Gate each alert type by the permission that lets the user act on it —
   // a site engineer shouldn't see pending-expense counts or project cost

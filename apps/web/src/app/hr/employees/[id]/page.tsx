@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole, getEmployeeAccessScope, canManageSpecificEmployee, getCurrentUser, getCompanyGroupIds, getScopedFormOptions } from "@/lib/server";
-import { PERM, hasPermission, ROLES, canAssignRole, canAssignCustomRole, type Role } from "@/lib/roles";
+import { getCompany, toNum, getUserRole, getEmployeeAccessScope, canManageSpecificEmployee, getCurrentUser, getCompanyGroupIds, getScopedFormOptions, getUserPermissions } from "@/lib/server";
+import { PERM, ROLES, canAssignRole, canAssignCustomRole, type Role } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
 import { EmployeeProfileClient, type EmployeeProfileData } from "@/components/hr/employee-profile-client";
@@ -28,16 +28,17 @@ async function EmployeeProfileContent({
 }) {
   await connection();
   const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.HR_VIEW)) {
+  if (!__effPerms.includes(PERM.HR_VIEW)) {
     return <NoAccess what="employee profile" />;
   }
 
-  const canManage = hasPermission(role, PERM.HR_MANAGE);
-  const canManagePayroll = hasPermission(role, PERM.PAYROLL_MANAGE);
-  const canManageAccess = hasPermission(role, PERM.USERS_MANAGE);
-  const canAssignTasks = hasPermission(role, PERM.TASKS_ASSIGN);
+  const canManage = __effPerms.includes(PERM.HR_MANAGE);
+  const canManagePayroll = __effPerms.includes(PERM.PAYROLL_MANAGE);
+  const canManageAccess = __effPerms.includes(PERM.USERS_MANAGE);
+  const canAssignTasks = __effPerms.includes(PERM.TASKS_ASSIGN);
   const { id } = await params;
 
   // Root-level access scope: department + field gating

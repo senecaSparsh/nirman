@@ -5,7 +5,7 @@ import {
   Building2, IndianRupee, ClipboardList, Printer,
 } from "lucide-react";
 import { getCompanyGroupIds, getCurrentUser, getUserPermissions, toNum, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
 import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate, formatDateTime } from "@/lib/utils";
 import {
@@ -43,7 +43,7 @@ export default function MobilePoDetailPage({
 }) {
   return (
     <MobileDetailPage params={params} perm={PERM.PROCUREMENT_VIEW} managePerm={PERM.PROCUREMENT_MANAGE} skeletonSections={6}>
-      {async ({ id, company, role, canManage }) => {
+      {async ({ id, company, role, canManage, actingRole, perms }) => {
         const groupCompanyIds = await getCompanyGroupIds(company);
         const overrides = await getUserPermissions();
 
@@ -98,11 +98,11 @@ export default function MobilePoDetailPage({
         // A tier-1 creator (OWNER/ADMIN) may approve their own PO — no higher
         // approver exists above them. Everyone else is blocked from self-
         // approval, so the button stays hidden for a staff-created PO.
-        const canApprove = hasPermission(role, PERM.PO_APPROVE) &&
-          (po.createdById !== currentUserId || canAutoApprove(role));
-        const canManagePayments = hasPermission(role, PERM.FINANCE_MANAGE);
-        const canInspect = hasPermission(role, PERM.QC_MANAGE);
-        const canReceive = hasPermission(role, PERM.PROCUREMENT_VIEW);
+        const canApprove = perms.includes(PERM.PO_APPROVE) &&
+          (po.createdById !== currentUserId || canAutoApprove(actingRole));
+        const canManagePayments = perms.includes(PERM.FINANCE_MANAGE);
+        const canInspect = perms.includes(PERM.QC_MANAGE);
+        const canReceive = perms.includes(PERM.PROCUREMENT_VIEW);
         const isReceivable = po.status === "ORDERED" || po.status === "PARTIAL";
 
         const lines = po.lines.map((l) => ({
@@ -315,7 +315,7 @@ export default function MobilePoDetailPage({
         // For a self-created DRAFT, suppress the "Approve & order" card unless
         // the viewer is tier-1 (OWNER/ADMIN) — they CAN self-approve, so the
         // card is the correct next action for them.
-        if (isSelfCreated && po.status === "DRAFT" && nextAction?.perm === PERM.PO_APPROVE && !canAutoApprove(role)) {
+        if (isSelfCreated && po.status === "DRAFT" && nextAction?.perm === PERM.PO_APPROVE && !canAutoApprove(actingRole)) {
           nextAction = undefined;
         }
 
@@ -711,7 +711,7 @@ export default function MobilePoDetailPage({
               canManage={canManage}
               canManagePayments={canManagePayments}
               currentUserId={currentUserId}
-              canSelfApprove={canAutoApprove(role)}
+              canSelfApprove={canAutoApprove(actingRole)}
               supplierId={po.supplierId}
               supplierName={po.supplier.name}
               balanceRemaining={Math.max(0, poPayload.total - totalPaid)}

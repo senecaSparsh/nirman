@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { materialInventoryValue, lowStockAlerts } from "@nirman/services";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
@@ -24,16 +24,16 @@ export default function BuildPage() {
 
 async function BuildContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
   // Every role can see the pipeline overview — it's role-adaptive.
   // But if somehow none of the 5 stages are visible, show NoAccess.
   const canSeeAnyBuildStage =
-    hasPermission(role, PERM.PROJECTS_VIEW) ||
-    hasPermission(role, PERM.PROCUREMENT_VIEW) ||
-    hasPermission(role, PERM.INVENTORY_VIEW) ||
-    hasPermission(role, PERM.SALES_VIEW);
+    __effPerms.includes(PERM.PROJECTS_VIEW) ||
+    __effPerms.includes(PERM.PROCUREMENT_VIEW) ||
+    __effPerms.includes(PERM.INVENTORY_VIEW) ||
+    __effPerms.includes(PERM.SALES_VIEW);
 
   if (!canSeeAnyBuildStage) {
     return <NoAccess what="the Build pipeline" />;
@@ -90,29 +90,26 @@ async function BuildContent() {
 
   // ── Acquire ───────────────────────────────────────────────────────
   const acquireItems: StageItemData[] = [];
-  if (hasPermission(role, PERM.SALES_VIEW)) {
+  if (__effPerms.includes(PERM.SALES_VIEW)) {
     acquireItems.push({
       label: "Land Parcels",
       href: "/land",
       hint: "What land you own, what it cost, and how it's been subdivided",
-      count: landParcels,
-    });
+      count: landParcels});
   }
-  if (hasPermission(role, PERM.PROCUREMENT_VIEW)) {
+  if (__effPerms.includes(PERM.PROCUREMENT_VIEW)) {
     acquireItems.push({
       label: "Suppliers",
       href: "/suppliers",
       hint: "Who you buy from, what you owe them, and how they've performed",
-      count: suppliers,
-    });
+      count: suppliers});
   }
-  if (hasPermission(role, PERM.FINANCE_VIEW)) {
+  if (__effPerms.includes(PERM.FINANCE_VIEW)) {
     acquireItems.push({
       label: "Rate Contracts",
       href: "/rate-contracts",
       hint: "Pre-negotiated framework agreements with suppliers at fixed rates",
-      count: rateContracts,
-    });
+      count: rateContracts});
   }
   if (acquireItems.length > 0) {
     stages.push({
@@ -120,38 +117,33 @@ async function BuildContent() {
       label: "Acquire",
       tagline: "Land, suppliers and rate contracts",
       metric: { label: "Land parcels", value: formatNumber(landParcels, 0) },
-      items: acquireItems,
-    });
+      items: acquireItems});
   }
 
   // ── Procure ───────────────────────────────────────────────────────
   const procureItems: StageItemData[] = [];
-  if (hasPermission(role, PERM.PROCUREMENT_VIEW)) {
+  if (__effPerms.includes(PERM.PROCUREMENT_VIEW)) {
     procureItems.push({
       label: "Indents",
       href: "/requisitions",
       hint: "Site raises an indent for material. Approve it, then convert it to a purchase order",
       count: openRequisitions,
-      tone: openRequisitions > 0 ? "warning" : "default",
-    });
+      tone: openRequisitions > 0 ? "warning" : "default"});
     procureItems.push({
       label: "Purchase Orders",
       href: "/procurement",
       hint: "What you've ordered, from whom, and what's still to arrive at site",
-      count: openPOs,
-    });
+      count: openPOs});
     procureItems.push({
       label: "Receive Goods",
       href: "/field",
-      hint: "Make a goods receipt note (GRN) by scanning the delivery from your phone",
-    });
+      hint: "Make a goods receipt note (GRN) by scanning the delivery from your phone"});
     procureItems.push({
       label: "Returns",
       href: "/supplier-returns",
       hint: "Send defective or excess stock back to a supplier and track the debit note",
       count: pendingReturns,
-      tone: pendingReturns > 0 ? "warning" : "default",
-    });
+      tone: pendingReturns > 0 ? "warning" : "default"});
   }
   if (procureItems.length > 0) {
     stages.push({
@@ -162,42 +154,35 @@ async function BuildContent() {
         label: "Open POs",
         value: formatNumber(openPOs, 0),
         sub: overduePOs > 0 ? `${overduePOs} overdue` : undefined,
-        tone: overduePOs > 0 ? "danger" : "default",
-      },
-      items: procureItems,
-    });
+        tone: overduePOs > 0 ? "danger" : "default"},
+      items: procureItems});
   }
 
   // ── Stock ─────────────────────────────────────────────────────────
   const stockItems: StageItemData[] = [];
-  if (hasPermission(role, PERM.INVENTORY_VIEW)) {
+  if (__effPerms.includes(PERM.INVENTORY_VIEW)) {
     stockItems.push({
       label: "Stock Ledger",
       href: "/stock",
-      hint: "The full stock lifecycle — on-hand by location, every movement, transfers, issues, scrap, and counts",
-    });
+      hint: "The full stock lifecycle — on-hand by location, every movement, transfers, issues, scrap, and counts"});
     stockItems.push({
       label: "Material Catalogue",
       href: "/materials",
       hint: "Every item you buy — its unit, reorder level and current cost",
-      count: materialCount,
-    });
+      count: materialCount});
     stockItems.push({
       label: "Equipment",
       href: "/equipment",
       hint: "Machines and tools — where they are, who has them, and when they were last serviced",
-      count: equipmentCount,
-    });
+      count: equipmentCount});
     stockItems.push({
       label: "Consumption Benchmarks",
       href: "/standard-consumptions",
-      hint: "Define standard material consumption rates per work type — the system auto-detects over-consumption and scrap",
-    });
+      hint: "Define standard material consumption rates per work type — the system auto-detects over-consumption and scrap"});
     stockItems.push({
       label: "Material Reconciliation",
       href: "/material-reconciliation",
-      hint: "Required vs issued vs consumed vs stock — wastage flags and tolerance alerts per project",
-    });
+      hint: "Required vs issued vs consumed vs stock — wastage flags and tolerance alerts per project"});
   }
   if (stockItems.length > 0) {
     stages.push({
@@ -208,64 +193,55 @@ async function BuildContent() {
         label: "Inventory value",
         value: formatCurrency(toNum(inventoryVal)),
         sub: lowStock.length > 0 ? `${lowStock.length} low stock` : undefined,
-        tone: lowStock.length > 0 ? "warning" : "default",
-      },
-      items: stockItems,
-    });
+        tone: lowStock.length > 0 ? "warning" : "default"},
+      items: stockItems});
   }
 
   // ── Construct ─────────────────────────────────────────────────────
   const constructItems: StageItemData[] = [];
-  if (hasPermission(role, PERM.PROJECTS_VIEW)) {
+  if (__effPerms.includes(PERM.PROJECTS_VIEW)) {
     constructItems.push({
       label: "Projects",
       href: "/projects",
       hint: "Each site: its phases, its spend, and its cost per sq.ft",
-      count: activeProjects,
-    });
+      count: activeProjects});
   }
-  if (hasPermission(role, PERM.BOQ_VIEW)) {
+  if (__effPerms.includes(PERM.BOQ_VIEW)) {
     constructItems.push({
       label: "BOQ",
       href: "/boq",
-      hint: "Bill of Quantities — the project cost budget, item by item",
-    });
+      hint: "Bill of Quantities — the project cost budget, item by item"});
   }
-  if (hasPermission(role, PERM.WBS_VIEW)) {
+  if (__effPerms.includes(PERM.WBS_VIEW)) {
     constructItems.push({
       label: "Schedule (WBS)",
       href: "/wbs",
-      hint: "Work Breakdown Structure — activities, dependencies, critical path",
-    });
+      hint: "Work Breakdown Structure — activities, dependencies, critical path"});
   }
-  if (hasPermission(role, PERM.MB_VIEW)) {
+  if (__effPerms.includes(PERM.MB_VIEW)) {
     constructItems.push({
       label: "Measurement Book",
       href: "/measurement-book",
-      hint: "Site engineer's verified record of actual quantities executed",
-    });
+      hint: "Site engineer's verified record of actual quantities executed"});
   }
-  if (hasPermission(role, PERM.WO_MANAGE)) {
+  if (__effPerms.includes(PERM.WO_MANAGE)) {
     constructItems.push({
       label: "Work Orders",
       href: "/work-orders",
       hint: "Subcontractor work orders and RA bills with TDS and retention",
-      count: openWorkOrders,
-    });
+      count: openWorkOrders});
   }
-  if (hasPermission(role, PERM.QC_VIEW)) {
+  if (__effPerms.includes(PERM.QC_VIEW)) {
     constructItems.push({
       label: "Quality Control",
       href: "/quality-control",
-      hint: "Non-Conformance Reports (NCR) and Corrective And Preventive Actions (CAPA)",
-    });
+      hint: "Non-Conformance Reports (NCR) and Corrective And Preventive Actions (CAPA)"});
   }
-  if (hasPermission(role, PERM.SAFETY_VIEW)) {
+  if (__effPerms.includes(PERM.SAFETY_VIEW)) {
     constructItems.push({
       label: "Safety",
       href: "/safety",
-      hint: "Hazards, incidents, and safety inspections across all sites",
-    });
+      hint: "Hazards, incidents, and safety inspections across all sites"});
   }
   if (constructItems.length > 0) {
     stages.push({
@@ -273,43 +249,37 @@ async function BuildContent() {
       label: "Construct",
       tagline: "Projects, BOQ, WBS, measurement book and work orders",
       metric: { label: "Active projects", value: formatNumber(activeProjects, 0) },
-      items: constructItems,
-    });
+      items: constructItems});
   }
 
   // ── Sell ──────────────────────────────────────────────────────────
   const sellItems: StageItemData[] = [];
-  if (hasPermission(role, PERM.SALES_VIEW)) {
+  if (__effPerms.includes(PERM.SALES_VIEW)) {
     sellItems.push({
       label: "Built Units",
       href: "/units",
       hint: "Flats, shops, plots — what's available, booked, or sold",
       count: availableUnits,
-      tone: availableUnits > 0 ? "success" : "default",
-    });
+      tone: availableUnits > 0 ? "success" : "default"});
     sellItems.push({
       label: "Sales",
       href: "/sales",
       hint: "Bookings, payment plans and what's still to collect",
-      count: activeSales,
-    });
+      count: activeSales});
     sellItems.push({
       label: "Rentals",
       href: "/rentals",
       hint: "Units you've rented out and the rent due each month",
-      count: activeTenancies,
-    });
+      count: activeTenancies});
     sellItems.push({
       label: "Material Sales",
       href: "/material-sales",
-      hint: "Sell surplus or scrap material — revenue recovers project cost when linked to a project",
-    });
+      hint: "Sell surplus or scrap material — revenue recovers project cost when linked to a project"});
     sellItems.push({
       label: "Portal Listings",
       href: "/portal-listings",
       hint: "Sync available built units to 99acres, MagicBricks and Housing.com",
-      count: portalListings,
-    });
+      count: portalListings});
   }
   if (sellItems.length > 0) {
     stages.push({
@@ -319,20 +289,18 @@ async function BuildContent() {
       metric: {
         label: "Available",
         value: formatNumber(availableUnits, 0),
-        sub: `${soldUnits} sold`,
-      },
-      items: sellItems,
-    });
+        sub: `${soldUnits} sold`},
+      items: sellItems});
   }
 
   const headerStats: { label: string; value: string | number; tone?: "default" | "warning" | "danger" | "success" }[] = [
     { label: "Stages", value: stages.length },
     { label: "Active projects", value: activeProjects },
   ];
-  if (hasPermission(role, PERM.INVENTORY_VIEW)) {
+  if (__effPerms.includes(PERM.INVENTORY_VIEW)) {
     headerStats.push({ label: "Inventory", value: formatCurrency(toNum(inventoryVal)) });
   }
-  if (hasPermission(role, PERM.SALES_VIEW)) {
+  if (__effPerms.includes(PERM.SALES_VIEW)) {
     headerStats.push({ label: "Available units", value: availableUnits, tone: availableUnits > 0 ? "success" : "default" });
   }
 

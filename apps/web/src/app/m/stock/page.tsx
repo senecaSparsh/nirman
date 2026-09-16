@@ -1,7 +1,7 @@
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { prisma } from "@nirman/db";
 import { toNum, getCompanyGroupIds, scopeWhere } from "@/lib/server";
-import { hasPermission, PERM } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
 import { MobileLocationDetail } from "./MobileLocationDetail";
 import { MobileStockHubTabs } from "./MobileStockHubTabs";
@@ -9,15 +9,14 @@ import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export default function MobileStockPage({
-  searchParams,
-}: {
+  searchParams}: {
   searchParams: Promise<{ materialId?: string; locationId?: string; tab?: string }>;
 }) {
   return (
     <MobileHubPage skeleton={<MobileSkeletonList rows={8} />} perm={PERM.INVENTORY_VIEW} what="stock" permission="inventory.view">
-      {async ({ company, role }) => {
-        const canManage = hasPermission(role, PERM.INVENTORY_MANAGE);
-        const canTransfer = hasPermission(role, PERM.STOCK_TRANSFER);
+      {async ({ company, perms }) => {
+        const canManage = perms.includes(PERM.INVENTORY_MANAGE);
+        const canTransfer = perms.includes(PERM.STOCK_TRANSFER);
         const { materialId, locationId } = await searchParams;
 
         // ── Location detail view: when locationId is set (and no materialId) ──
@@ -31,52 +30,42 @@ export default function MobileStockPage({
           const [location, locationItems, movements, inTransitIncoming, inTransitOutgoing, categories] = await Promise.all([
             prisma.stockLocation.findUnique({
               where: { id: locationId, companyId: company.id, deletedAt: null },
-              select: { id: true, name: true, type: true },
-            }),
+              select: { id: true, name: true, type: true }}),
             prisma.stockLocationItem.findMany({
               where: { locationId, location: { companyId: company.id }, qty: { not: 0 } },
               include: { material: { select: { id: true, name: true, code: true, unit: true } } },
-              orderBy: { material: { name: "asc" } },
-            }),
+              orderBy: { material: { name: "asc" } }}),
             // Movements are already company-scoped: the location check above
             // (line 30) ensures locationId belongs to company.id, so any
             // movement from/to that location is inherently within the company.
             prisma.stockMovement.findMany({
               where: {...await scopeWhere("StockMovement"),
-                AND: [{ OR: [{ fromLocationId: locationId }, { toLocationId: locationId }] }],
-              },
+                AND: [{ OR: [{ fromLocationId: locationId }, { toLocationId: locationId }] }]},
               orderBy: { timestamp: "desc" },
               take: 50,
               include: {
                 material: { select: { id: true, name: true, unit: true } },
                 fromLocation: { select: { id: true, name: true } },
-                toLocation: { select: { id: true, name: true } },
-              },
-            }),
+                toLocation: { select: { id: true, name: true } }}}),
             // In-transit transfers incoming to this location (cross-company within group)
             prisma.stockTransfer.findMany({
               where: { toLocationId: locationId, status: "IN_TRANSIT", fromLocation: { companyId: { in: companyGroupIds } } },
               include: {
                 fromLocation: { select: { name: true } },
-                lines: { include: { material: { select: { name: true, unit: true } } } },
-              },
-              orderBy: { dispatchedAt: "desc" },
-            }),
+                lines: { include: { material: { select: { name: true, unit: true } } } }},
+              orderBy: { dispatchedAt: "desc" }}),
             // In-transit transfers outgoing from this location (cross-company within group)
             prisma.stockTransfer.findMany({
               where: { fromLocationId: locationId, status: "IN_TRANSIT", toLocation: { companyId: { in: companyGroupIds } } },
               include: {
                 toLocation: { select: { name: true } },
-                lines: { include: { material: { select: { name: true, unit: true } } } },
-              },
-              orderBy: { dispatchedAt: "desc" },
-            }),
+                lines: { include: { material: { select: { name: true, unit: true } } } }},
+              orderBy: { dispatchedAt: "desc" }}),
             // Material categories for inline material creation (company-scoped)
             prisma.materialCategory.findMany({
               where: { deletedAt: null, companyId: company.id },
               select: { id: true, name: true, unit: true, hsnCode: true, gstRate: true },
-              orderBy: { name: "asc" },
-            }).then((rows) => rows.map((c) => ({ ...c, gstRate: c.gstRate ? c.gstRate.toNumber() : null }))),
+              orderBy: { name: "asc" }}).then((rows) => rows.map((c) => ({ ...c, gstRate: c.gstRate ? c.gstRate.toNumber() : null }))),
           ]);
 
           if (!location) {
@@ -100,8 +89,7 @@ export default function MobileStockPage({
                 materialCode: i.material.code,
                 unit: i.material.unit,
                 qty: toNum(i.qty),
-                mac: toNum(i.movingAvgCost),
-              }))}
+                mac: toNum(i.movingAvgCost)}))}
               movements={movements.map((m) => ({
                 id: m.id,
                 movementType: m.movementType,
@@ -111,8 +99,7 @@ export default function MobileStockPage({
                 qty: toNum(m.qty),
                 fromLocationName: m.fromLocation?.name ?? null,
                 toLocationName: m.toLocation?.name ?? null,
-                timestamp: m.timestamp.toISOString(),
-              }))}
+                timestamp: m.timestamp.toISOString()}))}
               totalValue={totalValue}
               inTransitIncoming={inTransitIncoming.map((t) => ({
                 id: t.id,
@@ -122,9 +109,7 @@ export default function MobileStockPage({
                 lines: t.lines.map((l) => ({
                   materialName: l.material.name,
                   qty: toNum(l.qty),
-                  unit: l.material.unit,
-                })),
-              }))}
+                  unit: l.material.unit}))}))}
               inTransitOutgoing={inTransitOutgoing.map((t) => ({
                 id: t.id,
                 toLocationName: t.toLocation.name,
@@ -133,9 +118,7 @@ export default function MobileStockPage({
                 lines: t.lines.map((l) => ({
                   materialName: l.material.name,
                   qty: toNum(l.qty),
-                  unit: l.material.unit,
-                })),
-              }))}
+                  unit: l.material.unit}))}))}
             />
           );
         }
@@ -160,61 +143,50 @@ export default function MobileStockPage({
               id: true,
               name: true,
               type: true,
-              stockItems: { select: { qty: true, movingAvgCost: true } },
-            },
-            orderBy: { name: "asc" },
-          }),
+              stockItems: { select: { qty: true, movingAvgCost: true } }},
+            orderBy: { name: "asc" }}),
           // ── Ledger: movements ──
           prisma.stockMovement.findMany({
             where: {...await scopeWhere("StockMovement"),
               ...(materialId ? { materialId } : {}),
-              AND: [{ OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }] }],
-            },
+              AND: [{ OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }] }]},
             orderBy: { timestamp: "desc" },
             take: 80,
             include: {
               material: { select: { id: true, name: true, unit: true } },
               fromLocation: { select: { id: true, name: true } },
-              toLocation: { select: { id: true, name: true } },
-            },
-          }),
+              toLocation: { select: { id: true, name: true } }}}),
           // ── Ledger: filter material ──
           materialId
             ? prisma.material.findUnique({
                 where: { id: materialId },
-                select: { id: true, name: true, unit: true, code: true },
-              })
+                select: { id: true, name: true, unit: true, code: true }})
             : null,
           // ── Ledger: material stock items ──
           materialId
             ? prisma.stockLocationItem.findMany({
                 where: { materialId, qty: { not: 0 } },
                 include: { location: { select: { id: true, name: true } } },
-                orderBy: { location: { name: "asc" } },
-              })
+                orderBy: { location: { name: "asc" } }})
             : [],
           // ── Ledger: categories ──
           prisma.materialCategory.findMany({
             where: { deletedAt: null, companyId: company.id },
             select: { id: true, name: true, unit: true, hsnCode: true, gstRate: true },
-            orderBy: { name: "asc" },
-          }).then((rows) => rows.map((c) => ({ ...c, gstRate: c.gstRate ? c.gstRate.toNumber() : null }))),
+            orderBy: { name: "asc" }}).then((rows) => rows.map((c) => ({ ...c, gstRate: c.gstRate ? c.gstRate.toNumber() : null }))),
           // ── Transfers tab ──
           prisma.stockTransfer.findMany({
             where: {
               OR: [
                 { fromLocation: { companyId: company.id, deletedAt: null } },
                 { toLocation: { companyId: company.id, deletedAt: null } },
-              ],
-            },
+              ]},
             orderBy: [{ createdAt: "desc" }, { id: "desc" }],
             take: BATCH_SIZE + 1,
             include: {
               fromLocation: { select: { id: true, name: true, type: true, companyId: true, company: { select: { name: true } } } },
               toLocation: { select: { id: true, name: true, type: true, companyId: true, company: { select: { name: true } } } },
-              lines: { include: { material: { select: { name: true, unit: true } } } },
-            },
-          }),
+              lines: { include: { material: { select: { name: true, unit: true } } } }}}),
           // ── Counts tab ──
           prisma.stockCount.findMany({
             where: { location: { companyId: company.id, deletedAt: null } },
@@ -225,9 +197,7 @@ export default function MobileStockPage({
               lines: { select: { variance: true, materialId: true } },
               createdBy: { select: { name: true } },
               confirmedBy: { select: { name: true } },
-              reconciledBy: { select: { name: true } },
-            },
-          }),
+              reconciledBy: { select: { name: true } }}}),
           // ── Scrap tab ──
           prisma.scrapGeneration.findMany({
             where: { companyId: company.id },
@@ -246,17 +216,12 @@ export default function MobileStockPage({
                 select: {
                   qty: true,
                   unitCost: true,
-                  material: { select: { name: true, unit: true } },
-                },
-              },
-            },
-          }),
+                  material: { select: { name: true, unit: true } }}}}}),
           // ── On Hand tab: materials with stock at this company's locations ──
           prisma.material.findMany({
             where: {
               deletedAt: null,
-              stockItems: { some: { location: { companyId: company.id } } },
-            },
+              stockItems: { some: { location: { companyId: company.id } } }},
             select: {
               id: true,
               code: true,
@@ -266,12 +231,9 @@ export default function MobileStockPage({
               reorderPoint: true,
               stockItems: {
                 where: { location: { companyId: company.id } },
-                select: { qty: true, movingAvgCost: true, location: { select: { id: true, name: true, type: true } } },
-              },
-            },
+                select: { qty: true, movingAvgCost: true, location: { select: { id: true, name: true, type: true } } }}},
             orderBy: { name: "asc" },
-            take: 200,
-          }),
+            take: 200}),
         ]);
 
         // ── Ledger serialization ──
@@ -286,8 +248,7 @@ export default function MobileStockPage({
           type: l.type,
           itemCount: l.stockItems.length,
           totalQty: l.stockItems.reduce((s, i) => s + toNum(i.qty), 0),
-          totalValue: l.stockItems.reduce((s, i) => s + toNum(i.qty) * toNum(i.movingAvgCost), 0),
-        }));
+          totalValue: l.stockItems.reduce((s, i) => s + toNum(i.qty) * toNum(i.movingAvgCost), 0)}));
 
         const serializedMovements = movements.map((m) => ({
           id: m.id,
@@ -300,15 +261,13 @@ export default function MobileStockPage({
           fromLocationName: m.fromLocation?.name ?? null,
           toLocationId: m.toLocation?.id ?? null,
           toLocationName: m.toLocation?.name ?? null,
-          timestamp: m.timestamp.toISOString(),
-        }));
+          timestamp: m.timestamp.toISOString()}));
 
         const serializedMaterialStock = materialStockItems.map((i) => ({
           locationId: i.location.id,
           locationName: i.location.name,
           qty: toNum(i.qty),
-          unit: filterMaterial?.unit ?? "",
-        }));
+          unit: filterMaterial?.unit ?? ""}));
 
         const ledgerCsvColumns: MobileColumnSpec[] = [
           { key: "materialName", label: "Material" },
@@ -348,8 +307,7 @@ export default function MobileStockPage({
           materials: t.lines.map((l) => l.material.name),
           materialsList: t.lines.map((l) => l.material.name).join("; "),
           isInterCompany: t.isInterCompany,
-          transferPriceTotal: t.transferPriceTotal ? toNum(t.transferPriceTotal) : null,
-        }));
+          transferPriceTotal: t.transferPriceTotal ? toNum(t.transferPriceTotal) : null}));
 
         const transfersCsvColumns: MobileColumnSpec[] = [
           { key: "fromLocationName", label: "From Location" },
@@ -387,8 +345,7 @@ export default function MobileStockPage({
             reconciledAt: c.reconciledAt?.toISOString() ?? null,
             lineCount: c.lines.length,
             totalVariance,
-            itemsWithVariance,
-          };
+            itemsWithVariance};
         });
 
         // ── Scrap serialization ──
@@ -412,8 +369,7 @@ export default function MobileStockPage({
             (s, l) => s + toNum(l.qty) * toNum(l.unitCost),
             0,
           ),
-          materials: sc.lines.map((l) => l.material.name).slice(0, 2),
-        }));
+          materials: sc.lines.map((l) => l.material.name).slice(0, 2)}));
 
         const scrapCsvColumns: MobileColumnSpec[] = [
           { key: "scrapNumber", label: "Slip No" },
@@ -448,9 +404,7 @@ export default function MobileStockPage({
               id: i.location.id,
               name: i.location.name,
               type: i.location.type,
-              qty: toNum(i.qty),
-            })),
-          };
+              qty: toNum(i.qty)}))};
         }).sort((a, b) => Number(b.isLow || b.isOut) - Number(a.isLow || a.isOut) || a.name.localeCompare(b.name));
 
         const onHandCsvColumns: MobileColumnSpec[] = [
@@ -486,8 +440,7 @@ export default function MobileStockPage({
               total: counts.length,
               draft: draft.length,
               counted: counted.length,
-              reconciled: reconciled.length,
-            }}
+              reconciled: reconciled.length}}
             countsCanCreate={canManage}
             scrapItems={scrapItems}
             scrapTotalValue={scrapTotalValue}

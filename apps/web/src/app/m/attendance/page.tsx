@@ -5,9 +5,8 @@ import { MobileListPage } from "@/components/mobile/v2/list-page";
 import {
   MobileSectionTitle,
   MobileEmptyState,
-  MobileCta,
-} from "@/components/mobile/v2/primitives";
-import { PERM, hasPermission, roleTier } from "@/lib/roles";
+  MobileCta} from "@/components/mobile/v2/primitives";
+import { PERM, roleTier } from "@/lib/roles";
 import { MobileAttendanceList } from "./MobileAttendanceList";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
@@ -21,15 +20,14 @@ import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
  * with HR_MANAGE permission — everyone else just sees their attendance history.
  */
 export default function MobileAttendancePage({
-  searchParams,
-}: {
+  searchParams}: {
   searchParams: Promise<{ projectId?: string }>;
 }) {
   return (
     <MobileListPage perm={PERM.HR_VIEW} what="attendance" permission="hr.view">
-      {async ({ company, role }) => {
+      {async ({ company, role, perms }) => {
         const { projectId } = await searchParams;
-        const canManageAttendance = hasPermission(role, PERM.HR_MANAGE);
+        const canManageAttendance = perms.includes(PERM.HR_MANAGE);
         const isFieldStaff = roleTier(role) >= 4;
         // Fetch attendance with traffic-light tiers via the service rollup
         // (joins attendance → DPR approval status per project+date)
@@ -42,8 +40,7 @@ export default function MobileAttendancePage({
           prisma.project.findMany({
             where: { companyId: company.id, deletedAt: null },
             select: { id: true, name: true },
-            orderBy: { name: "asc" },
-          }),
+            orderBy: { name: "asc" }}),
         ]);
 
         // Serialize for the client component (search + filter chips + date/project filters + badges)
@@ -58,8 +55,7 @@ export default function MobileAttendancePage({
           tier: r.tier,
           dprApproved: r.dprApproved,
           checkIn: r.checkIn?.toTimeString().slice(0, 5) ?? null,
-          checkOut: r.checkOut?.toTimeString().slice(0, 5) ?? null,
-        }));
+          checkOut: r.checkOut?.toTimeString().slice(0, 5) ?? null}));
 
         const projectOptions = projects.map((p) => ({ id: p.id, name: p.name }));
 

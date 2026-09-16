@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { trialBalance, getTallySyncStats, getIntegrationConfig } from "@nirman/services";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { GeneralLedgerView } from "@/components/finance/general-ledger-view";
@@ -29,10 +29,10 @@ export default function GeneralLedgerPage() {
 
 async function GeneralLedgerContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.FINANCE_VIEW)) {
+  if (!__effPerms.includes(PERM.FINANCE_VIEW)) {
     return (
       <NoAccess what="the general ledger" />
     );
@@ -71,10 +71,10 @@ async function GeneralLedgerContent() {
         totalCredit={toNum(tb.totalCredit)}
         isBalanced={tb.isBalanced}
       />
-      {hasPermission(role, PERM.FINANCE_VIEW) && (
+      {__effPerms.includes(PERM.FINANCE_VIEW) && (
         <GstReportsPanel />
       )}
-      {hasPermission(role, PERM.FINANCE_MANAGE) && (
+      {__effPerms.includes(PERM.FINANCE_MANAGE) && (
         <TallySyncPanel stats={{ ...tallyStats, configured: !!tallyConfig?.enabled }} />
       )}
     </>

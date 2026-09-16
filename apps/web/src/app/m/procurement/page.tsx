@@ -4,7 +4,7 @@ import { prisma } from "@nirman/db";
 import { getCompanyGroupIds,
   toNum,
   getCurrentUserMembership, scopeWhere, projectScopeFilter } from "@/lib/server";
-import { hasPermission, PERM } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
@@ -14,15 +14,15 @@ import { MobileProcurementHubTabs } from "./MobileProcurementHubTabs";
 export default function MobileProcurementPage() {
   return (
     <MobileHubPage skeleton={<MobileSkeletonList rows={8} />} perm={PERM.PROCUREMENT_VIEW} what="procurement" permission="procurement.view">
-      {async ({ company, role }) => {
+      {async ({ company, actingRole, perms }) => {
         const groupCompanyIds = await getCompanyGroupIds(company);
-        const canCreate = hasPermission(role, PERM.PROCUREMENT_MANAGE);
+        const canCreate = perms.includes(PERM.PROCUREMENT_MANAGE);
         // Indent creation is field-facing too (site engineers raise indents) —
         // REQUISITION_CREATE is granted to all roles that hold PROCUREMENT_MANAGE.
-        const canCreateIndent = hasPermission(role, PERM.REQUISITION_CREATE);
-        const canApprove = hasPermission(role, PERM.PO_APPROVE);
-        const canApproveRequisition = hasPermission(role, PERM.REQUISITION_APPROVE);
-        const canCreateQuotation = hasPermission(role, PERM.QUOTATION_MANAGE);
+        const canCreateIndent = perms.includes(PERM.REQUISITION_CREATE);
+        const canApprove = perms.includes(PERM.PO_APPROVE);
+        const canApproveRequisition = perms.includes(PERM.REQUISITION_APPROVE);
+        const canCreateQuotation = perms.includes(PERM.QUOTATION_MANAGE);
         const membership = await getCurrentUserMembership();
 
         // ── Fetch data for all hub tabs + form dropdown data in parallel ──
@@ -35,9 +35,7 @@ export default function MobileProcurementPage() {
             take: BATCH_SIZE + 1,
             include: {
               supplier: { select: { name: true } },
-              lines: { select: { qtyOrdered: true, qtyReceived: true } },
-            },
-          }),
+              lines: { select: { qtyOrdered: true, qtyReceived: true } }}}),
           prisma.directPurchase.findMany({
             where: { companyId: company.id },
             orderBy: { billDate: "desc" },
@@ -45,9 +43,7 @@ export default function MobileProcurementPage() {
             include: {
               supplier: { select: { name: true } },
               location: { select: { name: true } },
-              lines: { select: { qty: true } },
-            },
-          }),
+              lines: { select: { qty: true } }}}),
           // ── Indents tab ──
           prisma.materialRequisition.findMany({
             where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id } },
@@ -57,9 +53,7 @@ export default function MobileProcurementPage() {
               project: { select: { name: true } },
               lines: { select: { qtyRequested: true } },
               vendorQuotes: { select: { id: true } },
-              requestedBy: { select: { name: true } },
-            },
-          }),
+              requestedBy: { select: { name: true } }}}),
           // ── Quotations tab ──
           prisma.quotationRequest.findMany({
             where: { companyId: { in: groupCompanyIds } },
@@ -76,17 +70,12 @@ export default function MobileProcurementPage() {
                   landedTotal: true,
                   status: true,
                   supplierId: true,
-                  isCheapest: true,
-                },
-              },
-              convertedPo: { select: { id: true, poNumber: true, status: true } },
-            },
-          }),
+                  isCheapest: true}},
+              convertedPo: { select: { id: true, poNumber: true, status: true } }}}),
           prisma.project.findMany({
             where: { companyId: company.id, deletedAt: null, ...await projectScopeFilter() },
             select: { id: true, name: true },
-            orderBy: { name: "asc" },
-          }),
+            orderBy: { name: "asc" }}),
           prisma.material.findMany({
             where: { deletedAt: null, companyId: company.id },
             select: {
@@ -95,16 +84,13 @@ export default function MobileProcurementPage() {
               code: true,
               unit: true,
               hsnCode: true,
-              gstRate: true,
-            },
-            orderBy: { name: "asc" },
-          }),
+              gstRate: true},
+            orderBy: { name: "asc" }}),
           // ── Form dropdown data ──
           prisma.supplier.findMany({
             where: { companyId: company.id, deletedAt: null },
             select: { id: true, name: true, phone: true },
-            orderBy: { name: "asc" },
-          }),
+            orderBy: { name: "asc" }}),
           // projects already fetched above as quotationProjects — reuse
           Promise.resolve(null),
           // materials already fetched above as quotationMaterials — reuse
@@ -112,19 +98,16 @@ export default function MobileProcurementPage() {
           prisma.stockLocation.findMany({
             where: { companyId: company.id, deletedAt: null },
             select: { id: true, name: true, type: true, projectId: true },
-            orderBy: { name: "asc" },
-          }),
+            orderBy: { name: "asc" }}),
           prisma.materialCategory.findMany({
             where: { deletedAt: null, companyId: company.id },
             select: { id: true, name: true, unit: true, hsnCode: true, gstRate: true },
-            orderBy: { name: "asc" },
-          }).then((rows) => rows.map((c) => ({ ...c, gstRate: c.gstRate ? c.gstRate.toNumber() : null }))),
+            orderBy: { name: "asc" }}).then((rows) => rows.map((c) => ({ ...c, gstRate: c.gstRate ? c.gstRate.toNumber() : null }))),
           prisma.purchaseOrder.findMany({
             where: { status: { in: ["APPROVED", "ORDERED", "RECEIVED"] }, companyId: company.id },
             select: { id: true, poNumber: true, supplierId: true },
             orderBy: { createdAt: "desc" },
-            take: 100,
-          }),
+            take: 100}),
         ]);
 
         // ── Fetch supplier returns (separate query, not in Promise.all because
@@ -135,9 +118,7 @@ export default function MobileProcurementPage() {
           take: 80,
           include: {
             supplier: { select: { name: true } },
-            lines: { select: { qty: true, unitCost: true } },
-          },
-        });
+            lines: { select: { qty: true, unitCost: true } }}});
 
         // ── POs serialization ──
         const poHasMore = pos.length > BATCH_SIZE;
@@ -168,8 +149,7 @@ export default function MobileProcurementPage() {
             total: toNum(p.total),
             qtyOrdered,
             qtyReceived,
-            isOverdue,
-          };
+            isOverdue};
         });
 
         const directPurchaseItems: DirectPurchaseListItem[] = directPurchases.map((d) => ({
@@ -180,8 +160,7 @@ export default function MobileProcurementPage() {
           billDate: d.billDate.toISOString(),
           billAmount: toNum(d.billAmount),
           status: d.status,
-          lineCount: d.lines.length,
-        }));
+          lineCount: d.lines.length}));
 
         const poExportColumns: MobileColumnSpec[] = [
           { key: "poNumber", label: "PO Number" },
@@ -214,8 +193,7 @@ export default function MobileProcurementPage() {
           convertedToPo: !!r.convertedPoId,
           rejectReason: r.rejectReason ?? null,
           requestedByName: r.requestedBy?.name ?? null,
-          requestedById: r.requestedById ?? null,
-        }));
+          requestedById: r.requestedById ?? null}));
 
         const indentExportColumns: MobileColumnSpec[] = [
           { key: "reqNumber", label: "Indent #" },
@@ -232,8 +210,7 @@ export default function MobileProcurementPage() {
         if (membership) {
           const directReports = await prisma.userCompany.findMany({
             where: { reportsToUserCompanyId: membership.id, user: { isHidden: { not: true } } },
-            select: { id: true },
-          });
+            select: { id: true }});
           const reportIds = new Set(directReports.map((r) => r.id));
           pendingIds = new Set(
             quotationRequests
@@ -265,10 +242,8 @@ export default function MobileProcurementPage() {
               ? {
                   id: r.convertedPo.id,
                   poNumber: r.convertedPo.poNumber,
-                  status: r.convertedPo.status,
-                }
-              : null,
-          };
+                  status: r.convertedPo.status}
+              : null};
         });
 
         const quotationCatalog = {
@@ -279,9 +254,7 @@ export default function MobileProcurementPage() {
             code: m.code,
             unit: m.unit,
             hsnCode: m.hsnCode,
-            gstRate: m.gstRate.toNumber(),
-          })),
-        };
+            gstRate: m.gstRate.toNumber()}))};
 
         const quotationExportColumns: MobileColumnSpec[] = [
           { key: "requestNumber", label: "Request #" },
@@ -307,8 +280,7 @@ export default function MobileProcurementPage() {
           returnDate: r.returnDate.toISOString(),
           creditNoteNo: r.creditNoteNo,
           supplierName: r.supplier.name,
-          totalValue: r.lines.reduce((s, l) => s + toNum(l.qty) * toNum(l.unitCost), 0),
-        }));
+          totalValue: r.lines.reduce((s, l) => s + toNum(l.qty) * toNum(l.unitCost), 0)}));
 
         const returnExportColumns: MobileColumnSpec[] = [
           { key: "returnNumber", label: "Return #" },
@@ -322,8 +294,7 @@ export default function MobileProcurementPage() {
         const indentFormData = {
           projects: quotationProjects.map((p) => ({ id: p.id, name: p.name })),
           materials: quotationMaterials.map((m) => ({ id: m.id, name: m.name, code: m.code, unit: m.unit })),
-          suppliers: formSuppliers.map((s) => ({ id: s.id, name: s.name })),
-        };
+          suppliers: formSuppliers.map((s) => ({ id: s.id, name: s.name }))};
 
         const poFormData = {
           suppliers: formSuppliers.map((s) => ({ id: s.id, name: s.name, phone: s.phone })),
@@ -334,26 +305,23 @@ export default function MobileProcurementPage() {
             code: m.code,
             unit: m.unit,
             gstRate: m.gstRate.toNumber(),
-            barcode: null,
-          })),
+            barcode: null})),
           locations: formLocations.map((l) => ({ id: l.id, name: l.name, type: l.type, projectId: l.projectId })),
-          categories: formCategories.map((c) => ({ id: c.id, name: c.name, unit: c.unit })),
-        };
+          categories: formCategories.map((c) => ({ id: c.id, name: c.name, unit: c.unit }))};
 
         const returnFormData = {
           suppliers: formSuppliers.map((s) => ({ id: s.id, name: s.name })),
           locations: formLocations.map((l) => ({ id: l.id, name: l.name, type: l.type })),
           materials: quotationMaterials.map((m) => ({ id: m.id, name: m.name, code: m.code, unit: m.unit })),
           purchaseOrders: formPurchaseOrders.map((p) => ({ id: p.id, poNumber: p.poNumber, supplierId: p.supplierId })),
-          categories: formCategories.map((c) => ({ id: c.id, name: c.name, unit: c.unit })),
-        };
+          categories: formCategories.map((c) => ({ id: c.id, name: c.name, unit: c.unit }))};
 
         return (
           <MobileProcurementHubTabs
             indentItems={indentItems}
             indentCanCreate={canCreateIndent}
             indentCanApprove={canApproveRequisition}
-            indentCanSelfApprove={canAutoApprove(role)}
+            indentCanSelfApprove={canAutoApprove(actingRole)}
             indentSubmittedCount={reqSubmittedCount}
             indentLoadMoreUrl="/api/mobile/list/requisitions"
             indentNextCursor={reqNextCursor}
@@ -366,7 +334,7 @@ export default function MobileProcurementPage() {
             poItems={poItems}
             poCanCreate={canCreate}
             poCanApprove={canApprove}
-            poCanSelfApprove={canAutoApprove(role)}
+            poCanSelfApprove={canAutoApprove(actingRole)}
             poDraftCount={poDraftCount}
             poLoadMoreUrl="/api/mobile/list/procurement"
             poNextCursor={poNextCursor}

@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, getUserScope } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getUserScope, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
 import { PageHeader } from "@/components/page-header";
@@ -30,13 +30,13 @@ export default function CostControlPage({
 async function CostControlContent({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   await connection();
   await searchParams; // URL tab state is read client-side via useTabParam
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
   const scope = await getUserScope();
 
   // Cost control requires either finance or project-control permission
-  const canSeeFinance = hasPermission(role, PERM.FINANCE_VIEW);
-  const canSeeProjectControl = hasPermission(role, PERM.PROJECT_CONTROL_VIEW);
+  const canSeeFinance = __effPerms.includes(PERM.FINANCE_VIEW);
+  const canSeeProjectControl = __effPerms.includes(PERM.PROJECT_CONTROL_VIEW);
   if (!canSeeFinance && !canSeeProjectControl) {
     return <NoAccess what="cost control" />;
   }

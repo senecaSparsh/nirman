@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { getActingRole, apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { logAction } from "@nirman/services";
 import { fetchTwilioNumbers, normalizeTwilioNumber, configureNumberWebhook } from "@/lib/twilio-service";
@@ -24,7 +24,7 @@ import { fetchTwilioNumbers, normalizeTwilioNumber, configureNumberWebhook } fro
 export const POST = apiHandler(async (req: NextRequest) => {
   // Only OWNER can sync Twilio numbers
   const user = await requirePermission(PERM.TELEPHONY_MANAGE);
-  if (user.role !== "OWNER") {
+  if ((await getActingRole()) !== "OWNER") {
     return json({ error: "Only the owner can sync Twilio numbers" }, { status: 403 });
   }
   const company = await getCompany();

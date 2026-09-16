@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileFab } from "@/components/mobile/v2/scaffold";
 import { MobileSupplierPaymentsList, type SupplierPaymentListItem } from "./MobileSupplierPaymentsList";
@@ -12,8 +12,8 @@ import { MobileSupplierPaymentsList, type SupplierPaymentListItem } from "./Mobi
 export default function MobileSupplierPaymentsPage() {
   return (
     <MobileListPage perm={PERM.FINANCE_VIEW} managePerm={PERM.FINANCE_MANAGE}>
-      {async ({ company, canManage, role }) => {
-        const canViewProcurement = hasPermission(role, PERM.PROCUREMENT_VIEW);
+      {async ({ company, canManage, perms }) => {
+        const canViewProcurement = perms.includes(PERM.PROCUREMENT_VIEW);
         const BATCH_SIZE = 40;
         const payments = await prisma.supplierPayment.findMany({
           where: { companyId: company.id },
@@ -22,9 +22,7 @@ export default function MobileSupplierPaymentsPage() {
           include: {
             supplier: { select: { id: true, name: true } },
             purchaseOrder: { select: { id: true, poNumber: true } },
-            invoice: { select: { invoiceNumber: true } },
-          },
-        });
+            invoice: { select: { invoiceNumber: true } }}});
 
         const hasMore = payments.length > BATCH_SIZE;
         const batch = hasMore ? payments.slice(0, BATCH_SIZE) : payments;
@@ -43,8 +41,7 @@ export default function MobileSupplierPaymentsPage() {
           invoiceNumber: p.invoice?.invoiceNumber ?? null,
           amount: toNum(p.amount),
           paymentDate: p.paymentDate.toISOString(),
-          paymentMode: p.paymentMode,
-        }));
+          paymentMode: p.paymentMode}));
 
         const totalAmount = rows.reduce((s, p) => s + p.amount, 0);
 

@@ -3,8 +3,8 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import type { AreaUnit, BuiltUnitStatus, BuiltUnitType, LandParcelStatus } from "@nirman/db";
 import { projectPnl } from "@nirman/services";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { NoAccess } from "@/components/no-access";
 import { ProjectHub, type ProjectHubData } from "@/components/projects/project-hub";
 import type { PhaseRow } from "@/components/projects/phases-section";
@@ -27,8 +27,8 @@ const MOVEMENT_LABELS: Record<string, string> = {
 export async function ProjectDetailContent({ params }: { params: Promise<{ id: string }> }) {
   await connection();
   const { id } = await params;
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.PROJECTS_VIEW)) {
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.PROJECTS_VIEW)) {
     return <NoAccess what="this project" />;
   }
   const company = await getCompany();
@@ -643,15 +643,15 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
       notes: d.notes,
       createdAt: d.createdAt.toISOString(),
     })),
-    canManageLegal: hasPermission(role, PERM.LEGAL_MANAGE),
-    canManage: hasPermission(role, PERM.PROJECTS_MANAGE),
-    canReallocate: hasPermission(role, PERM.PROJECTS_MANAGE) || hasPermission(role, PERM.FINANCE_MANAGE),
+    canManageLegal: __effPerms.includes(PERM.LEGAL_MANAGE),
+    canManage: __effPerms.includes(PERM.PROJECTS_MANAGE),
+    canReallocate: __effPerms.includes(PERM.PROJECTS_MANAGE) || __effPerms.includes(PERM.FINANCE_MANAGE),
     quickActionPerms: {
-      canCreatePO: hasPermission(role, PERM.PROCUREMENT_MANAGE),
-      canIssueMaterials: hasPermission(role, PERM.STOCK_ISSUE),
-      canManageUnits: hasPermission(role, PERM.ASSETS_MANAGE),
-      canCreateSale: hasPermission(role, PERM.SALE_CREATE),
-      canAddCost: hasPermission(role, PERM.EXPENSE_CREATE) || hasPermission(role, PERM.FINANCE_MANAGE),
+      canCreatePO: __effPerms.includes(PERM.PROCUREMENT_MANAGE),
+      canIssueMaterials: __effPerms.includes(PERM.STOCK_ISSUE),
+      canManageUnits: __effPerms.includes(PERM.ASSETS_MANAGE),
+      canCreateSale: __effPerms.includes(PERM.SALE_CREATE),
+      canAddCost: __effPerms.includes(PERM.EXPENSE_CREATE) || __effPerms.includes(PERM.FINANCE_MANAGE),
     },
   };
 

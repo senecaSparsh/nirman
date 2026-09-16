@@ -30,7 +30,7 @@ export default function MobileRequisitionDetailPage({
 }) {
   return (
     <MobileDetailPage params={params} managePerm={PERM.PROCUREMENT_MANAGE} skeletonSections={6}>
-      {async ({ id, company, role, canManage }) => {
+      {async ({ id, company, role, canManage, actingRole, perms }) => {
         const overrides = await getUserPermissions();
         const actions = await getActionPermissions();
         const canCreatePo = actions?.canCreatePo ?? canManage;
@@ -77,7 +77,7 @@ export default function MobileRequisitionDetailPage({
 
         // Tier-1 creators (OWNER/ADMIN) may approve their own indent — no higher approver.
         const currentUserId2 = (await getCurrentUser())?.id;
-        const canApprove = hasPermission(role, PERM.REQUISITION_APPROVE) && (req.requestedById !== currentUserId2 || canAutoApprove(role));
+        const canApprove = perms.includes(PERM.REQUISITION_APPROVE) && (req.requestedById !== currentUserId2 || canAutoApprove(actingRole));
 
         const [suppliers, locations] = await Promise.all([
           prisma.supplier.findMany({
@@ -178,7 +178,7 @@ export default function MobileRequisitionDetailPage({
         let nextAction = resolveNextAction("requisition", req.status, role, overrides);
         // For a self-created SUBMITTED indent, suppress the approve card unless
         // the viewer is tier-1 (OWNER/ADMIN) — they CAN self-approve.
-        if (isSelfCreated && req.status === "SUBMITTED" && nextAction?.perm === PERM.REQUISITION_APPROVE && !canAutoApprove(role)) {
+        if (isSelfCreated && req.status === "SUBMITTED" && nextAction?.perm === PERM.REQUISITION_APPROVE && !canAutoApprove(actingRole)) {
           nextAction = undefined;
         }
 

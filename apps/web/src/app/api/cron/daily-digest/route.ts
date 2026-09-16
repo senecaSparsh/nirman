@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, json } from "@/lib/server";
-import { createInAppNotification } from "@nirman/services";
+import { createInAppNotification, leaseExpiryAlerts } from "@nirman/services";
 import { withTimeout } from "@/lib/timeout";
 
 /**
@@ -92,6 +92,11 @@ async function run(): Promise<Response> {
       );
       const silentSites = activeProjects.filter((p) => !reported.has(p.id)).map((p) => p.name);
 
+      // Leasehold land approaching expiry — emit:false folds it into one
+      // digest line (per-lease notifications every morning would be spam).
+      const leaseAlerts = await leaseExpiryAlerts(company.id, { emit: false }).catch(() => []);
+      const urgentLeases = leaseAlerts.filter((a) => a.severity === "EXPIRED" || a.severity === "CRITICAL");
+
       // ── Recipients: exec tier + active delegates ──
       const execs = await prisma.userCompany.findMany({
         where: {
@@ -122,6 +127,14 @@ async function run(): Promise<Response> {
       if (deliveries) parts.push(`${deliveries} deliver${deliveries > 1 ? "ies" : "y"} due today`);
       if (paymentsDue) parts.push(`${paymentsDue} overdue PO${paymentsDue > 1 ? "s" : ""}`);
       if (silentSites.length) parts.push(`${silentSites.join(", ")} — no DPR yet`);
+      if (urgentLeases.length) {
+        const worst = urgentLeases[0]!;
+        parts.push(
+          `${urgentLeases.length} lease${urgentLeases.length > 1 ? "s" : ""} expiring — ` +
+          `${worst.projectName ?? worst.location ?? worst.sellerName} ` +
+          `${worst.daysUntilExpiry < 0 ? "EXPIRED" : `${worst.daysUntilExpiry}d left`}`,
+        );
+      }
       if (parts.length === 0) parts.push("All clear — no pending approvals or alerts");
 
       let notified = 0;

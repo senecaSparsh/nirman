@@ -1,7 +1,7 @@
 import { type NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, getUserRole, json, requirePermission } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { apiHandler, getCompany, json, requirePermission, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { recordPettyCashSpend } from "@nirman/services";
 
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -23,8 +23,8 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   });
   if (!float) return json({ error: "Petty cash float not found" }, { status: 404 });
   if (float.custodianId && float.custodianId !== user.id) {
-    const role = await getUserRole();
-    if (!hasPermission(role, PERM.FINANCE_MANAGE)) {
+    const __effPerms = await getUserPermissions();
+    if (!__effPerms.includes(PERM.FINANCE_MANAGE)) {
       return json({ error: "Only this float's custodian or a finance manager can record spends" }, { status: 403 });
     }
   }

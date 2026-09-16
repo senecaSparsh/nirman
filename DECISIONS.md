@@ -153,9 +153,12 @@ If you catch yourself planning to "build the rent module" or "add the sale lifec
      delegates inherit the delegator's permissions (getUserPermissions union)
      and acting role (getActingRole) across all approval routes. Daily
      `/api/cron/approval-aging` (scheduled via scheduler.sh + render.yaml)
-     digests stalled (>48h) approvals to execs + active delegates, prunes
-     resolved ErrorLogs >30d, and leave approval nudges approvers to
-     delegate before going away; Pulse shows oldest-pending age.
+     digests stalled approvals to execs + active delegates — threshold is
+     `Company.approvalAgingHours` (default 48h, editable in company
+     settings desktop + mobile). The run also prunes resolved ErrorLogs
+     > 30d. Leave approval nudges approvers to delegate before going away.
+     > Pulse shows oldest-pending age; mobile approvals queue renders a
+     > per-item waiting chip (amber ≥24h, red ≥48h).
 1. **Cross-cutting refinement** — per `global_rules.md`, refine every page/button
    to function correctly end-to-end (frontend ↔ backend ↔ database). A multi-pass
    audit (committed ~50 fixes) covered: every business flow end-to-end + DB/GL,

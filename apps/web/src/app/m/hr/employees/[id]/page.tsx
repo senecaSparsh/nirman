@@ -3,8 +3,8 @@ import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum, getCurrentUser, getEmployeeAccessScope, canManageSpecificEmployee, getCompanyGroupIds, getScopedFormOptions, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission, ROLES, canAssignRole, canAssignCustomRole, type Role } from "@/lib/roles";
+import { getCompany, getUserRole, toNum, getCurrentUser, getEmployeeAccessScope, canManageSpecificEmployee, getCompanyGroupIds, getScopedFormOptions, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM, ROLES, canAssignRole, canAssignCustomRole, type Role } from "@/lib/roles";
 import { MobileEmployeeDetailClient } from "./MobileEmployeeDetailClient";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
 import type { OnboardingEmployeeData } from "./MobileOnboardingTab";
@@ -29,8 +29,9 @@ async function MobileEmployeeDetailContent({
   await connection();
   const company = await getCompany();
   const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   // Gate: require HR_VIEW to access employee details
-  if (!hasPermission(role, PERM.HR_VIEW)) {
+  if (!__effPerms.includes(PERM.HR_VIEW)) {
     redirect("/m");
   }
   // Root-level access scope: department filter + field-level gating

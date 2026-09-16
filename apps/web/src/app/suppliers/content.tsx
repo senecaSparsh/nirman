@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { VendorsView } from "@/components/vendors/vendors-view";
 import { formatCurrency } from "@/lib/utils";
@@ -9,17 +9,17 @@ import { NoAccess } from "@/components/no-access";
 
 export async function VendorsContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.PROCUREMENT_VIEW)) {
+  if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) {
     return (
       <NoAccess what="vendors" />
     );
   }
 
   const perms = {
-    canManage: hasPermission(role, PERM.PROCUREMENT_MANAGE),
+    canManage: __effPerms.includes(PERM.PROCUREMENT_MANAGE),
   };
 
   const suppliers = await prisma.supplier.findMany({

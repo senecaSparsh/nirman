@@ -3,15 +3,14 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import {Users} from "lucide-react";
-import { getCompany, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import { getPurchaserPerformance } from "@nirman/services";
 import {
   MobileSectionTitle,
   MobileRow,
-  MobileEmptyState,
-} from "@/components/mobile/v2/primitives";
+  MobileEmptyState} from "@/components/mobile/v2/primitives";
 import { MobileReportHeader, MobileReportSummary, MobileBarChart } from "@/components/mobile/v2/report-ui";
 import { MobileExportShareIcons } from "@/components/mobile/v2/export-share-bar";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
@@ -20,8 +19,7 @@ import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
  * /m/reports/purchaser-performance — mobile purchaser performance report.
  */
 export default function MobilePurchaserPerformancePage({
-  searchParams,
-}: {
+  searchParams}: {
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
   return (
@@ -32,14 +30,13 @@ export default function MobilePurchaserPerformancePage({
 }
 
 async function MobilePurchaserPerformanceContent({
-  searchParams,
-}: {
+  searchParams}: {
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
   await connection();
   const { from: fromParam, to: toParam } = await searchParams;
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.PROCUREMENT_VIEW)) notFound();
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) notFound();
   const company = await getCompany();
 
   const now = new Date();
@@ -53,8 +50,7 @@ async function MobilePurchaserPerformanceContent({
   const mapped = rows.map((r) => ({
     ...r,
     totalSpend: r.totalSpend.toNumber(),
-    potentialSavings: r.potentialSavings.toNumber(),
-  }));
+    potentialSavings: r.potentialSavings.toNumber()}));
 
   const totalQuotes = mapped.reduce((s, r) => s + r.quotesUploaded, 0);
   const totalSpend = mapped.reduce((s, r) => s + r.totalSpend, 0);
@@ -109,8 +105,7 @@ async function MobilePurchaserPerformanceContent({
           data={mapped.map((r) => ({
             label: r.userName,
             value: r.totalSpend,
-            tone: "signal" as const,
-          }))}
+            tone: "signal" as const}))}
           formatValue={(v) => formatCurrencyCompact(v)}
         />
       </div>

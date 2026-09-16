@@ -2,9 +2,9 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { projectPnl } from "@nirman/services";
-import { getCompany, toNum, getUserRole, scopeWhere } from "@/lib/server";
+import { getCompany, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { ProjectProgressReport } from "@/components/reports/project-progress-report";
@@ -22,10 +22,10 @@ export default function ProjectProgressPage() {
 
 async function ProjectProgressContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.FINANCE_VIEW) && !hasPermission(role, PERM.INVENTORY_VIEW) && !hasPermission(role, PERM.SALES_VIEW)) {
+  if (!__effPerms.includes(PERM.FINANCE_VIEW) && !__effPerms.includes(PERM.INVENTORY_VIEW) && !__effPerms.includes(PERM.SALES_VIEW)) {
     return (
       <NoAccess what="the project progress report" />
     );

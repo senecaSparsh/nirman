@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { notFound } from "next/navigation";
-import { getCompany, getUserRole, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
 import { PageHeader } from "@/components/page-header";
@@ -25,10 +25,10 @@ export default async function NcrDetailPage({
 async function NcrDetailContent({ id }: { id: string }) {
   await connection();
   const company = await getCompany();
-  const role = await getUserRole();
-  const canManage = hasPermission(role, PERM.QC_MANAGE);
+  const __effPerms = await getUserPermissions();
+  const canManage = __effPerms.includes(PERM.QC_MANAGE);
 
-  if (!hasPermission(role, PERM.QC_VIEW)) {
+  if (!__effPerms.includes(PERM.QC_VIEW)) {
     return <NoAccess what="NCR" />;
   }
 

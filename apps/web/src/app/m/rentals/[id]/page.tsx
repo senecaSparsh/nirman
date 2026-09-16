@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { toNum, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobileRentalDetailClient } from "./MobileRentalDetailClient";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
@@ -16,24 +16,21 @@ import { PageContextProvider } from "@/components/mobile/v2/page-context";
  *   5. Activate a pending lease or terminate an active one
  */
 export default function MobileRentalDetailPage({
-  params,
-}: {
+  params}: {
   params: Promise<{ id: string }>;
 }) {
   return (
     <MobileDetailPage params={params}>
-      {async ({ id, company, role }) => {
-        const canManage = hasPermission(role, PERM.SALES_MANAGE);
-        const canSell = hasPermission(role, PERM.SALE_CREATE);
+      {async ({ id, company, perms }) => {
+        const canManage = perms.includes(PERM.SALES_MANAGE);
+        const canSell = perms.includes(PERM.SALE_CREATE);
 
         const tenancy = await prisma.tenancy.findFirst({
           where: {...await scopeWhere("Tenancy"),  id, companyId: company.id },
           include: {
             customer: { select: { id: true, name: true, phone: true, email: true } },
             project: { select: { id: true, name: true } },
-            payments: { orderBy: { dueDate: "desc" } },
-          },
-        });
+            payments: { orderBy: { dueDate: "desc" } }}});
 
         if (!tenancy) {
           return (
@@ -46,14 +43,12 @@ export default function MobileRentalDetailPage({
           tenancy.builtUnitId
             ? prisma.builtUnit.findFirst({
                 where: {...await scopeWhere("BuiltUnit"),  id: tenancy.builtUnitId, deletedAt: null },
-                select: { id: true, unitNumber: true, unitType: true, area: true, areaUnit: true },
-              })
+                select: { id: true, unitNumber: true, unitType: true, area: true, areaUnit: true }})
             : null,
           tenancy.landParcelId
             ? prisma.landParcel.findFirst({
                 where: {...await scopeWhere("LandParcel"),  id: tenancy.landParcelId, deletedAt: null },
-                select: { id: true, number: true, area: true, areaUnit: true, landPurchaseId: true },
-              })
+                select: { id: true, number: true, area: true, areaUnit: true, landPurchaseId: true }})
             : null,
         ]);
 
@@ -123,9 +118,7 @@ export default function MobileRentalDetailPage({
             dueDate: p.dueDate.toISOString(),
             mode: p.mode,
             reference: p.reference,
-            status: p.status,
-          })),
-        };
+            status: p.status}))};
 
         return (
           <PageContextProvider value={{
@@ -133,8 +126,7 @@ export default function MobileRentalDetailPage({
             status: tenancy.status,
             label: tenancy.tenantName,
             subtitle: tenancy.project?.name ?? undefined,
-            recordId: tenancy.id,
-          }}>
+            recordId: tenancy.id}}>
           <MobileRentalDetailClient
             data={data}
             canManage={canManage}

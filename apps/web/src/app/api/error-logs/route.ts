@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requireUser } from "@/lib/server";
+import { getActingRole, apiHandler, getCompany, json, requireUser } from "@/lib/server";
 import {
   fingerprintFor,
   notifyDevelopersOfError,
@@ -118,8 +118,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
  *   - offset: number (default 0)
  */
 export const GET = apiHandler(async (req: NextRequest) => {
-  const user = await requireUser();
-  if (user.role !== "DEVELOPER") {
+  await requireUser();
+  if ((await getActingRole()) !== "DEVELOPER") {
     return json({ error: "Forbidden — only the developer can view error logs." }, { status: 403 });
   }
 
@@ -165,7 +165,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
  */
 export const PATCH = apiHandler(async (req: NextRequest) => {
   const user = await requireUser();
-  if (user.role !== "DEVELOPER") {
+  if ((await getActingRole()) !== "DEVELOPER") {
     return json({ error: "Forbidden." }, { status: 403 });
   }
 

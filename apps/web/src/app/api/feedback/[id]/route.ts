@@ -7,7 +7,7 @@ import {
   resolveFeedback,
 } from "@nirman/services";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, requireUser, getCompany } from "@/lib/server";
+import { getActingRole, apiHandler, json, requireUser, getCompany } from "@/lib/server";
 
 /**
  * GET /api/feedback/[id] — get a single feedback entry (DEVELOPER only).
@@ -17,8 +17,8 @@ export const GET = apiHandler(async (
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) => {
-  const user = await requireUser();
-  if (user.role !== "DEVELOPER") {
+  await requireUser();
+  if ((await getActingRole()) !== "DEVELOPER") {
     return json({ error: "Forbidden — only the developer can view feedback." }, { status: 403 });
   }
   const { id } = await params;
@@ -48,7 +48,7 @@ export const PATCH = apiHandler(async (
   { params }: { params: Promise<{ id: string }> },
 ) => {
   const user = await requireUser();
-  if (user.role !== "DEVELOPER") {
+  if ((await getActingRole()) !== "DEVELOPER") {
     return json({ error: "Forbidden — only the developer can manage feedback." }, { status: 403 });
   }
   const { id } = await params;

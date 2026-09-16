@@ -24,6 +24,8 @@ export interface HomeData {
   canCreateCompany: boolean;
   userName: string | null;
   role: string;
+  /** Effective permission union (incl. delegations) — gate affordances on this. */
+  permissions: string[];
   persona: Persona;
   myEmployee: { id: string; name: string } | null;
   myAttendance: {
@@ -96,6 +98,7 @@ function HomeContent({ data }: { data: HomeData }) {
         <PersonaHomeDashboard
           persona={data.persona}
           role={data.role}
+          perms={data.permissions}
           currentCompany={data.currentCompany}
         />
       )}

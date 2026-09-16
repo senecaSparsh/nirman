@@ -1,18 +1,18 @@
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, getUserScope } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getUserScope, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { NoAccess } from "@/components/no-access";
 import { MeasurementBookView } from "@/components/measurement-book/mb-view";
 
 export async function MbContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
   const scope = await getUserScope();
 
-  if (!hasPermission(role, PERM.MB_VIEW)) {
+  if (!__effPerms.includes(PERM.MB_VIEW)) {
     return <NoAccess what="measurement book" />;
   }
 
@@ -28,9 +28,9 @@ export async function MbContent() {
     select: { id: true, name: true, type: true, status: true },
   });
 
-  const canCreate = hasPermission(role, PERM.MB_VERIFY);
-  const canVerify = hasPermission(role, PERM.MB_VERIFY);
-  const canApprove = hasPermission(role, PERM.MB_APPROVE);
+  const canCreate = __effPerms.includes(PERM.MB_VERIFY);
+  const canVerify = __effPerms.includes(PERM.MB_VERIFY);
+  const canApprove = __effPerms.includes(PERM.MB_APPROVE);
 
   return (
     <>

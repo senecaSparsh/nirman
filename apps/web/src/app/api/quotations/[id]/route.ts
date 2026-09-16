@@ -2,12 +2,12 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { cancelQuotationRequest, getComparativeMatrix } from "@nirman/services";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import {
   apiHandler,
   getCompany,
   getCompanyGroupIds,
-  getUserRole,
+  getUserPermissions,
   json,
   requirePermission,
   scopeWhere,
@@ -23,7 +23,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
   const user = await requirePermission(PERM.QUOTATION_VIEW);
   const company = await getCompany();
   const groupCompanyIds = await getCompanyGroupIds(company);
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
 
   const request = await prisma.quotationRequest.findFirst({
     where: { id, companyId: { in: groupCompanyIds }, ...await scopeWhere("Quotation", {}) },
@@ -38,14 +38,14 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
   const matrix = await getComparativeMatrix(id);
 
   const closed = request.status === "APPROVED" || request.status === "CLOSED" || request.status === "CANCELLED";
-  const canApprove = hasPermission(role, PERM.QUOTATION_MANAGE) && !closed
+  const canApprove = __effPerms.includes(PERM.QUOTATION_MANAGE) && !closed
     ? user.id !== (await prisma.userCompany.findUnique({
         where: { id: request.submittedByUserCompanyId },
         select: { userId: true },
       }))?.userId
     : false;
 
-  const canAddQuote = hasPermission(role, PERM.QUOTATION_MANAGE) && !closed;
+  const canAddQuote = __effPerms.includes(PERM.QUOTATION_MANAGE) && !closed;
 
   const suppliers = await prisma.supplier.findMany({
     where: { companyId: company.id, deletedAt: null },

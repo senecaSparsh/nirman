@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum, scopeWhere, projectScopeFilter } from "@/lib/server";
+import { getCompany, toNum, scopeWhere, projectScopeFilter, getUserPermissions } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { SalesView } from "@/components/sales/sales-view";
 import { PageLoading } from "@/components/page-loading";
@@ -12,8 +12,7 @@ import type { AssetSaleRow, CustomerRow, LeadRow } from "@/lib/types";
 import { NoAccess } from "@/components/no-access";
 import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 export default function SalesPage({
-  searchParams,
-}: {
+  searchParams}: {
   searchParams: Promise<{ tab?: string }>;
 }) {
   return (
@@ -28,10 +27,10 @@ export default function SalesPage({
 async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   await connection();
   const { tab } = await searchParams;
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.SALES_VIEW)) {
+  if (!__effPerms.includes(PERM.SALES_VIEW)) {
     return (
       <NoAccess what="sales" />
     );
@@ -49,17 +48,13 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
         expenses: { orderBy: { sortOrder: "asc" } },
         terms: { orderBy: { sortOrder: "asc" } },
         broker: { select: { id: true, name: true, phone: true, agency: true } },
-        paymentSchedule: { include: { items: { orderBy: { installmentNo: "asc" } } } },
-      },
-    }),
+        paymentSchedule: { include: { items: { orderBy: { installmentNo: "asc" } } } }}}),
     prisma.customer.findMany({
       take: 500,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       include: {
-        _count: { select: { assetSales: { where: { companyId: company.id, status: "ACTIVE" } } } },
-      },
-    }),
+        _count: { select: { assetSales: { where: { companyId: company.id, status: "ACTIVE" } } } }}}),
     prisma.lead.findMany({
       take: 500,
       where: {...await scopeWhere("Lead"),  companyId: company.id, deletedAt: null },
@@ -69,40 +64,32 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
         interestedUnit: { select: { id: true, unitNumber: true } },
         assignedTo: { select: { id: true, name: true } },
         activities: { orderBy: { occurredAt: "desc" }, take: 1 },
-        _count: { select: { activities: true } },
-      },
-    }),
+        _count: { select: { activities: true } }}}),
     prisma.project.findMany({
       take: 200,
       where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] }, ...await projectScopeFilter() ?? {} },
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
+      select: { id: true, name: true }}),
     prisma.builtUnit.findMany({
       take: 200,
       where: {...await scopeWhere("BuiltUnit"), 
         deletedAt: null,
         status: { in: ["AVAILABLE", "HOLD"] },
-        project: { companyId: company.id, deletedAt: null },
-      },
+        project: { companyId: company.id, deletedAt: null }},
       orderBy: [{ project: { name: "asc" } }, { unitNumber: "asc" }],
-      select: { id: true, unitNumber: true, unitType: true, projectId: true, project: { select: { name: true } } },
-    }),
+      select: { id: true, unitNumber: true, unitType: true, projectId: true, project: { select: { name: true } } }}),
     prisma.userCompany.findMany({
       take: 200,
       where: {
         companyId: company.id,
         role: { in: ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "SALES_MANAGER"] },
-        user: { active: true, isHidden: { not: true } },
-      },
+        user: { active: true, isHidden: { not: true } }},
       orderBy: { user: { name: "asc" } },
-      select: { user: { select: { id: true, name: true } } },
-    }),
+      select: { user: { select: { id: true, name: true } } }}),
     prisma.builtUnit.groupBy({
       by: ["status"],
       where: { deletedAt: null, project: { companyId: company.id, deletedAt: null } },
-      _count: true,
-    }),
+      _count: true}),
   ]);
 
   // Fetch land parcels and built units separately (no direct relation on AssetSale)
@@ -114,15 +101,13 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
       ? prisma.landParcel.findMany({
           take: 200,
           where: {...await scopeWhere("LandParcel"),  id: { in: landParcelIds }, landPurchase: { companyId: company.id } },
-          select: { id: true, number: true, area: true, areaUnit: true },
-        })
+          select: { id: true, number: true, area: true, areaUnit: true }})
       : [],
     builtUnitIds.length > 0
       ? prisma.builtUnit.findMany({
           take: 200,
           where: {...await scopeWhere("BuiltUnit"),  id: { in: builtUnitIds }, project: { companyId: company.id } },
-          select: { id: true, unitNumber: true, unitType: true, area: true, areaUnit: true },
-        })
+          select: { id: true, unitNumber: true, unitType: true, area: true, areaUnit: true }})
       : [],
   ]);
 
@@ -200,15 +185,13 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
         label: e.label,
         amount: toNum(e.amount),
         borneBy: e.borneBy,
-        isIncluded: e.isIncluded,
-      })),
+        isIncluded: e.isIncluded})),
       // Sale terms
       terms: s.terms.map((t) => ({
         id: t.id,
         description: t.description,
         extraAmount: t.extraAmount ? toNum(t.extraAmount) : null,
-        isIncluded: t.isIncluded,
-      })),
+        isIncluded: t.isIncluded})),
       // Payment schedule
       paymentSchedule: s.paymentSchedule
         ? {
@@ -223,9 +206,7 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
               dueDate: item.dueDate ? item.dueDate.toISOString() : null,
               status: item.status,
               paidAmount: toNum(item.paidAmount),
-              wbsNodeId: item.wbsNodeId,
-            })),
-          }
+              wbsNodeId: item.wbsNodeId}))}
         : null,
       paymentStatus: s.paymentStatus,
       paymentMode: s.paymentMode,
@@ -255,8 +236,7 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
       irnStatus: s.irnStatus,
       irnError: s.irnError,
       irnGeneratedAt: s.irnGeneratedAt ? s.irnGeneratedAt.toISOString() : null,
-      irnCancelledAt: s.irnCancelledAt ? s.irnCancelledAt.toISOString() : null,
-    };
+      irnCancelledAt: s.irnCancelledAt ? s.irnCancelledAt.toISOString() : null};
   });
 
   const customerRows: CustomerRow[] = customers.map((c) => ({
@@ -266,8 +246,7 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
     email: c.email,
     gstin: c.gstin,
     address: c.address,
-    activeSales: c._count.assetSales,
-  }));
+    activeSales: c._count.assetSales}));
 
   const leadRows: LeadRow[] = leads.map((lead) => ({
     id: lead.id,
@@ -299,21 +278,17 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
       type: lead.activities[0].type,
       note: lead.activities[0].note,
       outcome: lead.activities[0].outcome,
-      occurredAt: lead.activities[0].occurredAt.toISOString(),
-    } : null,
-  }));
+      occurredAt: lead.activities[0].occurredAt.toISOString()} : null}));
 
   const perms = {
-    canCreateSale: hasPermission(role, PERM.SALE_CREATE),
-    canManage: hasPermission(role, PERM.SALES_MANAGE),
-  };
+    canCreateSale: __effPerms.includes(PERM.SALE_CREATE),
+    canManage: __effPerms.includes(PERM.SALES_MANAGE)};
 
   // ── Conditionally fetch Bank SMS data when the bank-sms tab is active ──
   const smsRecords = tab === "bank-sms" ? await prisma.bankSms.findMany({
     where: { companyId: company.id },
     orderBy: { receivedAt: "desc" },
-    take: 200,
-  }) : [];
+    take: 200}) : [];
 
   const smsItems = smsRecords.map((s) => ({
     id: s.id,
@@ -330,8 +305,7 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
     matchedEntityId: s.matchedEntityId,
     paymentRecordId: s.paymentRecordId,
     matchConfidence: s.matchConfidence ? toNum(s.matchConfidence) : null,
-    matchReason: s.matchReason,
-  }));
+    matchReason: s.matchReason}));
 
   // "Booked revenue" = sum of sale prices for non-cancelled sales.
   // This includes RESERVED (deposit only) — it's the total contract value,
@@ -373,11 +347,10 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
           id: unit.id,
           projectId: unit.projectId,
           label: `Unit ${unit.unitNumber} · ${unit.unitType.replaceAll("_", " ")}`,
-          projectName: unit.project.name,
-        }))}
+          projectName: unit.project.name}))}
         assignees={salesMembers.map((membership) => membership.user)}
         smsItems={smsItems}
-        smsPermissions={{ canCreate: hasPermission(role, PERM.SALE_CREATE) }}
+        smsPermissions={{ canCreate: __effPerms.includes(PERM.SALE_CREATE) }}
         permissions={perms}
       />
     </>

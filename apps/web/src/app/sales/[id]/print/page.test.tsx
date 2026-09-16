@@ -54,6 +54,7 @@ vi.mock("@/components/print/print-header", () => ({
 
 vi.mock("./print-button", () => ({
   PrintButton: () => <button data-testid="print-button">Print</button>,
+  CloseButton: () => <button data-testid="close-button">Close</button>,
 }));
 
 import { getPrintableSaleData } from "@nirman/services";

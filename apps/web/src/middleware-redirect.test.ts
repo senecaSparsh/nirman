@@ -174,10 +174,10 @@ describe("Middleware: ?desktop=1 escape hatch", () => {
     expect(cookie).toContain("nirman-desktop=1");
   });
 
-  it("works from a deep route", () => {
+  it("works from a deep route (preserves the page)", () => {
     const res = middleware(makeReq("/materials?desktop=1", { ua: MOBILE_UA }));
     expect(res.status).toBe(307);
-    expect(getRedirectLocation(res)).toBe(`${BASE}/`);
+    expect(getRedirectLocation(res)).toBe(`${BASE}/materials`);
     expect(getSetCookie(res)).toContain("nirman-desktop=1");
   });
 
@@ -203,12 +203,12 @@ describe("Middleware: ?mobile=1 clears escape hatch", () => {
     expect(cookie).toContain("nirman-desktop");
   });
 
-  it("works from a deep route", () => {
+  it("works from a deep route (maps to the mobile counterpart)", () => {
     const res = middleware(
       makeReq("/materials?mobile=1", { ua: DESKTOP_UA, cookie: "nirman-desktop=1" }),
     );
     expect(res.status).toBe(307);
-    expect(getRedirectLocation(res)).toBe(`${BASE}/m`);
+    expect(getRedirectLocation(res)).toBe(`${BASE}/m/materials`);
   });
 
   it("works even without the cookie already set", () => {

@@ -7,6 +7,8 @@ import { hasPermission, isManagerOrAbove, normalizeRole, type Role } from "@/lib
 interface MeResponse {
   id?: string | null;
   role?: string | null;
+  actingRole?: string | null;
+  actingFor?: { name: string; endsAt: string }[];
   permissions?: unknown;
 }
 
@@ -40,6 +42,11 @@ export function usePermissions() {
   // buttons don't flash before /api/me resolves. The server is the
   // source of truth — this only affects UI affordance, not access.
   const role: Role = data?.role ? normalizeRole(data.role) : "SUPERVISOR";
+  // The role the user is currently acting as — equals `role` unless a live
+  // delegation grants higher authority. Affordance gates consult this so a
+  // delegate sees the surface they can actually act on.
+  const actingRole: Role = data?.actingRole ? normalizeRole(data.actingRole) : role;
+  const actingFor = data?.actingFor ?? [];
   const userId: string | null = data?.id ?? null;
   const permissions: string[] = Array.isArray(data?.permissions)
     ? (data.permissions as string[])
@@ -48,15 +55,17 @@ export function usePermissions() {
 
   return {
     role,
+    actingRole,
+    actingFor,
     userId,
     permissions,
     loading,
     can: (perm: string) => hasPermission(role, perm, permissions),
-    isManagerOrAbove: () => isManagerOrAbove(role),
-    isOwnerOrAdmin: () => role === "OWNER" || role === "ADMIN" || role === "DEVELOPER",
-    canManageUsers: () => role === "OWNER" || role === "ADMIN" || role === "DEVELOPER",
-    canAssignTasks: () => isManagerOrAbove(role),
-    canManageWorkflows: () => isManagerOrAbove(role),
+    isManagerOrAbove: () => isManagerOrAbove(actingRole),
+    isOwnerOrAdmin: () => actingRole === "OWNER" || actingRole === "ADMIN" || actingRole === "DEVELOPER",
+    canManageUsers: () => actingRole === "OWNER" || actingRole === "ADMIN" || actingRole === "DEVELOPER",
+    canAssignTasks: () => isManagerOrAbove(actingRole),
+    canManageWorkflows: () => isManagerOrAbove(actingRole),
     canApproveProcurement: () =>
       hasPermission(role, "po.approve", permissions) ||
       hasPermission(role, "requisition.approve", permissions),

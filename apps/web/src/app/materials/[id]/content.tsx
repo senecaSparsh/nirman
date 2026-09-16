@@ -1,16 +1,16 @@
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { NoAccess } from "@/components/no-access";
 import { MaterialCockpit, type MaterialCockpitData } from "@/components/materials/material-cockpit";
 import { AttachmentList } from "@/components/attachments/attachment-list";
 
 export async function MaterialDetailContent({ params }: { params: Promise<{ id: string }> }) {
   await connection();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.INVENTORY_VIEW)) {
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.INVENTORY_VIEW)) {
     return <NoAccess what="this material" />;
   }
   const company = await getCompany();

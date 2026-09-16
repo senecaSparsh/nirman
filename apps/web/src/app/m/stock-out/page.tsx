@@ -1,5 +1,5 @@
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
-import { hasPermission, PERM } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
 import { MobileStockOutClient } from "./MobileStockOutClient";
@@ -24,15 +24,14 @@ import { MobileStockOutClient } from "./MobileStockOutClient";
  *   ?from=<id>            — pre-select source location (deep-linked from location detail)
  */
 export default function StockOutPage({
-  searchParams,
-}: {
+  searchParams}: {
   searchParams: Promise<{ mode?: string; project?: string; from?: string }>;
 }) {
   return (
     <MobileHubPage skeleton={<MobileSkeletonDetail sections={4} />}>
-      {async ({ role }) => {
-        const canTransfer = hasPermission(role, PERM.STOCK_TRANSFER);
-        const canIssue = hasPermission(role, PERM.STOCK_ISSUE);
+      {async ({ perms }) => {
+        const canTransfer = perms.includes(PERM.STOCK_TRANSFER);
+        const canIssue = perms.includes(PERM.STOCK_ISSUE);
 
         if (!canTransfer && !canIssue) {
           return (

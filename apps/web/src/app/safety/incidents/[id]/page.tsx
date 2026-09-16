@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { notFound } from "next/navigation";
-import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
 import { PageHeader } from "@/components/page-header";
@@ -21,10 +21,10 @@ export default async function IncidentDetailPage({ params }: { params: Promise<{
 async function IncidentDetailContent({ id }: { id: string }) {
   await connection();
   const company = await getCompany();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
 
-  if (!hasPermission(role, PERM.SAFETY_VIEW)) return <NoAccess what="incident" />;
-  const canManage = hasPermission(role, PERM.SAFETY_MANAGE);
+  if (!__effPerms.includes(PERM.SAFETY_VIEW)) return <NoAccess what="incident" />;
+  const canManage = __effPerms.includes(PERM.SAFETY_MANAGE);
 
   const incident = await prisma.safetyIncident.findFirst({
     where: {...await scopeWhere("SafetyIncident"),  id, companyId: company.id },

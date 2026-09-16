@@ -1,14 +1,13 @@
 import { prisma } from "@nirman/db";
 import { getProjectMaterialReconciliation } from "@nirman/services";
 import { Package, AlertTriangle, Plus } from "lucide-react";
-import { hasPermission, PERM } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { formatNumber } from "@/lib/utils";
 import {
   MobileEmptyState,
   MobileStatCard,
   MobileSectionTitle,
-  MobileCta,
-} from "@/components/mobile/v2/primitives";
+  MobileCta} from "@/components/mobile/v2/primitives";
 import { MobileProjectScopedPage } from "@/components/mobile/v2/project-scoped-page";
 import { MobileMaterialReconProjectSelector } from "./MobileMaterialReconProjectSelector";
 import { MobileReconList, type ReconItem } from "./MobileReconList";
@@ -21,21 +20,19 @@ import { MobileReconList, type ReconItem } from "./MobileReconList";
  * green = within tolerance, red = over tolerance.
  */
 export default function MobileMaterialReconciliationPage({
-  searchParams,
-}: {
+  searchParams}: {
   searchParams: Promise<{ project?: string }>;
 }) {
   return (
     <MobileProjectScopedPage searchParams={searchParams}>
-      {async ({ company, role, projectId }) => {
-        const canView = hasPermission(role, PERM.PROJECT_CONTROL_VIEW);
-        const canCreateProject = hasPermission(role, PERM.PROJECTS_MANAGE);
+      {async ({ company, projectId, perms }) => {
+        const canView = perms.includes(PERM.PROJECT_CONTROL_VIEW);
+        const canCreateProject = perms.includes(PERM.PROJECTS_MANAGE);
 
         const projects = await prisma.project.findMany({
           where: { companyId: company.id, deletedAt: null },
           orderBy: { name: "asc" },
-          select: { id: true, name: true },
-        });
+          select: { id: true, name: true }});
 
         if (!projectId) {
           return (
@@ -73,8 +70,7 @@ export default function MobileMaterialReconciliationPage({
           wastagePct: i.wastagePct.toNumber(),
           tolerancePct: i.tolerancePct.toNumber(),
           isOverTolerance: i.isOverTolerance,
-          alertLevel: i.alertLevel,
-        }));
+          alertLevel: i.alertLevel}));
 
         return (
           <div>
@@ -107,8 +103,7 @@ export default function MobileMaterialReconciliationPage({
                 className="flex items-center gap-2 rounded-[0.5rem] border p-2.5 mb-4"
                 style={{
                   borderColor: "var(--color-stop)",
-                  backgroundColor: "var(--color-stop-wash)",
-                }}
+                  backgroundColor: "var(--color-stop-wash)"}}
               >
                 <AlertTriangle className="size-4 shrink-0" style={{ color: "var(--color-stop)" }} />
                 <p className="text-m-body font-semibold" style={{ color: "var(--color-stop)" }}>

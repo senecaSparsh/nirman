@@ -1,16 +1,16 @@
 import { connection } from "next/server";
 import { runBookReconciliation } from "@nirman/services";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { NoAccess } from "@/components/no-access";
 import { BooksHealthView } from "@/components/finance/books-health-view";
 
 export async function BooksHealthContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.FINANCE_VIEW)) {
+  if (!__effPerms.includes(PERM.FINANCE_VIEW)) {
     return <NoAccess what="the books health report" />;
   }
 

@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { toNum, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import {type MobileColumnSpec} from "@/components/mobile/v2/export-share-bar";
 import { MobileExpensesList, type ExpenseListItem } from "./MobileExpensesList";
@@ -14,9 +14,9 @@ import { MobileFab } from "@/components/mobile/v2/scaffold";
 export default function MobileExpensesPage() {
   return (
     <MobileListPage perm={PERM.FINANCE_VIEW}>
-      {async ({ company, role }) => {
-        const canView = hasPermission(role, PERM.FINANCE_VIEW);
-        const canCreate = hasPermission(role, PERM.EXPENSE_CREATE);
+      {async ({ company, perms }) => {
+        const canView = perms.includes(PERM.FINANCE_VIEW);
+        const canCreate = perms.includes(PERM.EXPENSE_CREATE);
 
         const BATCH_SIZE = 40;
         const expenses = await prisma.expense.findMany({
@@ -26,9 +26,7 @@ export default function MobileExpensesPage() {
           include: {
             project: { select: { id: true, name: true } },
             categoryMaster: { select: { id: true, name: true } },
-            supplier: { select: { id: true, name: true } },
-          },
-        });
+            supplier: { select: { id: true, name: true } }}});
 
         const hasMore = expenses.length > BATCH_SIZE;
         const batch = hasMore ? expenses.slice(0, BATCH_SIZE) : expenses;
@@ -48,8 +46,7 @@ export default function MobileExpensesPage() {
           paymentMode: e.paymentMode,
           payeeName: e.payeeName,
           supplierName: e.supplier?.name ?? null,
-          receiptUrl: e.receiptUrl,
-        }));
+          receiptUrl: e.receiptUrl}));
 
         const totalAmount = rows.reduce((s, e) => s + e.amount, 0);
         const categories = new Set(rows.map((e) => e.category));

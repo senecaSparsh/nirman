@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobileExpenseDetailClient } from "./MobileExpenseDetailClient";
@@ -12,13 +12,12 @@ import { PageContextProvider } from "@/components/mobile/v2/page-context";
  * submit / approve / reject / delete actions.
  */
 export default function MobileExpenseDetailPage({
-  params,
-}: {
+  params}: {
   params: Promise<{ id: string }>;
 }) {
   return (
     <MobileDetailPage params={params} skeletonSections={4}>
-      {async ({ id, company, role }) => {
+      {async ({ id, company, actingRole, perms }) => {
         const expense = await prisma.expense.findFirst({
           where: { id, companyId: company.id, ...await scopeWhere("Expense", {}) },
           include: {
@@ -27,18 +26,16 @@ export default function MobileExpenseDetailPage({
             supplier: { select: { id: true, name: true } },
             approvedBy: { select: { id: true, name: true } },
             submittedBy: { select: { id: true, name: true } },
-            createdBy: { select: { id: true, name: true } },
-          },
-        });
+            createdBy: { select: { id: true, name: true } }}});
 
         const currentUser = await getCurrentUser();
         // Hide Approve from the submitter/creator — self-approval is blocked
         // server-side — unless they're a tier-1 approver (OWNER/ADMIN), where
         // no higher reviewer exists.
         const isSelfExpense = !!expense && (expense.submittedById === currentUser?.id || expense.createdById === currentUser?.id);
-        const canApprove = hasPermission(role, PERM.EXPENSE_APPROVE) && (!isSelfExpense || canAutoApprove(role));
-        const canManage = hasPermission(role, PERM.FINANCE_MANAGE);
-        const canCreate = hasPermission(role, PERM.EXPENSE_CREATE);
+        const canApprove = perms.includes(PERM.EXPENSE_APPROVE) && (!isSelfExpense || canAutoApprove(actingRole));
+        const canManage = perms.includes(PERM.FINANCE_MANAGE);
+        const canCreate = perms.includes(PERM.EXPENSE_CREATE);
 
         if (!expense) {
           return (
@@ -82,8 +79,7 @@ export default function MobileExpenseDetailPage({
             status: expense.status,
             label: expense.category,
             subtitle: expense.project?.name ?? undefined,
-            recordId: expense.id,
-          }}>
+            recordId: expense.id}}>
             <MobileExpenseDetailClient
               id={expense.id}
               category={expense.category}

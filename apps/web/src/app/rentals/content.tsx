@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole, projectScopeFilter } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, projectScopeFilter, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { RentalsView } from "@/components/rentals/rentals-view";
 import { formatCurrency } from "@/lib/utils";
@@ -9,18 +9,18 @@ import { NoAccess } from "@/components/no-access";
 
 export async function RentalsContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.SALES_VIEW)) {
+  if (!__effPerms.includes(PERM.SALES_VIEW)) {
     return (
       <NoAccess what="rentals" />
     );
   }
 
   const perms = {
-    canManage: hasPermission(role, PERM.SALE_CREATE),
-    canTerminate: hasPermission(role, PERM.SALES_MANAGE),
+    canManage: __effPerms.includes(PERM.SALE_CREATE),
+    canTerminate: __effPerms.includes(PERM.SALES_MANAGE),
   };
 
   const [tenancies, landParcels, builtUnits, customers, projects] = await Promise.all([

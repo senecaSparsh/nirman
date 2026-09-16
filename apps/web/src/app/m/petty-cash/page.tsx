@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobilePettyCashList, type PettyCashFloatListItem } from "./MobilePettyCashList";
 import { MobileFab } from "@/components/mobile/v2/scaffold";
@@ -12,8 +12,8 @@ import { MobileFab } from "@/components/mobile/v2/scaffold";
 export default function MobilePettyCashPage() {
   return (
     <MobileListPage perm={PERM.FINANCE_VIEW} managePerm={PERM.FINANCE_MANAGE} skeletonRows={4}>
-      {async ({ company, canManage, role }) => {
-        const canSpend = hasPermission(role, PERM.EXPENSE_CREATE);
+      {async ({ company, canManage, perms }) => {
+        const canSpend = perms.includes(PERM.EXPENSE_CREATE);
         const currentUser = await getCurrentUser();
         const floats = await prisma.pettyCashFloat.findMany({
           where: {...await scopeWhere("PettyCashFloat"),  companyId: company.id },
@@ -21,9 +21,7 @@ export default function MobilePettyCashPage() {
           include: {
             project: { select: { id: true, name: true } },
             custodian: { select: { id: true, name: true } },
-            topUps: { orderBy: { date: "desc" }, take: 5 },
-          },
-        });
+            topUps: { orderBy: { date: "desc" }, take: 5 }}});
 
         const rows: PettyCashFloatListItem[] = floats.map((f) => ({
           id: f.id,
@@ -35,8 +33,7 @@ export default function MobilePettyCashPage() {
           topUpTotal: toNum(f.topUpTotal),
           spentTotal: toNum(f.spentTotal),
           topUpCount: f.topUps.length,
-          lastTopUpDate: f.topUps[0]?.date.toISOString() ?? null,
-        }));
+          lastTopUpDate: f.topUps[0]?.date.toISOString() ?? null}));
 
         // floatAmount is the running balance (already net of top-ups + spends)
         const totalBalance = rows.reduce((s, f) => s + f.floatAmount, 0);

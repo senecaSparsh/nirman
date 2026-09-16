@@ -8,13 +8,12 @@ import { MobileChangeOrderDetailClient } from "./MobileChangeOrderDetailClient";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 export default async function MobileChangeOrderDetailPage({
-  params,
-}: {
+  params}: {
   params: Promise<{ id: string }>;
 }) {
   return (
     <MobileDetailPage params={params} managePerm={PERM.WO_MANAGE} skeletonSections={6}>
-      {async ({ id, company, canManage, role }) => {
+      {async ({ id, company, canManage, actingRole }) => {
         const co = await prisma.changeOrder.findUnique({
           where: { id },
           include: {
@@ -23,14 +22,10 @@ export default async function MobileChangeOrderDetailPage({
             lines: {
               orderBy: { sortOrder: "asc" },
               include: {
-                boqItem: { select: { id: true, serialNo: true, description: true, unit: true } },
-              },
-            },
+                boqItem: { select: { id: true, serialNo: true, description: true, unit: true } }}},
             submittedBy: { select: { id: true, name: true } },
             approvedBy: { select: { id: true, name: true } },
-            implementedBy: { select: { id: true, name: true } },
-          },
-        });
+            implementedBy: { select: { id: true, name: true } }}});
 
         if (!co || co.companyId !== company.id) notFound();
 
@@ -75,9 +70,7 @@ export default async function MobileChangeOrderDetailPage({
             amountDelta: toNum(l.amountDelta),
             boqItemSerial: l.boqItem?.serialNo ?? null,
             boqItemDescription: l.boqItem?.description ?? null,
-            notes: l.notes,
-          })),
-        };
+            notes: l.notes}))};
 
         return (
           <PageContextProvider value={{
@@ -85,9 +78,8 @@ export default async function MobileChangeOrderDetailPage({
             status: co.status,
             label: co.changeOrderNo,
             subtitle: co.project.name,
-            recordId: co.id,
-          }}>
-            <MobileChangeOrderDetailClient co={serialized} canManage={canManage} currentUserId={currentUser?.id ?? null} canSelfApprove={canAutoApprove(role)} />
+            recordId: co.id}}>
+            <MobileChangeOrderDetailClient co={serialized} canManage={canManage} currentUserId={currentUser?.id ?? null} canSelfApprove={canAutoApprove(actingRole)} />
           </PageContextProvider>
         );
       }}

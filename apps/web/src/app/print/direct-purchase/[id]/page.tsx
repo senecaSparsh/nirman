@@ -2,8 +2,8 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getUserRole, getCompany } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { toNum, getCompany, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { amountInWords } from "@nirman/services";
 import {formatCurrency} from "@/lib/utils";
 import { notFound } from "next/navigation";
@@ -22,8 +22,8 @@ export default async function DirectPurchaseVoucherPage({
   const { id } = await params;
 
   // Gate access — purchase vouchers show material costs and supplier info.
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.PROCUREMENT_VIEW)) {
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) {
     notFound();
   }
   const company = await getCompany();

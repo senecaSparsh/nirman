@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { getPurchaserPerformance } from "@nirman/services";
-import { getCompany, getUserRole } from "@/lib/server";
+import { getCompany, getUserPermissions } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { PurchaserPerformanceReport } from "@/components/reports/purchaser-performance-report";
@@ -30,10 +30,10 @@ async function PurchaserPerformanceContent({
 }) {
   await connection();
   const { from: fromParam, to: toParam } = await searchParams;
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.PROCUREMENT_VIEW)) {
+  if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) {
     return <NoAccess what="the purchaser performance report" />;
   }
 

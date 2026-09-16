@@ -4,8 +4,8 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import {Building2, Package, PieChart} from "lucide-react";
-import { getCompany, toNum, getUserRole, getUserScope, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserScope, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -32,8 +32,8 @@ export default function MobileDepartmentConsumptionPage() {
 
 async function MobileDepartmentConsumptionContent() {
   await connection();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.INVENTORY_VIEW)) notFound();
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.INVENTORY_VIEW)) notFound();
   const company = await getCompany();
 
   // Current financial year (Apr 1 → now)

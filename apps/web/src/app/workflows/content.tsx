@@ -1,14 +1,14 @@
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { WorkflowsList } from "@/components/workflows/workflows-list";
-import { getCompany, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { NoAccess } from "@/components/no-access";
 
 export async function WorkflowsContent() {
   await connection();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.CANVAS_VIEW)) {
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.CANVAS_VIEW)) {
     return <NoAccess />;
   }
   const company = await getCompany();

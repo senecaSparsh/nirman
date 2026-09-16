@@ -1,25 +1,25 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, requireUser } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, requireUser, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { NoAccess } from "@/components/no-access";
 import { CallDetailView } from "@/components/calls/call-detail-view";
 
 export async function CallDetailContent({ id }: { id: string }) {
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
   const user = await requireUser();
 
-  if (!hasPermission(role, PERM.CALL_VIEW)) {
+  if (!__effPerms.includes(PERM.CALL_VIEW)) {
     return <NoAccess what="call details" />;
   }
 
-  const canViewAll = hasPermission(role, PERM.CALL_VIEW_ALL);
-  const canViewFullNumber = hasPermission(role, PERM.CALL_VIEW_FULL_NUMBER);
-  const canEdit = hasPermission(role, PERM.CALL_EDIT);
-  const canListenRecording = hasPermission(role, PERM.CALL_RECORDING_LISTEN);
-  const canDelete = hasPermission(role, PERM.CALL_DELETE);
-  const canManage = hasPermission(role, PERM.CALL_MANAGE);
+  const canViewAll = __effPerms.includes(PERM.CALL_VIEW_ALL);
+  const canViewFullNumber = __effPerms.includes(PERM.CALL_VIEW_FULL_NUMBER);
+  const canEdit = __effPerms.includes(PERM.CALL_EDIT);
+  const canListenRecording = __effPerms.includes(PERM.CALL_RECORDING_LISTEN);
+  const canDelete = __effPerms.includes(PERM.CALL_DELETE);
+  const canManage = __effPerms.includes(PERM.CALL_MANAGE);
 
   const call = await prisma.callLog.findFirst({
     where: {

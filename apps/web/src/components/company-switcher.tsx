@@ -25,8 +25,12 @@ type CompanyOption = {
  */
 export function CompanySwitcher({
   companies: initial,
+  canSwitch = true,
 }: {
   companies: CompanyOption[];
+  // OWNER/ADMIN only — matches both /api/company*/switch endpoints. Others
+  // see the company name (profile link) but no switch chevron.
+  canSwitch?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   // Track the optimistically-selected company so the header label and the
@@ -91,7 +95,10 @@ export function CompanySwitcher({
       {/* Company name — links to the company profile page */}
       <Link
         href={`/companies/${current.id}`}
-        className="flex items-center gap-1.5 rounded-l-md border border-r-0 border-border bg-card px-2 py-1.5 text-caption text-foreground transition-colors hover:border-foreground/20 hover:bg-muted/40"
+        className={cn(
+          "flex items-center gap-1.5 border border-border bg-card px-2 py-1.5 text-caption text-foreground transition-colors hover:border-foreground/20 hover:bg-muted/40",
+          canSwitch ? "rounded-l-md border-r-0" : "rounded-md",
+        )}
         title="View company profile"
       >
         {isSwitching ? (
@@ -101,16 +108,18 @@ export function CompanySwitcher({
         )}
         <span className="max-w-[120px] truncate">{current.name}</span>
       </Link>
-      {/* Chevron — opens the switcher dropdown */}
-      <button
-        onClick={() => setOpen((o) => !o)}
-        disabled={isSwitching}
-        className="flex items-center rounded-r-md border border-border bg-card px-1.5 py-1.5 text-caption text-foreground transition-colors hover:border-foreground/20 hover:bg-muted/40 disabled:opacity-60"
-        title="Switch company"
-        aria-label="Switch company"
-      >
-        <ChevronDown className="h-3 w-3 text-muted-foreground" />
-      </button>
+      {/* Chevron — opens the switcher dropdown (OWNER/ADMIN only) */}
+      {canSwitch && (
+        <button
+          onClick={() => setOpen((o) => !o)}
+          disabled={isSwitching}
+          className="flex items-center rounded-r-md border border-border bg-card px-1.5 py-1.5 text-caption text-foreground transition-colors hover:border-foreground/20 hover:bg-muted/40 disabled:opacity-60"
+          title="Switch company"
+          aria-label="Switch company"
+        >
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        </button>
+      )}
 
       {open && (
         <div className="absolute right-0 top-full z-50 mt-1 w-64 rounded-lg border border-border bg-card p-1 shadow-xl">

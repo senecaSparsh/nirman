@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import Link from "next/link";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
 import { RefreshButton } from "@/components/refresh-button";
@@ -42,17 +42,17 @@ export default function PendingListPage() {
 
 async function PendingListContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.HR_VIEW)) {
+  if (!__effPerms.includes(PERM.HR_VIEW)) {
     return <NoAccess what="the pending list" />;
   }
 
-  const _canApproveDpr = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN) || hasPermission(role, PERM.DPR_APPROVE_ADMIN);
-  const _canApprovePo = hasPermission(role, PERM.PO_APPROVE);
-  const _canApproveRequisition = hasPermission(role, PERM.REQUISITION_APPROVE);
-  const _canManagePayroll = hasPermission(role, PERM.PAYROLL_MANAGE);
+  const _canApproveDpr = __effPerms.includes(PERM.DPR_APPROVE_SUB_ADMIN) || __effPerms.includes(PERM.DPR_APPROVE_ADMIN);
+  const _canApprovePo = __effPerms.includes(PERM.PO_APPROVE);
+  const _canApproveRequisition = __effPerms.includes(PERM.REQUISITION_APPROVE);
+  const _canManagePayroll = __effPerms.includes(PERM.PAYROLL_MANAGE);
 
   const [
     pendingDprs,

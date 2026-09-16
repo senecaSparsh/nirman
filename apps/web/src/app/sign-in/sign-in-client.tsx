@@ -741,7 +741,7 @@ function SignInForm({ showDevLogin }: { showDevLogin: boolean }) {
                 disabled={busy}
                 className="h-4 w-4 rounded border-input accent-brand"
               />
-              Remember my phone &amp; password on this device
+              Remember my phone on this device
             </label>
 
             {error && (
@@ -1103,7 +1103,7 @@ function SignInForm({ showDevLogin }: { showDevLogin: boolean }) {
                 disabled={busy}
                 className="h-4 w-4 rounded border-input accent-brand"
               />
-              Remember my email &amp; password on this device
+              Remember my email on this device
             </label>
 
             {error && (

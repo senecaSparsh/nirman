@@ -5,24 +5,21 @@ import {
   Users,
   MapPin,
   Clock,
-  Circle,
-} from "lucide-react";
+  Circle} from "lucide-react";
 import { prisma } from "@nirman/db";
-import { getCurrentUser, getUserRole, toNum, scopeWhere } from "@/lib/server";
-import { migrateRole, ROLES, PERM, hasPermission } from "@/lib/roles";
+import { getCurrentUser, toNum, scopeWhere } from "@/lib/server";
+import { migrateRole, ROLES, PERM } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import {
-  SectionHead,
-} from "@/components/mobile/v2/primitives";
+  SectionHead} from "@/components/mobile/v2/primitives";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
 import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
 import { HrInteractive } from "./hr-interactive";
 import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 import {
   OrgHierarchy,
-  type OrgTreeData,
-} from "./OrgHierarchy";
+  type OrgTreeData} from "./OrgHierarchy";
 import { buildOrgTree } from "@/lib/org-tree-builder";
 
 /**
@@ -40,10 +37,9 @@ import { buildOrgTree } from "@/lib/org-tree-builder";
 export default function HrHomePage() {
   return (
     <MobileHubPage perm={PERM.HR_VIEW} what="HR" permission="hr.view">
-      {async ({ company }) => {
+      {async ({ company, perms }) => {
         const currentUser = await getCurrentUser();
-        const role = await getUserRole();
-        const canManageTeam = hasPermission(role, PERM.USERS_VIEW);
+        const canManageTeam = perms.includes(PERM.USERS_VIEW);
 
         const today = new Date();
         const todayDateOnly = new Date(
@@ -68,69 +64,55 @@ export default function HrHomePage() {
               where: { project: { companyId: company.id } },
               orderBy: { createdAt: "desc" },
               take: 5,
-              include: { project: { select: { name: true } } },
-            })
+              include: { project: { select: { name: true } } }})
             .catch(() => []),
           prisma.employee
             .count({
-              where: { companyId: company.id, active: true, deletedAt: null },
-            })
+              where: { companyId: company.id, active: true, deletedAt: null }})
+            .catch(() => 0),
+          prisma.workerAttendance
+            .count({
+              where: {
+                company: { id: company.id },
+                date: todayDateOnly}})
             .catch(() => 0),
           prisma.workerAttendance
             .count({
               where: {
                 company: { id: company.id },
                 date: todayDateOnly,
-              },
-            })
+                status: { in: ["PRESENT", "OVERTIME"] }}})
             .catch(() => 0),
           prisma.workerAttendance
             .count({
               where: {
                 company: { id: company.id },
                 date: todayDateOnly,
-                status: { in: ["PRESENT", "OVERTIME"] },
-              },
-            })
-            .catch(() => 0),
-          prisma.workerAttendance
-            .count({
-              where: {
-                company: { id: company.id },
-                date: todayDateOnly,
-                status: "ABSENT",
-              },
-            })
+                status: "ABSENT"}})
             .catch(() => 0),
           prisma.dailyProgressReport
             .count({
               where: {
                 project: { companyId: company.id },
-                approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] },
-              },
-            })
+                approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] }}})
             .catch(() => 0),
           prisma.leaveRequest
             .count({
-              where: { companyId: company.id, status: "PENDING" },
-            })
+              where: { companyId: company.id, status: "PENDING" }})
             .catch(() => 0),
           prisma.payrollPeriod
             .findFirst({
               where: { companyId: company.id, status: "DRAFT" },
               orderBy: [{ year: "desc" }, { month: "desc" }],
-              select: { id: true, month: true, year: true, totalNet: true },
-            })
+              select: { id: true, month: true, year: true, totalNet: true }})
             .catch(() => null),
           prisma.workerAttendance
             .findMany({
               where: {
                 company: { id: company.id },
                 date: todayDateOnly,
-                status: { in: ["PRESENT", "OVERTIME"] },
-              },
-              include: { project: { select: { name: true } } },
-            })
+                status: { in: ["PRESENT", "OVERTIME"] }},
+              include: { project: { select: { name: true } } }})
             .catch(() => []),
           loadOrgTree(company.id, company.name, currentUser?.id ?? null),
           loadQuickActionContext("hr"),
@@ -158,8 +140,7 @@ export default function HrHomePage() {
             href: "/m/dprs",
             severity: "low",
             qtyText: String(pendingDprCount),
-            category: "DPR Approvals",
-          });
+            category: "DPR Approvals"});
         }
 
         // Draft payroll
@@ -177,8 +158,7 @@ export default function HrHomePage() {
             href: "/m/books/payroll",
             severity: "low",
             qtyText: "Draft",
-            category: "Payroll",
-          });
+            category: "Payroll"});
         }
 
         // Pending leave requests
@@ -190,8 +170,7 @@ export default function HrHomePage() {
             href: "/m/hr/leaves",
             severity: "low",
             qtyText: String(pendingLeaveCount),
-            category: "Leave Approvals",
-          });
+            category: "Leave Approvals"});
         }
 
         // Absent workers today
@@ -203,8 +182,7 @@ export default function HrHomePage() {
             href: "/m/attendance",
             severity: "out",
             qtyText: String(absentToday),
-            category: "Attendance",
-          });
+            category: "Attendance"});
         }
 
         // Individual pending DPRs (most recent first)
@@ -220,8 +198,7 @@ export default function HrHomePage() {
             href: `/m/dprs/${dpr.id}`,
             severity: "low",
             qtyText: dpr.approvalStatus === "SUBMITTED" ? "New" : "Sub",
-            category: "Daily Progress Report",
-          });
+            category: "Daily Progress Report"});
         }
 
         // If no alerts, show contextual banner
@@ -235,8 +212,7 @@ export default function HrHomePage() {
               href: "/m/site/attendance",
               severity: "low",
               qtyText: "!",
-              category: "Attendance Pending",
-            });
+              category: "Attendance Pending"});
           } else {
             attentionBanners.push({
               id: "clear",
@@ -245,8 +221,7 @@ export default function HrHomePage() {
               href: "/m/hr/employees",
               severity: "clear",
               qtyText: "✓",
-              category: "Everything looks good",
-            });
+              category: "Everything looks good"});
           }
         }
 
@@ -278,8 +253,7 @@ export default function HrHomePage() {
                 className="flex items-center gap-2.5 px-3 py-2.5 rounded-[0.5rem] mb-4 press"
                 style={{
                   backgroundColor: "var(--color-paper)",
-                  border: "1px solid var(--color-line)",
-                }}
+                  border: "1px solid var(--color-line)"}}
               >
                 <Users className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
                 <span className="flex-1 text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>
@@ -303,8 +277,7 @@ export default function HrHomePage() {
               className="rounded-[0.625rem] border overflow-hidden mb-4"
               style={{
                 borderColor: "var(--color-line)",
-                backgroundColor: "var(--color-paper)",
-              }}
+                backgroundColor: "var(--color-paper)"}}
             >
               {/* Attendance line — flag: red if absent, grey if not recorded, green if all present */}
               <Link
@@ -317,8 +290,7 @@ export default function HrHomePage() {
                   style={{
                     color: todayAttendance === 0 ? "var(--color-ink-300)"
                       : absentToday > 0 ? "var(--color-stop)"
-                      : "var(--color-go)",
-                  }}
+                      : "var(--color-go)"}}
                 />
                 <Users className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
                 <span className="flex-1 text-m-body" style={{ color: "var(--color-ink-950)" }}>
@@ -350,8 +322,7 @@ export default function HrHomePage() {
                 <Circle
                   className="size-2 shrink-0 fill-current"
                   style={{
-                    color: topSites.length > 0 ? "var(--color-go)" : "var(--color-ink-300)",
-                  }}
+                    color: topSites.length > 0 ? "var(--color-go)" : "var(--color-ink-300)"}}
                 />
                 <MapPin className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
                 <span className="flex-1 text-m-body truncate" style={{ color: "var(--color-ink-950)" }}>
@@ -377,8 +348,7 @@ export default function HrHomePage() {
                 <Circle
                   className="size-2 shrink-0 fill-current"
                   style={{
-                    color: totalPending > 0 ? "var(--color-signal)" : "var(--color-go)",
-                  }}
+                    color: totalPending > 0 ? "var(--color-signal)" : "var(--color-go)"}}
                 />
                 <Clock className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
                 <span className="flex-1 text-m-body" style={{ color: "var(--color-ink-950)" }}>
@@ -441,25 +411,18 @@ async function loadOrgTree(
           active: true,
           designation: true,
           department: true,
-          employeeCode: true,
-        },
-      },
+          employeeCode: true}},
       scopes: {
         include: {
           department: { select: { name: true } },
-          project: { select: { name: true } },
-        },
-      },
-    },
-    orderBy: { user: { name: "asc" } },
-  });
+          project: { select: { name: true } }}}},
+    orderBy: { user: { name: "asc" } }});
 
   // ── Fetch hierarchy levels + employee IDs + on-site reporting lines from Employee records ──
   const userIds = memberships.map((m) => m.userId);
   const employees = await prisma.employee.findMany({
     where: { companyId, userId: { in: userIds }, deletedAt: null },
-    select: { id: true, userId: true, hierarchyLevel: true, reportsToEmployeeId: true },
-  });
+    select: { id: true, userId: true, hierarchyLevel: true, reportsToEmployeeId: true }});
   const employeeByUserId = new Map(employees.map((e) => [e.userId, e]));
 
   if (memberships.length === 0) {
@@ -472,8 +435,7 @@ async function loadOrgTree(
       projects: [],
       departments: [],
       labourByTrade: [],
-      labourCount: 0,
-    };
+      labourCount: 0};
   }
 
   // ── Open tasks + ALL tasks + recent DPRs + crews + unassigned employees
@@ -482,8 +444,7 @@ async function loadOrgTree(
     prisma.task.findMany({
       where: {...await scopeWhere("Task"),  assignedToId: { in: userIds }, status: { in: ["PENDING", "IN_PROGRESS"] } },
       select: { id: true, title: true, status: true, priority: true, dueDate: true, assignedToId: true },
-      orderBy: { createdAt: "desc" },
-    }),
+      orderBy: { createdAt: "desc" }}),
     // ALL tasks (including COMPLETED) for the task summary breakdown
     prisma.task.findMany({
       where: {...await scopeWhere("Task"),  assignedToId: { in: userIds } },
@@ -495,8 +456,7 @@ async function loadOrgTree(
       where: {...await scopeWhere("DailyProgressReport"),  submittedById: { in: userIds } },
       orderBy: { date: "desc" },
       take: userIds.length * 5,
-      select: { id: true, date: true, approvalStatus: true, submittedById: true, project: { select: { name: true } } },
-    }),
+      select: { id: true, date: true, approvalStatus: true, submittedById: true, project: { select: { name: true } } }}),
     // Crews with their supervisor (→ Employee → userId) and members
     prisma.crew.findMany({
       where: {...await scopeWhere("Crew"),  companyId, active: true },
@@ -516,11 +476,7 @@ async function loadOrgTree(
             active: true,
             crewId: true,
             phone: true,
-            activeProject: { select: { name: true } },
-          },
-        },
-      },
-    }),
+            activeProject: { select: { name: true } }}}}}),
     // Employees not in any crew (field labour without a formal team).
     // Exclude employees who already have a linked user account in the
     // membership hierarchy — those people appear in the reporting-line tree,
@@ -539,49 +495,40 @@ async function loadOrgTree(
         active: true,
         crewId: true,
         phone: true,
-        activeProject: { select: { name: true } },
-      },
-    }),
+        activeProject: { select: { name: true } }}}),
     // Today's attendance for employees linked to these users
     prisma.workerAttendance.findMany({
       where: {...await scopeWhere("WorkerAttendance"), 
         company: { id: companyId },
         date: todayDateOnly,
-        employee: { userId: { in: userIds } },
-      },
+        employee: { userId: { in: userIds } }},
       select: {
         employeeId: true,
         status: true,
         checkIn: true,
         checkOut: true,
         employee: { select: { userId: true } },
-        project: { select: { name: true } },
-      },
-    }).catch(() => []),
+        project: { select: { name: true } }}}).catch(() => []),
     // Leave requests for employees linked to these users (pending + approved-today)
     prisma.leaveRequest.findMany({
       where: {...await scopeWhere("LeaveRequest"), 
         company: { id: companyId },
         employee: { userId: { in: userIds } },
-        status: { in: ["PENDING", "APPROVED"] },
-      },
+        status: { in: ["PENDING", "APPROVED"] }},
       select: {
         id: true,
         employeeId: true,
         status: true,
         startDate: true,
         endDate: true,
-        employee: { select: { userId: true } },
-      },
-    }).catch(() => []),
+        employee: { select: { userId: true } }}}).catch(() => []),
   ]);
 
   // ── Build the tree (shared logic with tier-based inference + teams) ──
   // Fetch custom roles so the tree builder can resolve them
   const customRoles = await prisma.customRole.findMany({
     where: { companyId },
-    select: { key: true, label: true, baseRole: true, tier: true, hierarchyLevel: true },
-  }).catch(() => []);
+    select: { key: true, label: true, baseRole: true, tier: true, hierarchyLevel: true }}).catch(() => []);
   const customRoleMap = new Map(customRoles.map((r) => [r.key, r]));
 
   const roleTierFn = (role: string): number => {
@@ -611,8 +558,7 @@ async function loadOrgTree(
       ...m,
       hierarchyLevel: customRole?.hierarchyLevel ?? emp?.hierarchyLevel ?? null,
       employeeId: emp?.id ?? null,
-      reportsToEmployeeId: emp?.reportsToEmployeeId ?? null,
-    };
+      reportsToEmployeeId: emp?.reportsToEmployeeId ?? null};
   });
 
   const { roots, unassigned, projects, departments, labourByTrade, labourCount } = buildOrgTree(
@@ -639,6 +585,5 @@ async function loadOrgTree(
     projects,
     departments,
     labourByTrade,
-    labourCount,
-  };
+    labourCount};
 }

@@ -3,8 +3,8 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
-import { getCompany, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { NoAccess } from "@/components/no-access";
 import { FieldReceive } from "@/components/field/field-receive";
 
@@ -42,8 +42,8 @@ async function ReceivableOrders({
 }) {
   await connection();
   const { po: preselectPoId } = await searchParams;
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.PROCUREMENT_VIEW) && !hasPermission(role, PERM.INVENTORY_VIEW)) {
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.PROCUREMENT_VIEW) && !__effPerms.includes(PERM.INVENTORY_VIEW)) {
     return <NoAccess what="field receiving" />;
   }
   const company = await getCompany();

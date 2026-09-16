@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
-import { getCompany, getCurrentUser, getUserRole, projectScopeFilter } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getCurrentUser, projectScopeFilter, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import { MobileNewExpenseClaimClient } from "./MobileNewExpenseClaimClient";
 
@@ -16,11 +16,11 @@ export default function MobileNewExpenseClaimPage() {
       {async () => {
         const company = await getCompany();
         const currentUser = await getCurrentUser();
-        const role = await getUserRole();
+        const __effPerms = await getUserPermissions();
         // Only expense.create holders may file a claim on behalf of someone
         // else — self-service claimants file for themselves. The project
         // picker is also scope-limited for project-scoped users.
-        const canPickClaimant = hasPermission(role, PERM.EXPENSE_CREATE);
+        const canPickClaimant = __effPerms.includes(PERM.EXPENSE_CREATE);
 
         const [employees, projects, categories] = await Promise.all([
           canPickClaimant

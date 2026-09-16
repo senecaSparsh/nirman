@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { getBudgetVariance } from "@nirman/services";
 import { TrendingUp, TrendingDown, AlertTriangle, Plus } from "lucide-react";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import { MobileEmptyState, MobileCta } from "@/components/mobile/v2/primitives";
 import { MobileProjectScopedPage } from "@/components/mobile/v2/project-scoped-page";
@@ -17,20 +17,18 @@ import { MobileBudgetVarianceProjectSelector } from "./MobileBudgetVarianceProje
  * BOQ + non-BOQ line items with budget/actual/variance figures.
  */
 export default function MobileBudgetVariancePage({
-  searchParams,
-}: {
+  searchParams}: {
   searchParams: Promise<{ project?: string }>;
 }) {
   return (
     <MobileProjectScopedPage searchParams={searchParams}>
-      {async ({ company, role, projectId }) => {
-        if (!hasPermission(role, PERM.FINANCE_VIEW)) notFound();
+      {async ({ company, projectId, perms }) => {
+        if (!perms.includes(PERM.FINANCE_VIEW)) notFound();
 
         const projects = await prisma.project.findMany({
           where: { companyId: company.id, deletedAt: null },
           orderBy: { name: "asc" },
-          select: { id: true, name: true },
-        });
+          select: { id: true, name: true }});
 
         const selectedProject = projectId
           ? projects.find((p) => p.id === projectId) ?? null
@@ -62,8 +60,7 @@ export default function MobileBudgetVariancePage({
               actualAmount: i.actualAmount.toNumber(),
               variance: i.variance.toNumber(),
               variancePct: i.variancePct.toNumber(),
-              status: i.status,
-            }))
+              status: i.status}))
           : [];
 
         return (
@@ -121,8 +118,7 @@ export default function MobileBudgetVariancePage({
                   className="rounded-[0.625rem] border p-2.5 mb-3"
                   style={{
                     borderColor: "var(--color-line)",
-                    backgroundColor: "var(--color-paper)",
-                  }}
+                    backgroundColor: "var(--color-paper)"}}
                 >
                   {/* Variance headline */}
                   <div className="flex items-center gap-2 mb-2.5">
@@ -153,8 +149,7 @@ export default function MobileBudgetVariancePage({
                         backgroundColor: isOverBudget
                           ? "color-mix(in srgb, var(--color-stop) 12%, transparent)"
                           : "color-mix(in srgb, var(--color-go) 12%, transparent)",
-                        color: varianceColor,
-                      }}
+                        color: varianceColor}}
                     >
                       {isOverBudget ? "OVER" : "UNDER"} {formatNumber(Math.abs(totalVariancePct), 1)}%
                     </span>
@@ -202,8 +197,7 @@ export default function MobileBudgetVariancePage({
                         className="rounded-[0.625rem] border p-2.5"
                         style={{
                           borderColor: "var(--color-line)",
-                          backgroundColor: "var(--color-paper)",
-                        }}
+                          backgroundColor: "var(--color-paper)"}}
                       >
                         {/* Row 1: icon + description + status */}
                         <div className="flex items-start gap-2 mb-1.5">
@@ -232,8 +226,7 @@ export default function MobileBudgetVariancePage({
                             className="shrink-0 text-m-caption font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-[0.375rem]"
                             style={{
                               backgroundColor: "color-mix(in srgb, var(--color-concrete) 60%, transparent)",
-                              color: statusTone,
-                            }}
+                              color: statusTone}}
                           >
                             {statusLabel}
                           </span>

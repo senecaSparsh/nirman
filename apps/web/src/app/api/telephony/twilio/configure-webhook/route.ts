@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { getActingRole, apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { logAction } from "@nirman/services";
 import { configureNumberWebhook, clearNumberWebhook } from "@/lib/twilio-service";
@@ -22,7 +22,7 @@ import { configureNumberWebhook, clearNumberWebhook } from "@/lib/twilio-service
 export const POST = apiHandler(async (req: NextRequest) => {
   // Only OWNER can configure webhooks
   const user = await requirePermission(PERM.TELEPHONY_MANAGE);
-  if (user.role !== "OWNER") {
+  if ((await getActingRole()) !== "OWNER") {
     return json({ error: "Only the owner can configure Twilio webhooks" }, { status: 403 });
   }
   const company = await getCompany();

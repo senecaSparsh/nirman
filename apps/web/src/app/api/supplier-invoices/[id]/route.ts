@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { approveSupplierInvoice, getSupplierInvoice } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getActingRole, getCompany, json, requirePermission } from "@/lib/server";
 
 /**
  * GET /api/supplier-invoices/[id]
@@ -130,7 +130,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       userId: user.id,
       action: body.action,
       notes: body.notes,
-      actorRole: user.role,
+      actorRole: await getActingRole(),
     });
 
     revalidatePath("/supplier-invoices");

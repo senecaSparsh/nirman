@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
 import { PageHeader } from "@/components/page-header";
@@ -20,14 +20,14 @@ export default function VehiclesPage() {
 
 async function VehiclesContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.INVENTORY_VIEW)) {
+  if (!__effPerms.includes(PERM.INVENTORY_VIEW)) {
     return <NoAccess what="vehicles" />;
   }
 
-  const canManage = hasPermission(role, PERM.VEHICLE_MANAGE);
+  const canManage = __effPerms.includes(PERM.VEHICLE_MANAGE);
 
   const vehicles = await prisma.vehicle.findMany({
     take: 500,

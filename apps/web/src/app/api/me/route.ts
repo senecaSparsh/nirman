@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getSession, getUserPermissions, json } from "@/lib/server";
+import { apiHandler, getActingDelegations, getActingRole, getSession, getUserPermissions, json } from "@/lib/server";
 
 /**
  * GET /api/me — the current user's identity + EFFECTIVE permissions.
@@ -27,7 +27,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   // rather than the session because Better-Auth's session user may not always
   // include additional fields reliably (e.g. after a session is created via
   // the custom phone-password flow). The DB is the source of truth.
-  const [dbUser, permissions] = await Promise.all([
+  const [dbUser, permissions, actingRole, actingDelegations] = await Promise.all([
     prisma.user.findUnique({
       where: { id: sessionUser.id },
       select: {
@@ -45,6 +45,8 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       },
     }),
     getUserPermissions().catch(() => [] as string[]),
+    getActingRole().catch(() => null),
+    getActingDelegations().catch(() => []),
   ]);
   const res = json({
     id: sessionUser.id,
@@ -61,6 +63,11 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     lastLoginAt: dbUser?.lastLoginAt?.toISOString() ?? null,
     mustChangePassword: dbUser?.mustChangePassword ?? false,
     permissions,
+    // The role the user is currently ACTING as — equals `role` when no
+    // delegation is live. Client affordance gates (admin nav, manage buttons)
+    // should consult this so a delegate sees the surface they can act on.
+    actingRole: actingRole ?? dbUser?.role ?? null,
+    actingFor: actingDelegations.map((d) => ({ name: d.name, endsAt: d.endsAt.toISOString() })),
   });
   // User role/name changes rarely — cache for 60s, revalidate in background.
   res.headers.set("Cache-Control", "private, max-age=60, stale-while-revalidate=300");

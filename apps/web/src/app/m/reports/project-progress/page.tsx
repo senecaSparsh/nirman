@@ -5,8 +5,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { projectPnl } from "@nirman/services";
 import {Building2, Gauge} from "lucide-react";
-import { getCompany, toNum, getUserRole, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -32,11 +32,11 @@ export default function MobileProjectProgressPage() {
 
 async function MobileProjectProgressContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   if (
-    !hasPermission(role, PERM.FINANCE_VIEW) &&
-    !hasPermission(role, PERM.INVENTORY_VIEW) &&
-    !hasPermission(role, PERM.SALES_VIEW)
+    !__effPerms.includes(PERM.FINANCE_VIEW) &&
+    !__effPerms.includes(PERM.INVENTORY_VIEW) &&
+    !__effPerms.includes(PERM.SALES_VIEW)
   )
     notFound();
   const company = await getCompany();

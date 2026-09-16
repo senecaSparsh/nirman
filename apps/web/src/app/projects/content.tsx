@@ -1,8 +1,8 @@
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { projectPnl } from "@nirman/services";
-import { getCompany, getUserRole, getUserScope, toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getUserScope, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { ProjectsView } from "@/components/projects/projects-view";
 import { NoAccess } from "@/components/no-access";
@@ -18,10 +18,10 @@ const TYPE_LABELS: Record<string, string> = {
 };
 export async function ProjectsContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.PROJECTS_VIEW)) {
+  if (!__effPerms.includes(PERM.PROJECTS_VIEW)) {
     return (
       <NoAccess what="projects" />
     );
@@ -121,9 +121,9 @@ export async function ProjectsContent() {
         projects={projectRows}
         typeLabels={TYPE_LABELS}
         permissions={{
-          canCreate: hasPermission(role, PERM.PROJECTS_MANAGE),
-          canEdit: hasPermission(role, PERM.PROJECTS_MANAGE),
-          canDelete: hasPermission(role, PERM.PROJECTS_MANAGE),
+          canCreate: __effPerms.includes(PERM.PROJECTS_MANAGE),
+          canEdit: __effPerms.includes(PERM.PROJECTS_MANAGE),
+          canDelete: __effPerms.includes(PERM.PROJECTS_MANAGE),
         }}
       />
     </>

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma, type Prisma } from "@nirman/db";
-import { apiHandler, json, requirePermission } from "@/lib/server";
+import { apiHandler, getActingRole, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -28,7 +28,12 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const cursor = searchParams.get("cursor") ?? undefined;
   const limit = Math.min(Number(searchParams.get("limit") ?? "100"), 500);
 
-  const isSuperuser = user.role === "OWNER" || user.role === "ADMIN";
+  // Acting role, not user.role — a delegate holding OWNER/ADMIN authority
+  // for this company legitimately needs the All Activity view. Deliberately
+  // company-scoped: delegation never grants the cross-company bypasses
+  // (company switch, companies superuser list) which stay on real role.
+  const actingRole = await getActingRole();
+  const isSuperuser = actingRole === "OWNER" || actingRole === "ADMIN";
 
   // "All Activity" view — admin-scoped, no entityType required
   if (all) {

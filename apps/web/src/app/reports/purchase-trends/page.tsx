@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { PurchaseTrendsReport } from "@/components/reports/purchase-trends-report";
@@ -21,10 +21,10 @@ export default function PurchaseTrendsPage() {
 
 async function PurchaseTrendsContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.FINANCE_VIEW)) {
+  if (!__effPerms.includes(PERM.FINANCE_VIEW)) {
     return (
       <NoAccess what="the purchase trends report" />
     );

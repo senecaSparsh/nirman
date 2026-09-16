@@ -1,21 +1,21 @@
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { StandardConsumptionsView } from "@/components/standard-consumptions/standard-consumptions-view";
 import { NoAccess } from "@/components/no-access";
 
 export async function StandardConsumptionsContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.INVENTORY_VIEW)) {
+  if (!__effPerms.includes(PERM.INVENTORY_VIEW)) {
     return <NoAccess what="consumption benchmarks" />;
   }
 
-  const canManage = hasPermission(role, PERM.INVENTORY_MANAGE);
+  const canManage = __effPerms.includes(PERM.INVENTORY_MANAGE);
 
   const [benchmarks, materials, categories] = await Promise.all([
     prisma.standardConsumption.findMany({

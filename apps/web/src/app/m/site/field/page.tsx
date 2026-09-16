@@ -2,8 +2,8 @@ import { Suspense } from "react";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getCompanyGroupIds, getUserRole, getUserScope } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getCompanyGroupIds, getUserScope, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PackageCheck } from "lucide-react";
 import { FieldReceive } from "@/components/field/field-receive";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
@@ -49,8 +49,8 @@ async function MobileFieldReceiveContent({
 }) {
   await connection();
   const { po: preselectPoId } = await searchParams;
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.PROCUREMENT_VIEW)) {
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) {
     return <MobileNoAccess what="receive materials" permission="procurement.view" />;
   }
   const company = await getCompany();

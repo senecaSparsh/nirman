@@ -1,18 +1,18 @@
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, getUserScope } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, getUserScope, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { NoAccess } from "@/components/no-access";
 import { PageHeader } from "@/components/page-header";
 import { WorkOrdersView } from "@/components/work-orders/work-orders-view";
 
 export async function WoContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
   const scope = await getUserScope();
 
-  if (!hasPermission(role, PERM.ASSETS_VIEW)) {
+  if (!__effPerms.includes(PERM.ASSETS_VIEW)) {
     return <NoAccess what="work orders" />;
   }
 
@@ -28,12 +28,12 @@ export async function WoContent() {
     select: { id: true, name: true, type: true, status: true },
   });
 
-  const canCreate = hasPermission(role, PERM.ASSETS_MANAGE);
+  const canCreate = __effPerms.includes(PERM.ASSETS_MANAGE);
   const permissions = {
-    canManage: hasPermission(role, PERM.WO_MANAGE),
-    canSubmit: hasPermission(role, PERM.RA_SUBMIT),
-    canApprove: hasPermission(role, PERM.RA_APPROVE),
-    canPay: hasPermission(role, PERM.RA_PAY),
+    canManage: __effPerms.includes(PERM.WO_MANAGE),
+    canSubmit: __effPerms.includes(PERM.RA_SUBMIT),
+    canApprove: __effPerms.includes(PERM.RA_APPROVE),
+    canPay: __effPerms.includes(PERM.RA_PAY),
   };
 
   return (

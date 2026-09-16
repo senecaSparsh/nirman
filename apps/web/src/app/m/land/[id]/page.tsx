@@ -1,7 +1,7 @@
 import { prisma } from "@nirman/db";
 import { scheduledTotal, refreshLandTotalCost } from "@nirman/services";
 import { toNum, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { MobileLandDetailClient } from "./MobileLandDetailClient";
 import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
@@ -16,10 +16,10 @@ import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 export default function MobileLandDetailPage({ params }: { params: Promise<{ id: string }> }) {
   return (
     <MobileDetailPage params={params} managePerm={PERM.ASSETS_MANAGE}>
-      {async ({ id, company, role, canManage }) => {
-        const canPartition = hasPermission(role, PERM.LAND_PARTITION);
-        const canSell = hasPermission(role, PERM.SALE_CREATE);
-        const canManageLegal = hasPermission(role, PERM.LEGAL_MANAGE);
+      {async ({ id, company, canManage, perms }) => {
+        const canPartition = perms.includes(PERM.LAND_PARTITION);
+        const canSell = perms.includes(PERM.SALE_CREATE);
+        const canManageLegal = perms.includes(PERM.LEGAL_MANAGE);
 
         // Lazy recompute — advance recurring cost accruals as time passes.
         try { await refreshLandTotalCost(id); } catch (err) { console.warn("Land total cost refresh failed:", err); }
@@ -33,14 +33,10 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
               orderBy: [{ number: "asc" }],
               include: {
                 parentParcel: { select: { number: true } },
-                _count: { select: { children: true } },
-              },
-            },
+                _count: { select: { children: true } }}},
             payments: { orderBy: { paymentDate: "desc" } },
             paymentSchedule: { include: { items: { orderBy: { installmentNo: "asc" } } } },
-            costComponents: { orderBy: { createdAt: "asc" } },
-          },
-        });
+            costComponents: { orderBy: { createdAt: "asc" } }}});
 
         if (!purchase) {
           return (
@@ -62,14 +58,11 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
             select: {
               id: true, saleNumber: true, salePrice: true, profit: true, saleDate: true,
               landParcelId: true, paymentStatus: true, saleStage: true,
-              customer: { select: { id: true, name: true } },
-            },
-          }),
+              customer: { select: { id: true, name: true } }}}),
           prisma.customer.findMany({
             where: { deletedAt: null, companyId: company.id },
             orderBy: { name: "asc" },
-            select: { id: true, name: true },
-          }),
+            select: { id: true, name: true }}),
           // Built units linked to parcels (subdivided inventory — flats/shops built on the land)
           prisma.builtUnit.findMany({
             where: {...await scopeWhere("BuiltUnit"),  landParcelId: { in: parcelIds }, deletedAt: null },
@@ -79,15 +72,12 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
               originType: true, acquisitionCost: true, productionCost: true,
               askingPrice: true, currentValuation: true,
               landParcelId: true, projectId: true,
-              project: { select: { id: true, name: true } },
-            },
-            orderBy: [{ unitNumber: "asc" }],
-          }),
+              project: { select: { id: true, name: true } }},
+            orderBy: [{ unitNumber: "asc" }]}),
           // Legal documents for this land purchase
           prisma.legalDocument.findMany({
             where: { landPurchaseId: purchase.id, companyId: company.id, deletedAt: null },
-            orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-          }),
+            orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }]}),
         ]);
 
         const saleByParcel = new Map(
@@ -98,8 +88,7 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
             saleDate: s.saleDate.toISOString(),
             paymentStatus: s.paymentStatus,
             saleStage: s.saleStage,
-            customerName: s.customer.name,
-          }]),
+            customerName: s.customer.name}]),
         );
 
         const parcels = purchase.parcels.map((p) => {
@@ -124,8 +113,7 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
             saleNumber: sale?.saleNumber ?? null,
             saleDate: sale?.saleDate ?? null,
             saleStage: sale?.saleStage ?? null,
-            customerName: sale?.customerName ?? null,
-          };
+            customerName: sale?.customerName ?? null};
         });
 
         const sellable = parcels.filter((p) => p.status !== "PARTITIONED");
@@ -185,8 +173,7 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
             occurrences: c.occurrences,
             postedAmount: toNum(c.postedAmount),
             scheduledTotal: toNum(scheduledTotal(c)),
-            notes: c.notes,
-          })),
+            notes: c.notes})),
           costPerUnit,
           parcels,
           // Staged purchase
@@ -224,9 +211,7 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
                   dueDate: item.dueDate ? item.dueDate.toISOString() : null,
                   status: item.status,
                   paidAmount: toNum(item.paidAmount),
-                  paidAt: item.paidAt ? item.paidAt.toISOString() : null,
-                })),
-              }
+                  paidAt: item.paidAt ? item.paidAt.toISOString() : null}))}
             : null,
           payments: purchase.payments.map((p) => ({
             id: p.id,
@@ -241,8 +226,7 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
             chequePhotoUrl: p.chequePhotoUrl,
             chequeStatus: p.chequeStatus,
             chequeClearDate: p.chequeClearDate ? p.chequeClearDate.toISOString() : null,
-            chequeBounceReason: p.chequeBounceReason,
-          })),
+            chequeBounceReason: p.chequeBounceReason})),
           sales: landSales.map((s) => ({
             id: s.id,
             saleNumber: s.saleNumber,
@@ -252,8 +236,7 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
             paymentStatus: s.paymentStatus,
             saleStage: s.saleStage,
             parcelNumber: purchase.parcels.find((p) => p.id === s.landParcelId)?.number ?? "—",
-            customerName: s.customer.name,
-          })),
+            customerName: s.customer.name})),
           builtUnits: parcelBuiltUnits.map((u) => {
             const parcel = purchase.parcels.find((p) => p.id === u.landParcelId);
             return {
@@ -272,8 +255,7 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
               currentValuation: toNum(u.currentValuation),
               landParcelId: u.landParcelId!,
               landParcelNumber: parcel?.number ?? null,
-              projectName: u.project.name,
-            };
+              projectName: u.project.name};
           }),
           legalDocs: legalDocs.map((d) => ({
             id: d.id,
@@ -297,8 +279,7 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
             documentUrl: d.documentUrl,
             documentName: d.documentName,
             notes: d.notes,
-            createdAt: d.createdAt.toISOString(),
-          })),
+            createdAt: d.createdAt.toISOString()})),
           stats: {
             parcelCount: sellable.length,
             availableCount: unsold.filter((p) => p.status === "AVAILABLE").length,
@@ -310,9 +291,7 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
             costBasis,
             valuationGain: unsoldValue - costBasis,
             soldRevenue,
-            soldProfit,
-          },
-        };
+            soldProfit}};
 
         return (
           <PageContextProvider value={{
@@ -320,8 +299,7 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
             status: purchase.purchaseStage,
             label: purchase.sellerName ?? "Land",
             subtitle: purchase.project?.name ?? undefined,
-            recordId: purchase.id,
-          }}>
+            recordId: purchase.id}}>
           <>
             <RecordRecentItem type="land" id={data.id} label={data.sellerName ?? "Land"} href={`/m/land/${data.id}`} />
             <MobileLandDetailClient

@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole, projectScopeFilter } from "@/lib/server";
+import { getCompany, toNum, projectScopeFilter, getUserPermissions } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { EquipmentView } from "@/components/equipment/equipment-view";
 import { PageLoading } from "@/components/page-loading";
@@ -24,18 +24,18 @@ export default function EquipmentPage() {
 
 async function EquipmentContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.ASSETS_VIEW)) {
+  if (!__effPerms.includes(PERM.ASSETS_VIEW)) {
     return (
       <NoAccess what="equipment" />
     );
   }
 
   const perms = {
-    canCreate: hasPermission(role, PERM.ASSETS_MANAGE),
-    canEdit: hasPermission(role, PERM.ASSETS_MANAGE),
+    canCreate: __effPerms.includes(PERM.ASSETS_MANAGE),
+    canEdit: __effPerms.includes(PERM.ASSETS_MANAGE),
   };
 
   const [equipment, locations, projects] = await Promise.all([

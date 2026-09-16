@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, getCompany, getUserRole, requireUser, toNum, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { apiHandler, json, getCompany, requireUser, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 
 /**
  * GET /api/dashboard-counts — lightweight counts for dashboard polling.
@@ -27,14 +27,14 @@ import { PERM, hasPermission } from "@/lib/roles";
 export const GET = apiHandler(async (_req: NextRequest) => {
   await requireUser();
   const company = await getCompany();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
 
-  const canApprovePO = hasPermission(role, PERM.PO_APPROVE);
-  const canApproveReq = hasPermission(role, PERM.REQUISITION_APPROVE);
-  const canSeeStock = hasPermission(role, PERM.INVENTORY_VIEW);
-  const canSeeProcurement = hasPermission(role, PERM.PROCUREMENT_VIEW);
-  const canSeeSales = hasPermission(role, PERM.SALES_VIEW);
-  const canManageStock = hasPermission(role, PERM.INVENTORY_MANAGE);
+  const canApprovePO = __effPerms.includes(PERM.PO_APPROVE);
+  const canApproveReq = __effPerms.includes(PERM.REQUISITION_APPROVE);
+  const canSeeStock = __effPerms.includes(PERM.INVENTORY_VIEW);
+  const canSeeProcurement = __effPerms.includes(PERM.PROCUREMENT_VIEW);
+  const canSeeSales = __effPerms.includes(PERM.SALES_VIEW);
+  const canManageStock = __effPerms.includes(PERM.INVENTORY_MANAGE);
 
   const now = new Date();
   const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);

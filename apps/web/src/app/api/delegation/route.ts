@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requireUser } from "@/lib/server";
+import { apiHandler, getActingRole, getCompany, json, requireUser } from "@/lib/server";
 
 /**
  * /api/delegation — authority delegation ("out of office").
@@ -44,7 +44,10 @@ export const GET = apiHandler(async () => {
   }
 
   const now = new Date();
-  const isAdmin = user.role === "OWNER" || user.role === "ADMIN";
+  // Acting role for read visibility — a delegate holding admin authority
+  // should see the same delegation list the delegator would.
+  const actingRole = await getActingRole();
+  const isAdmin = actingRole === "OWNER" || actingRole === "ADMIN";
 
   const [incoming, delegations, members] = await Promise.all([
     // Memberships that have delegated their authority TO me right now
@@ -166,6 +169,8 @@ export const PUT = apiHandler(async (req: NextRequest) => {
     return json({ error: "endsAt must be in the future, within 90 days" }, { status: 400 });
   }
 
+  // Real role, not acting — delegating on someone else's behalf is account
+  // config, not a delegated authority, and must not chain onward.
   const isAdmin = user.role === "OWNER" || user.role === "ADMIN";
   const targetMembershipId = body.membershipId ?? null;
   const mine = await myMembership(user.id, company.id);
@@ -242,6 +247,7 @@ export const DELETE = apiHandler(async (req: NextRequest) => {
   const company = await getCompany();
   const body = (await req.json().catch(() => ({}))) as { membershipId?: string };
 
+  // Real role — same reasoning as PUT (see above).
   const isAdmin = user.role === "OWNER" || user.role === "ADMIN";
   const mine = await myMembership(user.id, company.id);
   const membershipId = body.membershipId && isAdmin ? body.membershipId : mine?.id;

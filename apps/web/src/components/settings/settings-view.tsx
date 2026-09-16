@@ -62,6 +62,7 @@ type CompanyInfo = {
   lciThresholdDefault: number | null;
   poApprovalThresholdManager: number | null;
   poApprovalThresholdAdmin: number | null;
+  approvalAgingHours: number | null;
 };
 
 export function SettingsView({
@@ -219,6 +220,7 @@ export function SettingsView({
           lciThresholdDefault: companyForm.lciThresholdDefault ?? null,
           poApprovalThresholdManager: companyForm.poApprovalThresholdManager ?? null,
           poApprovalThresholdAdmin: companyForm.poApprovalThresholdAdmin ?? null,
+          approvalAgingHours: companyForm.approvalAgingHours ?? 48,
         }),
       });
       const data = await res.json();
@@ -410,6 +412,20 @@ export function SettingsView({
                       />
                       <p className="text-caption text-muted-foreground">POs at or above this amount require the Owner.</p>
                     </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Approval aging threshold (hours)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={336}
+                      value={companyForm.approvalAgingHours ?? ""}
+                      onChange={(e) => setCompanyForm((f) => ({ ...f, approvalAgingHours: e.target.value === "" ? null : Number(e.target.value) }))}
+                      placeholder="48"
+                    />
+                    <p className="text-caption text-muted-foreground">
+                      Approvals waiting longer than this hit the daily escalation digest to Owner/Admin/Director and any active delegates. Default 48h.
+                    </p>
                   </div>
                 </div>
 

@@ -4,8 +4,8 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { CalendarCheck } from "lucide-react";
-import { getCompany, getUserRole, toNum, getActionPermissions } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getActionPermissions, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatNumber } from "@/lib/utils";
 import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
@@ -23,10 +23,10 @@ export default function BooksPayrollPage() {
 
 async function BooksPayrollContent() {
   await connection();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.PAYROLL_VIEW)) notFound();
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.PAYROLL_VIEW)) notFound();
   const company = await getCompany();
-  const canManage = hasPermission(role, PERM.PAYROLL_MANAGE);
+  const canManage = __effPerms.includes(PERM.PAYROLL_MANAGE);
   const actions = await getActionPermissions();
 
   const periods = await prisma.payrollPeriod.findMany({

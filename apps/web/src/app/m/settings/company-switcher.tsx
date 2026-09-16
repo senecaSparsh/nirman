@@ -23,7 +23,7 @@ export function CompanySwitcher({
   companies,
   currency,
   role,
-  parentCompanyId,
+  parentCompanyId: _parentCompanyId,
 }: {
   currentCompanyId: string;
   companies: { id: string; name: string; role: string }[];
@@ -31,12 +31,11 @@ export function CompanySwitcher({
   role: string;
   parentCompanyId: string | null;
 }) {
-  // Switching is only for OWNER/ADMIN at the top of the hierarchy (no parent).
-  // Child company users see a static header — they can't switch to siblings.
+  // Switching is deliberately OWNER/ADMIN-only (matches both switch
+  // endpoints). No parent-direction check — an owner inside a subsidiary
+  // must be able to return to the parent.
   const canSwitch =
-    (role === "OWNER" || role === "ADMIN") &&
-    !parentCompanyId &&
-    companies.length > 1;
+    (role === "OWNER" || role === "ADMIN") && companies.length > 1;
   const hasMultiple = canSwitch;
   const [open, setOpen] = React.useState(false);
   // Optimistic selection — moves the checkmark instantly on click

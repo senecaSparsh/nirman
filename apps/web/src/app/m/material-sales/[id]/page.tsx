@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { toNum, getUserPermissions, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
 import { MobileMaterialSaleDetailClient } from "./MobileMaterialSaleDetailClient";
@@ -8,13 +8,12 @@ import { resolveNextAction } from "@/lib/flow-map";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
 
 export default function MobileMaterialSaleDetailPage({
-  params,
-}: {
+  params}: {
   params: Promise<{ id: string }>;
 }) {
   return (
     <MobileDetailPage params={params} skeletonSections={6}>
-      {async ({ id, company, role }) => {
+      {async ({ id, company, role, perms }) => {
         const overrides = await getUserPermissions();
 
         const sale = await prisma.materialSale.findFirst({
@@ -25,20 +24,14 @@ export default function MobileMaterialSaleDetailPage({
             lines: {
               include: {
                 material: { select: { id: true, name: true, unit: true, code: true } },
-                location: { select: { id: true, name: true } },
-              },
-              orderBy: { material: { name: "asc" } },
-            },
+                location: { select: { id: true, name: true } }},
+              orderBy: { material: { name: "asc" } }},
             payments: {
               orderBy: { paymentDate: "desc" },
               select: {
                 id: true, amount: true, paymentDate: true,
                 paymentMode: true, referenceNo: true,
-                chequeNo: true, chequeBank: true, chequePhotoUrl: true,
-              },
-            },
-          },
-        });
+                chequeNo: true, chequeBank: true, chequePhotoUrl: true}}}});
 
         if (!sale) {
           return (
@@ -71,14 +64,13 @@ export default function MobileMaterialSaleDetailPage({
           );
         }
 
-        const canManage = hasPermission(role, PERM.SALES_MANAGE);
+        const canManage = perms.includes(PERM.SALES_MANAGE);
 
         // Fetch linked gate pass for PENDING sales
         const gatePass = sale.status === "PENDING"
           ? await prisma.gatePass.findFirst({
               where: {...await scopeWhere("GatePass"),  refType: "MaterialSale", refId: sale.id },
-              select: { id: true, gatePassNumber: true, status: true },
-            })
+              select: { id: true, gatePassNumber: true, status: true }})
           : null;
 
         // Suppress "Record a payment" once the sale is fully paid —
@@ -107,8 +99,7 @@ export default function MobileMaterialSaleDetailPage({
             status: sale.status,
             label: sale.saleNumber,
             recordId: sale.id,
-            canActions: canManage ? [PERM.SALES_MANAGE] : [],
-          }}>
+            canActions: canManage ? [PERM.SALES_MANAGE] : []}}>
           <>
             <div className="mb-3 rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <MobilePipelineStepper steps={msPipelineSteps} />
@@ -148,8 +139,7 @@ export default function MobileMaterialSaleDetailPage({
               unitCost: toNum(l.unitCost),
               gstRate: toNum(l.gstRate),
               gstAmount: toNum(l.gstAmount),
-              lineTotal: toNum(l.lineTotal),
-            }))}
+              lineTotal: toNum(l.lineTotal)}))}
             payments={sale.payments.map((p) => ({
               id: p.id,
               amount: toNum(p.amount),
@@ -158,8 +148,7 @@ export default function MobileMaterialSaleDetailPage({
               referenceNo: p.referenceNo,
               chequeNo: p.chequeNo,
               chequeBank: p.chequeBank,
-              chequePhotoUrl: p.chequePhotoUrl,
-            }))}
+              chequePhotoUrl: p.chequePhotoUrl}))}
             canManage={canManage}
           />
           </>

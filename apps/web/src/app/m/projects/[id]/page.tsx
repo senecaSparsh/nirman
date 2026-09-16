@@ -4,26 +4,23 @@ import {
   Building2, Home, ClipboardList,
   MapPin, Calendar, TrendingUp, PackageCheck,
   FileText, CalendarCheck, ShieldCheck,
-  Truck, Wallet, Wrench,
-} from "lucide-react";
+  Truck, Wallet, Wrench} from "lucide-react";
 import { MobileProjectPossession } from "./MobileProjectPossession";
 import { MobileProjectTabs } from "./MobileProjectTabs";
 import { MobileCheckMilestonesButton } from "./MobileCheckMilestonesButton";
 import { toNum, scopeWhere } from "@/lib/server";
-import { hasPermission, PERM } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { formatNumber, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileEmptyState,
   SectionHead,
   mobileStatusColor,
-  MobilePipelineStepper,
-} from "@/components/mobile/v2/primitives";
+  MobilePipelineStepper} from "@/components/mobile/v2/primitives";
 import {
   DetailHeroCard,
   DetailProgress,
-  DetailKeyValue,
-} from "@/components/mobile/v2/detail-primitives";
+  DetailKeyValue} from "@/components/mobile/v2/detail-primitives";
 
 import { MobileEditProjectButton } from "./MobileEditProjectButton";
 import { MobileDeleteProjectButton } from "./MobileDeleteProjectButton";
@@ -46,16 +43,14 @@ import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
  *   7. Recent POs / Issues / Costs / DPRs
  */
 export default function MobileProjectDetailPage({
-  params,
-}: {
+  params}: {
   params: Promise<{ id: string }>;
 }) {
   return (
     <MobileDetailPage params={params} managePerm={PERM.PROJECTS_MANAGE} skeletonSections={6}>
-      {async ({ id, company, role, canManage }) => {
+      {async ({ id, company, canManage, perms }) => {
   const project = await prisma.project.findFirst({
-    where: { id, companyId: company.id, deletedAt: null },
-  });
+    where: { id, companyId: company.id, deletedAt: null }});
 
   if (!project) {
     return (
@@ -76,51 +71,41 @@ export default function MobileProjectDetailPage({
         select: {
           id: true, unitNumber: true, unitType: true, status: true,
           area: true, areaUnit: true, floor: true, wing: true,
-          askingPrice: true, productionCost: true, saleId: true,
-        },
-      }),
+          askingPrice: true, productionCost: true, saleId: true}}),
       prisma.purchaseOrder.findMany({
         where: { projectId: id },
         orderBy: { createdAt: "desc" },
         take: 5,
-        include: { supplier: { select: { name: true } } },
-      }),
+        include: { supplier: { select: { name: true } } }}),
       prisma.materialIssue.findMany({
         where: {...await scopeWhere("MaterialIssue"),  projectId: id },
         orderBy: { createdAt: "desc" },
         take: 5,
-        include: { fromLocation: { select: { name: true } } },
-      }),
+        include: { fromLocation: { select: { name: true } } }}),
       prisma.projectCost.findMany({
         where: {...await scopeWhere("ProjectCost"),  projectId: id },
         orderBy: { date: "desc" },
         take: 5,
-        select: { id: true, costType: true, amount: true, date: true, vendor: true },
-      }),
+        select: { id: true, costType: true, amount: true, date: true, vendor: true }}),
       prisma.dailyProgressReport.findMany({
         where: {...await scopeWhere("DailyProgressReport"),  projectId: id },
         orderBy: { date: "desc" },
         take: 5,
-        select: { id: true, date: true, approvalStatus: true, progressPct: true, workSummary: true },
-      }),
+        select: { id: true, date: true, approvalStatus: true, progressPct: true, workSummary: true }}),
       prisma.materialRequisition.count({
-        where: { projectId: id, status: "SUBMITTED" },
-      }),
+        where: { projectId: id, status: "SUBMITTED" }}),
       prisma.landParcel.count({
-        where: { projectId: id, deletedAt: null, status: "AVAILABLE" },
-      }),
+        where: { projectId: id, deletedAt: null, status: "AVAILABLE" }}),
       prisma.workerAttendance.findMany({
         where: {...await scopeWhere("WorkerAttendance"),  projectId: id },
         orderBy: { date: "desc" },
         take: 5,
-        include: { employee: { select: { name: true } } },
-      }),
+        include: { employee: { select: { name: true } } }}),
       // Legal documents for this project
       prisma.legalDocument.findMany({
         where: { projectId: id, companyId: company.id, deletedAt: null },
         orderBy: [{ type: "asc" }, { createdAt: "desc" }],
-        take: 50,
-      }),
+        take: 50}),
       // Equipment currently assigned to this project — "what's on my site".
       prisma.equipmentAssignment.findMany({
         where: { projectId: id, returnedAt: null, status: "ACTIVE" },
@@ -130,9 +115,7 @@ export default function MobileProjectDetailPage({
           id: true,
           assignedAt: true,
           location: { select: { name: true } },
-          equipment: { select: { id: true, name: true, category: true, status: true } },
-        },
-      }),
+          equipment: { select: { id: true, name: true, category: true, status: true } }}}),
     ]);
 
   const availableUnits = units.filter((u) => u.status === "AVAILABLE" || u.status === "PLANNED" || u.status === "UNDER_CONSTRUCTION");
@@ -156,8 +139,7 @@ export default function MobileProjectDetailPage({
       status: project.status,
       label: project.name,
       subtitle: typeLabel,
-      recordId: project.id,
-    }}>
+      recordId: project.id}}>
     <div>
       <RecordRecentItem type="project" id={project.id} label={project.name} href={`/m/projects/${project.id}`} />
 
@@ -198,8 +180,7 @@ export default function MobileProjectDetailPage({
                     reraRegistrationDate: project.reraRegistrationDate?.toISOString() ?? null,
                     reraValidityDate: project.reraValidityDate?.toISOString() ?? null,
                     reraWebsiteUrl: project.reraWebsiteUrl,
-                    lciThreshold: project.lciThreshold ? toNum(project.lciThreshold) : null,
-                  }}
+                    lciThreshold: project.lciThreshold ? toNum(project.lciThreshold) : null}}
                 />
                 <MobileDeleteProjectButton projectId={project.id} name={project.name} />
               </>
@@ -211,8 +192,7 @@ export default function MobileProjectDetailPage({
           <div className="mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-m-caption font-bold"
             style={{
               color: "var(--color-go)",
-              backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)",
-            }}>
+              backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)"}}>
             <ShieldCheck className="size-2.5" />
             RERA: {project.reraNumber}
           </div>
@@ -268,8 +248,7 @@ export default function MobileProjectDetailPage({
           className="rounded-[0.625rem] border p-2.5"
           style={{
             borderColor: "var(--color-line)",
-            backgroundColor: "var(--color-paper)",
-          }}
+            backgroundColor: "var(--color-paper)"}}
         >
           <div className="flex items-center gap-1.5 mb-2">
             <span
@@ -297,8 +276,7 @@ export default function MobileProjectDetailPage({
           className="rounded-[0.625rem] border p-2.5"
           style={{
             borderColor: "var(--color-line)",
-            backgroundColor: "var(--color-paper)",
-          }}
+            backgroundColor: "var(--color-paper)"}}
         >
           <div className="flex items-center gap-1.5 mb-2">
             <span
@@ -394,8 +372,7 @@ export default function MobileProjectDetailPage({
                   className="flex flex-col rounded-[0.5rem] border p-1.5 text-m-body press overflow-hidden"
                   style={{
                     borderColor: "var(--color-line)",
-                    backgroundColor: "var(--color-paper)",
-                  }}
+                    backgroundColor: "var(--color-paper)"}}
                 >
                   {/* Top accent strip */}
                   <div className="h-1 -mx-1.5 -mt-1.5 mb-1" style={{ backgroundColor: dprTone }} />
@@ -443,8 +420,7 @@ export default function MobileProjectDetailPage({
                     borderColor: "var(--color-line)",
                     backgroundColor: "var(--color-paper)",
                     borderLeftColor: poTone,
-                    borderLeftWidth: "3px",
-                  }}
+                    borderLeftWidth: "3px"}}
                 >
                   <div className="flex items-center justify-between gap-0.5 mb-0.5">
                     <p className="text-m-caption font-bold leading-tight truncate font-mono" style={{ color: "var(--color-ink-950)" }}>
@@ -482,8 +458,7 @@ export default function MobileProjectDetailPage({
                 className="flex flex-col rounded-[0.5rem] border p-1.5 text-m-body press"
                 style={{
                   borderColor: "var(--color-line)",
-                  backgroundColor: "var(--color-paper-2)",
-                }}
+                  backgroundColor: "var(--color-paper-2)"}}
               >
                 <div className="flex items-center gap-1 mb-0.5">
                   <span
@@ -520,8 +495,7 @@ export default function MobileProjectDetailPage({
                 className="flex flex-col rounded-[0.5rem] border p-1.5 text-m-body press"
                 style={{
                   borderColor: "var(--color-line)",
-                  backgroundColor: "var(--color-signal-wash)",
-                }}
+                  backgroundColor: "var(--color-signal-wash)"}}
               >
                 <p className="text-m-caption font-bold tabular-nums leading-tight mb-0.5" style={{ color: "var(--color-signal-dark)" }}>
                   {formatCurrencyCompact(toNum(c.amount))}
@@ -567,8 +541,7 @@ export default function MobileProjectDetailPage({
                 <span
                   className="text-m-caption font-bold uppercase"
                   style={{
-                    color: a.status === "PRESENT" ? "var(--color-go)" : a.status === "ABSENT" ? "var(--color-stop)" : "var(--color-signal-dark)",
-                  }}
+                    color: a.status === "PRESENT" ? "var(--color-go)" : a.status === "ABSENT" ? "var(--color-stop)" : "var(--color-signal-dark)"}}
                 >
                   {a.status.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
                 </span>
@@ -607,8 +580,7 @@ export default function MobileProjectDetailPage({
                 <span
                   className="text-m-caption font-bold uppercase shrink-0"
                   style={{
-                    color: a.equipment.status === "IN_MAINTENANCE" ? "var(--color-signal)" : "var(--color-go)",
-                  }}
+                    color: a.equipment.status === "IN_MAINTENANCE" ? "var(--color-signal)" : "var(--color-go)"}}
                 >
                   {a.equipment.status === "IN_MAINTENANCE" ? "In repair" : "Active"}
                 </span>
@@ -645,15 +617,13 @@ export default function MobileProjectDetailPage({
           documentUrl: d.documentUrl,
           documentName: d.documentName,
           notes: d.notes,
-          createdAt: d.createdAt.toISOString(),
-        }))}
+          createdAt: d.createdAt.toISOString()}))}
         projectId={id}
-        canManage={hasPermission(role, PERM.LEGAL_MANAGE)}
+        canManage={perms.includes(PERM.LEGAL_MANAGE)}
         context="PROJECT"
       />
             </>
-          ),
-        }}
+          )}}
       </MobileProjectTabs>
     </div>
     </PageContextProvider>
@@ -668,8 +638,7 @@ export default function MobileProjectDetailPage({
 function QuickActionTile({
   href,
   icon: Icon,
-  label,
-}: {
+  label}: {
   href: string;
   icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   label: string;
@@ -680,8 +649,7 @@ function QuickActionTile({
       className="flex flex-col items-center gap-1 rounded-[0.625rem] border p-2 text-m-body press"
       style={{
         borderColor: "var(--color-line)",
-        backgroundColor: "var(--color-paper)",
-      }}
+        backgroundColor: "var(--color-paper)"}}
     >
       <Icon className="size-4" style={{ color: "var(--color-ink-700)" }} />
       <span className="text-m-caption font-semibold text-center leading-tight" style={{ color: "var(--color-ink-950)" }}>
@@ -693,8 +661,7 @@ function QuickActionTile({
 
 /* ─── Unit card — compact 3-col grid card ─── */
 function UnitCard({
-  unit,
-}: {
+  unit}: {
   unit: {
     id: string;
     unitNumber: string;
@@ -718,8 +685,7 @@ function UnitCard({
     RESERVED: "Rsvd",
     HOLD: "Hold",
     SOLD: "Sold",
-    RENTED: "Rent",
-  };
+    RENTED: "Rent"};
   const short = statusShort[unit.status] ?? unit.status.slice(0, 4);
 
   return (
@@ -730,8 +696,7 @@ function UnitCard({
         borderColor: needsAttention ? "var(--color-stop)" : "var(--color-line)",
         backgroundColor: "var(--color-paper)",
         borderTopColor: statusColor,
-        borderTopWidth: "2px",
-      }}
+        borderTopWidth: "2px"}}
     >
       {/* Unit number + status pill */}
       <div className="flex items-center justify-between gap-0.5 mb-0.5">
@@ -742,8 +707,7 @@ function UnitCard({
           className="shrink-0 text-[0.5rem] font-bold uppercase leading-none px-1 py-0.5 rounded"
           style={{
             backgroundColor: mobileStatusColor(unit.status, "wash"),
-            color: mobileStatusColor(unit.status, "dark"),
-          }}
+            color: mobileStatusColor(unit.status, "dark")}}
         >
           {short}
         </span>

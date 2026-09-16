@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { leaseExpiryAlerts } from "@nirman/services";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { AlertTriangle, Clock } from "lucide-react";
@@ -23,10 +23,10 @@ export default function MobileLeaseExpiryPage() {
 
 async function LeaseExpiryContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.ASSETS_VIEW)) {
+  if (!__effPerms.includes(PERM.ASSETS_VIEW)) {
     return <MobileNoAccess what="land alerts" permission="assets.view" />;
   }
 

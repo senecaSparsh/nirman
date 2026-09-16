@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { DetailPrintButton } from "@/components/mobile/v2/detail-primitives";
 import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
@@ -14,26 +14,22 @@ import { PageContextProvider } from "@/components/mobile/v2/page-context";
  * `inventory.manage`.
  */
 export default function MobileStockCountDetailPage({
-  params,
-}: {
+  params}: {
   params: Promise<{ id: string }>;
 }) {
   return (
     <MobileDetailPage params={params} skeletonSections={6}>
-      {async ({ id, company, role }) => {
+      {async ({ id, company, perms }) => {
         const count = await prisma.stockCount.findFirst({
           where: { id, location: { companyId: company.id, deletedAt: null } },
           include: {
             location: { select: { id: true, name: true, type: true } },
             lines: {
               include: { material: { select: { id: true, name: true, unit: true, code: true } } },
-              orderBy: { material: { name: "asc" } },
-            },
+              orderBy: { material: { name: "asc" } }},
             createdBy: { select: { name: true } },
             confirmedBy: { select: { name: true } },
-            reconciledBy: { select: { name: true } },
-          },
-        });
+            reconciledBy: { select: { name: true } }}});
 
         if (!count) {
           return (
@@ -51,7 +47,7 @@ export default function MobileStockCountDetailPage({
         }).length;
         const itemsMatched = count.lines.length - itemsWithVariance;
 
-        const canManage = hasPermission(role, PERM.INVENTORY_MANAGE);
+        const canManage = perms.includes(PERM.INVENTORY_MANAGE);
 
         // Serialize for client component
         const serialized = {
@@ -68,8 +64,7 @@ export default function MobileStockCountDetailPage({
           location: {
             id: count.location.id,
             name: count.location.name,
-            type: count.location.type,
-          },
+            type: count.location.type},
           totalVariance,
           itemsWithVariance,
           itemsMatched,
@@ -82,9 +77,7 @@ export default function MobileStockCountDetailPage({
             materialUnit: l.material.unit,
             systemQty: toNum(l.systemQty),
             countedQty: toNum(l.countedQty),
-            variance: toNum(l.variance),
-          })),
-        };
+            variance: toNum(l.variance)}))};
 
         // Lifecycle pipeline: DRAFT → COUNTED → RECONCILED
         const scPipelineSteps: MobilePipelineStep[] = [
@@ -98,8 +91,7 @@ export default function MobileStockCountDetailPage({
             entityType: "stockCount",
             status: count.status,
             label: count.location.name,
-            recordId: count.id,
-          }}>
+            recordId: count.id}}>
           <>
             <div className="mb-3 flex items-center justify-between rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <MobilePipelineStepper steps={scPipelineSteps} />

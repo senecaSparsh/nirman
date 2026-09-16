@@ -2,8 +2,8 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getUserRole, getCompany } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { toNum, getCompany, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { amountInWords } from "@nirman/services";
 import {formatCurrency} from "@/lib/utils";
 import { notFound } from "next/navigation";
@@ -21,8 +21,9 @@ export default async function SupplierPaymentPrintPage({
   await connection();
   const { id } = await params;
 
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.FINANCE_VIEW)) {
+
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.FINANCE_VIEW)) {
     notFound();
   }
   const company = await getCompany();

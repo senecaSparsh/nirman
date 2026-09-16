@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { toNum, getCurrentUser, scopeWhere, getActionPermissions } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import type { LeadRow } from "@/lib/types";
 import { MobileSalesHub } from "./MobileSalesHub";
@@ -23,10 +23,10 @@ import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 export default function MobileSalesPage() {
   return (
     <MobileListPage perm={PERM.SALES_VIEW} what="sales" permission="sales.view">
-      {async ({ company, role }) => {
+      {async ({ company, perms }) => {
         const currentUser = await getCurrentUser();
         const actions = await getActionPermissions();
-        const canCreateSale = actions?.canCreateMaterialSale ?? hasPermission(role, PERM.SALES_MANAGE);
+        const canCreateSale = actions?.canCreateMaterialSale ?? perms.includes(PERM.SALES_MANAGE);
         const [sales, leads, projects, units, salesMembers] = await Promise.all([
           prisma.assetSale.findMany({
             where: {...await scopeWhere("AssetSale"),  companyId: company.id, status: "ACTIVE" },
@@ -36,9 +36,7 @@ export default function MobileSalesPage() {
               customer: { select: { id: true, name: true, phone: true } },
               builtUnit: { select: { unitNumber: true, unitType: true, project: { select: { name: true } } } },
               project: { select: { name: true } },
-              payments: { where: { status: "RECEIVED" }, select: { amount: true } },
-            },
-          }),
+              payments: { where: { status: "RECEIVED" }, select: { amount: true } }}}),
           prisma.lead.findMany({
             where: {...await scopeWhere("Lead"),  companyId: company.id, deletedAt: null },
             orderBy: [{ nextFollowUpAt: "asc" }, { createdAt: "desc" }],
@@ -48,25 +46,20 @@ export default function MobileSalesPage() {
               interestedUnit: { select: { id: true, unitNumber: true } },
               assignedTo: { select: { id: true, name: true } },
               activities: { orderBy: { occurredAt: "desc" }, take: 1 },
-              _count: { select: { activities: true } },
-            },
-          }),
+              _count: { select: { activities: true } }}}),
           prisma.project.findMany({
             where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
             orderBy: { name: "asc" },
-            select: { id: true, name: true },
-          }),
+            select: { id: true, name: true }}),
           prisma.builtUnit.findMany({
             where: {...await scopeWhere("BuiltUnit"),  deletedAt: null, status: { in: ["AVAILABLE", "HOLD"] }, project: { companyId: company.id, deletedAt: null } },
             orderBy: [{ project: { name: "asc" } }, { unitNumber: "asc" }],
             take: 100,
-            select: { id: true, unitNumber: true, unitType: true, projectId: true, project: { select: { name: true } } },
-          }),
+            select: { id: true, unitNumber: true, unitType: true, projectId: true, project: { select: { name: true } } }}),
           prisma.userCompany.findMany({
             where: { companyId: company.id, role: { in: ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "SALES_MANAGER"] }, user: { active: true, isHidden: { not: true } } },
             orderBy: { user: { name: "asc" } },
-            select: { user: { select: { id: true, name: true } } },
-          }),
+            select: { user: { select: { id: true, name: true } } }}),
         ]);
 
         const items = sales.map((s) => {
@@ -92,8 +85,7 @@ export default function MobileSalesPage() {
             totalPaid,
             balance,
             paymentStatus: s.paymentStatus,
-            saleStage: s.saleStage,
-          };
+            saleStage: s.saleStage};
         });
 
         const leadRows: LeadRow[] = leads.map((lead) => ({
@@ -126,9 +118,7 @@ export default function MobileSalesPage() {
             type: lead.activities[0].type,
             note: lead.activities[0].note,
             outcome: lead.activities[0].outcome,
-            occurredAt: lead.activities[0].occurredAt.toISOString(),
-          } : null,
-        }));
+            occurredAt: lead.activities[0].occurredAt.toISOString()} : null}));
 
         // Aggregate stats
         const totalValue = items.reduce((s, x) => s + x.salePrice, 0);
@@ -150,10 +140,9 @@ export default function MobileSalesPage() {
               id: unit.id,
               projectId: unit.projectId,
               projectName: unit.project.name,
-              label: `Unit ${unit.unitNumber} · ${unit.unitType.replaceAll("_", " ")}`,
-            }))}
+              label: `Unit ${unit.unitNumber} · ${unit.unitType.replaceAll("_", " ")}`}))}
             assignees={salesMembers.map((membership) => membership.user)}
-            canManage={hasPermission(role, PERM.SALES_MANAGE)}
+            canManage={perms.includes(PERM.SALES_MANAGE)}
             canCreate={canCreateSale}
             currentUserId={currentUser?.id ?? null}
           />

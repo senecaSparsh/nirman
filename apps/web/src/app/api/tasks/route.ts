@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createTask } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, requireUser, taskSchema } from "@/lib/server";
+import { apiHandler, getActingRole, getCompany, json, requirePermission, requireUser, taskSchema } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatDate } from "@/lib/utils";
 
@@ -13,7 +13,7 @@ import { formatDate } from "@/lib/utils";
  */
 export const GET = apiHandler(async (req: NextRequest) => {
   const user = await requireUser();
-  const role = user.role;
+  const role = await getActingRole();
   const company = await getCompany();
 
   const url = new URL(req.url);

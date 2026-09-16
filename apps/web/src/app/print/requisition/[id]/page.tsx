@@ -2,8 +2,8 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getUserRole, getCompany, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { toNum, getCompany, scopeWhere, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import { notFound } from "next/navigation";
 
@@ -17,8 +17,8 @@ export default async function DemandSlipPage({ params }: { params: Promise<{ id:
   const { id } = await params;
 
   // Gate access — demand slips show stock levels, rates, and supplier info.
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.PROCUREMENT_VIEW)) {
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) {
     notFound();
   }
   const company = await getCompany();

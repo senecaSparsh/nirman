@@ -55,6 +55,7 @@ export function SignatureShell({
       style={{
         borderColor: "var(--color-line)",
         backgroundColor: "var(--color-paper)",
+        boxShadow: "var(--shadow-raised)",
       }}
     >
       {/* Header — eyebrow left, hero figure right. The hero is the only

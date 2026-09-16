@@ -4,8 +4,8 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { Package, Layers, MapPin } from "lucide-react";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -39,8 +39,8 @@ async function MobileInventoryValueContent({
 }) {
   await connection();
   const { asOn: asOnParam } = await searchParams;
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.INVENTORY_VIEW)) notFound();
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.INVENTORY_VIEW)) notFound();
   const company = await getCompany();
 
   // Live mode only (historical mode is heavy — desktop-only)

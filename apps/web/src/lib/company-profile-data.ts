@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
-import { PERM, hasPermission, ROLE_LIST, assignableRoles, type Role } from "@/lib/roles";
+import { getActingRole, getCompany, getUserPermissions, getUserRole, toNum } from "@/lib/server";
+import { PERM, ROLE_LIST, assignableRoles, type Role } from "@/lib/roles";
 import type { CompanyProfileData } from "@/components/companies/company-profile-client";
 
 /**
@@ -174,6 +174,7 @@ export async function loadCompanyProfileData(companyId: string): Promise<{
     lciWeights: company.lciWeights as Record<string, number> | null,
     poApprovalThresholdManager: company.poApprovalThresholdManager ? toNum(company.poApprovalThresholdManager) : null,
     poApprovalThresholdAdmin: company.poApprovalThresholdAdmin ? toNum(company.poApprovalThresholdAdmin) : null,
+    approvalAgingHours: company.approvalAgingHours ?? 48,
     // ── Password policy ──
     passwordMinLength: company.passwordMinLength,
     passwordRequireSpecial: company.passwordRequireSpecial,
@@ -265,10 +266,14 @@ export async function loadCompanyProfileData(companyId: string): Promise<{
     })),
   };
 
-  const canManage = hasPermission(role, PERM.COMPANY_MANAGE);
-  const canViewAudit = hasPermission(role, PERM.AUDIT_VIEW);
-  const canManageTelephony = hasPermission(role, PERM.TELEPHONY_MANAGE);
-  const assignable = assignableRoles(role);
+  // Effective permissions — the delegation-aware union — drive every
+  // display gate so a delegate sees the same surface the delegator would.
+  const perms = await getUserPermissions();
+  const actingRole = await getActingRole();
+  const canManage = perms.includes(PERM.COMPANY_MANAGE);
+  const canViewAudit = perms.includes(PERM.AUDIT_VIEW);
+  const canManageTelephony = perms.includes(PERM.TELEPHONY_MANAGE);
+  const assignable = assignableRoles(actingRole);
 
   return {
     data,
@@ -277,12 +282,12 @@ export async function loadCompanyProfileData(companyId: string): Promise<{
       canManage,
       canViewAudit,
       canManageTelephony,
-      canManageCompanies: role === "OWNER" || role === "ADMIN",
-      canManageHr: hasPermission(role, PERM.HR_MANAGE),
-      canManageProcurement: hasPermission(role, PERM.PROCUREMENT_MANAGE),
-      canManageSales: hasPermission(role, PERM.SALES_MANAGE),
-      canManageInventory: hasPermission(role, PERM.INVENTORY_MANAGE),
-      canManageProjects: hasPermission(role, PERM.PROJECTS_MANAGE),
+      canManageCompanies: actingRole === "OWNER" || actingRole === "ADMIN",
+      canManageHr: perms.includes(PERM.HR_MANAGE),
+      canManageProcurement: perms.includes(PERM.PROCUREMENT_MANAGE),
+      canManageSales: perms.includes(PERM.SALES_MANAGE),
+      canManageInventory: perms.includes(PERM.INVENTORY_MANAGE),
+      canManageProjects: perms.includes(PERM.PROJECTS_MANAGE),
     },
     roleOptions: ROLE_LIST.map((r) => ({ key: r.key, label: r.label })),
     assignableRoles: assignable,

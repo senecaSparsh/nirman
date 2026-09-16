@@ -1661,8 +1661,11 @@ export async function getUserRole(): Promise<string> {
 export async function getAssignedProjectIds(): Promise<string[] | null> {
   const user = await getCurrentUser();
   if (!user) return null;
-  // OWNER, ADMIN, DEVELOPER, MANAGER are unscoped — they see all projects
-  if (user.role === "OWNER" || user.role === "ADMIN" || user.role === "DEVELOPER" || user.role === "PROJECT_DIRECTOR" || user.role === "PROJECT_MANAGER") {
+  // OWNER, ADMIN, DEVELOPER, MANAGER are unscoped — they see all projects.
+  // Acting role: a delegate holding e.g. OWNER authority inherits the
+  // unscoped view (their own scope doesn't narrow the delegator's company).
+  const actingRole = await getActingRole();
+  if (actingRole === "OWNER" || actingRole === "ADMIN" || actingRole === "DEVELOPER" || actingRole === "PROJECT_DIRECTOR" || actingRole === "PROJECT_MANAGER") {
     return null; // null = unscoped (all projects)
   }
   // SUPERVISOR, SALES, ACCOUNTANT are scoped to their assigned projects.

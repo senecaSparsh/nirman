@@ -2,8 +2,8 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getUserRole, getCompany } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { toNum, getCompany, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { amountInWords } from "@nirman/services";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
@@ -35,8 +35,9 @@ export default async function PaymentReceiptPage({
   await connection();
   const { id } = await params;
 
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.SALES_VIEW)) {
+
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.SALES_VIEW)) {
     notFound();
   }
   const company = await getCompany();

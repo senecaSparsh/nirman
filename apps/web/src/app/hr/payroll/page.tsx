@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
 import { PayrollView } from "@/components/hr/payroll-view";
@@ -18,17 +18,17 @@ export default function PayrollPage() {
 
 async function PayrollContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.PAYROLL_VIEW)) {
+  if (!__effPerms.includes(PERM.PAYROLL_VIEW)) {
     return (
       <NoAccess what="payroll" />
     );
   }
 
   const perms = {
-    canManage: hasPermission(role, PERM.PAYROLL_MANAGE),
+    canManage: __effPerms.includes(PERM.PAYROLL_MANAGE),
   };
 
   const periods = await prisma.payrollPeriod.findMany({

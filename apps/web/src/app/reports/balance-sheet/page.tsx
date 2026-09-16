@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
@@ -22,10 +22,10 @@ export default function BalanceSheetPage() {
 
 async function BalanceSheetContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.FINANCE_VIEW)) {
+  if (!__effPerms.includes(PERM.FINANCE_VIEW)) {
     return <NoAccess what="the balance sheet" />;
   }
 

@@ -2,15 +2,15 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { MyTasksHub } from "@/components/tasks/my-tasks-hub";
 import { formatDate } from "@/lib/utils";
-import { getCurrentUser, getCompany, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCurrentUser, getCompany, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 
 export async function MyTasksContent() {
   await connection();
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const currentUser = await getCurrentUser();
   const company = await getCompany();
-  const canViewTeam = hasPermission(role, PERM.TASKS_ASSIGN);
+  const canViewTeam = __effPerms.includes(PERM.TASKS_ASSIGN);
 
   const [teamTasks, users] = await Promise.all([
     prisma.task.findMany({
@@ -19,15 +19,12 @@ export async function MyTasksContent() {
       orderBy: [{ status: "asc" }, { dueDate: "asc" }, { createdAt: "desc" }],
       include: {
         assignedTo: { select: { id: true, name: true, email: true, role: true, employees: { select: { id: true }, take: 1 } } },
-        assignedBy: { select: { id: true, name: true } },
-      },
-    }),
+        assignedBy: { select: { id: true, name: true } }}}),
     prisma.user.findMany({
       take: 200,
       where: { active: true, memberships: { some: { companyId: company.id } } },
       select: { id: true, name: true, email: true, role: true },
-      orderBy: { name: "asc" },
-    }),
+      orderBy: { name: "asc" }}),
   ]);
 
   return (
@@ -43,12 +40,10 @@ export async function MyTasksContent() {
         dueDateRaw: t.dueDate?.toISOString() ?? null,
         assignedTo: {
           ...t.assignedTo,
-          employeeId: t.assignedTo.employees?.[0]?.id ?? null,
-        },
+          employeeId: t.assignedTo.employees?.[0]?.id ?? null},
         assignedBy: t.assignedBy,
         completedAt: t.completedAt ? formatDate(t.completedAt) : null,
-        createdAt: formatDate(t.createdAt),
-      }))}
+        createdAt: formatDate(t.createdAt)}))}
       users={users}
       canAssign={canViewTeam}
       canManage={canViewTeam}

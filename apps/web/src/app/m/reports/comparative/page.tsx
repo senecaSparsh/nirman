@@ -5,8 +5,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { dprAnalysis, workforceProductivity, projectPnl } from "@nirman/services";
 import {BarChart3, Building2} from "lucide-react";
-import { getCompany, toNum, getUserRole } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -31,8 +31,8 @@ export default function MobileComparativePage() {
 
 async function MobileComparativeContent() {
   await connection();
-  const role = await getUserRole();
-  if (!hasPermission(role, PERM.FINANCE_VIEW) && !hasPermission(role, PERM.HR_VIEW)) notFound();
+  const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.FINANCE_VIEW) && !__effPerms.includes(PERM.HR_VIEW)) notFound();
   const company = await getCompany();
 
   const projects = await prisma.project.findMany({

@@ -582,7 +582,7 @@ export function AppShell({
             <CurrencyToggle tone="surface" />
             <ThemeToggle tone="surface" />
             <span aria-hidden className="mx-0.5 h-5 w-px bg-border" />
-            <CompanySwitcher companies={companies} />
+            <CompanySwitcher companies={companies} canSwitch={userRole === "OWNER" || userRole === "ADMIN"} />
           </div>
         </header>
 

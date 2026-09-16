@@ -1,8 +1,8 @@
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -16,16 +16,15 @@ import { formatCurrency, formatDate } from "@/lib/utils";
  * category = "offer-letter".
  */
 export default async function OfferLetterPage({
-  params,
-}: {
+  params}: {
   params: Promise<{ id: string }>;
 }) {
   await connection();
   const { id } = await params;
-  const role = await getUserRole();
+  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!hasPermission(role, PERM.HR_VIEW)) {
+  if (!__effPerms.includes(PERM.HR_VIEW)) {
     return <div className="p-8 text-center text-muted-foreground">No access</div>;
   }
 
@@ -36,24 +35,17 @@ export default async function OfferLetterPage({
         user: {
           select: {
             id: true, name: true, email: true, phone: true, role: true,
-            employeeCode: true, designation: true, department: true,
-          },
-        },
+            employeeCode: true, designation: true, department: true}},
         activeProject: { select: { name: true } },
         salaryComponents: {
           where: { active: true },
-          orderBy: [{ isDeduction: "asc" }, { type: "asc" }],
-        },
+          orderBy: [{ isDeduction: "asc" }, { type: "asc" }]},
         benefits: {
           where: { active: true },
-          orderBy: { type: "asc" },
-        },
-      },
-    }),
+          orderBy: { type: "asc" }}}}),
     prisma.company.findFirst({
       where: { id: company.id },
-      select: { name: true, address: true, gstin: true, phone: true, email: true, pan: true },
-    }),
+      select: { name: true, address: true, gstin: true, phone: true, email: true, pan: true }}),
   ]);
 
   if (!employee) notFound();
@@ -67,8 +59,7 @@ export default async function OfferLetterPage({
     CONTRACT: "Fixed-Term Contract",
     CASUAL: "Casual Employment",
     PROBATION: "Probationary Employment",
-    INTERN: "Internship",
-  };
+    INTERN: "Internship"};
   const typeLabel = employmentTypeLabel[employee.employmentType ?? "PERMANENT"] ?? "Employment";
 
   // ── Salary components ──
@@ -140,16 +131,14 @@ export default async function OfferLetterPage({
     GRATUITY: "Gratuity",
     PROFESSION_TAX: "Profession Tax",
     TDS: "Income Tax (TDS)",
-    OTHER: "Other",
-  };
+    OTHER: "Other"};
 
   const frequencyLabel: Record<string, string> = {
     MONTHLY: "/month",
     QUARTERLY: "/quarter",
     HALF_YEARLY: "/half-year",
     YEARLY: "/year",
-    ONE_TIME: " (one-time)",
-  };
+    ONE_TIME: " (one-time)"};
 
   const hasSalaryComponents = components.length > 0;
 
@@ -171,8 +160,7 @@ export default async function OfferLetterPage({
             address: companyDetails?.address,
             gstin: companyDetails?.gstin,
             phone: companyDetails?.phone,
-            email: companyDetails?.email,
-          }}
+            email: companyDetails?.email}}
           title="Offer Letter"
           docNumber={offerNo}
           date={issueDate}

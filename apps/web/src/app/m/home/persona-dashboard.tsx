@@ -7,11 +7,10 @@ import {
   ShoppingCart, FileText, Package,
   ArrowRight, ShieldAlert, GitBranch, ListTree,
   Wrench, Wallet, ClipboardCheck,
-  type LucideIcon,
-} from "lucide-react";
+  type LucideIcon} from "lucide-react";
 import type { Persona } from "@/lib/mobile-nav-v2";
 import { PersonaSignature } from "@/components/mobile/v2/persona-signature";
-import { hasPermission, PERM } from "@/lib/roles";
+import { PERM } from "@/lib/roles";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    PERSONA HOME DASHBOARD
@@ -44,6 +43,8 @@ import { hasPermission, PERM } from "@/lib/roles";
 interface PersonaHomeDashboardProps {
   persona: Persona;
   role: string;
+  /** Effective permission union — gates cross-module links. */
+  perms: string[];
   currentCompany: { id: string; name: string; businessType: string | null; currency: string };
 }
 
@@ -104,19 +105,19 @@ const PERSONA_LINKS: Record<Persona, { label: string; href: string; icon: Lucide
     { label: "Quality Control", href: "/m/quality-control", icon: ShieldAlert, perm: PERM.QC_VIEW },
     { label: "Equipment", href: "/m/equipment", icon: Wrench, perm: PERM.ASSETS_VIEW },
     { label: "Accounts", href: "/m/accounts", icon: BookOpen, perm: PERM.FINANCE_VIEW },
-  ],
-};
+  ]};
 
 export function PersonaHomeDashboard({
   persona,
-  role,
-  currentCompany: _currentCompany,
-}: PersonaHomeDashboardProps) {
-  // Filter by the role's actual grants — a persona is a coarse grouping, and
-  // narrow roles inside it (e.g. SECURITY_GUARD on "field") must not see
-  // links they can't open.
+  role: _role,
+  perms,
+  currentCompany: _currentCompany}: PersonaHomeDashboardProps) {
+  // Filter by the user's effective permission union — a persona is a coarse
+  // grouping, and narrow roles inside it (e.g. SECURITY_GUARD on "field")
+  // must not see links they can't open. The union includes live delegation
+  // grants so delegates see the surface they can act on.
   const links = (PERSONA_LINKS[persona] ?? []).filter(
-    (l) => !l.perm || hasPermission(role, l.perm),
+    (l) => !l.perm || perms.includes(l.perm),
   );
 
   return (
