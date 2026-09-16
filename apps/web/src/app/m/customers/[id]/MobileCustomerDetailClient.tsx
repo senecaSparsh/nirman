@@ -41,6 +41,7 @@ interface CustomerData {
   gstin: string | null;
   address: string | null;
   createdAt: string;
+  version: number;
   sales: SaleItem[];
   totals: {
     totalValue: number;

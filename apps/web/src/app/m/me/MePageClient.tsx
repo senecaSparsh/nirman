@@ -977,6 +977,7 @@ function InfoField({
  * refreshes on the next /api/me fetch.
  */
 function LeaveRequestForm() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<"CASUAL" | "SICK" | "EARNED" | "UNPAID">("CASUAL");
   const [startDate, setStartDate] = useState("");
@@ -1015,6 +1016,9 @@ function LeaveRequestForm() {
       setEndDate("");
       setReason("");
       setType("CASUAL");
+      // Re-render the server component so the new request appears in the
+      // list below — the card's data is server-fetched, not client-state.
+      router.refresh();
     } catch {
       toast.error("Could not submit leave request");
     } finally {

@@ -47,6 +47,7 @@ interface ExistingMaterial {
   standardCost: number;
   reorderPoint: number | null;
   description: string | null;
+  version: number;
 }
 
 const COMMON_UNITS = ["NOS", "BAG", "KG", "TON", "MTR", "FEET", "SQFT", "CUM", "LTR", "BOX", "ROLL", "SET"];
@@ -158,9 +159,15 @@ export default function MobileNewMaterialClient({
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        // On edit, send the version we read so the server can detect a
+        // concurrent edit (someone else saved in between) instead of
+        // silently overwriting it.
+        body: JSON.stringify(isEdit ? { ...payload, version: material!.version } : payload),
       });
       const data = await res.json();
+      if (res.status === 409 && data.code === "CONCURRENT_EDIT") {
+        throw new Error("Someone else just edited this material. Reload it to see their changes, then apply yours again.");
+      }
       if (!res.ok) throw new Error(data.error ?? `Failed to ${isEdit ? "update" : "create"} material`);
 
       haptic([10, 40, 80]);

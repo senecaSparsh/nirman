@@ -14,6 +14,7 @@ interface CustomerData {
   email: string | null;
   gstin: string | null;
   address: string | null;
+  version: number;
 }
 
 export function MobileCustomerEditForm({
@@ -56,10 +57,14 @@ export function MobileCustomerEditForm({
           email: email.trim() || null,
           gstin: gstin.trim() || null,
           address: address.trim() || null,
+          version: customer.version, // optimistic lock — detect a concurrent edit
         }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        if (res.status === 409 && err.code === "CONCURRENT_EDIT") {
+          throw new Error("Someone else just edited this customer. Reload to see their changes, then apply yours again.");
+        }
         throw new Error(err.error ?? "Failed to update customer");
       }
       toast.success("Customer updated");

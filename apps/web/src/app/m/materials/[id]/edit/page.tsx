@@ -32,7 +32,7 @@ export default async function EditMaterialPage({
       select: {
         id: true, code: true, name: true, grade: true, specification: true,
         categoryId: true, unit: true, hsnCode: true, gstRate: true,
-        standardCost: true, reorderPoint: true, description: true,
+        standardCost: true, reorderPoint: true, description: true, version: true,
       },
     }),
     prisma.materialCategory.findMany({

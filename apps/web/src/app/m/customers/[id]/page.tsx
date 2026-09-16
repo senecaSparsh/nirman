@@ -115,6 +115,7 @@ export default function MobileCustomerDetailPage({
           gstin: customer.gstin,
           address: customer.address,
           createdAt: customer.createdAt.toISOString(),
+          version: customer.version,
           sales: allSales,
           totals: {
             totalValue,
