@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { formatRelativeTime } from "@/lib/utils";
-import { clearCompleted } from "@/lib/offline/queue";
+import { clearCompleted, retryOp } from "@/lib/offline/queue";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import type { QueuedOperation } from "@/lib/offline/queue";
@@ -35,10 +35,42 @@ const STATUS_STYLES: Record<string, { color: string; icon: typeof CheckCircle2; 
   FAILED: { color: "var(--color-stop)", icon: XCircle, label: "Failed" },
 };
 
+/** One-line summary of what a queued op contained — so a worker reviewing a
+ *  failed op days later can see what they were trying to submit without
+ *  reopening the form. */
+function summarizePayload(op: QueuedOperation): string | null {
+  const p = op.payload as Record<string, unknown> | null;
+  if (!p || typeof p !== "object") return null;
+  const lines = (p.lines ?? p.items) as { qty?: number; quantity?: number }[] | undefined;
+  if (Array.isArray(lines) && lines.length > 0) {
+    const totalQty = lines.reduce((s, l) => s + (Number(l.qty ?? l.quantity) || 0), 0);
+    return `${lines.length} item${lines.length > 1 ? "s" : ""}${totalQty ? ` · qty ${totalQty}` : ""}`;
+  }
+  if (typeof p.qty === "number") return `qty ${p.qty}`;
+  if (typeof p.summary === "string" && p.summary) return p.summary.slice(0, 60);
+  return null;
+}
+
 export function MobileOfflineQueueClient() {
   const _router = useRouter();
   const { queue, pending, online, syncing, sync, refresh } = useOfflineQueue();
   const [clearing, setClearing] = useState(false);
+  const [retrying, setRetrying] = useState<string | null>(null);
+
+  async function handleRetry(op: QueuedOperation) {
+    haptic(10);
+    setRetrying(op.id);
+    try {
+      await retryOp(op.id);
+      await refresh();
+      toast.success("Queued for retry");
+      await sync();
+    } catch {
+      toast.error("Failed to retry");
+    } finally {
+      setRetrying(null);
+    }
+  }
 
   async function handleClearCompleted() {
     haptic(10);
@@ -161,11 +193,27 @@ export function MobileOfflineQueueClient() {
                     <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
                       {formatRelativeTime(new Date(op.createdAt))}
                       {op.attempts > 0 ? ` · ${op.attempts} attempt${op.attempts > 1 ? "s" : ""}` : ""}
+                      {(() => { const s = summarizePayload(op); return s ? ` · ${s}` : ""; })()}
                     </p>
                     {op.error ? (
                       <p className="text-m-caption mt-1 font-medium" style={{ color: "var(--color-stop)" }}>
                         {op.error}
                       </p>
+                    ) : null}
+                    {op.status === "FAILED" ? (
+                      <button
+                        onClick={() => handleRetry(op)}
+                        disabled={retrying === op.id}
+                        className="mt-1.5 flex items-center gap-1 text-m-caption font-semibold press active:scale-95 disabled:opacity-50"
+                        style={{ color: "var(--color-steel)" }}
+                      >
+                        {retrying === op.id ? (
+                          <Loader2 className="size-3 animate-spin" />
+                        ) : (
+                          <RefreshCw className="size-3" />
+                        )}
+                        {retrying === op.id ? "Retrying…" : "Retry now"}
+                      </button>
                     ) : null}
                   </div>
                 </div>

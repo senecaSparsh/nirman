@@ -173,10 +173,37 @@ export async function listQueue(): Promise<QueuedOperation[]> {
   return all.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
-/** List only operations still awaiting sync (PENDING or FAILED — failed ones retry). */
+/**
+ * Auto-retry budget for FAILED ops. A rejection that can never succeed
+ * (e.g. "insufficient stock", a deleted material) would otherwise re-attempt
+ * on every sync forever — burning requests and holding the queue badge
+ * non-zero. After this many attempts the op stays FAILED for review but is
+ * excluded from automatic sync; the worker retries it deliberately via
+ * retryOp() once the cause is fixed, or redoes the operation from the form.
+ */
+export const MAX_AUTO_RETRY = 5;
+
+/** List only operations still awaiting sync (PENDING or FAILED — failed ones retry up to MAX_AUTO_RETRY). */
 export async function pendingQueue(): Promise<QueuedOperation[]> {
   const all = await listQueue();
-  return all.filter((op) => op.status === "PENDING" || op.status === "FAILED");
+  return all.filter(
+    (op) => op.status === "PENDING" || (op.status === "FAILED" && op.attempts < MAX_AUTO_RETRY),
+  );
+}
+
+/**
+ * Manually re-queue a FAILED op — resets it to PENDING and clears the retry
+ * budget so the next sync re-attempts it. Call after the worker has fixed
+ * whatever made it fail (e.g. restocked the material).
+ */
+export async function retryOp(id: string): Promise<void> {
+  const all = await listQueue();
+  const op = all.find((o) => o.id === id);
+  if (!op || op.status !== "FAILED") return;
+  op.status = "PENDING";
+  op.error = undefined;
+  op.attempts = 0;
+  await updateOp(op);
 }
 
 /** Count of pending operations (for the UI badge). */
