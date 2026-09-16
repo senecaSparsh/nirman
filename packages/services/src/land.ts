@@ -829,6 +829,20 @@ export async function recordLandPurchasePayment(input: RecordLandPurchasePayment
     if (lp.purchaseStage === "COMPLETED") throw new ServiceError("Land purchase is already completed");
     if (lp.purchaseStage === "CANCELLED") throw new ServiceError("Cannot record payment on a cancelled purchase");
 
+    // Duplicate-reference guard — same UTR/cheque across payments means the
+    // same bank transaction booked twice.
+    if (input.referenceNo) {
+      const dupe = await tx.landPurchasePayment.findFirst({
+        where: { referenceNo: input.referenceNo, landPurchase: { companyId: lp.companyId } },
+        select: { id: true, landPurchaseId: true },
+      });
+      if (dupe) {
+        throw new ServiceError(
+          `Reference ${input.referenceNo} is already recorded on another payment (land purchase ${dupe.landPurchaseId}). Check the UTR/cheque number — the same bank transaction cannot pay twice.`,
+        );
+      }
+    }
+
     const amount = new Decimal(input.amount);
     if (!amount.gt(0)) throw new ServiceError("Payment amount must be > 0");
 

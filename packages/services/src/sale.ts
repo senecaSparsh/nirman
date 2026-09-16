@@ -757,6 +757,24 @@ export async function recordDeposit(input: RecordDepositInput) {
     if (sale.status === "CANCELLED") throw new ServiceError("Cannot record deposit on a cancelled sale");
     if (sale.saleStage === "COMPLETED") throw new ServiceError("Sale is already completed");
 
+    // Guard against double-entry: a UTR/cheque no is unique per bank
+    // transaction. Same reference on ANY sale in this company means the
+    // same money is being booked twice.
+    if (input.reference) {
+      const dupe = await tx.assetSalePayment.findFirst({
+        where: {
+          reference: input.reference,
+          assetSale: { companyId: sale.companyId },
+        },
+        select: { id: true, assetSaleId: true },
+      });
+      if (dupe) {
+        throw new ServiceError(
+          `Reference ${input.reference} is already recorded on another payment (sale ${dupe.assetSaleId}). Check the UTR/cheque number — the same bank transaction cannot pay two sales.`,
+        );
+      }
+    }
+
     const depositAmount = new Decimal(input.depositAmount);
     if (!depositAmount.gt(0)) throw new ServiceError("Deposit amount must be > 0");
 
@@ -1177,6 +1195,23 @@ export async function recordPayment(input: RecordPaymentInput) {
     if (!sale) throw new ServiceError("Sale not found", 404);
     if (sale.status === "CANCELLED") throw new ServiceError("Cannot record payment against a cancelled sale");
     if (sale.saleStage !== "COMPLETED") throw new ServiceError("Post-completion payments are only allowed on completed sales. Use recordDeposit for pre-completion payments.");
+
+    // Same duplicate-reference guard as recordDeposit — a bank reference
+    // (UTR/cheque) is unique per real transaction.
+    if (input.reference) {
+      const dupe = await tx.assetSalePayment.findFirst({
+        where: {
+          reference: input.reference,
+          assetSale: { companyId: sale.companyId },
+        },
+        select: { id: true, assetSaleId: true },
+      });
+      if (dupe) {
+        throw new ServiceError(
+          `Reference ${input.reference} is already recorded on another payment (sale ${dupe.assetSaleId}). Check the UTR/cheque number — the same bank transaction cannot pay two sales.`,
+        );
+      }
+    }
 
     const amount = new Decimal(input.amount);
     if (!amount.gt(0)) throw new ServiceError("Payment amount must be > 0");

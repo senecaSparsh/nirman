@@ -1,4 +1,4 @@
-import { prisma, type Prisma } from "@nirman/db";
+import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { postMaterialSalePayment } from "./gl-posting";
@@ -66,6 +66,20 @@ export async function createMaterialSalePayment(input: {
     });
     if (!sale) throw new ServiceError("Material sale not found", 404);
     if (sale.status === "CANCELLED") throw new ServiceError("Cannot record payment on a cancelled sale");
+
+    // Duplicate-reference guard — same UTR/cheque across payments means the
+    // same bank transaction booked twice.
+    if (input.referenceNo) {
+      const dupe = await tx.materialSalePayment.findFirst({
+        where: { referenceNo: input.referenceNo, sale: { companyId: input.companyId } },
+        select: { id: true, saleId: true },
+      });
+      if (dupe) {
+        throw new ServiceError(
+          `Reference ${input.referenceNo} is already recorded on another payment (sale ${dupe.saleId}). Check the UTR/cheque number — the same bank transaction cannot pay twice.`,
+        );
+      }
+    }
 
     // 2. Calculate total paid so far (existing payments)
     const existingPayments = await tx.materialSalePayment.findMany({

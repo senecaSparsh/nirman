@@ -88,6 +88,20 @@ export async function createSupplierPayment(input: {
     });
     if (!supplier) throw new ServiceError("Supplier not found or deleted", 404);
 
+    // 1b. Duplicate-reference guard — a UTR/cheque no is unique per bank
+    // transaction; reusing it means paying the same money twice in the books.
+    if (input.referenceNo) {
+      const dupe = await tx.supplierPayment.findFirst({
+        where: { companyId: input.companyId, referenceNo: input.referenceNo },
+        select: { id: true, paymentNumber: true },
+      });
+      if (dupe) {
+        throw new ServiceError(
+          `Reference ${input.referenceNo} is already recorded on payment ${dupe.paymentNumber}. Check the UTR/cheque number — the same bank transaction cannot pay twice.`,
+        );
+      }
+    }
+
     // 2. Validate PO exists and belongs to the supplier if purchaseOrderId is provided
     if (input.purchaseOrderId) {
       const po = await tx.purchaseOrder.findUnique({ where: { id: input.purchaseOrderId } });
