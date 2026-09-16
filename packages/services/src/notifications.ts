@@ -1,7 +1,6 @@
 import { prisma } from "@nirman/db";
 import type { Prisma } from "@nirman/db";
 import { logAction } from "./audit";
-import { ServiceError } from "./errors";
 
 /**
  * Notification Service — WhatsApp / email / in-app alerts.
@@ -57,6 +56,11 @@ export interface WhatsAppTemplateComponent {
 export class StubWhatsAppProvider implements WhatsAppProvider {
   async sendMessage(to: string, message: string): Promise<NotificationSendResult> {
     console.log(`[WhatsApp Stub] To: ${to}, Message: ${message.slice(0, 100)}...`);
+    // In production a stub means WhatsApp isn't configured — report failure
+    // honestly so the log doesn't claim SENT for a message nobody received.
+    if (process.env.NODE_ENV === "production") {
+      return { success: false, error: "WhatsApp not configured for this company" };
+    }
     return { success: true };
   }
 
@@ -67,6 +71,9 @@ export class StubWhatsAppProvider implements WhatsAppProvider {
     _components?: WhatsAppTemplateComponent[],
   ): Promise<NotificationSendResult> {
     console.log(`[WhatsApp Stub] To: ${to}, Template: ${templateName} (${language})`);
+    if (process.env.NODE_ENV === "production") {
+      return { success: false, error: "WhatsApp not configured for this company" };
+    }
     return { success: true };
   }
 }
@@ -190,10 +197,14 @@ export function createWhatsAppProvider(): WhatsAppProvider {
   return new StubWhatsAppProvider();
 }
 
-/** Stub email provider — logs the email and returns success. */
+/** Stub email provider — logs the email and returns success in dev; honest
+ *  failure in production so unconfigured email never claims SENT. */
 export class StubEmailProvider implements EmailProvider {
   async sendEmail(to: string, subject: string, body: string): Promise<NotificationSendResult> {
     console.log(`[Email Stub] To: ${to}, Subject: ${subject}, Body: ${body.slice(0, 100)}...`);
+    if (process.env.NODE_ENV === "production") {
+      return { success: false, error: "Email not configured for this company" };
+    }
     return { success: true };
   }
 }

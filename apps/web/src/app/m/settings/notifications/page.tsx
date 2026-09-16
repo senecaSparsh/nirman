@@ -68,6 +68,7 @@ export default function MobileNotificationsPage() {
   const [tab, setTab] = useState<"preferences" | "templates" | "log">("preferences");
   const [loading, setLoading] = useState(true);
   const [preferences, setPreferences] = useState<Preference[]>([]);
+  const [channels, setChannels] = useState<Record<string, boolean>>({ IN_APP: true, WHATSAPP: true, EMAIL: true });
   const [templates, setTemplates] = useState<Template[]>([]);
   const [stats, setStats] = useState<NotificationStats | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -84,6 +85,10 @@ export default function MobileNotificationsPage() {
       ]);
 
       if (Array.isArray(prefsRes)) setPreferences(prefsRes);
+      else if (prefsRes?.preferences) {
+        setPreferences(prefsRes.preferences);
+        if (prefsRes.channels) setChannels(prefsRes.channels);
+      }
       if (tmplRes.templates) setTemplates(tmplRes.templates);
       if (tmplRes.stats) setStats(tmplRes.stats);
       if (Array.isArray(logRes)) setLogs(logRes);
@@ -238,6 +243,7 @@ export default function MobileNotificationsPage() {
       {tab === "preferences" ? (
         <PreferencesTab
           preferences={preferences}
+          channels={channels}
           toggling={toggling}
           onToggle={handleTogglePref}
         />
@@ -269,10 +275,12 @@ function StatBox({ label, value, color }: { label: string; value: number; color:
 /* ─── Preferences Tab ─── */
 function PreferencesTab({
   preferences,
+  channels,
   toggling,
   onToggle,
 }: {
   preferences: Preference[];
+  channels: Record<string, boolean>;
   toggling: string | null;
   onToggle: (pref: Preference) => void;
 }) {
@@ -314,6 +322,11 @@ function PreferencesTab({
                     <span className="text-m-label font-medium" style={{ color: "var(--color-ink-700)" }}>
                       {pref.channel.replace(/_/g, " ")}
                     </span>
+                    {channels[pref.channel] === false ? (
+                      <span className="text-m-label rounded-full px-1.5 py-0.5" style={{ backgroundColor: "var(--color-warn-soft, #fef3c7)", color: "var(--color-warn, #92400e)" }}>
+                        Not set up
+                      </span>
+                    ) : null}
                   </div>
                   <button
                     onClick={() => onToggle(pref)}
