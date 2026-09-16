@@ -1421,8 +1421,17 @@ export async function processPayroll(input: { payrollPeriodId: string; userId?: 
 
 /** Settle a PROCESSED payroll (pay it) and clear the Salaries Payable liability. */
 export async function payPayroll(input: { payrollPeriodId: string; userId?: string }) {
-  return withSerializableTransaction(async (tx) => {
-    const period = await tx.payrollPeriod.findUnique({ where: { id: input.payrollPeriodId } });
+  const notifyVars = {
+    companyId: "",
+    month: "",
+    totalNet: "",
+    employeeUserIds: [] as string[],
+  };
+  const updated = await withSerializableTransaction(async (tx) => {
+    const period = await tx.payrollPeriod.findUnique({
+      where: { id: input.payrollPeriodId },
+      include: { lines: { select: { employee: { select: { userId: true } } } } },
+    });
     if (!period) throw new HrError("Payroll period not found", 404);
     if (period.status === "PAID") {
       throw new HrError("Payroll has already been paid — cannot pay twice", 409);
@@ -1451,8 +1460,31 @@ export async function payPayroll(input: { payrollPeriodId: string; userId?: stri
       before: { status: "PROCESSED" },
       after: { status: "PAID", totalNet: period.totalNet.toString() },
     });
+
+    notifyVars.companyId = period.companyId;
+    notifyVars.month = `${period.year}-${String(period.month).padStart(2, "0")}`;
+    notifyVars.totalNet = period.totalNet?.toString() ?? "";
+    notifyVars.employeeUserIds = period.lines
+      .map((l) => l.employee?.userId)
+      .filter((id): id is string => Boolean(id));
     return updated;
   });
+
+  // Tell every paid employee — salary actually moved. Targeted at each
+  // line's employee userId; the actor (whoever clicked Pay) is excluded.
+  if (notifyVars.employeeUserIds.length > 0) {
+    void emitNotificationEvent({
+      eventType: NotificationEventType.PAYROLL_PROCESSED,
+      companyId: notifyVars.companyId,
+      recipientIds: notifyVars.employeeUserIds,
+      excludeIds: [input.userId],
+      entityType: "PayrollPeriod",
+      entityId: input.payrollPeriodId,
+      variables: { month: notifyVars.month, totalAmount: notifyVars.totalNet },
+      timestamp: new Date(),
+    });
+  }
+  return updated;
 }
 
 // ───────────────────────────────────────────────────────────
