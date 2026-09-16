@@ -180,6 +180,22 @@ export async function seedCompanyDefaults(companyId: string) {
       data: { companyId, type: "COMPANY_WAREHOUSE", name: "Main Store" },
     });
   }
+
+  // Every project needs a site store — created automatically for new
+  // projects (POST /api/projects), this backfills any that predate that.
+  const projectsWithoutStore = await prisma.project.findMany({
+    where: {
+      companyId,
+      deletedAt: null,
+      stockLocations: { none: { type: "PROJECT_SITE", deletedAt: null } },
+    },
+    select: { id: true, name: true },
+  });
+  for (const p of projectsWithoutStore) {
+    await prisma.stockLocation.create({
+      data: { companyId, projectId: p.id, type: "PROJECT_SITE", name: `${p.name} Site Store` },
+    });
+  }
 }
 
 export interface JournalLineInput {

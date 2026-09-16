@@ -75,6 +75,18 @@ export const POST = apiHandler(async (req: NextRequest) => {
     },
   });
 
+  // Every project needs a site store — without one, GRNs and material issues
+  // at the site have no receiving location and the workflow dead-ends until
+  // someone digs through settings. Auto-create like the ATS legal doc.
+  await prisma.stockLocation.create({
+    data: {
+      companyId: company.id,
+      projectId: created.id,
+      type: "PROJECT_SITE",
+      name: `${created.name} Site Store`,
+    },
+  });
+
   // Auto-create an AGREEMENT_TO_SELL legal doc if ATS is selected
   if (isATS) {
     await prisma.legalDocument.create({
