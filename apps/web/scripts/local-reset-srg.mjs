@@ -399,7 +399,7 @@ async function main() {
   const warehouse = await prisma.stockLocation.create({
     data: {
       companyId,
-      type: "WAREHOUSE",
+      type: "COMPANY_WAREHOUSE",
       name: "SRG Central Store",
     },
   });

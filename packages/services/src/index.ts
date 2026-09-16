@@ -618,6 +618,7 @@ export {
 // General Ledger — double-entry bookkeeping + GST posting
 export {
   seedChartOfAccounts,
+  seedCompanyDefaults,
   postJournalEntry,
   postPurchaseReceipt,
   postMaterialIssue,
@@ -928,6 +929,7 @@ export {
   assignScopedMembership,
   getDirectReports,
   canAutoApprove,
+  holdsApprovalAuthority,
   type ScopeType,
   type ScopeKind,
   type ResolvedScope,

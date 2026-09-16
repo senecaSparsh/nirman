@@ -134,6 +134,54 @@ export async function seedChartOfAccounts(companyId: string) {
   }
 }
 
+/** Default expense categories a construction company needs from day one. */
+const DEFAULT_EXPENSE_CATEGORIES = [
+  { name: "Travel & Fuel", gl: "6000" },
+  { name: "Meals & Refreshments", gl: "6000" },
+  { name: "Tools & Consumables", gl: "6000" },
+  { name: "Site Materials (Minor)", gl: "6000" },
+  { name: "Transport & Freight", gl: "6000" },
+  { name: "Mobile & Internet", gl: "6000" },
+  { name: "Office Supplies", gl: "6000" },
+  { name: "Staff Welfare", gl: "6100" },
+] as const;
+
+/**
+ * Seed the minimum a fresh company needs to be usable: chart of accounts,
+ * expense categories, and a default warehouse stock location. Idempotent —
+ * safe to re-run; skips rows that already exist.
+ *
+ * Why at creation time (not lazily): the first financial posting may come
+ * from ANY approval path (a claim approval, a GRN) — if the GL isn't
+ * seeded yet, that posting fails with "missing GL accounts". Seeding at
+ * bootstrap means the tenant is functional before anyone opens /finance.
+ */
+export async function seedCompanyDefaults(companyId: string) {
+  await seedChartOfAccounts(companyId);
+
+  for (const c of DEFAULT_EXPENSE_CATEGORIES) {
+    const existing = await prisma.expenseCategory.findFirst({
+      where: { companyId, name: c.name },
+      select: { id: true },
+    });
+    if (!existing) {
+      await prisma.expenseCategory.create({
+        data: { companyId, name: c.name, glAccountCode: c.gl, isActive: true },
+      });
+    }
+  }
+
+  const hasLocation = await prisma.stockLocation.findFirst({
+    where: { companyId, deletedAt: null },
+    select: { id: true },
+  });
+  if (!hasLocation) {
+    await prisma.stockLocation.create({
+      data: { companyId, type: "COMPANY_WAREHOUSE", name: "Main Store" },
+    });
+  }
+}
+
 export interface JournalLineInput {
   accountCode: string;
   debit: Decimal | number | string;

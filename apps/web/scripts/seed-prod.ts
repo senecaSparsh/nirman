@@ -18,18 +18,20 @@
  *   DATABASE_URL must point to the production Postgres.
  */
 import { prisma } from "@nirman/db";
-import { seedChartOfAccounts } from "@nirman/services";
+import { seedCompanyDefaults } from "@nirman/services";
 
 async function main() {
   console.log("=== Production seed ===");
   console.log(`Database: ${process.env.DATABASE_URL?.split("@")[1]?.split("/")[0] ?? "(unknown)"}`);
   console.log("");
 
-  // Step 1: Ensure the chart of accounts is present for every company so GL posting works
+  // Step 1: Seed the operational minimum for every company — chart of
+  // accounts, expense categories, and a default warehouse — so the first
+  // posting/GRN/claim works without anyone opening /finance first.
   const companies = await prisma.company.findMany({ where: { deletedAt: null }, select: { id: true, name: true } });
-  console.log(`Seeding chart of accounts for ${companies.length} company(ies)…`);
+  console.log(`Seeding company defaults for ${companies.length} company(ies)…`);
   for (const c of companies) {
-    await seedChartOfAccounts(c.id);
+    await seedCompanyDefaults(c.id);
   }
   if (companies.length === 0) {
     console.log("  → No companies yet. Chart of accounts will be seeded when the first company is created (auto-seeds on first GL access).");

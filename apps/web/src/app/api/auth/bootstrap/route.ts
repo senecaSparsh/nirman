@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@nirman/db";
 import { json } from "@/lib/server";
-import { withSerializableTransaction, seedDefaultCategories } from "@nirman/services";
+import { withSerializableTransaction, seedDefaultCategories, seedCompanyDefaults } from "@nirman/services";
 
 /**
  * POST /api/auth/bootstrap — one-time first owner + company setup.
@@ -129,6 +129,15 @@ export const POST = async (req: NextRequest) => {
     await seedDefaultCategories(result.company.id);
   } catch (err) {
     console.error("[bootstrap] failed to seed default categories (non-fatal):", err);
+  }
+
+  // Seed the operational minimum — GL accounts, expense categories, and a
+  // default warehouse. Without these, the first claim approval or GRN would
+  // fail on missing accounts before anyone ever opens /finance.
+  try {
+    await seedCompanyDefaults(result.company.id);
+  } catch (err) {
+    console.error("[bootstrap] failed to seed company defaults (non-fatal):", err);
   }
 
   return json({
