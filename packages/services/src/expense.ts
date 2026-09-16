@@ -1,5 +1,6 @@
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { postExpense, reverseJournalEntry } from "./gl-posting";
 import { checkExpenseBudget } from "./expense-budget";
 import { ServiceError } from "./errors";
@@ -217,7 +218,11 @@ export async function approveExpense(
   userId?: string,
   options?: { allowBudgetOverrun?: boolean; actorRole?: string },
 ) {
-  return withSerializableTransaction(async (tx) => {
+  // Captured in-transaction for the post-commit submitter notification.
+  let submitterId: string | null = null;
+  let amountStr = "";
+  let categoryStr = "";
+  const updated = await withSerializableTransaction(async (tx) => {
     const existing = await tx.expense.findFirst({ where: { id: expenseId, companyId } });
     if (!existing) throw new ServiceError("Expense not found in this company", 404);
     if (existing.status !== "PENDING") {
@@ -289,14 +294,34 @@ export async function approveExpense(
       before: { status: existing.status },
       after: { status: "APPROVED", amount: existing.amount },
     });
+    submitterId = existing.submittedById;
+    amountStr = existing.amount?.toString() ?? "";
+    categoryStr = existing.category ?? "";
     return updated;
   });
+
+  // Tell the submitter — targeted, never broadcast.
+  if (submitterId) {
+    void emitNotificationEvent({
+      eventType: NotificationEventType.EXPENSE_APPROVED,
+      companyId,
+      recipientIds: [submitterId],
+      excludeIds: [userId],
+      entityType: "Expense",
+      entityId: expenseId,
+      variables: { amount: amountStr, category: categoryStr, approverName: "" },
+      timestamp: new Date(),
+    });
+  }
+  return updated;
 }
 
 /** Reject a PENDING expense with a reason. */
 export async function rejectExpense(expenseId: string, companyId: string, reason: string, userId?: string) {
   if (!reason.trim()) throw new ServiceError("A rejection reason is required", 400);
-  return withSerializableTransaction(async (tx) => {
+  let submitterId: string | null = null;
+  let amountStr = "";
+  const updated = await withSerializableTransaction(async (tx) => {
     const existing = await tx.expense.findFirst({ where: { id: expenseId, companyId } });
     if (!existing) throw new ServiceError("Expense not found in this company", 404);
     if (existing.status !== "PENDING") {
@@ -324,8 +349,25 @@ export async function rejectExpense(expenseId: string, companyId: string, reason
       before: { status: existing.status },
       after: { status: "REJECTED", reason: reason.trim() },
     });
+    submitterId = existing.submittedById;
+    amountStr = existing.amount?.toString() ?? "";
     return updated;
   });
+
+  // Tell the submitter — targeted, never broadcast.
+  if (submitterId) {
+    void emitNotificationEvent({
+      eventType: NotificationEventType.EXPENSE_REJECTED,
+      companyId,
+      recipientIds: [submitterId],
+      excludeIds: [userId],
+      entityType: "Expense",
+      entityId: expenseId,
+      variables: { amount: amountStr, reason: reason.trim() },
+      timestamp: new Date(),
+    });
+  }
+  return updated;
 }
 
 /** Delete an expense. APPROVED expenses reverse the GL entry first. */

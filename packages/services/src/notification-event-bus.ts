@@ -86,6 +86,8 @@ export enum NotificationEventType {
 
   // Finance (3)
   EXPENSE_CREATED = "EXPENSE_CREATED",
+  EXPENSE_APPROVED = "EXPENSE_APPROVED",
+  EXPENSE_REJECTED = "EXPENSE_REJECTED",
   PROJECT_COST_ADDED = "PROJECT_COST_ADDED",
   GL_ENTRY_POSTED = "GL_ENTRY_POSTED",
 
@@ -172,6 +174,8 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   [NotificationEventType.CLAIM_APPROVED]: "IMMEDIATE",
   [NotificationEventType.CLAIM_REJECTED]: "IMMEDIATE",
   [NotificationEventType.CLAIM_PAID]: "IMMEDIATE",
+  [NotificationEventType.EXPENSE_APPROVED]: "IMMEDIATE",
+  [NotificationEventType.EXPENSE_REJECTED]: "IMMEDIATE",
 
   // Finance
   [NotificationEventType.EXPENSE_CREATED]: "DAILY",
@@ -822,6 +826,10 @@ const EVENT_MESSAGES: Partial<
     `Your expense claim ${s("claimNumber") || ""} was rejected${s("reason") ? `: ${s("reason")}` : ""}.`,
   [NotificationEventType.CLAIM_PAID]: ({ s, money }) =>
     `Expense claim ${s("claimNumber") || ""} paid${money("total") ? ` — ${money("total")}` : ""}${s("paymentMode") ? ` via ${s("paymentMode")}` : ""}.`,
+  [NotificationEventType.EXPENSE_APPROVED]: ({ s, money }) =>
+    `Your expense${money("amount") ? ` of ${money("amount")}` : ""}${s("category") ? ` (${s("category")})` : ""} was approved${s("approverName") ? ` by ${s("approverName")}` : ""}.`,
+  [NotificationEventType.EXPENSE_REJECTED]: ({ s, money }) =>
+    `Your expense${money("amount") ? ` of ${money("amount")}` : ""} was rejected${s("reason") ? `: ${s("reason")}` : ""}.`,
 
   // Finance
   [NotificationEventType.EXPENSE_CREATED]: ({ s, money }) =>
