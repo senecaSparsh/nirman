@@ -299,11 +299,18 @@ export function MobileFilterIcon<T extends string>({
   active,
   defaultValue,
   onChange,
+  ariaLabel = "Filter",
+  icon,
 }: {
   options: { label: string; value: T }[];
   active: T;
   defaultValue: T;
   onChange: (v: T) => void;
+  /** Accessible name — required when two filters sit side by side. */
+  ariaLabel?: string;
+  /** Custom icon — required when two filters sit side by side so they
+   *  don't render as identical funnels. */
+  icon?: React.ReactNode;
 }) {
   const [open, setOpen] = React.useState(false);
   const hasFilter = active !== defaultValue;
@@ -312,7 +319,7 @@ export function MobileFilterIcon<T extends string>({
     <div className="relative shrink-0">
       <button
         onClick={() => setOpen((v) => !v)}
-        aria-label="Filter"
+        aria-label={ariaLabel}
         className="grid place-items-center size-9 rounded-[0.5rem] border text-m-body press relative"
         style={{
           borderColor:
@@ -321,15 +328,17 @@ export function MobileFilterIcon<T extends string>({
             hasFilter || open ? "var(--color-concrete)" : "var(--color-paper)",
         }}
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-          <path
-            d="M3 4h18l-7 8v7l-4 2v-9L3 4z"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        {icon ?? (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M3 4h18l-7 8v7l-4 2v-9L3 4z"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        )}
         {hasFilter && (
           <span
             className="absolute -top-0.5 -right-0.5 size-2 rounded-full"

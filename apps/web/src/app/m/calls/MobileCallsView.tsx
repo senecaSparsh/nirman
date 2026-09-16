@@ -162,6 +162,7 @@ export function MobileCallsView({
               active={statusFilter}
               defaultValue="all"
               onChange={setStatusFilter}
+              ariaLabel="Filter by status"
             />
             {phoneNumbers.length > 1 && (
               <MobileFilterIcon
@@ -169,6 +170,8 @@ export function MobileCallsView({
                 active={phoneFilter}
                 defaultValue="all"
                 onChange={setPhoneFilter}
+                ariaLabel="Filter by phone number"
+                icon={<Phone className="size-4" />}
               />
             )}
           </div>

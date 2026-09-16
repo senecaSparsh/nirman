@@ -157,12 +157,15 @@ export function MobileExpensesList({
               active={statusFilter}
               defaultValue="ALL"
               onChange={setStatusFilter}
+              ariaLabel="Filter by status"
             />
             <MobileFilterIcon
               options={filterOptions}
               active={categoryFilter}
               defaultValue="ALL"
               onChange={setCategoryFilter}
+              ariaLabel="Filter by category"
+              icon={<Tag className="size-4" />}
             />
             {exportTitle && exportRows && exportColumns ? (
               <MobileExportShareIcons

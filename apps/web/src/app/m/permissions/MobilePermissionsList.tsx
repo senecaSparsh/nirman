@@ -156,12 +156,15 @@ export function MobilePermissionsList({
               active={statusFilter}
               defaultValue="ALL"
               onChange={setStatusFilter}
+              ariaLabel="Filter by status"
             />
             <MobileFilterIcon
               options={CONTEXT_CHIPS}
               active={contextFilter}
               defaultValue="ALL"
               onChange={setContextFilter}
+              ariaLabel="Filter by context"
+              icon={<Building2 className="size-4" />}
             />
           </div>
         }
