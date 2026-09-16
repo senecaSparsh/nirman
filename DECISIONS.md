@@ -139,11 +139,31 @@ If you catch yourself planning to "build the rent module" or "add the sale lifec
 > The schema is ~100% complete. All external integrations are scaffolded with
 > pluggable providers (Tally, WhatsApp, Email, Portals, HSN/SAC, OCR). Remaining work:
 
+0. **Management planes (done 2026-09-16)** — the three-layer management loop:
+   - _Developer_: ErrorLog triage (fingerprint dedupe, occurrence counts,
+     resolve → auto-reopen on regression), `/dev/errors` + `/m/dev/errors`
+     console, server-500 capture into ErrorLog via apiHandler, in-app notify
+     of DEVELOPER on new signatures.
+   - _Company_: auto-audit — every successful API mutation now writes an
+     AuditLog row (entity derived from path, pruned response body as `after`),
+     so `/finance/audit` + `/m/settings` activity feeds show real "who did
+     what". `onBehalfOfId` records delegated actions.
+   - _Authority handoff_: `UserCompany.approvalsDelegatedTo*` — members
+     delegate their authority until a date (settings + /me + /m/me card);
+     delegates inherit the delegator's permissions (getUserPermissions union)
+     and acting role (getActingRole) across all approval routes. Daily
+     `/api/cron/approval-aging` digests stalled (>48h) approvals to execs +
+     active delegates; Pulse shows oldest-pending age.
 1. **Cross-cutting refinement** — per `global_rules.md`, refine every page/button
-   to function correctly end-to-end (frontend ↔ backend ↔ database).
-2. **UI wiring for new integrations** — add HSN/SAC search dropdown to material
-   form and supplier invoice form; add photo-capture + OCR button to DPR create
-   form. The backend APIs are ready (`/api/hsn-sac/search`, `/api/ocr/dpr`).
+   to function correctly end-to-end (frontend ↔ backend ↔ database). A multi-pass
+   audit (committed ~50 fixes) covered: every business flow end-to-end + DB/GL,
+   permission/scope/tenancy on client + server, offline queue, form drafts,
+   timezone/concurrency handling, notification routing, approval escalation, and
+   per-role duty-fit. See git history for the fix ledger.
+2. ~~UI wiring for new integrations~~ — **done.** HSN/SAC search (`HsnSacSearch`
+   autocomplete → `/api/hsn-gst`) is on the material form + supplier-invoice form,
+   auto-filling HSN + GST; OCR photo-extract (`Scan` → `/api/ocr/dpr`) fills DPR
+   material lines from a site photo.
 3. **Seed data completeness** — enriched with DPRs, payroll, tenancies, payment
    schedules, brokers. Consider adding more variety for testing edge cases.
 
