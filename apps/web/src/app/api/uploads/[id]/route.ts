@@ -51,8 +51,17 @@ export const GET = apiHandler(
       // otherwise the file must belong to the user's current company.
       const isUploader = upload.uploadedById === user.id;
       const sameCompany = upload.companyId === company.id;
-      const isSuperuser = user.role === "OWNER" || user.role === "ADMIN" || user.role === "DEVELOPER";
-      if (!isUploader && !sameCompany && !isSuperuser) {
+      // A user may also read files belonging to any company they hold an
+      // ACTIVE membership in (owner moving between group entities), without
+      // switching context. DEVELOPER bypasses for platform support only.
+      const memberOfFileCompany = upload.companyId && upload.companyId !== company.id
+        ? await prisma.userCompany.findFirst({
+            where: { userId: user.id, companyId: upload.companyId, active: true },
+            select: { id: true },
+          })
+        : null;
+      const isSuperuser = user.role === "DEVELOPER";
+      if (!isUploader && !sameCompany && !memberOfFileCompany && !isSuperuser) {
         return NextResponse.json({ error: "Forbidden." }, { status: 403 });
       }
     } else {

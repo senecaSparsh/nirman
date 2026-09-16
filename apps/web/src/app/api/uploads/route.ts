@@ -246,7 +246,11 @@ export const DELETE = apiHandler(async (req: NextRequest) => {
   const isCompanyAdmin =
     upload.companyId === company.id &&
     (actingRole === "OWNER" || actingRole === "ADMIN" || actingRole === "DEVELOPER");
-  const hasManagePerm = await requirePermission(PERM.COMPANY_MANAGE).then(() => true).catch(() => false);
+  // COMPANY_MANAGE is resolved against the ACTIVE company — it can only
+  // authorize deleting files that belong to it, not another company's.
+  const sameCompany = upload.companyId === company.id;
+  const hasManagePerm = sameCompany &&
+    (await requirePermission(PERM.COMPANY_MANAGE).then(() => true).catch(() => false));
   if (!isUploader && !isCompanyAdmin && !hasManagePerm) {
     return json({ error: "Forbidden — you can only delete your own uploads." }, { status: 403 });
   }
