@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { useLongPressNav } from "@/lib/use-long-press-nav";
 import { useSmartDefaults } from "@/lib/use-smart-defaults";
 import { useTodayDateState } from "@/lib/use-today-date";
+import { useDrafts } from "@/lib/offline/use-drafts";
+import { DraftBanner } from "@/components/mobile/draft-banner";
 import { SmartDefaultsBadge } from "@/components/mobile/v2/smart-defaults-badge";
 import { SectionCard, SelectorModal } from "@/components/mobile/v2/form-primitives";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
@@ -76,6 +78,33 @@ export function MobileNewExpenseClaimClient({
   const [today] = useTodayDateState();
   const [lines, setLines] = useState<ExpenseLine[]>([]);
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // ── Draft auto-save (IndexedDB) — survives interruptions / offline ──
+  // A File can't be serialized; strip it from persisted lines.
+  type ClaimDraft = {
+    claimantId: string;
+    projectId: string;
+    description: string;
+    lines: Omit<ExpenseLine, "receiptFile">[];
+  };
+  const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } =
+    useDrafts<ClaimDraft>("expense-claim", "expense-claim-new");
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  // Auto-save the form state on change so a phone call / app switch doesn't
+  // lose a half-entered claim. Only persist once there's real content.
+  useEffect(() => {
+    if (success) return;
+    const hasContent =
+      projectId || description || lines.some((l) => l.category.trim() || l.amount);
+    if (!hasContent) return;
+    saveDraft({
+      claimantId,
+      projectId,
+      description,
+      lines: lines.map(({ receiptFile: _receiptFile, ...rest }) => rest),
+    });
+  }, [claimantId, projectId, description, lines, success, saveDraft]);
 
   // ── Default claimant to current user ──
   useEffect(() => {
@@ -213,10 +242,12 @@ export function MobileNewExpenseClaimClient({
       if (!submitRes.ok) {
         // Claim created + lines added but submit failed — still usable
         setSuccess({ id: claimId, submitted: false, lineCount: validLines.length, total: totalAmount });
+        clearDraft();
         return;
       }
 
       setSuccess({ id: claimId, submitted: true, lineCount: validLines.length, total: totalAmount });
+      clearDraft();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -261,8 +292,29 @@ export function MobileNewExpenseClaimClient({
     );
   }
 
+  function handleRestoreDraft() {
+    if (!draft) return;
+    setClaimantId(draft.claimantId);
+    setProjectId(draft.projectId);
+    setDescription(draft.description);
+    // Receipts can't be persisted — restore the line fields, leave files empty.
+    setLines(draft.lines.map((l) => ({ ...l, receiptFile: null })));
+    setDraftRestored(true);
+  }
+
   return (
     <div className="pb-32">
+      {hasDraft && !draftRestored && !success && (
+        <DraftBanner
+          formName="Expense Claim"
+          updatedAt={draftUpdatedAt}
+          onRestore={handleRestoreDraft}
+          onDiscard={() => {
+            clearDraft();
+            setDraftRestored(true);
+          }}
+        />
+      )}
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">
         {/* ══════ SECTION: CLAIM DETAILS ══════ */}
         <SectionCard title="Claim Details">

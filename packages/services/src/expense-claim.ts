@@ -3,6 +3,7 @@ import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { canAutoApprove } from "./rbac";
 import { postJournalEntry, ACCT } from "./gl-posting";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { withSerializableTransaction } from "./transaction";
 
 /**
@@ -151,12 +152,19 @@ export async function removeClaimLine(lineId: string, companyId: string, userId?
 }
 
 export async function submitExpenseClaim(claimId: string, companyId: string, userId?: string) {
-  return withSerializableTransaction(async (tx) => {
-    const claim = await tx.expenseClaim.findFirst({ where: { id: claimId, companyId } });
+  let claimantName = "";
+  let claimTotal = "";
+  const updated = await withSerializableTransaction(async (tx) => {
+    const claim = await tx.expenseClaim.findFirst({
+      where: { id: claimId, companyId },
+      include: { claimant: { select: { name: true } } },
+    });
     if (!claim) throw new ServiceError("Claim not found", 404);
     if (claim.status !== "DRAFT" && claim.status !== "REJECTED") {
       throw new ServiceError(`Only DRAFT or REJECTED claims can be submitted (current: ${claim.status})`, 409);
     }
+    claimantName = claim.claimant.name;
+    claimTotal = claim.totalAmount.toString();
     const updated = await tx.expenseClaim.update({
       where: { id: claimId },
       data: { status: "SUBMITTED", submittedAt: new Date(), submittedById: userId ?? null },
@@ -168,10 +176,24 @@ export async function submitExpenseClaim(claimId: string, companyId: string, use
     });
     return updated;
   });
+  // Tell the approvers — expense.approve holders get CLAIM_SUBMITTED.
+  // The submitter is excluded (they know they just filed it).
+  void emitNotificationEvent({
+    eventType: NotificationEventType.CLAIM_SUBMITTED,
+    companyId,
+    excludeIds: [userId],
+    entityType: "ExpenseClaim",
+    entityId: claimId,
+    variables: { claimNumber: claimId, claimantName, total: claimTotal },
+    timestamp: new Date(),
+  });
+  return updated;
 }
 
 export async function approveExpenseClaim(claimId: string, companyId: string, userId?: string, actorRole?: string) {
-  return withSerializableTransaction(async (tx) => {
+  // Captured in-transaction for the post-commit claimant notification.
+  let approverName = "";
+  const updated = await withSerializableTransaction(async (tx) => {
     const claim = await tx.expenseClaim.findFirst({
       where: { id: claimId, companyId },
       include: { lines: true, claimant: true },
@@ -251,6 +273,9 @@ export async function approveExpenseClaim(claimId: string, companyId: string, us
       where: { id: claimId },
       data: { status: "APPROVED", approvedById: userId ?? null, approvedAt: new Date() },
     });
+    approverName = userId
+      ? ((await tx.user.findUnique({ where: { id: userId }, select: { name: true } }))?.name ?? "")
+      : "";
     await logAction(tx, {
       userId, companyId, action: "EXPENSE_CLAIM_APPROVE",
       entityType: "ExpenseClaim", entityId: claimId,
@@ -259,11 +284,28 @@ export async function approveExpenseClaim(claimId: string, companyId: string, us
     });
     return updated;
   });
+
+  // Tell the claimant — targeted via recipientIds, never broadcast.
+  void emitNotificationEvent({
+    eventType: NotificationEventType.CLAIM_APPROVED,
+    companyId,
+    recipientIds: [updated.claimantId],
+    excludeIds: [userId],
+    entityType: "ExpenseClaim",
+    entityId: claimId,
+    variables: {
+      claimNumber: claimId,
+      total: updated.totalAmount.toString(),
+      approverName,
+    },
+    timestamp: new Date(),
+  });
+  return updated;
 }
 
 export async function rejectExpenseClaim(claimId: string, companyId: string, reason: string, userId?: string) {
   if (!reason.trim()) throw new ServiceError("A rejection reason is required", 400);
-  return withSerializableTransaction(async (tx) => {
+  const updated = await withSerializableTransaction(async (tx) => {
     const claim = await tx.expenseClaim.findFirst({ where: { id: claimId, companyId } });
     if (!claim) throw new ServiceError("Claim not found", 404);
     if (claim.status !== "SUBMITTED") throw new ServiceError(`Only SUBMITTED claims can be rejected (current: ${claim.status})`, 409);
@@ -282,6 +324,18 @@ export async function rejectExpenseClaim(claimId: string, companyId: string, rea
     });
     return updated;
   });
+  // Tell the claimant — targeted via recipientIds, never broadcast.
+  void emitNotificationEvent({
+    eventType: NotificationEventType.CLAIM_REJECTED,
+    companyId,
+    recipientIds: [updated.claimantId],
+    excludeIds: [userId],
+    entityType: "ExpenseClaim",
+    entityId: claimId,
+    variables: { claimNumber: claimId, reason },
+    timestamp: new Date(),
+  });
+  return updated;
 }
 
 /**
@@ -294,7 +348,7 @@ export async function payExpenseClaim(
   payment: { paymentMode: string; referenceNo?: string | null },
   userId?: string,
 ) {
-  return withSerializableTransaction(async (tx) => {
+  const updated = await withSerializableTransaction(async (tx) => {
     const claim = await tx.expenseClaim.findFirst({
       where: { id: claimId, companyId },
       include: { lines: true },
@@ -338,4 +392,21 @@ export async function payExpenseClaim(
     });
     return updated;
   });
+
+  // Tell the claimant their money is on the way — targeted, never broadcast.
+  void emitNotificationEvent({
+    eventType: NotificationEventType.CLAIM_PAID,
+    companyId,
+    recipientIds: [updated.claimantId],
+    excludeIds: [userId],
+    entityType: "ExpenseClaim",
+    entityId: claimId,
+    variables: {
+      claimNumber: claimId,
+      total: updated.totalAmount.toString(),
+      paymentMode: payment.paymentMode,
+    },
+    timestamp: new Date(),
+  });
+  return updated;
 }
