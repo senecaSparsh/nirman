@@ -150,7 +150,15 @@ export function middleware(req: NextRequest) {
   // lets a phone user reach the full desktop ERP if they really need to,
   // but the preference doesn't persist across browser sessions.
   if (searchParams.get("desktop") === "1") {
-    const res = NextResponse.redirect(new URL("/", req.url));
+    // Land on the desktop equivalent of the page the user was on — a guard
+    // tapping "View desktop site" from /m/gate-pass wants /gate-passes,
+    // not a trip back to the dashboard. Unmapped/mobile-only paths fall
+    // back to the desktop home.
+    const target =
+      pathname.startsWith("/m/")
+        ? (resolveTarget(pathname, "", false) ?? "/")
+        : pathname;
+    const res = NextResponse.redirect(new URL(target, req.url));
     res.cookies.set("nirman-desktop", "1", {
       path: "/",
       sameSite: "lax",
@@ -164,7 +172,19 @@ export function middleware(req: NextRequest) {
   // reliable way back to mobile after using the desktop escape hatch —
   // without it, the cookie persists until the browser closes.
   if (searchParams.get("mobile") === "1") {
-    const res = NextResponse.redirect(new URL("/m", req.url));
+    // Symmetric: land on the mobile equivalent of the current desktop page
+    // (e.g. /gate-passes → /m/gate-pass) instead of always going home.
+    // The `mobile` param must be stripped before re-appending search —
+    // carrying it into the target would re-trigger this branch forever.
+    const rest = new URLSearchParams(searchParams);
+    rest.delete("mobile");
+    const search = rest.size ? `?${rest.toString()}` : "";
+    const onMobileRoute = pathname === "/m" || pathname.startsWith("/m/");
+    const target =
+      !onMobileRoute && pathname !== "/"
+        ? (resolveTarget(pathname, "", true) ?? "/m")
+        : "/m";
+    const res = NextResponse.redirect(new URL(target + (target === "/m" ? "" : search), req.url));
     res.cookies.delete("nirman-desktop");
     return res;
   }
