@@ -108,55 +108,42 @@ interface EntityResult {
  * Each entity array is capped at 5 rows server-side.
  */
 interface SearchResponse {
-  materials: { id: string; name: string; code: string | null; unit: string | null }[];
-  projects: { id: string; name: string }[];
-  suppliers: { id: string; name: string }[];
-  purchaseOrders: { id: string; poNumber: string; status: string }[];
+  results: { type: string; id: string; label: string; sublabel?: string; href: string }[];
 }
+
+const TYPE_LABELS: Record<string, string> = {
+  material: "Material",
+  project: "Project",
+  supplier: "Supplier",
+  po: "Purchase Order",
+  requisition: "Requisition",
+  customer: "Customer",
+  unit: "Unit",
+  land: "Land Parcel",
+  dpr: "DPR",
+  employee: "Employee",
+  equipment: "Equipment",
+  sale: "Material Sale",
+  transfer: "Stock Transfer",
+};
 
 /**
  * Map the unified search payload into the flat `EntityResult[]` the UI renders.
+ * The API returns `results` with surface-appropriate hrefs when ?surface=desktop.
  * Kept as a pure function so it's easy to reason about and test.
  */
 function extractEntities(data: SearchResponse): EntityResult[] {
   const out: EntityResult[] = [];
-  for (const m of data.materials ?? []) {
+  for (const r of data.results ?? []) {
     out.push({
-      id: m.id,
-      label: m.name,
-      sublabel: `${m.code ?? ""} · ${m.unit ?? ""}`,
-      type: "Material",
-      href: `/materials/${m.id}`,
+      id: r.id,
+      label: r.label,
+      sublabel: r.sublabel ?? "",
+      type: TYPE_LABELS[r.type] ?? r.type,
+      href: r.href,
     });
   }
-  for (const p of data.projects ?? []) {
-    out.push({
-      id: p.id,
-      label: p.name,
-      sublabel: "Project",
-      type: "Project",
-      href: `/projects/${p.id}`,
-    });
-  }
-  for (const s of data.suppliers ?? []) {
-    out.push({
-      id: s.id,
-      label: s.name,
-      sublabel: "Supplier",
-      type: "Supplier",
-      href: `/suppliers/${s.id}`,
-    });
-  }
-  for (const po of data.purchaseOrders ?? []) {
-    out.push({
-      id: po.id,
-      label: po.poNumber,
-      sublabel: po.status,
-      type: "Purchase Order",
-      href: `/procurement/${po.id}`,
-    });
-  }
-  return out.slice(0, 6);
+  return out.slice(0, 8);
 }
 
 // ── Recently viewed icon mapping ────────────────────────────────
@@ -289,7 +276,7 @@ export function CommandPalette({ userRole = "PROJECT_MANAGER" }: { userRole?: st
     setEntityLoading(true);
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(query)}&surface=desktop`, {
           signal: controller.signal,
         });
         if (!res.ok) {

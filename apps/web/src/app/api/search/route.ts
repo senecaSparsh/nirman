@@ -27,6 +27,24 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
   const companyId = company.id;
   const contains = { contains: q, mode: "insensitive" as const };
+  // Desktop routes differ from mobile per type (some entities have no desktop
+  // detail page — link those to the list instead of a dead /m/ deep link).
+  const desktop = req.nextUrl.searchParams.get("surface") === "desktop";
+  const HREF = {
+    po: (id: string) => (desktop ? `/procurement/${id}` : `/m/procurement/${id}`),
+    requisition: (id: string) => (desktop ? `/requisitions` : `/m/requisitions/${id}`),
+    project: (id: string) => (desktop ? `/projects/${id}` : `/m/projects/${id}`),
+    material: (id: string) => (desktop ? `/materials/${id}` : `/m/materials/${id}`),
+    supplier: (id: string) => (desktop ? `/suppliers/${id}` : `/m/suppliers/${id}`),
+    customer: (id: string) => (desktop ? `/customers` : `/m/customers/${id}`),
+    unit: (id: string) => (desktop ? `/units` : `/m/units/${id}`),
+    land: (id: string) => (desktop ? `/land/${id}` : `/m/land/${id}`),
+    dpr: (id: string) => (desktop ? `/hr/dprs` : `/m/dprs/${id}`),
+    employee: (id: string) => (desktop ? `/hr/employees/${id}` : `/m/hr/employees/${id}`),
+    equipment: (id: string) => (desktop ? `/equipment` : `/m/equipment/${id}`),
+    sale: (id: string) => (desktop ? `/material-sales` : `/m/material-sales/${id}`),
+    transfer: (id: string) => (desktop ? `/transfers` : `/m/transfers/${id}`),
+  };
 
   const [
     materials,
@@ -130,58 +148,58 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const results = [
     ...purchaseOrders.map((p) => ({
       type: "po", id: p.id, label: p.poNumber, sublabel: p.status,
-      href: `/m/procurement/${p.id}`,
+      href: HREF.po(p.id),
     })),
     ...requisitions.map((r) => ({
       type: "requisition", id: r.id, label: r.reqNumber, sublabel: r.status,
-      href: `/m/requisitions/${r.id}`,
+      href: HREF.requisition(r.id),
     })),
     ...projects.map((p) => ({
       type: "project", id: p.id, label: p.name, sublabel: "Project",
-      href: `/m/projects/${p.id}`,
+      href: HREF.project(p.id),
     })),
     ...materials.map((m) => ({
       type: "material", id: m.id, label: m.name, sublabel: `${m.code} · ${m.unit}`,
-      href: `/m/materials/${m.id}`,
+      href: HREF.material(m.id),
     })),
     ...suppliers.map((s) => ({
       type: "supplier", id: s.id, label: s.name, sublabel: "Supplier",
-      href: `/m/suppliers/${s.id}`,
+      href: HREF.supplier(s.id),
     })),
     ...customers.map((c) => ({
       type: "customer", id: c.id, label: c.name, sublabel: c.phone ?? "Customer",
-      href: `/m/customers/${c.id}`,
+      href: HREF.customer(c.id),
     })),
     ...units.map((u) => ({
       type: "unit", id: u.id, label: u.unitNumber, sublabel: `${u.project.name} · ${u.status}`,
-      href: `/m/units/${u.id}`,
+      href: HREF.unit(u.id),
     })),
     ...landParcels.map((l) => ({
       type: "land", id: l.id, label: l.number, sublabel: l.landPurchase.sellerName ?? l.landPurchase.registryNo ?? "Land parcel",
-      href: `/m/land/${l.id}`,
+      href: HREF.land(l.id),
     })),
     ...dprs.map((d) => ({
       type: "dpr", id: d.id, label: d.project.name,
       sublabel: new Date(d.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" }),
-      href: `/m/dprs/${d.id}`,
+      href: HREF.dpr(d.id),
     })),
     ...employees.map((e) => ({
       type: "employee", id: e.id, label: e.name, sublabel: e.designation ?? "Employee",
-      href: `/m/hr/employees/${e.id}`,
+      href: HREF.employee(e.id),
     })),
     ...equipment.map((e) => ({
       type: "equipment", id: e.id, label: e.name, sublabel: e.status,
-      href: `/m/equipment/${e.id}`,
+      href: HREF.equipment(e.id),
     })),
     ...materialSales.map((s) => ({
       type: "sale", id: s.id, label: s.saleNumber, sublabel: s.status,
-      href: `/m/material-sales/${s.id}`,
+      href: HREF.sale(s.id),
     })),
     ...transfers.map((t) => ({
       type: "transfer", id: t.id,
       label: `${t.fromLocation.name} → ${t.toLocation.name}`,
       sublabel: t.status,
-      href: `/m/transfers/${t.id}`,
+      href: HREF.transfer(t.id),
     })),
   ];
 
