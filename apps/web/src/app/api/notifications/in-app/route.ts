@@ -47,7 +47,7 @@ export const PATCH = apiHandler(async (req: NextRequest) => {
   }
 
   if (body.id) {
-    await markNotificationRead(body.id);
+    await markNotificationRead(body.id, user.id);
     invalidateCache("notifications");
     return json({ ok: true });
   }

@@ -569,9 +569,11 @@ export async function getUserNotifications(userId: string, limit = 50) {
 /**
  * Mark an in-app notification as read.
  */
-export async function markNotificationRead(id: string) {
-  return prisma.inAppNotification.update({
-    where: { id },
+export async function markNotificationRead(id: string, userId?: string) {
+  // updateMany + userId filter — a user can only mark their own
+  // notifications; a forged id is a silent no-op, not an error.
+  return prisma.inAppNotification.updateMany({
+    where: { id, ...(userId ? { userId } : {}) },
     data: { isRead: true, readAt: new Date() },
   });
 }

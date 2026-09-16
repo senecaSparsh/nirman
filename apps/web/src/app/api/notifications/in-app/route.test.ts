@@ -69,7 +69,7 @@ describe("PATCH /api/notifications/in-app", () => {
       {},
     );
     expect(res.status).toBe(200);
-    expect(markNotificationRead).toHaveBeenCalledWith("n1");
+    expect(markNotificationRead).toHaveBeenCalledWith("n1", "user-owner-1");
   });
 
   it("returns 400 when neither id nor markAll is provided", async () => {
