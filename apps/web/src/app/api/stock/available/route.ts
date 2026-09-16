@@ -21,16 +21,32 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const locationId = searchParams.get("locationId");
   const materialId = searchParams.get("materialId");
 
-  // Single-material total stock (across all locations)
+  // Single-material stock. Default: summed total across all locations.
+  // With byLocation=true: a per-location breakdown so pickers can show
+  // "N in stock" / dim zero-stock locations before the user submits.
   if (materialId && !locationId) {
+    const byLocation = searchParams.get("byLocation") === "true";
     const items = await prisma.stockLocationItem.findMany({
       where: {
         materialId,
         location: { companyId: company.id, deletedAt: null },
         material: { deletedAt: null },
       },
-      select: { qty: true, movingAvgCost: true },
+      select: {
+        qty: true,
+        movingAvgCost: true,
+        location: { select: { id: true, name: true } },
+      },
     });
+    if (byLocation) {
+      return json(
+        items.map((i) => ({
+          locationId: i.location.id,
+          locationName: i.location.name,
+          qty: toNum(i.qty),
+        })),
+      );
+    }
     const totalQty = items.reduce((s, i) => s + toNum(i.qty), 0);
     const totalValue = items.reduce((s, i) => s + toNum(i.qty) * toNum(i.movingAvgCost), 0);
     const avgCost = totalQty > 0 ? totalValue / totalQty : 0;

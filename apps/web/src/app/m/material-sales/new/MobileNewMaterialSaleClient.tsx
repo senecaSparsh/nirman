@@ -846,7 +846,46 @@ function SaleForm({
   const [showNewLocationDialog, setShowNewLocationDialog] = useState(false);
   const [extraCustomers, setExtraCustomers] = useState<CustomerItem[]>([]);
   const [extraMaterials, setExtraMaterials] = useState<MaterialItem[]>([]);
+  // Per-location availability of the material on the line whose location
+  // picker is open — lets the picker show "N in stock" / dim empty locations.
+  const [locAvail, setLocAvail] = useState<Record<string, number>>({});
+  // Available qty for each line's picked material at its picked location,
+  // keyed by line index — drives the "in stock" hint + over-qty flag.
+  const [lineAvail, setLineAvail] = useState<Record<number, number>>({});
   const submitLongPress = useLongPressNav("/m/material-sales", "Sales list");
+
+  useEffect(() => {
+    if (modal?.type !== "location" || modal.lineIndex === undefined) { setLocAvail({}); return; }
+    const matId = lines[modal.lineIndex]?.materialId;
+    if (!matId) { setLocAvail({}); return; }
+    let live = true;
+    fetch(`/api/stock/available?materialId=${encodeURIComponent(matId)}&byLocation=true`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: { locationId: string; qty: number }[]) => {
+        if (!live) return;
+        setLocAvail(Object.fromEntries(rows.map((r) => [r.locationId, r.qty])));
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [modal, lines]);
+
+  // Refresh each line's available qty whenever its material or location changes.
+  useEffect(() => {
+    let live = true;
+    lines.forEach((l, idx) => {
+      if (!l.materialId || !l.locationId) return;
+      fetch(`/api/stock/available?materialId=${encodeURIComponent(l.materialId)}&byLocation=true`)
+        .then((r) => (r.ok ? r.json() : []))
+        .then((rows: { locationId: string; qty: number }[]) => {
+          if (!live) return;
+          const avail = rows.find((r) => r.locationId === l.locationId)?.qty ?? 0;
+          setLineAvail((prev) => (prev[idx] === avail ? prev : { ...prev, [idx]: avail }));
+        })
+        .catch(() => {});
+    });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lines.map((l) => `${l.materialId}:${l.locationId}`).join("|")]);
 
   const allCustomers = useMemo(
     () => [...customers, ...extraCustomers].filter((c, i, arr) => arr.findIndex((x) => x.id === c.id) === i),
@@ -1007,6 +1046,22 @@ function SaleForm({
                       compact
                     />
                   </div>
+                  {line.materialId && line.locationId && lineAvail[idx] != null ? (
+                    <p
+                      className="text-m-caption"
+                      style={{
+                        color:
+                          Number(line.qty) > lineAvail[idx]
+                            ? "var(--color-stop)"
+                            : "var(--color-ink-400)",
+                      }}
+                    >
+                      {lineAvail[idx]} in stock here
+                      {Number(line.qty) > lineAvail[idx]
+                        ? ` — exceeds by ${(Number(line.qty) - lineAvail[idx]).toLocaleString()}`
+                        : ""}
+                    </p>
+                  ) : null}
 
                   {/* Qty + Price inputs — label left, number right */}
                   <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
@@ -1460,11 +1515,17 @@ function SaleForm({
                       label: m.name,
                       sub: `${m.code} · ${m.unit} · ${m.gstRate}% GST`,
                     }))
-                  : locations.map((l) => ({
-                      id: l.id,
-                      label: l.name,
-                      sub: l.type.replace(/_/g, " ").toLowerCase(),
-                    }))
+                  : locations.map((l) => {
+                      const avail = locAvail[l.id];
+                      const base = l.type.replace(/_/g, " ").toLowerCase();
+                      const sub =
+                        modal.lineIndex !== undefined && lines[modal.lineIndex]?.materialId
+                          ? avail != null
+                            ? `${avail} in stock · ${base}`
+                            : `No stock here · ${base}`
+                          : base;
+                      return { id: l.id, label: l.name, sub };
+                    })
           }
           selectedId={
             modal.type === "customer"
