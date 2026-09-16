@@ -56,12 +56,17 @@ export function MobileSelfCheckIn({
     try {
       const position = await getPosition();
 
+      // Send the worker's LOCAL calendar date, not a UTC instant — a check-in
+      // before 5:30am IST is still "today" locally but lands on the previous
+      // UTC date, which would file the attendance on the wrong day.
+      const localDate = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD, device timezone
+
       const res = await fetch("/api/attendance/self-check-in", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId,
-          date: new Date().toISOString(),
+          date: localDate,
           checkInLat: position.coords.latitude,
           checkInLng: position.coords.longitude,
         }),
@@ -83,7 +88,9 @@ export function MobileSelfCheckIn({
       void mutate("/api/briefing");
     } catch (err) {
       if (err instanceof GeolocationPositionError) {
-        setError("Could not get your location. Please enable GPS and try again.");
+        setError(
+          "Could not get your location — enable GPS and try again. If this device has no GPS, ask your supervisor to mark you present on the attendance sheet.",
+        );
       } else {
         setError(err instanceof Error ? err.message : "Check-in failed");
       }
@@ -103,7 +110,7 @@ export function MobileSelfCheckIn({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           employeeId,
-          date: new Date().toISOString(),
+          date: new Date().toLocaleDateString("en-CA"), // local date — see check-in
           checkOutLat: position.coords.latitude,
           checkOutLng: position.coords.longitude,
         }),
@@ -121,7 +128,9 @@ export function MobileSelfCheckIn({
       void mutate("/api/briefing");
     } catch (err) {
       if (err instanceof GeolocationPositionError) {
-        setError("Could not get your location. Please enable GPS and try again.");
+        setError(
+          "Could not get your location — enable GPS and try again. If this device has no GPS, ask your supervisor to mark your check-out on the attendance sheet.",
+        );
       } else {
         setError(err instanceof Error ? err.message : "Check-out failed");
       }
