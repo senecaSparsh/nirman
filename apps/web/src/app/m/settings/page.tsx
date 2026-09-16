@@ -88,9 +88,16 @@ export default function SettingsPage() {
                 include: { company: { select: { id: true, name: true, deletedAt: true } } },
               }).then((m) => m.filter((m) => m.company.deletedAt === null))
             : [],
-          // Recent audit activity (last 8)
+          // Recent audit activity (last 8). OWNER/ADMIN see the whole
+          // company feed — audit oversight is their job. Everyone else
+          // sees only their own actions: the company-wide trail leaks
+          // amounts and operations (payroll, sales, claims) that field
+          // staff have no business reading.
           prisma.auditLog.findMany({
-            where: { companyId: company.id },
+            where: {
+              companyId: company.id,
+              ...(isOwner ? {} : { userId: user?.id ?? "" }),
+            },
             orderBy: { timestamp: "desc" },
             take: 8,
             select: {
