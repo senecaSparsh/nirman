@@ -448,6 +448,21 @@ function ReturnForm({
     lineIndex?: number;
   } | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState<"supplier" | "location" | "material" | null>(null);
+  // Per-material availability at the chosen source location — lets the
+  // material picker show "N avail" / "no stock" before the user commits.
+  const [matAvail, setMatAvail] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (modal?.type !== "material" || !locationId) { setMatAvail({}); return; }
+    let live = true;
+    fetch(`/api/stock/available?locationId=${encodeURIComponent(locationId)}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: { materialId: string; qty: number }[]) => {
+        if (!live) return;
+        setMatAvail(Object.fromEntries(rows.map((r) => [r.materialId, r.qty])));
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [modal, locationId]);
 
   const closeModal = () => setModal(null);
   const closeCreateDialog = () => setShowCreateDialog(null);
@@ -757,7 +772,16 @@ function ReturnForm({
             modal.type === "supplier" ? suppliers.map((s) => ({ id: s.id, label: s.name })) :
             modal.type === "location" ? locations.map((l) => ({ id: l.id, label: l.name, sub: l.type.replace(/_/g, " ").toLowerCase() })) :
             modal.type === "po" ? [{ id: "", label: "No Purchase Order linkage", sub: undefined }, ...availablePOs.map((p) => ({ id: p.id, label: p.poNumber }))] :
-            materials.map((m) => ({ id: m.id, label: m.name, sub: `${m.code} · ${m.unit}` }))
+            materials.map((m) => {
+              const avail = matAvail[m.id];
+              const base = `${m.code} · ${m.unit}`;
+              const sub = locationId
+                ? avail != null
+                  ? `${avail} ${m.unit} in stock · ${base}`
+                  : `No stock here · ${base}`
+                : base;
+              return { id: m.id, label: m.name, sub };
+            })
           }
           selectedId={
             modal.type === "supplier" ? supplierId :
