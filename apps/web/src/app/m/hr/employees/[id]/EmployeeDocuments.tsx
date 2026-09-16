@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { FileText, Image as ImageIcon, Loader2, Upload, X, Check, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
+import { useConfirm } from "@/lib/use-confirm";
 
 type Attachment = {
   id: string;
@@ -54,6 +55,7 @@ export function EmployeeDocuments({
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  const [confirm, confirmDialog] = useConfirm();
   const fileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const fetchAttachments = useCallback(async () => {
@@ -121,7 +123,15 @@ export function EmployeeDocuments({
     }
   }
 
-  async function handleDelete(id: string, _category: string) {
+  async function handleDelete(id: string, category: string) {
+    const label = DOCUMENT_TYPES.find((d) => d.category === category)?.label ?? "this document";
+    const ok = await confirm({
+      title: `Remove ${label}?`,
+      description: "The uploaded file will be permanently deleted.",
+      confirmLabel: "Remove",
+      variant: "destructive",
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/attachments/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to remove");
@@ -282,6 +292,7 @@ export function EmployeeDocuments({
           {DOCUMENT_TYPES.filter((d) => d.required).length} required
         </p>
       </div>
+      {confirmDialog}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
+import { useConfirm } from "@/lib/use-confirm";
 import { haptic } from "@/lib/haptic";
 import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
 import {
@@ -69,6 +70,7 @@ export function MobileLeavesList({
   const [filter, setFilter] = useState<LeaveFilter>("ALL");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
 
   async function leaveAction(id: string, approve: boolean) {
     setActing(true);
@@ -90,10 +92,26 @@ export function MobileLeavesList({
     }
   }
 
-  async function cancelLeave(id: string) {
+  async function cancelLeave(l: LeaveListItem) {
+    const ok = await confirm(
+      l.status === "APPROVED"
+        ? {
+            title: "Cancel this approved leave?",
+            description: `This removes ${l.days} day${l.days !== 1 ? "s" : ""} of approved leave for ${l.employeeName} and clears the attendance it recorded — they will be marked as worked unless re-marked.`,
+            confirmLabel: "Cancel leave",
+            variant: "destructive",
+          }
+        : {
+            title: "Cancel this leave request?",
+            description: `Withdraw ${l.employeeName}'s ${l.days}-day leave request.`,
+            confirmLabel: "Cancel leave",
+            variant: "destructive",
+          },
+    );
+    if (!ok) return;
     setActing(true);
     try {
-      const res = await fetch(`/api/leaves/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/leaves/${l.id}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Failed to cancel leave");
       toast.success("Leave cancelled");
@@ -177,12 +195,13 @@ export function MobileLeavesList({
               acting={acting}
               onToggle={() => { haptic(5); setExpandedId(expandedId === l.id ? null : l.id); }}
               onAction={(approve) => leaveAction(l.id, approve)}
-              onCancel={() => cancelLeave(l.id)}
+              onCancel={() => cancelLeave(l)}
             />
           ))}
         </div>
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }
