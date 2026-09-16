@@ -275,6 +275,25 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     }),
   ]);
 
+  // First-run setup state — a fresh company logs into empty pages with no
+  // idea where to start. Surface the checklist to OWNER/ADMIN (the roles
+  // that can act on it) while any step is incomplete; everyone else gets null.
+  let setup: { hasProjects: boolean; hasMembers: boolean; hasMaterials: boolean; hasSuppliers: boolean } | null = null;
+  if (["OWNER", "ADMIN", "DEVELOPER"].includes(user.role)) {
+    const [memberCount, materialCount, supplierCount] = await Promise.all([
+      prisma.userCompany.count({ where: { companyId: company.id, active: true } }),
+      prisma.material.count({ where: { companyId: company.id, deletedAt: null } }),
+      prisma.supplier.count({ where: { companyId: company.id, deletedAt: null } }),
+    ]);
+    setup = {
+      hasProjects: activeProjects > 0,
+      hasMembers: memberCount > 1,
+      hasMaterials: materialCount > 0,
+      hasSuppliers: supplierCount > 0,
+    };
+    if (Object.values(setup).every(Boolean)) setup = null; // fully provisioned
+  }
+
   return json({
     date: today.toISOString().split("T")[0],
     user: { id: user.id, name: user.name, role: user.role },
@@ -307,5 +326,6 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       activeEmployees,
       pendingDprsTotal,
     },
+    setup,
   });
 });

@@ -19,6 +19,8 @@ import {
   Boxes,
   Users,
   AlertTriangle,
+  HardHat,
+  CircleDot,
   Package,
   LandPlot,
   ClipboardList,
@@ -101,6 +103,7 @@ type BriefingData = {
   deliveriesToday: Array<{ poNumber: string; supplierName: string; projectName: string | null; total: number }>;
   paymentsDue: Array<{ description: string; amount: number; dueDate: string; type: string }>;
   sitePresence?: { checkedIn: number; onLeave: number } | null;
+  setup?: { hasProjects: boolean; hasMembers: boolean; hasMaterials: boolean; hasSuppliers: boolean } | null;
 };
 
 export function HomeTree({ userName }: { userName: string | null }) {
@@ -250,7 +253,7 @@ export function HomeTree({ userName }: { userName: string | null }) {
         className="rounded-[0.625rem] border px-1 py-1.5"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
-        {!hasBriefing && !hasRecent && !loading ? (
+        {!hasBriefing && !hasRecent && !briefing?.setup && !loading ? (
           <div className="py-3 text-center">
             <CheckCircle2 className="mx-auto size-4 mb-1" style={{ color: "var(--color-go)" }} />
             <p className="text-m-label font-semibold" style={{ color: "var(--color-ink-950)" }}>
@@ -301,6 +304,48 @@ export function HomeTree({ userName }: { userName: string | null }) {
                   />
                 ))}
               </TreeFolder>
+            ) : null}
+
+            {/* ── First-run setup checklist — fresh company, nothing built yet.
+                 Only surfaces for OWNER/ADMIN while steps remain (API returns
+                 null once the company is provisioned or for other roles). ── */}
+            {briefing?.setup ? (
+              <>
+                {(loading || hasBriefing || hasRecent) && (
+                  <div className="mx-2 my-0.5" style={{ borderTop: "1px solid var(--color-line)" }} />
+                )}
+                <TreeFolder
+                  name="Set up your company"
+                  icon={<HardHat className="size-2.5" style={{ color: "var(--color-paper)" }} />}
+                  iconBg="var(--color-brand)"
+                  count={[
+                    briefing.setup.hasProjects,
+                    briefing.setup.hasMembers,
+                    briefing.setup.hasMaterials,
+                    briefing.setup.hasSuppliers,
+                  ].filter((s) => !s).length}
+                  defaultOpen={true}
+                >
+                  {[
+                    { done: briefing.setup.hasProjects, name: "Create your first project", sub: "sites, phases, budgets", href: "/m/projects" },
+                    { done: briefing.setup.hasMembers, name: "Add your team", sub: "engineers, store keepers, guards", href: "/m/settings/team" },
+                    { done: briefing.setup.hasMaterials, name: "Add materials", sub: "cement, steel, aggregate…", href: "/m/materials" },
+                    { done: briefing.setup.hasSuppliers, name: "Add suppliers", sub: "who you buy from", href: "/m/suppliers" },
+                  ].map((step, i, arr) => (
+                    <TreeLeaf
+                      key={step.name}
+                      icon={step.done ? CheckCircle2 : CircleDot}
+                      iconBg={step.done ? "var(--color-go)" : "var(--color-paper-2)"}
+                      iconFg={step.done ? undefined : "var(--color-ink-500)"}
+                      name={step.name}
+                      sub={step.done ? "done" : step.sub}
+                      href={step.href}
+                      count={0}
+                      isLast={i === arr.length - 1}
+                    />
+                  ))}
+                </TreeFolder>
+              </>
             ) : null}
 
             {/* ── Recent folder ── */}
