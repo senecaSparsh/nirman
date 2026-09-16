@@ -59,6 +59,10 @@ curl -fsS -m 300 -X POST -H "x-cron-secret: $CRON_SECRET" "$APP_URL/api/cron/rem
   && echo "[scheduler] boot kick: reminders OK" || true
 curl -fsS -m 300 -X POST -H "Authorization: Bearer $SCHEDULER_SECRET" "$APP_URL/api/workflow-scheduler" >/dev/null 2>&1 \
   && echo "[scheduler] boot kick: workflow-scheduler OK" || true
+# Backup too — otherwise a fresh deploy goes up to 24h before the first
+# BackupRecord export runs. It's idempotent; the catch swallows failures.
+curl -fsS -m 300 -X POST -H "x-cron-secret: $CRON_SECRET" "$APP_URL/api/cron/backup" >/dev/null 2>&1 \
+  && echo "[scheduler] boot kick: backup OK" || true
 
 loop 900    /api/cron/reminders      "x-cron-secret: $CRON_SECRET" &
 loop 300    /api/workflow-scheduler  "Authorization: Bearer $SCHEDULER_SECRET" &
