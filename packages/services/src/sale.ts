@@ -1580,7 +1580,7 @@ export async function cancelSale(saleId: string, userId?: string) {
       });
     }
 
-    return { updated, companyId: sale.companyId };
+    return { updated, companyId: sale.companyId, saleNumber: sale.saleNumber };
   });
 
   // Auto-sync reversal entries to Tally (best-effort, outside the transaction)
@@ -1593,6 +1593,18 @@ export async function cancelSale(saleId: string, userId?: string) {
       for (const je of entries) await autoSyncEntryToTally(result.companyId, je.id);
     } catch { /* best-effort */ }
   })();
+
+  // Sales/finance need to know a deal died — deposits got refunded,
+  // the asset is back on the market. Role-resolved to SALES_EVENTS.
+  void emitNotificationEvent({
+    eventType: NotificationEventType.SALE_CANCELLED,
+    companyId: result.companyId,
+    excludeIds: [userId],
+    entityType: "AssetSale",
+    entityId: saleId,
+    variables: { saleNumber: result.saleNumber ?? saleId },
+    timestamp: new Date(),
+  });
 
   return result.updated;
 }
