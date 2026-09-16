@@ -10,13 +10,17 @@ import { apiHandler, getCompany, json, requireUser } from "@/lib/server";
 export const GET = apiHandler(async (_req: NextRequest) => {
   const user = await requireUser();
   const company = await getCompany();
-  const isSuperuser = user.role === "OWNER" || user.role === "ADMIN";
   const isDevBypass = process.env.AUTH_BYPASS === "true" && process.env.NODE_ENV !== "production" && user.id === "dev";
 
+  // Only companies the user actually belongs to. Both switch endpoints
+  // require an active membership — a superuser shown a company they
+  // aren't a member of gets a 404/403 on switch and, worse, would land
+  // in a tenant where they hold no role. (Company *management* still
+  // lists all companies for OWNER/ADMIN via /api/companies.)
   const visible = await prisma.company.findMany({
     where: {
       deletedAt: null,
-      ...(isSuperuser || isDevBypass
+      ...(isDevBypass
         ? {}
         : { userMemberships: { some: { userId: user.id, active: true } } }),
     },
