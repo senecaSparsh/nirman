@@ -42,6 +42,25 @@ function writeDefaults(formType: string, values: DefaultMap) {
   }
 }
 
+/**
+ * Remove every "nirman:defaults:*" key — sign-out wipes a user's last-used
+ * form values so the next sign-in on a shared device doesn't inherit them.
+ */
+export function clearAllSmartDefaults() {
+  if (typeof window === "undefined") return;
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(STORAGE_PREFIX)) keys.push(k);
+    }
+    keys.forEach((k) => localStorage.removeItem(k));
+    window.dispatchEvent(new CustomEvent("nirman:defaults-updated"));
+  } catch {
+    // ignore
+  }
+}
+
 export function useSmartDefaults(formType: string) {
   const [defaults, setDefaults] = useState<DefaultMap>({});
   const [loaded, setLoaded] = useState(false);

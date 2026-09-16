@@ -4,6 +4,9 @@ import { clearLocalCache } from "./local-first";
 import { clearFetchCache } from "./use-fetch";
 import { clearAllOps, pendingCount } from "./offline/queue";
 import { clearAllDrafts } from "./offline/use-drafts";
+import { clearRecentItems } from "./use-recent-items";
+import { clearAllSnoozed } from "./use-snooze";
+import { clearAllSmartDefaults } from "./use-smart-defaults";
 
 /**
  * Session cleanup — wipes every piece of business data cached on the device.
@@ -14,6 +17,9 @@ import { clearAllDrafts } from "./offline/use-drafts";
  *   2. useFetch's in-memory response cache
  *   3. The service worker's API cache (offline GET fallback)
  *   4. IndexedDB — the offline mutation queue + auto-saved form drafts
+ *   5. localStorage "nirman:recent-items" — the jump-back-in / search recent list
+ *   6. localStorage "nirman:snoozed-items" + "nirman:defaults:*" — a user's
+ *      dismissed alerts and last-used form values (mild business context)
  *
  * None of these are keyed by user. On a shared or resold phone, the next
  * person opening the app would see the previous user's cached data — and
@@ -66,6 +72,15 @@ export async function clearLocalSessionData(): Promise<void> {
   } catch { /* ignore */ }
   try {
     await clearSwApiCache();
+  } catch { /* ignore */ }
+  try {
+    clearRecentItems();
+  } catch { /* ignore */ }
+  try {
+    clearAllSnoozed();
+  } catch { /* ignore */ }
+  try {
+    clearAllSmartDefaults();
   } catch { /* ignore */ }
 }
 
