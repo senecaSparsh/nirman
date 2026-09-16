@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle, ShieldCheck } from "lucide-react";
 import { homeWorldFor } from "@/lib/nav";
+import { signOutAndCleanup } from "@/lib/use-sign-out";
 import { useFetch } from "@/lib/use-fetch";
 
 /**
@@ -120,6 +121,15 @@ export default function ConsentPage() {
             {accepting && <Loader2 className="h-4 w-4 animate-spin" />}
             {accepting ? "Accepting…" : "I understand and accept"}
           </Button>
+          {/* A user who won't consent must still be able to leave — no
+              sign-out path would trap them on this screen. */}
+          <button
+            type="button"
+            onClick={() => void signOutAndCleanup()}
+            className="mt-3 w-full text-center text-caption text-muted-foreground underline-offset-2 hover:underline"
+          >
+            I don&apos;t accept — sign me out
+          </button>
         </div>
       </div>
     </div>
