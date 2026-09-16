@@ -5,6 +5,7 @@ import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
 import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
 import { canAutoApprove } from "./rbac";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 
 /**
  * Change Order Service — formal modifications to project scope, BOQ, budget, or schedule.
@@ -348,7 +349,8 @@ export async function updateChangeOrder(id: string, input: UpdateChangeOrderInpu
 // ── Workflow actions ───────────────────────────────────────
 
 export async function submitChangeOrder(id: string, userId: string) {
-  return withSerializableTransaction(async (tx) => {
+  const submitVars = { changeOrderNo: "", title: "", costDelta: "", companyId: "" };
+  const updated = await withSerializableTransaction(async (tx) => {
     const co = await tx.changeOrder.findUnique({ where: { id } });
     if (!co) throw new ServiceError("Change order not found", 404);
     if (co.status !== "DRAFT" && co.status !== "REJECTED") {
@@ -373,8 +375,26 @@ export async function submitChangeOrder(id: string, userId: string) {
       after: { changeOrderNo: co.changeOrderNo, status: "SUBMITTED" },
     });
 
+    submitVars.changeOrderNo = co.changeOrderNo;
+    submitVars.title = co.title;
+    submitVars.costDelta = co.costDelta?.toString() ?? "";
+    submitVars.companyId = co.companyId;
     return updated;
   });
+
+  // Tell the approvers — tier-2+ gets CO_SUBMITTED. Submitter excluded.
+  if (submitVars.companyId) {
+    void emitNotificationEvent({
+      eventType: NotificationEventType.CO_SUBMITTED,
+      companyId: submitVars.companyId,
+      excludeIds: [userId],
+      entityType: "ChangeOrder",
+      entityId: id,
+      variables: submitVars,
+      timestamp: new Date(),
+    });
+  }
+  return updated;
 }
 
 export async function approveChangeOrder(
@@ -383,6 +403,7 @@ export async function approveChangeOrder(
   clientApprovedBy?: string,
   actorRole?: string,
 ) {
+  const approveVars = { submittedById: null as string | null, changeOrderNo: "", companyId: "" };
   const updated = await withSerializableTransaction(async (tx) => {
     const co = await tx.changeOrder.findUnique({ where: { id } });
     if (!co) throw new ServiceError("Change order not found", 404);
@@ -420,6 +441,9 @@ export async function approveChangeOrder(
       after: { changeOrderNo: co.changeOrderNo, status: "APPROVED", clientApprovedBy: clientApprovedBy ?? null },
     });
 
+    approveVars.submittedById = co.submittedById;
+    approveVars.changeOrderNo = co.changeOrderNo;
+    approveVars.companyId = co.companyId;
     return updated;
   });
 
@@ -433,11 +457,26 @@ export async function approveChangeOrder(
     console.error(`[change-order] Auto-implement failed for ${id}:`, err);
   }
 
+  // Tell the submitter — the CO auto-implements on approval, so the
+  // message notes scope updated automatically.
+  if (approveVars.submittedById) {
+    void emitNotificationEvent({
+      eventType: NotificationEventType.CO_APPROVED,
+      companyId: approveVars.companyId,
+      recipientIds: [approveVars.submittedById],
+      excludeIds: [userId],
+      entityType: "ChangeOrder",
+      entityId: id,
+      variables: { changeOrderNo: approveVars.changeOrderNo, approverName: "" },
+      timestamp: new Date(),
+    });
+  }
   return updated;
 }
 
 export async function rejectChangeOrder(id: string, userId: string, reason: string) {
-  return withSerializableTransaction(async (tx) => {
+  const rejectVars = { submittedById: null as string | null, changeOrderNo: "", companyId: "" };
+  const updated = await withSerializableTransaction(async (tx) => {
     const co = await tx.changeOrder.findUnique({ where: { id } });
     if (!co) throw new ServiceError("Change order not found", 404);
     if (co.status !== "SUBMITTED") {
@@ -463,8 +502,26 @@ export async function rejectChangeOrder(id: string, userId: string, reason: stri
       after: { changeOrderNo: co.changeOrderNo, status: "REJECTED", reason },
     });
 
+    rejectVars.submittedById = co.submittedById;
+    rejectVars.changeOrderNo = co.changeOrderNo;
+    rejectVars.companyId = co.companyId;
     return updated;
   });
+
+  // Tell the submitter — targeted, never broadcast.
+  if (rejectVars.submittedById) {
+    void emitNotificationEvent({
+      eventType: NotificationEventType.CO_REJECTED,
+      companyId: rejectVars.companyId,
+      recipientIds: [rejectVars.submittedById],
+      excludeIds: [userId],
+      entityType: "ChangeOrder",
+      entityId: id,
+      variables: { changeOrderNo: rejectVars.changeOrderNo, reason },
+      timestamp: new Date(),
+    });
+  }
+  return updated;
 }
 
 export async function cancelChangeOrder(id: string, userId: string) {

@@ -6,6 +6,7 @@ import { canAutoApprove } from "./rbac";
 import { withSerializableTransaction } from "./transaction";
 import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
 import { createPurchaseOrderTx } from "./procurement";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 
 /**
  * Standalone Quotation Request — an employee asks for prices on a bundle
@@ -571,7 +572,15 @@ export interface ApproveQuotationInput {
  * If the selected quote is NOT the cheapest, a reason is mandatory.
  */
 export async function approveQuotation(input: ApproveQuotationInput) {
-  return withSerializableTransaction(async (tx) => {
+  // Captured in-transaction for the post-commit submitter notification.
+  const notifyVars = {
+    submitterUserId: null as string | null,
+    requestNumber: "",
+    companyId: "",
+    supplierName: "",
+    poNumber: "",
+  };
+  const result = await withSerializableTransaction(async (tx) => {
     const request = await tx.quotationRequest.findUnique({
       where: { id: input.quotationRequestId },
       include: {
@@ -794,8 +803,33 @@ export async function approveQuotation(input: ApproveQuotationInput) {
       },
     });
 
+    notifyVars.submitterUserId = submitterMembership.userId;
+    notifyVars.requestNumber = request.requestNumber;
+    notifyVars.companyId = request.companyId;
+    notifyVars.supplierName = winningQuote.supplier?.name ?? "";
+    notifyVars.poNumber = po.poNumber;
     return { ...updated, purchaseOrder: { id: po.id, poNumber: po.poNumber, total: po.total } };
   });
+
+  // Tell the submitter which quote won and that a PO already exists —
+  // the approval auto-creates it, so they can act on it immediately.
+  if (notifyVars.submitterUserId) {
+    void emitNotificationEvent({
+      eventType: NotificationEventType.QUOTE_APPROVED,
+      companyId: notifyVars.companyId,
+      recipientIds: [notifyVars.submitterUserId],
+      excludeIds: [input.approverUserId],
+      entityType: "QuotationRequest",
+      entityId: input.quotationRequestId,
+      variables: {
+        requestNumber: notifyVars.requestNumber,
+        supplierName: notifyVars.supplierName,
+        poNumber: notifyVars.poNumber,
+      },
+      timestamp: new Date(),
+    });
+  }
+  return result;
 }
 
 /**

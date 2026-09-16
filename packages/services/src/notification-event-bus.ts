@@ -83,6 +83,10 @@ export enum NotificationEventType {
   CLAIM_APPROVED = "CLAIM_APPROVED",
   CLAIM_REJECTED = "CLAIM_REJECTED",
   CLAIM_PAID = "CLAIM_PAID",
+  CO_SUBMITTED = "CO_SUBMITTED",
+  CO_APPROVED = "CO_APPROVED",
+  CO_REJECTED = "CO_REJECTED",
+  QUOTE_APPROVED = "QUOTE_APPROVED",
 
   // Finance (3)
   EXPENSE_CREATED = "EXPENSE_CREATED",
@@ -174,6 +178,10 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   [NotificationEventType.CLAIM_APPROVED]: "IMMEDIATE",
   [NotificationEventType.CLAIM_REJECTED]: "IMMEDIATE",
   [NotificationEventType.CLAIM_PAID]: "IMMEDIATE",
+  [NotificationEventType.CO_SUBMITTED]: "IMMEDIATE",
+  [NotificationEventType.CO_APPROVED]: "IMMEDIATE",
+  [NotificationEventType.CO_REJECTED]: "IMMEDIATE",
+  [NotificationEventType.QUOTE_APPROVED]: "IMMEDIATE",
   [NotificationEventType.EXPENSE_APPROVED]: "IMMEDIATE",
   [NotificationEventType.EXPENSE_REJECTED]: "IMMEDIATE",
 
@@ -702,14 +710,17 @@ const LEAVE_EVENTS = new Set([NotificationEventType.LEAVE_SUBMITTED]);
 // Claim submissions go to expense.approve holders (tier-2/3). Outcomes
 // are targeted at the claimant via recipientIds — never broadcast.
 const CLAIM_EVENTS = new Set([NotificationEventType.CLAIM_SUBMITTED]);
+// Change-order submissions go to the tiers that approve them.
+// Outcomes target the submitter via recipientIds.
+const CO_EVENTS = new Set([NotificationEventType.CO_SUBMITTED]);
 
 export function shouldRoleReceiveEvent(role: string, eventType: NotificationEventType): boolean {
   if (role === "OWNER" || role === "ADMIN" || role === "DEVELOPER") return true;
   if (role === "PROJECT_DIRECTOR" || role === "FINANCE_HEAD") {
-    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType) || LAND_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || QUALITY_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType) || GATE_PASS_EVENTS.has(eventType) || LEAVE_EVENTS.has(eventType) || CLAIM_EVENTS.has(eventType);
+    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType) || LAND_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || QUALITY_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType) || GATE_PASS_EVENTS.has(eventType) || LEAVE_EVENTS.has(eventType) || CLAIM_EVENTS.has(eventType) || CO_EVENTS.has(eventType);
   }
   if (role === "PROJECT_MANAGER" || role === "PROCUREMENT_MANAGER" || role === "HR_MANAGER") {
-    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType) || LAND_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType) || GATE_PASS_EVENTS.has(eventType) || LEAVE_EVENTS.has(eventType) || CLAIM_EVENTS.has(eventType);
+    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType) || LAND_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType) || GATE_PASS_EVENTS.has(eventType) || LEAVE_EVENTS.has(eventType) || CLAIM_EVENTS.has(eventType) || CO_EVENTS.has(eventType);
   }
   if (role === "SUPERVISOR" || role === "QAQC_ENGINEER" || role === "SITE_ENGINEER") {
     return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || QUALITY_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType) || GATE_PASS_EVENTS.has(eventType);
@@ -830,6 +841,14 @@ const EVENT_MESSAGES: Partial<
     `Your expense${money("amount") ? ` of ${money("amount")}` : ""}${s("category") ? ` (${s("category")})` : ""} was approved${s("approverName") ? ` by ${s("approverName")}` : ""}.`,
   [NotificationEventType.EXPENSE_REJECTED]: ({ s, money }) =>
     `Your expense${money("amount") ? ` of ${money("amount")}` : ""} was rejected${s("reason") ? `: ${s("reason")}` : ""}.`,
+  [NotificationEventType.CO_SUBMITTED]: ({ s, money }) =>
+    `Change order ${s("changeOrderNo") || ""} submitted${s("title") ? ` — ${s("title")}` : ""}${money("costDelta") ? ` (${money("costDelta")})` : ""} — needs approval.`,
+  [NotificationEventType.CO_APPROVED]: ({ s }) =>
+    `Change order ${s("changeOrderNo") || ""} was approved${s("approverName") ? ` by ${s("approverName")}` : ""} — scope updated automatically.`,
+  [NotificationEventType.CO_REJECTED]: ({ s }) =>
+    `Change order ${s("changeOrderNo") || ""} was rejected${s("reason") ? `: ${s("reason")}` : ""}.`,
+  [NotificationEventType.QUOTE_APPROVED]: ({ s }) =>
+    `Quote ${s("requestNumber") || ""} approved${s("supplierName") ? ` — ${s("supplierName")} selected` : ""}${s("poNumber") ? `. PO ${s("poNumber")} created` : ""}.`,
 
   // Finance
   [NotificationEventType.EXPENSE_CREATED]: ({ s, money }) =>
