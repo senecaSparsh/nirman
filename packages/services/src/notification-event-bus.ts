@@ -87,6 +87,8 @@ export enum NotificationEventType {
   CO_APPROVED = "CO_APPROVED",
   CO_REJECTED = "CO_REJECTED",
   QUOTE_APPROVED = "QUOTE_APPROVED",
+  CONTRACT_EXPIRING = "CONTRACT_EXPIRING",
+  PROBATION_ENDING = "PROBATION_ENDING",
 
   // Finance (3)
   EXPENSE_CREATED = "EXPENSE_CREATED",
@@ -182,6 +184,8 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   [NotificationEventType.CO_APPROVED]: "IMMEDIATE",
   [NotificationEventType.CO_REJECTED]: "IMMEDIATE",
   [NotificationEventType.QUOTE_APPROVED]: "IMMEDIATE",
+  [NotificationEventType.CONTRACT_EXPIRING]: "DAILY",
+  [NotificationEventType.PROBATION_ENDING]: "DAILY",
   [NotificationEventType.EXPENSE_APPROVED]: "IMMEDIATE",
   [NotificationEventType.EXPENSE_REJECTED]: "IMMEDIATE",
 
@@ -440,7 +444,7 @@ export async function emitNotificationEvent(event: NotificationEvent): Promise<v
             title,
             message,
             link,
-            metadata: JSON.stringify(baseMetadata) as Prisma.InputJsonValue,
+            metadata: baseMetadata as Prisma.InputJsonValue,
           },
         }).catch(() => {
           // Best-effort — don't fail the event bus if InAppNotification creation fails
@@ -478,7 +482,7 @@ export async function emitNotificationEvent(event: NotificationEvent): Promise<v
             sentAt: new Date(),
             recipient: userId,
             message,
-            metadata: JSON.stringify({ ...baseMetadata, channels }),
+            metadata: { ...baseMetadata, channels } as Prisma.InputJsonValue,
           },
         });
         continue;
@@ -525,7 +529,7 @@ export async function emitNotificationEvent(event: NotificationEvent): Promise<v
           status: "PENDING",
           recipient: userId,
           message,
-          metadata: JSON.stringify({ ...baseMetadata, channels: external }),
+          metadata: { ...baseMetadata, channels: external } as Prisma.InputJsonValue,
         },
       });
     }
@@ -713,6 +717,12 @@ const CLAIM_EVENTS = new Set([NotificationEventType.CLAIM_SUBMITTED]);
 // Change-order submissions go to the tiers that approve them.
 // Outcomes target the submitter via recipientIds.
 const CO_EVENTS = new Set([NotificationEventType.CO_SUBMITTED]);
+// Employment-term milestones (contract end, probation end) are an
+// HR_MANAGER + leadership concern — site roles can't act on them.
+const HR_CONTRACT_EVENTS = new Set([
+  NotificationEventType.CONTRACT_EXPIRING,
+  NotificationEventType.PROBATION_ENDING,
+]);
 
 export function shouldRoleReceiveEvent(role: string, eventType: NotificationEventType): boolean {
   if (role === "OWNER" || role === "ADMIN" || role === "DEVELOPER") return true;
@@ -720,7 +730,7 @@ export function shouldRoleReceiveEvent(role: string, eventType: NotificationEven
     return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType) || LAND_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || QUALITY_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType) || GATE_PASS_EVENTS.has(eventType) || LEAVE_EVENTS.has(eventType) || CLAIM_EVENTS.has(eventType) || CO_EVENTS.has(eventType);
   }
   if (role === "PROJECT_MANAGER" || role === "PROCUREMENT_MANAGER" || role === "HR_MANAGER") {
-    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType) || LAND_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType) || GATE_PASS_EVENTS.has(eventType) || LEAVE_EVENTS.has(eventType) || CLAIM_EVENTS.has(eventType) || CO_EVENTS.has(eventType);
+    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType) || LAND_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType) || GATE_PASS_EVENTS.has(eventType) || LEAVE_EVENTS.has(eventType) || CLAIM_EVENTS.has(eventType) || CO_EVENTS.has(eventType) || (role === "HR_MANAGER" && HR_CONTRACT_EVENTS.has(eventType));
   }
   if (role === "SUPERVISOR" || role === "QAQC_ENGINEER" || role === "SITE_ENGINEER") {
     return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || QUALITY_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType) || GATE_PASS_EVENTS.has(eventType);
@@ -849,6 +859,10 @@ const EVENT_MESSAGES: Partial<
     `Change order ${s("changeOrderNo") || ""} was rejected${s("reason") ? `: ${s("reason")}` : ""}.`,
   [NotificationEventType.QUOTE_APPROVED]: ({ s }) =>
     `Quote ${s("requestNumber") || ""} approved${s("supplierName") ? ` — ${s("supplierName")} selected` : ""}${s("poNumber") ? `. PO ${s("poNumber")} created` : ""}.`,
+  [NotificationEventType.CONTRACT_EXPIRING]: ({ s }) =>
+    `${s("employeeName") || "An employee"}'s contract ends in ${s("daysLeft") || "a few"} day(s) (${s("endDate")}). Renew or close out.`,
+  [NotificationEventType.PROBATION_ENDING]: ({ s }) =>
+    `${s("employeeName") || "An employee"}'s probation ends in ${s("daysLeft") || "a few"} day(s) (${s("endDate")}). Confirm or extend.`,
 
   // Finance
   [NotificationEventType.EXPENSE_CREATED]: ({ s, money }) =>

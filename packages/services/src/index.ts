@@ -783,6 +783,7 @@ export {
   type AttendanceWithTier,
   getAttendanceWithTiers,
   getAttendanceTierCounts,
+  checkExpiringEmploymentTerms,
 } from "./hr";
 
 // Leave Management — requests with approval workflow

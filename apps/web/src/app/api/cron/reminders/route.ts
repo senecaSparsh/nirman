@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { sendRentDueReminders, sendPaymentDueReminders, processDueEscalations, checkMilestonePayments, processPendingNotifications, generateDueRentSchedules, generateDueRecurringExpenses, checkExpiringLegalDocs } from "@nirman/services";
+import { sendRentDueReminders, sendPaymentDueReminders, processDueEscalations, checkMilestonePayments, processPendingNotifications, generateDueRentSchedules, generateDueRecurringExpenses, checkExpiringLegalDocs, checkExpiringEmploymentTerms } from "@nirman/services";
 import { apiHandler, json } from "@/lib/server";
 
 /**
@@ -46,7 +46,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   // 2-6. Run remaining sweeps in parallel
-  const [escalations, rentSchedule, rentReminders, saleReminders, notifications, recurringExpenses, legalDocs] = await Promise.all([
+  const [escalations, rentSchedule, rentReminders, saleReminders, notifications, recurringExpenses, legalDocs, employmentTerms] = await Promise.all([
     processDueEscalations().catch(() => ({ checked: 0, escalated: 0 })),
     generateDueRentSchedules().catch(() => ({ checked: 0, created: 0 })),
     sendRentDueReminders().catch(() => ({ checked: 0, sent: 0 })),
@@ -61,6 +61,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       .catch(() => ({ generated: 0 })),
     // Check for legal documents expiring in the next 30 days
     checkExpiringLegalDocs(30).catch(() => ({ checked: 0, expiring: 0, notified: 0 })),
+    // Contract / probation end dates approaching — HR needs the heads-up
+    checkExpiringEmploymentTerms(30).catch(() => ({ checked: 0, expiring: 0, notified: 0 })),
   ]);
 
   return json({
@@ -74,5 +76,6 @@ export const POST = apiHandler(async (req: NextRequest) => {
     notifications,
     recurringExpenses,
     legalDocs,
+    employmentTerms,
   });
 }, { skipSession: true, rateLimit: false });

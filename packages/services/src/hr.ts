@@ -2410,3 +2410,80 @@ export async function generateMaterialIssueFromDPR(
     return { materialIssueId: materialIssue.id, linesCreated, skipped };
   });
 }
+
+// ───────────────────────────────────────────────────────────
+//  checkExpiringEmploymentTerms — cron sweep: CONTRACT employees whose
+//  contractEndDate and PROBATION employees whose probationEndDate fall
+//  within the next `daysAhead` days. Emits CONTRACT_EXPIRING /
+//  PROBATION_ENDING to HR-managing roles (OWNER/ADMIN/HR_MANAGER),
+//  deduped per employee+term within 14 days so the sweep doesn't spam.
+// ───────────────────────────────────────────────────────────
+
+export async function checkExpiringEmploymentTerms(daysAhead = 30): Promise<{
+  checked: number;
+  expiring: number;
+  notified: number;
+}> {
+  const now = new Date();
+  const cutoff = new Date(now.getTime() + daysAhead * 24 * 60 * 60 * 1000);
+  const dedupeSince = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+  const employees = await prisma.employee.findMany({
+    where: {
+      active: true,
+      deletedAt: null,
+      OR: [
+        { employmentType: "CONTRACT", contractEndDate: { gte: now, lte: cutoff } },
+        { employmentType: "PROBATION", probationEndDate: { gte: now, lte: cutoff } },
+      ],
+    },
+    select: {
+      id: true,
+      name: true,
+      companyId: true,
+      employmentType: true,
+      contractEndDate: true,
+      probationEndDate: true,
+    },
+  });
+
+  let notified = 0;
+  for (const emp of employees) {
+    const isContract = emp.employmentType === "CONTRACT";
+    const endDate = isContract ? emp.contractEndDate : emp.probationEndDate;
+    if (!endDate) continue;
+    const daysLeft = Math.ceil((endDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+    const eventType = isContract
+      ? NotificationEventType.CONTRACT_EXPIRING
+      : NotificationEventType.PROBATION_ENDING;
+
+    // De-dupe — skip if the same employee+term notified within 14 days
+    const recent = await prisma.inAppNotification.findFirst({
+      where: {
+        companyId: emp.companyId,
+        eventType,
+        createdAt: { gte: dedupeSince },
+        metadata: { path: ["employeeId"], equals: emp.id },
+      },
+      select: { id: true },
+    });
+    if (recent) continue;
+
+    void emitNotificationEvent({
+      eventType,
+      companyId: emp.companyId,
+      entityType: "Employee",
+      entityId: emp.id,
+      variables: {
+        employeeId: emp.id,
+        employeeName: emp.name,
+        daysLeft: String(daysLeft),
+        endDate: endDate.toLocaleDateString("en-IN"),
+      },
+      timestamp: new Date(),
+    });
+    notified++;
+  }
+
+  return { checked: employees.length, expiring: notified, notified };
+}
