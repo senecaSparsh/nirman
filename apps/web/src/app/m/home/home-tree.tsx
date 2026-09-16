@@ -18,6 +18,7 @@ import {
   Building2,
   Boxes,
   Users,
+  AlertTriangle,
   Package,
   LandPlot,
   ClipboardList,
@@ -199,6 +200,19 @@ export function HomeTree({ userName }: { userName: string | null }) {
         sub: formatCurrencyCompact(briefing.paymentsDue[0]?.amount ?? 0),
         href: "/m/accounts?tab=payments",
         count: briefing.paymentsDue.length,
+      });
+    }
+    // "See everything" — the attention queue aggregates ALL alerts (overdue
+    // POs, cost overruns, Tally pending) that don't fit the briefing rows.
+    // Without this link the page is orphaned: only reachable via search.
+    if (briefingChildren.length > 1) {
+      briefingChildren.push({
+        icon: AlertTriangle,
+        iconBg: "var(--color-ink-950)",
+        name: "Everything that needs you",
+        sub: "all alerts, one place",
+        href: "/m/pulse/attention",
+        count: 0,
       });
     }
   }
