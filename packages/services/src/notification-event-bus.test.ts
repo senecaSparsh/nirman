@@ -79,6 +79,19 @@ describe("shouldRoleReceiveEvent", () => {
     expect(shouldRoleReceiveEvent("SITE_ENGINEER", NotificationEventType.GATE_PASS_EXITED)).toBe(true);
   });
 
+  it("SECURITY_GUARD receives only actionable gate-pass events", () => {
+    expect(shouldRoleReceiveEvent("SECURITY_GUARD", NotificationEventType.GATE_PASS_APPROVED)).toBe(true);
+    expect(shouldRoleReceiveEvent("SECURITY_GUARD", NotificationEventType.GATE_PASS_EXITED)).toBe(true);
+    // Submitted/rejected are approver/submitter concerns — the guard
+    // can't act on them, so they're noise at the gate.
+    expect(shouldRoleReceiveEvent("SECURITY_GUARD", NotificationEventType.GATE_PASS_SUBMITTED)).toBe(false);
+    expect(shouldRoleReceiveEvent("SECURITY_GUARD", NotificationEventType.GATE_PASS_REJECTED)).toBe(false);
+    // And nothing outside the gate-pass domain at all.
+    expect(shouldRoleReceiveEvent("SECURITY_GUARD", NotificationEventType.SALE_CREATED)).toBe(false);
+    expect(shouldRoleReceiveEvent("SECURITY_GUARD", NotificationEventType.DPR_SUBMITTED)).toBe(false);
+    expect(shouldRoleReceiveEvent("SECURITY_GUARD", NotificationEventType.LOW_STOCK_ALERT)).toBe(false);
+  });
+
   it("ACCOUNTANT receives inventory events but not gate-pass events", () => {
     expect(shouldRoleReceiveEvent("ACCOUNTANT", NotificationEventType.MATERIAL_PRICE_CHANGE)).toBe(true);
     expect(shouldRoleReceiveEvent("ACCOUNTANT", NotificationEventType.SCRAP_GENERATED)).toBe(true);

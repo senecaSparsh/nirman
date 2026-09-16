@@ -670,6 +670,13 @@ const GATE_PASS_EVENTS = new Set([
   NotificationEventType.GATE_PASS_REJECTED,
   NotificationEventType.GATE_PASS_EXITED,
 ]);
+// The guard's actionable subset — APPROVED means a truck may exit now,
+// EXITED closes the loop. SUBMITTED/REJECTED are approver/submitter
+// concerns; pinging the gate about them is noise the guard can't act on.
+const GATE_PASS_GUARD_EVENTS = new Set([
+  NotificationEventType.GATE_PASS_APPROVED,
+  NotificationEventType.GATE_PASS_EXITED,
+]);
 
 export function shouldRoleReceiveEvent(role: string, eventType: NotificationEventType): boolean {
   if (role === "OWNER" || role === "ADMIN" || role === "DEVELOPER") return true;
@@ -685,7 +692,7 @@ export function shouldRoleReceiveEvent(role: string, eventType: NotificationEven
   if (role === "SALES_MANAGER") return SALES_EVENTS.has(eventType) || LAND_EVENTS.has(eventType);
   if (role === "ACCOUNTANT") return FINANCE_EVENTS.has(eventType) || SALES_EVENTS.has(eventType) || LAND_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType);
   if (role === "STORE_KEEPER") return PROCUREMENT_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType) || GATE_PASS_EVENTS.has(eventType);
-  if (role === "SECURITY_GUARD") return GATE_PASS_EVENTS.has(eventType);
+  if (role === "SECURITY_GUARD") return GATE_PASS_GUARD_EVENTS.has(eventType);
   return false;
 }
 
