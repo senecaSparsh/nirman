@@ -137,6 +137,23 @@ export function MobileStockOutClient({
   // Keyed by materialId. Fetched from /api/materials/{id}/lots.
   const [lotsCache, setLotsCache] = useState<Record<string, LotOption[]>>({});
 
+  // ── Per-material availability at the chosen source location ──
+  // materialId → qty at fromLocationId. Fetched when the material picker opens
+  // so it can show "N avail" / "no stock" before the user commits a line.
+  const [matAvail, setMatAvail] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (modal?.type !== "material" || !fromLocationId) { setMatAvail({}); return; }
+    let live = true;
+    fetch(`/api/stock/available?locationId=${encodeURIComponent(fromLocationId)}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: { materialId: string; qty: number }[]) => {
+        if (!live) return;
+        setMatAvail(Object.fromEntries(rows.map((r) => [r.materialId, r.qty])));
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [modal, fromLocationId]);
+
   // ── Success state ──
   const [success, setSuccess] = useState<{
     id: string;
@@ -1202,7 +1219,16 @@ export function MobileStockOutClient({
                       label: l.lotNumber,
                       sub: `${l.currentQty} ${materials.find((m) => m.id === lines[modal.lineIndex ?? 0]?.materialId)?.unit ?? ""} avail${l.expiryDate ? ` · exp ${new Date(l.expiryDate).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}` : ""}`,
                     }))
-                  : materials.map((m) => ({ id: m.id, label: m.name, sub: `${m.code} · ${m.unit}` }))
+                  : materials.map((m) => {
+                      const avail = matAvail[m.id];
+                      const base = `${m.code} · ${m.unit}`;
+                      const sub = fromLocationId
+                        ? avail != null
+                          ? `${avail} ${m.unit} in stock · ${base}`
+                          : `No stock here · ${base}`
+                        : base;
+                      return { id: m.id, label: m.name, sub };
+                    })
           }
           selectedId={
             modal.type === "from" ? fromLocationId :
