@@ -622,9 +622,12 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
           <MobileSectionTitle>My Leaves</MobileSectionTitle>
           <div className="mb-4">
             <Card className="p-4">
+              {/* Self-service leave request — every employee can file their
+                  own leave; HR no longer has to do it on their behalf. */}
+              <LeaveRequestForm />
               {initial.hr.leaves.length === 0 ? (
                 <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
-                  No leave requests yet. Apply from HR → Leaves.
+                  No leave requests yet.
                 </p>
               ) : (
                 <div className="flex flex-col gap-2">
@@ -962,6 +965,137 @@ function InfoField({
         style={{ color: value ? "var(--color-ink-950)" : "var(--color-ink-300)" }}
       >
         {value || "—"}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Self-service leave request — expandable mini-form inside the My Leaves
+ * card. POST /api/leaves resolves the caller's own Employee record for
+ * non-HR callers, so no employeeId is sent. After submit the list below
+ * refreshes on the next /api/me fetch.
+ */
+function LeaveRequestForm() {
+  const [open, setOpen] = useState(false);
+  const [type, setType] = useState<"CASUAL" | "SICK" | "EARNED" | "UNPAID">("CASUAL");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function submit() {
+    if (!startDate || !endDate) {
+      toast.error("Pick the leave dates first");
+      return;
+    }
+    if (endDate < startDate) {
+      toast.error("End date can't be before the start date");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/leaves", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type, startDate, endDate, reason: reason.trim() || null }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? "Could not submit leave request");
+        return;
+      }
+      toast.success(
+        data.status === "APPROVED"
+          ? "Leave approved"
+          : "Leave request submitted — pending approval",
+      );
+      setOpen(false);
+      setStartDate("");
+      setEndDate("");
+      setReason("");
+      setType("CASUAL");
+    } catch {
+      toast.error("Could not submit leave request");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="mb-3 flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] border border-dashed py-2.5 text-m-caption font-semibold press"
+        style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}
+      >
+        <CalendarOff className="size-3.5" />
+        Request leave
+      </button>
+    );
+  }
+
+  return (
+    <div className="mb-3 rounded-[0.5rem] border p-3" style={{ borderColor: "var(--color-line)" }}>
+      <div className="mb-2 grid grid-cols-4 gap-1.5">
+        {(["CASUAL", "SICK", "EARNED", "UNPAID"] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setType(t)}
+            className="rounded-[0.375rem] py-1.5 text-m-caption font-semibold press"
+            style={{
+              backgroundColor: type === t ? "var(--color-ink-950)" : "var(--color-concrete)",
+              color: type === t ? "var(--color-paper)" : "var(--color-ink-700)",
+            }}
+          >
+            {t.charAt(0) + t.slice(1).toLowerCase()}
+          </button>
+        ))}
+      </div>
+      <div className="mb-2 grid grid-cols-2 gap-2">
+        <label className="block">
+          <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>From</span>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="mt-0.5 w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body"
+            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-950)" }}
+          />
+        </label>
+        <label className="block">
+          <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>To</span>
+          <input
+            type="date"
+            value={endDate}
+            min={startDate || undefined}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="mt-0.5 w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body"
+            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-950)" }}
+          />
+        </label>
+      </div>
+      <input
+        type="text"
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        placeholder="Reason (optional)"
+        maxLength={200}
+        className="mb-2 w-full rounded-[0.375rem] border px-2 py-1.5 text-m-body"
+        style={{ borderColor: "var(--color-line)", color: "var(--color-ink-950)" }}
+      />
+      <div className="flex gap-2">
+        <Button
+          variant="secondary"
+          className="flex-1"
+          onClick={() => setOpen(false)}
+          disabled={saving}
+        >
+          Cancel
+        </Button>
+        <Button className="flex-1" onClick={submit} disabled={saving}>
+          {saving ? "Submitting…" : "Submit"}
+        </Button>
       </div>
     </div>
   );

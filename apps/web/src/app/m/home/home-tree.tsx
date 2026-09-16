@@ -89,6 +89,7 @@ type BriefingData = {
     expenseCount?: number;
     claimCount?: number;
     raCount?: number;
+    leaveCount?: number;
     total: number;
     canApprovePo: boolean;
     canApproveReq: boolean;
@@ -146,6 +147,7 @@ export function HomeTree({ userName }: { userName: string | null }) {
         briefing.approvals.expenseCount && `${briefing.approvals.expenseCount} expense`,
         briefing.approvals.claimCount && `${briefing.approvals.claimCount} claim`,
         briefing.approvals.raCount && `${briefing.approvals.raCount} RA bill`,
+        briefing.approvals.leaveCount && `${briefing.approvals.leaveCount} leave`,
       ].filter(Boolean);
       briefingChildren.push({
         icon: ClipboardCheck,

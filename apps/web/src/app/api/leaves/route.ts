@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import type { LeaveStatus } from "@nirman/db";
 import { createLeaveRequest, approveLeaveRequest, canAutoApprove } from "@nirman/services";
-import { apiHandler, getCompany, json, leaveRequestSchema, requirePermission, toNum, scopeWhere } from "@/lib/server";
-import { PERM } from "@/lib/roles";
+import { apiHandler, getCompany, json, leaveRequestSchema, requirePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
+import { hasPermission, PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.HR_VIEW);
@@ -50,26 +50,42 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.HR_MANAGE);
+  const user = await requireUser();
   const company = await getCompany();
   const body = await req.json();
-  const parsed = leaveRequestSchema.safeParse(body);
+  const canManage = hasPermission(user.role, PERM.HR_MANAGE);
+
+  // Self-service: a caller without HR_MANAGE can only request leave for
+  // themselves — the employeeId is resolved from their own employee
+  // record, ignoring any id passed in the body (prevents filing leave
+  // on someone else's behalf).
+  const parsed = leaveRequestSchema.safeParse(canManage ? body : { ...body, employeeId: "self" });
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
 
   // Verify the target employee is in scope and manageable
   const { prisma } = await import("@nirman/db");
-  const employee = await prisma.employee.findFirst({
-    where: { id: parsed.data.employeeId, companyId: company.id, deletedAt: null, ...await scopeWhere("Employee") },
-    select: { id: true, userId: true },
-  });
-  if (!employee) return json({ error: "Employee not found or out of scope" }, { status: 404 });
+  const employee = canManage
+    ? await prisma.employee.findFirst({
+        where: { id: parsed.data.employeeId, companyId: company.id, deletedAt: null, ...await scopeWhere("Employee") },
+        select: { id: true, userId: true },
+      })
+    : await prisma.employee.findFirst({
+        where: { userId: user.id, companyId: company.id, deletedAt: null, active: true },
+        select: { id: true, userId: true },
+      });
+  if (!employee) {
+    return json(
+      { error: canManage ? "Employee not found or out of scope" : "No employee record linked to your account" },
+      { status: 404 },
+    );
+  }
 
   try {
     const leave = await createLeaveRequest({
       companyId: company.id,
-      employeeId: parsed.data.employeeId,
+      employeeId: employee.id,
       type: parsed.data.type ?? "CASUAL",
       startDate: parsed.data.startDate,
       endDate: parsed.data.endDate,

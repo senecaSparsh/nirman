@@ -31,6 +31,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   const canApproveDpr = perms.includes(PERM.DPR_APPROVE_SUB_ADMIN) || perms.includes(PERM.DPR_APPROVE_ADMIN);
   const canApproveExpense = perms.includes(PERM.EXPENSE_APPROVE);
   const canApproveRa = perms.includes(PERM.RA_APPROVE);
+  const canManageHr = perms.includes(PERM.HR_MANAGE);
   const canViewInventory = perms.includes(PERM.INVENTORY_VIEW);
   const canViewFinance = perms.includes(PERM.FINANCE_VIEW);
 
@@ -51,7 +52,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   // own pending items must still count.
   const hideSelf = !canAutoApprove(user.role);
   const self = hideSelf ? { not: user.id } : undefined;
-  const [poCount, reqCount, gpCount, dprCount, expenseCount, claimCount, raCount] = await Promise.all([
+  const [poCount, reqCount, gpCount, dprCount, expenseCount, claimCount, raCount, leaveCount] = await Promise.all([
     canApprovePo
       ? prisma.purchaseOrder.count({ where: { companyId: company.id, status: "DRAFT", createdById: self } })
       : 0,
@@ -86,9 +87,12 @@ export const GET = apiHandler(async (_req: NextRequest) => {
           where: { companyId: company.id, status: "SUBMITTED", createdById: self, submittedById: self },
         })
       : 0,
+    canManageHr
+      ? prisma.leaveRequest.count({ where: { companyId: company.id, status: "PENDING" } })
+      : 0,
   ]);
 
-  const approvalsTotal = poCount + reqCount + gpCount + dprCount + expenseCount + claimCount + raCount;
+  const approvalsTotal = poCount + reqCount + gpCount + dprCount + expenseCount + claimCount + raCount + leaveCount;
 
   // ── 2. Low-stock alerts (triggered overnight) ──
   let lowStock: Array<{ materialId: string; materialName: string; materialCode: string; qty: number; unit: string; reorderPoint: number | null }> = [];
@@ -256,6 +260,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       expenseCount,
       claimCount,
       raCount,
+      leaveCount,
       total: approvalsTotal,
       canApprovePo,
       canApproveReq,
