@@ -4,7 +4,7 @@ import {
   Package, ArrowLeftRight, AlertTriangle, ArrowLeft,
 } from "lucide-react";
 import { toNum, scopeWhere } from "@/lib/server";
-import { PERM } from "@/lib/roles";
+import { PERM, hasPermission } from "@/lib/roles";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
 import {
   MobileEmptyState,
@@ -46,7 +46,7 @@ export default function MobileMaterialDetailPage({
       permission={PERM.INVENTORY_VIEW}
       skeletonSections={6}
     >
-      {async ({ id, company, canManage }) => {
+      {async ({ id, company, canManage, role }) => {
         const [material, stockItems, movements, locationRows] = await Promise.all([
           prisma.material.findFirst({
             where: { id, companyId: company.id, deletedAt: null },
@@ -87,6 +87,9 @@ export default function MobileMaterialDetailPage({
           );
         }
 
+        // Anyone who can raise an indent gets a direct "Raise indent" on a
+        // low/out material — otherwise they'd navigate away and re-pick it.
+        const canIndent = hasPermission(role, PERM.REQUISITION_CREATE);
         const totalQty = stockItems.reduce((s, i) => s + toNum(i.qty), 0);
         const totalValue = stockItems.reduce((s, i) => s + toNum(i.qty) * toNum(i.movingAvgCost), 0);
         // Aggregate MAC = weighted average across all locations (qty-weighted).
@@ -163,6 +166,15 @@ export default function MobileMaterialDetailPage({
                     ? "Out of stock — tap \u201cAdjust stock\u201d to add opening balance"
                     : `Low stock — below reorder point of ${formatNumber(reorderPoint ?? 0, 0)} ${material.unit}`}
                 </p>
+                {canIndent && (
+                  <Link
+                    href={`/m/requisitions/new?materialId=${material.id}`}
+                    className="mt-0.5 inline-flex items-center gap-1 text-m-caption font-bold press"
+                    style={{ color: "var(--color-signal-dark)" }}
+                  >
+                    Raise indent →
+                  </Link>
+                )}
               </div>
             )}
 
