@@ -12,7 +12,7 @@ import {
   ServiceError,
 } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, getCompanyGroupIds, json, requirePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, getCompanyGroupIds, json, requirePermission, requireUser, toNum, scopeWhere, getActingRole,} from "@/lib/server";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.PROCUREMENT_VIEW);
@@ -146,10 +146,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     });
     // Prevent self-approval — the creator cannot approve their own PO, unless
     // they're a tier-1 role (OWNER/ADMIN) where no higher approver exists.
-    if (po?.createdById === user.id && !canAutoApprove(user.role)) {
+    if (po?.createdById === user.id && !canAutoApprove(await getActingRole())) {
       return json({ error: "You cannot approve your own purchase order. Ask another approver to review it." }, { status: 403 });
     }
-    await approvePurchaseOrder(id, user.role, user.id, body?.approvalNotes, body?.autoOrder ?? true);
+    await approvePurchaseOrder(id, await getActingRole(), user.id, body?.approvalNotes, body?.autoOrder ?? true);
   } else if (action === "reject") {
     const user = await requirePermission(PERM.PO_APPROVE);
     // Prevent self-rejection — the creator cannot reject their own PO.
@@ -161,7 +161,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       return json({ error: "You cannot reject your own purchase order. Ask another approver to review it." }, { status: 403 });
     }
     try {
-      await rejectPurchaseOrder(id, user.role, user.id, body?.rejectionReason);
+      await rejectPurchaseOrder(id, await getActingRole(), user.id, body?.rejectionReason);
     } catch (err) {
       if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status });
       throw err;

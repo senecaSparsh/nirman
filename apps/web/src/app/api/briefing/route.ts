@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, getUserPermissions, json, requireUser, toNum, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, getUserPermissions, json, requireUser, toNum, scopeWhere, getActingRole,} from "@/lib/server";
 import { canAutoApprove } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 
@@ -50,7 +50,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   // counting it here would show a number with nothing actionable behind it.
   // Tier-1 roles (OWNER/ADMIN) are exempt — they CAN self-approve, so their
   // own pending items must still count.
-  const hideSelf = !canAutoApprove(user.role);
+  const hideSelf = !canAutoApprove(await getActingRole());
   const self = hideSelf ? { not: user.id } : undefined;
   const [poCount, reqCount, gpCount, dprCount, expenseCount, claimCount, raCount, leaveCount] = await Promise.all([
     canApprovePo

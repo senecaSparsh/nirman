@@ -11,7 +11,7 @@ import {
   canAutoApprove,
 } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, ForbiddenError, getCompany, getUserPermissions, json, requirePermission, requireAnyPermission, requireUser, toNum, UnauthorizedError, scopeWhere } from "@/lib/server";
+import { apiHandler, ForbiddenError, getCompany, getUserPermissions, json, requirePermission, requireAnyPermission, requireUser, toNum, UnauthorizedError, scopeWhere, getActingRole,} from "@/lib/server";
 import { z } from "zod";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -154,8 +154,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       // A tier-1 creator (OWNER/ADMIN) is the top of the approval hierarchy —
       // no higher approver exists, so submitting auto-approves their indent.
       // Lower tiers leave it SUBMITTED for another approver to review.
-      if (canAutoApprove(user.role)) {
-        await approveRequisition(id, user.id, undefined, user.role);
+      if (canAutoApprove(await getActingRole())) {
+        await approveRequisition(id, user.id, undefined, await getActingRole());
       }
       revalidatePath("/requisitions");
       revalidatePath("/m/procurement");
@@ -169,10 +169,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
         where: { id, ...companyAnchor(company.id), ...await scopeWhere("MaterialRequisition") },
         select: { requestedById: true },
       });
-      if (req?.requestedById === user.id && !canAutoApprove(user.role)) {
+      if (req?.requestedById === user.id && !canAutoApprove(await getActingRole())) {
         return json({ error: "You cannot approve your own indent. Ask another approver to review it." }, { status: 403 });
       }
-      await approveRequisition(id, user.id, undefined, user.role);
+      await approveRequisition(id, user.id, undefined, await getActingRole());
       revalidatePath("/requisitions");
       revalidatePath("/m/procurement");
       return json({ ok: true });

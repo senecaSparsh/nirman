@@ -6,6 +6,7 @@ import { ROLES, normalizeRole } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { MeSettingsView } from "@/components/me/me-settings-view";
+import { DelegationCard } from "@/components/settings/delegation-card";
 import type { MembershipData } from "@/components/profile/profile-tabs";
 
 export default function MePage() {
@@ -71,18 +72,23 @@ async function MeContent() {
       })));
 
   return (
-    <MeSettingsView
-      user={{
-        id: dbUser.id,
-        name: dbUser.name,
-        email: dbUser.email,
-        phone: dbUser.phone,
-        image: dbUser.image,
-        assignedCompanyPhones: "assignedCompanyPhones" in dbUser ? dbUser.assignedCompanyPhones : [],
-      }}
-      roleLabel={roleDef.label}
-      roleDescription={roleDef.description}
-      memberships={memberships}
-    />
+    <>
+      <MeSettingsView
+        user={{
+          id: dbUser.id,
+          name: dbUser.name,
+          email: dbUser.email,
+          phone: dbUser.phone,
+          image: dbUser.image,
+          assignedCompanyPhones: "assignedCompanyPhones" in dbUser ? dbUser.assignedCompanyPhones : [],
+        }}
+        roleLabel={roleDef.label}
+        roleDescription={roleDef.description}
+        memberships={memberships}
+      />
+      <div className="mx-auto mt-4 w-full max-w-4xl px-4 pb-8">
+        <DelegationCard />
+      </div>
+    </>
   );
 }

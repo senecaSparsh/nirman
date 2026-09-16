@@ -47,6 +47,7 @@ import {
   Badge,
 } from "@/components/mobile/v2/primitives";
 import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
+import { DelegationCard } from "@/components/settings/delegation-card";
 import { OnboardingProgress } from "@/components/mobile/v2/onboarding-progress";
 import { buildOnboardingSteps } from "@/lib/onboarding-steps";
 import { ROLES } from "@/lib/roles";
@@ -730,6 +731,11 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
             </button>
           )}
         </Card>
+      </div>
+
+      {/* ── Out of office — delegate authority ────────────────────── */}
+      <div className="mb-4">
+        <DelegationCard />
       </div>
 
       {/* ── Biometric / passkey login ─────────────────────────────── */}

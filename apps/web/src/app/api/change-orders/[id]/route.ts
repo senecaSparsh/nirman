@@ -11,7 +11,7 @@ import {
   implementChangeOrder,
   deleteChangeOrder,
 } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere, getActingRole,} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -90,7 +90,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
           revalidatePath("/change-orders");
           revalidatePath("/m/change-orders");
     revalidatePath("/m/construction?tab=change-orders");
-          return json(await approveChangeOrder(id, user.id, parsed.data.clientApprovedBy, user.role));
+          return json(await approveChangeOrder(id, user.id, parsed.data.clientApprovedBy, await getActingRole()));
         case "reject":
           if (!parsed.data.reason) return json({ error: "Rejection reason is required" }, { status: 400 });
           revalidatePath("/change-orders");

@@ -18,6 +18,7 @@ type AuditEntry = {
   entityId: string;
   userId: string | null;
   userName: string | null;
+  onBehalfOfName: string | null;
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
   createdAt: string;
@@ -131,8 +132,15 @@ export function AuditTrailView({ users }: { users: { id: string; name: string }[
       key: "userName",
       label: "User",
       sortable: true,
-      render: (e) => <span className="text-body">{e.userName ?? "System"}</span>,
-      exportValue: (e) => e.userName ?? "System",
+      render: (e) => (
+        <span className="text-body">
+          {e.userName ?? "System"}
+          {e.onBehalfOfName && (
+            <span className="block text-micro text-muted-foreground">on behalf of {e.onBehalfOfName}</span>
+          )}
+        </span>
+      ),
+      exportValue: (e) => `${e.userName ?? "System"}${e.onBehalfOfName ? ` (for ${e.onBehalfOfName})` : ""}`,
     },
     {
       key: "changes",

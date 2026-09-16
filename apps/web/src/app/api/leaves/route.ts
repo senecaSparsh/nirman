@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import type { LeaveStatus } from "@nirman/db";
 import { createLeaveRequest, approveLeaveRequest, canAutoApprove } from "@nirman/services";
-import { apiHandler, getCompany, json, leaveRequestSchema, requirePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, leaveRequestSchema, requirePermission, requireUser, toNum, scopeWhere, getActingRole,} from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
@@ -96,13 +96,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
     // they're both the requester and the top of the approval hierarchy, so no
     // higher reviewer exists. Leave created for someone else still goes through
     // that person's normal approval (the creator isn't the leave owner).
-    if (canAutoApprove(user.role) && employee.userId === user.id) {
+    if (canAutoApprove(await getActingRole()) && employee.userId === user.id) {
       await approveLeaveRequest({
         leaveId: leave.id,
         companyId: company.id,
         approvedById: user.id,
         approve: true,
-        actorRole: user.role,
+        actorRole: await getActingRole(),
       });
       return json({ ok: true, id: leave.id, status: "APPROVED" }, { status: 201 });
     }

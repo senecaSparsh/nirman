@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, getUserPermissions, json, requireUser, toNum, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, getUserPermissions, json, requireUser, toNum, scopeWhere, getActingRole,} from "@/lib/server";
 import { canAutoApprove } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 
@@ -40,7 +40,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   // Tier-1 roles (OWNER/ADMIN) may approve their own submissions — the
   // service layer allows it, so the queue must show them. Everyone else
   // only sees items created by other users.
-  const selfFilter = canAutoApprove(user.role) ? {} : { not: user.id };
+  const selfFilter = canAutoApprove(await getActingRole()) ? {} : { not: user.id };
 
   // Pre-compute scope filters for scoped models
   const reqScope = await scopeWhere("MaterialRequisition", {});

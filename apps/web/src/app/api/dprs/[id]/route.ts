@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { submitDPR, deleteDpr, subAdminApproveDpr, adminApproveDpr, rejectDpr, resubmitDpr, sendNotification, markDprCostPosted, generateMaterialIssueFromDPR, canAutoApprove } from "@nirman/services";
-import { apiHandler, getCompany, json, dprSchema, requirePermission, requireUser, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, dprSchema, requirePermission, requireUser, toNum, scopeWhere, assertScopeAllows, getActingRole,} from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -92,7 +92,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (body.action === "subAdminApprove") {
     const user = await requirePermission(PERM.DPR_APPROVE_SUB_ADMIN);
     try {
-      await subAdminApproveDpr(id, user.id, body.notes, user.role);
+      await subAdminApproveDpr(id, user.id, body.notes, await getActingRole());
       // Notify the DPR submitter that their DPR was sub-admin approved
       try {
         const dpr = await prisma.dailyProgressReport.findFirst({
@@ -123,7 +123,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (body.action === "adminApprove") {
     const user = await requirePermission(PERM.DPR_APPROVE_ADMIN);
     try {
-      await adminApproveDpr(id, user.id, body.notes, user.role);
+      await adminApproveDpr(id, user.id, body.notes, await getActingRole());
       // Notify the DPR submitter that their DPR was fully approved
       try {
         const dpr = await prisma.dailyProgressReport.findFirst({
@@ -168,7 +168,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (body.action === "reject") {
     // Both sub-admin and admin can reject — accept either permission
     const user = await requireUser();
-    const canReject = hasPermission(user.role, PERM.DPR_APPROVE_SUB_ADMIN) || hasPermission(user.role, PERM.DPR_APPROVE_ADMIN);
+    const canReject = hasPermission(await getActingRole(), PERM.DPR_APPROVE_SUB_ADMIN) || hasPermission(await getActingRole(), PERM.DPR_APPROVE_ADMIN);
     if (!canReject) return json({ error: "Forbidden — DPR rejection requires approval permission" }, { status: 403 });
     if (!body.reason?.trim() && !body.rejectReason?.trim()) return json({ error: "Rejection reason is required" }, { status: 400 });
     try {
@@ -248,9 +248,9 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     });
     // Tier-1 resubmission auto-approves both stages — the resubmitter is the
     // top of the approval hierarchy, so there's no higher reviewer to wait on.
-    if (canAutoApprove(user.role)) {
-      await subAdminApproveDpr(dpr.id, user.id, undefined, user.role);
-      await adminApproveDpr(dpr.id, user.id, undefined, user.role);
+    if (canAutoApprove(await getActingRole())) {
+      await subAdminApproveDpr(dpr.id, user.id, undefined, await getActingRole());
+      await adminApproveDpr(dpr.id, user.id, undefined, await getActingRole());
     }
     revalidatePath("/m/dprs");
     revalidatePath("/m/hr?tab=dprs");

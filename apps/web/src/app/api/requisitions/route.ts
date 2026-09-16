@@ -4,7 +4,7 @@ import { prisma } from "@nirman/db";
 import type { RequisitionStatus } from "@nirman/db";
 import { createRequisition, submitRequisition, approveRequisition, canAutoApprove, ServiceError } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, requirePermission, requireAnyPermission, requisitionSchema, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requireAnyPermission, requisitionSchema, toNum, scopeWhere, assertScopeAllows, getActingRole,} from "@/lib/server";
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.PROCUREMENT_VIEW);
@@ -100,8 +100,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
         // Tier-1 creators (OWNER/ADMIN) auto-approve — no higher approver exists
         // above them, so the indent completes immediately instead of waiting
         // for a second approver who may not exist.
-        if (canAutoApprove(user.role)) {
-          await approveRequisition(req.id, user.id, undefined, user.role);
+        if (canAutoApprove(await getActingRole())) {
+          await approveRequisition(req.id, user.id, undefined, await getActingRole());
         }
       } catch (err) {
         // If auto-submit fails (e.g. transition not allowed), still return

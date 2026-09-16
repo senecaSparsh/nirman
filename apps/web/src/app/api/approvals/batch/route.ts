@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { approvePurchaseOrder, approveGatePass, approveRequisition, canAutoApprove } from "@nirman/services";
-import { apiHandler, getCompany, getUserPermissions, json, requireUser, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, getUserPermissions, json, requireUser, scopeWhere, getActingRole,} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -43,7 +43,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
   // Tier-1 roles (OWNER/ADMIN) may approve their own submissions — mirror
   // the service-layer exemption so batch approve doesn't silently skip them.
-  const selfFilter = canAutoApprove(user.role) ? {} : { not: user.id };
+  const selfFilter = canAutoApprove(await getActingRole()) ? {} : { not: user.id };
 
   // ── Partition items by type ───────────────────────────────────────
   const poIds: string[] = [];
@@ -102,7 +102,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
           results.push({ type: item.type, id: item.id, success: false, error: "PO not found, not in DRAFT status, or you cannot approve your own PO" });
           continue;
         }
-        await approvePurchaseOrder(item.id, user.role, user.id);
+        await approvePurchaseOrder(item.id, await getActingRole(), user.id);
         results.push({ type: item.type, id: item.id, success: true });
       } else if (item.type === "requisition") {
         if (!canApproveReq) {
@@ -124,7 +124,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
           results.push({ type: item.type, id: item.id, success: false, error: "Gate pass not found, not pending, or you cannot approve your own gate pass" });
           continue;
         }
-        const approved = await approveGatePass(item.id, user.id, undefined, user.role);
+        const approved = await approveGatePass(item.id, user.id, undefined, await getActingRole());
         // Approval succeeded but the linked transaction may have failed to
         // auto-execute (e.g. insufficient stock) — surface that to the
         // approver instead of silently leaving a PENDING issue.

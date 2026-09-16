@@ -66,6 +66,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       include: {
         user: { select: { id: true, name: true } },
+        onBehalfOf: { select: { id: true, name: true } },
       },
     });
 
@@ -81,6 +82,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         entityId: e.entityId,
         userId: e.userId,
         userName: e.user?.name ?? null,
+        onBehalfOfName: e.onBehalfOf?.name ?? null,
         before: e.before,
         after: e.after,
         createdAt: e.timestamp.toISOString(),
@@ -116,6 +118,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     include: {
       user: { select: { id: true, name: true } },
+      onBehalfOf: { select: { id: true, name: true } },
     },
   });
 
@@ -129,6 +132,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       action: e.action,
       userId: e.userId,
       userName: e.user?.name ?? null,
+      onBehalfOfName: e.onBehalfOf?.name ?? null,
       before: e.before,
       after: e.after,
       createdAt: e.timestamp.toISOString(),

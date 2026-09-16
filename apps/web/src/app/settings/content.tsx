@@ -6,6 +6,7 @@ import { SettingsView } from "@/components/settings/settings-view";
 import { HsnMasterAdmin } from "@/components/settings/hsn-master-admin";
 import { NotificationsPanel } from "@/components/notifications/notifications-panel";
 import { NotificationPreferences } from "@/components/notifications/notification-preferences";
+import { DelegationCard } from "@/components/settings/delegation-card";
 import { NoAccess } from "@/components/no-access";
 import type { StockLocationRow, DepartmentRow } from "@/lib/types";
 
@@ -196,6 +197,9 @@ export async function SettingsContent() {
       )}
       <div className="mt-6">
         <NotificationPreferences />
+      </div>
+      <div className="mt-6">
+        <DelegationCard />
       </div>
     </>
   );

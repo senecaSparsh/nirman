@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import useSWR from "swr";
 import {
@@ -13,6 +14,7 @@ import {
   ExternalLink,
   Loader2,
   Inbox,
+  AlertOctagon,
 } from "lucide-react";
 import { Page } from "@/components/page";
 import { PageHeader } from "@/components/page-header";
@@ -132,6 +134,15 @@ export function FeedbackInbox() {
           { label: "Total", value: stats?.total ?? 0, hint: "All feedback ever submitted" },
         ]}
       />
+
+      <div className="mb-3 -mt-1">
+        <Link
+          href="/dev/errors"
+          className="inline-flex items-center gap-1 text-[13px] font-medium text-muted-foreground hover:text-foreground"
+        >
+          <AlertOctagon className="size-3.5" /> Error console →
+        </Link>
+      </div>
 
       {/* ── Status filter tabs ─────────────────────────────── */}
       <div className="mb-4 flex items-center gap-1 border-b border-border">

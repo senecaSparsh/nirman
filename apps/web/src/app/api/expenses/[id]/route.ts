@@ -10,7 +10,7 @@ import {
   deleteExpense,
   ServiceError,
 } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, requirePermission, scopeWhere, assertScopeAllows, getActingRole,} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -118,8 +118,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     try {
       await submitExpense(id, company.id, user.id);
       // Tier-1 creators (OWNER/ADMIN) auto-approve — no higher approver exists.
-      if (canAutoApprove(user.role)) {
-        await approveExpense(id, company.id, user.id, { actorRole: user.role });
+      if (canAutoApprove(await getActingRole())) {
+        await approveExpense(id, company.id, user.id, { actorRole: await getActingRole() });
         autoApproved = true;
       }
     } catch (err) {
@@ -138,11 +138,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     const existing = await prisma.expense.findFirst({ where: { id, companyId: company.id, ...await scopeWhere("Expense") } });
     if (!existing) return json({ error: "Expense not found or out of scope" }, { status: 404 });
     // Tier-1 roles (OWNER/ADMIN) may approve their own expense — no higher approver exists.
-    if ((existing.createdById === user.id || existing.submittedById === user.id) && !canAutoApprove(user.role)) {
+    if ((existing.createdById === user.id || existing.submittedById === user.id) && !canAutoApprove(await getActingRole())) {
       return json({ error: "You cannot approve your own expense" }, { status: 403 });
     }
     try {
-      await approveExpense(id, company.id, user.id, { allowBudgetOverrun: d.allowBudgetOverrun === true, actorRole: user.role });
+      await approveExpense(id, company.id, user.id, { allowBudgetOverrun: d.allowBudgetOverrun === true, actorRole: await getActingRole() });
     } catch (err) {
       if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status });
       throw err;

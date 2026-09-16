@@ -8,10 +8,12 @@ import {
   normalizeRole,
   effectivePermissions,
   isCustomRole,
+  roleTier,
   APPROVER_ROLES,
   type Role,
 } from "@/lib/roles";
 import { logAction, resolveUserScope, ServiceError } from "@nirman/services";
+import { recordError, notifyDevelopersOfError } from "@/lib/error-triage";
 import { normalizePhoneForLookup } from "@/lib/phone-otp";
 import { getBackpressureStats, trackRequest } from "@/lib/backpressure";
 import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit";
@@ -39,6 +41,7 @@ interface RequestContext {
   company?: Promise<unknown>;
   permissions?: Promise<string[]>;
   navBootstrap?: Promise<NavBootstrap | null>;
+  actingDelegations?: Promise<DelegationInfo[]>;
 }
 
 const requestContextALS = new AsyncLocalStorage<RequestContext>();
@@ -2328,61 +2331,137 @@ export async function assertCanManageEmployee(employeeId: string, companyId: str
  * so repeated requirePermission() calls within one request share a single
  * DB round-trip.
  */
+/**
+ * Resolve the permission list for a role within a company — built-in or
+ * custom — including RolePermission row overrides and extra grants.
+ */
+async function resolveRolePermissions(
+  role: string,
+  companyId: string,
+  extraPerms: string[],
+): Promise<string[]> {
+  const roleOverrides = await prisma.rolePermission
+    .findMany({ where: { role }, select: { permission: true } })
+    .then((rows) => rows.map((r) => r.permission))
+    .catch(() => [] as string[]);
+
+  if (isCustomRole(role)) {
+    const customRole = await prisma.customRole
+      .findFirst({ where: { companyId, key: role } })
+      .catch(() => null);
+    if (customRole) {
+      return effectivePermissions(customRole.baseRole, [
+        ...customRole.permissions,
+        ...roleOverrides,
+        ...extraPerms,
+      ]);
+    }
+    return effectivePermissions("SUPERVISOR", []);
+  }
+  return effectivePermissions(role, [...roleOverrides, ...extraPerms]);
+}
+
+/**
+ * An active authority delegation pointing at the current user.
+ * While a delegator's delegation is live (delegationEndsAt > now), the
+ * delegate acts with the delegator's role authority — permission checks,
+ * approval routing ranks and acting-role checks all resolve through
+ * getActingRole()/getUserPermissions().
+ */
+export interface DelegationInfo {
+  /** The delegator's UserCompany membership id. */
+  membershipId: string;
+  /** The delegator's user id — recorded as AuditLog.onBehalfOfId. */
+  userId: string;
+  name: string;
+  role: string;
+  endsAt: Date;
+}
+
+/**
+ * Active delegations where the CURRENT user is the delegate.
+ * One level only — a delegate acting for X does not re-delegate X's
+ * authority onward. Memoized per request.
+ */
+export async function getActingDelegations(): Promise<DelegationInfo[]> {
+  return memoizeInRequest("actingDelegations", async () => {
+    const user = await getCurrentUser();
+    if (!user || user.id === "dev") return [];
+    const company = await getCompany();
+    const membership = await prisma.userCompany
+      .findUnique({
+        where: { userId_companyId: { userId: user.id, companyId: company.id } },
+        select: { id: true },
+      })
+      .catch(() => null);
+    if (!membership) return [];
+    const rows = await prisma.userCompany
+      .findMany({
+        where: {
+          companyId: company.id,
+          active: true,
+          approvalsDelegatedToId: membership.id,
+          delegationEndsAt: { gt: new Date() },
+        },
+        select: {
+          id: true,
+          role: true,
+          delegationEndsAt: true,
+          user: { select: { id: true, name: true } },
+        },
+      })
+      .catch(() => [] as never[]);
+    return rows.map((r) => ({
+      membershipId: r.id,
+      userId: r.user.id,
+      name: r.user.name,
+      role: r.role,
+      endsAt: r.delegationEndsAt!,
+    }));
+  });
+}
+
+/**
+ * The role the current user ACTS AS for authority checks (approval
+ * routing ranks, service-layer actorRole gates). Equals their own role
+ * unless an active delegation hands them a higher-authority role.
+ * Display/UI should keep using user.role; only authority checks use this.
+ */
+export async function getActingRole(): Promise<Role> {
+  const user = await getCurrentUser();
+  if (!user) return "SUPERVISOR";
+  let best = normalizeRole(user.role);
+  for (const d of await getActingDelegations()) {
+    const dr = normalizeRole(d.role);
+    if (roleTier(dr) < roleTier(best)) best = dr;
+  }
+  return best;
+}
+
 export async function getUserPermissions(): Promise<string[]> {
   return memoizeInRequest("permissions", async () => {
   const user = await getCurrentUser();
   if (!user) return [];
   const company = await getCompany();
 
-  // ── If the user has a custom role, resolve it from the DB ──
-  // Custom roles store a baseRole (for tier + default permissions) and
-  // an additional permissions array. We resolve the base role's
-  // permissions + the custom role's permissions + any RolePermission
-  // overrides + UserPermission overrides.
-  if (isCustomRole(user.role)) {
-    const customRole = await prisma.customRole.findFirst({
-      where: { companyId: company.id, key: user.role },
-    }).catch(() => null);
-
-    if (customRole) {
-      const baseRole = customRole.baseRole;
-      const [roleOverrides, userMembership] = await Promise.all([
-        prisma.rolePermission
-          .findMany({ where: { role: user.role }, select: { permission: true } })
-          .then((rows) => rows.map((r) => r.permission))
-          .catch(() => [] as string[]),
-        prisma.userCompany
-          .findUnique({
-            where: { userId_companyId: { userId: user.id, companyId: company.id } },
-            include: { userPermissions: { select: { permission: true } } },
-          })
-          .catch(() => null),
-      ]);
-      const userOverrides = userMembership?.userPermissions.map((p) => p.permission) ?? [];
-      // Start with the base role's permissions, add custom role permissions,
-      // add RolePermission overrides, add UserPermission overrides.
-      return effectivePermissions(baseRole, [...customRole.permissions, ...roleOverrides, ...userOverrides]);
-    }
-    // Custom role not found in DB — fall back to SUPERVISOR permissions
-    return effectivePermissions("SUPERVISOR", []);
-  }
-
-  // ── Standard built-in role ──
-  // Fetch role-level and user-level overrides in parallel
-  const [roleOverrides, userMembership] = await Promise.all([
-    prisma.rolePermission
-      .findMany({ where: { role: user.role }, select: { permission: true } })
-      .then((rows) => rows.map((r) => r.permission))
-      .catch(() => [] as string[]),
-    prisma.userCompany
-      .findUnique({
-        where: { userId_companyId: { userId: user.id, companyId: company.id } },
-        include: { userPermissions: { select: { permission: true } } },
-      })
-      .catch(() => null),
-  ]);
+  const userMembership = await prisma.userCompany
+    .findUnique({
+      where: { userId_companyId: { userId: user.id, companyId: company.id } },
+      include: { userPermissions: { select: { permission: true } } },
+    })
+    .catch(() => null);
   const userOverrides = userMembership?.userPermissions.map((p) => p.permission) ?? [];
-  return effectivePermissions(user.role, [...roleOverrides, ...userOverrides]);
+
+  const ownPerms = await resolveRolePermissions(user.role, company.id, userOverrides);
+
+  // ── Delegation union: while an active delegation targets this user,
+  // they also hold each delegator's role permissions. ──
+  const delegations = await getActingDelegations();
+  if (delegations.length === 0) return ownPerms;
+  const delegatedPermSets = await Promise.all(
+    delegations.map((d) => resolveRolePermissions(d.role, company.id, [])),
+  );
+  return [...new Set([...ownPerms, ...delegatedPermSets.flat()])];
   });
 }
 
@@ -2600,11 +2679,121 @@ export async function getCurrentUserMembership(): Promise<{
   });
 }
 
+// ── Auto-audit (company activity trail) ─────────────────────────────
+// Every successful mutation that doesn't carry richer opts.audit
+// metadata writes a generic AuditLog entry derived from the request —
+// "who did what, where, when" for the OWNER/ADMIN. Routes with
+// opts.audit still win (they record semantic before/after payloads).
+
+/** Internal/telemetry/noise endpoints that must never write audit rows. */
+const AUTO_AUDIT_SKIP_PREFIXES = [
+  "/api/error-logs",
+  "/api/audit",
+  "/api/activity",
+  "/api/notifications",
+  "/api/auth",
+  "/api/me",
+  "/api/health",
+  "/api/search",
+  "/api/briefing",
+  "/api/assistant",
+  "/api/mobile",
+  "/api/ocr",
+  "/api/uploads",
+  "/api/telephony",
+  "/api/cron",
+  "/api/backup",
+  "/api/export",
+  "/api/reports",
+  "/api/tally",
+  "/api/e-invoice",
+  "/api/feedback",
+  "/api/dashboard-counts",
+  "/api/persona-home",
+  "/api/integrations",
+];
+
+/** Path segments that read as business actions, not resource ids —
+ * mapped to the ACTION_TYPES vocabulary the audit UI filters on. */
+const AUTO_AUDIT_ACTION_WORDS = new Set([
+  "approve", "reject", "submit", "resubmit", "order", "receive", "cancel",
+  "complete", "assign", "return", "retire", "confirm", "reconcile",
+  "convert", "partition", "restore", "pay", "dispatch", "deliver",
+  "close", "reopen", "finalize", "lock", "unlock", "publish", "send",
+  "sync", "generate", "escalate", "extend", "terminate", "activate",
+  "deactivate", "verify", "check-in", "check-out", "issue", "transfer",
+  "waive-quotes", "select-quote", "unpartition", "split", "merge",
+]);
+
+function deriveAutoAudit(pathname: string, method: string): {
+  action: string;
+  entityType: string;
+  entityId: string | null;
+} {
+  const segments = pathname.split("/").filter(Boolean); // ["api", "purchase-orders", "abc", "approve"]
+  const rawEntity = segments[1] ?? "api";
+  const entityType =
+    rawEntity
+      .split("-")
+      .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+      .join("")
+      .replace(/s$/, "") || "Api";
+
+  // Last segment wins as the verb when it's an action word; otherwise the
+  // HTTP method maps to CREATE/UPDATE/DELETE.
+  const last = segments[segments.length - 1] ?? "";
+  const verb = AUTO_AUDIT_ACTION_WORDS.has(last)
+    ? last.replace(/-/g, "_").toUpperCase()
+    : method === "POST"
+      ? "CREATE"
+      : method === "DELETE"
+        ? "DELETE"
+        : "UPDATE";
+
+  // First id-like segment after the entity segment.
+  const entityId =
+    segments.slice(2).find((s) => /^[A-Za-z0-9_-]{15,}$/.test(s)) ?? null;
+
+  return { action: `${entityType}_${verb}`, entityType, entityId };
+}
+
+/** Read a mutation's response body for the audit `after` payload —
+ * bounded, pruned, and never allowed to fail the request. */
+async function auditSnapshot(res: Response): Promise<unknown> {
+  try {
+    const len = Number(res.headers.get("content-length") ?? "0");
+    if (len > 200_000) return undefined;
+    const parsed = await Promise.race([
+      res.clone().json(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error("audit snapshot timeout")), 1500)),
+    ]);
+    const prune = (v: unknown, depth: number): unknown => {
+      if (depth > 4) return "…";
+      if (typeof v === "string") return v.length > 400 ? v.slice(0, 400) + "…" : v;
+      if (Array.isArray(v)) return v.slice(0, 20).map((i) => prune(i, depth + 1));
+      if (v && typeof v === "object") {
+        const out: Record<string, unknown> = {};
+        for (const [k, val] of Object.entries(v).slice(0, 40)) {
+          if (/photo|image|base64|blob|data:/i.test(k)) { out[k] = "[omitted]"; continue; }
+          out[k] = prune(val, depth + 1);
+        }
+        return out;
+      }
+      return v;
+    };
+    return prune(parsed, 0);
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Wrap an API handler with auth + error handling.
  * Returns 401 if no session is found (unless AUTH_BYPASS is set).
  * Mutations (POST/PATCH/PUT/DELETE) automatically write an AuditLog
- * entry on success when `audit` options are provided.
+ * entry on success — rich semantic entries when `audit` options are
+ * provided, otherwise a generic auto-derived entry (entity from path +
+ * pruned response body). Internal/noise endpoints are skipped.
  *
  * **Auto-applies rate limiting**: GET → `read` preset, mutations → `write`
  * preset. Override with `{ rateLimit: "heavy" }` or `{ rateLimit: false }`.
@@ -2693,16 +2882,46 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
         }
 
         // Best-effort audit logging for mutations
-        if (opts.audit && (req.method === "POST" || req.method === "PATCH" || req.method === "PUT" || req.method === "DELETE")) {
+        const isMutation = req.method === "POST" || req.method === "PATCH" || req.method === "PUT" || req.method === "DELETE";
+        if (isMutation) {
           try {
             const user = await getCurrentUser();
-            const entityId = opts.audit.entityIdFrom?.(req as TReq, res);
-            if (entityId) {
+            // Acting under someone's delegation? Record it on the audit row.
+            const delegations = user ? await getActingDelegations() : [];
+            const onBehalfOfId = delegations[0]?.userId ?? undefined;
+            const pathname = new URL(req.url).pathname;
+            if (opts.audit) {
+              const entityId = opts.audit.entityIdFrom?.(req as TReq, res);
+              if (entityId) {
+                await logAction(prisma, {
+                  userId: user?.id,
+                  companyId: user?.companyId ?? undefined,
+                  action: opts.audit.action,
+                  entityType: opts.audit.entityType,
+                  entityId,
+                  onBehalfOfId,
+                });
+              }
+            } else if (
+              res.status < 400 &&
+              !opts.skipSession &&
+              !AUTO_AUDIT_SKIP_PREFIXES.some((p) => pathname.startsWith(p))
+            ) {
+              const derived = deriveAutoAudit(pathname, req.method);
+              const after = await auditSnapshot(res);
+              const entityId =
+                derived.entityId ??
+                (after && typeof after === "object" && "id" in after
+                  ? String((after as { id: unknown }).id)
+                  : "(collection)");
               await logAction(prisma, {
                 userId: user?.id,
-                action: opts.audit.action,
-                entityType: opts.audit.entityType,
+                companyId: user?.companyId ?? undefined,
+                action: derived.action,
+                entityType: derived.entityType,
                 entityId,
+                after,
+                onBehalfOfId,
               });
             }
           } catch {
@@ -2752,13 +2971,37 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
 
       const status = (err as { status?: number })?.status ?? 500;
 
-      // Capture 500s in Sentry (no-op without SENTRY_DSN).
+      // Capture 500s in Sentry (no-op without SENTRY_DSN) AND in the
+      // ErrorLog table — the developer console must see server crashes
+      // even when Sentry isn't configured.
       if (status >= 500) {
         try {
           const Sentry = await import("@sentry/nextjs");
           Sentry.captureException(err);
         } catch {
           // Sentry not available — continue without.
+        }
+        try {
+          const u = await getCurrentUser().catch(() => null);
+          const result = await recordError({
+            type: "server",
+            source: "server",
+            message: err instanceof Error ? err.message : String(err),
+            stack: err instanceof Error ? err.stack : undefined,
+            url: req.url,
+            userAgent: req.headers.get("user-agent"),
+            userId: u?.id ?? null,
+            companyId: u?.companyId ?? null,
+          });
+          if (result.created || result.reopened) {
+            await notifyDevelopersOfError({
+              message: err instanceof Error ? err.message : String(err),
+              url: req.url,
+              reopened: result.reopened,
+            });
+          }
+        } catch {
+          // Error recording must never mask the original failure
         }
       }
 

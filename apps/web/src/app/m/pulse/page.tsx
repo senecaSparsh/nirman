@@ -57,6 +57,12 @@ export default function PulsePage() {
           lowStock,
           draftPOs,
           pendingReqs,
+          pendingDprs,
+          pendingClaims,
+          oldestPO,
+          oldestReq,
+          oldestDpr,
+          oldestClaim,
           overduePOs,
           overBudgetCount,
           leaseExpiry,
@@ -77,6 +83,31 @@ export default function PulsePage() {
           }),
           prisma.materialRequisition.count({
             where: { project: { companyId: company.id }, status: "SUBMITTED" },
+          }),
+          prisma.dailyProgressReport.count({
+            where: { companyId: company.id, approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] } },
+          }),
+          prisma.expenseClaim.count({
+            where: { companyId: company.id, status: "SUBMITTED" },
+          }),
+          // Approval aging — the oldest item waiting in each queue. When
+          // these sit >48h the owner needs to see it (and the cron
+          // escalation job nudges the responsible manager).
+          prisma.purchaseOrder.aggregate({
+            where: { companyId: company.id, status: "DRAFT" },
+            _min: { createdAt: true },
+          }),
+          prisma.materialRequisition.aggregate({
+            where: { project: { companyId: company.id }, status: "SUBMITTED" },
+            _min: { createdAt: true },
+          }),
+          prisma.dailyProgressReport.aggregate({
+            where: { companyId: company.id, approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] } },
+            _min: { createdAt: true },
+          }),
+          prisma.expenseClaim.aggregate({
+            where: { companyId: company.id, status: "SUBMITTED" },
+            _min: { submittedAt: true },
           }),
           prisma.purchaseOrder.count({
             where: {
@@ -103,7 +134,18 @@ export default function PulsePage() {
           }),
         ]);
 
-        const approvalCount = draftPOs + pendingReqs;
+        const approvalCount = draftPOs + pendingReqs + pendingDprs + pendingClaims;
+        const oldestPendingAt = [
+          oldestPO._min.createdAt,
+          oldestReq._min.createdAt,
+          oldestDpr._min.createdAt,
+          oldestClaim._min.submittedAt,
+        ]
+          .filter((d): d is Date => d != null)
+          .sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
+        const oldestApprovalDays = oldestPendingAt
+          ? Math.floor((new Date().getTime() - oldestPendingAt.getTime()) / 86_400_000)
+          : 0;
         const attentionCount =
           approvalCount + overduePOs + lowStock.length + overBudgetCount + tallyStats.pending + leaseExpiry.length;
         const topProjects = portfolio.projects.slice(0, 5);
@@ -157,7 +199,7 @@ export default function PulsePage() {
                 variant={approvalCount > 0 ? "primary" : "secondary"}
               >
                 {approvalCount > 0
-                  ? `Approvals · ${approvalCount}`
+                  ? `Approvals · ${approvalCount}${oldestApprovalDays >= 2 ? ` · oldest ${oldestApprovalDays}d` : ""}`
                   : "Approvals"}
               </MobileCta>
               <MobileCta href="/m/materials" icon={Boxes} variant="secondary">

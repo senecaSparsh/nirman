@@ -4,7 +4,7 @@ import { prisma } from "@nirman/db";
 import type { PurchaseOrderStatus } from "@nirman/db";
 import { createPurchaseOrder, canAutoApprove, ServiceError } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, getCompanyGroupIds, json, purchaseOrderSchema, requirePermission, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, getCompanyGroupIds, json, purchaseOrderSchema, requirePermission, toNum, scopeWhere, assertScopeAllows, getActingRole,} from "@/lib/server";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
 
 export const GET = apiHandler(async (req: NextRequest) => {
@@ -117,7 +117,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     // above them, so routing their own PO through a second review is pure
     // friction (and a deadlock when the owner is the only admin). Everyone
     // else's PO stays DRAFT and waits for an approver who isn't the creator.
-    const selfApprove = canAutoApprove(user.role);
+    const selfApprove = canAutoApprove(await getActingRole());
     const po = await createPurchaseOrder({
       ...rest,
       companyId: company.id,

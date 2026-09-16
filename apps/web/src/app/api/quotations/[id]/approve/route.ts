@@ -8,7 +8,7 @@ import {
   getCurrentUserMembership,
   json,
   requirePermission,
-  approveQuotationSchema,
+  approveQuotationSchema,  getActingRole,
 } from "@/lib/server";
 import { revalidatePath } from "next/cache";
 
@@ -53,7 +53,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       approverUserId: user.id,
       selectedQuoteId: parsed.data.selectedQuoteId,
       reason: parsed.data.reason ?? undefined,
-      approverRole: user.role,
+      approverRole: await getActingRole(),
     });
     revalidatePath("/quotations");
     revalidatePath("/procurement");

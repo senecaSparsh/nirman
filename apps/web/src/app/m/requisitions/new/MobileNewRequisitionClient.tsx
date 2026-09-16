@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ShoppingCart, Plus, Trash2, Send, Loader2,
@@ -89,6 +89,23 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
       setDefaultsApplied(true);
     }
   }, [hasDraft, draftRestored, defaultsApplied, getDefault, data.projects]);
+
+  // ── Prefill a material from ?materialId= — e.g. "Raise indent" on a
+  // low/out-of-stock material detail. Skipped when a draft is being restored.
+  const searchParams = useSearchParams();
+  const prefillMaterialId = searchParams.get("materialId");
+  const [prefilled, setPrefilled] = useState(false);
+  useEffect(() => {
+    if (prefilled || hasDraft || draftRestored) return;
+    if (prefillMaterialId && data.materials.some((m) => m.id === prefillMaterialId)) {
+      setLines((prev) =>
+        prev.length === 1 && !prev[0]!.materialId
+          ? [{ ...prev[0]!, materialId: prefillMaterialId }]
+          : prev,
+      );
+      setPrefilled(true);
+    }
+  }, [prefilled, hasDraft, draftRestored, prefillMaterialId, data.materials]);
 
   function addLine() {
     setLines([...lines, { materialId: "", qty: "", notes: "", preferredSupplierId: "" }]);

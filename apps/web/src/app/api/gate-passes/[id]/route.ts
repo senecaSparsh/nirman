@@ -9,7 +9,7 @@ import {
   cancelGatePass,
   canAutoApprove,
 } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requireUser, toNum, scopeWhere, getActingRole,} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { prisma } from "@nirman/db";
 
@@ -70,12 +70,12 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     // Tier-1 creators (OWNER/ADMIN) auto-approve — the gate-pass checkpoint is
     // a control against unauthorized material removal; an owner asserting it
     // should leave IS the authorization. Lower tiers wait for an approver.
-    if (canAutoApprove(user.role)) {
-      await approveGatePass(id, user.id, undefined, user.role);
+    if (canAutoApprove(await getActingRole())) {
+      await approveGatePass(id, user.id, undefined, await getActingRole());
     }
   } else if (action === "approve") {
     const user = await requirePermission(PERM.GATE_PASS_APPROVE);
-    const approved = await approveGatePass(id, user.id, body?.notes, user.role);
+    const approved = await approveGatePass(id, user.id, body?.notes, await getActingRole());
     // Surface auto-execution failure (e.g. insufficient stock) — the pass is
     // approved but the linked transaction couldn't run, which the approver
     // needs to see rather than discover later at the gate.

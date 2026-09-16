@@ -146,7 +146,6 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
   let leaveType = "";
   let leaveDays = "";
   let leaveStartDate = "";
-  let approverName = "";
   const updated = await withSerializableTransaction(async (tx) => {
     const leave = await tx.leaveRequest.findFirst({
       where: { id: input.leaveId, companyId: input.companyId },
@@ -233,8 +232,6 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
     leaveType = leave.type;
     leaveDays = leave.days.toString();
     leaveStartDate = leave.startDate.toISOString().slice(0, 10);
-    approverName =
-      (await tx.user.findUnique({ where: { id: input.approvedById }, select: { name: true } }))?.name ?? "";
 
     // When approving, auto-create WorkerAttendance rows for each working day
     // in the leave range so payroll picks them up correctly. UNPAID leave →
@@ -301,7 +298,10 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
   // Tell the requester — the person whose leave this was. Sent via
   // recipientIds (replaces role resolution) so it never broadcasts to
   // the whole company, and the approver is excluded when the requester
-  // approved their own leave (tier-1 self-approve).
+  // approved their own leave (tier-1 self-approve). Approver name is
+  // read outside the tx — the lookup isn't transactional.
+  const approverName =
+    (await prisma.user.findUnique({ where: { id: input.approvedById }, select: { name: true } }).catch(() => null))?.name ?? "";
   void emitNotificationEvent({
     eventType: input.approve ? NotificationEventType.LEAVE_APPROVED : NotificationEventType.LEAVE_REJECTED,
     companyId: input.companyId,

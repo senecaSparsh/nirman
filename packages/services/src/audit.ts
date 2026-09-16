@@ -75,8 +75,13 @@ export async function logAction(tx: Prisma.TransactionClient, entry: {
   entityId: string;
   before?: unknown;
   after?: unknown;
+  /** Set when the actor was operating under an active authority
+   *  delegation — the delegator's userId. The trail reads "delegate acted
+   *  on behalf of delegator". */
+  onBehalfOfId?: string;
 }): Promise<void> {
   const safeUserId = await resolveUserId(tx, entry.userId);
+  const safeOnBehalfOfId = await resolveUserId(tx, entry.onBehalfOfId);
   await tx.auditLog.create({
     data: {
       userId: safeUserId,
@@ -84,8 +89,9 @@ export async function logAction(tx: Prisma.TransactionClient, entry: {
       action: entry.action,
       entityType: entry.entityType,
       entityId: entry.entityId,
-      before: entry.before as any,
-      after: entry.after as any,
+      before: entry.before as Prisma.InputJsonValue,
+      after: entry.after as Prisma.InputJsonValue,
+      onBehalfOfId: safeOnBehalfOfId,
     },
   });
 }

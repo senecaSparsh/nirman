@@ -197,16 +197,32 @@ model UserCompany {
   // employee has at least one active membership in another company.
   active Boolean @default(true)
 
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  company     Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  reportsTo   UserCompany? @relation("UserCompanyReportsTo", fields: [reportsToUserCompanyId], references: [id], onDelete: SetNull)
-  directReports UserCompany[] @relation("UserCompanyReportsTo")
+  // ── Authority delegation (out-of-office) ──
+  // When a member is away (leave, travel, site visit) they hand their
+  // authority to another member in the SAME company until delegationEndsAt.
+  // While active, the delegate's permission checks resolve with the
+  // delegator's role authority (getActingContext in lib/server.ts) — so a
+  // manager on leave doesn't stall every approval in the company. Actions
+  // taken under delegation are attributed to the delegate AND flagged with
+  // onBehalfOf on AuditLog. One level only — no chains.
+  approvalsDelegatedToId String?
+  delegationStartedAt    DateTime?
+  delegationEndsAt       DateTime?
+  delegationNote         String?
+
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company              Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reportsTo            UserCompany?  @relation("UserCompanyReportsTo", fields: [reportsToUserCompanyId], references: [id], onDelete: SetNull)
+  directReports        UserCompany[] @relation("UserCompanyReportsTo")
+  approvalsDelegatedTo UserCompany?  @relation("UserCompanyDelegation", fields: [approvalsDelegatedToId], references: [id], onDelete: SetNull)
+  delegatedFrom        UserCompany[] @relation("UserCompanyDelegation")
   scopes      UserScope[]
   userPermissions UserPermission[]
 
   @@unique([userId, companyId])
   @@index([companyId])
   @@index([reportsToUserCompanyId])
+  @@index([approvalsDelegatedToId])
 }
 
 // One or more scope entries per UserCompany membership. A Sub-Admin
@@ -905,6 +921,8 @@ model User {
   resolvedFeedback      Feedback[]              @relation("FeedbackResolver")
   // ── Error logs — client-side errors captured for the developer ──
   errorLogs             ErrorLog[]              @relation("ErrorLogUser")
+  resolvedErrorLogs     ErrorLog[]              @relation("ErrorLogResolver")
+  onBehalfOfAuditLogs   AuditLog[]              @relation("AuditOnBehalfOf")
   // ── Call tracking — company phone assignments + call parties ──
   assignedCompanyPhones  CompanyPhone[]          @relation("CompanyPhoneAssignee")
   phoneAssignments       PhoneAssignment[]       @relation("PhoneAssignmentUser")
@@ -988,25 +1006,43 @@ model Feedback {
 
 model ErrorLog {
   id        String   @id @default(cuid())
-  userId    String?  // the user who was on the page (null if unauthenticated)
+  userId    String?  // the LAST user who hit this error (latest occurrence)
   companyId String?  // their company at time of error
-  type      String   // "error" | "unhandledrejection" | "console.error"
-  message   String   // error message
+  type      String   // "error" | "unhandledrejection" | "console.error" | "server"
+  message   String   // latest occurrence's error message
   filename  String?  // source file (for type="error")
   lineno    Int?     // line number
   colno     Int?     // column number
-  stack     String?  // stack trace (if available)
-  url       String   // page URL where the error occurred
-  userAgent String?  // browser/device info
+  stack     String?  // latest occurrence's stack trace
+  url       String   // latest page URL where the error occurred
+  userAgent String?  // latest browser/device info
   createdAt DateTime @default(now())
 
-  user    User?    @relation("ErrorLogUser", fields: [userId], references: [id], onDelete: SetNull)
-  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  // ── Triage fields (one row per unique error signature) ──
+  // fingerprint groups identical errors into a single row: identical
+  // occurrences update the row (occurrenceCount/lastSeenAt/latest sample)
+  // instead of inserting a new one. resolvedAt/reopenedCount give the
+  // developer a fix-verification loop — a resolved error that recurs
+  // auto-reopens so regressions are never silently lost.
+  fingerprint     String?   @unique // normalized hash of type+message+top frame+path
+  source          String    @default("client") // "client" | "server"
+  occurrenceCount Int       @default(1)
+  firstSeenAt     DateTime  @default(now())
+  lastSeenAt      DateTime  @default(now())
+  resolvedAt      DateTime?
+  resolvedById    String?
+  reopenedCount   Int       @default(0)
+
+  user       User?    @relation("ErrorLogUser", fields: [userId], references: [id], onDelete: SetNull)
+  company    Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  resolvedBy User?    @relation("ErrorLogResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([companyId])
   @@index([type])
   @@index([createdAt])
+  @@index([resolvedAt])
+  @@index([lastSeenAt])
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -4415,14 +4451,20 @@ model AuditLog {
   entityId   String
   before     Json?
   after      Json?
+  // Set when the actor was operating under an active authority delegation
+  // (UserCompany.approvalsDelegatedToId) — the audit reads
+  // "Ramesh approved PO-123 (on behalf of Suresh)".
+  onBehalfOfId String?
   timestamp  DateTime @default(now())
 
-  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  company    Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  onBehalfOf User?    @relation("AuditOnBehalfOf", fields: [onBehalfOfId], references: [id], onDelete: SetNull)
 
   @@index([entityType, entityId])
   @@index([userId])
   @@index([companyId])
+  @@index([timestamp])
 }
 
 // ───────────────────────────────────────────────────────────
