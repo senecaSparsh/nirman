@@ -86,6 +86,9 @@ type BriefingData = {
     reqCount: number;
     gpCount: number;
     dprCount: number;
+    expenseCount?: number;
+    claimCount?: number;
+    raCount?: number;
     total: number;
     canApprovePo: boolean;
     canApproveReq: boolean;
@@ -132,11 +135,23 @@ export function HomeTree({ userName }: { userName: string | null }) {
   const briefingChildren: LeafNode[] = [];
   if (briefing) {
     if (briefing.approvals.total > 0) {
+      // Itemize only the types actually pending — "0 PO · 0 indent · 0 DPR"
+      // under a count of 2 reads as "nothing pending" when the 2 are gate
+      // passes (or claims/RA bills) the line didn't mention.
+      const parts = [
+        briefing.approvals.poCount && `${briefing.approvals.poCount} PO`,
+        briefing.approvals.reqCount && `${briefing.approvals.reqCount} indent`,
+        briefing.approvals.dprCount && `${briefing.approvals.dprCount} DPR`,
+        briefing.approvals.gpCount && `${briefing.approvals.gpCount} gate pass`,
+        briefing.approvals.expenseCount && `${briefing.approvals.expenseCount} expense`,
+        briefing.approvals.claimCount && `${briefing.approvals.claimCount} claim`,
+        briefing.approvals.raCount && `${briefing.approvals.raCount} RA bill`,
+      ].filter(Boolean);
       briefingChildren.push({
         icon: ClipboardCheck,
         iconBg: "var(--color-signal)",
         name: "Approvals",
-        sub: `${briefing.approvals.poCount} PO · ${briefing.approvals.reqCount} indent · ${briefing.approvals.dprCount} DPR`,
+        sub: parts.join(" · "),
         href: "/m/pulse/approvals",
         count: briefing.approvals.total,
       });
