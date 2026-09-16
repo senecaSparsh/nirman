@@ -47,13 +47,19 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const gpScope = await scopeWhere("GatePass", {});
 
   if (countOnly) {
+    // Count only what THIS user can approve — a req-only approver must not
+    // get a badge inflated by POs they have no permission to touch.
     const [poCount, reqCount, gpCount] = await Promise.all([
-      prisma.purchaseOrder.count({
-        where: { companyId: company.id, status: "DRAFT", createdById: selfFilter },
-      }),
-      prisma.materialRequisition.count({
-        where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: selfFilter, ...reqScope },
-      }),
+      canApprovePo
+        ? prisma.purchaseOrder.count({
+            where: { companyId: company.id, status: "DRAFT", createdById: selfFilter },
+          })
+        : Promise.resolve(0),
+      canApproveReq
+        ? prisma.materialRequisition.count({
+            where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: selfFilter, ...reqScope },
+          })
+        : Promise.resolve(0),
       canApproveGatePass
         ? prisma.gatePass.count({
             where: { companyId: company.id, status: "PENDING", createdById: selfFilter, ...gpScope },
