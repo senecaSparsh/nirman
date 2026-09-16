@@ -120,13 +120,19 @@ function SignInForm({ showDevLogin }: { showDevLogin: boolean }) {
       if (data.mode === "phone") {
         setMode("phone");
         setPhone(data.phone ?? "");
-        setPhonePassword(data.password ?? "");
       } else if (data.mode === "email") {
         setMode("email");
         setEmail(data.email ?? "");
-        setPassword(data.password ?? "");
       }
       setRememberMe(true);
+      // A stored entry saved before the password-stop fix still carries a
+      // plaintext password — rewrite it identifier-only so it self-heals.
+      if (data.password !== undefined) {
+        const clean: Record<string, string> = { mode: data.mode };
+        if (data.phone) clean.phone = data.phone;
+        if (data.email) clean.email = data.email;
+        localStorage.setItem("nirman.remember", JSON.stringify(clean));
+      }
     } catch { /* ignore corrupt storage */ }
   }, []);
 
@@ -477,11 +483,15 @@ function SignInForm({ showDevLogin }: { showDevLogin: boolean }) {
     setResendCooldown(0);
   }
 
-  // Save or clear remembered credentials based on the checkbox state.
-  function persistCredentials(mode: LoginMode, id: string, pw: string) {
+  // Save or clear the remembered identifier based on the checkbox state.
+  // We intentionally store ONLY the phone/email — never the password.
+  // Persisting a plaintext credential in localStorage is readable by any
+  // script on the page and auto-fills it for the next user on a shared
+  // device. "Remember me" means "remember who I am", not "remember my key".
+  function persistCredentials(mode: LoginMode, id: string, _pw: string) {
     try {
       if (rememberMe) {
-        localStorage.setItem("nirman.remember", JSON.stringify({ mode, [mode === "phone" ? "phone" : "email"]: id, password: pw }));
+        localStorage.setItem("nirman.remember", JSON.stringify({ mode, [mode === "phone" ? "phone" : "email"]: id }));
       } else {
         localStorage.removeItem("nirman.remember");
       }
