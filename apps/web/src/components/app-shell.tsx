@@ -226,10 +226,31 @@ export function AppShell({
       }
       return originalFetch(input, init).then((res) => {
         if (res.status === 401 && !redirecting) {
-          redirecting = true;
-          // Preserve the current path so the user returns here after re-login.
-          const current = window.location.pathname + window.location.search;
-          void signOutAndCleanup(`/sign-in?redirect=${encodeURIComponent(current)}`);
+          // A single 401 doesn't prove the session died — a badge or
+          // permission-check endpoint can 401 on a transient cookie-sync
+          // gap while the Better-Auth session is still valid. Verify the
+          // session is actually gone (get-session is under /api/auth/, so
+          // this fetch skips this interceptor — no recursion) before
+          // forcing a sign-out.
+          void originalFetch("/api/auth/get-session").then((sessRes) => {
+            if (sessRes.ok) {
+              return sessRes.json().then((data) => {
+                if (data?.user) return; // session alive — transient 401, stay put
+                if (redirecting) return;
+                redirecting = true;
+                // Preserve the current path so the user returns here after re-login.
+                const current = window.location.pathname + window.location.search;
+                void signOutAndCleanup(`/sign-in?redirect=${encodeURIComponent(current)}`);
+              });
+            }
+            if (redirecting) return;
+            redirecting = true;
+            const current = window.location.pathname + window.location.search;
+            void signOutAndCleanup(`/sign-in?redirect=${encodeURIComponent(current)}`);
+          }).catch(() => {
+            // Probe failed (network blip) — do NOT sign out on an
+            // unverifiable 401; the next poll will re-confirm.
+          });
         }
         return res;
       });
