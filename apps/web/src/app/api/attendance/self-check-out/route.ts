@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma, type AttendanceStatus } from "@nirman/db";
-import { apiHandler, getCompany, json, requireUser, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireUser, scopeWhere, getActingRole,} from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 
 /**
@@ -55,7 +55,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
   // Verify the user is linked to this employee (or is a manager/admin)
   const isSelf = employee.userId === user.id;
-  const isManager = hasPermission(user.role, PERM.HR_MANAGE);
+  const isManager = hasPermission(await getActingRole(), PERM.HR_MANAGE);
   if (!isSelf && !isManager) {
     return json({ error: "You can only check out your own attendance" }, { status: 403 });
   }

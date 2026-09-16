@@ -252,6 +252,16 @@ function svcRoleTier(role: string): number {
 }
 
 /**
+ * Whether this role typically holds approval authority (tier 1–3: exec,
+ * senior mgmt, middle mgmt). Used to decide who's worth nudging about
+ * delegating their approvals before going on leave — field roles approve
+ * nothing, so prompting them is noise.
+ */
+export function holdsApprovalAuthority(role: string | null | undefined): boolean {
+  return svcRoleTier(role ?? "") <= 3;
+}
+
+/**
  * Whether a creator's own authority is sufficient to auto-approve what they
  * just created — i.e. they sit at the top of the approval hierarchy and no
  * higher reviewer exists to defer to.

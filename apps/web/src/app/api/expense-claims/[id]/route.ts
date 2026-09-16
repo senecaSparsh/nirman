@@ -31,7 +31,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       companyId: company.id,
       ...await scopeWhere("ExpenseClaim", {}),
       // Self-service claimants can read only their own claims.
-      ...(hasPermission(user.role, PERM.FINANCE_VIEW) ? {} : { claimantId: user.id }),
+      ...(hasPermission(await getActingRole(), PERM.FINANCE_VIEW) ? {} : { claimantId: user.id }),
     },
     include: {
       claimant: { select: { id: true, name: true } },
@@ -94,7 +94,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     if (d.action === "submit") {
       const user = await requireAnyPermission(PERM.EXPENSE_CREATE, PERM.CLAIM_CREATE);
       // Self-service claimants can submit only their own claims.
-      if (!hasPermission(user.role, PERM.EXPENSE_CREATE) && existing.claimantId !== user.id) {
+      if (!hasPermission(await getActingRole(), PERM.EXPENSE_CREATE) && existing.claimantId !== user.id) {
         return json({ error: "You can only submit your own claims" }, { status: 403 });
       }
       await submitExpenseClaim(id, company.id, user.id);

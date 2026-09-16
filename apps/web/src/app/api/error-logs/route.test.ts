@@ -60,7 +60,8 @@ describe("POST /api/error-logs", () => {
     expect(d.signatures).toBe(1);
     // One create call carrying occurrences=4, not four creates.
     expect(mockPrisma().errorLog!.create).toHaveBeenCalledOnce();
-    expect(mockPrisma().errorLog!.create.mock.calls[0]?.[0]?.data.occurrenceCount).toBe(4);
+    const created = mockPrisma().errorLog!.create.mock.calls.at(-1)![0] as { data: { occurrenceCount: number } };
+    expect(created.data.occurrenceCount).toBe(4);
   });
 
   it("reopens a resolved signature on recurrence", async () => {

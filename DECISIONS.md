@@ -152,8 +152,10 @@ If you catch yourself planning to "build the rent module" or "add the sale lifec
      delegate their authority until a date (settings + /me + /m/me card);
      delegates inherit the delegator's permissions (getUserPermissions union)
      and acting role (getActingRole) across all approval routes. Daily
-     `/api/cron/approval-aging` digests stalled (>48h) approvals to execs +
-     active delegates; Pulse shows oldest-pending age.
+     `/api/cron/approval-aging` (scheduled via scheduler.sh + render.yaml)
+     digests stalled (>48h) approvals to execs + active delegates, prunes
+     resolved ErrorLogs >30d, and leave approval nudges approvers to
+     delegate before going away; Pulse shows oldest-pending age.
 1. **Cross-cutting refinement** — per `global_rules.md`, refine every page/button
    to function correctly end-to-end (frontend ↔ backend ↔ database). A multi-pass
    audit (committed ~50 fixes) covered: every business flow end-to-end + DB/GL,

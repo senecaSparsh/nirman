@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { startTimer, stopTimer } from "@nirman/services";
-import { apiHandler, getCompany, json, requireUser } from "@/lib/server";
+import { apiHandler, getCompany, json, requireUser, getActingRole,} from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { z } from "zod";
 
@@ -23,7 +23,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   if (!task) return json({ error: "Task not found" }, { status: 404 });
 
   const isAssignee = task.assignedToId === user.id;
-  const isManager = hasPermission(user.role, PERM.TASKS_ASSIGN);
+  const isManager = hasPermission(await getActingRole(), PERM.TASKS_ASSIGN);
   if (!isAssignee && !isManager) return json({ error: "Forbidden" }, { status: 403 });
 
   const url = new URL(req.url);

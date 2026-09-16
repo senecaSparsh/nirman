@@ -373,15 +373,39 @@ msg)` that returns 504 on timeout. Applied to `/api/cron/backup` (120s) and
   SUBMITTED→APPROVED (requires `requisition.approve`). The `/approvals` page
   shows the queue for approvers. Approval columns: `approvedById`/`approvedAt`
   on PurchaseOrder and MaterialRequisition.
-- **Audit logging**: `logAction()` from `@nirman/services` writes immutable
-  `AuditLog` entries. Wired into EVERY mutation across all services: PO
-  create/approve/order/cancel/receive, requisition create/submit/approve/reject/
-  convert, transfer create, sale create/payment/cancel, issue create, equipment
-  create/assign/return/maintenance/retire, stock-count create/confirm/reconcile,
-  supplier-return create/submit/complete/cancel, built-unit create/status/valuation,
-  project-cost add/delete, land purchase + partition + valuation + status, and
-  auto-requisition generation. Every mutation service function takes an optional
-  `userId` and wraps its writes in a transaction that includes the `logAction` call.
+- **Audit logging — two layers**: (1) `logAction()` from `@nirman/services`
+  writes semantic before/after entries inside service transactions (PO
+  approve, land partition, payroll, etc.). (2) `apiHandler` **auto-audits
+  every successful mutation** (POST/PATCH/PUT/DELETE with res.ok) that
+  doesn't carry `opts.audit` — entity derived from the path, pruned
+  response body stored as `after`. Internal endpoints are skip-listed
+  (`AUTO_AUDIT_SKIP_PREFIXES` in server.ts). So the company activity trail
+  (`/finance/audit`, `/m/settings` feed, `?all=true`) is always populated —
+  don't hand-write `auditLog.create` in routes; pass `opts.audit` for
+  richer entries or let the auto path cover it.
+- **Management planes — the three-layer loop**:
+  - _Developer_: `ErrorLog` is a triage system — one row per error
+    signature (`fingerprint`), repeat hits bump `occurrenceCount`/
+    `lastSeenAt`, resolving then recurring auto-reopens (`reopenedCount`).
+    Sources: client `ErrorCatcher` + apiHandler 500s (`source: "server"`).
+    New signatures in-app notify all DEVELOPER users. UI: `/dev/errors`
+    (+ `/m/dev/errors`). API: `/api/error-logs` GET/PATCH (DEVELOPER only).
+  - _Company authority handoff_: `UserCompany.approvalsDelegatedTo*` —
+    a member delegates their authority to another member until
+    `delegationEndsAt` (UI: DelegationCard on `/settings`, `/me`, `/m/me`;
+    API: `/api/delegation` GET/PUT/DELETE). While active, the delegate's
+    `getUserPermissions()` returns the union of own + delegator role perms,
+    and `getActingRole()` returns the highest-authority role — approval
+    routes pass it to service `actorRole` checks. Audit rows record
+    `onBehalfOfId` = the delegator. One level, same-company, no cycles,
+    max 90 days.
+  - _Approval aging_: `/api/cron/approval-aging` (daily via
+    `apps/web/scripts/scheduler.sh` sidecar + render.yaml cronJob,
+    CRON_SECRET) digests approvals waiting >48h to
+    OWNER/ADMIN/PROJECT_DIRECTOR + active delegates (deduped 24h).
+    `/m/pulse` shows `oldest Nd` on the approvals CTA. Leave approval
+    ≥2 days for an approval-holding member also nudges them to delegate
+    (`delegation.suggest` notification in `approveLeaveRequest`).
 - **General Ledger (GL) + GST**: `postJournalEntry()` and the domain helpers
   (`postPurchaseReceipt`, `postMaterialIssue`, `postAssetSale`,
   `postPaymentReceived`, `postProjectCost`, `postExpense`, `postSupplierReturn`,

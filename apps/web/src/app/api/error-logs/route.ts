@@ -99,6 +99,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   return json({ status: "ok", signatures: groups.size, newSignatures, reopened }, { status: 201 });
+}, {
+  // Telemetry must work for anonymous sessions too — a crash on the
+  // sign-in page is exactly the error you most want captured. Rate
+  // limiting still applies (write preset), batch capped at 50.
+  skipSession: true,
 });
 
 /**
@@ -118,7 +123,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     return json({ error: "Forbidden — only the developer can view error logs." }, { status: 403 });
   }
 
-  const { searchParams } = req.nextUrl;
+  const { searchParams } = new URL(req.url);
   const type = searchParams.get("type") ?? undefined;
   const source = searchParams.get("source") ?? undefined;
   const status = searchParams.get("status") ?? "open";

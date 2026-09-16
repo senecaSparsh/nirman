@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createExpenseClaim, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, requireAnyPermission, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, requireAnyPermission, scopeWhere, assertScopeAllows, getActingRole,} from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { z } from "zod";
 
@@ -15,7 +15,7 @@ const claimSchema = z.object({
 export const GET = apiHandler(async (_req: NextRequest) => {
   const company = await getCompany();
   const user = await requireAnyPermission(PERM.FINANCE_VIEW, PERM.EXPENSE_CREATE, PERM.CLAIM_CREATE);
-  const canSeeAll = hasPermission(user.role, PERM.FINANCE_VIEW);
+  const canSeeAll = hasPermission(await getActingRole(), PERM.FINANCE_VIEW);
   const claims = await prisma.expenseClaim.findMany({
     where: {
       companyId: company.id,
@@ -60,7 +60,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
   // Self-service claimants can only file for themselves; expense.create
   // holders (finance/admin) may file on behalf of another employee.
-  const claimantId = hasPermission(user.role, PERM.EXPENSE_CREATE)
+  const claimantId = hasPermission(await getActingRole(), PERM.EXPENSE_CREATE)
     ? parsed.data.claimantId
     : user.id;
   try {

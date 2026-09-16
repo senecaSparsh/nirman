@@ -16,11 +16,16 @@ import { withTimeout } from "@/lib/timeout";
  *
  * Deduped: a member gets at most one aging digest per 24h.
  *
+ * Also doubles as the daily hygiene sweep: resolved ErrorLog rows older
+ * than 30 days are pruned (open signatures are never touched — they may
+ * still be live bugs).
+ *
  * Auth: requires x-cron-secret header (same as /api/cron/backup).
  */
 
 const AGING_HOURS = 48;
 const DEDUPE_HOURS = 24;
+const ERRORLOG_RETENTION_DAYS = 30;
 
 export const POST = apiHandler(async (req: NextRequest) => {
   const cronSecret = req.headers.get("x-cron-secret");
@@ -136,5 +141,20 @@ async function run(): Promise<Response> {
     }
   }
 
-  return json({ ok: true, companies: results });
+  // ── Hygiene sweep: resolved error signatures are evidence that a fix
+  //    worked — after 30 days they've served their purpose. Open rows are
+  //    never pruned; a still-open signature is a still-live bug. ──
+  let prunedErrors = 0;
+  try {
+    const pruned = await prisma.errorLog.deleteMany({
+      where: {
+        resolvedAt: { not: null, lt: new Date(Date.now() - ERRORLOG_RETENTION_DAYS * 86_400_000) },
+      },
+    });
+    prunedErrors = pruned.count;
+  } catch (err) {
+    console.error("[cron/approval-aging] error-log prune failed:", err);
+  }
+
+  return json({ ok: true, companies: results, prunedErrors });
 }

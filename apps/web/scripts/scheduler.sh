@@ -15,6 +15,8 @@
 #                                                expenses)
 #   POST /api/workflow-scheduler   every 5 min    (due scheduled workflows)
 #   POST /api/cron/backup          daily          (BackupRecord export)
+#   POST /api/cron/approval-aging  daily          (escalation digest for
+#                                                approvals waiting >48h)
 #   POST /api/cron/hsn-seed        weekly         (HSN/GST master re-seed)
 #
 # Secrets: CRON_SECRET guards /api/cron/*, SCHEDULER_SECRET guards
@@ -67,6 +69,7 @@ curl -fsS -m 300 -X POST -H "x-cron-secret: $CRON_SECRET" "$APP_URL/api/cron/bac
 loop 900    /api/cron/reminders      "x-cron-secret: $CRON_SECRET" &
 loop 300    /api/workflow-scheduler  "Authorization: Bearer $SCHEDULER_SECRET" &
 loop 86400  /api/cron/backup         "x-cron-secret: $CRON_SECRET" &
+loop 86400  /api/cron/approval-aging "x-cron-secret: $CRON_SECRET" &
 loop 604800 /api/cron/hsn-seed       "x-cron-secret: $CRON_SECRET" &
 
 wait

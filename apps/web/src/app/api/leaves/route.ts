@@ -53,7 +53,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requireUser();
   const company = await getCompany();
   const body = await req.json();
-  const canManage = hasPermission(user.role, PERM.HR_MANAGE);
+  const canManage = hasPermission(await getActingRole(), PERM.HR_MANAGE);
 
   // Self-service: a caller without HR_MANAGE can only request leave for
   // themselves — the employeeId is resolved from their own employee

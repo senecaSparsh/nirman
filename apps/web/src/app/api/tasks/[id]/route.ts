@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { updateTaskStatus, reassignTask } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, requireUser, taskStatusSchema } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requireUser, taskStatusSchema, getActingRole,} from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 
 /**
@@ -21,7 +21,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   if (!task) return json({ error: "Task not found" }, { status: 404 });
 
   const isAssignee = task.assignedToId === user.id;
-  const isManager = hasPermission(user.role, PERM.TASKS_ASSIGN);
+  const isManager = hasPermission(await getActingRole(), PERM.TASKS_ASSIGN);
   const sameCompany = task.assignedTo.memberships.length > 0;
   if (!sameCompany || (!isAssignee && !isManager)) {
     return json({ error: "Task not found" }, { status: 404 });
@@ -57,7 +57,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   const body = await req.json();
   const isAssignee = existing.assignedToId === user.id;
-  const isManager = hasPermission(user.role, PERM.TASKS_ASSIGN);
+  const isManager = hasPermission(await getActingRole(), PERM.TASKS_ASSIGN);
 
   if (!isAssignee && !isManager) {
     return json({ error: "Forbidden — you can only update your own tasks" }, { status: 403 });

@@ -159,6 +159,21 @@ cronJobs:
     envVars:
       - key: CRON_SECRET
         sync: false
+  # ── Approval aging escalation digest — daily at 7:30 AM UTC (1pm IST) ──
+  # Digests approvals waiting >48h (POs, indents, DPRs, expense claims) to
+  # OWNER/ADMIN/PROJECT_DIRECTOR + active delegates. Deduped per member/24h.
+  - name: nirman-approval-aging
+    schedule: "30 7 * * *"  # daily at 7:30 AM UTC = 1:00 PM IST
+    command: |
+      curl -fsS -X POST \
+        -H "x-cron-secret: $CRON_SECRET" \
+        https://nirman-inventory.onrender.com/api/cron/approval-aging \
+        || echo "approval-aging failed"
+    instanceType: nano
+    scheduleTimezone: UTC
+    envVars:
+      - key: CRON_SECRET
+        sync: false
   # ── HSN/GST master weekly re-seed ──
   # Re-seeds the DB from the bundled JSON baseline so rate changes
   # (e.g. GST 2.0 updates) are picked up automatically after deploy.

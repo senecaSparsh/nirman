@@ -2,8 +2,9 @@ import { prisma, type LeaveType } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
-import { canAutoApprove } from "./rbac";
+import { canAutoApprove, holdsApprovalAuthority } from "./rbac";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
+import { createInAppNotification } from "./notifications";
 import { withSerializableTransaction } from "./transaction";
 
 /**
@@ -318,6 +319,40 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
     },
     timestamp: new Date(),
   });
+
+  // An approver going on leave is the classic stall: their pending POs,
+  // indents and DPRs sit untouched until they're back. When an approval-
+  // holding member gets ≥2 days of leave approved and hasn't delegated,
+  // nudge them to hand off authority — one tap from /me.
+  if (input.approve && employeeUserId) {
+    void (async () => {
+      try {
+        const days = Number(leaveDays);
+        if (!Number.isFinite(days) || days < 2) return;
+        const membership = await prisma.userCompany.findUnique({
+          where: { userId_companyId: { userId: employeeUserId, companyId: input.companyId } },
+          select: {
+            role: true,
+            approvalsDelegatedToId: true,
+            delegationEndsAt: true,
+          },
+        });
+        if (!membership || !holdsApprovalAuthority(membership.role)) return;
+        // Already covering — no need to remind.
+        if (membership.approvalsDelegatedToId && membership.delegationEndsAt && membership.delegationEndsAt > new Date()) return;
+        await createInAppNotification({
+          companyId: input.companyId,
+          userId: employeeUserId,
+          eventType: "delegation.suggest",
+          title: "Delegate your approvals while you're away",
+          message: `Your ${leaveDays}-day leave is approved. Approvals routed to you will stall — delegate your authority to a teammate from your profile.`,
+          link: "/m/me",
+        });
+      } catch {
+        // Best-effort nudge — never block the leave approval.
+      }
+    })();
+  }
 
   return updated;
 }
