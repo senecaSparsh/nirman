@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { json } from "@/lib/server";
 import { normalizePhone, normalizePhoneForLookup, generateOtpCode, OTP_CONFIG } from "@/lib/phone-otp";
+import { sendOtpSms } from "@/lib/otp-sms";
 
 /**
  * POST /api/auth/phone-otp/send — request an OTP code.
@@ -102,9 +103,20 @@ export const POST = async (req: NextRequest) => {
   });
 
   // Dev only: log the OTP to the server console since there's no SMS provider.
-  // In production, replace this with an actual SMS send (MSG91/Twilio/Gupshup).
   if (process.env.NODE_ENV !== "production") {
     console.log(`[Phone OTP] ${phone} → code: ${code} (expires in ${OTP_CONFIG.TTL_MINUTES} min)`);
+  } else {
+    // Production: actually send. If no provider is configured or the send
+    // fails, say so — returning ok here would trap the user on the
+    // code-entry screen forever (the code only exists in this DB row).
+    const sent = await sendOtpSms(phone, code);
+    if (!sent.sent) {
+      console.error(`[Phone OTP] SMS send failed for ${phone}: ${sent.error}`);
+      return json(
+        { error: "We couldn't send the code right now. Please use your password to sign in, or contact your admin." },
+        { status: 503 },
+      );
+    }
   }
 
   // Always return ok — never leak whether the phone has an account.

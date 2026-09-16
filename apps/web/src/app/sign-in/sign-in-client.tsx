@@ -72,7 +72,7 @@ const DEMO_NAMES: Partial<Record<Role, string>> = {
  * with the shared demo password for that role's user, then runs the real
  * `signIn.email` flow — so the session is a real one, not a bypass.
  */
-function SignInForm({ showDevLogin }: { showDevLogin: boolean }) {
+function SignInForm({ showDevLogin, otpEnabled }: { showDevLogin: boolean; otpEnabled: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
@@ -763,14 +763,16 @@ function SignInForm({ showDevLogin }: { showDevLogin: boolean }) {
               <p className="text-micro text-muted-foreground">
                 Forgot your password? Contact your administrator to reset it.
               </p>
-              <button
-                type="button"
-                onClick={() => { setPhoneStep("otp-enter"); setError(""); }}
-                className="text-caption text-muted-foreground underline hover:text-foreground"
-                disabled={busy}
-              >
-                Sign in with a code instead
-              </button>
+              {otpEnabled && (
+                <button
+                  type="button"
+                  onClick={() => { setPhoneStep("otp-enter"); setError(""); }}
+                  className="text-caption text-muted-foreground underline hover:text-foreground"
+                  disabled={busy}
+                >
+                  Sign in with a code instead
+                </button>
+              )}
             </div>
           </form>
         )}
@@ -1166,7 +1168,7 @@ function SignInForm({ showDevLogin }: { showDevLogin: boolean }) {
   );
 }
 
-export function SignInPage({ showDevLogin }: { showDevLogin: boolean }) {
+export function SignInPage({ showDevLogin, otpEnabled }: { showDevLogin: boolean; otpEnabled: boolean }) {
   return (
     <Suspense
       fallback={
@@ -1175,7 +1177,7 @@ export function SignInPage({ showDevLogin }: { showDevLogin: boolean }) {
         </div>
       }
     >
-      <SignInForm showDevLogin={showDevLogin} />
+      <SignInForm showDevLogin={showDevLogin} otpEnabled={otpEnabled} />
     </Suspense>
   );
 }

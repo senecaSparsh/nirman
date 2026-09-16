@@ -9,6 +9,13 @@ import { SignInPage } from "./sign-in-client";
  * Turbopack `process.js` polyfill chunk desync ("module factory is not
  * available") — see `nirman/no-process-env-node-env-in-client`.
  */
+import { isOtpSmsConfigured } from "@/lib/otp-sms";
+
 export default function Page() {
-  return <SignInPage showDevLogin={process.env.NODE_ENV !== "production"} />;
+  return (
+    <SignInPage
+      showDevLogin={process.env.NODE_ENV !== "production"}
+      otpEnabled={isOtpSmsConfigured()}
+    />
+  );
 }

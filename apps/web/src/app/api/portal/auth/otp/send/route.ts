@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
 import { ServiceError } from "@nirman/services";
 import { normalizePhone, generateOtpCode, OTP_CONFIG } from "@/lib/phone-otp";
+import { sendOtpSms } from "@/lib/otp-sms";
 import { json, ForbiddenError, UnauthorizedError } from "@/lib/server";
 
 /**
@@ -89,6 +90,17 @@ export const POST = async (req: NextRequest) => {
 
     if (process.env.NODE_ENV !== "production") {
       console.log(`[Portal OTP] ${phone} → code: ${code} (expires in ${OTP_CONFIG.TTL_MINUTES} min) — ${customers.length} customer(s) matched`);
+    } else {
+      // Production: actually send. A silent success here traps the customer
+      // on a code-entry screen for a code that never arrives.
+      const sent = await sendOtpSms(phone, code);
+      if (!sent.sent) {
+        console.error(`[Portal OTP] SMS send failed for ${phone}: ${sent.error}`);
+        return NextResponse.json(
+          { error: "We couldn't send the code right now. Please try again later or contact the site office." },
+          { status: 503 },
+        );
+      }
     }
 
     // Always return ok — never leak whether the phone has an account
