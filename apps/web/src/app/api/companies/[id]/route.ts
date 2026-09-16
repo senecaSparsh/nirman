@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, getCompanyDescendantIds, getManageableCompanyIds, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -75,7 +75,7 @@ const companyUpdateSchema = z.object({
  * of its parent company, for group-level management).
  */
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.COMPANY_MANAGE);
+  const user = await requirePermission(PERM.COMPANY_MANAGE);
   const currentCompany = await getCompany();
   const { id } = await ctx.params;
 
@@ -101,13 +101,29 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   if (data.parentCompanyId && data.parentCompanyId === id) {
     return json({ error: "A company cannot be its own parent" }, { status: 400 });
   }
-  // Validate parent exists if provided.
+  // Validate parent exists if provided — AND that it sits inside the
+  // caller's own manageable tree. Re-parenting onto another tenant's
+  // company would pull this company into their group (and theirs into
+  // ours) for every group-scoped query.
   if (data.parentCompanyId) {
     const parent = await prisma.company.findFirst({
       where: { id: data.parentCompanyId, deletedAt: null },
       select: { id: true },
     });
     if (!parent) return json({ error: "Parent company not found" }, { status: 400 });
+    const isDevBypass = process.env.AUTH_BYPASS === "true" && process.env.NODE_ENV !== "production" && user.id === "dev";
+    if (!isDevBypass) {
+      const [manageable, descendants] = await Promise.all([
+        getManageableCompanyIds(user.id),
+        getCompanyDescendantIds(id),
+      ]);
+      if (!manageable.includes(parent.id)) {
+        return json({ error: "You can only attach to a company you belong to" }, { status: 403 });
+      }
+      if (descendants.includes(parent.id)) {
+        return json({ error: "Cannot nest a company under its own descendant" }, { status: 400 });
+      }
+    }
   }
 
   if (data.code) data.code = data.code.toUpperCase();

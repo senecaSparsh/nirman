@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole, getEmployeeAccessScope, canManageSpecificEmployee, getCurrentUser, getCompanyGroupIds, getScopedFormOptions, getUserPermissions } from "@/lib/server";
+import { getCompany, toNum, getUserRole, getEmployeeAccessScope, canManageSpecificEmployee, getCurrentUser, getCompanyDescendantIds, getScopedFormOptions, getUserPermissions } from "@/lib/server";
 import { PERM, ROLES, canAssignRole, canAssignCustomRole, type Role } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
@@ -282,9 +282,11 @@ async function EmployeeProfileContent({
   const totalDprHours = dprHistory.reduce((s, d) => s + d.hoursWorked, 0);
 
   // ── Compute available companies before building the data object ──
+  // Descendants only — matching POST /api/employees/[id]/add-to-company,
+  // which refuses targets outside the caller's own tree.
   let availableCompanies: { id: string; name: string; parentCompanyId: string | null }[] = [];
   if (effectiveCanManage && employee.userId) {
-    const groupIds = await getCompanyGroupIds();
+    const groupIds = await getCompanyDescendantIds(company.id);
     const existingCompanyIds = new Set([
       company.id,
       ...((await prisma.employee.findMany({

@@ -481,7 +481,7 @@ export function OrbitNavigator({
                           </div>
                           {/* Label — radially outward, never moves the anchor */}
                           <span
-                            className={`absolute left-1/2 -translate-x-1/2 w-16 text-center text-m-caption font-semibold leading-tight truncate ${labelAbove ? "bottom-full mb-1" : "top-full mt-1"}`}
+                            className={`absolute left-1/2 -translate-x-1/2 w-20 text-center text-m-caption font-semibold leading-tight line-clamp-2 ${labelAbove ? "bottom-full mb-1" : "top-full mt-1"}`}
                             style={{
                               color: isEmpty
                                 ? "var(--color-ink-300)"
@@ -671,18 +671,15 @@ function CenterCard({
           style={{ borderColor: "var(--color-line)" }}
         >
           {node.details.slice(0, 6).map((d, i) => (
-            <div
-              key={i}
-              className="flex items-baseline justify-between gap-1 min-w-0"
-            >
+            <div key={i} className="min-w-0">
               <span
-                className="text-m-caption shrink-0"
+                className="block text-m-micro leading-tight truncate"
                 style={{ color: "var(--color-ink-500)" }}
               >
                 {d.label}
               </span>
               <span
-                className="text-m-caption font-semibold truncate tabular-nums"
+                className="block text-m-caption font-semibold leading-tight truncate tabular-nums"
                 style={{ color: "var(--color-ink-950)" }}
               >
                 {d.value}

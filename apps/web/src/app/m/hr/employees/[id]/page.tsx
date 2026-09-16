@@ -3,7 +3,7 @@ import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum, getCurrentUser, getEmployeeAccessScope, canManageSpecificEmployee, getCompanyGroupIds, getScopedFormOptions, scopeWhere, getUserPermissions } from "@/lib/server";
+import { getCompany, getUserRole, toNum, getCurrentUser, getEmployeeAccessScope, canManageSpecificEmployee, getCompanyDescendantIds, getScopedFormOptions, scopeWhere, getUserPermissions } from "@/lib/server";
 import { PERM, ROLES, canAssignRole, canAssignCustomRole, type Role } from "@/lib/roles";
 import { MobileEmployeeDetailClient } from "./MobileEmployeeDetailClient";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
@@ -300,9 +300,11 @@ async function MobileEmployeeDetailContent({
   const totalDprHours = dprHistory.reduce((s, d) => s + d.hoursWorked, 0);
 
   // ── Compute available companies for multi-company add ──
+  // Descendants only — matching POST /api/employees/[id]/add-to-company,
+  // which refuses targets outside the caller's own tree.
   let availableCompanies: { id: string; name: string; parentCompanyId: string | null }[] = [];
   if (canEditEmployee && employee.userId) {
-    const groupIds = await getCompanyGroupIds();
+    const groupIds = await getCompanyDescendantIds(company.id);
     const existingCompanyIds = new Set([
       company.id,
       ...((await prisma.employee.findMany({

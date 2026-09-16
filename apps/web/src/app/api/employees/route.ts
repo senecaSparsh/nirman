@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createEmployee, generateOfferLetter, generateEmploymentAgreement, generateEmployeeIdCard, generateAppointmentLetter, setSalaryComponents, autoCompleteOnboarding } from "@nirman/services";
-import { apiHandler, getCompany, json, employeeSchema, requirePermission, toNum, assertScopeAllows, getCompanyGroupIds, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, employeeSchema, requirePermission, toNum, assertScopeAllows, getCompanyDescendantIds, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 
@@ -80,11 +80,14 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   // ── Resolve target companies ──
-  // If companyIds is provided, validate each is in the user's company group
-  // (parent + children) and the user has HR_MANAGE in that company.
+  // If companyIds is provided, validate each is the active company or one
+  // of its descendants — you can only onboard employees down your own tree.
+  // (The wider group contains the parent and siblings; writing employee
+  // records there would cross a boundary the caller doesn't control.)
   // Otherwise, default to the active company only.
-  const groupIds = await getCompanyGroupIds();
-  const requestedCompanyIds = parsed.data.companyIds?.filter((id) => groupIds.includes(id)) ?? [];
+  const descendantIds = await getCompanyDescendantIds(company.id);
+  const writableIds = new Set([company.id, ...descendantIds]);
+  const requestedCompanyIds = parsed.data.companyIds?.filter((id) => writableIds.has(id)) ?? [];
   const targetCompanyIds = requestedCompanyIds.length > 0 ? requestedCompanyIds : [company.id];
 
   // ── Dedup detection: if the phone/email matches an existing User in

@@ -114,8 +114,6 @@ interface QuickActionsBarProps {
    *  a persona is a coarse grouping, and narrow roles inside it (e.g.
    *  SECURITY_GUARD on "field") must not see chips they can't open. */
   permissions?: string[];
-  /** Show the "Quick actions" label above the toggle. Default true. */
-  showLabel?: boolean;
   /** Sync tab state to the URL (shareable, back-button friendly). Default
    *  true. Set false when the bar is used on a page that doesn't correspond
    *  to the module (e.g., the persona home dashboard uses the "site" module
@@ -130,7 +128,6 @@ export function QuickActionsBar({
   savedLayouts: initialSaved,
   extraActions = [],
   permissions,
-  showLabel = true,
   syncUrl = true,
 }: QuickActionsBarProps) {
   const router = useRouter();
@@ -365,15 +362,16 @@ export function QuickActionsBar({
 
   return (
     <>
-      {/* ── Header row: label + edit toggle ── */}
-      <div className="flex items-center justify-between mb-1.5 px-0.5">
-        {showLabel ? (
-          <p className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
-            Quick actions
-          </p>
-        ) : (
-          <span />
-        )}
+      {/* ── Toggle tabs — transparent text tabs with sliding underline ── */}
+      <RegisterTabs
+        tabs={tabs.map((t) => ({ value: t.id, label: t.label }))}
+        value={activeTabId}
+        onChange={selectTab}
+        sticky={false}
+      />
+
+      {/* ── Edit toggle ── */}
+      <div className="flex items-center justify-end my-1.5 px-0.5">
         {!loadingLayouts && (
           <button
             onClick={() => (editMode ? saveOrder() : setEditMode(true))}
@@ -396,14 +394,6 @@ export function QuickActionsBar({
           </button>
         )}
       </div>
-
-      {/* ── Toggle tabs — transparent text tabs with sliding underline ── */}
-      <RegisterTabs
-        tabs={tabs.map((t) => ({ value: t.id, label: t.label }))}
-        value={activeTabId}
-        onChange={selectTab}
-        sticky={false}
-      />
 
       {/* ── Quick actions grid ── */}
       {editMode ? (

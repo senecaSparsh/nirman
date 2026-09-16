@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { seedDefaultCategories } from "@nirman/services";
-import { apiHandler, json, requirePermission } from "@/lib/server";
+import { apiHandler, getManageableCompanyIds, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -18,21 +18,22 @@ const companyCreateSchema = z.object({
 });
 
 /**
- * GET /api/companies — list companies the current user can see.
- * - OWNER/ADMIN: every non-deleted company.
- * - Others: only companies they have a UserCompany membership in.
+ * GET /api/companies — list companies the current user can manage:
+ * their active memberships plus every descendant of those companies.
+ * OWNER/ADMIN are per-tenant roles, not platform admins — listing every
+ * company would leak other tenants' names, GSTIN/PAN, and member counts
+ * (and hand out the IDs needed to target them).
  * Includes the parent (for hierarchy display) and membership counts.
  */
 export const GET = apiHandler(async () => {
   const user = await requirePermission(PERM.COMPANY_MANAGE);
-  const isSuperuser = user.role === "OWNER" || user.role === "ADMIN";
+  const isDevBypass = process.env.AUTH_BYPASS === "true" && process.env.NODE_ENV !== "production" && user.id === "dev";
+  const manageableIds = isDevBypass ? null : await getManageableCompanyIds(user.id);
 
   const companies = await prisma.company.findMany({
     where: {
       deletedAt: null,
-      ...(isSuperuser
-        ? {}
-        : { userMemberships: { some: { userId: user.id, active: true } } }),
+      ...(manageableIds ? { id: { in: manageableIds } } : {}),
     },
     orderBy: { name: "asc" },
     include: {
@@ -73,7 +74,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
   const data = parsed.data;
 
-  // Validate parent exists if provided
+  // Validate parent exists if provided — AND that it sits inside the
+  // caller's own manageable tree (active membership or its descendant).
+  // Without this, any owner could graft a child under another tenant and
+  // then read that tenant's data through group-scoped queries.
   if (data.parentCompanyId) {
     const parent = await prisma.company.findFirst({
       where: { id: data.parentCompanyId, deletedAt: null },
@@ -81,6 +85,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     if (!parent) {
       return json({ error: "Parent company not found" }, { status: 400 });
+    }
+    const isDevBypass = process.env.AUTH_BYPASS === "true" && process.env.NODE_ENV !== "production" && user.id === "dev";
+    if (!isDevBypass) {
+      const manageable = await getManageableCompanyIds(user.id);
+      if (!manageable.includes(parent.id)) {
+        return json({ error: "You can only create a child under a company you belong to" }, { status: 403 });
+      }
     }
   }
 

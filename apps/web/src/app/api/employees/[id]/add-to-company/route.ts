@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, getCompanyGroupIds, json, requirePermission, scopeWhere, assertCanManageEmployee } from "@/lib/server";
+import { apiHandler, getCompany, getCompanyDescendantIds, json, requirePermission, scopeWhere, assertCanManageEmployee } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -43,10 +43,13 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
     return json({ error: "Target company ID is required" }, { status: 400 });
   }
 
-  // ── Validate target company is in the viewer's company group ──
-  const groupIds = await getCompanyGroupIds();
-  if (!groupIds.includes(targetCompanyId)) {
-    return json({ error: "You can only add employees to companies in your group" }, { status: 403 });
+  // ── Validate target company is a descendant of the current company ──
+  // The group (getCompanyGroupIds) also contains the parent and siblings —
+  // creating a UserCompany membership there would hand the employee access
+  // to a company the caller doesn't control. Only push down your own tree.
+  const descendantIds = await getCompanyDescendantIds(company.id);
+  if (!descendantIds.includes(targetCompanyId)) {
+    return json({ error: "You can only add employees to companies under your own" }, { status: 403 });
   }
 
   // ── Fetch the source employee (scoped to the current company) ──

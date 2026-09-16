@@ -199,6 +199,52 @@ export async function getCompanyGroupIds(current?: { id: string; parentCompanyId
 }
 
 /**
+ * Returns IDs of every company that is a *descendant* of the given company —
+ * direct children, grandchildren, and so on (BFS, depth-capped at 10 so a
+ * hierarchy cycle can never loop forever).
+ */
+export async function getCompanyDescendantIds(companyId: string): Promise<string[]> {
+  const ids = new Set<string>();
+  let frontier = [companyId];
+  for (let depth = 0; depth < 10 && frontier.length > 0; depth++) {
+    const children = await prisma.company.findMany({
+      where: { parentCompanyId: { in: frontier }, deletedAt: null },
+      select: { id: true },
+    });
+    frontier = [];
+    for (const c of children) {
+      if (!ids.has(c.id) && c.id !== companyId) {
+        ids.add(c.id);
+        frontier.push(c.id);
+      }
+    }
+  }
+  return [...ids];
+}
+
+/**
+ * Returns IDs of every company the user can *manage*: companies where they
+ * hold an active membership, plus all descendants of those companies.
+ *
+ * This is the authorization set for hierarchy edits — creating a child
+ * company or re-parenting onto a company must stay inside the caller's own
+ * tree. Without this, anyone could graft a child under another tenant and
+ * read its data through group-scoped queries (getCompanyGroupIds), since
+ * group scope is relationship-based and does not check membership.
+ */
+export async function getManageableCompanyIds(userId: string): Promise<string[]> {
+  const memberships = await prisma.userCompany.findMany({
+    where: { userId, active: true, company: { deletedAt: null } },
+    select: { companyId: true },
+  });
+  const ids = new Set(memberships.map((m) => m.companyId));
+  for (const root of [...ids]) {
+    for (const d of await getCompanyDescendantIds(root)) ids.add(d);
+  }
+  return [...ids];
+}
+
+/**
  * Validate that all attachment upload IDs belong to the user's company.
  * Prevents cross-company attachment linking (e.g. linking another company's
  * upload ID to a safety record). Returns an error message string if any
@@ -2526,9 +2572,11 @@ export async function getNavBootstrap(): Promise<NavBootstrap | null> {
         getUserPermissions(),
       ]);
 
-      // Same visibility rule as GET /api/company: superusers (and dev-bypass)
-      // see every company; everyone else sees only their memberships.
-      const isSuperuser = user.role === "OWNER" || user.role === "ADMIN";
+      // Same visibility rule as GET /api/company: only companies the user
+      // actually belongs to (active membership). OWNER/ADMIN are per-tenant
+      // roles — letting them see every company leaked other tenants' names
+      // (and IDs) into the switcher. Both switch endpoints re-verify the
+      // membership anyway, so a non-member entry could only ever 403.
       const isDevBypass =
         process.env.AUTH_BYPASS === "true" &&
         process.env.NODE_ENV !== "production" &&
@@ -2536,9 +2584,9 @@ export async function getNavBootstrap(): Promise<NavBootstrap | null> {
       const visible = await prisma.company.findMany({
         where: {
           deletedAt: null,
-          ...(isSuperuser || isDevBypass
+          ...(isDevBypass
             ? {}
-            : { userMemberships: { some: { userId: user.id } } }),
+            : { userMemberships: { some: { userId: user.id, active: true } } }),
         },
         orderBy: { name: "asc" },
         select: {

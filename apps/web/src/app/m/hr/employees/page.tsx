@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { Users } from "lucide-react";
-import { getCompany, toNum, getEmployeeAccessScope, getActionPermissions, filterOptionsByScope, getCompanyGroupIds, getCurrentUser, getUserPermissions } from "@/lib/server";
+import { getCompany, toNum, getEmployeeAccessScope, getActionPermissions, filterOptionsByScope, getCompanyDescendantIds, getCurrentUser, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 import {
@@ -91,9 +91,11 @@ async function MobileEmployeesContent() {
       : [],
   ]);
 
-  // ── Company group: parent + children for multi-company onboarding ──
+  // ── Company targets for multi-company onboarding: self + descendants ──
   // Only owners/admins (COMPANY scope) can onboard across companies.
-  const groupIds = actions.canCreateEmployee ? await getCompanyGroupIds() : [];
+  // Descendants only — POST /api/employees refuses targets outside the
+  // caller's own tree (no onboarding into parent/sibling companies).
+  const groupIds = actions.canCreateEmployee ? [company.id, ...(await getCompanyDescendantIds(company.id))] : [];
   const companyGroup = groupIds.length > 1
     ? await prisma.company.findMany({
         where: { id: { in: groupIds }, deletedAt: null },

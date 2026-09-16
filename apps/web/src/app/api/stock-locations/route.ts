@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, getCompany, getCompanyGroupIds, json, requirePermission, stockLocationSchema, toNum } from "@/lib/server";
+import { apiHandler, getCompany, getCompanyDescendantIds, getCompanyGroupIds, json, requirePermission, stockLocationSchema, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -66,12 +66,14 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
   // ── Target company ──
   // The owner of a parent company can create stock locations for child companies.
-  // Defaults to the current company. Must be in the company group (self or children).
-  const groupIds = await getCompanyGroupIds(company);
+  // Defaults to the current company. Must be self or a descendant — the wider
+  // group also contains the parent and siblings, and writing locations into
+  // those would cross a boundary the caller doesn't control.
+  const descendantIds = await getCompanyDescendantIds(company.id);
   const targetCompanyId = body.targetCompanyId && body.targetCompanyId !== company.id
     ? body.targetCompanyId
     : company.id;
-  if (targetCompanyId !== company.id && !groupIds.includes(targetCompanyId)) {
+  if (targetCompanyId !== company.id && !descendantIds.includes(targetCompanyId)) {
     return json({ error: "You can only create stock locations for your own company or its children" }, { status: 403 });
   }
 
