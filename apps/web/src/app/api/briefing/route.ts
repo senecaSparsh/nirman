@@ -236,6 +236,32 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     }
   }
 
+  // Site presence — "who's on site today" for roles that can see attendance.
+  // Owners/managers open the app in the morning wanting headcount, not just
+  // their own check-in. Scoped to the caller's projects when they're
+  // project-scoped (a site engineer sees his site, not the whole company).
+  let sitePresence: { checkedIn: number; onLeave: number } | null = null;
+  if (perms.includes(PERM.ATTENDANCE_LOG)) {
+    const presenceScope = await scopeWhere("WorkerAttendance").catch(() => ({}));
+    const [checkedIn, onLeave] = await Promise.all([
+      prisma.workerAttendance.count({
+        where: {
+          ...presenceScope,
+          date: { gte: startOfToday, lt: endOfToday },
+          checkIn: { not: null },
+        },
+      }),
+      prisma.workerAttendance.count({
+        where: {
+          ...presenceScope,
+          date: { gte: startOfToday, lt: endOfToday },
+          status: { in: ["PAID_LEAVE", "NON_PAID_LEAVE"] },
+        },
+      }),
+    ]);
+    sitePresence = { checkedIn, onLeave };
+  }
+
   // ── 6. Summary counts ──
   const [activeProjects, activeEmployees, pendingDprsTotal] = await Promise.all([
     prisma.project.count({ where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } } }),
@@ -275,6 +301,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     myTasks,
     myDpr,
     myAttendance,
+    sitePresence,
     summary: {
       activeProjects,
       activeEmployees,

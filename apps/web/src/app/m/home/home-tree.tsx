@@ -99,6 +99,7 @@ type BriefingData = {
   lowStock: Array<{ materialId: string; materialName: string; materialCode: string; qty: number; unit: string; reorderPoint: number | null }>;
   deliveriesToday: Array<{ poNumber: string; supplierName: string; projectName: string | null; total: number }>;
   paymentsDue: Array<{ description: string; amount: number; dueDate: string; type: string }>;
+  sitePresence?: { checkedIn: number; onLeave: number } | null;
 };
 
 export function HomeTree({ userName }: { userName: string | null }) {
@@ -166,6 +167,18 @@ export function HomeTree({ userName }: { userName: string | null }) {
         sub: briefing.lowStock[0]?.materialName,
         href: "/m/inventory",
         count: briefing.lowStock.length,
+      });
+    }
+    if (briefing.sitePresence && briefing.sitePresence.checkedIn > 0) {
+      briefingChildren.push({
+        icon: Users,
+        iconBg: "var(--color-ok, #16a34a)",
+        name: "On site today",
+        sub: briefing.sitePresence.onLeave > 0
+          ? `${briefing.sitePresence.onLeave} on leave`
+          : "all hands present",
+        href: "/m/hr/attendance",
+        count: briefing.sitePresence.checkedIn,
       });
     }
     if (briefing.deliveriesToday.length > 0) {
