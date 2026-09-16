@@ -5,6 +5,7 @@ import { clearFetchCache } from "./use-fetch";
 import { clearAllOps, pendingCount } from "./offline/queue";
 import { clearAllDrafts } from "./offline/use-drafts";
 import { clearRecentItems } from "./use-recent-items";
+import { clearRecent } from "./use-recently-viewed";
 import { clearAllSnoozed } from "./use-snooze";
 import { clearAllSmartDefaults } from "./use-smart-defaults";
 
@@ -17,7 +18,8 @@ import { clearAllSmartDefaults } from "./use-smart-defaults";
  *   2. useFetch's in-memory response cache
  *   3. The service worker's API cache (offline GET fallback)
  *   4. IndexedDB — the offline mutation queue + auto-saved form drafts
- *   5. localStorage "nirman:recent-items" — the jump-back-in / search recent list
+ *   5. localStorage "nirman:recent-items" + "nirman.recent" — the two
+ *      recently-viewed lists (jump-back-in, search, record tracks)
  *   6. localStorage "nirman:snoozed-items" + "nirman:defaults:*" — a user's
  *      dismissed alerts and last-used form values (mild business context)
  *
@@ -75,6 +77,7 @@ export async function clearLocalSessionData(): Promise<void> {
   } catch { /* ignore */ }
   try {
     clearRecentItems();
+    clearRecent();
   } catch { /* ignore */ }
   try {
     clearAllSnoozed();
