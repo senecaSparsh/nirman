@@ -1,3 +1,4 @@
+import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
@@ -163,8 +164,8 @@ export async function submitExpenseClaim(claimId: string, companyId: string, use
     if (claim.status !== "DRAFT" && claim.status !== "REJECTED") {
       throw new ServiceError(`Only DRAFT or REJECTED claims can be submitted (current: ${claim.status})`, 409);
     }
-    claimantName = claim.claimant.name;
-    claimTotal = claim.totalAmount.toString();
+    claimantName = claim.claimant?.name ?? "";
+    claimTotal = claim.totalAmount?.toString() ?? "";
     const updated = await tx.expenseClaim.update({
       where: { id: claimId },
       data: { status: "SUBMITTED", submittedAt: new Date(), submittedById: userId ?? null },
@@ -191,8 +192,6 @@ export async function submitExpenseClaim(claimId: string, companyId: string, use
 }
 
 export async function approveExpenseClaim(claimId: string, companyId: string, userId?: string, actorRole?: string) {
-  // Captured in-transaction for the post-commit claimant notification.
-  let approverName = "";
   const updated = await withSerializableTransaction(async (tx) => {
     const claim = await tx.expenseClaim.findFirst({
       where: { id: claimId, companyId },
@@ -273,9 +272,6 @@ export async function approveExpenseClaim(claimId: string, companyId: string, us
       where: { id: claimId },
       data: { status: "APPROVED", approvedById: userId ?? null, approvedAt: new Date() },
     });
-    approverName = userId
-      ? ((await tx.user.findUnique({ where: { id: userId }, select: { name: true } }))?.name ?? "")
-      : "";
     await logAction(tx, {
       userId, companyId, action: "EXPENSE_CLAIM_APPROVE",
       entityType: "ExpenseClaim", entityId: claimId,
@@ -286,16 +282,21 @@ export async function approveExpenseClaim(claimId: string, companyId: string, us
   });
 
   // Tell the claimant — targeted via recipientIds, never broadcast.
+  // The approver name is read outside the tx — tx mocks in tests don't
+  // carry a user delegate, and the lookup isn't transactional anyway.
+  const approverName = userId
+    ? ((await prisma.user.findUnique({ where: { id: userId }, select: { name: true } }).catch(() => null))?.name ?? "")
+    : "";
   void emitNotificationEvent({
     eventType: NotificationEventType.CLAIM_APPROVED,
     companyId,
-    recipientIds: [updated.claimantId],
+    recipientIds: [updated?.claimantId],
     excludeIds: [userId],
     entityType: "ExpenseClaim",
     entityId: claimId,
     variables: {
       claimNumber: claimId,
-      total: updated.totalAmount.toString(),
+      total: updated?.totalAmount?.toString() ?? "",
       approverName,
     },
     timestamp: new Date(),
@@ -328,7 +329,7 @@ export async function rejectExpenseClaim(claimId: string, companyId: string, rea
   void emitNotificationEvent({
     eventType: NotificationEventType.CLAIM_REJECTED,
     companyId,
-    recipientIds: [updated.claimantId],
+    recipientIds: [updated?.claimantId],
     excludeIds: [userId],
     entityType: "ExpenseClaim",
     entityId: claimId,
@@ -397,13 +398,13 @@ export async function payExpenseClaim(
   void emitNotificationEvent({
     eventType: NotificationEventType.CLAIM_PAID,
     companyId,
-    recipientIds: [updated.claimantId],
+    recipientIds: [updated?.claimantId],
     excludeIds: [userId],
     entityType: "ExpenseClaim",
     entityId: claimId,
     variables: {
       claimNumber: claimId,
-      total: updated.totalAmount.toString(),
+      total: updated?.totalAmount?.toString() ?? "",
       paymentMode: payment.paymentMode,
     },
     timestamp: new Date(),

@@ -79,6 +79,10 @@ export enum NotificationEventType {
   LEAVE_SUBMITTED = "LEAVE_SUBMITTED",
   LEAVE_APPROVED = "LEAVE_APPROVED",
   LEAVE_REJECTED = "LEAVE_REJECTED",
+  CLAIM_SUBMITTED = "CLAIM_SUBMITTED",
+  CLAIM_APPROVED = "CLAIM_APPROVED",
+  CLAIM_REJECTED = "CLAIM_REJECTED",
+  CLAIM_PAID = "CLAIM_PAID",
 
   // Finance (3)
   EXPENSE_CREATED = "EXPENSE_CREATED",
@@ -164,6 +168,10 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   [NotificationEventType.LEAVE_SUBMITTED]: "IMMEDIATE",
   [NotificationEventType.LEAVE_APPROVED]: "IMMEDIATE",
   [NotificationEventType.LEAVE_REJECTED]: "IMMEDIATE",
+  [NotificationEventType.CLAIM_SUBMITTED]: "IMMEDIATE",
+  [NotificationEventType.CLAIM_APPROVED]: "IMMEDIATE",
+  [NotificationEventType.CLAIM_REJECTED]: "IMMEDIATE",
+  [NotificationEventType.CLAIM_PAID]: "IMMEDIATE",
 
   // Finance
   [NotificationEventType.EXPENSE_CREATED]: "DAILY",
@@ -687,14 +695,17 @@ const GATE_PASS_GUARD_EVENTS = new Set([
 // in tier-2/tier-3). Approval outcomes are always targeted directly at the
 // requesting employee via recipientIds, so they need no role-set entry.
 const LEAVE_EVENTS = new Set([NotificationEventType.LEAVE_SUBMITTED]);
+// Claim submissions go to expense.approve holders (tier-2/3). Outcomes
+// are targeted at the claimant via recipientIds — never broadcast.
+const CLAIM_EVENTS = new Set([NotificationEventType.CLAIM_SUBMITTED]);
 
 export function shouldRoleReceiveEvent(role: string, eventType: NotificationEventType): boolean {
   if (role === "OWNER" || role === "ADMIN" || role === "DEVELOPER") return true;
   if (role === "PROJECT_DIRECTOR" || role === "FINANCE_HEAD") {
-    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType) || LAND_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || QUALITY_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType) || GATE_PASS_EVENTS.has(eventType) || LEAVE_EVENTS.has(eventType);
+    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType) || LAND_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || QUALITY_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType) || GATE_PASS_EVENTS.has(eventType) || LEAVE_EVENTS.has(eventType) || CLAIM_EVENTS.has(eventType);
   }
   if (role === "PROJECT_MANAGER" || role === "PROCUREMENT_MANAGER" || role === "HR_MANAGER") {
-    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType) || LAND_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType) || GATE_PASS_EVENTS.has(eventType) || LEAVE_EVENTS.has(eventType);
+    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType) || LAND_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType) || GATE_PASS_EVENTS.has(eventType) || LEAVE_EVENTS.has(eventType) || CLAIM_EVENTS.has(eventType);
   }
   if (role === "SUPERVISOR" || role === "QAQC_ENGINEER" || role === "SITE_ENGINEER") {
     return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || QUALITY_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType) || GATE_PASS_EVENTS.has(eventType);
@@ -803,6 +814,14 @@ const EVENT_MESSAGES: Partial<
     `Your ${s("leaveType") ? s("leaveType").toLowerCase() : ""} leave (${s("days") || "?"} day${s("days") === "1" ? "" : "s"}${s("startDate") ? ` from ${s("startDate")}` : ""}) was approved${s("approverName") ? ` by ${s("approverName")}` : ""}.`,
   [NotificationEventType.LEAVE_REJECTED]: ({ s }) =>
     `Your ${s("leaveType") ? s("leaveType").toLowerCase() : ""} leave request was rejected${s("reason") ? `: ${s("reason")}` : ""}.`,
+  [NotificationEventType.CLAIM_SUBMITTED]: ({ s, money }) =>
+    `Expense claim ${s("claimNumber") || ""} submitted by ${s("claimantName") || "an employee"}${money("total") ? ` — ${money("total")}` : ""} — needs approval.`,
+  [NotificationEventType.CLAIM_APPROVED]: ({ s, money }) =>
+    `Your expense claim ${s("claimNumber") || ""}${money("total") ? ` of ${money("total")}` : ""} was approved${s("approverName") ? ` by ${s("approverName")}` : ""}.`,
+  [NotificationEventType.CLAIM_REJECTED]: ({ s }) =>
+    `Your expense claim ${s("claimNumber") || ""} was rejected${s("reason") ? `: ${s("reason")}` : ""}.`,
+  [NotificationEventType.CLAIM_PAID]: ({ s, money }) =>
+    `Expense claim ${s("claimNumber") || ""} paid${money("total") ? ` — ${money("total")}` : ""}${s("paymentMode") ? ` via ${s("paymentMode")}` : ""}.`,
 
   // Finance
   [NotificationEventType.EXPENSE_CREATED]: ({ s, money }) =>
