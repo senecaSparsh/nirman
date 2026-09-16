@@ -41,7 +41,7 @@ export function isWithinQuietHours(): boolean {
   return isQuietHour(getIstHour(new Date()));
 }
 
-/** 27 event types across 5 workflows */
+/** 30+ event types across the app's workflows */
 export enum NotificationEventType {
   // Procurement (10)
   REQUISITION_SUBMITTED = "REQUISITION_SUBMITTED",
@@ -76,6 +76,9 @@ export enum NotificationEventType {
   DPR_APPROVED = "DPR_APPROVED",
   DPR_REJECTED = "DPR_REJECTED",
   PAYROLL_PROCESSED = "PAYROLL_PROCESSED",
+  LEAVE_SUBMITTED = "LEAVE_SUBMITTED",
+  LEAVE_APPROVED = "LEAVE_APPROVED",
+  LEAVE_REJECTED = "LEAVE_REJECTED",
 
   // Finance (3)
   EXPENSE_CREATED = "EXPENSE_CREATED",
@@ -158,6 +161,9 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   [NotificationEventType.DPR_APPROVED]: "IMMEDIATE",
   [NotificationEventType.DPR_REJECTED]: "IMMEDIATE",
   [NotificationEventType.PAYROLL_PROCESSED]: "DAILY",
+  [NotificationEventType.LEAVE_SUBMITTED]: "IMMEDIATE",
+  [NotificationEventType.LEAVE_APPROVED]: "IMMEDIATE",
+  [NotificationEventType.LEAVE_REJECTED]: "IMMEDIATE",
 
   // Finance
   [NotificationEventType.EXPENSE_CREATED]: "DAILY",
@@ -677,14 +683,18 @@ const GATE_PASS_GUARD_EVENTS = new Set([
   NotificationEventType.GATE_PASS_APPROVED,
   NotificationEventType.GATE_PASS_EXITED,
 ]);
+// Leave submissions go to the roles that can approve them (hr.manage lives
+// in tier-2/tier-3). Approval outcomes are always targeted directly at the
+// requesting employee via recipientIds, so they need no role-set entry.
+const LEAVE_EVENTS = new Set([NotificationEventType.LEAVE_SUBMITTED]);
 
 export function shouldRoleReceiveEvent(role: string, eventType: NotificationEventType): boolean {
   if (role === "OWNER" || role === "ADMIN" || role === "DEVELOPER") return true;
   if (role === "PROJECT_DIRECTOR" || role === "FINANCE_HEAD") {
-    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType) || LAND_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || QUALITY_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType) || GATE_PASS_EVENTS.has(eventType);
+    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType) || LAND_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || QUALITY_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType) || GATE_PASS_EVENTS.has(eventType) || LEAVE_EVENTS.has(eventType);
   }
   if (role === "PROJECT_MANAGER" || role === "PROCUREMENT_MANAGER" || role === "HR_MANAGER") {
-    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType) || LAND_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType) || GATE_PASS_EVENTS.has(eventType);
+    return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || FINANCE_EVENTS.has(eventType) || LAND_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType) || GATE_PASS_EVENTS.has(eventType) || LEAVE_EVENTS.has(eventType);
   }
   if (role === "SUPERVISOR" || role === "QAQC_ENGINEER" || role === "SITE_ENGINEER") {
     return PROCUREMENT_EVENTS.has(eventType) || DPR_EVENTS.has(eventType) || EQUIPMENT_EVENTS.has(eventType) || QUALITY_EVENTS.has(eventType) || INVENTORY_EVENTS.has(eventType) || GATE_PASS_EVENTS.has(eventType);
@@ -787,6 +797,12 @@ const EVENT_MESSAGES: Partial<
     `Daily report rejected${s("reason") ? `: ${s("reason")}` : ""}.`,
   [NotificationEventType.PAYROLL_PROCESSED]: ({ s, money }) =>
     `Payroll processed${s("month") ? ` for ${s("month")}` : ""}${money("totalAmount") ? ` — ${money("totalAmount")}` : ""}.`,
+  [NotificationEventType.LEAVE_SUBMITTED]: ({ s }) =>
+    `${s("employeeName") || "An employee"} requested ${s("leaveType") ? s("leaveType").toLowerCase() : "leave"} leave (${s("days") || "?"} day${s("days") === "1" ? "" : "s"}${s("startDate") ? ` from ${s("startDate")}` : ""}) — needs approval.`,
+  [NotificationEventType.LEAVE_APPROVED]: ({ s }) =>
+    `Your ${s("leaveType") ? s("leaveType").toLowerCase() : ""} leave (${s("days") || "?"} day${s("days") === "1" ? "" : "s"}${s("startDate") ? ` from ${s("startDate")}` : ""}) was approved${s("approverName") ? ` by ${s("approverName")}` : ""}.`,
+  [NotificationEventType.LEAVE_REJECTED]: ({ s }) =>
+    `Your ${s("leaveType") ? s("leaveType").toLowerCase() : ""} leave request was rejected${s("reason") ? `: ${s("reason")}` : ""}.`,
 
   // Finance
   [NotificationEventType.EXPENSE_CREATED]: ({ s, money }) =>

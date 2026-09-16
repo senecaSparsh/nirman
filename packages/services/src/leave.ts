@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { canAutoApprove } from "./rbac";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { withSerializableTransaction } from "./transaction";
 
 /**
@@ -44,7 +45,8 @@ export interface CreateLeaveInput {
 }
 
 export async function createLeaveRequest(input: CreateLeaveInput) {
-  return withSerializableTransaction(async (tx) => {
+  let employeeName = "";
+  const leave = await withSerializableTransaction(async (tx) => {
     const employee = await tx.employee.findFirst({
       where: { id: input.employeeId, companyId: input.companyId, deletedAt: null },
     });
@@ -65,6 +67,7 @@ export async function createLeaveRequest(input: CreateLeaveInput) {
 
     const days = computeLeaveDays(s, e);
 
+    employeeName = employee.name;
     const leave = await tx.leaveRequest.create({
       data: {
         companyId: input.companyId,
@@ -90,6 +93,25 @@ export async function createLeaveRequest(input: CreateLeaveInput) {
 
     return leave;
   });
+
+  // Tell the approvers — hr.manage holders get LEAVE_SUBMITTED. The
+  // requester is excluded (they know they just filed it).
+  void emitNotificationEvent({
+    eventType: NotificationEventType.LEAVE_SUBMITTED,
+    companyId: input.companyId,
+    excludeIds: [input.userId],
+    entityType: "LeaveRequest",
+    entityId: leave.id,
+    variables: {
+      employeeName,
+      leaveType: leave.type,
+      days: leave.days.toString(),
+      startDate: leave.startDate.toISOString().slice(0, 10),
+    },
+    timestamp: new Date(),
+  });
+
+  return leave;
 }
 
 export interface ApproveLeaveInput {
@@ -119,7 +141,13 @@ export const ANNUAL_LEAVE_ENTITLEMENT: Record<LeaveType, number> = {
 };
 
 export async function approveLeaveRequest(input: ApproveLeaveInput) {
-  return withSerializableTransaction(async (tx) => {
+  // Captured inside the transaction for the post-commit notification.
+  let employeeUserId: string | null = null;
+  let leaveType = "";
+  let leaveDays = "";
+  let leaveStartDate = "";
+  let approverName = "";
+  const updated = await withSerializableTransaction(async (tx) => {
     const leave = await tx.leaveRequest.findFirst({
       where: { id: input.leaveId, companyId: input.companyId },
       include: { employee: { select: { userId: true } } },
@@ -201,6 +229,13 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
       },
     });
 
+    employeeUserId = leave.employee.userId;
+    leaveType = leave.type;
+    leaveDays = leave.days.toString();
+    leaveStartDate = leave.startDate.toISOString().slice(0, 10);
+    approverName =
+      (await tx.user.findUnique({ where: { id: input.approvedById }, select: { name: true } }))?.name ?? "";
+
     // When approving, auto-create WorkerAttendance rows for each working day
     // in the leave range so payroll picks them up correctly. UNPAID leave →
     // NON_PAID_LEAVE (counts as 0 in payroll); all other types → PAID_LEAVE
@@ -262,6 +297,29 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
 
     return updated;
   });
+
+  // Tell the requester — the person whose leave this was. Sent via
+  // recipientIds (replaces role resolution) so it never broadcasts to
+  // the whole company, and the approver is excluded when the requester
+  // approved their own leave (tier-1 self-approve).
+  void emitNotificationEvent({
+    eventType: input.approve ? NotificationEventType.LEAVE_APPROVED : NotificationEventType.LEAVE_REJECTED,
+    companyId: input.companyId,
+    recipientIds: [employeeUserId],
+    excludeIds: [input.approvedById],
+    entityType: "LeaveRequest",
+    entityId: updated.id,
+    variables: {
+      leaveType: leaveType,
+      days: leaveDays,
+      startDate: leaveStartDate,
+      approverName,
+      reason: input.rejectedReason ?? "",
+    },
+    timestamp: new Date(),
+  });
+
+  return updated;
 }
 
 export async function cancelLeaveRequest(leaveId: string, companyId: string, userId?: string) {
