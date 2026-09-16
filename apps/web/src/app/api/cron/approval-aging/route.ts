@@ -23,7 +23,7 @@ import { withTimeout } from "@/lib/timeout";
  * Auth: requires x-cron-secret header (same as /api/cron/backup).
  */
 
-const AGING_HOURS = 48;
+const DEFAULT_AGING_HOURS = 48;
 const DEDUPE_HOURS = 24;
 const ERRORLOG_RETENTION_DAYS = 30;
 
@@ -40,25 +40,45 @@ export const POST = apiHandler(async (req: NextRequest) => {
 }, { skipSession: true, rateLimit: false });
 
 async function run(): Promise<Response> {
-  const cutoff = new Date(Date.now() - AGING_HOURS * 3600_000);
   const dedupeCutoff = new Date(Date.now() - DEDUPE_HOURS * 3600_000);
   const companies = await prisma.company.findMany({
     where: { deletedAt: null },
-    select: { id: true, name: true },
+    select: { id: true, name: true, approvalAgingHours: true },
   });
 
   const results: { companyId: string; aged: number; notified: number }[] = [];
 
   for (const company of companies) {
     try {
+      const agingHours = company.approvalAgingHours ?? DEFAULT_AGING_HOURS;
+      const cutoff = new Date(Date.now() - agingHours * 3600_000);
       const [agedPOs, agedReqs, agedDprs, agedClaims] = await Promise.all([
         prisma.purchaseOrder.count({ where: { companyId: company.id, status: "DRAFT", createdAt: { lt: cutoff } } }),
         prisma.materialRequisition.count({ where: { project: { companyId: company.id }, status: "SUBMITTED", createdAt: { lt: cutoff } } }),
         prisma.dailyProgressReport.count({ where: { companyId: company.id, approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] }, createdAt: { lt: cutoff } } }),
         prisma.expenseClaim.count({ where: { companyId: company.id, status: "SUBMITTED", submittedAt: { lt: cutoff } } }),
       ]);
+      // Sites that didn't file today's DPR — a silent site is invisible to
+      // management until someone notices. Only ACTIVE projects: a PLANNED
+      // site isn't expected to report yet.
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const activeProjects = await prisma.project.findMany({
+        where: { companyId: company.id, deletedAt: null, status: "ACTIVE" },
+        select: { id: true, name: true },
+      });
+      const todaysDprs = await prisma.dailyProgressReport.findMany({
+        where: {
+          projectId: { in: activeProjects.map((p) => p.id) },
+          date: { gte: startOfToday },
+        },
+        select: { projectId: true },
+      });
+      const reported = new Set(todaysDprs.map((d) => d.projectId));
+      const missingDprProjects = activeProjects.filter((p) => !reported.has(p.id));
+
       const total = agedPOs + agedReqs + agedDprs + agedClaims;
-      if (total === 0) {
+      if (total === 0 && missingDprProjects.length === 0) {
         results.push({ companyId: company.id, aged: 0, notified: 0 });
         continue;
       }
@@ -110,6 +130,10 @@ async function run(): Promise<Response> {
       if (agedReqs) parts.push(`${agedReqs} indent${agedReqs > 1 ? "s" : ""}`);
       if (agedDprs) parts.push(`${agedDprs} DPR${agedDprs > 1 ? "s" : ""}`);
       if (agedClaims) parts.push(`${agedClaims} expense claim${agedClaims > 1 ? "s" : ""}`);
+      const missingSites = missingDprProjects.map((p) => p.name).join(", ");
+      if (missingDprProjects.length) {
+        parts.push(`${missingDprProjects.length} site${missingDprProjects.length > 1 ? "s" : ""} (${missingSites}) without today's DPR`);
+      }
 
       let notified = 0;
       for (const userId of notifyUserIds) {
@@ -127,11 +151,44 @@ async function run(): Promise<Response> {
           companyId: company.id,
           userId,
           eventType: "approval.aging",
-          title: `${total} approval${total > 1 ? "s" : ""} waiting ${oldestDays >= 1 ? `${oldestDays}d+` : "48h+"}`,
-          message: `${parts.join(", ")} ${total > 1 ? "are" : "is"} waiting for approval — oldest ${oldestDays >= 1 ? `${oldestDays} day${oldestDays > 1 ? "s" : ""}` : "2+ days"}.`,
+          title: total > 0
+            ? `${total} approval${total > 1 ? "s" : ""} waiting ${oldestDays >= 1 ? `${oldestDays}d+` : "48h+"}`
+            : `${missingDprProjects.length} site${missingDprProjects.length > 1 ? "s" : ""} haven't reported today`,
+          message: total > 0
+            ? `${parts.join(", ")} ${total > 1 ? "are" : "is"} waiting — oldest ${oldestDays >= 1 ? `${oldestDays} day${oldestDays > 1 ? "s" : ""}` : "2+ days"}.`
+            : `${parts.join(", ")} — no progress report filed today.`,
           link: "/m/pulse/approvals",
         }).catch(() => {});
         notified += 1;
+      }
+
+      // Nudge the site's own engineers — they're the ones who file the DPR.
+      // Separate eventType so the exec-digest dedupe doesn't swallow it.
+      for (const project of missingDprProjects) {
+        const engineers = await prisma.employee.findMany({
+          where: {
+            activeProjectId: project.id,
+            active: true,
+            deletedAt: null,
+            userId: { not: null },
+          },
+          select: { userId: true },
+        });
+        for (const eng of engineers) {
+          const recent = await prisma.inAppNotification.findFirst({
+            where: { userId: eng.userId!, eventType: "dpr.missing", createdAt: { gt: dedupeCutoff } },
+            select: { id: true },
+          });
+          if (recent) continue;
+          await createInAppNotification({
+            companyId: company.id,
+            userId: eng.userId!,
+            eventType: "dpr.missing",
+            title: "Today's DPR not filed",
+            message: `${project.name} has no progress report for today — file it before end of shift.`,
+            link: "/m/dprs",
+          }).catch(() => {});
+        }
       }
 
       results.push({ companyId: company.id, aged: total, notified });
