@@ -1720,6 +1720,9 @@ export async function getAssignedProjectIds(): Promise<string[] | null> {
   // to the legacy ProjectAssignment table for backwards compatibility.
   const company = await getCompany();
   const hierarchical = await resolveUserScope(user.id, company.id);
+  if (hierarchical && hierarchical.scopeType === "COMPANY") {
+    return null; // explicit company scope = unscoped — don't fall to legacy table
+  }
   if (hierarchical && hierarchical.scopeType === "PROJECT" && hierarchical.projectIds.length > 0) {
     return hierarchical.projectIds;
   }

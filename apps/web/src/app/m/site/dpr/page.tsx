@@ -8,7 +8,11 @@ import { ClipboardList } from "lucide-react";
 import { MobileDprForm } from "@/components/mobile/mobile-dpr-form";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 
-export default function MobileDprPage() {
+export default function MobileDprPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ project?: string }>;
+}) {
   return (
     <div>
       <div className="flex items-center gap-2 mb-3">
@@ -24,14 +28,19 @@ export default function MobileDprPage() {
         </span>
       </div>
       <Suspense fallback={<MobileSkeletonForm />}>
-        <MobileDprContent />
+        <MobileDprContent searchParams={searchParams} />
       </Suspense>
     </div>
   );
 }
 
-async function MobileDprContent() {
+async function MobileDprContent({
+  searchParams,
+}: {
+  searchParams: Promise<{ project?: string }>;
+}) {
   await connection();
+  const { project: initialProjectId } = await searchParams;
   const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
@@ -172,6 +181,7 @@ async function MobileDprContent() {
       materials={materials.map((m) => ({ id: m.id, name: m.name, unit: m.unit, standardCost: toNum(m.standardCost) }))}
       existingDprsByProject={existingDprsByProject}
       yesterdayDprsByProject={yesterdayDprsByProject}
+      initialProjectId={initialProjectId ?? null}
     />
   );
 }

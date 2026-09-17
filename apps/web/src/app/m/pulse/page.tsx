@@ -40,9 +40,9 @@ import { MobileHubPage } from "@/components/mobile/v2/hub-page";
  * Heavy data (per-project P&L, full alert lists, cash flow) lives on
  * dedicated drill-down pages:
  *   /m/pulse/attention  — all alerts in one place
- *   /m/pulse/projects   — redirects to /m/projects
- *   /m/pulse/approvals  — approve/reject queue
- *   /m/pulse/inventory  — redirects to /m/materials
+ *   /m/projects         — per-project drill-down
+ *   /m/pulse/approvals  — redirects to /m/approvals (approve/reject queue)
+ *   /m/materials        — inventory drill-down
  */
 export default function PulsePage() {
   return (

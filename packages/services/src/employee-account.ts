@@ -343,8 +343,11 @@ export async function createEmployeeAccount(input: CreateEmployeeAccountInput) {
       }
     }
 
-    // ── Create UserScope rows (project/department scoping) ──
-    if (input.scopeType && input.scopeType !== "COMPANY" && input.scopes && input.scopes.length > 0) {
+    // ── Persist scope type + create UserScope rows ──
+    // scopeType must be stored even for COMPANY — a null scopeType falls back
+    // to the role default (PROJECT for field roles), which silently empties
+    // every project-scoped list for the new account.
+    if (input.scopeType) {
       const membership = await tx.userCompany.findFirstOrThrow({
         where: { userId, companyId: input.companyId },
         select: { id: true },
@@ -353,15 +356,17 @@ export async function createEmployeeAccount(input: CreateEmployeeAccountInput) {
         where: { id: membership.id },
         data: { scopeType: input.scopeType },
       });
-      for (const scope of input.scopes) {
-        await tx.userScope.create({
-          data: {
-            userCompanyId: membership.id,
-            scopeKind: scope.scopeKind,
-            departmentId: scope.departmentId || null,
-            projectId: scope.projectId || null,
-          },
-        });
+      if (input.scopeType !== "COMPANY" && input.scopes && input.scopes.length > 0) {
+        for (const scope of input.scopes) {
+          await tx.userScope.create({
+            data: {
+              userCompanyId: membership.id,
+              scopeKind: scope.scopeKind,
+              departmentId: scope.departmentId || null,
+              projectId: scope.projectId || null,
+            },
+          });
+        }
       }
     }
 

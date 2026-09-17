@@ -703,8 +703,8 @@ export default function MobilePoDetailPage({
             ) : null}
 
             {/* ── Inline actions ── `id` anchors let the NextActionCard's
-                "#approve" link scroll the real control into view. */}
-            <div id="approve">
+                "#approve" / "#resubmit" links scroll the real control into view. */}
+            <div id={po.status === "REJECTED" ? "resubmit" : "approve"}>
             <MobilePoActions
               po={poPayload}
               canApprove={canApprove}

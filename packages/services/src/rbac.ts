@@ -77,7 +77,11 @@ export function resolveScopeType(
   membership: { scopeType: string | null; role: string },
 ): ScopeType {
   if (membership.role === "OWNER" || membership.role === "ADMIN") return "COMPANY";
-  if (membership.scopeType === "DEPARTMENT" || membership.scopeType === "PROJECT") {
+  if (
+    membership.scopeType === "COMPANY" ||
+    membership.scopeType === "DEPARTMENT" ||
+    membership.scopeType === "PROJECT"
+  ) {
     return membership.scopeType;
   }
   return defaultScopeType(membership.role);

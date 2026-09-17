@@ -152,7 +152,7 @@ const PROCUREMENT_FLOW: FlowDef = {
       when: "RECEIVED",
       label: "Issue to site",
       reason: "Stock is in the warehouse — issue it to the project when needed.",
-      action: { type: "navigate", href: "/m/site/issue" },
+      action: { type: "navigate", href: "/m/stock-out?mode=issue" },
       tone: "go",
     },
     {
@@ -179,7 +179,7 @@ const PROCUREMENT_FLOW: FlowDef = {
 
 const REQUISITION_FLOW: FlowDef = {
   id: "requisition",
-  listHref: "/m/procurement?tab=indents",
+  listHref: "/m/requisitions",
   listLead: "Material requests raised by site. Approved indents become purchase orders.",
   nodes: [
     { status: "DRAFT", label: "Draft", detailHref: "/m/requisitions/{id}" },
@@ -244,7 +244,7 @@ const REQUISITION_FLOW: FlowDef = {
 
 const STOCK_TRANSFER_FLOW: FlowDef = {
   id: "stockTransfer",
-  listHref: "/m/stock?tab=transfers",
+  listHref: "/m/transfers",
   listLead: "Stock moves between warehouses and sites. In-transit transfers need confirmation on arrival.",
   nodes: [
     { status: "DRAFT", label: "Draft", detailHref: "/m/transfers/{id}" },
@@ -402,16 +402,16 @@ const DPR_FLOW: FlowDef = {
 
 const NCR_FLOW: FlowDef = {
   id: "ncr",
-  listHref: "/m/construction?tab=quality",
+  listHref: "/m/quality-control",
   listLead: "Non-conformances raised on site. Open NCRs need review and a corrective action plan.",
   nodes: [
-    { status: "OPEN", label: "Open", detailHref: "/m/construction?tab=quality" },
-    { status: "UNDER_REVIEW", label: "Under review", detailHref: "/m/construction?tab=quality" },
-    { status: "CAPA_REQUIRED", label: "CAPA required", detailHref: "/m/construction?tab=quality" },
-    { status: "ACCEPTED", label: "Accepted", detailHref: "/m/construction?tab=quality" },
-    { status: "REJECTED", label: "Rejected", detailHref: "/m/construction?tab=quality" },
-    { status: "CLOSED", label: "Closed", detailHref: "/m/construction?tab=quality" },
-    { status: "CANCELLED", label: "Cancelled", detailHref: "/m/construction?tab=quality" },
+    { status: "OPEN", label: "Open", detailHref: "/m/quality-control/ncr/{id}" },
+    { status: "UNDER_REVIEW", label: "Under review", detailHref: "/m/quality-control/ncr/{id}" },
+    { status: "CAPA_REQUIRED", label: "CAPA required", detailHref: "/m/quality-control/ncr/{id}" },
+    { status: "ACCEPTED", label: "Accepted", detailHref: "/m/quality-control/ncr/{id}" },
+    { status: "REJECTED", label: "Rejected", detailHref: "/m/quality-control/ncr/{id}" },
+    { status: "CLOSED", label: "Closed", detailHref: "/m/quality-control/ncr/{id}" },
+    { status: "CANCELLED", label: "Cancelled", detailHref: "/m/quality-control/ncr/{id}" },
   ],
   next: [
     {
@@ -450,13 +450,13 @@ const BUILT_UNIT_FLOW: FlowDef = {
   listHref: "/m/units",
   listLead: "Apartments, shops and villas in your projects. Track construction status and sales.",
   nodes: [
-    { status: "PLANNED", label: "Planned", detailHref: "/m/units" },
-    { status: "UNDER_CONSTRUCTION", label: "Under construction", detailHref: "/m/units" },
-    { status: "AVAILABLE", label: "Available", detailHref: "/m/units" },
-    { status: "RESERVED", label: "Reserved", detailHref: "/m/units" },
-    { status: "HOLD", label: "On hold", detailHref: "/m/units" },
-    { status: "SOLD", label: "Sold", detailHref: "/m/units" },
-    { status: "RENTED", label: "Rented", detailHref: "/m/units" },
+    { status: "PLANNED", label: "Planned", detailHref: "/m/units/{id}" },
+    { status: "UNDER_CONSTRUCTION", label: "Under construction", detailHref: "/m/units/{id}" },
+    { status: "AVAILABLE", label: "Available", detailHref: "/m/units/{id}" },
+    { status: "RESERVED", label: "Reserved", detailHref: "/m/units/{id}" },
+    { status: "HOLD", label: "On hold", detailHref: "/m/units/{id}" },
+    { status: "SOLD", label: "Sold", detailHref: "/m/units/{id}" },
+    { status: "RENTED", label: "Rented", detailHref: "/m/units/{id}" },
   ],
   next: [
     {

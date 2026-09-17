@@ -111,6 +111,7 @@ export function MobileDprForm({
   materials,
   existingDprsByProject,
   yesterdayDprsByProject,
+  initialProjectId,
   onClose,
   onCreated,
 }: {
@@ -120,6 +121,8 @@ export function MobileDprForm({
   materials: { id: string; name: string; unit: string | null; standardCost: number }[];
   existingDprsByProject: Record<string, ExistingDpr>;
   yesterdayDprsByProject: Record<string, YesterdayDpr>;
+  /** Deep-link prefill (?project=) — wins over the last-used default. */
+  initialProjectId?: string | null;
   /** Called when the form is dismissed (modal close). */
   onClose?: () => void;
   /** Called after a DPR is successfully submitted/updated. */
@@ -171,16 +174,20 @@ export function MobileDprForm({
   const draftKey = `dpr:${fDate}`;
   const { draft, hasDraft, draftUpdatedAt, saveStatus, saveDraft, clearDraft } = useDrafts<DprDraft>("dpr", draftKey);
 
-  // ── Smart defaults: pre-select last-used project if no draft ──
+  // ── Smart defaults: pre-select last-used project if no draft. A ?project=
+  //    deep-link (e.g. "New DPR" on a project page) wins over last-used. ──
   useEffect(() => {
     if (!fProject && !hasDraft) {
-      const lastProject = getDefault("project");
-      if (lastProject && projects.some((p) => p.id === lastProject)) {
-        setFProject(lastProject);
+      const pick =
+        initialProjectId && projects.some((p) => p.id === initialProjectId)
+          ? initialProjectId
+          : getDefault("project");
+      if (pick && projects.some((p) => p.id === pick)) {
+        setFProject(pick);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getDefault, hasDraft, projects]);
+  }, [getDefault, hasDraft, projects, initialProjectId]);
 
   // ── GPS auto-select: when nearest project is found, auto-select it ──
   useEffect(() => {

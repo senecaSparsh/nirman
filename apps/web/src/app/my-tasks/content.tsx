@@ -22,7 +22,7 @@ export async function MyTasksContent() {
         assignedBy: { select: { id: true, name: true } }}}),
     prisma.user.findMany({
       take: 200,
-      where: { active: true, memberships: { some: { companyId: company.id } } },
+      where: { active: true, memberships: { some: { companyId: company.id } }, isHidden: { not: true } },
       select: { id: true, name: true, email: true, role: true },
       orderBy: { name: "asc" }}),
   ]);

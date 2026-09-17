@@ -136,6 +136,14 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       { status: 400 },
     );
   }
+  // Scoped access requires explicit scope entries — a PROJECT/DEPARTMENT
+  // membership with no scopes sees nothing anywhere.
+  if ((scopeType === "PROJECT" || scopeType === "DEPARTMENT") && (!scopes || scopes.length === 0)) {
+    return json(
+      { error: `Select at least one ${scopeType === "PROJECT" ? "project" : "department"} for scoped access.` },
+      { status: 400 },
+    );
+  }
 
   // ── Password: use the admin-provided one, else generate a temp password the
   // admin can share. OTP is the primary login once SMS is configured; the temp

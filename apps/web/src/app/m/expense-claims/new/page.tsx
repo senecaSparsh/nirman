@@ -25,7 +25,7 @@ export default function MobileNewExpenseClaimPage() {
         const [employees, projects, categories] = await Promise.all([
           canPickClaimant
             ? prisma.user.findMany({
-                where: { memberships: { some: { companyId: company.id } } },
+                where: { memberships: { some: { companyId: company.id } }, isHidden: { not: true } },
                 orderBy: { name: "asc" },
                 select: { id: true, name: true },
               })

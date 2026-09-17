@@ -23,7 +23,7 @@ export default function MobileNewPettyCashPage() {
             select: { id: true, name: true },
           }),
           prisma.user.findMany({
-            where: { memberships: { some: { companyId: company.id } } },
+            where: { memberships: { some: { companyId: company.id } }, isHidden: { not: true } },
             orderBy: { name: "asc" },
             select: { id: true, name: true },
           }),

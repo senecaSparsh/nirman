@@ -312,12 +312,12 @@ export default function MobileProjectDetailPage({
       <SectionHead title="Quick actions" />
       <div className="grid grid-cols-4 gap-1.5 mb-3">
         <QuickActionTile href={`/m/site/dpr?project=${id}`} icon={FileText} label="New Daily Progress Report" />
-        <QuickActionTile href={`/m/procurement?tab=indents&project=${id}`} icon={ClipboardList} label="Indent" />
+        <QuickActionTile href={`/m/requisitions/new?project=${id}`} icon={ClipboardList} label="New Indent" />
         <QuickActionTile href={`/m/stock-out?mode=issue&project=${id}`} icon={PackageCheck} label="Issue" />
         <QuickActionTile href={`/m/procurement/new?project=${id}`} icon={Truck} label="New Purchase Order" />
         <QuickActionTile href={`/m/units?project=${id}`} icon={Home} label="Add Built Units" />
         <QuickActionTile href={`/m/sales/new?project=${id}`} icon={TrendingUp} label="Record a Sale" />
-        <QuickActionTile href={`/m/books/finance?project=${id}`} icon={Wallet} label="Add Project Cost" />
+        <QuickActionTile href={`/m/expenses/new?project=${id}`} icon={Wallet} label="Add Project Cost" />
         <QuickActionTile href="/m/equipment" icon={Wrench} label="Assign Equipment" />
       </div>
             </>

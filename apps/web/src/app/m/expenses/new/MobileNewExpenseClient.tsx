@@ -19,15 +19,21 @@ export function MobileNewExpenseClient({
   categories,
   suppliers,
   currentUserId: _currentUserId,
+  initialProjectId,
 }: {
   projects: Project[];
   categories: Category[];
   suppliers: Supplier[];
   currentUserId: string | null;
+  initialProjectId?: string | null;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [projectId, setProjectId] = useState("");
+  const [projectId, setProjectId] = useState(
+    initialProjectId && projects.some((p) => p.id === initialProjectId)
+      ? initialProjectId
+      : "",
+  );
   const [categoryId, setCategoryId] = useState("");
   const [category, setCategory] = useState("");
   const [amount, setAmount] = useState("");

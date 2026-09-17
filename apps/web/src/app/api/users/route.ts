@@ -32,7 +32,7 @@ export const GET = apiHandler(async () => {
   const company = await getCompany();
   const users = await prisma.user.findMany({
     take: 500,
-    where: { memberships: { some: { companyId: company.id } }, active: true },
+    where: { memberships: { some: { companyId: company.id } }, active: true, isHidden: { not: true } },
     orderBy: { name: "asc" },
     select: { id: true, email: true, name: true, role: true, active: true, designation: true, employeeCode: true, department: true },
   });

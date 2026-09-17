@@ -83,7 +83,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     }),
     // Fetch all other members for the reportsTo selector
     prisma.userCompany.findMany({
-      where: { companyId: company.id, userId: { not: userId } },
+      where: { companyId: company.id, userId: { not: userId }, user: { isHidden: { not: true } } },
       orderBy: { user: { name: "asc" } },
       select: {
         id: true,

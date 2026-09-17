@@ -80,19 +80,28 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
     [{ materialId: "", qty: "", notes: "", preferredSupplierId: "" }],
   );
 
-  // Apply smart defaults on mount (if no draft to restore)
+  const searchParams = useSearchParams();
+
+  // Apply smart defaults on mount (if no draft to restore). A ?project=
+  // deep-link (e.g. "New Indent" on a project page) wins over last-used.
   useEffect(() => {
     if (hasDraft || draftRestored || defaultsApplied) return;
+    const paramProject = searchParams.get("project");
     const defProject = getDefault("projectId");
-    if (defProject && data.projects.some((p) => p.id === defProject)) {
-      setProjectId(defProject);
+    const pick =
+      paramProject && data.projects.some((p) => p.id === paramProject)
+        ? paramProject
+        : defProject && data.projects.some((p) => p.id === defProject)
+          ? defProject
+          : undefined;
+    if (pick) {
+      setProjectId(pick);
       setDefaultsApplied(true);
     }
-  }, [hasDraft, draftRestored, defaultsApplied, getDefault, data.projects]);
+  }, [hasDraft, draftRestored, defaultsApplied, getDefault, data.projects, searchParams]);
 
   // ── Prefill a material from ?materialId= — e.g. "Raise indent" on a
   // low/out-of-stock material detail. Skipped when a draft is being restored.
-  const searchParams = useSearchParams();
   const prefillMaterialId = searchParams.get("materialId");
   const [prefilled, setPrefilled] = useState(false);
   useEffect(() => {

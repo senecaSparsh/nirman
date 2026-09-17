@@ -174,7 +174,7 @@ async function MobileOnboardingQueueContent() {
             description="Create an employee to start the onboarding workflow."
             action={
               <Link
-                href="/m/hr?tab=employees"
+                href="/m/hr/employees"
                 className="inline-flex items-center justify-center rounded-[0.5rem] px-4 py-2.5 text-m-label font-bold press"
                 style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
               >

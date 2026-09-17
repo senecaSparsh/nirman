@@ -10,11 +10,16 @@ import MobileNewProcurementClient from "./MobileNewProcurementClient";
  * dropdown data (suppliers, projects, materials, stock locations) from
  * Prisma directly.
  */
-export default function MobileNewProcurementPage() {
+export default function MobileNewProcurementPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ project?: string }>;
+}) {
   return (
     <MobileNewEntityPage perm={PERM.PROCUREMENT_MANAGE} what="create purchase orders" permission="procurement.manage" fields={6}>
       {async () => {
         const company = await getCompany();
+        const { project: initialProjectId } = await searchParams;
 
         const [suppliers, projects, materials, locations, categories] = await Promise.all([
           prisma.supplier.findMany({
@@ -59,7 +64,7 @@ export default function MobileNewProcurementPage() {
           categories: categories.map((c) => ({ id: c.id, name: c.name, unit: c.unit })),
         };
 
-        return <MobileNewProcurementClient data={serialized} />;
+        return <MobileNewProcurementClient data={serialized} initialProjectId={initialProjectId ?? null} />;
       }}
     </MobileNewEntityPage>
   );

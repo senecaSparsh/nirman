@@ -777,9 +777,11 @@ async function AccountsGlTab() {
         <MobileStatCard label="Total Debit" value={formatCurrencyCompact(totalDebit)} icon={BookOpen} />
         <MobileStatCard label="Total Credit" value={formatCurrencyCompact(totalCredit)} icon={BookOpen} tone="go" />
       </div>
-      <div className="mb-4 flex justify-end">
-        <MobileReseedAccountsButton />
-      </div>
+      {accounts.length === 0 && (
+        <div className="mb-4 flex justify-end">
+          <MobileReseedAccountsButton />
+        </div>
+      )}
       {totalDebit !== totalCredit && (
         <div
           className="mb-4 rounded-[0.5rem] border-2 px-3 py-2 text-m-caption font-semibold"

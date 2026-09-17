@@ -64,7 +64,7 @@ interface PoDraft {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export default function MobileNewProcurementClient({ data, onClose, onCreated }: { data: FormData; onClose?: () => void; onCreated?: (id: string) => void }) {
+export default function MobileNewProcurementClient({ data, initialProjectId, onClose, onCreated }: { data: FormData; initialProjectId?: string | null; onClose?: () => void; onCreated?: (id: string) => void }) {
   const router = useRouter();
   const { online, enqueue } = useOfflineQueue();
   const { categories } = data;
@@ -108,14 +108,23 @@ export default function MobileNewProcurementClient({ data, onClose, onCreated }:
     if (hasDraft || draftRestored || defaultsApplied) return;
     const defSupplier = getDefault("supplierId");
     const defScope = getDefault("scope") as Scope | undefined;
-    const defProject = getDefault("projectId");
+    // A ?project= deep-link (e.g. "New Purchase Order" on a project page)
+    // wins over the last-used smart default and implies PROJECT scope.
+    const paramProject =
+      initialProjectId && projects.some((p) => p.id === initialProjectId)
+        ? initialProjectId
+        : undefined;
+    const defProject = paramProject ?? getDefault("projectId");
     const defLocation = getDefault("locationId");
     let applied = false;
     if (defSupplier && suppliers.some((s) => s.id === defSupplier)) {
       setSupplierId(defSupplier);
       applied = true;
     }
-    if (defScope && (defScope === "COMPANY" || defScope === "PROJECT")) {
+    if (paramProject) {
+      setScope("PROJECT");
+      applied = true;
+    } else if (defScope && (defScope === "COMPANY" || defScope === "PROJECT")) {
       setScope(defScope);
       applied = true;
     }
@@ -128,7 +137,7 @@ export default function MobileNewProcurementClient({ data, onClose, onCreated }:
       applied = true;
     }
     if (applied) setDefaultsApplied(true);
-  }, [hasDraft, draftRestored, defaultsApplied, getDefault, suppliers, projects, locations]);
+  }, [hasDraft, draftRestored, defaultsApplied, getDefault, suppliers, projects, locations, initialProjectId]);
 
   // Locations available for the selected scope
   const availableLocations = useMemo(() => {

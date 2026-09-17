@@ -6,12 +6,17 @@ import { MobileNewExpenseClient } from "./MobileNewExpenseClient";
 
 export const metadata = { title: "New Expense — Nirman" };
 
-export default function MobileNewExpensePage() {
+export default function MobileNewExpensePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ project?: string }>;
+}) {
   return (
     <MobileNewEntityPage perm={PERM.EXPENSE_CREATE} what="record expenses" permission="expense.create" fields={3}>
       {async () => {
         const company = await getCompany();
         const user = await getCurrentUser();
+        const { project: initialProjectId } = await searchParams;
 
         const [projects, categories, suppliers] = await Promise.all([
           prisma.project.findMany({
@@ -40,6 +45,7 @@ export default function MobileNewExpensePage() {
             categories={categories}
             suppliers={suppliers}
             currentUserId={user?.id ?? null}
+            initialProjectId={initialProjectId ?? null}
           />
         );
       }}
