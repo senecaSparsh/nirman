@@ -1,12 +1,13 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { updatePayrollLine } from "@nirman/services";
-import { apiHandler, json, payrollLineUpdateSchema, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, payrollLineUpdateSchema, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { prisma } from "@nirman/db";
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string; lineId: string }> }) => {
   const user = await requirePermission(PERM.PAYROLL_MANAGE);
+  const company = await getCompany();
   const { lineId } = await params;
 
   // Scoped pre-fetch

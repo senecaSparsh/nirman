@@ -39,7 +39,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
 
   // Load the line + verify it belongs to this company via the period + scope
   const line = await prisma.payrollLine.findFirst({
-    where: { id: lineId, payrollPeriodId: periodId, ...await scopeWhere("PayrollLine") },
+    where: { id: lineId, payrollPeriodId: periodId, employee: { companyId: company.id }, ...await scopeWhere("PayrollLine") },
     include: {
       payrollPeriod: { select: { id: true, companyId: true, status: true, month: true, year: true } },
       employee: { select: { id: true, name: true } },
@@ -80,7 +80,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
 
   // Auto-mark the period as PAID when ALL lines have a paymentDate
   const allLines = await prisma.payrollLine.findMany({
-    where: { payrollPeriodId: periodId, ...await scopeWhere("PayrollLine") },
+    where: { payrollPeriodId: periodId, employee: { companyId: company.id }, ...await scopeWhere("PayrollLine") },
     select: { paymentDate: true },
   });
   const allPaid = allLines.length > 0 && allLines.every((l) => l.paymentDate !== null);
