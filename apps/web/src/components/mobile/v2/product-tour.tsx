@@ -220,7 +220,7 @@ export function ProductTour({
         }, 140);
         return;
       }
-      if (Date.now() - startedAt > 4000) {
+      if (Date.now() - startedAt > (step.waitMs ?? 1200)) {
         advance(); // target never mounted (gated feature) — skip the step
         return;
       }
@@ -235,8 +235,10 @@ export function ProductTour({
     };
   }, [phase, stepIndex, pathname, step, router, advance]);
 
-  // ── Measure the card so above/below placement is exact. ──
-  React.useLayoutEffect(() => {
+  // ── Measure the card so above/below placement is exact. useEffect, not
+  //    useLayoutEffect: the card renders invisible until `ready`, so a
+  //    post-paint measure costs nothing and avoids the SSR warning. ──
+  React.useEffect(() => {
     if (ready && cardRef.current) {
       setCardH(cardRef.current.offsetHeight);
     }

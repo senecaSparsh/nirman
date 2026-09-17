@@ -34,6 +34,12 @@ export interface TourStep {
   /** Where the tooltip sits relative to the target. "auto" picks above
    *  or below based on available space. Ignored for centered steps. */
   placement?: "top" | "bottom" | "auto";
+  /** How long to wait for `target` to mount before skipping the step.
+   *  Chrome targets (tab bar, header icons) render with the shell — they
+   *  either exist immediately or never will, so they get a short window.
+   *  Page targets (quick actions, inside a Suspense'd page after a route
+   *  push) get a long one. Default 1200ms. */
+  waitMs?: number;
 }
 
 /**
@@ -100,6 +106,7 @@ export function buildTourSteps(
       id: "quick-actions",
       route: hub.route,
       target: "quick-actions",
+      waitMs: 5000, // mounts inside a Suspense'd page body after navigation
       title: "Start here — Quick Actions",
       body:
         `These tiles are your fastest way into daily work${tiles ? ` — ${tiles}` : ""}. ` +
