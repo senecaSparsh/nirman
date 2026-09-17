@@ -23,7 +23,12 @@
  * same tier groups via getEmployeeAccessScope() flags.
  */
 
-/** Compensation + employment-terms columns — payroll.manage | hr.manage. */
+/**
+ * Compensation + employment-terms columns — payroll.view | payroll.manage |
+ * hr.manage. payroll.view is the read-only comp tier: its holders (finance,
+ * accountants, auditors) already read actual per-employee net pay via
+ * /api/payroll lines, so wage fields share that gate.
+ */
 export const EMPLOYEE_COMP_FIELDS = [
   "dailyRate",
   "monthlySalary",

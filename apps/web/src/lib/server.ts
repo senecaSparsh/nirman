@@ -1999,7 +1999,10 @@ export async function getEmployeeAccessScope() {
   // ── Field visibility: which fields can the viewer see? ──
   // Bank details, payroll, salary → only PAYROLL_MANAGE or HR_MANAGE
   const canSeeBankDetails = hasPerm("payroll.manage") || hasPerm("hr.manage");
-  const canSeePayroll = hasPerm("payroll.manage") || hasPerm("hr.manage");
+  // payroll.view is the read-only comp tier by design — its holders (finance,
+  // accountants, payroll auditors) already read actual per-employee net pay
+  // via /api/payroll lines, so wage fields must not sit behind a stricter gate.
+  const canSeePayroll = hasPerm("payroll.view") || hasPerm("payroll.manage") || hasPerm("hr.manage");
   const canSeePersonalDocs = hasPerm("hr.manage") || hasPerm("payroll.manage");
   // Access info (role, phone verification) → only USERS_MANAGE or HR_MANAGE
   const canSeeAccessInfo = hasPerm("users.manage") || hasPerm("hr.manage");

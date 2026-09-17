@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum, getUserScope, getUserPermissions } from "@/lib/server";
+import { getCompany, getUserRole, toNum, getUserScope, getUserPermissions, getEmployeeAccessScope } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
@@ -45,12 +45,15 @@ async function MobileOnboardingDetailContent({
 
   const canManage = __effPerms.includes(PERM.HR_MANAGE);
   const canManagePayroll = __effPerms.includes(PERM.PAYROLL_MANAGE);
+  const __empScope = await getEmployeeAccessScope();
   const canManageAccess = __effPerms.includes(PERM.USERS_MANAGE);
   // Field-visibility policy (matches getEmployeeAccessScope): wages, bank,
   // gov IDs, addresses, attachments and employment terms need payroll.manage
   // or hr.manage; account-status metadata needs users.manage or hr.manage.
   // hr.view-only viewers get the roster + onboarding checklist state only.
-  const canSeeComp = canManage || canManagePayroll;
+  // Comp visibility = shared flag (payroll.view|payroll.manage|hr.manage) —
+  // read-only auditors see wages here too, consistent with /api/payroll.
+  const canSeeComp = __empScope.canSeePayroll;
   const canSeeAccess = canManage || canManageAccess;
   const { id } = await params;
 

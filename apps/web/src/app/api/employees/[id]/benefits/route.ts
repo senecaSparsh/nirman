@@ -9,7 +9,8 @@ import { PERM } from "@/lib/roles";
  *  Benefits carry amounts — compensation data, so the same payroll.manage |
  *  hr.manage tier as salary-components, not bare hr.view. */
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requireAnyPermission(PERM.PAYROLL_MANAGE, PERM.HR_MANAGE);
+  // Read gate mirrors canSeePayroll — payroll.view is the read-only comp tier.
+  await requireAnyPermission(PERM.PAYROLL_VIEW, PERM.PAYROLL_MANAGE, PERM.HR_MANAGE);
   const company = await getCompany();
   const { id } = await params;
 

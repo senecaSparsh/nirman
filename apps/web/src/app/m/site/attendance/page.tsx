@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, scopeWhere, getScopedFormOptions, getUserPermissions } from "@/lib/server";
+import { getCompany, toNum, scopeWhere, getScopedFormOptions, getUserPermissions, getEmployeeAccessScope } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { Users } from "lucide-react";
 import { MobileAttendanceForm } from "@/components/mobile/mobile-attendance-form";
@@ -46,8 +46,8 @@ async function MobileAttendanceContent() {
   const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
 
   const scopedOpts = await getScopedFormOptions();
-  // Comp visibility matches getEmployeeAccessScope.canSeePayroll.
-  const canSeeComp = __effPerms.includes(PERM.PAYROLL_MANAGE) || __effPerms.includes(PERM.HR_MANAGE);
+  // Comp visibility = shared flag (payroll.view|payroll.manage|hr.manage).
+  const { canSeePayroll: canSeeComp } = await getEmployeeAccessScope();
   const [projects, employees, existingAttendance] = await Promise.all([
     Promise.resolve(scopedOpts.projects),
     prisma.employee.findMany({

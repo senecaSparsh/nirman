@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getCurrentUser, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { getCompany, getCurrentUser, toNum, scopeWhere, getUserPermissions, getEmployeeAccessScope } from "@/lib/server";
 import { PERM, migrateRole, ROLES } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { RefreshButton } from "@/components/refresh-button";
@@ -30,9 +30,9 @@ async function HrDashboardContent() {
   if (!__effPerms.includes(PERM.HR_VIEW)) {
     return <NoAccess what="the HR module" />;
   }
-  // Comp visibility matches getEmployeeAccessScope.canSeePayroll — labour
-  // cost aggregates and per-worker wages need payroll.manage|hr.manage.
-  const canSeePayroll = __effPerms.includes(PERM.PAYROLL_MANAGE) || __effPerms.includes(PERM.HR_MANAGE);
+  // Comp visibility = getEmployeeAccessScope.canSeePayroll (payroll.view |
+  // payroll.manage | hr.manage) — use the shared flag so the tier can't drift.
+  const { canSeePayroll } = await getEmployeeAccessScope();
 
   const today = new Date();
   const todayDateOnly = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));

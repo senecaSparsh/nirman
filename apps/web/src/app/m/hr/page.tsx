@@ -7,7 +7,7 @@ import {
   Clock,
   Circle} from "lucide-react";
 import { prisma } from "@nirman/db";
-import { getCurrentUser, toNum, scopeWhere } from "@/lib/server";
+import { getCurrentUser, toNum, scopeWhere, getEmployeeAccessScope } from "@/lib/server";
 import { migrateRole, ROLES, PERM } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
 import { formatDate, formatCurrency } from "@/lib/utils";
@@ -40,8 +40,8 @@ export default function HrHomePage() {
       {async ({ company, perms }) => {
         const currentUser = await getCurrentUser();
         const canManageTeam = perms.includes(PERM.USERS_VIEW);
-        // Comp visibility matches getEmployeeAccessScope.canSeePayroll.
-        const canSeeComp = perms.includes(PERM.PAYROLL_MANAGE) || perms.includes(PERM.HR_MANAGE);
+        // Comp visibility = shared flag (payroll.view|payroll.manage|hr.manage).
+        const { canSeePayroll: canSeeComp } = await getEmployeeAccessScope();
 
         const today = new Date();
         const todayDateOnly = new Date(
