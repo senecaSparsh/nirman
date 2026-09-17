@@ -24,10 +24,20 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
 
   const employee = await prisma.employee.findFirst({
     where: { id, deletedAt: null, offerToken: token },
-    select: { id: true, offerLetterStatus: true, name: true, companyId: true },
+    select: { id: true, offerLetterStatus: true, name: true, companyId: true, offerLetterIssuedAt: true },
   });
 
   if (!employee) return json({ error: "Invalid or expired link" }, { status: 404 });
+
+  // Token expiry: offer links are shareable and can linger in forwarded
+  // messages — expire 30 days after issuance. Re-issuing rotates the token.
+  const OFFER_LINK_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+  if (
+    employee.offerLetterIssuedAt &&
+    Date.now() - employee.offerLetterIssuedAt.getTime() > OFFER_LINK_TTL_MS
+  ) {
+    return json({ error: "This offer link has expired. Ask your HR contact to re-issue it." }, { status: 410 });
+  }
 
   if (employee.offerLetterStatus === "CONFIRMED") {
     return json({ ok: true, message: "Offer already accepted", alreadyAccepted: true });

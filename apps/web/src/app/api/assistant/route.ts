@@ -412,7 +412,7 @@ function roleAwareQuickLinks(role: Role): ActionCard[] {
     cards.push({ type: "link", label: "Stock dekho", href: "/m/materials" });
   }
   if (hasPermission(role, PERM.PO_APPROVE) || hasPermission(role, PERM.REQUISITION_APPROVE)) {
-    cards.push({ type: "link", label: "Approvals", href: "/m/pulse/approvals" });
+    cards.push({ type: "link", label: "Approvals", href: "/m/approvals" });
   }
   if (hasPermission(role, PERM.SALES_VIEW)) {
     cards.push({ type: "link", label: "Sales", href: "/m/material-sales" });
@@ -588,7 +588,7 @@ async function stockQueryResponse(companyId: string, entities: ParsedEntities): 
     confidence: 0.9,
     cards: [
       { type: "link", label: "Full inventory", href: "/m/materials" },
-      { type: "link", label: "Stock movements", href: "/m/stock-movements" },
+      { type: "link", label: "Stock movements", href: "/m/stock?tab=ledger" },
     ]};
 }
 
@@ -658,7 +658,7 @@ async function approvalsListResponse(companyId: string): Promise<AssistantRespon
 
   const cards: ActionCard[] = [];
   if (draftPOs.length > 0 || pendingReqs.length > 0) {
-    cards.push({ type: "link", label: "Go to approvals", href: "/m/pulse/approvals", variant: "primary" });
+    cards.push({ type: "link", label: "Go to approvals", href: "/m/approvals", variant: "primary" });
   }
 
   return { text, cards, intent: "APPROVALS_LIST", confidence: 0.9 };
@@ -1093,7 +1093,7 @@ async function dprListResponse(companyId: string): Promise<AssistantResponse> {
     include: { project: true, submittedBy: true }});
 
   if (dprs.length === 0) {
-    return { text: "Koi DPR nahi mila. Naya DPR banaiye.", intent: "DPR_LIST", confidence: 0.8, cards: [{ type: "link", label: "New DPR", href: "/m/hr?tab=dprs", variant: "primary" }] };
+    return { text: "Koi DPR nahi mila. Naya DPR banaiye.", intent: "DPR_LIST", confidence: 0.8, cards: [{ type: "link", label: "New DPR", href: "/m/site/dpr", variant: "primary" }] };
   }
 
   const pending = dprs.filter((d) => d.approvalStatus === "SUBMITTED").length;
@@ -1109,7 +1109,7 @@ async function dprListResponse(companyId: string): Promise<AssistantResponse> {
     text,
     intent: "DPR_LIST",
     confidence: 0.9,
-    cards: [{ type: "link", label: "All DPRs", href: "/m/hr?tab=dprs" }]};
+    cards: [{ type: "link", label: "All DPRs", href: "/m/dprs" }]};
 }
 
 async function trialBalanceResponse(companyId: string): Promise<AssistantResponse> {
@@ -1219,7 +1219,7 @@ async function taskResponse(_companyId: string): Promise<AssistantResponse> {
 
 async function workerListResponse(companyId: string): Promise<AssistantResponse> {
   const workers = await prisma.employee.findMany({
-    where: { companyId, active: true, ...await scopeWhere("Employee") },
+    where: { companyId, active: true, deletedAt: null, ...await scopeWhere("Employee") },
     orderBy: { name: "asc" },
     take: 10,
     select: { id: true, name: true, trade: true, phone: true }});
@@ -1233,7 +1233,7 @@ async function workerListResponse(companyId: string): Promise<AssistantResponse>
     text,
     intent: "WORKER_LIST",
     confidence: 0.9,
-    cards: [{ type: "link", label: "All workers", href: "/m/hr/workers" }]};
+    cards: [{ type: "link", label: "All workers", href: "/m/hr/employees" }]};
 }
 
 function unknownResponse(rawText: string): AssistantResponse {
@@ -1289,7 +1289,7 @@ async function attentionResponse(companyId: string): Promise<AssistantResponse> 
 
   const cards: ActionCard[] = [];
   if (draftPOs > 0 || pendingReqs > 0) {
-    cards.push({ type: "link", label: "Go to approvals", href: "/m/pulse/approvals", variant: "primary" });
+    cards.push({ type: "link", label: "Go to approvals", href: "/m/approvals", variant: "primary" });
   }
   if (lowStock.length > 0) {
     cards.push({ type: "button", label: "Auto-generate indent", endpoint: "/api/requisitions/auto", method: "POST" });
@@ -1539,7 +1539,7 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
     if (draftPOs > 0 || pendingReqs > 0) {
       items.push(`Approvals: ${draftPOs} POs + ${pendingReqs} requisitions pending`);
       if (hasPermission(role, PERM.PO_APPROVE)) {
-        cards.push({ type: "link", label: "Approvals kholo", href: "/m/pulse/approvals" });
+        cards.push({ type: "link", label: "Approvals kholo", href: "/m/approvals" });
       }
     }
   }
@@ -1678,7 +1678,7 @@ async function payrollResponse(companyId: string): Promise<AssistantResponse> {
     include: { _count: { select: { lines: true } } }});
 
   if (payrolls.length === 0) {
-    return { text: "Is mahine ka payroll abhi generate nahi hua.", intent: "PAYROLL_STATUS", confidence: 0.8, cards: [{ type: "link", label: "Payroll module", href: "/m/hr?tab=payroll", variant: "primary" }] };
+    return { text: "Is mahine ka payroll abhi generate nahi hua.", intent: "PAYROLL_STATUS", confidence: 0.8, cards: [{ type: "link", label: "Payroll module", href: "/m/books/payroll", variant: "primary" }] };
   }
 
   let text = `**Payroll Status (${payrolls.length}):**\n\n`;
@@ -1687,7 +1687,7 @@ async function payrollResponse(companyId: string): Promise<AssistantResponse> {
     text += `• ${monthName} ${p.year} — ${p._count.lines} employees | ${formatCurrency(toNum(p.totalGross))} gross | ${p.status}\n`;
   }
 
-  return { text, intent: "PAYROLL_STATUS", confidence: 0.9, cards: [{ type: "link", label: "Payroll detail", href: "/m/hr?tab=payroll" }] };
+  return { text, intent: "PAYROLL_STATUS", confidence: 0.9, cards: [{ type: "link", label: "Payroll detail", href: "/m/books/payroll" }] };
 }
 
 async function workOrderResponse(companyId: string): Promise<AssistantResponse> {
@@ -1844,7 +1844,7 @@ function transferStockResponse(): AssistantResponse {
     text: `Stock transfer karna hai?\n\nKaunsa material, kahan se, kahan tak, aur kitna? Ya direct form kholein:`,
     intent: "TRANSFER_STOCK",
     confidence: 0.8,
-    cards: [{ type: "link", label: "New Transfer", href: "/m/transfers/new", variant: "primary" }]};
+    cards: [{ type: "link", label: "New Transfer", href: "/m/stock-out?mode=transfer", variant: "primary" }]};
 }
 
 function issueMaterialResponse(): AssistantResponse {
@@ -1852,7 +1852,7 @@ function issueMaterialResponse(): AssistantResponse {
     text: `Material issue karna hai?\n\nKaunsa material, kaunse project/site ko, aur kitna? Ya form kholein:`,
     intent: "ISSUE_MATERIAL",
     confidence: 0.8,
-    cards: [{ type: "link", label: "Issue Material", href: "/m/site/issue", variant: "primary" }]};
+    cards: [{ type: "link", label: "Issue Material", href: "/m/stock-out?mode=issue", variant: "primary" }]};
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2300,7 +2300,7 @@ async function constructionProgressResponse(companyId: string): Promise<Assistan
     confidence: 0.9,
     cards: [
       { type: "link", label: "WBS", href: "/m/construction?tab=wbs" },
-      { type: "link", label: "DPR", href: "/m/hr?tab=dprs" },
+      { type: "link", label: "DPR", href: "/m/dprs" },
     ]};
 }
 
@@ -2435,18 +2435,17 @@ async function addProjectCostResponse(companyId: string, entities: ParsedEntitie
 
   // Normalize cost type
   const lower = costType.toLowerCase();
-  let normalizedType = "OTHER";
   let typeLabel = "Other";
   if (lower.includes("labour") || lower.includes("labor") || lower.includes("mazdoori") || lower.includes("mazdoor")) {
-    normalizedType = "LABOUR"; typeLabel = "Labour";
+    typeLabel = "Labour";
   } else if (lower.includes("overhead")) {
-    normalizedType = "OVERHEAD"; typeLabel = "Overhead";
+    typeLabel = "Overhead";
   } else if (lower.includes("contractor") || lower.includes("thekedar") || lower.includes("thekedaar")) {
-    normalizedType = "CONTRACTOR"; typeLabel = "Contractor";
+    typeLabel = "Contractor";
   } else if (lower.includes("equipment") || lower.includes("machine") || lower.includes("machinery")) {
-    normalizedType = "EQUIPMENT"; typeLabel = "Equipment";
+    typeLabel = "Equipment";
   } else if (lower.includes("permit") || lower.includes("approval")) {
-    normalizedType = "PERMIT"; typeLabel = "Permit";
+    typeLabel = "Permit";
   }
 
   // Need amount
@@ -2475,7 +2474,7 @@ async function addProjectCostResponse(companyId: string, entities: ParsedEntitie
       {
         type: "link",
         label: `Add ${typeLabel} Cost`,
-        href: `/m/books/finance?project=${project.id}&type=${normalizedType}&amount=${amt}${vendor && vendor !== "skip" ? `&vendor=${encodeURIComponent(vendor)}` : ""}`,
+        href: `/m/expenses/new?project=${project.id}&category=${encodeURIComponent(typeLabel)}&amount=${amt}${vendor && vendor !== "skip" ? `&payee=${encodeURIComponent(vendor)}` : ""}`,
         variant: "primary"},
     ]};
 }
@@ -2569,7 +2568,7 @@ async function addUnitResponse(companyId: string, entities: ParsedEntities): Pro
       {
         type: "link",
         label: `Add ${typeLabel} Unit`,
-        href: `/m/units?project=${project.id}&type=${normalizedType}&number=${encodeURIComponent(unitNumber)}&area=${areaNum}${hasPrice ? `&price=${toNum(askingPrice)}` : ""}`,
+        href: `/m/units?new=1&project=${project.id}&type=${normalizedType}&number=${encodeURIComponent(unitNumber)}&area=${areaNum}${hasPrice ? `&price=${toNum(askingPrice)}` : ""}`,
         variant: "primary"},
     ]};
 }

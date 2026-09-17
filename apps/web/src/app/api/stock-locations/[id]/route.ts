@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { softDelete, logAction } from "@nirman/services";
-import { apiHandler, getCompany, json, stockLocationSchema } from "@/lib/server";
+import { apiHandler, getCompany, json, stockLocationSchema, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requirePermission } from "@/lib/server";
 import { withSerializableTransaction } from "@nirman/services";
@@ -13,7 +13,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const company = await getCompany();
   const { id } = await params;
   const location = await prisma.stockLocation.findFirst({
-    where: { id, companyId: company.id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("StockLocation") },
     include: {
       project: { select: { id: true, name: true } },
       department: { select: { id: true, name: true, code: true } },
@@ -30,7 +30,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const { id } = await params;
   // Verify the location belongs to the active company before updating
   const existing = await prisma.stockLocation.findFirst({
-    where: { id, companyId: company.id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("StockLocation") },
     select: { id: true },
   });
   if (!existing) return json({ error: "Stock location not found" }, { status: 404 });
@@ -81,7 +81,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const { id } = await params;
   // Verify the location belongs to the active company before soft-deleting
   const existing = await prisma.stockLocation.findFirst({
-    where: { id, companyId: company.id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("StockLocation") },
     select: { id: true },
   });
   if (!existing) return json({ error: "Stock location not found" }, { status: 404 });

@@ -310,7 +310,7 @@ async function ConstructionQualityTab() {
           label={listNext.label(openNcrCount)}
           reason={listNext.reason}
           tone="signal"
-          href={`/m/construction?tab=quality`}
+          href={`/m/construction?tab=quality&status=${listNext.filterChip}`}
         />
       ) : null}
       <MobileNcrList

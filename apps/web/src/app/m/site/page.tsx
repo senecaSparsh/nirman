@@ -28,7 +28,10 @@ export default function SitePage() {
         const canSubmitDpr = perms.includes(PERM.DPR_SUBMIT);
 
         const today = new Date();
-        const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        // `date` is a @db.Date column — bounds must be UTC-midnight Date
+        // objects (Prisma date-truncates them); local-midnight bounds shift
+        // the upper bound back a day and exclude today's rows.
+        const startOfToday = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
         const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
 
         const [myTasks, myDprToday, recentIssues, inTransitPOs, projects, qaCtx] = await Promise.all([
@@ -39,7 +42,7 @@ export default function SitePage() {
             select: { id: true, title: true, status: true, priority: true, dueDate: true },
           }),
           prisma.dailyProgressReport.findFirst({
-            where: {...await scopeWhere("DailyProgressReport"),  project: { companyId: company.id }, date: { gte: startOfToday, lt: endOfToday }, submittedById: user?.id },
+            where: {...await scopeWhere("DailyProgressReport"),  project: { companyId: company.id }, date: { gte: startOfToday, lt: endOfToday } },
             select: { id: true, date: true },
           }),
           prisma.materialIssue.findMany({

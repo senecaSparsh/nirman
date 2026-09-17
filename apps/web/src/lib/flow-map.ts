@@ -439,6 +439,13 @@ const NCR_FLOW: FlowDef = {
       tone: "stop",
     },
   ],
+  listNext: {
+    countStatuses: ["OPEN"],
+    label: (n) => `${n} NCR${n !== 1 ? "s" : ""} awaiting review`,
+    reason: "Start review so QA/QC can investigate and decide on a CAPA.",
+    filterChip: "OPEN",
+    perm: PERM.QC_MANAGE,
+  },
 };
 
 // ─────────────────────────────────────────────────────────────────

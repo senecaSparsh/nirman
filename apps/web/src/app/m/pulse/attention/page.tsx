@@ -269,7 +269,7 @@ async function AttentionContent() {
                 ))}
                 {draftPOs.length > 5 ? (
                   <Link
-                    href="/m/pulse/approvals"
+                    href="/m/approvals"
                     className="text-m-caption font-semibold text-center py-1.5 text-m-body press"
                     style={{ color: "var(--color-ink-600)" }}
                   >
@@ -300,7 +300,7 @@ async function AttentionContent() {
                 ))}
                 {pendingReqs.length > 5 ? (
                   <Link
-                    href="/m/pulse/approvals"
+                    href="/m/approvals"
                     className="text-m-caption font-semibold text-center py-1.5 text-m-body press"
                     style={{ color: "var(--color-ink-600)" }}
                   >

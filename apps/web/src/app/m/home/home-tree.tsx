@@ -181,7 +181,7 @@ export function HomeTree({ userName }: { userName: string | null }) {
         sub: briefing.sitePresence.onLeave > 0
           ? `${briefing.sitePresence.onLeave} on leave`
           : "all hands present",
-        href: "/m/hr/attendance",
+        href: "/m/attendance",
         count: briefing.sitePresence.checkedIn,
       });
     }

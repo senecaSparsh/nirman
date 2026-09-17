@@ -29,7 +29,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       userId: user.id,
     });
     revalidatePath("/renovations");
-    revalidatePath("/m/renovations");
+    revalidatePath("/m/units");
     revalidatePath(`/renovations/${id}`);
     revalidatePath("/gl");
     return json({ ok: true, id: cost.id }, { status: 201 });

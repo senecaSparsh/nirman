@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requireUser } from "@/lib/server";
+import { apiHandler, getCompany, getUserPermissions, json, requireUser, scopeWhere } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 
 /**
  * GET /api/search?q=… — unified entity search.
@@ -26,7 +27,22 @@ export const GET = apiHandler(async (req: NextRequest) => {
   }
 
   const companyId = company.id;
+  const perms = await getUserPermissions();
+  const has = (perm: string) => perms.includes("*") || perms.includes(perm);
   const contains = { contains: q, mode: "insensitive" as const };
+  // Location-scope filters for project/department-scoped users — search must
+  // not become a side-channel that reveals records outside their scope.
+  const [scopeProject, scopePO, scopeReq, scopeUnit, scopeLand, scopeDPR, scopeEmployee, scopeSale] =
+    await Promise.all([
+      scopeWhere("Project"),
+      scopeWhere("PurchaseOrder"),
+      scopeWhere("MaterialRequisition"),
+      scopeWhere("BuiltUnit"),
+      scopeWhere("LandParcel"),
+      scopeWhere("DailyProgressReport"),
+      scopeWhere("Employee"),
+      scopeWhere("MaterialSale"),
+    ]);
   // Desktop routes differ from mobile per type (some entities have no desktop
   // detail page — link those to the list instead of a dead /m/ deep link).
   const desktop = req.nextUrl.searchParams.get("surface") === "desktop";
@@ -67,8 +83,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
       take: 5,
       select: { id: true, name: true, code: true, unit: true },
     }),
-    prisma.project.findMany({
-      where: { companyId, name: contains, deletedAt: null },
+    !has(PERM.PROJECTS_VIEW) ? [] : prisma.project.findMany({
+      where: { companyId, name: contains, deletedAt: null, ...scopeProject },
       take: 5,
       select: { id: true, name: true },
     }),
@@ -77,18 +93,19 @@ export const GET = apiHandler(async (req: NextRequest) => {
       take: 5,
       select: { id: true, name: true },
     }),
-    prisma.purchaseOrder.findMany({
-      where: { companyId, poNumber: contains },
+    !has(PERM.PROCUREMENT_VIEW) ? [] : prisma.purchaseOrder.findMany({
+      where: { companyId, poNumber: contains, ...scopePO },
       take: 5,
       select: { id: true, poNumber: true, status: true },
     }),
-    prisma.materialRequisition.findMany({
+    !has(PERM.PROCUREMENT_VIEW) ? [] : prisma.materialRequisition.findMany({
       where: {
         reqNumber: contains,
         OR: [
           { project: { companyId } },
           { department: { companyId } },
         ],
+        ...scopeReq,
       },
       take: 5,
       select: { id: true, reqNumber: true, status: true },
@@ -98,23 +115,23 @@ export const GET = apiHandler(async (req: NextRequest) => {
       take: 5,
       select: { id: true, name: true, phone: true },
     }),
-    prisma.builtUnit.findMany({
-      where: { unitNumber: contains, project: { companyId } },
+    !has(PERM.PROJECTS_VIEW) ? [] : prisma.builtUnit.findMany({
+      where: { unitNumber: contains, project: { companyId }, deletedAt: null, ...scopeUnit },
       take: 5,
       select: { id: true, unitNumber: true, status: true, project: { select: { name: true } } },
     }),
-    prisma.landParcel.findMany({
-      where: { number: contains, landPurchase: { companyId } },
+    !has(PERM.PROJECTS_VIEW) ? [] : prisma.landParcel.findMany({
+      where: { number: contains, landPurchase: { companyId }, deletedAt: null, ...scopeLand },
       take: 5,
       select: { id: true, number: true, landPurchase: { select: { sellerName: true, registryNo: true } } },
     }),
-    prisma.dailyProgressReport.findMany({
-      where: { companyId, project: { name: contains } },
+    !has(PERM.PROJECTS_VIEW) ? [] : prisma.dailyProgressReport.findMany({
+      where: { companyId, project: { name: contains }, ...scopeDPR },
       take: 5,
       select: { id: true, date: true, project: { select: { name: true } } },
     }),
-    prisma.employee.findMany({
-      where: { companyId, name: contains, deletedAt: null },
+    !has(PERM.HR_VIEW) ? [] : prisma.employee.findMany({
+      where: { companyId, name: contains, deletedAt: null, ...scopeEmployee },
       take: 5,
       select: { id: true, name: true, designation: true },
     }),
@@ -123,8 +140,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
       take: 5,
       select: { id: true, name: true, status: true },
     }),
-    prisma.materialSale.findMany({
-      where: { companyId, saleNumber: contains },
+    !has(PERM.FINANCE_VIEW) ? [] : prisma.materialSale.findMany({
+      where: { companyId, saleNumber: contains, ...scopeSale },
       take: 5,
       select: { id: true, saleNumber: true, status: true },
     }),

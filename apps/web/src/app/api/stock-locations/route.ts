@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, getCompany, getCompanyDescendantIds, getCompanyGroupIds, json, requirePermission, stockLocationSchema, toNum } from "@/lib/server";
+import { apiHandler, getCompany, getCompanyDescendantIds, getCompanyGroupIds, json, requirePermission, stockLocationSchema, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -15,7 +15,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const companyIds = includeGroup ? await getCompanyGroupIds() : [company.id];
   const locations = await prisma.stockLocation.findMany({
     take: 500,
-    where: { companyId: { in: companyIds }, deletedAt: null },
+    where: { companyId: { in: companyIds }, deletedAt: null, ...await scopeWhere("StockLocation") },
     orderBy: [{ type: "asc" }, { name: "asc" }],
     include: {
       project: { select: { id: true, name: true } },

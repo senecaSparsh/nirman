@@ -11,7 +11,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   // Scoped pre-fetch
   const existing = await prisma.payrollLine.findFirst({
-    where: { id: lineId, ...await scopeWhere("PayrollLine") },
+    where: { id: lineId, employee: { companyId: company.id }, ...await scopeWhere("PayrollLine") },
   });
   if (!existing) return json({ error: "Payroll line not found or out of scope" }, { status: 404 });
 
@@ -35,7 +35,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       userId: user.id,
     });
     revalidatePath("/payroll");
-    revalidatePath("/m/payroll");
+    revalidatePath("/m/books/payroll");
     return json({ ok: true });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to update payroll line") }, { status: 400 });

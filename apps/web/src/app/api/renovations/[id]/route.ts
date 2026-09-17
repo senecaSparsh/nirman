@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { startRenovation, completeRenovation, cancelRenovation, logAction, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, renovationSchema, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, renovationSchema, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -11,7 +11,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const company = await getCompany();
   const { id } = await params;
   const renovation = await prisma.renovationProject.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: company.id, ...await scopeWhere("RenovationProject") },
     include: {
       builtUnit: { select: { id: true, unitNumber: true, unitType: true, currentValuation: true, productionCost: true } },
       landParcel: { select: { id: true, number: true, currentValuation: true, acquisitionCost: true } },
@@ -45,7 +45,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     if (v !== undefined) data[k] = v;
   }
 
-  const existing = await prisma.renovationProject.findFirst({ where: { id, companyId: company.id } });
+  const existing = await prisma.renovationProject.findFirst({ where: { id, companyId: company.id, ...await scopeWhere("RenovationProject") } });
   if (!existing) return json({ error: "Renovation not found" }, { status: 404 });
   if (existing.status !== "PLANNED") {
     return json({ error: "Renovation can only be edited while in PLANNED status" }, { status: 400 });
@@ -75,7 +75,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       return r;
     });
     revalidatePath("/renovations");
-    revalidatePath("/m/renovations");
+    revalidatePath("/m/units");
     revalidatePath(`/renovations/${id}`);
     return json({ ok: true, id: updated.id, title: updated.title });
   } catch (err) {
@@ -94,7 +94,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     if (action === "start") {
       const r = await startRenovation(id, user.id);
       revalidatePath("/renovations");
-    revalidatePath("/m/renovations");
+    revalidatePath("/m/units");
       revalidatePath(`/renovations/${id}`);
       return json({ ok: true, id: r.id, status: r.status });
     } else if (action === "complete") {
@@ -103,7 +103,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
         userId: user.id,
       });
       revalidatePath("/renovations");
-    revalidatePath("/m/renovations");
+    revalidatePath("/m/units");
       revalidatePath(`/renovations/${id}`);
       revalidatePath("/projects");
       revalidatePath("/gl");
@@ -111,7 +111,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     } else if (action === "cancel") {
       const r = await cancelRenovation(id, user.id);
       revalidatePath("/renovations");
-    revalidatePath("/m/renovations");
+    revalidatePath("/m/units");
       revalidatePath(`/renovations/${id}`);
       return json({ ok: true, id: r.id, status: r.status });
     }

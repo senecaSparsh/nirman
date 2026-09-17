@@ -162,7 +162,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
   if (anyGp) {
     revalidatePath("/gate-passes");
-    revalidatePath("/m/gate-passes");
+    revalidatePath("/m/gate-pass");
   }
 
   const succeeded = results.filter((r) => r.success).length;

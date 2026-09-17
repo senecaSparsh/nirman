@@ -288,7 +288,7 @@ const ENTITY_ROUTE_MAP: Record<string, string> = {
   ChangeOrder: "/m/change-orders",
   NonConformanceReport: "/m/quality-control/ncr",
   SafetyIncident: "/m/safety/incidents",
-  PayrollPeriod: "/m/hr",
+  PayrollPeriod: "/m/books/payroll",
   LeaveRequest: "/m/hr/leaves",
   LandPurchase: "/m/land",
   LandParcel: "/m/land",

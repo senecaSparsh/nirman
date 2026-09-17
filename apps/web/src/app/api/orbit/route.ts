@@ -578,7 +578,7 @@ async function getInventoryChildren(companyId: string, _c: string): Promise<Chil
 
 async function getEmployeeChildren(companyId: string, _c: string): Promise<ChildEntity[]> {
   const items = await prisma.employee.findMany({
-    where: { companyId, active: true },
+    where: { companyId, active: true, deletedAt: null },
     select: {
       id: true, name: true, trade: true, designation: true,
       phone: true, dailyRate: true, activeProject: { select: { name: true } },
@@ -1023,7 +1023,7 @@ async function getCustomerChildren(companyId: string, _c: string): Promise<Child
 
 async function getVehicleChildren(companyId: string, _c: string): Promise<ChildEntity[]> {
   const items = await prisma.vehicle.findMany({
-    where: { companyId },
+    where: { companyId, deletedAt: null },
     select: { id: true, vehicleNumber: true, vehicleType: true, driverName: true, driverPhone: true, tripCount: true, lastUsedAt: true },
     orderBy: { vehicleNumber: "asc" }, take: 50,
   });

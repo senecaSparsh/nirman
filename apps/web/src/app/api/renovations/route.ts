@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma, type RenovationStatus } from "@nirman/db";
 import { createRenovation, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, renovationSchema, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, renovationSchema, requirePermission, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
@@ -14,6 +14,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
   const renovations = await prisma.renovationProject.findMany({
     where: {
+      ...await scopeWhere("RenovationProject"),
       companyId: company.id,
       ...(status ? { status: status as RenovationStatus } : {}),
       ...(projectId ? { projectId } : {}),
@@ -86,7 +87,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       userId: user.id,
     });
     revalidatePath("/renovations");
-    revalidatePath("/m/renovations");
+    revalidatePath("/m/units");
     revalidatePath(`/renovations/${renovation.id}`);
     return json({ ok: true, id: renovation.id, renovationNumber: renovation.renovationNumber }, { status: 201 });
   } catch (err) {

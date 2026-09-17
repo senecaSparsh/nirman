@@ -72,7 +72,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   try {
     const updated = await cancelQuotationRequest(id, user.id, body.reason);
     revalidatePath("/quotations");
-    revalidatePath("/m/quotations");
+    revalidatePath("/m/procurement");
     return json(updated);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Failed to cancel";

@@ -29,6 +29,7 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
+import { auth } from "@/lib/auth";
 import { totalmem } from "node:os";
 import { readFileSync } from "node:fs";
 
@@ -65,25 +66,37 @@ export async function GET(request: Request) {
   // separately since the default already checks DB.
   const checkDb = !livenessOnly; // default: check DB (readiness)
 
-  // Report memory info so the auto-scaling config is visible.
-  const mem = detectMemoryMB();
-  const nodeOptions = process.env.NODE_OPTIONS || "";
-  const heapMatch = nodeOptions.match(/--max-old-space-size=(\d+)/);
-  const heapMB = heapMatch?.[1] ? parseInt(heapMatch[1], 10) : null;
-  const memUsage = process.memoryUsage();
+  // Minimal public payload by default — status + db only. Process internals
+  // (heap size, RSS, uptime) are useful to an attacker sizing a resource-
+  // exhaustion attempt, so the detailed block is returned only to callers
+  // with an authenticated session.
+  const session = await auth.api
+    .getSession({ headers: request.headers })
+    .catch(() => null);
 
   const baseResponse = {
     status: "ok" as string,
     timestamp: new Date().toISOString(),
-    memory: {
-      totalMB: mem.totalMB,
-      source: mem.source,
-      heapLimitMB: heapMB,
-      rssMB: Math.floor(memUsage.rss / (1024 * 1024)),
-      heapUsedMB: Math.floor(memUsage.heapUsed / (1024 * 1024)),
-      externalMB: Math.floor(memUsage.external / (1024 * 1024)),
-    },
-    uptime: process.uptime ? `${process.uptime().toFixed(0)}s` : null,
+    ...(session?.user
+      ? (() => {
+          const mem = detectMemoryMB();
+          const nodeOptions = process.env.NODE_OPTIONS || "";
+          const heapMatch = nodeOptions.match(/--max-old-space-size=(\d+)/);
+          const heapMB = heapMatch?.[1] ? parseInt(heapMatch[1], 10) : null;
+          const memUsage = process.memoryUsage();
+          return {
+            memory: {
+              totalMB: mem.totalMB,
+              source: mem.source,
+              heapLimitMB: heapMB,
+              rssMB: Math.floor(memUsage.rss / (1024 * 1024)),
+              heapUsedMB: Math.floor(memUsage.heapUsed / (1024 * 1024)),
+              externalMB: Math.floor(memUsage.external / (1024 * 1024)),
+            },
+            uptime: process.uptime ? `${process.uptime().toFixed(0)}s` : null,
+          };
+        })()
+      : {}),
     db: "unknown" as string,
   };
 

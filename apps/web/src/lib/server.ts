@@ -1886,6 +1886,10 @@ export async function scopeWhere(
     GatePass:             { project: "projectId" },
     // Equipment
     EquipmentAssignment:  { project: "projectId" },
+    // Renovations run inside a project; site stores belong to a project or
+    // department — both are scopeable.
+    RenovationProject:    { project: "projectId" },
+    StockLocation:        { project: "projectId", department: "departmentId" },
     // Models without project/department FKs are not scopeable
   };
 

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { deleteRenovationCost, ServiceError } from "@nirman/services";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, requirePermission, getCompany } from "@/lib/server";
+import { apiHandler, json, requirePermission, getCompany, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string; costId: string }> }) => {
@@ -9,7 +9,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const { costId } = await params;
 
   const company = await getCompany();
-  const existing = await prisma.renovationCost.findFirst({ where: { id: costId, renovationProject: { companyId: company.id } }, select: { id: true } });
+  const existing = await prisma.renovationCost.findFirst({ where: { id: costId, renovationProject: { companyId: company.id, ...await scopeWhere("RenovationProject") } }, select: { id: true } });
   if (!existing) return json({ error: "Not found" }, { status: 404 });
 
   try {
