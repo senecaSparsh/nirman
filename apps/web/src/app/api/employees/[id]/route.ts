@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { updateEmployee, softDelete, updateEmployeeDossier, type EmployeeDossierInput, logAction, autoCompleteOnboarding } from "@nirman/services";
-import { apiHandler, getCompany, json, employeeSchema, requirePermission, assertScopeAllows, canManageSpecificEmployee, assertCanManageEmployee, getCurrentUser, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, employeeSchema, requirePermission, assertScopeAllows, canManageSpecificEmployee, assertCanManageEmployee, getCurrentUser, scopeWhere, getEmployeeAccessScope } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /** GET /api/employees/[id] — fetch a single employee by ID */
@@ -10,6 +10,13 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   await requirePermission(PERM.HR_VIEW);
   const company = await getCompany();
   const { id } = await params;
+  // Compensation + dossier fields (wages, bank, PAN/Aadhaar/PF/ESI/UAN,
+  // addresses, employment terms, signing tokens) follow the same field-
+  // visibility policy as the profile pages: payroll.manage|hr.manage only.
+  // hr.view-only callers (site engineers, supervisors, QAQC) get the roster
+  // subset — who the person is and where they work, plus the safety fields
+  // field staff legitimately need (emergency contact, blood group, photo).
+  const { canSeePayroll } = await getEmployeeAccessScope();
   const employee = await prisma.employee.findFirst({
     where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("Employee") },
     include: {
@@ -20,7 +27,46 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     },
   });
   if (!employee) return json({ error: "Employee not found" }, { status: 404 });
-  return json(employee);
+  if (canSeePayroll) return json(employee);
+  return json({
+    id: employee.id,
+    companyId: employee.companyId,
+    name: employee.name,
+    trade: employee.trade,
+    phone: employee.phone,
+    email: employee.email,
+    designation: employee.designation,
+    joinDate: employee.joinDate,
+    hierarchyLevel: employee.hierarchyLevel,
+    reportsToEmployeeId: employee.reportsToEmployeeId,
+    active: employee.active,
+    departmentId: employee.departmentId,
+    crewId: employee.crewId,
+    crew: employee.crew,
+    activeProjectId: employee.activeProjectId,
+    activeProject: employee.activeProject,
+    reportingLocationId: employee.reportingLocationId,
+    reportingLocation: employee.reportingLocation,
+    userId: employee.userId,
+    user: employee.user,
+    // Field-safety subset — reachable by hr.view so a supervisor on site
+    // can reach family / check blood group after an accident.
+    emergencyContactName: employee.emergencyContactName,
+    emergencyContactPhone: employee.emergencyContactPhone,
+    emergencyContactRelation: employee.emergencyContactRelation,
+    bloodGroup: employee.bloodGroup,
+    photoUrl: employee.photoUrl,
+    // Workflow flags — states, not contents.
+    documentsSubmitted: employee.documentsSubmitted,
+    backgroundVerified: employee.backgroundVerified,
+    onboardingComplete: employee.onboardingComplete,
+    contractStatus: employee.contractStatus,
+    offerLetterStatus: employee.offerLetterStatus,
+    idCardStatus: employee.idCardStatus,
+    appointmentLetterStatus: employee.appointmentLetterStatus,
+    createdAt: employee.createdAt,
+    updatedAt: employee.updatedAt,
+  });
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -154,7 +200,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   revalidatePath("/hr/employees");
   revalidatePath("/m/hr/employees");
-    revalidatePath("/m/hr?tab=employees");
+    revalidatePath("/m/hr/employees");
   revalidatePath(`/hr/employees/${id}`);
   revalidatePath(`/m/hr/employees/${id}`);
   return json({ ok: true, id: updated.id });
@@ -176,7 +222,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     await softDelete("Employee", id);
     revalidatePath("/hr/employees");
     revalidatePath("/m/hr/employees");
-    revalidatePath("/m/hr?tab=employees");
+    revalidatePath("/m/hr/employees");
     revalidatePath(`/m/hr/onboarding/${id}`);
     revalidatePath("/m/hr/onboarding");
     return json({ ok: true });

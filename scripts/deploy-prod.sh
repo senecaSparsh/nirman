@@ -30,7 +30,8 @@ fi
 
 MODE="${1:-deploy}"
 HEALTH_PATH="/api/health"
-HEALTH_TIMEOUT=300  # 5 min max wait for healthy
+HEALTH_TIMEOUT=120  # post-swap health wait (app is already up once swapped)
+SWAP_TIMEOUT=900    # 15 min max wait for the build+swap
 
 # ── Helpers ──
 log() { echo "[$(date -u +%H:%M:%S)] $*"; }
@@ -57,6 +58,12 @@ if [ "$MODE" = "--status" ]; then
   exit 0
 fi
 
+# ── Capture the current web container BEFORE triggering ──
+# Zero-downtime builds keep the old container serving /api/health for the
+# whole build — a 200 from it does NOT prove the new code is live. The real
+# signal is the container being recreated (per-deploy name suffix) healthy.
+OLD_WEB=$(ssh "$VPS_SSH_HOST" 'docker ps --format "{{.Names}}" | grep -E "^web-" | head -1' 2>/dev/null || echo "")
+
 # ── Trigger deploy via Coolify API ──
 log "Triggering deploy via Coolify API..."
 DEPLOY_RESPONSE=$(curl -sS -m 15 \
@@ -78,8 +85,34 @@ fi
 DEPLOY_UUID=$(echo "$BODY" | python3 -c "import sys,json; print(json.load(sys.stdin)['deployments'][0]['deployment_uuid'])" 2>/dev/null || echo "unknown")
 log "✓ Deploy queued (deployment_uuid: $DEPLOY_UUID)"
 
+# ── Wait for the container swap ──
+if [ -n "$OLD_WEB" ]; then
+  log "Waiting for container swap (old: $OLD_WEB, build takes ~8-10 min)..."
+  ELAPSED=0
+  SWAPPED=0
+  while [ "$ELAPSED" -lt "$SWAP_TIMEOUT" ]; do
+    sleep 15
+    ELAPSED=$((ELAPSED + 15))
+    CUR=$(ssh "$VPS_SSH_HOST" 'docker ps --format "{{.Names}} {{.Status}}" | grep -E "^web-" | head -1' 2>/dev/null || echo "")
+    CUR_NAME="${CUR%% *}"
+    if [ -n "$CUR_NAME" ] && [ "$CUR_NAME" != "$OLD_WEB" ] && echo "$CUR" | grep -q "healthy"; then
+      log "✓ New web container healthy: $CUR_NAME (${ELAPSED}s)"
+      SWAPPED=1
+      break
+    fi
+    [ $((ELAPSED % 60)) -eq 0 ] && log "  ...building (${ELAPSED}s)"
+  done
+  if [ "$SWAPPED" != "1" ]; then
+    err "Web container did not swap within ${SWAP_TIMEOUT}s — build may have failed"
+    log "Check: ssh $VPS_SSH_HOST 'docker ps -a | grep oa346; docker logs coolify --since 15m | tail -30'"
+    exit 1
+  fi
+else
+  log "WARNING: couldn't read current container over SSH — falling back to health poll only"
+fi
+
 # ── Wait for health ──
-log "Waiting for site to become healthy (max ${HEALTH_TIMEOUT}s)..."
+log "Verifying health endpoint (max ${HEALTH_TIMEOUT}s)..."
 ELAPSED=0
 while [ "$ELAPSED" -lt "$HEALTH_TIMEOUT" ]; do
   sleep 10

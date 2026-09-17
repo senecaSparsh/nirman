@@ -103,18 +103,25 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
     try {
       // Check if user already exists
-      let existing = null as null | { id: string; name: string };
+      let existing = null as null | { id: string; name: string; isHidden: boolean };
       if (normalizedEmail) {
         existing = await prisma.user.findUnique({
           where: { email: normalizedEmail },
-          select: { id: true, name: true },
+          select: { id: true, name: true, isHidden: true },
         });
       }
       if (!existing && normalizedPhone) {
         existing = await prisma.user.findFirst({
           where: { phoneNormalized: normalizedPhone, active: true },
-          select: { id: true, name: true },
+          select: { id: true, name: true, isHidden: true },
         });
+      }
+
+      if (existing?.isHidden) {
+        // Never auto-add a ghost account to a company or echo its identity —
+        // generic failure preserves the hidden invariant.
+        results.push({ row: rowNum, name: row.name, success: false, error: "A user with these credentials already exists" });
+        continue;
       }
 
       if (existing) {

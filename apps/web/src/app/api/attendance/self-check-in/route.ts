@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@nirman/db";
 import { recordAttendance } from "@nirman/services";
-import { apiHandler, getCompany, json, requireUser, getActingRole,} from "@/lib/server";
+import { apiHandler, getCompany, json, requireUser, getActingRole, assertScopeAllows } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 
 /**
@@ -82,7 +82,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
     geoFenceOk = distance <= allowedRadius;
   }
 
-  const attendance = await recordAttendance({
+    // A project-scoped user can only record attendance on their assigned projects.
+  await assertScopeAllows({ projectId: parsed.data.projectId });
+const attendance = await recordAttendance({
     companyId: company.id,
     employeeId: parsed.data.employeeId,
     date: attendanceDate,

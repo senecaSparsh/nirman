@@ -44,7 +44,8 @@ export type EmployeeProfileData = {
   phone: string | null;
   email: string | null;
   wageType: "DAILY" | "MONTHLY" | "FIXED";
-  dailyRate: number;
+  /** Wage amount — null when the viewer lacks payroll.manage|hr.manage. */
+  dailyRate: number | null;
   monthlySalary: number | null;
   joinDate: string | null;
   hierarchyLevel: number | null;
@@ -919,11 +920,13 @@ function ProfileSidebar({
         <SidebarRow
           icon={Wallet}
           label="Wage"
-          value={employee.wageType === "DAILY"
-            ? `${formatCurrency(employee.dailyRate)}/day`
-            : employee.monthlySalary != null
-              ? `${formatCurrency(employee.monthlySalary)}/mo`
-              : WAGE_LABELS[employee.wageType] ?? null}
+          value={employee.dailyRate == null && employee.monthlySalary == null
+            ? (WAGE_LABELS[employee.wageType] ?? null)
+            : employee.wageType === "DAILY"
+              ? `${formatCurrency(employee.dailyRate ?? 0)}/day`
+              : employee.monthlySalary != null
+                ? `${formatCurrency(employee.monthlySalary)}/mo`
+                : WAGE_LABELS[employee.wageType] ?? null}
         />
         {u?.employmentEndDate && (
           <SidebarRow icon={Calendar} label="End Date" value={formatDate(u.employmentEndDate)} />
@@ -3017,7 +3020,7 @@ function OnboardingChecklist({
   const router = useRouter();
   const [completing, setCompleting] = useState(false);
   const hasProfile = !!(employee.name && (employee.phone || employee.user?.phone) && (employee.designation || employee.trade));
-  const hasWage = employee.wageType === "DAILY" ? employee.dailyRate > 0 : (employee.monthlySalary ?? 0) > 0;
+  const hasWage = employee.wageType === "DAILY" ? (employee.dailyRate ?? 0) > 0 : (employee.monthlySalary ?? 0) > 0;
   const hasEmploymentTerms = !!(
     employee.employmentType &&
     employee.noticePeriodDays != null &&

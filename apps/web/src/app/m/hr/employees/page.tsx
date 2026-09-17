@@ -114,6 +114,10 @@ async function MobileEmployeesContent() {
   }).catch(() => null);
   const viewerHierarchyLevel = viewerEmployee?.hierarchyLevel ?? null;
 
+  // Compensation data follows the shared field-visibility policy:
+  // payroll.manage|hr.manage only. hr.view-only viewers (site engineers,
+  // supervisors) get the roster without wage amounts or the cost rollup.
+  const canSeePayroll = accessScope.canSeePayroll;
   const dailyWorkers = employees.filter((e) => e.wageType === "DAILY");
   const monthlyStaff = employees.filter((e) => e.wageType !== "DAILY");
   const totalMonthlyCost = monthlyStaff.reduce(
@@ -128,8 +132,8 @@ async function MobileEmployeesContent() {
     trade: e.trade ?? null,
     designation: e.designation ?? null,
     phone: e.phone ?? null,
-    dailyRate: e.dailyRate?.toString() ?? null,
-    monthlySalary: e.monthlySalary?.toString() ?? null,
+    dailyRate: canSeePayroll ? (e.dailyRate?.toString() ?? null) : null,
+    monthlySalary: canSeePayroll ? (e.monthlySalary?.toString() ?? null) : null,
     wageType: e.wageType,
     activeProjectName: e.activeProject?.name ?? null,
     onboardingComplete: e.onboardingComplete === true,
@@ -139,15 +143,17 @@ async function MobileEmployeesContent() {
 
   return (
     <div>
-      <div className="grid grid-cols-4 gap-1.5 mb-4">
+      <div className={`grid ${canSeePayroll ? "grid-cols-4" : "grid-cols-3"} gap-1.5 mb-4`}>
         <MobileStatCard label="Daily Workers" value={String(dailyWorkers.length)} icon={Users} />
         <MobileStatCard label="Monthly Staff" value={String(monthlyStaff.length)} icon={Users} />
-        <MobileStatCard
-          label="Monthly Cost"
-          value={formatCurrency(totalMonthlyCost)}
-          icon={Users}
-          tone="neutral"
-        />
+        {canSeePayroll && (
+          <MobileStatCard
+            label="Monthly Cost"
+            value={formatCurrency(totalMonthlyCost)}
+            icon={Users}
+            tone="neutral"
+          />
+        )}
         <MobileStatCard label="Trades" value={String(trades.length)} icon={Users} />
       </div>
 
@@ -156,14 +162,19 @@ async function MobileEmployeesContent() {
         viewerHierarchyLevel={viewerHierarchyLevel}
         exportTitle="Employees"
         exportRows={serialized as unknown as Record<string, unknown>[]}
-        exportColumns={[
+        exportColumns={([
           { key: "name", label: "Name" },
           { key: "trade", label: "Trade" },
           { key: "wageType", label: "Wage Type" },
           { key: "phone", label: "Phone" },
-          { key: "dailyRate", label: "Daily Rate", format: "currency" },
-          { key: "monthlySalary", label: "Monthly Salary", format: "currency" },
-        ] as MobileColumnSpec[]}
+          // Compensation columns only for payroll/hr-manage viewers.
+          ...(canSeePayroll
+            ? [
+                { key: "dailyRate", label: "Daily Rate", format: "currency" as const },
+                { key: "monthlySalary", label: "Monthly Salary", format: "currency" as const },
+              ]
+            : []),
+        ]) as MobileColumnSpec[]}
         exportSummary={`${serialized.length} employees`}
       />
 

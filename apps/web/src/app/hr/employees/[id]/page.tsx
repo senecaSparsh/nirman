@@ -312,18 +312,18 @@ async function EmployeeProfileContent({
     phone: employee.phone,
     email: employee.email,
     wageType: employee.wageType,
-    dailyRate: toNum(employee.dailyRate),
-    monthlySalary: employee.monthlySalary ? toNum(employee.monthlySalary) : null,
+    dailyRate: accessScope.canSeePayroll ? toNum(employee.dailyRate) : null,
+    monthlySalary: accessScope.canSeePayroll && employee.monthlySalary ? toNum(employee.monthlySalary) : null,
     joinDate: employee.joinDate ? employee.joinDate.toISOString() : null,
     hierarchyLevel: employee.hierarchyLevel,
     active: employee.active,
-    // ── Dossier fields ──
-    employmentType: employee.employmentType,
-    probationEndDate: employee.probationEndDate?.toISOString() ?? null,
-    confirmationDate: employee.confirmationDate?.toISOString() ?? null,
-    noticePeriodDays: employee.noticePeriodDays,
-    contractStartDate: employee.contractStartDate?.toISOString() ?? null,
-    contractEndDate: employee.contractEndDate?.toISOString() ?? null,
+    // ── Dossier fields — employment terms sit in the comp tier ──
+    employmentType: accessScope.canSeePayroll ? employee.employmentType : null,
+    probationEndDate: accessScope.canSeePayroll ? (employee.probationEndDate?.toISOString() ?? null) : null,
+    confirmationDate: accessScope.canSeePayroll ? (employee.confirmationDate?.toISOString() ?? null) : null,
+    noticePeriodDays: accessScope.canSeePayroll ? employee.noticePeriodDays : null,
+    contractStartDate: accessScope.canSeePayroll ? (employee.contractStartDate?.toISOString() ?? null) : null,
+    contractEndDate: accessScope.canSeePayroll ? (employee.contractEndDate?.toISOString() ?? null) : null,
     // ── Contract / agreement tracking ──
     contractStatus: employee.contractStatus,
     contractIssuedAt: employee.contractIssuedAt?.toISOString() ?? null,
@@ -342,9 +342,9 @@ async function EmployeeProfileContent({
     // ── Salary structure (for onboarding step) ──
     hasSalaryComponents: employee.salaryComponents.length > 0,
     // ── Auto-deposit ──
-    autoDepositEnabled: employee.autoDepositEnabled,
-    autoDepositSetupAt: employee.autoDepositSetupAt?.toISOString() ?? null,
-    payDay: employee.payDay,
+    autoDepositEnabled: accessScope.canSeePayroll ? employee.autoDepositEnabled : false,
+    autoDepositSetupAt: accessScope.canSeePayroll ? (employee.autoDepositSetupAt?.toISOString() ?? null) : null,
+    payDay: accessScope.canSeePayroll ? employee.payDay : null,
     // Sensitive bank + personal docs — only sent if viewer has payroll/hr permission
     bankAccountHolder: accessScope.canSeeBankDetails ? employee.bankAccountHolder : null,
     bankAccountNumber: accessScope.canSeeBankDetails ? employee.bankAccountNumber : null,
@@ -359,8 +359,9 @@ async function EmployeeProfileContent({
     emergencyContactName: employee.emergencyContactName,
     emergencyContactPhone: employee.emergencyContactPhone,
     emergencyContactRelation: employee.emergencyContactRelation,
-    permanentAddress: employee.permanentAddress,
-    currentAddress: employee.currentAddress,
+    // Home addresses — same identity-docs tier as PAN/Aadhaar.
+    permanentAddress: accessScope.canSeePersonalDocs ? employee.permanentAddress : null,
+    currentAddress: accessScope.canSeePersonalDocs ? employee.currentAddress : null,
     crewId: employee.crewId,
     crewName: employee.crew?.name ?? null,
     crewProjectName: employee.crew?.project?.name ?? null,
@@ -385,10 +386,11 @@ async function EmployeeProfileContent({
           employmentEndDate: employee.user.employmentEndDate ? employee.user.employmentEndDate.toISOString() : null,
           active: employee.user.active,
           image: employee.user.image,
-          lastLoginAt: employee.user.lastLoginAt ? employee.user.lastLoginAt.toISOString() : null,
-          phoneVerified: employee.user.phoneVerified,
-          phoneVerifiedAt: employee.user.phoneVerifiedAt ? employee.user.phoneVerifiedAt.toISOString() : null,
-          phoneSyncedAt: employee.user.phoneSyncedAt ? employee.user.phoneSyncedAt.toISOString() : null,
+          // Account-status metadata — access-admin tier (users.manage|hr.manage).
+          lastLoginAt: accessScope.canSeeAccessInfo && employee.user.lastLoginAt ? employee.user.lastLoginAt.toISOString() : null,
+          phoneVerified: accessScope.canSeeAccessInfo ? employee.user.phoneVerified : null,
+          phoneVerifiedAt: accessScope.canSeeAccessInfo && employee.user.phoneVerifiedAt ? employee.user.phoneVerifiedAt.toISOString() : null,
+          phoneSyncedAt: accessScope.canSeeAccessInfo && employee.user.phoneSyncedAt ? employee.user.phoneSyncedAt.toISOString() : null,
         }
       : null,
     supervisedCrews: employee.supervisedCrews.map((c) => ({

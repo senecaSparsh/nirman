@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma, type RenovationStatus } from "@nirman/db";
 import { createRenovation, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, renovationSchema, requirePermission, toNum, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, renovationSchema, requirePermission, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
@@ -74,7 +74,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
   try {
-    const renovation = await createRenovation({
+        // Scoped users can only open renovations on their assigned projects.
+    await assertScopeAllows({ projectId: parsed.data.projectId });
+const renovation = await createRenovation({
       companyId: company.id,
       projectId: parsed.data.projectId,
       type: parsed.data.type,

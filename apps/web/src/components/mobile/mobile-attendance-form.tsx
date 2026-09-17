@@ -21,7 +21,8 @@ type EmployeeRow = {
   id: string;
   name: string;
   trade: string | null;
-  dailyRate: number;
+  /** Wage amount — null when the viewer lacks payroll.manage|hr.manage. */
+  dailyRate: number | null;
   wageType: string;
 };
 
@@ -464,7 +465,7 @@ export function MobileAttendanceForm({
                     <div className="min-w-0">
                       <div className="truncate text-m-section font-semibold" style={{ color: "var(--color-ink-950)" }}>{emp.name}</div>
                       <div className="truncate text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                        {emp.trade ?? "General"} · {emp.wageType === "DAILY" ? `${formatCurrencyCompact(emp.dailyRate)}/day` : emp.wageType === "MONTHLY" ? "Monthly" : "Fixed"}
+                        {emp.trade ?? "General"} · {emp.wageType === "DAILY" ? (emp.dailyRate != null ? `${formatCurrencyCompact(emp.dailyRate)}/day` : "Daily") : emp.wageType === "MONTHLY" ? "Monthly" : "Fixed"}
                       </div>
                     </div>
                   </button>

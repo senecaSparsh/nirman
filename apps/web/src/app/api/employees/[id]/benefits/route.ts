@@ -2,12 +2,14 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createEmployeeBenefit } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, assertCanManageEmployee, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requireAnyPermission, assertCanManageEmployee, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
-/** GET /api/employees/[id]/benefits — list all benefits for an employee */
+/** GET /api/employees/[id]/benefits — list all benefits for an employee.
+ *  Benefits carry amounts — compensation data, so the same payroll.manage |
+ *  hr.manage tier as salary-components, not bare hr.view. */
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.HR_VIEW);
+  await requireAnyPermission(PERM.PAYROLL_MANAGE, PERM.HR_MANAGE);
   const company = await getCompany();
   const { id } = await params;
 

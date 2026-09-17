@@ -73,7 +73,7 @@ export async function SettingsContent() {
       orderBy: { name: "asc" },
       include: {
         parent: { select: { id: true, name: true } },
-        _count: { select: { userMemberships: true, children: true } },
+        _count: { select: { userMemberships: { where: { user: { isHidden: { not: true } } } }, children: true } },
       },
     }),
     prisma.department.findMany({

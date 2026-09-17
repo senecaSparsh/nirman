@@ -281,7 +281,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   let setup: { hasProjects: boolean; hasMembers: boolean; hasMaterials: boolean; hasSuppliers: boolean } | null = null;
   if (["OWNER", "ADMIN", "DEVELOPER"].includes(user.role)) {
     const [memberCount, materialCount, supplierCount] = await Promise.all([
-      prisma.userCompany.count({ where: { companyId: company.id, active: true } }),
+      prisma.userCompany.count({ where: { companyId: company.id, active: true, user: { isHidden: { not: true } } } }),
       prisma.material.count({ where: { companyId: company.id, deletedAt: null } }),
       prisma.supplier.count({ where: { companyId: company.id, deletedAt: null } }),
     ]);

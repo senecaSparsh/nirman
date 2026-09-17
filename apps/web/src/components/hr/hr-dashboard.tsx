@@ -212,7 +212,8 @@ export function HrDashboard({
   tradeBreakdown: TradeBreakdown[];
   attendanceTrend: AttendanceDay[];
   projectPresence: ProjectPresence[];
-  monthlyLabourCost: number;
+  /** Payroll aggregate — null when the viewer lacks payroll.manage|hr.manage. */
+  monthlyLabourCost: number | null;
 }) {
   const [query, setQuery] = useState("");
 
@@ -248,7 +249,7 @@ export function HrDashboard({
         </Link>
         <Link href="/hr/payroll" className="group flex flex-col gap-1 p-4 transition-colors hover:bg-subtle">
           <span className="text-label text-muted-foreground/75">Monthly Labour Cost</span>
-          <span className="text-figure-lg text-foreground">{formatCurrency(monthlyLabourCost)}</span>
+          <span className="text-figure-lg text-foreground">{monthlyLabourCost != null ? formatCurrency(monthlyLabourCost) : "—"}</span>
           <span className="text-caption text-muted-foreground">{pendingPayrolls > 0 ? `${pendingPayrolls} draft payroll${pendingPayrolls > 1 ? "s" : ""}` : "All payrolls settled"}</span>
         </Link>
         <Link href="/hr/dprs" className="group flex flex-col gap-1 p-4 transition-colors hover:bg-subtle">

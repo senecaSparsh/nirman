@@ -139,12 +139,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
   // This implements the duplicate detection from the design doc:
   // if a user with the same phone (or email) already exists, offer to add
   // a UserCompany membership instead of creating a duplicate User.
-  let existing = null as null | { id: string; name: string; role: string; active: boolean };
+  let existing = null as null | { id: string; name: string; role: string; active: boolean; isHidden: boolean };
 
   if (normalizedEmail) {
     existing = await prisma.user.findUnique({
       where: { email: normalizedEmail },
-      select: { id: true, name: true, role: true, active: true },
+      select: { id: true, name: true, role: true, active: true, isHidden: true },
     });
   }
 
@@ -152,8 +152,15 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!existing && normalizedPhone) {
     existing = await prisma.user.findFirst({
       where: { phoneNormalized: normalizedPhone, active: true },
-      select: { id: true, name: true, role: true, active: true },
+      select: { id: true, name: true, role: true, active: true, isHidden: true },
     });
+  }
+
+  if (existing?.isHidden) {
+    // Ghost accounts are never auto-added to a company and their identity is
+    // never echoed back — a generic conflict preserves the hidden invariant
+    // without leaking the account's name or granting it a membership.
+    return json({ error: "A user with these credentials already exists." }, { status: 409 });
   }
 
   if (existing) {

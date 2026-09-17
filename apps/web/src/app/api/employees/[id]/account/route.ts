@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requireAnyPermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -10,15 +10,18 @@ import { PERM } from "@/lib/roles";
  * Returns: { userId, user, companyPhone, membership } or { userId: null }
  * if no account is linked.
  *
- * Requires HR_VIEW.
+ * Requires USERS_MANAGE or HR_MANAGE — the response is account-admin
+ * metadata (lastLoginAt, mustChangePassword, permission overrides,
+ * membership scopes), which roster-level hr.view should not see. Matches
+ * canSeeAccessInfo in getEmployeeAccessScope.
  */
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.HR_VIEW);
+  await requireAnyPermission(PERM.USERS_MANAGE, PERM.HR_MANAGE);
   const company = await getCompany();
   const { id } = await params;
 
   const employee = await prisma.employee.findFirst({
-    where: { id, companyId: company.id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("Employee") },
     select: {
       userId: true,
       user: {

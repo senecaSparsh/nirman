@@ -30,6 +30,9 @@ async function HrDashboardContent() {
   if (!__effPerms.includes(PERM.HR_VIEW)) {
     return <NoAccess what="the HR module" />;
   }
+  // Comp visibility matches getEmployeeAccessScope.canSeePayroll — labour
+  // cost aggregates and per-worker wages need payroll.manage|hr.manage.
+  const canSeePayroll = __effPerms.includes(PERM.PAYROLL_MANAGE) || __effPerms.includes(PERM.HR_MANAGE);
 
   const today = new Date();
   const todayDateOnly = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
@@ -82,7 +85,7 @@ async function HrDashboardContent() {
       take: 500,
       where: {...await scopeWhere("WorkerAttendance"),  companyId: company.id, date: todayDateOnly, status: { in: ["PRESENT", "OVERTIME"] } },
       include: { project: { select: { name: true } } }}),
-    loadOrgTree(company.id, company.name, currentUser?.id ?? null),
+    loadOrgTree(company.id, company.name, currentUser?.id ?? null, canSeePayroll),
   ]);
 
   // Compute trade breakdown
@@ -195,7 +198,7 @@ async function HrDashboardContent() {
         tradeBreakdown={tradeBreakdown}
         attendanceTrend={attendanceTrend}
         projectPresence={projectPresence}
-        monthlyLabourCost={monthlyLabourCost}
+        monthlyLabourCost={canSeePayroll ? monthlyLabourCost : null}
       />
 
       {/* ── Organization tree — reporting line + scope assignments ── */}
@@ -212,6 +215,7 @@ async function loadOrgTree(
   companyId: string,
   companyName: string,
   currentUserId: string | null,
+  canSeePayroll = true,
 ): Promise<OrgTreeData> {
   const today = new Date();
   const todayDateOnly = new Date(
@@ -344,12 +348,21 @@ async function loadOrgTree(
       reportsToEmployeeId: emp?.reportsToEmployeeId ?? null};
   });
 
+  // Strip wage amounts from member payloads before they reach the client
+  // tree — roster viewers get names/trades/crews without rates.
+  const crewsForTree = canSeePayroll
+    ? crews
+    : crews.map((c) => ({ ...c, members: c.members.map((m) => ({ ...m, dailyRate: null, monthlySalary: null })) }));
+  const unassignedForTree = canSeePayroll
+    ? unassignedEmployees
+    : unassignedEmployees.map((e) => ({ ...e, dailyRate: null, monthlySalary: null }));
+
   const { roots, unassigned, projects, departments, labourByTrade, labourCount } = buildOrgTree(
     membershipsWithHierarchy as unknown as Parameters<typeof buildOrgTree>[0],
     tasks as unknown as Parameters<typeof buildOrgTree>[1],
     dprs as unknown as Parameters<typeof buildOrgTree>[2],
-    crews as unknown as Parameters<typeof buildOrgTree>[3],
-    unassignedEmployees as unknown as Parameters<typeof buildOrgTree>[4],
+    crewsForTree as unknown as Parameters<typeof buildOrgTree>[3],
+    unassignedForTree as unknown as Parameters<typeof buildOrgTree>[4],
     currentUserId,
     roleTierFn,
     roleLabelFn,

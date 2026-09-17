@@ -46,6 +46,8 @@ async function MobileAttendanceContent() {
   const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
 
   const scopedOpts = await getScopedFormOptions();
+  // Comp visibility matches getEmployeeAccessScope.canSeePayroll.
+  const canSeeComp = __effPerms.includes(PERM.PAYROLL_MANAGE) || __effPerms.includes(PERM.HR_MANAGE);
   const [projects, employees, existingAttendance] = await Promise.all([
     Promise.resolve(scopedOpts.projects),
     prisma.employee.findMany({
@@ -88,7 +90,9 @@ async function MobileAttendanceContent() {
         id: e.id,
         name: e.name,
         trade: e.trade,
-        dailyRate: toNum(e.dailyRate),
+        // Wage amounts are comp data — attendance markers without
+        // payroll.manage|hr.manage see the worker list without rates.
+        dailyRate: canSeeComp ? toNum(e.dailyRate) : null,
         wageType: e.wageType,
       }))}
       existingAttendance={Object.fromEntries(attendanceMap)}

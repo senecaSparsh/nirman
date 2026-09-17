@@ -34,4 +34,4 @@ export const POST = apiHandler(async (req: NextRequest) => {
   });
 
   return json({ result });
-});
+}, { rateLimit: "heavy" });

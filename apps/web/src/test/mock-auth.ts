@@ -171,7 +171,7 @@ async function dbFactory() {
   // User.role and UserCompany.role in sync.
   prisma.userCompany!.findUnique.mockImplementation(async () =>
     state.sessionUser
-      ? { id: "uc-1", role: state.sessionUser.role, userPermissions: [] }
+      ? { id: "uc-1", role: state.sessionUser.role, userPermissions: [], scopes: [] }
       : null,
   );
   prisma.userScope!.findFirst.mockResolvedValue(null);

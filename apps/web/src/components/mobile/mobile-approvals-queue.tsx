@@ -734,7 +734,7 @@ async function approveLeave(l: LeaveRow) {
  if (!res.ok) throw new Error(data.error ?? "Failed to approve leave");
  toast.success(`${l.employeeName}'s ${l.type.toLowerCase()} leave approved`, {
    description: `${l.days} day${l.days === 1 ? "" : "s"} — attendance marked as paid leave.`,
-   action: { label: "View Leaves", onClick: () => router.push("/m/hr?tab=leaves") },
+   action: { label: "View Leaves", onClick: () => router.push("/m/hr/leaves") },
  });
  setLeaveStates((s) => ({ ...s, [l.id]: "approved" }));
  advanceToNext("leave", l.id);

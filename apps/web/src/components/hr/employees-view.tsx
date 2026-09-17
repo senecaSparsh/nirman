@@ -24,7 +24,8 @@ export type EmployeeRow = {
   trade: string | null;
   phone: string | null;
   email: string | null;
-  dailyRate: number;
+  /** Wage amount — null when the viewer lacks payroll.manage|hr.manage. */
+  dailyRate: number | null;
   wageType: string;
   monthlySalary: number | null;
   designation: string | null;
@@ -161,17 +162,19 @@ const employeeColumns: Column<EmployeeRow>[] = [
     label: "Rate",
     align: "right",
     sortable: true,
-    sortValue: (e) => (e.wageType === "DAILY" ? e.dailyRate : e.monthlySalary ?? 0),
+    sortValue: (e) => (e.wageType === "DAILY" ? e.dailyRate ?? 0 : e.monthlySalary ?? 0),
     render: (e) => (
       <span className="tnum text-body">
-        {e.wageType === "DAILY"
-          ? formatCurrency(e.dailyRate) + "/day"
-          : e.monthlySalary != null
-            ? formatCurrency(e.monthlySalary) + "/mo"
-            : formatCurrency(e.dailyRate) + "/day"}
+        {e.dailyRate == null && e.monthlySalary == null
+          ? "—"
+          : e.wageType === "DAILY"
+            ? formatCurrency(e.dailyRate ?? 0) + "/day"
+            : e.monthlySalary != null
+              ? formatCurrency(e.monthlySalary) + "/mo"
+              : formatCurrency(e.dailyRate ?? 0) + "/day"}
       </span>
     ),
-    exportValue: (e) => e.wageType === "DAILY" ? e.dailyRate : e.monthlySalary ?? e.dailyRate,
+    exportValue: (e) => e.wageType === "DAILY" ? e.dailyRate ?? "" : e.monthlySalary ?? e.dailyRate ?? "",
   },
   {
     key: "crewName",

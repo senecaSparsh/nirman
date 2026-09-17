@@ -62,6 +62,6 @@ export const POST = apiHandler(async (req: NextRequest) => {
   });
   revalidatePath("/hr/employees");
   revalidatePath("/m/hr/employees");
-    revalidatePath("/m/hr?tab=employees");
+    revalidatePath("/m/hr/employees");
   return json({ ok: true, id: crew.id }, { status: 201 });
 });

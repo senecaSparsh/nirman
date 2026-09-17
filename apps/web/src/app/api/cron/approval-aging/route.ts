@@ -26,6 +26,10 @@ import { withTimeout } from "@/lib/timeout";
 const DEFAULT_AGING_HOURS = 48;
 const DEDUPE_HOURS = 24;
 const ERRORLOG_RETENTION_DAYS = 30;
+const READ_NOTIFICATION_RETENTION_DAYS = 30;
+const NOTIFICATION_RETENTION_DAYS = 180;
+const NOTIFICATION_LOG_RETENTION_DAYS = 90;
+const PENDING_NOTIFICATION_DEAD_DAYS = 7;
 
 export const POST = apiHandler(async (req: NextRequest) => {
   const cronSecret = req.headers.get("x-cron-secret");
@@ -157,7 +161,7 @@ async function run(): Promise<Response> {
           message: total > 0
             ? `${parts.join(", ")} ${total > 1 ? "are" : "is"} waiting — oldest ${oldestDays >= 1 ? `${oldestDays} day${oldestDays > 1 ? "s" : ""}` : "2+ days"}.`
             : `${parts.join(", ")} — no progress report filed today.`,
-          link: "/m/pulse/approvals",
+          link: "/m/approvals",
         }).catch(() => {});
         notified += 1;
       }
@@ -213,5 +217,39 @@ async function run(): Promise<Response> {
     console.error("[cron/approval-aging] error-log prune failed:", err);
   }
 
-  return json({ ok: true, companies: results, prunedErrors });
+  // ── Notification-table hygiene — both tables are append-only and would
+  //    otherwise grow without bound. InAppNotification: read rows past 30d
+  //    are noise; unread rows get 180d before they're stale enough to be
+  //    meaningless. NotificationLog: terminal rows past 90d are pure audit
+  //    bulk; PENDING rows older than 7d are wedged (every flush either sends
+  //    or fails in the same pass — quiet-hours deferral is <12h), so they're
+  //    dead-lettered instead of retried forever. ──
+  let prunedNotifications = 0;
+  let deadPending = 0;
+  let prunedLogs = 0;
+  try {
+    const now = Date.now();
+    const [readPruned, stalePruned, wedged, logPruned] = await Promise.all([
+      prisma.inAppNotification.deleteMany({
+        where: { isRead: true, createdAt: { lt: new Date(now - READ_NOTIFICATION_RETENTION_DAYS * 86_400_000) } },
+      }),
+      prisma.inAppNotification.deleteMany({
+        where: { createdAt: { lt: new Date(now - NOTIFICATION_RETENTION_DAYS * 86_400_000) } },
+      }),
+      prisma.notificationLog.updateMany({
+        where: { status: "PENDING", createdAt: { lt: new Date(now - PENDING_NOTIFICATION_DEAD_DAYS * 86_400_000) } },
+        data: { status: "FAILED", errorMessage: "Dead-lettered — never delivered within 7 days", error: "Dead-lettered" },
+      }),
+      prisma.notificationLog.deleteMany({
+        where: { createdAt: { lt: new Date(now - NOTIFICATION_LOG_RETENTION_DAYS * 86_400_000) } },
+      }),
+    ]);
+    prunedNotifications = readPruned.count + stalePruned.count;
+    deadPending = wedged.count;
+    prunedLogs = logPruned.count;
+  } catch (err) {
+    console.error("[cron/approval-aging] notification prune failed:", err);
+  }
+
+  return json({ ok: true, companies: results, prunedErrors, prunedNotifications, deadPending, prunedLogs });
 }

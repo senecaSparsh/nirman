@@ -2,15 +2,16 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { setSalaryComponents, autoCompleteOnboarding, HrError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum, assertCanManageEmployee, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requireAnyPermission, toNum, assertCanManageEmployee, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
  * GET /api/employees/[id]/salary-components — list all salary components
- * for this employee (the CTC breakdown).
+ * for this employee (the CTC breakdown). Compensation data — payroll.manage
+ * or hr.manage only (matches canSeePayroll on the pages).
  */
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.HR_VIEW);
+  await requireAnyPermission(PERM.PAYROLL_MANAGE, PERM.HR_MANAGE);
   const company = await getCompany();
   const { id } = await params;
 

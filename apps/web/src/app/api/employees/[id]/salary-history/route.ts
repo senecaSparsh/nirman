@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission, toNum, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireAnyPermission, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -15,10 +15,12 @@ import { PERM } from "@/lib/roles";
  *   - changedBy: who made the change
  *   - createdAt: when the record was created
  *
- * Requires HR_VIEW (or PAYROLL_VIEW) — salary history is sensitive.
+ * Requires PAYROLL_MANAGE or HR_MANAGE — salary history is compensation
+ * data; the roster-level HR_VIEW used to be enough, which leaked CTC
+ * breakdowns to field roles. Same tier as the page's canSeePayroll flag.
  */
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.HR_VIEW);
+  await requireAnyPermission(PERM.PAYROLL_MANAGE, PERM.HR_MANAGE);
   const company = await getCompany();
   const { id } = await params;
 

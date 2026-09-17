@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, scopeWhere, getCurrentUser, getActionPermissions, getScopedFormOptions, getUserPermissions } from "@/lib/server";
+import { getCompany, toNum, scopeWhere, getCurrentUser, getActionPermissions, getScopedFormOptions, getUserPermissions, getEmployeeAccessScope } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
@@ -29,6 +29,12 @@ async function EmployeesContent() {
 
   const actions = await getActionPermissions();
   const scopedOpts = await getScopedFormOptions();
+  // Field-visibility policy: wages/dossier data requires payroll.manage or
+  // hr.manage — hr.view-only callers get the roster without comp fields.
+  const accessScope = await getEmployeeAccessScope();
+  const canSeePayroll = accessScope.canSeePayroll;
+  const canSeeBank = accessScope.canSeeBankDetails;
+  const canSeeDocs = accessScope.canSeePersonalDocs;
   const perms = {
     canCreate: actions?.canCreateEmployee ?? __effPerms.includes(PERM.HR_MANAGE),
     canEdit: actions?.canCreateEmployee ?? __effPerms.includes(PERM.HR_MANAGE),
@@ -105,9 +111,9 @@ async function EmployeesContent() {
     trade: e.trade,
     phone: e.phone,
     email: e.email,
-    dailyRate: toNum(e.dailyRate),
+    dailyRate: canSeePayroll ? toNum(e.dailyRate) : null,
     wageType: e.wageType,
-    monthlySalary: e.monthlySalary ? toNum(e.monthlySalary) : null,
+    monthlySalary: canSeePayroll && e.monthlySalary ? toNum(e.monthlySalary) : null,
     designation: e.designation,
     joinDate: e.joinDate?.toISOString() ?? null,
     crewId: e.crewId,
@@ -118,27 +124,27 @@ async function EmployeesContent() {
     hierarchyLevel: e.hierarchyLevel,
     reportingLocationId: e.reportingLocationId,
     reportingLocationName: e.reportingLocation?.name ?? null,
-    employmentType: e.employmentType,
-    noticePeriodDays: e.noticePeriodDays,
-    contractStartDate: e.contractStartDate?.toISOString() ?? null,
-    contractEndDate: e.contractEndDate?.toISOString() ?? null,
-    payDay: e.payDay,
-    bankAccountHolder: e.bankAccountHolder,
-    bankAccountNumber: e.bankAccountNumber,
-    bankIfsc: e.bankIfsc,
-    bankName: e.bankName,
-    bankBranch: e.bankBranch,
-    panNumber: e.panNumber,
-    aadhaarNumber: e.aadhaarNumber,
-    pfNumber: e.pfNumber,
-    esiNumber: e.esiNumber,
-    uan: e.uan,
+    employmentType: canSeePayroll ? e.employmentType : null,
+    noticePeriodDays: canSeePayroll ? e.noticePeriodDays : null,
+    contractStartDate: canSeePayroll ? (e.contractStartDate?.toISOString() ?? null) : null,
+    contractEndDate: canSeePayroll ? (e.contractEndDate?.toISOString() ?? null) : null,
+    payDay: canSeePayroll ? e.payDay : null,
+    bankAccountHolder: canSeeBank ? e.bankAccountHolder : null,
+    bankAccountNumber: canSeeBank ? e.bankAccountNumber : null,
+    bankIfsc: canSeeBank ? e.bankIfsc : null,
+    bankName: canSeeBank ? e.bankName : null,
+    bankBranch: canSeeBank ? e.bankBranch : null,
+    panNumber: canSeeDocs ? e.panNumber : null,
+    aadhaarNumber: canSeeDocs ? e.aadhaarNumber : null,
+    pfNumber: canSeeDocs ? e.pfNumber : null,
+    esiNumber: canSeeDocs ? e.esiNumber : null,
+    uan: canSeeDocs ? e.uan : null,
     emergencyContactName: e.emergencyContactName,
     emergencyContactPhone: e.emergencyContactPhone,
     emergencyContactRelation: e.emergencyContactRelation,
-    permanentAddress: e.permanentAddress,
-    currentAddress: e.currentAddress,
-    dateOfBirth: e.dateOfBirth?.toISOString() ?? null,
+    permanentAddress: canSeeDocs ? e.permanentAddress : null,
+    currentAddress: canSeeDocs ? e.currentAddress : null,
+    dateOfBirth: canSeeDocs ? (e.dateOfBirth?.toISOString() ?? null) : null,
     bloodGroup: e.bloodGroup,
     userId: e.userId,
     reportsToMembershipId: e.userId ? (membershipByUserId.get(e.userId)?.reportsToUserCompanyId ?? null) : null}));
@@ -155,7 +161,7 @@ async function EmployeesContent() {
       id: m.id,
       name: m.name,
       trade: m.trade,
-      dailyRate: toNum(m.dailyRate),
+      dailyRate: canSeePayroll ? toNum(m.dailyRate) : null,
       wageType: m.wageType,
       active: m.active}))}));
 

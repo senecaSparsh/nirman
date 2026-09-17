@@ -255,10 +255,14 @@ function GroupedList({ items, pendingCount }: { items: EmployeeListItem[]; pendi
 
 /** A single employee row — navigable (links to employee detail page) with badge. */
 function EmployeeRow({ e }: { e: EmployeeListItem }) {
+  // Wage amounts are null for viewers without payroll.manage|hr.manage —
+  // show no wage line rather than "—/day".
   const wage =
-    e.wageType === "DAILY"
-      ? `${formatCurrency(e.dailyRate)}/day`
-      : formatCurrency(e.monthlySalary);
+    e.dailyRate == null && e.monthlySalary == null
+      ? null
+      : e.wageType === "DAILY"
+        ? `${formatCurrency(e.dailyRate)}/day`
+        : formatCurrency(e.monthlySalary);
   const subtitleParts = [
     e.employeeCode ?? null,
     e.designation ?? null,
@@ -313,7 +317,7 @@ function EmployeeRow({ e }: { e: EmployeeListItem }) {
       title={e.name}
       empId={e.id}
       subtitle={subtitleParts.join(" · ") || "—"}
-      meta={wage}
+      meta={wage ?? undefined}
       badge={badge}
     />
   );

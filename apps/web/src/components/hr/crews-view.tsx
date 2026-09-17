@@ -18,7 +18,8 @@ export type CrewMember = {
   id: string;
   name: string;
   trade: string | null;
-  dailyRate: number;
+  /** Wage amount — null when the viewer lacks payroll.manage|hr.manage. */
+  dailyRate: number | null;
   wageType: string;
   active: boolean;
 };
@@ -160,12 +161,15 @@ export function CrewsView({
       label: "Daily Cost",
       align: "right",
       sortable: true,
-      sortValue: (c) => c.members.filter((m) => m.wageType === "DAILY").reduce((s, m) => s + m.dailyRate, 0),
+      sortValue: (c) => c.members.filter((m) => m.wageType === "DAILY").reduce((s, m) => s + (m.dailyRate ?? 0), 0),
       render: (c) => {
-        const dailyCost = c.members.filter((m) => m.wageType === "DAILY").reduce((s, m) => s + m.dailyRate, 0);
+        const daily = c.members.filter((m) => m.wageType === "DAILY");
+        // Rates hidden for non-payroll viewers → no aggregate to show.
+        if (daily.length > 0 && daily.every((m) => m.dailyRate == null)) return <span className="text-faint">—</span>;
+        const dailyCost = daily.reduce((s, m) => s + (m.dailyRate ?? 0), 0);
         return dailyCost > 0 ? <span className="tnum text-body">{formatCurrency(dailyCost)}/day</span> : <span className="text-faint">—</span>;
       },
-      exportValue: (c) => c.members.filter((m) => m.wageType === "DAILY").reduce((s, m) => s + m.dailyRate, 0),
+      exportValue: (c) => c.members.filter((m) => m.wageType === "DAILY").reduce((s, m) => s + (m.dailyRate ?? 0), 0),
     },
     {
       key: "active",
@@ -285,7 +289,9 @@ export function CrewsView({
 // ───────────────────────────────────────────────────────────
 
 function CrewDetailDialog({ crew, onClose }: { crew: CrewRow; onClose: () => void }) {
-  const dailyCost = crew.members.filter((m) => m.wageType === "DAILY").reduce((s, m) => s + m.dailyRate, 0);
+  const dailyMembers = crew.members.filter((m) => m.wageType === "DAILY");
+  const ratesHidden = dailyMembers.length > 0 && dailyMembers.every((m) => m.dailyRate == null);
+  const dailyCost = dailyMembers.reduce((s, m) => s + (m.dailyRate ?? 0), 0);
   const memberColumns: Column<CrewMember>[] = [
     {
       key: "name",
@@ -328,7 +334,7 @@ function CrewDetailDialog({ crew, onClose }: { crew: CrewRow; onClose: () => voi
       sortable: true,
       render: (m) => (
         <span className="tnum text-body">
-          {m.wageType === "DAILY" ? `${formatCurrency(m.dailyRate)}/day` : m.wageType === "MONTHLY" ? "monthly" : "fixed"}
+          {m.wageType === "DAILY" ? (m.dailyRate != null ? `${formatCurrency(m.dailyRate)}/day` : "—") : m.wageType === "MONTHLY" ? "monthly" : "fixed"}
         </span>
       ),
     },
@@ -359,7 +365,7 @@ function CrewDetailDialog({ crew, onClose }: { crew: CrewRow; onClose: () => voi
           </div>
           <div>
             <div className="text-label text-muted-foreground">Daily Cost</div>
-            <div className="text-body font-semibold tnum">{formatCurrency(dailyCost)}/day</div>
+            <div className="text-body font-semibold tnum">{ratesHidden ? "—" : `${formatCurrency(dailyCost)}/day`}</div>
           </div>
           <div>
             <div className="text-label text-muted-foreground">Status</div>

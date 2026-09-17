@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, getCompany, getCompanyDescendantIds, getCompanyGroupIds, json, requirePermission, stockLocationSchema, toNum, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, getCompanyDescendantIds, getCompanyGroupIds, json, requirePermission, stockLocationSchema, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -69,6 +69,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
   // Defaults to the current company. Must be self or a descendant — the wider
   // group also contains the parent and siblings, and writing locations into
   // those would cross a boundary the caller doesn't control.
+  // Scoped users can only create locations under their assigned projects.
+  await assertScopeAllows({ projectId: parsed.data.projectId });
+
   const descendantIds = await getCompanyDescendantIds(company.id);
   const targetCompanyId = body.targetCompanyId && body.targetCompanyId !== company.id
     ? body.targetCompanyId

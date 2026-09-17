@@ -2,13 +2,19 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createEmployee, generateOfferLetter, generateEmploymentAgreement, generateEmployeeIdCard, generateAppointmentLetter, setSalaryComponents, autoCompleteOnboarding } from "@nirman/services";
-import { apiHandler, getCompany, json, employeeSchema, requirePermission, toNum, assertScopeAllows, getCompanyDescendantIds, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, employeeSchema, requirePermission, toNum, assertScopeAllows, getCompanyDescendantIds, scopeWhere, getEmployeeAccessScope } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.HR_VIEW);
   const company = await getCompany();
+  // Wage fields are compensation data — same field-visibility policy as the
+  // employee pages (getEmployeeAccessScope): only payroll.manage|hr.manage
+  // may see rates/salaries. Everyone else (site engineers, supervisors,
+  // QAQC — hr.view holders who need the roster for crews/attendance) gets
+  // the row with the amounts nulled.
+  const { canSeePayroll } = await getEmployeeAccessScope();
   const url = new URL(req.url);
   const crewId = url.searchParams.get("crewId");
   const activeOnly = url.searchParams.get("active") === "true";
@@ -37,9 +43,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
       trade: e.trade,
       phone: e.phone,
       email: e.email,
-      dailyRate: toNum(e.dailyRate),
+      dailyRate: canSeePayroll ? toNum(e.dailyRate) : null,
       wageType: e.wageType,
-      monthlySalary: e.monthlySalary ? toNum(e.monthlySalary) : null,
+      monthlySalary: canSeePayroll && e.monthlySalary ? toNum(e.monthlySalary) : null,
       designation: e.designation,
       joinDate: e.joinDate,
       crewId: e.crewId,
@@ -97,7 +103,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (parsed.data.phone) {
     const normalizedPhone = normalizePhone(parsed.data.phone);
     const existingUser = await prisma.user.findFirst({
-      where: { phoneNormalized: normalizedPhone, active: true },
+      where: { phoneNormalized: normalizedPhone, active: true, isHidden: { not: true } },
       select: {
         id: true,
         name: true,
@@ -120,7 +126,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!dedupSuggestion && parsed.data.email) {
     const normalizedEmail = parsed.data.email.trim().toLowerCase();
     const existingUser = await prisma.user.findUnique({
-      where: { email: normalizedEmail },
+      where: { email: normalizedEmail, isHidden: { not: true } },
       select: {
         id: true,
         name: true,

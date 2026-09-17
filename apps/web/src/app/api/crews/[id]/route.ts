@@ -52,7 +52,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   });
   revalidatePath("/hr/employees");
   revalidatePath("/m/hr/employees");
-    revalidatePath("/m/hr?tab=employees");
+    revalidatePath("/m/hr/employees");
   return json({ ok: true, id: crew.id });
 });
 
@@ -63,12 +63,12 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     await deleteCrew(id, user.id);
     revalidatePath("/hr/employees");
     revalidatePath("/m/hr/employees");
-    revalidatePath("/m/hr?tab=employees");
+    revalidatePath("/m/hr/employees");
     return json({ ok: true });
   } catch (err: unknown) {
     revalidatePath("/hr/employees");
     revalidatePath("/m/hr/employees");
-    revalidatePath("/m/hr?tab=employees");
+    revalidatePath("/m/hr/employees");
     return json({ error: (err instanceof ServiceError ? err.message : "Failed to delete crew") }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });

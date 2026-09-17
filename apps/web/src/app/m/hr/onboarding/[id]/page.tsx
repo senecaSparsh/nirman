@@ -45,6 +45,13 @@ async function MobileOnboardingDetailContent({
 
   const canManage = __effPerms.includes(PERM.HR_MANAGE);
   const canManagePayroll = __effPerms.includes(PERM.PAYROLL_MANAGE);
+  const canManageAccess = __effPerms.includes(PERM.USERS_MANAGE);
+  // Field-visibility policy (matches getEmployeeAccessScope): wages, bank,
+  // gov IDs, addresses, attachments and employment terms need payroll.manage
+  // or hr.manage; account-status metadata needs users.manage or hr.manage.
+  // hr.view-only viewers get the roster + onboarding checklist state only.
+  const canSeeComp = canManage || canManagePayroll;
+  const canSeeAccess = canManage || canManageAccess;
   const { id } = await params;
 
   // Hierarchical RBAC: a PROJECT-scoped user only sees employees on their sites.
@@ -139,8 +146,8 @@ async function MobileOnboardingDetailContent({
     phone: employee.phone,
     email: employee.email,
     wageType: employee.wageType as "DAILY" | "MONTHLY" | "FIXED",
-    dailyRate: employee.dailyRate != null ? toNum(employee.dailyRate) : null,
-    monthlySalary: employee.monthlySalary != null ? toNum(employee.monthlySalary) : null,
+    dailyRate: canSeeComp && employee.dailyRate != null ? toNum(employee.dailyRate) : null,
+    monthlySalary: canSeeComp && employee.monthlySalary != null ? toNum(employee.monthlySalary) : null,
     joinDate: employee.joinDate ? employee.joinDate.toISOString() : null,
     hierarchyLevel: employee.hierarchyLevel,
     active: employee.active,
@@ -154,13 +161,13 @@ async function MobileOnboardingDetailContent({
     contractStatus: employee.contractStatus,
     contractIssuedAt: employee.contractIssuedAt ? employee.contractIssuedAt.toISOString() : null,
     contractConfirmedAt: employee.contractConfirmedAt ? employee.contractConfirmedAt.toISOString() : null,
-    contractTerms: employee.contractTerms,
-    contractToken: employee.contractToken,
+    contractTerms: canSeeComp ? employee.contractTerms : null,
+    contractToken: canSeeComp ? employee.contractToken : null,
     offerLetterStatus: employee.offerLetterStatus,
     offerLetterIssuedAt: employee.offerLetterIssuedAt ? employee.offerLetterIssuedAt.toISOString() : null,
-    offerLetterTerms: employee.offerLetterTerms,
+    offerLetterTerms: canSeeComp ? employee.offerLetterTerms : null,
     offerLetterAcceptedAt: employee.offerLetterAcceptedAt ? employee.offerLetterAcceptedAt.toISOString() : null,
-    offerToken: employee.offerToken,
+    offerToken: canSeeComp ? employee.offerToken : null,
     idCardStatus: employee.idCardStatus,
     idCardIssuedAt: employee.idCardIssuedAt ? employee.idCardIssuedAt.toISOString() : null,
     appointmentLetterStatus: employee.appointmentLetterStatus,
@@ -168,34 +175,34 @@ async function MobileOnboardingDetailContent({
     documentsSubmitted: employee.documentsSubmitted,
     backgroundVerified: employee.backgroundVerified,
     onboardingComplete: employee.onboardingComplete,
-    dateOfBirth: employee.dateOfBirth ? employee.dateOfBirth.toISOString() : null,
+    dateOfBirth: canSeeComp && employee.dateOfBirth ? employee.dateOfBirth.toISOString() : null,
     bloodGroup: employee.bloodGroup,
     photoUrl: employee.photoUrl,
-    employmentType: employee.employmentType,
-    probationEndDate: employee.probationEndDate ? employee.probationEndDate.toISOString() : null,
-    confirmationDate: employee.confirmationDate ? employee.confirmationDate.toISOString() : null,
-    noticePeriodDays: employee.noticePeriodDays,
-    contractStartDate: employee.contractStartDate ? employee.contractStartDate.toISOString() : null,
-    contractEndDate: employee.contractEndDate ? employee.contractEndDate.toISOString() : null,
-    autoDepositEnabled: employee.autoDepositEnabled,
-    autoDepositSetupAt: employee.autoDepositSetupAt ? employee.autoDepositSetupAt.toISOString() : null,
-    payDay: employee.payDay,
-    bankAccountHolder: employee.bankAccountHolder,
-    bankAccountNumber: employee.bankAccountNumber,
-    bankIfsc: employee.bankIfsc,
-    bankName: employee.bankName,
-    bankBranch: employee.bankBranch,
-    panNumber: employee.panNumber,
-    aadhaarNumber: employee.aadhaarNumber,
-    pfNumber: employee.pfNumber,
-    esiNumber: employee.esiNumber,
-    uan: employee.uan,
+    employmentType: canSeeComp ? employee.employmentType : null,
+    probationEndDate: canSeeComp && employee.probationEndDate ? employee.probationEndDate.toISOString() : null,
+    confirmationDate: canSeeComp && employee.confirmationDate ? employee.confirmationDate.toISOString() : null,
+    noticePeriodDays: canSeeComp ? employee.noticePeriodDays : null,
+    contractStartDate: canSeeComp && employee.contractStartDate ? employee.contractStartDate.toISOString() : null,
+    contractEndDate: canSeeComp && employee.contractEndDate ? employee.contractEndDate.toISOString() : null,
+    autoDepositEnabled: canSeeComp ? employee.autoDepositEnabled : false,
+    autoDepositSetupAt: canSeeComp && employee.autoDepositSetupAt ? employee.autoDepositSetupAt.toISOString() : null,
+    payDay: canSeeComp ? employee.payDay : null,
+    bankAccountHolder: canSeeComp ? employee.bankAccountHolder : null,
+    bankAccountNumber: canSeeComp ? employee.bankAccountNumber : null,
+    bankIfsc: canSeeComp ? employee.bankIfsc : null,
+    bankName: canSeeComp ? employee.bankName : null,
+    bankBranch: canSeeComp ? employee.bankBranch : null,
+    panNumber: canSeeComp ? employee.panNumber : null,
+    aadhaarNumber: canSeeComp ? employee.aadhaarNumber : null,
+    pfNumber: canSeeComp ? employee.pfNumber : null,
+    esiNumber: canSeeComp ? employee.esiNumber : null,
+    uan: canSeeComp ? employee.uan : null,
     emergencyContactName: employee.emergencyContactName,
     emergencyContactPhone: employee.emergencyContactPhone,
     emergencyContactRelation: employee.emergencyContactRelation,
-    permanentAddress: employee.permanentAddress,
-    currentAddress: employee.currentAddress,
-    benefits: employee.benefits.map((b) => ({
+    permanentAddress: canSeeComp ? employee.permanentAddress : null,
+    currentAddress: canSeeComp ? employee.currentAddress : null,
+    benefits: canSeeComp ? employee.benefits.map((b) => ({
       id: b.id,
       type: b.type,
       amount: b.amount ? toNum(b.amount) : null,
@@ -204,8 +211,8 @@ async function MobileOnboardingDetailContent({
       endDate: b.endDate ? b.endDate.toISOString() : null,
       notes: b.notes,
       active: b.active,
-    })),
-    salaryComponents: employee.salaryComponents.map((c) => ({
+    })) : [],
+    salaryComponents: canSeeComp ? employee.salaryComponents.map((c) => ({
       id: c.id,
       type: c.type,
       amount: toNum(c.amount),
@@ -215,8 +222,9 @@ async function MobileOnboardingDetailContent({
       percentageOfBasic: c.percentageOfBasic ? toNum(c.percentageOfBasic) : null,
       notes: c.notes,
       active: c.active,
-    })),
-    attachments: attachments.map((a) => ({
+    })) : [],
+    // Attachments include uploaded KYC documents — comp tier only.
+    attachments: canSeeComp ? attachments.map((a) => ({
       id: a.id,
       category: a.category,
       label: a.label,
@@ -228,7 +236,7 @@ async function MobileOnboardingDetailContent({
         mimeType: a.upload.mimeType,
         size: a.upload.size,
       },
-    })),
+    })) : [],
     user: employee.user
       ? {
           id: employee.user.id,
@@ -240,13 +248,15 @@ async function MobileOnboardingDetailContent({
           department: employee.user.department,
           joiningDate: employee.user.joiningDate ? employee.user.joiningDate.toISOString() : null,
           active: employee.user.active,
-          lastLoginAt: employee.user.lastLoginAt ? employee.user.lastLoginAt.toISOString() : null,
-          phoneVerified: employee.user.phoneVerified,
-          phoneVerifiedAt: employee.user.phoneVerifiedAt ? employee.user.phoneVerifiedAt.toISOString() : null,
-          phoneSyncedAt: employee.user.phoneSyncedAt ? employee.user.phoneSyncedAt.toISOString() : null,
+          // Account-status metadata — access-admin tier only.
+          lastLoginAt: canSeeAccess && employee.user.lastLoginAt ? employee.user.lastLoginAt.toISOString() : null,
+          phoneVerified: canSeeAccess ? employee.user.phoneVerified : null,
+          phoneVerifiedAt: canSeeAccess && employee.user.phoneVerifiedAt ? employee.user.phoneVerifiedAt.toISOString() : null,
+          phoneSyncedAt: canSeeAccess && employee.user.phoneSyncedAt ? employee.user.phoneSyncedAt.toISOString() : null,
         }
       : null,
-    companyMemberships: employee.userId
+    // Cross-company memberships reveal group structure — manage tier.
+    companyMemberships: canSeeComp && employee.userId
       ? (await prisma.employee.findMany({
           where: { userId: employee.userId, deletedAt: null, id: { not: employee.id } },
           select: { id: true, companyId: true, active: true, company: { select: { name: true } } },

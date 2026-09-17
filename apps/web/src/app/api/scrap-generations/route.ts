@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createScrapGeneration, listScrapGenerations } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, toNum, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -68,7 +68,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
 
-  const scrap = await createScrapGeneration({
+    // Scoped users can only write scrap against their assigned projects.
+  await assertScopeAllows({ projectId: parsed.data.projectId });
+const scrap = await createScrapGeneration({
     companyId: company.id,
     toLocationId: parsed.data.toLocationId,
     sourceMaterialId: parsed.data.sourceMaterialId ?? undefined,

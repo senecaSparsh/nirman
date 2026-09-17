@@ -95,12 +95,16 @@ export async function processPendingNotifications(): Promise<{
         continue;
       }
 
-      // Send via each enabled channel
+      // Send via each enabled channel. Track whether at least one channel
+      // actually delivered — a row where every requested channel was skipped
+      // (e.g. WHATSAPP but user has no phone) must not be marked SENT.
+      let delivered = false;
       for (const channel of channels) {
         if (channel === "IN_APP") {
           // The event bus creates the bell entry immediately at emit time, so
           // IN_APP only appears in `channels` on rows written before that change
           // — dedupe against an existing bell entry to avoid a double.
+          delivered = true;
           const existing = await prisma.inAppNotification.findFirst({
             where: {
               userId: log.recipient,
@@ -160,6 +164,19 @@ export async function processPendingNotifications(): Promise<{
             userId: log.recipient,
           });
         }
+        delivered = true;
+      }
+
+      if (!delivered) {
+        // Every requested channel was skipped (no contact info) — nothing was
+        // actually sent. Mark FAILED so it shows up in stats instead of
+        // silently disappearing as "sent".
+        await prisma.notificationLog.update({
+          where: { id: log.id },
+          data: { status: "FAILED", errorMessage: "No reachable channel — user has no contact info for the requested channels", error: "No reachable channel" },
+        }).catch(() => {});
+        failed++;
+        continue;
       }
 
       // Mark as sent
