@@ -50,6 +50,14 @@ export async function clearSwApiCache(): Promise<void> {
     await Promise.all(
       keys.filter((k) => k.startsWith("nirman-api")).map((k) => caches.delete(k)),
     );
+    // The shell cache also holds personalized HTML for "/" and "/m"
+    // (server-rendered home/dashboard embed the signed-in user's data).
+    // Delete those entries; keep the precached public pages (/sign-in).
+    const shell = await caches.open("nirman-shell-v5");
+    const origin = location.origin;
+    await Promise.all(
+      ["/", "/m"].map((p) => shell.delete(new Request(origin + p))),
+    );
   } catch {
     // Best-effort — Cache Storage may be unavailable
   }

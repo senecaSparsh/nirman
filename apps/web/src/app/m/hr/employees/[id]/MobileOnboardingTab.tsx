@@ -500,6 +500,12 @@ function HireDetailsEditor({
   const [joinDate, setJoinDate] = useState(employee.joinDate ? employee.joinDate.split("T")[0] ?? "" : "");
   const [activeProjectId, setActiveProjectId] = useState(employee.activeProjectId ?? "");
   const [reportingLocationId, setReportingLocationId] = useState(employee.reportingLocationId ?? "");
+  const [wageType, setWageType] = useState(employee.wageType ?? "DAILY");
+  const [wage, setWage] = useState(
+    employee.wageType === "DAILY"
+      ? (employee.dailyRate?.toString() ?? "")
+      : (employee.monthlySalary?.toString() ?? ""),
+  );
   const [saving, setSaving] = useState(false);
 
   async function save() {
@@ -523,6 +529,9 @@ function HireDetailsEditor({
           joinDate: joinDate || null,
           activeProjectId: activeProjectId || null,
           reportingLocationId: reportingLocationId || null,
+          wageType,
+          dailyRate: wageType === "DAILY" && wage ? Number(wage) : undefined,
+          monthlySalary: wageType !== "DAILY" && wage ? Number(wage) : undefined,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -585,6 +594,26 @@ function HireDetailsEditor({
           onChange={setReportingLocationId}
           placeholder="— None —"
           options={stockLocations.map((l) => ({ value: l.id, label: l.name }))}
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+        <EnumSelect
+          label="Wage Type"
+          value={wageType}
+          onChange={(v) => { setWageType(v as "DAILY" | "MONTHLY" | "FIXED"); setWage(""); }}
+          placeholder="— Select —"
+          options={[
+            { value: "DAILY", label: "Daily" },
+            { value: "MONTHLY", label: "Monthly" },
+            { value: "FIXED", label: "Fixed" },
+          ]}
+        />
+        <UnderlineInput
+          label={wageType === "DAILY" ? "Rate ₹/day" : "Salary ₹/mo"}
+          type="number"
+          value={wage}
+          onChange={setWage}
+          placeholder={wageType === "DAILY" ? "e.g. 850" : "e.g. 48000"}
         />
       </div>
       <UnderlineInput label="Join Date" type="date" value={joinDate} onChange={setJoinDate} />

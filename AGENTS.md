@@ -122,6 +122,12 @@ the `coolify-proxy` container isn't on the app network. Fix:
     Safety rails: max 10 restarts per 5-min window, counter resets after 5 min of
     stability, clean Ctrl+C handling. The wrapper uses zero external
     dependencies (Node built-ins only). If you need to bypass it: `pnpm --filter web dev:raw`.
+    **Known gap**: the dev wrapper detects crash/error signatures, not CPU-bound
+    stalls — a mass rebuild (200+ changed files) plus rapid sequential page hits can
+    wedge Turbopack into minutes-long compiles where even `/api/health` times out.
+    Fix: `kill` the `next-server` PID and the wrapper respawns it healthy. The
+    production start wrapper does poll `/api/health` and restarts on 3 failures —
+    this gap is dev-only.
 - **Auto-scaling memory**: the app auto-detects available RAM (via cgroup limits
   on Render/Docker/K8s, or `os.totalmem()` locally) and tunes all memory-dependent
   settings automatically. **Upgrade your Render plan and everything adapts — no

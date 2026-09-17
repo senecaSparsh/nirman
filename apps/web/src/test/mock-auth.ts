@@ -165,8 +165,15 @@ async function dbFactory() {
   prisma.company!.findMany.mockResolvedValue([]);
   prisma.userCompany!.findFirst.mockResolvedValue(null);
   // getUserPermissions() calls userCompany.findUnique with userId_companyId
-  // and reads .userPermissions.map(...). Must include userPermissions: [].
-  prisma.userCompany!.findUnique.mockResolvedValue({ id: "uc-1", role: "OWNER", userPermissions: [] });
+  // and reads .role (per-company truth — custom roles live here) and
+  // .userPermissions.map(...). Must include userPermissions: [].
+  // membership.role mirrors the session role — PATCH /api/users/[id] keeps
+  // User.role and UserCompany.role in sync.
+  prisma.userCompany!.findUnique.mockImplementation(async () =>
+    state.sessionUser
+      ? { id: "uc-1", role: state.sessionUser.role, userPermissions: [] }
+      : null,
+  );
   prisma.userScope!.findFirst.mockResolvedValue(null);
   prisma.projectAssignment!.findMany.mockResolvedValue([]);
   prisma.roleOverride!.findMany.mockResolvedValue([]);

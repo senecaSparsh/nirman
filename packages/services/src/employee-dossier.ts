@@ -357,7 +357,7 @@ export async function setSalaryComponents(
   return prisma.$transaction(async (tx) => {
     const employee = await tx.employee.findFirst({
       where: { id: employeeId, companyId, deletedAt: null },
-      select: { id: true, wageType: true },
+      select: { id: true, wageType: true, dailyRate: true, monthlySalary: true },
     });
     if (!employee) throw new HrError("Employee not found", 404);
 
@@ -386,8 +386,8 @@ export async function setSalaryComponents(
     // The offer letter / agreement generation validates that the employee
     // has a wage set (dailyRate for DAILY, monthlySalary for MONTHLY/FIXED).
     // When salary components are saved, auto-compute and sync these fields
-    // so the validation passes without requiring the user to also fill the
-    // Hire Details wage field separately.
+    // ONLY when no wage was set by hand — never overwrite an explicit rate
+    // (e.g. a ₹850/day mason's agreed rate) with a derived monthly/30 value.
     const monthlyEarnings = components
       .filter((c) => !c.isDeduction && (c.frequency ?? "MONTHLY") === "MONTHLY")
       .reduce((sum, c) => sum + Number(c.amount), 0);
@@ -395,12 +395,12 @@ export async function setSalaryComponents(
     const updateData: Prisma.EmployeeUpdateInput = {};
     if (employee.wageType === "DAILY") {
       // For daily wage, compute daily rate from monthly earnings / 30
-      if (monthlyEarnings > 0) {
+      if (monthlyEarnings > 0 && Number(employee.dailyRate ?? 0) <= 0) {
         updateData.dailyRate = new Prisma.Decimal(Math.round((monthlyEarnings / 30) * 100) / 100);
       }
     } else {
       // MONTHLY or FIXED — sync monthlySalary from the sum of monthly earnings
-      if (monthlyEarnings > 0) {
+      if (monthlyEarnings > 0 && Number(employee.monthlySalary ?? 0) <= 0) {
         updateData.monthlySalary = new Prisma.Decimal(monthlyEarnings);
       }
     }

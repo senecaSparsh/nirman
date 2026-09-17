@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
-import { PERM, ALL_PERMISSIONS, ROLES, roleTier, canAssignRole, effectivePermissions } from "@/lib/roles";
+import { apiHandler, getActingRole, getCompany, getUserPermissions, json, requirePermission } from "@/lib/server";
+import { PERM, ALL_PERMISSIONS, ROLES, roleTier, canAssignRole } from "@/lib/roles";
 import { z } from "zod";
 
 /**
@@ -98,7 +98,7 @@ export const PUT = apiHandler(async (req: NextRequest, { params }: { params: Pro
   // ── Tier guard: if tier is being changed, the new tier must be below ──
   // the actor's own tier. Prevents escalating a role to a higher tier.
   if (parsed.data.tier !== undefined) {
-    if (parsed.data.tier <= roleTier(session.role)) {
+    if (parsed.data.tier <= roleTier(await getActingRole())) {
       return json(
         { error: `You can't set the access level for this role higher than your own.` },
         { status: 403 },
@@ -108,7 +108,7 @@ export const PUT = apiHandler(async (req: NextRequest, { params }: { params: Pro
 
   // ── Base role guard: the actor must be able to assign the role's ──
   // base role. Prevents editing a role based on a higher-tier base role.
-  if (!canAssignRole(session.role, role.baseRole)) {
+  if (!canAssignRole(await getActingRole(), role.baseRole)) {
     return json(
       { error: `You don't have authority to modify a role based on ${ROLES[role.baseRole as keyof typeof ROLES]?.label ?? role.baseRole}.` },
       { status: 403 },
@@ -118,7 +118,7 @@ export const PUT = apiHandler(async (req: NextRequest, { params }: { params: Pro
   // ── Permission scope guard: the actor can only grant permissions they ──
   // themselves have. OWNER/ADMIN (permissions = "*") bypass this check.
   if (parsed.data.permissions !== undefined) {
-    const actorPerms = effectivePermissions(session.role);
+    const actorPerms = await getUserPermissions();
     if (actorPerms !== ALL_PERMISSIONS) {
       const actorPermSet = new Set(actorPerms);
       const outOfScope = parsed.data.permissions.filter((p) => !actorPermSet.has(p));

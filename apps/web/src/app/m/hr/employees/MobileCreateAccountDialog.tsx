@@ -157,6 +157,7 @@ export function MobileCreateAccountDialog({
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [mode, setMode] = useState<"create" | "link">("create");
 
   // ── Account fields ──
@@ -339,6 +340,7 @@ export function MobileCreateAccountDialog({
         throw new Error(data.error ?? "Failed to create account");
 
       haptic([10, 40, 80]);
+      if (data.tempPassword) setTempPassword(data.tempPassword);
       toast.success(data.message ?? "Account created and linked");
       setSuccess(true);
       router.refresh();
@@ -395,6 +397,27 @@ export function MobileCreateAccountDialog({
             Login account created for{" "}
             <span className="font-bold">{employeeName}</span>.
           </p>
+          {tempPassword && (
+            <div
+              className="rounded-[0.5rem] border p-3 space-y-1"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
+            >
+              <p
+                className="text-m-caption font-bold uppercase tracking-wide"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                Temporary password
+              </p>
+              <p className="text-m-section font-bold font-mono" style={{ color: "var(--color-ink-950)" }}>
+                {tempPassword}
+              </p>
+              <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                Share this once with the employee — they sign in with their
+                phone number + this password and set their own. Shown only
+                here.
+              </p>
+            </div>
+          )}
           <div
             className="rounded-[0.5rem] border p-3 space-y-2"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}

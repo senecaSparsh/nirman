@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { softDelete, logAction } from "@nirman/services";
-import { apiHandler, getCompany, json, projectSchema, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, canAccessProject, getCompany, json, projectSchema, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -29,7 +29,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
       },
     },
   });
-  if (!project) return json({ error: "Project not found" }, { status: 404 });
+  if (!project || !(await canAccessProject(id))) return json({ error: "Project not found" }, { status: 404 });
   return json({
     ...project,
     totalBudget: toNum(project.totalBudget),
@@ -54,7 +54,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
   const existing = await prisma.project.findFirst({ where: { id, companyId: company.id, deletedAt: null } });
-  if (!existing) return json({ error: "Project not found" }, { status: 404 });
+  if (!existing || !(await canAccessProject(id))) return json({ error: "Project not found" }, { status: 404 });
   const {
     startDate, endDate, totalBudget,
     isATS: _isATS, atsRegistrationAmount: _atsRegistrationAmount, atsExpectedRegistryDate: _atsExpectedRegistryDate, registryNo: _registryNo,
@@ -143,7 +143,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   const company = await getCompany();
   const { id } = await ctx.params;
   const existing = await prisma.project.findFirst({ where: { id, companyId: company.id, deletedAt: null }, select: { id: true } });
-  if (!existing) return json({ error: "Project not found" }, { status: 404 });
+  if (!existing || !(await canAccessProject(id))) return json({ error: "Project not found" }, { status: 404 });
   try {
     await softDelete("Project", id);
     return json({ ok: true });

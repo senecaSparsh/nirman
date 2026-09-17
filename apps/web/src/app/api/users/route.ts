@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { randomBytes } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getActingRole, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM, ALL_ROLES, canAssignRole, isCustomRole, canAssignCustomRole, type Role } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 import { normalizePhone } from "@/lib/phone-otp";
@@ -60,9 +60,9 @@ export const GET = apiHandler(async () => {
  *     user or account; update their role if the actor is above them)
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  const session = await requirePermission(PERM.USERS_MANAGE);
+  await requirePermission(PERM.USERS_MANAGE);
   const company = await getCompany();
-  const actorRole = session.role;
+  const actorRole = await getActingRole();
 
   const body = await req.json();
   const { name, email, role, phone, password, employeeCode, designation, department, joiningDate, employmentEndDate, mustChangePassword, employeeId } = body as {

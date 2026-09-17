@@ -126,12 +126,12 @@ export function DepartmentActivityFeed({ department }: { department: DepartmentK
       >
         <span className="flex items-center gap-1.5 shrink-0">
           <Activity className="size-3 text-muted-foreground" />
-          <span className="text-micro font-semibold text-muted-foreground">
+          <span className="text-[9px] font-semibold text-muted-foreground">
             {label.toUpperCase()} ACTIVITY
           </span>
         </span>
 
-        <span className="min-w-0 flex-1 text-caption text-muted-foreground">
+        <span className="min-w-0 flex-1 text-micro text-muted-foreground">
           {isLoading && !data
             ? "Loading…"
             : rows.length > 0

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, requirePermission, getCompany, json, userRoleSchema, scopeWhere } from "@/lib/server";
+import { apiHandler, getActingRole, requirePermission, getCompany, json, userRoleSchema, scopeWhere } from "@/lib/server";
 import { canAssignRole, isCustomRole, canAssignCustomRole, ROLES, PERM } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 
@@ -20,7 +20,7 @@ import { normalizePhone } from "@/lib/phone-otp";
  */
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const actor = await requirePermission(PERM.USERS_MANAGE);
-  const actorRole = actor.role;
+  const actorRole = await getActingRole();
   const actorId = actor.id;
 
   const { id: userId } = await params;
@@ -157,6 +157,16 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     data: update,
     select: { id: true, email: true, name: true, role: true, active: true, phone: true, designation: true, department: true, employeeCode: true, companyId: true },
   });
+
+  // Keep the per-company membership role in sync — User.role and
+  // UserCompany.role are mirrors, and permission resolution, the
+  // permissions console, and delegation all read the membership row.
+  if (parsed.data.role !== undefined && parsed.data.role !== existing.role && membership) {
+    await prisma.userCompany.update({
+      where: { id: membership.id },
+      data: { role: parsed.data.role },
+    });
+  }
 
   // ── Bidirectional sync: mirror name/phone/email/designation/joiningDate
   //    changes to any linked Employee records so HR data stays in sync with

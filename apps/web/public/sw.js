@@ -16,11 +16,14 @@
  * fetch logic (with credentials); the SW is just the wake-up trigger.
  */
 
-const SHELL_CACHE = "nirman-shell-v4";
+const SHELL_CACHE = "nirman-shell-v5";
 const ASSET_CACHE = "nirman-assets-v3";
 const API_CACHE = "nirman-api-v3";
 
-const SHELL_URLS = ["/", "/manifest.webmanifest", "/icon.svg", "/field", "/m/site/field"];
+// Only PUBLIC, unauthenticated pages are precached. "/" and "/m" render
+// personalized HTML for the signed-in user — caching them at install time
+// would leak that user's data to a different account on the same device.
+const SHELL_URLS = ["/sign-in", "/manifest.webmanifest", "/icon.svg"];
 
 /**
  * Returns true for hostnames that point at a local dev server rather than a
@@ -100,17 +103,24 @@ self.addEventListener("fetch", (event) => {
   if (url.pathname.startsWith("/api/auth/")) return;
 
   // Navigation requests — network-first, fall back to cached shell.
+  // SECURITY: only the bare entry points ("/", "/m") are cached. Per-URL
+  // navigation caching would store each visited page's server-rendered HTML —
+  // which embeds personalized data — under a URL-only key, leaking it to a
+  // different account on the same shared device.
+  const SHELL_NAV = url.pathname === "/" || url.pathname === "/m";
   if (req.mode === "navigate") {
     event.respondWith(
       (async () => {
         try {
           const fresh = await fetch(req);
-          const cache = await caches.open(SHELL_CACHE);
-          cache.put(req, fresh.clone());
+          if (SHELL_NAV && fresh.ok) {
+            const cache = await caches.open(SHELL_CACHE);
+            cache.put(req, fresh.clone());
+          }
           return fresh;
         } catch {
-          const cached = await caches.match(req);
-          return cached || caches.match("/") || Response.error();
+          const cached = SHELL_NAV ? await caches.match(req) : null;
+          return cached || caches.match("/m") || caches.match("/") || caches.match("/sign-in") || Response.error();
         }
       })(),
     );
@@ -158,16 +168,33 @@ self.addEventListener("fetch", (event) => {
   }
 
   // API GETs — network-first with cache fallback (last-known data offline).
+  //
+  // SECURITY: the cache key is the URL only — it does not vary by user or
+  // company. On a shared field device, user B signing in after user A would
+  // otherwise be served A's cached payloads while offline. So we use an
+  // explicit ALLOWLIST, not a denylist: only endpoints whose responses are
+  // identical for every user in the company (shared reference data, public
+  // config) may be cached. Anything personalized, permission-filtered, or
+  // scope-filtered (home feed, approvals queue, /api/me, employee-visible
+  // lists) stays network-only.
+  const CACHEABLE_API = [
+    // Push/telephony public config — identical for all users.
+    "/api/notifications/vapid-public-key",
+    "/api/telephony/config",
+  ];
   if (url.pathname.startsWith("/api/")) {
+    const cacheable = CACHEABLE_API.some((p) => url.pathname.startsWith(p));
     event.respondWith(
       (async () => {
         try {
           const fresh = await fetch(req);
-          const cache = await caches.open(API_CACHE);
-          cache.put(req, fresh.clone());
+          if (cacheable && fresh.ok) {
+            const cache = await caches.open(API_CACHE);
+            cache.put(req, fresh.clone());
+          }
           return fresh;
         } catch {
-          const cached = await caches.match(req);
+          const cached = cacheable ? await caches.match(req) : null;
           return cached || Response.error();
         }
       })(),

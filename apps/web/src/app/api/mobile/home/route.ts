@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { apiHandler, json, getCurrentUser, getCompany, getUserPermissions, getUserRole } from "@/lib/server";
+import { apiHandler, json, getCurrentUser, getCompany, getUserPermissions, getUserRole, getOwnRole } from "@/lib/server";
 import { PERM, hasPermission, roleTier } from "@/lib/roles";
 import { roleToPersona, type Persona } from "@/lib/mobile-nav-v2";
 
@@ -16,10 +16,11 @@ import { roleToPersona, type Persona } from "@/lib/mobile-nav-v2";
  * - myAttendance: { checkIn, checkOut, hoursWorked, status } | null
  */
 export const GET = apiHandler(async () => {
-  const [company, user, role, permissions] = await Promise.all([
+  const [company, user, role, ownRole, permissions] = await Promise.all([
     getCompany(),
     getCurrentUser(),
     getUserRole(),
+    getOwnRole(),
     getUserPermissions().catch(() => [] as string[]),
   ]);
 
@@ -110,7 +111,7 @@ export const GET = apiHandler(async () => {
   const startOfToday = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
   const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
 
-  const isFieldStaff = roleTier(role) >= 4;
+  const isFieldStaff = roleTier(ownRole) >= 4;
   const myEmployee = user && isFieldStaff
     ? await prisma.employee.findFirst({
         where: { userId: user.id, companyId: company.id, deletedAt: null, active: true },
@@ -142,7 +143,7 @@ export const GET = apiHandler(async () => {
     // Effective permission union (incl. live delegations) — clients gate
     // links/buttons on this, not the bare role matrix.
     permissions,
-    persona: roleToPersona(role) as Persona,
+    persona: roleToPersona(ownRole) as Persona,
     myEmployee: myEmployee
       ? { id: myEmployee.id, name: myEmployee.name }
       : null,

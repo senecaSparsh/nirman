@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
-import { PERM, ALL_ROLES, ROLES, roleTier, ALL_PERMISSIONS, normalizeRole, canAssignRole, effectivePermissions } from "@/lib/roles";
+import { apiHandler, getActingRole, getCompany, getUserPermissions, json, requirePermission } from "@/lib/server";
+import { PERM, ALL_ROLES, ROLES, roleTier, ALL_PERMISSIONS, normalizeRole, canAssignRole } from "@/lib/roles";
 import { z } from "zod";
 
 /**
@@ -68,7 +68,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   // permissions — which exceed the actor's own authority. Even though the
   // actor can't assign the role themselves, they shouldn't be able to
   // define a role template with permissions beyond their tier.
-  if (!canAssignRole(session.role, normalizedBase)) {
+  if (!canAssignRole(await getActingRole(), normalizedBase)) {
     return json(
       { error: `You don't have authority to create a role based on ${ROLES[normalizedBase as keyof typeof ROLES]?.label ?? normalizedBase}.` },
       { status: 403 },
@@ -77,7 +77,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
   // If a tier override is provided, it must also be below the actor's tier.
   const resolvedTier = tier ?? roleTier(normalizedBase);
-  if (resolvedTier <= roleTier(session.role)) {
+  if (resolvedTier <= roleTier(await getActingRole())) {
     return json(
       { error: `You can't set the access level for this role higher than your own.` },
       { status: 403 },
@@ -95,7 +95,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   // themselves have. Without this, an HR_MANAGER could add `finance.manage`
   // or `company.manage` to a custom role — permissions they don't possess.
   // OWNER/ADMIN (permissions = "*") bypass this check.
-  const actorPerms = effectivePermissions(session.role);
+  const actorPerms = await getUserPermissions();
   if (actorPerms !== ALL_PERMISSIONS) {
     const actorPermSet = new Set(actorPerms);
     const outOfScope = permissions.filter((p) => !actorPermSet.has(p));

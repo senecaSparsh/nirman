@@ -22,7 +22,7 @@ import { mutate } from "swr";
 import { CommandPalette } from "@/components/command-palette";
 import { usePullToRefresh } from "@/components/mobile/use-pull-to-refresh";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
-import { setActiveCompanyResolver } from "@/lib/offline/queue";
+import { setActiveCompanyResolver, setActiveUserResolver } from "@/lib/offline/queue";
 import { NavSheet } from "@/components/mobile/v2/nav-sheet";
 import { TabSwitcher } from "@/components/mobile/v2/tab-switcher";
 import { VoiceAgentButton } from "@/components/mobile/v2/voice-agent-button";
@@ -40,9 +40,12 @@ import {
   titleFor as manifestTitleFor,
   matchRoute as manifestMatchRoute,
   tabsFor as manifestTabsFor,
+  deptFanFor as manifestDeptFanFor,
   type NavContext,
   type RouteEntry,
 } from "@/lib/route-manifest";
+import { DeptFab } from "@/components/mobile/v2/dept-fab";
+import { ProductTour } from "@/components/mobile/v2/product-tour";
 import { roleToPersona, type Persona } from "@/lib/mobile-nav-v2";
 import { smartBack } from "@/lib/mobile-nav";
 import type { NavBootstrap } from "@/lib/server";
@@ -71,6 +74,8 @@ import type { NavBootstrap } from "@/lib/server";
 interface CompanyInfo {
   name: string;
   role: string;
+  /** Custom-role-resolved own role — persona classification must use this. */
+  ownRole?: string;
   parentCompanyId: string | null;
   permissions: string[];
   /** Current user's display name — shown in the NavSheet profile section. */
@@ -109,6 +114,7 @@ export function MobileShellV2({
       ? {
           name: initial.company.name,
           role: initial.me.role,
+          ownRole: initial.me.ownRole ?? initial.me.role,
           parentCompanyId: initial.company.parentCompanyId,
           permissions: initial.me.permissions,
           userName: initial.me.name ?? "User",
@@ -129,6 +135,15 @@ export function MobileShellV2({
     setActiveCompanyResolver(() => companies.find((c) => c.isCurrent)?.id ?? null);
     return () => setActiveCompanyResolver(null);
   }, [companies]);
+
+  // Same for the active user — queued ops are stamped with it at enqueue and
+  // refused on sync under a different session (wrong-user attribution guard
+  // for interrupted sign-outs on shared devices).
+  const activeUserId = (session?.user as { id?: string } | undefined)?.id ?? initial?.me.id ?? null;
+  useEffect(() => {
+    setActiveUserResolver(() => activeUserId);
+    return () => setActiveUserResolver(null);
+  }, [activeUserId]);
   const [companySwitcherOpen, setCompanySwitcherOpen] = useState(false);
   const [switchingCompanyId, setSwitchingCompanyId] = useState<string | null>(null);
   const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
@@ -172,7 +187,7 @@ export function MobileShellV2({
   // ── Resolve company name + role via /api/me + /api/company ──
   // Skipped when `initial` is provided — the /m layout already resolved
   // the same data server-side, so refetching would just double the work.
-  const meQ = useFetch<{ role?: string; name?: string; permissions?: string[] } | null>("/api/me", { skip: !!initial });
+  const meQ = useFetch<{ role?: string; ownRole?: string; name?: string; permissions?: string[] } | null>("/api/me", { skip: !!initial });
   const companyQ = useFetch<{ name?: string; parentCompanyId?: string | null; companies?: CompanyOption[] } | null>("/api/company", { skip: !!initial });
   useEffect(() => {
     const me = meQ.data;
@@ -182,6 +197,7 @@ export function MobileShellV2({
       setCompanyInfo((prev) => ({
         ...prev,
         role: me?.role ?? prev.role,
+        ownRole: me?.ownRole ?? me?.role ?? prev.ownRole,
         name: company?.name ?? prev.name,
         parentCompanyId: company?.parentCompanyId ?? null,
         permissions: Array.isArray(me?.permissions) && me.permissions.length > 0
@@ -214,7 +230,7 @@ export function MobileShellV2({
   // The old code fetched ALL_BADGE_TABS (every badge for every persona)
   // on every shell mount. Now we use the manifest's badgeEndpointsFor
   // which returns only the badges for the current user's tab set.
-  const persona = roleToPersona(companyInfo.role);
+  const persona = roleToPersona(companyInfo.ownRole ?? companyInfo.role);
   const refreshBadgeCounts = useCallback(() => {
     const ctx: NavContext = { permissions: companyInfo.permissions, persona };
     const badgeEndpoints = manifestBadgeEndpointsFor(ctx);
@@ -378,6 +394,7 @@ export function MobileShellV2({
       persona={persona}
       searchOpen={searchOpen}
       onSearchOpenChange={setSearchOpen}
+      tourEnabled={!!initial}
     >
       {children}
     </MobileShellInner>
@@ -401,6 +418,7 @@ function MobileShellInner({
   persona,
   searchOpen,
   onSearchOpenChange,
+  tourEnabled,
   children,
 }: {
   companyInfo: CompanyInfo;
@@ -418,6 +436,9 @@ function MobileShellInner({
   persona: Persona;
   searchOpen: boolean;
   onSearchOpenChange: (open: boolean) => void;
+  /** Whether the product tour may run — false without a server nav
+   *  bootstrap (unauthenticated; the auth guard is redirecting). */
+  tourEnabled: boolean;
   children: React.ReactNode;
 }) {
   const [isOffline, setIsOffline] = useState(false);
@@ -475,6 +496,17 @@ function MobileShellInner({
   // current pathname, we're on a tab root (module home). Otherwise it's
   // a drill-down page that needs Up navigation.
   const isDrillDown = !activeTabPath || activeTabPath !== pathname;
+
+  // ── Centre-FAB department fan ─────────────────────────────
+  // Departments the user can open that didn't fit the tab bar. When the bar
+  // already covers every accessible section, no FAB renders — a dead button
+  // is worse than no button. While shown, the bar caps at 4 tabs (2|FAB|2)
+  // and the overflow — including an executive's 5th tab — moves into the fan.
+  const fabTabs = personaTabs.slice(0, 4);
+  const deptFanItems = manifestDeptFanFor(navCtx, new Set(fabTabs.map((t) => t.path)));
+  const showDeptFab = deptFanItems.length > 0;
+  const shownTabs = showDeptFab ? fabTabs : personaTabs;
+  const tabSplit = Math.ceil(shownTabs.length / 2);
 
   // ── Drill-down title ───────────────────────────────────────
   // Resolved from (in priority order):
@@ -684,6 +716,7 @@ function MobileShellInner({
             <button
               onClick={() => setNavSheetOpen(true)}
               aria-label="Open menu"
+              data-tour="menu"
               className="press grid place-items-center size-8 rounded-[0.375rem]"
               style={{ color: "var(--color-ink-500)" }}
             >
@@ -707,7 +740,7 @@ function MobileShellInner({
                 )}
               </div>
             ) : (
-              <div ref={companySwitcherRef} className="relative flex items-center min-w-0">
+              <div ref={companySwitcherRef} className="relative flex items-center min-w-0" data-tour="company">
                 <Link
                   href="/m/settings/company"
                   className="flex items-center gap-1 text-m-body font-bold truncate text-m-body press rounded-[0.25rem] px-0.5 py-0.5 min-w-0"
@@ -791,6 +824,7 @@ function MobileShellInner({
             <button
               onClick={() => onSearchOpenChange(true)}
               aria-label="Open search"
+              data-tour="search"
               className="press grid place-items-center size-9 rounded-[0.375rem]"
               style={{ color: "var(--color-ink-500)" }}
             >
@@ -803,7 +837,9 @@ function MobileShellInner({
             {/* In-app notifications — "your leave was approved", task
                 assignments, etc. Self-fetches every 30s. This is the
                 field user's "office replied" channel. */}
-            <NotificationBell />
+            <span data-tour="notifications" className="inline-flex">
+              <NotificationBell />
+            </span>
 
             {/* Online/offline — only surfaces when connectivity is lost.
                 A green "online" icon every second of the day is noise. */}
@@ -911,6 +947,7 @@ function MobileShellInner({
       {/* ══ BOTTOM NAV — persona-based tabs ══ */}
       <nav
         className="fixed inset-x-0 bottom-0 z-30"
+        data-tour="tab-bar"
         style={{
           /* Apple §12 — translucent material, not an opaque bar. Content
              scrolls underneath; the blur + saturate conveys hierarchy
@@ -925,7 +962,22 @@ function MobileShellInner({
         aria-label="Module navigation"
       >
         <div className="mx-auto w-full max-w-[34rem] flex items-stretch px-2 pb-safe">
-          {personaTabs.map((tab) => (
+          {shownTabs.slice(0, tabSplit).map((tab) => (
+            <TabButton
+              key={tab.path}
+              tab={tab}
+              active={tab.path === activeTabPath}
+              badge={badgeCounts[tab.path]}
+            />
+          ))}
+          {showDeptFab && (
+            <DeptFab
+              items={deptFanItems}
+              badges={badgeCounts}
+              onOpenAll={() => setNavSheetOpen(true)}
+            />
+          )}
+          {shownTabs.slice(tabSplit).map((tab) => (
             <TabButton
               key={tab.path}
               tab={tab}
@@ -955,6 +1007,16 @@ function MobileShellInner({
         open={tabSwitcherOpen}
         onCollapse={() => setTabSwitcherOpen(false)}
         onExpand={() => setTabSwitcherOpen(true)}
+      />
+
+      {/* ══ PRODUCT TOUR — first-run spotlight walkthrough. Step 1 is the
+          quick-actions grid on the persona's own module hub; everything
+          after is shell chrome that exists on every page. Self-gates on
+          /api/me/tour + localStorage, replays via "nirman:start-tour". ══ */}
+      <ProductTour
+        persona={persona}
+        canSwitchCompany={canSwitchCompany}
+        enabled={tourEnabled}
       />
     </div>
   );

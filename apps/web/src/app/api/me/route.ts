@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getActingDelegations, getActingRole, getSession, getUserPermissions, json } from "@/lib/server";
+import { apiHandler, getActingDelegations, getActingRole, getOwnRole, getSession, getUserPermissions, json } from "@/lib/server";
 
 /**
  * GET /api/me — the current user's identity + EFFECTIVE permissions.
@@ -27,7 +27,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   // rather than the session because Better-Auth's session user may not always
   // include additional fields reliably (e.g. after a session is created via
   // the custom phone-password flow). The DB is the source of truth.
-  const [dbUser, permissions, actingRole, actingDelegations] = await Promise.all([
+  const [dbUser, permissions, actingRole, ownRole, actingDelegations] = await Promise.all([
     prisma.user.findUnique({
       where: { id: sessionUser.id },
       select: {
@@ -46,6 +46,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     }),
     getUserPermissions().catch(() => [] as string[]),
     getActingRole().catch(() => null),
+    getOwnRole().catch(() => null),
     getActingDelegations().catch(() => []),
   ]);
   const res = json({
@@ -67,6 +68,10 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     // delegation is live. Client affordance gates (admin nav, manage buttons)
     // should consult this so a delegate sees the surface they can act on.
     actingRole: actingRole ?? dbUser?.role ?? null,
+    // The user's own effective role — custom roles resolve to their
+    // baseRole, delegation is NOT included. Persona/home-surface
+    // classification should use this, not the raw `role` string.
+    ownRole: ownRole ?? dbUser?.role ?? null,
     actingFor: actingDelegations.map((d) => ({ name: d.name, endsAt: d.endsAt.toISOString() })),
   });
   // User role/name changes rarely — cache for 60s, revalidate in background.

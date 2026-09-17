@@ -89,12 +89,27 @@ export function AdaptiveData<T>({
     error: null,
   });
 
-  // If server provided data, cache it
+  // If server provided data, cache it AND sync it into state — on a company
+  // switch router.refresh() delivers new serverData without remounting, so
+  // state must follow the prop or the page keeps showing the old company.
   React.useEffect(() => {
     if (serverData !== null) {
       AdaptiveCache.set(key, serverData);
+      setState({ data: serverData, loading: false, error: null });
     }
   }, [serverData, key]);
+
+  // Company switch fires before refresh completes — drop the old company's
+  // cached entries so nothing can replay them. High-tier also refetches now;
+  // low/mid-tier waits for the refreshed serverData (synced by the effect).
+  React.useEffect(() => {
+    function onSwitch() {
+      AdaptiveCache.clear();
+      if (tier === "high") setState({ data: null, loading: true, error: null });
+    }
+    window.addEventListener("nirman-company-switched", onSwitch);
+    return () => window.removeEventListener("nirman-company-switched", onSwitch);
+  }, [tier]);
 
   // On high-tier devices with no server data, fetch client-side
   React.useEffect(() => {

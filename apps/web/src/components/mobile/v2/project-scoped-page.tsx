@@ -1,6 +1,6 @@
 import { Suspense, type ReactNode } from "react";
 import { connection } from "next/server";
-import { getActingRole, getCompany, getUserRole, getUserPermissions } from "@/lib/server";
+import { getActingRole, getOwnRole, getCompany, getUserRole, getUserPermissions } from "@/lib/server";
 import { hasPermission, type Permission } from "@/lib/roles";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
@@ -37,6 +37,8 @@ export interface MobileProjectScopedPageCtx {
   role: string;
   /** The highest-authority role incl. live delegations (getActingRole()). */
   actingRole: string;
+  /** Own effective role — custom roles resolve to baseRole, no delegation (getOwnRole()). Use for persona. */
+  ownRole: string;
   /** Effective permission union (role matrix + grants + delegation). */
   perms: string[];
   /** The selected project ID from ?project=, or null if none selected. */
@@ -90,13 +92,14 @@ export async function MobileProjectScopedPage({
     const company = await getCompany();
     const role = await getUserRole();
     const actingRole = await getActingRole();
+    const ownRole = await getOwnRole();
     const overrides = await getUserPermissions();
 
     if (perm && !hasPermission(role, perm, overrides)) {
       return <MobileNoAccess what={what ?? "this page"} permission={permission} />;
     }
 
-    return children({ company, role, actingRole, perms: overrides, projectId: projectId ?? null });
+    return children({ company, role, actingRole, ownRole, perms: overrides, projectId: projectId ?? null });
   };
 
   return (

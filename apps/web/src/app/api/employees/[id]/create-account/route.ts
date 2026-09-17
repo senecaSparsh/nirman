@@ -13,6 +13,20 @@ import { PERM, ALL_ROLES, canAssignRole, type Role } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 
 /**
+ * Generate a random temporary password the admin can hand to the employee.
+ * Format: 10 chars from an unambiguous alphabet (no l/o/0/1). The account is
+ * created with mustChangePassword, so the employee sets their own on first
+ * login. OTP remains the primary login once SMS is configured.
+ */
+function generateTempPassword(): string {
+  const chars = "abcdefghijkmnpqrstuvwxyz23456789";
+  const bytes = randomBytes(10);
+  let result = "";
+  for (const b of bytes) result += chars[b % chars.length];
+  return result;
+}
+
+/**
  * POST /api/employees/[id]/create-account — create a login account for an
  * employee and link it. This is the atomic onboarding transaction that
  * connects Employee (HR) ↔ User (auth) ↔ CompanyPhone (call tracking).
@@ -73,6 +87,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     department,
     joiningDate,
     mustChangePassword,
+    password,
   } = body as {
     phone?: string;
     email?: string;
@@ -92,6 +107,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     department?: string;
     joiningDate?: string;
     mustChangePassword?: boolean;
+    password?: string;
   };
 
   // ── Validate ──
@@ -121,8 +137,11 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     );
   }
 
-  // ── Hash a random placeholder password (OTP is primary, password is optional later) ──
-  const hashedPassword = await hashPassword(randomBytes(32).toString("hex"));
+  // ── Password: use the admin-provided one, else generate a temp password the
+  // admin can share. OTP is the primary login once SMS is configured; the temp
+  // password is the fallback so phone+password sign-in works without SMS. ──
+  const generatedPassword = password?.trim() ? null : generateTempPassword();
+  const hashedPassword = await hashPassword(password?.trim() || generatedPassword!);
 
   const modulePerms: ModulePermission[] | undefined =
     permissions?.map((p) => ({ permission: p }));
@@ -164,7 +183,10 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       {
         ok: true,
         ...result,
-        message: `Account created and linked. The employee can log in with phone ${phone} via OTP.`,
+        // Returned only when the admin didn't set a custom password — share it
+        // once with the employee; they must change it on first login.
+        tempPassword: generatedPassword ?? undefined,
+        message: `Account created and linked. The employee can log in with phone ${phone} via OTP${generatedPassword ? " or the temporary password" : ""}.`,
       },
       { status: 201 },
     );

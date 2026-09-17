@@ -33,6 +33,14 @@ export interface QueuedOperation {
    * (companyId undefined) sync under whatever company is active (back-compat).
    */
   companyId?: string;
+  /**
+   * User the op was queued by. Sign-out wipes the queue, but an interrupted
+   * sign-out (device dies mid-cleanup) can leave ops behind — stamping the
+   * user lets sync refuse to replay user A's writes under user B's session.
+   * Ops stamped before a resolver exists (userId undefined) sync under the
+   * active session (back-compat).
+   */
+  userId?: string;
   /** Operation kind, maps to an API endpoint. */
   kind:
     | "goods-receipt"
@@ -133,6 +141,22 @@ export function getActiveCompanyId(): string | null {
   }
 }
 
+// Same pattern for the active user — guards the queue against replaying one
+// user's ops under a different user's session after an interrupted sign-out.
+let activeUserResolver: (() => string | null) | null = null;
+
+export function setActiveUserResolver(fn: (() => string | null) | null) {
+  activeUserResolver = fn;
+}
+
+export function getActiveUserId(): string | null {
+  try {
+    return activeUserResolver?.() ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // ── UUID (crypto.randomUUID with fallback) ──────────────────────
 
 export function newOpId(): string {
@@ -157,6 +181,7 @@ export async function enqueue(
   const op: QueuedOperation = {
     id: newOpId(),
     companyId: getActiveCompanyId() ?? undefined,
+    userId: getActiveUserId() ?? undefined,
     kind,
     payload,
     status: "PENDING",
@@ -284,6 +309,19 @@ export async function syncQueue(
       op.status = "FAILED";
       op.error =
         "Queued under a different company. Switch back to that company to sync this item.";
+      failed += 1;
+      await updateOp(op);
+      continue;
+    }
+
+    // User guard: an op queued by user A must never replay under user B's
+    // session — it would attribute A's write to B. Sign-out wipes the queue,
+    // but an interrupted cleanup can leave ops behind; fail closed instead.
+    const activeUser = getActiveUserId();
+    if (op.userId && op.userId !== activeUser) {
+      op.status = "FAILED";
+      op.error =
+        "Queued by a different signed-in user. Sign back in as that user to sync this item.";
       failed += 1;
       await updateOp(op);
       continue;

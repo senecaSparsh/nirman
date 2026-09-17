@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getActingRole, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM, canAssignRole, isCustomRole } from "@/lib/roles";
 import { normalizePhone, generateOtpCode, OTP_CONFIG } from "@/lib/phone-otp";
 import { isTwilioConfigured, normalizeTwilioNumber } from "@/lib/twilio-service";
@@ -44,7 +44,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       if (!customRole || customRole.tier <= 1) {
         return json({ error: "Cannot manage this user" }, { status: 403 });
       }
-    } else if (!canAssignRole(session.role, target.role)) {
+    } else if (!canAssignRole(await getActingRole(), target.role)) {
       return json({ error: "Cannot manage this user" }, { status: 403 });
     }
   }

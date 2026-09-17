@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -33,7 +33,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   }
 
   const grn = await prisma.goodsReceipt.findFirst({
-    where: { id, location: { companyId: company.id } },
+    where: { id, location: { companyId: company.id }, ...await scopeWhere("GoodsReceipt") },
     select: { id: true, inspectionStatus: true },
   });
   if (!grn) return json({ error: "Goods receipt not found" }, { status: 404 });

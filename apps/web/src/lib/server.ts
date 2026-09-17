@@ -42,6 +42,7 @@ interface RequestContext {
   permissions?: Promise<string[]>;
   navBootstrap?: Promise<NavBootstrap | null>;
   actingDelegations?: Promise<DelegationInfo[]>;
+  ownActingRole?: Promise<Role>;
 }
 
 const requestContextALS = new AsyncLocalStorage<RequestContext>();
@@ -2384,7 +2385,7 @@ export async function assertCanManageEmployee(employeeId: string, companyId: str
  * Resolve the permission list for a role within a company — built-in or
  * custom — including RolePermission row overrides and extra grants.
  */
-async function resolveRolePermissions(
+export async function resolveRolePermissions(
   role: string,
   companyId: string,
   extraPerms: string[],
@@ -2476,12 +2477,54 @@ export async function getActingDelegations(): Promise<DelegationInfo[]> {
  * unless an active delegation hands them a higher-authority role.
  * Display/UI should keep using user.role; only authority checks use this.
  */
+/**
+ * The user's OWN effective role — the membership role with custom roles
+ * resolved to their baseRole. Unlike getActingRole(), this ignores
+ * delegation: it's the right answer for persona/identity questions
+ * ("what surface should this user see") where acting authority must not
+ * leak in, while getActingRole() answers authority questions.
+ */
+export async function getOwnRole(): Promise<Role> {
+  const user = await getCurrentUser();
+  if (!user) return "SUPERVISOR";
+  return memoizeInRequest("ownActingRole", async () => {
+    const company = await getCompany().catch(() => null);
+    const membership = company
+      ? await prisma.userCompany
+          .findUnique({
+            where: { userId_companyId: { userId: user.id, companyId: company.id } },
+            select: { role: true },
+          })
+          .catch(() => null)
+      : null;
+    const rawRole = membership?.role ?? user.role;
+    if (isCustomRole(rawRole) && company) {
+      const customRole = await prisma.customRole
+        .findFirst({ where: { companyId: company.id, key: rawRole }, select: { baseRole: true } })
+        .catch(() => null);
+      if (customRole) return normalizeRole(customRole.baseRole);
+    }
+    return normalizeRole(rawRole);
+  });
+}
+
 export async function getActingRole(): Promise<Role> {
   const user = await getCurrentUser();
   if (!user) return "SUPERVISOR";
-  let best = normalizeRole(user.role);
+  // The user's own authority comes from their membership role — which may be
+  // a custom role (CUSTOM_*). Custom roles act with their baseRole's
+  // authority for tier-based checks (approvals, role management).
+  let best = await getOwnRole();
+  const company = await getCompany().catch(() => null);
   for (const d of await getActingDelegations()) {
-    const dr = normalizeRole(d.role);
+    // A delegator's custom role delegates its baseRole's authority.
+    let dr: Role = normalizeRole(d.role);
+    if (isCustomRole(d.role) && company) {
+      const customRole = await prisma.customRole
+        .findFirst({ where: { companyId: company.id, key: d.role }, select: { baseRole: true } })
+        .catch(() => null);
+      if (customRole) dr = normalizeRole(customRole.baseRole);
+    }
     if (roleTier(dr) < roleTier(best)) best = dr;
   }
   return best;
@@ -2501,7 +2544,10 @@ export async function getUserPermissions(): Promise<string[]> {
     .catch(() => null);
   const userOverrides = userMembership?.userPermissions.map((p) => p.permission) ?? [];
 
-  const ownPerms = await resolveRolePermissions(user.role, company.id, userOverrides);
+  // Resolve via the membership role (raw, per-company) — NOT user.role,
+  // which getCurrentUser() normalizes to a built-in role, collapsing
+  // custom roles (CUSTOM_*) to SUPERVISOR before resolution.
+  const ownPerms = await resolveRolePermissions(userMembership?.role ?? user.role, company.id, userOverrides);
 
   // ── Delegation union: while an active delegation targets this user,
   // they also hold each delegator's role permissions. ──
@@ -2531,6 +2577,7 @@ export interface NavBootstrap {
     name: string | null;
     email: string | null;
     role: string;
+    ownRole: string;
     permissions: string[];
   };
   company: {
@@ -2567,9 +2614,10 @@ export async function getNavBootstrap(): Promise<NavBootstrap | null> {
       const user = await getCurrentUser();
       if (!user) return null;
 
-      const [company, permissions] = await Promise.all([
+      const [company, permissions, ownRole] = await Promise.all([
         getCompany(),
         getUserPermissions(),
+        getOwnRole(),
       ]);
 
       // Same visibility rule as GET /api/company: only companies the user
@@ -2604,6 +2652,7 @@ export async function getNavBootstrap(): Promise<NavBootstrap | null> {
           name: user.name || null,
           email: user.email || null,
           role: user.role,
+          ownRole,
           permissions,
         },
         company: {
@@ -2887,6 +2936,18 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
           const session = await getSession();
           if (!session) {
             return json({ error: "Unauthorized" }, { status: 401 });
+          }
+          // Central deactivation gate — a session cookie stays valid after an
+          // admin deactivates the account, so without this check a terminated
+          // user keeps full API access until the session expires. Session-only
+          // routes (e.g. /api/me) would otherwise never hit requireUser's
+          // active check.
+          const gateUser = await getCurrentUser();
+          if (!gateUser) {
+            return json({ error: "Unauthorized" }, { status: 401 });
+          }
+          if (!gateUser.active) {
+            return json({ error: "Your account is inactive. Contact your administrator." }, { status: 403 });
           }
         }
 

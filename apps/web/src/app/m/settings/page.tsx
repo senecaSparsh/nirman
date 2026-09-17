@@ -31,6 +31,7 @@ import { InstallAppRow } from "@/components/mobile/install-prompt";
 import { ThemeToggleRow } from "@/components/mobile/theme-toggle-row";
 import { CurrencyToggleRow } from "@/components/mobile/currency-toggle-row";
 import { CompanySwitcher } from "./company-switcher";
+import { TourReplayRow } from "./tour-replay-row";
 import { MobileSignOutButton } from "@/components/mobile/sign-out-button";
 
 /**
@@ -284,6 +285,7 @@ export default function SettingsPage() {
               <ThemeToggleRow />
               <CurrencyToggleRow />
               <InstallAppRow />
+              <TourReplayRow />
               <Link
                 href="/?desktop=1"
                 className="flex items-center gap-2.5 rounded-[0.5rem] border px-3 py-2.5 text-m-body press"

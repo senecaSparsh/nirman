@@ -27,9 +27,10 @@ describe("flowForRoute", () => {
     expect(flow).toBe(FLOWS.stockTransfer);
   });
 
-  it("returns materialIssue flow for /m/site/issue", () => {
-    const flow = flowForRoute("/m/site/issue");
+  it("returns materialIssue flow for /m/material-issues", () => {
+    const flow = flowForRoute("/m/material-issues");
     expect(flow).toBeDefined();
+    expect(flow).toBe(FLOWS.materialIssue);
   });
 
   it("returns dpr flow for /m/dprs", () => {

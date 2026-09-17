@@ -585,6 +585,39 @@ export function activeTabFor(pathname: string, ctx: NavContext): string | undefi
 }
 
 /**
+ * The centre-FAB "departments" fan — every switchable section root the user
+ * can open that didn't make their tab bar.
+ *
+ * Candidates = the union of all persona tab preferences + the backfill list
+ * (i.e. every path that can ever occupy a tab slot), permission-gated by
+ * the same `canAccess` the tabs use. Ordered persona-preferences-first (a
+ * tab that overflowed into the fan stays the most prominent item), then by
+ * overall usefulness via TAB_BACKFILL order.
+ *
+ * Utility screens (profile, offline queue) are excluded — they are tools,
+ * not departments, and stay reachable via the nav sheet.
+ */
+const DEPT_FAN_ORDER: readonly string[] = [
+  ...new Set([...TAB_BACKFILL, ...Object.values(PERSONA_TAB_PATHS).flat()]),
+];
+const DEPT_FAN_EXCLUDE: ReadonlySet<string> = new Set(["/m/me", "/m/queue"]);
+
+export function deptFanFor(ctx: NavContext, shownPaths: ReadonlySet<string>): RouteEntry[] {
+  const order = [
+    ...new Set([...(PERSONA_TAB_PATHS[ctx.persona] ?? []), ...DEPT_FAN_ORDER]),
+  ];
+  const out: RouteEntry[] = [];
+  for (const p of order) {
+    if (shownPaths.has(p) || DEPT_FAN_EXCLUDE.has(p)) continue;
+    const entry = ROUTE_BY_PATH.get(p);
+    if (entry && entry.kind !== "redirect" && !entry.hidden && canAccess(entry, ctx.permissions)) {
+      out.push(entry);
+    }
+  }
+  return out;
+}
+
+/**
  * A menu section. Everything the user can access is present; `prominent`
  * only controls ordering and whether the section starts expanded.
  */

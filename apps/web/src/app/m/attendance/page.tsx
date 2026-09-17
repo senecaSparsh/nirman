@@ -25,10 +25,10 @@ export default function MobileAttendancePage({
 }) {
   return (
     <MobileListPage perm={PERM.HR_VIEW} what="attendance" permission="hr.view">
-      {async ({ company, role, perms }) => {
+      {async ({ company, ownRole, perms }) => {
         const { projectId } = await searchParams;
         const canManageAttendance = perms.includes(PERM.HR_MANAGE);
-        const isFieldStaff = roleTier(role) >= 4;
+        const isFieldStaff = roleTier(ownRole) >= 4;
         // Fetch attendance with traffic-light tiers via the service rollup
         // (joins attendance → DPR approval status per project+date)
         const today = new Date();

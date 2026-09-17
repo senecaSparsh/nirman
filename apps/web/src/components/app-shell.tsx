@@ -40,7 +40,7 @@ import { CurrencyToggle } from "@/components/currency-toggle";
 import { BuildNavPanel } from "@/components/build/build-nav-panel";
 import { useSession } from "@/lib/auth-client";
 import { useSignOut, signOutAndCleanup } from "@/lib/use-sign-out";
-import { setActiveCompanyResolver } from "@/lib/offline/queue";
+import { setActiveCompanyResolver, setActiveUserResolver } from "@/lib/offline/queue";
 
 /**
  * ═══════════════════════════════════════════════════════════════════
@@ -178,6 +178,15 @@ export function AppShell({
     setActiveCompanyResolver(() => currentCompanyId);
     return () => setActiveCompanyResolver(null);
   }, [currentCompanyId]);
+
+  // Same for the active user — queued ops are stamped with it at enqueue and
+  // refused on sync under a different session (wrong-user attribution guard
+  // for interrupted sign-outs on shared devices).
+  const activeUserId = (session?.user as { id?: string } | undefined)?.id ?? null;
+  useEffect(() => {
+    setActiveUserResolver(() => activeUserId);
+    return () => setActiveUserResolver(null);
+  }, [activeUserId]);
 
 
 

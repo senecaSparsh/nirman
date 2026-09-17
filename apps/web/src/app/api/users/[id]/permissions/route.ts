@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
-import { PERM, ALL_PERMISSIONS } from "@/lib/roles";
+import { apiHandler, getCompany, json, requirePermission, resolveRolePermissions } from "@/lib/server";
+import { PERM, ALL_PERMISSIONS, isCustomRole } from "@/lib/roles";
 
 /**
  * GET /api/users/[id]/permissions — fetch the user's effective permissions
@@ -34,15 +34,26 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const userOverrides = membership.userPermissions.map((p) => p.permission);
   const roleOverridePerms = roleOverrides.map((r) => r.permission);
 
-  // Compute the role's base permissions (without overrides)
-  // We import effectivePermissions dynamically to avoid circular deps
-  const { effectivePermissions } = await import("@/lib/roles");
-  const effective = effectivePermissions(membership.role, [...roleOverridePerms, ...userOverrides]);
+  // Effective set — resolveRolePermissions handles custom roles
+  // (CUSTOM_* → baseRole matrix + the role's own permissions).
+  const effective = await resolveRolePermissions(membership.role, company.id, [...roleOverridePerms, ...userOverrides]);
 
-  // Base role permissions (without any overrides) — for UI display
+  // Base role permissions (without any overrides) — for UI display.
+  // For custom roles this is the baseRole's matrix + the role's own list.
   const { ROLES, normalizeRole } = await import("@/lib/roles");
-  const roleDef = ROLES[normalizeRole(membership.role)];
-  const baseRolePerms = roleDef.permissions === "*" ? ALL_PERMISSIONS : roleDef.permissions;
+  let displayRole = normalizeRole(membership.role);
+  let customPerms: string[] = [];
+  if (isCustomRole(membership.role)) {
+    const customRole = await prisma.customRole
+      .findFirst({ where: { companyId: company.id, key: membership.role }, select: { baseRole: true, permissions: true } })
+      .catch(() => null);
+    if (customRole) {
+      displayRole = normalizeRole(customRole.baseRole);
+      customPerms = customRole.permissions;
+    }
+  }
+  const roleDef = ROLES[displayRole];
+  const baseRolePerms = roleDef.permissions === "*" ? ALL_PERMISSIONS : [...new Set([...roleDef.permissions, ...customPerms])];
 
   return json({
     membershipId: membership.id,

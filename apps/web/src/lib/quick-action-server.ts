@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { getCurrentUser, getCompany, getUserPermissions } from "@/lib/server";
+import { getCurrentUser, getCompany, getOwnRole, getUserPermissions } from "@/lib/server";
 import { roleToPersona, type Persona } from "@/lib/mobile-nav-v2";
 import { quickActionKeysFor } from "@/lib/quick-action-catalogs";
 import {
@@ -97,7 +97,7 @@ export async function loadQuickActionContext(
 }> {
   try {
     const user = await getCurrentUser();
-    const persona = user ? roleToPersona(user.role) : "executive";
+    const persona = user ? roleToPersona(await getOwnRole()) : "executive";
 
     if (!user) return { persona, savedLayouts: {}, extraActions: [], permissions: [] };
 

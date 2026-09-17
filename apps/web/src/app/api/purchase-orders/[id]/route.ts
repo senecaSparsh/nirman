@@ -20,7 +20,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const { id } = await params;
   const groupCompanyIds = await getCompanyGroupIds(company);
   const po = await prisma.purchaseOrder.findFirst({
-    where: { id, companyId: { in: groupCompanyIds } },
+    where: { id, companyId: { in: groupCompanyIds }, ...await scopeWhere("PurchaseOrder") },
     include: {
       supplier: true,
       project: { select: { id: true, name: true } },

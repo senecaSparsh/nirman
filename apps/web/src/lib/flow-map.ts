@@ -285,12 +285,12 @@ const STOCK_TRANSFER_FLOW: FlowDef = {
 
 const MATERIAL_ISSUE_FLOW: FlowDef = {
   id: "materialIssue",
-  listHref: "/m/site/issue",
+  listHref: "/m/material-issues",
   listLead: "Stock issued to projects and units. Pending issues need a gate pass before stock moves.",
   nodes: [
-    { status: "PENDING", label: "Pending", detailHref: "/m/site/issue" },
-    { status: "COMPLETED", label: "Completed", detailHref: "/m/site/issue" },
-    { status: "CANCELLED", label: "Cancelled", detailHref: "/m/site/issue" },
+    { status: "PENDING", label: "Pending", detailHref: "/m/material-issues/{id}" },
+    { status: "COMPLETED", label: "Completed", detailHref: "/m/material-issues/{id}" },
+    { status: "CANCELLED", label: "Cancelled", detailHref: "/m/material-issues/{id}" },
   ],
   next: [
     {
@@ -353,7 +353,7 @@ const MATERIAL_SALE_FLOW: FlowDef = {
 
 const DPR_FLOW: FlowDef = {
   id: "dpr",
-  listHref: "/m/hr?tab=dprs",
+  listHref: "/m/dprs",
   listLead: "Daily progress reports from site. Sub-admins approve first, admins give final sign-off.",
   nodes: [
     { status: "SUBMITTED", label: "Submitted", detailHref: "/m/dprs/{id}" },
@@ -518,10 +518,9 @@ const ROUTE_TO_FLOW: Record<string, FlowId> = {
   "/m/procurement": "procurement",
   "/m/requisitions": "requisition",
   "/m/stock": "stockTransfer",
-  "/m/site/issue": "materialIssue",
+  "/m/material-issues": "materialIssue",
   "/m/material-sales": "materialSale",
   "/m/dprs": "dpr",
-  "/m/hr?tab=dprs": "dpr",
   "/m/quality-control": "ncr",
   "/m/construction?tab=quality": "ncr",
   "/m/units": "builtUnit",

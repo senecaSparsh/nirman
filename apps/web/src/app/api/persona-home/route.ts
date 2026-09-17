@@ -8,7 +8,7 @@ import {
   requireUser,
   scopeWhere,
   toNum,
-} from "@/lib/server";
+  getOwnRole } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { roleToPersona } from "@/lib/mobile-nav-v2";
 
@@ -37,7 +37,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   const user = await requireUser();
   const company = await getCompany();
   const perms = await getUserPermissions();
-  const persona = roleToPersona(user.role);
+  const persona = roleToPersona(await getOwnRole());
 
   const has = (p: string) => perms.includes(p);
 

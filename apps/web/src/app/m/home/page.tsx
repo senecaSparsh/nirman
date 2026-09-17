@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { prisma } from "@nirman/db";
 import { getCompany, getCurrentUser, scopeWhere, getActionPermissions } from "@/lib/server";
 import { roleTier } from "@/lib/roles";
-import { getUserPermissions, getUserRole } from "@/lib/server";
+import { getOwnRole, getUserPermissions, getUserRole } from "@/lib/server";
 import { roleToPersona, type Persona } from "@/lib/mobile-nav-v2";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
 import { type CompanyCardData } from "./home-client";
@@ -49,10 +49,11 @@ async function HomeContent() {
   }
 
   // Low/mid-tier devices: full SSR (current behavior)
-  const [company, user, role] = await Promise.all([
+  const [company, user, role, ownRole] = await Promise.all([
     getCompany(),
     getCurrentUser(),
     getUserRole(),
+    getOwnRole(),
   ]);
 
   const actions = await getActionPermissions();
@@ -145,7 +146,7 @@ async function HomeContent() {
   const startOfToday = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
   const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
 
-  const isFieldStaff = roleTier(role) >= 4;
+  const isFieldStaff = roleTier(ownRole) >= 4;
   const myEmployee = user && isFieldStaff
     ? await prisma.employee.findFirst({
         where: { userId: user.id, companyId: company.id, deletedAt: null, active: true },
@@ -175,7 +176,7 @@ async function HomeContent() {
     userName: user?.name ?? null,
     role,
     permissions: await getUserPermissions(),
-    persona: roleToPersona(role) as Persona,
+    persona: roleToPersona(ownRole) as Persona,
     myEmployee: myEmployee ? { id: myEmployee.id, name: myEmployee.name } : null,
     myAttendance: myAttendance
       ? {

@@ -9,13 +9,12 @@ import {formatNumber, formatDate, formatCurrencyCompact} from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { useConfirm } from "@/lib/use-confirm";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
-import { PageLead, NextActionCard } from "@/components/mobile/v2/guidance";
+import { PageLead } from "@/components/mobile/v2/guidance";
 import { SwipeableListItem } from "@/components/mobile/swipeable-item";
 import { MobileContextMenu, type ContextAction } from "@/components/mobile/v2/mobile-context-menu";
 import { useLongPress } from "@/lib/use-long-press";
 import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 import { useUrlFilter, useUrlQuery } from "@/lib/use-url-filter";
-import { PERM } from "@/lib/roles";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
@@ -346,14 +345,12 @@ function MobileProcurementListInner({
 
       <TabSwitcher tab={tab} setTab={setTab} poCount={items.length} dpCount={directPurchases.length} />
 
-      {/* ── Orientation: what is this page + what to do next (below search
-          so search + summary strip stay in the same position across tabs) ── */}
+      {/* ── Orientation: what is this page (below search so search +
+          summary strip stay in the same position across tabs). The
+          drafts-awaiting-approval NextActionCard was removed — the Draft
+          count is already in the summary strip, the status filter already
+          covers it, and the auto-order rule is in the PageLead. ── */}
       <PageLead flow="procurement" />
-      <NextActionCard
-        flow="procurement"
-        count={draftCount}
-        can={(perm) => perm === PERM.PO_APPROVE ? !!canApprove : false}
-      />
 
       {/* ── Results ── */}
       {filtered.length === 0 ? (

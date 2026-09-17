@@ -361,39 +361,40 @@ export function QuickActionsBar({
   const gridCols = activeTab.columns === 3 ? "grid-cols-3" : "grid-cols-4";
 
   return (
-    <>
-      {/* ── Toggle tabs — transparent text tabs with sliding underline ── */}
+    // data-tour="quick-actions": the product tour's step 1 spotlights this
+    // whole bar (tabs + grid). Keep the attribute on this wrapper.
+    <div data-tour="quick-actions">
+      {/* ── Toggle tabs — transparent text tabs with sliding underline.
+          The Edit/Done button merges into the same row via `trailing`. ── */}
       <RegisterTabs
         tabs={tabs.map((t) => ({ value: t.id, label: t.label }))}
         value={activeTabId}
         onChange={selectTab}
         sticky={false}
+        trailing={
+          loadingLayouts ? null : (
+            <button
+              onClick={() => (editMode ? saveOrder() : setEditMode(true))}
+              disabled={saving}
+              className="flex items-center gap-1 px-0.5 shrink-0 text-m-caption font-semibold press disabled:opacity-40"
+              style={{ color: editMode ? "var(--color-go)" : "var(--color-ink-500)" }}
+              aria-label={editMode ? "Save quick actions" : "Edit quick actions"}
+            >
+              {editMode ? (
+                <>
+                  <Check className="size-3.5" />
+                  {saving ? "Saving…" : "Done"}
+                </>
+              ) : (
+                <>
+                  <Pencil className="size-3.5" />
+                  Edit
+                </>
+              )}
+            </button>
+          )
+        }
       />
-
-      {/* ── Edit toggle ── */}
-      <div className="flex items-center justify-end my-1.5 px-0.5">
-        {!loadingLayouts && (
-          <button
-            onClick={() => (editMode ? saveOrder() : setEditMode(true))}
-            disabled={saving}
-            className="flex items-center gap-1 text-m-caption font-semibold press disabled:opacity-40"
-            style={{ color: editMode ? "var(--color-go)" : "var(--color-ink-500)" }}
-            aria-label={editMode ? "Save quick actions" : "Edit quick actions"}
-          >
-            {editMode ? (
-              <>
-                <Check className="size-3.5" />
-                {saving ? "Saving…" : "Done"}
-              </>
-            ) : (
-              <>
-                <Pencil className="size-3.5" />
-                Edit
-              </>
-            )}
-          </button>
-        )}
-      </div>
 
       {/* ── Quick actions grid ── */}
       {editMode ? (
@@ -468,7 +469,7 @@ export function QuickActionsBar({
           onClose={() => setShowAddPicker(false)}
         />
       )}
-    </>
+    </div>
   );
 }
 

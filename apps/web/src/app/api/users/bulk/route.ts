@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { randomBytes } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getActingRole, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM, ALL_ROLES, canAssignRole, type Role } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 
@@ -33,9 +33,9 @@ function generateTempPassword(minLength: number = 8): string {
  * Users that already exist (by email) are added as members instead of duplicated.
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  const session = await requirePermission(PERM.USERS_MANAGE);
+  await requirePermission(PERM.USERS_MANAGE);
   const company = await getCompany();
-  const actorRole = session.role;
+  const actorRole = await getActingRole();
   const minLength = company.passwordMinLength ?? 8;
   const defaultPassword = generateTempPassword(minLength);
 

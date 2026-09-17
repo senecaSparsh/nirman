@@ -1,6 +1,6 @@
 import { Suspense, type ReactNode } from "react";
 import { connection } from "next/server";
-import { getActingRole, getCompany, getUserRole, getUserPermissions } from "@/lib/server";
+import { getActingRole, getOwnRole, getCompany, getUserRole, getUserPermissions } from "@/lib/server";
 import { hasPermission, type Permission } from "@/lib/roles";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
@@ -34,6 +34,8 @@ export interface MobileHubPageCtx {
   role: string;
   /** The highest-authority role incl. live delegations (getActingRole()). */
   actingRole: string;
+  /** Own effective role — custom roles resolve to baseRole, no delegation (getOwnRole()). Use for persona. */
+  ownRole: string;
   /** Effective permission union (role matrix + grants + delegation). */
   perms: string[];
 }
@@ -79,13 +81,14 @@ export async function MobileHubPage({
     const company = await getCompany();
     const role = await getUserRole();
     const actingRole = await getActingRole();
+    const ownRole = await getOwnRole();
     const overrides = await getUserPermissions();
 
     if (perm && !hasPermission(role, perm, overrides)) {
       return <MobileNoAccess what={what ?? "this page"} permission={permission} />;
     }
 
-    return children({ company, role, actingRole, perms: overrides });
+    return children({ company, role, actingRole, ownRole, perms: overrides });
   };
 
   return (

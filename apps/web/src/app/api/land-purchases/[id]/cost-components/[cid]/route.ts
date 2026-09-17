@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { updateLandCostComponent, deleteLandCostComponent, scheduledTotal } from "@nirman/services";
 import Decimal from "decimal.js";
-import { apiHandler, getCompany, json, toNum, landCostComponentSchema, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, landCostComponentSchema, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string; cid: string }> }) => {
@@ -12,7 +12,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
   const { id, cid } = await ctx.params;
 
   const c = await prisma.landCostComponent.findFirst({
-    where: { id: cid, landPurchaseId: id, landPurchase: { companyId: company.id, deletedAt: null } },
+    where: { id: cid, landPurchaseId: id, landPurchase: { companyId: company.id, deletedAt: null, ...await scopeWhere("LandPurchase") } },
   });
   if (!c) return json({ error: "Cost component not found" }, { status: 404 });
 
@@ -38,7 +38,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   const { id, cid } = await ctx.params;
 
   const existing = await prisma.landCostComponent.findFirst({
-    where: { id: cid, landPurchaseId: id, landPurchase: { companyId: company.id, deletedAt: null } },
+    where: { id: cid, landPurchaseId: id, landPurchase: { companyId: company.id, deletedAt: null, ...await scopeWhere("LandPurchase") } },
   });
   if (!existing) return json({ error: "Cost component not found" }, { status: 404 });
 
@@ -86,7 +86,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   const { id, cid } = await ctx.params;
 
   const existing = await prisma.landCostComponent.findFirst({
-    where: { id: cid, landPurchaseId: id, landPurchase: { companyId: company.id, deletedAt: null } },
+    where: { id: cid, landPurchaseId: id, landPurchase: { companyId: company.id, deletedAt: null, ...await scopeWhere("LandPurchase") } },
   });
   if (!existing) return json({ error: "Cost component not found" }, { status: 404 });
 

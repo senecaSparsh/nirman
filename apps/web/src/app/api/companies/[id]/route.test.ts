@@ -98,6 +98,40 @@ describe("PATCH /api/companies/[id]", () => {
     );
     expect(res.status).toBe(404);
   });
+
+  it("returns 403 when re-parenting onto a company outside the caller's tree", async () => {
+    mockPrisma().company!.findFirst.mockImplementation(async (args?: { where?: Record<string, unknown> }) => {
+      const where = args?.where;
+      if (where?.userMemberships) return { id: "company-1", name: "Test Co", currency: "INR", parentCompanyId: null, deletedAt: null };
+      if (where?.id === "co-victim") return { id: "co-victim" };
+      return null;
+    });
+    const res = await PATCH(
+      makeRequest("/api/companies/company-1", { method: "PATCH", body: { parentCompanyId: "co-victim" } }),
+      makeCtx("company-1"),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 400 when re-parenting under its own descendant (cycle)", async () => {
+    mockPrisma().company!.findFirst.mockImplementation(async (args?: { where?: Record<string, unknown> }) => {
+      const where = args?.where;
+      if (where?.userMemberships) return { id: "company-1", name: "Test Co", currency: "INR", parentCompanyId: null, deletedAt: null };
+      if (where?.id === "co-child") return { id: "co-child" };
+      return null;
+    });
+    mockPrisma().userCompany!.findMany.mockImplementation(async (args?: { where?: Record<string, unknown> }) =>
+      args?.where?.userId ? [{ companyId: "company-1" }] : []);
+    mockPrisma().company!.findMany.mockImplementation(async (args?: { where?: Record<string, unknown> }) => {
+      if (args?.where?.parentCompanyId) return [{ id: "co-child" }]; // company-1's descendants
+      return [];
+    });
+    const res = await PATCH(
+      makeRequest("/api/companies/company-1", { method: "PATCH", body: { parentCompanyId: "co-child" } }),
+      makeCtx("company-1"),
+    );
+    expect(res.status).toBe(400);
+  });
 });
 
 describe("DELETE /api/companies/[id]", () => {

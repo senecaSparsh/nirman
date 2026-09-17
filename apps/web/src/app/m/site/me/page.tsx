@@ -9,7 +9,6 @@ import Link from "next/link";
 /** Field → Me tab: my profile + field-worker shortcuts + more links. */
 const FIELD_MORE_LINKS = [
   { label: "Daily Progress", href: "/m/dprs" },
-  { label: "Attendance", href: "/m/site/attendance" },
   { label: "Quotations", href: "/m/procurement?tab=quotations" },
   { label: "Stock Counts", href: "/m/stock?tab=counts" },
 ];
@@ -31,7 +30,7 @@ async function SiteMeContent() {
       <MobileSectionTitle>Quick actions</MobileSectionTitle>
       <div className="flex flex-col gap-2.5">
         <MobileRow href="/m/site/attendance" icon={CalendarCheck} title="Attendance" subtitle="Check in / check out" />
-        <MobileRow href="/m/site/dpr" icon={ClipboardList} title="My DPRs" subtitle="Daily progress reports" />
+        <MobileRow href="/m/site/dpr" icon={ClipboardList} title="Submit DPR" subtitle="Log today's site work" />
         <MobileRow href="/m/site/tasks" icon={CheckSquare} title="My tasks" subtitle="Assigned to me" />
       </div>
 

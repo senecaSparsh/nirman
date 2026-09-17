@@ -51,6 +51,24 @@ describe("GET /api/companies", () => {
     const res = await GET(makeRequest("/api/companies"), {});
     expect(res.status).toBe(403);
   });
+
+  it("scopes the list to memberships + descendants, never all tenants", async () => {
+    // Keyed on where.userId so getActingDelegations' findMany (which needs
+    // .user) still gets its default [] — the membership lookup is the only
+    // caller that filters by userId.
+    mockPrisma().userCompany!.findMany.mockImplementation(async (args?: { where?: Record<string, unknown> }) =>
+      args?.where?.userId ? [{ companyId: "company-1" }] : []);
+    mockPrisma().company!.findMany.mockImplementation(async (args?: { where?: Record<string, unknown> }) => {
+      if (args?.where?.parentCompanyId) return []; // descendant lookups → none
+      return [prismaCompany()];
+    });
+    const res = await GET(makeRequest("/api/companies"), {});
+    expect(res.status).toBe(200);
+    const lastCall = mockPrisma().company!.findMany.mock.calls.at(-1)?.[0] as
+      | { where?: { id?: { in?: string[] } } }
+      | undefined;
+    expect(lastCall?.where?.id?.in).toEqual(["company-1"]);
+  });
 });
 
 describe("POST /api/companies", () => {
@@ -109,5 +127,45 @@ describe("POST /api/companies", () => {
       {},
     );
     expect(res.status).toBe(403);
+  });
+
+  it("returns 403 when the parent is outside the caller's tree (cross-tenant graft)", async () => {
+    // The parent exists but the caller holds no membership in it —
+    // group-scoped reads would leak the victim tenant's data to this child.
+    mockPrisma().company!.findFirst.mockImplementation(async (args?: { where?: Record<string, unknown> }) => {
+      const where = args?.where;
+      if (where?.userMemberships) return { id: "company-1", name: "Test Co", currency: "INR", parentCompanyId: null, deletedAt: null };
+      if (where?.id === "co-victim") return { id: "co-victim" };
+      return null;
+    });
+    // userCompany.findMany + company.findMany (descendants) default to []
+    // → the manageable set is empty, so the graft must be refused.
+    const res = await POST(
+      makeRequest("/api/companies", {
+        method: "POST",
+        body: { name: "Graft Co", parentCompanyId: "co-victim" },
+      }),
+      {},
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("creates a child when the parent is a membership company", async () => {
+    mockPrisma().company!.findFirst.mockImplementation(async (args?: { where?: Record<string, unknown> }) => {
+      const where = args?.where;
+      if (where?.userMemberships) return { id: "company-1", name: "Test Co", currency: "INR", parentCompanyId: null, deletedAt: null };
+      if (where?.id === "company-1") return { id: "company-1" };
+      return null;
+    });
+    mockPrisma().userCompany!.findMany.mockImplementation(async (args?: { where?: Record<string, unknown> }) =>
+      args?.where?.userId ? [{ companyId: "company-1" }] : []);
+    const res = await POST(
+      makeRequest("/api/companies", {
+        method: "POST",
+        body: { name: "Child Co", parentCompanyId: "company-1" },
+      }),
+      {},
+    );
+    expect(res.status).toBe(201);
   });
 });

@@ -86,6 +86,7 @@ export function CreateAccountDialog({
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [mode, setMode] = useState<"create" | "link">("create");
 
   // ── Account fields ──
@@ -251,6 +252,7 @@ export function CreateAccountDialog({
       if (!res.ok) throw new Error(data.error ?? "Failed to create account");
 
       toast.success(data.message ?? "Account created and linked");
+      if (data.tempPassword) setTempPassword(data.tempPassword);
       setSuccess(true);
       router.refresh();
     } catch (err: unknown) {
@@ -300,6 +302,16 @@ export function CreateAccountDialog({
           <p className="text-center text-body">
             Login account created for <span className="font-medium">{employeeName}</span>.
           </p>
+          {tempPassword && (
+            <div className="rounded-lg border border-border bg-subtle p-3 space-y-1">
+              <p className="text-label text-muted-foreground/75 font-medium">TEMPORARY PASSWORD</p>
+              <p className="text-body font-mono font-semibold">{tempPassword}</p>
+              <p className="text-caption text-muted-foreground">
+                Share this once with the employee — they sign in with their phone
+                number + this password and set their own. Shown only here.
+              </p>
+            </div>
+          )}
           <div className="rounded-lg border border-border bg-subtle p-3 space-y-2">
             <p className="text-label text-muted-foreground/75 font-medium">NEXT STEPS</p>
             <div className="space-y-1.5">

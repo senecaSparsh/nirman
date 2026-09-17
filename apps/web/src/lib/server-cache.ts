@@ -184,6 +184,13 @@ export function cached<TReq extends Request = Request, TCtx = unknown>(
         // Fire-and-forget background refresh
         void fn(req, ctx)
           .then(async (res) => {
+            // Non-2xx refresh (e.g. permission revoked → 403): drop the
+            // stale entry so it stops being served, instead of extending
+            // a revoked user's access forever via stale-while-revalidate.
+            if (res.status < 200 || res.status >= 300) {
+              cache.delete(key);
+              return;
+            }
             const body = await res.text();
             const headers: Record<string, string> = {};
             res.headers.forEach((value, key2) => {

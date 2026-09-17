@@ -88,10 +88,7 @@ export function OrgHierarchy({ tree }: { tree: OrgTreeData }) {
       />
 
       {/* ── Tree container ── */}
-      <div
-        className="rounded-[0.625rem] border px-1 py-1.5"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
+      <div className="border-0 bg-transparent px-1 py-1.5">
         {tree.peopleCount === 0 && tree.labourCount === 0 ? (
           <MobileEmptyState
             icon={Users}

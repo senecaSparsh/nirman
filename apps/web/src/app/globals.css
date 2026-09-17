@@ -1653,6 +1653,11 @@ input[type="number"] {
     transition-duration: 200ms !important;
     transform: none !important;
   }
+  /* Dept-fan chips use per-item transition-delay for the stagger — under
+     reduced motion they should appear together, not pop in one by one. */
+  .dept-fan-chip {
+    transition-delay: 0ms !important;
+  }
 }
 
 /* ── Respect the user's transparency preference ──
