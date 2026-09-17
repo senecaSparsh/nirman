@@ -1,9 +1,12 @@
 import { prisma } from "@nirman/db";
+import { Suspense } from "react";
 import { toNum, getCurrentUser, scopeWhere, getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
+import { loadQuickActionContext } from "@/lib/quick-action-server";
 import type { LeadRow } from "@/lib/types";
 import { MobileSalesHub } from "./MobileSalesHub";
+import { SalesInteractive } from "./sales-interactive";
 import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 
 /**
@@ -27,7 +30,7 @@ export default function MobileSalesPage() {
         const currentUser = await getCurrentUser();
         const actions = await getActionPermissions();
         const canCreateSale = actions?.canCreateMaterialSale ?? perms.includes(PERM.SALES_MANAGE);
-        const [sales, leads, projects, units, salesMembers] = await Promise.all([
+        const [sales, leads, projects, units, salesMembers, qaCtx] = await Promise.all([
           prisma.assetSale.findMany({
             where: {...await scopeWhere("AssetSale"),  companyId: company.id, status: "ACTIVE" },
             orderBy: { saleDate: "desc" },
@@ -60,6 +63,7 @@ export default function MobileSalesPage() {
             where: { companyId: company.id, role: { in: ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "SALES_MANAGER"] }, user: { active: true, isHidden: { not: true } } },
             orderBy: { user: { name: "asc" } },
             select: { user: { select: { id: true, name: true } } }}),
+          loadQuickActionContext("sales"),
         ]);
 
         const items = sales.map((s) => {
@@ -131,6 +135,12 @@ export default function MobileSalesPage() {
         return (
           <>
             <DepartmentActivityFeed department="sales" />
+            {/* ── Quick actions — persona-aware, editable (same shared
+                bar as site/hr/accounts/inventory). Lands the product
+                tour's step 1 for the sales persona. ── */}
+            <Suspense fallback={null}>
+              <SalesInteractive persona={qaCtx.persona} savedLayouts={qaCtx.savedLayouts} extraActions={qaCtx.extraActions} permissions={qaCtx.permissions} />
+            </Suspense>
             <MobileSalesHub
             leads={leadRows}
             sales={items}
