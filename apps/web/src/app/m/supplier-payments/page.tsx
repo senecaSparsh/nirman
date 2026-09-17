@@ -9,11 +9,16 @@ import { MobileSupplierPaymentsList, type SupplierPaymentListItem } from "./Mobi
  * /m/supplier-payments — mobile supplier payments list. Shows recent
  * payments made to suppliers so finance can track outflows on the go.
  */
-export default function MobileSupplierPaymentsPage() {
+export default function MobileSupplierPaymentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ supplierId?: string }>;
+}) {
   return (
     <MobileListPage perm={PERM.FINANCE_VIEW} managePerm={PERM.FINANCE_MANAGE}>
       {async ({ company, canManage, perms }) => {
         const canViewProcurement = perms.includes(PERM.PROCUREMENT_VIEW);
+        const { supplierId: filterSupplierId } = await searchParams;
         const BATCH_SIZE = 40;
         const payments = await prisma.supplierPayment.findMany({
           where: { companyId: company.id },
@@ -54,6 +59,7 @@ export default function MobileSupplierPaymentsPage() {
               canViewProcurement={canViewProcurement}
               loadMoreUrl="/api/mobile/list/supplier-payments"
               initialCursor={nextCursor}
+              filterSupplierId={filterSupplierId ?? null}
             />
             {canManage && <MobileFab href="/m/supplier-payments/new" label="Record payment" />}
           </div>

@@ -2366,8 +2366,8 @@ async function addToProjectResponse(companyId: string, entities: ParsedEntities)
       intent: "ADD_TO_PROJECT",
       confidence: 0.8,
       cards: [
-        { type: "link", label: "Issue material", href: `/m/site/issue?project=${project.id}` },
-        { type: "link", label: "Add cost", href: `/m/books/finance?project=${project.id}` },
+        { type: "link", label: "Issue material", href: `/m/stock-out?mode=issue&project=${project.id}` },
+        { type: "link", label: "Add cost", href: `/m/expenses/new?project=${project.id}` },
         { type: "link", label: "Add unit", href: `/m/units?project=${project.id}` },
       ]};
   }
@@ -2380,7 +2380,7 @@ async function addToProjectResponse(companyId: string, entities: ParsedEntities)
       text: `${project.name} me material issue karna hai.\n\nKaunsa material aur kitni quantity? Ya form kholein:`,
       intent: "ADD_TO_PROJECT",
       confidence: 0.85,
-      cards: [{ type: "link", label: "Issue Material Form", href: `/m/site/issue?project=${project.id}`, variant: "primary" }]};
+      cards: [{ type: "link", label: "Issue Material Form", href: `/m/stock-out?mode=issue&project=${project.id}`, variant: "primary" }]};
   }
   if (lower.includes("cost") || lower.includes("kharcha") || lower.includes("labour") || lower.includes("mazdoori") || lower.includes("overhead") || lower.includes("contractor") || lower.includes("thekedaar")) {
     return addProjectCostResponse(companyId, { ...entities, projectName: project.name });

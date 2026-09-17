@@ -20,12 +20,19 @@ export function MobileNewExpenseClient({
   suppliers,
   currentUserId: _currentUserId,
   initialProjectId,
+  initialAmount,
+  initialPayee,
+  initialCategory,
 }: {
   projects: Project[];
   categories: Category[];
   suppliers: Supplier[];
   currentUserId: string | null;
+  /** Deep-link prefills — e.g. "Add cost" on a project page / assistant card. */
   initialProjectId?: string | null;
+  initialAmount?: string | null;
+  initialPayee?: string | null;
+  initialCategory?: string | null;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -35,9 +42,13 @@ export function MobileNewExpenseClient({
       : "",
   );
   const [categoryId, setCategoryId] = useState("");
-  const [category, setCategory] = useState("");
-  const [amount, setAmount] = useState("");
-  const [payeeName, setPayeeName] = useState("");
+  const [category, setCategory] = useState(initialCategory ?? "");
+  const [amount, setAmount] = useState(
+    initialAmount && !isNaN(Number(initialAmount)) && Number(initialAmount) > 0
+      ? initialAmount
+      : "",
+  );
+  const [payeeName, setPayeeName] = useState(initialPayee ?? "");
   const [supplierId, setSupplierId] = useState("");
   const [paymentMode, setPaymentMode] = useState("BANK");
   const [referenceNo, setReferenceNo] = useState("");

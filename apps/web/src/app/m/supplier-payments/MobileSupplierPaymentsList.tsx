@@ -40,6 +40,7 @@ export function MobileSupplierPaymentsList({
   canViewProcurement,
   loadMoreUrl,
   initialCursor,
+  filterSupplierId,
 }: {
   items: SupplierPaymentListItem[];
   totalAmount: number;
@@ -47,6 +48,8 @@ export function MobileSupplierPaymentsList({
   canViewProcurement?: boolean;
   loadMoreUrl?: string;
   initialCursor?: string | null;
+  /** Deep-link supplier filter (?supplierId=) — e.g. "payments to X" from the assistant. */
+  filterSupplierId?: string | null;
 }) {
   const [query, setQuery] = useState("");
 
@@ -57,16 +60,20 @@ export function MobileSupplierPaymentsList({
   );
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return items;
+    let result = items;
+    if (filterSupplierId) {
+      result = result.filter((p) => p.supplierId === filterSupplierId);
+    }
+    if (!query.trim()) return result;
     const q = query.toLowerCase();
-    return items.filter(
+    return result.filter(
       (p) =>
         p.paymentNumber.toLowerCase().includes(q) ||
         p.supplierName.toLowerCase().includes(q) ||
         (p.poNumber?.toLowerCase().includes(q) ?? false) ||
         (p.invoiceNumber?.toLowerCase().includes(q) ?? false),
     );
-  }, [items, query]);
+  }, [items, query, filterSupplierId]);
 
   const stats: SummaryStat[] = [
     { label: "Total Paid", value: formatCurrencyCompact(totalAmount) },

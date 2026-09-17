@@ -401,7 +401,7 @@ export const ROLES: Record<Role, RoleDef> = {
   },
   DEVELOPER: {
     key: "DEVELOPER",
-    label: "Developer (God Mode)",
+    label: "Developer",
     description: "Platform developer — full access to everything + receives all user feedback.",
     permissions: "*",
     canManageUsers: true,

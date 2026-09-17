@@ -23,14 +23,21 @@ import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 export default function MobileUnitsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ project?: string }>;
+  searchParams: Promise<{
+    project?: string;
+    new?: string;
+    type?: string;
+    number?: string;
+    area?: string;
+    price?: string;
+  }>;
 }) {
   return (
     <MobileListPage managePerm={PERM.ASSETS_MANAGE} skeletonRows={8}>
       {async ({ company, canManage }) => {
         const actions = await getActionPermissions();
         const canCreate = actions?.canCreateBuiltUnit ?? canManage;
-        const { project: projectId } = await searchParams;
+        const { project: projectId, new: newFlag, type, number, area, price } = await searchParams;
 
         const project = projectId
           ? await prisma.project.findFirst({
@@ -175,7 +182,17 @@ export default function MobileUnitsPage({
 
             {/* ── FAB: New Unit ── */}
             {canCreate && projects.length > 0 && (
-              <MobileUnitsFab projects={projects} defaultProjectId={projectId} />
+              <MobileUnitsFab
+                projects={projects}
+                defaultProjectId={projectId}
+                autoOpen={newFlag === "1"}
+                initialUnit={{
+                  unitType: type,
+                  unitNumber: number,
+                  area,
+                  askingPrice: price,
+                }}
+              />
             )}
 
             {/* ── Empty state ── */}

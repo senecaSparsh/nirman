@@ -91,10 +91,13 @@ export function MobileNewUnitForm({
   onClose,
   projects,
   defaultProjectId,
+  initialUnit,
 }: {
   onClose: () => void;
   projects: ProjectOption[];
   defaultProjectId?: string;
+  /** Deep-link prefill (?type=&number=&area=&price=) — e.g. the assistant's "Add unit" card. */
+  initialUnit?: { unitType?: string; unitNumber?: string; area?: string; askingPrice?: string };
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -107,13 +110,13 @@ export function MobileNewUnitForm({
   const [genUnitsPerFloor, setGenUnitsPerFloor] = useState("0");
   const [form, setForm] = useState<FormState>({
     projectId: defaultProjectId ?? "",
-    unitType: "BHK_2",
-    unitNumber: "",
+    unitType: initialUnit?.unitType && initialUnit.unitType in UNIT_TYPE_LABELS ? (initialUnit.unitType as UnitType) : "BHK_2",
+    unitNumber: initialUnit?.unitNumber ?? "",
     floor: "",
     wing: "",
-    area: "",
+    area: initialUnit?.area ?? "",
     areaUnit: "SQFT",
-    askingPrice: "",
+    askingPrice: initialUnit?.askingPrice ?? "",
     // RERA fields
     carpetArea: "",
     superBuiltUpArea: "",

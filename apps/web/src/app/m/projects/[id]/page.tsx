@@ -520,7 +520,7 @@ export default function MobileProjectDetailPage({
             {recentAttendance.map((a) => (
               <Link
                 key={a.id}
-                href={`/m/attendance?project=${id}`}
+                href={`/m/attendance?projectId=${id}`}
                 className="flex flex-col gap-1 rounded-[0.625rem] border p-2 text-m-body press"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               >
