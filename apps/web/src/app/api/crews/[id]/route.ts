@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { updateCrew, deleteCrew, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, crewSchema, requirePermission, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, crewSchema, requirePermission, toNum, scopeWhere, assertScopeAllows, getEmployeeAccessScope } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -22,9 +22,12 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     },
   });
   if (!crew) return json({ error: "Crew not found" }, { status: 404 });
+  // Member rates are comp data — roster-tier viewers get crew + names
+  // without wages (payroll.manage|hr.manage only).
+  const { canSeePayroll } = await getEmployeeAccessScope();
   return json({
     ...crew,
-    members: crew.members.map((m) => ({ ...m, dailyRate: toNum(m.dailyRate) })),
+    members: crew.members.map((m) => ({ ...m, dailyRate: canSeePayroll ? toNum(m.dailyRate) : null })),
   });
 });
 

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
 import { ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, getCompanyGroupIds, getCurrentUser, requireUser, toNum } from "@/lib/server";
+import { apiHandler, getCompany, getCompanyGroupIds, getCurrentUser, getEmployeeAccessScope, requireUser, toNum } from "@/lib/server";
 import { formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 
 /**
@@ -577,20 +577,25 @@ async function getInventoryChildren(companyId: string, _c: string): Promise<Chil
 }
 
 async function getEmployeeChildren(companyId: string, _c: string): Promise<ChildEntity[]> {
-  const items = await prisma.employee.findMany({
-    where: { companyId, active: true, deletedAt: null },
-    select: {
-      id: true, name: true, trade: true, designation: true,
-      phone: true, dailyRate: true, activeProject: { select: { name: true } },
-    },
-    orderBy: { name: "asc" }, take: 50,
-  });
+  const [items, { canSeePayroll }] = await Promise.all([
+    prisma.employee.findMany({
+      where: { companyId, active: true, deletedAt: null },
+      select: {
+        id: true, name: true, trade: true, designation: true,
+        phone: true, dailyRate: true, activeProject: { select: { name: true } },
+      },
+      orderBy: { name: "asc" }, take: 50,
+    }),
+    getEmployeeAccessScope(),
+  ]);
   return items.map((e) => {
     const details: DetailField[] = [];
     if (e.trade) details.push({ label: "Trade", value: e.trade });
     if (e.designation) details.push({ label: "Role", value: e.designation });
     if (e.phone) details.push({ label: "Phone", value: e.phone });
-    if (toNum(e.dailyRate) > 0) details.push({ label: "Daily rate", value: formatCurrencyCompact(toNum(e.dailyRate)) });
+    // Wage amounts are comp data — roster-tier users see the worker card
+    // without the rate (payroll.manage|hr.manage only).
+    if (canSeePayroll && toNum(e.dailyRate) > 0) details.push({ label: "Daily rate", value: formatCurrencyCompact(toNum(e.dailyRate)) });
     if (e.activeProject) details.push({ label: "Project", value: e.activeProject.name });
     return {
       id: e.id, type: "employee",

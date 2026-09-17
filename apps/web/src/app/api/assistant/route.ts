@@ -1026,7 +1026,6 @@ async function attendanceResponse(companyId: string): Promise<AssistantResponse>
 
   const records = await prisma.workerAttendance.findMany({
     where: { companyId, date: today, ...await scopeWhere("WorkerAttendance") },
-    include: { employee: true },
     take: 20});
 
   if (records.length === 0) {
