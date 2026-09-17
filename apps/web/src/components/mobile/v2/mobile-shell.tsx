@@ -687,8 +687,11 @@ function MobileShellInner({
       )}
 
       {/* ══ HEADER — minimal, matches Nirman OS ══ */}
+      {/* z-50 (not z-30): the header hosts overlays (notifications, company
+          switcher) whose children are capped by this stacking context — at
+          z-30 they tie with page content like the orbit card and lose. */}
       <header
-        className="sticky top-0 z-30 px-4 py-2.5"
+        className="sticky top-0 z-50 px-4 py-2.5"
         style={{
           /* Apple §12 — translucent material, not an opaque bar. Content
              scrolls underneath; blur + saturate conveys hierarchy. Hairline

@@ -207,7 +207,7 @@ export default function SitePage() {
                   const meta = isOverdue
                     ? `${overdueDays}d late`
                     : !po.expectedDate
-                      ? "no date"
+                      ? "no ETA"
                       : daysUntil === 0
                         ? "today"
                         : daysUntil === 1

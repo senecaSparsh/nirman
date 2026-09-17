@@ -271,8 +271,8 @@ export function ProductTour({
             className="text-m-body text-center mb-1"
             style={{ color: "var(--color-ink-700)" }}
           >
-            A {steps.length}-step walkthrough of the essentials — starting with
-            Quick Actions, the grid where your daily work begins.
+            A walkthrough of the essentials in {steps.length} steps — starting
+            with Quick Actions, the grid where your daily work begins.
           </p>
           <p
             className="text-m-caption text-center mb-4"
