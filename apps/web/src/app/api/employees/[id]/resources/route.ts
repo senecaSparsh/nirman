@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission, assertCanManageEmployee, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, assertCanManageEmployee, scopeWhere, getEmployeeAccessScope } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -30,7 +30,10 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     },
   });
 
-  return json(resources);
+  // Deposit amounts are money data — same field-visibility policy as wages.
+  const { canSeePayroll } = await getEmployeeAccessScope();
+  if (canSeePayroll) return json(resources);
+  return json(resources.map((r) => ({ ...r, depositAmount: null })));
 });
 
 const issueSchema = z.object({

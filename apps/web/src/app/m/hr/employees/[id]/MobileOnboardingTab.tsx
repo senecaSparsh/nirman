@@ -381,11 +381,16 @@ function ProfileSubTab({
   const [editingHire, setEditingHire] = useState(false);
   const [editingTerms, setEditingTerms] = useState(false);
 
-  const wageValue = employee.wageType === "DAILY"
-    ? formatCurrency(employee.dailyRate ?? 0) + "/day"
-    : employee.monthlySalary != null
-      ? formatCurrency(employee.monthlySalary) + "/mo"
-      : "—";
+  // Wage amounts are null for viewers without payroll.manage|hr.manage —
+  // show "—" rather than a bogus ₹0.
+  const wageValue =
+    employee.dailyRate == null && employee.monthlySalary == null
+      ? "—"
+      : employee.wageType === "DAILY"
+        ? formatCurrency(employee.dailyRate ?? 0) + "/day"
+        : employee.monthlySalary != null
+          ? formatCurrency(employee.monthlySalary) + "/mo"
+          : "—";
 
   return (
     <div className="space-y-3">
