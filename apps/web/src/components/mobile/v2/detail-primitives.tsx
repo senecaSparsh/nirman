@@ -401,6 +401,8 @@ export interface TimelineStepData {
   label: string;
   date?: string;
   detail?: string;
+  /** When set, `detail` renders as a tappable link (e.g. "View purchase order →"). */
+  href?: string;
   state: "done" | "current" | "pending" | "cancelled";
   color?: string;
 }
@@ -492,11 +494,19 @@ function TimelineRow({ step, isLast }: { step: TimelineStepData; isLast: boolean
           {step.date}
         </p>
       )}
-      {step.detail && (
+      {step.detail && step.href ? (
+        <Link
+          href={step.href}
+          className="inline-flex items-center text-m-caption font-semibold mt-0.5 press hover:underline"
+          style={{ color: "var(--color-ink-700)" }}
+        >
+          {step.detail}
+        </Link>
+      ) : step.detail ? (
         <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-700)" }}>
           {step.detail}
         </p>
-      )}
+      ) : null}
     </div>
   );
 }

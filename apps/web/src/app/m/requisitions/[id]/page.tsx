@@ -256,6 +256,7 @@ export default function MobileRequisitionDetailPage({
           timelineSteps.push({
             label: "Converted to PO",
             detail: "View purchase order →",
+            href: `/m/procurement/${req.convertedPoId}`,
             state: "done",
             color: "var(--color-go)",
           });
