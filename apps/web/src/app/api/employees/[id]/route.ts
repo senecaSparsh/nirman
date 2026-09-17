@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { updateEmployee, softDelete, updateEmployeeDossier, type EmployeeDossierInput, logAction, autoCompleteOnboarding } from "@nirman/services";
 import { apiHandler, getCompany, json, employeeSchema, requirePermission, assertScopeAllows, canManageSpecificEmployee, assertCanManageEmployee, getCurrentUser, scopeWhere, getEmployeeAccessScope } from "@/lib/server";
-import { pickEmployeeRoster } from "@/lib/employee-visibility";
+import { pickEmployeeRoster, redactEmployeeRow } from "@/lib/employee-visibility";
 import { PERM } from "@/lib/roles";
 
 /** GET /api/employees/[id] — fetch a single employee by ID */
@@ -17,7 +17,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   // hr.view-only callers (site engineers, supervisors, QAQC) get the roster
   // subset — who the person is and where they work, plus the safety fields
   // field staff legitimately need (emergency contact, blood group, photo).
-  const { canSeePayroll } = await getEmployeeAccessScope();
+  const scope = await getEmployeeAccessScope();
   const employee = await prisma.employee.findFirst({
     where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("Employee") },
     include: {
@@ -28,7 +28,9 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     },
   });
   if (!employee) return json({ error: "Employee not found" }, { status: 404 });
-  if (canSeePayroll) return json(employee);
+  // Full tier — redactEmployeeRow is a passthrough when all flags are true
+  // (they share one gate today; if the tiers ever split this stays correct).
+  if (scope.canSeePayroll) return json(redactEmployeeRow(employee, scope));
   // Roster tier — deny-by-default allowlist from lib/employee-visibility.ts
   // (new schema columns can't leak here), plus the relation summaries.
   return json({

@@ -47,6 +47,72 @@ const noProcessEnvInClientPlugin = {
   },
 };
 
+// ── Custom plugin: no-raw-employee-row-response ────────────────
+// Flags `json(<var>)` / `NextResponse.json(<var>)` in API route files where
+// <var> was assigned from a `prisma.employee.<read>` / `tx.employee.<read>`
+// call — i.e. returning a raw Prisma Employee row. The model carries bank,
+// gov-ID, wage, and contract-signing token columns; raw returns bypass the
+// field-visibility policy in lib/employee-visibility.ts. Warns so the
+// author can serialize intentionally via pickEmployeeRoster /
+// redactEmployeeRow (or narrow the select).
+const noRawEmployeeRowPlugin = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description:
+        "Disallow returning raw Prisma Employee rows via json() (bypasses field-visibility policy)",
+    },
+    schema: [],
+    messages: {
+      rawEmployeeRow:
+        "Raw Prisma Employee row returned to the client — Employee carries bank/gov-ID/wage/token columns. Serialize via pickEmployeeRoster()/redactEmployeeRow() from @/lib/employee-visibility, or narrow the select.",
+    },
+  },
+  create(context) {
+    const filename = context.filename ?? context.getFilename();
+    if (!/app[\\/]api[\\/].*route\.tsx?$/.test(filename)) return {};
+
+    // Vars bound to a prisma.employee.<method> / tx.employee.<method> result.
+    const employeeRowVars = new Set();
+
+    // Detect `*.employee.<method>(...)` — callee is MemberExpression whose
+    // object is a MemberExpression ending in `.employee`.
+    function isEmployeeCall(call) {
+      const callee = call.callee;
+      if (callee?.type !== "MemberExpression") return false;
+      const obj = callee.object;
+      return obj?.type === "MemberExpression" && obj.property?.name === "employee";
+    }
+
+    return {
+      VariableDeclarator(node) {
+        const init = node.init;
+        const call =
+          init?.type === "AwaitExpression" ? init.argument : init;
+        if (
+          node.id?.type === "Identifier" &&
+          call?.type === "CallExpression" &&
+          isEmployeeCall(call)
+        ) {
+          employeeRowVars.add(node.id.name);
+        }
+      },
+      CallExpression(node) {
+        // json(<ident>) / NextResponse.json(<ident>)
+        const isJson =
+          (node.callee?.type === "Identifier" && node.callee.name === "json") ||
+          (node.callee?.type === "MemberExpression" &&
+            node.callee.property?.name === "json");
+        if (!isJson) return;
+        const arg = node.arguments?.[0];
+        if (arg?.type === "Identifier" && employeeRowVars.has(arg.name)) {
+          context.report({ node: arg, messageId: "rawEmployeeRow" });
+        }
+      },
+    };
+  },
+};
+
 const eslintConfig = [
   ...nextCoreWebVitals,
   ...nextTypescript,
@@ -73,6 +139,7 @@ const eslintConfig = [
       nirman: {
         rules: {
           "no-process-env-node-env-in-client": noProcessEnvInClientPlugin,
+          "no-raw-employee-row-response": noRawEmployeeRowPlugin,
         },
       },
     },
@@ -115,6 +182,9 @@ const eslintConfig = [
       // chunk desync in dynamically-imported (next/dynamic ssr:false) chunks.
       // Only fires in files with a "use client" directive.
       "nirman/no-process-env-node-env-in-client": "warn",
+      // Prevent returning raw Prisma Employee rows from API routes — bypasses
+      // the field-visibility policy (lib/employee-visibility.ts).
+      "nirman/no-raw-employee-row-response": "warn",
       // This rule is for the Pages Router — this app uses the App Router
       // exclusively (no /pages directory). Without disabling it, every lint
       // run prints "Pages directory cannot be found at .../pages or .../src/pages".
