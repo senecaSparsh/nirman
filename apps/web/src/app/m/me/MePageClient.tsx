@@ -21,7 +21,6 @@ import {
   Trash2,
   Phone,
   Mail,
-  MessageSquare,
   Briefcase,
   Building2,
   IdCard,
@@ -436,38 +435,8 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
           )}
         </div>
 
-        {/* Quick contact actions — Call, Text, Email */}
-        {!profileLoading && !editingProfile && (userPhone || userEmail) && (
-          <div className="flex gap-1.5 px-3 pb-3">
-            {userPhone ? (
-              <a
-                href={`tel:${userPhone.replace(/\s/g, "")}`}
-                className="flex-1 flex items-center justify-center gap-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press"
-                style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
-              >
-                <Phone className="size-3.5" /> Call
-              </a>
-            ) : null}
-            {userPhone ? (
-              <a
-                href={`sms:${userPhone.replace(/\s/g, "")}`}
-                className="flex-1 flex items-center justify-center gap-1 h-9 rounded-[0.5rem] border-2 text-m-label font-bold text-m-body press"
-                style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
-              >
-                <MessageSquare className="size-3.5" /> Text
-              </a>
-            ) : null}
-            {userEmail ? (
-              <a
-                href={`mailto:${userEmail}`}
-                className="flex-1 flex items-center justify-center gap-1 h-9 rounded-[0.5rem] border-2 text-m-label font-bold text-m-body press"
-                style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}
-              >
-                <Mail className="size-3.5" /> Email
-              </a>
-            ) : null}
-          </div>
-        )}
+        {/* Self-profile has no Call/Text/Email actions — you cannot contact
+            yourself. The pencil above is the only action (edit profile). */}
       </div>
 
       {/* ── Edit profile form (inline, using form primitives) ── */}
