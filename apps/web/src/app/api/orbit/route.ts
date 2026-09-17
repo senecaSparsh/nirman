@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
 import { ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, getCompanyGroupIds, getCurrentUser, getEmployeeAccessScope, requireUser, toNum } from "@/lib/server";
+import { apiHandler, getCompany, getCompanyGroupIds, getCurrentUser, getEmployeeAccessScope, requireUser, scopeWhere, toNum } from "@/lib/server";
 import { formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 
 /**
@@ -579,7 +579,9 @@ async function getInventoryChildren(companyId: string, _c: string): Promise<Chil
 async function getEmployeeChildren(companyId: string, _c: string): Promise<ChildEntity[]> {
   const [items, { canSeePayroll }] = await Promise.all([
     prisma.employee.findMany({
-      where: { companyId, active: true, deletedAt: null },
+      // scopeWhere keeps field staff inside their project/department scope —
+      // same row filter the roster APIs apply.
+      where: { companyId, active: true, deletedAt: null, ...await scopeWhere("Employee") },
       select: {
         id: true, name: true, trade: true, designation: true,
         phone: true, dailyRate: true, activeProject: { select: { name: true } },
@@ -1267,7 +1269,7 @@ async function getEquipmentAssignmentChildren(parentId: string, _companyId: stri
 async function getCrewChildren(parentId: string, companyId: string, parentType: string): Promise<ChildEntity[]> {
   const where = parentType === "project"
     ? { projectId: parentId, active: true }
-    : { companyId, active: true };
+    : { companyId, active: true, ...await scopeWhere("Crew") };
   const items = await prisma.crew.findMany({
     where,
     select: { id: true, name: true, active: true, supervisor: { select: { name: true } }, project: { select: { name: true } }, _count: { select: { members: true } } },
