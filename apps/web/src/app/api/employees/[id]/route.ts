@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { updateEmployee, softDelete, updateEmployeeDossier, type EmployeeDossierInput, logAction, autoCompleteOnboarding } from "@nirman/services";
 import { apiHandler, getCompany, json, employeeSchema, requirePermission, assertScopeAllows, canManageSpecificEmployee, assertCanManageEmployee, getCurrentUser, scopeWhere, getEmployeeAccessScope } from "@/lib/server";
+import { pickEmployeeRoster } from "@/lib/employee-visibility";
 import { PERM } from "@/lib/roles";
 
 /** GET /api/employees/[id] — fetch a single employee by ID */
@@ -28,44 +29,14 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   });
   if (!employee) return json({ error: "Employee not found" }, { status: 404 });
   if (canSeePayroll) return json(employee);
+  // Roster tier — deny-by-default allowlist from lib/employee-visibility.ts
+  // (new schema columns can't leak here), plus the relation summaries.
   return json({
-    id: employee.id,
-    companyId: employee.companyId,
-    name: employee.name,
-    trade: employee.trade,
-    phone: employee.phone,
-    email: employee.email,
-    designation: employee.designation,
-    joinDate: employee.joinDate,
-    hierarchyLevel: employee.hierarchyLevel,
-    reportsToEmployeeId: employee.reportsToEmployeeId,
-    active: employee.active,
-    departmentId: employee.departmentId,
-    crewId: employee.crewId,
+    ...pickEmployeeRoster(employee),
     crew: employee.crew,
-    activeProjectId: employee.activeProjectId,
     activeProject: employee.activeProject,
-    reportingLocationId: employee.reportingLocationId,
     reportingLocation: employee.reportingLocation,
-    userId: employee.userId,
     user: employee.user,
-    // Field-safety subset — reachable by hr.view so a supervisor on site
-    // can reach family / check blood group after an accident.
-    emergencyContactName: employee.emergencyContactName,
-    emergencyContactPhone: employee.emergencyContactPhone,
-    emergencyContactRelation: employee.emergencyContactRelation,
-    bloodGroup: employee.bloodGroup,
-    photoUrl: employee.photoUrl,
-    // Workflow flags — states, not contents.
-    documentsSubmitted: employee.documentsSubmitted,
-    backgroundVerified: employee.backgroundVerified,
-    onboardingComplete: employee.onboardingComplete,
-    contractStatus: employee.contractStatus,
-    offerLetterStatus: employee.offerLetterStatus,
-    idCardStatus: employee.idCardStatus,
-    appointmentLetterStatus: employee.appointmentLetterStatus,
-    createdAt: employee.createdAt,
-    updatedAt: employee.updatedAt,
   });
 });
 

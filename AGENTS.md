@@ -74,6 +74,16 @@ the `coolify-proxy` container isn't on the app network. Fix:
 
 ## Conventions
 
+- **Never `json()` a raw `Employee` row** — the model carries bank details, gov
+  IDs (PAN/Aadhaar/PF/ESI/UAN), wages, addresses, and public-signing bearer
+  tokens (`contractToken`/`offerToken`) in one row. Serialize through
+  `apps/web/src/lib/employee-visibility.ts` — `pickEmployeeRoster(row)` for
+  hr.view-tier callers (deny-by-default allowlist: new schema columns are
+  invisible by default) or `redactEmployeeRow(row, scope)` when both tiers share
+  a shape. The permission flags come from `getEmployeeAccessScope()` in
+  `lib/server.ts`; the field tiers are the other half of the same policy — keep
+  them in sync. Pages that hand-pick props for their own clients must follow
+  the same tier groups.
 - **Button groups are horizontal**: wherever 2–3 buttons appear together they sit in a
   row — `flex gap-2` (or `flex flex-wrap gap-2` for content-width chips / >2 buttons),
   never `flex flex-col` / `space-y-*` on a pure button container. Give each button

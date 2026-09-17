@@ -1980,6 +1980,10 @@ export async function canAccessEntity(
  *   - canManageEmployee: can edit profile, onboarding, documents
  *   - canManageAccess: can assign roles, permissions, scope
  *   - canManagePayroll: can mark as paid, edit salary
+ *
+ * FIELD TIER DEFINITIONS live in @/lib/employee-visibility — which columns
+ * belong to each of these flags. Never serialize a raw Employee row; pass it
+ * through pickEmployeeRoster()/redactEmployeeRow() from that module.
  */
 export async function getEmployeeAccessScope() {
   const role = await getUserRole();
