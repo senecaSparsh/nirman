@@ -283,11 +283,16 @@ export function MobileEmployeeDetailClient({
 
   const openTasks = employee.tasks.filter((t) => t.status === "PENDING" || t.status === "IN_PROGRESS").length;
   const completedTasks = employee.tasks.filter((t) => t.status === "COMPLETED").length;
-  const wageValue = employee.wageType === "DAILY"
-    ? formatCurrency(employee.dailyRate ?? 0) + "/day"
-    : employee.monthlySalary != null
-      ? formatCurrency(employee.monthlySalary) + "/mo"
-      : "—";
+  // Wage amounts are null for viewers without payroll.manage|hr.manage —
+  // show "—" rather than a bogus ₹0.
+  const wageValue =
+    employee.dailyRate == null && employee.monthlySalary == null
+      ? "—"
+      : employee.wageType === "DAILY"
+        ? formatCurrency(employee.dailyRate ?? 0) + "/day"
+        : employee.monthlySalary != null
+          ? formatCurrency(employee.monthlySalary) + "/mo"
+          : "—";
 
   const phone = employee.phone ?? employee.user?.phone ?? null;
   const email = displayEmail(employee.email) ?? displayEmail(employee.user?.email) ?? null;

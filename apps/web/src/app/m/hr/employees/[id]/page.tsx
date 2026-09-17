@@ -422,8 +422,9 @@ async function MobileEmployeeDetailContent({
       id: c.id, name: c.name, active: c.active,
       projectName: c.project?.name ?? null, memberCount: c._count.members,
     })),
-    // Multi-company: other Employee records for the same person
-    companyMemberships: employee.userId
+    // Multi-company: other Employee records for the same person — reveals
+    // group structure, comp tier.
+    companyMemberships: accessScope.canSeePayroll && employee.userId
       ? (await prisma.employee.findMany({
           where: { userId: employee.userId, deletedAt: null, id: { not: employee.id } },
           select: { id: true, companyId: true, active: true, company: { select: { name: true } } },
@@ -443,7 +444,8 @@ async function MobileEmployeeDetailContent({
       expectedReturnAt: r.expectedReturnAt?.toISOString() ?? null,
       returnedAt: r.returnedAt?.toISOString() ?? null,
       conditionAtIssue: r.conditionAtIssue, conditionAtReturn: r.conditionAtReturn,
-      depositAmount: r.depositAmount ? Number(r.depositAmount) : null,
+      // Security-deposit amounts are money data — comp tier.
+      depositAmount: accessScope.canSeePayroll && r.depositAmount ? Number(r.depositAmount) : null,
       depositRefunded: r.depositRefunded,
       issuedByUser: r.issuedByUser, returnedToUser: r.returnedToUser, notes: r.notes,
     })),
@@ -544,25 +546,29 @@ async function MobileEmployeeDetailContent({
     // Home addresses — identity docs tier with PAN/Aadhaar.
     permanentAddress: accessScope.canSeePersonalDocs ? employee.permanentAddress : null,
     currentAddress: accessScope.canSeePersonalDocs ? employee.currentAddress : null,
-    salaryComponents: employee.salaryComponents.map((c) => ({
+    // salaryComponents/benefits are only queried when canSeePayroll — the
+    // include is skipped for roster viewers, so default to [] (not .map on
+    // undefined).
+    salaryComponents: (employee.salaryComponents ?? []).map((c) => ({
       id: c.id, type: c.type, amount: toNum(c.amount), frequency: c.frequency,
       isDeduction: c.isDeduction, isPercentage: c.isPercentage,
       percentageOfBasic: c.percentageOfBasic ? toNum(c.percentageOfBasic) : null,
       notes: c.notes, active: c.active,
     })),
-    benefits: employee.benefits.map((b) => ({
+    benefits: (employee.benefits ?? []).map((b) => ({
       id: b.id, type: b.type, amount: b.amount ? toNum(b.amount) : null, frequency: b.frequency,
       startDate: b.startDate ? b.startDate.toISOString() : null,
       endDate: b.endDate ? b.endDate.toISOString() : null,
       notes: b.notes, active: b.active,
     })),
-    attachments: attachments.map((a) => ({
+    // Attachments include uploaded KYC docs — identity-docs tier.
+    attachments: accessScope.canSeePersonalDocs ? attachments.map((a) => ({
       id: a.id, category: a.category, label: a.label, createdAt: a.createdAt.toISOString(),
       upload: {
         id: a.upload.id, url: a.upload.url, originalName: a.upload.originalName,
         mimeType: a.upload.mimeType, size: a.upload.size,
       },
-    })),
+    })) : [],
     user: employee.user
       ? {
           id: employee.user.id,
@@ -571,14 +577,16 @@ async function MobileEmployeeDetailContent({
           department: employee.user.department,
           joiningDate: employee.user.joiningDate ? employee.user.joiningDate.toISOString() : null,
           active: employee.user.active,
-          lastLoginAt: employee.user.lastLoginAt ? employee.user.lastLoginAt.toISOString() : null,
-          phoneVerified: employee.user.phoneVerified,
-          phoneVerifiedAt: employee.user.phoneVerifiedAt ? employee.user.phoneVerifiedAt.toISOString() : null,
-          phoneSyncedAt: employee.user.phoneSyncedAt ? employee.user.phoneSyncedAt.toISOString() : null,
+          // Account-status metadata — access-admin tier (users.manage|hr.manage).
+          lastLoginAt: accessScope.canSeeAccessInfo && employee.user.lastLoginAt ? employee.user.lastLoginAt.toISOString() : null,
+          phoneVerified: accessScope.canSeeAccessInfo ? employee.user.phoneVerified : null,
+          phoneVerifiedAt: accessScope.canSeeAccessInfo && employee.user.phoneVerifiedAt ? employee.user.phoneVerifiedAt.toISOString() : null,
+          phoneSyncedAt: accessScope.canSeeAccessInfo && employee.user.phoneSyncedAt ? employee.user.phoneSyncedAt.toISOString() : null,
         }
       : null,
-    // Multi-company: other Employee records for the same person
-    companyMemberships: employee.userId
+    // Multi-company: other Employee records for the same person — reveals
+    // group structure, comp tier.
+    companyMemberships: accessScope.canSeePayroll && employee.userId
       ? (await prisma.employee.findMany({
           where: { userId: employee.userId, deletedAt: null, id: { not: employee.id } },
           select: { id: true, companyId: true, active: true, company: { select: { name: true } } },
