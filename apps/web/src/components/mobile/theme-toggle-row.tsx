@@ -47,7 +47,7 @@ export function ThemeToggleRow() {
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-m-body font-semibold leading-tight" style={{ color: "var(--color-ink-950)" }}>
-          {dark ? "Dark mode" : "Light mode"}
+          Dark mode
         </p>
         <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
           Tap to switch theme
