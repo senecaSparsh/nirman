@@ -184,12 +184,20 @@ export function TelephonyView({
 // ── Numbers Tab ──
 function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; members: Member[]; canManage: boolean }) {
   const [showAdd, setShowAdd] = useState(false);
+  const [addMode, setAddMode] = useState<"own" | "nirman">("own");
   const [newNumber, setNewNumber] = useState("");
   const [newLabel, setNewLabel] = useState("");
   const [newType, setNewType] = useState("VIRTUAL");
+  const [newProvider, setNewProvider] = useState("MANUAL");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [confirm, confirmDialog] = useConfirm();
+
+  // Twilio browse state
+  const [twCountry, setTwCountry] = useState("IN");
+  const [twKind, setTwKind] = useState<"local" | "mobile" | "tollFree">("local");
+  const [twResults, setTwResults] = useState<{ phoneNumber: string; friendlyName: string | null; locality: string | null; region: string | null; capabilities: { sms: boolean } }[]>([]);
+  const [twSearched, setTwSearched] = useState(false);
 
   async function addNumber() {
     setLoading(true);
@@ -198,7 +206,7 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
       const res = await fetch("/api/telephony/numbers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phoneNumber: newNumber, label: newLabel, numberType: newType }),
+        body: JSON.stringify({ phoneNumber: newNumber, label: newLabel, numberType: newType, provider: newProvider }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -213,6 +221,35 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
     } catch {
       setError("Could not reach the server.");
     }
+    setLoading(false);
+  }
+
+  async function searchTwilio() {
+    setLoading(true);
+    setError("");
+    setTwSearched(true);
+    try {
+      const res = await fetch(`/api/telephony/twilio/available?country=${twCountry}&kind=${twKind}`);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) setTwResults(data.numbers ?? []);
+      else setError(data.error ?? "Search failed.");
+    } catch { setError("Could not reach the server."); }
+    setLoading(false);
+  }
+
+  async function provisionTwilio(phoneNumber: string) {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/telephony/twilio/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(data.error ?? "Provisioning failed."); setLoading(false); return; }
+      window.location.reload();
+    } catch { setError("Could not reach the server."); }
     setLoading(false);
   }
 
@@ -262,39 +299,128 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
         >
           {showAdd && (
             <div className="border-b border-border bg-subtle p-4 space-y-3">
-              <h3 className="text-body font-medium text-foreground">Add a company phone number</h3>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div className="space-y-1.5">
-                  <Label>Phone number</Label>
-                  <Input type="tel" value={newNumber} onChange={(e) => setNewNumber(e.target.value)} placeholder="+91 98765 43210" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Label (optional)</Label>
-                  <Input type="text" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Reception, Site office…" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Type</Label>
-                  <Select value={newType} onChange={(e) => setNewType(e.target.value)}>
-                    <option value="VIRTUAL">Virtual</option>
-                    <option value="MOBILE">Mobile (SIM)</option>
-                    <option value="LANDLINE">Landline</option>
-                    <option value="TOLL_FREE">Toll-free</option>
-                  </Select>
+              <div className="flex items-center justify-between">
+                <h3 className="text-body font-medium text-foreground">Add a company phone number</h3>
+                <div className="flex gap-1 rounded-md bg-concrete p-0.5">
+                  {(["own", "nirman"] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setAddMode(m)}
+                      className={`rounded px-2.5 py-1 text-caption font-medium ${addMode === m ? "bg-card text-foreground shadow-sm" : "text-ink-500"}`}
+                    >
+                      {m === "own" ? "Use my own" : "Get from Nirman"}
+                    </button>
+                  ))}
                 </div>
               </div>
-              {error && (
-                <p className="flex items-start gap-1.5 rounded-md bg-danger-soft px-2.5 py-2 text-caption text-danger">
-                  <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" />
-                  <span>{error}</span>
-                </p>
+
+              {addMode === "own" ? (
+                <>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+                    <div className="space-y-1.5">
+                      <Label>Phone number</Label>
+                      <Input type="tel" value={newNumber} onChange={(e) => setNewNumber(e.target.value)} placeholder="+91 98765 43210" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Label (optional)</Label>
+                      <Input type="text" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Reception, Site office…" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Type</Label>
+                      <Select value={newType} onChange={(e) => setNewType(e.target.value)}>
+                        <option value="VIRTUAL">Virtual</option>
+                        <option value="MOBILE">Mobile (SIM)</option>
+                        <option value="LANDLINE">Landline</option>
+                        <option value="TOLL_FREE">Toll-free</option>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Provider</Label>
+                      <Select value={newProvider} onChange={(e) => setNewProvider(e.target.value)}>
+                        <option value="MANUAL">Manual</option>
+                        <option value="EXOTEL">Exotel</option>
+                        <option value="KNOWLARITY">Knowlarity</option>
+                        <option value="AIRTEL">Airtel</option>
+                        <option value="JIO">Jio</option>
+                        <option value="OTHER">Other</option>
+                      </Select>
+                    </div>
+                  </div>
+                  {error && (
+                    <p className="flex items-start gap-1.5 rounded-md bg-danger-soft px-2.5 py-2 text-caption text-danger">
+                      <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" />
+                      <span>{error}</span>
+                    </p>
+                  )}
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={addNumber} disabled={loading || !newNumber.trim()}>
+                      {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      Add
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-caption text-ink-500">
+                    We provision a tracked number on our telephony account — inbound calls auto-route to the assigned staff member with recording.
+                  </p>
+                  <div className="flex gap-3 items-end">
+                    <div className="space-y-1.5">
+                      <Label>Country</Label>
+                      <Select value={twCountry} onChange={(e) => setTwCountry(e.target.value)}>
+                        <option value="IN">India</option>
+                        <option value="US">USA</option>
+                        <option value="GB">UK</option>
+                        <option value="AE">UAE</option>
+                      </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Kind</Label>
+                      <Select value={twKind} onChange={(e) => setTwKind(e.target.value as typeof twKind)}>
+                        <option value="local">Local</option>
+                        <option value="mobile">Mobile</option>
+                        <option value="tollFree">Toll-free</option>
+                      </Select>
+                    </div>
+                    <Button size="sm" variant="secondary" onClick={searchTwilio} disabled={loading}>
+                      {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      Search
+                    </Button>
+                  </div>
+                  {error && (
+                    <p className="flex items-start gap-1.5 rounded-md bg-danger-soft px-2.5 py-2 text-caption text-danger">
+                      <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" />
+                      <span>{error}</span>
+                    </p>
+                  )}
+                  {twSearched && twResults.length === 0 && !loading && !error && (
+                    <p className="text-caption text-ink-500">
+                      No numbers available for this country/type.
+                      {twCountry === "IN" && " Indian numbers can't be sold through Twilio (TRAI/DoT rules) — use an Indian number you already own via \"Use my own\", or contact us to provision one through an Indian telephony partner."}
+                    </p>
+                  )}
+                  {twResults.length > 0 && (
+                    <div className="divide-y divide-border rounded-md border border-border">
+                      {twResults.map((n) => (
+                        <div key={n.phoneNumber} className="flex items-center justify-between px-3 py-2">
+                          <div>
+                            <p className="text-body font-medium text-foreground">{n.phoneNumber}</p>
+                            <p className="text-caption text-ink-500">
+                              {[n.locality, n.region].filter(Boolean).join(" · ") || n.friendlyName || "Twilio"}
+                              {n.capabilities.sms ? " · SMS" : ""}
+                            </p>
+                          </div>
+                          <Button size="sm" onClick={() => provisionTwilio(n.phoneNumber)} disabled={loading}>Get</Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div>
+                    <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Button>
+                  </div>
+                </>
               )}
-              <div className="flex gap-2">
-                <Button size="sm" onClick={addNumber} disabled={loading || !newNumber.trim()}>
-                  {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  Add
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Button>
-              </div>
             </div>
           )}
 

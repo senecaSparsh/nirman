@@ -35,6 +35,7 @@ import type { LandParcelRow, LandParcelSummary, LandPurchaseRow, LandCostCompone
 import { useTabParam } from "@/lib/use-tab-param";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
 import { useConfirm } from "@/lib/use-confirm";
+import { usePrompt } from "@/lib/use-prompt";
 
 export type LandHubData = {
   purchase: {
@@ -235,6 +236,7 @@ export function LandHub({ data }: { data: LandHubData }) {
   const [editingCostComponent, setEditingCostComponent] = useState<LandCostComponentRow | null>(null);
   const router = useRouter();
   const [confirm, confirmDialog] = useConfirm();
+  const [prompt, promptDialog] = usePrompt();
 
   const isBooked = purchase.purchaseStage === "BOOKED";
   const isBbaSigned = purchase.purchaseStage === "BBA_SIGNED";
@@ -246,8 +248,14 @@ export function LandHub({ data }: { data: LandHubData }) {
   const payments = purchase.payments ?? [];
 
   async function handleCreateProject() {
-    const name = window.prompt("Enter project name", `${purchase.sellerName} Development`);
-    if (!name) return;
+    const name = await prompt({
+      title: "Create project",
+      description: "A new project will be created and linked to this land parcel.",
+      label: "Project name",
+      defaultValue: `${purchase.sellerName} Development`,
+      confirmLabel: "Create",
+    });
+    if (name === null || !name.trim()) return;
     setCreateProjectLoading(true);
     try {
       const res = await fetch(`/api/land-purchases/${purchase.id}/create-project`, {
@@ -1088,6 +1096,7 @@ export function LandHub({ data }: { data: LandHubData }) {
         onSuccess={() => router.refresh()}
       />
       {confirmDialog}
+      {promptDialog}
     </div>
   );
 }

@@ -27,6 +27,7 @@ import {
   type MobileColumnSpec,
 } from "@/components/mobile/v2/export-share-bar";
 import { MobileLoadMore, usePaginatedList } from "@/components/mobile/v2/load-more";
+import { usePrompt } from "@/lib/use-prompt";
 
 type ReqStatus =
   | "ALL"
@@ -263,6 +264,7 @@ function ReqCard({ req, canApprove, currentUserId, canSelfApprove, onAction }: {
   const now = useHydratedDate();
   const [menuOpen, setMenuOpen] = useState(false);
   const { bind: longPressBind } = useLongPress(() => setMenuOpen(true));
+  const [prompt, promptDialog] = usePrompt();
   const style = STATUS_STYLE[req.status] ?? STATUS_STYLE.DRAFT!;
   const accentColor = style.color;
 
@@ -285,8 +287,15 @@ function ReqCard({ req, canApprove, currentUserId, canSelfApprove, onAction }: {
   }, [req.id, req.reqNumber, onAction]);
 
   const handleReject = useCallback(async () => {
-    const reason = window.prompt("Reason for rejecting this indent?") ?? "";
-    if (!reason.trim()) return;
+    const reason = await prompt({
+      title: "Reject indent",
+      description: `Reject ${req.reqNumber}? The requester will see this reason.`,
+      label: "Reason",
+      placeholder: "Why is this indent being rejected?",
+      multiline: true,
+      confirmLabel: "Reject",
+    });
+    if (reason === null || !reason.trim()) return;
     haptic(10);
     try {
       const res = await fetch(`/api/requisitions/${req.id}`, {
@@ -301,7 +310,7 @@ function ReqCard({ req, canApprove, currentUserId, canSelfApprove, onAction }: {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Action failed");
     }
-  }, [req.id, req.reqNumber, onAction]);
+  }, [req.id, req.reqNumber, onAction, prompt]);
 
   const handleSubmit = useCallback(async () => {
     haptic(10);
@@ -565,6 +574,7 @@ function ReqCard({ req, canApprove, currentUserId, canSelfApprove, onAction }: {
           subtitle={req.projectName ?? undefined}
           actions={contextActions}
         />
+        {promptDialog}
       </>
     );
   }
@@ -578,6 +588,7 @@ function ReqCard({ req, canApprove, currentUserId, canSelfApprove, onAction }: {
         subtitle={req.projectName ?? undefined}
         actions={contextActions}
       />
+      {promptDialog}
     </>
   );
 }

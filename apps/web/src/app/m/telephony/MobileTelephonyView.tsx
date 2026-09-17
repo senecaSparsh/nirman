@@ -243,7 +243,7 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
     setLoading(false);
   }
 
-  if (numbers.length === 0) {
+  if (numbers.length === 0 && !canManage) {
     return (
       <MobileNoResults
         title="No company numbers"
@@ -254,7 +254,14 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
 
   return (
     <>
+    {canManage && <AddNumberPanel twilioCount={numbers.filter((n) => n.provider === "TWILIO").length} />}
     <div className="space-y-2">
+      {numbers.length === 0 && (
+        <MobileNoResults
+          title="No company numbers"
+          hint="Add a phone number to start tracking calls."
+        />
+      )}
       {numbers.map((n) => {
         const expanded = expandedId === n.id;
         const isAssigning = assigningId === n.id;
@@ -398,6 +405,229 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
     </div>
     {confirmDialog}
     </>
+  );
+}
+
+// ── Add-number panel — two paths: bring your own, or provision from Nirman ──
+function AddNumberPanel({ twilioCount }: { twilioCount: number }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"own" | "nirman">("own");
+  const [busy, setBusy] = useState(false);
+
+  // Own-number form
+  const [ownNumber, setOwnNumber] = useState("");
+  const [ownLabel, setOwnLabel] = useState("");
+  const [ownType, setOwnType] = useState("MOBILE");
+  const [ownProvider, setOwnProvider] = useState("MANUAL");
+
+  // Twilio browse
+  const [country, setCountry] = useState("IN");
+  const [kind, setKind] = useState<"local" | "mobile" | "tollFree">("local");
+  const [available, setAvailable] = useState<{ phoneNumber: string; friendlyName: string | null; locality: string | null; region: string | null; capabilities: { voice: boolean; sms: boolean } }[]>([]);
+  const [searched, setSearched] = useState(false);
+
+  async function addOwnNumber() {
+    if (!ownNumber.trim()) { toast.error("Enter the phone number"); return; }
+    setBusy(true);
+    try {
+      const res = await fetch("/api/telephony/numbers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber: ownNumber.trim(), label: ownLabel.trim() || undefined, numberType: ownType, provider: ownProvider }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        toast.success("Number added");
+        haptic();
+        setOpen(false);
+        setOwnNumber(""); setOwnLabel("");
+        router.refresh();
+      } else {
+        toast.error(data.error ?? "Could not add number");
+      }
+    } catch { toast.error("Network error"); }
+    setBusy(false);
+  }
+
+  async function searchTwilio() {
+    setBusy(true);
+    setSearched(true);
+    try {
+      const res = await fetch(`/api/telephony/twilio/available?country=${country}&kind=${kind}`);
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) setAvailable(data.numbers ?? []);
+      else toast.error(data.error ?? "Search failed");
+    } catch { toast.error("Network error"); }
+    setBusy(false);
+  }
+
+  async function provision(phoneNumber: string) {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/telephony/twilio/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        toast.success(`Provisioned ${data.phone?.phoneNumber ?? phoneNumber}`);
+        haptic();
+        setOpen(false);
+        router.refresh();
+      } else {
+        toast.error(data.error ?? "Provisioning failed");
+      }
+    } catch { toast.error("Network error"); }
+    setBusy(false);
+  }
+
+  if (!open) {
+    return (
+      <Button variant="signal" size="md" fullWidth onClick={() => { haptic(10); setOpen(true); }}>
+        <Plus className="size-4" /> Add a company number
+      </Button>
+    );
+  }
+
+  return (
+    <Card className="p-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>Add a number</p>
+        <button onClick={() => setOpen(false)} className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Close</button>
+      </div>
+
+      {/* Mode switch */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setMode("own")}
+          className="flex-1 rounded-lg px-3 py-2 text-m-label font-semibold"
+          style={{
+            backgroundColor: mode === "own" ? "var(--color-signal)" : "var(--color-concrete)",
+            color: mode === "own" ? "#fff" : "var(--color-ink-700)",
+          }}
+        >
+          Use my own
+        </button>
+        <button
+          onClick={() => setMode("nirman")}
+          className="flex-1 rounded-lg px-3 py-2 text-m-label font-semibold"
+          style={{
+            backgroundColor: mode === "nirman" ? "var(--color-signal)" : "var(--color-concrete)",
+            color: mode === "nirman" ? "#fff" : "var(--color-ink-700)",
+          }}
+        >
+          Get from Nirman
+        </button>
+      </div>
+
+      {mode === "own" ? (
+        <div className="space-y-2">
+          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+            Add a number you already have — calls get logged manually and the number is assignable to staff.
+          </p>
+          <input
+            value={ownNumber}
+            onChange={(e) => setOwnNumber(e.target.value)}
+            placeholder="+91 98765 43210"
+            className="w-full rounded-lg px-3 py-2.5 text-m-body"
+            style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-950)" }}
+          />
+          <input
+            value={ownLabel}
+            onChange={(e) => setOwnLabel(e.target.value)}
+            placeholder="Label — e.g. Site office, Sales line"
+            className="w-full rounded-lg px-3 py-2.5 text-m-body"
+            style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-950)" }}
+          />
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <MobileSelectWithCreate
+                label="Type"
+                value={ownType}
+                onChange={setOwnType}
+                options={["MOBILE", "LANDLINE", "VIRTUAL", "TOLL_FREE"].map((t) => ({ value: t, label: t.replace(/_/g, " ") }))}
+              />
+            </div>
+            <div className="flex-1">
+              <MobileSelectWithCreate
+                label="Provider"
+                value={ownProvider}
+                onChange={setOwnProvider}
+                options={["MANUAL", "EXOTEL", "KNOWLARITY", "AIRTEL", "JIO", "OTHER"].map((p) => ({ value: p, label: p }))}
+              />
+            </div>
+          </div>
+          <Button variant="signal" size="md" fullWidth onClick={addOwnNumber} disabled={busy}>
+            {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+            Add number
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+            We provision a tracked number on our telephony account — inbound calls auto-route to the assigned staff member with recording.
+          </p>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <MobileSelectWithCreate
+                label="Country"
+                value={country}
+                onChange={setCountry}
+                options={[{ value: "IN", label: "India" }, { value: "US", label: "USA" }, { value: "GB", label: "UK" }, { value: "AE", label: "UAE" }]}
+              />
+            </div>
+            <div className="flex-1">
+              <MobileSelectWithCreate
+                label="Kind"
+                value={kind}
+                onChange={(v) => setKind(v as typeof kind)}
+                options={[{ value: "local", label: "Local" }, { value: "mobile", label: "Mobile" }, { value: "tollFree", label: "Toll-free" }]}
+              />
+            </div>
+          </div>
+          <Button variant="secondary" size="md" fullWidth onClick={searchTwilio} disabled={busy}>
+            {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+            Search available numbers
+          </Button>
+
+          {searched && available.length === 0 && !busy && (
+            <div className="rounded-lg px-3 py-2.5" style={{ backgroundColor: "var(--color-concrete)" }}>
+              <p className="text-m-caption" style={{ color: "var(--color-ink-600)" }}>
+                No numbers available for this country/type.
+              </p>
+              {country === "IN" && (
+                <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
+                  Indian numbers can&apos;t be sold through Twilio (TRAI/DoT rules) — use an Indian
+                  number you already own via &ldquo;Use my own&rdquo;, or contact us to provision one through
+                  an Indian telephony partner.
+                </p>
+              )}
+            </div>
+          )}
+          {available.map((n) => (
+            <div key={n.phoneNumber} className="flex items-center justify-between rounded-lg px-3 py-2" style={{ backgroundColor: "var(--color-concrete)" }}>
+              <div className="min-w-0">
+                <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>{n.phoneNumber}</p>
+                <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                  {[n.locality, n.region].filter(Boolean).join(" · ") || n.friendlyName || "Twilio"}
+                  {n.capabilities.sms ? " · SMS" : ""}
+                </p>
+              </div>
+              <Button variant="signal" size="md" onClick={() => provision(n.phoneNumber)} disabled={busy}>
+                Get
+              </Button>
+            </div>
+          ))}
+          {twilioCount > 0 && (
+            <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
+              You already have {twilioCount} Twilio number{twilioCount > 1 ? "s" : ""}.
+            </p>
+          )}
+        </div>
+      )}
+    </Card>
   );
 }
 

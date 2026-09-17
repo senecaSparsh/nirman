@@ -13,6 +13,7 @@ import {formatCurrencyCompact, formatDate} from "@/lib/utils";
 import { toast } from "sonner";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { TrackedCallButton } from "@/components/calls/TrackedCallButton";
 import { DetailAlertBanner, DetailProgress } from "@/components/mobile/v2/detail-primitives";
 
 /* ─── Types ─── */
@@ -138,14 +139,7 @@ export function MobileCustomerDetailClient({
           {/* Quick action buttons — call + email */}
           <div className="flex gap-2 mb-3">
             {data.phone ? (
-              <a
-                href={`tel:${data.phone}`}
-                className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press"
-                style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
-              >
-                <Phone className="size-3.5" />
-                Call
-              </a>
+              <TrackedCallButton phone={data.phone} relatedCustomerId={data.id} />
             ) : null}
             {data.email ? (
               <a

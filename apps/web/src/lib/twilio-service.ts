@@ -304,6 +304,99 @@ export async function configureNumberWebhook(
   return { voiceUrl, statusCallback };
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   NUMBER PROVISIONING — search Twilio's available inventory and purchase
+   numbers on the platform's shared account so a company can "get a number
+   from us" instead of bringing their own.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+export interface AvailableNumber {
+  phoneNumber: string;
+  friendlyName: string | null;
+  locality: string | null;
+  region: string | null;
+  isoCountry: string;
+  capabilities: { voice: boolean; sms: boolean; mms: boolean };
+}
+
+export type TwilioNumberKind = "local" | "mobile" | "tollFree";
+
+/**
+ * Search Twilio's available-number inventory for a country. Read-only —
+ * searching costs nothing; only purchaseNumber bills the account.
+ */
+export async function searchAvailableNumbers(opts: {
+  country: string;
+  kind?: TwilioNumberKind;
+  areaCode?: string;
+  contains?: string;
+  limit?: number;
+}): Promise<AvailableNumber[]> {
+  const client = getTwilioClient();
+  if (!client) throw new Error("Twilio not configured");
+
+  const country = (opts.country || "IN").toUpperCase();
+  const kind = opts.kind ?? "local";
+  const limit = Math.min(30, Math.max(1, opts.limit ?? 12));
+  const query: Record<string, unknown> = { limit };
+  if (opts.areaCode) query.areaCode = parseInt(opts.areaCode, 10);
+  if (opts.contains) query.contains = opts.contains;
+  // Voice capability is the whole point — filter to voice-capable numbers
+  query.voiceEnabled = true;
+
+  const inventory = client.availablePhoneNumbers(country);
+  const list =
+    kind === "mobile"
+      ? await inventory.mobile.list(query)
+      : kind === "tollFree"
+        ? await inventory.tollFree.list(query)
+        : await inventory.local.list(query);
+
+  return list.map((n) => ({
+    phoneNumber: n.phoneNumber,
+    friendlyName: n.friendlyName ?? null,
+    locality: n.locality ?? null,
+    region: n.region ?? null,
+    isoCountry: n.isoCountry ?? country,
+    capabilities: {
+      voice: n.capabilities?.voice ?? false,
+      sms: n.capabilities?.sms ?? false,
+      mms: n.capabilities?.mms ?? false,
+    },
+  }));
+}
+
+/**
+ * Purchase a number from Twilio onto the platform account and wire its
+ * voice + status webhooks to this app in one step — the number is
+ * immediately routable (inbound → voice webhook → staff <Dial>).
+ */
+export async function purchaseTwilioNumber(
+  phoneNumber: string,
+  webhookBaseUrl: string,
+  companyId: string,
+): Promise<{ sid: string; phoneNumber: string; friendlyName: string | null }> {
+  const client = getTwilioClient();
+  if (!client) throw new Error("Twilio not configured");
+
+  const voiceUrl = `${webhookBaseUrl}/api/telephony/webhook/twilio/voice?companyId=${companyId}`;
+  const statusCallback = `${webhookBaseUrl}/api/telephony/webhook/twilio/status?companyId=${companyId}`;
+
+  const purchased = await client.incomingPhoneNumbers.create({
+    phoneNumber,
+    voiceUrl,
+    voiceMethod: "POST",
+    statusCallback,
+    statusCallbackMethod: "POST",
+  });
+
+  return {
+    sid: purchased.sid,
+    phoneNumber: purchased.phoneNumber,
+    friendlyName: purchased.friendlyName ?? null,
+  };
+}
+
 /**
  * Remove webhook configuration from a Twilio number (when a company
  * stops using it). Also free.
@@ -320,6 +413,62 @@ export async function clearNumberWebhook(numberSid: string): Promise<void> {
       statusCallback: "",
       statusCallbackMethod: "POST",
     });
+}
+
+/**
+ * Fully release a Twilio number — removes it from the account and stops
+ * billing. Used when a company deletes a provisioned number AND wants to
+ * give it up (vs. just clearing webhooks to keep it in the pool).
+ */
+export async function releaseTwilioNumber(numberSid: string): Promise<void> {
+  const client = getTwilioClient();
+  if (!client) throw new Error("Twilio not configured");
+  await client.incomingPhoneNumbers(numberSid).remove();
+}
+
+/**
+ * Originate a click-to-call bridge: Twilio calls the STAFF member's phone
+ * first; when they answer, the bridge TwiML <Dial>s the customer with the
+ * staff member's number as the customer-facing caller ID (verified
+ * caller ID on the account). Customer sees a normal call from the staff
+ * member's own number — the platform number is never shown to them.
+ *
+ * Returns the Twilio CallSid (becomes CallLog.providerCallId — the same
+ * upsert key the status webhook uses, so call lifecycle + recording land
+ * on the same row).
+ */
+export async function originateBridgedCall(opts: {
+  staffPhoneE164: string;
+  customerNumberE164: string;
+  callerIdE164: string;
+  twilioNumberE164: string;
+  bridgeBaseUrl: string;
+  companyId: string;
+}): Promise<{ sid: string; status: string }> {
+  const client = getTwilioClient();
+  if (!client) throw new Error("Twilio not configured");
+
+  const bridgeUrl =
+    `${opts.bridgeBaseUrl}/api/telephony/twilio/bridge` +
+    `?companyId=${encodeURIComponent(opts.companyId)}` +
+    `&to=${encodeURIComponent(opts.customerNumberE164)}` +
+    `&callerId=${encodeURIComponent(opts.callerIdE164)}`;
+
+  const statusCallback =
+    `${opts.bridgeBaseUrl}/api/telephony/webhook/twilio/status` +
+    `?companyId=${encodeURIComponent(opts.companyId)}`;
+
+  const call = await client.calls.create({
+    to: opts.staffPhoneE164,
+    from: opts.twilioNumberE164,
+    url: bridgeUrl,
+    method: "POST",
+    statusCallback,
+    statusCallbackMethod: "POST",
+    statusCallbackEvent: ["initiated", "ringing", "answered", "completed"],
+  });
+
+  return { sid: call.sid, status: call.status };
 }
 
 // ── Helpers ──

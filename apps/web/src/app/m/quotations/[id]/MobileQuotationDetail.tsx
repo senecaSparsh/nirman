@@ -538,6 +538,7 @@ function ComparativeSheet({
   // Syncs from props but is updated optimistically after each inline edit.
   const [localQuotes, setLocalQuotes] = useState<Quote[]>(quotes);
   useEffect(() => { setLocalQuotes(quotes); }, [quotes]);
+  const [confirm, confirmDialog] = useConfirm();
 
   const sortedQuotes = useMemo(
     () => [...localQuotes].sort((a, b) => a.landedTotal - b.landedTotal),
@@ -558,7 +559,12 @@ function ComparativeSheet({
 
   // ── Delete a quote from the request ──
   async function onDeleteQuote(quoteId: string) {
-    const ok = window.confirm("Delete this quote? This will remove the quote from the comparison.");
+    const ok = await confirm({
+      title: "Delete quote?",
+      description: "This will remove the quote from the comparison.",
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
     if (!ok) return;
     setDeletingQuoteId(quoteId);
     try {
@@ -1427,6 +1433,7 @@ function ComparativeSheet({
         </button>
       </div>
       {batchStarts.map((start) => renderBatchTable(start))}
+      {confirmDialog}
     </div>
   );
 }

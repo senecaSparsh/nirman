@@ -10,6 +10,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Select } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { GlPreviewPanel } from "@/components/finance/gl-preview-panel";
+import { useConfirm } from "@/lib/use-confirm";
 import type { GlPreviewLine } from "@nirman/services/gl-preview";
 import type { LandCostComponentRow } from "@/lib/types";
 import { localDateISO } from "@/lib/utils";
@@ -37,6 +38,7 @@ export function LandCostComponentDialog({
   editing?: LandCostComponentRow | null;
 }) {
   const router = useRouter();
+  const [confirm, confirmDialog] = useConfirm();
   const [saving, setSaving] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [previewLines, setPreviewLines] = useState<GlPreviewLine[]>([]);
@@ -155,7 +157,13 @@ export function LandCostComponentDialog({
 
   async function onDelete() {
     if (!editing) return;
-    if (!window.confirm(`Delete "${editing.label}"? This reverses its GL entries and reduces the land total.`)) return;
+    const ok = await confirm({
+      title: "Delete cost component?",
+      description: `Delete "${editing.label}"? This reverses its GL entries and reduces the land total.`,
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!ok) return;
     setSaving(true);
     try {
       const res = await fetch(
@@ -175,6 +183,7 @@ export function LandCostComponentDialog({
   }
 
   return (
+    <>
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
@@ -329,5 +338,7 @@ export function LandCostComponentDialog({
         </div>
       </form>
     </Dialog>
+    {confirmDialog}
+    </>
   );
 }

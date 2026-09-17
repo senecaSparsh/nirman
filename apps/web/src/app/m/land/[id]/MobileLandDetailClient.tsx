@@ -23,6 +23,7 @@ import { DetailKeyValue, DetailAlertBanner } from "@/components/mobile/v2/detail
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { useConfirm } from "@/lib/use-confirm";
+import { usePrompt } from "@/lib/use-prompt";
 import { toast } from "sonner";
 
 /* ─── Types ─── */
@@ -278,6 +279,7 @@ export function MobileLandDetailClient({
   const [view, setView] = useState<"parcels" | "units">("parcels");
   const [cadastreZoom, setCadastreZoom] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
+  const [prompt, promptDialog] = usePrompt();
 
   // Staged purchase state
   const [showPayment, setShowPayment] = useState(false);
@@ -375,8 +377,14 @@ export function MobileLandDetailClient({
 
   async function handleCreateProject() {
     if (!data) return;
-    const name = window.prompt("Enter project name", `${data.sellerName ?? "Land"} Development`);
-    if (!name) return;
+    const name = await prompt({
+      title: "Create project",
+      description: "A new project will be created and linked to this land parcel.",
+      label: "Project name",
+      defaultValue: `${data.sellerName ?? "Land"} Development`,
+      confirmLabel: "Create",
+    });
+    if (name === null || !name.trim()) return;
     setCreateProjectLoading(true);
     try {
       const res = await fetch(`/api/land-purchases/${data.id}/create-project`, {
@@ -1622,6 +1630,7 @@ export function MobileLandDetailClient({
       ) : null}
 
       {confirmDialog}
+      {promptDialog}
     </div>
   );
 }

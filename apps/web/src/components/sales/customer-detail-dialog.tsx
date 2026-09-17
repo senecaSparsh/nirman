@@ -10,6 +10,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { AttachmentList } from "@/components/attachments/attachment-list";
+import { useConfirm } from "@/lib/use-confirm";
 import type { AssetSaleRow, CustomerRow } from "@/lib/types";
 
 /**
@@ -31,6 +32,7 @@ export function CustomerDetailDialog({
   onSelectSale?: (sale: AssetSaleRow) => void;
 }) {
   const router = useRouter();
+  const [confirm, confirmDialog] = useConfirm();
   const [editOpen, setEditOpen] = useState(false);
 
   const customerSales = useMemo(
@@ -49,7 +51,13 @@ export function CustomerDetailDialog({
 
   async function handleDelete() {
     if (!customer) return;
-    if (!window.confirm(`Delete customer "${customer.name}"?`)) return;
+    const ok = await confirm({
+      title: "Delete customer?",
+      description: `Delete customer "${customer.name}"? This cannot be undone.`,
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!ok) return;
     try {
       const response = await fetch(`/api/customers/${customer.id}`, { method: "DELETE" });
       const data = await response.json();
@@ -220,6 +228,7 @@ export function CustomerDetailDialog({
           }}
         />
       )}
+      {confirmDialog}
     </>
   );
 }

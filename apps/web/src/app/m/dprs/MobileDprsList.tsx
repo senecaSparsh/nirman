@@ -23,6 +23,7 @@ import {
   type MobileColumnSpec,
 } from "@/components/mobile/v2/export-share-bar";
 import { MobileLoadMore, usePaginatedList } from "@/components/mobile/v2/load-more";
+import { usePrompt } from "@/lib/use-prompt";
 
 type DprApprovalFilter =
   | "ALL"
@@ -316,6 +317,7 @@ function DprStrip({
   const info = STATUS_INFO[dpr.approvalStatus] ?? STATUS_INFO.SUBMITTED!;
   const isRejected = dpr.approvalStatus === "REJECTED";
   const pct = Math.min(dpr.progressPct, 100);
+  const [prompt, promptDialog] = usePrompt();
 
   // ── Permission + creator gate: only show approve/reject to users who have
   //    the right approval permission AND did not submit this DPR themselves.
@@ -351,11 +353,15 @@ function DprStrip({
 
   const handleReject = useCallback(async () => {
     haptic(10);
-    const reason = window.prompt("Reason for rejection (required):");
-    if (!reason?.trim()) {
-      if (reason !== null) toast.error("Rejection reason is required");
-      return;
-    }
+    const reason = await prompt({
+      title: "Reject DPR",
+      description: `Reject the ${formatDate(dpr.date)} report for ${dpr.projectName}? The submitter will see this reason.`,
+      label: "Reason",
+      placeholder: "Why is this DPR being rejected?",
+      multiline: true,
+      confirmLabel: "Reject",
+    });
+    if (reason === null || !reason.trim()) return;
     try {
       const res = await fetch(`/api/dprs/${dpr.id}`, {
         method: "PATCH",
@@ -369,7 +375,7 @@ function DprStrip({
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Action failed");
     }
-  }, [dpr.id, onAction]);
+  }, [dpr.id, dpr.date, dpr.projectName, onAction, prompt]);
 
   const swipeActions = canSwipeApprove
     ? [
@@ -483,12 +489,15 @@ function DprStrip({
   // Wrap in SwipeableListItem if there are swipe actions, otherwise return as-is
   if (swipeActions.length > 0) {
     return (
-      <SwipeableListItem actions={swipeActions} className="rounded-[0.625rem]">
-        {card}
-      </SwipeableListItem>
+      <>
+        <SwipeableListItem actions={swipeActions} className="rounded-[0.625rem]">
+          {card}
+        </SwipeableListItem>
+        {promptDialog}
+      </>
     );
   }
-  return card;
+  return <>{card}{promptDialog}</>;
 }
 
 /* ── Approval step dot ── */

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Figure, StatusPill } from "@/components/page";
+import { useConfirm } from "@/lib/use-confirm";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { LeadDetail, LeadRow, LeadStage } from "@/lib/types";
 
@@ -42,6 +43,7 @@ export function LeadDetailDialog({
     open && lead ? `/api/leads/${lead.id}` : null,
   );
   const [saving, setSaving] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
   const [assignedToId, setAssignedToId] = useState<string>("");
   const [stage, setStage] = useState<LeadStage>("CONTACTED");
   const [lostReason, setLostReason] = useState("");
@@ -133,7 +135,13 @@ export function LeadDetailDialog({
 
   async function handleDelete() {
     if (!lead) return;
-    if (!window.confirm(`Delete lead "${lead.name}"?`)) return;
+    const ok = await confirm({
+      title: "Delete lead?",
+      description: `Delete lead "${lead.name}"? This cannot be undone.`,
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!ok) return;
     setSaving(true);
     try {
       const response = await fetch(`/api/leads/${lead.id}`, { method: "DELETE" });
@@ -180,6 +188,7 @@ export function LeadDetailDialog({
   const nextStages = NEXT_STAGES[current.stage];
 
   return (
+    <>
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
@@ -338,5 +347,7 @@ export function LeadDetailDialog({
         </div>
       )}
     </Dialog>
+    {confirmDialog}
+    </>
   );
 }

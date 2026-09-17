@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from "react";
 import { Globe, ExternalLink } from "lucide-react";
-import Link from "next/link";
 import { formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -236,16 +235,23 @@ function ListingRow({ l }: { l: PortalListingItem }) {
         <div className="flex shrink-0 items-center gap-1.5">
           <MobileStatusBadge status={l.status} />
           {l.status === "LISTED" && l.listingUrl && (
-            <Link
-              href={l.listingUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            // Not a <Link> — MobileRow already renders the row as an <a>,
+            // and a nested anchor is invalid HTML (hydration error). A button
+            // + preventDefault opens the portal listing without triggering
+            // the row's own navigation.
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.open(l.listingUrl!, "_blank", "noopener");
+              }}
               className="flex h-6 w-6 items-center justify-center rounded-[0.375rem] text-m-body press"
               style={{ color: "var(--color-ink-500)" }}
               aria-label="Open listing"
             >
               <ExternalLink className="size-3.5" />
-            </Link>
+            </button>
           )}
         </div>
       }

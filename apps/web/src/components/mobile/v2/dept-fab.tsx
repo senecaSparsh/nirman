@@ -91,19 +91,18 @@ export function DeptFab({ items, badges, onOpenAll }: DeptFabProps) {
     return items.find((i) => chain.has(i.path))?.path;
   }, [pathname, items]);
 
-  // Fan geometry — upward arc centred on the FAB. Spread stays ≤96° so the
-  // end chips sit ≥42° above horizontal — clear of the bar below them and
-  // the corner FABs beside them. Past 5 chips a single arc crowds, so chips
-  // alternate between an outer ring (even indices — the ends land high) and
-  // an inner ring; neighbours then separate radially (~70px) instead of
-  // overlapping labels.
+  // Fan geometry — a true semicircle blooming AROUND the FAB: every chip sits
+  // on one circle, evenly spaced and symmetric about the vertical axis. The
+  // circle's centre is lifted LIFT px above the FAB so the end chips (nearest
+  // horizontal) still clear the tab bar and the corner FABs. Radius grows
+  // with count so adjacent chips keep ~45px+ of arc between them.
   const shown = items.slice(0, MAX_CHIPS - 1);
   const chipCount = shown.length + 1; // + "All"
-  const twoRing = chipCount > 5;
-  const spread = Math.min(96, (chipCount - 1) * (twoRing ? 14 : 30));
+  const LIFT = 44;
+  const spread = Math.min(140, (chipCount - 1) * 26); // degrees
+  const radius = chipCount >= 7 ? 130 : chipCount === 6 ? 118 : 112;
   const angleFor = (i: number) =>
     chipCount === 1 ? 90 : 90 + spread / 2 - (i * spread) / (chipCount - 1);
-  const radiusFor = (i: number) => (twoRing ? (i % 2 === 0 ? 178 : 100) : 104);
 
   const chips: { route?: RouteEntry; all?: boolean }[] = [
     ...shown.map((route) => ({ route })),
@@ -155,9 +154,8 @@ export function DeptFab({ items, badges, onOpenAll }: DeptFabProps) {
             <div className="pointer-events-none fixed inset-0 z-40">
               {chips.map((chip, i) => {
                 const angle = (angleFor(i) * Math.PI) / 180;
-                const radius = radiusFor(i);
                 const x = Math.cos(angle) * radius;
-                const y = -Math.sin(angle) * radius;
+                const y = -Math.sin(angle) * radius - LIFT;
                 const delay = open ? i * 35 : (chipCount - 1 - i) * 22;
                 const label = chip.all
                   ? "All"
@@ -202,6 +200,9 @@ export function DeptFab({ items, badges, onOpenAll }: DeptFabProps) {
                         backgroundColor: "var(--color-paper)",
                         border: "1px solid var(--color-line)",
                         color: "var(--color-ink-950)",
+                        // Nudge toward the dome's axis — on the descending
+                        // half a centered pill clips the next chip's circle.
+                        transform: `translateX(${(-(x / radius) * 12).toFixed(1)}px)`,
                       }}
                     >
                       {label}
@@ -212,6 +213,9 @@ export function DeptFab({ items, badges, onOpenAll }: DeptFabProps) {
                 const style: React.CSSProperties = {
                   left: center.x,
                   top: center.y,
+                  // The "All" chip sits lowest on the arc's right end — paint
+                  // it beneath dept chips so their label pills aren't clipped.
+                  zIndex: chip.all ? 0 : 1,
                   transform: open
                     ? `translate(-50%, -50%) translate(${x}px, ${y}px) scale(1)`
                     : "translate(-50%, -50%) scale(0.6)",

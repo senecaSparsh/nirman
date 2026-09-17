@@ -10,11 +10,11 @@ import {
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import { mobileStatusColor, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { TrackedCallButton } from "@/components/calls/TrackedCallButton";
 import { DetailHeroCard, DetailKeyValueCard, DetailStatGrid } from "@/components/mobile/v2/detail-primitives";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { useConfirm } from "@/lib/use-confirm";
-
 type PoStatus = "DRAFT" | "APPROVED" | "REJECTED" | "ORDERED" | "PARTIAL" | "RECEIVED" | "CANCELLED";
 
 type PoItem = {
@@ -188,14 +188,13 @@ export function MobileSupplierDetailClient({
       {/* ── Contact actions ── */}
       <div className="grid grid-cols-3 gap-1.5 mb-2">
         {phone ? (
-          <a
-            href={`tel:${phone}`}
-            className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-          >
-            <Phone className="size-3.5 mb-0.5" style={{ color: "var(--color-ink-700)" }} />
-            <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Call</span>
-          </a>
+          <TrackedCallButton
+            phone={phone}
+            relatedSupplierId={supplierId}
+            label="Call"
+            className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press font-bold text-m-caption"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          />
         ) : (
           <div
             className="flex flex-col items-center rounded-[0.5rem] border py-1.5"

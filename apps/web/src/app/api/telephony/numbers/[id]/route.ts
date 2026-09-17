@@ -3,7 +3,7 @@ import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { logAction } from "@nirman/services";
-import { clearNumberWebhook } from "@/lib/twilio-service";
+import { clearNumberWebhook, releaseTwilioNumber } from "@/lib/twilio-service";
 
 /**
  * GET /api/telephony/numbers/[id] — number detail with assignment history.
@@ -197,11 +197,20 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   // Twilio side so Twilio stops sending call events for a deleted number.
   // This is a free operation (just updating a URL). Failures are logged
   // but don't block the delete — the number is already soft-deleted locally.
+  // ?release=true additionally removes the number from the Twilio account
+  // entirely (stops billing); default keeps it in our pool for reuse.
   if (existing.provider === "TWILIO" && existing.providerNumberId) {
     try {
       await clearNumberWebhook(existing.providerNumberId);
     } catch (err) {
       console.error(`[numbers-delete] Failed to clear Twilio webhook for ${existing.phoneNumber}:`, err);
+    }
+    if (new URL(_req.url).searchParams.get("release") === "true") {
+      try {
+        await releaseTwilioNumber(existing.providerNumberId);
+      } catch (err) {
+        console.error(`[numbers-delete] Failed to release Twilio number ${existing.phoneNumber}:`, err);
+      }
     }
   }
 

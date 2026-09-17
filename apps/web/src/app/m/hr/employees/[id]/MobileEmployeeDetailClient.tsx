@@ -22,6 +22,7 @@ import {
 } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { DetailStatGrid } from "@/components/mobile/v2/detail-primitives";
+import { TrackedCallButton } from "@/components/calls/TrackedCallButton";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileProjectSelect, MobileStockLocationSelect, MobileEmployeeSelect } from "@/components/mobile/selectors";
@@ -430,13 +431,7 @@ export function MobileEmployeeDetailClient({
         {/* Quick contact actions — Call, SMS, Email (primary mobile actions) */}
         <div className="flex gap-1.5 px-3 pb-3">
           {phone ? (
-            <a
-              href={`tel:${phone.replace(/\s/g, "")}`}
-              className="flex-1 flex items-center justify-center gap-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press"
-              style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
-            >
-              <Phone className="size-3.5" /> Call
-            </a>
+            <TrackedCallButton phone={phone.replace(/\s/g, "")} />
           ) : null}
           {phone ? (
             <a

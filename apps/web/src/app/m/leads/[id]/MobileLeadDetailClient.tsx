@@ -20,6 +20,7 @@ import {
   DetailStatGrid,
 } from "@/components/mobile/v2/detail-primitives";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
+import { TrackedCallButton } from "@/components/calls/TrackedCallButton";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 interface LeadActivity {
@@ -227,14 +228,12 @@ export function MobileLeadDetailClient({
         {/* Quick actions — call + log */}
         <div className="flex items-center gap-2 mt-2">
           {lead.phone ? (
-            <a
-              href={`tel:${lead.phone}`}
+            <TrackedCallButton
+              phone={lead.phone}
+              label={lead.phone}
               className="flex items-center gap-1 text-m-caption font-semibold text-m-body press"
               style={{ color: "var(--color-steel)" }}
-            >
-              <Phone className="size-3" />
-              {lead.phone}
-            </a>
+            />
           ) : null}
           {lead.email ? (
             <a
