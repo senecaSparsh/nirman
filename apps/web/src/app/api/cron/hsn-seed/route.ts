@@ -21,8 +21,8 @@ import { apiHandler, json } from "@/lib/server";
  *
  * Auth: requires CRON_SECRET header.
  *
- * Render cron config (in render.yaml):
- *   schedule: "0 3 * * 1"  # weekly on Monday at 3am UTC
+ * Caller: the scheduler sidecar (apps/web/scripts/scheduler.sh) — weekly
+ * (`loop 604800`).
  */
 export const POST = apiHandler(async (req: NextRequest) => {
   const cronSecret = req.headers.get("x-cron-secret");

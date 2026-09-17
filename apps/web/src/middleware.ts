@@ -102,8 +102,8 @@ export function isAuthRateLimitedPath(pathname: string): boolean {
 // ── Edge-compatible auth rate limiter ──────────────────────────
 // Simple in-memory token bucket for auth endpoints. Edge runtime can't
 // use node:os/node:fs (the main rate-limit.ts), so this is a lightweight
-// standalone limiter. State persists within a single instance (Render
-// single-instance deploy). 10 attempts per IP per minute.
+// standalone limiter. State persists within a single instance (single-
+// instance deploy). 10 attempts per IP per minute.
 const authBuckets = new Map<string, { count: number; resetAt: number }>();
 const AUTH_WINDOW_MS = 60_000;
 const AUTH_MAX_ATTEMPTS = 10;

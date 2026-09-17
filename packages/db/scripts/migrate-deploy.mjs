@@ -4,7 +4,7 @@
  * Ensures DIRECT_URL is set before running `prisma migrate deploy`.
  * The schema uses `directUrl = env("DIRECT_URL")` for non-pooled
  * migration connections (Prisma recommends a direct connection for
- * migrations, not a pooled one). But on Render, the `DIRECT_URL` env
+ * migrations, not a pooled one). On some hosts, the `DIRECT_URL` env
  * var may not be set in the dashboard (blueprint updates don't always
  * sync env vars to existing services). This wrapper falls back to
  * `DATABASE_URL` so migrations work even without explicit `DIRECT_URL`.

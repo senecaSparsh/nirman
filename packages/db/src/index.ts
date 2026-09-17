@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from "./generated/prisma";
+import { PrismaClient } from "./generated/prisma";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -13,9 +13,9 @@ const globalForPrisma = globalThis as unknown as {
  * function only ever runs on the server (inside createPrismaClient).
  */
 function detectTotalMemoryMB(): number {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
+   
   const _require = eval("require") as NodeRequire;
-  // cgroup v2 (Render, Docker, K8s)
+  // cgroup v2 (Docker, K8s, VPS)
   try {
     const max = _require("node:fs").readFileSync("/sys/fs/cgroup/memory.max", "utf8").trim();
     if (max && max !== "max") {
@@ -44,7 +44,7 @@ function detectTotalMemoryMB(): number {
  * Each connection uses ~5-10MB. On 512MB we can only afford 3-4;
  * on 8GB, 20 is fine. Formula: max(3, min(20, totalMB / 128)).
  *
- * This runs once at startup. When you upgrade your Render plan,
+ * This runs once at startup. When you upgrade the container/VPS memory,
  * the new instance detects the higher memory and scales up automatically.
  */
 function getRecommendedConnectionLimit(): number {
@@ -56,7 +56,7 @@ function getRecommendedConnectionLimit(): number {
  * Prisma client with auto-scaling connection pool.
  *
  * If DATABASE_URL already has `connection_limit=` set (via .env or
- * Render dashboard), that takes precedence — we respect explicit config.
+ * Coolify env settings), that takes precedence — we respect explicit config.
  * If not, we auto-append the recommended limit based on detected RAM.
  *
  * Error handling: apiHandler catches P2024 (pool exhausted) → 503,

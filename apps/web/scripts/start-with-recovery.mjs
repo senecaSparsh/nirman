@@ -6,21 +6,21 @@
  *
  *  1. **Graceful shutdown** — on SIGTERM/SIGINT, stops accepting new
  *     connections, waits up to 30s for in-flight requests to finish,
- *     then exits cleanly. Required for zero-downtime Render deploys.
+ *     then exits cleanly. Required for zero-downtime deploys.
  *
  *  2. **Crash auto-restart** — if `next start` exits unexpectedly
  *     (OOM, unhandled rejection, segfault), restarts it with exponential
- *     backoff. Max 5 restarts in 10 minutes, then exits (Render will
+ *     backoff. Max 5 restarts in 10 minutes, then exits (the platform
  *     re-provision the whole service).
  *
  *  3. **Health check** — after starting, polls the health endpoint every
  *     30s. If it fails 3 consecutive checks, kills + restarts the server
  *     (catches "server is up but not responding" zombie states).
  *
- *  4. **DB warmup** — on cold starts (Render free tier sleeps after 15min),
+ *  4. **DB warmup** — on cold starts (a sleeping DB may take seconds),
  *     the Postgres connection pool may take 2-5s to establish. The wrapper
  *     waits for the health check to pass before considering the server
- *     "ready", preventing Render from routing traffic to a half-started server.
+ *     "ready", preventing the proxy from routing traffic to a half-started server.
  *
  * Usage:
  *   node scripts/start-with-recovery.mjs          # wraps `next start`
@@ -41,9 +41,9 @@ const __dirname = dirname(__filename);
 const WEB_DIR = join(__dirname, "..");
 
 // ── Auto-detect memory profile ──────────────────────────────────
-// Detects available RAM from cgroup limits (Render/Docker/K8s) or
+// Detects available RAM from cgroup limits (Docker/K8s/VPS) or
 // os.totalmem() (local dev). All memory-dependent settings scale
-// automatically — upgrade your Render plan and everything adapts.
+// automatically — upgrade the container memory and everything adapts.
 const MEM_PROFILE = getMemoryProfile();
 
 // ── Config ──────────────────────────────────────────────────────
@@ -55,12 +55,12 @@ const SHUTDOWN_GRACE_MS = 30000; // 30s for in-flight requests
 const HEALTH_CHECK_INTERVAL_MS = 30000; // 30s
 const HEALTH_CHECK_MAX_FAILURES = 3; // restart after 3 consecutive failures
 const HEALTH_CHECK_TIMEOUT_MS = 10000; // 10s per check
-const STARTUP_GRACE_PERIOD_MS = 90000; // 90s — Render free tier cold starts need longer
+const STARTUP_GRACE_PERIOD_MS = 90000; // 90s — cold starts (DB wake, first compile) need longer
 const MEMORY_CHECK_INTERVAL_MS = 15000; // 15s — fast enough to catch OOM
 // Auto-detected from available RAM — see auto-memory.mjs.
 // On 512MB: threshold is 80% of 400MB heap = 320MB.
 // On 2GB: threshold is 85% of 1600MB heap = 1360MB.
-// Upgrade your Render plan and this adjusts automatically.
+// Upgrade the container memory and this adjusts automatically.
 const MEMORY_THRESHOLD_FRACTION = MEM_PROFILE.memoryThresholdFraction;
 
 // ── State ───────────────────────────────────────────────────────
@@ -109,7 +109,7 @@ function canRestart() {
   if (restartTimestamps.length >= MAX_RESTARTS) {
     logError(
       `max ${MAX_RESTARTS} restarts in ${RESTART_WINDOW_MS / 1000}s — exiting. ` +
-      `Render will re-provision the service.`,
+      `the platform will re-provision the service.`,
     );
     return false;
   }
@@ -181,8 +181,8 @@ function getChildRssBytes(pid) {
  * before the OS OOM-killer terminates it.
  *
  * The heap limit is auto-detected from available RAM — see auto-memory.mjs.
- * On 512MB Render: heap=400MB, threshold=80% → 320MB restart trigger.
- * On 2GB Render: heap=1600MB, threshold=85% → 1360MB restart trigger.
+ * On a 512MB container: heap=400MB, threshold=80% → 320MB restart trigger.
+ * On a 2GB container: heap=1600MB, threshold=85% → 1360MB restart trigger.
  */
 function getMemoryThresholdBytes() {
   // Use auto-detected heap size, or fall back to NODE_OPTIONS env var,
@@ -225,9 +225,9 @@ async function healthCheck(port) {
   const timeout = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT_MS);
   try {
     // Use deep=1 for the internal health check — this also pings the DB.
-    // Render's external health check (render.yaml healthCheckPath) uses
+    // The platform health check uses
     // the default liveness-only endpoint (no DB query) so cold-start DB
-    // delays don't trigger Render restarts.
+    // delays don't trigger restarts.
     const res = await fetch(`http://localhost:${port}/api/health?deep=1`, {
       signal: controller.signal,
     });
@@ -286,9 +286,9 @@ function startServer() {
   const args = process.platform === "win32" ? ["next", "start", "-p", port] : ["start", "-p", port];
 
   // Auto-set NODE_OPTIONS with the right heap size if not already set.
-  // This lets the app adapt when you upgrade your Render plan — the
+  // This lets the app adapt when the container memory changes — the
   // wrapper detects the new memory limit and sets --max-old-space-size
-  // accordingly. If you've manually set NODE_OPTIONS in the Render
+  // accordingly. If you've manually set NODE_OPTIONS in the
   // dashboard, that takes precedence.
   let childEnv = { ...process.env, PORT: port };
   const existingNodeOptions = process.env.NODE_OPTIONS || "";
@@ -329,12 +329,12 @@ function startServer() {
     }
 
     // Detect OOM kills: SIGKILL (signal 9) with no error output usually
-    // means the OS OOM killer terminated the process. On Render's 512MB
+    // means the OS OOM killer terminated the process. On a 512MB
     // tier, this is the most common cause of unexpected crashes.
     if (signal === "SIGKILL") {
       logError(
         `server killed by OS (likely OOM — signal SIGKILL, uptime: ${uptime}s). ` +
-        `On 512MB Render, consider reducing concurrency or upgrading to 2GB plan.`
+        `On a 512MB container, consider reducing concurrency or upgrading memory.`
       );
     } else {
       logWarn(`server crashed (code=${code}, signal=${signal}, uptime: ${uptime}s)`);

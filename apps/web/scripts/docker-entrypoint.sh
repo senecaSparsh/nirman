@@ -21,7 +21,7 @@
 #
 # Why migrations run here (not at build time):
 #   The Docker build stage doesn't have DATABASE_URL (secrets are runtime-only
-#   in Coolify). Render ran migrations in buildCommand because Render injects
+#   in Coolify). Some PaaS platforms run migrations in buildCommand because they inject
 #   DB env vars during build. In Docker, we run them at container startup
 #   instead — this is the standard pattern and works with Coolify's secret
 #   management.

@@ -4,7 +4,6 @@
  * Used by:
  *  - The production start wrapper (scripts/start-with-recovery.mjs) to
  *    detect zombie states (server up but not responding).
- *  - Render's health check path (render.yaml `healthCheckPath`).
  *  - Coolify's container healthcheck (docker-compose.prod.yml).
  *  - External uptime monitors (UptimeRobot etc.) hitting `/api/health`.
  *
@@ -15,8 +14,8 @@
  *    on) and for external monitors (they should alert on DB issues).
  *  - `/api/health?liveness=1` — LIVENESS only. Returns 200 if the Node.js
  *    process is alive and can respond to HTTP. Does NOT query the DB.
- *    Use this for platforms where the DB may cold-start (Render free
- *    tier) and a DB wake-up delay should NOT trigger a restart.
+ *    Use this if the DB may cold-start and a wake-up delay should NOT
+ *    trigger a restart.
  *  - `/api/health?deep=1` — alias for the default readiness check (kept
  *    for backward compatibility with the start wrapper).
  *
@@ -102,7 +101,7 @@ export async function GET(request: Request) {
 
   // Liveness check (?liveness=1): just return 200. The process is alive
   // if it can respond to this request. Don't query the DB — on platforms
-  // where the DB may cold-start (Render free tier), a DB wake-up delay
+  // where the DB may cold-start, a DB wake-up delay
   // should NOT trigger a service restart.
   if (!checkDb) {
     baseResponse.db = "not-checked";

@@ -4,8 +4,8 @@
 > **Cost**: ₹780/month (~$9) — ~5x cheaper than Render Pro (~$45–55/mo)
 > **Latency**: ~5-10ms to Indian users — faster than any foreign server
 > **Ease**: git push → auto-deploy (same workflow as Render)
-> **Render config is untouched** — `render.yaml` stays in the repo; this is an
-> alternative deploy target, not a replacement.
+> **Production target** — this (Coolify + VPS) is THE deploy. The old
+> `render.yaml` blueprint has been removed; Render is not used.
 
 ---
 
@@ -403,10 +403,10 @@ the client wasn't regenerated). The Dockerfile runs `pnpm --filter @nirman/db
 generate` before build, so this shouldn't happen. If it does, trigger a clean
 rebuild in Coolify: **Deploy** → **Rebuild from scratch**.
 
-### Want to switch back to Render
+### Render
 
-`render.yaml` is untouched. Just deploy to Render as before — nothing in the
-Render workflow was changed by adding these Docker files.
+Not used — `render.yaml` has been removed from the repo. If a Render deploy is
+ever needed again, recover the blueprint from git history.
 
 ### Container killed ~60s after deploy (SIGTERM loop)
 
@@ -445,14 +445,14 @@ docker network connect <app-network> coolify-proxy
 
 ## File reference
 
-| File                                    | Purpose                                                              |
-| --------------------------------------- | -------------------------------------------------------------------- |
-| `Dockerfile`                            | Multi-stage build: deps → build → slim runtime                       |
-| `.dockerignore`                         | Excludes node_modules, .next, .env, storage, docs from build context |
-| `docker-compose.prod.yml`               | Coolify orchestration: web + db + volumes + health checks            |
-| `docker-compose.yml`                    | **Unchanged** — local dev Postgres on port 5433                      |
-| `apps/web/scripts/docker-entrypoint.sh` | Runs migrations + seed, then execs the start wrapper                 |
-| `render.yaml`                           | **Unchanged** — Render deploy config, still works                    |
+| File                                    | Purpose                                                                   |
+| --------------------------------------- | ------------------------------------------------------------------------- |
+| `Dockerfile`                            | Multi-stage build: deps → build → slim runtime                            |
+| `.dockerignore`                         | Excludes node_modules, .next, .env, storage, docs from build context      |
+| `docker-compose.prod.yml`               | Coolify orchestration: web + db + volumes + health checks                 |
+| `docker-compose.yml`                    | **Unchanged** — local dev Postgres on port 5433                           |
+| `apps/web/scripts/docker-entrypoint.sh` | Runs migrations + seed, then execs the start wrapper                      |
+| ~~`render.yaml`~~                       | **Removed** — Render is not used; recover from git history if ever needed |
 
 ---
 
@@ -483,8 +483,8 @@ ssh nirman-vps 'ls /var/lib/nirman-alerts/ 2>/dev/null'
 `/api/health` now checks DB connectivity by default (readiness mode):
 
 - `GET /api/health` — pings DB with 3s timeout, returns 200 if DB reachable
-- `GET /api/health?liveness=1` — liveness only (no DB check), for platforms
-  where DB cold-starts (Render free tier)
+- `GET /api/health?liveness=1` — liveness only (no DB check), for when a
+  sleeping DB shouldn't trigger a restart
 - `GET /api/health?deep=1` — alias for the default (backward compat)
 
 The docker-compose healthcheck uses the default (readiness) mode, so

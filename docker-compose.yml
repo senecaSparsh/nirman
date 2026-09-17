@@ -12,7 +12,7 @@
 #      - Auto-recovery wrapper (crash restart, graceful shutdown, memory monitor)
 #      - Prisma migrations + seed run automatically on container start
 #
-# Render config (render.yaml) is NOT touched — this is an alternative.
+# This IS the production deploy path (Coolify + VPS). Render is not used.
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:

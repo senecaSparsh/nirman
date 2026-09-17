@@ -5,10 +5,10 @@ import { prisma } from "@nirman/db";
 
 // ── WebAuthn Relying Party config ────────────────────────────────────
 // Derives rpID / rpName / origin from the app URL so passkeys work in
-// dev (localhost) and prod (render.com) without code changes. The rpID
+// dev (localhost) and prod (nirman.life) without code changes. The rpID
 // must be a registrable domain suffix of the origin — e.g. for
-// https://nirman.onrender.com, rpID can be "nirman.onrender.com".
-// NEXT_PUBLIC_APP_URL is already set in render.yaml + .env.
+// https://nirman.life, rpID is "nirman.life".
+// NEXT_PUBLIC_APP_URL is set in Coolify env + .env.
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 const appOrigin = appUrl.replace(/\/$/, ""); // no trailing slash
 let rpId: string;
@@ -21,7 +21,7 @@ try {
 export const auth = betterAuth({
   database: prismaAdapter(prisma, { provider: "postgresql" }),
   // Static baseURL — simplest and most reliable for single-domain deploys.
-  // Fall back to NEXT_PUBLIC_APP_URL (always set in Coolify/Render) so the
+  // Fall back to NEXT_PUBLIC_APP_URL (always set in Coolify env) so the
   // origin check + cookie config are correct even when BETTER_AUTH_URL is
   // not explicitly set. Without this, baseURL defaults to
   // http://localhost:3000 which causes origin-check failures on /api/auth/*
@@ -34,10 +34,11 @@ export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET ?? (process.env.NODE_ENV === "production"
     ? undefined // env-validation.ts will crash before this is reached
     : `dev-secret-${appOrigin}-32chars-padding!!`),
-  // Disable rate limiting — Render's proxy doesn't forward client IP headers,
-  // so Better-Auth falls back to a single shared rate-limit bucket for ALL
-  // users. This causes 429s after just a few requests. With a single-client
-  // app, rate limiting is unnecessary.
+  // Disable Better-Auth's built-in rate limiting — the app does its own
+  // (src/lib/rate-limit.ts + middleware on /api/auth/*), keyed on the real
+  // client IP from proxy headers. Better-Auth's limiter keys on a header
+  // our proxy doesn't reliably set, collapsing everyone into one shared
+  // bucket → spurious 429s.
   rateLimit: {
     enabled: false,
   },

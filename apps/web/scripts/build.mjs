@@ -3,12 +3,12 @@
  * =======================
  *
  * Detects available RAM and sets --max-old-space-size accordingly before
- * running `next build --webpack`. This prevents OOM kills on Render's 512MB
+ * running `next build --webpack`. This prevents OOM kills on small containers
  * free tier (where hardcoding 4096MB heap would crash the build) while
  * still allowing fast builds on larger instances.
  *
  * Memory profile:
- *   512MB → heap=471MB  (Render free tier — 92% of RAM, tight but works
+ *   512MB → heap=471MB  (constrained container — 92% of RAM, tight but works
  *                         with ESLint skip + webpack cache disabled)
  *   1GB   → heap=920MB
  *   2GB   → heap=1600MB (78% — enough headroom, don't over-allocate)
@@ -31,7 +31,7 @@ const __dirname = dirname(__filename);
 const WEB_DIR = join(__dirname, "..");
 
 function detectTotalMemoryMB() {
-  // cgroup v2 (Render, Docker, K8s)
+  // cgroup v2 (Docker, K8s, VPS)
   try {
     const max = readFileSync("/sys/fs/cgroup/memory.max", "utf8").trim();
     if (max && max !== "max") {
@@ -56,7 +56,7 @@ function detectTotalMemoryMB() {
 
 const totalMB = detectTotalMemoryMB();
 // Heap allocation strategy:
-//   ≤1GB (constrained containers like Render free tier): use 92% of RAM.
+//   ≤1GB (constrained containers): use 92% of RAM.
 //     The container has minimal OS overhead (no GUI, no other processes),
 //     so we can safely give most of the memory to V8. This is critical —
 //     a webpack production build of a large Next.js app needs ~450MB+ heap,
@@ -80,7 +80,7 @@ if (existingHeapMB !== null && existingHeapMB >= heapMB) {
   console.log(`[build] using existing NODE_OPTIONS: ${nodeOptions}`);
 } else if (existingHeapMB !== null && existingHeapMB < heapMB) {
   // Explicit override that's LOWER than what we'd auto-detect — this is
-  // likely a stale value from the Render dashboard (e.g. 440MB from when
+  // likely a stale value from the platform env (e.g. 440MB from when
   // the plan was smaller). Replace it with the auto-detected value to
   // prevent OOM. Preserve any other NODE_OPTIONS flags.
   const stripped = existingNodeOptions.replace(/--max-old-space-size=\d+/, "").trim();

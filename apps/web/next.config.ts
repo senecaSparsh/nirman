@@ -9,13 +9,13 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1", "localhost"],
   transpilePackages: ["@nirman/db"],
   // cacheComponents (PPR) disabled — it prerenders 200+ routes at build time,
-  // consuming too much memory for the free tier. Pages render on demand instead,
+  // consuming too much memory on small hosts. Pages render on demand instead,
   // which is fine for a single-client app.
   cacheComponents: false,
   serverExternalPackages: ["nodemailer"],
   poweredByHeader: false,
   // Skip TypeScript checking during build — tsc --noEmit runs separately
-  // in CI/typecheck. This saves ~1GB RAM on Render's free tier.
+  // in CI/typecheck. This saves ~1GB RAM on small hosts.
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -26,7 +26,7 @@ const nextConfig: NextConfig = {
   // build and reduces deploy artifact size. Server-side stack traces are
   // still available via Node's native source map support.
   productionBrowserSourceMaps: false,
-  // Limit build workers to 1 to stay within 512MB RAM on Render free tier
+  // Limit build workers to 1 to stay within 512MB RAM on small hosts
   // (default spawns 47 workers which OOMs).
   experimental: {
     workerThreads: false,
@@ -37,7 +37,7 @@ const nextConfig: NextConfig = {
   // Disables webpack's persistent cache (saves ~50-100MB RAM/disk during
   // build) and limits parallelism to 1 (prevents multiple compiler
   // instances from each allocating their own module graph in memory).
-  // On Render's 512MB free tier, this is the difference between OOM
+  // On a 512MB container, this is the difference between OOM
   // and a successful build.
   webpack: (config, { isServer }) => {
     // Disable persistent cache — it writes to .next/cache and holds

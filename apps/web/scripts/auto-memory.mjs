@@ -2,10 +2,10 @@
  * Auto-detects available memory and computes optimal config for all
  * memory-dependent subsystems (Node heap, Prisma pool, rate limiter,
  * concurrency). This lets the app seamlessly adapt when you upgrade
- * your Render plan from 512MB to 2GB+ without any manual config changes.
+ * your container/VPS memory from 512MB to 2GB+ without any manual config changes.
  *
  * Detection order (most accurate first):
- *   1. cgroup v2: /sys/fs/cgroup/memory.max (Render, Docker, Kubernetes)
+ *   1. cgroup v2: /sys/fs/cgroup/memory.max (Docker, Kubernetes, VPS containers)
  *   2. cgroup v1: /sys/fs/cgroup/memory/memory.limit_in_bytes
  *   3. os.totalmem() (local dev, bare metal)
  *
@@ -29,11 +29,11 @@ let cachedProfile = null;
 
 /**
  * Detect the total available memory in bytes.
- * On containers (Render, Docker, K8s), reads cgroup limits.
+ * On containers (Docker, K8s, VPS), reads cgroup limits.
  * Falls back to os.totalmem() on bare metal / macOS.
  */
 function detectTotalMemoryBytes() {
-  // cgroup v2 (modern Linux containers including Render)
+  // cgroup v2 (modern Linux containers)
   try {
     const max = readFileSync("/sys/fs/cgroup/memory.max", "utf8").trim();
     if (max && max !== "max") {
@@ -68,7 +68,7 @@ function computeProfile(totalBytes, source) {
 
   // Tier classification
   let tier;
-  if (totalMB <= 640) tier = "micro";        // 512MB Render free
+  if (totalMB <= 640) tier = "micro";        // 512MB constrained container
   else if (totalMB <= 1280) tier = "small";   // 1GB
   else if (totalMB <= 2560) tier = "medium";  // 2GB
   else if (totalMB <= 5120) tier = "large";   // 4GB

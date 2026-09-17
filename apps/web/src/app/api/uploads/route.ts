@@ -9,8 +9,8 @@ import { PERM } from "@/lib/roles";
 // Files are stored OUTSIDE public/ so they are not served as static assets.
 // Access is mediated by GET /api/uploads/[id] which checks auth + company ownership.
 // Honor the UPLOAD_DIR env var (set in docker-compose.yml — VPS/Coolify mount
-// a persistent volume there). Render free has no disk support — files here are
-// ephemeral on that target (see the commented disk block in render.yaml).
+// a persistent volume there). Hosts without a mounted volume get ephemeral
+// storage — uploads vanish on redeploy, so always mount UPLOAD_DIR.
 const UPLOAD_DIR = process.env.UPLOAD_DIR
   ? (isAbsolute(process.env.UPLOAD_DIR) ? process.env.UPLOAD_DIR : join(process.cwd(), process.env.UPLOAD_DIR))
   : join(process.cwd(), "storage", "uploads");

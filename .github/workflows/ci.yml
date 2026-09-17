@@ -1,7 +1,7 @@
 # CI Gate — runs lint, typecheck, tests, and build on every PR.
 # Blocks merge to main if any check fails.
 #
-# This prevents broken code from reaching Render — a failed lint/typecheck
+# This prevents broken code from reaching production — a failed lint/typecheck
 # here means the production build would also fail (or run with type errors
 # that cause runtime crashes).
 
@@ -135,7 +135,7 @@ jobs:
 
   # ── Production Build ──────────────────────────────────────────
   # Verifies the webpack build succeeds (catches build-time errors
-  # before they reach Render).
+  # before they reach production).
   build:
     name: Production Build
     runs-on: ubuntu-latest

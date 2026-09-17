@@ -10,7 +10,7 @@
  * Called from instrumentation.ts (runs once before the server starts).
  * In production, a missing required var crashes the process immediately —
  * the start wrapper then restarts, but the error is logged clearly so
- * the operator knows to set the missing var in the Render dashboard.
+ * the operator knows to set the missing var in Coolify's env settings.
  *
  * In development, missing vars log a warning but don't crash (dev often
  * runs with partial config, e.g. without Twilio).
@@ -28,7 +28,7 @@ const ENV_VARS: EnvVarSpec[] = [
   {
     key: "DATABASE_URL",
     required: true,
-    description: "PostgreSQL connection string (from Render or docker-compose)",
+    description: "PostgreSQL connection string (from Coolify or docker-compose)",
   },
   {
     key: "BETTER_AUTH_SECRET",
@@ -43,7 +43,7 @@ const ENV_VARS: EnvVarSpec[] = [
   {
     key: "NEXT_PUBLIC_APP_URL",
     required: true,
-    description: "Public URL of the app (e.g. https://nirman-inventory.onrender.com)",
+    description: "Public URL of the app (e.g. https://nirman.life)",
   },
   {
     key: "BETTER_AUTH_URL",
@@ -154,7 +154,7 @@ export function validateEnv(): EnvValidationResult {
   if (isAuthBypassDangerous(process.env.AUTH_BYPASS, isProd)) {
     const msg =
       "AUTH_BYPASS=true is set in production! This bypasses authentication entirely. " +
-      "Remove it from the Render dashboard immediately.";
+      "Remove it from the Coolify environment immediately."
     console.error(
       [
         "",
@@ -205,7 +205,7 @@ export function validateEnv(): EnvValidationResult {
       "",
       ...missing.map((m) => `  ✗ ${m}`),
       "",
-      "  Set them in your .env file (dev) or Render dashboard (prod).",
+      "  Set them in your .env file (dev) or Coolify env settings (prod).",
       "",
       isProd
         ? "  The server will exit. The start wrapper will retry, but it will"

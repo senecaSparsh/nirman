@@ -11,7 +11,7 @@
  * To enable Sentry:
  *  1. Create a free account at https://sentry.io
  *  2. Get your DSN from Project Settings → Client Keys
- *  3. Set SENTRY_DSN in your .env (dev) or Render dashboard (prod)
+ *  3. Set SENTRY_DSN in your .env (dev) or Coolify env settings (prod)
  *  4. (Optional) Set SENTRY_AUTH_TOKEN for source map uploads
  *
  * Without SENTRY_DSN, Sentry is completely disabled — zero overhead.

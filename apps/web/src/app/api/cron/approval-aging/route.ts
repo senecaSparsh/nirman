@@ -7,7 +7,7 @@ import { withTimeout } from "@/lib/timeout";
 /**
  * POST /api/cron/approval-aging — escalation nudge for stalled approvals.
  *
- * Runs daily (Render cron / external scheduler). For every company, finds
+ * Runs daily (scheduler sidecar, apps/web/scripts/scheduler.sh). For every company, finds
  * items that have been waiting for approval > 48h — draft POs, submitted
  * indents, DPRs awaiting sub-admin/admin approval, submitted expense
  * claims — and sends ONE digest notification to each executive member

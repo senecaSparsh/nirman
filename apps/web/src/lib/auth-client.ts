@@ -1,7 +1,7 @@
 import { createAuthClient } from "better-auth/react";
 import { passkeyClient } from "@better-auth/passkey/client";
 
-// Use NEXT_PUBLIC_APP_URL if set (set in render.yaml for production).
+// Use NEXT_PUBLIC_APP_URL if set (Coolify env for production).
 // Otherwise let Better-Auth auto-detect from window.location.origin.
 
 // Custom fetch wrapper that guarantees Content-Type: application/json on

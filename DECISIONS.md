@@ -152,7 +152,7 @@ If you catch yourself planning to "build the rent module" or "add the sale lifec
      delegate their authority until a date (settings + /me + /m/me card);
      delegates inherit the delegator's permissions (getUserPermissions union)
      and acting role (getActingRole) across all approval routes. Daily
-     `/api/cron/approval-aging` (scheduled via scheduler.sh + render.yaml)
+     `/api/cron/approval-aging` (scheduled via scheduler.sh)
      digests stalled approvals to execs + active delegates — threshold is
      `Company.approvalAgingHours` (default 48h, editable in company
      settings desktop + mobile). The run also prunes resolved ErrorLogs

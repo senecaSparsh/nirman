@@ -55,7 +55,7 @@ the `coolify-proxy` container isn't on the app network. Fix:
   (fast HMR) with the auto-recovery wrapper. Use `pnpm --filter web build:turbo`
   only if you're testing a Turbopack-specific build issue.
 - `pnpm --filter web start:wrapped` — start production server with the
-  auto-recovery wrapper (`scripts/start-with-recovery.mjs`). Used by Render.
+  auto-recovery wrapper (`scripts/start-with-recovery.mjs`). Used in production.
   Handles graceful shutdown (30s drain on SIGTERM), crash auto-restart (max 5
   in 10min), and health checks (polls `/api/health` every 30s, restarts on 3
   consecutive failures). `pnpm --filter web start` runs `next start` directly
@@ -129,8 +129,8 @@ the `coolify-proxy` container isn't on the app network. Fix:
     production start wrapper does poll `/api/health` and restarts on 3 failures —
     this gap is dev-only.
 - **Auto-scaling memory**: the app auto-detects available RAM (via cgroup limits
-  on Render/Docker/K8s, or `os.totalmem()` locally) and tunes all memory-dependent
-  settings automatically. **Upgrade your Render plan and everything adapts — no
+  on Docker/K8s/VPS containers, or `os.totalmem()` locally) and tunes all memory-dependent
+  settings automatically. **Upgrade the container/VPS memory and everything adapts — no
   config changes needed.** The detection runs once at startup in
   `scripts/auto-memory.mjs` (start wrapper) and in `packages/db/src/index.ts` +
   `src/lib/rate-limit.ts` (app code). Tuning profile:
@@ -150,13 +150,13 @@ the `coolify-proxy` container isn't on the app network. Fix:
   Turbopack production builds have a known "module factory" bug triggered by
   `export *` in Prisma's generated client (vercel/next.js#86132, #88534). Webpack
   is stable. (2) **Start** uses `scripts/start-with-recovery.mjs` — graceful
-  shutdown (30s drain on SIGTERM for zero-downtime Render deploys), crash auto-
+  shutdown (30s drain on SIGTERM for zero-downtime deploys), crash auto-
   restart (max 5 in 10min with exponential backoff), health checks (polls
   `/api/health` every 30s, restarts on 3 consecutive failures — catches zombie
   states). (3) **Memory monitoring** — the start wrapper reads the child process's
   RSS from `/proc/[pid]/status` (sums all PIDs in the process group, including
   `next start` workers) every 60s and proactively restarts if RSS exceeds 85% of
-  the heap limit (avoids OOM kills on Render free tier's 512MB). The child is
+  the heap limit (avoids OOM kills on small containers). The child is
   spawned with `detached: true` so the wrapper can kill the whole process tree
   via `process.kill(-pid)`. **Client:** (4) **Client** `<ChunkErrorRecovery>`
   (in root layout, works in both dev + prod) auto-reloads the page when stale chunks
@@ -179,22 +179,19 @@ the `coolify-proxy` container isn't on the app network. Fix:
   the DSN (zero overhead). Config in `sentry.server.config.ts` + `sentry.client.config.ts`.
   (12) **Automated backups** — `POST /api/cron/backup` (cron-triggered, requires
   `CRON_SECRET`, 120s timeout) exports all companies' data to the `BackupRecord` table
-  with 30-day retention (auto-pruned). Render cron job runs daily at 2am UTC. Health
+  with 30-day retention (auto-pruned). The scheduler sidecar runs it daily. Health
   endpoint at `/api/health` (public, no auth — reports liveness + DB reachability,
-  200/503). Render config in `render.yaml` uses `healthCheckPath: /api/health` and
-  `startCommand: node scripts/start-with-recovery.mjs`.
-  **Scheduled endpoints must be called from both deploy targets** — every
-  `/api/cron/*` endpoint + `/api/workflow-scheduler` is wired into
-  `apps/web/scripts/scheduler.sh` (Coolify sidecar loops) AND `render.yaml`
-  cronJobs (Render cron jobs do NOT inherit web-service env vars — declare
-  `CRON_SECRET`/`SCHEDULER_SECRET` per job). Adding a new cron route without
-  both callers means it silently never runs in production.
+  200/503) — Coolify's container healthcheck and external monitors use it.
+  **Production is Coolify/VPS only** — every `/api/cron/*` endpoint +
+  `/api/workflow-scheduler` is wired into `apps/web/scripts/scheduler.sh`
+  (the Coolify sidecar loops). Adding a new cron route without a scheduler.sh
+  loop means it silently never runs in production.
   **Resilience (added round 2):** (13) **DB migration safety** — `migrate:deploy`
   now uses `prisma migrate deploy` (not `db push --accept-data-loss`). The schema
   has `directUrl = env("DIRECT_URL")` for non-pooled migration connections. Use
   `pnpm --filter @nirman/db migrate:status` to check migration state. (14) **Prisma
   connection pool** — `packages/db/src/index.ts` warns in production if
-  `DATABASE_URL` lacks `connection_limit=` (Render free Postgres has only 20
+  `DATABASE_URL` lacks `connection_limit=` (small Postgres plans have ~20
   connections). `apiHandler` catches `P2024` (pool exhausted) → 503, `P1001` (DB
   unreachable) → 503, `P1002` (timeout) → 504 — so the start wrapper / load balancer
   can retry instead of returning a 500. (15) **API rate limiting** — in-memory
@@ -244,7 +241,7 @@ msg)` that returns 504 on timeout. Applied to `/api/cron/backup` (120s) and
   atomic). The schema has `directUrl = env("DIRECT_URL")` for non-pooled migration connections.
   Never use `db push --accept-data-loss` in production — it can drop columns/tables. Use
   `pnpm --filter @nirman/db migrate:status` to check migration state. The `DATABASE_URL` should
-  include `connection_limit=5&pool_timeout=10` (Render free Postgres has only 20 connections).
+  include `connection_limit=5&pool_timeout=10` (small Postgres plans have ~20 connections).
   **Pre-migration snapshot**: the Docker entrypoint runs `pg_dump` to
   `/backups/pre-deploy-<UTC>.sql.gz` (kept: newest 30) BEFORE migrations, so a bad migration
   is recoverable without waiting for the nightly backup. Restore: drop+recreate the `public`
@@ -422,8 +419,7 @@ msg)` that returns 504 on timeout. Applied to `/api/cron/backup` (120s) and
     into company B. Same for delegation config itself (`/api/delegation`
     PUT/DELETE targeting another membership) — delegation does not re-delegate.
   - _Approval aging_: `/api/cron/approval-aging` (daily via
-    `apps/web/scripts/scheduler.sh` sidecar + render.yaml cronJob,
-    CRON_SECRET) digests approvals waiting >48h to
+    `apps/web/scripts/scheduler.sh` sidecar, CRON_SECRET) digests approvals waiting >48h to
     OWNER/ADMIN/PROJECT_DIRECTOR + active delegates (deduped 24h).
     `/m/pulse` shows `oldest Nd` on the approvals CTA. Leave approval
     ≥2 days for an approval-holding member also nudges them to delegate

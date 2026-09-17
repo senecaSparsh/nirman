@@ -18,7 +18,7 @@
  *   GSTA_API_KEY  — optional. If set, enriches from the gstaccelerator.in API.
  *
  * Schedule:
- *   Run weekly via cron (see /api/cron/hsn-seed in render.yaml).
+ *   Run weekly via cron (see /api/cron/hsn-seed — wired in apps/web/scripts/scheduler.sh).
  */
 const baseUrl = process.argv[2] ?? "http://localhost:3000";
 const GSTA_API_KEY = process.env.GSTA_API_KEY;
@@ -65,7 +65,7 @@ async function main() {
   console.log("═══ Auto-sync complete ═══");
   console.log("  The HSN/GST master is now in sync with the npm package.");
   console.log("  To update: pnpm update hsn-code-package && pnpm hsn:auto-sync");
-  console.log("  Weekly cron auto-reseeds (see render.yaml).");
+  console.log("  Weekly cron auto-reseeds (see scheduler.sh).");
 }
 
 main().catch((err) => {

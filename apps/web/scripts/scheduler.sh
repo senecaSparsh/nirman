@@ -2,14 +2,14 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Internal scheduler — calls the app's cron endpoints on a fixed cadence.
 #
-# Why this exists: on Docker/VPS/Coolify there is no platform cron (unlike
-# Render's cronJobs or Vercel Cron). Without a caller, reminders, backups,
+# Why this exists: on Docker/VPS/Coolify there is no platform cron.
+# Without a caller, reminders, backups,
 # HSN re-seeds, and scheduled workflows silently never run.
 #
 # This sidecar container does nothing but sleep and curl. It talks to the
 # `web` service over the internal compose network (no public traffic).
 #
-# Cadence (matches render.yaml's former schedule):
+# Cadence:
 #   POST /api/cron/reminders       every 15 min   (payment/rent/doc reminders,
 #                                                notification flush, recurring
 #                                                expenses)

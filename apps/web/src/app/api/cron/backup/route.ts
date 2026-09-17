@@ -6,18 +6,13 @@ import { withTimeout } from "@/lib/timeout";
 /**
  * POST /api/cron/backup — automated scheduled backup.
  *
- * Triggered by Render's cron service (or any external scheduler) daily.
+ * Triggered daily by the scheduler sidecar (apps/web/scripts/scheduler.sh,
+ * `loop 86400`) plus a boot-time kick on every deploy.
  * Exports ALL companies' data (not just one) and stores the backup as a
  * JSON blob in the BackupRecord table. Keeps the last 30 days of backups
  * (older ones are auto-pruned).
  *
  * Auth: requires CRON_SECRET header (same as /api/cron/reminders).
- *
- * Render cron config (add to render.yaml if you want this):
- *   - type: cron
- *     name: nirman-backup
- *     schedule: "0 2 * * *"  # daily at 2am UTC
- *     command: "curl -X POST -H 'x-cron-secret: $CRON_SECRET' https://nirman-inventory.onrender.com/api/cron/backup"
  *
  * Backups are queryable via GET /api/backup/records (FINANCE_MANAGE perm).
  */

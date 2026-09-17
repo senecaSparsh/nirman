@@ -108,5 +108,5 @@ data into the `BackupRecord` table, 30-day retention. Wire it to a daily cron
   per company); confirm `failedLoginAttempts`/`lockedUntil` on the User row.
 - **Missing accounts after first deploy** — re-run the provisioning command
   above; it only fills in what's missing.
-- **Old `render.yaml`** — the Render config still exists for reference but is
-  not the production path; ignore it for the SRG deploy.
+- **Render** — not used. The old `render.yaml` blueprint was removed;
+  production is Coolify/VPS only (`nirman.life`).
