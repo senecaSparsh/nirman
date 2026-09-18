@@ -153,9 +153,12 @@ rec("B3 GET /api/projects/[id] (unassigned SITE_ENGINEER)", "404 (project-scoped
 const empRoster = await api(rohan.cookie, "GET", `/api/employees/${vardaanEmpId}`);
 const sensitiveKeys = ["bankAccountNumber", "bankIfsc", "panNumber", "aadhaarNumber", "pfNumber", "esiNumber", "uan", "dailyRate", "monthlySalary", "contractToken", "offerToken", "permanentAddress"];
 const leaked = sensitiveKeys.filter((k) => empRoster.data && k in empRoster.data);
-rec("B4 GET /api/employees/{owner} as hr.view user", "roster subset — NO bank/govID/wage/token keys",
+// A PROJECT-scoped user with no assigned projects can't reach any employee
+// record — 404 (scope-closed) is the ideal outcome; 200-redacted is the
+// fallback for a user whose scope does include the owner's project.
+rec("B4 GET /api/employees/{owner} as hr.view user", "404 (out of scope) or 200 roster subset — NO sensitive keys either way",
   `${empRoster.status} leaked keys: [${leaked.join(",") || "none"}]`,
-  empRoster.status === 200 && leaked.length === 0 ? "PASS" : "FAIL",
+  (empRoster.status === 404 || (empRoster.status === 200 && leaked.length === 0)) ? "PASS" : "FAIL",
   leaked.length ? `LEAK: ${leaked.join(",")}` : "");
 
 const empList = await api(rohan.cookie, "GET", "/api/employees");

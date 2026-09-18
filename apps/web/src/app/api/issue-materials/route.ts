@@ -30,7 +30,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
     const common = {
       fromLocationId: parsed.data.fromLocationId,
       issuedById: user.id,
+      companyId: company.id,
       notes: parsed.data.notes ?? undefined,
+      requisitionId: parsed.data.requisitionId ?? undefined,
       receiverName: parsed.data.receiverName ?? undefined,
       receiverMobile: parsed.data.receiverMobile ?? undefined,
       vehicleNumber: parsed.data.vehicleNumber ?? undefined,

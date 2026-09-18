@@ -1,0 +1,13 @@
+import { prisma } from "@nirman/db";
+const SRG = "cmu1990sa0000vlpqpegbainb", OTHER = "cmtxajzqh0000vl2sskqywa6b";
+const stock = await prisma.stockLocationItem.findFirst({ where: { qty: { gt: 0 }, location: { companyId: SRG } }, include: { location: { select: { id: true, name: true, projectId: true } }, material: { select: { id: true, name: true } } } });
+console.log("stock:", stock ? `${stock.material.name} qty=${stock.qty} @ ${stock.location.name} (${stock.location.id}) proj=${stock.location.projectId}` : "none");
+const proj = await prisma.project.findFirst({ where: { companyId: SRG, deletedAt: null }, select: { id: true, name: true } });
+const fProj = await prisma.project.findFirst({ where: { companyId: OTHER, deletedAt: null }, select: { id: true, name: true } });
+const fDept = await prisma.department.findFirst({ where: { companyId: OTHER, deletedAt: null }, select: { id: true } });
+const dept = await prisma.department.findFirst({ where: { companyId: SRG, deletedAt: null }, select: { id: true } });
+const req_ = await prisma.materialRequisition.findFirst({ where: { project: { companyId: OTHER } }, select: { id: true, status: true } });
+console.log("ownProj:", proj?.name, proj?.id, "| foreignProj:", fProj?.id, "| foreignDept:", fDept?.id, "| ownDept:", dept?.id, "| foreignReq:", req_?.id, req_?.status);
+const rohanMem = await prisma.userCompany.findUnique({ where: { userId_companyId: { userId: "cmu71ujzx0005vleq9qjtot5p", companyId: SRG } }, select: { role: true } });
+console.log("rohan role:", rohanMem.role);
+await prisma.$disconnect();

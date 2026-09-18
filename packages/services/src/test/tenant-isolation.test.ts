@@ -20,10 +20,11 @@
  */
 import { describe, it, expect, beforeAll, beforeEach, vi } from "vitest";
 import { prisma } from "@nirman/db";
-import { updateEmployee } from "../hr";
+import { updateEmployee, createEmployee } from "../hr";
+import { issueMaterialsToProject } from "../issue";
 import { createNcr } from "../quality-control";
 import { assignScopedMembership, resolveUserScope } from "../rbac";
-import { resetDb, createTestFixture } from "./setup";
+import { resetDb, createTestFixture, seedTestAccounts } from "./setup";
 
 // Notifications are fire-and-forget side effects — silence them.
 vi.mock("../notifications", () => ({
@@ -132,6 +133,45 @@ describe("tenant isolation + custom-role RBAC", () => {
       const after = await prisma.employee.findUniqueOrThrow({ where: { id: emp.id } });
       expect(after.departmentId).toBe(dept.id);
       expect(after.reportsToEmployeeId).toBe(mgr.id);
+    });
+  });
+
+  // ── createEmployee: same cross-tenant relation guards ─────────
+
+  describe("createEmployee relation guards", () => {
+    it("rejects a department from another company", async () => {
+      const { company } = await createTestFixture();
+      const foreign = await createForeignTenant();
+
+      await expect(
+        createEmployee({ companyId: company.id, name: "Emp", departmentId: foreign.department.id }),
+      ).rejects.toMatchObject({ message: "Department not found in this company", status: 404 });
+    });
+
+    it("rejects a reporting location from another company", async () => {
+      const { company } = await createTestFixture();
+      const foreign = await createForeignTenant();
+
+      await expect(
+        createEmployee({ companyId: company.id, name: "Emp", reportingLocationId: foreign.location.id }),
+      ).rejects.toMatchObject({ message: "Reporting location not found in this company", status: 404 });
+    });
+
+    it("creates an employee with same-company relations", async () => {
+      const { company, stockLocation } = await createTestFixture();
+      const dept = await prisma.department.create({
+        data: { companyId: company.id, code: "QA", name: "QA Dept" },
+      });
+
+      const emp = await createEmployee({
+        companyId: company.id,
+        name: "Valid Worker",
+        departmentId: dept.id,
+        reportingLocationId: stockLocation.id,
+      });
+
+      expect(emp.departmentId).toBe(dept.id);
+      expect(emp.reportingLocationId).toBe(stockLocation.id);
     });
   });
 
@@ -352,6 +392,100 @@ describe("tenant isolation + custom-role RBAC", () => {
       const { company, user } = await createTestFixture();
       const scope = await resolveUserScope(user.id, company.id);
       expect(scope?.scopeType).toBe("COMPANY");
+    });
+  });
+
+  // ── issueMaterialsToProject: cross-tenant seal + requisition ownership ──
+
+  describe("issueMaterialsToProject tenant scoping", () => {
+    async function makeStock(companyId: string, locationId: string, qty = 100) {
+      const category = await prisma.materialCategory.create({
+        data: { companyId, name: "Test Category" },
+      });
+      const material = await prisma.material.create({
+        data: { companyId, code: `MAT-${crypto.randomUUID().slice(0, 8)}`, name: "Test Material", unit: "KG", categoryId: category.id },
+      });
+      await prisma.stockLocationItem.create({
+        data: { materialId: material.id, locationId, qty, movingAvgCost: 10 },
+      });
+      return material;
+    }
+
+    it("rejects a project from another company", async () => {
+      const { company, stockLocation } = await createTestFixture();
+      const foreign = await createForeignTenant();
+      const mat = await makeStock(company.id, stockLocation.id);
+
+      await expect(
+        issueMaterialsToProject({
+          projectId: foreign.project.id,
+          fromLocationId: stockLocation.id,
+          companyId: company.id,
+          lines: [{ materialId: mat.id, qty: 1 }],
+        }),
+      ).rejects.toThrow("Project not found or deleted");
+    });
+
+    it("rejects a requisition belonging to a different project", async () => {
+      const { company, project, stockLocation, user } = await createTestFixture();
+      const other = await prisma.project.create({
+        data: { companyId: company.id, name: "Other Project", status: "ACTIVE" },
+      });
+      const req = await prisma.materialRequisition.create({
+        data: { reqNumber: `REQ-${crypto.randomUUID().slice(0, 8)}`, projectId: other.id, requestedById: user.id, status: "APPROVED" },
+      });
+      const mat = await makeStock(company.id, stockLocation.id);
+
+      await expect(
+        issueMaterialsToProject({
+          projectId: project.id,
+          fromLocationId: stockLocation.id,
+          companyId: company.id,
+          requisitionId: req.id,
+          lines: [{ materialId: mat.id, qty: 1 }],
+        }),
+      ).rejects.toThrow("Requisition does not belong to this project");
+    });
+
+    it("rejects a foreign-company requisition", async () => {
+      const { company, project, stockLocation, user } = await createTestFixture();
+      const foreign = await createForeignTenant();
+      const fUser = await prisma.user.create({
+        data: { id: `fu-${crypto.randomUUID().slice(0, 8)}`, email: `${crypto.randomUUID().slice(0, 8)}@t.in`, name: "FU", role: "OWNER", companyId: foreign.company.id },
+      });
+      const req = await prisma.materialRequisition.create({
+        data: { reqNumber: `REQ-F-${crypto.randomUUID().slice(0, 8)}`, projectId: foreign.project.id, requestedById: fUser.id, status: "APPROVED" },
+      });
+      const mat = await makeStock(company.id, stockLocation.id);
+
+      await expect(
+        issueMaterialsToProject({
+          projectId: project.id,
+          fromLocationId: stockLocation.id,
+          companyId: company.id,
+          requisitionId: req.id,
+          lines: [{ materialId: mat.id, qty: 1 }],
+        }),
+      ).rejects.toThrow("Requisition does not belong to this project");
+    });
+
+    it("issues successfully against a valid same-project requisition", async () => {
+      const { company, project, stockLocation, user } = await createTestFixture();
+      await seedTestAccounts(company.id); // GL posting needs the chart of accounts
+      const req = await prisma.materialRequisition.create({
+        data: { reqNumber: `REQ-OK-${crypto.randomUUID().slice(0, 8)}`, projectId: project.id, requestedById: user.id, status: "APPROVED" },
+      });
+      const mat = await makeStock(company.id, stockLocation.id);
+
+      const { materialIssue } = await issueMaterialsToProject({
+        projectId: project.id,
+        fromLocationId: stockLocation.id,
+        companyId: company.id,
+        requisitionId: req.id,
+        lines: [{ materialId: mat.id, qty: 1 }],
+      });
+
+      expect(materialIssue.requisitionId).toBe(req.id);
     });
   });
 

@@ -34,6 +34,10 @@ async function generateIssueNumber(tx: Prisma.TransactionClient, companyId: stri
 interface IssueMaterialsInput {
   projectId: string;
   fromLocationId: string;
+  // Caller's company — the target project must belong to it. Without this a
+  // caller could issue stock "to" another company's project, writing a
+  // MaterialIssue + stock movement inside that tenant.
+  companyId: string;
   issuedById?: string;
   notes?: string;
   receiverName?: string;
@@ -60,7 +64,7 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
   const result = await withStockTransaction(async (tx) => {
     // Validate project
     const project = await tx.project.findFirst({
-      where: { id: input.projectId, deletedAt: null },
+      where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
     });
     if (!project) throw new Error("Project not found or deleted");
     if (project.status === "ON_HOLD") {
@@ -124,11 +128,17 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
     if (input.requisitionId) {
       const req = await tx.materialRequisition.findUnique({
         where: { id: input.requisitionId },
-        select: { id: true, status: true, projectId: true, departmentId: true },
+        select: { id: true, status: true, projectId: true, departmentId: true, project: { select: { companyId: true } } },
       });
       if (!req) throw new Error("Requisition not found");
       if (req.status !== "APPROVED") {
         throw new Error(`Cannot issue against a requisition with status ${req.status} — requisition must be APPROVED first`);
+      }
+      // The requisition must be FOR this project in this company — otherwise
+      // an issue can be linked to another project's (or another tenant's)
+      // approval, falsifying the authorization trail.
+      if (req.projectId !== input.projectId || req.project?.companyId !== project.companyId) {
+        throw new Error("Requisition does not belong to this project");
       }
     }
 
@@ -215,7 +225,7 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
 export async function createMaterialIssueRequest(input: IssueMaterialsInput) {
   // Validate project
   const project = await prisma.project.findFirst({
-    where: { id: input.projectId, deletedAt: null },
+    where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
   });
   if (!project) throw new ServiceError("Project not found or deleted", 404);
   if (project.status === "ON_HOLD") {
@@ -420,6 +430,9 @@ export async function executeMaterialIssue(issueId: string, userId?: string) {
 interface IssueToDepartmentInput {
   departmentId: string;
   fromLocationId: string;
+  // Caller's company — the target department must belong to it (same
+  // cross-tenant seal as the project path).
+  companyId: string;
   issuedById?: string;
   notes?: string;
   receiverName?: string;
@@ -441,7 +454,7 @@ export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) 
   const result = await withStockTransaction(async (tx) => {
     // Validate department
     const department = await tx.department.findFirst({
-      where: { id: input.departmentId, deletedAt: null },
+      where: { id: input.departmentId, companyId: input.companyId, deletedAt: null },
     });
     if (!department) throw new Error("Department not found or deleted");
     if (!department.active) throw new Error("Cannot issue materials to an inactive department");
@@ -495,11 +508,16 @@ export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) 
     if (input.requisitionId) {
       const req = await tx.materialRequisition.findUnique({
         where: { id: input.requisitionId },
-        select: { id: true, status: true },
+        select: { id: true, status: true, departmentId: true, department: { select: { companyId: true } } },
       });
       if (!req) throw new Error("Requisition not found");
       if (req.status !== "APPROVED") {
         throw new Error(`Cannot issue against a requisition with status ${req.status} — requisition must be APPROVED first`);
+      }
+      // Same ownership rule as the project path — the req must target THIS
+      // department in THIS company.
+      if (req.departmentId !== input.departmentId || req.department?.companyId !== department.companyId) {
+        throw new Error("Requisition does not belong to this department");
       }
     }
 

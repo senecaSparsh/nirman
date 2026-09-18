@@ -640,6 +640,9 @@ export const issueMaterialsSchema = z.object({
   // Round-off to match physical bill totals
   roundOff: z.coerce.number().optional().nullable(),
   requireGatePass: z.boolean().optional(),
+  // Optional link to the APPROVED requisition authorizing this issue — the
+  // service validates it belongs to the same project/department + company.
+  requisitionId: z.string().optional().nullable(),
   lines: z.array(transferLineSchema).min(1, "At least one line is required"),
 }).refine(
   (data) => (data.projectId ? !data.departmentId : !!data.departmentId),
@@ -1952,10 +1955,31 @@ export async function scopeWhere(
     return clauses.length === 1 ? clauses[0]! : { OR: clauses };
   };
 
-  if (scope.scopeType === "DEPARTMENT" && scope.departmentIds.length > 0 && fields.department) {
-    Object.assign(filter, buildFieldFilter(fields.department, scope.departmentIds));
-  } else if (scope.scopeType === "PROJECT" && scope.projectIds.length > 0 && fields.project) {
-    Object.assign(filter, buildFieldFilter(fields.project, scope.projectIds));
+  // A scoped user with an empty assignment list must see ZERO scoped rows —
+  // skipping the filter when the id list is empty fails open to company-wide
+  // visibility (e.g. a freshly-added SITE_ENGINEER saw every project in lists
+  // while single-record reads 404'd).
+  const denyAll = { ...baseWhere, id: { in: [] as string[] } };
+
+  if (scope.scopeType === "DEPARTMENT") {
+    if (fields.department) {
+      if (scope.departmentIds.length === 0) return denyAll;
+      Object.assign(filter, buildFieldFilter(fields.department, scope.departmentIds));
+    } else if (fields.project) {
+      // The model isn't department-addressable — fall back to the projects
+      // visible through the department's deployed employees (same inference
+      // getAssignedProjectIds/canAccessProject use) so list and record
+      // access stay consistent.
+      const effective = await getAssignedProjectIds();
+      if (!effective || effective.length === 0) return denyAll;
+      Object.assign(filter, buildFieldFilter(fields.project, effective));
+    }
+  } else if (scope.scopeType === "PROJECT" && fields.project) {
+    // Effective ids = UserScope entries when present, else legacy
+    // projectAssignment rows — the same set canAccessProject checks.
+    const effective = await getAssignedProjectIds();
+    if (!effective || effective.length === 0) return denyAll;
+    Object.assign(filter, buildFieldFilter(fields.project, effective));
   }
 
   // Merge scope filter with the base where clause
@@ -1974,16 +1998,25 @@ export async function canAccessEntity(
   const scope = await getUserScope();
   if (scope.scopeType === "COMPANY") return true;
 
-  if (scope.scopeType === "DEPARTMENT" && scope.departmentIds.length > 0) {
-    const deptId = entity.departmentId;
-    if (!deptId) return false; // no department = not visible to dept-scoped users
-    return scope.departmentIds.includes(deptId);
-  }
-
-  if (scope.scopeType === "PROJECT" && scope.projectIds.length > 0) {
+  if (scope.scopeType === "DEPARTMENT") {
+    if (scope.departmentIds.length === 0) return false; // scoped but nothing assigned
+    if (entity.departmentId) return scope.departmentIds.includes(entity.departmentId);
+    // Entity isn't department-addressable — fall back to the dept's projects
+    // (same inference as scopeWhere/getAssignedProjectIds).
     const projId = entity.projectId ?? entity.activeProjectId;
     if (!projId) return false;
-    return scope.projectIds.includes(projId);
+    const effective = await getAssignedProjectIds();
+    return !!effective && effective.includes(projId);
+  }
+
+  if (scope.scopeType === "PROJECT") {
+    // Effective ids = UserScope entries when present, else legacy
+    // projectAssignment rows — the same set canAccessProject checks.
+    const effective = await getAssignedProjectIds();
+    if (!effective || effective.length === 0) return false;
+    const projId = entity.projectId ?? entity.activeProjectId;
+    if (!projId) return false;
+    return effective.includes(projId);
   }
 
   return true;
@@ -2206,15 +2239,44 @@ export async function assertScopeAllows(
   const scope = await getUserScope();
   if (scope.scopeType === "COMPANY") return;
 
-  if (scope.scopeType === "DEPARTMENT" && scope.departmentIds.length > 0) {
-    if (target.departmentId && !scope.departmentIds.includes(target.departmentId)) {
-      throw new Error("You can only create/edit within your department");
+  // A scoped user with an empty assignment list must not be able to write —
+  // skipping the check when the list is empty fails open to company-wide
+  // writes (a freshly-added site engineer could issue stock to ANY project).
+  if (scope.scopeType === "DEPARTMENT") {
+    if (scope.departmentIds.length === 0) {
+      throw new Error("You don't have any assigned departments — ask an admin to assign your scope");
     }
+    if (target.departmentId) {
+      if (!scope.departmentIds.includes(target.departmentId)) {
+        throw new Error("You can only create/edit within your department");
+      }
+      return;
+    }
+    // The target isn't department-addressable — it must be reachable through
+    // the department's projects (same inference as scopeWhere).
+    if (target.projectId) {
+      const effective = await getAssignedProjectIds();
+      if (!effective || !effective.includes(target.projectId)) {
+        throw new Error("You can only create/edit within your department's projects");
+      }
+      return;
+    }
+    return; // no scoped target provided — nothing to check against
   }
 
-  if (scope.scopeType === "PROJECT" && scope.projectIds.length > 0) {
-    const projId = target.projectId;
-    if (projId && !scope.projectIds.includes(projId)) {
+  if (scope.scopeType === "PROJECT") {
+    if (target.projectId) {
+      // Effective ids = UserScope entries when present, else legacy
+      // projectAssignment rows — the same set canAccessProject checks.
+      const effective = await getAssignedProjectIds();
+      if (!effective || !effective.includes(target.projectId)) {
+        throw new Error("You can only create/edit within your project");
+      }
+      return;
+    }
+    // A project-scoped user targeting a department-only entity has no valid
+    // target — departments aren't reachable through a project scope.
+    if (target.departmentId) {
       throw new Error("You can only create/edit within your project");
     }
   }
