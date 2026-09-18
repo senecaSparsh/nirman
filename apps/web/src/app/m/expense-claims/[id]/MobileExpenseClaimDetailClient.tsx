@@ -29,6 +29,7 @@ import {
   type TimelineStepData,
 } from "@/components/mobile/v2/detail-primitives";
 import { useTodayDateState } from "@/lib/use-today-date";
+import { useConfirm } from "@/lib/use-confirm";
 
 export type ClaimLine = {
   id: string;
@@ -123,6 +124,29 @@ export function MobileExpenseClaimDetailClient({
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [categoryModal, setCategoryModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [confirm, confirmDialog] = useConfirm();
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    const yes = await confirm({
+      title: "Delete this draft?",
+      description: "The claim and all its lines will be permanently removed. This cannot be undone.",
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!yes) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/expense-claims/${id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to delete claim");
+      toast.success("Draft claim deleted");
+      router.push("/m/expense-claims");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete claim");
+      setDeleting(false);
+    }
+  }
 
   // Sync line form date with today when it becomes available
   useEffect(() => {
@@ -686,6 +710,18 @@ export function MobileExpenseClaimDetailClient({
                 {status === "REJECTED" ? "Resubmit" : "Submit"}
               </button>
             )}
+            {/* Drafts can be deleted — they were never approved, so a mistaken
+                or abandoned entry shouldn't linger forever in the list. */}
+            {status === "DRAFT" && canSubmit && (
+              <button
+                aria-label="Delete draft"
+                className="rounded-lg border border-destructive px-3 py-2.5 text-destructive press"
+                disabled={deleting || actionLoading === "submit"}
+                onClick={handleDelete}
+              >
+                {deleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+              </button>
+            )}
             {canApproveAction && (
               <button
                 className="flex-1 rounded-lg bg-success px-3 py-2.5 text-m-body font-semibold text-success-foreground press"
@@ -719,6 +755,7 @@ export function MobileExpenseClaimDetailClient({
           </div>
         </ActionBar>
       )}
+      {confirmDialog}
     </div>
   );
 }

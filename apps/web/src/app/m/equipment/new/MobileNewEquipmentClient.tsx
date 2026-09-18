@@ -290,9 +290,9 @@ export default function MobileNewEquipmentClient({
 
       {/* ── STICKY BOTTOM BAR ── */}
       <div
-        className={onClose ? "sticky bottom-0 z-30 border-t backdrop-blur-sm" : "fixed left-0 right-0 z-30 border-t backdrop-blur-sm"}
+        className={onClose ? "sticky bottom-0 z-30 border-t backdrop-blur-sm" : "fixed left-0 right-0 bottom-0 z-40 border-t backdrop-blur-sm"}
         style={{
-          ...(onClose ? {} : { bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px))" }),
+          ...(onClose ? {} : { paddingBottom: "max(env(safe-area-inset-bottom), 0px)" }),
           backgroundColor: "color-mix(in srgb, var(--color-paper) 97%, transparent)",
           borderColor: "var(--color-line)",
         }}

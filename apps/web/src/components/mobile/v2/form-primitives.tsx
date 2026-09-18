@@ -438,7 +438,10 @@ export function StickyActionBar({
 }) {
   return (
     <div
-      className="sticky bottom-0 left-0 right-0 z-20 border-t"
+      /* The center dept-FAB protrudes ~28px above the bottom nav's top edge,
+         dead-center over any full-width CTA pinned here — padding-bottom
+         lifts the button clear of the FAB's tap zone so it stays tappable. */
+      className="sticky bottom-0 left-0 right-0 z-20 border-t pb-8"
       style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
     >
       <div className="flex items-center justify-between gap-3 px-1 py-2">

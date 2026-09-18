@@ -132,3 +132,35 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   revalidatePath("/m/approvals");
   return json({ ok: true });
 });
+
+/**
+ * DELETE /api/expense-claims/[id] — remove a DRAFT claim. A draft never
+ * reached approval, so it carries no financial/audit weight — hard delete
+ * is safe (lines cascade, linked Expense rows just lose the claimId).
+ * Claimants may delete their own drafts; EXPENSE_CREATE may delete any draft.
+ * There's no CANCELLED status, so delete is the only way to clear a draft
+ * created by mistake or abandoned mid-entry.
+ */
+export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  const user = await requireAnyPermission(PERM.EXPENSE_CREATE, PERM.CLAIM_CREATE);
+  const company = await getCompany();
+  const { id } = await params;
+
+  const existing = await prisma.expenseClaim.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("ExpenseClaim") },
+    select: { id: true, status: true, claimantId: true },
+  });
+  if (!existing) return json({ error: "Expense claim not found or out of scope" }, { status: 404 });
+  if (existing.status !== "DRAFT") {
+    return json({ error: "Only draft claims can be deleted" }, { status: 409 });
+  }
+  // Self-service claimants can delete only their own drafts.
+  if (!hasPermission(await getActingRole(), PERM.EXPENSE_CREATE) && existing.claimantId !== user.id) {
+    return json({ error: "You can only delete your own claims" }, { status: 403 });
+  }
+
+  await prisma.expenseClaim.delete({ where: { id } });
+  revalidatePath("/expense-claims");
+  revalidatePath("/m/expense-claims");
+  return json({ ok: true });
+});

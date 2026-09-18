@@ -39,7 +39,11 @@ export default function MobileExpenseClaimDetailPage({
         const canApprove = perms.includes(PERM.EXPENSE_APPROVE) &&
           (claim?.claimantId !== currentUser?.id || canAutoApprove(actingRole));
         const canManage = perms.includes(PERM.FINANCE_MANAGE);
-        const canCreate = perms.includes(PERM.EXPENSE_CREATE);
+        // Match the list/new pages — claim filers hold CLAIM_CREATE (own
+        // claims), finance holds EXPENSE_CREATE (all claims). Gating on
+        // EXPENSE_CREATE alone locked claimants out of their own drafts:
+        // they could create one but never add lines or submit it.
+        const canCreate = perms.includes(PERM.EXPENSE_CREATE) || perms.includes(PERM.CLAIM_CREATE);
 
         const categories: CategoryRow[] = canCreate
           ? await prisma.expenseCategory.findMany({

@@ -273,11 +273,11 @@ export function MobileNewSupplierClient({
 
         {/* Sticky bottom bar */}
         <div
-          className="fixed left-0 right-0 z-30 border-t backdrop-blur-sm"
+          className="fixed left-0 right-0 bottom-0 z-40 border-t backdrop-blur-sm"
           style={{
-            bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px))",
             backgroundColor: "color-mix(in srgb, var(--color-paper) 97%, transparent)",
             borderColor: "var(--color-line)",
+            paddingBottom: "max(env(safe-area-inset-bottom), 0px)",
           }}
         >
           <div className="max-w-md mx-auto px-3.5 py-2">

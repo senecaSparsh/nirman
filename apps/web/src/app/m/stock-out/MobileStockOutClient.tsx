@@ -1140,13 +1140,16 @@ export function MobileStockOutClient({
         </form>
       </div>
 
-      {/* ══════ STICKY BOTTOM BAR ══════ */}
+      {/* ══════ STICKY BOTTOM BAR ══════ — sits at viewport bottom above the
+          tab bar (z-40), matching ActionBar's convention for pinned CTAs.
+          Previously pinned at bottom:3.5rem, where the center dept-FAB
+          protrudes and covered the submit button's tap zone. */}
       <div
-        className="fixed left-0 right-0 z-30 border-t backdrop-blur-sm"
+        className="fixed left-0 right-0 bottom-0 z-40 border-t backdrop-blur-sm"
         style={{
-          bottom: "calc(3.5rem + max(env(safe-area-inset-bottom), 0px))",
           backgroundColor: "color-mix(in srgb, var(--color-paper) 97%, transparent)",
           borderColor: "var(--color-line)",
+          paddingBottom: "max(env(safe-area-inset-bottom), 0px)",
         }}
       >
         <div className="max-w-md mx-auto px-3.5 py-2 flex items-center justify-between gap-2">
