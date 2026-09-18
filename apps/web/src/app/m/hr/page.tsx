@@ -5,11 +5,13 @@ import {
   Users,
   MapPin,
   Clock,
+  Banknote,
   Circle} from "lucide-react";
 import { prisma } from "@nirman/db";
 import { getCurrentUser, toNum, scopeWhere, getEmployeeAccessScope } from "@/lib/server";
 import { migrateRole, ROLES, PERM } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
+import { fetchMonthlyLabourCost } from "@/lib/labour-cost";
 import { formatDate, formatCurrency } from "@/lib/utils";
 import {
   SectionHead} from "@/components/mobile/v2/primitives";
@@ -60,6 +62,7 @@ export default function HrHomePage() {
           todayProjectAttendance,
           orgTree,
           qaCtx,
+          monthlyLabourCost,
         ] = await Promise.all([
           prisma.dailyProgressReport
             .findMany({
@@ -118,6 +121,9 @@ export default function HrHomePage() {
             .catch(() => []),
           loadOrgTree(company.id, company.name, currentUser?.id ?? null, canSeeComp),
           loadQuickActionContext("hr"),
+          // Comp data — fetched only for comp-tier viewers (wage columns are
+          // never read for roster users).
+          canSeeComp ? fetchMonthlyLabourCost(company.id) : Promise.resolve(null),
         ]);
 
         // ── Compute site presence today (top 2 projects for the summary line) ──
@@ -145,8 +151,9 @@ export default function HrHomePage() {
             category: "DPR Approvals"});
         }
 
-        // Draft payroll
-        if (draftPayroll) {
+        // Draft payroll — comp data (net payable leaks to roster tier and the
+        // /m/books/payroll link dead-ends for them anyway).
+        if (canSeeComp && draftPayroll) {
           const monthName = new Date(2000, draftPayroll.month - 1, 1).toLocaleString(
             "en-IN",
             { month: "short" },
@@ -236,6 +243,28 @@ export default function HrHomePage() {
               banners={attentionBanners}
               approvalsCount={totalPending}
             />
+
+            {/* ── Monthly labour cost — comp tier only (payroll.view |
+                payroll.manage | hr.manage). Desktop parity: the /hr dashboard
+                shows this card; mobile was missing it entirely. ── */}
+            {monthlyLabourCost != null && monthlyLabourCost > 0 && (
+              <Link
+                href="/m/books/payroll"
+                className="flex items-center gap-2.5 px-3 py-2.5 rounded-[0.5rem] mb-3 press"
+                style={{
+                  backgroundColor: "var(--color-paper)",
+                  border: "1px solid var(--color-line)"}}
+              >
+                <Banknote className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+                <span className="flex-1 text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>
+                  Monthly labour cost
+                </span>
+                <span className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                  {formatCurrency(monthlyLabourCost)}
+                </span>
+                <ArrowRight className="size-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} />
+              </Link>
+            )}
 
             <DepartmentActivityFeed department="hr" />
 

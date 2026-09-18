@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getCurrentUser, toNum, scopeWhere, getUserPermissions, getEmployeeAccessScope } from "@/lib/server";
+import { labourCostFrom } from "@/lib/labour-cost";
 import { PERM, migrateRole, ROLES } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { RefreshButton } from "@/components/refresh-button";
@@ -96,20 +97,9 @@ async function HrDashboardContent() {
   }
   const tradeBreakdown = Array.from(tradeMap.entries()).map(([trade, count]) => ({ trade, count }));
 
-  // Compute monthly labour cost (estimated from active employee daily rates + monthly salaries)
-  let monthlyLabourCost = 0;
-  for (const e of employees) {
-    if (e.wageType === "DAILY") {
-      monthlyLabourCost += toNum(e.dailyRate) * 26; // ~26 working days
-    } else {
-      monthlyLabourCost += toNum(e.monthlySalary);
-    }
-  }
-  // If we have a latest payroll from the current month/year, use its net instead.
-  // Older payrolls don't represent the current month's cost.
-  if (latestPayroll && latestPayroll.month === today.getMonth() + 1 && latestPayroll.year === today.getFullYear()) {
-    monthlyLabourCost = toNum(latestPayroll.totalNet);
-  }
+  // Monthly labour cost — shared computation with the mobile hub
+  // (lib/labour-cost.ts) so the two can't drift.
+  const monthlyLabourCost = labourCostFrom(employees, latestPayroll, today);
 
   // Compute 7-day attendance trend
   const trendMap = new Map<string, { present: number; absent: number; leave: number; halfDay: number; overtime: number }>();
