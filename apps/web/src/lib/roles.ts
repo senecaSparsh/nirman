@@ -86,6 +86,18 @@ export function roleTier(role: string | undefined | null): number {
 }
 
 /**
+ * Prettify a raw role key for display when no label is available —
+ * "CUSTOM_SITE_LEAD" → "Site Lead", "SITE_ENGINEER" → "Site Engineer".
+ */
+export function prettifyRoleKey(key: string): string {
+  return key
+    .replace(/^CUSTOM_/, "")
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/**
  * Can the actor create/assign a membership with the target role?
  * Rules:
  *   - The actor must be at a HIGHER tier (lower number) than the target.

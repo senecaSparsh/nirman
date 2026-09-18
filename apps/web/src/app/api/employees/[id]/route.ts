@@ -133,30 +133,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     await updateEmployeeDossier(id, company.id, user.id, dossierFields);
   }
 
-  // ── Reporting line cycle check (Employee → Employee) ──
-  // The reportsToEmployeeId is set via updateEmployee above. Here we just
-  // validate no cycle was created by walking up the chain.
+  // ── Reporting line audit (Employee → Employee) ──
+  // Self-report and cycle validation happen inside updateEmployee's
+  // transaction (before the write) — reaching this point means it passed.
   if (parsed.data.reportsToEmployeeId !== undefined) {
     const newManagerId = parsed.data.reportsToEmployeeId || null;
-    if (newManagerId) {
-      if (newManagerId === id) {
-        return json({ error: "Cannot report to yourself" }, { status: 400 });
-      }
-      // Walk up the chain to detect cycles
-      let current: string | null = newManagerId;
-      const visited = new Set<string>([id]);
-      while (current) {
-        if (visited.has(current)) {
-          return json({ error: "That reporting line would create a cycle" }, { status: 400 });
-        }
-        visited.add(current);
-        const up: { reportsToEmployeeId: string | null } | null = await prisma.employee.findUnique({
-          where: { id: current },
-          select: { reportsToEmployeeId: true },
-        });
-        current = up?.reportsToEmployeeId ?? null;
-      }
-    }
     await logAction(prisma, {
       userId: user.id,
       action: "EMPLOYEE_REPORTS_TO_UPDATE",

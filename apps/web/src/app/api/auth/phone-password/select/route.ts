@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
-import { json, ForbiddenError, UnauthorizedError } from "@/lib/server";
+import { json, ForbiddenError, UnauthorizedError, getCustomRoleLabels, roleDisplayLabel } from "@/lib/server";
 import { normalizePhone, normalizePhoneForLookup, createPhoneSession } from "@/lib/phone-otp";
 import { ServiceError } from "@nirman/services";
 
@@ -85,6 +85,7 @@ export const POST = async (req: NextRequest) => {
 
     // If user has multiple memberships, return company picker
     if (user.memberships.length > 1) {
+      const userCustomLabels = await getCustomRoleLabels(user.memberships.map((uc) => uc.company.id));
       const res = NextResponse.json({
         ok: true,
         requiresCompanySelect: true,
@@ -98,6 +99,7 @@ export const POST = async (req: NextRequest) => {
           id: uc.company.id,
           name: uc.company.name,
           role: uc.role,
+          roleLabel: roleDisplayLabel(uc.role, uc.company.id, userCustomLabels),
         })),
         mustChangePassword: user.mustChangePassword,
       }, { status: 200 });

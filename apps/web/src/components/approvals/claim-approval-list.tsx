@@ -120,7 +120,6 @@ export function ClaimApprovalList({ claims, categories }: { claims: ApprovalClai
                   </Button>
                   <Button
                     size="sm"
-                    variant="success"
                     onClick={() => approve(c)}
                     disabled={acting === `${c.id}-approve`}
                   >
@@ -129,7 +128,7 @@ export function ClaimApprovalList({ claims, categories }: { claims: ApprovalClai
                   </Button>
                   <Button
                     size="sm"
-                    variant="destructive"
+                    variant="outline"
                     onClick={() => { setRejecting(c); setRejectReason(""); }}
                     disabled={acting === `${c.id}-reject`}
                   >

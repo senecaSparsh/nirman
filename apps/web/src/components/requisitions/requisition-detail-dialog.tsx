@@ -13,6 +13,7 @@ import { StatusPill } from "@/components/page";
 import { PipelineStepper, type PipelineStep } from "@/components/ui/pipeline-stepper";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { ConvertToPoDialog } from "./convert-to-po-dialog";
+import { ComparativeQuotePanel } from "./comparative-quote-panel";
 import { AuditTrail } from "@/components/audit-trail";
 import { AttachmentList } from "@/components/attachments/attachment-list";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
@@ -20,6 +21,7 @@ import { useConfirm } from "@/lib/use-confirm";
 import type { RequisitionDetail, RequisitionRow } from "@/lib/types";
 
 type SupplierOption = { id: string; name: string };
+type MaterialOption = { id: string; code: string; name: string; unit: string };
 type LocationOption = {
   id: string;
   name: string;
@@ -32,6 +34,7 @@ export function RequisitionDetailDialog({
   onOpenChange,
   requisition,
   suppliers,
+  materials = [],
   locations,
   canApprove,
   canSelfApprove,
@@ -41,6 +44,7 @@ export function RequisitionDetailDialog({
   onOpenChange: (open: boolean) => void;
   requisition: RequisitionRow | null;
   suppliers: SupplierOption[];
+  materials?: MaterialOption[];
   locations: LocationOption[];
   canApprove?: boolean;
   /** Tier-1 viewers (OWNER/ADMIN) may approve their own indent. */
@@ -232,7 +236,7 @@ export function RequisitionDetailDialog({
               )}
               {detail.status === "APPROVED" && !detail.quotes?.waived && !detail.quotes?.selected && (
                 <span className="text-caption text-muted-foreground italic self-center">
-                  Collect quotes & select a winner to auto-create the PO
+                  Next: upload ≥{detail.quotes?.minRequired ?? 3}{" "}quotes &amp; select a winner below — the PO is created automatically.
                 </span>
               )}
               {detail.status === "CONVERTED" && detail.convertedPoId && (
@@ -334,7 +338,10 @@ export function RequisitionDetailDialog({
                 <Badge variant={detail.lciDecision.recommendedScope === "PROJECT" ? "brand" : "outline"}>
                   {detail.lciDecision.recommendedScope === "PROJECT" ? "Project scope" : "Company scope"}
                 </Badge>
-                <span className="text-caption text-muted-foreground">
+                <span
+                  className="text-caption text-muted-foreground"
+                  title="Logistics Complexity Index — scored from lead time, volume/weight, distance and bulk discount. Company (central) buying is recommended when the index crosses this threshold."
+                >
                   LCI threshold: {detail.lciDecision.threshold}%
                 </span>
               </div>
@@ -365,6 +372,35 @@ export function RequisitionDetailDialog({
                     <span className="tnum font-medium">{formatCurrency(detail.quotes.selected.landedTotal)}</span>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Quote collection — the same engine used in Convert to PO.
+                Shown when the indent is approved but the quote gate isn't
+                satisfied yet (no winner selected, not waived). */}
+            {detail.status === "APPROVED" && !detail.quotes?.waived && !detail.quotes?.selected && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-body">
+                  <Trophy className="h-4 w-4 text-warning" />
+                  <span className="font-medium">Collect vendor quotes</span>
+                  <span className="text-caption text-muted-foreground">— upload, compare landed costs, select a winner</span>
+                </div>
+                <ComparativeQuotePanel
+                  requisitionId={detail.id}
+                  reqNumber={detail.reqNumber}
+                  requisitionLines={detail.lines.map((l) => ({
+                    materialId: l.materialId,
+                    materialCode: l.materialCode,
+                    materialName: l.materialName,
+                    unit: l.unit,
+                    qtyRequested: l.qtyRequested,
+                  }))}
+                  suppliers={suppliers}
+                  materials={materials}
+                  canApprove={canApprove ?? false}
+                  canCreate
+                  onWinnerSelected={refetchDetail}
+                />
               </div>
             )}
 

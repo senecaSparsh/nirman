@@ -9,7 +9,12 @@ import {
   effectivePermissions,
   isCustomRole,
   roleTier,
+  canAssignRole,
+  canAssignCustomRole,
+  ALL_ROLES,
   APPROVER_ROLES,
+  ROLES,
+  prettifyRoleKey,
   type Role,
 } from "@/lib/roles";
 import { logAction, resolveUserScope, ServiceError } from "@nirman/services";
@@ -738,6 +743,18 @@ export const landPurchasePlanSchema = z.object({
   brokerageAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
   legalFees: z.coerce.number().finite().nonnegative().optional().nullable(),
   otherCharges: z.coerce.number().finite().nonnegative().optional().nullable(),
+  // Scheduled cost components — posted atomically with the purchase so an
+  // interrupted wizard can't leave the purchase missing its cost breakdown.
+  costComponents: z.array(z.object({
+    label: z.string().min(1, "Label is required"),
+    amount: z.coerce.number().finite().positive("Cost amount must be > 0"),
+    frequency: z.enum(["ONE_TIME", "RECURRING"]).default("ONE_TIME"),
+    interval: z.enum(["MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY"]).optional().nullable(),
+    startDate: z.string().optional().nullable(),
+    endDate: z.string().optional().nullable(),
+    occurrences: z.coerce.number().finite().positive().optional().nullable(),
+    notes: z.string().optional().nullable(),
+  })).optional(),
 });
 
 // Edit schema for PATCH /api/land-purchases/[id] — includes all editable fields
@@ -1494,7 +1511,15 @@ export const workflowScheduleSchema = z.object({
 
 // ── User role management ──
 export const userRoleSchema = z.object({
-  role: z.string().optional(),
+  // Must be a built-in role key or a CUSTOM_* key pattern — arbitrary strings
+  // would be written to User.role verbatim and silently resolve to SUPERVISOR
+  // permissions (normalizeRole fails closed, but the stored garbage confuses
+  // every label/audit/UI surface). Existence of the custom role is checked
+  // downstream against the company's CustomRole rows.
+  role: z.string().refine(
+    (v) => (ALL_ROLES as string[]).includes(v) || /^CUSTOM_[A-Z0-9_]{2,50}$/.test(v),
+    "Role must be a built-in role or a CUSTOM_* role key",
+  ).optional(),
   active: z.boolean().optional(),
   name: z.string().min(1).max(100).optional(),
   phone: z.string().max(20).nullable().optional(),
@@ -2347,19 +2372,72 @@ export async function canManageSpecificEmployee(
     if (viewerEmployee.hierarchyLevel >= employee.hierarchyLevel) return false;
   }
 
-  // Hierarchy check: viewer must be above the employee's role
-  const { canAssignRole, isCustomRole, roleTier } = await import("@/lib/roles");
-  const employeeRole = employee.user.role;
-  if (isCustomRole(employeeRole)) {
-    // Custom role — look up tier from DB
+  // Hierarchy check: viewer must be above the employee's role.
+  // Use the acting role (custom-role viewers act at their baseRole's tier,
+  // not the normalized SUPERVISOR fallback getUserRole() would report) and
+  // resolve custom TARGET roles via their DB tier — never feed a CUSTOM_*
+  // string to canAssignRole(), which normalizes it to SUPERVISOR and
+  // silently passes the tier check.
+  const actingRole = await getActingRole();
+  return canManageRole(actingRole, employee.user.role, company.id);
+}
+
+/**
+ * Can an actor at `actorRole` manage/assign `targetRole` — built-in or
+ * custom? Custom roles resolve their tier from the CustomRole row in this
+ * company; unknown role strings and missing custom roles fail closed.
+ *
+ * Use this wherever a check involves a stored (possibly CUSTOM_*) role —
+ * canAssignRole() alone is unsafe there because normalizeRole() maps any
+ * non-built-in string to SUPERVISOR (tier 5), letting every actor at
+ * tier 1-4 pass the hierarchy check.
+ */
+export async function canManageRole(
+  actorRole: string | undefined | null,
+  targetRole: string | undefined | null,
+  companyId: string,
+): Promise<boolean> {
+  if (!targetRole) return false;
+  if (isCustomRole(targetRole)) {
     const customRole = await prisma.customRole.findFirst({
-      where: { companyId: company.id, key: employeeRole },
+      where: { companyId, key: targetRole },
       select: { tier: true },
     }).catch(() => null);
-    if (!customRole) return false;
-    return canAssignRole(scope.role, employeeRole) || customRole.tier > roleTier(scope.role);
+    return customRole ? canAssignCustomRole(actorRole, customRole.tier) : false;
   }
-  return canAssignRole(scope.role, employeeRole);
+  if (!(ALL_ROLES as string[]).includes(targetRole)) return false;
+  return canAssignRole(actorRole, targetRole);
+}
+
+/**
+ * Map of "companyId:roleKey" → display label for all custom roles across
+ * the given companies. Build once per request/page when rendering a list
+ * of stored (possibly CUSTOM_*) role values, then pass to roleDisplayLabel.
+ */
+export async function getCustomRoleLabels(companyIds: string[]): Promise<Map<string, string>> {
+  if (companyIds.length === 0) return new Map();
+  const rows = await prisma.customRole.findMany({
+    where: { companyId: { in: companyIds } },
+    select: { companyId: true, key: true, label: true },
+  }).catch(() => [] as { companyId: string; key: string; label: string }[]);
+  return new Map(rows.map((r) => [`${r.companyId}:${r.key}`, r.label]));
+}
+
+/**
+ * Display label for any stored role key — custom role label → built-in
+ * ROLES label → prettified key. Never show a raw "CUSTOM_*" key to a human.
+ */
+export function roleDisplayLabel(
+  roleKey: string | null | undefined,
+  companyId?: string,
+  customLabels?: Map<string, string> | null,
+): string {
+  if (!roleKey) return "Member";
+  const custom = companyId ? customLabels?.get(`${companyId}:${roleKey}`) : undefined;
+  if (custom) return custom;
+  const builtIn = ROLES[roleKey as keyof typeof ROLES];
+  if (builtIn) return builtIn.label;
+  return prettifyRoleKey(roleKey);
 }
 
 /**
@@ -2868,7 +2946,14 @@ function deriveAutoAudit(pathname: string, method: string): {
   const entityId =
     segments.slice(2).find((s) => /^[A-Za-z0-9_-]{15,}$/.test(s)) ?? null;
 
-  return { action: `${entityType}_${verb}`, entityType, entityId };
+  // Canonical action vocabulary is ENTITY_VERB in SCREAMING_SNAKE — convert
+  // the title-cased entity ("CustomRole" → "CUSTOM_ROLE") so auto-audit rows
+  // read identically to the explicit logAction rows for the same operation.
+  const actionEntity = entityType
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .toUpperCase();
+
+  return { action: `${actionEntity}_${verb}`, entityType, entityId };
 }
 
 /** Read a mutation's response body for the audit `after` payload —
@@ -2993,6 +3078,7 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
           return res;
         }
 
+        const requestStartAt = new Date();
         const res = await fn(req as TReq, ctx);
 
         // ── Auto-add Cache-Control to GET responses ────────────
@@ -3033,22 +3119,38 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
               !opts.skipSession &&
               !AUTO_AUDIT_SKIP_PREFIXES.some((p) => pathname.startsWith(p))
             ) {
-              const derived = deriveAutoAudit(pathname, req.method);
-              const after = await auditSnapshot(res);
-              const entityId =
-                derived.entityId ??
-                (after && typeof after === "object" && "id" in after
-                  ? String((after as { id: unknown }).id)
-                  : "(collection)");
-              await logAction(prisma, {
-                userId: user?.id,
-                companyId: user?.companyId ?? undefined,
-                action: derived.action,
-                entityType: derived.entityType,
-                entityId,
-                after,
-                onBehalfOfId,
-              });
+              // Skip the generic row when the handler already wrote a
+              // semantic audit row during this request (service-layer
+              // logAction) — otherwise every mutation shows up twice in
+              // the activity feed (USER_ROLE_CHANGE + USER_UPDATE).
+              // The 5s skew buffer covers app/DB clock drift.
+              const alreadyLogged = user?.id
+                ? await prisma.auditLog.findFirst({
+                    where: {
+                      userId: user.id,
+                      timestamp: { gte: new Date(requestStartAt.getTime() - 5000) },
+                    },
+                    select: { id: true },
+                  })
+                : null;
+              if (!alreadyLogged) {
+                const derived = deriveAutoAudit(pathname, req.method);
+                const after = await auditSnapshot(res);
+                const entityId =
+                  derived.entityId ??
+                  (after && typeof after === "object" && "id" in after
+                    ? String((after as { id: unknown }).id)
+                    : "(collection)");
+                await logAction(prisma, {
+                  userId: user?.id,
+                  companyId: user?.companyId ?? undefined,
+                  action: derived.action,
+                  entityType: derived.entityType,
+                  entityId,
+                  after,
+                  onBehalfOfId,
+                });
+              }
             }
           } catch {
             // audit failure must never break the response

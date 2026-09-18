@@ -1865,3 +1865,15 @@ input[type="number"] {
   pointer-events: none;
   user-select: none;
 }
+
+/* ── SensitiveGuard ────────────────────────────────────────────────
+   Guarded pages (employee PII, payroll, finance, reports) set
+   user-select: none on the whole region via `select-none`. Editable
+   fields must stay selectable/editable inside them — e.g. the
+   employee-edit form on the detail page — or forms become unusable.
+   Copy/cut are blocked by JS (onCopy/onCut) with the same exemption.
+   ──────────────────────────────────────────────────────────────── */
+[data-sensitive-guard] :is(input, textarea, [contenteditable="true"]) {
+  user-select: text;
+  -webkit-user-select: text;
+}

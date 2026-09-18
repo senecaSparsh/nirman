@@ -49,6 +49,7 @@ async function MobileCompanyContent() {
         permissions={result.permissions}
         roleOptions={result.roleOptions}
         assignableRoles={result.assignableRoles}
+        customRoles={result.customRoles}
       />
     </PageContextProvider>
   );

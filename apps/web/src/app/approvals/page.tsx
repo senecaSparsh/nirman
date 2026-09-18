@@ -374,6 +374,7 @@ async function ApprovalsContent() {
       dprs={dprRows}
       expenses={expenseRows}
       raBills={raBillRows}
+      pendingClaimsCount={claimRows.length}
     />
     {claimRows.length > 0 && (
       <ClaimApprovalList claims={claimRows} categories={claimCategoryRows} />

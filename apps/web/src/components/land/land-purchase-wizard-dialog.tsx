@@ -423,30 +423,26 @@ export function LandPurchaseWizardDialog({
             : undefined,
         })),
       };
+      // Attach the scheduled cost components to the same POST — the API
+      // creates them atomically with the purchase so an interrupted wizard
+      // can't leave a purchase missing its cost breakdown.
+      const costComponents = extraCosts
+        .filter((c) => c.label.trim() && c.amount && Number(c.amount) > 0)
+        .map((c) => ({
+          label: c.label.trim(),
+          amount: Number(c.amount),
+          frequency: c.frequency,
+          interval: c.frequency === "RECURRING" ? c.interval : null,
+          startDate: c.startDate || null,
+          occurrences: c.occurrences ? Number(c.occurrences) : null,
+        }));
       const res = await fetch("/api/land-purchases", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, costComponents: costComponents.length ? costComponents : undefined }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to record land purchase");
-      // Create additional cost components (recurring / future costs) after the
-      // land purchase exists. Each is a separate POST that triggers recompute.
-      for (const c of extraCosts) {
-        if (!c.label.trim() || !c.amount || Number(c.amount) <= 0) continue;
-        await fetch(`/api/land-purchases/${data.id}/cost-components`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            label: c.label.trim(),
-            amount: Number(c.amount),
-            frequency: c.frequency,
-            interval: c.frequency === "RECURRING" ? c.interval : null,
-            startDate: c.startDate || null,
-            occurrences: c.occurrences ? Number(c.occurrences) : null,
-          }),
-        });
-      }
       toast.success("Land purchase recorded", {
         description: mode === "WHOLE"
           ? "1 parcel created."

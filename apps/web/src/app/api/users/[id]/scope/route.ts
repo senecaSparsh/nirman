@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { assignScopedMembership, type ScopeType } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, getCustomRoleLabels, json, requirePermission, roleDisplayLabel } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -98,9 +98,11 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     return json({ error: "User is not a member of this company" }, { status: 404 });
   }
 
+  const customLabels = await getCustomRoleLabels([company.id]);
   return json({
     membershipId: membership.id,
     role: membership.role,
+    roleLabel: roleDisplayLabel(membership.role, company.id, customLabels),
     scopeType: membership.scopeType,
     reportsToUserCompanyId: membership.reportsToUserCompanyId,
     scopes: membership.scopes.map((s) => ({
@@ -120,6 +122,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
         name: m.user.name,
         email: m.user.email,
         role: m.role,
+        roleLabel: roleDisplayLabel(m.role, company.id, customLabels),
       })),
   });
 });

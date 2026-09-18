@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getActingDelegations, getActingRole, getOwnRole, getSession, getUserPermissions, json } from "@/lib/server";
+import { apiHandler, getActingDelegations, getActingRole, getCompany, getCustomRoleLabels, getOwnRole, getSession, getUserPermissions, json, roleDisplayLabel } from "@/lib/server";
 
 /**
  * GET /api/me — the current user's identity + EFFECTIVE permissions.
@@ -49,11 +49,18 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     getOwnRole().catch(() => null),
     getActingDelegations().catch(() => []),
   ]);
+  // Human label for the stored role — CUSTOM_* keys resolve to the custom
+  // role's label in the active company so clients never show a raw key or
+  // the normalized "Supervisor" fallback.
+  const role = dbUser?.role ?? sessionUser.role ?? null;
+  const company = await getCompany().catch(() => null);
+  const customLabels = company ? await getCustomRoleLabels([company.id]) : null;
   const res = json({
     id: sessionUser.id,
     name: dbUser?.name ?? sessionUser.name ?? null,
     email: sessionUser.email ?? null,
-    role: dbUser?.role ?? sessionUser.role ?? null,
+    role,
+    roleLabel: roleDisplayLabel(role, company?.id, customLabels),
     phone: dbUser?.phone ?? null,
     image: dbUser?.image ?? null,
     active: dbUser?.active ?? true,

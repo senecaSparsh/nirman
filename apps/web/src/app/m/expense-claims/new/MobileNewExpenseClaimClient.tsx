@@ -193,7 +193,29 @@ export function MobileNewExpenseClaimClient({
       // Record smart defaults
       recordDefaults({ projectId });
 
-      // Step 1: Create claim shell
+      // Upload any attached receipts first — Files can't ride in the JSON
+      // claim payload, so each gets its own upload and the resulting URL is
+      // sent on the line below.
+      const preparedLines = [];
+      for (const line of validLines) {
+        let receiptUrl = line.receiptUrl;
+        if (line.receiptFile) {
+          const uploaded = await uploadReceipt(line.receiptFile);
+          if (uploaded) receiptUrl = uploaded;
+        }
+        preparedLines.push({
+          categoryId: line.categoryId || null,
+          category: line.category.trim(),
+          amount: Number(line.amount),
+          gstRate: line.gstRate ? Number(line.gstRate) : null,
+          date: line.date || undefined,
+          receiptUrl: receiptUrl || null,
+          notes: line.notes.trim() || null,
+        });
+      }
+
+      // One atomic call — header + lines + submit land together, so an
+      // interrupted request can't leave a line-less draft behind.
       const createRes = await fetch("/api/expense-claims", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -201,52 +223,19 @@ export function MobileNewExpenseClaimClient({
           claimantId,
           projectId: projectId || undefined,
           description: description.trim() || undefined,
+          lines: preparedLines,
+          submit: true,
         }),
       });
       const createData = await createRes.json().catch(() => ({}));
       if (!createRes.ok) throw new Error(createData.error ?? "Failed to create claim");
-      const claimId = createData.id;
 
-      // Step 2: Upload receipts + add lines
-      for (const line of validLines) {
-        let receiptUrl = line.receiptUrl;
-        if (line.receiptFile) {
-          const uploaded = await uploadReceipt(line.receiptFile);
-          if (uploaded) receiptUrl = uploaded;
-        }
-        const lineRes = await fetch(`/api/expense-claims/${claimId}/lines`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            categoryId: line.categoryId || null,
-            category: line.category.trim(),
-            amount: Number(line.amount),
-            gstRate: line.gstRate ? Number(line.gstRate) : null,
-            date: line.date || undefined,
-            receiptUrl: receiptUrl || null,
-            notes: line.notes.trim() || null,
-          }),
-        });
-        if (!lineRes.ok) {
-          const ld = await lineRes.json().catch(() => ({}));
-          throw new Error(ld.error ?? "Failed to add expense line");
-        }
-      }
-
-      // Step 3: Auto-submit the claim
-      const submitRes = await fetch(`/api/expense-claims/${claimId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "submit" }),
+      setSuccess({
+        id: createData.id,
+        submitted: createData.submitted !== false,
+        lineCount: validLines.length,
+        total: totalAmount,
       });
-      if (!submitRes.ok) {
-        // Claim created + lines added but submit failed — still usable
-        setSuccess({ id: claimId, submitted: false, lineCount: validLines.length, total: totalAmount });
-        clearDraft();
-        return;
-      }
-
-      setSuccess({ id: claimId, submitted: true, lineCount: validLines.length, total: totalAmount });
       clearDraft();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");

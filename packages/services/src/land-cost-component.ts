@@ -1,4 +1,4 @@
-import { prisma, type Prisma, type LandCostFrequency, type LandCostRecurrenceInterval } from "@nirman/db";
+import { type Prisma, type LandCostFrequency, type LandCostRecurrenceInterval } from "@nirman/db";
 import Decimal from "decimal.js";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
@@ -141,7 +141,10 @@ interface AddLandCostComponentInput {
   userId?: string;
 }
 
-export async function addLandCostComponent(input: AddLandCostComponentInput) {
+/** Shared validation for a cost component — extracted so both the standalone
+ * `addLandCostComponent` and the atomic `recordLandPurchaseWithPlan` path
+ * enforce identical rules. */
+function assertValidCostComponent(input: AddLandCostComponentInput) {
   const amount = new Decimal(input.amount);
   if (!amount.gt(0)) throw new ServiceError("Cost amount must be > 0");
   if (!input.label?.trim()) throw new ServiceError("Label is required");
@@ -154,39 +157,53 @@ export async function addLandCostComponent(input: AddLandCostComponentInput) {
   if (input.occurrences != null && input.occurrences <= 0) {
     throw new ServiceError("Occurrences must be > 0");
   }
+  return amount;
+}
 
-  return withSerializableTransaction(async (tx) => {
+/** In-transaction variant — creates a cost component on an existing tx so a
+ * caller already inside a transaction (e.g. `recordLandPurchaseWithPlan`) can
+ * add components atomically rather than per-request. Skips the standalone
+ * land-purchase existence check when `skipLpCheck` is set (the caller already
+ * has the purchase row). */
+export async function addLandCostComponentTx(
+  tx: Prisma.TransactionClient,
+  input: AddLandCostComponentInput & { skipLpCheck?: boolean },
+) {
+  const amount = assertValidCostComponent(input);
+  if (!input.skipLpCheck) {
     const lp = await tx.landPurchase.findFirst({
       where: { id: input.landPurchaseId, deletedAt: null },
     });
     if (!lp) throw new ServiceError("Land purchase not found or deleted", 404);
-
-    const component = await tx.landCostComponent.create({
-      data: {
-        landPurchaseId: input.landPurchaseId,
-        label: input.label.trim(),
-        amount,
-        frequency: input.frequency ?? "ONE_TIME",
-        interval: input.interval ?? null,
-        startDate: input.startDate ?? new Date(),
-        endDate: input.endDate ?? null,
-        occurrences: input.occurrences ?? null,
-        notes: input.notes ?? null,
-        createdById: input.userId ?? null,
-      },
-    });
-
-    await logAction(tx, {
-      userId: input.userId,
-      action: "LAND_COST_COMPONENT_ADD",
-      entityType: "LandCostComponent",
-      entityId: component.id,
-      after: { landPurchaseId: input.landPurchaseId, label: component.label, amount: amount.toString(), frequency: component.frequency },
-    });
-
-    await recomputeLandTotalCost(tx, input.landPurchaseId, input.userId);
-    return component;
+  }
+  const component = await tx.landCostComponent.create({
+    data: {
+      landPurchaseId: input.landPurchaseId,
+      label: input.label.trim(),
+      amount,
+      frequency: input.frequency ?? "ONE_TIME",
+      interval: input.interval ?? null,
+      startDate: input.startDate ?? new Date(),
+      endDate: input.endDate ?? null,
+      occurrences: input.occurrences ?? null,
+      notes: input.notes ?? null,
+      createdById: input.userId ?? null,
+    },
   });
+  await logAction(tx, {
+    userId: input.userId,
+    action: "LAND_COST_COMPONENT_ADD",
+    entityType: "LandCostComponent",
+    entityId: component.id,
+    after: { landPurchaseId: input.landPurchaseId, label: component.label, amount: amount.toString(), frequency: component.frequency },
+  });
+  await recomputeLandTotalCost(tx, input.landPurchaseId, input.userId);
+  return component;
+}
+
+export async function addLandCostComponent(input: AddLandCostComponentInput) {
+  assertValidCostComponent(input);
+  return withSerializableTransaction((tx) => addLandCostComponentTx(tx, input));
 }
 
 interface UpdateLandCostComponentInput {

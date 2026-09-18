@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, resolveRolePermissions } from "@/lib/server";
+import { apiHandler, canManageRole, getActingRole, getCompany, json, requirePermission, resolveRolePermissions } from "@/lib/server";
 import { PERM, ALL_PERMISSIONS, isCustomRole } from "@/lib/roles";
 
 /**
@@ -43,13 +43,15 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const { ROLES, normalizeRole } = await import("@/lib/roles");
   let displayRole = normalizeRole(membership.role);
   let customPerms: string[] = [];
+  let customLabel: string | null = null;
   if (isCustomRole(membership.role)) {
     const customRole = await prisma.customRole
-      .findFirst({ where: { companyId: company.id, key: membership.role }, select: { baseRole: true, permissions: true } })
+      .findFirst({ where: { companyId: company.id, key: membership.role }, select: { baseRole: true, permissions: true, label: true } })
       .catch(() => null);
     if (customRole) {
       displayRole = normalizeRole(customRole.baseRole);
       customPerms = customRole.permissions;
+      customLabel = customRole.label;
     }
   }
   const roleDef = ROLES[displayRole];
@@ -58,6 +60,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   return json({
     membershipId: membership.id,
     role: membership.role,
+    roleLabel: customLabel ?? roleDef.label,
     baseRolePermissions: baseRolePerms,
     roleOverrides: roleOverridePerms,
     userOverrides,
@@ -99,6 +102,21 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   });
   if (!membership) {
     return json({ error: "User is not a member of this company" }, { status: 404 });
+  }
+
+  // Same guards as the role-change route: no self-override (a user with
+  // users.manage could otherwise grant themselves any permission), and the
+  // actor must sit above the target's role tier — custom roles resolve
+  // through their DB tier via canManageRole.
+  if (userId === session.id) {
+    return json({ error: "You cannot change your own permissions" }, { status: 400 });
+  }
+  const actorRole = await getActingRole();
+  if (!(await canManageRole(actorRole, membership.role, company.id))) {
+    return json(
+      { error: "You don't have authority to manage this user's permissions." },
+      { status: 403 },
+    );
   }
 
   // Replace all user permission rows atomically

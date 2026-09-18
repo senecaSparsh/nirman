@@ -1021,6 +1021,7 @@ export function QuotationsTab({
   reportIds?: Set<string>;
 }) {
   const now = useHydratedDate();
+  const [selected, setSelected] = useState<QuotationRequestRow | null>(null);
   if (requests.length === 0) {
     return (
       <EmptyState
@@ -1033,10 +1034,10 @@ export function QuotationsTab({
 
   const columns: Column<QuotationRequestRow>[] = [
     { key: "requestNumber", label: "Request", render: (r) => (
-      <Link href={`/m/procurement?tab=quotations&open=${r.id}`} className="block">
+      <div>
         <p className="font-mono text-xs font-bold">{r.requestNumber}</p>
         <p className="font-medium truncate max-w-[20rem]">{r.title}</p>
-      </Link>
+      </div>
     ), sortValue: (r) => r.requestNumber },
     { key: "projectName", label: "Project", render: (r) => <span className="text-muted-foreground">{r.projectName ?? "—"}</span>, sortValue: (r) => r.projectName ?? "" },
     { key: "workActivity", label: "Work Activity", render: (r) => <span className="text-muted-foreground text-xs">{r.workActivity ?? "—"}</span>, sortValue: (r) => r.workActivity ?? "" },
@@ -1066,7 +1067,7 @@ export function QuotationsTab({
           <span className="text-xs font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">Your approval</span>
         ) : null}
         {r.convertedPoNumber ? (
-          <Link href={`/m/procurement/${r.convertedPoId}`} className="text-xs font-bold text-green-700">{r.convertedPoNumber}</Link>
+          <Link href={`/procurement?po=${r.convertedPoId}`} className="text-xs font-bold text-green-700" onClick={(e) => e.stopPropagation()}>{r.convertedPoNumber}</Link>
         ) : null}
       </div>
     ), sortValue: (r) => r.status },
@@ -1079,7 +1080,65 @@ export function QuotationsTab({
         Quotation requests are created and managed on mobile (the project or procurement manager collects quotes from suppliers).
         This tab gives you an overview. Approval is done by the submitter&apos;s direct reporting manager.
       </div>
-      <DataTable data={requests} columns={columns} />
+      <DataTable data={requests} columns={columns} onRowClick={setSelected} />
+
+      {/* Read-only detail — desktop has no quote-entry surface, so this
+          shows the request's state and points mobile management out
+          honestly instead of dead-ending or jumping into the mobile shell. */}
+      <Dialog
+        open={selected != null}
+        onOpenChange={(o) => !o && setSelected(null)}
+        title={selected ? `${selected.requestNumber} — ${selected.title}` : ""}
+        description="Quotation request"
+        className="max-w-lg"
+      >
+        {selected && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <StatusPill status={selected.status} />
+              {selected.convertedPoNumber && selected.convertedPoId && (
+                <Link href={`/procurement?po=${selected.convertedPoId}`} className="text-caption font-medium text-success hover:underline">
+                  PO {selected.convertedPoNumber} →
+                </Link>
+              )}
+            </div>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-body">
+              <div>
+                <dt className="text-micro text-muted-foreground">Project</dt>
+                <dd>{selected.projectName ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-micro text-muted-foreground">Work activity</dt>
+                <dd>{selected.workActivity ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-micro text-muted-foreground">Submitted by</dt>
+                <dd>{selected.submittedByName ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-micro text-muted-foreground">Required by</dt>
+                <dd>{selected.requiredByDate ? formatDate(selected.requiredByDate) : "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-micro text-muted-foreground">Quotes collected</dt>
+                <dd className={selected.quoteCount >= selected.minQuotesRequired ? "text-success font-medium" : "text-warning font-medium"}>
+                  {selected.quoteCount}/{selected.minQuotesRequired}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-micro text-muted-foreground">Cheapest quote</dt>
+                <dd>{selected.cheapestLandedTotal != null ? formatCurrency(selected.cheapestLandedTotal) : "—"}</dd>
+              </div>
+            </dl>
+            <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-caption text-muted-foreground">
+              Quotes are collected on mobile by the project or procurement manager —{" "}
+              <Link href={`/m/procurement?tab=quotations&open=${selected.id}`} className="text-brand hover:underline">
+                open in mobile view
+              </Link>
+            </p>
+          </div>
+        )}
+      </Dialog>
     </div>
   );
 }

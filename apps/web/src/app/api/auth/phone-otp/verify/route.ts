@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
-import { json } from "@/lib/server";
+import { json, getCustomRoleLabels, roleDisplayLabel } from "@/lib/server";
 import { normalizePhone, normalizePhoneForLookup, createPhoneSession, OTP_CONFIG } from "@/lib/phone-otp";
 import { timingSafeEqual } from "node:crypto";
 
@@ -146,6 +146,9 @@ export const POST = async (req: NextRequest) => {
   // The client will show a user/company picker, then call
   // POST /api/auth/phone-otp/select-user with { otpId, userId } to
   // complete the login. The OTP stays valid until expiry or selection.
+  const customLabels = await getCustomRoleLabels(
+    matchedUsers.flatMap((u) => u.memberships.map((uc) => uc.company.id)),
+  );
   return json({
     multiUser: true,
     otpId: otp.id,
@@ -158,6 +161,7 @@ export const POST = async (req: NextRequest) => {
         id: uc.company.id,
         name: uc.company.name,
         role: uc.role,
+        roleLabel: roleDisplayLabel(uc.role, uc.company.id, customLabels),
       })),
     })),
   });

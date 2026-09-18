@@ -94,12 +94,16 @@ type CompanyOption = {
 export function MobileShellV2({
   children,
   initial,
+  isDev = false,
 }: {
   children: React.ReactNode;
   /** Server-resolved nav identity from the /m layout. When present, the
    * shell renders with the real role/permissions/company on first paint
    * (no client waterfall, no session spinner). */
   initial?: NavBootstrap | null;
+  /** Passed from the server layout — gates dev-only escape hatches
+   * (NEXT_PUBLIC_AUTH_BYPASS) so they can never activate in prod builds. */
+  isDev?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -149,13 +153,13 @@ export function MobileShellV2({
   const [badgeCounts, setBadgeCounts] = useState<Record<string, number>>({});
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // ── Auth guard (all envs; skip only with NEXT_PUBLIC_AUTH_BYPASS) ──
+  // ── Auth guard (all envs; skip only with NEXT_PUBLIC_AUTH_BYPASS, dev-only) ──
   useEffect(() => {
-    if (process.env.NEXT_PUBLIC_AUTH_BYPASS === "true") return;
+    if (isDev && process.env.NEXT_PUBLIC_AUTH_BYPASS === "true") return;
     if (!sessionLoading && !session) {
       void signOutAndCleanup();
     }
-  }, [session, sessionLoading, router]);
+  }, [session, sessionLoading, router, isDev]);
 
   // ── Global 401 interceptor ───────────────────────────
   useEffect(() => {
@@ -352,7 +356,7 @@ export function MobileShellV2({
   // failed → keep the old gate so we still wait for useSession/redirect).
   if (
     !initial &&
-    process.env.NEXT_PUBLIC_AUTH_BYPASS !== "true" &&
+    !(isDev && process.env.NEXT_PUBLIC_AUTH_BYPASS === "true") &&
     sessionLoading &&
     !session
   ) {

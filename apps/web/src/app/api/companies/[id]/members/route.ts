@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { resolveScopeType } from "@nirman/services";
-import { apiHandler, json, requirePermission } from "@/lib/server";
+import { apiHandler, canManageRole, json, requirePermission, userRoleSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
-import { normalizeRole, canAssignRole } from "@/lib/roles";
+import { isCustomRole } from "@/lib/roles";
 
 /**
  * GET /api/companies/[id]/members — list the users that are members of
@@ -78,18 +78,34 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  const role = normalizeRole(parsed.data.role);
+  // Role must be a built-in key or a CUSTOM_* key — normalizeRole() would
+  // otherwise store garbage/custom strings as SUPERVISOR silently.
+  const roleCheck = userRoleSchema.shape.role.safeParse(parsed.data.role ?? "SUPERVISOR");
+  if (!roleCheck.success) {
+    return json({ error: "Role must be a built-in role or a CUSTOM_* role key" }, { status: 400 });
+  }
+  const role = roleCheck.data!;
 
-  // Hierarchy: actor must be able to assign the target role.
-  if (!canAssignRole(actor.role, role)) {
+  const company = await prisma.company.findFirst({ where: { id, deletedAt: null }, select: { id: true } });
+  if (!company) return json({ error: "Company not found" }, { status: 404 });
+
+  // A CUSTOM_* key must resolve to a real role in this company.
+  if (isCustomRole(role)) {
+    const cr = await prisma.customRole.findFirst({
+      where: { companyId: id, key: role },
+      select: { id: true },
+    });
+    if (!cr) return json({ error: "Custom role not found" }, { status: 400 });
+  }
+
+  // Hierarchy: actor must be able to assign the target role — canManageRole
+  // resolves custom-role tiers from the DB (canAssignRole can't see them).
+  if (!(await canManageRole(actor.role, role, id))) {
     return json(
       { error: `Your role (${actor.role}) cannot assign the ${role} role. You can only assign roles below your tier.` },
       { status: 403 },
     );
   }
-
-  const company = await prisma.company.findFirst({ where: { id, deletedAt: null }, select: { id: true } });
-  if (!company) return json({ error: "Company not found" }, { status: 404 });
 
   // Find or create the user by email.
   let user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
@@ -110,7 +126,7 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
       where: { userId_companyId: { userId: user.id, companyId: id } },
       select: { role: true },
     });
-    if (existingMembership && !canAssignRole(actor.role, existingMembership.role)) {
+    if (existingMembership && !(await canManageRole(actor.role, existingMembership.role, id))) {
       return json(
         { error: `This user is already a ${existingMembership.role} — you cannot reassign a role at or above your tier.` },
         { status: 403 },

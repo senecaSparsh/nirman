@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { apiHandler, getActingRole, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
-import { PERM, canAssignRole, isCustomRole } from "@/lib/roles";
+import { apiHandler, canManageRole, getActingRole, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { normalizePhone, generateOtpCode, OTP_CONFIG } from "@/lib/phone-otp";
 import { isTwilioConfigured, normalizeTwilioNumber } from "@/lib/twilio-service";
 
@@ -35,16 +35,10 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   const isSelf = session.id === userId;
   if (!isSelf) {
     await requirePermission(PERM.USERS_MANAGE);
-    // For custom roles, check tier
-    if (isCustomRole(target.role)) {
-      const customRole = await prisma.customRole.findFirst({
-        where: { companyId: company.id, key: target.role },
-        select: { tier: true },
-      }).catch(() => null);
-      if (!customRole || customRole.tier <= 1) {
-        return json({ error: "Cannot manage this user" }, { status: 403 });
-      }
-    } else if (!canAssignRole(await getActingRole(), target.role)) {
+    // The target's stored role may be a custom role — resolve its DB tier
+    // against the actor's acting role (canAssignRole alone would normalize
+    // CUSTOM_* to SUPERVISOR and let any tier 1-4 actor through).
+    if (!(await canManageRole(await getActingRole(), target.role, company.id))) {
       return json({ error: "Cannot manage this user" }, { status: 403 });
     }
   }

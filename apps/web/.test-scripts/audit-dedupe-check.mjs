@@ -1,0 +1,13 @@
+import { prisma } from "@nirman/db";
+const BASE = "http://localhost:3000";
+const owner = await fetch(`${BASE}/api/auth/demo-login`, { method: "POST", headers: { "Content-Type": "application/json", "Origin": BASE }, body: JSON.stringify({ role: "OWNER" }) }).then(r => r.json());
+const si = await fetch(`${BASE}/api/auth/sign-in/email`, { method: "POST", headers: { "Content-Type": "application/json", "Origin": BASE }, body: JSON.stringify({ email: owner.email, password: owner.password }) });
+const oc = (si.headers.getSetCookie() ?? []).map(c => c.split(";")[0]).filter(c => c.includes("session")).join("; ");
+const before = await prisma.auditLog.count();
+const patch = await fetch(`${BASE}/api/users/cmu71ujzx0005vleq9qjtot5p`, { method: "PATCH", headers: { "Content-Type": "application/json", "Origin": BASE, Cookie: oc }, body: JSON.stringify({ designation: "Dedupe check" }) });
+console.log("patch:", patch.status);
+await new Promise(r => setTimeout(r, 500));
+const after = await prisma.auditLog.count();
+const latest = await prisma.auditLog.findMany({ orderBy: { timestamp: "desc" }, take: 3, select: { action: true } });
+console.log(`rows written: ${after - before} | latest: ${latest.map(r => r.action).join(", ")}`);
+await prisma.$disconnect();

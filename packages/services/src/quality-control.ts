@@ -30,6 +30,10 @@ export type NcrCategory = "MATERIAL" | "WORKMANSHIP" | "DESIGN" | "DOCUMENT" | "
 export type CapaStatus = "DRAFT" | "IN_PROGRESS" | "VERIFICATION" | "VERIFIED" | "CLOSED" | "REJECTED";
 
 export interface CreateNcrInput {
+  /** The caller's active company — the project must belong to it, otherwise
+   *  an NCR could be written into another tenant (companyId was previously
+   *  derived from the project row, so any known projectId worked). */
+  companyId: string;
   projectId: string;
   title: string;
   description: string;
@@ -156,7 +160,7 @@ async function generateCapaNumber(tx: Prisma.TransactionClient, companyId: strin
 export async function createNcr(input: CreateNcrInput) {
   const result = await withSerializableTransaction(async (tx) => {
     const project = await tx.project.findFirst({
-      where: { id: input.projectId, deletedAt: null },
+      where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
       include: { company: { select: { id: true } } },
     });
     if (!project) throw new ServiceError("Project not found", 404);

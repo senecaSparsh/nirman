@@ -423,12 +423,14 @@ function TreeFolder({
         nameBold
         nameOnClick={() => setOpen((o) => !o)}
         right={
-          <span
-            className="text-m-micro font-bold tabular-nums shrink-0"
-            style={{ color: "var(--color-ink-500)" }}
-          >
-            {count}
-          </span>
+          count > 0 ? (
+            <span
+              className="text-m-micro font-bold tabular-nums shrink-0"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              {count}
+            </span>
+          ) : null
         }
       />
       {open && children ? <div>{children}</div> : null}
@@ -471,7 +473,7 @@ function TreeLeaf({
       nameBold={false}
       sub={sub}
       right={
-        count != null ? (
+        count != null && count > 0 ? (
           <span
             className="text-m-micro font-bold tabular-nums shrink-0"
             style={{ color: "var(--color-ink-500)" }}

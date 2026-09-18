@@ -130,6 +130,7 @@ export function ApprovalsView({
   dprs = [],
   expenses = [],
   raBills = [],
+  pendingClaimsCount = 0,
 }: {
   purchaseOrders: ApprovalPORow[];
   requisitions: ApprovalReqRow[];
@@ -137,6 +138,10 @@ export function ApprovalsView({
   dprs?: ApprovalDprRow[];
   expenses?: ApprovalExpenseRow[];
   raBills?: ApprovalRaBillRow[];
+  /** Expense claims render via a sibling component (ClaimApprovalList)
+      below this view — they're counted here so the "N items" toolbar
+      total covers everything on the page, not just this view's sections. */
+  pendingClaimsCount?: number;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -238,7 +243,7 @@ export function ApprovalsView({
   }, [expenses, query]);
 
   const empty = filteredPOs.length === 0 && filteredReqs.length === 0 && filteredGatePasses.length === 0 && filteredDprs.length === 0 && filteredExpenses.length === 0;
-  const totalCount = purchaseOrders.length + requisitions.length + gatePasses.length + dprs.length + expenses.length + raBills.length;
+  const totalCount = purchaseOrders.length + requisitions.length + gatePasses.length + dprs.length + expenses.length + raBills.length + pendingClaimsCount;
 
   if (totalCount === 0) {
     return (

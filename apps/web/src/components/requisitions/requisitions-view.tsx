@@ -41,6 +41,7 @@ function buildReqColumns(opts: {
   onSubmit: (r: RequisitionRow) => void;
   onDelete: (r: RequisitionRow) => void;
   onPrint: (r: RequisitionRow) => void;
+  onView: (r: RequisitionRow) => void;
 }): Column<RequisitionRow>[] {
   return [
   {
@@ -147,7 +148,15 @@ function buildReqColumns(opts: {
             </Button>
           )}
           {r.status === "APPROVED" && !r.quotesWaived && !r.hasWinningQuote && (
-            <span className="text-caption text-muted-foreground italic">Collect quotes</span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-brand"
+              onClick={(e) => { e.stopPropagation(); opts.onView(r); }}
+              title="Open the indent — upload supplier quotes, compare landed costs and select a winner"
+            >
+              Collect quotes
+            </Button>
           )}
           <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); opts.onPrint(r); }} title="Print">
             <Printer className="h-3 w-3" />
@@ -387,6 +396,7 @@ export function RequisitionsView({
                   onSubmit: (r) => action(r.id, "submit"),
                   onDelete: (r) => setDeleting(r),
                   onPrint: (r) => window.open(`/print/requisition/${r.id}`, "_blank"),
+                  onView: (r) => setDetailTarget(r),
                 })}
                 onRowClick={(r) => setDetailTarget(r)}
                 searchable
@@ -679,6 +689,7 @@ export function RequisitionsView({
         onOpenChange={(o) => !o && setDetailTarget(null)}
         requisition={detailTarget}
         suppliers={suppliers}
+        materials={materials}
         locations={locations}
         canApprove={canApprove}
         canSelfApprove={canSelfApprove}

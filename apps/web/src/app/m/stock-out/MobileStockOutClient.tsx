@@ -76,6 +76,7 @@ export function MobileStockOutClient({
   initialProjectId,
   initialFromLocationId,
   onClose,
+  modeDowngraded,
 }: {
   canTransfer: boolean;
   canIssue: boolean;
@@ -83,6 +84,9 @@ export function MobileStockOutClient({
   initialProjectId: string;
   initialFromLocationId: string;
   onClose?: () => void;
+  /** True when the URL asked for ?mode=transfer but the user lacks the
+   *  transfer permission — surfaced so the fallback to issue isn't silent. */
+  modeDowngraded?: boolean;
 }) {
   const router = useRouter();
   const { online, enqueue } = useOfflineQueue();
@@ -768,6 +772,17 @@ export function MobileStockOutClient({
             <span className="text-m-body font-bold" style={{ color: "var(--color-paper)" }}>
               {mode === "transfer" ? "Stock Transfer" : "Material Issue"}
             </span>
+          </div>
+        )}
+
+        {/* Requested transfer but lacking the permission — flag the downgrade
+            instead of silently rendering issue mode. */}
+        {modeDowngraded && (
+          <div
+            className="rounded-[0.5rem] border px-3 py-2 text-m-caption font-medium"
+            style={{ borderColor: "var(--color-stop)", backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)" }}
+          >
+            Stock transfers need the <strong>stock.transfer</strong> permission — showing issue mode. Ask a manager for access.
           </div>
         )}
 

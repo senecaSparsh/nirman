@@ -10,7 +10,7 @@ import { RefreshButton } from "@/components/refresh-button";
 import { QuotationsTab } from "@/components/procurement/procurement-view";
 import type { QuotationRequestRow } from "@/lib/types";
 
-export const metadata = { title: "Quotations · Nirman" };
+export const metadata = { title: "Supplier Quotes · Nirman" };
 
 /**
  * Standalone Quotations page — accessible by any role with QUOTATION_VIEW.
@@ -87,7 +87,7 @@ async function QuotationsContent() {
   return (
     <>
       <PageHeader
-        title="Quotations"
+        title="Supplier Quotes"
         description="Request quotes from suppliers, compare landed costs, and convert the winner into a purchase order."
         stats={[
           { label: "Requests", value: quotationRequestRows.length },

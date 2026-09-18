@@ -133,6 +133,16 @@ export const POST = apiHandler(async (req: NextRequest) => {
         purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
         leaseStartDate: leaseStartDate ? new Date(leaseStartDate) : null,
         leaseEndDate: leaseEndDate ? new Date(leaseEndDate) : null,
+        costComponents: rest.costComponents?.map((c) => ({
+          label: c.label,
+          amount: c.amount,
+          frequency: c.frequency,
+          interval: c.interval ?? null,
+          startDate: c.startDate ? new Date(c.startDate) : undefined,
+          endDate: c.endDate ? new Date(c.endDate) : null,
+          occurrences: c.occurrences ?? null,
+          notes: c.notes ?? undefined,
+        })),
         createdById: user.id,
       });
       revalidatePath("/land");

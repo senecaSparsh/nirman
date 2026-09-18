@@ -31,12 +31,28 @@ export function computeClaimLineGst(
   return gstRate ? amount.mul(gstRate).div(100) : null;
 }
 
+export interface CreateClaimLineInput {
+  categoryId?: string | null;
+  category: string;
+  amount: Decimal | number | string;
+  gstRate?: Decimal | number | string | null;
+  date?: Date;
+  receiptUrl?: string | null;
+  notes?: string | null;
+}
+
 export interface CreateClaimInput {
   companyId: string;
   claimantId: string;
   projectId?: string | null;
   description?: string | null;
   userId?: string;
+  /**
+   * Optional expense lines to create atomically with the claim — the client
+   * posts the header + lines in ONE call so an interrupted multi-request
+   * orchestration can't leave a line-less draft behind.
+   */
+  lines?: CreateClaimLineInput[];
 }
 
 export async function createExpenseClaim(input: CreateClaimInput) {
@@ -50,14 +66,42 @@ export async function createExpenseClaim(input: CreateClaimInput) {
     });
     if (!claimant) throw new ServiceError("Claimant not found in this company", 400);
 
+    // Validate + pre-compute every line's GST so the running total is exact.
+    const lineInputs = input.lines ?? [];
+    const prepared = lineInputs.map((l) => {
+      const amount = new Decimal(l.amount);
+      if (!amount.gt(0)) throw new ServiceError("Line amount must be > 0");
+      const gstRate = l.gstRate != null ? new Decimal(l.gstRate) : null;
+      const gstAmount = computeClaimLineGst(amount, gstRate);
+      return { l, amount, gstRate, gstAmount };
+    });
+    const totalAmount = prepared.reduce(
+      (sum, p) => sum.plus(p.amount).plus(p.gstAmount ?? 0),
+      new Decimal(0),
+    );
+
     const claim = await tx.expenseClaim.create({
       data: {
         companyId: input.companyId,
         claimantId: input.claimantId,
         projectId: input.projectId ?? null,
         description: input.description ?? null,
-        totalAmount: 0,
+        totalAmount,
         createdById: input.userId ?? null,
+        lines: prepared.length
+          ? {
+              create: prepared.map(({ l, amount, gstRate, gstAmount }) => ({
+                categoryId: l.categoryId ?? null,
+                category: l.category,
+                amount,
+                gstRate: gstRate ?? null,
+                gstAmount: gstAmount ?? null,
+                date: l.date ?? new Date(),
+                receiptUrl: l.receiptUrl ?? null,
+                notes: l.notes ?? null,
+              })),
+            }
+          : undefined,
       },
     });
     await logAction(tx, {
@@ -66,7 +110,7 @@ export async function createExpenseClaim(input: CreateClaimInput) {
       action: "EXPENSE_CLAIM_CREATE",
       entityType: "ExpenseClaim",
       entityId: claim.id,
-      after: { claimantId: input.claimantId, projectId: input.projectId },
+      after: { claimantId: input.claimantId, projectId: input.projectId, lineCount: prepared.length },
     });
     return claim;
   });

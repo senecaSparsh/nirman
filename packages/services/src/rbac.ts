@@ -127,9 +127,11 @@ export function validateScopeEntries(
 }
 
 /**
- * Prevent a reporting cycle: `reportsToId` must not be the membership itself
- * nor one of its own direct/indirect reports. The caller is expected to have
- * already fetched the chain; this is the pure check.
+ * Prevent a reporting cycle. Given `reportingChainIds` — the upward chain
+ * walked from the candidate manager ([candidate, candidate's manager, ...]) —
+ * returns true if `candidateReportsToId` appears in it: either it IS the
+ * candidate (self-report) or it is a transitive manager of the candidate, so
+ * making the candidate its reportsTo would close a loop.
  */
 export function wouldCreateCycle(
   candidateReportsToId: string,
@@ -170,7 +172,13 @@ export async function resolveUserScope(
   });
   if (!membership) return null;
 
-  const scopeType = resolveScopeType(membership);
+  // Custom roles derive their default scope type from their baseRole — a
+  // CUSTOM_* role based on SITE_ENGINEER gets PROJECT scope like a real
+  // site engineer, not the fail-open COMPANY default unknown strings get.
+  const scopeType = resolveScopeType({
+    scopeType: membership.scopeType,
+    role: await svcResolveBaseRole(membership.role, companyId),
+  });
   if (scopeType === "COMPANY") {
     return { scopeType, departmentIds: [], projectIds: [] };
   }
@@ -290,12 +298,52 @@ export function _svcCanAssignRole(actorRole: string, targetRole: string): boolea
 function svcCanAssignRole(actorRole: string, targetRole: string): boolean {
   const actorTier = svcRoleTier(actorRole);
   const targetTier = svcRoleTier(targetRole);
+  return svcTierAllows(actorTier, actorRole, targetTier, targetRole);
+}
+
+/** The tier-delegation rule, applied to already-resolved tiers. */
+function svcTierAllows(actorTier: number, actorRole: string, targetTier: number, targetRole: string): boolean {
   if (actorTier >= 5) return false; // Tier 5 can't assign anyone
   if (actorRole === targetRole) return false; // no self-cloning
   if (actorTier < targetTier) return true; // strictly below
   // Same tier, different role → allowed only for tier 1 (OWNER↔ADMIN)
   if (actorTier === 1 && actorTier === targetTier && actorRole !== targetRole) return true;
   return false;
+}
+
+/**
+ * Resolve the numeric tier of a role string within a company — built-in or
+ * custom. Custom roles read their `tier` column from the CustomRole row;
+ * unknown strings return null (callers must fail closed).
+ *
+ * Never feed a possibly-custom role string to svcRoleTier() directly — it
+ * returns 5 for anything not in the built-in table, so a tier-2 custom role
+ * would silently pass a tier-3 actor's hierarchy check.
+ */
+async function svcResolveRoleTier(role: string, companyId: string): Promise<number | null> {
+  if (typeof role !== "string" || role === "") return null;
+  if (role in SVC_ROLE_TIER) return SVC_ROLE_TIER[role]!;
+  if (role.startsWith("CUSTOM_")) {
+    const cr = await prisma.customRole
+      .findFirst({ where: { companyId, key: role }, select: { tier: true } })
+      .catch(() => null);
+    return cr?.tier ?? null;
+  }
+  return null;
+}
+
+/**
+ * Resolve a role to the built-in role whose defaults apply — custom roles
+ * resolve to their baseRole, built-ins pass through unchanged. Used where a
+ * role's default scope type is derived (custom roles inherit their base
+ * role's default, not the fail-open COMPANY fallback).
+ */
+async function svcResolveBaseRole(role: string, companyId: string): Promise<string> {
+  if (typeof role !== "string" || !role.startsWith("CUSTOM_")) return role;
+  const cr = await prisma.customRole
+    .findFirst({ where: { companyId, key: role }, select: { baseRole: true } })
+    .catch(() => null);
+  return cr?.baseRole ?? role;
 }
 
 /**
@@ -319,8 +367,20 @@ export async function assignScopedMembership(input: AssignScopeInput) {
     throw new RbacError("You are not a member of this company", 403);
   }
 
+  // Resolve both sides' tiers through the DB — a CUSTOM_* role string maps
+  // to tier 5 under svcRoleTier(), so a raw svcCanAssignRole() call would
+  // let any tier 1-4 actor assign/manage a high-tier custom role.
+  const actorTier = await svcResolveRoleTier(actorMembership.role, input.companyId);
+  if (actorTier === null) {
+    throw new RbacError("Your membership role is not recognized in this company", 403);
+  }
+  const inputTier = await svcResolveRoleTier(input.role, input.companyId);
+  if (inputTier === null) {
+    throw new RbacError(`Unknown role "${input.role}"`, 400);
+  }
+
   // Hierarchy: actor must be able to assign the target role.
-  if (!svcCanAssignRole(actorMembership.role, input.role)) {
+  if (!svcTierAllows(actorTier, actorMembership.role, inputTier, input.role)) {
     throw new RbacError(
       `Your role (${actorMembership.role}) cannot assign the ${input.role} role. You can only assign roles below your tier.`,
       403,
@@ -330,7 +390,10 @@ export async function assignScopedMembership(input: AssignScopeInput) {
   const targetUser = await prisma.user.findUnique({ where: { id: input.userId } });
   if (!targetUser) throw new RbacError("Target user not found", 404);
 
-  const scopeType = input.scopeType ?? defaultScopeType(input.role);
+  // Default scope type comes from the role — custom roles inherit their
+  // baseRole's default (a CUSTOM_ role based on SITE_ENGINEER gets PROJECT
+  // scope, not the fail-open COMPANY fallback for unknown strings).
+  const scopeType = input.scopeType ?? defaultScopeType(await svcResolveBaseRole(input.role, input.companyId));
   const entries = input.scopeEntries ?? [];
   validateScopeEntries(scopeType, entries);
 
@@ -341,12 +404,17 @@ export async function assignScopedMembership(input: AssignScopeInput) {
     });
 
     // If the target already has a membership, the actor must be above the
-    // target's CURRENT role too (can't reassign a peer or superior).
-    if (existing && !svcCanAssignRole(actorMembership.role, existing.role)) {
-      throw new RbacError(
-        `This user is already a ${existing.role} — you cannot reassign a role at or above your tier.`,
-        403,
-      );
+    // target's CURRENT role too (can't reassign a peer or superior). A
+    // stored role that no longer resolves (deleted custom role, garbage)
+    // fails closed — the actor cannot touch it.
+    if (existing) {
+      const existingTier = await svcResolveRoleTier(existing.role, input.companyId);
+      if (existingTier === null || !svcTierAllows(actorTier, actorMembership.role, existingTier, existing.role)) {
+        throw new RbacError(
+          `This user is already a ${existing.role} — you cannot reassign a role at or above your tier.`,
+          403,
+        );
+      }
     }
 
     // Cycle check on reportsTo.
@@ -358,8 +426,13 @@ export async function assignScopedMembership(input: AssignScopeInput) {
         throw new RbacError("reportsTo membership must be in the same company", 400);
       }
       if (existing) {
-        const chain = await getReportingChain(existing.id);
-        if (wouldCreateCycle(input.reportsToUserCompanyId, chain)) {
+        // Walk up from the CANDIDATE manager — a loop forms iff the target
+        // membership sits in that chain (the target is, directly or
+        // transitively, the candidate's own manager). Checking the target's
+        // upward chain instead flags ancestors (not cycles) and lets the
+        // real two-way loop (A→B while B→A) through.
+        const candidateChain = await getReportingChain(input.reportsToUserCompanyId);
+        if (wouldCreateCycle(existing.id, candidateChain)) {
           throw new RbacError("That reporting line would create a cycle", 400);
         }
       }

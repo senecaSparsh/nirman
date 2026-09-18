@@ -2,9 +2,22 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, getActingRole, requirePermission, getCompany, json, userRoleSchema, scopeWhere } from "@/lib/server";
-import { canAssignRole, isCustomRole, canAssignCustomRole, ROLES, PERM } from "@/lib/roles";
+import { apiHandler, canManageRole, getActingRole, requirePermission, getCompany, json, userRoleSchema, scopeWhere } from "@/lib/server";
+import { isCustomRole, ROLES, PERM } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
+
+/** Display label for a role key — custom roles resolve via the company's
+ *  CustomRole row, built-ins via the ROLES map. */
+async function roleLabel(roleKey: string, companyId: string, fallback = "this person"): Promise<string> {
+  if (isCustomRole(roleKey)) {
+    const cr = await prisma.customRole.findFirst({
+      where: { companyId, key: roleKey },
+      select: { label: true },
+    }).catch(() => null);
+    return cr?.label ?? fallback;
+  }
+  return ROLES[roleKey as keyof typeof ROLES]?.label ?? fallback;
+}
 
 /**
  * PATCH /api/users/[id] — update a user's role, profile, or active status.
@@ -49,59 +62,28 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   // If changing the role, enforce the hierarchy:
   //   1. actor must be above the target's CURRENT role
   //   2. actor must be above the NEW role being assigned
+  // canManageRole resolves custom roles via their DB tier and fails closed
+  // on unknown role strings — never feed a stored role to canAssignRole()
+  // directly (CUSTOM_* normalizes to SUPERVISOR and passes any tier check).
   if (parsed.data.role !== undefined && parsed.data.role !== existing.role) {
-    // Check if the target's current role is a custom role
-    const existingIsCustom = isCustomRole(existing.role);
-    const newIsCustom = isCustomRole(parsed.data.role);
-
-    // For custom roles, we need to look up their tier from the DB
-    let existingTierOk = false;
-    if (existingIsCustom) {
-      const existingCustomRole = await prisma.customRole.findFirst({
-        where: { companyId: company.id, key: existing.role },
-        select: { tier: true },
-      }).catch(() => null);
-      existingTierOk = existingCustomRole ? canAssignCustomRole(actorRole, existingCustomRole.tier) : false;
-    } else {
-      existingTierOk = canAssignRole(actorRole, existing.role);
-    }
-
-    if (!existingTierOk) {
-      const targetLabel = isCustomRole(existing.role)
-        ? (await prisma.customRole.findFirst({ where: { companyId: company.id, key: existing.role }, select: { label: true } }).catch(() => null))?.label ?? "this person"
-        : ROLES[existing.role as keyof typeof ROLES]?.label ?? "this person";
+    if (!(await canManageRole(actorRole, existing.role, company.id))) {
+      const targetLabel = await roleLabel(existing.role, company.id);
       return json(
         { error: `You don't have authority to manage ${targetLabel}.` },
         { status: 403 },
       );
     }
 
-    // Check the new role
-    let newTierOk = false;
-    if (newIsCustom) {
-      const newCustomRole = await prisma.customRole.findFirst({
-        where: { companyId: company.id, key: parsed.data.role },
-        select: { tier: true },
-      }).catch(() => null);
-      newTierOk = newCustomRole ? canAssignCustomRole(actorRole, newCustomRole.tier) : false;
-    } else {
-      newTierOk = canAssignRole(actorRole, parsed.data.role);
-    }
-
-    if (!newTierOk) {
-      const newLabel = isCustomRole(parsed.data.role)
-        ? (await prisma.customRole.findFirst({ where: { companyId: company.id, key: parsed.data.role }, select: { label: true } }).catch(() => null))?.label ?? "that role"
-        : ROLES[parsed.data.role as keyof typeof ROLES]?.label ?? "that role";
+    if (!(await canManageRole(actorRole, parsed.data.role, company.id))) {
+      const newLabel = await roleLabel(parsed.data.role, company.id, "that role");
       return json(
         { error: `You don't have authority to assign the ${newLabel} role.` },
         { status: 403 },
       );
     }
-  } else if (parsed.data.active !== undefined && !canAssignRole(actorRole, existing.role)) {
+  } else if (parsed.data.active !== undefined && !(await canManageRole(actorRole, existing.role, company.id))) {
     // Even toggling active/inactive requires the actor to be above the target.
-    const targetLabel = isCustomRole(existing.role)
-      ? (await prisma.customRole.findFirst({ where: { companyId: company.id, key: existing.role }, select: { label: true } }).catch(() => null))?.label ?? "this person"
-      : ROLES[existing.role as keyof typeof ROLES]?.label ?? "this person";
+    const targetLabel = await roleLabel(existing.role, company.id);
     return json(
       { error: `You don't have authority to manage ${targetLabel}.` },
       { status: 403 },
@@ -114,10 +96,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     parsed.data.designation !== undefined || parsed.data.department !== undefined ||
     parsed.data.employeeCode !== undefined || parsed.data.joiningDate !== undefined;
   if (isProfileEdit && actorId !== userId) {
-    if (!canAssignRole(actorRole, existing.role)) {
-      const targetLabel = isCustomRole(existing.role)
-        ? (await prisma.customRole.findFirst({ where: { companyId: company.id, key: existing.role }, select: { label: true } }).catch(() => null))?.label ?? "this person"
-        : ROLES[existing.role as keyof typeof ROLES]?.label ?? "this person";
+    if (!(await canManageRole(actorRole, existing.role, company.id))) {
+      const targetLabel = await roleLabel(existing.role, company.id);
       return json(
         { error: `You don't have authority to edit ${targetLabel}'s profile.` },
         { status: 403 },

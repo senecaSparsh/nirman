@@ -345,4 +345,67 @@ describe("PATCH /api/users/[id]", () => {
     );
     expect(res.status).toBe(403);
   });
+
+  it("rejects a role that is neither built-in nor a CUSTOM_* key (400, not stored verbatim)", async () => {
+    const res = await PATCH(
+      makeRequest("/api/users/u-target", { method: "PATCH", body: { role: "GARBAGE_ROLE_XYZ" } }),
+      makeCtx("u-target"),
+    );
+    expect(res.status).toBe(400);
+    const body = await getJson<{ error: string }>(res);
+    expect(body.error).toContain("CUSTOM_*");
+  });
+
+  it("blocks a tier-3 actor from managing a member holding a tier-2 custom role", async () => {
+    // The regression: CUSTOM_* stored roles normalized to SUPERVISOR (tier 5)
+    // under canAssignRole, so an HR_MANAGER passed the hierarchy check on a
+    // tier-2 member. canManageRole resolves the stored CustomRole tier.
+    setSessionUser({ role: "HR_MANAGER", id: "hr-1" });
+    mockPrisma().user!.findUnique.mockImplementation(async (args: any) => {
+      if (args?.where?.id === "hr-1") {
+        return { id: "hr-1", role: "HR_MANAGER", companyId: "company-1", active: true };
+      }
+      return { id: "u-target", role: "CUSTOM_DIRECTOR", active: true, name: "Director" };
+    });
+    mockPrisma().customRole!.findFirst.mockResolvedValue({
+      id: "cr-1", companyId: "company-1", key: "CUSTOM_DIRECTOR",
+      label: "Director", baseRole: "PROJECT_DIRECTOR", tier: 2, permissions: [],
+    });
+    const res = await PATCH(
+      makeRequest("/api/users/u-target", { method: "PATCH", body: { role: "SUPERVISOR" } }),
+      makeCtx("u-target"),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("blocks a tier-3 actor from deactivating a member holding a tier-2 custom role", async () => {
+    setSessionUser({ role: "HR_MANAGER", id: "hr-1" });
+    mockPrisma().user!.findUnique.mockImplementation(async (args: any) => {
+      if (args?.where?.id === "hr-1") {
+        return { id: "hr-1", role: "HR_MANAGER", companyId: "company-1", active: true };
+      }
+      return { id: "u-target", role: "CUSTOM_DIRECTOR", active: true, name: "Director" };
+    });
+    mockPrisma().customRole!.findFirst.mockResolvedValue({
+      id: "cr-1", companyId: "company-1", key: "CUSTOM_DIRECTOR",
+      label: "Director", baseRole: "PROJECT_DIRECTOR", tier: 2, permissions: [],
+    });
+    const res = await PATCH(
+      makeRequest("/api/users/u-target", { method: "PATCH", body: { active: false } }),
+      makeCtx("u-target"),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("assigns a custom role when the actor's tier is above it", async () => {
+    mockPrisma().customRole!.findFirst.mockResolvedValue({
+      id: "cr-2", companyId: "company-1", key: "CUSTOM_SITE_LEAD",
+      label: "Site Lead", baseRole: "SITE_ENGINEER", tier: 4, permissions: ["qc.manage"],
+    });
+    const res = await PATCH(
+      makeRequest("/api/users/u-target", { method: "PATCH", body: { role: "CUSTOM_SITE_LEAD" } }),
+      makeCtx("u-target"),
+    );
+    expect(res.status).toBe(200);
+  });
 });

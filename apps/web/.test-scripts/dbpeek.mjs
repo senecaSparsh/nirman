@@ -1,0 +1,10 @@
+import { prisma } from "@nirman/db";
+const users = await prisma.user.findMany({ select: { id: true, name: true, email: true, role: true, companyId: true, active: true }, take: 40 });
+console.log("USERS:", JSON.stringify(users, null, 1));
+const depts = await prisma.department.findMany({ select: { id: true, name: true, companyId: true }, take: 20 });
+console.log("DEPTS:", JSON.stringify(depts, null, 1));
+const emps = await prisma.employee.findMany({ where: { deletedAt: null }, select: { id: true, name: true, departmentId: true, userId: true, companyId: true, hierarchyLevel: true }, take: 40 });
+console.log("EMPLOYEES:", JSON.stringify(emps, null, 1));
+const crs = await prisma.customRole.findMany({ select: { id: true, key: true, label: true, baseRole: true, tier: true, companyId: true } });
+console.log("CUSTOMROLES:", JSON.stringify(crs, null, 1));
+await prisma.$disconnect();

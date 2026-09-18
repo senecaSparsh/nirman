@@ -18,7 +18,7 @@ import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { StatusPill } from "@/components/page";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, displayEmail } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
 import { ROLE_LIST, ROLES, assignableRoles, canAssignRole, type Role } from "@/lib/roles";
 import { CompaniesManager, type CompanyRow } from "@/components/settings/companies-manager";
@@ -849,6 +849,21 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
   // Include custom roles the actor can assign (based on tier)
   const actorTierNum = (ROLES as Record<string, { tier: number }>)[actorRole]?.tier ?? 5;
   const assignableCustomRoles = (customRoles ?? []).filter((cr) => actorTierNum < cr.tier);
+  // Mirror the server-side canManageRole check: a CUSTOM_* target resolves
+  // to its stored tier — canAssignRole() would normalize it to SUPERVISOR
+  // and offer the role dropdown / active toggle on users the API will 403.
+  const customRoleByKey = new Map((customRoles ?? []).map((cr) => [cr.key, cr]));
+  const canManageUserRole = (role: string) => {
+    if (role.startsWith("CUSTOM_")) {
+      const cr = customRoleByKey.get(role);
+      return cr ? actorTierNum < cr.tier && actorTierNum < 5 : false;
+    }
+    return canAssignRole(actorRole, role);
+  };
+  const roleLabelFor = (role: string) =>
+    customRoleByKey.get(role)?.label ??
+    ROLE_LIST.find((rl) => rl.key === role)?.label ??
+    role.replace(/^CUSTOM_/, "").replace(/_/g, " ");
 
   const filteredUsers = userSearch.trim()
     ? users.filter((u) => {
@@ -858,6 +873,7 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
           u.email.toLowerCase().includes(q) ||
           (u.phone ?? "").toLowerCase().includes(q) ||
           u.role.toLowerCase().includes(q) ||
+          roleLabelFor(u.role).toLowerCase().includes(q) ||
           (u.department ?? "").toLowerCase().includes(q) ||
           (u.designation ?? "").toLowerCase().includes(q) ||
           (u.employeeCode ?? "").toLowerCase().includes(q)
@@ -1036,7 +1052,7 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
                   </TD>
                   <TD className="text-muted-foreground">
                     <div className="flex flex-col">
-                      <span>{u.email}</span>
+                      <span>{displayEmail(u.email) ?? "—"}</span>
                       {u.phone && (
                         <span className="text-caption text-muted-foreground flex items-center gap-1">
                           <Phone className="h-3 w-3" /> {u.phone}
@@ -1045,7 +1061,7 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
                     </div>
                   </TD>
                   <TD>
-                    {canManage && canAssignRole(actorRole, u.role) ? (
+                    {canManage && canManageUserRole(u.role) ? (
                       <Select
                         value={u.role}
                         onChange={(e) => handleRoleChange(u.id, e.target.value as Role)}
@@ -1062,7 +1078,7 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
                           })}
                       </Select>
                     ) : (
-                      <Badge variant={roleBadgeVariant(u.role)}>{u.role}</Badge>
+                      <Badge variant={roleBadgeVariant(u.role)}>{roleLabelFor(u.role)}</Badge>
                     )}
                   </TD>
                   <TD className="hidden lg:table-cell text-muted-foreground text-caption">
@@ -1072,7 +1088,7 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
                     {u.employeeCode ?? "—"}
                   </TD>
                   <TD>
-                    {canManage && canAssignRole(actorRole, u.role) ? (
+                    {canManage && canManageUserRole(u.role) ? (
                       <button
                         onClick={() => handleActiveToggle(u.id, !u.active)}
                         disabled={saving === u.id}
@@ -1346,7 +1362,7 @@ function EditUserProfileDialog({
       open
       onOpenChange={(open) => { if (!open) onClose(); }}
       title={`Edit Profile — ${user.name}`}
-      description={user.email}
+      description={displayEmail(user.email) ?? "Phone sign-in account"}
       className="max-w-md"
     >
       <form onSubmit={handleSubmit} className="space-y-3">

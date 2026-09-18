@@ -46,6 +46,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 // POST /api/quality-control/ncr
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.QC_MANAGE);
+  const company = await getCompany();
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
@@ -64,6 +65,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
   try {
     const ncr = await createNcr({
+      companyId: company.id,
       projectId: parsed.data.projectId,
       title: parsed.data.title,
       description: parsed.data.description,

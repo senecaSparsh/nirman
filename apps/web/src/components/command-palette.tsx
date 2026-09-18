@@ -116,7 +116,7 @@ const TYPE_LABELS: Record<string, string> = {
   project: "Project",
   supplier: "Supplier",
   po: "Purchase Order",
-  requisition: "Requisition",
+  requisition: "Indent",
   customer: "Customer",
   unit: "Unit",
   land: "Land Parcel",

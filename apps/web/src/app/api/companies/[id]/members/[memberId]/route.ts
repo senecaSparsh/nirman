@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, requirePermission } from "@/lib/server";
-import { PERM, normalizeRole, canAssignRole } from "@/lib/roles";
+import { apiHandler, canManageRole, getActingRole, json, requirePermission, userRoleSchema } from "@/lib/server";
+import { PERM, isCustomRole } from "@/lib/roles";
 import { assignScopedMembership, getDirectReports, getReportingChain } from "@nirman/services";
 import { z } from "zod";
 
@@ -36,7 +36,13 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  const role = normalizeRole(parsed.data.role);
+  // Role must be a built-in key or a CUSTOM_* key — normalizeRole() would
+  // otherwise store garbage/custom strings as SUPERVISOR silently.
+  const roleCheck = userRoleSchema.shape.role.safeParse(parsed.data.role);
+  if (!roleCheck.success) {
+    return json({ error: "Role must be a built-in role or a CUSTOM_* role key" }, { status: 400 });
+  }
+  const role = roleCheck.data!;
 
   // Resolve the target membership → userId for assignScopedMembership.
   const membership = await prisma.userCompany.findUnique({
@@ -44,6 +50,15 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     select: { userId: true, role: true },
   });
   if (!membership) return json({ error: "Member not found" }, { status: 404 });
+
+  // A CUSTOM_* key must resolve to a real role in this company.
+  if (isCustomRole(role)) {
+    const cr = await prisma.customRole.findFirst({
+      where: { companyId: id, key: role },
+      select: { id: true },
+    });
+    if (!cr) return json({ error: "Custom role not found" }, { status: 400 });
+  }
 
   const hasScopeFields =
     parsed.data.scopeType !== undefined ||
@@ -73,13 +88,13 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
 
   // Simple role-only update (backwards compatible).
   // Enforce hierarchy: actor must be above both the current and new role.
-  if (!canAssignRole(actor.role, membership.role)) {
+  if (!(await canManageRole(actor.role, membership.role, id))) {
     return json(
       { error: `You cannot manage a ${membership.role} — they are at or above your tier.` },
       { status: 403 },
     );
   }
-  if (!canAssignRole(actor.role, role)) {
+  if (!(await canManageRole(actor.role, role, id))) {
     return json(
       { error: `Your role (${actor.role}) cannot assign the ${role} role.` },
       { status: 403 },
@@ -100,7 +115,17 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
  */
 export const GET = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string; memberId: string }> }) => {
   await requirePermission(PERM.COMPANY_MANAGE);
-  const { memberId } = await ctx.params;
+  const { id, memberId } = await ctx.params;
+
+  // The membership must belong to THIS company — otherwise the reporting
+  // chain / direct reports of another tenant's member leak their names,
+  // emails and roles through this company's URL.
+  const member = await prisma.userCompany.findFirst({
+    where: { id: memberId, companyId: id },
+    select: { id: true },
+  });
+  if (!member) return json({ error: "Member not found" }, { status: 404 });
+
   const url = new URL(req.url);
   const wantReports = url.searchParams.get("reports") === "1";
 
@@ -153,19 +178,44 @@ export const GET = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ 
  * this company. They lose access to it but their user account is kept.
  */
 export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string; memberId: string }> }) => {
-  await requirePermission(PERM.COMPANY_MANAGE);
+  const session = await requirePermission(PERM.COMPANY_MANAGE);
   const { id, memberId } = await ctx.params;
+
+  // Membership must belong to THIS company — a foreign or missing id must
+  // 404, not hit a Prisma P2025 or touch another tenant's data.
+  const membership = await prisma.userCompany.findUnique({
+    where: { id: memberId, companyId: id },
+    select: { userId: true, companyId: true, role: true },
+  });
+  if (!membership) return json({ error: "Member not found" }, { status: 404 });
+
+  // Self-removal locks the actor out of the company — leaving is a
+  // deliberate separate action, not a member-management operation.
+  if (membership.userId === session.id) {
+    return json({ error: "You cannot remove yourself from the company" }, { status: 400 });
+  }
+
+  // Actor must sit above the member's tier — same rule as role changes.
+  const actorRole = await getActingRole();
+  if (!(await canManageRole(actorRole, membership.role, id))) {
+    return json({ error: "You don't have authority to remove this member." }, { status: 403 });
+  }
+
+  // Never let a company lose its last OWNER/ADMIN — it would be orphaned.
+  if (membership.role === "OWNER" || membership.role === "ADMIN") {
+    const remaining = await prisma.userCompany.count({
+      where: { companyId: id, id: { not: memberId }, role: { in: ["OWNER", "ADMIN"] } },
+    });
+    if (remaining === 0) {
+      return json({ error: "Cannot remove the last owner of the company" }, { status: 400 });
+    }
+  }
+
   // Clean up user preferences for this company before removing the membership
   // (UserPreference has no FK to UserCompany, so orphans would otherwise remain).
-  const membership = await prisma.userCompany.findUnique({
-    where: { id: memberId },
-    select: { userId: true, companyId: true },
-  });
-  if (membership) {
-    await prisma.userPreference.deleteMany({
-      where: { userId: membership.userId, companyId: membership.companyId },
-    }).catch(() => {});
-  }
+  await prisma.userPreference.deleteMany({
+    where: { userId: membership.userId, companyId: membership.companyId },
+  }).catch(() => {});
   await prisma.userCompany.delete({ where: { id: memberId, companyId: id } });
   return json({ ok: true });
 });

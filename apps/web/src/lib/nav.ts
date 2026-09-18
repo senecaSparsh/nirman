@@ -455,7 +455,7 @@ export const WORLDS: World[] = [
             group: RG.STOCK,
           },
           {
-            label: "Stock Movement",
+            label: "Stock Movement Summary",
             href: "/reports/stock-movement-summary",
             icon: ScrollText,
             hint: "Opening, received, issued and balance — the stock flow statement",
@@ -655,7 +655,7 @@ export const WORLDS: World[] = [
             keywords: ["sms", "bank", "payment", "auto", "upi", "text", "message", "parse", "credit", "received"],
           },
           {
-            label: "Quotations",
+            label: "Supplier Quotes",
             href: "/quotations",
             icon: FileText,
             hint: "Request quotes from suppliers, compare landed costs, and convert the winner into a purchase order",
@@ -940,7 +940,7 @@ export const WORLDS: World[] = [
 // a world. The gear opens the settings page directly.
 export const SETTINGS_LINKS: NavLink[] = [
   {
-    label: "Your Settings",
+    label: "My Profile",
     href: "/me",
     icon: UserCircle,
     hint: "Edit your profile, change your password, and switch companies",
@@ -948,7 +948,7 @@ export const SETTINGS_LINKS: NavLink[] = [
     keywords: ["me", "profile", "personal", "password", "phone", "account", "my account", "settings"],
   },
   {
-    label: "Settings",
+    label: "Company Settings",
     href: "/settings",
     icon: Settings,
     hint: "Company details, locations, cost centres, people and users (WhatsApp/email alert templates panel inside)",

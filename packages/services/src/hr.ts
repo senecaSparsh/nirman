@@ -637,6 +637,21 @@ export async function createEmployee(input: CreateEmployeeInput) {
       });
       if (!proj) throw new HrError("Project not found in this company", 404);
     }
+    // Same tenant check as updateEmployee — without it a caller could create
+    // an employee linked to another company's department / location, or hit
+    // a raw Prisma error on a bad id.
+    if (input.departmentId) {
+      const dept = await tx.department.findFirst({
+        where: { id: input.departmentId, companyId: input.companyId, deletedAt: null },
+      });
+      if (!dept) throw new HrError("Department not found in this company", 404);
+    }
+    if (input.reportingLocationId) {
+      const loc = await tx.stockLocation.findFirst({
+        where: { id: input.reportingLocationId, companyId: input.companyId, deletedAt: null },
+      });
+      if (!loc) throw new HrError("Reporting location not found in this company", 404);
+    }
     const employee = await tx.employee.create({
       data: {
         name: input.name,
@@ -737,6 +752,47 @@ export async function updateEmployee(input: UpdateEmployeeInput) {
         where: { id: input.activeProjectId, companyId: input.companyId, deletedAt: null },
       });
       if (!proj) throw new HrError("Project not found in this company", 404);
+    }
+    // Same tenant check for the remaining relation fields — without it a
+    // caller could connect the employee to another company's department /
+    // location / manager, or hit a Prisma P2025 500 on a bad id.
+    if (input.departmentId) {
+      const dept = await tx.department.findFirst({
+        where: { id: input.departmentId, companyId: input.companyId, deletedAt: null },
+      });
+      if (!dept) throw new HrError("Department not found in this company", 404);
+    }
+    if (input.reportingLocationId) {
+      const loc = await tx.stockLocation.findFirst({
+        where: { id: input.reportingLocationId, companyId: input.companyId, deletedAt: null },
+      });
+      if (!loc) throw new HrError("Reporting location not found in this company", 404);
+    }
+    if (input.reportsToEmployeeId) {
+      if (input.reportsToEmployeeId === input.employeeId) {
+        throw new HrError("An employee cannot report to themselves", 400);
+      }
+      const mgr = await tx.employee.findFirst({
+        where: { id: input.reportsToEmployeeId, companyId: input.companyId, deletedAt: null },
+      });
+      if (!mgr) throw new HrError("Reporting manager not found in this company", 404);
+      // Cycle check BEFORE the write — walk up from the new manager; if the
+      // chain ever reaches this employee, the assignment would create a loop
+      // (A→B while B→A). Doing this after the update would detect the loop
+      // but leave the bad reportsTo committed to the DB.
+      let current: string | null = mgr.reportsToEmployeeId;
+      const visited = new Set<string>([input.employeeId, input.reportsToEmployeeId]);
+      while (current) {
+        if (visited.has(current)) {
+          throw new HrError("That reporting line would create a cycle", 400);
+        }
+        visited.add(current);
+        const up = await tx.employee.findUnique({
+          where: { id: current },
+          select: { reportsToEmployeeId: true },
+        });
+        current = up?.reportsToEmployeeId ?? null;
+      }
     }
 
     const data: Prisma.EmployeeUpdateInput = {};

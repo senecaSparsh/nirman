@@ -48,6 +48,9 @@ export default function StockOutPage({
               : canTransfer
                 ? "transfer"
                 : "issue";
+        // The user explicitly asked for transfer mode but lacks the permission —
+        // surface that instead of silently rendering issue mode.
+        const modeDowngraded = params.mode === "transfer" && !canTransfer;
 
         return (
           <MobileStockOutClient
@@ -56,6 +59,7 @@ export default function StockOutPage({
             initialMode={initialMode}
             initialProjectId={params.project ?? ""}
             initialFromLocationId={params.from ?? ""}
+            modeDowngraded={modeDowngraded}
           />
         );
       }}

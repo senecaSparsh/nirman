@@ -37,7 +37,7 @@ export function CreateUserDialog({
   actorRole: string;
   projects: ProjectOption[];
   departments: DepartmentRow[];
-  managers: { membershipId: string; userId: string; name: string; role: string }[];
+  managers: { membershipId: string; userId: string; name: string; role: string; roleLabel?: string }[];
   customRoles?: { id: string; key: string; label: string; description: string; baseRole: string; tier: number; permissions: string[] }[];
   onClose: () => void;
 }) {
@@ -363,7 +363,7 @@ export function CreateUserDialog({
                 <option value="">No manager — top of chain</option>
                 {managers.map((m) => (
                   <option key={m.membershipId} value={m.membershipId}>
-                    {m.name} ({m.role})
+                    {m.name} ({m.roleLabel ?? m.role})
                   </option>
                 ))}
               </Select>

@@ -8,6 +8,7 @@ import { Loader2, Send, Plus, X, ListChecks } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { displayEmail } from "@/lib/utils";
 
 interface AssignTaskDialogProps {
   open: boolean;
@@ -151,7 +152,7 @@ export function AssignTaskDialog({
             </option>
             {users.map((u) => (
               <option key={u.id} value={u.id}>
-                {u.name} ({u.role}) — {u.email}
+                {u.name} ({u.role}){displayEmail(u.email) ? ` — ${u.email}` : ""}
               </option>
             ))}
           </Select>

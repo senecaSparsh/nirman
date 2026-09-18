@@ -116,6 +116,8 @@ const nextConfig: NextConfig = {
           ].join("; ") },
           // COOP — isolate browsing context to prevent cross-origin window access
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          // Keep every page out of search indexes — internal ERP
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
         ],
       },
     ];

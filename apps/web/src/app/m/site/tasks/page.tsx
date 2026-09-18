@@ -3,8 +3,8 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { CheckSquare, Plus } from "lucide-react";
-import { getCurrentUser, getCompany, scopeWhere, getUserPermissions } from "@/lib/server";
-import { PERM, ROLES } from "@/lib/roles";
+import { getCurrentUser, getCompany, scopeWhere, getUserPermissions, getCustomRoleLabels, roleDisplayLabel } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { MobileStatCard, MobileEmptyState, MobileCta } from "@/components/mobile/v2/primitives";
 import { MobileTaskList } from "@/components/mobile/mobile-task-list";
 import { MobileTasksFab } from "./MobileTasksFab";
@@ -45,6 +45,7 @@ async function SiteTasksContent() {
           orderBy: { user: { name: "asc" } }})
       : [],
   ]);
+  const customLabels = await getCustomRoleLabels([company.id]);
 
   const taskItems = tasks.map((t) => ({
     id: t.id,
@@ -83,7 +84,7 @@ async function SiteTasksContent() {
           assignees={teamMembers.map((m) => ({
             id: m.user.id,
             name: m.user.name,
-            role: ROLES[m.role as keyof typeof ROLES]?.label ?? m.role}))}
+            role: roleDisplayLabel(m.role, company.id, customLabels)}))}
         />
       )}
     </div>

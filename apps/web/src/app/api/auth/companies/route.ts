@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { ServiceError } from "@nirman/services";
-import { json, ForbiddenError, UnauthorizedError } from "@/lib/server";
+import { json, ForbiddenError, UnauthorizedError, getCustomRoleLabels, roleDisplayLabel } from "@/lib/server";
 
 /**
  * GET /api/auth/companies?email=...
@@ -43,12 +43,14 @@ export async function GET(req: NextRequest) {
       return json({ companies: [] });
     }
 
+    const customLabels = await getCustomRoleLabels(user.memberships.map((m) => m.company.id));
     const companies = user.memberships
       .filter((m) => m.company.deletedAt === null)
       .map((m) => ({
         id: m.company.id,
         name: m.company.name,
         role: m.role,
+        roleLabel: roleDisplayLabel(m.role, m.company.id, customLabels),
       }));
 
     return json({ companies });

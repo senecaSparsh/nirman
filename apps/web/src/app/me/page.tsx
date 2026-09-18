@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCurrentUser, getCompany, getUserRole } from "@/lib/server";
+import { getCurrentUser, getCompany, getCustomRoleLabels, getUserRole, roleDisplayLabel } from "@/lib/server";
 import { ROLES, normalizeRole } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
@@ -13,7 +13,7 @@ export default function MePage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Your Settings"
+        title="My Profile"
         description="Edit your profile, change your password, and switch companies."
       />
       <Suspense fallback={<PageLoading label="Loading your settings…" />}>
@@ -71,6 +71,16 @@ async function MeContent() {
         isCurrent: m.company.id === company.id,
       })));
 
+  // Human labels for stored role keys — a membership holding a CUSTOM_*
+  // role would otherwise render the raw key (or the normalized "Supervisor"
+  // fallback for the user's own role).
+  const customLabels = await getCustomRoleLabels([...new Set(memberships.map((m) => m.company.id))]);
+  const currentRoleKey = memberships.find((m) => m.isCurrent)?.role;
+  const membershipsWithLabels = memberships.map((m) => ({
+    ...m,
+    roleLabel: roleDisplayLabel(m.role, m.company.id, customLabels),
+  }));
+
   return (
     <>
       <MeSettingsView
@@ -82,9 +92,9 @@ async function MeContent() {
           image: dbUser.image,
           assignedCompanyPhones: "assignedCompanyPhones" in dbUser ? dbUser.assignedCompanyPhones : [],
         }}
-        roleLabel={roleDef.label}
+        roleLabel={currentRoleKey ? roleDisplayLabel(currentRoleKey, company.id, customLabels) : roleDef.label}
         roleDescription={roleDef.description}
-        memberships={memberships}
+        memberships={membershipsWithLabels}
       />
       <div className="mx-auto mt-4 w-full max-w-4xl px-4 pb-8">
         <DelegationCard />

@@ -208,7 +208,9 @@ export function AppShell({
   // it's a timing artifact, the session resolves within 2s and no
   // sign-out occurs.
   useEffect(() => {
-    if (process.env.NEXT_PUBLIC_AUTH_BYPASS === "true") return;
+    // Bypass is dev-only — NEXT_PUBLIC_AUTH_BYPASS can never disable the
+    // guard in a production build, even if the env var leaks into build args.
+    if (isDev && process.env.NEXT_PUBLIC_AUTH_BYPASS === "true") return;
     if (isAuthRoute(pathname) || isPrintRoute(pathname)) return;
     if (sessionLoading || session) return; // still loading or have session — no action
     // Session is null and not loading — start grace period
@@ -219,7 +221,7 @@ export function AppShell({
       }
     }, 2000);
     return () => clearTimeout(timer);
-  }, [session, sessionLoading, router, pathname]);
+  }, [session, sessionLoading, router, pathname, isDev]);
 
   // ── Global 401 interceptor ──────────────────────────────────
   useEffect(() => {
@@ -601,7 +603,7 @@ export function AppShell({
           first and last cell stop being readable as the same row.
         */}
         <main className="min-w-0 flex-1 px-4 py-6 lg:px-8 lg:py-7">
-          <div className="mx-auto w-full max-w-[1400px]">{children}</div>
+          <div className="mx-auto w-full max-w-[1400px] pb-24">{children}</div>
         </main>
       </div>
 
@@ -807,7 +809,7 @@ function WorldPanel({
         <Link
           href={item.href}
           onClick={onNavigate}
-          title={item.hint}
+          title={item.hint ? `${item.label} — ${item.hint}` : item.label}
           aria-current={active ? "page" : undefined}
           className={cn(
             "group relative flex items-center gap-2.5 rounded-md py-2 pl-2.5 pr-2 text-[13px] transition-colors",
@@ -924,7 +926,7 @@ function SettingsPanel({
         <Link
           href={item.href}
           onClick={onNavigate}
-          title={item.hint}
+          title={item.hint ? `${item.label} — ${item.hint}` : item.label}
           aria-current={active ? "page" : undefined}
           className={cn(
             "group relative flex items-center gap-2.5 rounded-md py-2 pl-2.5 pr-2 text-[13px] transition-colors",

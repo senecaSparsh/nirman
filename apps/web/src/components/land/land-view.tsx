@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, LandPlot, Layers, SplitSquareHorizontal, CircleDollarSign, ArrowRight, MapPin, ChevronDown } from "lucide-react";
+import { Plus, LandPlot, Layers, SplitSquareHorizontal, CircleDollarSign, ArrowRight, MapPin, ChevronDown, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
@@ -144,10 +144,34 @@ function landColumnsWithActions(
         const isPartitioned = p.partitionedCount > 0 || p.hasChildren;
         const canShowSubdivide = canPartition && !isPartitioned && p.availableCount > 0;
         if (compactActions) {
+          // Split-pane layout (~530px per table) — full buttons clip at the
+          // panel edge, so keep every action but render them icon-only.
           return (
             <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+              {canShowSubdivide && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onSubdivide(p.id)}
+                  className="text-brand"
+                  title="Subdivide into sellable plots"
+                >
+                  <SplitSquareHorizontal className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              {canEdit && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onEdit(p)}
+                  className="text-muted-foreground"
+                  title="Edit purchase"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              )}
               <Button asChild variant="ghost" size="sm">
-                <Link href={`/land/${p.id}`}>
+                <Link href={`/land/${p.id}`} title="Open purchase">
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </Button>
@@ -416,7 +440,7 @@ export function LandView({
               <DataTable
                 className="h-full"
                 data={wholePurchases}
-                columns={landColumnsWithActions(canEdit, canPartition, (p) => { setEditing(p); setFormOpen(true); }, handleSubdividePurchase, hidePlanColumn, compactActions)}
+                columns={landColumnsWithActions(canEdit, canPartition, (p) => { setEditing(p); setFormOpen(true); }, handleSubdividePurchase, hidePlanColumn, true)}
                 getRowId={(p) => p.id}
                 onRowClick={setQuickView}
                 hideable
@@ -439,7 +463,7 @@ export function LandView({
               <DataTable
                 className="h-full"
                 data={subdividedPurchases}
-                columns={landColumnsWithActions(canEdit, canPartition, (p) => { setEditing(p); setFormOpen(true); }, handleSubdividePurchase, hidePlanColumn, compactActions)}
+                columns={landColumnsWithActions(canEdit, canPartition, (p) => { setEditing(p); setFormOpen(true); }, handleSubdividePurchase, hidePlanColumn, true)}
                 getRowId={(p) => p.id}
                 onRowClick={setQuickView}
                 hideable

@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { getActingRole, getCompany, getUserPermissions, getUserRole, toNum } from "@/lib/server";
+import { getActingRole, getCompany, getCustomRoleLabels, getUserPermissions, getUserRole, roleDisplayLabel, toNum } from "@/lib/server";
 import { PERM, ROLE_LIST, assignableRoles, type Role } from "@/lib/roles";
 import type { CompanyProfileData } from "@/components/companies/company-profile-client";
 
@@ -28,6 +28,10 @@ export async function loadCompanyProfileData(companyId: string): Promise<{
   };
   roleOptions: { key: string; label: string }[];
   assignableRoles: Role[];
+  /** Custom roles in this company — clients need `tier` for the
+   *  custom-role-aware manage check (a CUSTOM_* member's role key can't be
+   *  fed to canAssignRole, which normalizes it to SUPERVISOR). */
+  customRoles: { key: string; label: string; tier: number }[];
 } | null> {
   const role = await getUserRole();
   const currentCompany = await getCompany();
@@ -101,6 +105,13 @@ export async function loadCompanyProfileData(companyId: string): Promise<{
       reportsTo: { include: { user: { select: { id: true, name: true } } } },
     },
   });
+
+  // Custom roles in this company — for member-role labels + tier checks.
+  const customRoleRows = await prisma.customRole.findMany({
+    where: { companyId },
+    select: { key: true, label: true, tier: true },
+  });
+  const customLabels = await getCustomRoleLabels([companyId]);
 
   // ── Locations ──
   const locations = await prisma.stockLocation.findMany({
@@ -211,6 +222,7 @@ export async function loadCompanyProfileData(companyId: string): Promise<{
       name: m.user.name,
       email: m.user.email,
       role: m.role,
+      roleLabel: roleDisplayLabel(m.role, companyId, customLabels),
       active: m.user.active,
       phone: m.user.phone,
       designation: m.user.designation,
@@ -289,7 +301,11 @@ export async function loadCompanyProfileData(companyId: string): Promise<{
       canManageInventory: perms.includes(PERM.INVENTORY_MANAGE),
       canManageProjects: perms.includes(PERM.PROJECTS_MANAGE),
     },
-    roleOptions: ROLE_LIST.map((r) => ({ key: r.key, label: r.label })),
+    roleOptions: [
+      ...ROLE_LIST.map((r) => ({ key: r.key, label: r.label })),
+      ...customRoleRows.map((cr) => ({ key: cr.key, label: cr.label })),
+    ],
     assignableRoles: assignable,
+    customRoles: customRoleRows,
   };
 }

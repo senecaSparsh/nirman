@@ -112,6 +112,13 @@ export function MaterialFormDialog({
   useEffect(() => { setLocalCategories(categories); }, [categories]);
 
   const isEdit = material != null;
+  // Advanced fields stay collapsed for new materials; in edit mode the
+  // section opens automatically when any advanced value is set.
+  const hasAdvancedValues = !!(
+    form.reorderPoint || form.economicOrderQty || form.volumetricDensity ||
+    form.bulkDiscountPct || form.isCorporateCommodity || form.isLotTracked ||
+    form.isScrap || form.baseUnit || form.secondaryUnit || form.uomConversionFactor
+  );
 
   // ── Inline validation ──────────────────────────────────────────
   // Validates on blur and shows red error text under the field instantly.
@@ -232,8 +239,18 @@ export function MaterialFormDialog({
       title={isEdit ? "Edit Material" : "New Material"}
       description={isEdit ? "Update material details." : "Add a new material to your catalogue."}
       className="max-w-2xl"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" form="material-form" disabled={saving}>
+            {saving ? "Saving…" : isEdit ? "Save changes" : "Create material"}
+          </Button>
+        </>
+      }
     >
-      <form onSubmit={onSubmit} className="space-y-3">
+      <form id="material-form" onSubmit={onSubmit} className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Code" required error={errors.code}>
             <div className="flex gap-2">
@@ -341,8 +358,14 @@ export function MaterialFormDialog({
               onBlur={() => onBlur("unit", form)}
               aria-invalid={!!errors.unit}
               placeholder="BAG / KG / NOS / MTR"
+              list="material-units"
               required
             />
+            <datalist id="material-units">
+              {["BAG", "CFT", "KG", "LTR", "MTR", "NOS", "SQM", "RMT", "TON", "BOX", "SET"].map((u) => (
+                <option key={u} value={u} />
+              ))}
+            </datalist>
           </Field>
           <Field label="HSN/SAC Code">
             <HsnSacSearch
@@ -410,7 +433,7 @@ export function MaterialFormDialog({
               )}
             </div>
           </Field>
-          <Field label="Min Stock (reorder threshold)" error={errors.minStock} hint="Leave empty for no low-stock alert">
+          <Field label="Min Stock (reorder threshold)" error={errors.minStock} hint="Alert level — flags 'low stock' when on-hand drops below">
             <InputWithUnit
               type="number"
               step="0.001"
@@ -423,7 +446,16 @@ export function MaterialFormDialog({
               placeholder="e.g. 100"
             />
           </Field>
-          <Field label="Reorder Point" error={errors.reorderPoint} hint={form.unit ? `Enter quantity in ${form.unit}` : undefined}>
+        </div>
+        <details
+          className="rounded-lg border border-border bg-muted/20 px-3 pb-3 pt-2"
+          open={isEdit && hasAdvancedValues}
+        >
+          <summary className="cursor-pointer select-none text-caption font-medium text-muted-foreground">
+            Advanced — reorder levels, logistics &amp; tracking
+          </summary>
+        <div className="grid gap-3 pt-3 sm:grid-cols-2">
+          <Field label="Reorder Point" error={errors.reorderPoint} hint="Trigger level — auto-indent suggests a reorder below this">
             <InputWithUnit
               type="number"
               step="0.001"
@@ -449,7 +481,7 @@ export function MaterialFormDialog({
               placeholder="e.g. 500"
             />
           </Field>
-          <Field label="Volumetric Density (V/W ratio)" error={errors.volumetricDensity}>
+          <Field label="Volumetric Density (V/W ratio)" error={errors.volumetricDensity} hint="Volume/weight score — feeds the logistics (LCI) recommendation for central vs site buying">
             <Input
               type="number"
               step="0.01"
@@ -513,16 +545,17 @@ export function MaterialFormDialog({
           <p className="text-xs text-muted-foreground mb-2">Convert between base and secondary units (e.g. 1 BAG = 50 KG). Enables quantity entry in either unit during goods receipt.</p>
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Base Unit">
-              <Input value={form.baseUnit} onChange={(e) => set("baseUnit", e.target.value)} placeholder="e.g. KG" />
+              <Input value={form.baseUnit} onChange={(e) => set("baseUnit", e.target.value)} placeholder="e.g. KG" list="material-units" />
             </Field>
             <Field label="Secondary Unit">
-              <Input value={form.secondaryUnit} onChange={(e) => set("secondaryUnit", e.target.value)} placeholder="e.g. BAG" />
+              <Input value={form.secondaryUnit} onChange={(e) => set("secondaryUnit", e.target.value)} placeholder="e.g. BAG" list="material-units" />
             </Field>
             <Field label="1 secondary = N base" error={errors.uomConversionFactor}>
               <Input type="number" step="0.000001" min="0" value={form.uomConversionFactor} onChange={(e) => set("uomConversionFactor", e.target.value)} onBlur={() => onBlur("uomConversionFactor", form)} aria-invalid={!!errors.uomConversionFactor} placeholder="e.g. 50" />
             </Field>
           </div>
         </div>
+        </details>
         <Field label="Description">
           <Textarea
             value={form.description}
@@ -531,14 +564,6 @@ export function MaterialFormDialog({
             rows={2}
           />
         </Field>
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={saving}>
-            {saving ? "Saving…" : isEdit ? "Save changes" : "Create material"}
-          </Button>
-        </div>
       </form>
     </Dialog>
   );

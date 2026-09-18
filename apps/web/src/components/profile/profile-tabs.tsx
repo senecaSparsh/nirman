@@ -114,6 +114,8 @@ export type MembershipData = {
   id: string;
   company: { id: string; name: string; businessType: string | null };
   role: string;
+  /** Human label resolved server-side for custom roles — falls back to `role` when absent. */
+  roleLabel?: string;
   isCurrent: boolean;
 };
 
@@ -320,7 +322,7 @@ export function ProfileTabs(props: ProfileTabsProps) {
                     <span className="min-w-0 flex-1 truncate text-caption text-foreground">
                       {m.company.name}
                     </span>
-                    <span className="shrink-0 text-micro text-muted-foreground">{m.role}</span>
+                    <span className="shrink-0 text-micro text-muted-foreground">{m.roleLabel ?? m.role}</span>
                   </Link>
                 ))}
               {props.memberships.length <= 1 && (
@@ -623,7 +625,7 @@ export function IdentityStrip(props: ProfileTabsProps) {
         </div>
       )}
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-5 gap-y-1 text-meta text-muted-foreground">
-        {props.email && (
+        {props.email && !props.email.endsWith("@nirman.internal") && (
           <span className="flex items-center gap-1.5">
             <Mail className="h-3 w-3" />
             {props.email}

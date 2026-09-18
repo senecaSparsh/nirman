@@ -113,7 +113,7 @@ export function CommandCenter(props: ProfileTabsProps) {
                 href="/approvals"
                 className="flex items-center gap-1 text-caption font-medium text-brand transition-opacity hover:opacity-80"
               >
-                Review all <ArrowRight className="h-3 w-3" />
+                Review approvals <ArrowRight className="h-3 w-3" />
               </Link>
             )}
           </div>
@@ -247,7 +247,7 @@ export function CommandCenter(props: ProfileTabsProps) {
                             <span className="min-w-0 flex-1 truncate text-caption text-foreground">
                               {m.company.name}
                             </span>
-                            <span className="shrink-0 text-micro text-muted-foreground">{m.role}</span>
+                            <span className="shrink-0 text-micro text-muted-foreground">{m.roleLabel ?? m.role}</span>
                           </button>
                         ))}
                     </div>
@@ -367,13 +367,10 @@ function KpiStrip(props: ProfileTabsProps) {
     });
   }
 
-  kpis.push({
-    label: "Pending actions",
-    value: formatNumberShort(props.pendingActions.reduce((s, a) => s + a.value, 0)),
-    sub: `${props.pendingActions.length} categories`,
-    tone: props.blockingQueues > 0 ? "danger" : "default",
-  });
-
+  // "Pending actions" used to render as a second total here — but it sums
+  // the same categories as the queue, so the strip showed the same number
+  // twice under different names. The per-category breakdown lives in the
+  // At-a-glance section below; the strip keeps the single honest total.
   if (props.totalQueues > 0) {
     kpis.push({
       label: "Needs you",

@@ -21,7 +21,7 @@ import { getNavBootstrap } from "@/lib/server";
 export default async function MobileLayout({ children }: { children: React.ReactNode }) {
   const nav = await getNavBootstrap().catch(() => null);
   return (
-    <MobileShellV2 initial={nav}>
+    <MobileShellV2 initial={nav} isDev={process.env.NODE_ENV !== "production"}>
       {children}
       <ChunkErrorRecovery />
     </MobileShellV2>

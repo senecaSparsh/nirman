@@ -19,6 +19,7 @@ import {
   Hammer,
   AlertCircle,
   ArrowRight,
+  ShieldCheck,
 } from "lucide-react";
 
 export const metadata = { title: "Pending List · Nirman" };
@@ -60,6 +61,7 @@ async function PendingListContent() {
     draftPayrolls,
     pendingPurchaseOrders,
     pendingRequisitions,
+    pendingGatePasses,
     overdueTasks,
     pendingTasks,
   ] = await Promise.all([
@@ -114,6 +116,17 @@ async function PendingListContent() {
         requestedBy: { select: { id: true, name: true } },
       },
     }),
+    // Gate passes pending approval — the sidebar badge counts these via
+    // /api/approvals, so the page must show them too (badge ⊆ page).
+    prisma.gatePass.findMany({
+      where: {...await scopeWhere("GatePass"),  companyId: company.id, status: "PENDING" },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      include: {
+        project: { select: { id: true, name: true } },
+        submittedBy: { select: { id: true, name: true } },
+      },
+    }),
     // Overdue tasks (due date passed, not completed)
     prisma.task.findMany({
       where: {...await scopeWhere("Task"), 
@@ -147,6 +160,7 @@ async function PendingListContent() {
     draftPayrolls.length +
     pendingPurchaseOrders.length +
     pendingRequisitions.length +
+    pendingGatePasses.length +
     overdueTasks.length +
     pendingTasks.length;
 
@@ -158,7 +172,7 @@ async function PendingListContent() {
         stats={[
           { label: "Total pending", value: totalCount },
           { label: "Overdue tasks", value: overdueTasks.length },
-          { label: "Awaiting approval", value: pendingDprs.length + pendingPurchaseOrders.length + pendingRequisitions.length },
+          { label: "Awaiting approval", value: pendingDprs.length + pendingLeaves.length + pendingPurchaseOrders.length + pendingRequisitions.length + pendingGatePasses.length },
         ]}
       />
       <div className="flex justify-end">
@@ -169,7 +183,12 @@ async function PendingListContent() {
         <EmptyState
           icon={<ClipboardList className="h-5 w-5" />}
           title="All caught up"
-          description="No pending items. Everything that needs your attention has been handled."
+          description="Nothing pending here — items waiting on your approval live in Approvals."
+          action={
+            <Link href="/approvals" className="text-caption font-medium text-brand hover:underline">
+              Go to Approvals →
+            </Link>
+          }
         />
       )}
 
@@ -276,6 +295,24 @@ async function PendingListContent() {
             subtitle: `${r.project?.name ?? "No project"} · ${r.requestedBy?.name ?? "Unknown"}`,
             meta: formatDate(r.createdAt),
             href: "/requisitions",
+            tone: "warning" as const,
+          }))}
+        />
+      )}
+
+      {/* Gate passes pending approval */}
+      {pendingGatePasses.length > 0 && (
+        <PendingSection
+          title="Gate Passes Pending Approval"
+          icon={<ShieldCheck className="h-4 w-4 text-warning" />}
+          tone="warning"
+          count={pendingGatePasses.length}
+          items={pendingGatePasses.map((g) => ({
+            id: g.id,
+            title: g.gatePassNumber,
+            subtitle: `${g.project?.name ?? "No project"} · ${g.category.replaceAll("_", " ").toLowerCase()}`,
+            meta: g.submittedBy?.name ?? "Unassigned",
+            href: "/gate-passes",
             tone: "warning" as const,
           }))}
         />

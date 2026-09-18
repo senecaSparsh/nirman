@@ -40,6 +40,7 @@ async function CompanyProfileContent({
       permissions={result.permissions}
       roleOptions={result.roleOptions}
       assignableRoles={result.assignableRoles}
+      customRoles={result.customRoles}
     />
   );
 }

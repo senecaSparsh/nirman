@@ -27,8 +27,6 @@ export type AssignmentRow = {
   assignedAt: string;
 };
 
-const roleLabel = (r: string) => ROLES[r as Role]?.label ?? r;
-
 export function ProjectAssignmentsView({
   assignments,
   users,
@@ -45,6 +43,21 @@ export function ProjectAssignmentsView({
   const [formOpen, setFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [delTarget, setDelTarget] = useState<string | null>(null);
+  const [customLabels, setCustomLabels] = useState<Map<string, string>>(new Map());
+
+  // Custom-role labels for any stored CUSTOM_* role values — without this
+  // the badges render the raw key.
+  useEffect(() => {
+    fetch("/api/custom-roles")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: { key?: string; label?: string }[] | { roles?: { key: string; label: string }[] }) => {
+        const list = Array.isArray(rows) ? rows : (rows.roles ?? []);
+        setCustomLabels(new Map(list.filter((r) => r.key && r.label).map((r) => [r.key!, r.label!])));
+      })
+      .catch(() => {});
+  }, []);
+
+  const roleLabel = (r: string) => customLabels.get(r) ?? ROLES[r as Role]?.label ?? r;
 
   const [fUser, setFUser] = useState("");
   const [fProject, setFProject] = useState("");

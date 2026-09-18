@@ -1,0 +1,11 @@
+import { prisma } from "@nirman/db";
+const uc = await prisma.userCompany.findFirst({ where: { user: { email: "rohan.testemp@nirman.internal" } }, include: { scopes: true, company: true } });
+console.log("rohan membership:", uc?.role, uc?.scopeType, "scopes:", uc?.scopes.length);
+const company = uc ? uc.companyId : "none";
+const projects = await prisma.project.findMany({ where: { companyId: company, deletedAt: null }, select: { id: true, name: true }, take: 8 });
+console.log("company projects:", projects.map(p => `${p.name}(${p.id.slice(-6)})`));
+const depts = await prisma.department.findMany({ where: { companyId: company, deletedAt: null }, select: { id: true, name: true }, take: 6 });
+console.log("company depts:", depts.map(d => `${d.name}(${d.id.slice(-6)})`));
+const members = await prisma.userCompany.findMany({ where: { companyId: company }, select: { id: true, role: true, userId: true, user: { select: { name: true } } }, take: 8 });
+console.log("members:", members.map(m => `${m.user.name}=${m.role}(${m.id.slice(-6)})`));
+await prisma.$disconnect();

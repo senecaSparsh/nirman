@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@nirman/db";
+import { prisma, type DprApprovalStatus } from "@nirman/db";
 import { apiHandler, json, getCompany, requireUser, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -25,16 +25,26 @@ import { PERM } from "@/lib/roles";
  *   }
  */
 export const GET = apiHandler(async (_req: NextRequest) => {
-  await requireUser();
+  const user = await requireUser();
   const company = await getCompany();
   const __effPerms = await getUserPermissions();
 
   const canApprovePO = __effPerms.includes(PERM.PO_APPROVE);
   const canApproveReq = __effPerms.includes(PERM.REQUISITION_APPROVE);
+  const canApproveGatePass = __effPerms.includes(PERM.GATE_PASS_APPROVE);
+  const canApproveDprSubAdmin = __effPerms.includes(PERM.DPR_APPROVE_SUB_ADMIN);
+  const canApproveDprAdmin = __effPerms.includes(PERM.DPR_APPROVE_ADMIN);
+  const canApproveExpense = __effPerms.includes(PERM.EXPENSE_APPROVE);
+  const canApproveRaBill = __effPerms.includes(PERM.RA_APPROVE);
   const canSeeStock = __effPerms.includes(PERM.INVENTORY_VIEW);
   const canSeeProcurement = __effPerms.includes(PERM.PROCUREMENT_VIEW);
   const canSeeSales = __effPerms.includes(PERM.SALES_VIEW);
   const canManageStock = __effPerms.includes(PERM.INVENTORY_MANAGE);
+
+  // Same status set as /approvals and the Today page.
+  const dprApprovalStatuses: DprApprovalStatus[] = [];
+  if (canApproveDprSubAdmin) dprApprovalStatuses.push("SUBMITTED");
+  if (canApproveDprAdmin) dprApprovalStatuses.push("SUB_ADMIN_APPROVED");
 
   const now = new Date();
   const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
@@ -44,6 +54,8 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   const assetSaleScope = await scopeWhere("AssetSale", {});
   const builtUnitScope = await scopeWhere("BuiltUnit", {});
   const poScope = await scopeWhere("PurchaseOrder", {});
+  const dprScope = await scopeWhere("DailyProgressReport", {});
+  const gpScope = await scopeWhere("GatePass", {});
 
   const [
     lowStockItems,
@@ -57,6 +69,11 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     approvedReqs,
     approvedPOs,
     poTrendOrders,
+    pendingGatePasses,
+    pendingDprs,
+    pendingExpenses,
+    pendingClaims,
+    pendingRaBills,
   ] = await Promise.all([
     prisma.material.findMany({
       where: { companyId: company.id, deletedAt: null, minStock: { not: null } },
@@ -70,8 +87,11 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       where: { location: { deletedAt: null, companyId: company.id } },
       _sum: { qty: true },
     }),
-    prisma.purchaseOrder.count({ where: { companyId: company.id, status: "DRAFT", ...poScope } }),
-    prisma.materialRequisition.count({ where: { project: { companyId: company.id }, status: "SUBMITTED", ...reqScope } }),
+    // Excludes items the user created — the Today queue only shows what
+    // needs *their* approval, so the polled count must exclude them too
+    // (otherwise the total jumps up 30s after load for self-created work).
+    prisma.purchaseOrder.count({ where: { companyId: company.id, status: "DRAFT", createdById: { not: user.id }, ...poScope } }),
+    prisma.materialRequisition.count({ where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: { not: user.id }, ...reqScope } }),
     prisma.purchaseOrder.count({ where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() }, ...poScope } }),
     prisma.assetSale.findMany({
       take: 1000,
@@ -88,6 +108,22 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       select: { orderDate: true, total: true },
       orderBy: { orderDate: "asc" },
     }),
+    // ── The other approval-queue categories (mirrors /approvals + page.tsx) ──
+    canApproveGatePass
+      ? prisma.gatePass.count({ where: { companyId: company.id, status: "PENDING", createdById: { not: user.id }, ...gpScope } })
+      : Promise.resolve(0),
+    dprApprovalStatuses.length > 0
+      ? prisma.dailyProgressReport.count({ where: { companyId: company.id, approvalStatus: { in: dprApprovalStatuses }, submittedById: { not: user.id }, ...dprScope } })
+      : Promise.resolve(0),
+    canApproveExpense
+      ? prisma.expense.count({ where: { companyId: company.id, status: "PENDING", submittedById: { not: user.id } } })
+      : Promise.resolve(0),
+    canApproveExpense
+      ? prisma.expenseClaim.count({ where: { companyId: company.id, status: "SUBMITTED", claimantId: { not: user.id } } })
+      : Promise.resolve(0),
+    canApproveRaBill
+      ? prisma.raBill.count({ where: { companyId: company.id, status: "SUBMITTED", createdById: { not: user.id }, submittedById: { not: user.id } } })
+      : Promise.resolve(0),
   ]);
 
   // ── Low stock computation ──
@@ -120,6 +156,26 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   if (canApprovePO && draftPOs > 0) {
     queues.push({ key: "po", count: draftPOs, urgency: "blocking" });
     pendingActions.push({ label: "Draft POs", value: draftPOs });
+  }
+  if (canApproveGatePass && pendingGatePasses > 0) {
+    queues.push({ key: "gp", count: pendingGatePasses, urgency: "blocking" });
+    pendingActions.push({ label: "Gate passes", value: pendingGatePasses });
+  }
+  if (pendingDprs > 0) {
+    queues.push({ key: "dpr", count: pendingDprs, urgency: "blocking" });
+    pendingActions.push({ label: "DPRs", value: pendingDprs });
+  }
+  if (canApproveExpense && pendingExpenses > 0) {
+    queues.push({ key: "expense", count: pendingExpenses, urgency: "blocking" });
+    pendingActions.push({ label: "Expenses", value: pendingExpenses });
+  }
+  if (canApproveExpense && pendingClaims > 0) {
+    queues.push({ key: "claim", count: pendingClaims, urgency: "blocking" });
+    pendingActions.push({ label: "Claims", value: pendingClaims });
+  }
+  if (canApproveRaBill && pendingRaBills > 0) {
+    queues.push({ key: "ra-bill", count: pendingRaBills, urgency: "blocking" });
+    pendingActions.push({ label: "RA bills", value: pendingRaBills });
   }
   if (canSeeProcurement && overduePOs > 0) {
     queues.push({ key: "overdue", count: overduePOs, urgency: "blocking" });

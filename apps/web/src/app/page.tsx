@@ -1,9 +1,9 @@
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { prisma } from "@nirman/db";
+import { prisma, type DprApprovalStatus } from "@nirman/db";
 import { trialBalance, projectPnl, materialInventoryValue } from "@nirman/services";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
-import { getCompany, toNum, getUserRole, getCurrentUser, scopeWhere, getUserPermissions } from "@/lib/server";
+import { getCompany, toNum, getUserRole, getCurrentUser, scopeWhere, getUserPermissions, getCustomRoleLabels, roleDisplayLabel } from "@/lib/server";
 import {
   PERM,
   ROLES,
@@ -59,6 +59,16 @@ async function CommandCenterContent() {
   // ── Permission flags ─────────────────────────────────────────────
   const canApprovePO = __effPerms.includes(PERM.PO_APPROVE);
   const canApproveReq = __effPerms.includes(PERM.REQUISITION_APPROVE);
+  const canApproveGatePass = __effPerms.includes(PERM.GATE_PASS_APPROVE);
+  const canApproveDprSubAdmin = __effPerms.includes(PERM.DPR_APPROVE_SUB_ADMIN);
+  const canApproveDprAdmin = __effPerms.includes(PERM.DPR_APPROVE_ADMIN);
+  const canApproveExpense = __effPerms.includes(PERM.EXPENSE_APPROVE);
+  const canApproveRaBill = __effPerms.includes(PERM.RA_APPROVE);
+  // Same status set as /approvals: sub-admins see SUBMITTED, admins also see
+  // SUB_ADMIN_APPROVED.
+  const dprApprovalStatuses: DprApprovalStatus[] = [];
+  if (canApproveDprSubAdmin) dprApprovalStatuses.push("SUBMITTED");
+  if (canApproveDprAdmin) dprApprovalStatuses.push("SUB_ADMIN_APPROVED");
   const canSeeStock = __effPerms.includes(PERM.INVENTORY_VIEW);
   const canSeeProcurement = __effPerms.includes(PERM.PROCUREMENT_VIEW);
   const canSeeSales = __effPerms.includes(PERM.SALES_VIEW);
@@ -87,6 +97,11 @@ async function CommandCenterContent() {
     poTrendOrders,
     userActivityCounts,
     userAuditLogs,
+    pendingGatePasses,
+    pendingDprs,
+    pendingExpenses,
+    pendingClaims,
+    pendingRaBills,
   ] = await Promise.all([
     isDevBypass ? null : prisma.user.findUnique({
       where: { id: userId },
@@ -151,6 +166,39 @@ async function CommandCenterContent() {
       _count: { action: true }, orderBy: { _count: { action: "desc" } }, take: 12}),
     isDevBypass ? [] : prisma.auditLog.findMany({
       where: { userId }, orderBy: { timestamp: "desc" }, take: 10}),
+    // ── Other approval-queue categories the Today queue was missing ──
+    // These mirror /approvals exactly so "N things need you" no longer
+    // excludes DPRs, gate passes, expenses, claims and RA bills.
+    canApproveGatePass
+      ? prisma.gatePass.findMany({
+          where: { companyId: company.id, status: "PENDING", createdById: { not: userId } },
+          orderBy: { createdAt: "desc" }, take: 5,
+          include: { location: { select: { name: true } } }})
+      : [],
+    dprApprovalStatuses.length > 0
+      ? prisma.dailyProgressReport.findMany({
+          where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: { in: dprApprovalStatuses }, submittedById: { not: userId } },
+          orderBy: { date: "desc" }, take: 5,
+          include: { project: { select: { name: true } } }})
+      : [],
+    canApproveExpense
+      ? prisma.expense.findMany({
+          where: { companyId: company.id, status: "PENDING", submittedById: { not: userId } },
+          orderBy: { createdAt: "desc" }, take: 5,
+          include: { project: { select: { name: true } } }})
+      : [],
+    canApproveExpense
+      ? prisma.expenseClaim.findMany({
+          where: { companyId: company.id, status: "SUBMITTED", claimantId: { not: userId } },
+          orderBy: { createdAt: "desc" }, take: 5,
+          include: { project: { select: { name: true } }, claimant: { select: { name: true } } }})
+      : [],
+    canApproveRaBill
+      ? prisma.raBill.findMany({
+          where: { companyId: company.id, status: "SUBMITTED", createdById: { not: userId }, submittedById: { not: userId } },
+          orderBy: { createdAt: "desc" }, take: 5,
+          include: { project: { select: { name: true } }, workOrder: { select: { workOrderNumber: true } } }})
+      : [],
   ]);
 
   // ── Owner Financial Dashboard data (OWNER/ADMIN only) ───────────
@@ -260,6 +308,31 @@ async function CommandCenterContent() {
     consequence: "Nothing is ordered from the supplier until these are signed off",
     count: draftPOs.length, href: "/approvals", cta: "Review", urgency: "blocking", icon: "clipboardCheck",
     items: draftPOs.map((po) => ({ label: po.poNumber, sub: po.supplier.name }))});
+  if (canApproveGatePass && pendingGatePasses.length > 0) queues.push({
+    key: "gp", title: "Gate passes waiting for approval",
+    consequence: "Material can't leave the site until these are signed off",
+    count: pendingGatePasses.length, href: "/approvals", cta: "Review", urgency: "blocking", icon: "doorOpen",
+    items: pendingGatePasses.map((g) => ({ label: g.gatePassNumber, sub: g.location?.name ?? "—" }))});
+  if (pendingDprs.length > 0) queues.push({
+    key: "dpr", title: "Daily progress reports to approve",
+    consequence: "Site work stays unverified until DPRs are approved",
+    count: pendingDprs.length, href: "/approvals", cta: "Review", urgency: "blocking", icon: "fileText",
+    items: pendingDprs.map((d) => ({ label: d.project?.name ?? "N/A", sub: formatDate(d.date) }))});
+  if (canApproveExpense && pendingExpenses.length > 0) queues.push({
+    key: "expense", title: "Expenses waiting for approval",
+    consequence: "Books stay open until these are approved or rejected",
+    count: pendingExpenses.length, href: "/approvals", cta: "Review", urgency: "blocking", icon: "wallet",
+    items: pendingExpenses.map((e) => ({ label: e.project?.name ?? "Company", sub: formatDate(e.createdAt) }))});
+  if (canApproveExpense && pendingClaims.length > 0) queues.push({
+    key: "claim", title: "Expense claims waiting for approval",
+    consequence: "Team is waiting on reimbursements",
+    count: pendingClaims.length, href: "/approvals", cta: "Review", urgency: "blocking", icon: "wallet",
+    items: pendingClaims.map((c) => ({ label: c.claimant?.name ?? "N/A", sub: c.project?.name ?? "Company" }))});
+  if (canApproveRaBill && pendingRaBills.length > 0) queues.push({
+    key: "ra-bill", title: "RA bills waiting for approval",
+    consequence: "Contractor payment is held up until these are certified",
+    count: pendingRaBills.length, href: "/approvals", cta: "Review", urgency: "blocking", icon: "calculator",
+    items: pendingRaBills.map((b) => ({ label: b.project?.name ?? "N/A", sub: b.workOrder?.workOrderNumber ?? "—" }))});
   if (canSeeProcurement && overduePOs.length > 0) queues.push({
     key: "overdue", title: "Deliveries past their date",
     consequence: "Chase the supplier — site is expecting this material",
@@ -307,6 +380,11 @@ async function CommandCenterContent() {
   const pendingActions: { label: string; value: number }[] = [];
   if (canApproveReq && pendingRequisitions.length > 0) pendingActions.push({ label: "Pending indents", value: pendingRequisitions.length });
   if (canApprovePO && draftPOs.length > 0) pendingActions.push({ label: "Draft POs", value: draftPOs.length });
+  if (canApproveGatePass && pendingGatePasses.length > 0) pendingActions.push({ label: "Gate passes", value: pendingGatePasses.length });
+  if (pendingDprs.length > 0) pendingActions.push({ label: "DPRs", value: pendingDprs.length });
+  if (canApproveExpense && pendingExpenses.length > 0) pendingActions.push({ label: "Expenses", value: pendingExpenses.length });
+  if (canApproveExpense && pendingClaims.length > 0) pendingActions.push({ label: "Claims", value: pendingClaims.length });
+  if (canApproveRaBill && pendingRaBills.length > 0) pendingActions.push({ label: "RA bills", value: pendingRaBills.length });
   if (canSeeProcurement && overduePOs.length > 0) pendingActions.push({ label: "Overdue POs", value: overduePOs.length });
   if (canSeeStock && lowStockCount > 0) pendingActions.push({ label: "Low stock", value: lowStockCount });
   if (canApproveReq && approvedReqs.length > 0) pendingActions.push({ label: "Ready to order", value: approvedReqs.length });
@@ -371,10 +449,16 @@ async function CommandCenterContent() {
   const hasActivity = !isDevBypass && activityCounts.length > 0;
 
   // ── Memberships ──────────────────────────────────────────────────
+  // Resolve stored role keys to human labels — a CUSTOM_* membership
+  // renders the custom role's label, not the raw key or a normalized
+  // "Supervisor" fallback for the user's own role.
+  const customLabels = await getCustomRoleLabels([...new Set(memberships.map((m) => m.company.id))]);
+  const currentRoleKey = memberships.find((m) => m.company.id === company.id)?.role;
   const membershipData: MembershipData[] = memberships.map((m) => ({
     id: m.id,
     company: { id: m.company.id, name: m.company.name, businessType: m.company.businessType },
     role: m.role,
+    roleLabel: roleDisplayLabel(m.role, m.company.id, customLabels),
     isCurrent: m.company.id === company.id}));
 
   // ── Project assignments ──────────────────────────────────────────
@@ -432,7 +516,7 @@ async function CommandCenterContent() {
         active={dbUser?.active ?? true}
         createdAt={dbUser?.createdAt?.toISOString() ?? null}
         companyName={company.name}
-        roleLabel={roleDef.label}
+        roleLabel={currentRoleKey ? roleDisplayLabel(currentRoleKey, company.id, customLabels) : roleDef.label}
         roleDescription={roleDef.description}
         canManageCompany={canManageCompany}
         queues={queues}

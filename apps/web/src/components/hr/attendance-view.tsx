@@ -58,22 +58,36 @@ const STATUS_CONFIG: Record<AttendanceStatus, { label: string; short: string; ac
 };
 
 /** Attendance summary stats bar. */
-function AttendanceStatsBar({ employees, getStatus }: { employees: { id: string }[]; getStatus: (id: string) => AttendanceStatus }) {
+function AttendanceStatsBar({ employees, getStatus, isMarked }: { employees: { id: string }[]; getStatus: (id: string) => AttendanceStatus; isMarked: (id: string) => boolean }) {
   const present = employees.filter((e) => getStatus(e.id) === "PRESENT" || getStatus(e.id) === "OVERTIME").length;
   const absent = employees.filter((e) => getStatus(e.id) === "ABSENT").length;
   const halfDay = employees.filter((e) => getStatus(e.id) === "HALF_DAY").length;
   const leave = employees.filter((e) => getStatus(e.id) === "LEAVE").length;
   const total = employees.length;
-  const rate = total > 0 ? ((present + halfDay * 0.5) / total) * 100 : 0;
+  const unmarked = employees.filter((e) => !isMarked(e.id)).length;
+  // Rate is computed over *marked* workers only — unmarked rows are the
+  // PRESENT default for editing convenience, not real marks. Dividing by
+  // total made the rate claim "93% present" before anyone was logged and
+  // contradicted the HR dashboard (which rates logged records only).
+  const marked = total - unmarked;
+  const markedPresent = employees.filter((e) => isMarked(e.id) && (getStatus(e.id) === "PRESENT" || getStatus(e.id) === "OVERTIME")).length;
+  const markedHalfDay = employees.filter((e) => isMarked(e.id) && getStatus(e.id) === "HALF_DAY").length;
+  const rate = marked > 0 ? ((markedPresent + markedHalfDay * 0.5) / marked) * 100 : null;
 
   return (
     <div className="grid grid-cols-2 divide-border overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-5 sm:divide-x divide-y sm:divide-y-0">
       <div className="flex flex-col gap-0.5 p-3">
         <span className="text-label text-muted-foreground/75">Attendance Rate</span>
-        <span className={cn("text-figure-lg", rate >= 75 ? "text-success" : rate >= 50 ? "text-warning" : "text-danger")}>
-          {rate.toFixed(0)}<span className="text-body">%</span>
+        {rate === null ? (
+          <span className="text-figure-lg text-muted-foreground">—</span>
+        ) : (
+          <span className={cn("text-figure-lg", rate >= 75 ? "text-success" : rate >= 50 ? "text-warning" : "text-danger")}>
+            {rate.toFixed(0)}<span className="text-body">%</span>
+          </span>
+        )}
+        <span className="text-micro text-muted-foreground">
+          {marked === total ? `${total} workers` : `${marked} of ${total} marked`}
         </span>
-        <span className="text-micro text-muted-foreground">{total} workers</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
         <span className="text-label text-muted-foreground/75">Present</span>
@@ -153,6 +167,12 @@ export function AttendanceView({
   const setStatus = (empId: string, status: AttendanceStatus) => {
     setStatuses((prev) => ({ ...prev, [empId]: status }));
   };
+
+  // "Marked" = explicitly clicked in this session or already saved —
+  // everyone else is showing the PRESENT default, which the stats bar
+  // discloses so the rate isn't mistaken for logged attendance.
+  const isMarked = (empId: string) =>
+    statuses[empId] !== undefined || todayRecords.some((r) => r.employeeId === empId);
 
   const handleSave = async () => {
     setSaving(true);
@@ -425,7 +445,7 @@ export function AttendanceView({
             <>
               {/* Summary stats bar */}
               {employees.length > 0 && (
-                <AttendanceStatsBar employees={employees} getStatus={getStatus} />
+                <AttendanceStatsBar employees={employees} getStatus={getStatus} isMarked={isMarked} />
               )}
 
               {/* Date + project selector */}
@@ -478,6 +498,16 @@ export function AttendanceView({
                   description="Add employees first to log attendance."
                 />
               ) : (
+                <>
+                  <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-muted-foreground">
+                    {(Object.keys(STATUS_CONFIG) as AttendanceStatus[]).map((s) => (
+                      <span key={s} className="inline-flex items-center gap-1">
+                        <span className={cn("size-1.5 rounded-full", STATUS_CONFIG[s].dotClass)} />
+                        <span className="font-semibold">{STATUS_CONFIG[s].short}</span>
+                        {STATUS_CONFIG[s].label}
+                      </span>
+                    ))}
+                  </div>
                 <div className="overflow-hidden rounded-lg border border-border">
                   <Table>
                     <THead>
@@ -524,6 +554,7 @@ export function AttendanceView({
                     </TBody>
                   </Table>
                 </div>
+                </>
               )}
             </>
           ) : (

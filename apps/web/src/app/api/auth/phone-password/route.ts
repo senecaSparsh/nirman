@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
-import { json, ForbiddenError, UnauthorizedError } from "@/lib/server";
+import { json, ForbiddenError, UnauthorizedError, getCustomRoleLabels, roleDisplayLabel } from "@/lib/server";
 import { normalizePhone, normalizePhoneForLookup, createPhoneSession } from "@/lib/phone-otp";
 import { verifyPassword } from "better-auth/crypto";
 import { ServiceError } from "@nirman/services";
@@ -195,6 +195,7 @@ export const POST = async (req: NextRequest) => {
       // Create the session first, then return the company list.
       // The client will show a company picker and call /api/company/switch.
       const { cookie } = await createPhoneSession(winner.id);
+      const winnerCustomLabels = await getCustomRoleLabels(winner.memberships.map((uc) => uc.company.id));
       const res = NextResponse.json({
         ok: true,
         requiresCompanySelect: true,
@@ -208,6 +209,7 @@ export const POST = async (req: NextRequest) => {
           id: uc.company.id,
           name: uc.company.name,
           role: uc.role,
+          roleLabel: roleDisplayLabel(uc.role, uc.company.id, winnerCustomLabels),
         })),
         mustChangePassword: winner.mustChangePassword,
       }, { status: 200 });

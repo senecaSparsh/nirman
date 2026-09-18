@@ -72,7 +72,7 @@ export function LeadPipelineView({
       label: "Score",
       sortable: true,
       align: "right",
-      render: (lead) => <span className={`tnum font-semibold ${lead.score >= 70 ? "text-success" : lead.score >= 45 ? "text-warning" : "text-muted-foreground"}`}>{lead.score}</span>,
+      render: (lead) => <span title="Lead quality score (0–100) — from source, priority, budget and site visits" className={`tnum font-semibold ${lead.score >= 70 ? "text-success" : lead.score >= 45 ? "text-warning" : "text-muted-foreground"}`}>{lead.score}</span>,
     },
     {
       key: "interest",

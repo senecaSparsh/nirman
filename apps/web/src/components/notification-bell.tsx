@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
-import {Bell, Check, CheckCheck} from "lucide-react";
+import {Bell, Check, CheckCheck, ChevronRight} from "lucide-react";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { resolveLinkForSurface } from "@/components/surface-adapter";
 import { toast } from "sonner";
@@ -85,7 +85,7 @@ export function NotificationBell({ className, alertItems = [] }: { className?: s
     };
   }, [fetchNotifications]);
 
-  // Close on outside click
+  // Close on outside click or Escape
   useEffect(() => {
     if (!open) return;
     function handleClick(e: MouseEvent) {
@@ -93,8 +93,15 @@ export function NotificationBell({ className, alertItems = [] }: { className?: s
         setOpen(false);
       }
     }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
   }, [open]);
 
   async function markAsRead(id: string) {
@@ -217,6 +224,12 @@ export function NotificationBell({ className, alertItems = [] }: { className?: s
               )}
             <div className="max-h-96 overflow-y-auto scrollbar-thin">
               {notifications.map((n) => {
+                // Notification links are stored as mobile paths (/m/...).
+                // resolveLinkForSurface converts to the desktop route when the
+                // bell is open on a desktop viewport, and returns the mobile
+                // path as-is on a phone — so a mobile user never lands on a
+                // desktop page.
+                const href = resolveLinkForSurface(n.link);
                 const content = (
                   <div
                     className={cn(
@@ -237,28 +250,28 @@ export function NotificationBell({ className, alertItems = [] }: { className?: s
                         {formatRelativeTime(new Date(n.createdAt))}
                       </p>
                     </div>
-                    {!n.isRead && (
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          markAsRead(n.id);
-                        }}
-                        className="shrink-0 text-muted-foreground/50 transition-colors hover:text-foreground"
-                        title="Mark as read"
-                      >
-                        <Check className="h-3.5 w-3.5" />
-                      </button>
-                    )}
+                    {/* Right rail: a mark-read affordance on unread items plus a
+                        chevron whenever the notification deep-links somewhere —
+                        linked vs non-linked rows otherwise look identical. */}
+                    <span className="flex shrink-0 items-center gap-1.5 self-center">
+                      {!n.isRead && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            markAsRead(n.id);
+                          }}
+                          className="text-muted-foreground/50 transition-colors hover:text-foreground"
+                          title="Mark as read"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {href ? <ChevronRight className="h-4 w-4 text-muted-foreground/40" /> : null}
+                    </span>
                   </div>
                 );
 
-                // Notification links are stored as mobile paths (/m/...).
-                // resolveLinkForSurface converts to the desktop route when the
-                // bell is open on a desktop viewport, and returns the mobile
-                // path as-is on a phone — so a mobile user never lands on a
-                // desktop page.
-                const href = resolveLinkForSurface(n.link);
                 if (href) {
                   return (
                     <Link

@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
-import { canAssignRole, ROLE_META, type Role } from "@/lib/roles";
+import { canAssignRole, roleTier, ROLE_META, type Role } from "@/lib/roles";
 import { formatCurrency, formatDate, formatDateTime, displayEmail } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import type { CompanyProfileData } from "@/components/companies/company-profile-client";
@@ -53,6 +53,7 @@ export function MobileCompanyDetails({
   permissions,
   roleOptions,
   assignableRoles: assignable,
+  customRoles,
 }: {
   data: CompanyProfileData;
   actorRole: string;
@@ -69,6 +70,7 @@ export function MobileCompanyDetails({
   };
   roleOptions: { key: string; label: string }[];
   assignableRoles: Role[];
+  customRoles: { key: string; label: string; tier: number }[];
 }) {
   if (!permissions.canManage) {
     return <MobileNoAccess what="company details" />;
@@ -90,6 +92,7 @@ export function MobileCompanyDetails({
         actorRole={actorRole}
         roleOptions={roleOptions}
         assignable={assignable}
+        customRoles={customRoles}
       />
       <PhonePoolSection data={data} canManageTelephony={permissions.canManageTelephony} />
       {data.parentName || data.siblings.length > 0 ? (
@@ -264,7 +267,7 @@ function MembersOverview({ data, canManage }: { data: CompanyProfileData; canMan
               </p>
             )}
           </div>
-          <Badge tone="neutral" className="shrink-0">{ROLE_META[m.role as Role]?.label ?? m.role}</Badge>
+          <Badge tone="neutral" className="shrink-0">{m.roleLabel ?? ROLE_META[m.role as Role]?.label ?? m.role}</Badge>
         </div>
       ))}
       {data.members.length > 10 && (
@@ -627,19 +630,33 @@ function DetailRow({ icon: Icon, label, value }: { icon: LucideIcon; label: stri
 // ───────────────────────────────────────────────────────────────
 
 function MembersSection({
-  data, canManage, actorRole, roleOptions, assignable,
+  data, canManage, actorRole, roleOptions, assignable, customRoles,
 }: {
   data: CompanyProfileData;
   canManage: boolean;
   actorRole: string;
   roleOptions: { key: string; label: string }[];
   assignable: Role[];
+  customRoles: { key: string; label: string; tier: number }[];
 }) {
   const router = useRouter();
   const [confirm, confirmDialog] = useConfirm();
   const [addOpen, setAddOpen] = React.useState(false);
   const [addEmail, setAddEmail] = React.useState("");
   const [addRole, setAddRole] = React.useState<Role>(assignable[0] ?? "PROJECT_MANAGER");
+
+  // Mirror the server-side canManageRole check — a CUSTOM_* member resolves
+  // to their stored tier; canAssignRole() would normalize the key to
+  // SUPERVISOR and offer the role select on members the API will 403.
+  const actorTierNum = roleTier(actorRole);
+  const customRoleByKey = new Map(customRoles.map((cr) => [cr.key, cr]));
+  const canManageMemberRole = (role: string) => {
+    if (role.startsWith("CUSTOM_")) {
+      const cr = customRoleByKey.get(role);
+      return cr ? actorTierNum < cr.tier && actorTierNum < 5 : false;
+    }
+    return canAssignRole(actorRole, role);
+  };
   const [adding, setAdding] = React.useState(false);
   const [removing, setRemoving] = React.useState<string | null>(null);
 
@@ -770,7 +787,7 @@ function MembersSection({
                       </p>
                     )}
                   </div>
-                  {canManage && canAssignRole(actorRole, m.role) ? (
+                  {canManage && canManageMemberRole(m.role) ? (
                     <EnumSelect
                       label=""
                       value={m.role}
@@ -783,7 +800,7 @@ function MembersSection({
                     />
                   ) : (
                     <Badge tone="neutral" className="shrink-0">
-                      {roleOptions.find((o) => o.key === m.role)?.label ?? m.role}
+                      {m.roleLabel ?? roleOptions.find((o) => o.key === m.role)?.label ?? m.role}
                     </Badge>
                   )}
                 </div>

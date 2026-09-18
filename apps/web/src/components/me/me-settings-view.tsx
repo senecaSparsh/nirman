@@ -3,12 +3,12 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { User, Lock, Building2, Check, Loader2, ShieldAlert, Monitor, Smartphone, Phone, Fingerprint, Trash2, Plus } from "lucide-react";
+import { User, Lock, Building2, Check, Loader2, ShieldAlert, Monitor, Smartphone, Phone, Fingerprint, Trash2, Plus, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { authClient } from "@/lib/auth-client";
-import { signOutAndCleanup } from "@/lib/use-sign-out";
+import { signOutAndCleanup, useSignOut } from "@/lib/use-sign-out";
 import { getAuthenticatorName } from "@better-auth/passkey";
 import type { MembershipData } from "@/components/profile/profile-tabs";
 
@@ -145,8 +145,16 @@ export function MeSettingsView({ user, roleLabel, roleDescription, memberships }
           </div>
           <div>
             <Label>Email</Label>
-            <Input value={user.email} disabled className="bg-muted/50" />
-            <p className="mt-1 text-micro text-muted-foreground">Email cannot be changed — contact an admin.</p>
+            <Input
+              value={user.email.endsWith("@nirman.internal") ? "—" : user.email}
+              disabled
+              className="bg-muted/50"
+            />
+            <p className="mt-1 text-micro text-muted-foreground">
+              {user.email.endsWith("@nirman.internal")
+                ? "You sign in with your phone number — no email on this account."
+                : "Email cannot be changed — contact an admin."}
+            </p>
           </div>
           <div>
             <Label>Phone</Label>
@@ -283,7 +291,7 @@ export function MeSettingsView({ user, roleLabel, roleDescription, memberships }
                   <div className="text-micro text-muted-foreground">{m.company.businessType}</div>
                 )}
               </div>
-              <span className="shrink-0 text-micro text-muted-foreground">{m.role}</span>
+              <span className="shrink-0 text-micro text-muted-foreground">{m.roleLabel ?? m.role}</span>
               {m.isCurrent ? (
                 <span className="shrink-0 text-micro font-medium text-foreground">Current</span>
               ) : (
@@ -478,6 +486,7 @@ function PasskeysSection() {
 function SessionsSection() {
   const [revokingAll, setRevokingAll] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const { handleSignOut, signingOut, dialog: signOutDialog } = useSignOut();
 
   async function handleRevokeAll() {
     setRevokingAll(true);
@@ -533,28 +542,50 @@ function SessionsSection() {
           </div>
         </div>
       ) : (
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-start gap-2.5">
-            <Monitor className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-            <div>
-              <p className="text-caption font-medium text-foreground">
-                Sign out all devices
-              </p>
-              <p className="mt-0.5 text-micro text-muted-foreground">
-                Revoke all active sessions across every device.
-              </p>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-start gap-2.5">
+              <LogOut className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <div>
+                <p className="text-caption font-medium text-foreground">Sign out</p>
+                <p className="mt-0.5 text-micro text-muted-foreground">
+                  End your session on this device only.
+                </p>
+              </div>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSignOut}
+              disabled={signingOut}
+            >
+              {signingOut ? "Signing out…" : "Sign out"}
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setConfirmOpen(true)}
-          >
-            <Smartphone className="h-3.5 w-3.5" />
-            Revoke all
-          </Button>
+          <div className="flex items-center justify-between gap-4 border-t border-border pt-4">
+            <div className="flex items-start gap-2.5">
+              <Monitor className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <div>
+                <p className="text-caption font-medium text-foreground">
+                  Sign out all devices
+                </p>
+                <p className="mt-0.5 text-micro text-muted-foreground">
+                  Revoke all active sessions across every device.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmOpen(true)}
+            >
+              <Smartphone className="h-3.5 w-3.5" />
+              Revoke all
+            </Button>
+          </div>
         </div>
       )}
+      {signOutDialog}
     </section>
   );
 }

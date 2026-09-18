@@ -1,4 +1,4 @@
-import { prisma, type Prisma } from "@nirman/db";
+import { prisma, type Prisma, type LandCostFrequency, type LandCostRecurrenceInterval } from "@nirman/db";
 import { withSerializableTransaction } from "./transaction";
 import Decimal from "decimal.js";
 import { reallocateProjectCosts } from "./valuation";
@@ -6,6 +6,7 @@ import { logAction } from "./audit";
 import { postLandPurchase, postJournalEntry, ACCT } from "./gl-posting";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { ServiceError } from "./errors";
+import { addLandCostComponentTx } from "./land-cost-component";
 
 /**
  * Land Service — record land purchases and create initial parcels.
@@ -286,6 +287,20 @@ interface RecordLandPurchaseWithPlanInput {
   brokerageAmount?: Decimal | number | string | null;
   legalFees?: Decimal | number | string | null;
   otherCharges?: Decimal | number | string | null;
+  /** Scheduled cost components (stamp duty, brokerage, recurring charges) to
+   *  create atomically with the purchase — the client posts them in the same
+   *  request so an interrupted multi-step flow can't leave a purchase missing
+   *  its cost breakdown. */
+  costComponents?: {
+    label: string;
+    amount: Decimal | number | string;
+    frequency?: LandCostFrequency;
+    interval?: LandCostRecurrenceInterval | null;
+    startDate?: Date;
+    endDate?: Date | null;
+    occurrences?: number | null;
+    notes?: string;
+  }[];
 }
 
 export async function recordLandPurchaseWithPlan(input: RecordLandPurchaseWithPlanInput) {
@@ -593,6 +608,27 @@ export async function recordLandPurchaseWithPlan(input: RecordLandPurchaseWithPl
           createdById: input.createdById ?? null,
         },
       });
+    }
+
+    // 11. Create scheduled cost components atomically with the purchase — the
+    //     wizard posts them in the same request so an interrupted multi-step
+    //     flow can't leave a purchase missing its cost breakdown.
+    if (input.costComponents?.length) {
+      for (const c of input.costComponents) {
+        await addLandCostComponentTx(tx, {
+          landPurchaseId: landPurchase.id,
+          label: c.label,
+          amount: c.amount,
+          frequency: c.frequency,
+          interval: c.interval ?? null,
+          startDate: c.startDate,
+          endDate: c.endDate ?? null,
+          occurrences: c.occurrences ?? null,
+          notes: c.notes,
+          userId: input.createdById,
+          skipLpCheck: true,
+        });
+      }
     }
 
     return {

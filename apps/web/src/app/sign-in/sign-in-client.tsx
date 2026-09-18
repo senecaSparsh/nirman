@@ -10,7 +10,7 @@ import { Loader2, AlertCircle, Building2, Phone, Mail, Fingerprint, Eye, EyeOff,
 import { homeWorldFor } from "@/lib/nav";
 import { type Role, ROLES } from "@/lib/roles";
 
-type CompanyOption = { id: string; name: string; role: string };
+type CompanyOption = { id: string; name: string; role: string; roleLabel?: string };
 type LoginMode = "phone" | "email";
 type PhoneStep = "password" | "otp-enter" | "otp-verify" | "otp-select-user" | "select-user" | "select-company";
 
@@ -527,8 +527,8 @@ function SignInForm({ showDevLogin, otpEnabled }: { showDevLogin: boolean; otpEn
       // Company picker: user has multiple memberships — show the picker
       // step instead of silently routing into the first company.
       if (data.requiresCompanySelect) {
-        setCompanies(data.companies.map((c: { id: string; name: string; role: string }) => ({
-          id: c.id, name: c.name, role: c.role,
+        setCompanies(data.companies.map((c: { id: string; name: string; role: string; roleLabel?: string }) => ({
+          id: c.id, name: c.name, role: c.role, roleLabel: c.roleLabel,
         })));
         setSelectedCompanyId(data.companies[0]?.id ?? "");
         if (data.mustChangePassword) {
@@ -570,8 +570,8 @@ function SignInForm({ showDevLogin, otpEnabled }: { showDevLogin: boolean; otpEn
       }
       const data = await res.json();
       if (data.requiresCompanySelect) {
-        setCompanies(data.companies.map((c: { id: string; name: string; role: string }) => ({
-          id: c.id, name: c.name, role: c.role,
+        setCompanies(data.companies.map((c: { id: string; name: string; role: string; roleLabel?: string }) => ({
+          id: c.id, name: c.name, role: c.role, roleLabel: c.roleLabel,
         })));
         setSelectedCompanyId(data.companies[0]?.id ?? "");
         if (data.mustChangePassword) {
@@ -981,7 +981,7 @@ function SignInForm({ showDevLogin, otpEnabled }: { showDevLogin: boolean; otpEn
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-caption font-medium text-foreground">{c.name}</p>
-                    <p className="truncate text-micro text-muted-foreground">{ROLES[c.role as Role]?.label ?? c.role}</p>
+                    <p className="truncate text-micro text-muted-foreground">{c.roleLabel ?? ROLES[c.role as Role]?.label ?? c.role}</p>
                   </div>
                 </button>
               ))}
@@ -1046,7 +1046,7 @@ function SignInForm({ showDevLogin, otpEnabled }: { showDevLogin: boolean; otpEn
                 >
                   {companies.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.name} ({c.role})
+                      {c.name} ({c.roleLabel ?? c.role})
                     </option>
                   ))}
                 </Select>

@@ -22,7 +22,7 @@ import { IntegrationsTab } from "@/components/settings/integrations-tab";
 import { formatCurrency, formatDate, formatDateTime, cn } from "@/lib/utils";
 import { useTabParam } from "@/lib/use-tab-param";
 import { useConfirm } from "@/lib/use-confirm";
-import { canAssignRole, type Role } from "@/lib/roles";
+import { canAssignRole, roleTier, type Role } from "@/lib/roles";
 
 // ───────────────────────────────────────────────────────────────
 //  Types — serialized company profile payload from the server
@@ -70,7 +70,7 @@ export type CompanyProfileData = {
   siblings: { id: string; name: string; businessType: string | null }[];
   // Members
   members: {
-    id: string; userId: string; name: string; email: string; role: string; active: boolean;
+    id: string; userId: string; name: string; email: string; role: string; roleLabel?: string; active: boolean;
     phone: string | null; designation: string | null; lastLoginAt: string | null;
     lockedUntil: string | null; failedLoginAttempts: number;
     scopeType: string | null; reportsToName: string | null;
@@ -157,12 +157,14 @@ export function CompanyProfileClient({
   permissions,
   roleOptions,
   assignableRoles: assignable,
+  customRoles,
 }: {
   data: CompanyProfileData;
   actorRole: string;
   permissions: { canManage: boolean; canViewAudit: boolean; canManageTelephony: boolean; canManageCompanies: boolean };
   roleOptions: { key: string; label: string }[];
   assignableRoles: Role[];
+  customRoles: { key: string; label: string; tier: number }[];
 }) {
   const [tab, setTab] = useTabParam(
     ["overview", "members", "hierarchy", "locations", "policy", "procurement", "integrations", "audit"] as const,
@@ -206,7 +208,7 @@ export function CompanyProfileClient({
               <OverviewTab data={data} canManage={permissions.canManage} />
             </TabsContent>
             <TabsContent value="members">
-              <MembersTab data={data} canManage={permissions.canManage} actorRole={actorRole} roleOptions={roleOptions} assignable={assignable} />
+              <MembersTab data={data} canManage={permissions.canManage} actorRole={actorRole} roleOptions={roleOptions} assignable={assignable} customRoles={customRoles} />
             </TabsContent>
             <TabsContent value="phones">
               <PhonePoolTab data={data} canManage={permissions.canManageTelephony} />
@@ -438,10 +440,11 @@ function DetailRow({ label, value }: { label: string; value: string | null }) {
 // ───────────────────────────────────────────────────────────────
 
 function MembersTab({
-  data, canManage, actorRole, roleOptions, assignable,
+  data, canManage, actorRole, roleOptions, assignable, customRoles,
 }: {
   data: CompanyProfileData; canManage: boolean; actorRole: string;
   roleOptions: { key: string; label: string }[]; assignable: Role[];
+  customRoles: { key: string; label: string; tier: number }[];
 }) {
   const router = useRouter();
   const [confirm, confirmDialog] = useConfirm();
@@ -450,6 +453,19 @@ function MembersTab({
   const [addRole, setAddRole] = useState<Role>(assignable[0] ?? "PROJECT_MANAGER");
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
+
+  // Mirror the server-side canManageRole check — a CUSTOM_* member resolves
+  // to their stored tier; canAssignRole() would normalize the key to
+  // SUPERVISOR and offer the role select on members the API will 403.
+  const actorTierNum = roleTier(actorRole);
+  const customRoleByKey = new Map(customRoles.map((cr) => [cr.key, cr]));
+  const canManageMemberRole = (role: string) => {
+    if (role.startsWith("CUSTOM_")) {
+      const cr = customRoleByKey.get(role);
+      return cr ? actorTierNum < cr.tier && actorTierNum < 5 : false;
+    }
+    return canAssignRole(actorRole, role);
+  };
 
   async function addMember(e: React.FormEvent) {
     e.preventDefault();
@@ -562,7 +578,7 @@ function MembersTab({
                     <TD className="text-muted-foreground">{m.email}</TD>
                     <TD className="text-muted-foreground text-caption">{m.phone ?? "—"}</TD>
                     <TD>
-                      {canManage && canAssignRole(actorRole, m.role) ? (
+                      {canManage && canManageMemberRole(m.role) ? (
                         <Select value={m.role} onChange={(e) => changeRole(m.id, e.target.value)} className="h-8 w-36 text-caption">
                           {[m.role, ...assignable].filter((r, i, arr) => arr.indexOf(r) === i).map((r) => {
                             const def = roleOptions.find((o) => o.key === r);
@@ -570,7 +586,7 @@ function MembersTab({
                           })}
                         </Select>
                       ) : (
-                        <Badge variant="outline">{roleOptions.find((o) => o.key === m.role)?.label ?? m.role}</Badge>
+                        <Badge variant="outline">{m.roleLabel ?? roleOptions.find((o) => o.key === m.role)?.label ?? m.role}</Badge>
                       )}
                     </TD>
                     <TD>
