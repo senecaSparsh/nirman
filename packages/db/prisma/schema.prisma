@@ -313,10 +313,10 @@ model CustomRole {
   key             String   // e.g. "CUSTOM_SALES_LEAD" — stored in UserCompany.role
   label           String   // display label, e.g. "Sales Lead"
   description     String   @default("")
-  baseRole        String   // built-in role to inherit tier + base permissions from
-  tier            Int      // hierarchy tier (1-5), same as baseRole by default
+  baseRole        String?  // built-in role to inherit tier + base permissions from — NULL = fully custom ("scratch" mode): permissions is the COMPLETE set
+  tier            Int      // hierarchy tier (1-5), same as baseRole by default; required when baseRole is NULL
   hierarchyLevel  Int?     // optional H-level (1-6) for org tree visual depth; defaults to tier
-  permissions     String[] // additive permissions on top of baseRole
+  permissions     String[] // baseRole set → additive extras; baseRole NULL → the full permission set
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

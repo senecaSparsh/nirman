@@ -38,7 +38,7 @@ export function CreateUserDialog({
   projects: ProjectOption[];
   departments: DepartmentRow[];
   managers: { membershipId: string; userId: string; name: string; role: string; roleLabel?: string }[];
-  customRoles?: { id: string; key: string; label: string; description: string; baseRole: string; tier: number; permissions: string[] }[];
+  customRoles?: { id: string; key: string; label: string; description: string; baseRole: string | null; tier: number; permissions: string[] }[];
   onClose: () => void;
 }) {
   const router = useRouter();

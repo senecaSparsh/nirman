@@ -27,18 +27,20 @@ export const GET = apiHandler(async (_req: NextRequest) => {
  * POST /api/custom-roles — create a new custom role.
  * Requires USERS_MANAGE (OWNER, ADMIN, HR_MANAGER).
  *
- * Body: { key, label, description?, baseRole, tier?, permissions? }
+ * Body: { key, label, description?, baseRole?, tier?, permissions? }
  * - key: unique role key, auto-prefixed with "CUSTOM_" if not already
  * - label: display label
- * - baseRole: a built-in role to inherit tier + base permissions from
- * - tier: optional override (defaults to baseRole's tier)
- * - permissions: additive permissions on top of baseRole
+ * - baseRole: optional. Set → inherit that built-in's tier + permissions
+ *   (permissions are additive extras). Omitted → "scratch" mode:
+ *   permissions IS the complete set and tier is required.
+ * - tier: explicit access level (required in scratch mode)
+ * - permissions: additive extras (inherit mode) or the full set (scratch)
  */
 const createSchema = z.object({
   key: z.string().min(2).max(50).regex(/^[A-Z_][A-Z0-9_]*$/, "Key must be UPPER_SNAKE_CASE"),
   label: z.string().min(2).max(60),
   description: z.string().max(200).optional().default(""),
-  baseRole: z.enum(ALL_ROLES as [string, ...string[]]),
+  baseRole: z.enum(ALL_ROLES as [string, ...string[]]).nullable().optional(),
   tier: z.number().int().min(1).max(5).optional(),
   hierarchyLevel: z.number().int().min(1).max(6).optional(),
   permissions: z.array(z.string()).optional().default([]),
@@ -56,10 +58,19 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
   const { key, label, description, baseRole, tier, hierarchyLevel, permissions } = parsed.data;
 
-  // Validate baseRole is a known built-in role
-  const normalizedBase = normalizeRole(baseRole);
-  if (!ALL_ROLES.includes(normalizedBase as never)) {
+  // ── Scratch mode (no baseRole): the permissions list IS the complete ──
+  // set and tier is required — there's no base to derive either from.
+  const normalizedBase = baseRole ? normalizeRole(baseRole) : null;
+  if (baseRole && !ALL_ROLES.includes(normalizedBase as never)) {
     return json({ error: "Invalid base role" }, { status: 400 });
+  }
+  if (!normalizedBase) {
+    if (tier === undefined) {
+      return json({ error: "Access level (tier) is required when no base role is set." }, { status: 400 });
+    }
+    if (permissions.length === 0) {
+      return json({ error: "Pick at least one permission — a scratch role with none would sign in to an empty app." }, { status: 400 });
+    }
   }
 
   // ── Tier guard: the actor must be able to assign the base role's tier. ──
@@ -68,15 +79,19 @@ export const POST = apiHandler(async (req: NextRequest) => {
   // permissions — which exceed the actor's own authority. Even though the
   // actor can't assign the role themselves, they shouldn't be able to
   // define a role template with permissions beyond their tier.
-  if (!canAssignRole(await getActingRole(), normalizedBase)) {
+  if (normalizedBase && !canAssignRole(await getActingRole(), normalizedBase)) {
     return json(
       { error: `You don't have authority to create a role based on ${ROLES[normalizedBase as keyof typeof ROLES]?.label ?? normalizedBase}.` },
       { status: 403 },
     );
   }
 
-  // If a tier override is provided, it must also be below the actor's tier.
-  const resolvedTier = tier ?? roleTier(normalizedBase);
+  // If a tier override is provided (or required, in scratch mode), it must
+  // be strictly below the actor's tier — a custom role can never reach the
+  // actor's own level, let alone above it.
+  // Scratch mode guarantees tier is set (checked above), so the
+  // "SUPERVISOR" fallback never fires — it's just the fail-closed default.
+  const resolvedTier = tier ?? roleTier(normalizedBase ?? "SUPERVISOR");
   if (resolvedTier <= roleTier(await getActingRole())) {
     return json(
       { error: `You can't set the access level for this role higher than your own.` },

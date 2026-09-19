@@ -71,7 +71,7 @@ function preferredParentRole(role: string, customRoles?: Map<string, CustomRoleD
   if (customRoles && role.startsWith("CUSTOM_")) {
     const cr = customRoles.get(role);
     if (cr) {
-      const parent = PREFERRED_PARENT_ROLE[cr.baseRole];
+      const parent = cr.baseRole ? PREFERRED_PARENT_ROLE[cr.baseRole] : undefined;
       if (parent !== undefined) return parent;
       // baseRole is OWNER → this custom role is a root
       if (cr.baseRole === "OWNER") return null;
@@ -242,7 +242,7 @@ interface LeaveRow {
 export interface CustomRoleDef {
   key: string;       // e.g. "CUSTOM_SUB_ADMIN"
   label: string;     // e.g. "Sub Admin"
-  baseRole: string;  // e.g. "ADMIN"
+  baseRole: string | null;  // e.g. "ADMIN"; null = scratch-mode role (fully custom permission set)
   tier: number;      // 1-5
   hierarchyLevel?: number | null; // optional H-level (1-6) for org tree depth
 }

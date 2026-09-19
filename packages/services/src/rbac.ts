@@ -356,7 +356,9 @@ async function svcResolveBaseRole(role: string, companyId: string): Promise<stri
   const cr = await prisma.customRole
     .findFirst({ where: { companyId, key: role }, select: { baseRole: true } })
     .catch(() => null);
-  return cr?.baseRole ?? role;
+  // Scratch-mode roles (baseRole null) fall back to SUPERVISOR → PROJECT
+  // scope default — the narrowest choice for a role with no declared base.
+  return cr?.baseRole ?? (cr ? "SUPERVISOR" : role);
 }
 
 /**

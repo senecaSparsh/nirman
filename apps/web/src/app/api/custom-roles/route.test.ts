@@ -213,6 +213,73 @@ describe("POST /api/custom-roles", () => {
     );
     expect(res.status).toBe(403);
   });
+
+  // ── Scratch mode (baseRole omitted) — permissions IS the complete set ──
+
+  it("creates a scratch role when OWNER provides tier + explicit permissions", async () => {
+    const res = await POST(
+      makeRequest("/api/custom-roles", {
+        method: "POST",
+        body: { key: "GATE_AUDITOR", label: "Gate Auditor", tier: 5, permissions: ["gate_pass.view", "call.view"] },
+      }),
+      EMPTY_CTX,
+    );
+    expect(res.status).toBe(200);
+    const body = await getJson<{ ok: boolean; role: { key: string; baseRole: string | null; tier: number; permissions: string[] } }>(res);
+    expect(body.ok).toBe(true);
+    expect(body.role.baseRole).toBeNull();
+    expect(body.role.tier).toBe(5);
+    expect(body.role.permissions).toEqual(["gate_pass.view", "call.view"]);
+  });
+
+  it("returns 400 when scratch mode omits tier (no base to derive from)", async () => {
+    const res = await POST(
+      makeRequest("/api/custom-roles", {
+        method: "POST",
+        body: { key: "GATE_AUDITOR", label: "Gate Auditor", permissions: ["gate_pass.view"] },
+      }),
+      EMPTY_CTX,
+    );
+    expect(res.status).toBe(400);
+    const body = await getJson<{ error: string }>(res);
+    expect(body.error).toMatch(/tier|access level/i);
+  });
+
+  it("returns 400 when scratch mode has zero permissions", async () => {
+    const res = await POST(
+      makeRequest("/api/custom-roles", {
+        method: "POST",
+        body: { key: "EMPTY_ROLE", label: "Empty Role", tier: 5, permissions: [] },
+      }),
+      EMPTY_CTX,
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 403 when HR_MANAGER creates a scratch role at their own tier (3)", async () => {
+    setSessionUser(HR_MANAGER);
+    const res = await POST(
+      makeRequest("/api/custom-roles", {
+        method: "POST",
+        body: { key: "PEER_ROLE", label: "Peer Role", tier: 3, permissions: ["hr.view"] },
+      }),
+      EMPTY_CTX,
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 403 even for OWNER creating a tier-1 scratch role", async () => {
+    // Custom roles can never reach tier 1 — that band is reserved for the
+    // built-in OWNER/ADMIN/DEVELOPER hats so top authority stays enumerable.
+    const res = await POST(
+      makeRequest("/api/custom-roles", {
+        method: "POST",
+        body: { key: "SUPER_ROLE", label: "Super Role", tier: 1, permissions: ["hr.view"] },
+      }),
+      EMPTY_CTX,
+    );
+    expect(res.status).toBe(403);
+  });
 });
 
 describe("PUT /api/custom-roles/[id]", () => {
@@ -317,6 +384,57 @@ describe("PUT /api/custom-roles/[id]", () => {
     expect(res.status).toBe(400);
   });
 
+  it("allows OWNER to edit a scratch-mode role (baseRole null)", async () => {
+    mockPrisma().customRole!.findFirst.mockResolvedValue({ ...MOCK_ROLE, baseRole: null });
+    const res = await PUT(
+      makeRequest("/api/custom-roles/cr-1", {
+        method: "PUT",
+        body: { label: "Scratch Role Updated" },
+      }),
+      DYN_CTX("cr-1"),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it("returns 403 when HR_MANAGER edits a role at a tier above theirs (tier 2)", async () => {
+    setSessionUser(HR_MANAGER);
+    mockPrisma().customRole!.findFirst.mockResolvedValue({ ...MOCK_ROLE, baseRole: null, tier: 2 });
+    const res = await PUT(
+      makeRequest("/api/custom-roles/cr-1", {
+        method: "PUT",
+        body: { label: "Nope" },
+      }),
+      DYN_CTX("cr-1"),
+    );
+    expect(res.status).toBe(403);
+    const body = await getJson<{ error: string }>(res);
+    expect(body.error).toMatch(/don.t have authority/i);
+  });
+
+  it("returns 403 when HR_MANAGER edits a role at their own tier (3)", async () => {
+    setSessionUser(HR_MANAGER);
+    mockPrisma().customRole!.findFirst.mockResolvedValue({ ...MOCK_ROLE, tier: 3 });
+    const res = await PUT(
+      makeRequest("/api/custom-roles/cr-1", {
+        method: "PUT",
+        body: { label: "Nope" },
+      }),
+      DYN_CTX("cr-1"),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("allows switching a role to scratch mode via baseRole: null", async () => {
+    const res = await PUT(
+      makeRequest("/api/custom-roles/cr-1", {
+        method: "PUT",
+        body: { baseRole: null, permissions: ["gate_pass.view"] },
+      }),
+      DYN_CTX("cr-1"),
+    );
+    expect(res.status).toBe(200);
+  });
+
   it("returns 401 when not authenticated", async () => {
     clearSession();
     const res = await PUT(
@@ -384,5 +502,17 @@ describe("DELETE /api/custom-roles/[id]", () => {
       DYN_CTX("cr-1"),
     );
     expect(res.status).toBe(403);
+  });
+
+  it("returns 403 when HR_MANAGER deletes a role at a tier above theirs", async () => {
+    setSessionUser(HR_MANAGER);
+    mockPrisma().customRole!.findFirst.mockResolvedValue({ ...MOCK_ROLE, tier: 2 });
+    const res = await DELETE(
+      makeRequest("/api/custom-roles/cr-1", { method: "DELETE" }),
+      DYN_CTX("cr-1"),
+    );
+    expect(res.status).toBe(403);
+    const body = await getJson<{ error: string }>(res);
+    expect(body.error).toMatch(/don.t have authority/i);
   });
 });

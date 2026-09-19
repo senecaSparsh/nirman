@@ -13,6 +13,7 @@ import {
   canAssignRole,
   canAssignCustomRole,
   ALL_ROLES,
+  ALL_PERMISSIONS,
   APPROVER_ROLES,
   ROLES,
   prettifyRoleKey,
@@ -2785,11 +2786,18 @@ export async function resolveRolePermissions(
       .findFirst({ where: { companyId, key: role } })
       .catch(() => null);
     if (customRole) {
-      return effectivePermissions(customRole.baseRole, [
-        ...customRole.permissions,
-        ...roleOverrides,
-        ...extraPerms,
-      ]);
+      if (customRole.baseRole) {
+        // Inherit mode: base role's matrix + additive extras.
+        return effectivePermissions(customRole.baseRole, [
+          ...customRole.permissions,
+          ...roleOverrides,
+          ...extraPerms,
+        ]);
+      }
+      // Scratch mode: permissions IS the complete set — no base floor.
+      // RolePermission overrides + member extras still apply on top.
+      const set = new Set([...customRole.permissions, ...roleOverrides, ...extraPerms]);
+      return ALL_PERMISSIONS.filter((p) => set.has(p));
     }
     return effectivePermissions("SUPERVISOR", []);
   }

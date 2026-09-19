@@ -21,7 +21,7 @@ import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { formatCurrency, displayEmail } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
-import { ROLE_LIST, ROLES, assignableRoles, canAssignRole, effectivePermissions, PERMISSION_MODULES, ALL_PERMISSIONS, type Role } from "@/lib/roles";
+import { ROLE_LIST, ROLES, assignableRoles, canAssignRole, effectivePermissions, PERMISSION_MODULES, ALL_PERMISSIONS, roleTier, type Role } from "@/lib/roles";
 import { CompaniesManager, type CompanyRow } from "@/components/settings/companies-manager";
 import { CostCentresTab } from "@/components/settings/cost-centres-tab";
 import { PeopleTab } from "@/components/settings/people-tab";
@@ -94,7 +94,7 @@ export function SettingsView({
   canManageCompanies: boolean;
   actorRole: string;
   managers: { membershipId: string; userId: string; name: string; role: string }[];
-  customRoles?: { id: string; key: string; label: string; description: string; baseRole: string; tier: number; permissions: string[] }[];
+  customRoles?: { id: string; key: string; label: string; description: string; baseRole: string | null; tier: number; permissions: string[] }[];
 }) {
   const [tab, setTab] = useTabParam(
     ["company","users","locations","cost-centres","people","companies","integrations"] as const,
@@ -858,7 +858,7 @@ function LocationsTab({
 // ── Users Manager — role + active status management ──────────
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-function UsersManager({ users, actorRole, companyId, projects, departments, managers, customRoles }: { users: UserRow[]; actorRole: string; companyId: string; projects: { id: string; name: string }[]; departments: DepartmentRow[]; managers: { membershipId: string; userId: string; name: string; role: string }[]; customRoles?: { id: string; key: string; label: string; description: string; baseRole: string; tier: number; permissions: string[] }[] }) {
+function UsersManager({ users, actorRole, companyId, projects, departments, managers, customRoles }: { users: UserRow[]; actorRole: string; companyId: string; projects: { id: string; name: string }[]; departments: DepartmentRow[]; managers: { membershipId: string; userId: string; name: string; role: string }[]; customRoles?: { id: string; key: string; label: string; description: string; baseRole: string | null; tier: number; permissions: string[] }[] }) {
   const router = useRouter();
   const { canManageUsers, userId: currentUserId } = usePermissions();
   const canManage = canManageUsers();
@@ -1269,6 +1269,7 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
       {/* Create custom role dialog */}
       {showCreateRole && (
         <CreateCustomRoleDialog
+          actorRole={actorRole}
           onClose={() => setShowCreateRole(false)}
           onCreated={() => { setShowCreateRole(false); router.refresh(); }}
         />
@@ -1439,23 +1440,30 @@ function EditUserProfileDialog({
 //  Create Custom Role Dialog
 // ───────────────────────────────────────────────────────────────
 function CreateCustomRoleDialog({
+  actorRole,
   onClose,
   onCreated,
 }: {
+  actorRole: string;
   onClose: () => void;
   onCreated: () => void;
 }) {
   const [key, setKey] = useState("");
   const [label, setLabel] = useState("");
   const [description, setDescription] = useState("");
+  const [mode, setMode] = useState<"inherit" | "scratch">("inherit");
   const [baseRole, setBaseRole] = useState<string>("SITE_ENGINEER");
+  const [tier, setTier] = useState<number>(4);
   const [grants, setGrants] = useState<Set<string>>(new Set());
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const baseRoles = ROLE_LIST.filter((r) => r.key !== "OWNER" && r.key !== "DEVELOPER");
-  const basePermSet = new Set(effectivePermissions(baseRole));
-  const baseIsWildcard = ROLES[baseRole as Role]?.permissions === "*";
+  const basePermSet = mode === "inherit" ? new Set(effectivePermissions(baseRole)) : new Set<string>();
+  const baseIsWildcard = mode === "inherit" && ROLES[baseRole as Role]?.permissions === "*";
+  // Scratch tiers the actor may create — strictly below their own.
+  const actorTier = roleTier(actorRole);
+  const tierOptions = [2, 3, 4, 5].filter((t) => t > actorTier);
 
   function toggleGrant(perm: string) {
     setGrants((prev) => {
@@ -1478,7 +1486,8 @@ function CreateCustomRoleDialog({
           key: key.trim().toUpperCase().replace(/\s+/g, "_"),
           label: label.trim(),
           description: description.trim(),
-          baseRole,
+          baseRole: mode === "inherit" ? baseRole : null,
+          ...(mode === "scratch" ? { tier } : {}),
           permissions: Array.from(grants),
         }),
       });
@@ -1499,9 +1508,35 @@ function CreateCustomRoleDialog({
         <div>
           <h2 className="text-lg font-semibold">Create Custom Role</h2>
           <p className="text-caption text-muted-foreground">
-            Create a custom role with a base role (for tier and default permissions).
-            You can fine-tune permissions after creation.
+            Create a custom role — either start from a built-in role and add
+            permissions, or build the permission set entirely from scratch.
           </p>
+        </div>
+
+        {/* Mode toggle */}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setMode("inherit")}
+            className={`flex-1 rounded-md px-3 py-2 text-caption font-semibold transition-colors ${
+              mode === "inherit"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted/50 text-foreground hover:bg-muted"
+            }`}
+          >
+            Start from a role
+          </button>
+          <button
+            type="button"
+            onClick={() => setMode("scratch")}
+            className={`flex-1 rounded-md px-3 py-2 text-caption font-semibold transition-colors ${
+              mode === "scratch"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted/50 text-foreground hover:bg-muted"
+            }`}
+          >
+            Build from scratch
+          </button>
         </div>
 
         <div className="space-y-1.5">
@@ -1534,22 +1569,39 @@ function CreateCustomRoleDialog({
           />
         </div>
 
-        <div className="space-y-1.5">
-          <Label>Base Role (inherits tier + permissions)</Label>
-          <Select value={baseRole} onChange={(e) => setBaseRole(e.target.value)}>
-            {baseRoles.map((r) => (
-              <option key={r.key} value={r.key}>
-                {r.label} (Tier {r.tier})
-              </option>
-            ))}
-          </Select>
-        </div>
+        {mode === "inherit" ? (
+          <div className="space-y-1.5">
+            <Label>Base Role (inherits tier + permissions)</Label>
+            <Select value={baseRole} onChange={(e) => setBaseRole(e.target.value)}>
+              {baseRoles.map((r) => (
+                <option key={r.key} value={r.key}>
+                  {r.label} (Tier {r.tier})
+                </option>
+              ))}
+            </Select>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            <Label>Access Level *</Label>
+            <Select value={tier} onChange={(e) => setTier(Number(e.target.value))}>
+              {tierOptions.map((t) => (
+                <option key={t} value={t}>
+                  Tier {t} — {t === 2 ? "senior leadership" : t === 3 ? "department head" : t === 4 ? "staff" : "field"}
+                </option>
+              ))}
+            </Select>
+            <p className="text-caption text-muted-foreground">
+              Decides who this role can manage and who can manage it — same ladder as built-in roles.
+            </p>
+          </div>
+        )}
 
         <div className="space-y-1.5">
-          <Label>Additional Permissions</Label>
+          <Label>{mode === "inherit" ? "Additional Permissions" : "Permissions *"}</Label>
           <p className="text-caption text-muted-foreground">
-            Grant permissions beyond the base role&apos;s defaults. Inherited
-            defaults are shown checked.
+            {mode === "inherit"
+              ? "Grant permissions beyond the base role's defaults. Inherited defaults are shown checked."
+              : "Pick the complete permission set — nothing is granted unless you check it."}
           </p>
           {baseIsWildcard ? (
             <div className="rounded-md border border-primary/30 bg-primary/5 p-2.5">
@@ -1619,7 +1671,7 @@ function CreateCustomRoleDialog({
 
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-          <Button type="submit" size="sm" disabled={saving || !key.trim() || !label.trim()}>
+          <Button type="submit" size="sm" disabled={saving || !key.trim() || !label.trim() || (mode === "scratch" && grants.size === 0)}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Role"}
           </Button>
         </div>
