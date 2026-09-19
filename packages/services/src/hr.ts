@@ -828,6 +828,57 @@ export async function updateEmployee(input: UpdateEmployeeInput) {
 
     const updated = await tx.employee.update({ where: { id: input.employeeId }, data });
 
+    // ── reportsTo sync (employee → membership) — reportsToEmployeeId is
+    //    the org chart; reportsToUserCompanyId is the approval/delegation
+    //    chain. Mirror the org-chart line onto the member's membership so
+    //    the two can't drift. Only writes when both sides have accounts in
+    //    this company; cycle-checked on the membership side. ──
+    if (
+      input.reportsToEmployeeId !== undefined &&
+      (input.reportsToEmployeeId ?? null) !== (existing.reportsToEmployeeId ?? null) &&
+      existing.userId
+    ) {
+      const mgrEmployee = input.reportsToEmployeeId
+        ? await tx.employee.findUnique({ where: { id: input.reportsToEmployeeId }, select: { userId: true } })
+        : null;
+      const empMembership = await tx.userCompany.findUnique({
+        where: { userId_companyId: { userId: existing.userId, companyId: input.companyId } },
+        select: { id: true },
+      });
+      const mgrMembership = mgrEmployee?.userId
+        ? await tx.userCompany.findUnique({
+            where: { userId_companyId: { userId: mgrEmployee.userId, companyId: input.companyId } },
+            select: { id: true, reportsToUserCompanyId: true },
+          })
+        : null;
+      if (empMembership) {
+        const target = mgrMembership?.id ?? null;
+        let cyclic = target !== null && target === empMembership.id;
+        if (target && !cyclic) {
+          let cur: string | null = mgrMembership!.reportsToUserCompanyId;
+          const visited = new Set<string>([empMembership.id, target]);
+          while (cur) {
+            if (visited.has(cur)) {
+              cyclic = true;
+              break;
+            }
+            visited.add(cur);
+            const up = await tx.userCompany.findUnique({
+              where: { id: cur },
+              select: { reportsToUserCompanyId: true },
+            });
+            cur = up?.reportsToUserCompanyId ?? null;
+          }
+        }
+        if (!cyclic) {
+          await tx.userCompany.update({
+            where: { id: empMembership.id },
+            data: { reportsToUserCompanyId: target },
+          });
+        }
+      }
+    }
+
     // ── Bidirectional sync: if the Employee has a linked User, mirror
     //    name/phone/email/designation/joinDate/department changes to the User
     //    record so they stay in sync (editing from either side updates both).

@@ -537,6 +537,68 @@ export async function assignScopedMembership(input: AssignScopeInput) {
           },
         });
 
+    // ── reportsTo sync (membership → employee) — the two reporting fields
+    //    are one line rendered twice: reportsToUserCompanyId drives
+    //    approval/delegation chains, reportsToEmployeeId renders the org
+    //    chart. Keep them aligned whenever both sides have linked records,
+    //    or the org chart silently disagrees with approval routing.
+    //    Only mirrors on an actual CHANGE — a scope update that re-sends the
+    //    current value (or null) must not stomp an org chart set from the
+    //    employee side. The receiving side gets its own cycle check too. ──
+    if (
+      input.reportsToUserCompanyId !== undefined &&
+      (input.reportsToUserCompanyId ?? null) !== (existing?.reportsToUserCompanyId ?? null)
+    ) {
+      const memberEmployee = await tx.employee.findFirst({
+        where: { userId: input.userId, companyId: input.companyId, deletedAt: null },
+        select: { id: true },
+      });
+      if (memberEmployee) {
+        const mgrEmployee = input.reportsToUserCompanyId
+          ? await tx.userCompany
+              .findUnique({
+                where: { id: input.reportsToUserCompanyId },
+                select: {
+                  user: {
+                    select: {
+                      employees: {
+                        where: { companyId: input.companyId, deletedAt: null },
+                        select: { id: true, reportsToEmployeeId: true },
+                        take: 1,
+                      },
+                    },
+                  },
+                },
+              })
+              .then((m) => m?.user.employees[0] ?? null)
+          : null;
+        const targetEmployeeId = mgrEmployee?.id ?? null;
+        let cyclic = targetEmployeeId === memberEmployee.id;
+        if (targetEmployeeId && !cyclic) {
+          let cur: string | null = mgrEmployee!.reportsToEmployeeId;
+          const visited = new Set<string>([memberEmployee.id, targetEmployeeId]);
+          while (cur) {
+            if (visited.has(cur)) {
+              cyclic = true;
+              break;
+            }
+            visited.add(cur);
+            const up = await tx.employee.findUnique({
+              where: { id: cur },
+              select: { reportsToEmployeeId: true },
+            });
+            cur = up?.reportsToEmployeeId ?? null;
+          }
+        }
+        if (!cyclic) {
+          await tx.employee.update({
+            where: { id: memberEmployee.id },
+            data: { reportsToEmployeeId: targetEmployeeId },
+          });
+        }
+      }
+    }
+
     // Replace scope entries.
     if (existing) {
       await tx.userScope.deleteMany({ where: { userCompanyId: membership.id } });

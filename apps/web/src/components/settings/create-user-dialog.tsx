@@ -72,6 +72,9 @@ export function CreateUserDialog({
     ...assignable.map((r) => ({ key: r, label: ROLES[r]?.label ?? r })),
     ...assignableCustom.map((cr) => ({ key: cr.key, label: cr.label })),
   ];
+  // Built-in roles above the actor's grant power — shown disabled so the
+  // gap is explainable instead of silently absent.
+  const lockedBuiltin = ROLE_LIST.filter((rl) => !allAssignable.some((a) => a.key === rl.key));
   const availableDepartments = departments.filter((d) => d.active);
 
   function handleScopeTypeChange(newType: "COMPANY" | "DEPARTMENT" | "PROJECT") {
@@ -230,6 +233,11 @@ export function CreateUserDialog({
                 const def = ROLE_LIST.find((rl) => rl.key === r.key);
                 return <option key={r.key} value={r.key}>{def?.label ?? r.label}</option>;
               })}
+              {lockedBuiltin.map((rl) => (
+                <option key={rl.key} value={rl.key} disabled>
+                  {rl.label} — above your authority
+                </option>
+              ))}
             </Select>
             <p className="text-caption text-muted-foreground">
               {ROLE_LIST.find((r) => r.key === role)?.description ?? (customRoles ?? []).find((cr) => cr.key === role)?.description ?? "Custom role"}

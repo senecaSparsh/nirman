@@ -555,6 +555,37 @@ async function resolveRecipients(event: NotificationEvent): Promise<string[]> {
   // every other site's transfers, POs and scrap.
   const eventProjectId = await resolveEventProjectId(event);
 
+  // ── H1 subject wall ── events about an H1 employee (leave, claims,
+  // payroll, contract milestones) must not broadcast that person's name or
+  // details to below-top recipients — the roster wall in scopeWhere is
+  // meaningless if the bell channel leaks "Vardaan Kumar filed 3 days of
+  // leave" to every hr.manage holder. Mirrors isTopLevelViewer: a member
+  // qualifies via a worn tier-1 hat or by holding an H1 record themselves.
+  const subjectLevel = await resolveProtectedEmployeeLevel(event);
+  let topLevelUserIds: Set<string> | null = null;
+  if (subjectLevel === 1) {
+    const h1Employees = await prisma.employee.findMany({
+      where: {
+        companyId: event.companyId,
+        hierarchyLevel: 1,
+        deletedAt: null,
+        userId: { in: memberships.map((m) => m.userId) },
+      },
+      select: { userId: true },
+    });
+    const h1UserIds = new Set(h1Employees.map((e) => e.userId));
+    topLevelUserIds = new Set(
+      memberships
+        .filter((m) => {
+          const worn = m.activeRole && [m.role, ...(m.secondaryRoles ?? [])].includes(m.activeRole)
+            ? m.activeRole
+            : m.role;
+          return ["OWNER", "ADMIN", "DEVELOPER"].includes(worn) || (m.userId ? h1UserIds.has(m.userId) : false);
+        })
+        .map((m) => m.user.id),
+    );
+  }
+
   return memberships
     .filter((m) => m.user.active)
     .filter((m) => shouldRoleReceiveEvent(m.role, event.eventType))
@@ -563,7 +594,66 @@ async function resolveRecipients(event: NotificationEvent): Promise<string[]> {
       if (resolveScopeType(m) !== "PROJECT") return true;
       return m.scopes.some((s) => s.scopeKind === "PROJECT" && s.projectId === eventProjectId);
     })
+    .filter((m) => (topLevelUserIds ? topLevelUserIds.has(m.user.id) : true))
     .map((m) => m.user.id);
+}
+
+/**
+ * Resolve the hierarchy level of the employee an event is ABOUT, when the
+ * entity carries a subject employee. Returns null when the entity has no
+ * employee subject (POs, stock, projects…) — no wall applies.
+ */
+async function resolveProtectedEmployeeLevel(event: NotificationEvent): Promise<number | null> {
+  const { entityType, entityId, companyId } = event;
+  if (!entityType || !entityId) return null;
+  const level = (e: { hierarchyLevel: number | null } | null | undefined) => e?.hierarchyLevel ?? null;
+  try {
+    switch (entityType) {
+      case "LeaveRequest": {
+        const r = await prisma.leaveRequest.findUnique({
+          where: { id: entityId },
+          select: { employee: { select: { hierarchyLevel: true } } },
+        });
+        return level(r?.employee);
+      }
+      case "ExpenseClaim": {
+        const r = await prisma.expenseClaim.findUnique({
+          where: { id: entityId },
+          select: {
+            claimant: {
+              select: { employees: { where: { companyId }, select: { hierarchyLevel: true }, take: 1 } },
+            },
+          },
+        });
+        return level(r?.claimant.employees[0]);
+      }
+      case "PayrollLine": {
+        const r = await prisma.payrollLine.findUnique({
+          where: { id: entityId },
+          select: { employee: { select: { hierarchyLevel: true } } },
+        });
+        return level(r?.employee);
+      }
+      case "WorkerAttendance": {
+        const r = await prisma.workerAttendance.findUnique({
+          where: { id: entityId },
+          select: { employee: { select: { hierarchyLevel: true } } },
+        });
+        return level(r?.employee);
+      }
+      case "Employee": {
+        const r = await prisma.employee.findUnique({
+          where: { id: entityId },
+          select: { hierarchyLevel: true },
+        });
+        return level(r);
+      }
+      default:
+        return null;
+    }
+  } catch {
+    return null;
+  }
 }
 
 /**

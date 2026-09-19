@@ -164,6 +164,9 @@ export function MobileCreateAccountDialog({
 
   // ── Account fields ──
   const roles = assignableRoles(actorRole);
+  // Senior roles the actor can't grant — rendered locked so the gap is
+  // explainable instead of silently absent.
+  const lockedRoles = ROLE_LIST.filter((rl) => !roles.includes(rl.key as Role));
   const HIERARCHY_ROLE_MAP: Record<number, Role> = {
     1: "PROJECT_DIRECTOR",
     2: "PROJECT_MANAGER",
@@ -619,10 +622,21 @@ export function MobileCreateAccountDialog({
                         </button>
                       );
                     })}
+                  {lockedRoles.map((rl) => (
+                    <span
+                      key={rl.key}
+                      title="Requires a higher-tier role to grant"
+                      className="flex items-center h-7 px-2 rounded-[0.25rem] text-m-caption font-semibold cursor-not-allowed"
+                      style={{ color: "var(--color-ink-300)", backgroundColor: "color-mix(in srgb, var(--color-concrete) 50%, transparent)" }}
+                    >
+                      {rl.label}
+                    </span>
+                  ))}
                 </div>
-                {extraRoles.size > 0 && (
+                {(extraRoles.size > 0 || lockedRoles.length > 0) && (
                   <p className="text-m-caption pt-1.5" style={{ color: "var(--color-ink-400)" }}>
-                    They can switch between hats from the app header — only the active hat&apos;s permissions apply.
+                    {lockedRoles.length > 0 && "Dimmed roles sit above your authority — an Owner/Admin or senior lead must grant them. "}
+                    {extraRoles.size > 0 && "They can switch between hats from the app header — only the active hat's permissions apply."}
                   </p>
                 )}
               </div>

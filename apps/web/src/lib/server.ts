@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { prisma } from "@nirman/db";
+import type { Prisma } from "@nirman/db";
 import { z } from "zod";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -1797,10 +1798,12 @@ export async function getAssignedProjectIds(): Promise<string[] | null> {
   const user = await getCurrentUser();
   if (!user) return null;
   // OWNER, ADMIN, DEVELOPER, MANAGER are unscoped — they see all projects.
-  // Acting role: a delegate holding e.g. OWNER authority inherits the
-  // unscoped view (their own scope doesn't narrow the delegator's company).
-  const actingRole = await getActingRole();
-  if (actingRole === "OWNER" || actingRole === "ADMIN" || actingRole === "DEVELOPER" || actingRole === "PROJECT_DIRECTOR" || actingRole === "PROJECT_MANAGER") {
+  // Resolved on the OWN hat (getOwnRole), not the acting role: delegation
+  // lifts the delegate's permissions but must not widen their sight lines —
+  // a project-scoped supervisor delegated by the OWNER keeps their own
+  // project scope, so delegated wildcard power can't browse the company.
+  const ownRole = await getOwnRole();
+  if (ownRole === "OWNER" || ownRole === "ADMIN" || ownRole === "DEVELOPER" || ownRole === "PROJECT_DIRECTOR" || ownRole === "PROJECT_MANAGER") {
     return null; // null = unscoped (all projects)
   }
   // SUPERVISOR, SALES, ACCOUNTANT are scoped to their assigned projects.
@@ -1900,18 +1903,58 @@ export async function projectScopeFilter(): Promise<{ id: { in: string[] } } | u
  *   const where = await scopeWhere("MaterialIssue", { companyId });
  *   const issues = await prisma.materialIssue.findMany({ where });
  */
+/**
+ * Models whose rows carry an Employee relation — the H1 wall must follow
+ * the PERSON, not just the Employee table: an owner's leave request,
+ * payroll line or attendance row is as private as their dossier. Mapping
+ * to the relation path ("employee", or dotted for deeper nesting like
+ * "payrollLine.employee"). A trailing "?" marks an OPTIONAL to-one
+ * relation — rows with no employee linked stay visible.
+ */
+const EMPLOYEE_SUBJECT_RELATIONS: Record<string, string> = {
+  WorkerAttendance: "employee",
+  LeaveRequest: "employee",
+  PayrollLine: "employee",
+  PayrollLineComponent: "payrollLine.employee",
+  SalaryHistory: "employee",
+  SalaryComponent: "employee",
+  EmployeeResource: "employee",
+  EmployeeExit: "employee",
+  EmployeeBenefit: "employee",
+  DPRLaborLine: "employee?",
+};
+
+/**
+ * The H1 subject wall expressed against a related Employee row.
+ * Mirrors employeeVisibilityWhere (NULL-safe) but nested under a relation.
+ */
+async function employeeSubjectWhere(relationPath: string): Promise<Record<string, unknown>> {
+  if (await isTopLevelViewer()) return {};
+  const optional = relationPath.endsWith("?");
+  const path = optional ? relationPath.slice(0, -1) : relationPath;
+  const wall = { OR: [{ hierarchyLevel: null }, { hierarchyLevel: { not: 1 } }] };
+  const parts = path.split(".");
+  let clause: Record<string, unknown> = wall as Record<string, unknown>;
+  for (let i = parts.length - 1; i >= 0; i--) clause = { [parts[i]!]: clause };
+  return optional ? { OR: [{ [parts[0]!]: null }, clause] } : clause;
+}
+
 export async function scopeWhere(
   model: string,
   baseWhere: Record<string, unknown> = {},
 ): Promise<Record<string, unknown>> {
   const scope = await getUserScope();
 
-  // ── H1 wall (Employee only) — owner/admin dossiers are invisible to
-  //    anyone below top level, at EVERY scope: COMPANY-scoped HR managers
-  //    get the same wall as project-scoped viewers. Merged into baseWhere
-  //    so it composes with the department/project filter below. ──
+  // ── H1 wall — owner/admin dossiers are invisible to anyone below top
+  //    level, at EVERY scope. Applies to Employee rows themselves AND to
+  //    rows about an H1 employee (leave, attendance, payroll…) — the wall
+  //    protects the person, not the table. ──
   if (model === "Employee") {
     baseWhere = { ...baseWhere, ...(await employeeVisibilityWhere()) };
+  }
+  const subjectRel = EMPLOYEE_SUBJECT_RELATIONS[model];
+  if (subjectRel) {
+    baseWhere = { ...baseWhere, ...(await employeeSubjectWhere(subjectRel)) };
   }
 
   // COMPANY scope = unscoped = sees everything
@@ -1934,7 +1977,7 @@ export async function scopeWhere(
     // GRNs have no projectId — they scope via their PO's project or the
     // receiving location's project (site stores).
     GoodsReceipt:         { project: ["purchaseOrder.projectId", "location.projectId"] },
-    MaterialReconciliation: { project: "projectId" },
+
     // Projects / Construction
     // Task is intentionally not scopeable — see KNOWN_UNSCOPABLE below.
     Crew:                 { project: "projectId" },
@@ -1943,9 +1986,7 @@ export async function scopeWhere(
     QuotationRequest:     { project: "projectId" },
     Quotation:            { project: "projectId" }, // alias for backward compat
     ChangeOrder:          { project: "projectId" },
-    WorkOrder:            { project: "projectId" },
     SubcontractorWorkOrder: { project: "projectId" },
-    MeasurementBook:      { project: "projectId" },
     MeasurementBookEntry: { project: "projectId" },
     RaBill:               { project: "projectId" },
     BoqItem:              { project: "projectId" },
@@ -1988,6 +2029,21 @@ export async function scopeWhere(
     RenovationProject:    { project: "projectId" },
     StockLocation:        { project: "projectId", department: "departmentId" },
     StockLocationItem:    { project: "location.projectId", department: "location.departmentId" },
+    // Employee-dossier satellites — scope through the employee's own
+    // department/deployment, and the H1 subject wall applies on top.
+    SalaryHistory:        { department: "employee.departmentId", project: "employee.activeProjectId" },
+    EmployeeResource:     { department: "employee.departmentId", project: "employee.activeProjectId" },
+    EmployeeExit:         { department: "employee.departmentId", project: "employee.activeProjectId" },
+    // Procurement returns/payments scope through their PO or location.
+    SupplierPayment:      { project: "purchaseOrder.projectId" },
+    SupplierInvoice:      { project: "purchaseOrder.projectId" },
+    SupplierReturn:       { project: "location.projectId", department: "location.departmentId" },
+    DirectPurchase:       { project: "location.projectId", department: "location.departmentId" },
+    MaterialSaleReturn:   { project: "materialSale.projectId" },
+    LegalDocument:        { project: "projectId" },
+    ScrapGeneration:      { project: "projectId" },
+    // Trips have no projectId — scope via either endpoint's location.
+    VehicleTrip:          { project: ["fromLocation.projectId", "toLocation.projectId"] },
     // Models without project/department FKs are not scopeable
   };
 
@@ -1996,8 +2052,28 @@ export async function scopeWhere(
   // been added to SCOPE_FIELDS doesn't silently fail open (returning
   // unscoped data). If a model is neither in SCOPE_FIELDS nor here,
   // we throw — forcing the developer to decide whether it should be scoped.
+  // A build-time test (scope-registry.test.ts) asserts every tenant model
+  // (has companyId in schema) is registered one way or the other.
   const KNOWN_UNSCOPABLE = new Set([
     "Task", // assigned to a User, not to a project — not scopeable
+    // ── Identity / membership — visibility gated by permission, not scope ──
+    "User", "UserCompany", "CustomRole", "UserPreference",
+    // ── Org + inventory master data — company-wide catalogues ──
+    "Department", "Material", "MaterialCategory", "MaterialLot",
+    "StandardConsumption", "Supplier", "Subcontractor", "LandSeller",
+    "Customer", "Broker", "ExpenseCategory", "Equipment", "Vehicle",
+    "RateContract", "PortalListing",
+    // ── Finance ledger + payroll admin — perm-gated, not geographical ──
+    "GlAccount", "JournalEntry", "TallySyncLog", "PayrollPeriod",
+    // ── Telephony / comms — company-wide infrastructure ──
+    "CompanyPhone", "CallLog", "CallTag", "SmsLog", "TelephonyProviderConfig",
+    "ConsentPolicy", "BankSms",
+    // ── Notifications / system — user-targeted or admin-only ──
+    "NotificationTemplate", "NotificationLog", "NotificationPreference",
+    "InAppNotification", "PushSubscription",
+    // ── Platform internals — never scoped ──
+    "AuditLog", "IntegrationConfig", "Workflow", "Upload", "EntityAttachment",
+    "Feedback", "ErrorLog", "BackupRecord",
   ]);
 
   const fields = SCOPE_FIELDS[model];
@@ -2495,8 +2571,13 @@ export async function isTopLevelViewer(): Promise<boolean> {
  * viewers. Merge alongside scopeWhere in employee list/detail queries:
  *   where: { ...await scopeWhere("Employee"), ...await employeeVisibilityWhere() }
  */
-export async function employeeVisibilityWhere(): Promise<{ NOT?: { hierarchyLevel: number } }> {
-  return (await isTopLevelViewer()) ? {} : { NOT: { hierarchyLevel: 1 } };
+export async function employeeVisibilityWhere(): Promise<Prisma.EmployeeWhereInput> {
+  // NULL-safe: `NOT: { hierarchyLevel: 1 }` would also drop employees whose
+  // level is NULL (SQL NULL semantics — NOT(NULL=1) ≠ true). Unleveled
+  // employees are ordinary staff, not protected — they must stay visible.
+  return (await isTopLevelViewer())
+    ? {}
+    : { OR: [{ hierarchyLevel: null }, { hierarchyLevel: { not: 1 } }] };
 }
 
 /**

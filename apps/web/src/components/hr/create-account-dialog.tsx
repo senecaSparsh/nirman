@@ -93,6 +93,11 @@ export function CreateAccountDialog({
 
   // ── Account fields ──
   const roles = assignableRoles(actorRole);
+  // Senior roles the actor can't grant — shown locked so the gap is
+  // explainable ("requires Owner/Admin") instead of silently missing. An
+  // H3 HR can fully onboard an H2 person's dossier, but top-tier logins
+  // stay reserved for the top.
+  const lockedRoles = ROLE_LIST.filter((rl) => !roles.includes(rl.key as Role));
   // Auto-suggest a role based on the employee's hierarchy level:
   // H1 → PROJECT_DIRECTOR, H2 → PROJECT_MANAGER, H3 → SITE_ENGINEER,
   // H4 → SUPERVISOR, H5/H6 → SUPERVISOR (field worker, minimal access)
@@ -422,6 +427,11 @@ export function CreateAccountDialog({
                       </option>
                     );
                   })}
+                  {lockedRoles.map((rl) => (
+                    <option key={rl.key} value={rl.key} disabled>
+                      {rl.label} — above your authority
+                    </option>
+                  ))}
                 </Select>
               </div>
               <div className="space-y-1.5">
@@ -473,12 +483,20 @@ export function CreateAccountDialog({
                       </button>
                     );
                   })}
+                {lockedRoles.map((rl) => (
+                  <span
+                    key={rl.key}
+                    title="Requires a higher-tier role to grant"
+                    className="inline-flex items-center gap-1 rounded-md bg-muted/30 px-2 py-1 text-caption font-semibold text-muted-foreground/60 cursor-not-allowed"
+                  >
+                    {rl.label}
+                  </span>
+                ))}
               </div>
-              {extraRoles.size > 0 && (
-                <p className="text-micro text-muted-foreground">
-                  They can switch between hats from the app header — only the active hat&apos;s permissions apply.
-                </p>
-              )}
+              <p className="text-micro text-muted-foreground">
+                {lockedRoles.length > 0 && "Greyed-out roles sit above your authority — an Owner/Admin or senior lead must grant them. "}
+                {extraRoles.size > 0 && "They can switch between hats from the app header — only the active hat's permissions apply."}
+              </p>
             </div>
           </section>
 

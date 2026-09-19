@@ -20,6 +20,9 @@
 #   POST /api/cron/approval-aging  daily          (escalation digest for
 #                                                approvals waiting >48h)
 #   POST /api/cron/hsn-seed        weekly         (HSN/GST master re-seed)
+#   POST /api/cron/integrity       daily          (authority/drift audit — hats vs
+#                                                levels, reportsTo drift, stale
+#                                                delegations; notifies tier-1)
 #
 # Secrets: CRON_SECRET guards /api/cron/*, SCHEDULER_SECRET guards
 # /api/workflow-scheduler. Both come from the compose env — set them in
@@ -71,12 +74,17 @@ curl -fsS -m 300 -X POST -H "x-cron-secret: $CRON_SECRET" "$APP_URL/api/cron/bac
 # fire is safe even if the morning send already happened.
 curl -fsS -m 300 -X POST -H "x-cron-secret: $CRON_SECRET" "$APP_URL/api/cron/daily-digest" >/dev/null 2>&1 \
   && echo "[scheduler] boot kick: daily-digest OK" || true
+# Integrity audit — authority/drift checks; notifies tier-1 members of any
+# divergence (hat sets vs levels, reportsTo drift, stale delegations…).
+curl -fsS -m 300 -X POST -H "x-cron-secret: $CRON_SECRET" "$APP_URL/api/cron/integrity" >/dev/null 2>&1 \
+  && echo "[scheduler] boot kick: integrity OK" || true
 
 loop 900    /api/cron/reminders      "x-cron-secret: $CRON_SECRET" &
 loop 300    /api/workflow-scheduler  "Authorization: Bearer $SCHEDULER_SECRET" &
 loop 86400  /api/cron/backup         "x-cron-secret: $CRON_SECRET" &
 loop 86400  /api/cron/daily-digest   "x-cron-secret: $CRON_SECRET" &
 loop 86400  /api/cron/approval-aging "x-cron-secret: $CRON_SECRET" &
+loop 86400  /api/cron/integrity      "x-cron-secret: $CRON_SECRET" &
 loop 604800 /api/cron/hsn-seed       "x-cron-secret: $CRON_SECRET" &
 
 wait

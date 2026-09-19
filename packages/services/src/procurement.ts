@@ -48,6 +48,7 @@ const ROLE_RANK: Record<string, number> = {
   // Tier 1 — Executive (always pass — superusers)
   ADMIN: 3,
   OWNER: 3,
+  DEVELOPER: 3,
 };
 
 /**

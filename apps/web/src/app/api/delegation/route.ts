@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, getActingRole, getCompany, getOwnRole, json, requireUser } from "@/lib/server";
+import { roleTier } from "@/lib/roles";
 
 /**
  * /api/delegation — authority delegation ("out of office").
@@ -185,10 +186,34 @@ export const PUT = apiHandler(async (req: NextRequest) => {
   // Validate the delegate is an active member of this company
   const delegate = await prisma.userCompany.findFirst({
     where: { id: body.delegateMembershipId, companyId: company.id, active: true, user: { active: true } },
-    select: { id: true, userId: true },
+    select: { id: true, userId: true, role: true, secondaryRoles: true },
   });
   if (!delegate) {
     return json({ error: "Delegate is not an active member of this company" }, { status: 400 });
+  }
+
+  // ── Delegate floor: delegation unions the delegator's permissions into
+  // the delegate's checks, so handing authority to a field-tier hat would
+  // mint a wildcard account (OWNER → VIEWER = 90 days of full power).
+  // Only members holding an approval-authority hat (tier ≤ 3) may receive
+  // delegated power. Custom roles resolve via their declared tier. ──
+  const delegateHeld = [delegate.role, ...(delegate.secondaryRoles ?? [])];
+  const delegateCustom = delegateHeld.filter((r) => r.startsWith("CUSTOM_"));
+  const customTiers = delegateCustom.length
+    ? await prisma.customRole
+        .findMany({ where: { companyId: company.id, key: { in: delegateCustom } }, select: { tier: true } })
+        .then((rows) => rows.map((r) => r.tier))
+        .catch(() => [] as number[])
+    : [];
+  const delegateTiers = [
+    ...delegateHeld.filter((r) => !r.startsWith("CUSTOM_")).map((r) => roleTier(r)),
+    ...customTiers,
+  ];
+  if (!delegateTiers.some((t) => t <= 3)) {
+    return json(
+      { error: "Delegation requires a member holding a management-tier role (tier 3 or above) — field-level roles can't hold delegated authority." },
+      { status: 400 },
+    );
   }
 
   const delegator = await prisma.userCompany.findUnique({

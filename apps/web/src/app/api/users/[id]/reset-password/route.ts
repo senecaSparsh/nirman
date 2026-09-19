@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, json, requirePermission, getCompany } from "@/lib/server";
-import { PERM } from "@/lib/roles";
+import { apiHandler, json, requirePermission, getCompany, getActingRole, getOwnRole, canManageRoleSet } from "@/lib/server";
+import { PERM, roleTier } from "@/lib/roles";
 
 /**
  * POST /api/users/[id]/reset-password — admin resets a user's password.
@@ -54,10 +54,28 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   // user password or revoke their sessions).
   const membership = await prisma.userCompany.findFirst({
     where: { userId, companyId: company.id },
-    select: { id: true },
+    select: { id: true, role: true, secondaryRoles: true },
   });
   if (!membership && target.companyId !== company.id) {
     return json({ error: "User not found." }, { status: 404 });
+  }
+
+  // ── Hierarchy guard: resetting a password takes over the account, so the
+  // actor must outrank EVERY hat the target holds (same rule as PATCH
+  // /api/users/[id] and the member routes). Password reset is stricter than
+  // a profile edit, though: it grants total account takeover, so the
+  // tier-1 "peers manage peers" exception does NOT apply here — a target
+  // holding ANY tier-1 hat (OWNER/ADMIN/DEVELOPER) can only be reset by
+  // the OWNER's own hat. getOwnRole (not getActingRole) keeps delegated
+  // authority from enabling account seizure. ──
+  if (membership) {
+    const heldRoles = [membership.role, ...(membership.secondaryRoles ?? [])];
+    if (!(await canManageRoleSet(await getActingRole(), heldRoles, company.id))) {
+      return json({ error: "You cannot reset the password of a user who holds a role at or above your level." }, { status: 403 });
+    }
+    if (heldRoles.some((r) => roleTier(r) === 1) && (await getOwnRole()) !== "OWNER") {
+      return json({ error: "Only the company owner can reset a top-level account's password." }, { status: 403 });
+    }
   }
 
   // ── Update the credential account password ──

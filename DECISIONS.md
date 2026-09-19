@@ -218,3 +218,27 @@ the service layer regardless of whether there's a SUBMITTED step.
 | Wayfinder tickets                       | `.wayfinder/tickets/*.md`                             | For module verification checklists                                                                                                                                                                                           |
 | Schema                                  | `packages/db/prisma/schema.prisma`                    | **Before assuming anything is a "gap"**                                                                                                                                                                                      |
 | Team workflows & India business context | `docs/SRG_REALCON_TEAM_WORKFLOWS.md`                  | Before refining any role-specific page/button — maps all 7 seeded users to real-world daily workflows, cross-role handoff chains, and India-specific regulatory context (RERA, GST, TDS, land records, construction billing) |
+
+---
+
+## Authority model — the invariants (post multi-role hardening)
+
+Three axes, one job each. Confusion historically came from conflating them:
+
+| Axis                       | Lives on                                     | Governs                                                                                                                                         |
+| -------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Role tier** (1–5)        | `UserCompany.role/secondaryRoles/activeRole` | Authority — what you can DO (permissions, manage checks, role grants)                                                                           |
+| **hierarchyLevel** (H1–H6) | `Employee`                                   | Org seniority — display, org chart. Only gate: the **H1 wall** (below top level, H1 dossiers invisible + immutable). H2–H6 carry NO manage gate |
+| **Scope**                  | `UserCompany.scopeType` + `UserScope[]`      | Visibility — which rows exist for you at all                                                                                                    |
+
+Supporting rules:
+
+- **Worn hat grants power; held hats only protect the wearer as a target.** `getUserPermissions`/`getOwnRole`/`getActingRole` all resolve `activeRole ?? role`; dormant hats contribute nothing.
+- **Department is a label** — `Employee.departmentId` grants nothing by itself; only `UserScope` DEPARTMENT entries narrow visibility.
+- **Delegation** = permission UNION + acting-role min-tier (superset, temporary) — but scope stays the delegate's OWN (`getAssignedProjectIds` uses `getOwnRole`), and delegates must hold a tier ≤ 3 hat. `isTopLevelViewer` uses ownRole, so even a delegated OWNER can't see H1 dossiers.
+- **reportsTo is one line, two views**: `Employee.reportsToEmployeeId` (org chart) ↔ `UserCompany.reportsToUserCompanyId` (approval chain) — synced on _change_ in both directions (`updateEmployee` ↔ `assignScopedMembership`), each with a cycle check on the receiving side.
+- **Password reset is stricter than profile edit**: tier-1 targets (OWNER/ADMIN/DEVELOPER hats) can only be reset by the real OWNER (`getOwnRole` — delegation can't seize accounts).
+- **scopeWhere is fail-closed**: every `companyId` model must be in `SCOPE_FIELDS` or `KNOWN_UNSCOPABLE`; the `scope-registry.test.ts` CI test enforces coverage. Employee-bearing models get the H1 subject wall via `EMPLOYEE_SUBJECT_RELATIONS`.
+- **Notifications carry the wall too**: `resolveRecipients` drops below-top recipients for events about H1 subjects (leave, claims, payroll, contract milestones).
+- **Employee rows are never returned raw** — `pickEmployeeRoster`/`redactEmployeeRow` or `select:`; enforced by `employee-serialization.test.ts`.
+- **`/api/cron/integrity`** runs daily — flags level↔tier divergence, stale hats, reportsTo drift/cycles, orphan links, dead-account phone assignments to tier-1 members.
