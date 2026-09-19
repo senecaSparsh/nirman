@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createEmployee, generateOfferLetter, generateEmploymentAgreement, generateEmployeeIdCard, generateAppointmentLetter, setSalaryComponents, autoCompleteOnboarding } from "@nirman/services";
-import { apiHandler, getCompany, json, employeeSchema, requirePermission, toNum, assertScopeAllows, getCompanyDescendantIds, scopeWhere, getEmployeeAccessScope } from "@/lib/server";
+import { apiHandler, getCompany, json, employeeSchema, requirePermission, toNum, assertScopeAllows, getCompanyDescendantIds, scopeWhere, getEmployeeAccessScope, isTopLevelViewer } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 
@@ -83,6 +83,14 @@ export const POST = apiHandler(async (req: NextRequest) => {
     if (isNaN(d.getTime())) {
       return json({ error: "Invalid join date format" }, { status: 400 });
     }
+  }
+
+  // ── H1 wall: only top-level viewers (OWNER/ADMIN hat or H1 record) may
+  //    create an employee at hierarchy level 1 — otherwise HR could mint
+  //    records they then can't see or manage. Levels 2–6 are open to any
+  //    HR_MANAGE holder regardless of their own level. ──
+  if (parsed.data.hierarchyLevel === 1 && !(await isTopLevelViewer())) {
+    return json({ error: "Only the owner or admin can assign hierarchy level 1." }, { status: 403 });
   }
 
   // ── Resolve target companies ──

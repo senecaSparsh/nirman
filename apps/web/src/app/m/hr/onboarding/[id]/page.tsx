@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum, getUserScope, getUserPermissions, getEmployeeAccessScope, getCurrentUser, canManageSpecificEmployee } from "@/lib/server";
+import { getCompany, getUserRole, toNum, getUserScope, getUserPermissions, getEmployeeAccessScope, getCurrentUser, canManageSpecificEmployee, employeeVisibilityWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
@@ -66,7 +66,8 @@ async function MobileOnboardingDetailContent({
 
   const [employee, projects, stockLocations, departments, attachments] = await Promise.all([
     prisma.employee.findFirst({
-      where: { id, companyId: company.id, deletedAt: null, ...employeeProjectFilter },
+      // H1 wall — a non-top viewer opening an H1 onboarding URL gets "not found".
+      where: { id, companyId: company.id, deletedAt: null, ...await employeeVisibilityWhere(), ...employeeProjectFilter },
       include: {
         crew: { select: { id: true, name: true, project: { select: { id: true, name: true } } } },
         activeProject: { select: { id: true, name: true } },

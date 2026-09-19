@@ -1905,6 +1905,15 @@ export async function scopeWhere(
   baseWhere: Record<string, unknown> = {},
 ): Promise<Record<string, unknown>> {
   const scope = await getUserScope();
+
+  // ── H1 wall (Employee only) — owner/admin dossiers are invisible to
+  //    anyone below top level, at EVERY scope: COMPANY-scoped HR managers
+  //    get the same wall as project-scoped viewers. Merged into baseWhere
+  //    so it composes with the department/project filter below. ──
+  if (model === "Employee") {
+    baseWhere = { ...baseWhere, ...(await employeeVisibilityWhere()) };
+  }
+
   // COMPANY scope = unscoped = sees everything
   if (scope.scopeType === "COMPANY") return baseWhere;
 
@@ -2455,11 +2464,46 @@ export async function getScopedFormOptions(): Promise<{
 }
 
 /**
+ * Is the current viewer "top of house"? True when their WORN hat is
+ * OWNER/ADMIN or their linked Employee record is hierarchyLevel 1.
+ *
+ * H1 employee records (owner/admin dossiers — salary, documents,
+ * onboarding state) are private to top-level viewers: invisible in
+ * rosters, onboarding queues and detail pages for everyone else, and
+ * unmanageable by anyone below the top. Below H1 (levels 2–6) hierarchy
+ * level does NOT gate management — HR staff onboard and manage employees
+ * at any level; the role-tier check in canManageSpecificEmployee still
+ * protects linked accounts.
+ */
+export async function isTopLevelViewer(): Promise<boolean> {
+  const user = await getCurrentUser();
+  if (!user) return true; // dev-bypass sees everything
+  // The WORN hat decides — an OWNER acting as SITE_ENGINEER previews the
+  // staff experience and must not see H1 records while wearing it.
+  const worn = await getOwnRole();
+  if (worn === "OWNER" || worn === "ADMIN") return true;
+  const company = await getCompany();
+  const viewerEmployee = await prisma.employee.findFirst({
+    where: { userId: user.id, companyId: company.id, deletedAt: null },
+    select: { hierarchyLevel: true },
+  }).catch(() => null);
+  return viewerEmployee?.hierarchyLevel === 1;
+}
+
+/**
+ * Prisma `where` fragment that hides H1 employee records from non-top
+ * viewers. Merge alongside scopeWhere in employee list/detail queries:
+ *   where: { ...await scopeWhere("Employee"), ...await employeeVisibilityWhere() }
+ */
+export async function employeeVisibilityWhere(): Promise<{ NOT?: { hierarchyLevel: number } }> {
+  return (await isTopLevelViewer()) ? {} : { NOT: { hierarchyLevel: 1 } };
+}
+
+/**
  * Check if the current viewer can manage a specific employee.
- * Combines the access scope with a hierarchy check: the viewer must
- * be at a higher tier (lower number) than the employee's linked user.
- * Returns false for self-management (can't edit your own profile via
- * the employee page) and for employees at or above the viewer's tier.
+ * Combines the access scope with the H1 wall: H1 records are only
+ * manageable by top-level viewers. Returns false for self-management
+ * (can't edit your own profile via the employee page).
  */
 export async function canManageSpecificEmployee(
   employee: { userId: string | null; user?: { role: string | null } | null; hierarchyLevel?: number | null },
@@ -2471,29 +2515,15 @@ export async function canManageSpecificEmployee(
   // Self-edit blocked
   if (employee.userId && employee.userId === viewerUserId) return false;
 
-  // No linked user → can manage (field worker without login)
+  // ── H1 wall — owner/admin dossiers are untouchable below the top ──
+  if (employee.hierarchyLevel === 1 && !(await isTopLevelViewer())) return false;
+
+  // No linked user → can manage (field worker without login). Levels 2–6
+  // carry no management gate — the H1 wall above is the only level check.
   if (!employee.userId || !employee.user?.role) return true;
 
-  // ── Hierarchy level check (H1-H6) ──
-  // Lower number = higher authority. A viewer can only manage employees
-  // with a STRICTLY higher hierarchyLevel number (lower authority).
-  // e.g. H3 can manage H4, H5, H6 but NOT H1, H2, or other H3s.
-  // If either the viewer or target has no hierarchyLevel set, fall back to
-  // the RBAC role tier check only.
   const company = await getCompany();
   const { prisma } = await import("@nirman/db");
-  const viewerEmployee = await prisma.employee.findFirst({
-    where: { userId: viewerUserId, companyId: company.id, deletedAt: null },
-    select: { hierarchyLevel: true },
-  }).catch(() => null);
-
-  if (
-    viewerEmployee?.hierarchyLevel != null &&
-    employee.hierarchyLevel != null
-  ) {
-    // Viewer must be at a strictly lower number (higher authority)
-    if (viewerEmployee.hierarchyLevel >= employee.hierarchyLevel) return false;
-  }
 
   // Hierarchy check: viewer must be above the employee's role.
   // Use the acting role (custom-role viewers act at their baseRole's tier,

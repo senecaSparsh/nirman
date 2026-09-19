@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getCurrentUser, toNum, scopeWhere, getUserPermissions, getEmployeeAccessScope } from "@/lib/server";
+import { getCompany, getCurrentUser, toNum, scopeWhere, getUserPermissions, getEmployeeAccessScope, employeeVisibilityWhere } from "@/lib/server";
 import { labourCostFrom } from "@/lib/labour-cost";
 import { PERM, migrateRole, ROLES } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
@@ -56,8 +56,8 @@ async function HrDashboardContent() {
     todayProjectAttendance,
     orgTree,
   ] = await Promise.all([
-    prisma.employee.count({ where: { companyId: company.id, deletedAt: null } }),
-    prisma.employee.count({ where: { companyId: company.id, deletedAt: null, active: true } }),
+    prisma.employee.count({ where: { companyId: company.id, deletedAt: null, ...await employeeVisibilityWhere() } }),
+    prisma.employee.count({ where: { companyId: company.id, deletedAt: null, active: true, ...await employeeVisibilityWhere() } }),
     prisma.crew.count({ where: { companyId: company.id, active: true } }),
     prisma.workerAttendance.count({ where: { companyId: company.id, date: todayDateOnly } }),
     prisma.workerAttendance.count({ where: { companyId: company.id, date: todayDateOnly, status: { in: ["PRESENT", "OVERTIME"] } } }),

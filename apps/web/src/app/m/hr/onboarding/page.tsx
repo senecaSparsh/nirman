@@ -3,7 +3,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { UserPlus, ChevronRight } from "lucide-react";
-import { getCompany, getUserScope, getUserPermissions } from "@/lib/server";
+import { getCompany, getUserScope, getUserPermissions, employeeVisibilityWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import {
@@ -65,6 +65,9 @@ async function MobileOnboardingQueueContent() {
     where: {
       companyId: company.id,
       deletedAt: null,
+      // H1 wall — owner/admin dossiers (incl. their onboarding state) are
+      // invisible to HR below top level.
+      ...await employeeVisibilityWhere(),
       ...employeeProjectFilter},
     orderBy: [{ active: "desc" }, { name: "asc" }],
     take: 200,

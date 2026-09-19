@@ -23,6 +23,12 @@
  *  keeps the full employee record (designation, salary, documents) in one
  *  flow instead of a half-seeded account.
  *
+ *  COMPANY PHONE POOL: the remaining staff numbers are company-owned
+ *  assets — they are registered in CompanyPhone UNASSIGNED (assignedToUserId
+ *  = null) so the telephony system knows about them, and onboarding a
+ *  person later can attach the existing number instead of creating a
+ *  duplicate.
+ *
  *  PASSWORDS: Unique random 16-char passwords generated per user.
  *             mustChangePassword = false (users keep their assigned password).
  *             Passwords are printed at the end — copy them before closing.
@@ -175,6 +181,57 @@ const USERS = [
   },
 ];
 
+/**
+ * Company-owned staff numbers that have no login account yet. These stay
+ * in the phone pool (ACTIVE, unassigned) so the telephony system tracks
+ * them and re-onboarding can attach the existing number rather than
+ * creating a duplicate row. Labels are neutral pool names — no person is
+ * associated with a number until onboarding assigns it.
+ */
+const COMPANY_PHONE_POOL = [
+  { phone: "7302920202", label: "Pool — Construction", department: "Construction" },
+  { phone: "7302920201", label: "Pool — Finance", department: "Finance" },
+  { phone: "9520002752", label: "Pool — Procurement", department: "Procurement" },
+  { phone: "7302920203", label: "Pool — Sales", department: "Sales" },
+  { phone: "7302920205", label: "Pool — Construction", department: "Construction" },
+  { phone: "7302920206", label: "Pool — Security", department: "Security" },
+];
+
+/**
+ * Ensure the company phone pool exists — unassigned CompanyPhone rows for
+ * staff numbers. Runs on every boot (including the early-exit path) so
+ * adding a number to COMPANY_PHONE_POOL converges even on already-
+ * provisioned databases. Never touches an existing row's assignment.
+ */
+async function ensurePhonePool(companyId) {
+  console.log("── Company Phone Pool (unassigned staff numbers) ──────");
+  for (const p of COMPANY_PHONE_POOL) {
+    const norm = `91${p.phone}`;
+    const display = `+91 ${p.phone.slice(0, 5)} ${p.phone.slice(5)}`;
+    const existingPhone = await prisma.companyPhone.findFirst({
+      where: { companyId, phoneNormalized: norm, deletedAt: null },
+      select: { id: true, assignedToUserId: true },
+    });
+    if (existingPhone) {
+      console.log(`  ${display}: EXISTS${existingPhone.assignedToUserId ? " (assigned)" : " (pool)"} — skipped`);
+      continue;
+    }
+    await prisma.companyPhone.create({
+      data: {
+        companyId,
+        phoneNumber: display,
+        phoneNormalized: norm,
+        numberType: "MOBILE",
+        provider: "MANUAL",
+        department: p.department,
+        label: p.label,
+        status: "ACTIVE",
+      },
+    });
+    console.log(`  ${display} (${p.label}): CREATED (pool)`);
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 //  MAIN
 // ═══════════════════════════════════════════════════════════════════════
@@ -238,7 +295,10 @@ async function main() {
       },
     });
     if (existingUsers >= USERS.length) {
-      console.log(`  SRG REALCON already provisioned (${existingUsers}/${USERS.length} users found). Skipping.`);
+      console.log(`  SRG REALCON already provisioned (${existingUsers}/${USERS.length} users found).`);
+      // Still converge the phone pool — new pool entries must be created
+      // even when all accounts already exist.
+      await ensurePhonePool(existingCompany.id);
       console.log("  To re-provision, delete the company or users first.");
       return;
     }
@@ -510,6 +570,12 @@ async function main() {
       status: userStatus,
     });
   }
+
+  // ── 2.5. Company phone pool — register staff numbers as unassigned ──
+  // The numbers are company assets: no User/Account/Employee is created for
+  // them here. Onboarding a person later attaches the existing number.
+  console.log("");
+  await ensurePhonePool(companyId);
 
   // ── 3. Wire reportsTo hierarchy ──
   // Now that all UserCompany memberships exist, set the reportsTo links.

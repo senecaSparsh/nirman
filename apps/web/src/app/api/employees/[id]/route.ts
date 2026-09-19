@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { updateEmployee, softDelete, updateEmployeeDossier, type EmployeeDossierInput, logAction, autoCompleteOnboarding } from "@nirman/services";
-import { apiHandler, getCompany, json, employeeSchema, requirePermission, assertScopeAllows, canManageSpecificEmployee, assertCanManageEmployee, getCurrentUser, scopeWhere, getEmployeeAccessScope } from "@/lib/server";
+import { apiHandler, getCompany, json, employeeSchema, requirePermission, assertScopeAllows, canManageSpecificEmployee, assertCanManageEmployee, getCurrentUser, scopeWhere, getEmployeeAccessScope, isTopLevelViewer } from "@/lib/server";
 import { pickEmployeeRoster, redactEmployeeRow } from "@/lib/employee-visibility";
 import { PERM } from "@/lib/roles";
 
@@ -69,12 +69,19 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       return json({ error: "Invalid join date format" }, { status: 400 });
     }
   }
-  // Fetch the current employee.
+  // Fetch the current employee. The H1 wall (inside scopeWhere) hides
+  // owner/admin records from non-top viewers — the row reads as "not found".
   const existing = await prisma.employee.findFirst({
     where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("Employee") },
     select: { id: true, userId: true, reportsToEmployeeId: true, hierarchyLevel: true, user: { select: { role: true } } },
   });
   if (!existing) return json({ error: "Employee not found" }, { status: 404 });
+
+  // H1 wall on writes: only top-level viewers may set hierarchyLevel 1 —
+  // otherwise anyone could promote a record into the protected tier.
+  if (parsed.data.hierarchyLevel === 1 && !(await isTopLevelViewer())) {
+    return json({ error: "Only the owner or admin can assign hierarchy level 1." }, { status: 403 });
+  }
 
   // ── Hierarchy check: viewer must be above this employee ──
   const currentUser = await getCurrentUser();
