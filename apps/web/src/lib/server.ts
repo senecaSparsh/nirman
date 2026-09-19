@@ -2888,10 +2888,8 @@ export async function getOwnRole(): Promise<Role> {
     const held = company ? await getHeldRoles(user.id, company.id) : null;
     const rawRole = held?.activeRole ?? user.role;
     if (isCustomRole(rawRole) && company) {
-      const customRole = await prisma.customRole
-        .findFirst({ where: { companyId: company.id, key: rawRole }, select: { baseRole: true } })
-        .catch(() => null);
-      if (customRole) return normalizeRole(customRole.baseRole);
+      const resolved = await resolveCustomAuthorityRole(company.id, rawRole);
+      if (resolved) return resolved;
     }
     return normalizeRole(rawRole);
   });
@@ -2906,17 +2904,46 @@ export async function getActingRole(): Promise<Role> {
   let best = await getOwnRole();
   const company = await getCompany().catch(() => null);
   for (const d of await getActingDelegations()) {
-    // A delegator's custom role delegates its baseRole's authority.
+    // A delegator's custom role delegates authority at its declared tier.
     let dr: Role = normalizeRole(d.role);
     if (isCustomRole(d.role) && company) {
-      const customRole = await prisma.customRole
-        .findFirst({ where: { companyId: company.id, key: d.role }, select: { baseRole: true } })
-        .catch(() => null);
-      if (customRole) dr = normalizeRole(customRole.baseRole);
+      const resolved = await resolveCustomAuthorityRole(company.id, d.role);
+      if (resolved) dr = resolved;
     }
     if (roleTier(dr) < roleTier(best)) best = dr;
   }
   return best;
+}
+
+/**
+ * Canonical built-in stand-in per tier — used to collapse a custom role
+ * into an equivalent-authority built-in for tier-based checks. Tier is the
+ * ONLY thing the answer feeds (roleTier downstream), so the specific
+ * built-in chosen per tier just needs to sit at that level.
+ */
+const TIER_TO_AUTHORITY_ROLE: Record<number, Role> = {
+  1: "ADMIN", // tier-1 custom roles can't be created; defensive fallback
+  2: "FINANCE_HEAD",
+  3: "PROJECT_MANAGER",
+  4: "SITE_ENGINEER",
+  5: "SUPERVISOR",
+};
+
+/**
+ * Resolve a custom role to a built-in carrying its authority. Inherit mode
+ * returns the baseRole unchanged when the declared tier matches it (the
+ * base is the honest answer — persona/domain preserved); scratch roles and
+ * tier overrides return the canonical built-in at the declared tier, since
+ * the tier — not the base — is what downstream checks consume.
+ */
+async function resolveCustomAuthorityRole(companyId: string, rawRole: string): Promise<Role | null> {
+  const customRole = await prisma.customRole
+    .findFirst({ where: { companyId, key: rawRole }, select: { baseRole: true, tier: true } })
+    .catch(() => null);
+  if (!customRole) return null;
+  const base = normalizeRole(customRole.baseRole);
+  if (customRole.baseRole && customRole.tier === roleTier(base)) return base;
+  return TIER_TO_AUTHORITY_ROLE[customRole.tier] ?? "SUPERVISOR";
 }
 
 export async function getUserPermissions(): Promise<string[]> {

@@ -83,8 +83,14 @@ export async function autoCompleteOnboarding(employeeId: string, companyId: stri
     hasAutoDeposit,
   ].every(Boolean);
 
+  // onboardingComplete is TERMINAL — once an employee is onboarded they
+  // stay onboarded. A later change (auto-deposit turned off, contract
+  // re-issued, a document flag toggled) must never drop them back into the
+  // pending queue — the checklist steps still render their live state for
+  // reference, but the flag itself only ever moves null/false → true.
+  if (employee.onboardingComplete === true) return; // already complete, no-op
+
   if (allDone) {
-    if (employee.onboardingComplete === true) return; // already complete, no-op
     await prisma.employee.update({
       where: { id: employeeId },
       data: { onboardingComplete: true },
@@ -107,11 +113,5 @@ export async function autoCompleteOnboarding(employeeId: string, companyId: stri
         // Best-effort — don't fail onboarding if code generation fails
       }
     }
-  } else if (employee.onboardingComplete === true) {
-    // A step was undone (e.g. auto-deposit disabled) — unmark onboarding
-    await prisma.employee.update({
-      where: { id: employeeId },
-      data: { onboardingComplete: false },
-    });
   }
 }
