@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { PayrollStatus } from "@nirman/db";
 import { generatePayroll } from "@nirman/services";
-import { apiHandler, getCompany, json, generatePayrollSchema, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, generatePayrollSchema, requirePermission, toNum, getUserScope } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
@@ -50,6 +50,20 @@ export const GET = apiHandler(async (req: NextRequest) => {
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.PAYROLL_MANAGE);
   const company = await getCompany();
+
+  // Payroll generation is a company-wide action — it iterates every active
+  // employee and REGENERATES all draft lines (deleteMany + recompute). A
+  // department/project-scoped payroll holder would wipe lines they can't
+  // even see, so generation is restricted to company-scoped actors.
+  // Scoped holders keep payroll.manage for viewing/editing their own lines.
+  const scope = await getUserScope();
+  if (scope.scopeType !== "COMPANY") {
+    return json(
+      { error: "Payroll runs company-wide — it must be run by someone with company-wide access." },
+      { status: 403 },
+    );
+  }
+
   const body = await req.json();
   const parsed = generatePayrollSchema.safeParse(body);
   if (!parsed.success) {

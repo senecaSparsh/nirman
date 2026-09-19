@@ -68,7 +68,7 @@ async function runAudit(): Promise<Response> {
       }),
       prisma.employee.findMany({
         where: { companyId: cid, deletedAt: null },
-        select: { id: true, name: true, userId: true, hierarchyLevel: true, reportsToEmployeeId: true, active: true, phone: true },
+        select: { id: true, name: true, userId: true, hierarchyLevel: true, reportsToEmployeeId: true, active: true, phone: true, departmentId: true },
       }),
     ]);
 
@@ -200,6 +200,15 @@ async function runAudit(): Promise<Response> {
     for (const [phone, names] of phoneMap) {
       if (names.length > 1) {
         findings.push({ check: "duplicate-employee-phone", detail: `phone ${phone} appears on ${names.length} active employees: ${names.join(", ")}` });
+      }
+    }
+
+    // 11. department orphans — an active employee with no department is
+    // invisible to every department-scoped HR user; only company-scoped
+    // viewers can even find them.
+    for (const e of employees) {
+      if (e.active && e.departmentId === null) {
+        findings.push({ check: "dept-orphan", detail: `${e.name} is active but has no department — invisible to dept-scoped HR` });
       }
     }
 
