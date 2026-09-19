@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@nirman/db";
 import { apiHandler, canManageRole, getActingRole, getCompany, json, requirePermission } from "@/lib/server";
+import { defaultScopeType } from "@nirman/services";
 import { PERM, ALL_ROLES, type Role } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 
@@ -36,6 +37,45 @@ export const POST = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.USERS_MANAGE);
   const company = await getCompany();
   const actorRole = await getActingRole();
+  // Department name → id map for auto-scoping DEPARTMENT-default roles.
+  const deptByName = new Map(
+    (await prisma.department.findMany({ where: { companyId: company.id }, select: { id: true, name: true } }))
+      .map((d) => [d.name.trim().toLowerCase(), d.id]),
+  );
+
+  /**
+   * Resolve the membership's scopeType the same way assignScopedMembership
+   * does — custom roles resolve via their baseRole (scratch → SUPERVISOR →
+   * PROJECT). Bulk rows carry no scope entries beyond an optional
+   * department name, so scoped roles land fail-closed (see nothing until an
+   * admin assigns scope explicitly).
+   */
+  async function bulkScopeType(role: string): Promise<"COMPANY" | "DEPARTMENT" | "PROJECT"> {
+    let r = role;
+    if (r.startsWith("CUSTOM_")) {
+      const cr = await prisma.customRole
+        .findFirst({ where: { companyId: company.id, key: r }, select: { baseRole: true } })
+        .catch(() => null);
+      r = cr?.baseRole ?? "SUPERVISOR";
+    }
+    return defaultScopeType(r);
+  }
+
+  /** Persist membership + optional auto-derived department scope row. */
+  async function createMembership(userId: string, role: string, secondaryRoles: string[], departmentName?: string) {
+    const scopeType = await bulkScopeType(role);
+    const membership = await prisma.userCompany.create({
+      data: { userId, companyId: company.id, role: role as Role, secondaryRoles, scopeType },
+    });
+    if (scopeType === "DEPARTMENT" && departmentName) {
+      const deptId = deptByName.get(departmentName.trim().toLowerCase());
+      if (deptId) {
+        await prisma.userScope.create({
+          data: { userCompanyId: membership.id, scopeKind: "DEPARTMENT", departmentId: deptId },
+        });
+      }
+    }
+  }
   const minLength = company.passwordMinLength ?? 8;
   const defaultPassword = generateTempPassword(minLength);
 
@@ -157,10 +197,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
           results.push({ row: rowNum, name: row.name, success: false, error: "Already a member of this company", userId: existing.id });
           continue;
         }
-        // Add as member
-        await prisma.userCompany.create({
-          data: { userId: existing.id, companyId: company.id, role: role as Role, secondaryRoles: extraRoles },
-        });
+        // Add as member — explicit scopeType so the membership shape
+        // matches the single-user path (assignScopedMembership).
+        await createMembership(existing.id, role, extraRoles, row.department);
         results.push({ row: rowNum, name: row.name, success: true, userId: existing.id, added: true });
         continue;
       }
@@ -186,9 +225,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         select: { id: true, name: true },
       });
 
-      await prisma.userCompany.create({
-        data: { userId: user.id, companyId: company.id, role: role as Role, secondaryRoles: extraRoles },
-      });
+      await createMembership(user.id, role, extraRoles, row.department);
 
       await prisma.account.create({
         data: {

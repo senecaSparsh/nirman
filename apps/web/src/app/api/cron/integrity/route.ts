@@ -68,7 +68,7 @@ async function runAudit(): Promise<Response> {
       }),
       prisma.employee.findMany({
         where: { companyId: cid, deletedAt: null },
-        select: { id: true, name: true, userId: true, hierarchyLevel: true, reportsToEmployeeId: true, active: true },
+        select: { id: true, name: true, userId: true, hierarchyLevel: true, reportsToEmployeeId: true, active: true, phone: true },
       }),
     ]);
 
@@ -168,6 +168,38 @@ async function runAudit(): Promise<Response> {
     for (const m of memberships) {
       if (m.active && (!m.user.active || m.user.isHidden)) {
         findings.push({ check: "member-dead-user", detail: `${m.user.name}'s membership is active but the user is not` });
+      }
+    }
+
+    // 9. reportsTo pointing at inactive people — org-chart ghosts on the
+    // employee side AND dead ends in the approval chain on the member side.
+    for (const e of employees) {
+      if (!e.reportsToEmployeeId) continue;
+      const mgr = empById.get(e.reportsToEmployeeId);
+      if (mgr && !mgr.active) {
+        findings.push({ check: "reportsTo-inactive", detail: `${e.name} reports to ${mgr.name}, who is inactive` });
+      }
+    }
+    for (const m of memberships) {
+      if (!m.reportsToUserCompanyId) continue;
+      const mgr = memberById.get(m.reportsToUserCompanyId);
+      if (mgr && !mgr.active) {
+        findings.push({ check: "reportsTo-inactive", detail: `${m.user.name}'s approval line points to inactive ${mgr.user.name}` });
+      }
+    }
+
+    // 10. duplicate employee phones — the same person entered twice
+    // (classic rehire mistake) splits their history across two records.
+    const phoneMap = new Map<string, string[]>();
+    for (const e of employees) {
+      if (!e.active || !e.phone) continue;
+      const digits = e.phone.replace(/\D/g, "");
+      if (digits.length < 8) continue;
+      phoneMap.set(digits, [...(phoneMap.get(digits) ?? []), e.name]);
+    }
+    for (const [phone, names] of phoneMap) {
+      if (names.length > 1) {
+        findings.push({ check: "duplicate-employee-phone", detail: `phone ${phone} appears on ${names.length} active employees: ${names.join(", ")}` });
       }
     }
 
