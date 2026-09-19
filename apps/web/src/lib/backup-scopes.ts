@@ -44,20 +44,28 @@ export const BACKUP_MODEL_SCOPE: Record<string, PrismaWhere> = {
     ],
   },
 
+  // Scoped through project (projectId is optional — null-project rows
+  // belong to no company and are correctly excluded)
+  materialRequisition: { project: { companyId: "__COMPANY_ID__" } },
+
   // Scoped through project
   projectCost: { project: { companyId: "__COMPANY_ID__" } },
   wbsNode: { project: { companyId: "__COMPANY_ID__" } },
   boqItem: { project: { companyId: "__COMPANY_ID__" } },
   measurementBookEntry: { project: { companyId: "__COMPANY_ID__" } },
 
-  // Scoped through assignee's company membership
-  task: { assignedTo: { userMemberships: { some: { companyId: "__COMPANY_ID__" } } } },
+  // Scoped through assignee's company membership (relation is "memberships")
+  task: { assignedTo: { memberships: { some: { companyId: "__COMPANY_ID__" } } } },
 };
 
 /** Models that need a non-default orderBy field. */
 export const BACKUP_MODEL_ORDER_BY: Record<string, Record<string, "asc" | "desc">> = {
   // AuditLog uses `timestamp`, not `createdAt`
   auditLog: { timestamp: "asc" },
+  // StockLocationItem has `updatedAt` but no `createdAt`
+  stockLocationItem: { updatedAt: "asc" },
+  // StockMovement uses `timestamp`, not `createdAt`
+  stockMovement: { timestamp: "asc" },
 };
 
 /**
