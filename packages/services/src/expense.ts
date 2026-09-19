@@ -298,8 +298,15 @@ export async function approveExpense(
       );
     }
 
-    const subtotal = existing.subtotal ?? existing.amount;
     const gstTotal = (existing.cgst ?? 0).plus(existing.sgst ?? 0).plus(existing.igst ?? 0);
+    // Heal legacy rows where `amount` drifted from `subtotal + gst` (written
+    // before the update invariant existed) — otherwise the JE posts
+    // unbalanced and the expense can never be approved. Derive the expense
+    // leg from the amount so debits equal credits.
+    const storedSubtotal = new Decimal(existing.subtotal ?? existing.amount);
+    const subtotal = storedSubtotal.plus(gstTotal).eq(existing.amount)
+      ? storedSubtotal
+      : new Decimal(existing.amount).minus(gstTotal);
     const expenseAccountCode = existing.categoryId
       ? (await tx.expenseCategory.findUnique({ where: { id: existing.categoryId } }))?.glAccountCode
       : undefined;
