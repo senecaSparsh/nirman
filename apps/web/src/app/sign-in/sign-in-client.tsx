@@ -426,17 +426,14 @@ function SignInForm({ showDevLogin, otpEnabled }: { showDevLogin: boolean; otpEn
     // is treated as secure, but other http:// origins are not).
     if (typeof window === "undefined" || !window.PublicKeyCredential) return;
     setPasskeySupported(true);
-    // Conditional UI: if available, preload the passkey mediation so the
-    // browser can show the biometric prompt when the user interacts with
-    // an input field. This is the "fast login" experience — no button click.
-    if (PublicKeyCredential.isConditionalMediationAvailable) {
-      PublicKeyCredential.isConditionalMediationAvailable().then((available) => {
-        if (available) {
-          void handlePasskeySignIn(true).catch(() => {});
-        }
-      }).catch(() => {});
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // NOTE: Conditional-UI auto-prompt removed — it left a pending
+    // navigator.credentials.get({mediation:"conditional"}) that intercepted
+    // the password form's submit (the phone-password POST never fired; the
+    // page showed "Auth cancelled"). Passkey is now click-only: the button
+    // below explicitly calls handlePasskeySignIn(false), which sets
+    // passkeyLoading and blocks the form only while the user is actively
+    // authenticating. No background preload, no interference.
+     
   }, []);
 
   // Passkey sign-in: calls the Better-Auth passkey client, which triggers

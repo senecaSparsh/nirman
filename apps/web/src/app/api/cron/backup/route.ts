@@ -2,6 +2,7 @@ import { NextRequest, } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, json } from "@/lib/server";
 import { withTimeout } from "@/lib/timeout";
+import { backupWhere, backupOrderBy } from "@/lib/backup-scopes";
 
 /**
  * POST /api/cron/backup — automated scheduled backup.
@@ -165,9 +166,9 @@ async function exportCompanyData(companyId: string) {
     try {
       // @ts-expect-error — dynamic model access
       const records = await prisma[model].findMany({
-        where: { companyId },
+        where: backupWhere(model, companyId),
         ...(include ? { include } : {}),
-        orderBy: { createdAt: "asc" },
+        orderBy: backupOrderBy(model),
       });
       tables[model] = JSON.parse(
         JSON.stringify(records, (_key, value) => {

@@ -3,6 +3,7 @@ import { prisma } from "@nirman/db";
 import { apiHandler, requirePermission, getCompany } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { localDateISO } from "@/lib/utils";
+import { backupWhere, backupOrderBy } from "@/lib/backup-scopes";
 
 /**
  * GET /api/backup/export — full JSON backup of the current company's data.
@@ -97,9 +98,9 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     try {
       // @ts-expect-error — dynamic model access
       const records = await prisma[model].findMany({
-        where: { companyId: company.id },
+        where: backupWhere(model, company.id),
         ...(include ? { include } : {}),
-        orderBy: { createdAt: "asc" },
+        orderBy: backupOrderBy(model),
       });
       // Serialize Dates and Decimals
       tables[model] = JSON.parse(
