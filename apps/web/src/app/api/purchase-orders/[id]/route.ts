@@ -216,9 +216,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
         400,
       );
     }
-  } else {
+  } else if (action === "cancel") {
     const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
     await cancelPurchaseOrder(id, user.id);
+  } else {
+    return json({ error: "Unknown action. Use: approve | reject | resubmit | order | addLine | cancel" }, { status: 400 });
   }
   revalidatePath("/procurement");
   revalidatePath("/m/procurement");
