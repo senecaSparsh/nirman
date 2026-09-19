@@ -105,10 +105,11 @@ export async function recordLandPurchase(input: RecordLandPurchaseInput) {
       if (!project) throw new ServiceError("Project not found, deleted, or doesn't belong to this company", 404);
     }
 
-    // Validate seller if set
+    // Validate seller if set — must belong to this company, otherwise a
+    // foreign seller links into the purchase record.
     if (input.sellerId) {
-      const seller = await tx.landSeller.findFirst({ where: { id: input.sellerId, deletedAt: null } });
-      if (!seller) throw new ServiceError("Land seller not found or deleted", 404);
+      const seller = await tx.landSeller.findFirst({ where: { id: input.sellerId, companyId: input.companyId, deletedAt: null } });
+      if (!seller) throw new ServiceError("Land seller not found in this company", 404);
     }
 
     // Create land purchase
@@ -356,8 +357,8 @@ export async function recordLandPurchaseWithPlan(input: RecordLandPurchaseWithPl
 
     // 1b. Validate seller if set
     if (input.sellerId) {
-      const seller = await tx.landSeller.findFirst({ where: { id: input.sellerId, deletedAt: null } });
-      if (!seller) throw new ServiceError("Land seller not found or deleted", 404);
+      const seller = await tx.landSeller.findFirst({ where: { id: input.sellerId, companyId: input.companyId, deletedAt: null } });
+      if (!seller) throw new ServiceError("Land seller not found in this company", 404);
     }
 
     // 2. Determine LandPurchase.projectId:
@@ -722,8 +723,8 @@ export async function recordLandPurchaseOrder(input: LandPurchaseOrderInput) {
     }
 
     if (input.sellerId) {
-      const seller = await tx.landSeller.findFirst({ where: { id: input.sellerId, deletedAt: null } });
-      if (!seller) throw new ServiceError("Land seller not found or deleted", 404);
+      const seller = await tx.landSeller.findFirst({ where: { id: input.sellerId, companyId: input.companyId, deletedAt: null } });
+      if (!seller) throw new ServiceError("Land seller not found in this company", 404);
     }
 
     // Create land purchase in BOOKED stage

@@ -341,6 +341,13 @@ export async function sellAsset(input: SellAssetInput) {
       throw new ServiceError(`Unsupported asset type: ${input.assetType}`);
     }
 
+    // Tenant seal: the company derived from the asset must match the caller's —
+    // otherwise a caller could sell ANOTHER tenant's land/units and the sale
+    // would silently land in the victim's books with their revenue.
+    if (companyId !== input.companyId) {
+      throw new ServiceError("Asset not found in this company", 404);
+    }
+
     // Compute GST on the sale (Output GST liability)
     const gstRate = input.gstRate ? new Decimal(input.gstRate) : new Decimal(0);
     if (gstRate.lt(0) || gstRate.gt(100)) throw new ServiceError("gstRate must be between 0 and 100");

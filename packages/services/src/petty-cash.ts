@@ -1,4 +1,3 @@
-import { type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
@@ -48,6 +47,16 @@ export async function createPettyCashFloat(input: CreateFloatInput) {
   const amount = new Decimal(input.floatAmount);
   if (!amount.gte(0)) throw new ServiceError("Float amount must be >= 0");
   return withSerializableTransaction(async (tx) => {
+    // FK validation — the float's project and custodian must belong to the
+    // caller's company, otherwise foreign refs silently link in.
+    if (input.projectId) {
+      const p = await tx.project.findFirst({ where: { id: input.projectId, companyId: input.companyId, deletedAt: null }, select: { id: true } });
+      if (!p) throw new ServiceError("Project not found in this company", 404);
+    }
+    if (input.custodianId) {
+      const m = await tx.userCompany.findFirst({ where: { userId: input.custodianId, companyId: input.companyId }, select: { id: true } });
+      if (!m) throw new ServiceError("Custodian is not a member of this company", 404);
+    }
     const float = await tx.pettyCashFloat.create({
       data: {
         companyId: input.companyId,
@@ -173,11 +182,19 @@ export async function recordPettyCashSpend(
       throw new ServiceError("Insufficient petty cash balance", 409);
     }
 
-    // Resolve GL account for the category
+    // Resolve GL account for the category — must belong to this company,
+    // otherwise a foreign category's GL code is used for our posting.
     let expenseAccountCode: string | undefined;
     if (input.categoryId) {
-      const cat = await tx.expenseCategory.findUnique({ where: { id: input.categoryId } });
-      expenseAccountCode = cat?.glAccountCode;
+      const cat = await tx.expenseCategory.findFirst({ where: { id: input.categoryId, companyId } });
+      if (!cat) throw new ServiceError("Expense category not found in this company", 404);
+      expenseAccountCode = cat.glAccountCode;
+    }
+    // The spend can carry a projectId — validate it too (it lands on the
+    // auto-created expense).
+    if (input.projectId) {
+      const p = await tx.project.findFirst({ where: { id: input.projectId, companyId, deletedAt: null }, select: { id: true } });
+      if (!p) throw new ServiceError("Project not found in this company", 404);
     }
 
     // Create an APPROVED Expense (petty cash = immediate, no approval needed)

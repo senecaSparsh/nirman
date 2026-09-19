@@ -1,4 +1,5 @@
 import Decimal from "decimal.js";
+import { type Prisma } from "@nirman/db";
 import { logAction } from "./audit";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { postExpense, reverseJournalEntry } from "./gl-posting";
@@ -50,6 +51,30 @@ export function gstTotalOf(cgst: Decimal, sgst: Decimal, igst: Decimal): Decimal
   return cgst.plus(sgst).plus(igst);
 }
 
+/**
+ * Validate every optional FK on an expense belongs to the caller's company —
+ * otherwise an expense can be linked to another tenant's project, category,
+ * or supplier, polluting their reporting and hiding the link in ours.
+ */
+async function assertExpenseRefs(
+  tx: Prisma.TransactionClient,
+  companyId: string,
+  refs: { projectId?: string | null; categoryId?: string | null; supplierId?: string | null },
+) {
+  if (refs.projectId) {
+    const p = await tx.project.findFirst({ where: { id: refs.projectId, companyId, deletedAt: null }, select: { id: true } });
+    if (!p) throw new ServiceError("Project not found in this company", 404);
+  }
+  if (refs.categoryId) {
+    const c = await tx.expenseCategory.findFirst({ where: { id: refs.categoryId, companyId }, select: { id: true } });
+    if (!c) throw new ServiceError("Expense category not found in this company", 404);
+  }
+  if (refs.supplierId) {
+    const s = await tx.supplier.findFirst({ where: { id: refs.supplierId, companyId, deletedAt: null }, select: { id: true } });
+    if (!s) throw new ServiceError("Supplier not found in this company", 404);
+  }
+}
+
 export async function createExpense(input: CreateExpenseInput) {
   const amount = new Decimal(input.amount);
   if (!amount.gt(0)) throw new ServiceError("Expense amount must be > 0");
@@ -67,6 +92,7 @@ export async function createExpense(input: CreateExpenseInput) {
   }
 
   return withSerializableTransaction(async (tx) => {
+    await assertExpenseRefs(tx, input.companyId, input);
     const status = input.submitForApproval ? "PENDING" : "DRAFT";
     const expense = await tx.expense.create({
       data: {
@@ -144,6 +170,8 @@ export async function updateExpense(expenseId: string, input: UpdateExpenseInput
       throw new ServiceError(`Cannot edit an expense that is ${existing.status.toLowerCase()}`, 409);
     }
 
+    await assertExpenseRefs(tx, input.companyId, input);
+
     const data: Record<string, unknown> = {};
     if (input.projectId !== undefined) data.projectId = input.projectId;
     if (input.categoryId !== undefined) data.categoryId = input.categoryId;
@@ -153,6 +181,22 @@ export async function updateExpense(expenseId: string, input: UpdateExpenseInput
     if (input.cgst !== undefined) data.cgst = new Decimal(input.cgst);
     if (input.sgst !== undefined) data.sgst = new Decimal(input.sgst);
     if (input.igst !== undefined) data.igst = new Decimal(input.igst);
+
+    // Keep the amount invariant intact: amount = subtotal + cgst + sgst + igst.
+    // A PATCH that sets only `amount` would otherwise leave `subtotal` stale,
+    // and the GL posting on approval fails with an unbalanced journal
+    // (debit = subtotal+gst, credit = amount).
+    const gstOf = (key: "cgst" | "sgst" | "igst") =>
+      input[key] !== undefined ? new Decimal(input[key]!) : new Decimal(existing[key] ?? 0);
+    if (input.amount !== undefined && input.subtotal === undefined) {
+      const gst = gstOf("cgst").plus(gstOf("sgst")).plus(gstOf("igst"));
+      const derived = new Decimal(input.amount).minus(gst);
+      if (derived.lt(0)) throw new ServiceError("Amount must be at least the total GST", 400);
+      data.subtotal = derived;
+    } else if (input.amount === undefined && (input.subtotal !== undefined || input.cgst !== undefined || input.sgst !== undefined || input.igst !== undefined)) {
+      const sub = input.subtotal !== undefined ? new Decimal(input.subtotal) : new Decimal(existing.subtotal ?? 0);
+      data.amount = sub.plus(gstOf("cgst")).plus(gstOf("sgst")).plus(gstOf("igst"));
+    }
     if (input.tdsAmount !== undefined) data.tdsAmount = new Decimal(input.tdsAmount);
     if (input.supplierId !== undefined) data.supplierId = input.supplierId;
     if (input.payeeName !== undefined) data.payeeName = input.payeeName;

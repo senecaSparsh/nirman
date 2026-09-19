@@ -14,7 +14,9 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
   });
   if (!project) return json({ error: "Project not found" }, { status: 404 });
   const phases = await prisma.projectPhase.findMany({
-    where: { projectId: id, ...await scopeWhere("ProjectPhase") },
+    // AND-composed: the scope filter's own projectId clause must not clobber
+    // this route's projectId (spread order would leak sibling-project phases).
+    where: { AND: [{ projectId: id }, await scopeWhere("ProjectPhase")] },
     orderBy: { sortOrder: "asc" },
   });
   return json(phases);

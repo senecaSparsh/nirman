@@ -59,18 +59,19 @@ export async function createRenovation(input: CreateRenovationInput) {
     });
     if (!project) throw new ServiceError("Project not found", 404);
 
-    // Validate asset + snapshot its current valuation
+    // Validate asset + snapshot its current valuation. The asset must belong
+    // to the caller's company AND the renovation's project — otherwise the
+    // record links a foreign asset and the completion step capitalises into
+    // the victim tenant's books.
     let originalValuation = new Decimal(0);
     if (input.builtUnitId) {
-      const unit = await tx.builtUnit.findUnique({ where: { id: input.builtUnitId } });
-      if (!unit) throw new ServiceError("Built unit not found", 404);
-      if (unit.deletedAt) throw new ServiceError("Built unit is deleted");
+      const unit = await tx.builtUnit.findFirst({ where: { id: input.builtUnitId, projectId: input.projectId, deletedAt: null } });
+      if (!unit) throw new ServiceError("Built unit not found in this project", 404);
       if (unit.status === "SOLD") throw new ServiceError("Cannot renovate a SOLD unit");
       originalValuation = new Decimal(unit.currentValuation);
     } else if (input.landParcelId) {
-      const parcel = await tx.landParcel.findUnique({ where: { id: input.landParcelId } });
-      if (!parcel) throw new ServiceError("Land parcel not found", 404);
-      if (parcel.deletedAt) throw new ServiceError("Land parcel is deleted");
+      const parcel = await tx.landParcel.findFirst({ where: { id: input.landParcelId, landPurchase: { companyId: input.companyId }, deletedAt: null } });
+      if (!parcel) throw new ServiceError("Land parcel not found in this company", 404);
       if (parcel.status === "SOLD") throw new ServiceError("Cannot renovate a SOLD parcel");
       originalValuation = new Decimal(parcel.currentValuation);
     }

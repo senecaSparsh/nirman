@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createTransfer, ServiceError } from "@nirman/services";
-import { apiHandler, json, transferSchema, toNum, getCompany, getCompanyGroupIds, requirePermission } from "@/lib/server";
+import { apiHandler, json, transferSchema, toNum, getCompany, getCompanyGroupIds, requirePermission, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async () => {
@@ -64,6 +64,22 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
   try {
     const groupIds = await getCompanyGroupIds();
+
+    // Scope check on both ends — a scoped user may only move stock through
+    // locations inside their scope (shared warehouse/dept locations stay
+    // reachable since they carry no projectId).
+    const locs = await prisma.stockLocation.findMany({
+      where: { id: { in: [parsed.data.fromLocationId, parsed.data.toLocationId] } },
+      select: { id: true, projectId: true, departmentId: true },
+    });
+    for (const loc of locs) {
+      try {
+        await assertScopeAllows({ projectId: loc.projectId ?? null, departmentId: loc.departmentId ?? null });
+      } catch (err) {
+        return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
+      }
+    }
+
     const transfer = await createTransfer({
       fromLocationId: parsed.data.fromLocationId,
       toLocationId: parsed.data.toLocationId,

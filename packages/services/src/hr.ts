@@ -1354,10 +1354,12 @@ export async function updatePayrollLine(input: AdjustPayrollLineInput) {
 }
 
 /** Lock a DRAFT payroll and post the salary expense to the GL. */
-export async function processPayroll(input: { payrollPeriodId: string; userId?: string }) {
+export async function processPayroll(input: { payrollPeriodId: string; userId?: string; companyId?: string }) {
   return withSerializableTransaction(async (tx) => {
-    const period = await tx.payrollPeriod.findUnique({
-      where: { id: input.payrollPeriodId },
+    // companyId scopes the lookup — without it a caller could process (or
+    // pay) ANOTHER company's payroll by id, corrupting their books.
+    const period = await tx.payrollPeriod.findFirst({
+      where: { id: input.payrollPeriodId, ...(input.companyId ? { companyId: input.companyId } : {}) },
       include: { lines: { include: { employee: { select: { activeProjectId: true } } } } },
     });
     if (!period) throw new HrError("Payroll period not found", 404);
@@ -1476,7 +1478,7 @@ export async function processPayroll(input: { payrollPeriodId: string; userId?: 
 }
 
 /** Settle a PROCESSED payroll (pay it) and clear the Salaries Payable liability. */
-export async function payPayroll(input: { payrollPeriodId: string; userId?: string }) {
+export async function payPayroll(input: { payrollPeriodId: string; userId?: string; companyId?: string }) {
   const notifyVars = {
     companyId: "",
     month: "",
@@ -1484,8 +1486,8 @@ export async function payPayroll(input: { payrollPeriodId: string; userId?: stri
     employeeUserIds: [] as string[],
   };
   const updated = await withSerializableTransaction(async (tx) => {
-    const period = await tx.payrollPeriod.findUnique({
-      where: { id: input.payrollPeriodId },
+    const period = await tx.payrollPeriod.findFirst({
+      where: { id: input.payrollPeriodId, ...(input.companyId ? { companyId: input.companyId } : {}) },
       include: { lines: { select: { employee: { select: { userId: true } } } } },
     });
     if (!period) throw new HrError("Payroll period not found", 404);

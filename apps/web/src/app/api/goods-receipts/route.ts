@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { receiveGoods, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, getUserScope, json, receiveGoodsSchema, requireAnyPermission, toNum, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, getUserScope, getAssignedProjectIds, json, receiveGoodsSchema, requireAnyPermission, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -122,10 +122,21 @@ export const POST = apiHandler(async (req: NextRequest) => {
   // exclude company-level POs entirely for scoped users.
   const scope = await getUserScope();
   const poWhere: Record<string, unknown> = { id: purchaseOrderId, companyId: company.id };
-  if (scope.scopeType === "PROJECT" && scope.projectIds.length > 0) {
+  if (scope.scopeType !== "COMPANY") {
+    // Scoped receivers: PO must target one of their projects, deliver to one
+    // of their projects' stores, or be fully company-level. Empty assignment
+    // → only company-level POs (the OR is ALWAYS applied — skipping it when
+    // the id list is empty would fail open to every PO in the company).
+    // DEPARTMENT scope resolves its projects via dept employees' deployments
+    // (same effective set canAccessProject uses).
+    const effective = await getAssignedProjectIds();
     poWhere.OR = [
-      { projectId: { in: scope.projectIds } },
-      { destinationLocation: { projectId: { in: scope.projectIds } } },
+      ...(effective && effective.length > 0
+        ? [
+            { projectId: { in: effective } },
+            { destinationLocation: { projectId: { in: effective } } },
+          ]
+        : []),
       { projectId: null, destinationLocation: { projectId: null } },
     ];
   }

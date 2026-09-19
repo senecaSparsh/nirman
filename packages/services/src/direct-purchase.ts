@@ -118,10 +118,26 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
   });
   if (!location) throw new ServiceError("Receive location not found or doesn't belong to this company", 404);
 
-  // Validate supplier if provided
+  // Validate supplier if provided — must belong to this company
   if (input.supplierId) {
-    const supplier = await prisma.supplier.findUnique({ where: { id: input.supplierId } });
-    if (!supplier) throw new ServiceError("Supplier not found", 404);
+    const supplier = await prisma.supplier.findFirst({ where: { id: input.supplierId, companyId: input.companyId, deletedAt: null } });
+    if (!supplier) throw new ServiceError("Supplier not found in this company", 404);
+  }
+
+  // Validate requisition if provided — a foreign requisition must not link
+  // into this purchase (indents anchor via project or department).
+  if (input.requisitionId) {
+    const req = await prisma.materialRequisition.findFirst({
+      where: {
+        id: input.requisitionId,
+        OR: [
+          { project: { companyId: input.companyId } },
+          { department: { companyId: input.companyId } },
+        ],
+      },
+      select: { id: true },
+    });
+    if (!req) throw new ServiceError("Requisition not found in this company", 404);
   }
 
   // Validate lines

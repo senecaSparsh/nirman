@@ -69,27 +69,31 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   if (action === "process") {
     const user = await requirePermission(PERM.PAYROLL_MANAGE);
+    const company = await getCompany();
     try {
-      await processPayroll({ payrollPeriodId: id, userId: user.id });
+      await processPayroll({ payrollPeriodId: id, userId: user.id, companyId: company.id });
       revalidatePath("/hr/payroll");
       revalidatePath("/m/hr");
       revalidatePath("/m/books/payroll");
       return json({ ok: true });
     } catch (err: unknown) {
-      return json({ error: (err instanceof Error ? err.message : "Failed to process payroll") }, { status: 400 });
+      const status = typeof (err as { status?: number })?.status === "number" ? (err as { status: number }).status : 400;
+      return json({ error: (err instanceof Error ? err.message : "Failed to process payroll") }, { status });
     }
   }
 
   if (action === "pay") {
     const user = await requirePermission(PERM.PAYROLL_MANAGE);
+    const company = await getCompany();
     try {
-      await payPayroll({ payrollPeriodId: id, userId: user.id });
+      await payPayroll({ payrollPeriodId: id, userId: user.id, companyId: company.id });
       revalidatePath("/hr/payroll");
       revalidatePath("/m/hr");
       revalidatePath("/m/books/payroll");
       return json({ ok: true });
     } catch (err: unknown) {
-      return json({ error: (err instanceof Error ? err.message : "Failed to settle payroll") }, { status: 400 });
+      const status = typeof (err as { status?: number })?.status === "number" ? (err as { status: number }).status : 400;
+      return json({ error: (err instanceof Error ? err.message : "Failed to settle payroll") }, { status });
     }
   }
 

@@ -118,16 +118,19 @@ export async function createTenancy(input: CreateTenancyInput) {
     let projectId: string | null = input.projectId ?? null;
     if (input.assetType === "LAND") {
       if (!input.landParcelId) throw new ServiceError("Land tenancy requires landParcelId");
-      const parcel = await tx.landParcel.findUnique({ where: { id: input.landParcelId } });
-      if (!parcel || parcel.deletedAt) throw new ServiceError("Land parcel not found or deleted", 404);
+      // Company-scoped: the parcel must belong to the caller's company —
+      // otherwise the tenancy links a foreign asset and status changes land
+      // in the victim tenant's books.
+      const parcel = await tx.landParcel.findFirst({ where: { id: input.landParcelId, landPurchase: { companyId: input.companyId }, deletedAt: null } });
+      if (!parcel) throw new ServiceError("Land parcel not found in this company", 404);
       if (parcel.status !== "AVAILABLE" && parcel.status !== "RENTED") {
         throw new ServiceError(`Cannot rent parcel in status ${parcel.status}. Must be AVAILABLE.`);
       }
       if (!projectId) projectId = parcel.projectId;
     } else {
       if (!input.builtUnitId) throw new ServiceError("Built unit tenancy requires builtUnitId");
-      const unit = await tx.builtUnit.findUnique({ where: { id: input.builtUnitId } });
-      if (!unit || unit.deletedAt) throw new ServiceError("Built unit not found or deleted", 404);
+      const unit = await tx.builtUnit.findFirst({ where: { id: input.builtUnitId, project: { companyId: input.companyId }, deletedAt: null } });
+      if (!unit) throw new ServiceError("Built unit not found in this company", 404);
       if (unit.status !== "AVAILABLE" && unit.status !== "RENTED") {
         throw new ServiceError(`Cannot rent unit in status ${unit.status}. Must be AVAILABLE.`);
       }

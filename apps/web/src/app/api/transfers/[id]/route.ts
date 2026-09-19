@@ -5,7 +5,7 @@ import { prisma } from "@nirman/db";
 import { completeTransfer, cancelTransfer, dispatchTransfer, returnTransferToSource, recordVehicleTrip } from "@nirman/services";
 import { apiHandler, json, toNum, getCompany } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { requirePermission } from "@/lib/server";
+import { requirePermission, assertScopeAllows } from "@/lib/server";
 
 const transferActionSchema = z.object({
   action: z.enum(["dispatch", "complete", "cancel", "returnToSource"]),
@@ -117,12 +117,26 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     where: { id },
     select: {
       status: true,
-      fromLocation: { select: { companyId: true } },
-      toLocation: { select: { companyId: true } },
+      fromLocation: { select: { companyId: true, projectId: true, departmentId: true } },
+      toLocation: { select: { companyId: true, projectId: true, departmentId: true } },
     },
   });
   if (!transfer) {
     return json({ error: "Transfer not found" }, { status: 404 });
+  }
+
+  // Scope check on the side the action touches — dispatch/cancel act on the
+  // source, complete/returnToSource on the destination. A scoped user may
+  // only move stock through locations inside their scope.
+  try {
+    if (action === "dispatch" || action === "cancel") {
+      await assertScopeAllows({ projectId: transfer.fromLocation.projectId, departmentId: transfer.fromLocation.departmentId });
+    }
+    if (action === "complete" || action === "returnToSource") {
+      await assertScopeAllows({ projectId: transfer.toLocation.projectId, departmentId: transfer.toLocation.departmentId });
+    }
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
   }
 
   // Sender/receiver separation: dispatch from source company, receive at dest company

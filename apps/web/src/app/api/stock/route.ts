@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requirePermission } from "@/lib/server";
 
@@ -21,9 +21,16 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const items = await prisma.stockLocationItem.findMany({
     take: 500,
     where: {
-      location: { deletedAt: null, companyId: company.id, ...(locationId ? { id: locationId } : {}) },
-      material: { deletedAt: null, ...(materialId ? { id: materialId } : {}) },
-      qty: { gt: 0 },
+      AND: [
+        // Scope filter (nested location.projectId / location.departmentId) —
+        // AND-composed so the company/location clause below can't clobber it.
+        await scopeWhere("StockLocationItem"),
+        {
+          location: { deletedAt: null, companyId: company.id, ...(locationId ? { id: locationId } : {}) },
+          material: { deletedAt: null, ...(materialId ? { id: materialId } : {}) },
+          qty: { gt: 0 },
+        },
+      ],
     },
     include: {
       location: { select: { id: true, name: true, type: true } },

@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@nirman/db";
 import { recordStockAdjustment, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -54,12 +54,20 @@ export const POST = apiHandler(
       }),
       prisma.stockLocation.findFirst({
         where: { id: parsed.data.locationId, companyId: company.id, deletedAt: null },
-        select: { id: true, name: true },
+        select: { id: true, name: true, projectId: true, departmentId: true },
       }),
     ]);
     if (!material) return json({ error: "Material not found" }, { status: 404 });
     if (!location) {
       return json({ error: "Stock location not found in this company" }, { status: 404 });
+    }
+
+    // A scoped user may only adjust stock at locations inside their scope —
+    // adjusting elsewhere is the classic inventory-fraud path.
+    try {
+      await assertScopeAllows({ projectId: location.projectId ?? null, departmentId: location.departmentId ?? null });
+    } catch (err) {
+      return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
     }
 
     try {

@@ -1918,6 +1918,7 @@ export async function scopeWhere(
     // department — both are scopeable.
     RenovationProject:    { project: "projectId" },
     StockLocation:        { project: "projectId", department: "departmentId" },
+    StockLocationItem:    { project: "location.projectId", department: "location.departmentId" },
     // Models without project/department FKs are not scopeable
   };
 
