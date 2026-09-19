@@ -128,7 +128,7 @@ async function exportCompanyData(companyId: string) {
     { model: "landParcel" },
     { model: "purchaseOrder", include: { lines: true, goodsReceipts: { include: { lines: true } } } },
     { model: "directPurchase", include: { lines: true } },
-    { model: "materialRequisition", include: { lines: true, quotes: { include: { lines: true } } } },
+    { model: "materialRequisition", include: { lines: true, quotationRequests: { include: { quotes: true } } } },
     { model: "supplierPayment" },
     { model: "supplierReturn", include: { lines: true } },
     { model: "stockLocationItem" },
