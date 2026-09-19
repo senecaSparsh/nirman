@@ -557,7 +557,7 @@ export function MobileCreateAccountDialog({
                     label="Employee Code"
                     value={employeeCode}
                     onChange={setEmployeeCode}
-                    placeholder="EMP-001"
+                    placeholder="SRG-FIN-0001"
                   />
                 </div>
               </div>

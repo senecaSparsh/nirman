@@ -97,6 +97,13 @@ export function SurfaceAdapter() {
     pathRef.current = currentPath;
     lastIssued.current = null; // new path → allow a fresh redirect
     checkAndRedirect();
+    // Pre-paint surface guard: BOOT_SCRIPT marks <html> 'surface-pending'
+    // when the viewport and route surface disagree, hiding the document
+    // until we resolve. Reveal only when NO redirect is in flight — while
+    // navigating, the arriving page's effect reveals the correct surface.
+    if (!lastIssued.current) {
+      document.documentElement.classList.remove("surface-pending");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPath]);
 

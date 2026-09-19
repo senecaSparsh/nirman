@@ -426,7 +426,7 @@ export function CreateAccountDialog({
               </div>
               <div className="space-y-1.5">
                 <Label>Employee Code</Label>
-                <Input value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} placeholder="EMP-001" />
+                <Input value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} placeholder="SRG-FIN-0001" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">

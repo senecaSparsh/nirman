@@ -238,7 +238,7 @@ export function CreateUserDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Employee Code</Label>
-              <Input value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} placeholder="e.g. EMP-001" />
+              <Input value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} placeholder="e.g. SRG-FIN-0001" />
             </div>
             <div className="space-y-1.5">
               <Label>Designation</Label>

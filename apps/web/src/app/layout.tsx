@@ -88,6 +88,22 @@ var t=localStorage.getItem('nirman.theme');
 if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches))r.classList.add('dark');
 var c=localStorage.getItem('nirman-currency-mode');
 if(!c){c='compact';try{localStorage.setItem('nirman-currency-mode',c);}catch(e){}}
+/* Surface guard — runs BEFORE first paint. If the viewport width and the
+   route surface disagree (desktop page on a phone-width screen or vice
+   versa), hide the document until SurfaceAdapter resolves the redirect —
+   this is what eliminates the "glance of desktop" on PWA reopen, where a
+   webview UA quirk or stale cookie can slip past the middleware and serve
+   the wrong surface. Mirrors SurfaceAdapter's own skip/escape rules. */
+var p=location.pathname;
+var sk=/^\\/(sign-in|sign-up|forgot-password|reset-password|change-password|consent|accept\\/|api\\/|_next\\/|portal|print)/.test(p)||/\\/print$/.test(p)||/\\.(svg|png|jpe?g|gif|webp|ico|css|js|map|webmanifest|txt)$/.test(p);
+var mob=matchMedia('(max-width:1023px)').matches;
+var onM=p==='/m'||p.indexOf('/m/')===0;
+var uaMob=/Android(?:(?=.*Mobile)|(?=.*\\bSilk\\b))|iPhone|iPod|Windows Phone|BlackBerry|Opera Mini|Mobile\\b/i.test(navigator.userAgent);
+var desk=document.cookie.indexOf('nirman-desktop=1')>-1;
+if(!sk&&!(uaMob&&desk)&&((mob&&!onM)||(!mob&&onM))){
+r.classList.add('surface-pending');
+setTimeout(function(){r.classList.remove('surface-pending')},1500);
+}
 }catch(e){}`;
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

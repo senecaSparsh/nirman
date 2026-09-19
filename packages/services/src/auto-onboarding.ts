@@ -10,7 +10,7 @@
  * on the linked User record if one doesn't exist yet.
  */
 import { prisma } from "@nirman/db";
-import { nextSequenceNumber } from "./sequence";
+import { nextSequenceNumber, employeeCodePrefix } from "./sequence";
 
 export async function autoCompleteOnboarding(employeeId: string, companyId: string): Promise<void> {
   const employee = await prisma.employee.findFirst({
@@ -29,6 +29,7 @@ export async function autoCompleteOnboarding(employeeId: string, companyId: stri
       noticePeriodDays: true,
       contractStartDate: true,
       userId: true,
+      departmentId: true,
       documentsSubmitted: true,
       backgroundVerified: true,
       offerLetterStatus: true,
@@ -90,11 +91,13 @@ export async function autoCompleteOnboarding(employeeId: string, companyId: stri
     });
 
     // ── Auto-generate employee code if not set ──
-    // Format: EMP-0001 (company-wide, gap-free sequence)
+    // Format: COMPANY-DEPT-NNNN, e.g. "SRG-FIN-0001" — each
+    // company+department pair keeps its own gap-free series.
     if (employee.userId && employee.user && !employee.user.employeeCode) {
       try {
         const employeeCode = await prisma.$transaction(async (tx) => {
-          return nextSequenceNumber(tx, `EMP-${companyId}-`, 4);
+          const prefix = await employeeCodePrefix(tx, companyId, employee.departmentId);
+          return nextSequenceNumber(tx, prefix, 4);
         });
         await prisma.user.update({
           where: { id: employee.userId },

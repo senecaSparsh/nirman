@@ -423,6 +423,17 @@ input[type="number"] {
     color-scheme: dark;
   }
 
+  /* Pre-paint surface guard — BOOT_SCRIPT adds .surface-pending to <html>
+     when the viewport width and the route surface disagree; hiding <body>
+     keeps the wrong surface from flashing (the html background still
+     paints, so the user sees a solid canvas, not wrong chrome). */
+  html.surface-pending {
+    background-color: var(--color-background);
+  }
+  html.surface-pending body {
+    visibility: hidden;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);

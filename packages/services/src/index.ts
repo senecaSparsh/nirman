@@ -25,7 +25,7 @@ export {
 export { withSerializableTransaction } from "./transaction";
 
 // Atomic sequence number generator — replaces race-prone count+1 pattern
-export { nextSequenceNumber } from "./sequence";
+export { nextSequenceNumber, employeeCodePrefix } from "./sequence";
 
 // UOM Conversion — pure functions for base/secondary unit conversion
 export {

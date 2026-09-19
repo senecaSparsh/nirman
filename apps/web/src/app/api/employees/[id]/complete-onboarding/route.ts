@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { logAction, nextSequenceNumber } from "@nirman/services";
+import { logAction, nextSequenceNumber, employeeCodePrefix } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, assertCanManageEmployee, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -12,8 +12,8 @@ import { PERM } from "@/lib/roles";
  * Also sets documentsSubmitted=true and backgroundVerified=true if
  * they are null (the manager is confirming these are done).
  *
- * Auto-generates an employee code (EMP-0001) on the linked User if
- * one doesn't exist yet.
+ * Auto-generates an employee code (COMPANY-DEPT-NNNN, e.g. "SRG-FIN-0001")
+ * on the linked User if one doesn't exist yet.
  */
 export const POST = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const session = await requirePermission(PERM.HR_MANAGE);
@@ -28,7 +28,7 @@ export const POST = apiHandler(async (_req: NextRequest, { params }: { params: P
 
   const employee = await prisma.employee.findFirst({
     where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("Employee") },
-    select: { id: true, name: true, documentsSubmitted: true, backgroundVerified: true, userId: true, user: { select: { id: true, employeeCode: true } } },
+    select: { id: true, name: true, documentsSubmitted: true, backgroundVerified: true, userId: true, departmentId: true, user: { select: { id: true, employeeCode: true } } },
   });
 
   if (!employee) {
@@ -50,7 +50,8 @@ export const POST = apiHandler(async (_req: NextRequest, { params }: { params: P
   if (employee.userId && employee.user && !employee.user.employeeCode) {
     try {
       const employeeCode = await prisma.$transaction(async (tx) => {
-        return nextSequenceNumber(tx, `EMP-${company.id}-`, 4);
+        const prefix = await employeeCodePrefix(tx, company.id, employee.departmentId);
+        return nextSequenceNumber(tx, prefix, 4);
       });
       await prisma.user.update({
         where: { id: employee.userId },

@@ -67,6 +67,33 @@ export async function companyScopedPrefix(
     : `${code}-${prefix}`;
 }
 
+/**
+ * Employee-code prefix: "SRG-FIN-" → codes like "SRG-FIN-0001".
+ * Company code falls back to the first 3 letters of the company name;
+ * department code falls back to "GEN" when the employee has no department.
+ * Each company+department pair gets its own contiguous series, so the
+ * numbers read meaningfully (SRG-CONST-0007, SRG-FIN-0002).
+ */
+export async function employeeCodePrefix(
+  tx: Prisma.TransactionClient | PrismaClient,
+  companyId: string,
+  departmentId: string | null | undefined,
+): Promise<string> {
+  const company = await tx.company.findUnique({
+    where: { id: companyId },
+    select: { code: true, name: true },
+  });
+  const dept = departmentId
+    ? await tx.department.findUnique({ where: { id: departmentId }, select: { code: true } })
+    : null;
+  const co =
+    company?.code?.trim() ||
+    (company?.name ?? "").replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase() ||
+    "EMP";
+  const dp = (dept?.code?.trim() || "GEN").replace(/[^A-Za-z0-9]/g, "").toUpperCase() || "GEN";
+  return `${co}-${dp}-`;
+}
+
 export async function nextSequenceNumber(
   tx: Prisma.TransactionClient | PrismaClient,
   prefix: string,
