@@ -1,27 +1,27 @@
 /**
  * create-srg-users.mjs — Production script to create SRG REALCON company
- * and 7 team member accounts with proper RBAC roles, H1–H4 hierarchy,
- * phone-based login, call-system phone numbers, and unique passwords.
+ * and the 2 top-level admin accounts (OWNER + ADMIN) with phone-based
+ * login, call-system phone numbers, and unique passwords.
  *
  * ──────────────────────────────────────────────────────────────────────
  *  WHAT THIS SCRIPT CREATES (all idempotent — safe to re-run):
  *
  *  1. Company: "SRG REALCON" (parent, parentCompanyId = null)
- *  2. 7 Users with RBAC roles + phone-based login (phoneNormalized)
- *  3. 7 UserCompany memberships with reportsTo hierarchy wiring
- *  4. 7 Credential Accounts (scrypt-hashed passwords, same as Better-Auth)
- *  5. 7 Employee records with hierarchyLevel (H1–H4)
- *  6. 7 CompanyPhone records (for the call/telephony system)
- *  7. 7 PhoneAssignment records (assignment history)
+ *  2. 2 Users with RBAC roles + phone-based login (phoneNormalized)
+ *  3. 2 UserCompany memberships (both top-level, no reportsTo)
+ *  4. 2 Credential Accounts (scrypt-hashed passwords, same as Better-Auth)
+ *  5. 2 Employee records with hierarchyLevel (H1)
+ *  6. 2 CompanyPhone records (for the call/telephony system)
+ *  7. 2 PhoneAssignment records (assignment history)
  *
  *  HIERARCHY:
  *    H1  Vardaan Kumar   OWNER              7017988293  reportsTo: null
  *    H1  Sanjeev Kumar   ADMIN              9412230391  reportsTo: null
- *    H2  Anurag Garg     PROJECT_DIRECTOR   7302920202  reportsTo: Vardaan
- *    H3  Manish Kumar    FINANCE_HEAD       7302920201  reportsTo: Vardaan
- *    H3  Raviraj Singh   PROCUREMENT_MGR    9520002752  reportsTo: Vardaan
- *    H4  Mani Singh      SALES_MANAGER      7302920203  reportsTo: Manish
- *    H4  Yash Saxena     SITE_ENGINEER      7302920205  reportsTo: Anurag
+ *
+ *  NOTE: Only the two H1 admins are provisioned here. All other staff are
+ *  onboarded through the app UI (HR → Employees → create account), which
+ *  keeps the full employee record (designation, salary, documents) in one
+ *  flow instead of a half-seeded account.
  *
  *  PASSWORDS: Unique random 16-char passwords generated per user.
  *             mustChangePassword = false (users keep their assigned password).
@@ -34,7 +34,7 @@
  *  every container start. It is fully idempotent:
  *    - First run (SRG REALCON doesn't exist): creates everything, prints
  *      the credential table to stdout (visible in Coolify deploy logs).
- *    - Subsequent runs (SRG REALCON exists with all 7 users): exits
+ *    - Subsequent runs (SRG REALCON exists with all provisioned users): exits
  *      silently with a one-line "already provisioned" message.
  *
  *  MANUAL RUN (on the Coolify VPS, inside the running web container):
@@ -173,66 +173,6 @@ const USERS = [
     reportsTo: null,
     department: "Management",
   },
-  {
-    key: "anurag",
-    name: "Anurag Garg",
-    designation: "Civil Head",
-    role: "PROJECT_DIRECTOR",
-    hierarchyLevel: 2,
-    phone: "7302920202",
-    reportsTo: "vardaan",
-    department: "Construction",
-  },
-  {
-    key: "manish",
-    name: "Manish Kumar",
-    designation: "Accounts Head",
-    role: "FINANCE_HEAD",
-    hierarchyLevel: 3,
-    phone: "7302920201",
-    reportsTo: "vardaan",
-    department: "Finance",
-  },
-  {
-    key: "raviraj",
-    name: "Raviraj Singh",
-    designation: "Purchase Head",
-    role: "PROCUREMENT_MANAGER",
-    hierarchyLevel: 3,
-    phone: "9520002752",
-    reportsTo: "vardaan",
-    department: "Procurement",
-  },
-  {
-    key: "mani",
-    name: "Mani Singh",
-    designation: "Tele Calling Executive",
-    role: "SALES_MANAGER",
-    hierarchyLevel: 4,
-    phone: "7302920203",
-    reportsTo: "manish",
-    department: "Sales",
-  },
-  {
-    key: "yash",
-    name: "Yash Saxena",
-    designation: "Junior Engineer",
-    role: "SITE_ENGINEER",
-    hierarchyLevel: 4,
-    phone: "7302920205",
-    reportsTo: "anurag",
-    department: "Construction",
-  },
-  {
-    key: "ramesh",
-    name: "Ramesh Guard",
-    designation: "Security Guard",
-    role: "SECURITY_GUARD",
-    hierarchyLevel: 4,
-    phone: "7302920206",
-    reportsTo: "yash",
-    department: "Security",
-  },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -279,7 +219,7 @@ async function main() {
     }
   }
 
-  // ── 0b. Early-exit check: if SRG REALCON already exists with all 7 users,
+  // ── 0b. Early-exit check: if SRG REALCON already exists with all provisioned users,
   //    skip entirely. This makes the script safe to run on every deploy —
   //    it provisions once, then silently no-ops forever. ──
   const existingCompany = await prisma.company.findFirst({
@@ -288,7 +228,7 @@ async function main() {
   });
   if (existingCompany) {
     // Count users with memberships in this company whose phone matches one
-    // of our 7 phone numbers. If all 7 exist, we're done.
+    // of our phone numbers. If all 7 exist, we're done.
     const ourPhones = USERS.map((u) => normalizePhone10(u.phone));
     const existingUsers = await prisma.user.count({
       where: {
@@ -639,9 +579,7 @@ async function main() {
   console.log("");
   console.log("  HIERARCHY:");
   console.log("    • H1 owners (Vardaan, Sanjeev) are at the top");
-  console.log("    • H2/H3 report to Vardaan (Owner)");
-  console.log("    • H4: Mani Singh reports to Manish Kumar (Accounts Head)");
-  console.log("    • H4: Yash Saxena reports to Anurag Garg (Civil Head)");
+  console.log("    • All other staff are onboarded via the app (HR → Employees)");
   console.log("");
 
   // ── Persist credentials to the persistent volume ──

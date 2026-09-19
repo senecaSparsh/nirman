@@ -1,6 +1,6 @@
 /**
  * local-reset-srg.mjs — LOCAL DEV ONLY. Wipes ALL data from the database
- * and creates the 8 SRG REALCON team member accounts with a shared dev
+ * and creates the 2 SRG REALCON admin accounts with a shared dev
  * password ("nirman123") so the one-click quick-login buttons work
  * seamlessly.
  *
@@ -11,22 +11,16 @@
  *     gone: companies, users, projects, stock, sales, etc. This is a
  *     full reset. Use only on a local dev database.
  *  2. Creates the "SRG REALCON" company.
- *  3. Creates 8 users with RBAC roles + phone-based login (phoneNormalized).
- *  4. Creates 8 UserCompany memberships with reportsTo hierarchy wiring.
- *  5. Creates 8 credential Accounts (scrypt-hashed, shared password
+ *  3. Creates 2 users with RBAC roles + phone-based login (phoneNormalized).
+ *  4. Creates 2 UserCompany memberships with reportsTo hierarchy wiring.
+ *  5. Creates 2 credential Accounts (scrypt-hashed, shared password
  *     "nirman123" — same as the demo-login endpoint).
- *  6. Creates 8 Employee records with hierarchyLevel (H1–H4).
- *  7. Creates 8 CompanyPhone records + 8 PhoneAssignment records.
+ *  6. Creates 2 Employee records with hierarchyLevel (H1).
+ *  7. Creates 2 CompanyPhone records + 2 PhoneAssignment records.
  *
  *  HIERARCHY:
  *    H1  Vardaan Kumar   OWNER              7017988293  reportsTo: null
  *    H1  Sanjeev Kumar   ADMIN              9412230391  reportsTo: null
- *    H2  Anurag Garg     PROJECT_DIRECTOR   7302920202  reportsTo: Vardaan
- *    H3  Manish Kumar    FINANCE_HEAD       7302920201  reportsTo: Vardaan
- *    H3  Raviraj Singh   PROCUREMENT_MGR    9520002752  reportsTo: Vardaan
- *    H4  Mani Singh      SALES_MANAGER      7302920203  reportsTo: Manish
- *    H4  Yash Saxena     SITE_ENGINEER      7302920205  reportsTo: Anurag
- *    H4  Ramesh Guard    SECURITY_GUARD     7302920206  reportsTo: Yash
  *
  *  PASSWORD: "nirman123" for ALL accounts (shared dev password — matches
  *  the demo-login endpoint so quick-login buttons just work).
@@ -80,66 +74,6 @@ const USERS = [
     phone: "9412230391",
     reportsTo: null,
     department: "Management",
-  },
-  {
-    key: "anurag",
-    name: "Anurag Garg",
-    designation: "Civil Head",
-    role: "PROJECT_DIRECTOR",
-    hierarchyLevel: 2,
-    phone: "7302920202",
-    reportsTo: "vardaan",
-    department: "Construction",
-  },
-  {
-    key: "manish",
-    name: "Manish Kumar",
-    designation: "Accounts Head",
-    role: "FINANCE_HEAD",
-    hierarchyLevel: 3,
-    phone: "7302920201",
-    reportsTo: "vardaan",
-    department: "Finance",
-  },
-  {
-    key: "raviraj",
-    name: "Raviraj Singh",
-    designation: "Purchase Head",
-    role: "PROCUREMENT_MANAGER",
-    hierarchyLevel: 3,
-    phone: "9520002752",
-    reportsTo: "vardaan",
-    department: "Procurement",
-  },
-  {
-    key: "mani",
-    name: "Mani Singh",
-    designation: "Tele Calling Executive",
-    role: "SALES_MANAGER",
-    hierarchyLevel: 4,
-    phone: "7302920203",
-    reportsTo: "manish",
-    department: "Sales",
-  },
-  {
-    key: "yash",
-    name: "Yash Saxena",
-    designation: "Junior Engineer",
-    role: "SITE_ENGINEER",
-    hierarchyLevel: 4,
-    phone: "7302920205",
-    reportsTo: "anurag",
-    department: "Construction",
-  },
-  {
-    key: "ramesh",
-    name: "Ramesh Guard",
-    designation: "Security Guard",
-    role: "SECURITY_GUARD",
-    hierarchyLevel: 4,
-    phone: "7302920206",
-    reportsTo: "yash",
-    department: "Security",
   },
 ];
 
