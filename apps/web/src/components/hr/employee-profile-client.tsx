@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
+import { SelectWithCreate } from "@/components/ui/select-with-create";
+import { DepartmentFormDialog } from "@/components/materials/department-form-dialog";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { MoneyCell, DateCell } from "@/components/ui/cells";
@@ -27,6 +29,7 @@ import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { CreateAccountDialog } from "@/components/hr/create-account-dialog";
 import { PermissionsEditorDialog } from "@/components/settings/permissions-editor-dialog";
+import { ResetPasswordDialog } from "@/components/settings/reset-password-dialog";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { useTabParam } from "@/lib/use-tab-param";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
@@ -113,6 +116,10 @@ export type EmployeeProfileData = {
     joiningDate: string | null; employmentEndDate: string | null;
     active: boolean; image: string | null; lastLoginAt: string | null;
     phoneVerified: boolean | null; phoneVerifiedAt: string | null; phoneSyncedAt: string | null;
+    /** Multi-role: additional hats (held set = { role } ∪ secondaryRoles). */
+    secondaryRoles?: string[];
+    /** Multi-role: hat currently worn (null = wearing the primary role). */
+    activeRole?: string | null;
   } | null;
   supervisedCrews: { id: string; name: string; active: boolean; projectName: string | null; memberCount: number }[];
   attendance: {
@@ -288,6 +295,7 @@ export function EmployeeProfileClient({
   const [showDelete, setShowDelete] = useState(false);
   const [showCreateAccount, setShowCreateAccount] = useState(false);
   const [showPermsEditor, setShowPermsEditor] = useState(false);
+  const [showResetPwd, setShowResetPwd] = useState(false);
   const [showTerminate, setShowTerminate] = useState(false);
   const [showSetupDeposit, setShowSetupDeposit] = useState(false);
   const [showPhoneDialog, setShowPhoneDialog] = useState(false);
@@ -328,6 +336,7 @@ export function EmployeeProfileClient({
             canManageAccess={permissions.canManageAccess}
             onOpenPhoneDialog={() => setShowPhoneDialog(true)}
             onManageAccess={() => setShowPermsEditor(true)}
+            onResetPassword={() => setShowResetPwd(true)}
             assignableRoles={assignableRoles}
             roleLabelMap={roleLabelMap}
             onRoleChanged={() => router.refresh()}
@@ -469,6 +478,19 @@ export function EmployeeProfileClient({
           canEdit={permissions.canManageAccess}
           onClose={() => setShowPermsEditor(false)}
           onSaved={() => { setShowPermsEditor(false); router.refresh(); }}
+        />
+      )}
+
+      {/* Set password dialog — admin sets/resets this employee's login password.
+          defaultMustChange=false: the assigned password sticks (the owner/HR sets
+          THE password); the checkbox can still force a change on next login. */}
+      {showResetPwd && employee.user && (
+        <ResetPasswordDialog
+          userId={employee.user.id}
+          userName={employee.name}
+          defaultMustChange={false}
+          onClose={() => setShowResetPwd(false)}
+          onSaved={() => { setShowResetPwd(false); router.refresh(); }}
         />
       )}
 
@@ -808,6 +830,7 @@ function ProfileSidebar({
   canManageAccess,
   onOpenPhoneDialog,
   onManageAccess,
+  onResetPassword,
   onCreateAccount,
   onTerminate,
   onGenerateAgreement,
@@ -824,6 +847,7 @@ function ProfileSidebar({
   canManageAccess: boolean;
   onOpenPhoneDialog: () => void;
   onManageAccess: () => void;
+  onResetPassword: () => void;
   onCreateAccount: () => void;
   onTerminate: () => void;
   onGenerateAgreement: () => void;
@@ -982,6 +1006,15 @@ function ProfileSidebar({
               icon={UserCircle}
               label="Role"
               value={roleLabelMap.get(u.role) ?? u.role.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+              hint={
+                (u.secondaryRoles?.length ?? 0) > 0
+                  ? `+${u.secondaryRoles!.length} more role${u.secondaryRoles!.length > 1 ? "s" : ""}${
+                      u.activeRole && u.activeRole !== u.role
+                        ? ` · acting as ${roleLabelMap.get(u.activeRole) ?? u.activeRole}`
+                        : ""
+                    }`
+                  : undefined
+              }
             />
             <SidebarRow icon={UserCircle} label="Status" value={u.active ? "Active login" : "Disabled"} />
             {u.lastLoginAt && (
@@ -994,6 +1027,8 @@ function ProfileSidebar({
                     userId={u.id}
                     employeeName={employee.name}
                     currentRole={u.role}
+                    secondaryRoles={u.secondaryRoles ?? []}
+                    activeRole={u.activeRole ?? null}
                     assignableRoles={assignableRoles}
                     roleLabelMap={roleLabelMap}
                     onChanged={onRoleChanged}
@@ -1003,6 +1038,11 @@ function ProfileSidebar({
                   {canManageAccess && (
                     <Button variant="outline" size="sm" className="flex-1" onClick={onManageAccess}>
                       <Shield className="h-3.5 w-3.5" /> Manage Access
+                    </Button>
+                  )}
+                  {canManageAccess && (
+                    <Button variant="outline" size="sm" className="flex-1" onClick={onResetPassword}>
+                      <KeyRound className="h-3.5 w-3.5" /> Set Password
                     </Button>
                   )}
                   <Button variant="outline" size="sm" className="flex-1 text-destructive" onClick={onTerminate}>
@@ -1132,13 +1172,6 @@ function ProfileSidebar({
           </>
         ) : (
           <div className="py-2 space-y-2">
-            {employee.contractStatus !== "CONFIRMED" && (
-              <p className="text-center text-meta text-amber-600 dark:text-amber-500">
-                {employee.contractStatus
-                  ? "Agreement not confirmed yet — bank details can be collected now."
-                  : "Agreement not issued yet — bank details can be collected now."}
-              </p>
-            )}
             {canManagePayroll && employee.active && (
               <Button variant="outline" size="sm" className="w-full" onClick={onSetupDeposit}>
                 <Wallet className="h-3.5 w-3.5" /> Setup Auto-Deposit
@@ -1167,6 +1200,8 @@ function RolePicker({
   userId,
   employeeName,
   currentRole,
+  secondaryRoles,
+  activeRole,
   assignableRoles,
   roleLabelMap,
   onChanged,
@@ -1174,6 +1209,10 @@ function RolePicker({
   userId: string;
   employeeName: string;
   currentRole: string;
+  /** Multi-role: additional hats already assigned (excluding primary). */
+  secondaryRoles: string[];
+  /** Multi-role: the hat the employee is currently wearing. */
+  activeRole: string | null;
   assignableRoles: { key: string; label: string }[];
   roleLabelMap: Map<string, string>;
   onChanged?: () => void;
@@ -1181,23 +1220,17 @@ function RolePicker({
   const [changing, setChanging] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
 
-  async function changeRole(newRole: string) {
-    if (newRole === currentRole) {
-      setShowPicker(false);
-      return;
-    }
+  async function patch(body: Record<string, unknown>, successMsg: string) {
     setChanging(true);
     try {
       const res = await fetch(`/api/users/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: newRole }),
+        body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Failed to update role");
-      const label = roleLabelMap.get(newRole) ?? newRole;
-      toast.success(`${employeeName} is now ${label}`);
-      setShowPicker(false);
+      toast.success(successMsg);
       onChanged?.();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "An error occurred");
@@ -1206,46 +1239,113 @@ function RolePicker({
     }
   }
 
+  function changeRole(newRole: string) {
+    if (newRole === currentRole) {
+      setShowPicker(false);
+      return;
+    }
+    const label = roleLabelMap.get(newRole) ?? newRole;
+    void patch({ role: newRole }, `${employeeName} is now ${label}`).then(() => setShowPicker(false));
+  }
+
+  // Multi-role: toggle an additional hat on/off. The held set is
+  // { primary } ∪ secondaryRoles — toggling sends the whole list so the
+  // server can validate every entry against the actor's authority.
+  function toggleSecondary(roleKey: string) {
+    const next = secondaryRoles.includes(roleKey)
+      ? secondaryRoles.filter((r) => r !== roleKey)
+      : [...secondaryRoles, roleKey];
+    const label = roleLabelMap.get(roleKey) ?? roleKey;
+    void patch(
+      { secondaryRoles: next },
+      secondaryRoles.includes(roleKey)
+        ? `Removed ${label} from ${employeeName}`
+        : `${employeeName} can now act as ${label}`,
+    );
+  }
+
   if (!showPicker) {
     return (
       <Button variant="outline" size="sm" className="w-full" onClick={() => setShowPicker(true)}>
-        <Shield className="h-3.5 w-3.5" /> Change Role
+        <Shield className="h-3.5 w-3.5" /> Change Roles
       </Button>
     );
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-caption font-semibold text-muted-foreground">Select Role</span>
+        <span className="text-caption font-semibold text-muted-foreground">Roles</span>
         <button
           onClick={() => setShowPicker(false)}
           className="text-caption text-muted-foreground hover:text-foreground"
         >
-          Cancel
+          Done
         </button>
       </div>
-      <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
-        {assignableRoles.map((r) => {
-          const isCurrent = r.key === currentRole;
-          return (
-            <button
-              key={r.key}
-              onClick={() => changeRole(r.key)}
-              disabled={changing || isCurrent}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-md px-2 py-1 text-caption font-semibold transition-colors disabled:opacity-50",
-                isCurrent
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted/50 text-foreground hover:bg-muted"
-              )}
-            >
-              {isCurrent && <Check className="h-3 w-3" />}
-              {r.label}
-            </button>
-          );
-        })}
+
+      {/* Primary role — the identity hat (org tree, badge, default scope) */}
+      <div className="space-y-1">
+        <span className="text-micro font-semibold uppercase tracking-wider text-muted-foreground">
+          Primary role
+        </span>
+        <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+          {assignableRoles.map((r) => {
+            const isCurrent = r.key === currentRole;
+            return (
+              <button
+                key={r.key}
+                onClick={() => changeRole(r.key)}
+                disabled={changing || isCurrent}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-md px-2 py-1 text-caption font-semibold transition-colors disabled:opacity-50",
+                  isCurrent
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted/50 text-foreground hover:bg-muted"
+                )}
+              >
+                {isCurrent && <Check className="h-3 w-3" />}
+                {r.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
+
+      {/* Additional hats — the employee can switch into any of these from
+          the header role switcher. While switched, ONLY that hat's
+          permissions apply — inactive hats grant nothing. */}
+      <div className="space-y-1">
+        <span className="text-micro font-semibold uppercase tracking-wider text-muted-foreground">
+          Additional roles <span className="normal-case font-normal">(they can switch between hats)</span>
+        </span>
+        <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+          {assignableRoles
+            .filter((r) => r.key !== currentRole)
+            .map((r) => {
+              const held = secondaryRoles.includes(r.key);
+              const worn = held && activeRole === r.key;
+              return (
+                <button
+                  key={r.key}
+                  onClick={() => toggleSecondary(r.key)}
+                  disabled={changing}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-md px-2 py-1 text-caption font-semibold transition-colors disabled:opacity-50",
+                    held
+                      ? "bg-success/15 text-success"
+                      : "bg-muted/50 text-foreground hover:bg-muted"
+                  )}
+                >
+                  {held && <Check className="h-3 w-3" />}
+                  {r.label}
+                  {worn && <span className="text-micro opacity-70">wearing</span>}
+                </button>
+              );
+            })}
+        </div>
+      </div>
+
       {changing && (
         <div className="flex items-center gap-1.5 text-caption text-muted-foreground">
           <Loader2 className="h-3 w-3 animate-spin" /> Updating…
@@ -2513,12 +2613,21 @@ function DossierTab({ employee, canManage, departments }: { employee: EmployeePr
       >
         {editingDept ? (
           <div className="space-y-3 py-1">
-            <Select value={deptId} onChange={(e) => setDeptId(e.target.value)}>
-              <option value="">— None —</option>
-              {departments.filter((d) => d.active).map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </Select>
+            <SelectWithCreate
+              value={deptId}
+              onChange={setDeptId}
+              placeholder="— None —"
+              createLabel="department"
+              options={departments.filter((d) => d.active).map((d) => ({ value: d.id, label: d.name }))}
+              renderCreateDialog={({ open, onCreated, onClose }) => (
+                <DepartmentFormDialog
+                  open={open}
+                  onOpenChange={onClose}
+                  department={null}
+                  onCreated={onCreated}
+                />
+              )}
+            />
             <div className="flex gap-2">
               <Button size="sm" onClick={saveDept} disabled={savingDept}>
                 {savingDept ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
@@ -3050,7 +3159,7 @@ function OnboardingChecklist({
     { label: "Agreement Confirmed", done: agreementConfirmed, hint: agreementIssued && !agreementConfirmed ? "Confirm the signed agreement" : !agreementIssued ? "Issue agreement first" : undefined },
     { label: "Appointment Letter", done: appointmentLetterIssued, hint: !appointmentLetterIssued ? "Generate the appointment letter" : undefined },
     { label: "ID Card", done: idCardIssued, hint: !idCardIssued ? "Generate the employee ID card" : undefined },
-    { label: "Auto-Deposit", done: hasAutoDeposit, hint: !hasAutoDeposit ? (agreementConfirmed ? "Set up bank details for salary credit" : "Confirm agreement first") : undefined },
+    { label: "Auto-Deposit", done: hasAutoDeposit, hint: !hasAutoDeposit ? "Set up bank details for salary credit" : undefined },
   ];
 
   const completedCount = steps.filter((s) => s.done).length;

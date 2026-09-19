@@ -62,9 +62,16 @@ export default async function EmploymentAgreementPage({
   const typeLabel = employmentTypeLabel[employee.employmentType ?? "PERMANENT"] ?? "Employment";
 
   // ── Compute monthly earnings from salary components ──
+  // UNIT_RATE components are variable (rate × actual usage, e.g. ₹3/km) —
+  // excluded from fixed monthly totals.
   const monthlyEarnings = employee.salaryComponents
-    .filter((c) => !c.isDeduction && c.frequency === "MONTHLY")
+    .filter((c) => !c.isDeduction && c.frequency === "MONTHLY" && c.calculationType !== "UNIT_RATE")
     .reduce((sum, c) => sum + toNum(c.amount), 0);
+
+  const unitSuffix: Record<string, string> = {
+    DAY: "/day worked", KM: "/km", TRIP: "/trip", HOUR: "/hour", MONTH: "/month"};
+  const unitText = (c: (typeof employee.salaryComponents)[number]) =>
+    c.unitType === "CUSTOM" ? `/${c.unitLabel ?? "unit"}` : (unitSuffix[c.unitType ?? ""] ?? "/unit");
 
   // Use Employee.wage fields if set, otherwise compute from salary components
   const computedMonthly = monthlyEarnings > 0 ? monthlyEarnings : null;
@@ -208,11 +215,15 @@ export default async function EmploymentAgreementPage({
                       <tr key={c.id} className="border-t border-gray-200">
                         <td className="px-2 py-1">{c.type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (ch) => ch.toUpperCase())}</td>
                         <td className="px-2 py-1 text-right tabular-nums">
-                          {c.isPercentage && c.percentageOfBasic
-                            ? `${toNum(c.percentageOfBasic)}% of Basic`
-                            : formatCurrency(toNum(c.amount))}
+                          {c.calculationType === "UNIT_RATE"
+                            ? `${formatCurrency(toNum(c.amount))}${unitText(c)}`
+                            : c.isPercentage && c.percentageOfBasic
+                              ? `${toNum(c.percentageOfBasic)}% of Basic`
+                              : formatCurrency(toNum(c.amount))}
                         </td>
-                        <td className="px-2 py-1 text-gray-600">{c.frequency.toLowerCase()}</td>
+                        <td className="px-2 py-1 text-gray-600">
+                          {c.calculationType === "UNIT_RATE" ? "as incurred" : c.frequency.toLowerCase()}
+                        </td>
                       </tr>
                     ))}
                     {employee.salaryComponents.some((c) => c.isDeduction) && (
@@ -223,8 +234,12 @@ export default async function EmploymentAgreementPage({
                         {employee.salaryComponents.filter((c) => c.isDeduction).map((c) => (
                           <tr key={c.id} className="border-t border-gray-200">
                             <td className="px-2 py-1 pl-4">— {c.type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (ch) => ch.toUpperCase())}</td>
-                            <td className="px-2 py-1 text-right tabular-nums text-red-600">-{formatCurrency(toNum(c.amount))}</td>
-                            <td className="px-2 py-1 text-gray-600">{c.frequency.toLowerCase()}</td>
+                            <td className="px-2 py-1 text-right tabular-nums text-red-600">
+                              -{formatCurrency(toNum(c.amount))}{c.calculationType === "UNIT_RATE" ? unitText(c) : ""}
+                            </td>
+                            <td className="px-2 py-1 text-gray-600">
+                              {c.calculationType === "UNIT_RATE" ? "as incurred" : c.frequency.toLowerCase()}
+                            </td>
                           </tr>
                         ))}
                       </>

@@ -10,6 +10,7 @@ import { MobileNewCustomerDialog } from "@/app/m/sales/MobileNewCustomerDialog";
 import { MobileNewSubcontractorDialog } from "@/app/m/work-orders/MobileNewSubcontractorDialog";
 import { MobileNewStockLocationDialog } from "@/app/m/stock-locations/MobileNewStockLocationDialog";
 import { MobileNewEmployeeDialog } from "@/app/m/hr/employees/MobileNewEmployeeDialog";
+import { MobileNewDepartmentForm } from "@/app/m/departments/MobileNewDepartmentDialog";
 
 /**
  * Shared entity selectors with built-in "Create new" buttons.
@@ -163,11 +164,31 @@ export function MobileStockLocationSelect({ label = "Stock Location", ...props }
   );
 }
 
+/* ── Department ── */
+export function MobileDepartmentSelect({ label = "Department", emptyHint = "No departments yet — tap Create new to add one.", ...props }: BaseProps) {
+  return (
+    <MobileSelectWithCreate
+      {...props}
+      label={label}
+      emptyHint={emptyHint}
+      renderDialog={({ open, onClose, onCreated, originRect }) => (
+        <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Department" nested>
+          <MobileNewDepartmentForm
+            onClose={onClose}
+            onCreated={(d) => onCreated(d.id, d.name)}
+          />
+        </MobileFabModal>
+      )}
+    />
+  );
+}
+
 /* ── Employee ── */
 export function MobileEmployeeSelect(
-  { label = "Employee", ...props }: BaseProps & {
+  { label = "Employee", departments = [], ...props }: BaseProps & {
     projects: { id: string; name: string }[];
     stockLocations: { id: string; name: string; type: string }[];
+    departments?: { id: string; name: string; active: boolean }[];
   },
 ) {
   return (
@@ -181,7 +202,7 @@ export function MobileEmployeeSelect(
           onCreated={(e) => onCreated(e.id, e.name)}
           projects={props.projects}
           stockLocations={props.stockLocations}
-          departments={[]}
+          departments={departments}
           nested
         />
       )}

@@ -40,6 +40,11 @@ const companyUpdateSchema = z.object({
   gstin: z.string().optional().nullable(),
   pan: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
+  // Verified HQ geo-fence — set from the address picker; used as the fallback
+  // check-in fence for employees without an assigned reporting location.
+  lat: z.coerce.number().min(-90).max(90).optional().nullable(),
+  lng: z.coerce.number().min(-180).max(180).optional().nullable(),
+  geoRadius: z.coerce.number().int().min(10).max(50000).optional().nullable(),
   phone: z.string().optional().nullable(),
   email: z.string().email("Invalid email").optional().nullable(),
   currency: z.string().optional(),

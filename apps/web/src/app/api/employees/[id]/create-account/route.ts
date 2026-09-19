@@ -8,7 +8,7 @@ import {
   type ModulePermission,
   type ScopeEntry,
 } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, assertCanManageEmployee } from "@/lib/server";
+import { apiHandler, canManageRole, getActingRole, getCompany, json, requirePermission, assertCanManageEmployee } from "@/lib/server";
 import { PERM, ALL_ROLES, canAssignRole, type Role } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 
@@ -72,6 +72,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     phone,
     email,
     role,
+    secondaryRoles,
     permissions,
     scopeType,
     scopes,
@@ -92,6 +93,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     phone?: string;
     email?: string;
     role?: string;
+    secondaryRoles?: string[];
     permissions?: string[];
     scopeType?: "COMPANY" | "DEPARTMENT" | "PROJECT";
     scopes?: ScopeEntry[];
@@ -124,11 +126,29 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   if (!role || !ALL_ROLES.includes(role as Role)) {
     return json({ error: `Role must be one of: ${ALL_ROLES.join(", ")}` }, { status: 400 });
   }
-  if (!canAssignRole(session.role, role)) {
+  const actorRole = await getActingRole();
+  if (!canAssignRole(actorRole, role)) {
     return json(
       { error: `You cannot assign the ${role} role — it is at or above your tier.` },
       { status: 403 },
     );
+  }
+  // Multi-role: additional hats — built-in or CUSTOM_* keys, each validated
+  // through canManageRole (custom tiers resolve via their DB row).
+  const extraRoles = [...new Set((secondaryRoles ?? []).filter((r): r is string => typeof r === "string"))]
+    .filter((r) => r !== role)
+    .slice(0, 8);
+  for (const sr of extraRoles) {
+    const validKey = (ALL_ROLES as string[]).includes(sr) || /^CUSTOM_[A-Z0-9_]{2,50}$/.test(sr);
+    if (!validKey) {
+      return json({ error: `Role must be one of: ${ALL_ROLES.join(", ")}` }, { status: 400 });
+    }
+    if (!(await canManageRole(actorRole, sr, company.id))) {
+      return json(
+        { error: `You cannot assign the ${sr} role — it is at or above your tier.` },
+        { status: 403 },
+      );
+    }
   }
   if (!companyPhoneId && !newPhoneNumber) {
     return json(
@@ -162,6 +182,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       phone: phone.trim(),
       email: email?.trim() || null,
       role: role as Role,
+      secondaryRoles: extraRoles,
       permissions: modulePerms,
       scopeType: scopeType ?? null,
       scopes,

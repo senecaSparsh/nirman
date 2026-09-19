@@ -10,6 +10,10 @@ interface MeResponse {
   actingRole?: string | null;
   actingFor?: { name: string; endsAt: string }[];
   permissions?: unknown;
+  /** Multi-role: all hats held + the hat currently worn + labels. */
+  roles?: string[];
+  activeRole?: string | null;
+  roleLabels?: Record<string, string>;
 }
 
 /**
@@ -41,7 +45,18 @@ export function usePermissions() {
   // Default to the LEAST-privileged role while loading so privileged
   // buttons don't flash before /api/me resolves. The server is the
   // source of truth — this only affects UI affordance, not access.
-  const role: Role = data?.role ? normalizeRole(data.role) : "SUPERVISOR";
+  //
+  // Multi-role: gate on the WORN hat (activeRole), not the primary role —
+  // an OWNER wearing a SUPERVISOR hat must not wildcard through
+  // hasPermission. `permissions` is already the worn hat's effective set,
+  // so custom-role hats resolve correctly through the overrides path even
+  // though normalizeRole() collapses CUSTOM_* to its least-privileged
+  // fallback here.
+  const role: Role = data?.activeRole
+    ? normalizeRole(data.activeRole)
+    : data?.role
+      ? normalizeRole(data.role)
+      : "SUPERVISOR";
   // The role the user is currently acting as — equals `role` unless a live
   // delegation grants higher authority. Affordance gates consult this so a
   // delegate sees the surface they can actually act on.
@@ -51,11 +66,19 @@ export function usePermissions() {
   const permissions: string[] = Array.isArray(data?.permissions)
     ? (data.permissions as string[])
     : [];
+  // Multi-role: held hats + the worn hat (raw keys — CUSTOM_* included)
+  // + labels, for the role switcher and hat badges.
+  const roles: string[] = Array.isArray(data?.roles) ? data.roles : [];
+  const activeRole: string | null = data?.activeRole ?? null;
+  const roleLabels: Record<string, string> = data?.roleLabels ?? {};
   const loading = isLoading;
 
   return {
     role,
     actingRole,
+    roles,
+    activeRole,
+    roleLabels,
     actingFor,
     userId,
     permissions,

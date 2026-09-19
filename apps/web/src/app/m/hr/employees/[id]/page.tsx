@@ -322,6 +322,18 @@ async function MobileEmployeeDetailContent({
     }
   }
 
+  // Multi-role: held hats on this user's membership (for the access UI —
+  // only sent when the viewer can see access info, applied at serialize).
+  const membershipHats = employee.userId
+    ? await prisma.userCompany
+        .findUnique({
+          where: { userId_companyId: { userId: employee.userId, companyId: company.id } },
+          select: { secondaryRoles: true, activeRole: true },
+        })
+        .then((m) => ({ secondaryRoles: m?.secondaryRoles ?? [], activeRole: m?.activeRole ?? null }))
+        .catch(() => ({ secondaryRoles: [] as string[], activeRole: null as string | null }))
+    : { secondaryRoles: [] as string[], activeRole: null as string | null };
+
   const data = {
     id: employee.id,
     name: employee.name,
@@ -387,6 +399,9 @@ async function MobileEmployeeDetailContent({
       isDeduction: c.isDeduction,
       isPercentage: c.isPercentage,
       percentageOfBasic: c.percentageOfBasic ? toNum(c.percentageOfBasic) : null,
+      calculationType: c.calculationType,
+      unitType: c.unitType,
+      unitLabel: c.unitLabel,
       notes: c.notes,
       active: c.active,
     })),
@@ -416,6 +431,9 @@ async function MobileEmployeeDetailContent({
           phoneVerified: accessScope.canSeeAccessInfo ? employee.user.phoneVerified : null,
           phoneVerifiedAt: accessScope.canSeeAccessInfo && employee.user.phoneVerifiedAt ? employee.user.phoneVerifiedAt.toISOString() : null,
           phoneSyncedAt: accessScope.canSeeAccessInfo && employee.user.phoneSyncedAt ? employee.user.phoneSyncedAt.toISOString() : null,
+          // Multi-role: held set extras + worn hat (from the membership).
+          secondaryRoles: accessScope.canSeeAccessInfo ? membershipHats.secondaryRoles : [],
+          activeRole: accessScope.canSeeAccessInfo ? membershipHats.activeRole : null,
         }
       : null,
     supervisedCrews: employee.supervisedCrews.map((c) => ({
@@ -553,6 +571,7 @@ async function MobileEmployeeDetailContent({
       id: c.id, type: c.type, amount: toNum(c.amount), frequency: c.frequency,
       isDeduction: c.isDeduction, isPercentage: c.isPercentage,
       percentageOfBasic: c.percentageOfBasic ? toNum(c.percentageOfBasic) : null,
+      calculationType: c.calculationType, unitType: c.unitType, unitLabel: c.unitLabel,
       notes: c.notes, active: c.active,
     })),
     benefits: (employee.benefits ?? []).map((b) => ({
@@ -648,6 +667,7 @@ async function MobileEmployeeDetailContent({
         assignableRoles={assignableRoles}
         departments={departments}
         currentUserId={currentUser?.id}
+        hqLabel={company.lat != null && company.lng != null ? `${company.name} — Head Office` : null}
       />
     </>
     </PageContextProvider>

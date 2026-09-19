@@ -165,6 +165,9 @@ async function EmployeeProfileContent({
   let reportsTo: { membershipId: string; userId: string; name: string; role: string } | null = null;
   let directReports: { membershipId: string; userId: string; name: string; role: string }[] = [];
   let reportsToMembershipId: string | null = null;
+  // Multi-role: additional hats + the hat currently worn.
+  let secondaryRoles: string[] = [];
+  let activeRole: string | null = null;
   if (employee.userId) {
     const membership = await prisma.userCompany.findUnique({
       where: { userId_companyId: { userId: employee.userId, companyId: company.id } },
@@ -174,6 +177,8 @@ async function EmployeeProfileContent({
       },
     });
     if (membership) {
+      secondaryRoles = membership.secondaryRoles;
+      activeRole = membership.activeRole;
       reportsToMembershipId = membership.reportsToUserCompanyId;
       if (membership.reportsTo) {
         reportsTo = {
@@ -378,6 +383,10 @@ async function EmployeeProfileContent({
           name: employee.user.name,
           email: employee.user.email,
           role: employee.user.role,
+          // Multi-role: held set extras + the hat currently worn (from the
+          // company membership, not the global User row).
+          secondaryRoles,
+          activeRole,
           phone: employee.user.phone,
           employeeCode: employee.user.employeeCode,
           designation: employee.user.designation,
@@ -535,6 +544,19 @@ async function EmployeeProfileContent({
       key: currentRoleKey,
       label: builtIn?.label ?? custom?.label ?? currentRoleKey.replace(/^CUSTOM_/, "").replace(/_/g, " "),
     });
+  }
+  // Multi-role: same guarantee for every held secondary hat — the
+  // additional-roles chip group must render them even when the actor
+  // couldn't assign that role themselves.
+  for (const held of secondaryRoles) {
+    if (!assignableRoles.some((r) => r.key === held)) {
+      const builtIn = ROLES[held as Role];
+      const custom = customRoles.find((cr) => cr.key === held);
+      assignableRoles.push({
+        key: held,
+        label: builtIn?.label ?? custom?.label ?? held.replace(/^CUSTOM_/, "").replace(/_/g, " "),
+      });
+    }
   }
 
   // ── Build role label lookup (for display in the Login Account card) ──

@@ -41,7 +41,7 @@ export default async function AppointmentLetterPage({
             employeeCode: true, designation: true, department: true}},
         activeProject: { select: { name: true } },
         reportingLocation: { select: { name: true, address: true } },
-        salaryComponents: { where: { active: true }, select: { amount: true, frequency: true, isDeduction: true } }}}),
+        salaryComponents: { where: { active: true }, select: { amount: true, frequency: true, isDeduction: true, calculationType: true } }}}),
     prisma.company.findFirst({
       where: { id: company.id },
       select: { name: true, address: true, gstin: true, phone: true, email: true, pan: true }}),
@@ -62,8 +62,10 @@ export default async function AppointmentLetterPage({
   const typeLabel = employmentTypeLabel[employee.employmentType ?? "PERMANENT"] ?? "Employment";
 
   // ── Compute monthly earnings from salary components ──
+  // UNIT_RATE components are variable (rate × usage) — excluded from the
+  // fixed monthly figure used for wage text.
   const monthlyEarnings = employee.salaryComponents
-    .filter((c) => !c.isDeduction && c.frequency === "MONTHLY")
+    .filter((c) => !c.isDeduction && c.frequency === "MONTHLY" && c.calculationType !== "UNIT_RATE")
     .reduce((sum, c) => sum + toNum(c.amount), 0);
 
   // Use Employee.wage fields if set, otherwise compute from salary components

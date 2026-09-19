@@ -25,6 +25,7 @@ import {
   Trash2,
   IndianRupee,
   ChevronRight,
+  KeyRound,
 } from "lucide-react";
 import { formatCurrency, formatDate, displayEmail } from "@/lib/utils";
 import { fieldError } from "@/lib/field-error";
@@ -37,7 +38,9 @@ import {
   UnderlineInput,
   EnumSelect,
 } from "@/components/mobile/v2/form-primitives";
+import { MobileDepartmentSelect } from "@/components/mobile/selectors";
 import { MobileCreateAccountDialog } from "@/app/m/hr/employees/MobileCreateAccountDialog";
+import { ResetPasswordDialog } from "@/components/settings/reset-password-dialog";
 import { OnboardingProgress } from "@/components/mobile/v2/onboarding-progress";
 import { buildOnboardingSteps } from "@/lib/onboarding-steps";
 import { haptic } from "@/lib/haptic";
@@ -145,6 +148,7 @@ export type OnboardingEmployeeData = {
   salaryComponents: {
     id: string; type: string; amount: number; frequency: string;
     isDeduction: boolean; isPercentage: boolean; percentageOfBasic: number | null;
+    calculationType: string; unitType: string | null; unitLabel: string | null;
     notes: string | null; active: boolean;
   }[];
   // Attachments
@@ -174,19 +178,26 @@ export function MobileOnboardingTab({
   employee,
   canManage,
   canManagePayroll,
+  canManageAccess = false,
   actorRole,
   projects,
   stockLocations,
   departments,
+  hqLabel,
   onEdit, // opens the existing EmployeeEditSheet from the parent
 }: {
   employee: OnboardingEmployeeData;
   canManage: boolean;
   canManagePayroll: boolean;
+  // users.manage + hierarchy — gates the Set Password action (admin reset).
+  canManageAccess?: boolean;
   actorRole: string;
   projects: { id: string; name: string }[];
   stockLocations: { id: string; name: string }[];
   departments: { id: string; name: string; active: boolean }[];
+  /** Label for the empty reporting-site option — the company HQ geo-fence
+   *  applies to unassigned employees when the company profile has coords. */
+  hqLabel?: string | null;
   onEdit: () => void;
 }) {
   const [subTab, setSubTab] = useTabParam(ONBOARDING_TABS, "profile", { param: "onboard" });
@@ -229,6 +240,9 @@ export function MobileOnboardingTab({
     // the default "profile" and the user hasn't clicked any tab yet).
     // We use a ref guard so this only runs once on mount.
     if (isComplete) return; // everything done — stay on profile
+    // Respect an explicit ?onboard= deep link (e.g. the employee detail
+    // deposit card links straight to the deposit sub-tab).
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("onboard")) return;
     const firstIncomplete = steps.findIndex((s) => !s.done);
     if (firstIncomplete === -1) return;
     // Map step index → onboarding tab
@@ -280,6 +294,7 @@ export function MobileOnboardingTab({
           projects={projects}
           stockLocations={stockLocations}
           departments={departments}
+          hqLabel={hqLabel}
           onEdit={onEdit}
         />
       )}
@@ -288,6 +303,7 @@ export function MobileOnboardingTab({
         <AccountSubTab
           employee={employee}
           canManage={canManage}
+          canManageAccess={canManageAccess}
           actorRole={actorRole}
           projects={projects}
         />
@@ -368,6 +384,7 @@ function ProfileSubTab({
   projects,
   stockLocations,
   departments,
+  hqLabel,
   onEdit: _onEdit,
 }: {
   employee: OnboardingEmployeeData;
@@ -375,6 +392,7 @@ function ProfileSubTab({
   projects: { id: string; name: string }[];
   stockLocations: { id: string; name: string }[];
   departments: { id: string; name: string; active: boolean }[];
+  hqLabel?: string | null;
   onEdit: () => void;
 }) {
   const router = useRouter();
@@ -420,6 +438,7 @@ function ProfileSubTab({
               projects={projects}
               stockLocations={stockLocations}
               departments={departments}
+              hqLabel={hqLabel}
               onClose={() => setEditingHire(false)}
               onSaved={() => { setEditingHire(false); router.refresh(); }}
             />
@@ -486,6 +505,7 @@ function HireDetailsEditor({
   projects,
   stockLocations,
   departments,
+  hqLabel,
   onClose,
   onSaved,
 }: {
@@ -493,6 +513,9 @@ function HireDetailsEditor({
   projects: { id: string; name: string }[];
   stockLocations: { id: string; name: string }[];
   departments: { id: string; name: string; active: boolean }[];
+  /** Label for the empty reporting-site option — shown when the company HQ
+   *  geo-fence covers unassigned employees. */
+  hqLabel?: string | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -535,8 +558,11 @@ function HireDetailsEditor({
           activeProjectId: activeProjectId || null,
           reportingLocationId: reportingLocationId || null,
           wageType,
-          dailyRate: wageType === "DAILY" && wage ? Number(wage) : undefined,
-          monthlySalary: wageType !== "DAILY" && wage ? Number(wage) : undefined,
+          // `null` = explicit clear (same semantics as the Edit Employee
+          // sheet): emptying the active wage field clears it, and the
+          // inactive wage field is cleared so a stale rate doesn't linger.
+          dailyRate: wageType === "DAILY" && wage ? Number(wage) : null,
+          monthlySalary: wageType !== "DAILY" && wage ? Number(wage) : null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -577,7 +603,7 @@ function HireDetailsEditor({
         />
       </div>
       <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-        <EnumSelect
+        <MobileDepartmentSelect
           label="Department"
           value={departmentId}
           onChange={setDepartmentId}
@@ -597,7 +623,7 @@ function HireDetailsEditor({
           label="Reporting"
           value={reportingLocationId}
           onChange={setReportingLocationId}
-          placeholder="— None —"
+          placeholder={hqLabel ?? "— None —"}
           options={stockLocations.map((l) => ({ value: l.id, label: l.name }))}
         />
       </div>
@@ -814,11 +840,13 @@ function StatusPill({
 function AccountSubTab({
   employee,
   canManage,
+  canManageAccess = false,
   actorRole,
   projects,
 }: {
   employee: OnboardingEmployeeData;
   canManage: boolean;
+  canManageAccess?: boolean;
   actorRole: string;
   projects: { id: string; name: string }[];
 }) {
@@ -858,7 +886,7 @@ function AccountSubTab({
                 { label: "Email", value: displayEmail(u.email) ?? loginPhone ?? "—" },
                 { label: "Role", value: u.role.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) },
                 ...(u.employeeCode ? [{ label: "Code", value: u.employeeCode }] : []),
-                ...(u.department ? [{ label: "Dept", value: u.department }] : []),
+                ...(u.department ? [{ label: "Unit", value: u.department }] : []),
                 ...(loginPhone ? [{ label: "Login Phone", value: loginPhone }] : []),
                 ...(u.joiningDate ? [{ label: "Joined", value: formatDate(u.joiningDate) }] : []),
                 ...(u.lastLoginAt ? [{ label: "Last Login", value: formatDate(u.lastLoginAt) }] : []),
@@ -886,8 +914,8 @@ function AccountSubTab({
           </div>
 
           {/* ── Account management actions ── */}
-          {canManage && (
-            <AccountActions employee={employee} />
+          {(canManage || canManageAccess) && (
+            <AccountActions employee={employee} canManage={canManage} canManageAccess={canManageAccess} />
           )}
         </>
       ) : employee.active ? (
@@ -956,11 +984,20 @@ function AccountSubTab({
   );
 }
 
-/* ── Account actions — disable/enable account, unlink phone ── */
-function AccountActions({ employee }: { employee: OnboardingEmployeeData }) {
+/* ── Account actions — set password, disable/enable account, unlink phone ── */
+function AccountActions({
+  employee,
+  canManage = false,
+  canManageAccess = false,
+}: {
+  employee: OnboardingEmployeeData;
+  canManage?: boolean;
+  canManageAccess?: boolean;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [confirming, setConfirming] = useState<null | "disable" | "enable" | "unlink">(null);
+  const [showResetPwd, setShowResetPwd] = useState(false);
 
   const u = employee.user;
   if (!u) return null;
@@ -1008,8 +1045,20 @@ function AccountActions({ employee }: { employee: OnboardingEmployeeData }) {
         </p>
       </div>
       <div className="px-3 pb-3 space-y-1.5">
-        {/* Enable/Disable toggle */}
-        {u.active ? (
+        {/* Set password — admin reset (users.manage). Works during + after
+            onboarding: the owner/HR picks the password, shares it in person. */}
+        {canManageAccess && (
+          <button
+            onClick={() => { haptic(10); setShowResetPwd(true); }}
+            className="w-full rounded-[0.5rem] p-2 flex items-center gap-2 text-m-caption font-semibold press text-left"
+            style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-600)" }}
+          >
+            <KeyRound className="size-3.5 shrink-0" /> Set password
+          </button>
+        )}
+
+        {/* Enable/Disable toggle — PATCH /api/users/[id] needs users.manage */}
+        {canManageAccess && (u.active ? (
           <button
             onClick={() => { haptic(10); setConfirming("disable"); }}
             className="w-full rounded-[0.5rem] p-2 flex items-center gap-2 text-m-caption font-semibold press text-left"
@@ -1025,10 +1074,10 @@ function AccountActions({ employee }: { employee: OnboardingEmployeeData }) {
           >
             <Check className="size-3.5 shrink-0" /> Enable login account
           </button>
-        )}
+        ))}
 
-        {/* Unlink phone */}
-        {employee.phone && (
+        {/* Unlink phone — needs hr.manage */}
+        {canManage && employee.phone && (
           <button
             onClick={() => { haptic(10); setConfirming("unlink"); }}
             className="w-full rounded-[0.5rem] p-2 flex items-center gap-2 text-m-caption font-semibold press text-left"
@@ -1038,6 +1087,19 @@ function AccountActions({ employee }: { employee: OnboardingEmployeeData }) {
           </button>
         )}
       </div>
+
+      {/* Set-password dialog — POST /api/users/[id]/reset-password revokes
+          sessions. defaultMustChange=false: the assigned password sticks
+          (the owner/HR sets THE password); checkbox can still force a change. */}
+      {showResetPwd && (
+        <ResetPasswordDialog
+          userId={u.id}
+          userName={employee.name}
+          defaultMustChange={false}
+          onClose={() => setShowResetPwd(false)}
+          onSaved={() => { setShowResetPwd(false); router.refresh(); }}
+        />
+      )}
 
       {/* Confirmation dialog */}
       {confirming && (
@@ -1132,6 +1194,37 @@ const SALARY_COMPONENT_OPTIONS = [
   { value: "OTHER", label: "Other", isDeduction: false },
 ];
 
+/** Unit options for UNIT_RATE components — paid per actual usage. */
+const SALARY_UNIT_OPTIONS = [
+  { value: "DAY", label: "per day worked", hint: "auto-counts attendance days" },
+  { value: "KM", label: "per km", hint: "e.g. travel ₹3/km" },
+  { value: "TRIP", label: "per trip", hint: "e.g. ₹500/trip" },
+  { value: "HOUR", label: "per hour", hint: "" },
+  { value: "MONTH", label: "per month", hint: "" },
+  { value: "CUSTOM", label: "custom unit", hint: "name it below" },
+];
+
+/** Short unit label for display: "₹3/km", "₹150/day", "₹500/trip". */
+function unitSuffix(unitType: string | null, unitLabel: string | null): string {
+  switch (unitType) {
+    case "DAY": return "/day";
+    case "KM": return "/km";
+    case "TRIP": return "/trip";
+    case "HOUR": return "/hr";
+    case "MONTH": return "/mo";
+    case "CUSTOM": return unitLabel ? `/${unitLabel}` : "";
+    default: return "";
+  }
+}
+
+/** Effective calc type — isPercentage covers rows written before the
+ *  calculationType field existed. */
+function compCalc(c: { calculationType?: string; isPercentage?: boolean }): "FIXED" | "PERCENTAGE_OF_BASIC" | "UNIT_RATE" {
+  if (c.calculationType === "UNIT_RATE") return "UNIT_RATE";
+  if (c.calculationType === "PERCENTAGE_OF_BASIC" || c.isPercentage) return "PERCENTAGE_OF_BASIC";
+  return "FIXED";
+}
+
 function SalarySubTab({
   employee,
   canManage,
@@ -1151,23 +1244,28 @@ function SalarySubTab({
   const [newType, setNewType] = useState("");
   const [newAmount, setNewAmount] = useState("");
   const [newFrequency, setNewFrequency] = useState("MONTHLY");
-  const [newIsPercentage, setNewIsPercentage] = useState(false);
+  const [newCalc, setNewCalc] = useState<"FIXED" | "PERCENTAGE_OF_BASIC" | "UNIT_RATE">("FIXED");
   const [newPercentage, setNewPercentage] = useState("");
+  const [newUnit, setNewUnit] = useState("KM");
+  const [newUnitLabel, setNewUnitLabel] = useState("");
 
   // Keep editComponents in sync when employee data changes (e.g. after router.refresh)
   useEffect(() => {
     if (!editing) setEditComponents(employee.salaryComponents ?? []);
   }, [employee.salaryComponents, editing]);
 
+  // UNIT_RATE components are variable (rate × actual usage) — excluded from
+  // fixed totals; they settle per payroll cycle from real quantities.
+  const isVariable = (c: { calculationType?: string; isPercentage?: boolean }) => compCalc(c) === "UNIT_RATE";
   const monthlyGross = (editing ? editComponents : earnings)
-    .filter((c) => !c.isDeduction && c.frequency === "MONTHLY")
+    .filter((c) => !c.isDeduction && c.frequency === "MONTHLY" && !isVariable(c))
     .reduce((sum, c) => sum + c.amount, 0);
   const monthlyDeductions = (editing ? editComponents : deductions)
-    .filter((c) => c.isDeduction && c.frequency === "MONTHLY")
+    .filter((c) => c.isDeduction && c.frequency === "MONTHLY" && !isVariable(c))
     .reduce((sum, c) => sum + c.amount, 0);
   const monthlyNet = monthlyGross - monthlyDeductions;
   const annualCTC = (editing ? editComponents : components).reduce((sum, c) => {
-    if (c.isDeduction) return sum;
+    if (c.isDeduction || isVariable(c)) return sum;
     if (c.frequency === "MONTHLY") return sum + c.amount * 12;
     if (c.frequency === "QUARTERLY") return sum + c.amount * 4;
     if (c.frequency === "HALF_YEARLY") return sum + c.amount * 2;
@@ -1175,14 +1273,21 @@ function SalarySubTab({
     if (c.frequency === "ONE_TIME") return sum + c.amount;
     return sum;
   }, 0);
+  const variableComponents = (editing ? editComponents : components).filter(isVariable);
 
   function handleAdd() {
     if (!newType) { fieldError("Select a component type", "salary-new-type"); return; }
-    if (!newIsPercentage && (!newAmount || Number(newAmount) <= 0)) {
+    if (newCalc === "FIXED" && (!newAmount || Number(newAmount) <= 0)) {
       fieldError("Enter a valid amount", "salary-new-amount"); return;
     }
-    if (newIsPercentage && (!newPercentage || Number(newPercentage) <= 0)) {
+    if (newCalc === "PERCENTAGE_OF_BASIC" && (!newPercentage || Number(newPercentage) <= 0)) {
       fieldError("Enter a valid percentage", "salary-new-percentage"); return;
+    }
+    if (newCalc === "UNIT_RATE" && (!newAmount || Number(newAmount) <= 0)) {
+      fieldError("Enter a valid rate", "salary-new-amount"); return;
+    }
+    if (newCalc === "UNIT_RATE" && newUnit === "CUSTOM" && !newUnitLabel.trim()) {
+      fieldError("Name the unit (e.g. bag, shift)", "salary-new-unit-label"); return;
     }
     const option = SALARY_COMPONENT_OPTIONS.find((o) => o.value === newType);
     setEditComponents((prev) => [
@@ -1190,17 +1295,21 @@ function SalarySubTab({
       {
         id: `temp-${Date.now()}`,
         type: newType,
-        amount: newIsPercentage ? 0 : Number(newAmount),
+        amount: newCalc === "PERCENTAGE_OF_BASIC" ? 0 : Number(newAmount),
         frequency: newFrequency,
         isDeduction: option?.isDeduction ?? false,
-        isPercentage: newIsPercentage,
-        percentageOfBasic: newIsPercentage ? Number(newPercentage) : null,
+        isPercentage: newCalc === "PERCENTAGE_OF_BASIC",
+        percentageOfBasic: newCalc === "PERCENTAGE_OF_BASIC" ? Number(newPercentage) : null,
+        calculationType: newCalc,
+        unitType: newCalc === "UNIT_RATE" ? newUnit : null,
+        unitLabel: newCalc === "UNIT_RATE" && newUnit === "CUSTOM" ? newUnitLabel.trim() : null,
         notes: null,
         active: true,
       },
     ]);
     setNewType(""); setNewAmount(""); setNewFrequency("MONTHLY");
-    setNewIsPercentage(false); setNewPercentage("");
+    setNewCalc("FIXED"); setNewPercentage("");
+    setNewUnit("KM"); setNewUnitLabel("");
     haptic(10);
   }
 
@@ -1223,6 +1332,10 @@ function SalarySubTab({
             isDeduction: c.isDeduction,
             isPercentage: c.isPercentage,
             percentageOfBasic: c.percentageOfBasic,
+            calculationType: compCalc(c),
+            unitType: c.unitType ?? null,
+            unitLabel: c.unitLabel ?? null,
+            notes: c.notes ?? null,
           })),
         }),
       });
@@ -1264,7 +1377,26 @@ function SalarySubTab({
           </span>
           {canManage && !editing && (
             <button
-              onClick={() => { setEditing(true); setEditComponents(components); haptic(10); }}
+              onClick={() => {
+                haptic(10);
+                // Pre-seed Basic from the profile wage so salary isn't
+                // re-entered in a second place — the structure starts
+                // from the agreed wage; HR only adds splits/deductions.
+                const seededBasic =
+                  components.length === 0
+                    ? employee.wageType === "DAILY"
+                      ? Math.round((employee.dailyRate ?? 0) * 30 * 100) / 100
+                      : (employee.monthlySalary ?? 0)
+                    : 0;
+                setEditComponents(
+                  components.length > 0
+                    ? components
+                    : seededBasic > 0
+                      ? [{ id: `temp-${Date.now()}`, type: "BASIC", amount: seededBasic, frequency: "MONTHLY", isDeduction: false, isPercentage: false, percentageOfBasic: null, calculationType: "FIXED", unitType: null, unitLabel: null, notes: null, active: true }]
+                      : [],
+                );
+                setEditing(true);
+              }}
               className="text-m-caption font-semibold press"
               style={{ color: "var(--color-steel)" }}
             >
@@ -1286,33 +1418,46 @@ function SalarySubTab({
               <p className="text-m-caption font-bold mb-1" style={{ color: "var(--color-ink-700)" }}>
                 EARNINGS
               </p>
-              {displayEarnings.map((c) => (
-                <div key={c.id} className="flex justify-between items-center py-1 border-b" style={{ borderColor: "var(--color-line)" }}>
-                  <span className="text-m-body flex-1" style={{ color: "var(--color-ink-950)" }}>
-                    {SALARY_COMPONENT_LABELS[c.type] ?? c.type}
-                    {c.isPercentage && c.percentageOfBasic != null && (
-                      <span className="text-m-caption ml-1" style={{ color: "var(--color-ink-500)" }}>
-                        ({c.percentageOfBasic}% of basic)
-                      </span>
-                    )}
-                    <span className="text-m-caption ml-1" style={{ color: "var(--color-ink-500)" }}>
-                      /{c.frequency.toLowerCase()}
+              {displayEarnings.map((c) => {
+                const calc = compCalc(c);
+                const variable = calc === "UNIT_RATE";
+                return (
+                  <div key={c.id} className="flex justify-between items-center py-1 border-b" style={{ borderColor: "var(--color-line)" }}>
+                    <span className="text-m-body flex-1" style={{ color: "var(--color-ink-950)" }}>
+                      {SALARY_COMPONENT_LABELS[c.type] ?? c.type}
+                      {calc === "PERCENTAGE_OF_BASIC" && c.percentageOfBasic != null && (
+                        <span className="text-m-caption ml-1" style={{ color: "var(--color-ink-500)" }}>
+                          ({c.percentageOfBasic}% of basic)
+                        </span>
+                      )}
+                      {variable ? (
+                        <span
+                          className="text-m-caption ml-1 px-1 py-0.5 rounded-full font-semibold"
+                          style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-600)" }}
+                        >
+                          variable
+                        </span>
+                      ) : (
+                        <span className="text-m-caption ml-1" style={{ color: "var(--color-ink-500)" }}>
+                          /{c.frequency.toLowerCase()}
+                        </span>
+                      )}
                     </span>
-                  </span>
-                  <span className="text-m-body font-semibold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-                    {formatCurrency(c.amount)}
-                  </span>
-                  {editing && (
-                    <button
-                      onClick={() => handleRemove(displayComponents.indexOf(c))}
-                      className="ml-2 p-0.5"
-                      style={{ color: "var(--color-stop)" }}
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  )}
-                </div>
-              ))}
+                    <span className="text-m-body font-semibold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                      {formatCurrency(c.amount)}{variable ? unitSuffix(c.unitType, c.unitLabel) : ""}
+                    </span>
+                    {editing && (
+                      <button
+                        onClick={() => handleRemove(displayComponents.indexOf(c))}
+                        className="ml-2 p-0.5"
+                        style={{ color: "var(--color-stop)" }}
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
               <div className="flex justify-between py-1.5 font-bold">
                 <span className="text-m-body" style={{ color: "var(--color-ink-700)" }}>Gross Monthly</span>
                 <span className="text-m-body tabular-nums" style={{ color: "var(--color-ink-950)" }}>
@@ -1331,9 +1476,17 @@ function SalarySubTab({
                   <div key={c.id} className="flex justify-between items-center py-1 border-b" style={{ borderColor: "var(--color-line)" }}>
                     <span className="text-m-body flex-1" style={{ color: "var(--color-ink-950)" }}>
                       {SALARY_COMPONENT_LABELS[c.type] ?? c.type}
+                      {compCalc(c) === "UNIT_RATE" && (
+                        <span
+                          className="text-m-caption ml-1 px-1 py-0.5 rounded-full font-semibold"
+                          style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-600)" }}
+                        >
+                          variable
+                        </span>
+                      )}
                     </span>
                     <span className="text-m-body font-semibold tabular-nums" style={{ color: "var(--color-stop)" }}>
-                      -{formatCurrency(c.amount)}
+                      -{formatCurrency(c.amount)}{compCalc(c) === "UNIT_RATE" ? unitSuffix(c.unitType, c.unitLabel) : ""}
                     </span>
                     {editing && (
                       <button
@@ -1369,6 +1522,12 @@ function SalarySubTab({
                   {formatCurrency(annualCTC)}
                 </span>
               </div>
+              {variableComponents.length > 0 && (
+                <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                  Excludes {variableComponents.length} variable component{variableComponents.length > 1 ? "s" : ""} —
+                  paid per actual usage each payroll cycle.
+                </p>
+              )}
             </div>
           </div>
         )}
@@ -1402,40 +1561,71 @@ function SalarySubTab({
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 divide-x mt-1" style={{ borderColor: "var(--color-line)" }}>
-              {newIsPercentage ? (
-                <UnderlineInput
-                  id="salary-new-percentage"
-                  label="% of Basic"
-                  value={newPercentage}
-                  onChange={setNewPercentage}
-                  placeholder="e.g. 40"
-                  type="number"
-                  min="0"
-                  max="100"
-                />
-              ) : (
-                <UnderlineInput
-                  id="salary-new-amount"
-                  label="Amount (₹)"
-                  value={newAmount}
-                  onChange={setNewAmount}
-                  placeholder="0"
-                  type="number"
-                  min="0"
-                />
-              )}
-              <div className="pl-2 flex items-end pb-1">
-                <label className="flex items-center gap-1.5 text-m-caption" style={{ color: "var(--color-ink-700)" }}>
-                  <input
-                    type="checkbox"
-                    checked={newIsPercentage}
-                    onChange={(e) => setNewIsPercentage(e.target.checked)}
-                    className="size-4"
+              <EnumSelect
+                label="Priced as"
+                value={newCalc}
+                onChange={(v) => setNewCalc(v as typeof newCalc)}
+                options={[
+                  { value: "FIXED", label: "Fixed amount" },
+                  { value: "PERCENTAGE_OF_BASIC", label: "% of Basic" },
+                  { value: "UNIT_RATE", label: "Per unit (rate)" },
+                ]}
+              />
+              <div className="pl-2">
+                {newCalc === "PERCENTAGE_OF_BASIC" ? (
+                  <UnderlineInput
+                    id="salary-new-percentage"
+                    label="% of Basic"
+                    value={newPercentage}
+                    onChange={setNewPercentage}
+                    placeholder="e.g. 40"
+                    type="number"
+                    min="0"
+                    max="100"
                   />
-                  % of Basic
-                </label>
+                ) : (
+                  <UnderlineInput
+                    id="salary-new-amount"
+                    label={newCalc === "UNIT_RATE" ? "Rate (₹)" : "Amount (₹)"}
+                    value={newAmount}
+                    onChange={setNewAmount}
+                    placeholder={newCalc === "UNIT_RATE" ? "e.g. 3" : "0"}
+                    type="number"
+                    min="0"
+                  />
+                )}
               </div>
             </div>
+            {newCalc === "UNIT_RATE" && (
+              <div className="grid grid-cols-2 gap-2 divide-x mt-1" style={{ borderColor: "var(--color-line)" }}>
+                <EnumSelect
+                  label="Unit"
+                  value={newUnit}
+                  onChange={setNewUnit}
+                  options={SALARY_UNIT_OPTIONS.map((o) => ({
+                    value: o.value,
+                    label: o.hint ? `${o.label} — ${o.hint}` : o.label,
+                  }))}
+                />
+                <div className="pl-2">
+                  {newUnit === "CUSTOM" ? (
+                    <UnderlineInput
+                      id="salary-new-unit-label"
+                      label="Unit name"
+                      value={newUnitLabel}
+                      onChange={setNewUnitLabel}
+                      placeholder="e.g. bag, shift"
+                    />
+                  ) : (
+                    <p className="text-m-caption pt-4" style={{ color: "var(--color-ink-500)" }}>
+                      {newUnit === "DAY"
+                        ? "Qty auto-fills from attendance days"
+                        : "Qty entered per payroll cycle"}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
             <button
               type="button"
               onClick={handleAdd}
@@ -2083,7 +2273,7 @@ function AppointmentLetterSubTab({
    DEPOSIT SUB-TAB — auto-deposit status + bank details + setup/edit/disable
    Uses the existing API endpoint:
      · POST /api/employees/[id]/setup-deposit
-   Prerequisites: agreement must be confirmed before setup.
+   Prerequisites: none — works for any active employee, agreement or not.
    Permission: PAYROLL_MANAGE.
    ═══════════════════════════════════════════════════════════════════════════ */
 function DepositSubTab({
@@ -2097,7 +2287,6 @@ function DepositSubTab({
   const [editing, setEditing] = useState(false);
 
   const enabled = employee.autoDepositEnabled === true;
-  const confirmed = ["CONFIRMED", "EXPIRED"].includes(employee.contractStatus ?? "");
 
   return (
     <div className="space-y-3">
@@ -2126,9 +2315,7 @@ function DepositSubTab({
             ]} />
           ) : (
             <p className="text-m-caption py-2" style={{ color: "var(--color-ink-500)" }}>
-              {confirmed
-                ? "Auto-deposit is not set up. Add bank details to enable automatic salary credit."
-                : "Agreement must be confirmed before auto-deposit can be set up."}
+              Auto-deposit is not set up. Add bank details to enable automatic salary credit.
             </p>
           )}
         </div>
@@ -2154,7 +2341,7 @@ function DepositSubTab({
               </button>
               <DisableDepositButton employeeId={employee.id} onDone={() => router.refresh()} />
             </>
-          ) : confirmed ? (
+          ) : (
             <button
               onClick={() => { haptic(10); setEditing(true); }}
               className="w-full rounded-[0.75rem] p-3 flex items-center gap-3 press text-left"
@@ -2168,16 +2355,6 @@ function DepositSubTab({
                 <p className="text-m-caption mt-0.5" style={{ color: "color-mix(in srgb, var(--color-paper) 60%, transparent)" }}>Add bank account + pay day</p>
               </div>
             </button>
-          ) : (
-            <div
-              className="rounded-[0.75rem] p-3 flex items-center gap-3"
-              style={{ backgroundColor: "var(--color-concrete)" }}
-            >
-              <FileText className="size-4 shrink-0" style={{ color: "var(--color-ink-400)" }} />
-              <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                Confirm the employment agreement first to unlock auto-deposit setup.
-              </p>
-            </div>
           )}
         </div>
       )}
@@ -2219,9 +2396,16 @@ function DepositEditor({
       haptic([50, 20, 50]);
       return;
     }
+    // Instant IFSC format feedback — the server enforces the same RBI rule.
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/i.test(ifsc.trim())) {
+      fieldError("Invalid IFSC (e.g. HDFC0001234)", "deposit-ifsc");
+      haptic([50, 20, 50]);
+      return;
+    }
     const pd = Number(payDay);
-    if (!pd || pd < 1 || pd > 31) {
-      fieldError("Pay day must be between 1 and 31", "deposit-payday");
+    // isInteger rejects "5.5" — the server enforces the same rule.
+    if (!Number.isInteger(pd) || pd < 1 || pd > 31) {
+      fieldError("Pay day must be a whole number between 1 and 31", "deposit-payday");
       haptic([50, 20, 50]);
       return;
     }
@@ -2337,7 +2521,7 @@ function DisableDepositButton({ employeeId, onDone }: { employeeId: string; onDo
       {confirming && (
         <MobileDialog open onClose={() => setConfirming(false)} title="Disable Auto-Deposit?">
           <p className="text-m-label py-2" style={{ color: "var(--color-ink-700)" }}>
-            Salary will no longer be auto-credited. Bank details will be cleared. You can re-enable later.
+            Salary will no longer be auto-credited. Bank details are kept — you can re-enable later.
           </p>
           <div className="flex gap-2 pt-2">
             <button
@@ -3584,7 +3768,10 @@ function OffboardSubTab({
 
 type SalaryHistoryEntry = {
   id: string;
-  components: Array<{ type: string; amount: number; frequency: string; isDeduction: boolean }>;
+  components: Array<{
+    type: string; amount: number; frequency: string; isDeduction: boolean;
+    calculationType?: string; unitType?: string | null; unitLabel?: string | null;
+  }>;
   totalCtc: number | null;
   effectiveFrom: string;
   changeReason: string | null;
@@ -3683,7 +3870,10 @@ function SalaryHistoryTimeline({ employeeId }: { employeeId: string }) {
                           <div key={i} className="flex items-center justify-between">
                             <span className="text-m-caption" style={{ color: "var(--color-ink-600)" }}>{c.type}</span>
                             <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-950)" }}>
-                              {formatCurrency(c.amount)}{c.frequency === "MONTHLY" ? "/mo" : c.frequency === "YEARLY" ? "/yr" : ""}
+                              {formatCurrency(c.amount)}
+                              {c.calculationType === "UNIT_RATE"
+                                ? unitSuffix(c.unitType ?? null, c.unitLabel ?? null)
+                                : c.frequency === "MONTHLY" ? "/mo" : c.frequency === "YEARLY" ? "/yr" : ""}
                             </span>
                           </div>
                         ))}

@@ -408,4 +408,141 @@ describe("PATCH /api/users/[id]", () => {
     );
     expect(res.status).toBe(200);
   });
+
+  // ── Multi-role ("one hat at a time") tests ──────────────────────
+  // Held set = { membership.role } ∪ secondaryRoles; activeRole = the worn
+  // hat. The actor must be above EVERY held role — current AND new.
+
+  it("assigns secondary roles and writes them to the membership", async () => {
+    // Actor: OWNER. Target: SITE_ENGINEER + [STORE_KEEPER, ACCOUNTANT].
+    mockPrisma().userCompany!.findFirst.mockResolvedValue({
+      id: "uc-target", role: "SITE_ENGINEER", secondaryRoles: [], activeRole: null,
+    });
+    const res = await PATCH(
+      makeRequest("/api/users/u-target", {
+        method: "PATCH",
+        body: { secondaryRoles: ["STORE_KEEPER", "ACCOUNTANT"] },
+      }),
+      makeCtx("u-target"),
+    );
+    expect(res.status).toBe(200);
+    expect(mockPrisma().userCompany!.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "uc-target" },
+        data: expect.objectContaining({ secondaryRoles: ["STORE_KEEPER", "ACCOUNTANT"] }),
+      }),
+    );
+  });
+
+  it("returns 403 when a tier-3 actor assigns a secondary role above their tier", async () => {
+    // Actor: HR_MANAGER (tier 3). Target: SITE_ENGINEER. New secondary: PROJECT_DIRECTOR (tier 2).
+    setSessionUser({ role: "HR_MANAGER", id: "hr-1" });
+    mockPrisma().user!.findUnique.mockImplementation(async (args: any) => {
+      if (args?.where?.id === "hr-1") {
+        return { id: "hr-1", role: "HR_MANAGER", companyId: "company-1", active: true };
+      }
+      return { id: "u-target", role: "SITE_ENGINEER", active: true, name: "Jane", companyId: "company-1" };
+    });
+    mockPrisma().userCompany!.findFirst.mockResolvedValue({
+      id: "uc-target", role: "SITE_ENGINEER", secondaryRoles: [], activeRole: null,
+    });
+    const res = await PATCH(
+      makeRequest("/api/users/u-target", {
+        method: "PATCH",
+        body: { secondaryRoles: ["PROJECT_DIRECTOR"] },
+      }),
+      makeCtx("u-target"),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("returns 403 when the target holds a dormant senior hat the actor can't manage", async () => {
+    // Actor: HR_MANAGER (tier 3). Target wears SITE_ENGINEER but also HOLDS
+    // a PROJECT_DIRECTOR hat (tier 2) — a dormant senior hat still protects
+    // the target from a junior manager's edits.
+    setSessionUser({ role: "HR_MANAGER", id: "hr-1" });
+    mockPrisma().user!.findUnique.mockImplementation(async (args: any) => {
+      if (args?.where?.id === "hr-1") {
+        return { id: "hr-1", role: "HR_MANAGER", companyId: "company-1", active: true };
+      }
+      return { id: "u-target", role: "SITE_ENGINEER", active: true, name: "Jane", companyId: "company-1" };
+    });
+    mockPrisma().userCompany!.findFirst.mockResolvedValue({
+      id: "uc-target", role: "SITE_ENGINEER", secondaryRoles: ["PROJECT_DIRECTOR"], activeRole: "SITE_ENGINEER",
+    });
+    const res = await PATCH(
+      makeRequest("/api/users/u-target", {
+        method: "PATCH",
+        body: { secondaryRoles: [] }, // try to strip the director hat
+      }),
+      makeCtx("u-target"),
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("resets a stale activeRole when the worn hat leaves the held set", async () => {
+    // Target currently WEARS STORE_KEEPER; the update removes that hat —
+    // activeRole must reset to null (primary) so they don't keep the power.
+    mockPrisma().userCompany!.findFirst.mockResolvedValue({
+      id: "uc-target", role: "SITE_ENGINEER", secondaryRoles: ["STORE_KEEPER"], activeRole: "STORE_KEEPER",
+    });
+    const res = await PATCH(
+      makeRequest("/api/users/u-target", {
+        method: "PATCH",
+        body: { secondaryRoles: [] },
+      }),
+      makeCtx("u-target"),
+    );
+    expect(res.status).toBe(200);
+    expect(mockPrisma().userCompany!.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "uc-target" },
+        data: expect.objectContaining({ secondaryRoles: [], activeRole: null }),
+      }),
+    );
+  });
+
+  it("dedupes the primary role out of secondaryRoles", async () => {
+    mockPrisma().userCompany!.findFirst.mockResolvedValue({
+      id: "uc-target", role: "SITE_ENGINEER", secondaryRoles: [], activeRole: null,
+    });
+    const res = await PATCH(
+      makeRequest("/api/users/u-target", {
+        method: "PATCH",
+        body: { secondaryRoles: ["SITE_ENGINEER", "STORE_KEEPER"] },
+      }),
+      makeCtx("u-target"),
+    );
+    expect(res.status).toBe(200);
+    expect(mockPrisma().userCompany!.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ secondaryRoles: ["STORE_KEEPER"] }),
+      }),
+    );
+  });
+
+  it("returns 400 when the user edits their own held set", async () => {
+    // Self-edit of secondaryRoles is a role-set change — same lockout as
+    // primary role self-changes.
+    setSessionUser({ role: "OWNER", id: "u-target" });
+    mockPrisma().user!.findUnique.mockImplementation(async (args: any) => {
+      if (args?.where?.id === "u-target") {
+        return { id: "u-target", role: "OWNER", active: true, name: "Owner", companyId: "company-1" };
+      }
+      return { id: "u-target", role: "OWNER", companyId: "company-1", active: true };
+    });
+    mockPrisma().userCompany!.findFirst.mockResolvedValue({
+      id: "uc-target", role: "OWNER", secondaryRoles: [], activeRole: null,
+    });
+    const res = await PATCH(
+      makeRequest("/api/users/u-target", {
+        method: "PATCH",
+        body: { secondaryRoles: ["SITE_ENGINEER"] },
+      }),
+      makeCtx("u-target"),
+    );
+    // canManageRoleSet(OWNER, [OWNER]) → same tier → false → 403 fires first
+    // (same as the primary-role self-change test above).
+    expect([400, 403]).toContain(res.status);
+  });
 });

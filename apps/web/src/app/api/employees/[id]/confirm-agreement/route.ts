@@ -6,8 +6,7 @@ import { PERM } from "@/lib/roles";
 
 /**
  * POST /api/employees/[id]/confirm-agreement — mark the employment
- * agreement as CONFIRMED (employee has signed/agreed). This unlocks
- * auto-deposit setup.
+ * agreement as CONFIRMED (employee has signed/agreed).
  *
  * Requires HR_MANAGE.
  */
@@ -36,7 +35,7 @@ export const POST = apiHandler(async (_req: NextRequest, { params }: { params: P
     return json({
       ok: true,
       ...result,
-      message: "Agreement confirmed. You can now set up auto-deposit (salary → bank).",
+      message: "Agreement confirmed.",
     });
   } catch (err: unknown) {
     if (err instanceof HrError) {

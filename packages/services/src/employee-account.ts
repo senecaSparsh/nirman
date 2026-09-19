@@ -61,6 +61,11 @@ export interface CreateEmployeeAccountInput {
   phone: string;
   email?: string | null;
   role: string;
+  // Multi-role: additional hats the member can switch into (held set =
+  // { role } ∪ secondaryRoles). Not propagated to sibling-company
+  // memberships — roles are per-company and CUSTOM_* keys are
+  // company-scoped.
+  secondaryRoles?: string[];
   // Access
   permissions?: ModulePermission[];
   scopeType?: "COMPANY" | "DEPARTMENT" | "PROJECT" | null;
@@ -219,6 +224,7 @@ export async function createEmployeeAccount(input: CreateEmployeeAccountInput) {
           userId: existingUser.id,
           companyId: input.companyId,
           role: input.role,
+          secondaryRoles: input.secondaryRoles ?? [],
           ...(input.reportsToUserCompanyId
             ? { reportsToUserCompanyId: input.reportsToUserCompanyId }
             : {}),
@@ -254,6 +260,7 @@ export async function createEmployeeAccount(input: CreateEmployeeAccountInput) {
           userId: user.id,
           companyId: input.companyId,
           role: input.role,
+          secondaryRoles: input.secondaryRoles ?? [],
           ...(input.reportsToUserCompanyId
             ? { reportsToUserCompanyId: input.reportsToUserCompanyId }
             : {}),
@@ -648,6 +655,14 @@ export async function unlinkEmployeePhone(
 // ───────────────────────────────────────────────────────────────
 
 export async function terminateEmployee(input: TerminateEmployeeInput) {
+  // Validate the end date up front — an unparseable string would surface
+  // as a Prisma error mid-transaction otherwise.
+  let endDate: Date | null = null;
+  if (input.employmentEndDate) {
+    endDate = new Date(input.employmentEndDate);
+    if (isNaN(endDate.getTime())) throw new HrError("Invalid employment end date", 400);
+  }
+
   return withSerializableTransaction(async (tx) => {
     const employee = await tx.employee.findFirst({
       where: { id: input.employeeId, companyId: input.companyId, deletedAt: null },
@@ -657,14 +672,18 @@ export async function terminateEmployee(input: TerminateEmployeeInput) {
 
     const now = new Date();
 
-    // 1. Soft-delete the employee (preserves all history) + terminate contract
+    // 1. Soft-delete the employee (preserves all history) + terminate contract.
+    //    autoDepositEnabled is cleared here — a terminated employee must never
+    //    keep receiving automatic salary credit. Bank details are preserved;
+    //    if the record is ever restored + reactivated, HR re-runs setup.
     await tx.employee.update({
       where: { id: input.employeeId },
       data: {
         deletedAt: now,
         active: false,
         contractStatus: "TERMINATED",
-        ...(input.employmentEndDate ? { contractEndDate: new Date(input.employmentEndDate) } : {}),
+        autoDepositEnabled: false,
+        ...(endDate ? { contractEndDate: endDate } : {}),
       },
     });
 
@@ -717,6 +736,7 @@ export async function terminateEmployee(input: TerminateEmployeeInput) {
         reason: input.reason,
         employmentEndDate: input.employmentEndDate,
         recycledPhoneId,
+        autoDepositWasEnabled: employee.autoDepositEnabled === true,
       },
     });
 
@@ -1107,7 +1127,8 @@ async function createAndAssignPhoneTx(
 //  printed to PDF and attached to the employee profile.
 //
 //  Once the employee confirms (signs), the contract status moves to
-//  CONFIRMED and auto-deposit (salary → bank) can be enabled.
+//  CONFIRMED. Auto-deposit (salary → bank) is independent — it can be
+//  set up at any point for an active employee.
 // ───────────────────────────────────────────────────────────────
 
 /**
@@ -1145,7 +1166,7 @@ export async function generateEmploymentAgreement(
       noticePeriodDays: true,
       contractStartDate: true,
       contractEndDate: true,
-      salaryComponents: { where: { active: true }, select: { amount: true, frequency: true, isDeduction: true } },
+      salaryComponents: { where: { active: true }, select: { amount: true, frequency: true, isDeduction: true, calculationType: true } },
     },
   });
   if (!employee) throw new HrError("Employee not found", 404);
@@ -1163,8 +1184,10 @@ export async function generateEmploymentAgreement(
 
   // ── Wage validation ──
   // Accept either the Employee.wage fields OR active salary components.
+  // UNIT_RATE components carry a per-unit rate in `amount` (e.g. ₹3/km), not
+  // a monthly figure — they can't stand in for a fixed wage.
   const hasMonthlyComponents = employee.salaryComponents.some(
-    (c) => !c.isDeduction && c.frequency === "MONTHLY" && Number(c.amount) > 0,
+    (c) => !c.isDeduction && c.frequency === "MONTHLY" && c.calculationType !== "UNIT_RATE" && Number(c.amount) > 0,
   );
   const hasAnyComponents = employee.salaryComponents.length > 0;
 
@@ -1257,7 +1280,7 @@ export async function generateEmploymentAgreement(
 /**
  * Confirm the employment agreement — marks the contract as CONFIRMED
  * and records the confirmation timestamp. This is the "employee signed"
- * step that unlocks auto-deposit setup.
+ * onboarding step.
  */
 export async function confirmEmploymentAgreement(
   employeeId: string,
@@ -1344,7 +1367,7 @@ export async function generateOfferLetter(
       monthlySalary: true,
       designation: true,
       joinDate: true,
-      salaryComponents: { where: { active: true }, select: { amount: true, frequency: true, isDeduction: true } },
+      salaryComponents: { where: { active: true }, select: { amount: true, frequency: true, isDeduction: true, calculationType: true } },
     },
   });
   if (!employee) throw new HrError("Employee not found", 404);
@@ -1362,8 +1385,10 @@ export async function generateOfferLetter(
   // active salary components (the Salary Structure tab). This prevents
   // the "Monthly salary is not set" error when the user added salary via
   // the Salary Structure tab but didn't also fill the Hire Details wage.
+  // UNIT_RATE components carry a per-unit rate in `amount` (e.g. ₹3/km), not
+  // a monthly figure — they can't stand in for a fixed wage.
   const hasMonthlyComponents = employee.salaryComponents.some(
-    (c) => !c.isDeduction && c.frequency === "MONTHLY" && Number(c.amount) > 0,
+    (c) => !c.isDeduction && c.frequency === "MONTHLY" && c.calculationType !== "UNIT_RATE" && Number(c.amount) > 0,
   );
   const hasAnyComponents = employee.salaryComponents.length > 0;
 
@@ -1677,9 +1702,9 @@ export async function generateEmployeeIdCard(
 
 /**
  * Set up auto-deposit — configures the employee's bank account details
- * and enables automatic salary credit on payday. Requires the agreement
- * to be CONFIRMED first (you shouldn't auto-deposit salary without a
- * signed contract).
+ * and enables automatic salary credit on payday. Works independently of
+ * the employment agreement — bank details can be set up before the
+ * agreement is issued or confirmed.
  */
 export async function setupAutoDeposit(
   employeeId: string,
@@ -1698,40 +1723,42 @@ export async function setupAutoDeposit(
   autoDepositEnabled: boolean;
   payDay: number;
 }> {
-  const employee = await prisma.employee.findFirst({
-    where: { id: employeeId, companyId, deletedAt: null },
-    select: { id: true, contractStatus: true, active: true },
-  });
-  if (!employee) throw new HrError("Employee not found", 404);
-
-  // Bank details can be collected at any point, but auto-deposit
-  // (automatic salary credit) should only be enabled after the
-  // employment agreement is confirmed. This prevents salary payments
-  // to employees who haven't signed their contract.
-  if (!employee.active) {
-    throw new HrError("Cannot set up auto-deposit for an inactive employee.", 400);
-  }
-  if (employee.contractStatus !== "CONFIRMED") {
-    throw new HrError(
-      "Cannot enable auto-deposit before the employment agreement is confirmed. Generate and confirm the agreement first.",
-      400,
-    );
-  }
-
-  // Validate
+  // Validate input before hitting the DB
   if (!input.bankAccountHolder.trim()) throw new HrError("Bank account holder name is required.", 400);
   if (!input.bankAccountNumber.trim()) throw new HrError("Bank account number is required.", 400);
-  if (!input.bankIfsc.trim()) throw new HrError("Bank IFSC code is required.", 400);
   if (!input.bankName.trim()) throw new HrError("Bank name is required.", 400);
-  if (input.payDay < 1 || input.payDay > 31) throw new HrError("Pay day must be between 1 and 31.", 400);
+  const ifsc = input.bankIfsc.trim().toUpperCase();
+  // RBI IFSC format: 4 bank letters + 0 + 6 alphanumeric (e.g. HDFC0001234)
+  if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) throw new HrError("Bank IFSC code is invalid (e.g. HDFC0001234).", 400);
+  // Integer check — floats/non-numerics slip past < / > comparisons and
+  // would hit Prisma's Int column as a 500.
+  if (!Number.isInteger(input.payDay) || input.payDay < 1 || input.payDay > 31) {
+    throw new HrError("Pay day must be an integer between 1 and 31.", 400);
+  }
 
-  return prisma.$transaction(async (tx) => {
+  // The active check runs inside the transaction so a concurrent
+  // terminate/deactivate can't interleave and leave auto-deposit enabled
+  // on an inactive employee.
+  return withSerializableTransaction(async (tx) => {
+    const employee = await tx.employee.findFirst({
+      where: { id: employeeId, companyId, deletedAt: null },
+      select: { id: true, active: true },
+    });
+    if (!employee) throw new HrError("Employee not found", 404);
+
+    // Auto-deposit does not depend on the employment agreement — bank
+    // details can be configured before the agreement is issued or
+    // confirmed. Only an active employee can receive salary credit.
+    if (!employee.active) {
+      throw new HrError("Cannot set up auto-deposit for an inactive employee.", 400);
+    }
+
     const updated = await tx.employee.update({
       where: { id: employeeId },
       data: {
         bankAccountHolder: input.bankAccountHolder.trim(),
         bankAccountNumber: input.bankAccountNumber.trim(),
-        bankIfsc: input.bankIfsc.trim().toUpperCase(),
+        bankIfsc: ifsc,
         bankName: input.bankName.trim(),
         bankBranch: input.bankBranch?.trim() || null,
         payDay: input.payDay,
@@ -1772,13 +1799,13 @@ export async function disableAutoDeposit(
   companyId: string,
   actorUserId: string,
 ): Promise<{ employeeId: string; autoDepositEnabled: boolean }> {
-  const employee = await prisma.employee.findFirst({
-    where: { id: employeeId, companyId, deletedAt: null },
-    select: { id: true },
-  });
-  if (!employee) throw new HrError("Employee not found", 404);
+  return withSerializableTransaction(async (tx) => {
+    const employee = await tx.employee.findFirst({
+      where: { id: employeeId, companyId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!employee) throw new HrError("Employee not found", 404);
 
-  return prisma.$transaction(async (tx) => {
     const updated = await tx.employee.update({
       where: { id: employeeId },
       data: { autoDepositEnabled: false },

@@ -247,7 +247,7 @@ export function CreateUserDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Department</Label>
+              <Label>Org Unit</Label>
               <Input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. Construction" />
             </div>
             <div className="space-y-1.5">

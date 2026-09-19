@@ -19,6 +19,7 @@ import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { useFabModal } from "@/lib/use-fab-modal";
 import { MobileNewStockLocationForm } from "./MobileNewStockLocationDialog";
 import { MobileProjectSelect } from "@/components/mobile/selectors";
+import { AddressSearchField } from "@/components/address-search-field";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 
 type LocationType = "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT" | "CENTRAL_WAREHOUSE";
@@ -380,7 +381,7 @@ function EditLocationDialog({
           projectId: isProjectSite ? (projectId || null) : null,
           lat: lat ? parseFloat(lat) : null,
           lng: lng ? parseFloat(lng) : null,
-          geoRadius: geoRadius ? parseInt(geoRadius) : null,
+          geoRadius: lat && lng ? (geoRadius ? parseInt(geoRadius) : 500) : (geoRadius ? parseInt(geoRadius) : null),
         }),
       });
       const data = await res.json();
@@ -423,43 +424,20 @@ function EditLocationDialog({
 
           <div className="space-y-1">
             <label className="text-m-caption font-medium" style={{ color: "var(--color-ink-600)" }}>
-              Address
+              Address — pick a suggestion or use GPS
             </label>
-            <textarea
+            <AddressSearchField
+              mobile
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              rows={2}
-              className="w-full rounded-[0.625rem] border px-3 py-2.5 text-m-body resize-none outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              onPick={(s) => { setAddress(s.address); setLat(String(s.lat)); setLng(String(s.lng)); setGeoRadius((r) => r || "500"); }}
+              onClear={() => { setAddress(""); setLat(""); setLng(""); }}
+              placeholder="Search site address…"
             />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <label className="text-m-caption font-medium" style={{ color: "var(--color-ink-600)" }}>
-                Latitude
-              </label>
-              <input
-                type="number"
-                step="any"
-                value={lat}
-                onChange={(e) => setLat(e.target.value)}
-                placeholder="Optional"
-                className="w-full rounded-[0.625rem] border px-3 py-2.5 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-m-caption font-medium" style={{ color: "var(--color-ink-600)" }}>
-                Longitude
-              </label>
-              <input
-                type="number"
-                step="any"
-                value={lng}
-                onChange={(e) => setLng(e.target.value)}
-                placeholder="Optional"
-                className="w-full rounded-[0.625rem] border px-3 py-2.5 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-              />
-            </div>
+            {lat && lng && (
+              <p className="text-m-caption tnum" style={{ color: "var(--color-ink-500)" }}>
+                {parseFloat(lat).toFixed(5)}, {parseFloat(lng).toFixed(5)}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1">

@@ -183,6 +183,7 @@ async function EmployeesContent() {
         crewEmployees={employees.map((e) => ({ id: e.id, name: e.name, trade: e.trade }))}
         projects={projects.map((p) => ({ id: p.id, name: p.name }))}
         locations={locations.map((l) => ({ id: l.id, name: l.name }))}
+        hqLabel={company.lat != null && company.lng != null ? `${company.name} — Head Office` : null}
         potentialManagers={potentialManagers}
         permissions={perms}
         viewerHierarchyLevel={viewerEmployee?.hierarchyLevel ?? null}

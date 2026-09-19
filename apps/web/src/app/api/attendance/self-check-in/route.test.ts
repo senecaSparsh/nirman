@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   authMocks,
   setSessionUser,
+  setCompany,
   clearSession,
   makeRequest,
   getJson,
@@ -102,6 +103,71 @@ describe("POST /api/attendance/self-check-in", () => {
       {},
     );
     expect(res.status).toBe(403);
+  });
+
+  it("falls back to the company HQ geofence when no reporting location is assigned", async () => {
+    setCompany({ lat: 28.6, lng: 77.2, geoRadius: 100 });
+    mockPrisma().employee!.findFirst.mockResolvedValue(
+      prismaEmployee({ reportingLocation: null, reportingLocationId: null }),
+    );
+    try {
+      const res = await POST(
+        makeRequest("/api/attendance/self-check-in", {
+          method: "POST",
+          body: { employeeId: "emp-1", date: "2024-01-15", checkInLat: 28.6, checkInLng: 77.2 },
+        }),
+        {},
+      );
+      expect(res.status).toBe(201);
+      const body = await getJson<{ geoFenceOk: boolean; geoFenceDistance: number; reportingLocation: string | null }>(res);
+      expect(body.geoFenceOk).toBe(true);
+      expect(body.geoFenceDistance).toBe(0);
+      expect(body.reportingLocation).toBe("Test Company — Head Office");
+    } finally {
+      setCompany(); // reset to defaults — company state is module-level
+    }
+  });
+
+  it("flags check-ins outside the company HQ geofence fallback", async () => {
+    setCompany({ lat: 28.6, lng: 77.2, geoRadius: 100 });
+    mockPrisma().employee!.findFirst.mockResolvedValue(
+      prismaEmployee({ reportingLocation: null, reportingLocationId: null }),
+    );
+    try {
+      // ~1.1km away — outside the 100m fence
+      const res = await POST(
+        makeRequest("/api/attendance/self-check-in", {
+          method: "POST",
+          body: { employeeId: "emp-1", date: "2024-01-15", checkInLat: 28.61, checkInLng: 77.2 },
+        }),
+        {},
+      );
+      const body = await getJson<{ geoFenceOk: boolean; geoFenceDistance: number }>(res);
+      expect(body.geoFenceOk).toBe(false);
+      expect(body.geoFenceDistance).toBeGreaterThan(100);
+    } finally {
+      setCompany();
+    }
+  });
+
+  it("assigned reporting location wins over the company HQ geofence", async () => {
+    // Company fence is far away + tiny; the assigned site is at the check-in point.
+    setCompany({ lat: 0, lng: 0, geoRadius: 10 });
+    mockPrisma().employee!.findFirst.mockResolvedValue(prismaEmployee());
+    try {
+      const res = await POST(
+        makeRequest("/api/attendance/self-check-in", {
+          method: "POST",
+          body: { employeeId: "emp-1", date: "2024-01-15", checkInLat: 28.6, checkInLng: 77.2 },
+        }),
+        {},
+      );
+      const body = await getJson<{ geoFenceOk: boolean; reportingLocation: string | null }>(res);
+      expect(body.geoFenceOk).toBe(true);
+      expect(body.reportingLocation).toBe("Site Office");
+    } finally {
+      setCompany();
+    }
   });
 
   it("returns 401 when not authenticated", async () => {

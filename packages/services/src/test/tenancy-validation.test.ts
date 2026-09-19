@@ -110,7 +110,7 @@ describe("createTenancy", () => {
         endDate: "2026-12-31",
         monthlyRent: 10000,
       }),
-    ).rejects.toThrow("Built unit not found or deleted");
+    ).rejects.toThrow("Built unit not found in this company");
   });
 
   it("creates a tenancy for an available built unit (happy path)", async () => {

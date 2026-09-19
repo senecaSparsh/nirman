@@ -14,7 +14,10 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     include: {
       lines: {
         where: { ...await scopeWhere("PayrollLine") },
-        include: { employee: { select: { id: true, name: true, trade: true, wageType: true, designation: true } } },
+        include: {
+          employee: { select: { id: true, name: true, trade: true, wageType: true, designation: true } },
+          components: { orderBy: [{ isDeduction: "asc" }, { createdAt: "asc" }] },
+        },
         orderBy: { employee: { name: "asc" } },
       },
       processedBy: { select: { name: true } },
@@ -57,6 +60,20 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       grossPay: toNum(l.grossPay),
       totalDeductions: toNum(l.totalDeductions),
       netPay: toNum(l.netPay),
+      components: l.components.map((c) => ({
+        id: c.id,
+        type: c.type,
+        label: c.label,
+        calculationType: c.calculationType,
+        unitType: c.unitType,
+        unitLabel: c.unitLabel,
+        rate: toNum(c.rate),
+        quantity: c.quantity != null ? toNum(c.quantity) : null,
+        amount: toNum(c.amount),
+        bucket: c.bucket,
+        isDeduction: c.isDeduction,
+        notes: c.notes,
+      })),
     })),
   });
 });

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Check, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { SectionCard, UnderlineInput, EnumSelect } from "@/components/mobile/v2/form-primitives";
-import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { MobileDepartmentSelect } from "@/components/mobile/selectors";
 
 interface ProjectOption {
   id: string;
@@ -55,6 +55,22 @@ export function MobileNewEmployeeForm({
   const [designation, setDesignation] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [hierarchyLevel, setHierarchyLevel] = useState("");
+  // Some call sites can't provide departments (e.g. the nested
+  // "create employee" path in entity selectors passes []). When the prop
+  // is empty, fetch the company's departments so the picker still works.
+  const [fetchedDepts, setFetchedDepts] = useState<{ id: string; name: string; active: boolean }[]>([]);
+  useEffect(() => {
+    if (departments.length > 0) return;
+    let cancelled = false;
+    fetch("/api/departments")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows) => {
+        if (!cancelled && Array.isArray(rows)) setFetchedDepts(rows);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [departments.length]);
+  const deptOptions = departments.length > 0 ? departments : fetchedDepts;
   // Multi-company: which companies to onboard this employee in.
   // Defaults to just the active company (pre-selected, toggleable).
   // Only shown when the owner has multiple companies in the group.
@@ -164,11 +180,11 @@ export function MobileNewEmployeeForm({
           />
         </div>
         <div>
-          <MobileSelectWithCreate
+          <MobileDepartmentSelect
             label="Department"
             value={departmentId}
             onChange={setDepartmentId}
-            options={departments.filter((d) => d.active).map((d) => ({ value: d.id, label: d.name }))}
+            options={deptOptions.filter((d) => d.active).map((d) => ({ value: d.id, label: d.name }))}
             placeholder="— None —"
             icon={Building2}
           />

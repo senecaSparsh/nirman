@@ -14,13 +14,14 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
+import { AddressSearchField } from "@/components/address-search-field";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { StatusPill } from "@/components/page";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { formatCurrency, displayEmail } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
-import { ROLE_LIST, ROLES, assignableRoles, canAssignRole, type Role } from "@/lib/roles";
+import { ROLE_LIST, ROLES, assignableRoles, canAssignRole, effectivePermissions, PERMISSION_MODULES, ALL_PERMISSIONS, type Role } from "@/lib/roles";
 import { CompaniesManager, type CompanyRow } from "@/components/settings/companies-manager";
 import { CostCentresTab } from "@/components/settings/cost-centres-tab";
 import { PeopleTab } from "@/components/settings/people-tab";
@@ -56,6 +57,9 @@ type CompanyInfo = {
   gstin: string | null;
   pan: string | null;
   address: string | null;
+  lat: number | null;
+  lng: number | null;
+  geoRadius: number | null;
   phone: string | null;
   email: string | null;
   currency: string;
@@ -214,6 +218,9 @@ export function SettingsView({
           gstin: companyForm.gstin?.trim() || null,
           pan: companyForm.pan?.trim() || null,
           address: companyForm.address?.trim() || null,
+          lat: companyForm.lat ?? null,
+          lng: companyForm.lng ?? null,
+          geoRadius: companyForm.lat != null && companyForm.lng != null ? (companyForm.geoRadius ?? 500) : null,
           phone: companyForm.phone?.trim() || null,
           email: companyForm.email?.trim() || null,
           currency: companyForm.currency,
@@ -246,7 +253,8 @@ export function SettingsView({
         projectId: locForm.type === "PROJECT_SITE" ? locForm.projectId || null : null,
         lat: locForm.lat ? parseFloat(locForm.lat) : null,
         lng: locForm.lng ? parseFloat(locForm.lng) : null,
-        geoRadius: locForm.geoRadius ? parseInt(locForm.geoRadius) : null,
+        // Coordinates present → always create a fence (default 500m).
+        geoRadius: locForm.lat && locForm.lng ? (locForm.geoRadius ? parseInt(locForm.geoRadius) : 500) : (locForm.geoRadius ? parseInt(locForm.geoRadius) : null),
       };
       let res: Response;
       if (editingLocId) {
@@ -346,9 +354,31 @@ export function SettingsView({
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Address</Label>
-                  <Input value={companyForm.address ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, address: e.target.value }))} />
+                  <Label hint="Pick a suggestion or use GPS — verified addresses only">Address</Label>
+                  <AddressSearchField
+                    value={companyForm.address ?? ""}
+                    onPick={(s) => setCompanyForm((f) => ({ ...f, address: s.address, lat: s.lat, lng: s.lng, geoRadius: f.geoRadius ?? 500 }))}
+                    onClear={() => setCompanyForm((f) => ({ ...f, address: "", lat: null, lng: null }))}
+                    placeholder="Search registered office address…"
+                  />
+                  {companyForm.lat != null && companyForm.lng != null && (
+                    <p className="text-caption text-muted-foreground tnum">
+                      {companyForm.lat.toFixed(5)}, {companyForm.lng.toFixed(5)}
+                    </p>
+                  )}
                 </div>
+                {companyForm.lat != null && companyForm.lng != null && (
+                  <div className="space-y-1.5">
+                    <Label hint="Default: 500m — check-in geo-fence for staff without an assigned site">Geo-fence radius (m)</Label>
+                    <Input
+                      type="number"
+                      min="10"
+                      value={companyForm.geoRadius != null ? String(companyForm.geoRadius) : ""}
+                      onChange={(e) => setCompanyForm((f) => ({ ...f, geoRadius: e.target.value ? parseInt(e.target.value) : null }))}
+                      placeholder="500"
+                    />
+                  </div>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Phone</Label>
@@ -558,18 +588,18 @@ export function SettingsView({
                 </div>
               )}
               <div className="space-y-1.5">
-                <Label>Address</Label>
-                <Input value={locForm.address} onChange={(e) => setLocForm((f) => ({ ...f, address: e.target.value }))} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Latitude</Label>
-                  <Input type="number" step="any" value={locForm.lat} onChange={(e) => setLocForm((f) => ({ ...f, lat: e.target.value }))} placeholder="Optional" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Longitude</Label>
-                  <Input type="number" step="any" value={locForm.lng} onChange={(e) => setLocForm((f) => ({ ...f, lng: e.target.value }))} placeholder="Optional" />
-                </div>
+                <Label hint="Pick a suggestion or use GPS — verified addresses only">Address</Label>
+                <AddressSearchField
+                  value={locForm.address}
+                  onPick={(s) => setLocForm((f) => ({ ...f, address: s.address, lat: String(s.lat), lng: String(s.lng), geoRadius: f.geoRadius || "500" }))}
+                  onClear={() => setLocForm((f) => ({ ...f, address: "", lat: "", lng: "" }))}
+                  placeholder="Search site address…"
+                />
+                {locForm.lat && locForm.lng && (
+                  <p className="text-caption text-muted-foreground tnum">
+                    {parseFloat(locForm.lat).toFixed(5)}, {parseFloat(locForm.lng).toFixed(5)}
+                  </p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>Geo-fence Radius (metres)</Label>
@@ -1012,7 +1042,7 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search by name, email, phone, role, department…"
+            placeholder="Search by name, email, phone, role, unit…"
             value={userSearch}
             onChange={(e) => setUserSearch(e.target.value)}
             className="pl-9"
@@ -1028,7 +1058,7 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
                 <TH>Name</TH>
                 <TH>Email</TH>
                 <TH>Role</TH>
-                <TH className="hidden lg:table-cell">Dept</TH>
+                <TH className="hidden lg:table-cell">Unit</TH>
                 <TH className="hidden xl:table-cell">Code</TH>
                 <TH>Status</TH>
                 {canManage && <TH className="text-right">Actions</TH>}
@@ -1380,7 +1410,7 @@ function EditUserProfileDialog({
             <Input value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="e.g. Site Engineer" />
           </div>
           <div className="space-y-1.5">
-            <Label>Department</Label>
+            <Label>Org Unit</Label>
             <Input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. Construction" />
           </div>
         </div>
@@ -1419,9 +1449,22 @@ function CreateCustomRoleDialog({
   const [label, setLabel] = useState("");
   const [description, setDescription] = useState("");
   const [baseRole, setBaseRole] = useState<string>("SITE_ENGINEER");
+  const [grants, setGrants] = useState<Set<string>>(new Set());
+  const [expandedModule, setExpandedModule] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const baseRoles = ROLE_LIST.filter((r) => r.key !== "OWNER" && r.key !== "DEVELOPER");
+  const basePermSet = new Set(effectivePermissions(baseRole));
+  const baseIsWildcard = ROLES[baseRole as Role]?.permissions === "*";
+
+  function toggleGrant(perm: string) {
+    setGrants((prev) => {
+      const next = new Set(prev);
+      if (next.has(perm)) next.delete(perm);
+      else next.add(perm);
+      return next;
+    });
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -1436,7 +1479,7 @@ function CreateCustomRoleDialog({
           label: label.trim(),
           description: description.trim(),
           baseRole,
-          permissions: [],
+          permissions: Array.from(grants),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -1500,6 +1543,78 @@ function CreateCustomRoleDialog({
               </option>
             ))}
           </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Additional Permissions</Label>
+          <p className="text-caption text-muted-foreground">
+            Grant permissions beyond the base role&apos;s defaults. Inherited
+            defaults are shown checked.
+          </p>
+          {baseIsWildcard ? (
+            <div className="rounded-md border border-primary/30 bg-primary/5 p-2.5">
+              <p className="text-caption text-foreground">
+                <span className="font-semibold">{ROLES[baseRole as Role]?.label ?? baseRole}</span> already
+                has all {ALL_PERMISSIONS.length} permissions — nothing to add.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1.5 max-h-64 overflow-y-auto rounded-md border border-border p-1.5">
+              {PERMISSION_MODULES.map((mod) => {
+                const grantCount = mod.permissions.filter((p) => grants.has(p)).length;
+                const defaultCount = mod.permissions.filter((p) => basePermSet.has(p)).length;
+                const expanded = expandedModule === mod.key;
+                return (
+                  <div key={mod.key} className="rounded-md border border-border overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedModule(expanded ? null : mod.key)}
+                      className="flex w-full items-center gap-3 px-3 py-2 text-left transition-colors hover:bg-muted/30"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <span className="text-body font-medium text-foreground">{mod.label}</span>
+                        <span className="ml-2 text-caption text-muted-foreground">
+                          {defaultCount + grantCount}/{mod.permissions.length}
+                        </span>
+                      </div>
+                      {grantCount > 0 && (
+                        <Badge variant="success" className="text-[10px] py-0 px-1.5">+{grantCount}</Badge>
+                      )}
+                    </button>
+                    {expanded && (
+                      <div className="border-t border-border bg-card">
+                        {mod.permissions.map((perm) => {
+                          const isBase = basePermSet.has(perm);
+                          const granted = grants.has(perm);
+                          const permKey = perm.split(".")[1] ?? perm;
+                          const permLabel = `${mod.label.split(" ")[0]} — ${permKey.replace(/_/g, " ")}`;
+                          return (
+                            <div key={perm} className="flex items-center gap-3 px-3 py-1.5 border-b border-border last:border-0">
+                              <button
+                                type="button"
+                                disabled={isBase}
+                                onClick={() => toggleGrant(perm)}
+                                className={`grid place-items-center size-4 rounded border shrink-0 transition-colors ${
+                                  isBase || granted
+                                    ? "border-primary bg-primary text-primary-foreground"
+                                    : "border-input bg-card hover:border-border-strong"
+                                } ${isBase ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+                              >
+                                {(isBase || granted) && <span className="text-[8px]">✓</span>}
+                              </button>
+                              <span className="flex-1 text-caption text-foreground">{permLabel}</span>
+                              <span className="text-[10px] text-muted-foreground font-mono">{perm}</span>
+                              {isBase && <Badge variant="muted" className="text-[10px] py-0 px-1.5">Default</Badge>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end gap-2">

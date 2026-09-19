@@ -67,14 +67,18 @@ export default async function OfferLetterPage({
   const earnings = components.filter((c) => !c.isDeduction);
   const deductions = components.filter((c) => c.isDeduction);
 
+  // UNIT_RATE components are variable (rate × actual usage, e.g. ₹3/km) —
+  // excluded from fixed monthly/annual totals.
+  const isVariable = (c: (typeof components)[number]) => c.calculationType === "UNIT_RATE";
   const monthlyEarnings = earnings
-    .filter((c) => c.frequency === "MONTHLY")
+    .filter((c) => c.frequency === "MONTHLY" && !isVariable(c))
     .reduce((sum, c) => sum + toNum(c.amount), 0);
   const monthlyDeductions = deductions
-    .filter((c) => c.frequency === "MONTHLY")
+    .filter((c) => c.frequency === "MONTHLY" && !isVariable(c))
     .reduce((sum, c) => sum + toNum(c.amount), 0);
   const monthlyNet = monthlyEarnings - monthlyDeductions;
   const annualCTC = earnings.reduce((sum, c) => {
+    if (isVariable(c)) return sum;
     const amt = toNum(c.amount);
     if (c.frequency === "MONTHLY") return sum + amt * 12;
     if (c.frequency === "QUARTERLY") return sum + amt * 4;
@@ -132,6 +136,11 @@ export default async function OfferLetterPage({
     PROFESSION_TAX: "Profession Tax",
     TDS: "Income Tax (TDS)",
     OTHER: "Other"};
+
+  const unitSuffix: Record<string, string> = {
+    DAY: "/day worked", KM: "/km", TRIP: "/trip", HOUR: "/hour", MONTH: "/month"};
+  const unitText = (c: (typeof components)[number]) =>
+    c.unitType === "CUSTOM" ? `/${c.unitLabel ?? "unit"}` : (unitSuffix[c.unitType ?? ""] ?? "/unit");
 
   const frequencyLabel: Record<string, string> = {
     MONTHLY: "/month",
@@ -236,11 +245,15 @@ export default async function OfferLetterPage({
                       <tr key={c.id} className="border-t border-gray-200">
                         <td className="px-2 py-1">{componentLabel[c.type] ?? c.type}</td>
                         <td className="px-2 py-1 text-right tabular-nums">
-                          {c.isPercentage && c.percentageOfBasic
-                            ? `${toNum(c.percentageOfBasic)}% of Basic`
-                            : formatCurrency(toNum(c.amount))}
+                          {c.calculationType === "UNIT_RATE"
+                            ? `${formatCurrency(toNum(c.amount))}${unitText(c)}`
+                            : c.isPercentage && c.percentageOfBasic
+                              ? `${toNum(c.percentageOfBasic)}% of Basic`
+                              : formatCurrency(toNum(c.amount))}
                         </td>
-                        <td className="px-2 py-1 text-gray-600">{frequencyLabel[c.frequency] ?? "/month"}</td>
+                        <td className="px-2 py-1 text-gray-600">
+                          {c.calculationType === "UNIT_RATE" ? "as incurred" : (frequencyLabel[c.frequency] ?? "/month")}
+                        </td>
                       </tr>
                     ))}
                     <tr className="border-t-2 border-gray-400 bg-gray-50 font-bold">
@@ -256,8 +269,12 @@ export default async function OfferLetterPage({
                         {deductions.map((c) => (
                           <tr key={c.id} className="border-t border-gray-200">
                             <td className="px-2 py-1 pl-4">— {componentLabel[c.type] ?? c.type}</td>
-                            <td className="px-2 py-1 text-right tabular-nums text-red-600">-{formatCurrency(toNum(c.amount))}</td>
-                            <td className="px-2 py-1 text-gray-600">{frequencyLabel[c.frequency] ?? "/month"}</td>
+                            <td className="px-2 py-1 text-right tabular-nums text-red-600">
+                              -{formatCurrency(toNum(c.amount))}{c.calculationType === "UNIT_RATE" ? unitText(c) : ""}
+                            </td>
+                            <td className="px-2 py-1 text-gray-600">
+                              {c.calculationType === "UNIT_RATE" ? "as incurred" : (frequencyLabel[c.frequency] ?? "/month")}
+                            </td>
                           </tr>
                         ))}
                         <tr className="border-t border-gray-200 font-bold">

@@ -333,11 +333,18 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
           where: { userId_companyId: { userId: employeeUserId, companyId: input.companyId } },
           select: {
             role: true,
+            secondaryRoles: true,
+            activeRole: true,
             approvalsDelegatedToId: true,
             delegationEndsAt: true,
           },
         });
-        if (!membership || !holdsApprovalAuthority(membership.role)) return;
+        // Multi-role: nudge when ANY held hat carries approval authority —
+        // a dormant senior hat's approvals stall just the same.
+        const wornOrHeld = membership
+          ? [membership.activeRole ?? membership.role, membership.role, ...membership.secondaryRoles]
+          : [];
+        if (!membership || !wornOrHeld.some((r) => holdsApprovalAuthority(r))) return;
         // Already covering — no need to remind.
         if (membership.approvalsDelegatedToId && membership.delegationEndsAt && membership.delegationEndsAt > new Date()) return;
         await createInAppNotification({

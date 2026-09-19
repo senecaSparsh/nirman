@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getActingDelegations, getActingRole, getCompany, getCustomRoleLabels, getOwnRole, getSession, getUserPermissions, json, roleDisplayLabel } from "@/lib/server";
+import { apiHandler, getActingDelegations, getActingRole, getCompany, getCustomRoleLabels, getHeldRoles, getOwnRole, getSession, getUserPermissions, json, roleDisplayLabel } from "@/lib/server";
 
 /**
  * GET /api/me — the current user's identity + EFFECTIVE permissions.
@@ -27,7 +27,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   // rather than the session because Better-Auth's session user may not always
   // include additional fields reliably (e.g. after a session is created via
   // the custom phone-password flow). The DB is the source of truth.
-  const [dbUser, permissions, actingRole, ownRole, actingDelegations] = await Promise.all([
+  const [dbUser, permissions, actingRole, ownRole, actingDelegations, company] = await Promise.all([
     prisma.user.findUnique({
       where: { id: sessionUser.id },
       select: {
@@ -48,19 +48,30 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     getActingRole().catch(() => null),
     getOwnRole().catch(() => null),
     getActingDelegations().catch(() => []),
+    getCompany().catch(() => null),
   ]);
   // Human label for the stored role — CUSTOM_* keys resolve to the custom
   // role's label in the active company so clients never show a raw key or
   // the normalized "Supervisor" fallback.
   const role = dbUser?.role ?? sessionUser.role ?? null;
-  const company = await getCompany().catch(() => null);
   const customLabels = company ? await getCustomRoleLabels([company.id]) : null;
+  // Multi-role: the member's held set + the hat currently worn (validated
+  // against the set — a stale hat falls back to the primary role).
+  const held = company && sessionUser.id ? await getHeldRoles(sessionUser.id, company.id).catch(() => null) : null;
   const res = json({
     id: sessionUser.id,
     name: dbUser?.name ?? sessionUser.name ?? null,
     email: sessionUser.email ?? null,
     role,
     roleLabel: roleDisplayLabel(role, company?.id, customLabels),
+    // Multi-role: all assigned hats + the active one (for the role switcher).
+    roles: held?.heldRoles ?? (role ? [role] : []),
+    activeRole: held?.activeRole ?? role,
+    activeRoleLabel: roleDisplayLabel(held?.activeRole ?? role, company?.id, customLabels),
+    // Label per held role — the switcher renders names, not raw keys.
+    roleLabels: Object.fromEntries(
+      (held?.heldRoles ?? (role ? [role] : [])).map((r) => [r, roleDisplayLabel(r, company?.id, customLabels)]),
+    ),
     phone: dbUser?.phone ?? null,
     image: dbUser?.image ?? null,
     active: dbUser?.active ?? true,

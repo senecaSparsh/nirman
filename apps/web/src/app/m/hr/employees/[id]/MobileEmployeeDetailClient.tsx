@@ -24,8 +24,7 @@ import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { DetailStatGrid } from "@/components/mobile/v2/detail-primitives";
 import { TrackedCallButton } from "@/components/calls/TrackedCallButton";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
-import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
-import { MobileProjectSelect, MobileStockLocationSelect, MobileEmployeeSelect } from "@/components/mobile/selectors";
+import { MobileProjectSelect, MobileStockLocationSelect, MobileEmployeeSelect, MobileDepartmentSelect } from "@/components/mobile/selectors";
 import { toast } from "sonner";
 import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 import { MobileCreateAccountDialog as CreateAccountDialog } from "../MobileCreateAccountDialog";
@@ -198,6 +197,7 @@ export function MobileEmployeeDetailClient({
   assignableRoles,
   departments,
   currentUserId,
+  hqLabel,
 }: {
   employee?: EmployeeData;
   canManage: boolean;
@@ -212,6 +212,9 @@ export function MobileEmployeeDetailClient({
   assignableRoles?: { key: string; label: string }[];
   departments?: { id: string; code: string; name: string; active: boolean }[];
   currentUserId?: string;
+  /** Label for the empty reporting-site option — the company HQ geo-fence
+   *  applies to unassigned employees when the company profile has coords. */
+  hqLabel?: string | null;
 }) {
   const router = useRouter();
   const [showEdit, setShowEdit] = useState(false);
@@ -550,7 +553,8 @@ export function MobileEmployeeDetailClient({
             <div className="grid grid-cols-2 gap-x-3 gap-y-2 pt-2 border-t" style={{ borderColor: "var(--color-line)" }}>
               <InfoField icon={<Mail className="size-3" />} label="Login" value={displayEmail(employee.user.email) ?? employee.user.phone ?? "—"} />
               {employee.user.role && <InfoField icon={<UserCircle className="size-3" />} label="Role" value={employee.user.role.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())} />}
-              {employee.user.department && <InfoField icon={<Briefcase className="size-3" />} label="Dept" value={employee.user.department} />}
+              {employee.departmentName && <InfoField icon={<Briefcase className="size-3" />} label="Dept" value={employee.departmentName} />}
+              {employee.user.department && employee.user.department !== employee.departmentName && <InfoField icon={<Building2 className="size-3" />} label="Unit" value={employee.user.department} />}
               {employee.user.lastLoginAt && <InfoField icon={<Clock className="size-3" />} label="Last Login" value={formatDate(employee.user.lastLoginAt)} />}
             </div>
           )}
@@ -1031,9 +1035,11 @@ export function MobileEmployeeDetailClient({
             {employee.autoDepositSetupAt && (
               <DetailRow label="Setup Date" value={formatDate(employee.autoDepositSetupAt)} />
             )}
-            {canManage && (
+            {/* setup-deposit requires PAYROLL_MANAGE — gating on canManage
+                (HR_MANAGE) would show a dead-end button that 403s on save */}
+            {canManagePayroll && (
               <Link
-                href={`/m/hr/onboarding/${employee.id}`}
+                href={`/m/hr/onboarding/${employee.id}?onboard=deposit`}
                 className="block w-full rounded-[0.5rem] p-2.5 text-m-label font-semibold text-center press mt-2"
                 style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
               >
@@ -1617,6 +1623,7 @@ export function MobileEmployeeDetailClient({
           stockLocations={stockLocations}
           potentialManagers={potentialManagers}
           departments={departments ?? []}
+          hqLabel={hqLabel}
           onClose={() => setShowEdit(false)}
           onSaved={() => {
             setShowEdit(false);
@@ -1679,10 +1686,12 @@ export function MobileEmployeeDetailClient({
           employee={onboardingData}
           canManage={canManage}
           canManagePayroll={canManagePayroll ?? false}
+          canManageAccess={canManageUsers ?? false}
           actorRole={actorRole}
           projects={projects}
           stockLocations={stockLocations}
           departments={departments ?? []}
+          hqLabel={hqLabel}
           onClose={() => setShowOnboardingModal(false)}
         />
       )}
@@ -2272,6 +2281,7 @@ function EmployeeEditSheet({
   stockLocations,
   potentialManagers,
   departments,
+  hqLabel,
   onClose,
   onSaved,
 }: {
@@ -2280,6 +2290,7 @@ function EmployeeEditSheet({
   stockLocations: StockLocationOption[];
   potentialManagers: PotentialManager[];
   departments: { id: string; code: string; name: string; active: boolean }[];
+  hqLabel?: string | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -2462,7 +2473,7 @@ function EmployeeEditSheet({
             </div>
 
             <div>
-              <MobileSelectWithCreate
+              <MobileDepartmentSelect
                 label="Department"
                 value={departmentId}
                 onChange={setDepartmentId}
@@ -2478,7 +2489,7 @@ function EmployeeEditSheet({
                 value={reportingLocationId}
                 onChange={setReportingLocationId}
                 options={stockLocations.map((l) => ({ value: l.id, label: l.name }))}
-                placeholder="— None —"
+                placeholder={hqLabel ?? "— None —"}
               />
             </div>
 

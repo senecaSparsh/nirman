@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Company" ADD COLUMN     "geoRadius" INTEGER,
+ADD COLUMN     "lat" DOUBLE PRECISION,
+ADD COLUMN     "lng" DOUBLE PRECISION;

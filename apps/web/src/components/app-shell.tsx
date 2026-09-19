@@ -34,6 +34,7 @@ import dynamic from "next/dynamic";
 const CommandPalette = dynamic(() => import("@/components/command-palette").then(m => m.CommandPalette), { ssr: false });
 const AssistantChat = dynamic(() => import("@/components/mobile/assistant/assistant-chat").then(m => m.AssistantChat), { ssr: false });
 import { CompanySwitcher } from "@/components/company-switcher";
+import { RoleSwitcher } from "@/components/role-switcher";
 import { NotificationBell } from "@/components/notification-bell";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { CurrencyToggle } from "@/components/currency-toggle";
@@ -145,9 +146,9 @@ export function AppShell({
   // Badges: one stable key per role (NOT dependent on pathname). The fetcher
   // hits every badge endpoint for the role and returns a {href: count} map.
   const { data: badgeData } = useSWR(
-    isShellRoute && meData?.role ? ["badges", meData.role] : null,
+    isShellRoute && (meData?.activeRole ?? meData?.role) ? ["badges", meData!.activeRole ?? meData!.role] : null,
     async () => {
-      const role = meData!.role;
+      const role = meData!.activeRole ?? meData!.role;
       const items = badgeLinksFor(role);
       const results = await Promise.all(
         items.map((item) =>
@@ -168,7 +169,10 @@ export function AppShell({
   const companies: { id: string; name: string; businessType: string | null; parentName: string | null; isCurrent: boolean }[] =
     Array.isArray(companyData?.companies) ? companyData.companies : [];
   const badgeCounts: Record<string, number> = badgeData ?? {};
-  const userRole: string = meData?.role ?? "PROJECT_MANAGER";
+  // Multi-role: nav/badges/palette follow the hat being worn — `ownRole`
+  // is the server-resolved activeRole (custom hats collapse to their
+  // baseRole for persona classification). Falls back to the primary role.
+  const userRole: string = meData?.ownRole ?? meData?.activeRole ?? meData?.role ?? "PROJECT_MANAGER";
   const userName: string = meData?.name ?? "";
 
   // Tell the offline queue which company is active — ops are stamped with it
@@ -593,6 +597,12 @@ export function AppShell({
             <CurrencyToggle tone="surface" />
             <ThemeToggle tone="surface" />
             <span aria-hidden className="mx-0.5 h-5 w-px bg-border" />
+            {/* Multi-role: hat switcher — renders only when the member holds >1 role */}
+            <RoleSwitcher
+              roles={Array.isArray(meData?.roles) ? meData.roles : []}
+              activeRole={meData?.activeRole ?? userRole}
+              roleLabels={meData?.roleLabels ?? {}}
+            />
             <CompanySwitcher companies={companies} canSwitch={userRole === "OWNER" || userRole === "ADMIN"} />
           </div>
         </header>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { Wallet, Plus, Eye, CheckCircle, DollarSign, Pencil, X, TrendingUp, Users, SearchX, BookOpen, Loader2 } from "lucide-react";
@@ -27,6 +27,21 @@ const STATUS_CONFIG: Record<PayrollStatus, { label: string; class: string; dotCl
   PAID: { label: "Paid", class: "bg-success/10 text-success", dotClass: "bg-success", step: 3 },
 };
 
+type LineComponent = {
+  id: string;
+  type: string;
+  label: string;
+  calculationType: string;
+  unitType: string | null;
+  unitLabel: string | null;
+  rate: number;
+  quantity: number | null;
+  amount: number;
+  bucket: string;
+  isDeduction: boolean;
+  notes: string | null;
+};
+
 type PayrollLine = {
   id: string;
   employeeId: string;
@@ -47,7 +62,74 @@ type PayrollLine = {
   grossPay: number;
   totalDeductions: number;
   netPay: number;
+  components?: LineComponent[];
 };
+
+/** Short unit label for display: "₹3/km", "₹150/day", "₹500/trip". */
+function unitSuffix(unitType: string | null, unitLabel: string | null): string {
+  switch (unitType) {
+    case "DAY": return "/day";
+    case "KM": return "/km";
+    case "TRIP": return "/trip";
+    case "HOUR": return "/hr";
+    case "MONTH": return "/mo";
+    case "CUSTOM": return unitLabel ? `/${unitLabel}` : "";
+    default: return "";
+  }
+}
+
+/** Human-readable rate description for a component row. */
+function rateDescription(c: Pick<LineComponent, "calculationType" | "unitType" | "unitLabel" | "rate">): string {
+  if (c.calculationType === "UNIT_RATE") return `${formatCurrency(c.rate)}${unitSuffix(c.unitType, c.unitLabel)}`;
+  if (c.calculationType === "PERCENTAGE_OF_BASIC") return `${c.rate}% of basic`;
+  return "fixed";
+}
+
+/** Options for ad-hoc component adds — mirrors the salary structure types. */
+const LINE_COMPONENT_OPTIONS = [
+  { value: "HRA", label: "HRA" },
+  { value: "DA", label: "DA" },
+  { value: "TA", label: "Travel Allowance" },
+  { value: "SPECIAL_ALLOWANCE", label: "Special Allowance" },
+  { value: "FOOD_ALLOWANCE", label: "Food Allowance" },
+  { value: "MEDICAL_ALLOWANCE", label: "Medical Allowance" },
+  { value: "UNIFORM_ALLOWANCE", label: "Uniform Allowance" },
+  { value: "WASHING_ALLOWANCE", label: "Washing Allowance" },
+  { value: "LTA", label: "LTA" },
+  { value: "PERFORMANCE_BONUS", label: "Performance Bonus" },
+  { value: "JOINING_BONUS", label: "Joining Bonus" },
+  { value: "RETENTION_BONUS", label: "Retention Bonus" },
+  { value: "EMPLOYER_PF", label: "Employer PF" },
+  { value: "EMPLOYEE_PF", label: "Employee PF" },
+  { value: "EMPLOYER_ESI", label: "Employer ESI" },
+  { value: "EMPLOYEE_ESI", label: "Employee ESI" },
+  { value: "GRATUITY", label: "Gratuity" },
+  { value: "PROFESSION_TAX", label: "Profession Tax" },
+  { value: "TDS", label: "TDS" },
+  { value: "OTHER", label: "Other / Ad-hoc" },
+];
+
+const LINE_COMPONENT_LABELS: Record<string, string> = Object.fromEntries(
+  LINE_COMPONENT_OPTIONS.map((o) => [o.value, o.label]),
+);
+
+/** Client-side mirror of the server's bucketForComponent — used only for
+ *  live previews while editing; the server recomputes authoritatively. */
+function previewBucket(type: string, isDeduction: boolean): string {
+  switch (type) {
+    case "EMPLOYEE_PF": return "PF";
+    case "EMPLOYER_PF": return "EMPLOYER_PF";
+    case "EMPLOYEE_ESI": return "ESI";
+    case "PROFESSION_TAX": return "PROFESSION_TAX";
+    case "TDS": return "TAX";
+    case "EMPLOYER_ESI":
+    case "GRATUITY": return "EMPLOYER_ONLY";
+    case "PERFORMANCE_BONUS":
+    case "JOINING_BONUS":
+    case "RETENTION_BONUS": return "BONUS";
+    default: return isDeduction ? "DEDUCTIONS" : "ALLOWANCE";
+  }
+}
 
 export type PayrollRow = {
   id: string;
@@ -645,8 +727,19 @@ function PayrollDetailDialog({
   onUpdated: () => void;
 }) {
   const [lines, setLines] = useState<PayrollLine[] | null>(null);
+  const [expandedLine, setExpandedLine] = useState<string | null>(null);
   const [editingLine, setEditingLine] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<Record<string, string>>({});
+  const [editOvertime, setEditOvertime] = useState("");
+  const [editComponents, setEditComponents] = useState<LineComponent[]>([]);
+  const [saving, setSaving] = useState(false);
+  // Add-component form state
+  const [addType, setAddType] = useState("OTHER");
+  const [addLabel, setAddLabel] = useState("");
+  const [addCalc, setAddCalc] = useState<"FIXED" | "PERCENTAGE_OF_BASIC" | "UNIT_RATE">("FIXED");
+  const [addRate, setAddRate] = useState("");
+  const [addUnit, setAddUnit] = useState("DAY");
+  const [addQty, setAddQty] = useState("");
+  const [addIsDeduction, setAddIsDeduction] = useState(false);
 
   const { data: periodData, loading, error: linesError } = useFetch<{ lines?: PayrollLine[] }>(
     `/api/payroll/${period.id}`,
@@ -659,28 +752,54 @@ function PayrollDetailDialog({
     if (linesError) toast.error("Failed to load payroll details");
   }, [linesError]);
 
-  const handleSaveLine = async (lineId: string) => {
-    const v = editValues;
-    const body: Record<string, number> = {};
-    if (v.overtimeAmount !== undefined) body.overtimeAmount = parseFloat(v.overtimeAmount) || 0;
-    if (v.allowance !== undefined) body.allowance = parseFloat(v.allowance) || 0;
-    if (v.bonus !== undefined) body.bonus = parseFloat(v.bonus) || 0;
-    if (v.pf !== undefined) body.pf = parseFloat(v.pf) || 0;
-    if (v.employerPf !== undefined) body.employerPf = parseFloat(v.employerPf) || 0;
-    if (v.esi !== undefined) body.esi = parseFloat(v.esi) || 0;
-    if (v.professionTax !== undefined) body.professionTax = parseFloat(v.professionTax) || 0;
-    if (v.tax !== undefined) body.tax = parseFloat(v.tax) || 0;
-    if (v.deductions !== undefined) body.deductions = parseFloat(v.deductions) || 0;
+  /** Client-side preview of a draft row's amount (server recomputes on save). */
+  function previewAmount(c: LineComponent, basicAmount: number): number {
+    if (c.calculationType === "UNIT_RATE") return c.rate * (c.quantity ?? 0);
+    if (c.calculationType === "PERCENTAGE_OF_BASIC") return (basicAmount * c.rate) / 100;
+    return c.rate;
+  }
 
-    const res = await fetch(`/api/payroll/${period.id}/lines/${lineId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (res.ok) {
+  const handleSaveLine = async (l: PayrollLine) => {
+    setSaving(true);
+    try {
+      // Overtime stays a lump field (attendance-computed, not component-driven).
+      const ot = parseFloat(editOvertime);
+      if (!isNaN(ot) && ot !== l.overtimeAmount) {
+        const res = await fetch(`/api/payroll/${period.id}/lines/${l.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ overtimeAmount: ot }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error ?? "Failed to update overtime");
+        }
+      }
+
+      const res = await fetch(`/api/payroll/${period.id}/lines/${l.id}/components`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          components: editComponents.map((c) => ({
+            type: c.type,
+            label: c.label,
+            calculationType: c.calculationType,
+            unitType: c.unitType,
+            unitLabel: c.unitLabel,
+            rate: c.rate,
+            quantity: c.quantity,
+            isDeduction: c.isDeduction,
+            notes: c.notes,
+          })),
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Failed to update components");
+      }
+
       toast.success("Payroll line updated");
       setEditingLine(null);
-      setEditValues({});
       try {
         const refreshRes = await fetch(`/api/payroll/${period.id}`);
         if (refreshRes.ok) {
@@ -689,35 +808,60 @@ function PayrollDetailDialog({
         }
       } catch (err) { console.warn("Payroll refresh failed:", err); }
       onUpdated();
-    } else {
-      const data = await res.json().catch(() => ({}));
-      toast.error(data.error ?? "Failed to update");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update");
+    } finally {
+      setSaving(false);
     }
   };
 
-  function startEdit(l: { id: string; overtimeAmount: number; allowance: number; bonus: number; pf: number; employerPf: number; esi: number; professionTax: number; tax: number; deductions: number }) {
+  function startEdit(l: PayrollLine) {
     setEditingLine(l.id);
-    setEditValues({
-      overtimeAmount: l.overtimeAmount.toString(),
-      allowance: l.allowance.toString(),
-      bonus: l.bonus.toString(),
-      pf: l.pf.toString(),
-      employerPf: l.employerPf.toString(),
-      esi: l.esi.toString(),
-      professionTax: l.professionTax.toString(),
-      tax: l.tax.toString(),
-      deductions: l.deductions.toString(),
-    });
+    setExpandedLine(l.id);
+    setEditOvertime(l.overtimeAmount.toString());
+    setEditComponents((l.components ?? []).map((c) => ({ ...c })));
+    setAddType("OTHER"); setAddLabel(""); setAddCalc("FIXED");
+    setAddRate(""); setAddUnit("DAY"); setAddQty(""); setAddIsDeduction(false);
+  }
+
+  function handleAddComponent() {
+    const rate = parseFloat(addRate);
+    if (!addRate || isNaN(rate) || rate <= 0) {
+      toast.error(addCalc === "PERCENTAGE_OF_BASIC" ? "Enter a valid %" : "Enter a valid rate");
+      return;
+    }
+    const qty = addCalc === "UNIT_RATE" ? (parseFloat(addQty) || 0) : null;
+    setEditComponents((prev) => [
+      ...prev,
+      {
+        id: `new-${Date.now()}`,
+        type: addType,
+        label: addLabel.trim() || LINE_COMPONENT_LABELS[addType] || addType,
+        calculationType: addCalc,
+        unitType: addCalc === "UNIT_RATE" ? addUnit : null,
+        unitLabel: null,
+        rate,
+        quantity: qty,
+        amount: 0, // preview computed client-side; server recomputes on save
+        bucket: "",
+        isDeduction: addType === "OTHER" ? addIsDeduction
+          : ["EMPLOYEE_PF", "EMPLOYEE_ESI", "PROFESSION_TAX", "TDS"].includes(addType),
+        notes: null,
+      },
+    ]);
+    setAddType("OTHER"); setAddLabel(""); setAddCalc("FIXED");
+    setAddRate(""); setAddUnit("DAY"); setAddQty(""); setAddIsDeduction(false);
   }
 
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()} title={`${MONTHS[period.month]} ${period.year} — Payroll Lines`} className="max-w-3xl">
+    <Dialog open onOpenChange={(o) => !o && onClose()} title={`${MONTHS[period.month]} ${period.year} — Payroll Lines`} className="max-w-4xl">
       {loading ? (
         <div className="py-8 text-center text-meta text-muted-foreground">Loading…</div>
       ) : lines && lines.length > 0 ? (
         <Table>
           <THead>
             <TR>
+              <TH></TH>
               <TH>Employee</TH>
               <TH>Days</TH>
               <TH>Basic</TH>
@@ -735,78 +879,208 @@ function PayrollDetailDialog({
             </TR>
           </THead>
           <TBody>
-            {lines.map((l) => (
-              <TR key={l.id}>
-                <TD>
-                  <div className="font-medium"><EmployeeName id={l.employeeId} name={l.employeeName} /></div>
-                  <div className="text-caption text-muted-foreground">{l.trade ?? l.wageType}</div>
-                </TD>
-                <TD className="tnum">{l.daysWorked}</TD>
-                <TD className="tnum">{formatCurrency(l.basicAmount)}</TD>
-                {editingLine === l.id ? (
-                  <>
-                    <TD className="tnum">
-                      <Input type="number" value={editValues.overtimeAmount ?? ""} onChange={(e) => setEditValues((v) => ({ ...v, overtimeAmount: e.target.value }))} className="h-7 w-16 px-1 text-caption" step="0.01" min="0" />
+            {lines.map((l) => {
+              const isEditing = editingLine === l.id;
+              const isExpanded = expandedLine === l.id || isEditing;
+              const displayComponents = isEditing ? editComponents : (l.components ?? []);
+              // Live bucket preview while editing — server recomputes on save.
+              const preview = (() => {
+                const s = { allowance: 0, bonus: 0, pf: 0, employerPf: 0, esi: 0, professionTax: 0, tax: 0, deductions: 0 };
+                for (const c of editComponents) {
+                  const amt = previewAmount(c, l.basicAmount);
+                  const b = c.bucket || previewBucket(c.type, c.isDeduction);
+                  if (b === "ALLOWANCE") s.allowance += amt;
+                  else if (b === "BONUS") s.bonus += amt;
+                  else if (b === "PF") s.pf += amt;
+                  else if (b === "EMPLOYER_PF") s.employerPf += amt;
+                  else if (b === "ESI") s.esi += amt;
+                  else if (b === "PROFESSION_TAX") s.professionTax += amt;
+                  else if (b === "TAX") s.tax += amt;
+                  else if (b === "DEDUCTIONS") s.deductions += amt;
+                }
+                return s;
+              })();
+              const otVal = parseFloat(editOvertime) || 0;
+              const previewNet = l.basicAmount + otVal + preview.allowance + preview.bonus
+                - (preview.deductions + preview.pf + preview.esi + preview.professionTax + preview.tax);
+              return (
+                <Fragment key={l.id}>
+                  <TR>
+                    <TD className="w-6 pr-0">
+                      <button
+                        onClick={() => setExpandedLine(isExpanded && !isEditing ? null : l.id)}
+                        className="rounded p-0.5 text-muted-foreground hover:bg-accent"
+                        title="Show breakdown"
+                      >
+                        <Eye className={cn("h-3.5 w-3.5", isExpanded && "text-foreground")} />
+                      </button>
                     </TD>
-                    <TD className="tnum">
-                      <Input type="number" value={editValues.allowance ?? ""} onChange={(e) => setEditValues((v) => ({ ...v, allowance: e.target.value }))} className="h-7 w-16 px-1 text-caption" step="0.01" min="0" />
-                    </TD>
-                    <TD className="tnum">
-                      <Input type="number" value={editValues.bonus ?? ""} onChange={(e) => setEditValues((v) => ({ ...v, bonus: e.target.value }))} className="h-7 w-16 px-1 text-caption" step="0.01" min="0" />
-                    </TD>
-                    <TD className="tnum">
-                      <Input type="number" value={editValues.pf ?? ""} onChange={(e) => setEditValues((v) => ({ ...v, pf: e.target.value }))} className="h-7 w-16 px-1 text-caption" step="0.01" min="0" />
-                    </TD>
-                    <TD className="tnum">
-                      <Input type="number" value={editValues.employerPf ?? ""} onChange={(e) => setEditValues((v) => ({ ...v, employerPf: e.target.value }))} className="h-7 w-16 px-1 text-caption" step="0.01" min="0" />
-                    </TD>
-                    <TD className="tnum">
-                      <Input type="number" value={editValues.esi ?? ""} onChange={(e) => setEditValues((v) => ({ ...v, esi: e.target.value }))} className="h-7 w-16 px-1 text-caption" step="0.01" min="0" />
-                    </TD>
-                    <TD className="tnum">
-                      <Input type="number" value={editValues.professionTax ?? ""} onChange={(e) => setEditValues((v) => ({ ...v, professionTax: e.target.value }))} className="h-7 w-16 px-1 text-caption" step="0.01" min="0" />
-                    </TD>
-                    <TD className="tnum">
-                      <Input type="number" value={editValues.tax ?? ""} onChange={(e) => setEditValues((v) => ({ ...v, tax: e.target.value }))} className="h-7 w-16 px-1 text-caption" step="0.01" min="0" />
-                    </TD>
-                    <TD className="tnum">
-                      <Input type="number" value={editValues.deductions ?? ""} onChange={(e) => setEditValues((v) => ({ ...v, deductions: e.target.value }))} className="h-7 w-16 px-1 text-caption" step="0.01" min="0" />
-                    </TD>
-                    <TD className="tnum font-bold">{formatCurrency(l.netPay)}</TD>
                     <TD>
-                      <div className="flex gap-1">
-                        <button onClick={() => handleSaveLine(l.id)} className="rounded p-0.5 text-success hover:bg-success/10" title="Save">
-                          <CheckCircle className="h-3.5 w-3.5" />
-                        </button>
-                        <button onClick={() => { setEditingLine(null); setEditValues({}); }} className="rounded p-0.5 text-muted-foreground hover:bg-accent" title="Cancel">
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
+                      <div className="font-medium"><EmployeeName id={l.employeeId} name={l.employeeName} /></div>
+                      <div className="text-caption text-muted-foreground">{l.trade ?? l.wageType}</div>
                     </TD>
-                  </>
-                ) : (
-                  <>
-                    <TD className="tnum">{formatCurrency(l.overtimeAmount)}</TD>
-                    <TD className="tnum">{formatCurrency(l.allowance)}</TD>
-                    <TD className="tnum">{formatCurrency(l.bonus)}</TD>
-                    <TD className="tnum">{formatCurrency(l.pf)}</TD>
-                    <TD className="tnum">{formatCurrency(l.employerPf)}</TD>
-                    <TD className="tnum">{formatCurrency(l.esi)}</TD>
-                    <TD className="tnum">{formatCurrency(l.professionTax)}</TD>
-                    <TD className="tnum">{formatCurrency(l.tax)}</TD>
-                    <TD className="tnum">{formatCurrency(l.deductions)}</TD>
-                    <TD className="tnum font-bold">{formatCurrency(l.netPay)}</TD>
+                    <TD className="tnum">{l.daysWorked}</TD>
+                    <TD className="tnum">{formatCurrency(l.basicAmount)}</TD>
+                    <TD className="tnum">
+                      {isEditing ? (
+                        <Input type="number" value={editOvertime} onChange={(e) => setEditOvertime(e.target.value)} className="h-7 w-16 px-1 text-caption" step="0.01" min="0" />
+                      ) : formatCurrency(l.overtimeAmount)}
+                    </TD>
+                    <TD className="tnum">{formatCurrency(isEditing ? preview.allowance : l.allowance)}</TD>
+                    <TD className="tnum">{formatCurrency(isEditing ? preview.bonus : l.bonus)}</TD>
+                    <TD className="tnum">{formatCurrency(isEditing ? preview.pf : l.pf)}</TD>
+                    <TD className="tnum">{formatCurrency(isEditing ? preview.employerPf : l.employerPf)}</TD>
+                    <TD className="tnum">{formatCurrency(isEditing ? preview.esi : l.esi)}</TD>
+                    <TD className="tnum">{formatCurrency(isEditing ? preview.professionTax : l.professionTax)}</TD>
+                    <TD className="tnum">{formatCurrency(isEditing ? preview.tax : l.tax)}</TD>
+                    <TD className="tnum">{formatCurrency(isEditing ? preview.deductions : l.deductions)}</TD>
+                    <TD className="tnum font-bold">{formatCurrency(isEditing ? previewNet : l.netPay)}</TD>
                     {canEdit && (
                       <TD>
-                        <button onClick={() => startEdit(l)} className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground" title="Edit">
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
+                        {isEditing ? (
+                          <div className="flex gap-1">
+                            <button onClick={() => handleSaveLine(l)} disabled={saving} className="rounded p-0.5 text-success hover:bg-success/10" title="Save">
+                              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle className="h-3.5 w-3.5" />}
+                            </button>
+                            <button onClick={() => setEditingLine(null)} className="rounded p-0.5 text-muted-foreground hover:bg-accent" title="Cancel">
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button onClick={() => startEdit(l)} className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground" title="Edit">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </TD>
                     )}
-                  </>
-                )}
-              </TR>
-            ))}
+                  </TR>
+                  {isExpanded && (
+                    <TR className="bg-muted/20">
+                      <TD colSpan={canEdit ? 15 : 14} className="p-0">
+                        <div className="px-4 py-2 space-y-1.5">
+                          {displayComponents.length === 0 ? (
+                            <p className="text-caption text-muted-foreground py-1">
+                              No itemized components — this line is just basic + overtime.
+                              {isEditing ? " Add one below." : ""}
+                            </p>
+                          ) : (
+                            <table className="w-full text-caption">
+                              <tbody>
+                                {displayComponents.map((c, idx) => (
+                                  <tr key={c.id} className="border-b border-border/50 last:border-0">
+                                    <td className="py-1 pr-2">
+                                      <span className="font-medium text-foreground">{c.label}</span>
+                                      <span className="ml-1.5 text-muted-foreground">{rateDescription(c)}</span>
+                                      {c.bucket === "EMPLOYER_ONLY" && (
+                                        <span className="ml-1.5 rounded bg-muted px-1 py-0.5 text-micro text-muted-foreground">employer</span>
+                                      )}
+                                    </td>
+                                    <td className="py-1 pr-2 w-28">
+                                      {isEditing && c.calculationType === "UNIT_RATE" ? (
+                                        <div className="flex items-center gap-1">
+                                          <Input
+                                            type="number"
+                                            value={c.quantity ?? 0}
+                                            onChange={(e) => setEditComponents((prev) => prev.map((p, i) => i === idx ? { ...p, quantity: parseFloat(e.target.value) || 0 } : p))}
+                                            className="h-6 w-16 px-1 text-micro"
+                                            step="0.01" min="0"
+                                          />
+                                          <span className="text-micro text-muted-foreground">{(c.unitType === "CUSTOM" ? c.unitLabel : c.unitType?.toLowerCase()) ?? "units"}</span>
+                                        </div>
+                                      ) : c.calculationType === "UNIT_RATE" ? (
+                                        <span className="text-muted-foreground">× {c.quantity ?? 0} {(c.unitType === "CUSTOM" ? c.unitLabel : c.unitType?.toLowerCase()) ?? "units"}</span>
+                                      ) : isEditing ? (
+                                        <div className="flex items-center gap-1">
+                                          <Input
+                                            type="number"
+                                            value={c.rate}
+                                            onChange={(e) => setEditComponents((prev) => prev.map((p, i) => i === idx ? { ...p, rate: parseFloat(e.target.value) || 0 } : p))}
+                                            className="h-6 w-20 px-1 text-micro"
+                                            step="0.01" min="0"
+                                          />
+                                          {c.calculationType === "PERCENTAGE_OF_BASIC" && <span className="text-micro text-muted-foreground">%</span>}
+                                        </div>
+                                      ) : null}
+                                    </td>
+                                    <td className={cn("py-1 pr-2 tnum text-right w-20", c.isDeduction || c.bucket === "EMPLOYER_ONLY" ? "text-danger" : "text-foreground")}>
+                                      {c.isDeduction ? "−" : ""}{formatCurrency(previewAmount(c, l.basicAmount))}
+                                    </td>
+                                    <td className="py-1 w-6">
+                                      {isEditing && (
+                                        <button onClick={() => setEditComponents((prev) => prev.filter((_, i) => i !== idx))} className="rounded p-0.5 text-danger hover:bg-danger/10" title="Remove">
+                                          <X className="h-3 w-3" />
+                                        </button>
+                                      )}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+
+                          {/* Add component (edit mode) */}
+                          {isEditing && (
+                            <div className="flex flex-wrap items-end gap-2 pt-1 border-t border-border/50">
+                              <div>
+                                <div className="text-micro text-muted-foreground mb-0.5">Type</div>
+                                <Select value={addType} onChange={(e) => setAddType(e.target.value)} className="h-7 w-36 text-caption">
+                                  {LINE_COMPONENT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                </Select>
+                              </div>
+                              {addType === "OTHER" && (
+                                <div>
+                                  <div className="text-micro text-muted-foreground mb-0.5">Label</div>
+                                  <Input value={addLabel} onChange={(e) => setAddLabel(e.target.value)} placeholder="e.g. Site allowance" className="h-7 w-32 text-caption" />
+                                </div>
+                              )}
+                              <div>
+                                <div className="text-micro text-muted-foreground mb-0.5">Priced as</div>
+                                <Select value={addCalc} onChange={(e) => setAddCalc(e.target.value as typeof addCalc)} className="h-7 w-32 text-caption">
+                                  <option value="FIXED">Fixed amount</option>
+                                  <option value="PERCENTAGE_OF_BASIC">% of basic</option>
+                                  <option value="UNIT_RATE">Per unit (rate)</option>
+                                </Select>
+                              </div>
+                              <div>
+                                <div className="text-micro text-muted-foreground mb-0.5">{addCalc === "PERCENTAGE_OF_BASIC" ? "%" : addCalc === "UNIT_RATE" ? "Rate ₹" : "Amount ₹"}</div>
+                                <Input type="number" value={addRate} onChange={(e) => setAddRate(e.target.value)} className="h-7 w-20 text-caption" step="0.01" min="0" />
+                              </div>
+                              {addCalc === "UNIT_RATE" && (
+                                <>
+                                  <div>
+                                    <div className="text-micro text-muted-foreground mb-0.5">Unit</div>
+                                    <Select value={addUnit} onChange={(e) => setAddUnit(e.target.value)} className="h-7 w-24 text-caption">
+                                      <option value="DAY">per day</option>
+                                      <option value="KM">per km</option>
+                                      <option value="TRIP">per trip</option>
+                                      <option value="HOUR">per hour</option>
+                                      <option value="MONTH">per month</option>
+                                    </Select>
+                                  </div>
+                                  <div>
+                                    <div className="text-micro text-muted-foreground mb-0.5">Qty</div>
+                                    <Input type="number" value={addQty} onChange={(e) => setAddQty(e.target.value)} className="h-7 w-16 text-caption" step="0.01" min="0" />
+                                  </div>
+                                </>
+                              )}
+                              {addType === "OTHER" && (
+                                <label className="flex items-center gap-1 text-micro text-muted-foreground pb-1.5">
+                                  <input type="checkbox" checked={addIsDeduction} onChange={(e) => setAddIsDeduction(e.target.checked)} className="h-3 w-3" />
+                                  Deduct
+                                </label>
+                              )}
+                              <Button size="sm" variant="outline" onClick={handleAddComponent} className="h-7 text-caption">
+                                <Plus className="h-3 w-3 mr-1" /> Add
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </TD>
+                    </TR>
+                  )}
+                </Fragment>
+              );
+            })}
           </TBody>
         </Table>
       ) : (

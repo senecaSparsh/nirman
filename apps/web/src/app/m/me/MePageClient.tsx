@@ -112,6 +112,18 @@ export interface MePageInitial {
       grossPay: number;
       netPay: number;
       deductions: number;
+      /** Itemized breakdown (HRA, travel ₹3/km, PF…) from PayrollLineComponent. */
+      components: {
+        label: string;
+        calculationType: string;
+        unitType: string | null;
+        unitLabel: string | null;
+        rate: number;
+        quantity: number | null;
+        amount: number;
+        bucket: string;
+        isDeduction: boolean;
+      }[];
     } | null;
     leaves: {
       id: string;
@@ -577,6 +589,32 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
                       <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-stop)" }}>−₹{initial.hr.payslip.deductions.toLocaleString("en-IN")}</p>
                     </div>
                   </div>
+                  {/* Itemized breakdown — "Travel · 420 km × ₹3 = ₹1,260" */}
+                  {initial.hr.payslip.components.length > 0 && (
+                    <div className="pt-2 mt-2 space-y-0.5" style={{ borderTop: "1px solid var(--color-line)" }}>
+                      {initial.hr.payslip.components.map((c, i) => (
+                        <div key={i} className="flex items-baseline justify-between gap-2">
+                          <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
+                            {c.label}
+                            {c.calculationType === "UNIT_RATE" && c.quantity != null && (
+                              <span style={{ color: "var(--color-ink-400)" }}>
+                                {" "}· {c.quantity} {(c.unitType === "CUSTOM" ? c.unitLabel : c.unitType?.toLowerCase()) ?? "units"} × ₹{c.rate}
+                              </span>
+                            )}
+                            {c.calculationType === "PERCENTAGE_OF_BASIC" && (
+                              <span style={{ color: "var(--color-ink-400)" }}> · {c.rate}% of basic</span>
+                            )}
+                          </p>
+                          <p
+                            className="text-m-caption font-semibold tabular-nums shrink-0"
+                            style={{ color: c.isDeduction ? "var(--color-stop)" : "var(--color-ink-950)" }}
+                          >
+                            {c.isDeduction ? "−" : ""}₹{c.amount.toLocaleString("en-IN")}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>

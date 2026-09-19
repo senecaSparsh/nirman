@@ -226,6 +226,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
             isDeduction: c.isDeduction ?? false,
             isPercentage: c.isPercentage ?? false,
             percentageOfBasic: c.percentageOfBasic ?? null,
+            calculationType: c.calculationType,
+            unitType: c.unitType ?? null,
+            unitLabel: c.unitLabel ?? null,
+            notes: c.notes ?? null,
           })),
           { changedBy: user.id, changeReason: "Joining" },
         );

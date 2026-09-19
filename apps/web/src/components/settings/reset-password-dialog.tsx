@@ -19,17 +19,22 @@ import { Dialog } from "@/components/ui/dialog";
 export function ResetPasswordDialog({
   userId,
   userName,
+  defaultMustChange = true,
   onClose,
   onSaved,
 }: {
   userId: string;
   userName: string;
+  /** "Reset" contexts (Settings → People) keep the secure default (true — the
+   * user picks their own on next login). "Set password" contexts (employee
+   * onboarding/profile) pass false — the admin-assigned password sticks. */
+  defaultMustChange?: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [mustChange, setMustChange] = useState(true);
+  const [mustChange, setMustChange] = useState(defaultMustChange);
   const [saving, setSaving] = useState(false);
 
   async function handleReset() {

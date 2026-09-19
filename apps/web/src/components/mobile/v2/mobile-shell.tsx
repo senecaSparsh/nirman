@@ -80,6 +80,12 @@ interface CompanyInfo {
   permissions: string[];
   /** Current user's display name — shown in the NavSheet profile section. */
   userName: string;
+  /** Multi-role: all hats the member holds (primary + secondary). */
+  roles: string[];
+  /** Multi-role: the hat currently worn. */
+  activeRole: string;
+  /** Multi-role: display label per held role key. */
+  roleLabels: Record<string, string>;
 }
 
 type CompanyOption = {
@@ -122,6 +128,9 @@ export function MobileShellV2({
           parentCompanyId: initial.company.parentCompanyId,
           permissions: initial.me.permissions,
           userName: initial.me.name ?? "User",
+          roles: initial.me.roles ?? [initial.me.role],
+          activeRole: initial.me.activeRole ?? initial.me.role,
+          roleLabels: initial.me.roleLabels ?? {},
         }
       : {
           name: "Nirman",
@@ -129,6 +138,9 @@ export function MobileShellV2({
           parentCompanyId: null,
           permissions: [],
           userName: "User",
+          roles: [],
+          activeRole: "PROJECT_MANAGER",
+          roleLabels: {},
         },
   );
   const [companies, setCompanies] = useState<CompanyOption[]>(initial?.company.companies ?? []);
@@ -191,7 +203,7 @@ export function MobileShellV2({
   // ── Resolve company name + role via /api/me + /api/company ──
   // Skipped when `initial` is provided — the /m layout already resolved
   // the same data server-side, so refetching would just double the work.
-  const meQ = useFetch<{ role?: string; ownRole?: string; name?: string; permissions?: string[] } | null>("/api/me", { skip: !!initial });
+  const meQ = useFetch<{ role?: string; ownRole?: string; name?: string; permissions?: string[]; roles?: string[]; activeRole?: string; roleLabels?: Record<string, string> } | null>("/api/me", { skip: !!initial });
   const companyQ = useFetch<{ name?: string; parentCompanyId?: string | null; companies?: CompanyOption[] } | null>("/api/company", { skip: !!initial });
   useEffect(() => {
     const me = meQ.data;
@@ -208,6 +220,9 @@ export function MobileShellV2({
           ? me.permissions
           : prev.permissions,
         userName: me?.name ?? prev.userName,
+        roles: Array.isArray(me?.roles) && me.roles.length > 0 ? me.roles : prev.roles,
+        activeRole: me?.activeRole ?? prev.activeRole,
+        roleLabels: me?.roleLabels ?? prev.roleLabels,
       }));
     }
     if (Array.isArray(company?.companies)) setCompanies(company.companies);
@@ -344,6 +359,60 @@ export function MobileShellV2({
     });
     setSwitchingCompanyId(null);
   }
+
+  // ── Switch role ("one hat at a time") ──────────────────────
+  // Multi-role members pick which hat they wear — POST updates the
+  // membership's activeRole, then the header state + /api/me refetch
+  // + router.refresh() re-render every permission-gated surface.
+  const [switchingRole, setSwitchingRole] = useState<string | null>(null);
+  async function switchRole(role: string) {
+    if (role === companyInfo.activeRole || switchingRole) {
+      setCompanySwitcherOpen(false);
+      return;
+    }
+    setCompanySwitcherOpen(false);
+    setSwitchingRole(role);
+    const previous = companyInfo.activeRole;
+    const previousOwn = companyInfo.ownRole;
+    // Optimistic — the header label moves instantly.
+    setCompanyInfo((prev) => ({ ...prev, activeRole: role }));
+    try {
+      const res = await fetch("/api/me/active-role", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to switch role");
+      window.dispatchEvent(
+        new CustomEvent("nirman-role-switched", { detail: { role } }),
+      );
+      // Refetch /api/me so persona (ownRole) + permissions reflect the new
+      // hat — companyInfo.permissions drives the tab bar and page gating.
+      fetch("/api/me")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((me) => {
+          if (!me) return;
+          setCompanyInfo((prev) => ({
+            ...prev,
+            ownRole: me.ownRole ?? me.role ?? prev.ownRole,
+            activeRole: me.activeRole ?? prev.activeRole,
+            roles: Array.isArray(me.roles) && me.roles.length > 0 ? me.roles : prev.roles,
+            roleLabels: me.roleLabels ?? prev.roleLabels,
+            permissions: Array.isArray(me.permissions) && me.permissions.length > 0 ? me.permissions : prev.permissions,
+          }));
+        })
+        .catch(() => {});
+      mutate("/api/me");
+      router.refresh();
+      toast.success(`Now acting as ${companyInfo.roleLabels[role] ?? role}`);
+    } catch (err) {
+      setCompanyInfo((prev) => ({ ...prev, activeRole: previous, ownRole: previousOwn }));
+      toast.error(err instanceof Error ? err.message : "Failed to switch role");
+    } finally {
+      setSwitchingRole(null);
+    }
+  }
   useEffect(() => {
     // Fetch badges from ALL tabs that carry a badge, across every persona.
     // The old code only fetched from MOBILE_TABS (legacy 5-tab array),
@@ -371,7 +440,9 @@ export function MobileShellV2({
   // can switch between them. Each company is its own "world" with its own
   // hierarchy, projects, and staff. The owner explicitly wants all staff
   // to be able to pick which company they're working in.
-  const canSwitchCompany = companies.length > 1;
+  // Multi-role: the same dropdown also carries the "Act as" hat switcher
+  // when the member holds more than one role.
+  const canSwitchCompany = companies.length > 1 || companyInfo.roles.length > 1;
 
   // ── Tab bar from the route manifest (single source of truth) ──
   // Previously this used tabsForRole() from mobile-nav-v2 while the ACTIVE tab
@@ -391,6 +462,8 @@ export function MobileShellV2({
       isCompanySwitching={isCompanySwitching}
       onToggleCompanySwitcher={() => setCompanySwitcherOpen((o) => !o)}
       onSwitchCompany={switchCompany}
+      switchingRole={switchingRole}
+      onSwitchRole={switchRole}
       badgeCounts={badgeCounts}
       pathname={pathname}
       router={router}
@@ -415,6 +488,8 @@ function MobileShellInner({
   isCompanySwitching,
   onToggleCompanySwitcher,
   onSwitchCompany,
+  switchingRole,
+  onSwitchRole,
   badgeCounts,
   pathname,
   router,
@@ -433,6 +508,8 @@ function MobileShellInner({
   isCompanySwitching: boolean;
   onToggleCompanySwitcher: () => void;
   onSwitchCompany: (id: string) => void;
+  switchingRole: string | null;
+  onSwitchRole: (role: string) => void;
   badgeCounts: Record<string, number>;
   pathname: string;
   router: ReturnType<typeof useRouter>;
@@ -780,45 +857,89 @@ function MobileShellInner({
                       backgroundColor: "var(--color-paper)",
                     }}
                   >
-                    <div className="max-h-60 overflow-y-auto">
-                      {companies.map((c) => (
-                        <button
-                          key={c.id}
-                          onClick={() => onSwitchCompany(c.id)}
-                          disabled={switchingCompanyId !== null}
-                          className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-m-body press disabled:opacity-50"
-                          style={{
-                            backgroundColor: c.isCurrent ? "var(--color-concrete)" : "transparent",
-                          }}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p
-                              className="text-m-body font-semibold truncate"
-                              style={{ color: "var(--color-ink-950)" }}
-                            >
-                              {c.name}
-                            </p>
-                            {c.businessType && (
+                    {companies.length > 1 && (
+                      <div className="max-h-60 overflow-y-auto">
+                        {companies.map((c) => (
+                          <button
+                            key={c.id}
+                            onClick={() => onSwitchCompany(c.id)}
+                            disabled={switchingCompanyId !== null}
+                            className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-m-body press disabled:opacity-50"
+                            style={{
+                              backgroundColor: c.isCurrent ? "var(--color-concrete)" : "transparent",
+                            }}
+                          >
+                            <div className="min-w-0 flex-1">
                               <p
-                                className="text-m-caption truncate"
-                                style={{ color: "var(--color-ink-500)" }}
+                                className="text-m-body font-semibold truncate"
+                                style={{ color: "var(--color-ink-950)" }}
                               >
-                                {c.businessType}
+                                {c.name}
                               </p>
+                              {c.businessType && (
+                                <p
+                                  className="text-m-caption truncate"
+                                  style={{ color: "var(--color-ink-500)" }}
+                                >
+                                  {c.businessType}
+                                </p>
+                              )}
+                            </div>
+                            {c.isCurrent && (
+                              <Check
+                                className="size-3.5 shrink-0"
+                                style={{ color: "var(--color-go)" }}
+                              />
                             )}
-                          </div>
-                          {c.isCurrent && (
-                            <Check
-                              className="size-3.5 shrink-0"
-                              style={{ color: "var(--color-go)" }}
-                            />
-                          )}
-                          {switchingCompanyId === c.id && (
-                            <Loader2 className="size-3.5 shrink-0 animate-spin" style={{ color: "var(--color-ink-500)" }} />
-                          )}
-                        </button>
-                      ))}
-                    </div>
+                            {switchingCompanyId === c.id && (
+                              <Loader2 className="size-3.5 shrink-0 animate-spin" style={{ color: "var(--color-ink-500)" }} />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {/* Multi-role: "Act as" hat switcher — shown when the
+                        member holds more than one role in this company. */}
+                    {companyInfo.roles.length > 1 && (
+                      <div>
+                        {companies.length > 1 && (
+                          <div className="h-px" style={{ backgroundColor: "var(--color-line)" }} />
+                        )}
+                        <p
+                          className="px-3 pt-2 pb-1 text-m-caption font-bold uppercase tracking-wider"
+                          style={{ color: "var(--color-ink-400)" }}
+                        >
+                          Act as
+                        </p>
+                        <div className="max-h-60 overflow-y-auto">
+                          {companyInfo.roles.map((r) => (
+                            <button
+                              key={r}
+                              onClick={() => onSwitchRole(r)}
+                              disabled={switchingRole !== null}
+                              className="w-full flex items-center gap-2 px-3 py-2.5 text-left text-m-body press disabled:opacity-50"
+                              style={{
+                                backgroundColor:
+                                  r === companyInfo.activeRole ? "var(--color-concrete)" : "transparent",
+                              }}
+                            >
+                              <p
+                                className="min-w-0 flex-1 text-m-body font-semibold truncate"
+                                style={{ color: "var(--color-ink-950)" }}
+                              >
+                                {companyInfo.roleLabels[r] ?? r}
+                              </p>
+                              {r === companyInfo.activeRole && (
+                                <Check className="size-3.5 shrink-0" style={{ color: "var(--color-go)" }} />
+                              )}
+                              {switchingRole === r && (
+                                <Loader2 className="size-3.5 shrink-0 animate-spin" style={{ color: "var(--color-ink-500)" }} />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

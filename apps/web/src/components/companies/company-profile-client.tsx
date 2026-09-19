@@ -18,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
+import { AddressSearchField } from "@/components/address-search-field";
 import { IntegrationsTab } from "@/components/settings/integrations-tab";
 import { formatCurrency, formatDate, formatDateTime, cn } from "@/lib/utils";
 import { useTabParam } from "@/lib/use-tab-param";
@@ -34,6 +35,9 @@ export type CompanyProfileData = {
   gstin: string | null;
   pan: string | null;
   address: string | null;
+  lat: number | null;
+  lng: number | null;
+  geoRadius: number | null;
   phone: string | null;
   email: string | null;
   currency: string;
@@ -73,6 +77,8 @@ export type CompanyProfileData = {
     id: string; userId: string; name: string; email: string; role: string; roleLabel?: string; active: boolean;
     phone: string | null; designation: string | null; lastLoginAt: string | null;
     lockedUntil: string | null; failedLoginAttempts: number;
+    /** Multi-role: additional hats + labels + the hat currently worn. */
+    secondaryRoles?: string[]; secondaryRoleLabels?: string[]; activeRole?: string;
     scopeType: string | null; reportsToName: string | null;
     scopes: { scopeKind: string; departmentId: string | null; projectId: string | null; departmentName: string | null; departmentCode: string | null; projectName: string | null }[];
   }[];
@@ -323,6 +329,7 @@ function OverviewTab({ data, canManage }: { data: CompanyProfileData; canManage:
   const [form, setForm] = useState({
     name: data.name, gstin: data.gstin ?? "", pan: data.pan ?? "", address: data.address ?? "",
     phone: data.phone ?? "", email: data.email ?? "", currency: data.currency, businessType: data.businessType ?? "",
+    lat: data.lat, lng: data.lng, geoRadius: data.geoRadius?.toString() ?? "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -337,6 +344,8 @@ function OverviewTab({ data, canManage }: { data: CompanyProfileData; canManage:
           name: form.name.trim(), gstin: form.gstin.trim() || null, pan: form.pan.trim() || null,
           address: form.address.trim() || null, phone: form.phone.trim() || null,
           email: form.email.trim() || null, currency: form.currency, businessType: form.businessType.trim() || null,
+          lat: form.lat, lng: form.lng,
+          geoRadius: form.lat != null && form.lng != null ? (form.geoRadius ? parseInt(form.geoRadius) : 500) : null,
         }),
       });
       const json = await res.json();
@@ -371,7 +380,26 @@ function OverviewTab({ data, canManage }: { data: CompanyProfileData; canManage:
               <div className="space-y-1.5"><Label>GSTIN</Label><Input value={form.gstin} onChange={(e) => setForm((f) => ({ ...f, gstin: e.target.value }))} /></div>
               <div className="space-y-1.5"><Label>PAN</Label><Input value={form.pan} onChange={(e) => setForm((f) => ({ ...f, pan: e.target.value }))} /></div>
             </div>
-            <div className="space-y-1.5"><Label>Address</Label><Input value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} /></div>
+            <div className="space-y-1.5">
+              <Label hint="Pick a suggestion or use GPS — verified addresses only">Address</Label>
+              <AddressSearchField
+                value={form.address}
+                onPick={(s) => setForm((f) => ({ ...f, address: s.address, lat: s.lat, lng: s.lng, geoRadius: f.geoRadius || "500" }))}
+                onClear={() => setForm((f) => ({ ...f, address: "", lat: null, lng: null }))}
+                placeholder="Search registered office address…"
+              />
+              {form.lat != null && form.lng != null && (
+                <p className="text-caption text-muted-foreground tnum">
+                  {form.lat.toFixed(5)}, {form.lng.toFixed(5)}
+                </p>
+              )}
+            </div>
+            {(form.lat != null && form.lng != null) && (
+              <div className="space-y-1.5">
+                <Label hint="Default: 500m — used as the check-in geo-fence for staff without an assigned site">Geo-fence radius (m)</Label>
+                <Input type="number" min="10" value={form.geoRadius} onChange={(e) => setForm((f) => ({ ...f, geoRadius: e.target.value }))} placeholder="500" />
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5"><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+91 98765 43210" /></div>
               <div className="space-y-1.5"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} /></div>
@@ -399,6 +427,12 @@ function OverviewTab({ data, canManage }: { data: CompanyProfileData; canManage:
             <DetailRow label="Email" value={data.email} />
             <DetailRow label="Currency" value={data.currency} />
             <DetailRow label="Address" value={data.address} />
+            {data.lat != null && data.lng != null && (
+              <DetailRow
+                label="Geo-fence"
+                value={`${data.lat.toFixed(5)}, ${data.lng.toFixed(5)} · ${data.geoRadius ?? 500}m radius`}
+              />
+            )}
           </div>
         )}
 
@@ -588,6 +622,16 @@ function MembersTab({
                       ) : (
                         <Badge variant="outline">{m.roleLabel ?? roleOptions.find((o) => o.key === m.role)?.label ?? m.role}</Badge>
                       )}
+                      {/* Multi-role: "+N" badge for additional hats; title shows the worn hat */}
+                      {(m.secondaryRoles?.length ?? 0) > 0 && (
+                        <Badge
+                          variant="muted"
+                          className="ml-1"
+                          title={`Also holds: ${(m.secondaryRoleLabels ?? []).join(", ")}${m.activeRole && m.activeRole !== m.role ? ` — acting as ${m.activeRole}` : ""}`}
+                        >
+                          +{m.secondaryRoles!.length}
+                        </Badge>
+                      )}
                     </TD>
                     <TD>
                       <div className="text-caption">
@@ -711,7 +755,7 @@ function HierarchyTab({ data, canManage }: { data: CompanyProfileData; canManage
   const router = useRouter();
   const [confirm, confirmDialog] = useConfirm();
   const [creating, setCreating] = useState(false);
-  const [form, setForm] = useState({ name: "", businessType: "", currency: "INR", gstin: "", pan: "", address: "" });
+  const [form, setForm] = useState<{ name: string; businessType: string; currency: string; gstin: string; pan: string; address: string; lat: number | null; lng: number | null }>({ name: "", businessType: "", currency: "INR", gstin: "", pan: "", address: "", lat: null, lng: null });
   const [saving, setSaving] = useState(false);
 
   async function createChild(e: React.FormEvent) {
@@ -725,13 +769,14 @@ function HierarchyTab({ data, canManage }: { data: CompanyProfileData; canManage
           name: form.name.trim(), businessType: form.businessType.trim() || null,
           parentCompanyId: data.id, currency: form.currency,
           gstin: form.gstin.trim() || null, pan: form.pan.trim() || null, address: form.address.trim() || null,
+          lat: form.lat, lng: form.lng,
         }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
       toast.success("Child company created");
       setCreating(false);
-      setForm({ name: "", businessType: "", currency: "INR", gstin: "", pan: "", address: "" });
+      setForm({ name: "", businessType: "", currency: "INR", gstin: "", pan: "", address: "", lat: null, lng: null });
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
@@ -786,7 +831,15 @@ function HierarchyTab({ data, canManage }: { data: CompanyProfileData; canManage
               <div className="space-y-1.5"><Label>GSTIN</Label><Input value={form.gstin} onChange={(e) => setForm((f) => ({ ...f, gstin: e.target.value }))} /></div>
               <div className="space-y-1.5"><Label>PAN</Label><Input value={form.pan} onChange={(e) => setForm((f) => ({ ...f, pan: e.target.value }))} /></div>
             </div>
-            <div className="space-y-1.5"><Label>Address</Label><Input value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} /></div>
+            <div className="space-y-1.5">
+              <Label hint="Pick a suggestion or use GPS">Address</Label>
+              <AddressSearchField
+                value={form.address}
+                onPick={(s) => setForm((f) => ({ ...f, address: s.address, lat: s.lat, lng: s.lng }))}
+                onClear={() => setForm((f) => ({ ...f, address: "", lat: null, lng: null }))}
+                placeholder="Search registered office address…"
+              />
+            </div>
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={saving}>{saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} Create</Button>
               <Button type="button" variant="outline" size="sm" onClick={() => setCreating(false)}>Cancel</Button>

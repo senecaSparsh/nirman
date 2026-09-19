@@ -173,6 +173,9 @@ export async function loadCompanyProfileData(companyId: string): Promise<{
     gstin: company.gstin,
     pan: company.pan,
     address: company.address,
+    lat: company.lat,
+    lng: company.lng,
+    geoRadius: company.geoRadius,
     phone: company.phone,
     email: company.email,
     currency: company.currency,
@@ -223,6 +226,13 @@ export async function loadCompanyProfileData(companyId: string): Promise<{
       email: m.user.email,
       role: m.role,
       roleLabel: roleDisplayLabel(m.role, companyId, customLabels),
+      // Multi-role: additional hats + the hat currently worn.
+      secondaryRoles: m.secondaryRoles,
+      secondaryRoleLabels: m.secondaryRoles.map((r) => roleDisplayLabel(r, companyId, customLabels)),
+      activeRole:
+        m.activeRole && [m.role, ...m.secondaryRoles].includes(m.activeRole)
+          ? m.activeRole
+          : m.role,
       active: m.user.active,
       phone: m.user.phone,
       designation: m.user.designation,

@@ -42,6 +42,17 @@ export type EmployeeDossierInput = {
   backgroundVerified?: boolean | null;
 };
 
+/** Parse an optional dossier date — throws a 400 instead of letting an
+ *  Invalid Date reach Prisma and surface as a 500. */
+function parseDossierDate(value: string, field: string): Date {
+  // Raw-body payloads can carry non-strings (e.g. a number would silently
+  // become an epoch date) — reject anything that isn't a date string.
+  if (typeof value !== "string") throw new HrError(`Invalid ${field} format`, 400);
+  const d = new Date(value);
+  if (isNaN(d.getTime())) throw new HrError(`Invalid ${field} format`, 400);
+  return d;
+}
+
 /** Update the dossier fields on an Employee record. */
 export async function updateEmployeeDossier(
   employeeId: string,
@@ -50,18 +61,35 @@ export async function updateEmployeeDossier(
   input: EmployeeDossierInput,
 ) {
   return prisma.$transaction(async (tx) => {
+    // Guard: the route checks existence before calling, but the row could be
+    // deleted in between — a scoped findFirst turns that into a clean 404
+    // instead of a raw P2025 500.
+    const existing = await tx.employee.findFirst({
+      where: { id: employeeId, companyId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!existing) throw new HrError("Employee not found", 404);
+
     const data: Prisma.EmployeeUpdateInput = {};
 
     if (input.employmentType !== undefined) data.employmentType = input.employmentType ?? null;
-    if (input.probationEndDate !== undefined) data.probationEndDate = input.probationEndDate ? new Date(input.probationEndDate) : null;
-    if (input.confirmationDate !== undefined) data.confirmationDate = input.confirmationDate ? new Date(input.confirmationDate) : null;
+    if (input.probationEndDate !== undefined) data.probationEndDate = input.probationEndDate ? parseDossierDate(input.probationEndDate, "probation end date") : null;
+    if (input.confirmationDate !== undefined) data.confirmationDate = input.confirmationDate ? parseDossierDate(input.confirmationDate, "confirmation date") : null;
     if (input.noticePeriodDays !== undefined) data.noticePeriodDays = input.noticePeriodDays ?? null;
-    if (input.contractStartDate !== undefined) data.contractStartDate = input.contractStartDate ? new Date(input.contractStartDate) : null;
-    if (input.contractEndDate !== undefined) data.contractEndDate = input.contractEndDate ? new Date(input.contractEndDate) : null;
+    if (input.contractStartDate !== undefined) data.contractStartDate = input.contractStartDate ? parseDossierDate(input.contractStartDate, "contract start date") : null;
+    if (input.contractEndDate !== undefined) data.contractEndDate = input.contractEndDate ? parseDossierDate(input.contractEndDate, "contract end date") : null;
     if (input.payDay !== undefined) data.payDay = input.payDay ?? null;
     if (input.bankAccountHolder !== undefined) data.bankAccountHolder = input.bankAccountHolder ?? null;
     if (input.bankAccountNumber !== undefined) data.bankAccountNumber = input.bankAccountNumber ?? null;
-    if (input.bankIfsc !== undefined) data.bankIfsc = input.bankIfsc ?? null;
+    if (input.bankIfsc !== undefined) {
+      const ifsc = input.bankIfsc?.trim().toUpperCase() || null;
+      // Same RBI format rule as setupAutoDeposit — catch bad values at
+      // write time instead of when auto-deposit is enabled.
+      if (ifsc && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
+        throw new HrError("Bank IFSC code is invalid (e.g. HDFC0001234).", 400);
+      }
+      data.bankIfsc = ifsc;
+    }
     if (input.bankName !== undefined) data.bankName = input.bankName ?? null;
     if (input.bankBranch !== undefined) data.bankBranch = input.bankBranch ?? null;
     if (input.panNumber !== undefined) data.panNumber = input.panNumber ?? null;
@@ -74,7 +102,7 @@ export async function updateEmployeeDossier(
     if (input.emergencyContactRelation !== undefined) data.emergencyContactRelation = input.emergencyContactRelation ?? null;
     if (input.permanentAddress !== undefined) data.permanentAddress = input.permanentAddress ?? null;
     if (input.currentAddress !== undefined) data.currentAddress = input.currentAddress ?? null;
-    if (input.dateOfBirth !== undefined) data.dateOfBirth = input.dateOfBirth ? new Date(input.dateOfBirth) : null;
+    if (input.dateOfBirth !== undefined) data.dateOfBirth = input.dateOfBirth ? parseDossierDate(input.dateOfBirth, "date of birth") : null;
     if (input.bloodGroup !== undefined) data.bloodGroup = input.bloodGroup ?? null;
     if (input.photoUrl !== undefined) data.photoUrl = input.photoUrl ?? null;
     if (input.documentsSubmitted !== undefined) data.documentsSubmitted = input.documentsSubmitted ?? null;
@@ -215,16 +243,51 @@ export type SalaryComponentTypeInput =
 export type ComponentFrequencyInput =
   | "MONTHLY" | "QUARTERLY" | "HALF_YEARLY" | "YEARLY" | "ONE_TIME";
 
+export type SalaryCalcTypeInput = "FIXED" | "PERCENTAGE_OF_BASIC" | "UNIT_RATE";
+export type SalaryUnitTypeInput = "DAY" | "KM" | "TRIP" | "HOUR" | "MONTH" | "CUSTOM";
+
 export type CreateSalaryComponentInput = {
   employeeId: string;
   type: SalaryComponentTypeInput;
+  /** FIXED: the amount. UNIT_RATE: the per-unit rate (e.g. 3 = ₹3/km).
+   *  PERCENTAGE_OF_BASIC: ignored (use percentageOfBasic). */
   amount: number;
   frequency?: ComponentFrequencyInput;
   isDeduction?: boolean;
+  /** @deprecated prefer calculationType — kept for backward compat, still honored. */
   isPercentage?: boolean;
   percentageOfBasic?: number | null;
+  calculationType?: SalaryCalcTypeInput;
+  unitType?: SalaryUnitTypeInput | null;
+  unitLabel?: string | null;
   notes?: string | null;
 };
+
+/**
+ * Normalize a component input into its calculation mode. Accepts the legacy
+ * `isPercentage` flag when `calculationType` isn't sent. `isPercentage` on the
+ * row stays derived from calculationType so older readers keep working.
+ */
+function resolveComponentCalc(input: {
+  calculationType?: SalaryCalcTypeInput;
+  isPercentage?: boolean;
+  unitType?: SalaryUnitTypeInput | null;
+}) {
+  const calculationType: SalaryCalcTypeInput =
+    input.calculationType ?? (input.isPercentage ? "PERCENTAGE_OF_BASIC" : "FIXED");
+  const unitType = calculationType === "UNIT_RATE" ? input.unitType ?? null : null;
+  if (calculationType === "UNIT_RATE" && !unitType) {
+    throw new HrError(
+      "Unit-rate components need a unitType (DAY, KM, TRIP, HOUR, MONTH or CUSTOM)",
+      400,
+    );
+  }
+  return {
+    calculationType,
+    isPercentage: calculationType === "PERCENTAGE_OF_BASIC",
+    unitType,
+  };
+}
 
 export async function createSalaryComponent(
   input: CreateSalaryComponentInput,
@@ -239,6 +302,8 @@ export async function createSalaryComponent(
     });
     if (!employee) throw new HrError("Employee not found", 404);
 
+    const calc = resolveComponentCalc(input);
+
     // Upsert: if a component of this type already exists, update it
     const component = await tx.salaryComponent.upsert({
       where: {
@@ -250,16 +315,22 @@ export async function createSalaryComponent(
         amount: new Prisma.Decimal(input.amount),
         frequency: input.frequency ?? "MONTHLY",
         isDeduction: input.isDeduction ?? false,
-        isPercentage: input.isPercentage ?? false,
+        isPercentage: calc.isPercentage,
         percentageOfBasic: input.percentageOfBasic != null ? new Prisma.Decimal(input.percentageOfBasic) : null,
+        calculationType: calc.calculationType,
+        unitType: calc.unitType,
+        unitLabel: input.unitLabel ?? null,
         notes: input.notes ?? null,
       },
       update: {
         amount: new Prisma.Decimal(input.amount),
         frequency: input.frequency ?? "MONTHLY",
         isDeduction: input.isDeduction ?? false,
-        isPercentage: input.isPercentage ?? false,
+        isPercentage: calc.isPercentage,
         percentageOfBasic: input.percentageOfBasic != null ? new Prisma.Decimal(input.percentageOfBasic) : null,
+        calculationType: calc.calculationType,
+        unitType: calc.unitType,
+        unitLabel: input.unitLabel ?? null,
         notes: input.notes ?? null,
       },
     });
@@ -283,6 +354,9 @@ export type UpdateSalaryComponentInput = {
   isDeduction?: boolean;
   isPercentage?: boolean;
   percentageOfBasic?: number | null;
+  calculationType?: SalaryCalcTypeInput;
+  unitType?: SalaryUnitTypeInput | null;
+  unitLabel?: string | null;
   notes?: string | null;
   active?: boolean;
 };
@@ -298,10 +372,41 @@ export async function updateSalaryComponent(
     if (input.amount !== undefined) data.amount = new Prisma.Decimal(input.amount);
     if (input.frequency !== undefined) data.frequency = input.frequency;
     if (input.isDeduction !== undefined) data.isDeduction = input.isDeduction;
-    if (input.isPercentage !== undefined) data.isPercentage = input.isPercentage;
     if (input.percentageOfBasic !== undefined) data.percentageOfBasic = input.percentageOfBasic != null ? new Prisma.Decimal(input.percentageOfBasic) : null;
+    if (input.unitLabel !== undefined) data.unitLabel = input.unitLabel ?? null;
     if (input.notes !== undefined) data.notes = input.notes ?? null;
     if (input.active !== undefined) data.active = input.active;
+
+    // Calculation-mode fields resolve against the existing row so a partial
+    // update (e.g. only unitType) can't leave an invalid combination.
+    if (
+      input.calculationType !== undefined ||
+      input.isPercentage !== undefined ||
+      input.unitType !== undefined
+    ) {
+      const existing = await tx.salaryComponent.findUnique({
+        where: { id: componentId },
+        select: { calculationType: true, isPercentage: true, unitType: true },
+      });
+      if (!existing) throw new HrError("Salary component not found", 404);
+      const calc = resolveComponentCalc({
+        // Explicit new mode wins; legacy isPercentage flag maps next;
+        // otherwise keep the stored mode.
+        calculationType:
+          input.calculationType ??
+          (input.isPercentage !== undefined
+            ? undefined
+            : existing.calculationType),
+        isPercentage: input.isPercentage ?? existing.isPercentage,
+        unitType:
+          input.unitType !== undefined
+            ? input.unitType
+            : existing.unitType,
+      });
+      data.calculationType = calc.calculationType;
+      data.isPercentage = calc.isPercentage;
+      data.unitType = calc.unitType;
+    }
 
     const component = await tx.salaryComponent.update({ where: { id: componentId }, data });
 
@@ -351,7 +456,9 @@ export async function setSalaryComponents(
   employeeId: string,
   companyId: string,
   userId: string,
-  components: CreateSalaryComponentInput[],
+  // employeeId comes from the function arg, not per-component — Omit it so
+  // callers don't have to repeat it on every row.
+  components: Omit<CreateSalaryComponentInput, "employeeId">[],
   options?: { changedBy?: string; changeReason?: string; effectiveFrom?: Date },
 ) {
   return prisma.$transaction(async (tx) => {
@@ -366,20 +473,24 @@ export async function setSalaryComponents(
 
     // Create new ones
     const created = await Promise.all(
-      components.map((c) =>
-        tx.salaryComponent.create({
+      components.map((c) => {
+        const calc = resolveComponentCalc(c);
+        return tx.salaryComponent.create({
           data: {
             employeeId,
             type: c.type,
             amount: new Prisma.Decimal(c.amount),
             frequency: c.frequency ?? "MONTHLY",
             isDeduction: c.isDeduction ?? false,
-            isPercentage: c.isPercentage ?? false,
+            isPercentage: calc.isPercentage,
             percentageOfBasic: c.percentageOfBasic != null ? new Prisma.Decimal(c.percentageOfBasic) : null,
+            calculationType: calc.calculationType,
+            unitType: calc.unitType,
+            unitLabel: c.unitLabel ?? null,
             notes: c.notes ?? null,
           },
-        }),
-      ),
+        });
+      }),
     );
 
     // ── Sync the Employee.wage fields from salary components ──
@@ -388,8 +499,15 @@ export async function setSalaryComponents(
     // When salary components are saved, auto-compute and sync these fields
     // ONLY when no wage was set by hand — never overwrite an explicit rate
     // (e.g. a ₹850/day mason's agreed rate) with a derived monthly/30 value.
+    // UNIT_RATE components are excluded — their `amount` is a per-unit rate
+    // (₹3/km), not a monthly sum, so they can't count toward a fixed wage.
     const monthlyEarnings = components
-      .filter((c) => !c.isDeduction && (c.frequency ?? "MONTHLY") === "MONTHLY")
+      .filter(
+        (c) =>
+          !c.isDeduction &&
+          (c.frequency ?? "MONTHLY") === "MONTHLY" &&
+          resolveComponentCalc(c).calculationType !== "UNIT_RATE",
+      )
       .reduce((sum, c) => sum + Number(c.amount), 0);
 
     const updateData: Prisma.EmployeeUpdateInput = {};
@@ -423,14 +541,25 @@ export async function setSalaryComponents(
     const changedBy = options?.changedBy ?? userId;
     const effectiveFrom = options?.effectiveFrom ?? new Date();
 
-    const componentSnapshot = components.map((c) => ({
-      type: c.type,
-      amount: Number(c.amount),
-      frequency: c.frequency ?? "MONTHLY",
-    }));
+    const componentSnapshot = components.map((c) => {
+      const calc = resolveComponentCalc(c);
+      return {
+        type: c.type,
+        amount: Number(c.amount),
+        frequency: c.frequency ?? "MONTHLY",
+        isDeduction: c.isDeduction ?? false,
+        calculationType: calc.calculationType,
+        unitType: calc.unitType,
+        unitLabel: c.unitLabel ?? null,
+        percentageOfBasic: c.percentageOfBasic != null ? Number(c.percentageOfBasic) : null,
+      };
+    });
 
-    // totalCtc = sum(monthly × 12) + sum(yearly) + sum(one-time)
+    // totalCtc = sum(monthly × 12) + sum(yearly) + sum(one-time).
+    // UNIT_RATE components are variable (rate × actual usage) — they have no
+    // fixed annual value, so they're excluded from CTC.
     const totalCtc = components.reduce((sum, c) => {
+      if (resolveComponentCalc(c).calculationType === "UNIT_RATE") return sum;
       const amt = Number(c.amount);
       const freq = c.frequency ?? "MONTHLY";
       if (freq === "MONTHLY") return sum + amt * 12;

@@ -736,6 +736,10 @@ export {
   bulkRecordAttendance,
   generatePayroll,
   updatePayrollLine,
+  updatePayrollLineComponents,
+  buildLineComponents,
+  bucketForComponent,
+  SALARY_COMPONENT_LABELS,
   processPayroll,
   payPayroll,
   submitDPR,
@@ -769,6 +773,9 @@ export {
   type BulkAttendanceInput,
   type GeneratePayrollInput,
   type AdjustPayrollLineInput,
+  type PayrollLineComponentInput,
+  type PayrollComponentBucketName,
+  type LineComponentRow,
   type SubmitDprInput,
   type DprMaterialLineInput,
   type DprLaborLineInput,
@@ -814,6 +821,8 @@ export {
   type UpdateSalaryComponentInput,
   type SalaryComponentTypeInput,
   type ComponentFrequencyInput,
+  type SalaryCalcTypeInput,
+  type SalaryUnitTypeInput,
 } from "./employee-dossier";
 
 // Employee Account Linking — connects Employee (HR) ↔ User (auth) ↔ CompanyPhone (call tracking)

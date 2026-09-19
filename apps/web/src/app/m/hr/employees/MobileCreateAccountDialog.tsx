@@ -13,6 +13,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Recycle,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import {
   ROLE_LIST,
@@ -178,10 +180,18 @@ export function MobileCreateAccountDialog({
       ? suggestedRole
       : (roles[0] ?? "SITE_ENGINEER");
   const [role, setRole] = useState<Role>(defaultRole);
+  // Multi-role: additional hats the employee can switch into after login.
+  const [extraRoles, setExtraRoles] = useState<Set<string>>(new Set());
   const [email] = useState(employeeEmail ?? "");
   const [employeeCode, setEmployeeCode] = useState("");
   const [designation, setDesignation] = useState(employeeDesignation ?? "");
   const [department, setDepartment] = useState("");
+
+  // ── Password — optional. Blank → server generates a temp password the
+  // employee must change on first login. Set → that password sticks
+  // (mustChangePassword=false) and is shared with the employee in person. ──
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   // ── Permissions ──
   const [selectedModules, setSelectedModules] = useState<Set<string>>(
@@ -297,6 +307,10 @@ export function MobileCreateAccountDialog({
       toast.error("Select at least one project for project-scoped access");
       return;
     }
+    if (password.trim() && password.trim().length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
 
     setSaving(true);
     haptic(10);
@@ -305,11 +319,15 @@ export function MobileCreateAccountDialog({
         phone: loginPhone,
         email: email.trim() || null,
         role,
+        secondaryRoles: Array.from(extraRoles).filter((r) => r !== role),
         permissions: selectedPermissions,
         scopeType,
         designation: designation.trim() || null,
         department: department.trim() || null,
         employeeCode: employeeCode.trim() || null,
+        // Custom password → sticks; blank → temp password + forced change.
+        password: password.trim() || undefined,
+        mustChangePassword: !password.trim(),
       };
 
       if (scopeType === "PROJECT") {
@@ -554,12 +572,59 @@ export function MobileCreateAccountDialog({
                 </div>
                 <div>
                   <UnderlineInput
-                    label="Department"
+                    label="Org Unit"
                     value={department}
                     onChange={setDepartment}
                     placeholder="Construction"
                   />
                 </div>
+              </div>
+
+              {/* Multi-role: additional hats — the employee can switch
+                  into any of these from the company menu after login.
+                  While switched, ONLY that hat's permissions apply. */}
+              <div className="pt-2">
+                <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-400)" }}>
+                  Additional roles (optional)
+                </p>
+                <div className="flex flex-wrap gap-1 pt-1.5">
+                  {roles
+                    .filter((r) => r !== role)
+                    .map((r) => {
+                      const roleDef = ROLE_LIST.find((rl) => rl.key === r);
+                      const held = extraRoles.has(r);
+                      return (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => {
+                            haptic(10);
+                            setExtraRoles((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(r)) next.delete(r);
+                              else next.add(r);
+                              return next;
+                            });
+                          }}
+                          className="flex items-center gap-1 h-7 px-2 rounded-[0.25rem] text-m-caption font-semibold text-m-body press"
+                          style={{
+                            color: held ? "var(--color-go)" : "var(--color-ink-600)",
+                            backgroundColor: held
+                              ? "color-mix(in srgb, var(--color-go) 12%, transparent)"
+                              : "var(--color-concrete)",
+                          }}
+                        >
+                          {held && <Check className="size-2.5" />}
+                          {roleDef?.label ?? r}
+                        </button>
+                      );
+                    })}
+                </div>
+                {extraRoles.size > 0 && (
+                  <p className="text-m-caption pt-1.5" style={{ color: "var(--color-ink-400)" }}>
+                    They can switch between hats from the app header — only the active hat&apos;s permissions apply.
+                  </p>
+                )}
               </div>
             </SectionCard>
 
@@ -684,6 +749,36 @@ export function MobileCreateAccountDialog({
                   )}
                 </div>
               )}
+            </SectionCard>
+
+            {/* ── Login Password — optional. Blank → temp password generated
+                  (employee must set their own on first login). Set → this is
+                  the employee's password; share it with them in person. ── */}
+            <SectionCard title="Login Password (optional)">
+              <div className="relative">
+                <UnderlineInput
+                  label="Password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={setPassword}
+                  placeholder="Min 8 characters — blank to auto-generate"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-1 top-6 press"
+                  style={{ color: "var(--color-ink-400)" }}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+              <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                Leave blank to auto-generate a temporary password — the employee
+                sets their own on first login. If you set one, share it with the
+                employee; it stays active until they change it. You can also
+                change it later from the Account tab → Set password.
+              </p>
             </SectionCard>
 
             {/* ── Module Access ── */}

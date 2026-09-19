@@ -1282,6 +1282,42 @@ export const subcontractorSchema = z.object({
 });
 
 // ── Employee (HR module — workers, wages, crews) ──
+// ── Salary components ──
+// calculationType: FIXED (amount = value) | PERCENTAGE_OF_BASIC (amount =
+// pct% × basic) | UNIT_RATE (amount = per-unit rate × quantity entered at
+// payroll, e.g. ₹3/km travel, ₹150/day-worked food).
+// Must match SalaryComponentTypeInput in @nirman/services — the union the
+// payroll engine understands. A bare z.string() would let arbitrary type
+// keys into SalaryComponent rows.
+const SALARY_COMPONENT_TYPES = [
+  "BASIC", "HRA", "DA", "TA", "SPECIAL_ALLOWANCE",
+  "FOOD_ALLOWANCE", "MEDICAL_ALLOWANCE", "UNIFORM_ALLOWANCE",
+  "WASHING_ALLOWANCE", "LTA", "PERFORMANCE_BONUS",
+  "JOINING_BONUS", "RETENTION_BONUS",
+  "EMPLOYER_PF", "EMPLOYEE_PF", "EMPLOYER_ESI", "EMPLOYEE_ESI",
+  "GRATUITY", "PROFESSION_TAX", "TDS", "OTHER",
+] as const;
+
+export const salaryComponentInputSchema = z.object({
+  type: z.enum(SALARY_COMPONENT_TYPES),
+  amount: z.coerce.number().finite().nonnegative(),
+  frequency: z.enum(["MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY", "ONE_TIME"]).optional(),
+  isDeduction: z.boolean().optional(),
+  isPercentage: z.boolean().optional(),
+  percentageOfBasic: z.coerce.number().finite().nullable().optional(),
+  calculationType: z.enum(["FIXED", "PERCENTAGE_OF_BASIC", "UNIT_RATE"]).optional(),
+  unitType: z.enum(["DAY", "KM", "TRIP", "HOUR", "MONTH", "CUSTOM"]).nullable().optional(),
+  unitLabel: z.string().max(40).nullable().optional(),
+  notes: z.string().max(300).nullable().optional(),
+}).refine(
+  (c) => c.calculationType !== "UNIT_RATE" || c.unitType != null,
+  { message: "Unit-rate components need a unitType", path: ["unitType"] },
+);
+
+export const salaryComponentsSetSchema = z.object({
+  components: z.array(salaryComponentInputSchema),
+});
+
 export const employeeSchema = z.object({
   name: z.string().min(1, "Name is required"),
   trade: z.string().optional().nullable(),
@@ -1295,7 +1331,7 @@ export const employeeSchema = z.object({
   monthlySalary: z.coerce.number().finite().nonnegative().optional().nullable(),
   designation: z.string().optional().nullable(),
   departmentId: z.string().optional().nullable(),
-  joinDate: z.string().optional().nullable(),
+  joinDate: z.string().optional().nullable().refine((v) => !v || !isNaN(new Date(v).getTime()), "Invalid join date"),
   crewId: z.string().optional().nullable(),
   activeProjectId: z.string().optional().nullable(),
   active: z.boolean().optional(),
@@ -1307,8 +1343,8 @@ export const employeeSchema = z.object({
   // Employment terms (dossier) — accepted at creation time
   employmentType: z.enum(["PERMANENT", "CONTRACT", "CASUAL", "PROBATION", "INTERN"]).optional().nullable(),
   noticePeriodDays: z.coerce.number().int().min(0).max(365).optional().nullable(),
-  contractStartDate: z.string().optional().nullable(),
-  contractEndDate: z.string().optional().nullable(),
+  contractStartDate: z.string().optional().nullable().refine((v) => !v || !isNaN(new Date(v).getTime()), "Invalid contract start date"),
+  contractEndDate: z.string().optional().nullable().refine((v) => !v || !isNaN(new Date(v).getTime()), "Invalid contract end date"),
   // Dossier fields — collected during hiring for complete onboarding
   payDay: z.coerce.number().int().min(1).max(31).optional().nullable(),
   bankAccountHolder: z.string().optional().nullable(),
@@ -1334,14 +1370,7 @@ export const employeeSchema = z.object({
   documentsSubmitted: z.boolean().optional().nullable(),
   backgroundVerified: z.boolean().optional().nullable(),
   // Salary components (CTC breakdown) — saved before auto-generating documents
-  salaryComponents: z.array(z.object({
-    type: z.string(),
-    amount: z.coerce.number().finite().nonnegative(),
-    frequency: z.enum(["MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY", "ONE_TIME"]).optional(),
-    isDeduction: z.boolean().optional(),
-    isPercentage: z.boolean().optional(),
-    percentageOfBasic: z.coerce.number().finite().nullable().optional(),
-  })).optional(),
+  salaryComponents: z.array(salaryComponentInputSchema).optional(),
 });
 
 // ── Crew ──
@@ -1408,6 +1437,22 @@ export const payrollLineUpdateSchema = z.object({
   professionTax: z.coerce.number().finite().nonnegative().optional(),
   tax: z.coerce.number().finite().nonnegative().optional(),
   deductions: z.coerce.number().finite().nonnegative().optional(),
+});
+
+// Itemized breakdown replace — amounts are recomputed server-side from
+// rate × quantity, so the client never sends a trusted amount.
+export const payrollLineComponentsSchema = z.object({
+  components: z.array(z.object({
+    type: z.string(),
+    label: z.string().max(120).nullable().optional(),
+    calculationType: z.enum(["FIXED", "PERCENTAGE_OF_BASIC", "UNIT_RATE"]).optional(),
+    unitType: z.enum(["DAY", "KM", "TRIP", "HOUR", "MONTH", "CUSTOM"]).nullable().optional(),
+    unitLabel: z.string().max(40).nullable().optional(),
+    rate: z.coerce.number().finite().nonnegative(),
+    quantity: z.coerce.number().finite().nonnegative().nullable().optional(),
+    isDeduction: z.boolean().optional(),
+    notes: z.string().max(300).nullable().optional(),
+  })),
 });
 
 // ── DPR (Daily Progress Report) ──
@@ -1523,6 +1568,15 @@ export const userRoleSchema = z.object({
     (v) => (ALL_ROLES as string[]).includes(v) || /^CUSTOM_[A-Z0-9_]{2,50}$/.test(v),
     "Role must be a built-in role or a CUSTOM_* role key",
   ).optional(),
+  // Multi-role: additional hats held alongside the primary `role`. Same
+  // key rules apply — built-in keys or CUSTOM_* keys. Each entry must be
+  // assignable by the actor (checked downstream per role, not here).
+  secondaryRoles: z.array(
+    z.string().refine(
+      (v) => (ALL_ROLES as string[]).includes(v) || /^CUSTOM_[A-Z0-9_]{2,50}$/.test(v),
+      "Role must be a built-in role or a CUSTOM_* role key",
+    ),
+  ).max(8).optional(),
   active: z.boolean().optional(),
   name: z.string().min(1).max(100).optional(),
   phone: z.string().max(20).nullable().optional(),
@@ -1724,7 +1778,13 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
  */
 export async function getUserRole(): Promise<string> {
   const user = await getCurrentUser();
-  return user?.role ?? "SUPERVISOR";
+  if (!user) return "SUPERVISOR";
+  // Multi-role: when the user is wearing a secondary hat, that's the role
+  // they act as (assignable-role lists, persona checks). NULL/stale hat or
+  // no membership → the stored user role, exactly as before.
+  const company = await getCompany().catch(() => null);
+  const held = company ? await getHeldRoles(user.id, company.id) : null;
+  return held?.activeRole ?? user.role;
 }
 
 /**
@@ -2442,7 +2502,22 @@ export async function canManageSpecificEmployee(
   // string to canAssignRole(), which normalizes it to SUPERVISOR and
   // silently passes the tier check.
   const actingRole = await getActingRole();
-  return canManageRole(actingRole, employee.user.role, company.id);
+  // Multi-role: the target's held set is { primary } ∪ secondaryRoles on
+  // their membership. The viewer must be above EVERY held role — a dormant
+  // senior hat still protects the target even while a junior hat is worn.
+  const targetMembership = await prisma.userCompany
+    .findFirst({
+      where: { userId: employee.userId!, companyId: company.id },
+      select: { role: true, secondaryRoles: true },
+    })
+    .catch(() => null);
+  const heldRoles = [
+    ...new Set(
+      [employee.user.role, ...(targetMembership ? [targetMembership.role, ...(targetMembership.secondaryRoles ?? [])] : [])]
+        .filter((r): r is string => !!r),
+    ),
+  ];
+  return canManageRoleSet(actingRole, heldRoles, company.id);
 }
 
 /**
@@ -2536,6 +2611,50 @@ export async function assertCanManageEmployee(employeeId: string, companyId: str
  * so repeated requirePermission() calls within one request share a single
  * DB round-trip.
  */
+/**
+ * The member's held role set + the hat currently worn.
+ *
+ * Multi-role model ("one hat at a time"): a membership holds
+ * { role } ∪ secondaryRoles, and `activeRole` selects which single hat
+ * drives all authority resolution. NULL or stale activeRole (a hat revoked
+ * after it was worn) falls back to the primary role — resolvers can rely on
+ * the returned activeRole always being a member of heldRoles.
+ *
+ * Returns null when the user has no membership in the company.
+ */
+export async function getHeldRoles(
+  userId: string,
+  companyId: string,
+): Promise<{ primaryRole: string; activeRole: string; heldRoles: string[] } | null> {
+  const m = await prisma.userCompany
+    .findUnique({
+      where: { userId_companyId: { userId, companyId } },
+      select: { role: true, activeRole: true, secondaryRoles: true },
+    })
+    .catch(() => null);
+  if (!m) return null;
+  const heldRoles = [...new Set([m.role, ...(m.secondaryRoles ?? [])])];
+  const activeRole = m.activeRole && heldRoles.includes(m.activeRole) ? m.activeRole : m.role;
+  return { primaryRole: m.role, activeRole, heldRoles };
+}
+
+/**
+ * Can the actor manage a target who holds the given role set? The actor
+ * must be above EVERY held role — otherwise a junior manager could edit a
+ * target while a dormant senior hat protects them. Resolves custom-role
+ * tiers via canManageRole (fails closed on unknown strings).
+ */
+export async function canManageRoleSet(
+  actorRole: string | undefined | null,
+  heldRoles: string[],
+  companyId: string,
+): Promise<boolean> {
+  for (const r of heldRoles) {
+    if (!(await canManageRole(actorRole, r, companyId))) return false;
+  }
+  return true;
+}
+
 /**
  * Resolve the permission list for a role within a company — built-in or
  * custom — including RolePermission row overrides and extra grants.
@@ -2644,15 +2763,11 @@ export async function getOwnRole(): Promise<Role> {
   if (!user) return "SUPERVISOR";
   return memoizeInRequest("ownActingRole", async () => {
     const company = await getCompany().catch(() => null);
-    const membership = company
-      ? await prisma.userCompany
-          .findUnique({
-            where: { userId_companyId: { userId: user.id, companyId: company.id } },
-            select: { role: true },
-          })
-          .catch(() => null)
-      : null;
-    const rawRole = membership?.role ?? user.role;
+    // Multi-role: the worn hat (membership.activeRole, validated against the
+    // held set) is the user's own role for authority purposes; NULL/stale
+    // falls back to the primary membership role.
+    const held = company ? await getHeldRoles(user.id, company.id) : null;
+    const rawRole = held?.activeRole ?? user.role;
     if (isCustomRole(rawRole) && company) {
       const customRole = await prisma.customRole
         .findFirst({ where: { companyId: company.id, key: rawRole }, select: { baseRole: true } })
@@ -2699,10 +2814,17 @@ export async function getUserPermissions(): Promise<string[]> {
     .catch(() => null);
   const userOverrides = userMembership?.userPermissions.map((p) => p.permission) ?? [];
 
-  // Resolve via the membership role (raw, per-company) — NOT user.role,
-  // which getCurrentUser() normalizes to a built-in role, collapsing
-  // custom roles (CUSTOM_*) to SUPERVISOR before resolution.
-  const ownPerms = await resolveRolePermissions(userMembership?.role ?? user.role, company.id, userOverrides);
+  // Resolve via the membership's ACTIVE role (raw, per-company) — NOT
+  // user.role, which getCurrentUser() normalizes to a built-in role,
+  // collapsing custom roles (CUSTOM_*) to SUPERVISOR before resolution.
+  // Multi-role: the worn hat (activeRole) drives permissions; a stale hat
+  // falls back to the primary role.
+  const wornHat =
+    userMembership?.activeRole &&
+    [userMembership.role, ...(userMembership.secondaryRoles ?? [])].includes(userMembership.activeRole)
+      ? userMembership.activeRole
+      : userMembership?.role;
+  const ownPerms = await resolveRolePermissions(wornHat ?? user.role, company.id, userOverrides);
 
   // ── Delegation union: while an active delegation targets this user,
   // they also hold each delegator's role permissions. ──
@@ -2734,6 +2856,12 @@ export interface NavBootstrap {
     role: string;
     ownRole: string;
     permissions: string[];
+    /** Multi-role: all hats the member holds (primary + secondary). */
+    roles: string[];
+    /** Multi-role: the hat currently worn (equals `role` when no switch). */
+    activeRole: string;
+    /** Multi-role: display label per held role key. */
+    roleLabels: Record<string, string>;
   };
   company: {
     id: string;
@@ -2774,6 +2902,13 @@ export async function getNavBootstrap(): Promise<NavBootstrap | null> {
         getUserPermissions(),
         getOwnRole(),
       ]);
+      const held = await getHeldRoles(user.id, company.id);
+      // Multi-role: display labels for every held hat (custom roles resolve
+      // via their CustomRole row in this company).
+      const customLabels = await getCustomRoleLabels([company.id]).catch(() => new Map<string, string>());
+      const roleLabels = Object.fromEntries(
+        (held?.heldRoles ?? [user.role]).map((r) => [r, roleDisplayLabel(r, company.id, customLabels)]),
+      );
 
       // Same visibility rule as GET /api/company: only companies the user
       // actually belongs to (active membership). OWNER/ADMIN are per-tenant
@@ -2809,6 +2944,9 @@ export async function getNavBootstrap(): Promise<NavBootstrap | null> {
           role: user.role,
           ownRole,
           permissions,
+          roles: held?.heldRoles ?? [user.role],
+          activeRole: held?.activeRole ?? user.role,
+          roleLabels,
         },
         company: {
           id: company.id,
@@ -2882,8 +3020,14 @@ export async function requireRole(...allowed: Role[]): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!user) throw new UnauthorizedError();
   if (!user.active) throw new ForbiddenError("Your account is inactive.");
-  if (user.role === "OWNER" || user.role === "ADMIN" || user.role === "DEVELOPER") return user;
-  if (!allowed.includes(user.role)) throw new ForbiddenError();
+  // Multi-role: gate on the hat actually worn (activeRole ?? primary).
+  // A dormant OWNER hat in the held set does NOT bypass the check —
+  // the user must switch hats first (no silent privilege leaks).
+  const company = await getCompany().catch(() => null);
+  const held = company ? await getHeldRoles(user.id, company.id) : null;
+  const effectiveRole = normalizeRole(held?.activeRole ?? user.role);
+  if (effectiveRole === "OWNER" || effectiveRole === "ADMIN" || effectiveRole === "DEVELOPER") return user;
+  if (!allowed.includes(effectiveRole)) throw new ForbiddenError();
   return user;
 }
 
@@ -2921,6 +3065,8 @@ export async function requireAnyPermission(...permissions: string[]): Promise<Cu
 export async function getCurrentUserMembership(): Promise<{
   id: string;
   role: string;
+  secondaryRoles: string[];
+  activeRole: string | null;
   scopeType: string | null;
   reportsToUserCompanyId: string | null;
 } | null> {
@@ -2930,7 +3076,7 @@ export async function getCurrentUserMembership(): Promise<{
   if (user.id === "dev") return null;
   return prisma.userCompany.findFirst({
     where: { userId: user.id, companyId: user.companyId, active: true },
-    select: { id: true, role: true, scopeType: true, reportsToUserCompanyId: true },
+    select: { id: true, role: true, secondaryRoles: true, activeRole: true, scopeType: true, reportsToUserCompanyId: true },
   });
 }
 

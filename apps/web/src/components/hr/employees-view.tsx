@@ -308,6 +308,7 @@ export function EmployeesView({
   potentialManagers,
   permissions,
   viewerHierarchyLevel,
+  hqLabel,
 }: {
   employees: EmployeeRow[];
   crews: { id: string; name: string }[];
@@ -315,6 +316,9 @@ export function EmployeesView({
   crewEmployees: { id: string; name: string; trade: string | null }[];
   projects: { id: string; name: string }[];
   locations?: { id: string; name: string }[];
+  /** Label for the empty reporting-site option — the company HQ geofence
+   *  applies to unassigned employees when the company profile has coords. */
+  hqLabel?: string | null;
   potentialManagers?: { membershipId: string; name: string; role: string }[];
   permissions?: { canCreate?: boolean; canEdit?: boolean; canManage?: boolean };
   viewerHierarchyLevel?: number | null;
@@ -457,6 +461,7 @@ export function EmployeesView({
           projects={projects}
           locations={locations ?? []}
           potentialManagers={potentialManagers ?? []}
+          hqLabel={hqLabel ?? null}
           currentReportsToMembershipId={editTarget?.reportsToMembershipId ?? null}
           onClose={() => setFormOpen(false)}
           onSaved={() => { setFormOpen(false); router.refresh(); }}
@@ -485,6 +490,7 @@ function EmployeeFormDialog({
   locations,
   potentialManagers,
   currentReportsToMembershipId,
+  hqLabel,
   onClose,
   onSaved,
 }: {
@@ -492,6 +498,7 @@ function EmployeeFormDialog({
   crews: { id: string; name: string }[];
   projects: { id: string; name: string }[];
   locations: { id: string; name: string }[];
+  hqLabel?: string | null;
   potentialManagers: { membershipId: string; name: string; role: string }[];
   currentReportsToMembershipId: string | null;
   onClose: () => void;
@@ -828,9 +835,9 @@ function EmployeeFormDialog({
             </div>
           </div>
           <div>
-            <Label>Attendance Site (GPS)</Label>
+            <Label hint={hqLabel ? "Unassigned staff check in against the company HQ geo-fence" : undefined}>Attendance Site (GPS)</Label>
             <Select value={form.reportingLocationId} onChange={(e) => set("reportingLocationId", e.target.value)}>
-              <option value="">None — manual attendance</option>
+              <option value="">{hqLabel ? `${hqLabel} (default)` : "None — manual attendance"}</option>
               {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </Select>
           </div>

@@ -30,6 +30,12 @@ model Company {
   gstin     String?
   pan       String?
   address   String?
+  // Geo-fence center + radius (metres) for the registered office / HQ.
+  // Set via the verified address picker on the company profile — used as the
+  // fallback check-in geo-fence for employees with no reportingLocationId.
+  lat       Float?
+  lng       Float?
+  geoRadius Int?              // allowed radius in metres (default 500 if null)
   // Contact details — shown on printed bills, invoices, and receipts.
   phone     String?
   email     String?
@@ -172,6 +178,18 @@ model UserCompany {
   userId    String
   companyId String
   role      String   @default("PROJECT_MANAGER") // See roles.ts for the full 14-role vocabulary (OWNER, ADMIN, DEVELOPER, PROJECT_DIRECTOR, …, QAQC_ENGINEER)
+  // ── Multi-role ("one hat at a time") ──
+  // The member's held set = { role } ∪ secondaryRoles. `role` remains the
+  // primary role (org-tree position, identity badge, User.role mirror).
+  // secondaryRoles are additional hats HR/OWNER can assign. `activeRole` is
+  // the hat currently worn — it must be a member of the held set (validated
+  // on write; resolvers fall back to `role` when NULL or stale). All
+  // permission/authority/scope resolution uses activeRole ?? role, so the
+  // user acts exactly as ONE role at a time — no cross-role permission
+  // leaks. Switching hats is a self-service action; editing the held set
+  // still requires hierarchy authority over every role in it.
+  secondaryRoles String[] @default([])
+  activeRole     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -386,7 +404,7 @@ enum BenefitFrequency {
 enum ContractStatus {
   DRAFT       // agreement generated but not yet issued
   ISSUED      // issued to the employee for review/signature
-  CONFIRMED   // employee confirmed/signed — auto-deposit can be enabled
+  CONFIRMED   // employee confirmed/signed
   EXPIRED     // contract end date has passed
   TERMINATED  // ended early (linked to employee termination)
 }
@@ -712,6 +730,38 @@ enum ComponentFrequency {
   ONE_TIME   // one-time payment (e.g. joining bonus)
 }
 
+// ── How a salary component's payable amount is computed ──
+enum SalaryComponentCalcType {
+  FIXED               // fixed amount per frequency (e.g. HRA ₹5,000/mo)
+  PERCENTAGE_OF_BASIC // % of the BASIC component (e.g. HRA = 40% of basic)
+  UNIT_RATE           // rate × quantity — variable usage-based pay
+                      // (e.g. travel ₹3/km, food ₹150/day worked, ₹500/trip)
+}
+
+// ── Unit a UNIT_RATE component is priced per ──
+enum SalaryUnitType {
+  DAY    // per day worked — payroll auto-fills qty from attendance daysWorked
+  KM     // per kilometre travelled
+  TRIP   // per trip
+  HOUR   // per hour
+  MONTH  // per month of service
+  CUSTOM // free-text unit (unitLabel holds the label, e.g. "bag", "shift")
+}
+
+// ── Which PayrollLine bucket a PayrollLineComponent feeds ──
+enum PayrollComponentBucket {
+  ALLOWANCE       // adds to line.allowance (earnings)
+  BONUS           // adds to line.bonus
+  PF              // employee PF — deducted (line.pf)
+  EMPLOYER_PF     // employer PF — tracked separately (line.employerPf)
+  ESI             // employee ESI — deducted (line.esi)
+  PROFESSION_TAX  // line.professionTax
+  TAX             // TDS — line.tax
+  DEDUCTIONS      // other deductions — line.deductions
+  EMPLOYER_ONLY   // employer statutory cost (employer ESI, gratuity provision)
+                  // — itemized on the payslip but NOT deducted from employee net
+}
+
 // ───────────────────────────────────────────────────────────────
 //  SalaryComponent — the CTC breakdown for an employee.
 //  Each component has a type (BASIC, HRA, DA, TA, etc.), amount,
@@ -722,11 +772,16 @@ model SalaryComponent {
   id          String              @id @default(cuid())
   employeeId  String
   type        SalaryComponentType
-  amount      Decimal             @db.Decimal(14, 2) // monthly amount (or annual if frequency = YEARLY)
+  amount      Decimal             @db.Decimal(14, 2) // monthly amount (or annual if frequency = YEARLY).
+                                  // For UNIT_RATE components this is the per-unit rate (e.g. 3.00 = ₹3/km).
   frequency   ComponentFrequency  @default(MONTHLY)
   isDeduction Boolean             @default(false) // true for PF, ESI, PT, TDS (subtracted from gross)
   isPercentage Boolean            @default(false) // if true, amount is a % of BASIC (e.g. HRA = 40% of basic)
+                                  // kept in sync: true iff calculationType = PERCENTAGE_OF_BASIC
   percentageOfBasic Decimal?      @db.Decimal(5, 2) // percentage value (e.g. 40.00 for 40%)
+  calculationType SalaryComponentCalcType @default(FIXED) // FIXED | PERCENTAGE_OF_BASIC | UNIT_RATE
+  unitType    SalaryUnitType?     // UNIT_RATE only: what the rate is priced per (DAY auto-fills from attendance)
+  unitLabel   String?             // UNIT_RATE + unitType=CUSTOM: free-text unit (e.g. "bag", "shift")
   notes       String?             // e.g. "HDFC Ergo group mediclaim"
   active      Boolean             @default(true)
   createdAt   DateTime            @default(now())
@@ -1826,9 +1881,38 @@ model PayrollLine {
   employee      Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   proofUpload   Upload?       @relation("PayrollProofUpload", fields: [proofUploadId], references: [id], onDelete: SetNull)
   paidBy        User?         @relation("PayrollLinePaidBy", fields: [paidById], references: [id], onDelete: SetNull)
+  components    PayrollLineComponent[]
 
   @@unique([payrollPeriodId, employeeId])
   @@index([employeeId])
+}
+
+// ───────────────────────────────────────────────────────────────
+//  PayrollLineComponent — itemized breakdown of a payroll line.
+//  One row per salary component applied this period: keeps the
+//  qty × rate math auditable ("Travel — 420 km × ₹3 = ₹1,260")
+//  instead of a single unexplained allowance lump. bucket says
+//  which PayrollLine field the amount feeds.
+// ───────────────────────────────────────────────────────────────
+model PayrollLineComponent {
+  id              String   @id @default(cuid())
+  payrollLineId   String
+  type            SalaryComponentType
+  label           String   // snapshot of the display name (survives structure edits)
+  calculationType SalaryComponentCalcType @default(FIXED)
+  unitType        SalaryUnitType?
+  unitLabel       String?
+  rate            Decimal  @db.Decimal(14, 2) // fixed amount | % of basic | per-unit rate
+  quantity        Decimal? @db.Decimal(12, 2) // units consumed this period (km, days, trips); null for FIXED/%
+  amount          Decimal  @db.Decimal(14, 2) // computed contribution this period
+  bucket          PayrollComponentBucket @default(ALLOWANCE)
+  isDeduction     Boolean  @default(false)
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  payrollLine     PayrollLine @relation(fields: [payrollLineId], references: [id], onDelete: Cascade)
+
+  @@index([payrollLineId])
 }
 
 model DailyProgressReport {

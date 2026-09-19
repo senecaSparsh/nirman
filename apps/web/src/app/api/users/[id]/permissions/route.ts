@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, canManageRole, getActingRole, getCompany, json, requirePermission, resolveRolePermissions } from "@/lib/server";
+import { apiHandler, canManageRoleSet, getActingRole, getCompany, json, requirePermission, resolveRolePermissions } from "@/lib/server";
 import { PERM, ALL_PERMISSIONS, isCustomRole } from "@/lib/roles";
 
 /**
@@ -25,9 +25,18 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     return json({ error: "User is not a member of this company" }, { status: 404 });
   }
 
+  // Multi-role: the console shows what the member can do NOW — resolve
+  // against the worn hat (activeRole), validated against the held set so
+  // a stale hat falls back to the primary role.
+  const heldRoles = [membership.role, ...(membership.secondaryRoles ?? [])];
+  const wornRole =
+    membership.activeRole && heldRoles.includes(membership.activeRole)
+      ? membership.activeRole
+      : membership.role;
+
   // Role-level overrides
   const roleOverrides = await prisma.rolePermission.findMany({
-    where: { role: membership.role },
+    where: { role: wornRole },
     select: { permission: true },
   });
 
@@ -36,17 +45,17 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 
   // Effective set — resolveRolePermissions handles custom roles
   // (CUSTOM_* → baseRole matrix + the role's own permissions).
-  const effective = await resolveRolePermissions(membership.role, company.id, [...roleOverridePerms, ...userOverrides]);
+  const effective = await resolveRolePermissions(wornRole, company.id, [...roleOverridePerms, ...userOverrides]);
 
   // Base role permissions (without any overrides) — for UI display.
   // For custom roles this is the baseRole's matrix + the role's own list.
   const { ROLES, normalizeRole } = await import("@/lib/roles");
-  let displayRole = normalizeRole(membership.role);
+  let displayRole = normalizeRole(wornRole);
   let customPerms: string[] = [];
   let customLabel: string | null = null;
-  if (isCustomRole(membership.role)) {
+  if (isCustomRole(wornRole)) {
     const customRole = await prisma.customRole
-      .findFirst({ where: { companyId: company.id, key: membership.role }, select: { baseRole: true, permissions: true, label: true } })
+      .findFirst({ where: { companyId: company.id, key: wornRole }, select: { baseRole: true, permissions: true, label: true } })
       .catch(() => null);
     if (customRole) {
       displayRole = normalizeRole(customRole.baseRole);
@@ -60,6 +69,10 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   return json({
     membershipId: membership.id,
     role: membership.role,
+    // Multi-role: the worn hat this "effective" view was computed under,
+    // plus the full held set for the editor's context.
+    activeRole: wornRole,
+    secondaryRoles: membership.secondaryRoles,
     roleLabel: customLabel ?? roleDef.label,
     baseRolePermissions: baseRolePerms,
     roleOverrides: roleOverridePerms,
@@ -112,7 +125,9 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     return json({ error: "You cannot change your own permissions" }, { status: 400 });
   }
   const actorRole = await getActingRole();
-  if (!(await canManageRole(actorRole, membership.role, company.id))) {
+  // The actor must sit above EVERY hat the target holds — a dormant senior
+  // hat still protects the target from a junior manager adding overrides.
+  if (!(await canManageRoleSet(actorRole, [membership.role, ...(membership.secondaryRoles ?? [])], company.id))) {
     return json(
       { error: "You don't have authority to manage this user's permissions." },
       { status: 403 },

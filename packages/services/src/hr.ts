@@ -1,4 +1,4 @@
-import { prisma, type Prisma } from "@nirman/db";
+import { prisma, type Prisma, type SalaryComponentType, type SalaryComponentCalcType, type SalaryUnitType, type PayrollComponentBucket } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { postPayroll, postPayrollPayment } from "./gl-posting";
@@ -652,6 +652,12 @@ export async function createEmployee(input: CreateEmployeeInput) {
       });
       if (!loc) throw new HrError("Reporting location not found in this company", 404);
     }
+    // Same RBI format rule as setupAutoDeposit / updateEmployeeDossier —
+    // catch bad values at write time instead of when auto-deposit is enabled.
+    const bankIfsc = input.bankIfsc?.trim().toUpperCase() || null;
+    if (bankIfsc && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(bankIfsc)) {
+      throw new HrError("Bank IFSC code is invalid (e.g. HDFC0001234).", 400);
+    }
     const employee = await tx.employee.create({
       data: {
         name: input.name,
@@ -679,7 +685,7 @@ export async function createEmployee(input: CreateEmployeeInput) {
         payDay: input.payDay ?? null,
         bankAccountHolder: input.bankAccountHolder ?? null,
         bankAccountNumber: input.bankAccountNumber ?? null,
-        bankIfsc: input.bankIfsc ?? null,
+        bankIfsc,
         bankName: input.bankName ?? null,
         bankBranch: input.bankBranch ?? null,
         panNumber: input.panNumber ?? null,
@@ -716,7 +722,7 @@ export interface UpdateEmployeeInput {
   trade?: string | null;
   phone?: string | null;
   email?: string | null;
-  dailyRate?: Decimal | number | string;
+  dailyRate?: Decimal | number | string | null;
   wageType?: "DAILY" | "MONTHLY" | "FIXED";
   monthlySalary?: Decimal | number | string | null;
   designation?: string | null;
@@ -812,6 +818,11 @@ export async function updateEmployee(input: UpdateEmployeeInput) {
     if (input.hierarchyLevel !== undefined) data.hierarchyLevel = input.hierarchyLevel;
     if (input.reportsToEmployeeId !== undefined) data.reportsTo = input.reportsToEmployeeId ? { connect: { id: input.reportsToEmployeeId } } : { disconnect: true };
     if (input.active !== undefined) data.active = input.active;
+    // Auto-deposit requires an active employee — clear the flag on
+    // deactivation so an inactive employee can't keep receiving salary
+    // credit. Bank details are preserved; re-activation + one setup call
+    // restores it. Termination clears it too (see terminateEmployee).
+    if (input.active === false) data.autoDepositEnabled = false;
     if (input.dateOfBirth !== undefined) data.dateOfBirth = input.dateOfBirth;
     if (input.bloodGroup !== undefined) data.bloodGroup = input.bloodGroup;
 
@@ -1113,6 +1124,181 @@ export async function bulkRecordAttendance(input: BulkAttendanceInput) {
 //  Payroll
 // ───────────────────────────────────────────────────────────
 
+// ───────────────────────────────────────────────────────────
+//  Payroll line components — itemized salary-structure breakdown
+// ───────────────────────────────────────────────────────────
+
+/** Display labels for salary component types — snapshot onto
+ *  PayrollLineComponent.label so payslips survive structure edits. */
+export const SALARY_COMPONENT_LABELS: Record<string, string> = {
+  BASIC: "Basic Salary",
+  HRA: "House Rent Allowance (HRA)",
+  DA: "Dearness Allowance (DA)",
+  TA: "Travelling Allowance (TA)",
+  SPECIAL_ALLOWANCE: "Special Allowance",
+  FOOD_ALLOWANCE: "Food Allowance",
+  MEDICAL_ALLOWANCE: "Medical Allowance",
+  UNIFORM_ALLOWANCE: "Uniform Allowance",
+  WASHING_ALLOWANCE: "Washing Allowance",
+  LTA: "Leave Travel Allowance (LTA)",
+  PERFORMANCE_BONUS: "Performance Bonus",
+  JOINING_BONUS: "Joining Bonus",
+  RETENTION_BONUS: "Retention Bonus",
+  EMPLOYER_PF: "Employer PF Contribution",
+  EMPLOYEE_PF: "Employee PF Contribution",
+  EMPLOYER_ESI: "Employer ESI Contribution",
+  EMPLOYEE_ESI: "Employee ESI Contribution",
+  GRATUITY: "Gratuity",
+  PROFESSION_TAX: "Profession Tax",
+  TDS: "Income Tax (TDS)",
+  OTHER: "Other",
+};
+
+export type PayrollComponentBucketName = PayrollComponentBucket;
+
+/** Which PayrollLine bucket a salary component type feeds. */
+export function bucketForComponent(
+  type: string,
+  isDeduction: boolean,
+): PayrollComponentBucketName {
+  switch (type) {
+    case "EMPLOYEE_PF": return "PF";
+    case "EMPLOYER_PF": return "EMPLOYER_PF";
+    case "EMPLOYEE_ESI": return "ESI";
+    case "PROFESSION_TAX": return "PROFESSION_TAX";
+    case "TDS": return "TAX";
+    // Employer-side statutory costs — itemized on the payslip but not
+    // deducted from the employee's net pay.
+    case "EMPLOYER_ESI":
+    case "GRATUITY": return "EMPLOYER_ONLY";
+    case "PERFORMANCE_BONUS":
+    case "JOINING_BONUS":
+    case "RETENTION_BONUS": return "BONUS";
+    default: return isDeduction ? "DEDUCTIONS" : "ALLOWANCE";
+  }
+}
+
+type SalaryComponentRow = {
+  type: SalaryComponentType;
+  amount: Decimal | number | string;
+  frequency: string;
+  isDeduction: boolean;
+  isPercentage: boolean;
+  percentageOfBasic: Decimal | number | string | null;
+  calculationType: SalaryComponentCalcType;
+  unitType: SalaryUnitType | null;
+  unitLabel: string | null;
+  notes: string | null;
+};
+
+export type LineComponentRow = {
+  type: SalaryComponentType;
+  label: string;
+  calculationType: SalaryComponentCalcType;
+  unitType: SalaryUnitType | null;
+  unitLabel: string | null;
+  rate: Decimal;
+  quantity: Decimal | null;
+  amount: Decimal;
+  bucket: PayrollComponentBucketName;
+  isDeduction: boolean;
+  notes: string | null;
+};
+
+function componentCalcType(c: {
+  calculationType: SalaryComponentCalcType;
+  isPercentage: boolean;
+}): SalaryComponentCalcType {
+  if (c.calculationType === "UNIT_RATE") return "UNIT_RATE";
+  // calculationType is the source of truth; isPercentage is the legacy flag —
+  // honor either so rows written before the backfill still compute correctly.
+  if (c.calculationType === "PERCENTAGE_OF_BASIC" || c.isPercentage) {
+    return "PERCENTAGE_OF_BASIC";
+  }
+  return "FIXED";
+}
+
+/**
+ * Turn an employee's active salary components into itemized payroll-line
+ * component rows for one period.
+ *   FIXED               → amount = rate
+ *   PERCENTAGE_OF_BASIC → amount = rate% × basicAmount
+ *   UNIT_RATE           → amount = rate × qty; qty auto-fills from
+ *                         daysWorked for DAY units, starts at 0 for others
+ *                         (HR enters actual km/trips on the draft line)
+ *
+ * BASIC is skipped — it's already represented by the line's basicAmount
+ * (wage formula), so including it would double-pay.
+ * Only MONTHLY components auto-apply — quarterly/yearly/one-time items have
+ * no due-date tracking, so HR adds them to the relevant period manually.
+ */
+export function buildLineComponents(
+  components: SalaryComponentRow[],
+  ctx: { basicAmount: Decimal; daysWorked: Decimal },
+): LineComponentRow[] {
+  const rows: LineComponentRow[] = [];
+  for (const c of components) {
+    if (c.type === "BASIC") continue;
+    if (c.frequency !== "MONTHLY") continue;
+    const calc = componentCalcType(c);
+    const rate = calc === "PERCENTAGE_OF_BASIC"
+      ? new Decimal(c.percentageOfBasic ?? 0)
+      : new Decimal(c.amount);
+    let quantity: Decimal | null = null;
+    let amount: Decimal;
+    if (calc === "PERCENTAGE_OF_BASIC") {
+      amount = ctx.basicAmount.times(rate).div(100).toDecimalPlaces(2);
+    } else if (calc === "UNIT_RATE") {
+      quantity = c.unitType === "DAY" ? ctx.daysWorked : new Decimal(0);
+      amount = rate.times(quantity).toDecimalPlaces(2);
+    } else {
+      amount = rate;
+    }
+    rows.push({
+      type: c.type,
+      label: SALARY_COMPONENT_LABELS[c.type] ?? c.type,
+      calculationType: calc,
+      unitType: calc === "UNIT_RATE" ? c.unitType : null,
+      unitLabel: c.unitLabel,
+      rate,
+      quantity,
+      amount,
+      bucket: bucketForComponent(c.type, c.isDeduction),
+      isDeduction: c.isDeduction,
+      notes: c.notes,
+    });
+  }
+  return rows;
+}
+
+/** Sum component rows into the PayrollLine bucket fields. */
+function sumComponentBuckets(rows: { amount: Decimal; bucket: PayrollComponentBucketName }[]) {
+  const sums = {
+    allowance: new Decimal(0),
+    bonus: new Decimal(0),
+    pf: new Decimal(0),
+    employerPf: new Decimal(0),
+    esi: new Decimal(0),
+    professionTax: new Decimal(0),
+    tax: new Decimal(0),
+    deductions: new Decimal(0),
+  };
+  for (const r of rows) {
+    switch (r.bucket) {
+      case "ALLOWANCE": sums.allowance = sums.allowance.plus(r.amount); break;
+      case "BONUS": sums.bonus = sums.bonus.plus(r.amount); break;
+      case "PF": sums.pf = sums.pf.plus(r.amount); break;
+      case "EMPLOYER_PF": sums.employerPf = sums.employerPf.plus(r.amount); break;
+      case "ESI": sums.esi = sums.esi.plus(r.amount); break;
+      case "PROFESSION_TAX": sums.professionTax = sums.professionTax.plus(r.amount); break;
+      case "TAX": sums.tax = sums.tax.plus(r.amount); break;
+      case "DEDUCTIONS": sums.deductions = sums.deductions.plus(r.amount); break;
+      // EMPLOYER_ONLY — no line field; informational on the payslip only
+    }
+  }
+  return sums;
+}
+
 export interface GeneratePayrollInput {
   companyId: string;
   month: number; // 1-12
@@ -1182,6 +1368,18 @@ export async function generatePayroll(input: GeneratePayrollInput) {
       attendancesByEmployee.set(att.employeeId, arr);
     }
 
+    // Batch fetch active salary components — these drive the itemized
+    // per-line breakdown (HRA, TA ₹3/km, food ₹150/day, PF, ESI, …).
+    const allComponents = await tx.salaryComponent.findMany({
+      where: { employeeId: { in: employees.map((e) => e.id) }, active: true },
+    });
+    const componentsByEmployee = new Map<string, typeof allComponents>();
+    for (const comp of allComponents) {
+      const arr = componentsByEmployee.get(comp.employeeId) ?? [];
+      arr.push(comp);
+      componentsByEmployee.set(comp.employeeId, arr);
+    }
+
     let totalGross = new Decimal(0);
     let totalOvertime = new Decimal(0);
     let totalDeductions = new Decimal(0);
@@ -1207,17 +1405,45 @@ export async function generatePayroll(input: GeneratePayrollInput) {
       const otHours = computeOvertimeHours(attendances);
       const hr = hourlyRateFor(emp, workingDays);
       const overtimeAmount = otHours.times(hr).times(OVERTIME_MULTIPLIER);
-      // New salary components — default to 0 on generation; editable via adjustPayrollLine.
-      const allowance = new Decimal(0);
-      const bonus = new Decimal(0);
-      const pf = new Decimal(0);
-      const employerPf = new Decimal(0);
-      const esi = new Decimal(0);
-      const professionTax = new Decimal(0);
-      const tax = new Decimal(0);
-      // Late-half-day deduction is tracked as a separate deduction line item
+
+      // ── Itemized components from the employee's salary structure ──
+      // Fixed/percentage/unit-rate components become PayrollLineComponent
+      // rows; their amounts feed the line's bucket fields. UNIT_RATE items
+      // with non-DAY units start at qty 0 — HR enters actual km/trips on
+      // the draft before processing.
+      const lineComponents = buildLineComponents(
+        componentsByEmployee.get(emp.id) ?? [],
+        { basicAmount, daysWorked: adjustedDaysWorked },
+      );
+
+      // Late-half-day deduction becomes its own itemized row so the payslip
+      // explains it (and HR can waive it on the draft if needed).
       const lateDeductionAmount = basicAmount.minus(computeBasicAmount(emp, daysWorked, workingDays));
-      const deductions = lateDeductionAmount.gt(0) ? lateDeductionAmount : new Decimal(0);
+      if (lateDeductionAmount.gt(0)) {
+        lineComponents.push({
+          type: "OTHER",
+          label: "Late attendance deduction",
+          calculationType: "FIXED",
+          unitType: null,
+          unitLabel: null,
+          rate: lateDeductionAmount,
+          quantity: null,
+          amount: lateDeductionAmount,
+          bucket: "DEDUCTIONS",
+          isDeduction: true,
+          notes: `${countLateDays(attendances)} late day(s) → ${lateHalfDayDeductions * 0.5} day pay`,
+        });
+      }
+
+      const buckets = sumComponentBuckets(lineComponents);
+      const allowance = buckets.allowance;
+      const bonus = buckets.bonus;
+      const pf = buckets.pf;
+      const employerPf = buckets.employerPf;
+      const esi = buckets.esi;
+      const professionTax = buckets.professionTax;
+      const tax = buckets.tax;
+      const deductions = buckets.deductions;
       const grossPay = computeGrossPay(basicAmount, overtimeAmount, allowance, bonus);
       const lineTotalDeductions = computeTotalDeductions(deductions, pf, esi, professionTax, tax);
       const netPay = computeNetPay(basicAmount, overtimeAmount, deductions, allowance, bonus, pf, esi, professionTax, tax);
@@ -1240,6 +1466,7 @@ export async function generatePayroll(input: GeneratePayrollInput) {
           grossPay,
           totalDeductions: lineTotalDeductions,
           netPay,
+          components: { create: lineComponents },
         },
       });
 
@@ -1318,6 +1545,43 @@ export async function updatePayrollLine(input: AdjustPayrollLineInput) {
       data: { overtimeAmount, allowance, bonus, pf, employerPf, esi, professionTax, tax, deductions, grossPay, totalDeductions, netPay },
     });
 
+    // Keep the itemized breakdown consistent with lump overrides: when a
+    // bucket field is set directly, replace that bucket's component rows
+    // with a single "Manual adjustment" row so Σ components always equals
+    // the line field. (overtimeAmount stays lump — it's attendance-computed,
+    // not component-driven.)
+    const bucketOverrides: [Decimal | number | string | undefined, PayrollComponentBucketName, Decimal][] = [
+      [input.allowance, "ALLOWANCE", allowance],
+      [input.bonus, "BONUS", bonus],
+      [input.pf, "PF", pf],
+      [input.employerPf, "EMPLOYER_PF", employerPf],
+      [input.esi, "ESI", esi],
+      [input.professionTax, "PROFESSION_TAX", professionTax],
+      [input.tax, "TAX", tax],
+      [input.deductions, "DEDUCTIONS", deductions],
+    ];
+    for (const [provided, bucket, value] of bucketOverrides) {
+      if (provided === undefined) continue;
+      await tx.payrollLineComponent.deleteMany({
+        where: { payrollLineId: input.payrollLineId, bucket },
+      });
+      if (value.gt(0)) {
+        await tx.payrollLineComponent.create({
+          data: {
+            payrollLineId: input.payrollLineId,
+            type: "OTHER",
+            label: "Manual adjustment",
+            calculationType: "FIXED",
+            rate: value,
+            quantity: null,
+            amount: value,
+            bucket,
+            isDeduction: bucket === "PF" || bucket === "ESI" || bucket === "PROFESSION_TAX" || bucket === "TAX" || bucket === "DEDUCTIONS",
+          },
+        });
+      }
+    }
+
     // Recompute period totals from all lines.
     const allLines = await tx.payrollLine.findMany({
       where: { payrollPeriodId: line.payrollPeriodId },
@@ -1348,6 +1612,155 @@ export async function updatePayrollLine(input: AdjustPayrollLineInput) {
       entityId: input.payrollLineId,
       before: { overtimeAmount: line.overtimeAmount.toString(), allowance: line.allowance.toString(), bonus: line.bonus.toString(), pf: line.pf.toString(), employerPf: line.employerPf.toString(), esi: line.esi.toString(), professionTax: line.professionTax.toString(), tax: line.tax.toString(), deductions: line.deductions.toString(), netPay: line.netPay.toString() },
       after: { overtimeAmount: overtimeAmount.toString(), allowance: allowance.toString(), bonus: bonus.toString(), pf: pf.toString(), employerPf: employerPf.toString(), esi: esi.toString(), professionTax: professionTax.toString(), tax: tax.toString(), deductions: deductions.toString(), netPay: netPay.toString() },
+    });
+    return updated;
+  });
+}
+
+export interface PayrollLineComponentInput {
+  type: string;
+  /** Display label — defaults to the type's standard label. For OTHER
+   *  components a custom label is recommended ("Site allowance"). */
+  label?: string | null;
+  calculationType?: "FIXED" | "PERCENTAGE_OF_BASIC" | "UNIT_RATE";
+  unitType?: "DAY" | "KM" | "TRIP" | "HOUR" | "MONTH" | "CUSTOM" | null;
+  unitLabel?: string | null;
+  /** FIXED: the amount. PERCENTAGE_OF_BASIC: the % value. UNIT_RATE: per-unit rate. */
+  rate: Decimal | number | string;
+  /** UNIT_RATE only — units consumed this period (km, days, trips). */
+  quantity?: Decimal | number | string | null;
+  isDeduction?: boolean;
+  notes?: string | null;
+}
+
+/**
+ * Replace the itemized component breakdown on a DRAFT payroll line and
+ * recompute the line's bucket fields + period totals. This is how HR
+ * enters variable quantities (e.g. 420 km on a ₹3/km travel component)
+ * and one-off adjustments before processing.
+ *
+ * Amounts are computed server-side — the client sends rate + quantity,
+ * never a trusted amount:
+ *   FIXED               → amount = rate
+ *   PERCENTAGE_OF_BASIC → amount = rate% × line.basicAmount
+ *   UNIT_RATE           → amount = rate × quantity (0 when qty null)
+ */
+export async function updatePayrollLineComponents(input: {
+  payrollLineId: string;
+  components: PayrollLineComponentInput[];
+  userId?: string;
+}) {
+  return withSerializableTransaction(async (tx) => {
+    const line = await tx.payrollLine.findUnique({
+      where: { id: input.payrollLineId },
+      include: { payrollPeriod: true },
+    });
+    if (!line) throw new HrError("Payroll line not found", 404);
+    if (line.payrollPeriod.status !== "DRAFT") {
+      throw new HrError("Cannot adjust a payroll line after it is processed", 409);
+    }
+
+    const rows: LineComponentRow[] = input.components.map((c) => {
+      if (!SALARY_COMPONENT_LABELS[c.type]) {
+        throw new HrError(`Unknown salary component type "${c.type}"`, 400);
+      }
+      const calc = c.calculationType ?? "FIXED";
+      if (calc === "UNIT_RATE" && !c.unitType) {
+        throw new HrError(`Unit-rate component "${c.label ?? c.type}" needs a unitType`, 400);
+      }
+      const rate = new Decimal(c.rate);
+      if (rate.lt(0)) throw new HrError("Component rate cannot be negative", 400);
+      const quantity = c.quantity != null ? new Decimal(c.quantity) : null;
+      if (quantity != null && quantity.lt(0)) {
+        throw new HrError("Component quantity cannot be negative", 400);
+      }
+      let amount: Decimal;
+      if (calc === "PERCENTAGE_OF_BASIC") {
+        amount = new Decimal(line.basicAmount).times(rate).div(100).toDecimalPlaces(2);
+      } else if (calc === "UNIT_RATE") {
+        amount = rate.times(quantity ?? 0).toDecimalPlaces(2);
+      } else {
+        amount = rate;
+      }
+      return {
+        type: c.type as SalaryComponentType,
+        label: c.label ?? SALARY_COMPONENT_LABELS[c.type] ?? c.type,
+        calculationType: calc,
+        unitType: calc === "UNIT_RATE" ? (c.unitType as SalaryUnitType) ?? null : null,
+        unitLabel: c.unitLabel ?? null,
+        rate,
+        quantity: calc === "UNIT_RATE" ? quantity : null,
+        amount,
+        bucket: bucketForComponent(c.type, c.isDeduction ?? false),
+        isDeduction: c.isDeduction ?? false,
+        notes: c.notes ?? null,
+      };
+    });
+
+    await tx.payrollLineComponent.deleteMany({ where: { payrollLineId: input.payrollLineId } });
+    if (rows.length > 0) {
+      await tx.payrollLineComponent.createMany({
+        data: rows.map((r) => ({ ...r, payrollLineId: input.payrollLineId })),
+      });
+    }
+
+    const buckets = sumComponentBuckets(rows);
+    const grossPay = computeGrossPay(line.basicAmount, line.overtimeAmount, buckets.allowance, buckets.bonus);
+    const totalDeductions = computeTotalDeductions(buckets.deductions, buckets.pf, buckets.esi, buckets.professionTax, buckets.tax);
+    const netPay = grossPay.minus(totalDeductions);
+
+    const updated = await tx.payrollLine.update({
+      where: { id: input.payrollLineId },
+      data: {
+        allowance: buckets.allowance,
+        bonus: buckets.bonus,
+        pf: buckets.pf,
+        employerPf: buckets.employerPf,
+        esi: buckets.esi,
+        professionTax: buckets.professionTax,
+        tax: buckets.tax,
+        deductions: buckets.deductions,
+        grossPay,
+        totalDeductions,
+        netPay,
+      },
+    });
+
+    // Recompute period totals from all lines.
+    const allLines = await tx.payrollLine.findMany({
+      where: { payrollPeriodId: line.payrollPeriodId },
+    });
+    const totals = allLines.reduce(
+      (acc, l) => ({
+        gross: acc.gross.plus(l.grossPay),
+        ot: acc.ot.plus(l.overtimeAmount),
+        ded: acc.ded.plus(l.totalDeductions),
+        net: acc.net.plus(l.netPay),
+      }),
+      { gross: new Decimal(0), ot: new Decimal(0), ded: new Decimal(0), net: new Decimal(0) },
+    );
+    await tx.payrollPeriod.update({
+      where: { id: line.payrollPeriodId },
+      data: {
+        totalGross: totals.gross,
+        totalOvertime: totals.ot,
+        totalDeductions: totals.ded,
+        totalNet: totals.net,
+      },
+    });
+
+    await logAction(tx, {
+      userId: input.userId,
+      action: "PAYROLL_LINE_COMPONENTS_SET",
+      entityType: "PayrollLine",
+      entityId: input.payrollLineId,
+      after: {
+        components: rows.map((r) => ({
+          type: r.type, label: r.label, rate: r.rate.toString(),
+          quantity: r.quantity?.toString() ?? null, amount: r.amount.toString(), bucket: r.bucket,
+        })),
+        netPay: netPay.toString(),
+      },
     });
     return updated;
   });

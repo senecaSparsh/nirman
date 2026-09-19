@@ -175,9 +175,16 @@ export async function resolveUserScope(
   // Custom roles derive their default scope type from their baseRole — a
   // CUSTOM_* role based on SITE_ENGINEER gets PROJECT scope like a real
   // site engineer, not the fail-open COMPANY default unknown strings get.
+  // Multi-role: the worn hat (activeRole, validated against the held set)
+  // drives the role default — an explicit scopeType still wins over both.
+  const wornRole =
+    membership.activeRole &&
+    [membership.role, ...membership.secondaryRoles].includes(membership.activeRole)
+      ? membership.activeRole
+      : membership.role;
   const scopeType = resolveScopeType({
     scopeType: membership.scopeType,
-    role: await svcResolveBaseRole(membership.role, companyId),
+    role: await svcResolveBaseRole(wornRole, companyId),
   });
   if (scopeType === "COMPANY") {
     return { scopeType, departmentIds: [], projectIds: [] };
@@ -231,6 +238,12 @@ export interface AssignScopeInput {
   companyId: string;
   /** Role for the membership. Drives the default scope type. */
   role: string;
+  /**
+   * Multi-role: additional hats the member holds (extra roles they can
+   * switch into). Each must be assignable by the actor — the same tier
+   * rule as `role`. Duplicates of `role` are dropped.
+   */
+  secondaryRoles?: string[];
   /** Override the scope type (defaults by role if null). */
   scopeType?: ScopeType | null;
   /** Who this membership reports to (a UserCompany id in the same company). */
@@ -370,7 +383,10 @@ export async function assignScopedMembership(input: AssignScopeInput) {
   // Resolve both sides' tiers through the DB — a CUSTOM_* role string maps
   // to tier 5 under svcRoleTier(), so a raw svcCanAssignRole() call would
   // let any tier 1-4 actor assign/manage a high-tier custom role.
-  const actorTier = await svcResolveRoleTier(actorMembership.role, input.companyId);
+  // Multi-role: the actor assigns with the hat they currently WEAR
+  // (activeRole ?? role) — a dormant senior hat grants no assignment power.
+  const actorWornRole = actorMembership.activeRole ?? actorMembership.role;
+  const actorTier = await svcResolveRoleTier(actorWornRole, input.companyId);
   if (actorTier === null) {
     throw new RbacError("Your membership role is not recognized in this company", 403);
   }
@@ -380,11 +396,32 @@ export async function assignScopedMembership(input: AssignScopeInput) {
   }
 
   // Hierarchy: actor must be able to assign the target role.
-  if (!svcTierAllows(actorTier, actorMembership.role, inputTier, input.role)) {
+  if (!svcTierAllows(actorTier, actorWornRole, inputTier, input.role)) {
     throw new RbacError(
-      `Your role (${actorMembership.role}) cannot assign the ${input.role} role. You can only assign roles below your tier.`,
+      `Your role (${actorWornRole}) cannot assign the ${input.role} role. You can only assign roles below your tier.`,
       403,
     );
+  }
+
+  // Multi-role: every additional hat must independently pass the same
+  // tier rule — a secondary role is a real role, not a weaker grant.
+  // `undefined` = leave the held set's extras unchanged (scope-only edits
+  // must never clobber hats); `[]` = explicitly clear all extras.
+  const secondaryRoles =
+    input.secondaryRoles === undefined
+      ? undefined
+      : [...new Set(input.secondaryRoles)].filter((r) => r !== input.role);
+  for (const secRole of secondaryRoles ?? []) {
+    const secTier = await svcResolveRoleTier(secRole, input.companyId);
+    if (secTier === null) {
+      throw new RbacError(`Unknown role "${secRole}"`, 400);
+    }
+    if (!svcTierAllows(actorTier, actorWornRole, secTier, secRole)) {
+      throw new RbacError(
+        `Your role (${actorWornRole}) cannot assign the ${secRole} role. You can only assign roles below your tier.`,
+        403,
+      );
+    }
   }
 
   const targetUser = await prisma.user.findUnique({ where: { id: input.userId } });
@@ -407,13 +444,18 @@ export async function assignScopedMembership(input: AssignScopeInput) {
     // target's CURRENT role too (can't reassign a peer or superior). A
     // stored role that no longer resolves (deleted custom role, garbage)
     // fails closed — the actor cannot touch it.
+    // Multi-role: the check covers the target's whole held set — a dormant
+    // senior hat still protects the target from a junior manager's edit.
     if (existing) {
-      const existingTier = await svcResolveRoleTier(existing.role, input.companyId);
-      if (existingTier === null || !svcTierAllows(actorTier, actorMembership.role, existingTier, existing.role)) {
-        throw new RbacError(
-          `This user is already a ${existing.role} — you cannot reassign a role at or above your tier.`,
-          403,
-        );
+      const existingHeldRoles = [...new Set([existing.role, ...existing.secondaryRoles])];
+      for (const heldRole of existingHeldRoles) {
+        const existingTier = await svcResolveRoleTier(heldRole, input.companyId);
+        if (existingTier === null || !svcTierAllows(actorTier, actorWornRole, existingTier, heldRole)) {
+          throw new RbacError(
+            `This user is already a ${heldRole} — you cannot reassign a role at or above your tier.`,
+            403,
+          );
+        }
       }
     }
 
@@ -462,11 +504,24 @@ export async function assignScopedMembership(input: AssignScopeInput) {
       }
     }
 
+    // Multi-role: the new held set is { role } ∪ secondaryRoles (or the
+    // existing extras when secondaryRoles is omitted). If the target's
+    // worn hat (activeRole) is no longer in the set, reset it — they fall
+    // back to the primary role on next resolution.
+    const effectiveSecondary = secondaryRoles ?? existing?.secondaryRoles ?? [];
+    const newHeldSet = new Set([input.role, ...effectiveSecondary]);
+    const activeRoleReset =
+      existing?.activeRole && !newHeldSet.has(existing.activeRole)
+        ? { activeRole: null }
+        : {};
+
     const membership = existing
       ? await tx.userCompany.update({
           where: { id: existing.id },
           data: {
             role: input.role,
+            ...(secondaryRoles !== undefined ? { secondaryRoles } : {}),
+            ...activeRoleReset,
             scopeType,
             reportsToUserCompanyId: input.reportsToUserCompanyId ?? null,
           },
@@ -476,6 +531,7 @@ export async function assignScopedMembership(input: AssignScopeInput) {
             userId: input.userId,
             companyId: input.companyId,
             role: input.role,
+            secondaryRoles: effectiveSecondary,
             scopeType,
             reportsToUserCompanyId: input.reportsToUserCompanyId ?? null,
           },

@@ -22,10 +22,14 @@ export function DepartmentFormDialog({
   open,
   onOpenChange,
   department,
+  onCreated,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   department: DepartmentRow | null;
+  /** Called after a successful create with the new row's id + label —
+   *  used by SelectWithCreate to auto-select the fresh entity. */
+  onCreated?: (entity: { id: string; label?: string }) => void;
 }) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>(() =>
@@ -95,6 +99,7 @@ export function DepartmentFormDialog({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to save department");
       toast.success(isEdit ? "Department updated" : "Department created");
+      if (!isEdit && data.id) onCreated?.({ id: data.id, label: form.name.trim() });
       onOpenChange(false);
       router.refresh();
     } catch (err: unknown) {

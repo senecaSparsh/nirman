@@ -13,18 +13,22 @@ export function MobileOnboardingPageClient({
   employee,
   canManage,
   canManagePayroll,
+  canManageAccess = false,
   actorRole,
   projects,
   stockLocations,
   departments,
+  hqLabel,
 }: {
   employee: OnboardingEmployeeData;
   canManage: boolean;
   canManagePayroll: boolean;
+  canManageAccess?: boolean;
   actorRole: string;
   projects: { id: string; name: string }[];
   stockLocations: { id: string; name: string }[];
   departments: { id: string; name: string; active: boolean }[];
+  hqLabel?: string | null;
 }) {
   const router = useRouter();
   return (
@@ -69,10 +73,12 @@ export function MobileOnboardingPageClient({
           employee={employee}
           canManage={canManage}
           canManagePayroll={canManagePayroll}
+          canManageAccess={canManageAccess}
           actorRole={actorRole}
           projects={projects}
           stockLocations={stockLocations}
           departments={departments}
+          hqLabel={hqLabel}
           onEdit={() => {
             // Navigate to the employee detail page's edit sheet
             router.push(`/m/hr/employees/${employee.id}`);

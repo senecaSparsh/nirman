@@ -10,6 +10,7 @@ import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
+import { AddressSearchField } from "@/components/address-search-field";
 import {
   SectionCard,
   UnderlineInput,
@@ -77,17 +78,15 @@ export default function MobileNewStockLocationClient({
       // Default radius to 500m if not already set — covers most construction sites
       if (!geoRadius) setGeoRadius("500");
 
-      // Reverse-geocode to auto-fill the address (Nominatim / OpenStreetMap — free, no API key)
+      // Reverse-geocode to auto-fill the address (via /api/geo/reverse —
+      // Google Places when configured, else OpenStreetMap Nominatim).
       // Runs in the background; if it fails, the user still has the coordinates.
       if (!address.trim()) {
-        fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
-          { headers: { "Accept-Language": "en" } },
-        )
+        fetch(`/api/geo/reverse?lat=${latitude}&lng=${longitude}`)
           .then((r) => r.ok ? r.json() : null)
-          .then((data: { display_name?: string } | null) => {
-            if (data?.display_name) {
-              setAddress(data.display_name);
+          .then((data: { label?: string } | null) => {
+            if (data?.label) {
+              setAddress(data.label);
               toast.success("Address auto-filled from location");
             }
           })
@@ -133,7 +132,7 @@ export default function MobileNewStockLocationClient({
           address: address.trim() || null,
           lat: lat ? parseFloat(lat) : null,
           lng: lng ? parseFloat(lng) : null,
-          geoRadius: geoRadius ? parseInt(geoRadius) : null,
+          geoRadius: lat && lng ? (geoRadius ? parseInt(geoRadius) : 500) : (geoRadius ? parseInt(geoRadius) : null),
           ...(dupWarning ? { force: true } : {}),
         }),
       });
@@ -283,14 +282,20 @@ export default function MobileNewStockLocationClient({
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Address (optional)
             </label>
-            <textarea
+            <AddressSearchField
+              mobile
+              autoDetect={false}
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="Street, city, landmark…"
-              rows={2}
-              enterKeyHint="done"
-              className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none"
-              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+              onPick={(s) => {
+                setAddress(s.address);
+                setLat(String(s.lat));
+                setLng(String(s.lng));
+                setGeoAccuracy(null);
+                if (!geoRadius) setGeoRadius("500");
+                haptic([10, 40, 80]);
+              }}
+              onClear={() => { setAddress(""); setLat(""); setLng(""); setGeoAccuracy(null); }}
+              placeholder="Search site address…"
             />
           </div>
         </SectionCard>
@@ -348,26 +353,6 @@ export default function MobileNewStockLocationClient({
             </div>
           ) : null}
 
-          <div className="grid grid-cols-2 gap-2">
-            <UnderlineInput
-              label="Latitude"
-              value={lat}
-              onChange={setLat}
-              type="number"
-              step="any"
-              placeholder="Latitude"
-              enterKeyHint="next"
-            />
-            <UnderlineInput
-              label="Longitude"
-              value={lng}
-              onChange={setLng}
-              type="number"
-              step="any"
-              placeholder="Longitude"
-              enterKeyHint="next"
-            />
-          </div>
           <UnderlineInput
             label="Radius"
             value={geoRadius}

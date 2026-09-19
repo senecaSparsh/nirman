@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { MapPin, Plus, Pencil, Trash2, Warehouse, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Textarea, Select } from "@/components/ui/input";
+import { Input, Label, Select } from "@/components/ui/input";
+import { AddressSearchField } from "@/components/address-search-field";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
@@ -104,7 +105,8 @@ export function StockLocationsView({
         address: fAddress.trim() || null,
         lat: fLat ? parseFloat(fLat) : null,
         lng: fLng ? parseFloat(fLng) : null,
-        geoRadius: fGeoRadius ? parseInt(fGeoRadius) : null,
+        // When coordinates are set, always create a fence — default 500m.
+        geoRadius: fLat && fLng ? (fGeoRadius ? parseInt(fGeoRadius) : 500) : (fGeoRadius ? parseInt(fGeoRadius) : null),
       };
       const res = editTarget
         ? await fetch(`/api/stock-locations/${editTarget.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
@@ -304,18 +306,18 @@ export function StockLocationsView({
             </div>
           )}
           <div>
-            <Label>Address</Label>
-            <Textarea value={fAddress} onChange={(e) => setFAddress(e.target.value)} rows={2} placeholder="Optional" />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Latitude</Label>
-              <Input type="number" step="any" value={fLat} onChange={(e) => setFLat(e.target.value)} placeholder="Optional" />
-            </div>
-            <div>
-              <Label>Longitude</Label>
-              <Input type="number" step="any" value={fLng} onChange={(e) => setFLng(e.target.value)} placeholder="Optional" />
-            </div>
+            <Label hint="Pick a suggestion or use GPS — verified addresses only">Address</Label>
+            <AddressSearchField
+              value={fAddress}
+              onPick={(s) => { setFAddress(s.address); setFLat(String(s.lat)); setFLng(String(s.lng)); setFGeoRadius((r) => r || "500"); }}
+              onClear={() => { setFAddress(""); setFLat(""); setFLng(""); }}
+              placeholder="Search site address…"
+            />
+            {fLat && fLng && (
+              <p className="mt-1 text-caption text-muted-foreground tnum">
+                {parseFloat(fLat).toFixed(5)}, {parseFloat(fLng).toFixed(5)}
+              </p>
+            )}
           </div>
           <div>
             <Label hint="Default: 500m">Geo-fence radius (m)</Label>

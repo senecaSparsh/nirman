@@ -65,10 +65,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const actorRole = await getActingRole();
 
   const body = await req.json();
-  const { name, email, role, phone, password, employeeCode, designation, department, joiningDate, employmentEndDate, mustChangePassword, employeeId } = body as {
+  const { name, email, role, secondaryRoles, phone, password, employeeCode, designation, department, joiningDate, employmentEndDate, mustChangePassword, employeeId } = body as {
     name?: string;
     email?: string;
     role?: string;
+    secondaryRoles?: string[];
     phone?: string;
     password?: string;
     employeeCode?: string;
@@ -125,6 +126,34 @@ export const POST = apiHandler(async (req: NextRequest) => {
     );
   }
 
+  // Multi-role: validate each additional hat — built-in or CUSTOM_* key,
+  // real custom role in this company, and assignable by the actor.
+  const extraRoles = [...new Set((secondaryRoles ?? []).filter((r): r is string => typeof r === "string"))].filter((r) => r !== role).slice(0, 8);
+  for (const sr of extraRoles) {
+    if (isCustomRole(sr)) {
+      const customRole = await prisma.customRole.findFirst({
+        where: { companyId: company.id, key: sr },
+        select: { tier: true },
+      }).catch(() => null);
+      if (!customRole) {
+        return json({ error: `Custom role ${sr} not found in this company` }, { status: 400 });
+      }
+      if (!canAssignCustomRole(actorRole, customRole.tier)) {
+        return json(
+          { error: `You cannot assign the ${sr} role — it is at or above your tier.` },
+          { status: 403 },
+        );
+      }
+    } else if (!ALL_ROLES.includes(sr as Role)) {
+      return json({ error: `Role must be one of: ${ALL_ROLES.join(", ")}` }, { status: 400 });
+    } else if (!canAssignRole(actorRole, sr)) {
+      return json(
+        { error: `You cannot assign the ${sr} role — it is at or above your tier.` },
+        { status: 403 },
+      );
+    }
+  }
+
   // ── Password policy ──
   const minLength = company.passwordMinLength ?? 8;
   const defaultPassword = password?.trim() || generateTempPassword(minLength);
@@ -177,7 +206,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     }
     // Add as a member (don't recreate user/account)
     await prisma.userCompany.create({
-      data: { userId: existing.id, companyId: company.id, role: role as Role },
+      data: { userId: existing.id, companyId: company.id, role: role as Role, secondaryRoles: extraRoles },
     });
     return json({
       id: existing.id,
@@ -214,7 +243,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
 
     await tx.userCompany.create({
-      data: { userId: user.id, companyId: company.id, role: role as Role },
+      data: { userId: user.id, companyId: company.id, role: role as Role, secondaryRoles: extraRoles },
     });
 
     // Create credential account for sign-in

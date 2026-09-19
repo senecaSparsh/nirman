@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { randomBytes } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@nirman/db";
-import { apiHandler, getActingRole, getCompany, json, requirePermission } from "@/lib/server";
-import { PERM, ALL_ROLES, canAssignRole, type Role } from "@/lib/roles";
+import { apiHandler, canManageRole, getActingRole, getCompany, json, requirePermission } from "@/lib/server";
+import { PERM, ALL_ROLES, type Role } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 
 /**
@@ -45,6 +45,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       name?: string;
       email?: string;
       role?: string;
+      secondaryRoles?: string[];
       phone?: string;
       employeeCode?: string;
       designation?: string;
@@ -86,16 +87,38 @@ export const POST = apiHandler(async (req: NextRequest) => {
       continue;
     }
 
-    // Validate role
+    // Validate role — built-in key or a CUSTOM_* key that exists in this
+    // company (canManageRole resolves the custom role's stored tier).
     const role = row.role?.trim().toUpperCase() || "SUPERVISOR";
-    if (!ALL_ROLES.includes(role as Role)) {
+    if (!ALL_ROLES.includes(role as Role) && !role.startsWith("CUSTOM_")) {
       results.push({ row: rowNum, name: row.name, success: false, error: `Invalid role: ${role}` });
       continue;
     }
 
-    // Check hierarchy
-    if (!canAssignRole(actorRole, role)) {
+    // Check hierarchy — same rule as the single-user path: the actor's
+    // worn hat must sit above the target role (custom roles included).
+    if (!(await canManageRole(actorRole, role, company.id))) {
       results.push({ row: rowNum, name: row.name, success: false, error: `You cannot assign the ${role} role` });
+      continue;
+    }
+
+    // Multi-role: validate each additional hat — built-in or custom, each
+    // must independently pass the tier check.
+    const extraRoles = [...new Set((row.secondaryRoles ?? []).map((r) => r?.trim().toUpperCase()).filter((r): r is string => !!r))].filter((r) => r !== role).slice(0, 8);
+    const badExtra = extraRoles.find((sr) => !ALL_ROLES.includes(sr as Role) && !sr.startsWith("CUSTOM_"));
+    if (badExtra) {
+      results.push({ row: rowNum, name: row.name, success: false, error: `Invalid role: ${badExtra}` });
+      continue;
+    }
+    let unassignableExtra: string | null = null;
+    for (const sr of extraRoles) {
+      if (!(await canManageRole(actorRole, sr, company.id))) {
+        unassignableExtra = sr;
+        break;
+      }
+    }
+    if (unassignableExtra) {
+      results.push({ row: rowNum, name: row.name, success: false, error: `You cannot assign the ${unassignableExtra} role` });
       continue;
     }
 
@@ -136,7 +159,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         }
         // Add as member
         await prisma.userCompany.create({
-          data: { userId: existing.id, companyId: company.id, role: role as Role },
+          data: { userId: existing.id, companyId: company.id, role: role as Role, secondaryRoles: extraRoles },
         });
         results.push({ row: rowNum, name: row.name, success: true, userId: existing.id, added: true });
         continue;
@@ -164,7 +187,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       });
 
       await prisma.userCompany.create({
-        data: { userId: user.id, companyId: company.id, role: role as Role },
+        data: { userId: user.id, companyId: company.id, role: role as Role, secondaryRoles: extraRoles },
       });
 
       await prisma.account.create({

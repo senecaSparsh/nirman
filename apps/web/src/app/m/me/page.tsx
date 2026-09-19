@@ -120,6 +120,14 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
           esi: true,
           tax: true,
           payrollPeriod: { select: { month: true, year: true } },
+          // Itemized breakdown (HRA, travel ₹3/km, PF…) — shown on the payslip
+          components: {
+            select: {
+              label: true, calculationType: true, unitType: true, unitLabel: true,
+              rate: true, quantity: true, amount: true, bucket: true, isDeduction: true,
+            },
+            orderBy: { createdAt: "asc" },
+          },
         },
       }).then((l) => (l ? l : null)),
       // Recent leave requests — status is the "did the office respond" answer.
@@ -151,6 +159,17 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
               Number(payslip.pf) +
               Number(payslip.esi) +
               Number(payslip.tax),
+            components: payslip.components.map((c) => ({
+              label: c.label,
+              calculationType: c.calculationType,
+              unitType: c.unitType,
+              unitLabel: c.unitLabel,
+              rate: Number(c.rate),
+              quantity: c.quantity != null ? Number(c.quantity) : null,
+              amount: Number(c.amount),
+              bucket: c.bucket,
+              isDeduction: c.isDeduction,
+            })),
           }
         : null,
       leaves: leaves.map((l) => ({

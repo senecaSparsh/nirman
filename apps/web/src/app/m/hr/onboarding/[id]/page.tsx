@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum, getUserScope, getUserPermissions, getEmployeeAccessScope } from "@/lib/server";
+import { getCompany, getUserRole, toNum, getUserScope, getUserPermissions, getEmployeeAccessScope, getCurrentUser, canManageSpecificEmployee } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
@@ -139,6 +139,16 @@ async function MobileOnboardingDetailContent({
     employee.contractStatus = "EXPIRED";
   }
 
+  // ── Hierarchy check for access actions (set password etc.) — same gate as
+  // the employee detail page: users.manage AND above this employee's tier,
+  // self excluded. ──
+  const currentUser = await getCurrentUser();
+  const canEditEmployee = await canManageSpecificEmployee(
+    { userId: employee.userId, user: employee.user ? { role: employee.user.role } : null, hierarchyLevel: employee.hierarchyLevel },
+    currentUser?.id ?? "",
+  );
+  const effectiveCanManageAccess = canManageAccess && canEditEmployee;
+
   const data = {
     id: employee.id,
     name: employee.name,
@@ -223,6 +233,9 @@ async function MobileOnboardingDetailContent({
       isDeduction: c.isDeduction,
       isPercentage: c.isPercentage,
       percentageOfBasic: c.percentageOfBasic ? toNum(c.percentageOfBasic) : null,
+      calculationType: c.calculationType,
+      unitType: c.unitType,
+      unitLabel: c.unitLabel,
       notes: c.notes,
       active: c.active,
     })) : [],
@@ -279,10 +292,12 @@ async function MobileOnboardingDetailContent({
       employee={data}
       canManage={canManage}
       canManagePayroll={canManagePayroll}
+      canManageAccess={effectiveCanManageAccess}
       actorRole={role}
       projects={projects}
       stockLocations={stockLocations}
       departments={departments}
+      hqLabel={company.lat != null && company.lng != null ? `${company.name} — Head Office` : null}
     />
     </PageContextProvider>
   );

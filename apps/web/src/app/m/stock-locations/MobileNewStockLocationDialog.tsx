@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { MobileProjectSelect } from "@/components/mobile/selectors";
+import { AddressSearchField } from "@/components/address-search-field";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 
 /**
@@ -32,6 +33,10 @@ export function MobileNewStockLocationForm({
     "CENTRAL_WAREHOUSE" | "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT"
   >("COMPANY_WAREHOUSE");
   const [projectId, setProjectId] = useState("");
+  const [address, setAddress] = useState("");
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
+  const [geoRadius, setGeoRadius] = useState("");
   const [saving, setSaving] = useState(false);
   const [dupWarning, setDupWarning] = useState<string | null>(null);
 
@@ -82,6 +87,9 @@ export function MobileNewStockLocationForm({
           type,
           projectId: needsProject ? projectId : null,
           targetCompanyId: canTargetCompany && targetCompanyId ? targetCompanyId : undefined,
+          address: address.trim() || null,
+          lat, lng,
+          geoRadius: lat != null && lng != null ? (geoRadius ? parseInt(geoRadius) : 500) : null,
           // If we're overriding a duplicate warning, send force: true
           ...(dupWarning ? { force: true } : {}),
         }),
@@ -103,6 +111,10 @@ export function MobileNewStockLocationForm({
       setName("");
       setType("COMPANY_WAREHOUSE");
       setProjectId("");
+      setAddress("");
+      setLat(null);
+      setLng(null);
+      setGeoRadius("");
       setDupWarning(null);
       onClose();
     } catch (err) {
@@ -202,6 +214,48 @@ export function MobileNewStockLocationForm({
               placeholder="Select a project…"
               icon={FolderOpen}
             />
+          )}
+        </div>
+
+        {/* Geo-fence — verified address or GPS; feeds receipt + attendance checks */}
+        <div className="rounded-[0.625rem] border p-3 flex flex-col gap-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
+            Geo-fence <span className="text-m-caption font-medium" style={{ color: "var(--color-ink-400)" }}>(optional)</span>
+          </p>
+          <AddressSearchField
+            mobile
+            value={address}
+            onPick={(s) => {
+              setAddress(s.address);
+              setLat(s.lat);
+              setLng(s.lng);
+              if (!geoRadius) setGeoRadius("500");
+              haptic([10, 40, 80]);
+            }}
+            onClear={() => { setAddress(""); setLat(null); setLng(null); }}
+            placeholder="Search site address…"
+          />
+          {lat != null && lng != null && (
+            <>
+              <p className="text-m-caption tnum" style={{ color: "var(--color-ink-500)" }}>
+                {lat.toFixed(5)}, {lng.toFixed(5)}
+              </p>
+              <div>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+                  Radius (m)
+                </label>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min="10"
+                  value={geoRadius}
+                  onChange={(e) => setGeoRadius(e.target.value)}
+                  placeholder="500"
+                  className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                />
+              </div>
+            </>
           )}
         </div>
 

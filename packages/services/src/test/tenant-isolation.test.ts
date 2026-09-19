@@ -136,6 +136,75 @@ describe("tenant isolation + custom-role RBAC", () => {
     });
   });
 
+  // ── updateEmployee: absent-vs-null field contract ─────────────
+  // undefined (key absent) must leave the column untouched; null must clear
+  // it. The API route relied on this — a `?? null` in the route wiped
+  // monthlySalary on every unrelated PATCH, and `?? undefined` swallowed
+  // explicit clears for dailyRate / reportsTo / department.
+
+  describe("updateEmployee absent-vs-null contract", () => {
+    it("leaves wage fields untouched when they are absent from the input", async () => {
+      const { company } = await createTestFixture();
+      const emp = await prisma.employee.create({
+        data: { companyId: company.id, name: "Emp", wageType: "MONTHLY", monthlySalary: 48000, dailyRate: 850 },
+      });
+
+      // Simulates a dossier-only PATCH (e.g. PAN update) — no wage keys.
+      await updateEmployee({ employeeId: emp.id, companyId: company.id, phone: "9999999999" });
+
+      const after = await prisma.employee.findUniqueOrThrow({ where: { id: emp.id } });
+      expect(after.phone).toBe("9999999999");
+      expect(Number(after.monthlySalary)).toBe(48000);
+      expect(Number(after.dailyRate)).toBe(850);
+    });
+
+    it("clears monthlySalary on explicit null", async () => {
+      const { company } = await createTestFixture();
+      const emp = await prisma.employee.create({
+        data: { companyId: company.id, name: "Emp", wageType: "MONTHLY", monthlySalary: 48000 },
+      });
+
+      await updateEmployee({ employeeId: emp.id, companyId: company.id, monthlySalary: null });
+
+      const after = await prisma.employee.findUniqueOrThrow({ where: { id: emp.id } });
+      expect(after.monthlySalary).toBeNull();
+    });
+
+    it("clears dailyRate to 0 on explicit null (column is NOT NULL)", async () => {
+      const { company } = await createTestFixture();
+      const emp = await prisma.employee.create({
+        data: { companyId: company.id, name: "Emp", wageType: "DAILY", dailyRate: 850 },
+      });
+
+      await updateEmployee({ employeeId: emp.id, companyId: company.id, dailyRate: null });
+
+      const after = await prisma.employee.findUniqueOrThrow({ where: { id: emp.id } });
+      expect(Number(after.dailyRate)).toBe(0);
+    });
+
+    it("disconnects reportsTo / department on explicit null", async () => {
+      const { company } = await createTestFixture();
+      const dept = await prisma.department.create({
+        data: { companyId: company.id, code: "QA", name: "QA Dept" },
+      });
+      const mgr = await prisma.employee.create({ data: { companyId: company.id, name: "Mgr" } });
+      const emp = await prisma.employee.create({
+        data: { companyId: company.id, name: "Emp", departmentId: dept.id, reportsToEmployeeId: mgr.id },
+      });
+
+      await updateEmployee({
+        employeeId: emp.id,
+        companyId: company.id,
+        reportsToEmployeeId: null,
+        departmentId: null,
+      });
+
+      const after = await prisma.employee.findUniqueOrThrow({ where: { id: emp.id } });
+      expect(after.reportsToEmployeeId).toBeNull();
+      expect(after.departmentId).toBeNull();
+    });
+  });
+
   // ── createEmployee: same cross-tenant relation guards ─────────
 
   describe("createEmployee relation guards", () => {

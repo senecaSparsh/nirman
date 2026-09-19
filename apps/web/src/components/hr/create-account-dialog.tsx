@@ -15,6 +15,8 @@ import {
   ChevronRight,
   AlertCircle,
   Recycle,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -107,10 +109,18 @@ export function CreateAccountDialog({
     : null;
   const defaultRole = suggestedRole && roles.includes(suggestedRole) ? suggestedRole : roles[0] ?? "SITE_ENGINEER";
   const [role, setRole] = useState<Role>(defaultRole);
+  // Multi-role: additional hats the employee can switch into after login.
+  const [extraRoles, setExtraRoles] = useState<Set<string>>(new Set());
   const [email] = useState(employeeEmail ?? "");
   const [employeeCode, setEmployeeCode] = useState("");
   const [designation, setDesignation] = useState(employeeDesignation ?? "");
   const [department, setDepartment] = useState("");
+
+  // ── Password — optional. Blank → server generates a temp password the
+  // employee must change on first login. Set → that password sticks
+  // (mustChangePassword=false) and is shared with the employee in person. ──
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   // ── Permissions ──
   const [selectedModules, setSelectedModules] = useState<Set<string>>(new Set());
@@ -214,6 +224,10 @@ export function CreateAccountDialog({
       toast.error("Select at least one project for project-scoped access");
       return;
     }
+    if (password.trim() && password.trim().length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -221,11 +235,15 @@ export function CreateAccountDialog({
         phone: loginPhone,
         email: email.trim() || null,
         role,
+        secondaryRoles: Array.from(extraRoles).filter((r) => r !== role),
         permissions: selectedPermissions,
         scopeType,
         designation: designation.trim() || null,
         department: department.trim() || null,
         employeeCode: employeeCode.trim() || null,
+        // Custom password → sticks; blank → temp password + forced change.
+        password: password.trim() || undefined,
+        mustChangePassword: !password.trim(),
       };
 
       if (scopeType === "PROJECT") {
@@ -417,9 +435,50 @@ export function CreateAccountDialog({
                 <Input value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="Site Engineer" />
               </div>
               <div className="space-y-1.5">
-                <Label>Department</Label>
+                <Label>Org Unit</Label>
                 <Input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="Construction" />
               </div>
+            </div>
+            {/* Multi-role: additional hats — the employee can switch into
+                any of these from the header after login. Only the active
+                hat's permissions apply at a time. */}
+            <div className="space-y-1.5">
+              <Label>Additional roles (optional)</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {roles
+                  .filter((r) => r !== role)
+                  .map((r) => {
+                    const roleDef = ROLE_LIST.find((rl) => rl.key === r);
+                    const held = extraRoles.has(r);
+                    return (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() =>
+                          setExtraRoles((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(r)) next.delete(r);
+                            else next.add(r);
+                            return next;
+                          })
+                        }
+                        className={
+                          held
+                            ? "inline-flex items-center gap-1 rounded-md bg-success/15 px-2 py-1 text-caption font-semibold text-success"
+                            : "inline-flex items-center gap-1 rounded-md bg-muted/50 px-2 py-1 text-caption font-semibold text-foreground hover:bg-muted"
+                        }
+                      >
+                        {held && <Check className="h-3 w-3" />}
+                        {roleDef?.label ?? r}
+                      </button>
+                    );
+                  })}
+              </div>
+              {extraRoles.size > 0 && (
+                <p className="text-micro text-muted-foreground">
+                  They can switch between hats from the app header — only the active hat&apos;s permissions apply.
+                </p>
+              )}
             </div>
           </section>
 
@@ -532,6 +591,41 @@ export function CreateAccountDialog({
                 )}
               </div>
             )}
+          </section>
+
+          {/* Login Password — optional. Blank → temp password generated
+              (employee must set their own on first login). Set → this is the
+              employee's password; share it with them in person. */}
+          <section className="space-y-3">
+            <h3 className="text-label font-semibold text-foreground flex items-center gap-1.5">
+              <Shield className="h-3.5 w-3.5" /> Login Password (optional)
+            </h3>
+            <div className="space-y-1.5">
+              <Label>Password</Label>
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Min 8 characters — blank to auto-generate"
+                  className="pr-9"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-caption text-muted-foreground">
+                Leave blank to auto-generate a temporary password — the employee
+                sets their own on first login. If you set one, share it with the
+                employee; it stays active until they change it. You can also
+                change it later from the profile → Set Password.
+              </p>
+            </div>
           </section>
 
           {/* Module Access */}

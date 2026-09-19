@@ -6,8 +6,8 @@ import { PERM } from "@/lib/roles";
 
 /**
  * POST /api/employees/[id]/setup-deposit — configure auto-deposit (salary
- * auto-credited to the employee's bank account on payday). Requires the
- * employment agreement to be CONFIRMED first.
+ * auto-credited to the employee's bank account on payday). Independent of
+ * the employment agreement — can be set up for any active employee.
  *
  * Body: {
  *   bankAccountHolder: string,
@@ -73,8 +73,11 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   if (!bankAccountNumber?.trim()) return json({ error: "Bank account number is required." }, { status: 400 });
   if (!bankIfsc?.trim()) return json({ error: "Bank IFSC code is required." }, { status: 400 });
   if (!bankName?.trim()) return json({ error: "Bank name is required." }, { status: 400 });
-  if (payDay === undefined || payDay < 1 || payDay > 31) {
-    return json({ error: "Pay day must be between 1 and 31." }, { status: 400 });
+  // Number.isInteger rejects strings ("7", "abc"), NaN and floats (5.5) —
+  // all of which would otherwise slip past the < 1 / > 31 checks and hit
+  // Prisma's Int column as a 500.
+  if (typeof payDay !== "number" || !Number.isInteger(payDay) || payDay < 1 || payDay > 31) {
+    return json({ error: "Pay day must be an integer between 1 and 31." }, { status: 400 });
   }
 
   try {

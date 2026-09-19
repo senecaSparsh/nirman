@@ -92,18 +92,24 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     trade: parsed.data.trade,
     phone: parsed.data.phone,
     email: parsed.data.email,
-    dailyRate: parsed.data.dailyRate ?? undefined,
+    // Wage fields pass through verbatim: `undefined` (key absent from the
+    // body) means "don't touch", `null` means an explicit clear. Collapsing
+    // either direction corrupts data — e.g. absent→null would wipe
+    // monthlySalary on every unrelated PATCH (dossier saves, checklist
+    // toggles, reports-to, re-activate), and null→undefined would make
+    // clearing the rate a silent no-op.
+    dailyRate: parsed.data.dailyRate,
     wageType: parsed.data.wageType,
-    monthlySalary: parsed.data.monthlySalary ?? null,
+    monthlySalary: parsed.data.monthlySalary,
     designation: parsed.data.designation,
-    departmentId: parsed.data.departmentId ?? undefined,
+    departmentId: parsed.data.departmentId,
     joinDate: parsed.data.joinDate !== undefined ? (parsed.data.joinDate ? new Date(parsed.data.joinDate) : null) : undefined,
     crewId: parsed.data.crewId,
     activeProjectId: parsed.data.activeProjectId,
     active: parsed.data.active,
     reportingLocationId: parsed.data.reportingLocationId,
-    hierarchyLevel: parsed.data.hierarchyLevel ?? undefined,
-    reportsToEmployeeId: parsed.data.reportsToEmployeeId ?? undefined,
+    hierarchyLevel: parsed.data.hierarchyLevel,
+    reportsToEmployeeId: parsed.data.reportsToEmployeeId,
     userId: user.id,
     // Identity / personal (for ID card & compliance)
     dateOfBirth: parsed.data.dateOfBirth !== undefined ? (parsed.data.dateOfBirth ? new Date(parsed.data.dateOfBirth) : null) : undefined,
@@ -154,9 +160,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   revalidatePath("/hr/employees");
   revalidatePath("/m/hr/employees");
-    revalidatePath("/m/hr/employees");
   revalidatePath(`/hr/employees/${id}`);
   revalidatePath(`/m/hr/employees/${id}`);
+  revalidatePath("/m/hr/onboarding");
+  revalidatePath(`/m/hr/onboarding/${id}`);
   return json({ ok: true, id: updated.id });
 });
 

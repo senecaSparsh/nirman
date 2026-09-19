@@ -67,19 +67,26 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: "You can only check in your own attendance" }, { status: 403 });
   }
 
-  // Geo-fence validation
+  // Geo-fence validation — the employee's assigned reporting location wins.
+  // When none is assigned, fall back to the company's verified HQ geofence
+  // (set on the company profile via the address picker) so check-ins are
+  // still validated against the registered office.
   let geoFenceOk: boolean | undefined;
   let geoFenceDistance: number | undefined;
-  if (employee.reportingLocation?.lat && employee.reportingLocation?.lng) {
+  const fence = employee.reportingLocation?.lat != null && employee.reportingLocation?.lng != null
+    ? { lat: employee.reportingLocation.lat, lng: employee.reportingLocation.lng, radius: employee.reportingLocation.geoRadius ?? 500, name: employee.reportingLocation.name }
+    : !employee.reportingLocationId && company.lat != null && company.lng != null
+      ? { lat: company.lat, lng: company.lng, radius: company.geoRadius ?? 500, name: `${company.name} — Head Office` }
+      : null;
+  if (fence) {
     const distance = haversineDistance(
       parsed.data.checkInLat,
       parsed.data.checkInLng,
-      employee.reportingLocation.lat,
-      employee.reportingLocation.lng,
+      fence.lat,
+      fence.lng,
     );
-    const allowedRadius = employee.reportingLocation.geoRadius ?? 500;
     geoFenceDistance = Math.round(distance);
-    geoFenceOk = distance <= allowedRadius;
+    geoFenceOk = distance <= fence.radius;
   }
 
     // A project-scoped user can only record attendance on their assigned projects.
@@ -107,7 +114,7 @@ const attendance = await recordAttendance({
     id: attendance.id,
     geoFenceOk,
     geoFenceDistance,
-    reportingLocation: employee.reportingLocation?.name ?? null,
+    reportingLocation: fence?.name ?? null,
   }, { status: 201 });
 });
 

@@ -16,6 +16,7 @@ import { formatCurrency, formatDate, formatDateTime, displayEmail } from "@/lib/
 import { useConfirm } from "@/lib/use-confirm";
 import type { CompanyProfileData } from "@/components/companies/company-profile-client";
 import { SectionCard, UnderlineInput, EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { AddressSearchField } from "@/components/address-search-field";
 import { Badge, MobileNoAccess, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
@@ -503,6 +504,9 @@ function IdentitySection({ data, canManage }: { data: CompanyProfileData; canMan
     gstin: data.gstin ?? "",
     pan: data.pan ?? "",
     address: data.address ?? "",
+    lat: data.lat,
+    lng: data.lng,
+    geoRadius: data.geoRadius?.toString() ?? "",
     phone: data.phone ?? "",
     email: data.email ?? "",
     currency: data.currency,
@@ -524,6 +528,9 @@ function IdentitySection({ data, canManage }: { data: CompanyProfileData; canMan
           gstin: form.gstin.trim() || null,
           pan: form.pan.trim() || null,
           address: form.address.trim() || null,
+          lat: form.lat,
+          lng: form.lng,
+          geoRadius: form.lat != null && form.lng != null ? (form.geoRadius ? parseInt(form.geoRadius) : 500) : null,
           phone: form.phone.trim() || null,
           email: form.email.trim() || null,
           currency: form.currency,
@@ -556,7 +563,33 @@ function IdentitySection({ data, canManage }: { data: CompanyProfileData; canMan
             <UnderlineInput label="GSTIN" value={form.gstin} onChange={(v) => setForm((f) => ({ ...f, gstin: v.toUpperCase() }))} placeholder="22AAAAA0000A1Z5" maxLength={15} />
             <UnderlineInput label="PAN" value={form.pan} onChange={(v) => setForm((f) => ({ ...f, pan: v.toUpperCase() }))} placeholder="AAAAA0000A" maxLength={10} />
           </div>
-          <UnderlineInput label="Address" value={form.address} onChange={(v) => setForm((f) => ({ ...f, address: v }))} placeholder="Registered office address" />
+          <div>
+            <p className="text-m-caption font-bold mb-1" style={{ color: "var(--color-ink-700)" }}>
+              Address — pick a suggestion or use GPS
+            </p>
+            <AddressSearchField
+              mobile
+              value={form.address}
+              onPick={(s) => setForm((f) => ({ ...f, address: s.address, lat: s.lat, lng: s.lng, geoRadius: f.geoRadius || "500" }))}
+              onClear={() => setForm((f) => ({ ...f, address: "", lat: null, lng: null }))}
+              placeholder="Search registered office address…"
+            />
+            {form.lat != null && form.lng != null && (
+              <>
+                <p className="text-m-caption tnum mt-1" style={{ color: "var(--color-ink-500)" }}>
+                  {form.lat.toFixed(5)}, {form.lng.toFixed(5)}
+                </p>
+                <UnderlineInput
+                  label="Geo-fence radius (m)"
+                  value={form.geoRadius}
+                  onChange={(v) => setForm((f) => ({ ...f, geoRadius: v }))}
+                  placeholder="500"
+                  type="number"
+                  inputMode="numeric"
+                />
+              </>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <UnderlineInput label="Phone" value={form.phone} onChange={(v) => setForm((f) => ({ ...f, phone: v }))} placeholder="+91 98765 43210" type="tel" inputMode="tel" />
             <UnderlineInput label="Email" value={form.email} onChange={(v) => setForm((f) => ({ ...f, email: v }))} placeholder="accounts@co.com" type="email" inputMode="email" />
@@ -596,6 +629,13 @@ function IdentitySection({ data, canManage }: { data: CompanyProfileData; canMan
           <DetailRow icon={Mail} label="Email" value={data.email} />
           <DetailRow icon={Globe} label="Currency" value={data.currency} />
           <DetailRow icon={MapPin} label="Address" value={data.address} />
+          {data.lat != null && data.lng != null && (
+            <DetailRow
+              icon={MapPin}
+              label="Geo-fence"
+              value={`${data.lat.toFixed(5)}, ${data.lng.toFixed(5)} · ${data.geoRadius ?? 500}m radius`}
+            />
+          )}
           {canManage && (
             <button
               onClick={() => setEditing(true)}
@@ -1201,7 +1241,7 @@ function ChildCompaniesSection({ data, canManage }: { data: CompanyProfileData; 
 function LocationsSection({ data, canManage }: { data: CompanyProfileData; canManage: boolean }) {
   const router = useRouter();
   const [showAdd, setShowAdd] = React.useState(false);
-  const [form, setForm] = React.useState({ name: "", type: "COMPANY_WAREHOUSE" as "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT", projectId: "", address: "" });
+  const [form, setForm] = React.useState<{ name: string; type: "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT"; projectId: string; address: string; lat: number | null; lng: number | null }>({ name: "", type: "COMPANY_WAREHOUSE", projectId: "", address: "", lat: null, lng: null });
   const [saving, setSaving] = React.useState(false);
 
   async function addLocation() {
@@ -1216,13 +1256,16 @@ function LocationsSection({ data, canManage }: { data: CompanyProfileData; canMa
           type: form.type,
           projectId: form.type === "PROJECT_SITE" ? form.projectId || null : null,
           address: form.address.trim() || null,
+          lat: form.lat,
+          lng: form.lng,
+          geoRadius: form.lat != null && form.lng != null ? 500 : null,
         }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
       toast.success("Location added");
       setShowAdd(false);
-      setForm({ name: "", type: "COMPANY_WAREHOUSE", projectId: "", address: "" });
+      setForm({ name: "", type: "COMPANY_WAREHOUSE", projectId: "", address: "", lat: null, lng: null });
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
@@ -1293,7 +1336,18 @@ function LocationsSection({ data, canManage }: { data: CompanyProfileData; canMa
               options={data.projects.map((p) => ({ value: p.id, label: p.name }))}
             />
           )}
-          <UnderlineInput label="Address" value={form.address} onChange={(v) => setForm((f) => ({ ...f, address: v }))} placeholder="Optional address" />
+          <div>
+            <p className="text-m-caption font-bold mb-1" style={{ color: "var(--color-ink-700)" }}>
+              Address — pick a suggestion or use GPS
+            </p>
+            <AddressSearchField
+              mobile
+              value={form.address}
+              onPick={(s) => setForm((f) => ({ ...f, address: s.address, lat: s.lat, lng: s.lng }))}
+              onClear={() => setForm((f) => ({ ...f, address: "", lat: null, lng: null }))}
+              placeholder="Search site address…"
+            />
+          </div>
           <button
             onClick={addLocation}
             disabled={saving}

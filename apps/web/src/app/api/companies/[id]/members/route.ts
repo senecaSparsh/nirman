@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { resolveScopeType } from "@nirman/services";
-import { apiHandler, canManageRole, json, requirePermission, userRoleSchema } from "@/lib/server";
+import { apiHandler, canManageRole, canManageRoleSet, getActingRole, json, requirePermission, userRoleSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 import { isCustomRole } from "@/lib/roles";
@@ -33,6 +33,12 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
       id: m.id,
       userId: m.userId,
       role: m.role,
+      // Multi-role: the member's held set + the hat currently worn.
+      secondaryRoles: m.secondaryRoles,
+      activeRole:
+        m.activeRole && [m.role, ...m.secondaryRoles].includes(m.activeRole)
+          ? m.activeRole
+          : m.role,
       // Resolved (not raw) scopeType — a SITE_ENGINEER with scopeType NULL is
       // still PROJECT-scoped via role default; showing "Company-wide" here
       // would mislead admins verifying who can see what.
@@ -56,6 +62,8 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
 const addMemberSchema = z.object({
   email: z.string().email(),
   role: z.string().optional(),
+  // Multi-role: additional hats the member can switch into.
+  secondaryRoles: z.array(z.string()).max(8).optional(),
 });
 
 /**
@@ -71,7 +79,7 @@ const addMemberSchema = z.object({
  * the hierarchy check).
  */
 export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const actor = await requirePermission(PERM.COMPANY_MANAGE);
+  await requirePermission(PERM.COMPANY_MANAGE);
   const { id } = await ctx.params;
   const body = await req.json();
   const parsed = addMemberSchema.safeParse(body);
@@ -85,26 +93,39 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
     return json({ error: "Role must be a built-in role or a CUSTOM_* role key" }, { status: 400 });
   }
   const role = roleCheck.data!;
+  // Multi-role: dedupe against the primary and validate each key.
+  const secondaryRoles = [...new Set(parsed.data.secondaryRoles ?? [])].filter((r) => r !== role);
+  for (const sr of secondaryRoles) {
+    if (!userRoleSchema.shape.role.safeParse(sr).success) {
+      return json({ error: "Secondary roles must be built-in or CUSTOM_* role keys" }, { status: 400 });
+    }
+  }
 
   const company = await prisma.company.findFirst({ where: { id, deletedAt: null }, select: { id: true } });
   if (!company) return json({ error: "Company not found" }, { status: 404 });
 
-  // A CUSTOM_* key must resolve to a real role in this company.
-  if (isCustomRole(role)) {
-    const cr = await prisma.customRole.findFirst({
-      where: { companyId: id, key: role },
-      select: { id: true },
-    });
-    if (!cr) return json({ error: "Custom role not found" }, { status: 400 });
+  // Every CUSTOM_* key must resolve to a real role in this company.
+  for (const r of [role, ...secondaryRoles]) {
+    if (isCustomRole(r)) {
+      const cr = await prisma.customRole.findFirst({
+        where: { companyId: id, key: r },
+        select: { id: true },
+      });
+      if (!cr) return json({ error: `Custom role ${r} not found` }, { status: 400 });
+    }
   }
 
-  // Hierarchy: actor must be able to assign the target role — canManageRole
-  // resolves custom-role tiers from the DB (canAssignRole can't see them).
-  if (!(await canManageRole(actor.role, role, id))) {
-    return json(
-      { error: `Your role (${actor.role}) cannot assign the ${role} role. You can only assign roles below your tier.` },
-      { status: 403 },
-    );
+  // Hierarchy: actor must be able to assign EVERY role in the held set —
+  // canManageRole resolves custom-role tiers from the DB (canAssignRole
+  // can't see them). Actor authority is the hat currently worn.
+  const actorRole = await getActingRole();
+  for (const r of [role, ...secondaryRoles]) {
+    if (!(await canManageRole(actorRole, r, id))) {
+      return json(
+        { error: `Your role (${actorRole}) cannot assign the ${r} role. You can only assign roles below your tier.` },
+        { status: 403 },
+      );
+    }
   }
 
   // Find or create the user by email.
@@ -119,14 +140,14 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
       },
     });
   } else {
-    // Existing user: if they already have a membership with a role at or
-    // above the actor's tier, the actor cannot re-assign them (can't demote
-    // a peer or superior).
+    // Existing user: if they already have a membership, the actor must be
+    // above EVERY hat they hold — a dormant senior hat still protects them
+    // from a peer/superior reassignment.
     const existingMembership = await prisma.userCompany.findUnique({
       where: { userId_companyId: { userId: user.id, companyId: id } },
-      select: { role: true },
+      select: { role: true, secondaryRoles: true },
     });
-    if (existingMembership && !(await canManageRole(actor.role, existingMembership.role, id))) {
+    if (existingMembership && !(await canManageRoleSet(actorRole, [existingMembership.role, ...existingMembership.secondaryRoles], id))) {
       return json(
         { error: `This user is already a ${existingMembership.role} — you cannot reassign a role at or above your tier.` },
         { status: 403 },
@@ -134,12 +155,19 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
     }
   }
 
-  // Idempotent membership upsert.
+  // Idempotent membership upsert. A stale worn hat (not in the new held
+  // set) resets to the primary role on next resolution — and is cleared
+  // here so reads stay consistent.
+  const newHeldSet = new Set([role, ...secondaryRoles]);
   const membership = await prisma.userCompany.upsert({
     where: { userId_companyId: { userId: user.id, companyId: id } },
-    update: { role },
-    create: { userId: user.id, companyId: id, role },
-    select: { id: true, userId: true, role: true },
+    update: { role, secondaryRoles },
+    create: { userId: user.id, companyId: id, role, secondaryRoles },
+    select: { id: true, userId: true, role: true, secondaryRoles: true },
+  });
+  await prisma.userCompany.updateMany({
+    where: { id: membership.id, activeRole: { notIn: [...newHeldSet] } },
+    data: { activeRole: null },
   });
 
   return json({ ok: true, membership }, { status: 201 });

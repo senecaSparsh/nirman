@@ -103,6 +103,12 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     membershipId: membership.id,
     role: membership.role,
     roleLabel: roleDisplayLabel(membership.role, company.id, customLabels),
+    // Multi-role: the member's held set + worn hat (for the access UI).
+    secondaryRoles: membership.secondaryRoles,
+    activeRole:
+      membership.activeRole && [membership.role, ...membership.secondaryRoles].includes(membership.activeRole)
+        ? membership.activeRole
+        : membership.role,
     scopeType: membership.scopeType,
     reportsToUserCompanyId: membership.reportsToUserCompanyId,
     scopes: membership.scopes.map((s) => ({

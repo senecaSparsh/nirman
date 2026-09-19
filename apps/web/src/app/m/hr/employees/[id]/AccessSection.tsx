@@ -18,7 +18,7 @@ import {
   Recycle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { ROLES, type Role, ROLE_META } from "@/lib/roles";
+import { ROLES, type Role, ROLE_META, PERMISSION_MODULES, ALL_PERMISSIONS, effectivePermissions } from "@/lib/roles";
 import { haptic } from "@/lib/haptic";
 import { formatDate, displayEmail } from "@/lib/utils";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
@@ -41,6 +41,10 @@ export type AccessSectionUser = {
   phoneVerified: boolean | null;
   phoneVerifiedAt: string | null;
   phoneSyncedAt: string | null;
+  /** Multi-role: additional hats (held set = { role } ∪ secondaryRoles). */
+  secondaryRoles?: string[];
+  /** Multi-role: hat currently worn (null = wearing the primary role). */
+  activeRole?: string | null;
 };
 
 export type AssignableRole = { key: string; label: string };
@@ -469,6 +473,39 @@ function AccessManagementCard({
     }
   }
 
+  // Multi-role: toggle an additional hat. The held set is
+  // { primary } ∪ secondaryRoles — sends the full list so the server can
+  // validate every entry against the actor's authority.
+  const secondaryRoles = user.secondaryRoles ?? [];
+  const wornHat = user.activeRole ?? userRole;
+  async function toggleSecondary(roleKey: string) {
+    if (roleKey === userRole) return;
+    const next = secondaryRoles.includes(roleKey)
+      ? secondaryRoles.filter((r) => r !== roleKey)
+      : [...secondaryRoles, roleKey];
+    setChanging(true);
+    try {
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secondaryRoles: next }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to update roles");
+      const label = roleLabelMap.get(roleKey) ?? roleKey;
+      toast.success(
+        secondaryRoles.includes(roleKey)
+          ? `Removed ${label} from ${employeeName}`
+          : `${employeeName} can now act as ${label}`,
+      );
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setChanging(false);
+    }
+  }
+
   async function toggleActive() {
     if (user.active) {
       setConfirmDeactivate(true);
@@ -613,7 +650,7 @@ function AccessManagementCard({
             {/* ── Divider ── */}
             <div className="h-px -mx-3 mb-3" style={{ backgroundColor: "var(--color-line)" }} />
 
-            {/* Section: Role */}
+            {/* Section: Role (primary hat — org tree, badge, default scope) */}
             <p className="text-m-caption font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--color-ink-400)" }}>
               Role
             </p>
@@ -646,6 +683,48 @@ function AccessManagementCard({
                   </button>
                 );
               })}
+            </div>
+
+            {/* Section: Additional roles — extra hats the employee can
+                switch into from the company-switcher menu. While switched,
+                ONLY that hat's permissions apply — inactive hats grant
+                nothing. */}
+            <p className="text-m-caption font-bold uppercase tracking-wider mb-1.5" style={{ color: "var(--color-ink-400)" }}>
+              Additional roles
+            </p>
+            <div className="flex flex-wrap gap-1 mb-3">
+              {assignableRoles
+                .filter((r) => r.key !== userRole)
+                .map((r) => {
+                  const isCustom = r.key.startsWith("CUSTOM_");
+                  const rMeta = ROLE_META[r.key as Role];
+                  const held = secondaryRoles.includes(r.key);
+                  const worn = held && wornHat === r.key;
+                  return (
+                    <button
+                      key={r.key}
+                      onClick={() => toggleSecondary(r.key)}
+                      disabled={changing}
+                      className="flex items-center gap-1 h-7 px-2 rounded-[0.25rem] text-m-caption font-semibold text-m-body press disabled:opacity-40"
+                      style={{
+                        color: held
+                          ? "var(--color-go)"
+                          : isCustom
+                            ? "var(--color-ink-600)"
+                            : rMeta?.color ?? "var(--color-ink-600)",
+                        backgroundColor: held
+                          ? "color-mix(in srgb, var(--color-go) 12%, transparent)"
+                          : `color-mix(in srgb, ${isCustom ? "var(--color-ink-600)" : rMeta?.color ?? "var(--color-ink-600)"} 8%, transparent)`,
+                      }}
+                    >
+                      {held && <Check className="size-2.5" />}
+                      {r.label}
+                      {worn && (
+                        <span className="text-m-caption font-normal opacity-70">· acting</span>
+                      )}
+                    </button>
+                  );
+                })}
             </div>
 
             {/* ── Divider ── */}
@@ -793,6 +872,8 @@ function CreateCustomRoleDialog({
   const [description, setDescription] = useState("");
   const [baseRole, setBaseRole] = useState<Role>(initialBase);
   const [hierarchyLevel, setHierarchyLevel] = useState<number>(ROLES[initialBase]?.tier ?? 3);
+  const [grants, setGrants] = useState<Set<string>>(new Set());
+  const [expandedModule, setExpandedModule] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   // Only offer base roles the actor can actually assign (tier-filtered).
@@ -802,6 +883,19 @@ function CreateCustomRoleDialog({
   const baseRoles = (Object.keys(ROLES) as Role[])
     .filter((r) => r !== "OWNER" && r !== "DEVELOPER")
     .filter((r) => allowedBaseRoles.includes(r));
+
+  const basePermSet = new Set(effectivePermissions(baseRole));
+  const baseIsWildcard = ROLES[baseRole]?.permissions === "*";
+
+  function toggleGrant(perm: string) {
+    haptic(10);
+    setGrants((prev) => {
+      const next = new Set(prev);
+      if (next.has(perm)) next.delete(perm);
+      else next.add(perm);
+      return next;
+    });
+  }
 
   async function handleCreate() {
     if (!label.trim()) return;
@@ -819,7 +913,7 @@ function CreateCustomRoleDialog({
           description: description.trim(),
           baseRole,
           hierarchyLevel,
-          permissions: [],
+          permissions: Array.from(grants),
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -840,8 +934,8 @@ function CreateCustomRoleDialog({
     <MobileDialog open={true} onClose={onClose} title="Create Custom Role">
       <div className="space-y-3">
         <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-          Create a custom role by copying permissions from an existing role.
-          You can fine-tune permissions later from desktop settings.
+          Create a custom role: pick a base role for its defaults, then grant
+          any additional permissions below.
         </p>
 
         <div className="space-y-1">
@@ -884,6 +978,88 @@ function CreateCustomRoleDialog({
           <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
             The new role starts with the same access level as the selected role.
           </p>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-400)" }}>
+            Additional Permissions
+          </label>
+          {baseIsWildcard ? (
+            <p className="text-m-caption py-1" style={{ color: "var(--color-ink-500)" }}>
+              {ROLES[baseRole]?.label ?? baseRole} already has all {ALL_PERMISSIONS.length} permissions — nothing to add.
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {PERMISSION_MODULES.map((mod) => {
+                const grantCount = mod.permissions.filter((p) => grants.has(p)).length;
+                const defaultCount = mod.permissions.filter((p) => basePermSet.has(p)).length;
+                const expanded = expandedModule === mod.key;
+                return (
+                  <div
+                    key={mod.key}
+                    className="rounded-[0.5rem] border overflow-hidden"
+                    style={{ borderColor: "var(--color-line)" }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => { haptic(10); setExpandedModule(expanded ? null : mod.key); }}
+                      className="flex w-full items-center gap-2 px-2.5 py-2 text-left press"
+                    >
+                      <span className="flex-1 min-w-0 text-m-caption font-semibold" style={{ color: "var(--color-ink-950)" }}>
+                        {mod.label}
+                        <span className="ml-2 font-normal" style={{ color: "var(--color-ink-400)" }}>
+                          {defaultCount + grantCount}/{mod.permissions.length}
+                        </span>
+                      </span>
+                      {grantCount > 0 && (
+                        <span
+                          className="text-m-caption font-bold px-1.5 rounded-full shrink-0"
+                          style={{ backgroundColor: "var(--color-go-wash)", color: "var(--color-go)" }}
+                        >
+                          +{grantCount}
+                        </span>
+                      )}
+                    </button>
+                    {expanded && (
+                      <div className="border-t" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}>
+                        {mod.permissions.map((perm) => {
+                          const isBase = basePermSet.has(perm);
+                          const granted = grants.has(perm);
+                          return (
+                            <button
+                              key={perm}
+                              type="button"
+                              disabled={isBase}
+                              onClick={() => toggleGrant(perm)}
+                              className="flex w-full items-center gap-2.5 px-2.5 py-1.5 text-left press disabled:opacity-60"
+                            >
+                              <div
+                                className="size-4 rounded-[0.25rem] border-2 grid place-items-center shrink-0"
+                                style={{
+                                  borderColor: isBase || granted ? "var(--color-ink-950)" : "var(--color-line)",
+                                  backgroundColor: isBase || granted ? "var(--color-ink-950)" : "transparent",
+                                }}
+                              >
+                                {(isBase || granted) && <Check className="size-2.5" style={{ color: "var(--color-paper)" }} />}
+                              </div>
+                              <span className="flex-1 min-w-0 text-m-caption" style={{ color: "var(--color-ink-700)" }}>
+                                {perm}
+                              </span>
+                              {isBase && (
+                                <span className="text-m-caption shrink-0" style={{ color: "var(--color-ink-400)" }}>
+                                  default
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="space-y-1">

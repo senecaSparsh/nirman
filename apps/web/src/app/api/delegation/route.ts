@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getActingRole, getCompany, json, requireUser } from "@/lib/server";
+import { apiHandler, getActingRole, getCompany, getOwnRole, json, requireUser } from "@/lib/server";
 
 /**
  * /api/delegation — authority delegation ("out of office").
@@ -169,9 +169,12 @@ export const PUT = apiHandler(async (req: NextRequest) => {
     return json({ error: "endsAt must be in the future, within 90 days" }, { status: 400 });
   }
 
-  // Real role, not acting — delegating on someone else's behalf is account
-  // config, not a delegated authority, and must not chain onward.
-  const isAdmin = user.role === "OWNER" || user.role === "ADMIN";
+  // Own worn hat, not acting — delegating on someone else's behalf is
+  // account config, not a delegated authority, and must not chain onward.
+  // (getOwnRole = the caller's activeRole sans delegation, so an OWNER
+  // wearing a field hat can't manage other members' delegations.)
+  const ownRole = await getOwnRole();
+  const isAdmin = ownRole === "OWNER" || ownRole === "ADMIN";
   const targetMembershipId = body.membershipId ?? null;
   const mine = await myMembership(user.id, company.id);
   const membershipId = targetMembershipId && isAdmin ? targetMembershipId : mine?.id;
@@ -247,8 +250,9 @@ export const DELETE = apiHandler(async (req: NextRequest) => {
   const company = await getCompany();
   const body = (await req.json().catch(() => ({}))) as { membershipId?: string };
 
-  // Real role — same reasoning as PUT (see above).
-  const isAdmin = user.role === "OWNER" || user.role === "ADMIN";
+  // Own worn hat — same reasoning as PUT (see above).
+  const ownRole = await getOwnRole();
+  const isAdmin = ownRole === "OWNER" || ownRole === "ADMIN";
   const mine = await myMembership(user.id, company.id);
   const membershipId = body.membershipId && isAdmin ? body.membershipId : mine?.id;
   if (!membershipId) {

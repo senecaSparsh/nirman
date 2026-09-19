@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input, Select, Textarea } from "@/components/ui/input";
+import { Input, Select } from "@/components/ui/input";
+import { AddressSearchField } from "@/components/address-search-field";
 import { Field } from "@/components/field";
 import { required } from "@/lib/validate";
 import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
@@ -16,6 +17,9 @@ type FormState = {
   name: string;
   projectId: string;
   address: string;
+  lat: string;
+  lng: string;
+  geoRadius: string;
 };
 
 export function LocationFormDialog({
@@ -39,8 +43,11 @@ export function LocationFormDialog({
           name: location.name,
           projectId: location.projectId ?? "",
           address: location.address ?? "",
+          lat: location.lat != null ? String(location.lat) : "",
+          lng: location.lng != null ? String(location.lng) : "",
+          geoRadius: location.geoRadius != null ? String(location.geoRadius) : "",
         }
-      : { type: "COMPANY_WAREHOUSE", name: "", projectId: "", address: "" },
+      : { type: "COMPANY_WAREHOUSE", name: "", projectId: "", address: "", lat: "", lng: "", geoRadius: "" },
   );
   const [saving, setSaving] = useState(false);
   const isEdit = location != null;
@@ -78,6 +85,9 @@ export function LocationFormDialog({
         name: form.name.trim(),
         projectId: form.type === "PROJECT_SITE" ? form.projectId : null,
         address: form.address.trim() || null,
+        lat: form.lat ? parseFloat(form.lat) : null,
+        lng: form.lng ? parseFloat(form.lng) : null,
+        geoRadius: form.lat && form.lng ? (form.geoRadius ? parseInt(form.geoRadius) : 500) : null,
       };
       const res = await fetch(
         isEdit ? `/api/stock-locations/${location!.id}` : "/api/stock-locations",
@@ -157,14 +167,25 @@ export function LocationFormDialog({
             </Select>
           </Field>
         )}
-        <Field label="Address">
-          <Textarea
+        <Field label="Address" hint="Pick a suggestion or use GPS — verified addresses only. Sets the geo-fence centre.">
+          <AddressSearchField
             value={form.address}
-            onChange={(e) => set("address", e.target.value)}
-            placeholder="Optional address / landmark"
-            rows={2}
+            onPick={(s) => setForm((f) => ({ ...f, address: s.address, lat: String(s.lat), lng: String(s.lng), geoRadius: f.geoRadius || "500" }))}
+            onClear={() => setForm((f) => ({ ...f, address: "", lat: "", lng: "" }))}
+            placeholder="Search site address…"
           />
         </Field>
+        {form.lat && form.lng && (
+          <Field label="Geo-fence radius (m)" hint="Default: 500m — receipts + attendance clock-ins inside this radius are marked on-site.">
+            <Input
+              type="number"
+              min="10"
+              value={form.geoRadius}
+              onChange={(e) => set("geoRadius", e.target.value)}
+              placeholder="500"
+            />
+          </Field>
+        )}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel

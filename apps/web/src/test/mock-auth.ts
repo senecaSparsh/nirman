@@ -46,6 +46,9 @@ export interface FakeCompany {
   currency: string;
   parentCompanyId: string | null;
   deletedAt: Date | null;
+  lat?: number | null;
+  lng?: number | null;
+  geoRadius?: number | null;
 }
 
 // vi.hoisted() runs BEFORE any other code in the module (including const

@@ -9,6 +9,7 @@ import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { SectionCard, UnderlineInput, EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { AddressSearchField } from "@/components/address-search-field";
 
 interface FormState {
   name: string;
@@ -17,6 +18,8 @@ interface FormState {
   pan: string;
   currency: string;
   address: string;
+  lat: number | null;
+  lng: number | null;
   parentCompanyId: string;
 }
 
@@ -66,6 +69,8 @@ export function MobileNewCompanyForm({
     pan: "",
     currency: "INR",
     address: "",
+    lat: null,
+    lng: null,
     parentCompanyId: "",
   });
 
@@ -104,6 +109,8 @@ export function MobileNewCompanyForm({
           pan: panVal || null,
           currency: form.currency,
           address: form.address.trim() || null,
+          lat: form.lat,
+          lng: form.lng,
           parentCompanyId: form.parentCompanyId || null,
         }),
       });
@@ -235,18 +242,17 @@ export function MobileNewCompanyForm({
           </div>
         </div>
 
-        {/* Address */}
+        {/* Address — verified picker (search or GPS); coords feed the HQ geo-fence */}
         <div>
           <label className={labelClass} style={labelStyle}>
-            Address
+            Address — pick a suggestion or use GPS
           </label>
-          <textarea
+          <AddressSearchField
+            mobile
             value={form.address}
-            onChange={(e) => set("address", e.target.value)}
-            placeholder="Registered office address"
-            rows={2}
-            className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors"
-            style={inputStyle}
+            onPick={(s) => setForm((f) => ({ ...f, address: s.address, lat: s.lat, lng: s.lng }))}
+            onClear={() => setForm((f) => ({ ...f, address: "", lat: null, lng: null }))}
+            placeholder="Search registered office address…"
           />
         </div>
       </SectionCard>

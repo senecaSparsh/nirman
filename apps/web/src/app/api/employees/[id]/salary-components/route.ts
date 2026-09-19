@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { setSalaryComponents, autoCompleteOnboarding, HrError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, requireAnyPermission, toNum, assertCanManageEmployee, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requireAnyPermission, salaryComponentsSetSchema, toNum, assertCanManageEmployee, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -27,15 +27,18 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     orderBy: [{ isDeduction: "asc" }, { type: "asc" }],
   });
 
-  // Compute CTC
+  // Compute CTC. UNIT_RATE components are variable (rate × actual usage —
+  // e.g. ₹3/km) so they have no fixed monthly/annual value and are excluded
+  // from the totals.
+  const isVariable = (c: (typeof components)[number]) => c.calculationType === "UNIT_RATE";
   const monthlyEarnings = components
-    .filter((c) => !c.isDeduction && c.frequency === "MONTHLY")
+    .filter((c) => !c.isDeduction && c.frequency === "MONTHLY" && !isVariable(c))
     .reduce((sum, c) => sum + toNum(c.amount), 0);
   const monthlyDeductions = components
-    .filter((c) => c.isDeduction && c.frequency === "MONTHLY")
+    .filter((c) => c.isDeduction && c.frequency === "MONTHLY" && !isVariable(c))
     .reduce((sum, c) => sum + toNum(c.amount), 0);
   const annualEarnings = components
-    .filter((c) => !c.isDeduction)
+    .filter((c) => !c.isDeduction && !isVariable(c))
     .reduce((sum, c) => {
       const amt = toNum(c.amount);
       if (c.frequency === "MONTHLY") return sum + amt * 12;
@@ -55,6 +58,9 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       isDeduction: c.isDeduction,
       isPercentage: c.isPercentage,
       percentageOfBasic: c.percentageOfBasic ? toNum(c.percentageOfBasic) : null,
+      calculationType: c.calculationType,
+      unitType: c.unitType,
+      unitLabel: c.unitLabel,
       notes: c.notes,
     })),
     summary: {
@@ -85,15 +91,19 @@ export const PUT = apiHandler(async (req: NextRequest, { params }: { params: Pro
   }
 
   const body = await req.json();
-  const components = body.components;
-  if (!Array.isArray(components)) {
-    return json({ error: "components must be an array" }, { status: 400 });
+  const parsed = salaryComponentsSetSchema.safeParse(body);
+  if (!parsed.success) {
+    return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
 
   try {
-    const result = await setSalaryComponents(id, company.id, session.id, components, {
-      changedBy: session.id,
-    });
+    const result = await setSalaryComponents(
+      id,
+      company.id,
+      session.id,
+      parsed.data.components.map((c) => ({ ...c, employeeId: id, type: c.type as never })),
+      { changedBy: session.id },
+    );
     await autoCompleteOnboarding(id, company.id).catch(() => {});
     revalidatePath(`/m/hr/employees/${id}`);
     revalidatePath(`/hr/employees/${id}`);

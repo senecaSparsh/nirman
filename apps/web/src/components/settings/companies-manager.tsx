@@ -13,6 +13,7 @@ import { ROLE_LIST, assignableRoles, canAssignRole, type Role } from "@/lib/role
 import { usePermissions } from "@/lib/permissions";
 import { useConfirm } from "@/lib/use-confirm";
 import { EmptyState } from "@/components/empty-state";
+import { AddressSearchField } from "@/components/address-search-field";
 
 export type CompanyRow = {
   id: string;
@@ -77,6 +78,8 @@ export function CompaniesManager({
     gstin: "",
     pan: "",
     address: "",
+    lat: null as number | null,
+    lng: null as number | null,
   });
   const [saving, setSaving] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -104,13 +107,15 @@ export function CompaniesManager({
           gstin: form.gstin.trim() || null,
           pan: form.pan.trim() || null,
           address: form.address.trim() || null,
+          lat: form.lat,
+          lng: form.lng,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create company");
       toast.success("Company created");
       setCreating(false);
-      setForm({ name: "", code: "", businessType: "", parentCompanyId: "", currency: "INR", gstin: "", pan: "", address: "" });
+      setForm({ name: "", code: "", businessType: "", parentCompanyId: "", currency: "INR", gstin: "", pan: "", address: "", lat: null, lng: null });
       router.refresh();
     } catch (err: unknown) {
       toast.error((err instanceof Error ? err.message : "Failed"));
@@ -475,8 +480,13 @@ export function CompaniesManager({
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label>Address</Label>
-                <Input value={form.address} onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))} />
+                <Label hint="Pick a suggestion or use GPS — verified addresses only">Address</Label>
+                <AddressSearchField
+                  value={form.address}
+                  onPick={(s) => setForm((f) => ({ ...f, address: s.address, lat: s.lat, lng: s.lng }))}
+                  onClear={() => setForm((f) => ({ ...f, address: "", lat: null, lng: null }))}
+                  placeholder="Search registered office address…"
+                />
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <Button type="button" variant="outline" onClick={() => setCreating(false)}>Cancel</Button>

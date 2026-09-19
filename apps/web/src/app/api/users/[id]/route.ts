@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, canManageRole, getActingRole, requirePermission, getCompany, json, userRoleSchema, scopeWhere } from "@/lib/server";
+import { apiHandler, canManageRole, canManageRoleSet, getActingRole, requirePermission, getCompany, json, userRoleSchema, scopeWhere } from "@/lib/server";
 import { isCustomRole, ROLES, PERM } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 
@@ -53,20 +53,45 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const company = await getCompany();
   const membership = await prisma.userCompany.findFirst({
     where: { userId, companyId: company.id },
-    select: { id: true },
+    select: { id: true, role: true, secondaryRoles: true, activeRole: true },
   });
   if (!membership && existing.companyId !== company.id) {
     return json({ error: "User not found" }, { status: 404 });
   }
 
-  // If changing the role, enforce the hierarchy:
-  //   1. actor must be above the target's CURRENT role
-  //   2. actor must be above the NEW role being assigned
+  // ── Multi-role: compute the held-set change ──
+  // Held set = { primary role } ∪ secondaryRoles. secondaryRoles sent
+  // without `role` keeps the current primary; a primary role that also
+  // appears in secondaryRoles is dropped from the secondary list.
+  const newPrimary = parsed.data.role ?? existing.role;
+  const secondaryRolesChanged = parsed.data.secondaryRoles !== undefined;
+  // Always dedupe against the NEW primary — promoting a held secondary hat
+  // to primary must not leave a duplicate in the held set.
+  const newSecondary = (secondaryRolesChanged
+    ? [...new Set(parsed.data.secondaryRoles!)]
+    : [...new Set(membership?.secondaryRoles ?? [])]
+  ).filter((r) => r !== newPrimary);
+  const setsEqual = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
+  const primaryChanged = parsed.data.role !== undefined && parsed.data.role !== existing.role;
+  const heldSetChanged = primaryChanged || (secondaryRolesChanged && !setsEqual(newSecondary, membership?.secondaryRoles ?? []));
+  const currentHeld = [
+    ...new Set(
+      [existing.role, ...(membership ? [membership.role, ...(membership.secondaryRoles ?? [])] : [])].filter(
+        (r): r is string => !!r,
+      ),
+    ),
+  ];
+  const newHeld = [...new Set([newPrimary, ...newSecondary].filter((r): r is string => !!r))];
+
+  // If changing the held set, enforce the hierarchy BOTH ways:
+  //   1. actor must be above EVERY role the target currently holds
+  //      (a dormant senior hat still protects the target)
+  //   2. actor must be able to assign EVERY role in the new set
   // canManageRole resolves custom roles via their DB tier and fails closed
   // on unknown role strings — never feed a stored role to canAssignRole()
   // directly (CUSTOM_* normalizes to SUPERVISOR and passes any tier check).
-  if (parsed.data.role !== undefined && parsed.data.role !== existing.role) {
-    if (!(await canManageRole(actorRole, existing.role, company.id))) {
+  if (heldSetChanged) {
+    if (!(await canManageRoleSet(actorRole, currentHeld, company.id))) {
       const targetLabel = await roleLabel(existing.role, company.id);
       return json(
         { error: `You don't have authority to manage ${targetLabel}.` },
@@ -74,14 +99,24 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       );
     }
 
-    if (!(await canManageRole(actorRole, parsed.data.role, company.id))) {
-      const newLabel = await roleLabel(parsed.data.role, company.id, "that role");
-      return json(
-        { error: `You don't have authority to assign the ${newLabel} role.` },
-        { status: 403 },
-      );
+    for (const r of newHeld) {
+      if (!(await canManageRole(actorRole, r, company.id))) {
+        const newLabel = await roleLabel(r, company.id, "that role");
+        return json(
+          { error: `You don't have authority to assign the ${newLabel} role.` },
+          { status: 403 },
+        );
+      }
+      // A CUSTOM_* key must resolve to a real role in this company.
+      if (isCustomRole(r)) {
+        const cr = await prisma.customRole.findFirst({
+          where: { companyId: company.id, key: r },
+          select: { id: true },
+        }).catch(() => null);
+        if (!cr) return json({ error: `Custom role ${r} not found` }, { status: 400 });
+      }
     }
-  } else if (parsed.data.active !== undefined && !(await canManageRole(actorRole, existing.role, company.id))) {
+  } else if (parsed.data.active !== undefined && !(await canManageRoleSet(actorRole, currentHeld, company.id))) {
     // Even toggling active/inactive requires the actor to be above the target.
     const targetLabel = await roleLabel(existing.role, company.id);
     return json(
@@ -96,7 +131,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     parsed.data.designation !== undefined || parsed.data.department !== undefined ||
     parsed.data.employeeCode !== undefined || parsed.data.joiningDate !== undefined;
   if (isProfileEdit && actorId !== userId) {
-    if (!(await canManageRole(actorRole, existing.role, company.id))) {
+    if (!(await canManageRoleSet(actorRole, currentHeld, company.id))) {
       const targetLabel = await roleLabel(existing.role, company.id);
       return json(
         { error: `You don't have authority to edit ${targetLabel}'s profile.` },
@@ -105,16 +140,24 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
   }
 
-  // Prevent the last OWNER from demoting themselves
-  if (existing.role === "OWNER" && parsed.data.role !== undefined && parsed.data.role !== "OWNER") {
-    const ownerCount = await prisma.user.count({ where: { role: "OWNER", active: true } });
-    if (ownerCount <= 1) {
+  // Prevent removing the last OWNER hat — if the target's new held set no
+  // longer contains OWNER and nobody else holds one (primary OR secondary),
+  // the company would be orphaned.
+  if (heldSetChanged && currentHeld.includes("OWNER") && !newHeld.includes("OWNER")) {
+    const otherPrimaryOwners = await prisma.user.count({
+      where: { role: "OWNER", active: true, id: { not: userId } },
+    });
+    const otherSecondaryOwners = await prisma.userCompany.count({
+      where: { companyId: company.id, userId: { not: userId }, secondaryRoles: { has: "OWNER" }, user: { active: true } },
+    });
+    if (otherPrimaryOwners + otherSecondaryOwners === 0) {
       return json({ error: "Cannot demote the last remaining owner" }, { status: 400 });
     }
   }
 
-  // Prevent self-demotion that would lock the actor out
-  if (actorId === userId && parsed.data.role !== undefined && parsed.data.role !== actorRole) {
+  // Prevent self role-set changes that would lock the actor out — a user
+  // can switch freely among their assigned hats but cannot edit the set.
+  if (actorId === userId && heldSetChanged) {
     return json({ error: "You cannot change your own role" }, { status: 400 });
   }
 
@@ -138,13 +181,19 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     select: { id: true, email: true, name: true, role: true, active: true, phone: true, designation: true, department: true, employeeCode: true, companyId: true },
   });
 
-  // Keep the per-company membership role in sync — User.role and
-  // UserCompany.role are mirrors, and permission resolution, the
-  // permissions console, and delegation all read the membership row.
-  if (parsed.data.role !== undefined && parsed.data.role !== existing.role && membership) {
+  // Keep the per-company membership in sync — User.role mirrors the primary
+  // role and permission resolution reads the membership row (role +
+  // secondaryRoles + activeRole). If the worn hat left the held set, reset
+  // it — the member falls back to their primary role on next resolution.
+  if (heldSetChanged && membership) {
+    const newHeldSet = new Set(newHeld);
     await prisma.userCompany.update({
       where: { id: membership.id },
-      data: { role: parsed.data.role },
+      data: {
+        ...(primaryChanged ? { role: newPrimary } : {}),
+        secondaryRoles: newSecondary,
+        ...(membership.activeRole && !newHeldSet.has(membership.activeRole) ? { activeRole: null } : {}),
+      },
     });
   }
 
@@ -344,16 +393,16 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
   }
 
-  // Audit log for role changes
-  if (parsed.data.role !== undefined && parsed.data.role !== existing.role && actorId) {
+  // Audit log for role-set changes (primary + secondary hats)
+  if (heldSetChanged && actorId) {
     await logAction(prisma, {
       userId: actorId,
       companyId: updated.companyId ?? undefined,
       action: "USER_ROLE_CHANGE",
       entityType: "User",
       entityId: userId,
-      before: { role: existing.role },
-      after: { role: parsed.data.role },
+      before: { role: existing.role, secondaryRoles: membership?.secondaryRoles ?? [] },
+      after: { role: newPrimary, secondaryRoles: newSecondary },
     });
   }
 
