@@ -4,6 +4,7 @@ import { prisma, Prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
 import { apiHandler, json, getCompany, requireUser, requirePermission, getCurrentUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { assertAttachmentSubjectAccess } from "@/lib/attachment-access";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
 
 /**
@@ -21,6 +22,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
   if (!entityType || !entityId) {
     return json({ error: "entityType and entityId are required" }, { status: 400 });
   }
+
+  const denied = await assertAttachmentSubjectAccess(entityType, entityId, company.id);
+  if (denied) return json({ error: denied.error }, { status: denied.status });
 
   // Cursor pagination — backward compatible. If `cursor` param is present,
   // return { items, nextCursor, hasMore }. Otherwise return flat array.
@@ -79,6 +83,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!entityType || !entityId || !uploadId) {
     return json({ error: "entityType, entityId, and uploadId are required" }, { status: 400 });
   }
+
+  // The caller must be able to see the record they're attaching to —
+  // otherwise an ATTACHMENT_MANAGE holder could silently add files to an
+  // H1 employee's dossier or an out-of-scope project.
+  const denied = await assertAttachmentSubjectAccess(entityType, entityId, company.id);
+  if (denied) return json({ error: denied.error }, { status: denied.status });
 
   // Verify the upload belongs to this company
   const upload = await prisma.upload.findFirst({

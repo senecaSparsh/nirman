@@ -4,6 +4,7 @@ import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
 import { apiHandler, json, getCompany, requirePermission, getCurrentUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { assertAttachmentSubjectAccess } from "@/lib/attachment-access";
 
 /**
  * DELETE /api/attachments/[id]
@@ -26,6 +27,11 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   if (!attachment) {
     return json({ error: "Attachment not found" }, { status: 404 });
   }
+
+  // Subject check: removing an attachment on a record the caller can't see
+  // (H1 dossier, out-of-scope project) is blocked — same rule as listing.
+  const denied = await assertAttachmentSubjectAccess(attachment.entityType, attachment.entityId, company.id);
+  if (denied) return json({ error: denied.error }, { status: denied.status });
 
   await prisma.entityAttachment.delete({ where: { id } });
 
