@@ -89,6 +89,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       notes: parsed.data.notes ?? null,
       lines: parsed.data.lines,
       userId: user.id,
+      companyId: company.id,
     });
 
     // Auto-submit by default — eliminates the useless manual "Submit for

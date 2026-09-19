@@ -79,6 +79,8 @@ export interface CreateChangeOrderInput {
   notes?: string | null;
   lines: ChangeOrderLineInput[];
   userId?: string;
+  /** Caller's company — when provided, the target project must belong to it. */
+  companyId?: string;
 }
 
 export interface UpdateChangeOrderInput {
@@ -179,6 +181,12 @@ export async function createChangeOrder(input: CreateChangeOrderInput) {
       include: { company: { select: { id: true } } },
     });
     if (!project) throw new ServiceError("Project not found", 404);
+    // Tenant seal: the change order is written under the project's company —
+    // it must be the caller's company, otherwise the record lands in another
+    // tenant's books (same class as the asset-sale seal).
+    if (input.companyId && project.company.id !== input.companyId) {
+      throw new ServiceError("Project not found in this company", 404);
+    }
 
     validateLines(input.lines);
     const totals = computeTotals(input.lines);
