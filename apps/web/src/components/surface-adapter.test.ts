@@ -344,10 +344,13 @@ describe("mapDynamicSegments", () => {
     );
   });
 
-  it("maps single [id] segment", () => {
+  it("drops the [id] value when the desktop target is a list page", () => {
+    // /materials has no /materials/[id] route — appending would 404. The
+    // declared desktopPath is authoritative; the id is intentionally dropped
+    // so the mobile detail lands on the valid list page.
     expect(
       mapDynamicSegments("/m/materials/abc123", "/m/materials/[id]", "/materials"),
-    ).toBe("/materials/abc123");
+    ).toBe("/materials");
   });
 
   it("maps [id] from source to target with [id]", () => {
@@ -360,12 +363,12 @@ describe("mapDynamicSegments", () => {
     ).toBe("/materials/abc123");
   });
 
-  it("maps when target has fewer segments (detail → list)", () => {
-    // Source: /m/procurement/po-456, target: /procurement (no [id])
-    // The dynamic value should be appended
+  it("drops the [id] when the target has no [id] slot (detail → list)", () => {
+    // /procurement has no /procurement/[id] route — the detail id can't carry,
+    // so it lands on the list page rather than a 404.
     expect(
       mapDynamicSegments("/m/procurement/po-456", "/m/procurement/[id]", "/procurement"),
-    ).toBe("/procurement/po-456");
+    ).toBe("/procurement");
   });
 
   it("returns target as-is when sourcePattern is undefined", () => {

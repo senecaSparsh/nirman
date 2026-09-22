@@ -70,7 +70,9 @@ describe("PUT /api/delegation", () => {
   });
 
   it("rejects delegating to yourself", async () => {
-    mockPrisma().userCompany!.findFirst.mockResolvedValue({ id: "uc-me-2", userId: "user-1" });
+    // Delegate must clear the tier-3 floor to reach the self-check — give the
+    // membership a manager role + empty secondaryRoles (the route selects both).
+    mockPrisma().userCompany!.findFirst.mockResolvedValue({ id: "uc-me-2", userId: "user-1", role: "PROJECT_MANAGER", secondaryRoles: [] });
     const res = await PUT(makeRequest("/api/delegation", {
       method: "PUT",
       body: { delegateMembershipId: "uc-me-2", endsAt: future() },
@@ -82,7 +84,7 @@ describe("PUT /api/delegation", () => {
   it("rejects a two-way delegation loop", async () => {
     // delegate (uc-bob, userId bob) already delegates back to me
     mockPrisma().userCompany!.findFirst
-      .mockResolvedValueOnce({ id: "uc-bob", userId: "bob" })   // delegate validation
+      .mockResolvedValueOnce({ id: "uc-bob", userId: "bob", role: "PROJECT_MANAGER", secondaryRoles: [] })   // delegate validation
       .mockResolvedValueOnce({ id: "uc-bob-back" });             // cycle check
     const res = await PUT(makeRequest("/api/delegation", {
       method: "PUT",
@@ -94,7 +96,7 @@ describe("PUT /api/delegation", () => {
 
   it("delegates my authority on the happy path", async () => {
     mockPrisma().userCompany!.findFirst
-      .mockResolvedValueOnce({ id: "uc-bob", userId: "bob" })
+      .mockResolvedValueOnce({ id: "uc-bob", userId: "bob", role: "PROJECT_MANAGER", secondaryRoles: [] })
       .mockResolvedValueOnce(null);
     const res = await PUT(makeRequest("/api/delegation", {
       method: "PUT",

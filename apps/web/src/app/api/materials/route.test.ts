@@ -25,6 +25,10 @@ import { PERM } from "@/lib/roles";
 
 const OWNER = { role: "OWNER" as const };
 const ACCOUNTANT = { role: "ACCOUNTANT" as const };
+// SECURITY_GUARD holds only gate-pass perms — no inventory/procurement/
+// sales view or any material-consuming action — so the pick-list gate
+// must still fail closed for it.
+const SECURITY_GUARD = { role: "SECURITY_GUARD" as const };
 
 // Helper: a material row as Prisma would return it from findMany with includes.
 function prismaMaterial(overrides: Partial<Record<string, unknown>> = {}) {
@@ -99,9 +103,16 @@ describe("GET /api/materials", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 403 when the user's role lacks INVENTORY_VIEW", async () => {
-    // ACCOUNTANT does not have INVENTORY_VIEW — verify the permission gate fires.
-    setSessionUser(ACCOUNTANT);
+  it("returns 403 when the user's role holds no consuming permission", async () => {
+    // Every built-in operational role legitimately needs the catalog (issue,
+    // transfer, requisition, quote, safety...). The failing-closed case is a
+    // scratch custom role whose perms are entirely unrelated — here a pure
+    // audit-viewer that should NOT read material names.
+    setSessionUser({ role: "CUSTOM_AUDIT_VIEWER" as any });
+    mockPrisma().customRole!.findFirst.mockResolvedValue({
+      id: "cr-1", key: "CUSTOM_AUDIT_VIEWER", label: "Audit Viewer",
+      baseRole: null, tier: 5, permissions: [PERM.AUDIT_VIEW],
+    } as any);
     const res = await GET(makeRequest("/api/materials"), {});
     expect(res.status).toBe(403);
     const body = await getJson<{ error: string }>(res);
