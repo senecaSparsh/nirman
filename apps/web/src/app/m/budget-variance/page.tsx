@@ -35,7 +35,7 @@ export default function MobileBudgetVariancePage({
           : null;
 
         // Fetch variance only when a valid project is selected
-        const variance = selectedProject ? await getBudgetVariance(selectedProject.id) : null;
+        const variance = selectedProject ? await getBudgetVariance(selectedProject.id, company.id) : null;
 
         // Convert Decimal → number for rendering
         const totalBudget = variance?.totalBudget.toNumber() ?? 0;

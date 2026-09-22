@@ -49,7 +49,7 @@ export default function MobileBudgetVarianceDetailPage({
 
         let variance;
         try {
-          variance = await getBudgetVariance(project.id);
+          variance = await getBudgetVariance(project.id, company.id);
         } catch {
           return (
             <MobileEmptyState

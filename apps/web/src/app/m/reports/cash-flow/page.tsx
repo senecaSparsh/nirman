@@ -62,7 +62,7 @@ async function MobileCashFlowContent({
 
   const selectedId = projectId ?? projects[0]!.id;
   const selected = projects.find((p) => p.id === selectedId) ?? projects[0]!;
-  const cf = await getCashFlowForecast(selected.id);
+  const cf = await getCashFlowForecast(selected.id, company.id);
 
   const totalInflow = cf.inflows.totalInflow.toNumber();
   const totalOutflow = cf.outflows.totalOutflow.toNumber();

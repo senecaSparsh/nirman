@@ -146,7 +146,7 @@ export async function computeSchedule(projectId: string, userId?: string) {
 
   // Find project end = max EF
   let projectEnd = new Date(0);
-  for (const [id, finish] of ef) {
+  for (const finish of ef.values()) {
     if (finish > projectEnd) projectEnd = finish;
   }
 
@@ -304,7 +304,13 @@ export async function getNodeEvm(projectId: string) {
  * Cost overrun forecast: compare committed cost (actuals + open POs + open requisitions)
  * vs BOQ budget, per BOQ line item.
  */
-export async function getCostOverrunForecast(projectId: string) {
+export async function getCostOverrunForecast(projectId: string, companyId: string) {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, companyId, deletedAt: null },
+    select: { id: true },
+  });
+  if (!project) throw new ServiceError("Project not found", 404);
+
   const boqItems = await prisma.boqItem.findMany({
     where: { projectId, type: "LINE_ITEM", materialId: { not: null } },
     include: {

@@ -62,7 +62,7 @@ async function MobileJobCostingContent({
 
   const selectedId = projectId ?? projects[0]!.id;
   const selected = projects.find((p) => p.id === selectedId) ?? projects[0]!;
-  const jc = await getJobCosting(selected.id);
+  const jc = await getJobCosting(selected.id, company.id);
 
   const direct = {
     materials: jc.directCosts.materials.toNumber(),

@@ -69,4 +69,22 @@ describe("GET /api/budget-variance", () => {
     const res = await GET(makeRequest("/api/budget-variance?projectId=proj-1"), {});
     expect(res.status).toBe(403);
   });
+
+  it("forwards the active companyId to the service (tenant isolation)", async () => {
+    const { getBudgetVariance } = await import("@nirman/services");
+    const res = await GET(makeRequest("/api/budget-variance?projectId=proj-1"), {});
+    expect(res.status).toBe(200);
+    // company-1 is the mock's active company — the service must scope the
+    // project lookup by it, or any projectId in the DB would resolve.
+    expect(getBudgetVariance).toHaveBeenCalledWith("proj-1", "company-1");
+  });
+
+  it("propagates a service-level 404 for a project outside this company", async () => {
+    const { getBudgetVariance, ServiceError } = await import("@nirman/services");
+    vi.mocked(getBudgetVariance).mockRejectedValueOnce(new ServiceError("Project not found", 404));
+    const res = await GET(makeRequest("/api/budget-variance?projectId=foreign-proj"), {});
+    expect(res.status).toBe(404);
+    const body = await getJson<{ error: string }>(res);
+    expect(body.error).toMatch(/not found/i);
+  });
 });

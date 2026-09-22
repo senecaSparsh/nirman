@@ -90,9 +90,9 @@ export interface ProjectProfitCenter {
  * Revenue = sum of AssetSale.salePrice for this project
  * Costs = land + materials + labour + equipment + subcontractor + overhead
  */
-export async function getProjectProfitCenter(projectId: string): Promise<ProjectProfitCenter> {
+export async function getProjectProfitCenter(projectId: string, companyId: string): Promise<ProjectProfitCenter> {
   const project = await prisma.project.findFirst({
-    where: { id: projectId, deletedAt: null },
+    where: { id: projectId, companyId, deletedAt: null },
     select: { id: true, name: true, totalSellableArea: true },
   });
   if (!project) throw new ServiceError("Project not found", 404);
@@ -236,9 +236,9 @@ export interface CashFlowForecast {
  * Inflows: due/pending payment schedule items
  * Outflows: open PO commitments + pending RA bills + pending payroll
  */
-export async function getCashFlowForecast(projectId: string): Promise<CashFlowForecast> {
+export async function getCashFlowForecast(projectId: string, companyId: string): Promise<CashFlowForecast> {
   const project = await prisma.project.findFirst({
-    where: { id: projectId, deletedAt: null },
+    where: { id: projectId, companyId, deletedAt: null },
     select: { id: true },
   });
   if (!project) throw new ServiceError("Project not found", 404);
@@ -348,8 +348,8 @@ export interface JobCosting {
  * Job costing: classify costs as direct (materials, labour, subcontractor, equipment)
  * vs indirect (overhead, admin). Compute overhead absorption rate.
  */
-export async function getJobCosting(projectId: string) {
-  const pc = await getProjectProfitCenter(projectId);
+export async function getJobCosting(projectId: string, companyId: string) {
+  const pc = await getProjectProfitCenter(projectId, companyId);
 
   const directTotal = pc.materialCost
     .plus(pc.labourCost)
@@ -492,9 +492,9 @@ export function computeBudgetVariance(
  * The non-BOQ categories share the residual budget. If the residual is ≤ 0 (BOQ consumes
  * the entire budget), they're flagged UNBUDGETED.
  */
-export async function getBudgetVariance(projectId: string): Promise<BudgetVariance> {
+export async function getBudgetVariance(projectId: string, companyId: string): Promise<BudgetVariance> {
   const project = await prisma.project.findFirst({
-    where: { id: projectId, deletedAt: null },
+    where: { id: projectId, companyId, deletedAt: null },
     select: { id: true, totalBudget: true },
   });
   if (!project) throw new ServiceError("Project not found", 404);
