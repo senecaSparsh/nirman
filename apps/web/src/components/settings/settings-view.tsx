@@ -874,6 +874,8 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
   const [userSearch, setUserSearch] = useState("");
   const [confirmDeactivate, setConfirmDeactivate] = useState<UserRow | null>(null);
   const [showCreateRole, setShowCreateRole] = useState(false);
+  const [editingRole, setEditingRole] = useState<NonNullable<typeof customRoles>[number] | null>(null);
+  const [deletingRole, setDeletingRole] = useState<NonNullable<typeof customRoles>[number] | null>(null);
 
   const assignable = assignableRoles(actorRole);
   // Include custom roles the actor can assign (based on tier)
@@ -894,6 +896,10 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
     customRoleByKey.get(role)?.label ??
     ROLE_LIST.find((rl) => rl.key === role)?.label ??
     role.replace(/^CUSTOM_/, "").replace(/_/g, " ");
+
+  // Custom roles the actor can manage — strictly below their own tier
+  // (mirrors the server-side gate in PUT/DELETE /api/custom-roles/[id]).
+  const manageableCustomRoles = (customRoles ?? []).filter((cr) => actorTierNum < cr.tier);
 
   const filteredUsers = userSearch.trim()
     ? users.filter((u) => {
@@ -1048,6 +1054,48 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
             className="pl-9"
           />
         </div>
+      )}
+
+      {/* Custom roles — manage the roles created via "Custom Role" */}
+      {manageableCustomRoles.length > 0 && (
+        <Card className="mb-3">
+          <CardContent className="p-0">
+            <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+              <ShieldPlus className="h-4 w-4 text-muted-foreground" />
+              <span className="text-body font-semibold">Custom Roles</span>
+              <span className="text-caption text-muted-foreground">{manageableCustomRoles.length}</span>
+            </div>
+            <div className="divide-y divide-border">
+              {manageableCustomRoles.map((cr) => (
+                <div key={cr.id} className="flex items-center gap-3 px-4 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-body font-medium text-foreground">{cr.label}</span>
+                      <Badge variant="muted" className="text-[10px] py-0 px-1.5">{cr.key}</Badge>
+                      <Badge variant="muted" className="text-[10px] py-0 px-1.5">
+                        {cr.baseRole ? `extends ${roleLabelFor(cr.baseRole)}` : `Tier ${cr.tier}`}
+                      </Badge>
+                    </div>
+                    {cr.description && (
+                      <p className="text-caption text-muted-foreground truncate">{cr.description}</p>
+                    )}
+                  </div>
+                  <span className="text-caption text-muted-foreground shrink-0">
+                    {cr.permissions.length} extra perm{cr.permissions.length === 1 ? "" : "s"}
+                  </span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button variant="ghost" size="icon-sm" title="Edit role" onClick={() => setEditingRole(cr)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon-sm" title="Delete role" onClick={() => setDeletingRole(cr)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       <Card>
@@ -1266,14 +1314,26 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
         />
       )}
 
-      {/* Create custom role dialog */}
-      {showCreateRole && (
+      {/* Create/edit custom role dialog */}
+      {(showCreateRole || editingRole) && (
         <CreateCustomRoleDialog
           actorRole={actorRole}
-          onClose={() => setShowCreateRole(false)}
-          onCreated={() => { setShowCreateRole(false); router.refresh(); }}
+          editing={editingRole}
+          onClose={() => { setShowCreateRole(false); setEditingRole(null); }}
+          onCreated={() => { setShowCreateRole(false); setEditingRole(null); router.refresh(); }}
         />
       )}
+
+      {/* Delete custom role confirm */}
+      <DeleteConfirmDialog
+        open={deletingRole != null}
+        onOpenChange={(o) => { if (!o) setDeletingRole(null); }}
+        endpoint={deletingRole ? `/api/custom-roles/${deletingRole.id}` : "/api/custom-roles/none"}
+        title={deletingRole ? `Delete "${deletingRole.label}"?` : "Delete role?"}
+        description="This removes the custom role. Users currently assigned it must be reassigned first — the delete will fail if anyone still holds it."
+        successMessage={deletingRole ? `Custom role "${deletingRole.label}" deleted` : "Role deleted"}
+        onSuccess={() => setDeletingRole(null)}
+      />
 
       {/* Role permissions dialog */}
       {showRolePerms && (
@@ -1441,20 +1501,24 @@ function EditUserProfileDialog({
 // ───────────────────────────────────────────────────────────────
 function CreateCustomRoleDialog({
   actorRole,
+  editing,
   onClose,
   onCreated,
 }: {
   actorRole: string;
+  /** When set, the dialog edits this role (PUT) instead of creating. */
+  editing?: { id: string; key: string; label: string; description: string; baseRole: string | null; tier: number; permissions: string[] } | null;
   onClose: () => void;
   onCreated: () => void;
 }) {
-  const [key, setKey] = useState("");
-  const [label, setLabel] = useState("");
-  const [description, setDescription] = useState("");
-  const [mode, setMode] = useState<"inherit" | "scratch">("inherit");
-  const [baseRole, setBaseRole] = useState<string>("SITE_ENGINEER");
-  const [tier, setTier] = useState<number>(4);
-  const [grants, setGrants] = useState<Set<string>>(new Set());
+  const isEdit = editing != null;
+  const [key, setKey] = useState(editing?.key ?? "");
+  const [label, setLabel] = useState(editing?.label ?? "");
+  const [description, setDescription] = useState(editing?.description ?? "");
+  const [mode, setMode] = useState<"inherit" | "scratch">(editing?.baseRole ? "inherit" : editing ? "scratch" : "inherit");
+  const [baseRole, setBaseRole] = useState<string>(editing?.baseRole ?? "SITE_ENGINEER");
+  const [tier, setTier] = useState<number>(editing?.tier ?? 4);
+  const [grants, setGrants] = useState<Set<string>>(new Set(editing?.permissions ?? []));
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -1476,24 +1540,33 @@ function CreateCustomRoleDialog({
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!key.trim() || !label.trim()) return;
+    if (!label.trim() || (!isEdit && !key.trim())) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/custom-roles", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          key: key.trim().toUpperCase().replace(/\s+/g, "_"),
-          label: label.trim(),
-          description: description.trim(),
-          baseRole: mode === "inherit" ? baseRole : null,
-          ...(mode === "scratch" ? { tier } : {}),
-          permissions: Array.from(grants),
-        }),
-      });
+      const payload = {
+        label: label.trim(),
+        description: description.trim(),
+        baseRole: mode === "inherit" ? baseRole : null,
+        ...(mode === "scratch" ? { tier } : {}),
+        permissions: Array.from(grants),
+      };
+      const res = isEdit
+        ? await fetch(`/api/custom-roles/${editing.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+        : await fetch("/api/custom-roles", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              key: key.trim().toUpperCase().replace(/\s+/g, "_"),
+              ...payload,
+            }),
+          });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error ?? "Failed to create role");
-      toast.success(data.message ?? "Custom role created");
+      if (!res.ok) throw new Error(data.error ?? `Failed to ${isEdit ? "update" : "create"} role`);
+      toast.success(data.message ?? (isEdit ? "Custom role updated" : "Custom role created"));
       onCreated();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
@@ -1503,13 +1576,14 @@ function CreateCustomRoleDialog({
   }
 
   return (
-    <Dialog open={true} onOpenChange={(o) => { if (!o) onClose(); }} title="Create Custom Role">
+    <Dialog open={true} onOpenChange={(o) => { if (!o) onClose(); }} title={isEdit ? "Edit Custom Role" : "Create Custom Role"}>
       <form onSubmit={handleCreate} className="space-y-4">
         <div>
-          <h2 className="text-lg font-semibold">Create Custom Role</h2>
+          <h2 className="text-lg font-semibold">{isEdit ? "Edit Custom Role" : "Create Custom Role"}</h2>
           <p className="text-caption text-muted-foreground">
-            Create a custom role — either start from a built-in role and add
-            permissions, or build the permission set entirely from scratch.
+            {isEdit
+              ? "Update the role's label, base, tier, and permission set. The key is fixed once created."
+              : "Create a custom role — either start from a built-in role and add permissions, or build the permission set entirely from scratch."}
           </p>
         </div>
 
@@ -1545,9 +1619,10 @@ function CreateCustomRoleDialog({
             value={key}
             onChange={(e) => setKey(e.target.value)}
             placeholder="e.g. SALES_LEAD"
+            disabled={isEdit}
           />
           <p className="text-caption text-muted-foreground">
-            Stored as CUSTOM_{key.trim().toUpperCase().replace(/\s+/g, "_") || "…"}
+            {isEdit ? `Fixed key: ${editing.key}` : `Stored as CUSTOM_${key.trim().toUpperCase().replace(/\s+/g, "_") || "…"}`}
           </p>
         </div>
 
@@ -1671,8 +1746,8 @@ function CreateCustomRoleDialog({
 
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-          <Button type="submit" size="sm" disabled={saving || !key.trim() || !label.trim() || (mode === "scratch" && grants.size === 0)}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Role"}
+          <Button type="submit" size="sm" disabled={saving || !label.trim() || (!isEdit && !key.trim()) || (mode === "scratch" && grants.size === 0)}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : isEdit ? "Save Changes" : "Create Role"}
           </Button>
         </div>
       </form>

@@ -60,8 +60,8 @@ const CHANNELS = [
  * Users can opt in/out of specific notification types per channel.
  */
 export function NotificationPreferences() {
-  const { data, loading, error, retry: fetchPrefs } = useFetch<Preference[]>("/api/notifications/preferences");
-  const prefs = data ?? [];
+  const { data, loading, error, retry: fetchPrefs } = useFetch<Preference[] | { preferences: Preference[] }>("/api/notifications/preferences");
+  const prefs = Array.isArray(data) ? data : data?.preferences ?? [];
   const [updating, setUpdating] = useState<string | null>(null);
 
   useEffect(() => {
