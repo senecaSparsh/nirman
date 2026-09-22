@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -237,6 +237,13 @@ const DPR_STATUS_CONFIG: Record<string, { label: string; variant: "warning" | "i
   SUB_ADMIN_APPROVED: { label: "Sub-Admin Approved", variant: "info" },
   APPROVED: { label: "Approved", variant: "success" },
   REJECTED: { label: "Rejected", variant: "danger" },
+};
+
+const ADVANCE_STATUS_CONFIG: Record<string, { label: string; variant: "info" | "warning" | "success" | "muted" }> = {
+  ACTIVE: { label: "Recovering", variant: "info" },
+  PAUSED: { label: "Paused", variant: "warning" },
+  SETTLED: { label: "Settled", variant: "success" },
+  CANCELLED: { label: "Cancelled", variant: "muted" },
 };
 
 function statusBadge<T extends Record<string, { label: string; variant: string }>>(cfg: T, status: string) {
@@ -1734,7 +1741,174 @@ function PayrollTab({ employee, canManagePayroll }: { employee: EmployeeProfileD
           </Link>
         </div>
       )}
+
+      <AdvancesSection employeeId={employee.id} canManagePayroll={canManagePayroll} />
     </div>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────
+//  Advances — salary advance / loan ledger inside the payroll tab.
+//  Issue + pause/resume/settle/cancel are hr.manage-gated; the
+//  monthlyRecovery amount is pulled into payroll automatically on
+//  the next generate (advanceDeductionsForPayroll).
+// ───────────────────────────────────────────────────────────────
+
+type AdvanceRow = {
+  id: string;
+  amount: number;
+  monthlyRecovery: number;
+  recoveredAmount: number;
+  outstanding: number;
+  status: "ACTIVE" | "PAUSED" | "SETTLED" | "CANCELLED";
+  issueDate: string;
+  notes: string | null;
+  issuedBy: string | null;
+};
+
+function AdvancesSection({ employeeId, canManagePayroll }: { employeeId: string; canManagePayroll: boolean }) {
+  const [advances, setAdvances] = useState<AdvanceRow[] | null>(null);
+  const [issueOpen, setIssueOpen] = useState(false);
+  const [acting, setActing] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/employees/${employeeId}/advances`);
+      const data = await res.json();
+      if (res.ok) setAdvances(data.advances ?? []);
+    } catch { /* ledger stays hidden on fetch failure */ }
+  }, [employeeId]);
+  useEffect(() => { load(); }, [load]);
+
+  const setStatus = async (advanceId: string, status: AdvanceRow["status"]) => {
+    setActing(advanceId);
+    try {
+      const res = await fetch(`/api/advances/${advanceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) { toast.success(`Advance ${status.toLowerCase()}`); await load(); }
+      else toast.error(data.error ?? "Failed to update advance");
+    } finally { setActing(null); }
+  };
+
+  const open = (advances ?? []).filter((a) => a.status === "ACTIVE" || a.status === "PAUSED");
+  const outstandingTotal = open.reduce((s, a) => s + a.outstanding, 0);
+
+  return (
+    <SectionCard
+      title="Salary Advances & Loans"
+      icon={CreditCard}
+      action={canManagePayroll ? (
+        <Button variant="outline" size="sm" onClick={() => setIssueOpen(true)}>
+          <Plus className="h-3.5 w-3.5" /> Issue advance
+        </Button>
+      ) : undefined}
+    >
+      {advances === null ? (
+        <div className="flex items-center gap-2 text-body text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading ledger…</div>
+      ) : advances.length === 0 ? (
+        <p className="text-body text-muted-foreground">No advances issued{canManagePayroll ? " — issue one to start a payroll recovery schedule." : "."}</p>
+      ) : (
+        <div className="space-y-3">
+          {outstandingTotal > 0 && (
+            <p className="text-meta text-muted-foreground">
+              Outstanding <span className="tnum font-semibold text-foreground">{formatCurrency(outstandingTotal)}</span> across {open.length} advance{open.length === 1 ? "" : "s"} — recovered automatically from payroll.
+            </p>
+          )}
+          <div className="space-y-2">
+            {advances.map((a) => (
+              <div key={a.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border border-border bg-subtle px-3 py-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="tnum font-semibold text-foreground">{formatCurrency(a.amount)}</span>
+                    {statusBadge(ADVANCE_STATUS_CONFIG, a.status)}
+                  </div>
+                  <div className="mt-0.5 text-meta text-muted-foreground">
+                    Issued {formatDate(a.issueDate)}{a.issuedBy ? ` by ${a.issuedBy}` : ""} · recovers {formatCurrency(a.monthlyRecovery)}/month
+                    {a.recoveredAmount > 0 && <> · recovered <span className="tnum">{formatCurrency(a.recoveredAmount)}</span></>}
+                    {a.outstanding > 0 && a.status !== "CANCELLED" && <> · <span className="tnum">{formatCurrency(a.outstanding)}</span> left</>}
+                    {a.notes && <> · {a.notes}</>}
+                  </div>
+                </div>
+                {canManagePayroll && (a.status === "ACTIVE" || a.status === "PAUSED") && (
+                  <div className="flex gap-2">
+                    {a.status === "ACTIVE" ? (
+                      <Button variant="outline" size="sm" disabled={acting === a.id} onClick={() => setStatus(a.id, "PAUSED")}>Pause</Button>
+                    ) : (
+                      <Button variant="outline" size="sm" disabled={acting === a.id} onClick={() => setStatus(a.id, "ACTIVE")}>Resume</Button>
+                    )}
+                    <Button variant="outline" size="sm" disabled={acting === a.id} onClick={() => setStatus(a.id, "SETTLED")}>Settle</Button>
+                    <Button variant="outline" size="sm" disabled={acting === a.id} onClick={() => setStatus(a.id, "CANCELLED")}>Cancel</Button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {issueOpen && (
+        <IssueAdvanceDialog
+          employeeId={employeeId}
+          onClose={() => setIssueOpen(false)}
+          onIssued={() => { setIssueOpen(false); load(); }}
+        />
+      )}
+    </SectionCard>
+  );
+}
+
+function IssueAdvanceDialog({ employeeId, onClose, onIssued }: { employeeId: string; onClose: () => void; onIssued: () => void }) {
+  const [amount, setAmount] = useState("");
+  const [monthlyRecovery, setMonthlyRecovery] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const issue = async () => {
+    const amt = Number(amount);
+    const rec = Number(monthlyRecovery);
+    if (!amt || amt <= 0) { toast.error("Enter a valid amount"); return; }
+    if (!rec || rec <= 0) { toast.error("Enter a monthly recovery amount"); return; }
+    if (rec > amt) { toast.error("Recovery can't exceed the advance amount"); return; }
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/employees/${employeeId}/advances`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: amt, monthlyRecovery: rec, notes: notes.trim() || undefined }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) { toast.success(`Advance of ${formatCurrency(amt)} issued — recovers ${formatCurrency(rec)}/month from payroll`); onIssued(); }
+      else toast.error(data.error ?? "Failed to issue advance");
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()} title="Issue salary advance" description="The amount is paid now and recovered in equal monthly deductions from payroll." size="sm">
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <label className="text-label font-medium text-foreground">Amount (₹)</label>
+          <Input type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="5000" />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-label font-medium text-foreground">Monthly recovery (₹)</label>
+          <Input type="number" min={0} value={monthlyRecovery} onChange={(e) => setMonthlyRecovery(e.target.value)} placeholder="500" />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-label font-medium text-foreground">Notes</label>
+          <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional — reason, agreed terms…" />
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button onClick={issue} disabled={saving}>
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+            Issue advance
+          </Button>
+        </div>
+      </div>
+    </Dialog>
   );
 }
 
