@@ -48,6 +48,18 @@ async function MobileAttendanceContent() {
   const scopedOpts = await getScopedFormOptions();
   // Comp visibility = shared flag (payroll.view|payroll.manage|hr.manage).
   const { canSeePayroll: canSeeComp } = await getEmployeeAccessScope();
+  // Same rule as assertAttendancePeriodOpen — surface it up front so a
+  // supervisor doesn't mark 30 rows and only learn at save time that the
+  // period is already paid.
+  const lockedPeriod = await prisma.payrollPeriod.findFirst({
+    where: {
+      companyId: company.id,
+      status: { in: ["PROCESSED", "PAID"] },
+      startDate: { lte: startOfToday },
+      endDate: { gte: startOfToday },
+    },
+    select: { month: true, year: true, status: true },
+  });
   const [projects, employees, existingAttendance] = await Promise.all([
     Promise.resolve(scopedOpts.projects),
     prisma.employee.findMany({
@@ -96,6 +108,7 @@ async function MobileAttendanceContent() {
         wageType: e.wageType,
       }))}
       existingAttendance={Object.fromEntries(attendanceMap)}
+      periodLocked={lockedPeriod ? { month: lockedPeriod.month, year: lockedPeriod.year, status: lockedPeriod.status } : null}
     />
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Users, CheckCircle2, Search, ChevronDown, ChevronRight, CheckCheck, Loader2, MapPin, X, FolderOpen } from "lucide-react";
+import { Users, CheckCircle2, Search, ChevronDown, ChevronRight, CheckCheck, Loader2, MapPin, X, FolderOpen, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrencyCompact, localDateISO } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
@@ -59,10 +59,14 @@ export function MobileAttendanceForm({
   projects,
   employees,
   existingAttendance,
+  periodLocked = null,
 }: {
   projects: { id: string; name: string }[];
   employees: EmployeeRow[];
   existingAttendance: ExistingAttendance;
+  /** Set when today's date falls inside a PROCESSED/PAID payroll period —
+   *  the API rejects writes, so warn up front instead of at save. */
+  periodLocked?: { month: number; year: number; status: string } | null;
 }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -289,6 +293,24 @@ export function MobileAttendanceForm({
 
   return (
     <div className="pb-32">
+      {/* ── Period-lock banner — payroll for this date is done ── */}
+      {periodLocked && (
+        <div
+          className="rounded-[0.625rem] border p-3 mb-3 flex items-start gap-2"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "color-mix(in srgb, var(--color-signal) 8%, var(--color-paper))" }}
+        >
+          <Lock className="size-4 shrink-0 mt-0.5" style={{ color: "var(--color-signal-dark)" }} />
+          <div>
+            <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>
+              Attendance locked — {periodLocked.month}/{periodLocked.year} payroll is {periodLocked.status.toLowerCase()}
+            </p>
+            <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+              Correct it with an adjustment in the next period.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ── Draft restoration banner ─────────────────────────── */}
       {hasDraft && !draftRestored && (
         <div className="pt-3">
@@ -584,16 +606,18 @@ export function MobileAttendanceForm({
         <div className="max-w-md mx-auto px-3.5 py-2">
           <button
             onClick={submit}
-            disabled={submitting}
+            disabled={submitting || !!periodLocked}
             className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
             {submitting ? (
               <Loader2 className="size-4 animate-spin" />
+            ) : periodLocked ? (
+              <Lock className="size-3.5" />
             ) : (
               <CheckCircle2 className="size-3.5" />
             )}
-            {submitting ? "Saving…" : `Save Attendance (${employees.length})`}
+            {submitting ? "Saving…" : periodLocked ? `Locked — payroll ${periodLocked.status.toLowerCase()}` : `Save Attendance (${employees.length})`}
           </button>
         </div>
       </div>
