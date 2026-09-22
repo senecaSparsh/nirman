@@ -30,6 +30,7 @@ import { ScopeEditorDialog } from "@/components/settings/scope-editor-dialog";
 import { PermissionsEditorDialog } from "@/components/settings/permissions-editor-dialog";
 import { CreateUserDialog } from "@/components/settings/create-user-dialog";
 import { ResetPasswordDialog } from "@/components/settings/reset-password-dialog";
+import { MemberHatsDialog } from "@/components/settings/member-hats-dialog";
 import { RolePermissionsDialog } from "@/components/settings/role-permissions-dialog";
 import { UserActivityDialog } from "@/components/settings/user-activity-dialog";
 import { BulkImportDialog } from "@/components/settings/bulk-import-dialog";
@@ -41,6 +42,8 @@ type UserRow = {
   email: string;
   name: string;
   role: string;
+  /** Extra hats held on this company membership (switchable via app header). */
+  secondaryRoles: string[];
   active: boolean;
   phone: string | null;
   designation: string | null;
@@ -867,6 +870,7 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
   const [scopeUser, setScopeUser] = useState<UserRow | null>(null);
   const [permsUser, setPermsUser] = useState<UserRow | null>(null);
   const [resetUser, setResetUser] = useState<UserRow | null>(null);
+  const [hatsUser, setHatsUser] = useState<UserRow | null>(null);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [showRolePerms, setShowRolePerms] = useState(false);
@@ -1139,6 +1143,7 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
                     </div>
                   </TD>
                   <TD>
+                    <div className="flex items-center gap-1.5">
                     {canManage && canManageUserRole(u.role) ? (
                       <Select
                         value={u.role}
@@ -1158,6 +1163,16 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
                     ) : (
                       <Badge variant={roleBadgeVariant(u.role)}>{roleLabelFor(u.role)}</Badge>
                     )}
+                    {(u.secondaryRoles?.length ?? 0) > 0 && (
+                      <Badge
+                        variant="muted"
+                        className="shrink-0"
+                        title={`Also holds: ${u.secondaryRoles.map((r) => roleLabelFor(r)).join(", ")}`}
+                      >
+                        +{u.secondaryRoles.length}
+                      </Badge>
+                    )}
+                    </div>
                   </TD>
                   <TD className="hidden lg:table-cell text-muted-foreground text-caption">
                     {u.department ?? "—"}
@@ -1198,6 +1213,14 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
                           onClick={() => setPermsUser(u)}
                         >
                           <Lock className="size-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          title="Secondary roles (hats)"
+                          onClick={() => setHatsUser(u)}
+                        >
+                          <HardHat className="size-3.5" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -1290,6 +1313,26 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
           canEdit={canManage}
           onClose={() => setPermsUser(null)}
           onSaved={() => { setPermsUser(null); router.refresh(); }}
+        />
+      )}
+
+      {/* Secondary hats (multi-role) editor */}
+      {hatsUser && (
+        <MemberHatsDialog
+          userId={hatsUser.id}
+          userName={hatsUser.name}
+          primaryRoleLabel={roleLabelFor(hatsUser.role)}
+          currentSecondary={hatsUser.secondaryRoles ?? []}
+          options={[
+            ...assignableRoles(actorRole)
+              .filter((r) => r !== hatsUser.role)
+              .map((r) => ({ key: r, label: ROLE_LIST.find((rl) => rl.key === r)?.label ?? r })),
+            ...assignableCustomRoles
+              .filter((cr) => cr.key !== hatsUser.role)
+              .map((cr) => ({ key: cr.key, label: cr.label })),
+          ]}
+          onClose={() => setHatsUser(null)}
+          onSaved={() => { setHatsUser(null); router.refresh(); }}
         />
       )}
 

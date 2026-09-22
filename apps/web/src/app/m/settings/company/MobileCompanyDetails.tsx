@@ -711,6 +711,10 @@ function MembersSection({
   };
   const [adding, setAdding] = React.useState(false);
   const [removing, setRemoving] = React.useState<string | null>(null);
+  // Secondary hats — which member's extra-role editor is open + the pending set.
+  const [hatsFor, setHatsFor] = React.useState<string | null>(null);
+  const [hatsDraft, setHatsDraft] = React.useState<Set<string>>(new Set());
+  const [hatsSaving, setHatsSaving] = React.useState(false);
 
   async function addMember() {
     if (!addEmail.trim()) { toast.error("Email is required"); return; }
@@ -749,6 +753,26 @@ function MembersSection({
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
+    }
+  }
+
+  async function saveHats(memberId: string, primaryRole: string) {
+    setHatsSaving(true);
+    try {
+      const res = await fetch(`/api/companies/${data.id}/members/${memberId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: primaryRole, secondaryRoles: Array.from(hatsDraft) }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed");
+      toast.success("Hats updated — they can switch roles from the app header");
+      setHatsFor(null);
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setHatsSaving(false);
     }
   }
 
@@ -868,6 +892,79 @@ function MembersSection({
                     {m.lastLoginAt ? formatDate(m.lastLoginAt) : "never"}
                   </span>
                 </div>
+
+                {/* Secondary hats — extra roles the member can switch into.
+                    Visible read-only to everyone; editable by managers who can
+                    manage this member's primary role. */}
+                {((m.secondaryRoleLabels?.length ?? 0) > 0 || (canManage && canManageMemberRole(m.role))) && (
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {(m.secondaryRoleLabels?.length ?? 0) > 0 ? (
+                        m.secondaryRoleLabels!.map((label) => (
+                          <Badge key={label} tone="neutral" className="text-m-caption">
+                            +{label}
+                          </Badge>
+                        ))
+                      ) : (
+                        canManage && canManageMemberRole(m.role) && (
+                          <span className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>no extra hats</span>
+                        )
+                      )}
+                      {canManage && canManageMemberRole(m.role) && (
+                        <button
+                          onClick={() => {
+                            if (hatsFor === m.id) { setHatsFor(null); return; }
+                            setHatsDraft(new Set(m.secondaryRoles));
+                            setHatsFor(m.id);
+                          }}
+                          className="text-m-caption font-bold press ml-auto"
+                          style={{ color: "var(--color-primary-600, var(--color-ink-700))" }}
+                        >
+                          {hatsFor === m.id ? "Close" : ((m.secondaryRoleLabels?.length ?? 0) > 0 ? "Edit hats" : "Add hats")}
+                        </button>
+                      )}
+                    </div>
+                    {hatsFor === m.id && (
+                      <div className="rounded-[0.5rem] border p-2.5 flex flex-col gap-1.5" style={{ borderColor: "var(--color-line)" }}>
+                        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                          Extra hats — they can switch from the app header. Only the worn hat&rsquo;s permissions apply.
+                        </p>
+                        {assignableOptions.filter((o) => o.value !== m.role).map((o) => {
+                          const held = hatsDraft.has(o.value);
+                          return (
+                            <button
+                              key={o.value}
+                              onClick={() => setHatsDraft((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(o.value)) next.delete(o.value); else next.add(o.value);
+                                return next;
+                              })}
+                              className="flex items-center gap-2 rounded-[0.4rem] px-2 py-1.5 text-left press"
+                              style={{ backgroundColor: held ? "var(--color-ink-100)" : "transparent" }}
+                            >
+                              <span
+                                className="size-4 rounded-[0.25rem] border flex items-center justify-center shrink-0"
+                                style={{ borderColor: "var(--color-line)", backgroundColor: held ? "var(--color-ink-950)" : "transparent" }}
+                              >
+                                {held && <span className="text-[10px]" style={{ color: "var(--color-paper)" }}>✓</span>}
+                              </span>
+                              <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-800)" }}>{o.label}</span>
+                            </button>
+                          );
+                        })}
+                        <button
+                          onClick={() => saveHats(m.id, m.role)}
+                          disabled={hatsSaving}
+                          className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2 text-m-caption font-bold press disabled:opacity-50"
+                          style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+                        >
+                          {hatsSaving ? <Loader2 className="size-3.5 animate-spin" /> : "Save hats"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {canManage && (
                   <button
                     onClick={() => removeMember(m.id, m.name)}
