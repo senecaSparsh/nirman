@@ -510,3 +510,49 @@ Commits `d8496379`, `a7a21247`.
 - DPRs: 9/21 + 9/23 + 9/24 on Greenfield (the 9/24 one contains inert escaped
   XSS payloads for future print-page verification); dept `C-Test Dept` created
   - deleted.
+
+## Mobile sweep — round 4 (UI-driven, 390px)
+
+All flows verified through real clicks at phone width (desktop UA + `__surface=1`):
+
+- `/m/dprs` — list (Submit→Sub-Admin→Admin pipeline per report) → FAB form
+  (project/work-type/qty/progress/weather/materials/labour/photos) → empty-submit
+  validation → detail page → **reject requires reason** → reason persists in the
+  approval trail. Stored XSS payload renders inert-escaped on the detail page.
+- `/m/stock-out?mode=issue` — full field-ops issue form (route pickers,
+  receiver, vehicle details, photo, line items with live availability) →
+  MaterialIssue PENDING + GatePass PENDING auto-minted (verified in DB; issue
+  can't leave until approved).
+- `/m/material-sales/new` — customer/project/line items (live stock + GST
+  preview) → Credit/Pay-Now → **same gate-pass enforcement** on sale stock-out.
+- `/m/stock?tab=counts` — count form loads per-location system qty → per-item
+  counted inputs → mismatch + net-Δ preview is honest (uncounted previews as 0).
+- `/m/petty-cash` — float sheet (balance/in/spent/top-ups) → Record Spend /
+  Top Up / Share → spend posts 201, insufficient-balance guard fires.
+- `/m/expense-claims/new` — claimant + project + multi-line + receipt upload +
+  GST% → Create & Submit → SUBMITTED lands in the approval queue.
+- `/m/leads` — FAB → full lead form (contact, source, priority, project/unit
+  interest, budget, owner, follow-up) → created + success state.
+- `/m/sales` hub → `/m/units/[id]` — unit card with margin math + sale-in-
+  progress panel + Sell/Share/Edit/Status/Valuation/Delete.
+- `/m/gate-pass` — status buckets + inline expand → items/destination/audit
+  trail + Print/Reject/Approve/Cancel; reject requires a reason.
+- `/m/site/attendance` — **payroll-lock banner live** ("9/2026 payroll is paid
+  — correct with an adjustment next period"), draft restore ("saved 56 min
+  ago → Restore"), 7-state grid, filters, counters.
+- Notification tap-through → deep-links into the entity detail.
+- `/m/procurement/[id]` — full PO detail (pipeline, financials, logistics,
+  lines, receipts, Approve/Cancel/Print).
+
+### Fixed this round
+
+- `c72ee73c` — `GET /api/purchase-orders/[id]` omitted `charges` + the 6 charge
+  totals the detail view reads; post-action refetch crashed the page
+  (`detail.charges.length`). Affected both surfaces.
+
+### Notes (not bugs)
+
+- Selector pickers show "No stock here" while availability is still fetching —
+  correct data on resolve; a "Loading…" state would be nicer polish.
+- Icon-only FABs carry `aria-label` (verified working everywhere).
+- `/m/tasks` 404 is by design — tasks live at `/m/site/tasks`.
