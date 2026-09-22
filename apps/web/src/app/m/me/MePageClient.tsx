@@ -137,6 +137,8 @@ export interface MePageInitial {
       status: string;
     }[];
     presentDaysThisMonth: number;
+    /** Last 14 days at a glance — which days were marked what. */
+    recentAttendance: { date: string; status: string }[];
     /** Open advances/loans — what the worker still owes back via payroll. */
     advances: {
       id: string;
@@ -649,6 +651,30 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
               <p className="text-m-caption mt-2" style={{ color: "var(--color-ink-500)" }}>
                 Present this month: <span className="font-bold" style={{ color: "var(--color-ink-950)" }}>{initial.hr.presentDaysThisMonth} day{initial.hr.presentDaysThisMonth === 1 ? "" : "s"}</span>
               </p>
+              {/* Last-14-days strip — "did they mark me right?" — one cell per
+                  marked day, status-coloured, newest first. */}
+              {initial.hr.recentAttendance.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {initial.hr.recentAttendance.map((a) => {
+                    const d = new Date(a.date + "T00:00:00");
+                    const paid = ["PRESENT", "OVERTIME", "LATE", "PAID_LEAVE"].includes(a.status);
+                    const half = a.status === "HALF_DAY";
+                    return (
+                      <span
+                        key={a.date}
+                        title={`${a.date} — ${a.status.replaceAll("_", " ").toLowerCase()}`}
+                        className="rounded px-1.5 py-0.5 text-[0.65rem] font-semibold tabular-nums"
+                        style={{
+                          backgroundColor: paid ? "var(--color-success-soft)" : half ? "var(--color-warning-soft)" : "var(--color-danger-soft)",
+                          color: paid ? "var(--color-success)" : half ? "var(--color-warning)" : "var(--color-danger)",
+                        }}
+                      >
+                        {d.getDate()}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
               {/* Open advances — the worker's own ledger ("kitna udhaar bacha
                   hai"): what was taken, recovered, and still being deducted. */}
               {initial.hr.advances.length > 0 && (

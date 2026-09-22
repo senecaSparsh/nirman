@@ -106,7 +106,8 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
   if (employee) {
     const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    const [payslip, leaves, presentDays, advances] = await Promise.all([
+    const stripStart = new Date(now.getTime() - 13 * 24 * 60 * 60 * 1000);
+    const [payslip, leaves, presentDays, recentAttendance, advances] = await Promise.all([
       // Latest PAID payslip — what the worker actually got last.
       prisma.payrollLine.findFirst({
         where: { employeeId: employee.id, payrollPeriod: { status: "PAID" } },
@@ -145,6 +146,14 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
           date: { gte: monthStart },
           status: { in: ["PRESENT", "HALF_DAY", "PAID_LEAVE", "OVERTIME", "LATE"] },
         },
+      }),
+      // Last 14 days at a glance — "did they mark me right?" — the strip
+      // the count alone can't answer.
+      prisma.workerAttendance.findMany({
+        where: { employeeId: employee.id, date: { gte: stripStart } },
+        orderBy: { date: "desc" },
+        take: 14,
+        select: { date: true, status: true },
       }),
       // Outstanding advances — "kitna udhaar bacha hai" — the worker's own
       // ledger: what was taken, what's recovered, what's still owed.
@@ -190,6 +199,10 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
         status: l.status,
       })),
       presentDaysThisMonth: presentDays,
+      recentAttendance: recentAttendance.map((a) => ({
+        date: a.date.toISOString().slice(0, 10),
+        status: a.status,
+      })),
       advances: advances.map((a) => ({
         id: a.id,
         amount: Number(a.amount),
