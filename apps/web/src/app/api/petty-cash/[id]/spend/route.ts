@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission, getUserPermissions } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, getUserPermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { recordPettyCashSpend } from "@nirman/services";
 
@@ -16,9 +16,11 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
 
   // Custodian scoping: only the float's custodian (or a finance manager
   // recording on their behalf) can spend from it. Unassigned floats stay
-  // open to any expense-creator.
+  // open to any expense-creator. The float must also sit inside the
+  // caller's project/department scope — the spend lands on the float's
+  // project, so without this a scoped user could post expenses outside it.
   const float = await prisma.pettyCashFloat.findFirst({
-    where: { id: floatId, companyId: company.id },
+    where: { id: floatId, companyId: company.id, ...await scopeWhere("PettyCashFloat", {}) },
     select: { custodianId: true },
   });
   if (!float) return json({ error: "Petty cash float not found" }, { status: 404 });

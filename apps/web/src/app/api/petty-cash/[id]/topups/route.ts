@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
+import { prisma } from "@nirman/db";
 import { topUpPettyCash, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -21,6 +22,13 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
+  // Scope guard — a project/department-scoped finance user may only top up
+  // floats inside their scope (the list hides the rest, but mutation must
+  // fail closed too).
+  const visible = await prisma.pettyCashFloat.count({
+    where: { id, companyId: company.id, ...await scopeWhere("PettyCashFloat", {}) },
+  });
+  if (visible === 0) return json({ error: "Petty cash float not found" }, { status: 404 });
   try {
     await topUpPettyCash({
       floatId: id,
