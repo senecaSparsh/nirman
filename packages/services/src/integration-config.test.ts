@@ -59,3 +59,38 @@ describe("encryptSecret / decryptSecret", () => {
     expect(decryptSecret(encrypted)).toBe(unicode);
   });
 });
+
+// ── Secret preservation on update ──────────────────────────────────
+// The UI masks secrets as "••••••••" and submits "" for untouched fields;
+// the upsert replaces `config` wholesale, so without the merge a save that
+// doesn't re-send the secret silently wipes the stored credential.
+
+describe("upsertIntegrationConfig secret preservation", () => {
+  it("keeps the stored secret when the update sends an empty/masked value", async () => {
+    const { upsertIntegrationConfig, listIntegrationConfigs } = await import("./integration-config");
+    const { resetDb, createTestFixture } = await import("./test/setup");
+    await resetDb();
+    const { company } = await createTestFixture();
+
+    // First save with a real token.
+    await upsertIntegrationConfig({
+      companyId: company.id,
+      key: "WHATSAPP",
+      enabled: true,
+      config: { accessToken: "real-token-abc", phoneNumberId: "123", apiVersion: "v23.0" },
+    });
+
+    // Second save — the form re-sends "" for the masked secret (as the UI does).
+    await upsertIntegrationConfig({
+      companyId: company.id,
+      key: "WHATSAPP",
+      enabled: false,
+      config: { accessToken: "", phoneNumberId: "456", apiVersion: "v23.0" },
+    });
+
+    const [cfg] = await listIntegrationConfigs(company.id);
+    expect(cfg?.enabled).toBe(false);
+    expect((cfg?.config as Record<string, unknown>).accessToken).toBe("real-token-abc");
+    expect((cfg?.config as Record<string, unknown>).phoneNumberId).toBe("456");
+  });
+});

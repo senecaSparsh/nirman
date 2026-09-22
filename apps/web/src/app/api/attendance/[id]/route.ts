@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { deleteAttendance, logAction, ServiceError } from "@nirman/services";
+import { assertAttendancePeriodOpen, deleteAttendance, logAction, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, attendanceSchema, requirePermission, requireAnyPermission, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
@@ -30,6 +30,13 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       where: { id, companyId: company.id, ...await scopeWhere("WorkerAttendance", {}) },
     });
     if (!existing) throw new ServiceError("Attendance record not found in this company", 404);
+    // PAID_LEAVE rows are owned by the leave flow — editing one here would
+    // detach it from its LeaveRequest (balance/audit). Cancel the leave to
+    // remove the days.
+    if (existing.status === "PAID_LEAVE" || (parsed.data.status as string | undefined) === "PAID_LEAVE") {
+      throw new ServiceError("Paid-leave days are managed through the leave request — cancel the approved leave instead", 409);
+    }
+    await assertAttendancePeriodOpen(company.id, existing.date, tx);
     const att = await tx.workerAttendance.update({
       where: { id },
       data: {

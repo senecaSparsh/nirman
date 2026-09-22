@@ -8,8 +8,8 @@ import {
   type ModulePermission,
   type ScopeEntry,
 } from "@nirman/services";
-import { apiHandler, canManageRole, getActingRole, getCompany, json, requirePermission, assertCanManageEmployee } from "@/lib/server";
-import { PERM, ALL_ROLES, canAssignRole, type Role } from "@/lib/roles";
+import { apiHandler, canManageRole, getActingRole, getCompany, getUserPermissions, json, requirePermission, assertCanManageEmployee } from "@/lib/server";
+import { PERM, ALL_ROLES, ALL_PERMISSIONS, canAssignRole, type Role } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 
 /**
@@ -148,6 +148,28 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
         { error: `You cannot assign the ${sr} role — it is at or above your tier.` },
         { status: 403 },
       );
+    }
+  }
+
+  // ── Grant-scope guard on per-user permission extras: the actor can only ──
+  // hand out permissions they themselves hold (same rule as the
+  // role-permission override route). OWNER/ADMIN bypass — their set is *.
+  if (permissions && permissions.length > 0) {
+    const validPerms = new Set(ALL_PERMISSIONS);
+    const unknown = permissions.filter((p) => !validPerms.has(p));
+    if (unknown.length > 0) {
+      return json({ error: `Unknown permissions: ${unknown.join(", ")}` }, { status: 400 });
+    }
+    const actorPerms = await getUserPermissions();
+    if (actorPerms !== ALL_PERMISSIONS) {
+      const actorSet = new Set(actorPerms);
+      const outOfScope = permissions.filter((p) => !actorSet.has(p));
+      if (outOfScope.length > 0) {
+        return json(
+          { error: `You can't grant permissions you don't have: ${outOfScope.join(", ")}` },
+          { status: 403 },
+        );
+      }
     }
   }
   if (!companyPhoneId && !newPhoneNumber) {

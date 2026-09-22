@@ -44,7 +44,6 @@ export function MeSettingsView({ user, roleLabel, roleDescription, memberships }
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: profileForm.name.trim(),
-          phone: profileForm.phone.trim() || null,
         }),
       });
       if (!res.ok) {
@@ -159,11 +158,13 @@ export function MeSettingsView({ user, roleLabel, roleDescription, memberships }
           <div>
             <Label>Phone</Label>
             <Input
-              value={profileForm.phone}
-              onChange={(e) => setProfileForm((f) => ({ ...f, phone: e.target.value }))}
-              disabled={isDevBypass || savingProfile}
-              placeholder="+91 98765 43210"
+              value={profileForm.phone || "—"}
+              disabled
+              className="bg-muted/50"
             />
+            <p className="mt-1 text-micro text-muted-foreground">
+              Phone is your login ID — change it through the verified Change Phone flow or ask HR.
+            </p>
           </div>
           <div>
             <Label>Role</Label>
@@ -197,7 +198,7 @@ export function MeSettingsView({ user, roleLabel, roleDescription, memberships }
         )}
         {!isDevBypass && (
           <div className="mt-4 flex justify-end">
-            <Button onClick={handleSaveProfile} disabled={savingProfile || (profileForm.name === user.name && profileForm.phone === (user.phone ?? ""))}>
+            <Button onClick={handleSaveProfile} disabled={savingProfile || profileForm.name === user.name}>
               {savingProfile ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
               Save Profile
             </Button>

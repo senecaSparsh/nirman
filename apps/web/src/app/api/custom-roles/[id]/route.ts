@@ -116,6 +116,11 @@ export const PUT = apiHandler(async (req: NextRequest, { params }: { params: Pro
         { status: 403 },
       );
     }
+    // Keep the org-chart position consistent — a demoted role can't keep
+    // displaying at its old level (hierarchyLevel must sit at/below tier).
+    if (role.hierarchyLevel != null && role.hierarchyLevel < parsed.data.tier) {
+      updates.hierarchyLevel = parsed.data.tier;
+    }
   }
 
   // ── Edit gate: the role's own tier must be below the actor's — same ──

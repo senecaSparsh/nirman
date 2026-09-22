@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, canManageRoleSet, getActingRole, getCompany, json, requirePermission, resolveRolePermissions } from "@/lib/server";
+import { apiHandler, canManageRoleSet, getActingRole, getCompany, getUserPermissions, json, requirePermission, resolveRolePermissions } from "@/lib/server";
 import { PERM, ALL_PERMISSIONS, isCustomRole } from "@/lib/roles";
 
 /**
@@ -53,18 +53,24 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   let displayRole = normalizeRole(wornRole);
   let customPerms: string[] = [];
   let customLabel: string | null = null;
+  // Scratch-mode roles (baseRole null) have no base matrix — the role's own
+  // permissions ARE the complete set; don't imply a SUPERVISOR floor.
+  let scratchMode = false;
   if (isCustomRole(wornRole)) {
     const customRole = await prisma.customRole
       .findFirst({ where: { companyId: company.id, key: wornRole }, select: { baseRole: true, permissions: true, label: true } })
       .catch(() => null);
     if (customRole) {
+      scratchMode = !customRole.baseRole;
       displayRole = normalizeRole(customRole.baseRole);
       customPerms = customRole.permissions;
       customLabel = customRole.label;
     }
   }
   const roleDef = ROLES[displayRole];
-  const baseRolePerms = roleDef.permissions === "*" ? ALL_PERMISSIONS : [...new Set([...roleDef.permissions, ...customPerms])];
+  const baseRolePerms = scratchMode
+    ? [...new Set(customPerms)]
+    : roleDef.permissions === "*" ? ALL_PERMISSIONS : [...new Set([...roleDef.permissions, ...customPerms])];
 
   return json({
     membershipId: membership.id,
@@ -132,6 +138,23 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       { error: "You don't have authority to manage this user's permissions." },
       { status: 403 },
     );
+  }
+
+  // ── Grant-scope guard: the actor can only grant permissions they ──
+  // themselves hold. Without this, an HR_MANAGER could mint an account
+  // stronger than themselves (e.g. finance.manage on a junior). OWNER/ADMIN
+  // bypass — their set is ALL_PERMISSIONS. Same rule as custom-role create.
+  const actorPerms = await getUserPermissions();
+  if (actorPerms !== ALL_PERMISSIONS) {
+    const actorPermSet = new Set(actorPerms);
+    const outOfScope = permissions.filter((p) => !actorPermSet.has(p));
+    if (outOfScope.length > 0) {
+      const humanize = (p: string) => (p.split(".")[0] ?? p).replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      return json(
+        { error: `You can't grant permissions you don't have: ${outOfScope.map(humanize).join(", ")}` },
+        { status: 403 },
+      );
+    }
   }
 
   // Replace all user permission rows atomically

@@ -233,6 +233,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       blockers: parsed.data.blockers ?? undefined,
       tomorrowPlan: parsed.data.tomorrowPlan ?? undefined,
       notes: parsed.data.notes ?? undefined,
+      photoUrls: parsed.data.photoUrls,
+      skipAttendanceCheck: parsed.data.skipAttendanceCheck ?? false,
       materialLines: parsed.data.materialLines?.map((l) => ({
         materialId: l.materialId,
         qty: l.qty,

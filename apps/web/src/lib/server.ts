@@ -812,11 +812,19 @@ export const landCostComponentSchema = z.object({
   notes: z.string().max(1000).optional().nullable(),
 });
 
+/** Optional email that tolerates a cleared field — an empty string means
+ *  "unset", not a validation failure. Without this, forms sending "" for a
+ *  cleared email fail the whole save with "Invalid email". */
+const optionalEmail = z.preprocess(
+  (v) => (v === "" ? null : v),
+  z.string().email("Invalid email").optional().nullable(),
+);
+
 // ── Land Seller ──
 export const landSellerSchema = z.object({
   name: z.string().min(1, "Name is required").max(160),
   phone: z.string().max(30).optional().nullable(),
-  email: z.string().email("Invalid email").optional().nullable(),
+  email: optionalEmail,
   gstin: z.string().max(20).optional().nullable(),
   address: z.string().max(500).optional().nullable(),
   notes: z.string().max(1000).optional().nullable(),
@@ -890,7 +898,7 @@ export const builtUnitEditSchema = z.object({
 export const customerSchema = z.object({
   name: z.string().min(1, "Name is required"),
   phone: z.string().optional().nullable(),
-  email: z.string().email("Invalid email").optional().nullable(),
+  email: optionalEmail,
   gstin: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
 });
@@ -1124,7 +1132,7 @@ export const tenancySchema = z.object({
   projectId: z.string().optional().nullable(),
   tenantName: z.string().min(1, "Tenant name is required"),
   tenantPhone: z.string().optional().nullable(),
-  tenantEmail: z.string().email("Invalid email").optional().nullable(),
+  tenantEmail: optionalEmail,
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
   monthlyRent: moneyField("Monthly rent must be > 0"),
@@ -1146,7 +1154,7 @@ export const tenancySchema = z.object({
 export const editTenancySchema = z.object({
   tenantName: z.string().min(1, "Tenant name is required"),
   tenantPhone: z.string().optional().nullable(),
-  tenantEmail: z.string().email("Invalid email").optional().nullable(),
+  tenantEmail: optionalEmail,
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
   monthlyRent: moneyField("Monthly rent must be > 0"),
@@ -1179,7 +1187,7 @@ export const rentPaymentSchema = z.object({
 export const changeTenantSchema = z.object({
   newTenantName: z.string().min(1, "New tenant name is required"),
   newTenantPhone: z.string().optional().nullable(),
-  newTenantEmail: z.string().email("Invalid email").optional().nullable(),
+  newTenantEmail: optionalEmail,
   newCustomerId: z.string().optional().nullable(),
   newMonthlyRent: z.coerce.number().finite().positive().optional(),
   newRentAgreementNo: z.string().optional().nullable(),
@@ -1278,7 +1286,7 @@ export const subcontractorSchema = z.object({
   name: z.string().min(1, "Name is required"),
   gstin: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
-  email: z.string().email("Invalid email").optional().nullable(),
+  email: optionalEmail,
   address: z.string().optional().nullable(),
   trade: z.string().optional().nullable(),
 });
@@ -1324,7 +1332,7 @@ export const employeeSchema = z.object({
   name: z.string().min(1, "Name is required"),
   trade: z.string().optional().nullable(),
   phone: z.string().optional().nullable(),
-  email: z.string().email("Invalid email").optional().nullable(),
+  email: optionalEmail,
   // Multi-company onboarding: create the same employee in multiple companies
   // (parent + children). If omitted, the active company is used.
   companyIds: z.array(z.string()).optional(),
@@ -1342,6 +1350,10 @@ export const employeeSchema = z.object({
   // Reporting line — the Employee ID of the manager this person reports to.
   // Works for all employees, including those without login accounts.
   reportsToEmployeeId: z.string().optional().nullable(),
+  // Membership reporting line — the UserCompany ID of the manager, applied
+  // to the linked user account (drives approvals/delegation). The desktop
+  // edit dialog sends this key; stripping it silently dropped the save.
+  reportsToMembershipId: z.string().optional().nullable(),
   // Employment terms (dossier) — accepted at creation time
   employmentType: z.enum(["PERMANENT", "CONTRACT", "CASUAL", "PROBATION", "INTERN"]).optional().nullable(),
   noticePeriodDays: z.coerce.number().int().min(0).max(365).optional().nullable(),
@@ -1392,12 +1404,15 @@ export const attendanceSchema = z.object({
   checkIn: z.string().optional().nullable(),
   checkOut: z.string().optional().nullable(),
   hoursWorked: z.coerce.number().min(0).max(24).optional().nullable(),
-  status: z.enum(["PRESENT", "ABSENT", "HALF_DAY", "OVERTIME", "LEAVE", "LATE", "PAID_LEAVE", "NON_PAID_LEAVE"]),
+  // PAID_LEAVE is intentionally absent — paid-leave days may only be minted
+  // by an approved LeaveRequest (balance check + approval + audit). The
+  // matrix can mark unpaid leave/absence, never a paid day for free.
+  status: z.enum(["PRESENT", "ABSENT", "HALF_DAY", "OVERTIME", "LEAVE", "LATE", "NON_PAID_LEAVE"]),
   notes: z.string().max(500).optional().nullable(),
-  checkInLat: z.number().optional().nullable(),
-  checkInLng: z.number().optional().nullable(),
-  checkOutLat: z.number().optional().nullable(),
-  checkOutLng: z.number().optional().nullable(),
+  checkInLat: z.number().min(-90).max(90).optional().nullable(),
+  checkInLng: z.number().min(-180).max(180).optional().nullable(),
+  checkOutLat: z.number().min(-90).max(90).optional().nullable(),
+  checkOutLng: z.number().min(-180).max(180).optional().nullable(),
   checkInLocation: z.string().max(300).optional().nullable(),
   checkOutLocation: z.string().max(300).optional().nullable(),
   geoFenceOk: z.boolean().optional().nullable(),
@@ -1409,15 +1424,15 @@ export const bulkAttendanceSchema = z.object({
   projectId: z.string().optional().nullable(),
   records: z.array(z.object({
     employeeId: z.string().min(1),
-    status: z.enum(["PRESENT", "ABSENT", "HALF_DAY", "OVERTIME", "LEAVE", "LATE", "PAID_LEAVE", "NON_PAID_LEAVE"]),
+    status: z.enum(["PRESENT", "ABSENT", "HALF_DAY", "OVERTIME", "LEAVE", "LATE", "NON_PAID_LEAVE"]),
     checkIn: z.string().optional().nullable(),
     checkOut: z.string().optional().nullable(),
     hoursWorked: z.coerce.number().min(0).max(24).optional().nullable(),
     notes: z.string().max(500).optional().nullable(),
-    checkInLat: z.number().optional().nullable(),
-    checkInLng: z.number().optional().nullable(),
-    checkOutLat: z.number().optional().nullable(),
-    checkOutLng: z.number().optional().nullable(),
+    checkInLat: z.number().min(-90).max(90).optional().nullable(),
+    checkInLng: z.number().min(-180).max(180).optional().nullable(),
+    checkOutLat: z.number().min(-90).max(90).optional().nullable(),
+    checkOutLng: z.number().min(-180).max(180).optional().nullable(),
     checkInLocation: z.string().max(300).optional().nullable(),
     checkOutLocation: z.string().max(300).optional().nullable(),
   })).min(1, "At least one attendance record is required"),
@@ -1427,6 +1442,9 @@ export const bulkAttendanceSchema = z.object({
 export const generatePayrollSchema = z.object({
   month: z.coerce.number().int().min(1).max(12),
   year: z.coerce.number().int().min(2000).max(2100),
+  // Regenerating an existing DRAFT wipes its lines (including manual edits)
+  // — the client must confirm it understands the overwrite.
+  confirm: z.boolean().optional(),
 });
 
 export const payrollLineUpdateSchema = z.object({
@@ -1798,36 +1816,56 @@ export async function getUserRole(): Promise<string> {
 export async function getAssignedProjectIds(): Promise<string[] | null> {
   const user = await getCurrentUser();
   if (!user) return null;
-  // OWNER, ADMIN, DEVELOPER, MANAGER are unscoped — they see all projects.
-  // Resolved on the OWN hat (getOwnRole), not the acting role: delegation
-  // lifts the delegate's permissions but must not widen their sight lines —
-  // a project-scoped supervisor delegated by the OWNER keeps their own
-  // project scope, so delegated wildcard power can't browse the company.
+  const company = await getCompany();
+
+  // ── Explicit scopeType ALWAYS wins over the role default. ──
+  // Previously the unscoped-role check ran first, so a member explicitly
+  // PROJECT-scoped while wearing a management-tier hat (or a custom role
+  // resolving to one) silently saw every project. Resolve scope first;
+  // only fall back to role defaults when no explicit scope exists.
+  const [membership, hierarchical] = await Promise.all([
+    prisma.userCompany.findUnique({
+      where: { userId_companyId: { userId: user.id, companyId: company.id } },
+      select: { scopeType: true },
+    }),
+    resolveUserScope(user.id, company.id),
+  ]);
+  const hasExplicitScope = !!membership?.scopeType;
+
+  if (hierarchical) {
+    if (hierarchical.scopeType === "COMPANY") {
+      return null; // explicit or role-default company scope = unscoped
+    }
+    if (hierarchical.scopeType === "PROJECT") {
+      if (hierarchical.projectIds.length > 0) return hierarchical.projectIds;
+      // Explicit PROJECT scope with no entries = sees nothing. No explicit
+      // scope → fall through to the legacy table for pre-migration members.
+      if (hasExplicitScope) return [];
+    }
+    if (hierarchical.scopeType === "DEPARTMENT") {
+      if (hierarchical.departmentIds.length > 0) {
+        const employeesInDept = await prisma.employee.findMany({
+          where: { companyId: company.id, deletedAt: null, departmentId: { in: hierarchical.departmentIds }, activeProjectId: { not: null } },
+          select: { activeProjectId: true },
+          distinct: ["activeProjectId"],
+        });
+        const projectIds = employeesInDept.map((e) => e.activeProjectId).filter(Boolean) as string[];
+        return projectIds; // empty = no projects visible
+      }
+      if (hasExplicitScope) return [];
+    }
+  }
+
+  // No membership scope resolved — role-based default. Resolved on the OWN
+  // hat (getOwnRole), not the acting role: delegation lifts the delegate's
+  // permissions but must not widen their sight lines — a project-scoped
+  // supervisor delegated by the OWNER keeps their own project scope.
   const ownRole = await getOwnRole();
   if (ownRole === "OWNER" || ownRole === "ADMIN" || ownRole === "DEVELOPER" || ownRole === "PROJECT_DIRECTOR" || ownRole === "PROJECT_MANAGER") {
     return null; // null = unscoped (all projects)
   }
-  // SUPERVISOR, SALES, ACCOUNTANT are scoped to their assigned projects.
-  // Prefer the hierarchical UserScope (PROJECT scope) when present; fall back
-  // to the legacy ProjectAssignment table for backwards compatibility.
-  const company = await getCompany();
-  const hierarchical = await resolveUserScope(user.id, company.id);
-  if (hierarchical && hierarchical.scopeType === "COMPANY") {
-    return null; // explicit company scope = unscoped — don't fall to legacy table
-  }
-  if (hierarchical && hierarchical.scopeType === "PROJECT" && hierarchical.projectIds.length > 0) {
-    return hierarchical.projectIds;
-  }
-  // DEPARTMENT scope: infer project IDs from employees in those departments
-  if (hierarchical && hierarchical.scopeType === "DEPARTMENT" && hierarchical.departmentIds.length > 0) {
-    const employeesInDept = await prisma.employee.findMany({
-      where: { companyId: company.id, deletedAt: null, departmentId: { in: hierarchical.departmentIds }, activeProjectId: { not: null } },
-      select: { activeProjectId: true },
-      distinct: ["activeProjectId"],
-    });
-    const projectIds = employeesInDept.map((e) => e.activeProjectId).filter(Boolean) as string[];
-    return projectIds.length > 0 ? projectIds : []; // empty = no projects visible
-  }
+  // SUPERVISOR, SALES, ACCOUNTANT are scoped to their assigned projects —
+  // legacy ProjectAssignment fallback for members without UserScope rows.
   const assignments = await prisma.projectAssignment.findMany({
     where: { userId: user.id },
     select: { projectId: true },

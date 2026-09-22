@@ -49,7 +49,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       role,
       scopeType,
       scopeEntries: scopeEntries ?? [],
-      reportsToUserCompanyId: reportsToUserCompanyId ?? null,
+      // `undefined` = preserve the current manager, `null` = explicit clear —
+      // collapsing absent→null would wipe the reporting line on any scope
+      // edit that didn't re-send it.
+      reportsToUserCompanyId: reportsToUserCompanyId,
     });
     return json({ ok: true, membership });
   } catch (err: unknown) {

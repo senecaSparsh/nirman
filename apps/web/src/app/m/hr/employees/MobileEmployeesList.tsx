@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
-import { Users, CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Users, CheckCircle2, Clock, AlertCircle, RotateCcw } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import {
   MobileSectionTitle,
@@ -15,7 +17,7 @@ import {
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
-type WageTypeFilter = "ALL" | "DAILY" | "MONTHLY";
+type WageTypeFilter = "ALL" | "DAILY" | "MONTHLY" | "ARCHIVED";
 
 export type EmployeeListItem = {
   id: string;
@@ -30,12 +32,14 @@ export type EmployeeListItem = {
   onboardingComplete?: boolean;
   employeeCode?: string | null;
   active?: boolean;
+  archived?: boolean;
 };
 
 const FILTER_CHIPS: { label: string; value: WageTypeFilter }[] = [
   { label: "All", value: "ALL" },
   { label: "Daily", value: "DAILY" },
   { label: "Monthly", value: "MONTHLY" },
+  { label: "Archived", value: "ARCHIVED" },
 ];
 
 /**
@@ -52,6 +56,7 @@ const FILTER_CHIPS: { label: string; value: WageTypeFilter }[] = [
 export function MobileEmployeesList({
   items,
   viewerHierarchyLevel: _viewerHierarchyLevel,
+  canManage = false,
   exportTitle,
   exportRows,
   exportColumns,
@@ -62,6 +67,7 @@ export function MobileEmployeesList({
   // buttons when added). Currently the mobile list only navigates to the
   // employee detail page, so no per-row action gating is needed yet.
   viewerHierarchyLevel?: number | null;
+  canManage?: boolean;
   exportTitle?: string;
   exportRows?: Record<string, unknown>[];
   exportColumns?: MobileColumnSpec[];
@@ -69,14 +75,46 @@ export function MobileEmployeesList({
 }) {
   const [query, setQuery] = useState("");
   const [wageFilter, setWageFilter] = useState<WageTypeFilter>("ALL");
+  // Archived view fetches soft-deleted records on demand (the server-fed
+  // `items` only carries live rows).
+  const [archivedItems, setArchivedItems] = useState<EmployeeListItem[] | null>(null);
+  const [archivedLoading, setArchivedLoading] = useState(false);
+  const [restoring, setRestoring] = useState<string | null>(null);
+  const router = useRouter();
+
+  React.useEffect(() => {
+    if (wageFilter !== "ARCHIVED" || archivedItems !== null) return;
+    setArchivedLoading(true);
+    fetch("/api/employees?archived=true")
+      .then((r) => r.json())
+      .then((rows) => setArchivedItems(Array.isArray(rows) ? rows : []))
+      .catch(() => setArchivedItems([]))
+      .finally(() => setArchivedLoading(false));
+  }, [wageFilter, archivedItems]);
+
+  async function restoreEmployee(id: string, name: string) {
+    if (!window.confirm(`Restore ${name}? They'll be re-activated and can log in again.`)) return;
+    setRestoring(id);
+    try {
+      const res = await fetch(`/api/employees/${id}/restore`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Restore failed");
+      toast.success(`${name} restored`);
+      setArchivedItems((prev) => prev?.filter((e) => e.id !== id) ?? null);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Restore failed");
+    } finally {
+      setRestoring(null);
+    }
+  }
 
   const filtered = useMemo(() => {
-    let result = items;
-    if (wageFilter !== "ALL") {
-      result =
-        wageFilter === "DAILY"
-          ? result.filter((e) => e.wageType === "DAILY")
-          : result.filter((e) => e.wageType !== "DAILY");
+    let result = wageFilter === "ARCHIVED" ? (archivedItems ?? []) : items;
+    if (wageFilter === "DAILY") {
+      result = result.filter((e) => e.wageType === "DAILY");
+    } else if (wageFilter === "MONTHLY") {
+      result = result.filter((e) => e.wageType !== "DAILY");
     }
     if (query.trim()) {
       const q = query.toLowerCase();
@@ -88,7 +126,7 @@ export function MobileEmployeesList({
       );
     }
     return result;
-  }, [items, query, wageFilter]);
+  }, [items, archivedItems, query, wageFilter]);
 
   const isFiltering = query.trim() !== "" || wageFilter !== "ALL";
 
@@ -97,9 +135,8 @@ export function MobileEmployeesList({
   const onboardedCount = items.filter((e) => e.active !== false && e.onboardingComplete === true).length;
   const inactiveCount = items.filter((e) => e.active === false).length;
 
-  if (items.length === 0) {
-    return null;
-  }
+  // Never early-return on an empty live list — the Archived chip must stay
+  // reachable for companies whose only employees are archived.
 
   return (
     <div>
@@ -156,8 +193,10 @@ export function MobileEmployeesList({
         </div>
       )}
 
-      {isFiltering ? (
-        <FlatList items={filtered} />
+      {wageFilter === "ARCHIVED" && archivedLoading ? (
+        <p className="px-4 py-6 text-m-caption text-center" style={{ color: "var(--color-ink-400)" }}>Loading archived employees…</p>
+      ) : isFiltering ? (
+        <FlatList items={filtered} archivedMode={wageFilter === "ARCHIVED"} restoring={restoring} onRestore={canManage ? restoreEmployee : undefined} />
       ) : (
         <GroupedList items={items} pendingCount={pendingCount} />
       )}
@@ -168,18 +207,31 @@ export function MobileEmployeesList({
 /* ----------------------------------------------------------------
  * Flat list — shown when a search or filter is active.
  * ---------------------------------------------------------------- */
-function FlatList({ items }: { items: EmployeeListItem[] }) {
+function FlatList({
+  items,
+  archivedMode,
+  restoring,
+  onRestore,
+}: {
+  items: EmployeeListItem[];
+  archivedMode?: boolean;
+  restoring?: string | null;
+  onRestore?: (id: string, name: string) => void;
+}) {
   if (items.length === 0) {
     return (
-      <MobileNoResults title="No matching employees" hint="Try a different search or filter" />
+      <MobileNoResults
+        title={archivedMode ? "No archived employees" : "No matching employees"}
+        hint={archivedMode ? "Archived employees will appear here" : "Try a different search or filter"}
+      />
     );
   }
   return (
     <div>
-      <MobileSectionTitle>Results ({items.length})</MobileSectionTitle>
+      <MobileSectionTitle>{archivedMode ? `Archived (${items.length})` : `Results (${items.length})`}</MobileSectionTitle>
       <div className="flex flex-col gap-2.5">
         {items.map((e) => (
-          <EmployeeRow key={e.id} e={e} />
+          <EmployeeRow key={e.id} e={e} archivedMode={archivedMode} restoring={restoring === e.id} onRestore={onRestore} />
         ))}
       </div>
     </div>
@@ -254,7 +306,17 @@ function GroupedList({ items, pendingCount }: { items: EmployeeListItem[]; pendi
 }
 
 /** A single employee row — navigable (links to employee detail page) with badge. */
-function EmployeeRow({ e }: { e: EmployeeListItem }) {
+function EmployeeRow({
+  e,
+  archivedMode,
+  restoring,
+  onRestore,
+}: {
+  e: EmployeeListItem;
+  archivedMode?: boolean;
+  restoring?: boolean;
+  onRestore?: (id: string, name: string) => void;
+}) {
   // Wage amounts are null for viewers without payroll.manage|hr.manage —
   // show no wage line rather than "—/day".
   const wage =
@@ -311,14 +373,29 @@ function EmployeeRow({ e }: { e: EmployeeListItem }) {
   }
 
   return (
-    <MobileRow
-      href={`/m/hr/employees/${e.id}`}
-      icon={Users}
-      title={e.name}
-      empId={e.id}
-      subtitle={subtitleParts.join(" · ") || "—"}
-      meta={wage ?? undefined}
-      badge={badge}
-    />
+    <div className="flex items-center gap-2">
+      <div className="flex-1 min-w-0">
+        <MobileRow
+          href={archivedMode ? undefined : `/m/hr/employees/${e.id}`}
+          icon={Users}
+          title={e.name}
+          empId={e.id}
+          subtitle={subtitleParts.join(" · ") || "—"}
+          meta={wage ?? undefined}
+          badge={badge}
+        />
+      </div>
+      {archivedMode && onRestore && (
+        <button
+          onClick={() => onRestore(e.id, e.name)}
+          disabled={restoring}
+          className="shrink-0 rounded-[0.375rem] px-2.5 py-1.5 text-m-caption font-bold flex items-center gap-1 press disabled:opacity-50"
+          style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)", color: "var(--color-go)" }}
+        >
+          <RotateCcw className="size-3" />
+          {restoring ? "…" : "Restore"}
+        </button>
+      )}
+    </div>
   );
 }

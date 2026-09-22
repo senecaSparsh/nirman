@@ -86,9 +86,11 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
         companyId: id,
         role,
         secondaryRoles: parsed.data.secondaryRoles,
-        scopeType: parsed.data.scopeType ?? null,
-        reportsToUserCompanyId: parsed.data.reportsToUserCompanyId ?? null,
-        scopeEntries: (parsed.data.scopeEntries ?? []).map((e) => ({
+        // `undefined` = preserve, `null` = explicit clear/reset — collapse
+        // nothing here or a reportsTo-only PATCH wipes scope + entries.
+        scopeType: parsed.data.scopeType,
+        reportsToUserCompanyId: parsed.data.reportsToUserCompanyId,
+        scopeEntries: parsed.data.scopeEntries === undefined ? undefined : parsed.data.scopeEntries.map((e) => ({
           departmentId: e.departmentId ?? undefined,
           projectId: e.projectId ?? undefined,
         })),
@@ -137,6 +139,12 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     },
     select: { id: true, role: true, secondaryRoles: true, activeRole: true },
   });
+  // Mirror the primary role onto User.role — the same contract
+  // assignScopedMembership and users/[id] PATCH keep: membership is
+  // authoritative, the mirror feeds list views and the held-set union.
+  if (membership.role !== role) {
+    await prisma.user.update({ where: { id: membership.userId }, data: { role } });
+  }
   return json(updated);
 });
 
@@ -260,6 +268,25 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   await prisma.userPreference.deleteMany({
     where: { userId: membership.userId, companyId: membership.companyId },
   }).catch(() => {});
+
+  // Return their company phone to the pool — a removed member must not keep
+  // a company-owned number assigned (the nightly auditor flags leftovers,
+  // but releasing here keeps the pool honest immediately).
+  const assignedPhone = await prisma.companyPhone.findFirst({
+    where: { assignedToUserId: membership.userId, companyId: id, deletedAt: null },
+    select: { id: true },
+  });
+  if (assignedPhone) {
+    await prisma.phoneAssignment.updateMany({
+      where: { companyPhoneId: assignedPhone.id, returnedAt: null },
+      data: { returnedAt: new Date(), reason: "Member removed from company" },
+    });
+    await prisma.companyPhone.update({
+      where: { id: assignedPhone.id },
+      data: { assignedToUserId: null, assignedAt: null, status: "RECYCLED" },
+    });
+  }
+
   await prisma.userCompany.delete({ where: { id: memberId, companyId: id } });
   return json({ ok: true });
 });

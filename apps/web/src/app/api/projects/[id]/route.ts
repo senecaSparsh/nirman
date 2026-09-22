@@ -53,30 +53,44 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
+  // Fail loudly on a no-op write — a PATCH whose keys were all stripped by
+  // the schema must not report success while writing nothing.
+  if (!Object.values(parsed.data).some((v) => v !== undefined)) {
+    return json({ error: "No updatable fields in request — check field names" }, { status: 400 });
+  }
   const existing = await prisma.project.findFirst({ where: { id, companyId: company.id, deletedAt: null } });
   if (!existing || !(await canAccessProject(id))) return json({ error: "Project not found" }, { status: 404 });
   const {
     startDate, endDate, totalBudget,
     isATS: _isATS, atsRegistrationAmount: _atsRegistrationAmount, atsExpectedRegistryDate: _atsExpectedRegistryDate, registryNo: _registryNo,
     reraNumber, reraRegistrationDate, reraValidityDate, reraWebsiteUrl,
+    type, status,
     ...rest
   } = parsed.data;
   const updated = await withSerializableTransaction(async (tx) => {
     const proj = await tx.project.update({
       where: { id },
       data: {
+        // `type`/`status` carry zod defaults — an absent key parses to the
+        // default and would silently reset them on any partial PATCH.
         ...rest,
-        startDate: startDate ? new Date(startDate) : null,
-        endDate: endDate ? new Date(endDate) : null,
-        totalBudget: totalBudget ?? null,
-        reraNumber: reraNumber || null,
-        reraRegistrationDate: reraRegistrationDate ? new Date(reraRegistrationDate) : null,
-        reraValidityDate: reraValidityDate ? new Date(reraValidityDate) : null,
-        reraWebsiteUrl: reraWebsiteUrl || null,
+        ...("type" in body ? { type } : {}),
+        ...("status" in body ? { status } : {}),
+        // PATCH semantics: `undefined` = preserve, `null`/`""` = explicit clear.
+        // A caller PATCHing only {name} must not wipe dates/budget/RERA.
+        ...(startDate !== undefined ? { startDate: startDate ? new Date(startDate) : null } : {}),
+        ...(endDate !== undefined ? { endDate: endDate ? new Date(endDate) : null } : {}),
+        ...(totalBudget !== undefined ? { totalBudget } : {}),
+        ...(reraNumber !== undefined ? { reraNumber: reraNumber || null } : {}),
+        ...(reraRegistrationDate !== undefined ? { reraRegistrationDate: reraRegistrationDate ? new Date(reraRegistrationDate) : null } : {}),
+        ...(reraValidityDate !== undefined ? { reraValidityDate: reraValidityDate ? new Date(reraValidityDate) : null } : {}),
+        ...(reraWebsiteUrl !== undefined ? { reraWebsiteUrl: reraWebsiteUrl || null } : {}),
       },
     });
 
-    // Sync RERA legal doc: create if RERA number added, update if exists, delete if removed
+    // Sync RERA legal doc: create if RERA number added, update if exists,
+    // delete if removed. `reraNumber === undefined` = caller didn't send it —
+    // skip the sync entirely or an unrelated PATCH would delete the doc.
     const existingReraDoc = await tx.legalDocument.findFirst({
       where: { projectId: id, type: "RERA_REGISTRATION", deletedAt: null },
     });
@@ -118,8 +132,8 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
           },
         });
       }
-    } else if (!reraNumber && existingReraDoc) {
-      // RERA number removed — soft-delete the legal doc
+    } else if (reraNumber !== undefined && existingReraDoc) {
+      // reraNumber explicitly cleared — soft-delete the legal doc
       await tx.legalDocument.update({
         where: { id: existingReraDoc.id },
         data: { deletedAt: new Date() },

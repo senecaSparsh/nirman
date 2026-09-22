@@ -160,6 +160,7 @@ async function MobileEmployeesContent() {
       <MobileEmployeesList
         items={serialized}
         viewerHierarchyLevel={viewerHierarchyLevel}
+        canManage={canManage}
         exportTitle="Employees"
         exportRows={serialized as unknown as Record<string, unknown>[]}
         exportColumns={([

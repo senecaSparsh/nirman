@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { updateEmployee, softDelete, updateEmployeeDossier, type EmployeeDossierInput, logAction, autoCompleteOnboarding } from "@nirman/services";
+import { updateEmployee, updateEmployeeDossier, terminateEmployee, type EmployeeDossierInput, logAction, autoCompleteOnboarding, setSalaryComponents, assignScopedMembership } from "@nirman/services";
 import { apiHandler, getCompany, json, employeeSchema, requirePermission, assertScopeAllows, canManageSpecificEmployee, assertCanManageEmployee, getCurrentUser, scopeWhere, getEmployeeAccessScope, isTopLevelViewer } from "@/lib/server";
 import { pickEmployeeRoster, redactEmployeeRow } from "@/lib/employee-visibility";
 import { PERM } from "@/lib/roles";
@@ -77,6 +77,24 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   });
   if (!existing) return json({ error: "Employee not found" }, { status: 404 });
 
+  // Fail loudly on a no-op write: a PATCH whose keys were all stripped by
+  // the schema (misspelled/unknown fields) must not report success while
+  // writing nothing.
+  const hasUpdatableField =
+    Object.values(parsed.data).some((v) => v !== undefined) ||
+    ["employmentType", "probationEndDate", "confirmationDate", "noticePeriodDays",
+     "contractStartDate", "contractEndDate", "payDay",
+     "bankAccountHolder", "bankAccountNumber", "bankIfsc", "bankName", "bankBranch",
+     "panNumber", "aadhaarNumber", "pfNumber", "esiNumber", "uan",
+     "emergencyContactName", "emergencyContactPhone", "emergencyContactRelation",
+     "permanentAddress", "currentAddress",
+     "dateOfBirth", "bloodGroup", "photoUrl",
+     "documentsSubmitted", "backgroundVerified",
+    ].some((k) => k in body);
+  if (!hasUpdatableField) {
+    return json({ error: "No updatable fields in request — check field names" }, { status: 400 });
+  }
+
   // H1 wall on writes: only top-level viewers may set hierarchyLevel 1 —
   // otherwise anyone could promote a record into the protected tier.
   if (parsed.data.hierarchyLevel === 1 && !(await isTopLevelViewer())) {
@@ -123,6 +141,34 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     bloodGroup: parsed.data.bloodGroup,
   });
 
+  // ── Salary components — the schema accepts this key (shared with POST);
+  //    a PATCH carrying it must apply it, not silently drop it. ──
+  if (parsed.data.salaryComponents !== undefined) {
+    try {
+      await setSalaryComponents(
+        id,
+        company.id,
+        user.id,
+        (parsed.data.salaryComponents ?? []).map((c) => ({
+          employeeId: id,
+          type: c.type as never,
+          amount: c.amount,
+          frequency: c.frequency ?? "MONTHLY",
+          isDeduction: c.isDeduction ?? false,
+          isPercentage: c.isPercentage ?? false,
+          percentageOfBasic: c.percentageOfBasic ?? null,
+          calculationType: c.calculationType,
+          unitType: c.unitType ?? null,
+          unitLabel: c.unitLabel ?? null,
+          notes: c.notes ?? null,
+        })),
+        { changedBy: user.id, changeReason: "Updated via employee edit" },
+      );
+    } catch (err) {
+      return json({ error: err instanceof Error ? err.message : "Failed to save salary components" }, { status: 400 });
+    }
+  }
+
   // ── Dossier fields (employment terms, bank, tax, emergency, address) ──
   const dossierFields: EmployeeDossierInput = {};
   const dossierKeys: (keyof EmployeeDossierInput)[] = [
@@ -161,6 +207,46 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     });
   }
 
+  // ── Membership reporting line — the desktop edit dialog sends
+  //    reportsToMembershipId (a UserCompany id). Route it through
+  //    assignScopedMembership with preserve semantics: only the reporting
+  //    line moves; role, scope type and scope entries stay untouched. The
+  //    service also mirrors reportsToEmployeeId + runs its own cycle check.
+  if (parsed.data.reportsToMembershipId !== undefined) {
+    if (!existing.userId) {
+      return json({ error: "This employee has no linked user account — set the reporting line via the employee manager field instead" }, { status: 400 });
+    }
+    const membership = await prisma.userCompany.findFirst({
+      where: { userId: existing.userId, companyId: company.id },
+      select: { id: true, role: true, secondaryRoles: true },
+    });
+    if (!membership) {
+      return json({ error: "Linked account has no membership in this company" }, { status: 400 });
+    }
+    if (parsed.data.reportsToMembershipId) {
+      const mgrMembership = await prisma.userCompany.findFirst({
+        where: { id: parsed.data.reportsToMembershipId, companyId: company.id },
+        select: { id: true },
+      });
+      if (!mgrMembership) {
+        return json({ error: "Selected manager is not a member of this company" }, { status: 400 });
+      }
+    }
+    try {
+      await assignScopedMembership({
+        actorUserId: user.id,
+        userId: existing.userId,
+        companyId: company.id,
+        role: membership.role,
+        secondaryRoles: membership.secondaryRoles,
+        reportsToUserCompanyId: parsed.data.reportsToMembershipId,
+      });
+    } catch (err: unknown) {
+      const status = (err as { status?: number }).status ?? 400;
+      return json({ error: err instanceof Error ? err.message : "Failed to update reporting line" }, { status });
+    }
+  }
+
   // ── Auto-complete onboarding if all steps are now done ──
   // (e.g. HR just filled the last dossier field or toggled the checklist)
   await autoCompleteOnboarding(id, company.id).catch(() => {});
@@ -175,7 +261,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.HR_MANAGE);
+  const user = await requirePermission(PERM.HR_MANAGE);
   const company = await getCompany();
   const { id } = await params;
   const existing = await prisma.employee.findFirst({ where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("Employee") }, select: { id: true } });
@@ -187,9 +273,12 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     return json({ error: err instanceof Error ? err.message : "Hierarchy violation" }, { status: 403 });
   }
   try {
-    await softDelete("Employee", id);
+    // Full archive semantics — deactivate + soft-delete + terminate contract
+    // + release company phone + deactivate membership (and the User account
+    // if this was their last active company). Raw softDelete refuses on
+    // active employees and skips the teardown, leaving phones assigned.
+    await terminateEmployee({ employeeId: id, companyId: company.id, actorUserId: user.id });
     revalidatePath("/hr/employees");
-    revalidatePath("/m/hr/employees");
     revalidatePath("/m/hr/employees");
     revalidatePath(`/m/hr/onboarding/${id}`);
     revalidatePath("/m/hr/onboarding");

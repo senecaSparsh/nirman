@@ -711,7 +711,9 @@ function MembersSection({
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed to add member");
-      toast.success("Member added");
+      // The endpoint upserts — "Add" on an existing member silently rewrites
+      // their role. Say which happened so the actor isn't misled.
+      toast.success(json.updated ? "Already a member — role updated" : "Member added");
       setAddOpen(false);
       setAddEmail("");
       router.refresh();

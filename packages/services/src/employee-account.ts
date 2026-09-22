@@ -1,6 +1,8 @@
 import { prisma, type Prisma } from "@nirman/db";
 import { logAction } from "./audit";
 import { withSerializableTransaction } from "./transaction";
+import { assertEmployeeCodeAvailable } from "./sequence";
+import { assertScopeWithinActor, validateScopeEntries } from "./rbac";
 import { HrError } from "./hr";
 
 // ───────────────────────────────────────────────────────────────
@@ -233,6 +235,11 @@ export async function createEmployeeAccount(input: CreateEmployeeAccountInput) {
       userId = existingUser.id;
     } else {
       // ── Create new User + UserCompany + Account ──
+      // Badge codes must be unique within the company — a duplicate breaks
+      // ID cards and attendance lookups.
+      if (input.employeeCode?.trim()) {
+        await assertEmployeeCodeAvailable(tx, input.companyId, input.employeeCode);
+      }
       const finalEmail =
         input.email?.trim().toLowerCase() || `phone+${normalizedPhone}@nirman.internal`;
       const hashed = input.hashedPassword ?? randomPassword(32);
@@ -246,7 +253,7 @@ export async function createEmployeeAccount(input: CreateEmployeeAccountInput) {
           phoneNormalized: normalizedPhone,
           companyId: input.companyId,
           emailVerified: true,
-          employeeCode: input.employeeCode?.trim() || null,
+          employeeCode: input.employeeCode?.trim().toUpperCase() || null,
           designation: input.designation?.trim() || employee.designation || null,
           department: input.department?.trim() || null,
           joiningDate: input.joiningDate ? new Date(input.joiningDate) : employee.joinDate,
@@ -355,6 +362,26 @@ export async function createEmployeeAccount(input: CreateEmployeeAccountInput) {
     // to the role default (PROJECT for field roles), which silently empties
     // every project-scoped list for the new account.
     if (input.scopeType) {
+      // Same guards as assignScopedMembership: entries must match the scope
+      // type, and the actor can't grant visibility beyond their own scope.
+      const scopeEntries = (input.scopes ?? []).map((s) => ({
+        departmentId: s.departmentId,
+        projectId: s.projectId,
+      }));
+      validateScopeEntries(input.scopeType, scopeEntries);
+      await assertScopeWithinActor(input.actorUserId, input.companyId, input.scopeType, scopeEntries);
+      // Scope entries must point at real departments/projects in THIS
+      // company — a forged id would bind the membership cross-tenant.
+      const deptIds = scopeEntries.map((e) => e.departmentId).filter((d): d is string => !!d);
+      if (deptIds.length > 0) {
+        const valid = await tx.department.count({ where: { id: { in: deptIds }, companyId: input.companyId, deletedAt: null } });
+        if (valid !== deptIds.length) throw new HrError("One or more departments not found in this company", 404);
+      }
+      const projIds = scopeEntries.map((e) => e.projectId).filter((p): p is string => !!p);
+      if (projIds.length > 0) {
+        const valid = await tx.project.count({ where: { id: { in: projIds }, companyId: input.companyId, deletedAt: null } });
+        if (valid !== projIds.length) throw new HrError("One or more projects not found in this company", 404);
+      }
       const membership = await tx.userCompany.findFirstOrThrow({
         where: { userId, companyId: input.companyId },
         select: { id: true },
@@ -635,16 +662,29 @@ export async function unlinkEmployeePhone(
       data: { assignedToUserId: null, assignedAt: null, status: "RECYCLED" },
     });
 
+    // The recycled number may be assigned to someone else — the ex-holder's
+    // login identity must not keep pointing at it, or the new holder's OTP
+    // could pick the old account. Clear phoneNormalized/phone when they
+    // still reference the returned number.
+    let loginCleared = false;
+    if (phone.phoneNormalized) {
+      const cleared = await tx.user.updateMany({
+        where: { id: employee.userId, phoneNormalized: phone.phoneNormalized },
+        data: { phoneNormalized: null, phone: null },
+      });
+      loginCleared = cleared.count > 0;
+    }
+
     await logAction(tx, {
       userId: actorUserId,
       companyId,
       action: "EMPLOYEE_PHONE_UNLINK",
       entityType: "CompanyPhone",
       entityId: phone.id,
-      after: { reason: reason ?? "Unassigned" },
+      after: { reason: reason ?? "Unassigned", loginCleared },
     });
 
-    return { companyPhoneId: phone.id, status: "RECYCLED" };
+    return { companyPhoneId: phone.id, status: "RECYCLED", loginCleared };
   });
 }
 
@@ -722,6 +762,15 @@ export async function terminateEmployee(input: TerminateEmployeeInput) {
           where: { id: phone.id },
           data: { assignedToUserId: null, assignedAt: null, status: "RECYCLED" },
         });
+        // Detach the login identity from the recycled number — the next
+        // assignee's OTP must never surface this user's account (they may
+        // still be active via another company's membership).
+        if (phone.phoneNormalized) {
+          await tx.user.updateMany({
+            where: { id: employee.userId, phoneNormalized: phone.phoneNormalized },
+            data: { phoneNormalized: null, phone: null },
+          });
+        }
         recycledPhoneId = phone.id;
       }
     }
@@ -737,6 +786,67 @@ export async function terminateEmployee(input: TerminateEmployeeInput) {
         employmentEndDate: input.employmentEndDate,
         recycledPhoneId,
         autoDepositWasEnabled: employee.autoDepositEnabled === true,
+      },
+    });
+
+    // 3b. Re-parent direct reports — employees and memberships pointing at
+    //    the terminated member as their manager would dead-end approvals and
+    //    the org chart. Re-parent to the terminated member's own manager
+    //    (chain continuity); null when there was none.
+    const terminatedEmployee = await tx.employee.findUnique({
+      where: { id: input.employeeId },
+      select: { reportsToEmployeeId: true },
+    });
+    await tx.employee.updateMany({
+      where: { companyId: input.companyId, reportsToEmployeeId: input.employeeId, deletedAt: null },
+      data: { reportsToEmployeeId: terminatedEmployee?.reportsToEmployeeId ?? null },
+    });
+    if (employee.userId) {
+      const terminatedMembership = await tx.userCompany.findUnique({
+        where: { userId_companyId: { userId: employee.userId, companyId: input.companyId } },
+        select: { id: true, reportsToUserCompanyId: true },
+      });
+      if (terminatedMembership) {
+        await tx.userCompany.updateMany({
+          where: { companyId: input.companyId, reportsToUserCompanyId: terminatedMembership.id, active: true },
+          data: { reportsToUserCompanyId: terminatedMembership.reportsToUserCompanyId },
+        });
+        // Any delegation pointing AT the terminated membership silently
+        // dead-ends — clear it so the delegator's approvals flow normally.
+        await tx.userCompany.updateMany({
+          where: { approvalsDelegatedToId: terminatedMembership.id },
+          data: { approvalsDelegatedToId: null, delegationEndsAt: null },
+        });
+      }
+    }
+
+    // 3c. Cancel future-dated leave — a terminated worker won't take approved
+    //    leave after their end date; leaving it APPROVED lets stale attendance
+    //    rows (auto-written on approval) survive into future periods.
+    const today = new Date(now);
+    today.setUTCHours(0, 0, 0, 0);
+    await tx.leaveRequest.updateMany({
+      where: {
+        employeeId: input.employeeId,
+        status: "PENDING",
+      },
+      data: { status: "CANCELLED", rejectedReason: "Employment ended" },
+    });
+    await tx.leaveRequest.updateMany({
+      where: {
+        employeeId: input.employeeId,
+        status: "APPROVED",
+        startDate: { gt: today },
+      },
+      data: { status: "CANCELLED", rejectedReason: "Employment ended" },
+    });
+    // And remove the auto-written future attendance rows for those days —
+    // they're placeholder PAID_LEAVE rows for days that will never come.
+    await tx.workerAttendance.deleteMany({
+      where: {
+        employeeId: input.employeeId,
+        date: { gt: today },
+        status: { in: ["PAID_LEAVE", "NON_PAID_LEAVE", "LEAVE"] },
       },
     });
 
@@ -1822,5 +1932,69 @@ export async function disableAutoDeposit(
     });
 
     return { employeeId, autoDepositEnabled: updated.autoDepositEnabled ?? false };
+  });
+}
+
+// ───────────────────────────────────────────────────────────────
+//  Restore (un-archive) — the inverse of terminateEmployee.
+//
+//  Archive mistakes happen. The employee record is soft-deleted, so the data
+//  survives — restore brings back the record + linked access without
+//  pretending the termination never happened (audit log keeps both events).
+//  Phone numbers are NOT auto-reassigned — the recycled pool number may have
+//  gone to someone else; HR assigns a fresh one after restore.
+// ───────────────────────────────────────────────────────────────
+
+export async function restoreEmployee(input: {
+  employeeId: string;
+  companyId: string;
+  actorUserId: string;
+}) {
+  return withSerializableTransaction(async (tx) => {
+    const employee = await tx.employee.findFirst({
+      where: { id: input.employeeId, companyId: input.companyId },
+      include: { user: { select: { id: true, active: true, name: true } } },
+    });
+    if (!employee) throw new HrError("Employee not found", 404);
+    if (!employee.deletedAt) throw new HrError("Employee is not archived", 409);
+
+    // 1. Restore the record. Contract goes back to ISSUED — the previous
+    //    contract was TERMINATED; a fresh issue/confirm cycle can run if the
+    //    restored employment needs new paperwork.
+    await tx.employee.update({
+      where: { id: input.employeeId },
+      data: { deletedAt: null, active: true, contractStatus: "ISSUED" },
+    });
+
+    // 2. Re-activate the membership + user account (if linked). The user may
+    //    have memberships in other companies that kept the account live —
+    //    re-activating it unconditionally is correct because the restore is
+    //    itself the "this person is back" signal.
+    if (employee.userId) {
+      await tx.userCompany.updateMany({
+        where: { userId: employee.userId, companyId: input.companyId },
+        data: { active: true },
+      });
+      await tx.user.update({
+        where: { id: employee.userId },
+        data: { active: true, employmentEndDate: null },
+      });
+    }
+
+    // 3. Remove the EmployeeExit record — employeeId is @unique, so leaving
+    //    it would block a future re-termination. The audit log preserves the
+    //    full terminate → restore history.
+    await tx.employeeExit.deleteMany({ where: { employeeId: input.employeeId } });
+
+    await logAction(tx, {
+      userId: input.actorUserId,
+      companyId: input.companyId,
+      action: "EMPLOYEE_RESTORE",
+      entityType: "Employee",
+      entityId: input.employeeId,
+      after: { restoredBy: input.actorUserId, hadLinkedUser: !!employee.userId },
+    });
+
+    return { employeeId: input.employeeId, userId: employee.userId };
   });
 }

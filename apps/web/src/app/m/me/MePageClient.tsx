@@ -134,6 +134,16 @@ export interface MePageInitial {
       status: string;
     }[];
     presentDaysThisMonth: number;
+    /** Open advances/loans — what the worker still owes back via payroll. */
+    advances: {
+      id: string;
+      amount: number;
+      recoveredAmount: number;
+      outstanding: number;
+      monthlyRecovery: number;
+      status: string;
+      issueDate: string;
+    }[];
   } | null;
 }
 
@@ -624,6 +634,31 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
               <p className="text-m-caption mt-2" style={{ color: "var(--color-ink-500)" }}>
                 Present this month: <span className="font-bold" style={{ color: "var(--color-ink-950)" }}>{initial.hr.presentDaysThisMonth} day{initial.hr.presentDaysThisMonth === 1 ? "" : "s"}</span>
               </p>
+              {/* Open advances — the worker's own ledger ("kitna udhaar bacha
+                  hai"): what was taken, recovered, and still being deducted. */}
+              {initial.hr.advances.length > 0 && (
+                <div className="pt-2 mt-2 space-y-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
+                  {initial.hr.advances.map((a) => (
+                    <div key={a.id}>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                          Advance · {formatDate(a.issueDate)}
+                          {a.status === "PAUSED" && <span style={{ color: "var(--color-warn)" }}> · paused</span>}
+                        </p>
+                        <p className="text-m-caption font-semibold tabular-nums shrink-0" style={{ color: "var(--color-ink-950)" }}>
+                          ₹{a.outstanding.toLocaleString("en-IN")} left
+                        </p>
+                      </div>
+                      <div className="mt-1 h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--color-ink-100)" }}>
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${Math.min(100, (a.recoveredAmount / Math.max(a.amount, 1)) * 100)}%`, backgroundColor: "var(--color-warn)" }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </Card>
           </div>
 

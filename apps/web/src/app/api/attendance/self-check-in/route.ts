@@ -25,8 +25,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const schema = z.object({
     employeeId: z.string().min(1, "Employee is required"),
     date: z.string().min(1, "Date is required"),
-    checkInLat: z.number(),
-    checkInLng: z.number(),
+    checkInLat: z.number().min(-90).max(90),
+    checkInLng: z.number().min(-180).max(180),
     checkInLocation: z.string().max(300).optional().nullable(),
     projectId: z.string().optional().nullable(),
   });
@@ -67,17 +67,34 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: "You can only check in your own attendance" }, { status: 403 });
   }
 
-  // Geo-fence validation — the employee's assigned reporting location wins.
-  // When none is assigned, fall back to the company's verified HQ geofence
-  // (set on the company profile via the address picker) so check-ins are
-  // still validated against the registered office.
+  // Geo-fence validation — pick the most specific fence for where the
+  // worker claims to be:
+  //   1. The project site they checked into (a fenced StockLocation on that
+  //      project) — an office-assigned worker on site today passes on the
+  //      site fence, not the office fence.
+  //   2. Their assigned reporting location.
+  //   3. The company's verified HQ geofence.
   let geoFenceOk: boolean | undefined;
   let geoFenceDistance: number | undefined;
-  const fence = employee.reportingLocation?.lat != null && employee.reportingLocation?.lng != null
-    ? { lat: employee.reportingLocation.lat, lng: employee.reportingLocation.lng, radius: employee.reportingLocation.geoRadius ?? 500, name: employee.reportingLocation.name }
-    : !employee.reportingLocationId && company.lat != null && company.lng != null
-      ? { lat: company.lat, lng: company.lng, radius: company.geoRadius ?? 500, name: `${company.name} — Head Office` }
-      : null;
+  const projectSiteFence = parsed.data.projectId
+    ? await prisma.stockLocation.findFirst({
+        where: {
+          projectId: parsed.data.projectId,
+          companyId: company.id,
+          deletedAt: null,
+          lat: { not: null },
+          lng: { not: null },
+        },
+        select: { lat: true, lng: true, geoRadius: true, name: true },
+      })
+    : null;
+  const fence = projectSiteFence && projectSiteFence.lat != null && projectSiteFence.lng != null
+    ? { lat: projectSiteFence.lat, lng: projectSiteFence.lng, radius: projectSiteFence.geoRadius ?? 500, name: projectSiteFence.name }
+    : employee.reportingLocation?.lat != null && employee.reportingLocation?.lng != null
+      ? { lat: employee.reportingLocation.lat, lng: employee.reportingLocation.lng, radius: employee.reportingLocation.geoRadius ?? 500, name: employee.reportingLocation.name }
+      : !employee.reportingLocationId && company.lat != null && company.lng != null
+        ? { lat: company.lat, lng: company.lng, radius: company.geoRadius ?? 500, name: `${company.name} — Head Office` }
+        : null;
   if (fence) {
     const distance = haversineDistance(
       parsed.data.checkInLat,
@@ -103,6 +120,10 @@ const attendance = await recordAttendance({
     checkInLocation: parsed.data.checkInLocation ?? undefined,
     geoFenceOk,
     geoFenceDistance,
+    // Off-site check-in → PENDING review. The day still records as PRESENT
+    // (legitimate off-site duty happens — supplier run, client meeting) but
+    // lands in HR's review queue; a reject flips it to ABSENT.
+    offSiteReview: geoFenceOk === false ? "PENDING" : null,
     recordedById: user.id,
     userId: user.id,
   });
@@ -115,6 +136,7 @@ const attendance = await recordAttendance({
     geoFenceOk,
     geoFenceDistance,
     reportingLocation: fence?.name ?? null,
+    offSiteReview: geoFenceOk === false ? "PENDING" : null,
   }, { status: 201 });
 });
 

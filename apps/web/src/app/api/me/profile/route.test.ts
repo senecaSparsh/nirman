@@ -34,14 +34,17 @@ describe("PATCH /api/me/profile", () => {
     expect(mockPrisma().user!.update).toHaveBeenCalled();
   });
 
-  it("updates phone and syncs phoneNormalized", async () => {
+  it("rejects self-service phone changes — phone is the OTP login identity", async () => {
+    // A self-set phoneNormalized (typo, recycled pool number, or someone
+    // else's) corrupts the multi-user OTP lookup: the real holder of that
+    // number could pick this account at sign-in. Phone changes must go
+    // through the verified Change-Phone flow.
     const res = await PATCH(
       makeRequest("/api/me/profile", { method: "PATCH", body: { phone: "+91 98765 43210" } }),
       {},
     );
-    expect(res.status).toBe(200);
-    const updateCall = mockPrisma().user!.update.mock.calls[0];
-    expect(updateCall![0].data.phoneNormalized).toBe("919876543210");
+    expect(res.status).toBe(400);
+    expect(mockPrisma().user!.update).not.toHaveBeenCalled();
   });
 
   it("returns 400 when no fields are provided", async () => {

@@ -73,6 +73,12 @@ export function OnboardingProgress({
 
   async function completeOnboarding() {
     if (!employeeId) return;
+    // Completing early auto-marks documentsSubmitted + backgroundVerified —
+    // the manager is confirming those steps are actually done. Warn before
+    // fabricating verification flags on an incomplete dossier.
+    if (!isComplete && !window.confirm(
+      `Only ${completedCount}/${steps.length} steps done. Completing now will mark documents and background verification as done. Continue?`,
+    )) return;
     setCompleting(true);
     try {
       const res = await fetch(`/api/employees/${employeeId}/complete-onboarding`, { method: "POST" });

@@ -127,6 +127,97 @@ describe("Payroll lifecycle — generate → process → pay", () => {
     expect(period.totalNet.toNumber()).toBe(1500);
   });
 
+  it("terminated employees with worked days still get a final-settlement line", async () => {
+    const { company, user, project } = await setup();
+    const employee = await createDailyEmployee(company.id, project.id, 500);
+    await createAttendance(employee.id, company.id, "2025-02-10");
+    await createAttendance(employee.id, company.id, "2025-02-11");
+
+    // Terminated mid-period — soft-deleted + inactive + TERMINATED.
+    await prisma.employee.update({
+      where: { id: employee.id },
+      data: { active: false, deletedAt: new Date(), contractStatus: "TERMINATED" },
+    });
+
+    const { generatePayroll } = await import("../hr");
+    const period = await generatePayroll({ companyId: company.id, year: 2025, month: 2, userId: user.id });
+
+    // The 2 worked days must still be paid — exclusion would silently
+    // zero the final settlement.
+    const line = await prisma.payrollLine.findFirst({
+      where: { payrollPeriodId: period.id, employeeId: employee.id },
+    });
+    expect(line).not.toBeNull();
+    expect(line!.grossPay.toNumber()).toBe(1000);
+  });
+
+  it("terminated employees with NO attendance in the period produce no line", async () => {
+    const { company, user, project } = await setup();
+    const employee = await createDailyEmployee(company.id, project.id, 500);
+    // Terminated BEFORE the period — no attendance this month.
+    await prisma.employee.update({
+      where: { id: employee.id },
+      data: { active: false, deletedAt: new Date(), contractStatus: "TERMINATED" },
+    });
+
+    const { generatePayroll } = await import("../hr");
+    const period = await generatePayroll({ companyId: company.id, year: 2025, month: 3, userId: user.id });
+    const line = await prisma.payrollLine.findFirst({
+      where: { payrollPeriodId: period.id, employeeId: employee.id },
+    });
+    expect(line).toBeNull();
+  });
+
+  it("employees hired AFTER the period get no synthesized line", async () => {
+    const { company, user, project } = await setup();
+    // MONTHLY employee hired in May — generating April payroll must not
+    // pay them (they didn't exist yet).
+    const employee = await prisma.employee.create({
+      data: {
+        name: "Future Joiner",
+        phone: "7777777777",
+        companyId: company.id,
+        wageType: "MONTHLY",
+        monthlySalary: new Decimal(30000),
+        joinDate: new Date("2025-05-10"),
+        active: true,
+        activeProjectId: project.id,
+      },
+    });
+    const { generatePayroll } = await import("../hr");
+    const period = await generatePayroll({ companyId: company.id, year: 2025, month: 4, userId: user.id });
+    const line = await prisma.payrollLine.findFirst({
+      where: { payrollPeriodId: period.id, employeeId: employee.id },
+    });
+    expect(line).toBeNull();
+  });
+
+  it("mid-month joiner with no attendance is pro-rated, not paid the full month", async () => {
+    const { company, user, project } = await setup();
+    // April 2025 has 30 days — Sundays: 6, 13, 20, 27 → 26 working days.
+    // Joined Apr 21 → eligible working days = Apr 21-30 minus Sun 27 = 9.
+    const employee = await prisma.employee.create({
+      data: {
+        name: "Mid Joiner",
+        phone: "6666666666",
+        companyId: company.id,
+        wageType: "MONTHLY",
+        monthlySalary: new Decimal(26000), // ₹1000 per working day
+        joinDate: new Date("2025-04-21"),
+        active: true,
+        activeProjectId: project.id,
+      },
+    });
+    const { generatePayroll } = await import("../hr");
+    const period = await generatePayroll({ companyId: company.id, year: 2025, month: 4, userId: user.id });
+    const line = await prisma.payrollLine.findFirst({
+      where: { payrollPeriodId: period.id, employeeId: employee.id },
+    });
+    expect(line).not.toBeNull();
+    // 26000 × 9/26 = 9000 — not 26000 (the pre-fix overpayment).
+    expect(line!.grossPay.toNumber()).toBe(9000);
+  });
+
   // ── processPayroll ──
 
   it("processPayroll transitions DRAFT → PROCESSED and posts GL", async () => {

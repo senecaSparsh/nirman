@@ -103,6 +103,7 @@ model Company {
   departments    Department[]
   crews          Crew[]
   payrollPeriods PayrollPeriod[]
+  employeeAdvances EmployeeAdvance[]
   dailyProgressReports DailyProgressReport[]
   attendances    WorkerAttendance[]
   userMemberships UserCompany[]
@@ -531,6 +532,7 @@ model Employee {
   salaryHistory   SalaryHistory[]   @relation("EmployeeSalaryHistory")
   exitRecord      EmployeeExit?     @relation("EmployeeExit")
   resources       EmployeeResource[] @relation("EmployeeResources")
+  advances        EmployeeAdvance[] @relation("EmployeeAdvances")
 
   @@index([companyId])
   @@index([deletedAt])
@@ -669,6 +671,34 @@ model EmployeeExit {
 
   @@index([companyId])
   @@index([terminationDate])
+}
+
+//  EmployeeAdvance — salary advances / loans with scheduled payroll recovery.
+//  HR issues an advance with a monthly recovery amount; generatePayroll adds
+//  a PayrollLineComponent deduction (advanceId-linked) each period until the
+//  recoveredAmount reaches the advance amount → status flips to SETTLED.
+//  Recovery only counts on PAID lines (draft regeneration can't double-count).
+model EmployeeAdvance {
+  id              String   @id @default(cuid())
+  companyId       String
+  employeeId      String
+  amount          Decimal  @db.Decimal(14, 2) // total advance issued
+  monthlyRecovery Decimal  @db.Decimal(14, 2) // auto-deducted per paid payroll
+  recoveredAmount Decimal  @default(0) @db.Decimal(14, 2)
+  status          String   @default("ACTIVE") // ACTIVE | PAUSED | SETTLED | CANCELLED
+  issueDate       DateTime @default(now())
+  notes           String?
+  issuedById      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee   Employee @relation("EmployeeAdvances", fields: [employeeId], references: [id], onDelete: Cascade)
+  issuedBy   User?    @relation("AdvanceIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
+  deductions PayrollLineComponent[]
+
+  @@index([companyId])
+  @@index([employeeId, status])
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -840,6 +870,8 @@ model User {
 
   company           Company?          @relation(fields: [companyId], references: [id], onDelete: SetNull)
   memberships       UserCompany[]
+  issuedAdvances    EmployeeAdvance[] @relation("AdvanceIssuer")
+  offSiteReviews    WorkerAttendance[] @relation("OffSiteReviewer")
   userPreferences   UserPreference[]
   sessions          Session[]
   accounts          Account[]
@@ -1802,6 +1834,14 @@ model WorkerAttendance {
   // Geofence enforcement (computed from project site boundary)
   geoFenceOk        Boolean?  // true if check-in was within project geofence
   geoFenceDistance  Float?    // distance (meters) from project site center, null if no GPS
+  // Off-site review — a check-in outside the geofence is recorded PRESENT
+  // (the work happened — off-site duty is legitimate) but flagged PENDING
+  // for HR review; REJECTED flips the day to ABSENT.
+  offSiteReview       String?   // PENDING | APPROVED | REJECTED
+  offSiteReviewedById String?
+  offSiteReviewedAt   DateTime?
+  offSiteReviewNote   String?
+  offSiteReviewedBy   User?     @relation("OffSiteReviewer", fields: [offSiteReviewedById], references: [id], onDelete: SetNull)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 
@@ -1908,11 +1948,17 @@ model PayrollLineComponent {
   bucket          PayrollComponentBucket @default(ALLOWANCE)
   isDeduction     Boolean  @default(false)
   notes           String?
+  // Advance recovery link — when this component is an auto-deduction for an
+  // EmployeeAdvance, the id here lets markPaid credit the recovery exactly
+  // once (draft lines deleted/regenerated never double-count).
+  advanceId       String?
   createdAt       DateTime @default(now())
 
   payrollLine     PayrollLine @relation(fields: [payrollLineId], references: [id], onDelete: Cascade)
+  advance         EmployeeAdvance? @relation(fields: [advanceId], references: [id], onDelete: SetNull)
 
   @@index([payrollLineId])
+  @@index([advanceId])
 }
 
 model DailyProgressReport {

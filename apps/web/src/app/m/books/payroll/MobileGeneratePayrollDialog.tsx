@@ -41,6 +41,9 @@ export function MobileGeneratePayrollDialog({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  // Two-step confirm when the picked period already has a DRAFT with lines —
+  // regenerating wipes manual edits, so the tap can't be accidental.
+  const [confirmRegen, setConfirmRegen] = useState<{ lineCount: number } | null>(null);
   const [form, setForm] = useState<FormState>({
     month: "",
     year: "",
@@ -54,6 +57,7 @@ export function MobileGeneratePayrollDialog({
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+    setConfirmRegen(null); // a different period needs its own overwrite check
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -75,9 +79,14 @@ export function MobileGeneratePayrollDialog({
       const res = await fetch("/api/payroll", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ month, year }),
+        body: JSON.stringify({ month, year, confirm: confirmRegen != null }),
       });
       const data = await res.json();
+      if (res.status === 409 && data.requiresConfirm) {
+        // Existing draft with lines — ask before overwriting manual edits.
+        setConfirmRegen({ lineCount: data.lineCount });
+        return;
+      }
       if (!res.ok) throw new Error(data.error ?? "Failed to generate payroll");
       haptic([10, 40, 80]);
       toast.success(`Payroll generated for ${MONTHS[month - 1]} ${year}`);
@@ -140,17 +149,28 @@ export function MobileGeneratePayrollDialog({
             </div>
           </div>
 
-          <p
-            className="text-m-caption rounded-[0.375rem] p-2"
-            style={{
-              backgroundColor: "var(--color-concrete)",
-              color: "var(--color-ink-500)",
-            }}
-          >
-            This will create a DRAFT payroll period with salary lines for all
-            active employees. You can review and mark it as paid after
-            processing.
-          </p>
+          {confirmRegen ? (
+            <p
+              className="text-m-caption rounded-[0.375rem] p-2"
+              style={{ backgroundColor: "var(--color-warn-bg, var(--color-concrete))", color: "var(--color-warn, var(--color-ink-700))" }}
+            >
+              A draft payroll for this month already exists ({confirmRegen.lineCount} lines).
+              Regenerating <b>overwrites all lines</b> — manual edits (quantities, extra
+              deductions) will be lost. Tap again to confirm.
+            </p>
+          ) : (
+            <p
+              className="text-m-caption rounded-[0.375rem] p-2"
+              style={{
+                backgroundColor: "var(--color-concrete)",
+                color: "var(--color-ink-500)",
+              }}
+            >
+              This will create a DRAFT payroll period with salary lines for all
+              active employees. You can review and mark it as paid after
+              processing.
+            </p>
+          )}
 
           {/* ══════ STICKY BOTTOM ACTION BAR ══════ */}
           <div
@@ -171,7 +191,7 @@ export function MobileGeneratePayrollDialog({
                 }}
               >
                 {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-                {saving ? "Generating…" : "Generate Payroll"}
+                {saving ? "Generating…" : confirmRegen ? "Overwrite Draft" : "Generate Payroll"}
               </button>
             </div>
           </div>

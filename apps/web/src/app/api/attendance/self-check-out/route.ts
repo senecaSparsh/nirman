@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma, type AttendanceStatus } from "@nirman/db";
+import { assertAttendancePeriodOpen } from "@nirman/services";
 import { apiHandler, getCompany, json, requireUser, scopeWhere, getActingRole,} from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 
@@ -19,8 +20,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const schema = z.object({
     employeeId: z.string().min(1, "Employee is required"),
     date: z.string().min(1, "Date is required"),
-    checkOutLat: z.number(),
-    checkOutLng: z.number(),
+    checkOutLat: z.number().min(-90).max(90),
+    checkOutLng: z.number().min(-180).max(180),
     checkOutLocation: z.string().max(300).optional().nullable(),
   });
 
@@ -60,13 +61,52 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: "You can only check out your own attendance" }, { status: 403 });
   }
 
-  // Find today's attendance record
-  const existing = await prisma.workerAttendance.findUnique({
+  // Find today's attendance record — or, for shifts that cross midnight
+  // (check-in 22:00 → check-out 06:00), the most recent open check-in.
+  // The client always sends the worker's LOCAL today, which is the wrong
+  // day for an overnight shift still open from yesterday.
+  let existing = await prisma.workerAttendance.findUnique({
     where: { employeeId_date: { employeeId: parsed.data.employeeId, date: dateOnly } },
   });
 
+  if (!existing?.checkOut && !existing?.checkIn) {
+    // No usable row today — look for an open check-in from the last 48h
+    // (an overnight or missed-checkout day still awaiting a check-out).
+    existing = await prisma.workerAttendance.findFirst({
+      where: {
+        employeeId: parsed.data.employeeId,
+        checkIn: { not: null },
+        checkOut: null,
+        date: { lt: dateOnly, gte: new Date(dateOnly.getTime() - 2 * 24 * 60 * 60 * 1000) },
+      },
+      orderBy: { date: "desc" },
+    });
+  }
+
   if (!existing) {
     return json({ error: "No check-in found for today. Check in first." }, { status: 404 });
+  }
+
+  // Writing checkout/hours onto a row inside a paid payroll period would
+  // diverge the record from the issued payslip — locked like the matrix.
+  try {
+    await assertAttendancePeriodOpen(company.id, existing.date);
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Period locked" }, { status: 409 });
+  }
+
+  // Already checked out — a second checkout would overwrite checkOut and
+  // recompute hoursWorked from check-in to NOW, inflating hours (and
+  // overtime) or flipping HALF_DAY → PRESENT. Corrections go through the
+  // supervisor's attendance matrix instead.
+  if (existing.checkOut) {
+    return json({
+      ok: true,
+      id: existing.id,
+      alreadyCheckedOut: true,
+      checkOut: existing.checkOut,
+      status: existing.status,
+    });
   }
 
   const checkOutTime = new Date();

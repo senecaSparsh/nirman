@@ -25,7 +25,7 @@ export {
 export { withSerializableTransaction } from "./transaction";
 
 // Atomic sequence number generator — replaces race-prone count+1 pattern
-export { nextSequenceNumber, employeeCodePrefix } from "./sequence";
+export { nextSequenceNumber, employeeCodePrefix, assertEmployeeCodeAvailable } from "./sequence";
 
 // UOM Conversion — pure functions for base/secondary unit conversion
 export {
@@ -747,6 +747,7 @@ export {
   updateDpr,
   deleteDpr,
   deleteAttendance,
+  assertAttendancePeriodOpen,
   projectProgressHistory,
   workforceProductivity,
   attendanceSummary,
@@ -807,6 +808,7 @@ export {
 // Employee Dossier — employment terms, bank, tax, benefits, emergency contact, address
 export {
   updateEmployeeDossier,
+  validateGovIds,
   createEmployeeBenefit,
   updateEmployeeBenefit,
   deleteEmployeeBenefit,
@@ -832,6 +834,7 @@ export {
   assignPhoneToEmployee,
   unlinkEmployeePhone,
   terminateEmployee,
+  restoreEmployee,
   syncEmployeeUser,
   checkPhoneAvailability,
   findAvailablePhoneNumbers,
@@ -928,11 +931,23 @@ export {
 } from "./geometry";
 
 export {
+  issueAdvance,
+  listEmployeeAdvances,
+  listCompanyAdvances,
+  updateAdvanceStatus,
+  advanceDeductionsForPayroll,
+  creditAdvanceRecoveries,
+  type AdvanceStatus,
+  type IssueAdvanceInput,
+} from "./employee-advance";
+
+export {
   RbacError,
   defaultScopeType,
   resolveScopeType,
   requiresScopeEntries,
   validateScopeEntries,
+  assertScopeWithinActor,
   wouldCreateCycle,
   resolveUserScope,
   getReportingChain,

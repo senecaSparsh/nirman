@@ -157,7 +157,15 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
 
   // Idempotent membership upsert. A stale worn hat (not in the new held
   // set) resets to the primary role on next resolution — and is cleared
-  // here so reads stay consistent.
+  // here so reads stay consistent. The User.role mirror follows the
+  // membership's primary role — list views and the held-set union read it.
+  // `wasMember` distinguishes "added" from "role silently overwritten" —
+  // the UI should say which happened, since an Add verb mutating an
+  // existing member's role is otherwise invisible to the actor.
+  const wasMember = await prisma.userCompany.findUnique({
+    where: { userId_companyId: { userId: user.id, companyId: id } },
+    select: { id: true },
+  });
   const newHeldSet = new Set([role, ...secondaryRoles]);
   const membership = await prisma.userCompany.upsert({
     where: { userId_companyId: { userId: user.id, companyId: id } },
@@ -165,10 +173,13 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
     create: { userId: user.id, companyId: id, role, secondaryRoles },
     select: { id: true, userId: true, role: true, secondaryRoles: true },
   });
+  if (user.role !== role) {
+    await prisma.user.update({ where: { id: user.id }, data: { role } });
+  }
   await prisma.userCompany.updateMany({
     where: { id: membership.id, activeRole: { notIn: [...newHeldSet] } },
     data: { activeRole: null },
   });
 
-  return json({ ok: true, membership }, { status: 201 });
+  return json({ ok: true, membership, updated: !!wasMember }, { status: 201 });
 });

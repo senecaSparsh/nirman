@@ -163,11 +163,35 @@ export const POST = apiHandler(async (req: NextRequest) => {
         { status: 403 },
       );
     }
+    // Drop records for employees outside the caller's scope — the service
+    // validates company membership only, so a scoped supervisor could
+    // otherwise mark out-of-scope workers. Reported back, not silent.
+    const empScope = await scopeWhere("Employee", {});
+    const recordIds = parsed.data.records.map((r) => r.employeeId);
+    // Company-level existence check (ignores caller scope) so we can split
+    // "unknown/inactive" skips from "out of scope" skips in the response —
+    // both must be visible; neither may pretend to have saved.
+    const [scopedEmps, companyEmps] = await Promise.all([
+      prisma.employee.findMany({
+        where: { id: { in: recordIds }, deletedAt: null, active: true, ...empScope },
+        select: { id: true },
+      }),
+      prisma.employee.findMany({
+        where: { id: { in: recordIds }, companyId: company.id, deletedAt: null, active: true },
+        select: { id: true },
+      }),
+    ]);
+    const scopedIds = new Set(scopedEmps.map((e) => e.id));
+    const companyIds = new Set(companyEmps.map((e) => e.id));
+    const inScopeRecords = parsed.data.records.filter((r) => scopedIds.has(r.employeeId));
+    const skippedOutOfScope = parsed.data.records.filter((r) => companyIds.has(r.employeeId) && !scopedIds.has(r.employeeId)).length;
+    const skippedUnknown = parsed.data.records.filter((r) => !companyIds.has(r.employeeId)).length;
+
     const results = await bulkRecordAttendance({
       companyId: company.id,
       date: parsedDate,
       projectId: parsed.data.projectId ?? undefined,
-      records: parsed.data.records.map((r) => ({
+      records: inScopeRecords.map((r) => ({
         employeeId: r.employeeId,
         status: r.status,
         checkIn: r.checkIn ?? undefined,
@@ -184,7 +208,15 @@ export const POST = apiHandler(async (req: NextRequest) => {
       recordedById: user.id,
       userId: user.id,
     });
-    return json({ ok: true, results }, { status: 201 });
+    return json(
+      {
+        ok: true,
+        results,
+        ...(skippedOutOfScope > 0 ? { skippedOutOfScope } : {}),
+        ...(skippedUnknown > 0 ? { skippedUnknown } : {}),
+      },
+      { status: 201 },
+    );
   }
 
   const parsed = attendanceSchema.safeParse(body);
@@ -205,6 +237,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
       { error: err instanceof Error ? err.message : "Scope violation" },
       { status: 403 },
     );
+  }
+  // Scope check on the employee — the service validates company only.
+  const empVisible = await prisma.employee.count({
+    where: { id: parsed.data.employeeId, ...await scopeWhere("Employee", {}) },
+  });
+  if (empVisible === 0) {
+    return json({ error: "Employee not found" }, { status: 404 });
   }
   const attendance = await recordAttendance({
     companyId: company.id,

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { logAction } from "@nirman/services";
+import { logAction, assertEmployeeCodeAvailable } from "@nirman/services";
 import { apiHandler, canManageRole, canManageRoleSet, getActingRole, requirePermission, getCompany, json, userRoleSchema, scopeWhere } from "@/lib/server";
 import { isCustomRole, ROLES, PERM } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
@@ -167,13 +167,51 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (parsed.data.name !== undefined) update.name = parsed.data.name;
   if (parsed.data.phone !== undefined) {
     update.phone = parsed.data.phone;
-    update.phoneNormalized = parsed.data.phone ? normalizePhone(parsed.data.phone) : null;
+    const digits = parsed.data.phone ? normalizePhone(parsed.data.phone) : null;
+    // Never write a colliding login identity — two active users sharing a
+    // phoneNormalized turns OTP sign-in into a pick-an-account screen.
+    if (digits && digits.length >= 10) {
+      const holder = await prisma.user.findFirst({
+        where: { phoneNormalized: digits, active: true, id: { not: userId } },
+        select: { name: true },
+      });
+      if (holder) {
+        return json({ error: `Phone ${parsed.data.phone} is already the login number for ${holder.name}` }, { status: 409 });
+      }
+      const poolHolder = await prisma.companyPhone.findFirst({
+        where: {
+          phoneNormalized: digits,
+          deletedAt: null,
+          assignedToUserId: { not: null },
+          assignedTo: { id: { not: userId } },
+        },
+        select: { assignedTo: { select: { name: true } } },
+      });
+      if (poolHolder) {
+        return json({ error: `Phone ${parsed.data.phone} is a company number assigned to ${poolHolder.assignedTo?.name ?? "another user"}` }, { status: 409 });
+      }
+    }
+    // A phone that can't receive OTPs (landline, partial entry) clears the
+    // login identity rather than leaving a stale one pointing elsewhere.
+    update.phoneNormalized = digits && digits.length >= 10 ? digits : null;
   }
   if (parsed.data.designation !== undefined) update.designation = parsed.data.designation || null;
   if (parsed.data.department !== undefined) update.department = parsed.data.department || null;
-  if (parsed.data.employeeCode !== undefined) update.employeeCode = parsed.data.employeeCode || null;
+  if (parsed.data.employeeCode !== undefined) {
+    const code = parsed.data.employeeCode?.trim().toUpperCase() || null;
+    // Employee codes are badge/attendance identifiers — reject collisions
+    // with another member of this company.
+    if (code) await assertEmployeeCodeAvailable(prisma, company.id, code, userId);
+    update.employeeCode = code;
+  }
   if (parsed.data.joiningDate !== undefined) update.joiningDate = parsed.data.joiningDate ? new Date(parsed.data.joiningDate) : null;
   if (parsed.data.employmentEndDate !== undefined) update.employmentEndDate = parsed.data.employmentEndDate ? new Date(parsed.data.employmentEndDate) : null;
+
+  // Fail loudly on a no-op write — a PATCH whose keys were all stripped by
+  // the schema must not report success while writing nothing.
+  if (Object.keys(update).length === 0 && !heldSetChanged) {
+    return json({ error: "No updatable fields in request — check field names" }, { status: 400 });
+  }
 
   const updated = await prisma.user.update({
     where: { id: userId },

@@ -392,6 +392,180 @@ describe("tenant isolation + custom-role RBAC", () => {
     });
   });
 
+  // ── assignScopedMembership: preserve semantics ────────────────
+  // `undefined` must mean "leave it alone" — a reportsTo-only update used
+  // to reset scope to the role default, wipe scope entries AND clear the
+  // manager. Those silent wipes are the "I saved and it vanished" class.
+
+  describe("assignScopedMembership preserve semantics", () => {
+    it("a reportsTo-only update preserves scopeType + scope entries", async () => {
+      const { company, project, user } = await createTestFixture();
+      const dept = await prisma.department.create({ data: { companyId: company.id, code: "OPS", name: "Ops" } });
+      const target = await createUser("pres1", "Scoped Member", company.id, "HR_MANAGER");
+      const mgr = await createUser("pres2", "Manager", company.id, "PROJECT_MANAGER");
+
+      // Make the member DEPARTMENT-scoped with a scope row.
+      await assignScopedMembership({
+        actorUserId: user.id, userId: target.user.id, companyId: company.id,
+        role: "HR_MANAGER", scopeType: "DEPARTMENT",
+        scopeEntries: [{ departmentId: dept.id }],
+      });
+
+      // Now a reportsTo-only update — must not touch scope.
+      await assignScopedMembership({
+        actorUserId: user.id, userId: target.user.id, companyId: company.id,
+        role: "HR_MANAGER",
+        reportsToUserCompanyId: mgr.membership.id,
+      });
+
+      const after = await prisma.userCompany.findUniqueOrThrow({
+        where: { id: target.membership.id },
+        include: { scopes: true },
+      });
+      expect(after.scopeType).toBe("DEPARTMENT");
+      expect(after.scopes).toHaveLength(1);
+      expect(after.scopes[0]!.departmentId).toBe(dept.id);
+      expect(after.reportsToUserCompanyId).toBe(mgr.membership.id);
+    });
+
+    it("a scope-only update preserves the existing reporting line", async () => {
+      const { company, project, user } = await createTestFixture();
+      const target = await createUser("pres3", "Member", company.id, "SUPERVISOR");
+      const mgr = await createUser("pres4", "Manager", company.id, "PROJECT_MANAGER");
+
+      await assignScopedMembership({
+        actorUserId: user.id, userId: target.user.id, companyId: company.id,
+        role: "SUPERVISOR", scopeType: "COMPANY",
+        reportsToUserCompanyId: mgr.membership.id,
+      });
+
+      // Scope-only update — must not clear the manager.
+      await assignScopedMembership({
+        actorUserId: user.id, userId: target.user.id, companyId: company.id,
+        role: "SUPERVISOR", scopeType: "PROJECT",
+        scopeEntries: [{ projectId: project.id }],
+      });
+
+      const after = await prisma.userCompany.findUniqueOrThrow({ where: { id: target.membership.id } });
+      expect(after.reportsToUserCompanyId).toBe(mgr.membership.id);
+      expect(after.scopeType).toBe("PROJECT");
+    });
+
+    it("an explicit null reportsTo still clears the manager", async () => {
+      const { company, user } = await createTestFixture();
+      const target = await createUser("pres5", "Member", company.id, "SUPERVISOR");
+      const mgr = await createUser("pres6", "Manager", company.id, "PROJECT_MANAGER");
+
+      await assignScopedMembership({
+        actorUserId: user.id, userId: target.user.id, companyId: company.id,
+        role: "SUPERVISOR", scopeType: "COMPANY",
+        reportsToUserCompanyId: mgr.membership.id,
+      });
+      await assignScopedMembership({
+        actorUserId: user.id, userId: target.user.id, companyId: company.id,
+        role: "SUPERVISOR", reportsToUserCompanyId: null,
+      });
+
+      const after = await prisma.userCompany.findUniqueOrThrow({ where: { id: target.membership.id } });
+      expect(after.reportsToUserCompanyId).toBeNull();
+    });
+  });
+
+  // ── assignScopedMembership: scope ceiling ─────────────────────
+  // Nobody can grant visibility beyond their own scope — a dept-scoped
+  // HR manager must not mint company-wide sight lines.
+
+  describe("assignScopedMembership scope ceiling", () => {
+    async function scopeActorToDept(membershipId: string, departmentId: string) {
+      await prisma.userCompany.update({ where: { id: membershipId }, data: { scopeType: "DEPARTMENT" } });
+      await prisma.userScope.create({
+        data: { userCompanyId: membershipId, scopeKind: "DEPARTMENT", departmentId },
+      });
+    }
+
+    it("a department-scoped actor cannot grant COMPANY scope", async () => {
+      const { company } = await createTestFixture();
+      const dept = await prisma.department.create({ data: { companyId: company.id, code: "HR", name: "HR" } });
+      const actor = await createUser("hr-d", "Dept HR", company.id, "HR_MANAGER");
+      await scopeActorToDept(actor.membership.id, dept.id);
+      const target = await createUser("t-sc1", "Subordinate", company.id, "SUPERVISOR");
+
+      await expect(
+        assignScopedMembership({
+          actorUserId: actor.user.id, userId: target.user.id, companyId: company.id,
+          role: "SUPERVISOR", scopeType: "COMPANY",
+        }),
+      ).rejects.toMatchObject({ status: 403 });
+    });
+
+    it("a department-scoped actor cannot grant another department", async () => {
+      const { company } = await createTestFixture();
+      const own = await prisma.department.create({ data: { companyId: company.id, code: "HR", name: "HR" } });
+      const other = await prisma.department.create({ data: { companyId: company.id, code: "FIN", name: "Finance" } });
+      const actor = await createUser("hr-d2", "Dept HR", company.id, "HR_MANAGER");
+      await scopeActorToDept(actor.membership.id, own.id);
+      const target = await createUser("t-sc2", "Subordinate", company.id, "SUPERVISOR");
+
+      await expect(
+        assignScopedMembership({
+          actorUserId: actor.user.id, userId: target.user.id, companyId: company.id,
+          role: "SUPERVISOR", scopeType: "DEPARTMENT", scopeEntries: [{ departmentId: other.id }],
+        }),
+      ).rejects.toMatchObject({ status: 403 });
+    });
+
+    it("a department-scoped actor CAN grant their own department", async () => {
+      const { company } = await createTestFixture();
+      const own = await prisma.department.create({ data: { companyId: company.id, code: "HR", name: "HR" } });
+      const actor = await createUser("hr-d3", "Dept HR", company.id, "HR_MANAGER");
+      await scopeActorToDept(actor.membership.id, own.id);
+      const target = await createUser("t-sc3", "Subordinate", company.id, "SUPERVISOR");
+
+      const membership = await assignScopedMembership({
+        actorUserId: actor.user.id, userId: target.user.id, companyId: company.id,
+        role: "SUPERVISOR", scopeType: "DEPARTMENT", scopeEntries: [{ departmentId: own.id }],
+      });
+      expect(membership?.scopeType).toBe("DEPARTMENT");
+    });
+
+    it("a department-scoped actor can grant PROJECT scope only for projects their dept is deployed on", async () => {
+      const { company, project } = await createTestFixture();
+      const own = await prisma.department.create({ data: { companyId: company.id, code: "HR", name: "HR" } });
+      const actor = await createUser("hr-d4", "Dept HR", company.id, "HR_MANAGER");
+      await scopeActorToDept(actor.membership.id, own.id);
+      const target = await createUser("t-sc4", "Subordinate", company.id, "SUPERVISOR");
+
+      // Nobody in the dept is deployed on the project → grant must fail.
+      await expect(
+        assignScopedMembership({
+          actorUserId: actor.user.id, userId: target.user.id, companyId: company.id,
+          role: "SUPERVISOR", scopeType: "PROJECT", scopeEntries: [{ projectId: project.id }],
+        }),
+      ).rejects.toMatchObject({ status: 403 });
+
+      // Deploy a dept employee on the project → the grant becomes legal.
+      await prisma.employee.create({
+        data: { companyId: company.id, name: "Dept Worker", departmentId: own.id, activeProjectId: project.id },
+      });
+      const membership = await assignScopedMembership({
+        actorUserId: actor.user.id, userId: target.user.id, companyId: company.id,
+        role: "SUPERVISOR", scopeType: "PROJECT", scopeEntries: [{ projectId: project.id }],
+      });
+      expect(membership?.scopeType).toBe("PROJECT");
+    });
+
+    it("a company-scoped actor can still grant any scope", async () => {
+      const { company, project, user } = await createTestFixture(); // OWNER → company scope
+      const target = await createUser("t-sc5", "Subordinate", company.id, "SUPERVISOR");
+
+      const membership = await assignScopedMembership({
+        actorUserId: user.id, userId: target.user.id, companyId: company.id,
+        role: "SUPERVISOR", scopeType: "PROJECT", scopeEntries: [{ projectId: project.id }],
+      });
+      expect(membership?.scopeType).toBe("PROJECT");
+    });
+  });
+
   // ── updateEmployee: reporting-line integrity ──────────────────
 
   describe("updateEmployee reporting lines", () => {

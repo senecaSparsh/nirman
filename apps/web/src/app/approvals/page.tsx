@@ -57,7 +57,7 @@ async function ApprovalsContent() {
   const [purchaseOrders, requisitions, gatePasses, dprs, expenses, pendingClaims, claimCategories, raBills] = await Promise.all([
     canApprovePo
       ? prisma.purchaseOrder.findMany({
-          where: { companyId: company.id, status: "DRAFT", createdById: hideSelf ? { not: userId } : undefined },
+          where: { companyId: company.id, status: "DRAFT", createdById: hideSelf ? { not: userId } : undefined, ...await scopeWhere("PurchaseOrder") },
           orderBy: { createdAt: "desc" },
           take: 100,
           include: {
@@ -87,7 +87,7 @@ async function ApprovalsContent() {
       : [],
     canApproveGatePass
       ? prisma.gatePass.findMany({
-          where: { companyId: company.id, status: "PENDING", createdById: hideSelf ? { not: userId } : undefined },
+          where: { companyId: company.id, status: "PENDING", createdById: hideSelf ? { not: userId } : undefined, ...await scopeWhere("GatePass") },
           orderBy: { createdAt: "desc" },
           take: 50,
           include: {
@@ -99,7 +99,7 @@ async function ApprovalsContent() {
       : [],
     dprApprovalStatuses.length > 0
       ? prisma.dailyProgressReport.findMany({
-          where: { companyId: company.id, approvalStatus: { in: dprApprovalStatuses }, submittedById: hideSelf ? { not: userId } : undefined },
+          where: { companyId: company.id, approvalStatus: { in: dprApprovalStatuses }, submittedById: hideSelf ? { not: userId } : undefined, ...await scopeWhere("DailyProgressReport") },
           orderBy: { createdAt: "desc" },
           take: 50,
           include: {
@@ -110,7 +110,7 @@ async function ApprovalsContent() {
       : [],
     canApproveExpense
       ? prisma.expense.findMany({
-          where: { companyId: company.id, status: "PENDING", submittedById: hideSelf ? { not: userId } : undefined },
+          where: { companyId: company.id, status: "PENDING", submittedById: hideSelf ? { not: userId } : undefined, ...await scopeWhere("Expense") },
           orderBy: { createdAt: "desc" },
           take: 50,
           include: {
@@ -121,7 +121,7 @@ async function ApprovalsContent() {
       : [],
     canApproveExpense
       ? prisma.expenseClaim.findMany({
-          where: { companyId: company.id, status: "SUBMITTED", claimantId: hideSelf ? { not: userId } : undefined },
+          where: { companyId: company.id, status: "SUBMITTED", claimantId: hideSelf ? { not: userId } : undefined, ...await scopeWhere("ExpenseClaim") },
           orderBy: { createdAt: "desc" },
           take: 50,
           include: {
@@ -140,7 +140,7 @@ async function ApprovalsContent() {
       : [],
     canApproveRaBill
       ? prisma.raBill.findMany({
-          where: { companyId: company.id, status: "SUBMITTED", createdById: hideSelf ? { not: userId } : undefined, submittedById: hideSelf ? { not: userId } : undefined },
+          where: { companyId: company.id, status: "SUBMITTED", createdById: hideSelf ? { not: userId } : undefined, submittedById: hideSelf ? { not: userId } : undefined, ...await scopeWhere("RaBill") },
           orderBy: { createdAt: "desc" },
           take: 50,
           include: {

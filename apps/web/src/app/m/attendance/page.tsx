@@ -8,6 +8,7 @@ import {
   MobileCta} from "@/components/mobile/v2/primitives";
 import { PERM, roleTier } from "@/lib/roles";
 import { MobileAttendanceList } from "./MobileAttendanceList";
+import { OffsiteReviewStrip } from "./OffsiteReviewStrip";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
@@ -35,12 +36,31 @@ export default function MobileAttendancePage({
         const from = new Date(today);
         from.setDate(from.getDate() - 30); // last 30 days
 
-        const [tieredRecords, projects] = await Promise.all([
+        const [tieredRecords, projects, pendingOffsite] = await Promise.all([
           getAttendanceWithTiers({ companyId: company.id, from, to: today }),
           prisma.project.findMany({
             where: { companyId: company.id, deletedAt: null },
             select: { id: true, name: true },
             orderBy: { name: "asc" }}),
+          // Off-site check-ins awaiting HR review — provisional PRESENT
+          // until someone with hr.manage accepts or rejects them.
+          canManageAttendance
+            ? prisma.workerAttendance.findMany({
+                where: {
+                  companyId: company.id,
+                  offSiteReview: "PENDING",
+                  employee: { deletedAt: null },
+                },
+                orderBy: { date: "desc" },
+                take: 25,
+                select: {
+                  id: true, date: true, checkIn: true,
+                  checkInLat: true, checkInLng: true, checkInLocation: true,
+                  geoFenceDistance: true,
+                  employee: { select: { id: true, name: true, designation: true } },
+                  project: { select: { name: true } },
+                }})
+            : Promise.resolve([]),
         ]);
 
         // Serialize for the client component (search + filter chips + date/project filters + badges)
@@ -83,6 +103,23 @@ export default function MobileAttendancePage({
                   Self check-in
                 </MobileCta>
               </div>
+            )}
+
+            {pendingOffsite.length > 0 && (
+              <OffsiteReviewStrip
+                rows={pendingOffsite.map((r) => ({
+                  id: r.id,
+                  employeeName: r.employee.name,
+                  designation: r.employee.designation,
+                  projectName: r.project?.name ?? null,
+                  date: r.date.toISOString().slice(0, 10),
+                  checkIn: r.checkIn?.toISOString() ?? null,
+                  lat: r.checkInLat,
+                  lng: r.checkInLng,
+                  location: r.checkInLocation,
+                  fenceDistanceM: r.geoFenceDistance != null ? Math.round(r.geoFenceDistance) : null,
+                }))}
+              />
             )}
 
             <MobileAttendanceList

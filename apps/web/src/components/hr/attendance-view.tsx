@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarCheck, Save, Clock, Pencil, Trash2, CalendarX, MapPin, SearchX } from "lucide-react";
+import { CalendarCheck, Save, Clock, Pencil, Trash2, CalendarX, MapPin, SearchX, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
@@ -57,6 +57,12 @@ const STATUS_CONFIG: Record<AttendanceStatus, { label: string; short: string; ac
   NON_PAID_LEAVE: { label: "Non-Paid Leave", short: "NPL", activeClass: "bg-muted text-muted-foreground border-border", dotClass: "bg-muted-foreground" },
 };
 
+/** Statuses a marker may pick directly. PAID_LEAVE is excluded — paid-leave
+ *  days come from an approved leave request (balance + approval + audit),
+ *  not from the matrix. It stays in STATUS_CONFIG so existing rows still
+ *  render with a label. */
+const MARKABLE_STATUSES = (Object.keys(STATUS_CONFIG) as AttendanceStatus[]).filter((s) => s !== "PAID_LEAVE");
+
 /** Attendance summary stats bar. */
 function AttendanceStatsBar({ employees, getStatus, isMarked }: { employees: { id: string }[]; getStatus: (id: string) => AttendanceStatus; isMarked: (id: string) => boolean }) {
   const present = employees.filter((e) => getStatus(e.id) === "PRESENT" || getStatus(e.id) === "OVERTIME").length;
@@ -110,6 +116,21 @@ function AttendanceStatsBar({ employees, getStatus, isMarked }: { employees: { i
   );
 }
 
+interface OffsiteReviewRow {
+  id: string;
+  date: string;
+  employeeId: string;
+  employeeName: string;
+  designation: string | null;
+  projectName: string | null;
+  checkIn: string | null;
+  lat: number | null;
+  lng: number | null;
+  location: string | null;
+  fenceDistanceM: number | null;
+  review: string;
+}
+
 export function AttendanceView({
   employees,
   projects,
@@ -120,6 +141,7 @@ export function AttendanceView({
   leaveEmployees,
   currentUserId,
   canSelfApprove,
+  offsiteReviews,
 }: {
   employees: { id: string; name: string; trade: string | null }[];
   projects: { id: string; name: string }[];
@@ -130,6 +152,7 @@ export function AttendanceView({
   canSelfApprove?: boolean;
   leaveRows?: LeaveRow[];
   leaveEmployees?: { id: string; name: string; trade: string | null; designation: string | null }[];
+  offsiteReviews?: OffsiteReviewRow[];
 }) {
   const router = useRouter();
   const canEdit = permissions?.canEdit ?? false;
@@ -191,7 +214,17 @@ export function AttendanceView({
         }),
       });
       if (res.ok) {
-        toast.success(`Attendance saved for ${employees.length} workers`);
+        const data = await res.json().catch(() => ({}));
+        const skips = (data.skippedOutOfScope ?? 0) + (data.skippedUnknown ?? 0);
+        if (skips > 0) {
+          toast.warning(
+            `Saved, but ${skips} worker${skips === 1 ? "" : "s"} couldn't be marked` +
+              (data.skippedOutOfScope ? ` (${data.skippedOutOfScope} outside your scope)` : "") +
+              (data.skippedUnknown ? ` (${data.skippedUnknown} not found/inactive)` : ""),
+          );
+        } else {
+          toast.success(`Attendance saved for ${employees.length} workers`);
+        }
         setStatuses({});
         router.refresh();
       } else {
@@ -202,6 +235,22 @@ export function AttendanceView({
       setSaving(false);
     }
   };
+
+  async function reviewOffsite(attendanceId: string, decision: "APPROVED" | "REJECTED") {
+    try {
+      const res = await fetch(`/api/attendance/${attendanceId}/review`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Review failed");
+      toast.success(decision === "APPROVED" ? "Off-site day approved" : "Rejected — marked absent");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Review failed");
+    }
+  }
 
   function openEdit(r: AttendanceRow) {
     setEditTarget(r);
@@ -419,6 +468,50 @@ export function AttendanceView({
         </TabsList>
 
         <TabsContent value="attendance" className="space-y-4">
+          {/* Off-site check-in review queue — a worker who checked in
+              outside the geofence is PRESENT provisionally; approve
+              (legitimate off-site duty) or reject (→ ABSENT) here. */}
+          {canManage && offsiteReviews && offsiteReviews.length > 0 && (
+            <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 space-y-2">
+              <p className="text-label font-semibold text-warning flex items-center gap-1.5">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                {offsiteReviews.length} off-site check-in{offsiteReviews.length === 1 ? "" : "s"} need{offsiteReviews.length === 1 ? "s" : ""} review
+              </p>
+              {offsiteReviews.map((r) => (
+                <div key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-card p-2.5">
+                  <div className="min-w-0">
+                    <p className="text-body font-semibold truncate">
+                      {r.employeeName}
+                      {r.designation ? <span className="font-normal text-muted-foreground"> · {r.designation}</span> : null}
+                    </p>
+                    <p className="text-micro text-muted-foreground">
+                      {formatDate(r.date)}
+                      {r.checkIn ? ` · in ${new Date(r.checkIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}` : ""}
+                      {r.projectName ? ` · ${r.projectName}` : ""}
+                      {r.fenceDistanceM != null ? ` · ${(r.fenceDistanceM / 1000).toFixed(1)} km from fence` : ""}
+                    </p>
+                    {r.location && (
+                      <p className="text-micro text-muted-foreground truncate">{r.location}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {r.lat != null && r.lng != null && (
+                      <a
+                        href={`https://www.google.com/maps?q=${r.lat},${r.lng}`}
+                        target="_blank" rel="noreferrer"
+                        className="text-micro font-medium text-info hover:underline"
+                      >
+                        Map ↗
+                      </a>
+                    )}
+                    <Button size="sm" variant="outline" onClick={() => reviewOffsite(r.id, "REJECTED")}>Reject</Button>
+                    <Button size="sm" onClick={() => reviewOffsite(r.id, "APPROVED")}>Approve</Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Sub-tabs */}
           <div className="flex gap-1">
             <button
@@ -526,7 +619,7 @@ export function AttendanceView({
                             <TD>{e.trade || <span className="text-muted-foreground">—</span>}</TD>
                             <TD>
                               <div className="flex gap-1">
-                                {(Object.keys(STATUS_CONFIG) as AttendanceStatus[]).map((s) => {
+                                {MARKABLE_STATUSES.map((s) => {
                                   const cfg = STATUS_CONFIG[s];
                                   const isActive = currentStatus === s;
                                   return (

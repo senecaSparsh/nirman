@@ -34,7 +34,17 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       return json({ error: "A material with this code already exists" }, { status: 409 });
     }
   }
-  const data: Record<string, unknown> = { ...parsed.data };
+  // Only write keys the caller actually sent — .partial() still fills zod
+  // .default()s for absent keys (unit→"NOS", gstRate→0, standardCost→0,
+  // flag booleans→false), so a bare spread would silently wipe them on any
+  // partial PATCH.
+  const data: Record<string, unknown> = {};
+  for (const k of Object.keys(parsed.data) as (keyof typeof parsed.data)[]) {
+    if (k in body) data[k] = parsed.data[k];
+  }
+  if (Object.keys(data).length === 0) {
+    return json({ error: "No updatable fields in request — check field names" }, { status: 400 });
+  }
   // Note: do NOT overwrite currentCost here — it's the Moving Average Cost
   // managed by refreshMaterialCurrentCost() after stock movements. Only set
   // currentCost on material creation (when there's no stock yet).

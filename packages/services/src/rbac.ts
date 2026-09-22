@@ -373,6 +373,57 @@ async function svcResolveBaseRole(role: string, companyId: string): Promise<stri
  *  - reportsTo is in the same company and doesn't create a cycle
  *  - department/project scope entries belong to the company
  */
+/**
+ * Scope ceiling — nobody can grant visibility beyond their own scope.
+ * A department-scoped HR manager must not mint company-wide sight lines or
+ * scope someone into departments/projects the actor can't see. Resolves the
+ * actor's OWN membership scope (delegation never widens it — borrowed
+ * authority can't mint sight lines). Shared by assignScopedMembership and
+ * createEmployeeAccount.
+ */
+export async function assertScopeWithinActor(
+  actorUserId: string,
+  companyId: string,
+  scopeType: ScopeType,
+  entries: { departmentId?: string | null; projectId?: string | null }[],
+): Promise<void> {
+  const actorScope = await resolveUserScope(actorUserId, companyId);
+  if (!actorScope || actorScope.scopeType === "COMPANY") return;
+
+  if (scopeType === "COMPANY") {
+    throw new RbacError("You can't grant company-wide scope — your own access is narrower.", 403);
+  }
+  if (scopeType === "DEPARTMENT") {
+    const actorDepts = new Set(actorScope.departmentIds);
+    const bad = actorScope.scopeType !== "DEPARTMENT"
+      || entries.some((e) => !e.departmentId || !actorDepts.has(e.departmentId));
+    if (bad) {
+      throw new RbacError("You can't grant department scope outside your own departments.", 403);
+    }
+  }
+  if (scopeType === "PROJECT") {
+    let allowed: Set<string>;
+    if (actorScope.scopeType === "PROJECT") {
+      allowed = new Set(actorScope.projectIds);
+    } else {
+      // Dept-scoped actor granting project scope: projects reachable
+      // through their departments' deployed employees.
+      const deployed = await prisma.employee.findMany({
+        where: {
+          companyId,
+          departmentId: { in: actorScope.departmentIds },
+          activeProjectId: { not: null },
+        },
+        select: { activeProjectId: true },
+      });
+      allowed = new Set(deployed.map((e) => e.activeProjectId!));
+    }
+    if (entries.some((e) => !e.projectId || !allowed.has(e.projectId))) {
+      throw new RbacError("You can't grant project scope outside your own visibility.", 403);
+    }
+  }
+}
+
 export async function assignScopedMembership(input: AssignScopeInput) {
   // Actor authorization: must have a membership in this company.
   const actorMembership = await prisma.userCompany.findUnique({
@@ -432,9 +483,32 @@ export async function assignScopedMembership(input: AssignScopeInput) {
   // Default scope type comes from the role — custom roles inherit their
   // baseRole's default (a CUSTOM_ role based on SITE_ENGINEER gets PROJECT
   // scope, not the fail-open COMPANY fallback for unknown strings).
-  const scopeType = input.scopeType ?? defaultScopeType(await svcResolveBaseRole(input.role, input.companyId));
+  //
+  // PRESERVE semantics: `undefined` = leave the current value untouched;
+  // `null` = explicit clear/reset. Without this, a reportsTo-only update
+  // silently resets a department-scoped member to their role's default
+  // scope and wipes every scope entry — data loss that looks like a save.
+  const priorMembership = await prisma.userCompany.findUnique({
+    where: { userId_companyId: { userId: input.userId, companyId: input.companyId } },
+    select: { scopeType: true },
+  });
+  const roleDefaultScope = defaultScopeType(await svcResolveBaseRole(input.role, input.companyId));
+  const priorScope = (priorMembership?.scopeType ?? null) as ScopeType | null;
+  const scopeType = input.scopeType !== undefined
+    ? (input.scopeType ?? roleDefaultScope)
+    : (priorScope ?? roleDefaultScope);
   const entries = input.scopeEntries ?? [];
-  validateScopeEntries(scopeType, entries);
+  // Entries only need validation when the caller actually sent them (or
+  // the scope type itself is being (re)set — stale entries of the wrong
+  // kind would linger otherwise).
+  if (input.scopeEntries !== undefined || input.scopeType !== undefined) {
+    validateScopeEntries(scopeType, entries);
+  }
+
+  // ── Scope ceiling: nobody can grant visibility beyond their own scope. ──
+  // Runs on the RESOLVED scopeType so role-defaulted assignments are
+  // covered too.
+  await assertScopeWithinActor(input.actorUserId, input.companyId, scopeType, entries);
 
   return withSerializableTransaction(async (tx) => {
     // Upsert the membership.
@@ -468,6 +542,11 @@ export async function assignScopedMembership(input: AssignScopeInput) {
       });
       if (!reportsTo || reportsTo.companyId !== input.companyId) {
         throw new RbacError("reportsTo membership must be in the same company", 400);
+      }
+      // An inactive membership can't hold a reporting line — approvals and
+      // org-chart edges would dead-end at a deactivated member.
+      if (!reportsTo.active) {
+        throw new RbacError("reportsTo membership is deactivated", 400);
       }
       if (existing) {
         // Walk up from the CANDIDATE manager — a loop forms iff the target
@@ -525,7 +604,10 @@ export async function assignScopedMembership(input: AssignScopeInput) {
             ...(secondaryRoles !== undefined ? { secondaryRoles } : {}),
             ...activeRoleReset,
             scopeType,
-            reportsToUserCompanyId: input.reportsToUserCompanyId ?? null,
+            // `undefined` = preserve the existing manager; `null` = clear.
+            reportsToUserCompanyId: input.reportsToUserCompanyId !== undefined
+              ? input.reportsToUserCompanyId
+              : (existing.reportsToUserCompanyId ?? null),
           },
         })
       : await tx.userCompany.create({
@@ -538,6 +620,17 @@ export async function assignScopedMembership(input: AssignScopeInput) {
             reportsToUserCompanyId: input.reportsToUserCompanyId ?? null,
           },
         });
+
+    // Mirror the primary role onto User.role — list views and the
+    // employee.user.role fallback read the mirror; the membership row is
+    // authoritative but a stale mirror pollutes the held-set union in
+    // canManageSpecificEmployee and renders wrong labels in member lists.
+    if (existing?.role !== input.role) {
+      await tx.user.update({
+        where: { id: input.userId },
+        data: { role: input.role },
+      });
+    }
 
     // ── reportsTo sync (membership → employee) — the two reporting fields
     //    are one line rendered twice: reportsToUserCompanyId drives
@@ -601,19 +694,23 @@ export async function assignScopedMembership(input: AssignScopeInput) {
       }
     }
 
-    // Replace scope entries.
-    if (existing) {
-      await tx.userScope.deleteMany({ where: { userCompanyId: membership.id } });
-    }
-    if (entries.length) {
-      await tx.userScope.createMany({
-        data: entries.map((e) => ({
-          userCompanyId: membership.id,
-          scopeKind: scopeType === "DEPARTMENT" ? "DEPARTMENT" : "PROJECT",
-          departmentId: e.departmentId ?? null,
-          projectId: e.projectId ?? null,
-        })),
-      });
+    // Replace scope entries — but only when the caller actually addressed
+    // them (sent scopeEntries) or is (re)setting the scope type. A
+    // reportsTo-only update must not wipe a scoped member's boundaries.
+    if (input.scopeEntries !== undefined || input.scopeType !== undefined) {
+      if (existing) {
+        await tx.userScope.deleteMany({ where: { userCompanyId: membership.id } });
+      }
+      if (entries.length) {
+        await tx.userScope.createMany({
+          data: entries.map((e) => ({
+            userCompanyId: membership.id,
+            scopeKind: scopeType === "DEPARTMENT" ? "DEPARTMENT" : "PROJECT",
+            departmentId: e.departmentId ?? null,
+            projectId: e.projectId ?? null,
+          })),
+        });
+      }
     }
 
     await logAction(tx, {

@@ -1007,9 +1007,9 @@ export async function generateRentSchedule(input: GenerateRentScheduleInput) {
  * Called by the cron job so users don't have to manually click "Generate Schedule"
  * every month. Idempotent — skips periods that already have a RentalPayment.
  */
-export async function generateDueRentSchedules(): Promise<{ checked: number; created: number }> {
+export async function generateDueRentSchedules(companyId?: string): Promise<{ checked: number; created: number }> {
   const activeTenancies = await prisma.tenancy.findMany({
-    where: { status: "ACTIVE" },
+    where: { status: "ACTIVE", ...(companyId ? { companyId } : {}) },
     select: { id: true, companyId: true, monthlyRent: true, startDate: true, endDate: true },
   });
 

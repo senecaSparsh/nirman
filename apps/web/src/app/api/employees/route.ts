@@ -18,12 +18,15 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const url = new URL(req.url);
   const crewId = url.searchParams.get("crewId");
   const activeOnly = url.searchParams.get("active") === "true";
+  // archived=true returns soft-deleted records for the restore flow —
+  // still scope-filtered (a dept-scoped viewer sees only their own archives).
+  const archivedOnly = url.searchParams.get("archived") === "true";
 
   const employees = await prisma.employee.findMany({
     take: 200,
     where: {
       companyId: company.id,
-      deletedAt: null,
+      deletedAt: archivedOnly ? { not: null } : null,
       ...(activeOnly ? { active: true } : {}),
       ...(crewId ? { crewId } : {}),
       ...await scopeWhere("Employee"),
@@ -57,6 +60,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       reportingLocationName: e.reportingLocation?.name ?? null,
       hierarchyLevel: e.hierarchyLevel,
       userId: e.userId,
+      archived: e.deletedAt != null,
     })),
   );
 });
@@ -184,6 +188,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
       active: parsed.data.active ?? true,
       reportingLocationId: isPrimary ? (parsed.data.reportingLocationId || undefined) : undefined,
       hierarchyLevel: parsed.data.hierarchyLevel ?? undefined,
+      reportsToEmployeeId: isPrimary ? (parsed.data.reportsToEmployeeId || undefined) : undefined,
+      documentsSubmitted: parsed.data.documentsSubmitted ?? undefined,
+      backgroundVerified: parsed.data.backgroundVerified ?? undefined,
       userId: user.id,
       // Employment terms (dossier) — accepted at creation time
       employmentType: parsed.data.employmentType ?? undefined,

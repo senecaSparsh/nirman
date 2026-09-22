@@ -59,10 +59,10 @@ export async function MobileApprovals({ title }: { title: string }) {
   if (canApproveDprSubAdmin) dprApprovalStatuses.push("SUBMITTED");
   if (canApproveDprAdmin) dprApprovalStatuses.push("SUB_ADMIN_APPROVED");
 
-  const [draftPOs, pendingReqs, pendingGatePasses, pendingDprs, pendingExpenses, pendingRaBills, pendingClaims, pendingLeaves] = await Promise.all([
+  const [draftPOs, pendingReqs, pendingGatePasses, pendingDprs, pendingExpenses, pendingRaBills, pendingClaims, pendingLeaves, pendingOffsite] = await Promise.all([
     canApprovePo
       ? prisma.purchaseOrder.findMany({
-          where: { companyId: company.id, status: "DRAFT", createdById: hideSelf ? { not: userId } : undefined },
+          where: { companyId: company.id, status: "DRAFT", createdById: hideSelf ? { not: userId } : undefined, ...await scopeWhere("PurchaseOrder") },
           orderBy: { createdAt: "desc" },
           take: 20,
           include: {
@@ -81,7 +81,7 @@ export async function MobileApprovals({ title }: { title: string }) {
       : [],
     canApproveReq
       ? prisma.materialRequisition.findMany({
-          where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: hideSelf ? { not: userId } : undefined },
+          where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: hideSelf ? { not: userId } : undefined, ...await scopeWhere("MaterialRequisition") },
           orderBy: { createdAt: "desc" },
           take: 20,
           include: {
@@ -99,7 +99,7 @@ export async function MobileApprovals({ title }: { title: string }) {
       : [],
     canApproveGatePass
       ? prisma.gatePass.findMany({
-          where: { companyId: company.id, status: "PENDING", createdById: hideSelf ? { not: userId } : undefined },
+          where: { companyId: company.id, status: "PENDING", createdById: hideSelf ? { not: userId } : undefined, ...await scopeWhere("GatePass") },
           orderBy: { createdAt: "desc" },
           take: 20,
           include: {
@@ -111,7 +111,7 @@ export async function MobileApprovals({ title }: { title: string }) {
       : [],
     dprApprovalStatuses.length > 0
       ? prisma.dailyProgressReport.findMany({
-          where: { companyId: company.id, approvalStatus: { in: dprApprovalStatuses }, submittedById: hideSelf ? { not: userId } : undefined },
+          where: { companyId: company.id, approvalStatus: { in: dprApprovalStatuses }, submittedById: hideSelf ? { not: userId } : undefined, ...await scopeWhere("DailyProgressReport") },
           orderBy: { createdAt: "desc" },
           take: 20,
           include: {
@@ -122,7 +122,7 @@ export async function MobileApprovals({ title }: { title: string }) {
       : [],
     canApproveExpense
       ? prisma.expense.findMany({
-          where: { companyId: company.id, status: "PENDING", submittedById: hideSelf ? { not: userId } : undefined },
+          where: { companyId: company.id, status: "PENDING", submittedById: hideSelf ? { not: userId } : undefined, ...await scopeWhere("Expense") },
           orderBy: { createdAt: "desc" },
           take: 20,
           include: {
@@ -133,7 +133,7 @@ export async function MobileApprovals({ title }: { title: string }) {
       : [],
     canApproveRaBill
       ? prisma.raBill.findMany({
-          where: { companyId: company.id, status: "SUBMITTED", createdById: hideSelf ? { not: userId } : undefined, submittedById: hideSelf ? { not: userId } : undefined },
+          where: { companyId: company.id, status: "SUBMITTED", createdById: hideSelf ? { not: userId } : undefined, submittedById: hideSelf ? { not: userId } : undefined, ...await scopeWhere("RaBill") },
           orderBy: { createdAt: "desc" },
           take: 20,
           include: {
@@ -165,8 +165,23 @@ export async function MobileApprovals({ title }: { title: string }) {
       : [],
     canManageHr
       ? prisma.leaveRequest.findMany({
-          where: { companyId: company.id, status: "PENDING" },
+          where: { companyId: company.id, status: "PENDING", ...await scopeWhere("LeaveRequest") },
           orderBy: { createdAt: "desc" },
+          take: 20,
+          include: { employee: { select: { name: true } } },
+        })
+      : [],
+    // Off-site check-ins are approvals too — a worker outside the geofence
+    // sits as provisional PRESENT until HR reviews. Surface them here so
+    // the unified queue doesn't hide them on a separate page.
+    canManageHr
+      ? prisma.workerAttendance.findMany({
+          where: {
+            companyId: company.id,
+            offSiteReview: "PENDING",
+            employee: { deletedAt: null, userId: hideSelf ? { not: userId } : undefined, ...await scopeWhere("Employee") },
+          },
+          orderBy: { date: "desc" },
           take: 20,
           include: { employee: { select: { name: true } } },
         })
@@ -296,10 +311,13 @@ export async function MobileApprovals({ title }: { title: string }) {
     createdAt: l.createdAt.toISOString(),
   }));
 
+  const offsiteCount = pendingOffsite.length;
+  const offsiteNames = pendingOffsite.slice(0, 3).map((r) => r.employee?.name ?? "Worker");
+
   return (
     <div>
-      <MobilePageHeader title={title} subtitle={`${poRows.length + reqRows.length + gatePassRows.length + dprRows.length + expenseRows.length + raBillRows.length + claimRows.length + leaveRows.length} awaiting approval`} right={<MobileRefreshButton />} />
-      <MobileApprovalsQueue purchaseOrders={poRows} requisitions={reqRows} gatePasses={gatePassRows} dprs={dprRows} expenses={expenseRows} raBills={raBillRows} expenseClaims={claimRows} leaves={leaveRows} />
+      <MobilePageHeader title={title} subtitle={`${poRows.length + reqRows.length + gatePassRows.length + dprRows.length + expenseRows.length + raBillRows.length + claimRows.length + leaveRows.length + offsiteCount} awaiting approval`} right={<MobileRefreshButton />} />
+      <MobileApprovalsQueue purchaseOrders={poRows} requisitions={reqRows} gatePasses={gatePassRows} dprs={dprRows} expenses={expenseRows} raBills={raBillRows} expenseClaims={claimRows} leaves={leaveRows} offsiteCount={offsiteCount} offsiteNames={offsiteNames} />
     </div>
   );
 }

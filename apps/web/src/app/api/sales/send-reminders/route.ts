@@ -7,7 +7,7 @@ import {
   checkMilestonePayments,
   generateDueRentSchedules,
 } from "@nirman/services";
-import { apiHandler, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -26,10 +26,13 @@ import { PERM } from "@/lib/roles";
  */
 export const POST = apiHandler(async (_req: NextRequest) => {
   await requirePermission(PERM.SALES_MANAGE);
+  const company = await getCompany();
 
-  // 1. Check all active projects for milestone completions → mark payments DUE
+  // 1. Check THIS company's active projects for milestone completions → mark
+  // payments DUE. Without the company filter a sales manager in one tenant
+  // would trigger sweeps — and customer-facing reminders — for every tenant.
   const activeProjects = await prisma.project.findMany({
-    where: { deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+    where: { deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] }, companyId: company.id },
     select: { id: true },
   });
   let milestoneChecked = 0;
@@ -46,10 +49,10 @@ export const POST = apiHandler(async (_req: NextRequest) => {
 
   // 2-5. Run remaining sweeps in parallel
   const [escalations, rentSchedule, rentReminders, saleReminders] = await Promise.all([
-    processDueEscalations().catch(() => ({ checked: 0, escalated: 0 })),
-    generateDueRentSchedules().catch(() => ({ checked: 0, created: 0 })),
-    sendRentDueReminders().catch(() => ({ checked: 0, sent: 0 })),
-    sendPaymentDueReminders().catch(() => ({ checked: 0, sent: 0 })),
+    processDueEscalations(company.id).catch(() => ({ checked: 0, escalated: 0 })),
+    generateDueRentSchedules(company.id).catch(() => ({ checked: 0, created: 0 })),
+    sendRentDueReminders(company.id).catch(() => ({ checked: 0, sent: 0 })),
+    sendPaymentDueReminders(company.id).catch(() => ({ checked: 0, sent: 0 })),
   ]);
 
   return json({

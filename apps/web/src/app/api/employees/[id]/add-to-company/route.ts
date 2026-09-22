@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, getCompanyDescendantIds, json, requirePermission, scopeWhere, assertCanManageEmployee } from "@/lib/server";
+import { apiHandler, canManageRole, getActingRole, getCompany, getCompanyDescendantIds, json, requirePermission, scopeWhere, assertCanManageEmployee } from "@/lib/server";
+import { defaultScopeType } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -139,7 +140,19 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
       where: { userId: sourceEmployee.userId, companyId: company.id },
       select: { role: true },
     });
-    const targetRole = sourceMembership?.role ?? "MANAGER";
+    // The carried-over role must be one the actor could assign in the
+    // TARGET company — auto-copying without a tier check would mint
+    // authority the caller couldn't grant (incl. tier-1 hats and custom
+    // roles that don't exist there). An explicit body.targetRole wins.
+    const requestedRole = typeof body.targetRole === "string" ? body.targetRole : undefined;
+    const targetRole = requestedRole ?? sourceMembership?.role ?? "SUPERVISOR";
+    const actorRole = await getActingRole();
+    if (!(await canManageRole(actorRole, targetRole, targetCompanyId))) {
+      return json(
+        { error: `You can't grant the ${targetRole} role in the target company.` },
+        { status: 403 },
+      );
+    }
 
     // Check if membership already exists (shouldn't, but be safe)
     const existingMembership = await prisma.userCompany.findUnique({
@@ -155,6 +168,9 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
           userId: sourceEmployee.userId,
           companyId: targetCompanyId,
           role: targetRole,
+          scopeType: defaultScopeType(
+            targetRole.startsWith("CUSTOM_") ? "SUPERVISOR" : targetRole,
+          ),
         },
       });
     }

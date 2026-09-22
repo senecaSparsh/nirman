@@ -48,25 +48,32 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
   const d = parsed.data;
-  if (d.frequency === "RECURRING" && !d.interval) {
+  // PATCH semantics: keys absent from the body must stay undefined so the
+  // service preserves the stored value — the schema's `frequency` default
+  // would otherwise reset RECURRING→ONE_TIME and `?? null` would wipe
+  // interval/occurrences/notes on any partial edit.
+  const sent = (k: string) => k in body;
+  const freq = sent("frequency") ? d.frequency : undefined;
+  const interval = sent("interval") ? (d.interval ?? null) : undefined;
+  if (freq === "RECURRING" && interval === null) {
     return json({ error: "Interval is required for recurring costs" }, { status: 400 });
   }
 
-  const startDate = d.startDate ? new Date(d.startDate) : undefined;
+  const startDate = sent("startDate") && d.startDate ? new Date(d.startDate) : undefined;
   if (startDate && isNaN(startDate.getTime())) return json({ error: "Invalid start date" }, { status: 400 });
-  const endDate = d.endDate === undefined ? undefined : d.endDate ? new Date(d.endDate) : null;
+  const endDate = sent("endDate") ? (d.endDate ? new Date(d.endDate) : null) : undefined;
   if (endDate && isNaN(endDate.getTime())) return json({ error: "Invalid end date" }, { status: 400 });
 
   try {
     const updated = await updateLandCostComponent(cid, {
-      label: d.label,
-      amount: new Decimal(d.amount),
-      frequency: d.frequency,
-      interval: d.interval ?? null,
+      label: sent("label") ? d.label : undefined,
+      amount: sent("amount") ? new Decimal(d.amount) : undefined,
+      frequency: freq,
+      interval,
       startDate,
       endDate,
-      occurrences: d.occurrences ?? null,
-      notes: d.notes ?? null,
+      occurrences: sent("occurrences") ? (d.occurrences ?? null) : undefined,
+      notes: sent("notes") ? (d.notes ?? null) : undefined,
       userId: user.id,
     });
     revalidatePath("/land");

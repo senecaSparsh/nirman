@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { approveLeaveRequest, cancelLeaveRequest } from "@nirman/services";
-import { apiHandler, getActingRole, getCompany, json, leaveActionSchema, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getActingRole, getCompany, json, leaveActionSchema, requirePermission, requireUser, scopeWhere } from "@/lib/server";
+import { hasPermission } from "@/lib/roles";
 import { PERM } from "@/lib/roles";
 import { prisma } from "@nirman/db";
 
@@ -37,16 +38,29 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
 });
 
 // DELETE /api/leaves/[id] — cancel a pending leave request
+// HR_MANAGE cancels any in-scope leave; a worker can withdraw their OWN
+// request only while it's still PENDING (approved leave affects attendance
+// + payroll, so withdrawal stays an HR action).
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.HR_MANAGE);
+  const user = await requireUser();
   const company = await getCompany();
   const { id } = await params;
 
-  // Scoped pre-fetch
+  const canManage = hasPermission(await getActingRole(), PERM.HR_MANAGE);
   const existing = await prisma.leaveRequest.findFirst({
-    where: { id, companyId: company.id, ...await scopeWhere("LeaveRequest") },
+    where: {
+      id,
+      companyId: company.id,
+      ...(canManage ? { ...await scopeWhere("LeaveRequest") } : {}),
+    },
+    include: { employee: { select: { userId: true } } },
   });
   if (!existing) return json({ error: "Leave request not found or out of scope" }, { status: 404 });
+  if (!canManage) {
+    if (existing.employee?.userId !== user.id || existing.status !== "PENDING") {
+      return json({ error: "You can only withdraw your own pending leave" }, { status: 403 });
+    }
+  }
 
   try {
     const leave = await cancelLeaveRequest(id, company.id, user.id);

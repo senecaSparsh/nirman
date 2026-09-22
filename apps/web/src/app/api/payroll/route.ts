@@ -69,6 +69,33 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
+  // Regenerating a DRAFT period wipes all its lines — including manual
+  // edits (unit-rate quantities, ad-hoc deductions). If one exists with
+  // lines, require an explicit confirmation so the wipe can't happen
+  // silently from a tap-happy re-generate.
+  if (parsed.data.confirm !== true) {
+    const existingDraft = await prisma.payrollPeriod.findFirst({
+      where: {
+        companyId: company.id,
+        year: parsed.data.year,
+        month: parsed.data.month,
+        status: "DRAFT",
+        lines: { some: {} },
+      },
+      select: { _count: { select: { lines: true } } },
+    });
+    if (existingDraft) {
+      return json(
+        {
+          requiresConfirm: true,
+          lineCount: existingDraft._count.lines,
+          error: `A draft payroll for this month exists with ${existingDraft._count.lines} lines — regenerating will overwrite manual edits. Confirm to continue.`,
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   try {
     const period = await generatePayroll({
       companyId: company.id,

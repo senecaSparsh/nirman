@@ -1,4 +1,5 @@
 import { type Prisma, type PrismaClient } from "@nirman/db";
+import { ServiceError } from "./errors";
 
 /**
  * Atomic sequence number generator.
@@ -115,4 +116,34 @@ export async function nextSequenceNumber(
   // If this was an update, nextSeq is the already-incremented value.
   // In both cases, the value we want is seq.nextSeq (1 for first, 2 for second, etc.)
   return `${prefix}${String(seq.nextSeq).padStart(padLen, "0")}`;
+}
+
+/**
+ * Employee codes are badge/attendance identifiers — duplicates defeat the
+ * point. Rejects a code already held by another member of this company.
+ * Scoped to the company's memberships, not globally (different companies can
+ * legitimately share a code scheme).
+ */
+export async function assertEmployeeCodeAvailable(
+  tx: Prisma.TransactionClient | PrismaClient,
+  companyId: string,
+  code: string,
+  excludeUserId?: string,
+): Promise<void> {
+  const normalized = code.trim().toUpperCase();
+  if (!normalized) return;
+  const clash = await tx.user.findFirst({
+    where: {
+      employeeCode: normalized,
+      ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
+      OR: [
+        { companyId },
+        { memberships: { some: { companyId } } },
+      ],
+    },
+    select: { name: true },
+  });
+  if (clash) {
+    throw new ServiceError(`Employee code ${normalized} is already assigned to ${clash.name}`, 409);
+  }
 }

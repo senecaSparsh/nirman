@@ -61,10 +61,17 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     gstRate = parsed.data.gstRate != null ? new Decimal(parsed.data.gstRate) : null;
   }
 
+  // Only write keys the caller actually sent — .partial() still fills the
+  // schema's `unit` .default("NOS") for an absent key, so a bare spread would
+  // silently reset a custom unit on any partial PATCH.
+  const sentData: Record<string, unknown> = {};
+  for (const k of Object.keys(parsed.data) as (keyof typeof parsed.data)[]) {
+    if (k in body) sentData[k] = parsed.data[k];
+  }
   const updated = await prisma.materialCategory.update({
     where: { id },
     data: {
-      ...parsed.data,
+      ...sentData,
       gstRate,
     },
   });

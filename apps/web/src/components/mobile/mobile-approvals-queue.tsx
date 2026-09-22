@@ -17,6 +17,7 @@ import {
  Receipt,
  FileText,
  CalendarOff,
+ MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn, formatCurrency, formatNumber, formatDate } from "@/lib/utils";
@@ -156,6 +157,8 @@ export function MobileApprovalsQueue({
  raBills = [],
  expenseClaims = [],
  leaves = [],
+ offsiteCount = 0,
+ offsiteNames = [],
 }: {
  purchaseOrders: PoRow[];
  requisitions: ReqRow[];
@@ -165,6 +168,8 @@ export function MobileApprovalsQueue({
  raBills?: RaBillRow[];
  expenseClaims?: ClaimRow[];
  leaves?: LeaveRow[];
+ offsiteCount?: number;
+ offsiteNames?: string[];
 }) {
  const router = useRouter();
  const { isSnoozed } = useSnooze();
@@ -832,6 +837,32 @@ async function approveGp(gp: GatePassRow) {
 
  return (
  <div>
+ {/* ── Off-site check-ins — pending attendance review lives on
+     /m/attendance; surface a discovery banner here so the unified
+     queue doesn't hide them. ──────────────────────────── */}
+ {offsiteCount > 0 && (
+ <button
+ onClick={() => router.push("/m/attendance")}
+ className="mx-4 mt-3 w-[calc(100%-2rem)] rounded-[0.75rem] border p-3 text-left press"
+ style={{ borderColor: "color-mix(in srgb, var(--color-warn) 35%, transparent)", backgroundColor: "color-mix(in srgb, var(--color-warn) 8%, transparent)" }}
+ >
+ <div className="flex items-center justify-between gap-2">
+ <div className="flex items-center gap-2 min-w-0">
+ <MapPin className="size-4 shrink-0" style={{ color: "var(--color-warn)" }} />
+ <div className="min-w-0">
+ <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>
+ {offsiteCount} off-site check-in{offsiteCount === 1 ? "" : "s"} pending review
+ </p>
+ <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
+ {offsiteNames.join(", ")}{offsiteCount > offsiteNames.length ? ` +${offsiteCount - offsiteNames.length} more` : ""}
+ </p>
+ </div>
+ </div>
+ <ChevronRight className="size-4 shrink-0" style={{ color: "var(--color-ink-400)" }} />
+ </div>
+ </button>
+ )}
+
  {/* ── Purchase Orders ──────────────────────────────────── */}
  {purchaseOrders.length > 0 && (
  <div className="flex items-center justify-between px-4 pb-1.5 pt-5">

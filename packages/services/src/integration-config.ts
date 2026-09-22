@@ -414,6 +414,26 @@ export async function upsertIntegrationConfig(input: {
   const schema = INTEGRATION_SCHEMAS.find((s) => s.key === input.key);
   if (!schema) throw new ServiceError(`Unknown integration: ${input.key}`, 400);
 
+  // Preserve stored secrets the caller didn't re-send — the UI masks secrets
+  // as "••••••••" and submits "" for untouched fields; encryptConfigFields
+  // then OMITS the field and the wholesale upsert wipes the credential.
+  const existing = await prisma.integrationConfig.findUnique({
+    where: { companyId_key: { companyId: input.companyId, key: input.key } },
+    select: { config: true },
+  });
+  if (existing) {
+    const stored = (existing.config ?? {}) as Record<string, unknown>;
+    const merged = { ...input.config };
+    for (const field of schema.fields) {
+      if (field.type !== "password" && !SECRET_FIELDS.has(field.name)) continue;
+      const v = merged[field.name];
+      if ((v === undefined || v === null || v === "" || v === "••••••••") && stored[field.name] !== undefined) {
+        merged[field.name] = stored[field.name];
+      }
+    }
+    input = { ...input, config: merged };
+  }
+
   const encryptedConfig = encryptConfigFields(input.config, input.key) as Prisma.InputJsonValue;
 
   const result = await prisma.integrationConfig.upsert({

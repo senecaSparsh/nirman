@@ -106,7 +106,7 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
   if (employee) {
     const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    const [payslip, leaves, presentDays] = await Promise.all([
+    const [payslip, leaves, presentDays, advances] = await Promise.all([
       // Latest PAID payslip — what the worker actually got last.
       prisma.payrollLine.findFirst({
         where: { employeeId: employee.id, payrollPeriod: { status: "PAID" } },
@@ -145,6 +145,13 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
           status: { in: ["PRESENT", "HALF_DAY", "PAID_LEAVE", "OVERTIME", "LATE"] },
         },
       }),
+      // Outstanding advances — "kitna udhaar bacha hai" — the worker's own
+      // ledger: what was taken, what's recovered, what's still owed.
+      prisma.employeeAdvance.findMany({
+        where: { employeeId: employee.id, status: { in: ["ACTIVE", "PAUSED"] } },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, amount: true, recoveredAmount: true, monthlyRecovery: true, status: true, issueDate: true },
+      }),
     ]);
     hr = {
       payslip: payslip
@@ -181,6 +188,15 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
         status: l.status,
       })),
       presentDaysThisMonth: presentDays,
+      advances: advances.map((a) => ({
+        id: a.id,
+        amount: Number(a.amount),
+        recoveredAmount: Number(a.recoveredAmount),
+        outstanding: Number(a.amount) - Number(a.recoveredAmount),
+        monthlyRecovery: Number(a.monthlyRecovery),
+        status: a.status,
+        issueDate: a.issueDate.toISOString().slice(0, 10),
+      })),
     };
   }
 

@@ -183,8 +183,13 @@ export function ScopeEditorDialog({
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
-      ) : error && !scopeType ? (
-        <div className="py-4 text-center text-body text-danger">{error}</div>
+      ) : !scopeData ? (
+        // GET failed — render the error, NOT the default-state form. Saving
+        // defaults over an unloaded member would silently reset their scope
+        // to COMPANY-wide and clear their reporting line.
+        <div className="py-4 text-center text-body text-danger">
+          {scopeErr ?? error ?? "Could not load this member's scope."}
+        </div>
       ) : (
         <div className="space-y-4">
           {/* Scope type selector */}

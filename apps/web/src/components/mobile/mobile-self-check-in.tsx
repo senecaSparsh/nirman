@@ -210,7 +210,7 @@ export function MobileSelfCheckIn({
             {geoStatus?.ok === false && (
               <p className="text-m-label font-medium mt-0.5 flex items-center gap-1" style={{ color: "var(--color-signal-dark)" }}>
                 <AlertTriangle className="size-3" />
-                Outside site geofence ({geoStatus.distance}m away)
+                Off-site ({geoStatus.distance}m away) — marked present, awaiting HR review
               </p>
             )}
             {geoStatus?.ok === true && (

@@ -99,6 +99,16 @@ export const POST = apiHandler(async (req: NextRequest) => {
     );
   }
 
+  // hierarchyLevel drives org-tree display depth — a low-tier role sitting
+  // at H1/H2 would render above managers in the org chart. Clamp it to the
+  // tier: a tier-5 clerk role can't declare itself a top-level position.
+  if (hierarchyLevel !== undefined && hierarchyLevel < resolvedTier) {
+    return json(
+      { error: `Hierarchy level can't sit above the role's access tier (H${hierarchyLevel} declared for a tier-${resolvedTier} role).` },
+      { status: 400 },
+    );
+  }
+
   // Validate permissions
   const validSet = new Set(ALL_PERMISSIONS);
   const invalid = permissions.filter((p) => !validSet.has(p));

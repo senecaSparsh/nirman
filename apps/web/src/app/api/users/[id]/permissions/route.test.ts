@@ -87,6 +87,22 @@ describe("PATCH /api/users/[id]/permissions", () => {
     expect(res.status).toBe(200);
   });
 
+  it("blocks an HR manager from granting permissions they don't hold", async () => {
+    // Grant-scope guard: HR_MANAGER doesn't hold finance.manage — without
+    // the check they could mint an account stronger than themselves.
+    setSessionUser(HR);
+    const res = await PATCH(patchReq("u-rohan", { permissions: ["finance.manage"] }), makeCtx("u-rohan"));
+    expect(res.status).toBe(403);
+    expect((await getJson<{ error: string }>(res)).error).toMatch(/don't have/i);
+    expect(mockPrisma().userPermission!.createMany).not.toHaveBeenCalled();
+  });
+
+  it("still lets an HR manager grant permissions they DO hold", async () => {
+    setSessionUser(HR);
+    const res = await PATCH(patchReq("u-rohan", { permissions: ["call.view", "gate_pass.view"] }), makeCtx("u-rohan"));
+    expect(res.status).toBe(200);
+  });
+
   it("returns 404 when the target is not a member of this company", async () => {
     mockPrisma().userCompany!.findUnique.mockImplementation(async (args: any) => {
       const uid = args?.where?.userId_companyId?.userId;

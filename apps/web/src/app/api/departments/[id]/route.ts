@@ -31,6 +31,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
+  // Fail loudly on a no-op write — a PATCH whose keys were all stripped by
+  // the schema must not report success while writing nothing.
+  if (!Object.values(parsed.data).some((v) => v !== undefined)) {
+    return json({ error: "No updatable fields in request — check field names" }, { status: 400 });
+  }
   // If code is changing, ensure uniqueness among non-deleted departments in the same company
   if (parsed.data.code) {
     const clash = await prisma.department.findFirst({
@@ -71,6 +76,17 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   });
   if (location && location.stockItems.some((i) => Number(i.qty) > 0)) {
     return json({ error: "Cannot delete department — its stock room still holds stock. Transfer stock out first." }, { status: 400 });
+  }
+  // Guard: employees referencing this department would silently lose their
+  // org placement (dept label, scope mapping, code prefix) — reassign first.
+  const employeeCount = await prisma.employee.count({
+    where: { departmentId: id, deletedAt: null },
+  });
+  if (employeeCount > 0) {
+    return json(
+      { error: `Cannot delete department — ${employeeCount} employee${employeeCount === 1 ? " is" : "s are"} still assigned to it. Move them to another department first.` },
+      { status: 400 },
+    );
   }
   await withSerializableTransaction(async (tx) => {
     await tx.department.update({ where: { id }, data: { deletedAt: new Date() } });

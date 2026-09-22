@@ -53,6 +53,101 @@ function parseDossierDate(value: string, field: string): Date {
   return d;
 }
 
+/**
+ * Business sanity on the parsed date — date of birth can't be in the future
+ * and can't describe someone under 18 (construction is hazardous work under
+ * Indian labour law) or a century old. Returns the same Date for chaining.
+ */
+export function saneDob(d: Date): Date {
+  const now = new Date();
+  if (d.getTime() > now.getTime()) throw new HrError("Date of birth cannot be in the future", 400);
+  const minDob = new Date(now.getUTCFullYear() - 18, now.getUTCMonth(), now.getUTCDate());
+  if (d.getTime() > minDob.getTime()) throw new HrError("Employee must be at least 18 years old", 400);
+  const maxDob = new Date(now.getUTCFullYear() - 100, 0, 1);
+  if (d.getTime() < maxDob.getTime()) throw new HrError("Date of birth is implausibly old", 400);
+  return d;
+}
+
+/**
+ * Normalize + validate statutory identity numbers, and reject duplicates
+ * within the company — the same PAN/Aadhaar/UAN on two employee records is
+ * the classic ghost-worker fraud (one person paid on two payslips) or a
+ * data-entry error that corrupts statutory filings. Either way it must not
+ * save silently. Returns the normalized (trimmed/uppercased) values.
+ */
+export async function validateGovIds(
+  tx: Prisma.TransactionClient | typeof prisma,
+  companyId: string,
+  input: {
+    panNumber?: string | null;
+    aadhaarNumber?: string | null;
+    uan?: string | null;
+    esiNumber?: string | null;
+    pfNumber?: string | null;
+  },
+  excludeEmployeeId?: string,
+) {
+  const out: Record<string, string | null | undefined> = {};
+  const checks: { field: keyof typeof input; normalized: string | null; label: string }[] = [];
+
+  if (input.panNumber !== undefined) {
+    const v = input.panNumber?.trim().toUpperCase() || null;
+    if (v && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(v)) {
+      throw new HrError("PAN must be 10 characters (e.g. ABCDE1234F)", 400);
+    }
+    out.panNumber = v;
+    if (v) checks.push({ field: "panNumber", normalized: v, label: "PAN" });
+  }
+  if (input.aadhaarNumber !== undefined) {
+    const v = input.aadhaarNumber?.replace(/[\s-]/g, "") || null;
+    if (v && !/^\d{12}$/.test(v)) {
+      throw new HrError("Aadhaar must be exactly 12 digits", 400);
+    }
+    out.aadhaarNumber = v;
+    if (v) checks.push({ field: "aadhaarNumber", normalized: v, label: "Aadhaar" });
+  }
+  if (input.uan !== undefined) {
+    const v = input.uan?.replace(/\D/g, "") || null;
+    if (v && !/^\d{12}$/.test(v)) {
+      throw new HrError("UAN must be exactly 12 digits", 400);
+    }
+    out.uan = v;
+    if (v) checks.push({ field: "uan", normalized: v, label: "UAN" });
+  }
+  // PF/ESI number formats vary by state & era — normalize only, dedupe on
+  // the stored string.
+  if (input.esiNumber !== undefined) {
+    const v = input.esiNumber?.trim() || null;
+    out.esiNumber = v;
+    if (v) checks.push({ field: "esiNumber", normalized: v, label: "ESI number" });
+  }
+  if (input.pfNumber !== undefined) {
+    const v = input.pfNumber?.trim().toUpperCase() || null;
+    out.pfNumber = v;
+    if (v) checks.push({ field: "pfNumber", normalized: v, label: "PF number" });
+  }
+
+  for (const c of checks) {
+    const dupe = await tx.employee.findFirst({
+      where: {
+        companyId,
+        deletedAt: null,
+        [c.field]: c.normalized,
+        ...(excludeEmployeeId ? { id: { not: excludeEmployeeId } } : {}),
+      },
+      select: { id: true, name: true },
+    });
+    if (dupe) {
+      throw new HrError(
+        `${c.label} ${c.normalized} is already on ${dupe.name}'s record — possible duplicate employee`,
+        409,
+      );
+    }
+  }
+
+  return out;
+}
+
 /** Update the dossier fields on an Employee record. */
 export async function updateEmployeeDossier(
   employeeId: string,
@@ -66,9 +161,13 @@ export async function updateEmployeeDossier(
     // instead of a raw P2025 500.
     const existing = await tx.employee.findFirst({
       where: { id: employeeId, companyId, deletedAt: null },
-      select: { id: true },
+      select: { id: true, contractStartDate: true, contractEndDate: true },
     });
     if (!existing) throw new HrError("Employee not found", 404);
+
+    // Validate + dedupe statutory IDs before they land — bad PAN/Aadhaar
+    // corrupts filings; duplicates across employees = ghost-worker risk.
+    const govIds = await validateGovIds(tx, companyId, input, employeeId);
 
     const data: Prisma.EmployeeUpdateInput = {};
 
@@ -78,6 +177,13 @@ export async function updateEmployeeDossier(
     if (input.noticePeriodDays !== undefined) data.noticePeriodDays = input.noticePeriodDays ?? null;
     if (input.contractStartDate !== undefined) data.contractStartDate = input.contractStartDate ? parseDossierDate(input.contractStartDate, "contract start date") : null;
     if (input.contractEndDate !== undefined) data.contractEndDate = input.contractEndDate ? parseDossierDate(input.contractEndDate, "contract end date") : null;
+    // Contract window sanity — end can't precede start. Validate the merged
+    // pair (an update may carry only one side).
+    const finalStart = input.contractStartDate !== undefined ? (data.contractStartDate as Date | null) : existing.contractStartDate;
+    const finalEnd = input.contractEndDate !== undefined ? (data.contractEndDate as Date | null) : existing.contractEndDate;
+    if (finalStart && finalEnd && finalEnd < finalStart) {
+      throw new HrError("Contract end date cannot be before the start date", 400);
+    }
     if (input.payDay !== undefined) data.payDay = input.payDay ?? null;
     if (input.bankAccountHolder !== undefined) data.bankAccountHolder = input.bankAccountHolder ?? null;
     if (input.bankAccountNumber !== undefined) data.bankAccountNumber = input.bankAccountNumber ?? null;
@@ -92,17 +198,17 @@ export async function updateEmployeeDossier(
     }
     if (input.bankName !== undefined) data.bankName = input.bankName ?? null;
     if (input.bankBranch !== undefined) data.bankBranch = input.bankBranch ?? null;
-    if (input.panNumber !== undefined) data.panNumber = input.panNumber ?? null;
-    if (input.aadhaarNumber !== undefined) data.aadhaarNumber = input.aadhaarNumber ?? null;
-    if (input.pfNumber !== undefined) data.pfNumber = input.pfNumber ?? null;
-    if (input.esiNumber !== undefined) data.esiNumber = input.esiNumber ?? null;
-    if (input.uan !== undefined) data.uan = input.uan ?? null;
+    if (govIds.panNumber !== undefined) data.panNumber = govIds.panNumber;
+    if (govIds.aadhaarNumber !== undefined) data.aadhaarNumber = govIds.aadhaarNumber;
+    if (govIds.pfNumber !== undefined) data.pfNumber = govIds.pfNumber;
+    if (govIds.esiNumber !== undefined) data.esiNumber = govIds.esiNumber;
+    if (govIds.uan !== undefined) data.uan = govIds.uan;
     if (input.emergencyContactName !== undefined) data.emergencyContactName = input.emergencyContactName ?? null;
     if (input.emergencyContactPhone !== undefined) data.emergencyContactPhone = input.emergencyContactPhone ?? null;
     if (input.emergencyContactRelation !== undefined) data.emergencyContactRelation = input.emergencyContactRelation ?? null;
     if (input.permanentAddress !== undefined) data.permanentAddress = input.permanentAddress ?? null;
     if (input.currentAddress !== undefined) data.currentAddress = input.currentAddress ?? null;
-    if (input.dateOfBirth !== undefined) data.dateOfBirth = input.dateOfBirth ? parseDossierDate(input.dateOfBirth, "date of birth") : null;
+    if (input.dateOfBirth !== undefined) data.dateOfBirth = input.dateOfBirth ? saneDob(parseDossierDate(input.dateOfBirth, "date of birth")) : null;
     if (input.bloodGroup !== undefined) data.bloodGroup = input.bloodGroup ?? null;
     if (input.photoUrl !== undefined) data.photoUrl = input.photoUrl ?? null;
     if (input.documentsSubmitted !== undefined) data.documentsSubmitted = input.documentsSubmitted ?? null;
@@ -141,6 +247,15 @@ export async function createEmployeeBenefit(
   userId: string,
 ) {
   return prisma.$transaction(async (tx) => {
+    // EmployeeBenefit carries no companyId — verify the target employee
+    // belongs to this company or a caller could attach benefits to another
+    // tenant's staff.
+    const employee = await tx.employee.findFirst({
+      where: { id: input.employeeId, companyId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!employee) throw new HrError("Employee not found", 404);
+
     const benefit = await tx.employeeBenefit.create({
       data: {
         employeeId: input.employeeId,
@@ -183,6 +298,14 @@ export async function updateEmployeeBenefit(
   input: UpdateBenefitInput,
 ) {
   return prisma.$transaction(async (tx) => {
+    // EmployeeBenefit has no companyId — resolve tenancy through the parent
+    // employee or this becomes a cross-tenant write.
+    const owned = await tx.employeeBenefit.findFirst({
+      where: { id: benefitId, employee: { companyId, deletedAt: null } },
+      select: { id: true },
+    });
+    if (!owned) throw new HrError("Benefit not found", 404);
+
     const data: Prisma.EmployeeBenefitUpdateInput = {};
     if (input.type !== undefined) data.type = input.type;
     if (input.amount !== undefined) data.amount = input.amount != null ? new Prisma.Decimal(input.amount) : null;
@@ -213,6 +336,11 @@ export async function deleteEmployeeBenefit(
   userId: string,
 ) {
   return prisma.$transaction(async (tx) => {
+    const owned = await tx.employeeBenefit.findFirst({
+      where: { id: benefitId, employee: { companyId, deletedAt: null } },
+      select: { id: true },
+    });
+    if (!owned) throw new HrError("Benefit not found", 404);
     await tx.employeeBenefit.delete({ where: { id: benefitId } });
 
     await logAction(tx, {
@@ -268,6 +396,30 @@ export type CreateSalaryComponentInput = {
  * `isPercentage` flag when `calculationType` isn't sent. `isPercentage` on the
  * row stays derived from calculationType so older readers keep working.
  */
+/**
+ * Component amount sanity — a negative allowance silently subtracts from
+ * gross and a negative deduction silently ADDS pay; a percentage over 100
+ * pays more than basic. Catch sign/range errors at write time.
+ */
+function assertComponentAmount(
+  amount: number,
+  calculationType: SalaryCalcTypeInput,
+  percentageOfBasic?: number | null,
+) {
+  if (!Number.isFinite(amount) || amount < 0) {
+    throw new HrError("Component amount must be a non-negative number", 400);
+  }
+  if (calculationType === "UNIT_RATE" && amount <= 0) {
+    throw new HrError("Unit-rate components need a positive per-unit rate", 400);
+  }
+  if (calculationType === "PERCENTAGE_OF_BASIC") {
+    const pct = percentageOfBasic;
+    if (pct == null || !Number.isFinite(pct) || pct <= 0 || pct > 100) {
+      throw new HrError("Percentage-of-basic components need a percentage between 0 and 100", 400);
+    }
+  }
+}
+
 function resolveComponentCalc(input: {
   calculationType?: SalaryCalcTypeInput;
   isPercentage?: boolean;
@@ -303,6 +455,7 @@ export async function createSalaryComponent(
     if (!employee) throw new HrError("Employee not found", 404);
 
     const calc = resolveComponentCalc(input);
+    assertComponentAmount(input.amount, calc.calculationType, input.percentageOfBasic);
 
     // Upsert: if a component of this type already exists, update it
     const component = await tx.salaryComponent.upsert({
@@ -368,6 +521,31 @@ export async function updateSalaryComponent(
   input: UpdateSalaryComponentInput,
 ) {
   return prisma.$transaction(async (tx) => {
+    // SalaryComponent has no companyId — resolve tenancy through the parent
+    // employee or this becomes a cross-tenant write.
+    const owned = await tx.salaryComponent.findFirst({
+      where: { id: componentId, employee: { companyId, deletedAt: null } },
+      select: { id: true },
+    });
+    if (!owned) throw new HrError("Salary component not found", 404);
+
+    // Sign/range check on any amount or percentage this update carries —
+    // resolves the calc mode against the stored row when needed.
+    if (input.amount !== undefined || input.calculationType !== undefined || input.isPercentage !== undefined || input.percentageOfBasic !== undefined) {
+      const stored = await tx.salaryComponent.findUnique({
+        where: { id: componentId },
+        select: { calculationType: true, isPercentage: true, amount: true, percentageOfBasic: true },
+      });
+      const effectiveType: SalaryCalcTypeInput = input.calculationType
+        ?? (input.isPercentage !== undefined ? (input.isPercentage ? "PERCENTAGE_OF_BASIC" : "FIXED") : stored?.calculationType)
+        ?? "FIXED";
+      assertComponentAmount(
+        input.amount ?? Number(stored?.amount ?? 0),
+        effectiveType,
+        input.percentageOfBasic !== undefined ? input.percentageOfBasic : Number(stored?.percentageOfBasic ?? NaN) || null,
+      );
+    }
+
     const data: Prisma.SalaryComponentUpdateInput = {};
     if (input.amount !== undefined) data.amount = new Prisma.Decimal(input.amount);
     if (input.frequency !== undefined) data.frequency = input.frequency;
@@ -429,6 +607,11 @@ export async function deleteSalaryComponent(
   userId: string,
 ) {
   return prisma.$transaction(async (tx) => {
+    const owned = await tx.salaryComponent.findFirst({
+      where: { id: componentId, employee: { companyId, deletedAt: null } },
+      select: { id: true },
+    });
+    if (!owned) throw new HrError("Salary component not found", 404);
     await tx.salaryComponent.delete({ where: { id: componentId } });
 
     await logAction(tx, {
@@ -475,6 +658,7 @@ export async function setSalaryComponents(
     const created = await Promise.all(
       components.map((c) => {
         const calc = resolveComponentCalc(c);
+        assertComponentAmount(c.amount, calc.calculationType, c.percentageOfBasic);
         return tx.salaryComponent.create({
           data: {
             employeeId,

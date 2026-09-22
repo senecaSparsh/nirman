@@ -512,7 +512,12 @@ export function CallDetailView({
                   variant: "destructive",
                 });
                 if (!ok) return;
-                await fetch(`/api/calls/${call.id}`, { method: "DELETE" });
+                const res = await fetch(`/api/calls/${call.id}`, { method: "DELETE" });
+                if (!res.ok) {
+                  const data = await res.json().catch(() => ({}));
+                  setError(data.error ?? "Failed to delete the call");
+                  return;
+                }
                 window.location.href = "/calls";
               }}
             >

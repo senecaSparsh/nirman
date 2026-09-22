@@ -102,6 +102,12 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   }
   const data = parsed.data;
 
+  // Fail loudly on a no-op write — a PATCH whose keys were all stripped by
+  // the schema must not report success while writing nothing.
+  if (!Object.values(data).some((v) => v !== undefined)) {
+    return json({ error: "No updatable fields in request — check field names" }, { status: 400 });
+  }
+
   // Cycle guard: a company cannot be its own parent.
   if (data.parentCompanyId && data.parentCompanyId === id) {
     return json({ error: "A company cannot be its own parent" }, { status: 400 });

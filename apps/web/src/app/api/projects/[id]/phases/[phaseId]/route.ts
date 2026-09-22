@@ -17,14 +17,20 @@ export const PATCH = apiHandler(
       where: { id: phaseId, project: { companyId: company.id }, ...await scopeWhere("ProjectPhase") },
     });
     if (!existing) return json({ error: "Phase not found" }, { status: 404 });
-    const { startDate, endDate, budget, ...rest } = parsed.data;
+    // PATCH semantics: `undefined` = preserve, `null`/`""` = explicit clear.
+    // `status` carries a zod default ("PLANNED") — an absent key parses to the
+    // default and would silently reset an ACTIVE phase; distinguish "not sent"
+    // from "sent" by inspecting the raw body.
+    const { startDate, endDate, budget, status, sortOrder, ...rest } = parsed.data;
     const updated = await prisma.projectPhase.update({
       where: { id: phaseId },
       data: {
         ...rest,
-        startDate: startDate ? new Date(startDate) : null,
-        endDate: endDate ? new Date(endDate) : null,
-        budget: budget ?? null,
+        ...(status !== undefined && "status" in body ? { status } : {}),
+        ...(sortOrder !== undefined && "sortOrder" in body ? { sortOrder } : {}),
+        ...(startDate !== undefined ? { startDate: startDate ? new Date(startDate) : null } : {}),
+        ...(endDate !== undefined ? { endDate: endDate ? new Date(endDate) : null } : {}),
+        ...(budget !== undefined ? { budget } : {}),
       },
     });
     return json(updated);

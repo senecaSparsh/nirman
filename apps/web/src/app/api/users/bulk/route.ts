@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@nirman/db";
 import { apiHandler, canManageRole, getActingRole, getCompany, json, requirePermission } from "@/lib/server";
-import { defaultScopeType } from "@nirman/services";
+import { assertEmployeeCodeAvailable, assertScopeWithinActor, defaultScopeType } from "@nirman/services";
 import { PERM, ALL_ROLES, type Role } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 
@@ -34,7 +34,7 @@ function generateTempPassword(minLength: number = 8): string {
  * Users that already exist (by email) are added as members instead of duplicated.
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.USERS_MANAGE);
+  const actor = await requirePermission(PERM.USERS_MANAGE);
   const company = await getCompany();
   const actorRole = await getActingRole();
   // Department name → id map for auto-scoping DEPARTMENT-default roles.
@@ -64,12 +64,17 @@ export const POST = apiHandler(async (req: NextRequest) => {
   /** Persist membership + optional auto-derived department scope row. */
   async function createMembership(userId: string, role: string, secondaryRoles: string[], departmentName?: string) {
     const scopeType = await bulkScopeType(role);
+    // Scope ceiling — a scoped actor can't mint wider visibility via bulk
+    // rows either (e.g. dept-scoped HR importing an HR_MANAGER row).
+    await assertScopeWithinActor(actor.id, company.id, scopeType, []);
     const membership = await prisma.userCompany.create({
       data: { userId, companyId: company.id, role: role as Role, secondaryRoles, scopeType },
     });
     if (scopeType === "DEPARTMENT" && departmentName) {
       const deptId = deptByName.get(departmentName.trim().toLowerCase());
       if (deptId) {
+        // The dept entry must also sit inside the actor's own scope.
+        await assertScopeWithinActor(actor.id, company.id, "DEPARTMENT", [{ departmentId: deptId }]);
         await prisma.userScope.create({
           data: { userCompanyId: membership.id, scopeKind: "DEPARTMENT", departmentId: deptId },
         });
@@ -104,6 +109,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
   const hashed = await hashPassword(defaultPassword);
   const results: Array<{ row: number; name: string; success: boolean; error?: string; userId?: string; added?: boolean }> = [];
+  // Employee codes used by rows in THIS import — a sheet can't mint the
+  // same badge code twice in one run (DB check below catches existing ones).
+  const codesUsedInFile = new Set<string>();
 
   for (let i = 0; i < users.length; i++) {
     const row = users[i];
@@ -207,6 +215,19 @@ export const POST = apiHandler(async (req: NextRequest) => {
       // Create new user
       const finalEmail = normalizedEmail ?? `phone+${normalizedPhone}@nirman.internal`;
 
+      // Employee codes are badge identifiers — reject duplicates in-file
+      // AND against existing members, so a bulk sheet can't mint two people
+      // with the same code.
+      if (row.employeeCode?.trim()) {
+        const normalized = row.employeeCode.trim().toUpperCase();
+        if (codesUsedInFile.has(normalized)) {
+          results.push({ row: rowNum, name: row.name, success: false, error: `Duplicate employee code ${normalized} in this import` });
+          continue;
+        }
+        await assertEmployeeCodeAvailable(prisma, company.id, normalized);
+        codesUsedInFile.add(normalized);
+      }
+
       const user = await prisma.user.create({
         data: {
           email: finalEmail,
@@ -216,7 +237,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
           phoneNormalized: normalizedPhone,
           companyId: company.id,
           emailVerified: true,
-          employeeCode: row.employeeCode?.trim() || null,
+          employeeCode: row.employeeCode?.trim().toUpperCase() || null,
           designation: row.designation?.trim() || null,
           department: row.department?.trim() || null,
           joiningDate: row.joiningDate ? new Date(row.joiningDate) : null,

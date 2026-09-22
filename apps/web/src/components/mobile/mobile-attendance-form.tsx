@@ -45,7 +45,10 @@ const STATUS_CONFIG: Record<AttendanceStatus, { label: string; color: string; bg
   NON_PAID_LEAVE: { label: "Unpaid Leave", color: "var(--color-stop)", bg: "color-mix(in srgb, var(--color-stop) 8%, transparent)", border: "color-mix(in srgb, var(--color-stop) 25%, transparent)" },
 };
 
-const ALL_STATUSES: AttendanceStatus[] = ["PRESENT", "LATE", "ABSENT", "HALF_DAY", "OVERTIME", "LEAVE", "PAID_LEAVE", "NON_PAID_LEAVE"];
+// PAID_LEAVE excluded — paid-leave days come from an approved leave request
+// (balance + approval + audit), never from a direct attendance mark. The
+// STATUS map keeps it so existing rows still render.
+const ALL_STATUSES: AttendanceStatus[] = ["PRESENT", "LATE", "ABSENT", "HALF_DAY", "OVERTIME", "LEAVE", "NON_PAID_LEAVE"];
 
 const inputClass = "w-full h-7 px-1 text-m-caption font-medium outline-none border-b focus:border-b-2 transition-colors";
 const inputStyle = {
@@ -245,7 +248,16 @@ export function MobileAttendanceForm({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to save attendance");
       haptic([10, 40, 80]);
-      toast.success(`Attendance saved for ${employees.length} workers`);
+      const skips = (data.skippedOutOfScope ?? 0) + (data.skippedUnknown ?? 0);
+      if (skips > 0) {
+        toast.warning(
+          `Saved, but ${skips} worker${skips === 1 ? "" : "s"} couldn't be marked` +
+            (data.skippedOutOfScope ? ` (${data.skippedOutOfScope} outside your scope)` : "") +
+            (data.skippedUnknown ? ` (${data.skippedUnknown} not found/inactive)` : ""),
+        );
+      } else {
+        toast.success(`Attendance saved for ${employees.length} workers`);
+      }
       // Record smart defaults for next time
       if (fProject) recordDefaults({ project: fProject });
       clearDraft();

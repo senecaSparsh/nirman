@@ -53,6 +53,10 @@ const RETRY_DELAYS = [500, 1500, 3000];
 // accumulates every API response ever fetched in device memory.
 const memoryCache = new Map<string, { data: unknown; timestamp: number }>();
 const MAX_CACHE_ENTRIES = 100;
+// Entries are optimistic read-cache only — a fresh read always revalidates
+// in the background. STALE_MS caps how old an entry may be before it's
+// ignored entirely (a save older than this can never flash stale data).
+const STALE_MS = 30_000;
 
 // The cache is keyed by URL only — not user/company — so a company switch
 // would briefly serve the previous tenant's data until revalidation.
@@ -60,6 +64,32 @@ const MAX_CACHE_ENTRIES = 100;
 // it hard-redirects, which drops the whole JS heap.
 if (typeof window !== "undefined") {
   window.addEventListener("nirman-company-switched", () => memoryCache.clear());
+
+  // Any successful write can invalidate any cached read — clear the whole
+  // map rather than guessing which URLs the mutation touched. Over-eviction
+  // just means the next mount fetches fresh — exactly right after a save.
+  // Wrap fetch once per page-load.
+  if (!(window as unknown as { __nirmanFetchWrapped?: boolean }).__nirmanFetchWrapped) {
+    (window as unknown as { __nirmanFetchWrapped?: boolean }).__nirmanFetchWrapped = true;
+    const origFetch = window.fetch.bind(window);
+    window.fetch = async (...args: Parameters<typeof fetch>) => {
+      const res = await origFetch(...args);
+      try {
+        const init = args[1] as RequestInit | undefined;
+        const method = (
+          init?.method ??
+          (args[0] instanceof Request ? args[0].method : "GET")
+        ).toUpperCase();
+        if (method !== "GET" && method !== "HEAD" && res.ok) {
+          memoryCache.clear();
+          // SWR holds its own client cache — revalidate every key so a
+          // successful write can't leave a stale view behind.
+          void import("swr").then(({ mutate }) => mutate(() => true, undefined, { revalidate: true })).catch(() => {});
+        }
+      } catch { /* cache hygiene must never break a request */ }
+      return res;
+    };
+  }
 }
 
 function cacheSet(url: string, data: unknown) {
@@ -92,10 +122,12 @@ export function useFetch<T = unknown>(
     const controller = new AbortController();
     abortRef.current = controller;
 
-    // Show stale data from cache while revalidating
+    // Show stale data from cache while revalidating — but only if the entry
+    // is fresh enough that "saved but showing old data" can't be mistaken
+    // for a failed write.
     if (!noCache) {
       const cached = memoryCache.get(url);
-      if (cached) {
+      if (cached && Date.now() - cached.timestamp < STALE_MS) {
         setData(cached.data as T);
         setIsValidating(true);
         setLoading(false);

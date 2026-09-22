@@ -1,6 +1,8 @@
 import { prisma, type Prisma, type SalaryComponentType, type SalaryComponentCalcType, type SalaryUnitType, type PayrollComponentBucket } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
+import { advanceDeductionsForPayroll, creditAdvanceRecoveries } from "./employee-advance";
+import { validateGovIds, saneDob } from "./employee-dossier";
 import { postPayroll, postPayrollPayment } from "./gl-posting";
 import { runDprVarianceAnalysis } from "./standard-consumption";
 import { ServiceError } from "./errors";
@@ -621,6 +623,12 @@ export interface CreateEmployeeInput {
   dateOfBirth?: Date;
   bloodGroup?: string;
   photoUrl?: string;
+  // Reporting line — manager employee id. Hire-time field that previously
+  // dropped silently: the POST accepted it in the schema but never passed it.
+  reportsToEmployeeId?: string | null;
+  // Onboarding checklist flags — schema-accepted at creation.
+  documentsSubmitted?: boolean;
+  backgroundVerified?: boolean;
 }
 
 export async function createEmployee(input: CreateEmployeeInput) {
@@ -652,12 +660,21 @@ export async function createEmployee(input: CreateEmployeeInput) {
       });
       if (!loc) throw new HrError("Reporting location not found in this company", 404);
     }
+    if (input.reportsToEmployeeId) {
+      const mgr = await tx.employee.findFirst({
+        where: { id: input.reportsToEmployeeId, companyId: input.companyId, deletedAt: null },
+      });
+      if (!mgr) throw new HrError("Reporting manager not found in this company", 404);
+    }
     // Same RBI format rule as setupAutoDeposit / updateEmployeeDossier —
     // catch bad values at write time instead of when auto-deposit is enabled.
     const bankIfsc = input.bankIfsc?.trim().toUpperCase() || null;
     if (bankIfsc && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(bankIfsc)) {
       throw new HrError("Bank IFSC code is invalid (e.g. HDFC0001234).", 400);
     }
+    // Same statutory-ID validation + ghost-worker dedupe as the dossier
+    // update path — hiring is the main entry point for duplicate identities.
+    const govIds = await validateGovIds(tx, input.companyId, input);
     const employee = await tx.employee.create({
       data: {
         name: input.name,
@@ -688,20 +705,23 @@ export async function createEmployee(input: CreateEmployeeInput) {
         bankIfsc,
         bankName: input.bankName ?? null,
         bankBranch: input.bankBranch ?? null,
-        panNumber: input.panNumber ?? null,
-        aadhaarNumber: input.aadhaarNumber ?? null,
-        pfNumber: input.pfNumber ?? null,
-        esiNumber: input.esiNumber ?? null,
-        uan: input.uan ?? null,
+        panNumber: govIds.panNumber ?? null,
+        aadhaarNumber: govIds.aadhaarNumber ?? null,
+        pfNumber: govIds.pfNumber ?? null,
+        esiNumber: govIds.esiNumber ?? null,
+        uan: govIds.uan ?? null,
         emergencyContactName: input.emergencyContactName ?? null,
         emergencyContactPhone: input.emergencyContactPhone ?? null,
         emergencyContactRelation: input.emergencyContactRelation ?? null,
         permanentAddress: input.permanentAddress ?? null,
         currentAddress: input.currentAddress ?? null,
         // Identity / personal (for ID card & compliance)
-        dateOfBirth: input.dateOfBirth ?? null,
+        dateOfBirth: input.dateOfBirth ? saneDob(input.dateOfBirth) : null,
         bloodGroup: input.bloodGroup ?? null,
         photoUrl: input.photoUrl ?? null,
+        reportsToEmployeeId: input.reportsToEmployeeId || null,
+        documentsSubmitted: input.documentsSubmitted ?? false,
+        backgroundVerified: input.backgroundVerified ?? false,
       },
     });
     await logAction(tx, {
@@ -823,7 +843,7 @@ export async function updateEmployee(input: UpdateEmployeeInput) {
     // credit. Bank details are preserved; re-activation + one setup call
     // restores it. Termination clears it too (see terminateEmployee).
     if (input.active === false) data.autoDepositEnabled = false;
-    if (input.dateOfBirth !== undefined) data.dateOfBirth = input.dateOfBirth;
+    if (input.dateOfBirth !== undefined) data.dateOfBirth = input.dateOfBirth ? saneDob(input.dateOfBirth) : null;
     if (input.bloodGroup !== undefined) data.bloodGroup = input.bloodGroup;
 
     const updated = await tx.employee.update({ where: { id: input.employeeId }, data });
@@ -888,10 +908,45 @@ export async function updateEmployee(input: UpdateEmployeeInput) {
       if (data.name) userData.name = data.name;
       if (input.phone !== undefined) {
         userData.phone = input.phone ?? null;
-        // Update normalized phone for OTP login lookup
+        // Update normalized phone for OTP login lookup — but never into a
+        // collision: two active users sharing a phoneNormalized turns OTP
+        // sign-in into a pick-an-account screen (the Change-Phone flow
+        // already enforces this; the mirror must too). A non-OTP-capable
+        // number (landline, partial) clears the identity rather than leaving
+        // a stale one pointing at the previous number.
         if (input.phone) {
           const digits = input.phone.replace(/\D/g, "");
-          if (digits.length >= 10) userData.phoneNormalized = digits;
+          if (digits.length >= 10) {
+            const holder = await tx.user.findFirst({
+              where: { phoneNormalized: digits, active: true, id: { not: existing.userId } },
+              select: { name: true },
+            });
+            if (holder) {
+              throw new HrError(`Phone ${input.phone} is already the login number for ${holder.name}`, 409);
+            }
+            const poolHolder = await tx.companyPhone.findFirst({
+              where: {
+                phoneNormalized: digits,
+                deletedAt: null,
+                assignedToUserId: { not: null },
+                assignedTo: { id: { not: existing.userId } },
+              },
+              select: { assignedTo: { select: { name: true } } },
+            });
+            if (poolHolder) {
+              throw new HrError(
+                `Phone ${input.phone} is a company number assigned to ${poolHolder.assignedTo?.name ?? "another user"}`,
+                409,
+              );
+            }
+            userData.phoneNormalized = digits;
+          } else {
+            // Non-OTP-capable number (landline/short) — clear the login
+            // identity rather than leaving the old normalized number live.
+            userData.phoneNormalized = null;
+          }
+        } else {
+          userData.phoneNormalized = null;
         }
       }
       if (input.email !== undefined && input.email !== null) userData.email = input.email;
@@ -935,7 +990,9 @@ export interface LogAttendanceInput {
   checkIn?: Date;
   checkOut?: Date;
   hoursWorked?: Decimal | number | string;
-  status: "PRESENT" | "ABSENT" | "HALF_DAY" | "OVERTIME" | "LEAVE" | "LATE" | "PAID_LEAVE" | "NON_PAID_LEAVE";
+  /** PAID_LEAVE excluded — paid leave is minted only by approveLeaveRequest
+   *  (balance + approval + audit trail), never by a direct attendance mark. */
+  status: "PRESENT" | "ABSENT" | "HALF_DAY" | "OVERTIME" | "LEAVE" | "LATE" | "NON_PAID_LEAVE";
   notes?: string;
   recordedById?: string;
   // GPS coordinates from mobile check-in/check-out
@@ -948,6 +1005,9 @@ export interface LogAttendanceInput {
   // Geofence enforcement (computed by caller from project site boundary)
   geoFenceOk?: boolean;
   geoFenceDistance?: number;
+  /** Off-site review flag — set PENDING when check-in lands outside the
+   *  geofence; HR approves (stays PRESENT) or rejects (→ ABSENT). */
+  offSiteReview?: string | null;
   userId?: string;
 }
 
@@ -967,6 +1027,35 @@ export async function recordAttendance(input: LogAttendanceInput) {
     }
 
     const dateOnly = dateOnlyUTC(input.date);
+
+    // Nobody worked before their join date — a pre-join mark would pay
+    // phantom days on a DAILY wage or credit days on a MONTHLY one.
+    if (employee.joinDate && dateOnly < dateOnlyUTC(employee.joinDate)) {
+      throw new HrError(
+        `Cannot mark attendance before the join date (${dateOnlyUTC(employee.joinDate).toISOString().slice(0, 10)})`,
+        400,
+      );
+    }
+
+    // PAID_LEAVE may only be minted by an approved LeaveRequest (balance +
+    // approval + audit). A direct mark would credit a paid day for free.
+    // Runtime-checked: raw JS callers can still smuggle the string in.
+    if ((input.status as string) === "PAID_LEAVE") {
+      throw new HrError("Paid leave is recorded through an approved leave request", 400);
+    }
+
+    // Payment-bearing statuses can't be pre-marked for future days —
+    // "present next Tuesday" pays a day nobody has worked. Absence/leave
+    // pre-marks are allowed (rota planning).
+    const todayOnly = dateOnlyUTC(new Date());
+    const markStatus = input.status;
+    if (dateOnly > todayOnly && (markStatus === "PRESENT" || markStatus === "LATE" || markStatus === "HALF_DAY" || markStatus === "OVERTIME")) {
+      throw new HrError("Cannot mark present-type attendance for a future date", 400);
+    }
+
+    // Paid/processed payroll periods are locked — writing attendance into
+    // them would diverge the record from the payslip already issued.
+    await assertAttendancePeriodOpen(input.companyId, dateOnly, tx);
 
     // ── Auto-compute hoursWorked from check-in/check-out if not provided ──
     let hoursWorked = input.hoursWorked;
@@ -1011,13 +1100,24 @@ export async function recordAttendance(input: LogAttendanceInput) {
       checkOutLocation: input.checkOutLocation ?? null,
       geoFenceOk: input.geoFenceOk ?? null,
       geoFenceDistance: input.geoFenceDistance ?? null,
+      offSiteReview: input.offSiteReview ?? null,
     };
 
     let record;
     if (existing) {
+      // Review-state preservation: a re-recorded check-in keeps an existing
+      // APPROVED/REJECTED decision. A PENDING flag clears only when the new
+      // check-in lands inside the fence (the off-site question resolved
+      // itself) or the caller explicitly sets a new review state.
+      const offSiteReview =
+        input.offSiteReview !== undefined
+          ? input.offSiteReview
+          : existing.offSiteReview === "PENDING" && input.geoFenceOk === true
+            ? null
+            : existing.offSiteReview;
       record = await tx.workerAttendance.update({
         where: { id: existing.id },
-        data,
+        data: { ...data, offSiteReview },
       });
     } else {
       record = await tx.workerAttendance.create({
@@ -1038,7 +1138,8 @@ export async function recordAttendance(input: LogAttendanceInput) {
 
 export interface BulkAttendanceRecord {
   employeeId: string;
-  status: "PRESENT" | "ABSENT" | "HALF_DAY" | "OVERTIME" | "LEAVE" | "LATE" | "PAID_LEAVE" | "NON_PAID_LEAVE";
+  /** PAID_LEAVE excluded — see LogAttendanceInput.status. */
+  status: "PRESENT" | "ABSENT" | "HALF_DAY" | "OVERTIME" | "LEAVE" | "LATE" | "NON_PAID_LEAVE";
   hoursWorked?: number;
   checkIn?: string;
   checkOut?: string;
@@ -1066,13 +1167,33 @@ export async function bulkRecordAttendance(input: BulkAttendanceInput) {
   return withSerializableTransaction(async (tx) => {
     const results: { employeeId: string; status: string }[] = [];
 
+    // Paid/processed payroll periods are locked — bulk-marking into them
+    // would diverge the record from issued payslips.
+    await assertAttendancePeriodOpen(input.companyId, dateOnly, tx);
+
+    // Payment-bearing statuses can't be pre-marked for future days —
+    // "present next Tuesday" pays a day nobody has worked. And PAID_LEAVE
+    // may only be minted by an approved LeaveRequest (balance + approval).
+    const todayOnly = dateOnlyUTC(new Date());
+    if (dateOnly > todayOnly) {
+      const paidMarks = input.records.filter((r) =>
+        r.status === "PRESENT" || r.status === "LATE" || r.status === "HALF_DAY" || r.status === "OVERTIME",
+      );
+      if (paidMarks.length > 0) {
+        throw new HrError("Cannot mark present-type attendance for a future date", 400);
+      }
+    }
+    if (input.records.some((r) => (r.status as string) === "PAID_LEAVE")) {
+      throw new HrError("Paid leave is recorded through an approved leave request", 400);
+    }
+
     // Batch-fetch all needed employees and existing attendance rows once,
     // instead of per-record queries inside the loop.
     const employeeIds = input.records.map((r) => r.employeeId);
     const employees = employeeIds.length > 0
       ? await tx.employee.findMany({
-          where: { id: { in: employeeIds }, companyId: input.companyId, deletedAt: null },
-          select: { id: true },
+          where: { id: { in: employeeIds }, companyId: input.companyId, deletedAt: null, active: true },
+          select: { id: true, joinDate: true, active: true },
         })
       : [];
     const validEmployeeIds = new Set(employees.map((e) => e.id));
@@ -1090,6 +1211,10 @@ export async function bulkRecordAttendance(input: BulkAttendanceInput) {
 
     for (const r of input.records) {
       if (!validEmployeeIds.has(r.employeeId)) continue; // skip unknown workers in bulk mode
+      // Nobody worked before their join date — skip phantom pre-join marks
+      // the same way unknown workers are skipped.
+      const emp = employees.find((e) => e.id === r.employeeId);
+      if (emp?.joinDate && dateOnly < dateOnlyUTC(emp.joinDate)) continue;
 
       // ── Auto-compute hoursWorked from check-in/check-out if not provided ──
       let hoursWorked: Decimal | number | undefined = r.hoursWorked;
@@ -1254,6 +1379,8 @@ export type LineComponentRow = {
   bucket: PayrollComponentBucketName;
   isDeduction: boolean;
   notes: string | null;
+  /** Links the row to an EmployeeAdvance for recovery crediting on pay. */
+  advanceId?: string | null;
 };
 
 function componentCalcType(c: {
@@ -1402,7 +1529,16 @@ export async function generatePayroll(input: GeneratePayrollInput) {
     await tx.payrollLine.deleteMany({ where: { payrollPeriodId: period.id } });
 
     const employees = await tx.employee.findMany({
-      where: { companyId: input.companyId, deletedAt: null, active: true },
+      where: {
+        companyId: input.companyId,
+        OR: [
+          { deletedAt: null, active: true },
+          // Terminated/deactivated workers who logged attendance in this
+          // period are still owed those days — dropping them here would
+          // silently zero out their final settlement.
+          { active: false, attendances: { some: { date: { gte: startDate, lte: endDate } } } },
+        ],
+      },
     });
 
     // Batch fetch all attendances for all employees in one query (avoids N+1)
@@ -1431,6 +1567,14 @@ export async function generatePayroll(input: GeneratePayrollInput) {
       componentsByEmployee.set(comp.employeeId, arr);
     }
 
+    // Active salary advances → per-line recovery deductions. One row per
+    // outstanding advance, capped at the remaining balance; recovery is
+    // credited only when the line is PAID (see markPayrollPaid).
+    const advancesByEmployee = await advanceDeductionsForPayroll(
+      input.companyId,
+      employees.map((e) => e.id),
+    );
+
     let totalGross = new Decimal(0);
     let totalOvertime = new Decimal(0);
     let totalDeductions = new Decimal(0);
@@ -1443,16 +1587,31 @@ export async function generatePayroll(input: GeneratePayrollInput) {
       // attendance records, so we synthesize a full-month line.
       if (attendances.length === 0 && emp.wageType === "DAILY") continue;
 
+      // ── Join-date boundary ──
+      // Someone hired after the period ends is owed nothing; a mid-month
+      // joiner is owed only their eligible working days, not the full month.
+      const joinDateOnly = emp.joinDate ? dateOnlyUTC(emp.joinDate) : null;
+      if (joinDateOnly && joinDateOnly > endDate) continue;
+      const eligibleDays = joinDateOnly && joinDateOnly > startDate
+        ? computeWorkingDays(joinDateOnly, endDate)
+        : workingDays;
+
       // When a MONTHLY/FIXED employee has no attendance records, treat them
-      // as having worked the full period so they receive their full salary.
+      // as having worked all their ELIGIBLE days — a mid-month joiner gets
+      // pro-rated, not the full month.
       const daysWorked = attendances.length === 0
-        ? new Decimal(workingDays)
+        ? new Decimal(eligibleDays)
         : computeDaysWorked(attendances);
       // Apply the "4 lates = 1 half-day" deduction rule (owner's explicit policy).
       // Each 4 LATE days in the month deducts 0.5 from daysWorked.
       const lateHalfDayDeductions = computeLateHalfDayDeductions(attendances);
       const adjustedDaysWorked = daysWorked.minus(new Decimal(lateHalfDayDeductions * 0.5));
-      const basicAmount = computeBasicAmount(emp, adjustedDaysWorked, workingDays);
+      let basicAmount = computeBasicAmount(emp, adjustedDaysWorked, workingDays);
+      // FIXED wage ignores daysWorked (flat amount) — but a mid-month joiner
+      // still only earns the fraction of the period they were employed.
+      if (emp.wageType === "FIXED" && joinDateOnly && joinDateOnly > startDate) {
+        basicAmount = basicAmount.times(new Decimal(eligibleDays).div(workingDays));
+      }
       const otHours = computeOvertimeHours(attendances);
       const hr = hourlyRateFor(emp, workingDays);
       const overtimeAmount = otHours.times(hr).times(OVERTIME_MULTIPLIER);
@@ -1484,6 +1643,48 @@ export async function generatePayroll(input: GeneratePayrollInput) {
           isDeduction: true,
           notes: `${countLateDays(attendances)} late day(s) → ${lateHalfDayDeductions * 0.5} day pay`,
         });
+      }
+
+      // Salary-advance recovery — auto-deducted until the advance settles.
+      for (const adv of advancesByEmployee.get(emp.id) ?? []) {
+        lineComponents.push({
+          type: "OTHER",
+          label: adv.label,
+          calculationType: "FIXED",
+          unitType: null,
+          unitLabel: null,
+          rate: new Decimal(adv.amount),
+          quantity: null,
+          amount: new Decimal(adv.amount),
+          bucket: "DEDUCTIONS",
+          isDeduction: true,
+          notes: "Salary advance recovery",
+          advanceId: adv.advanceId,
+        });
+      }
+
+      // ── Net-pay floor: deductions can never exceed gross earnings. ──
+      // Advance recovery + statutory + fixed-component deductions are each
+      // valid alone, but stacked they can exceed what the worker earned
+      // (₹1.5K wage − ₹4K recovery = negative net; a ₹0-worked month with a
+      // fixed "tools deduction" is the same hole). Clamp DEDUCTIONS rows
+      // FIFO against (gross − statutory): configured components keep
+      // priority, the late-deduction row next, advance recovery last — an
+      // advance that doesn't fit just stays outstanding for next month.
+      const firstBuckets = sumComponentBuckets(lineComponents);
+      const grossBefore = computeGrossPay(basicAmount, overtimeAmount, firstBuckets.allowance, firstBuckets.bonus);
+      const statutory = firstBuckets.pf.plus(firstBuckets.esi).plus(firstBuckets.professionTax).plus(firstBuckets.tax);
+      let headroom = grossBefore.minus(statutory);
+      if (headroom.lt(0)) headroom = new Decimal(0);
+      for (const c of lineComponents) {
+        if (c.bucket !== "DEDUCTIONS") continue;
+        const amt = new Decimal(c.amount);
+        if (amt.lte(headroom)) { headroom = headroom.minus(amt); continue; }
+        const capped = headroom.lt(0) ? new Decimal(0) : headroom;
+        c.amount = capped;
+        c.rate = capped;
+        c.notes = `${c.notes ?? ""} — capped at available wages (₹${amt.minus(capped)} ${c.advanceId ? "deferred to next month" : "not deducted this period"})`.trim();
+        headroom = new Decimal(0);
       }
 
       const buckets = sumComponentBuckets(lineComponents);
@@ -1748,17 +1949,41 @@ export async function updatePayrollLineComponents(input: {
       };
     });
 
+    // Advance-recovery rows are system-owned — re-adding a line for an
+    // allowance edit must not drop them (the advance would silently stop
+    // recovering). They're preserved verbatim; HR adjusts the advance
+    // itself via pause/settle, not by editing the line.
+    const preservedAdvances = await tx.payrollLineComponent.findMany({
+      where: { payrollLineId: input.payrollLineId, advanceId: { not: null } },
+      select: {
+        type: true, label: true, calculationType: true, unitType: true,
+        unitLabel: true, rate: true, quantity: true, amount: true,
+        bucket: true, isDeduction: true, notes: true, advanceId: true,
+      },
+    });
+    const allRows = [...rows, ...preservedAdvances];
+
     await tx.payrollLineComponent.deleteMany({ where: { payrollLineId: input.payrollLineId } });
-    if (rows.length > 0) {
+    if (allRows.length > 0) {
       await tx.payrollLineComponent.createMany({
-        data: rows.map((r) => ({ ...r, payrollLineId: input.payrollLineId })),
+        data: allRows.map((r) => ({ ...r, payrollLineId: input.payrollLineId })),
       });
     }
 
-    const buckets = sumComponentBuckets(rows);
+    const buckets = sumComponentBuckets(allRows);
     const grossPay = computeGrossPay(line.basicAmount, line.overtimeAmount, buckets.allowance, buckets.bonus);
     const totalDeductions = computeTotalDeductions(buckets.deductions, buckets.pf, buckets.esi, buckets.professionTax, buckets.tax);
     const netPay = grossPay.minus(totalDeductions);
+
+    // Net-pay floor on manual edits — deductions can never exceed gross.
+    // (Advance recovery is auto-capped at generate; manual deductions are
+    // user-authored, so reject visibly rather than silently shrinking them.)
+    if (netPay.lt(0)) {
+      throw new HrError(
+        `Total deductions ₹${totalDeductions} exceed gross ₹${grossPay} — net pay can't go below zero. Reduce the deduction or split it across periods.`,
+        400,
+      );
+    }
 
     const updated = await tx.payrollLine.update({
       where: { id: input.payrollLineId },
@@ -1952,7 +2177,7 @@ export async function payPayroll(input: { payrollPeriodId: string; userId?: stri
   const updated = await withSerializableTransaction(async (tx) => {
     const period = await tx.payrollPeriod.findFirst({
       where: { id: input.payrollPeriodId, ...(input.companyId ? { companyId: input.companyId } : {}) },
-      include: { lines: { select: { employee: { select: { userId: true } } } } },
+      include: { lines: { select: { id: true, employee: { select: { userId: true } } } } },
     });
     if (!period) throw new HrError("Payroll period not found", 404);
     if (period.status === "PAID") {
@@ -1974,6 +2199,17 @@ export async function payPayroll(input: { payrollPeriodId: string; userId?: stri
       data: { status: "PAID", paidAt: new Date() },
     });
 
+    // Credit advance recoveries — each advanceId-linked deduction component
+    // on the paid lines increments recoveredAmount; fully recovered advances
+    // auto-settle. Only PAID lines count — a deleted/regenerated draft can
+    // never double-recover.
+    await creditAdvanceRecoveries(
+      tx,
+      period.lines.map((l) => l.id),
+      input.userId,
+      period.companyId,
+    );
+
     await logAction(tx, {
       userId: input.userId,
       action: "PAYROLL_PAID",
@@ -1994,6 +2230,8 @@ export async function payPayroll(input: { payrollPeriodId: string; userId?: stri
 
   // Tell every paid employee — salary actually moved. Targeted at each
   // line's employee userId; the actor (whoever clicked Pay) is excluded.
+  // NB: no totalAmount — the period's company-wide net must never reach a
+  // worker's notification (they'd learn the whole payroll bill).
   if (notifyVars.employeeUserIds.length > 0) {
     void emitNotificationEvent({
       eventType: NotificationEventType.PAYROLL_PROCESSED,
@@ -2002,7 +2240,7 @@ export async function payPayroll(input: { payrollPeriodId: string; userId?: stri
       excludeIds: [input.userId],
       entityType: "PayrollPeriod",
       entityId: input.payrollPeriodId,
-      variables: { month: notifyVars.month, totalAmount: notifyVars.totalNet },
+      variables: { month: notifyVars.month },
       timestamp: new Date(),
     });
   }
@@ -2428,10 +2666,40 @@ export async function resubmitDpr(dprId: string, userId: string) {
 }
 
 /** Delete an attendance record, with audit logging. */
+/**
+ * Attendance inside a processed/paid payroll period is immutable — editing
+ * it would diverge the record from the payslip the worker already received.
+ * Corrections after payment happen through the NEXT period (deduction or
+ * adjustment line), not by rewriting history.
+ */
+export async function assertAttendancePeriodOpen(
+  companyId: string,
+  date: Date,
+  tx?: Prisma.TransactionClient,
+) {
+  const db = tx ?? prisma;
+  const locked = await db.payrollPeriod.findFirst({
+    where: {
+      companyId,
+      status: { in: ["PROCESSED", "PAID"] },
+      startDate: { lte: date },
+      endDate: { gte: date },
+    },
+    select: { month: true, year: true, status: true },
+  });
+  if (locked) {
+    throw new HrError(
+      `Attendance is locked — ${locked.month}/${locked.year} payroll is already ${locked.status.toLowerCase()}. Correct it with an adjustment in the next period.`,
+      409,
+    );
+  }
+}
+
 export async function deleteAttendance(attendanceId: string, userId?: string) {
   return withSerializableTransaction(async (tx) => {
     const record = await tx.workerAttendance.findUnique({ where: { id: attendanceId } });
     if (!record) throw new HrError("Attendance record not found", 404);
+    await assertAttendancePeriodOpen(record.companyId, record.date, tx);
     await tx.workerAttendance.delete({ where: { id: attendanceId } });
     await logAction(tx, {
       userId,

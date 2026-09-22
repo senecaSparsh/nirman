@@ -3,6 +3,7 @@ import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { canAutoApprove, holdsApprovalAuthority } from "./rbac";
+import { assertAttendancePeriodOpen } from "./hr";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { createInAppNotification } from "./notifications";
 import { withSerializableTransaction } from "./transaction";
@@ -52,6 +53,9 @@ export async function createLeaveRequest(input: CreateLeaveInput) {
       where: { id: input.employeeId, companyId: input.companyId, deletedAt: null },
     });
     if (!employee) throw new ServiceError("Employee not found in this company", 404);
+    // An inactive/deactivated member can't accrue leave — approving it would
+    // write paid-leave days onto a suspended record.
+    if (!employee.active) throw new ServiceError("Cannot request leave for an inactive employee", 400);
 
     const startDate = input.startDate instanceof Date ? input.startDate : new Date(input.startDate);
     const endDate = input.endDate instanceof Date ? input.endDate : new Date(input.endDate);
@@ -65,6 +69,16 @@ export async function createLeaveRequest(input: CreateLeaveInput) {
     const s = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()));
     const e = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate()));
     if (e < s) throw new ServiceError("End date cannot be before start date");
+
+    // A leave that ends entirely before the join date is nonsense — the
+    // person wasn't employed yet, and approving it would credit paid-leave
+    // days before they existed here.
+    if (employee.joinDate) {
+      const joinDay = new Date(Date.UTC(employee.joinDate.getUTCFullYear(), employee.joinDate.getUTCMonth(), employee.joinDate.getUTCDate()));
+      if (e < joinDay) {
+        throw new ServiceError("Leave dates fall entirely before the employee's join date", 400);
+      }
+    }
 
     const days = computeLeaveDays(s, e);
 
@@ -150,7 +164,7 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
   const updated = await withSerializableTransaction(async (tx) => {
     const leave = await tx.leaveRequest.findFirst({
       where: { id: input.leaveId, companyId: input.companyId },
-      include: { employee: { select: { userId: true } } },
+      include: { employee: { select: { userId: true, joinDate: true } } },
     });
     if (!leave) throw new ServiceError("Leave request not found", 404);
     if (leave.status !== "PENDING") {
@@ -256,9 +270,26 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
     // calendar date stable regardless of server timezone.
     const cur = new Date(Date.UTC(leave.startDate.getUTCFullYear(), leave.startDate.getUTCMonth(), leave.startDate.getUTCDate()));
     const last = new Date(Date.UTC(leave.endDate.getUTCFullYear(), leave.endDate.getUTCMonth(), leave.endDate.getUTCDate()));
+
+    // Approving/rejecting a leave that overlaps a processed/paid payroll
+    // period would rewrite attendance inside locked days — the record would
+    // diverge from issued payslips. Handle those days as next-period
+    // adjustments instead.
+    for (const d = new Date(cur); d <= last; d.setDate(d.getDate() + 1)) {
+      if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) {
+        await assertAttendancePeriodOpen(input.companyId, new Date(d), tx);
+      }
+    }
+
+    // Leave days before the join date don't credit paid-leave attendance —
+    // the person wasn't employed then (same boundary as recordAttendance).
+    const joinDay = leave.employee?.joinDate
+      ? new Date(Date.UTC(leave.employee.joinDate.getUTCFullYear(), leave.employee.joinDate.getUTCMonth(), leave.employee.joinDate.getUTCDate()))
+      : null;
+
     while (cur <= last) {
       const dow = cur.getUTCDay();
-      if (dow !== 0 && dow !== 6) { // skip Sundays and Saturdays (working days only)
+      if (dow !== 0 && dow !== 6 && (!joinDay || cur >= joinDay)) { // working days only, and not before joining
         await tx.workerAttendance.upsert({
           where: {
             employeeId_date: { employeeId: leave.employeeId, date: new Date(cur) },
@@ -381,6 +412,14 @@ export async function cancelLeaveRequest(leaveId: string, companyId: string, use
     // attendance is left alone. The balance itself needs no decrement — it's
     // derived from APPROVED requests, so the status change un-counts it.
     if (leave.status === "APPROVED") {
+      // Deleting leave-attendance rows inside a processed/paid period would
+      // diverge the record from an issued payslip — the leave days were
+      // already counted as paid. Check each covered day first.
+      for (const d = new Date(leave.startDate); d <= leave.endDate; d.setUTCDate(d.getUTCDate() + 1)) {
+        if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) {
+          await assertAttendancePeriodOpen(companyId, new Date(d), tx);
+        }
+      }
       await tx.workerAttendance.deleteMany({
         where: {
           employeeId: leave.employeeId,

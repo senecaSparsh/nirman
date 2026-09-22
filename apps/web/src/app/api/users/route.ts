@@ -5,7 +5,7 @@ import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@nirman/db";
 import { apiHandler, getActingRole, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM, ALL_ROLES, canAssignRole, isCustomRole, canAssignCustomRole, type Role } from "@/lib/roles";
-import { withSerializableTransaction } from "@nirman/services";
+import { assertEmployeeCodeAvailable, assertScopeWithinActor, defaultScopeType, withSerializableTransaction } from "@nirman/services";
 import { normalizePhone } from "@/lib/phone-otp";
 
 /**
@@ -60,7 +60,7 @@ export const GET = apiHandler(async () => {
  *     user or account; update their role if the actor is above them)
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.USERS_MANAGE);
+  const actor = await requirePermission(PERM.USERS_MANAGE);
   const company = await getCompany();
   const actorRole = await getActingRole();
 
@@ -192,6 +192,19 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: "A user with these credentials already exists." }, { status: 409 });
   }
 
+  // Resolved once for both membership paths — custom roles derive scope
+  // via baseRole (null base → narrowest scoped default).
+  const scopeBase = roleIsCustom
+    ? (await prisma.customRole.findFirst({
+        where: { companyId: company.id, key: role },
+        select: { baseRole: true },
+      }))?.baseRole ?? "SUPERVISOR"
+    : role;
+  const resolvedScopeType = defaultScopeType(scopeBase);
+  // Scope ceiling — a scoped actor can't mint wider visibility via a
+  // company-defaulted role (e.g. dept-scoped HR granting HR_MANAGER).
+  await assertScopeWithinActor(actor.id, company.id, resolvedScopeType, []);
+
   if (existing) {
     // Check if already a member of this company
     const existingMembership = await prisma.userCompany.findFirst({
@@ -204,9 +217,17 @@ export const POST = apiHandler(async (req: NextRequest) => {
         { status: 409 },
       );
     }
-    // Add as a member (don't recreate user/account)
+    // Add as a member (don't recreate user/account). Explicit scopeType —
+    // a null scopeType falls back to the role default only on resolution,
+    // and storing it keeps every membership's shape consistent.
     await prisma.userCompany.create({
-      data: { userId: existing.id, companyId: company.id, role: role as Role, secondaryRoles: extraRoles },
+      data: {
+        userId: existing.id,
+        companyId: company.id,
+        role: role as Role,
+        secondaryRoles: extraRoles,
+        scopeType: resolvedScopeType,
+      },
     });
     return json({
       id: existing.id,
@@ -223,6 +244,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const finalEmail = normalizedEmail ?? `phone+${normalizedPhone}@nirman.internal`;
 
   const result = await withSerializableTransaction(async (tx) => {
+    // Employee codes are badge/attendance identifiers — a duplicate within
+    // the company would collide on ID cards and reports.
+    if (employeeCode?.trim()) {
+      await assertEmployeeCodeAvailable(tx, company.id, employeeCode);
+    }
     const user = await tx.user.create({
       data: {
         email: finalEmail,
@@ -232,7 +258,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         phoneNormalized: normalizedPhone,
         companyId: company.id,
         emailVerified: true,
-        employeeCode: employeeCode?.trim() || null,
+        employeeCode: employeeCode?.trim().toUpperCase() || null,
         designation: designation?.trim() || null,
         department: department?.trim() || null,
         joiningDate: joiningDate ? new Date(joiningDate) : null,
@@ -243,7 +269,14 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
 
     await tx.userCompany.create({
-      data: { userId: user.id, companyId: company.id, role: role as Role, secondaryRoles: extraRoles },
+      data: {
+        userId: user.id,
+        companyId: company.id,
+        role: role as Role,
+        secondaryRoles: extraRoles,
+        // Same explicit-scope contract as the existing-member path above.
+        scopeType: resolvedScopeType,
+      },
     });
 
     // Create credential account for sign-in

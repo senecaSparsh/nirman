@@ -56,7 +56,7 @@ async function AttendanceContent() {
 
   const scopedOpts = await getScopedFormOptions();
 
-  const [employees, projects, recentAttendance, leaves, leaveEmployees] = await Promise.all([
+  const [employees, projects, recentAttendance, leaves, leaveEmployees, pendingOffsite] = await Promise.all([
     prisma.employee.findMany({
       take: 200,
       where: { companyId: company.id, deletedAt: null, active: true, ...await scopeWhere("Employee") },
@@ -82,6 +82,23 @@ async function AttendanceContent() {
       where: { companyId: company.id, deletedAt: null, active: true, ...await scopeWhere("Employee") },
       select: { id: true, name: true, trade: true, designation: true },
       orderBy: { name: "asc" }}),
+    // Off-site check-ins awaiting review — the "flagged PRESENT but outside
+    // the fence" queue. Scope-filtered so dept-scoped HR sees their own.
+    prisma.workerAttendance.findMany({
+      where: {
+        companyId: company.id,
+        offSiteReview: "PENDING",
+        employee: { deletedAt: null, ...await scopeWhere("Employee") },
+      },
+      orderBy: { date: "desc" },
+      take: 50,
+      select: {
+        id: true, date: true, checkIn: true,
+        checkInLat: true, checkInLng: true, checkInLocation: true,
+        geoFenceDistance: true,
+        employee: { select: { id: true, name: true, designation: true } },
+        project: { select: { id: true, name: true } },
+      }}),
   ]);
 
   // ── Traffic-light tier computation (D10) ──────────────────────
@@ -173,6 +190,20 @@ async function AttendanceContent() {
         leaveEmployees={leaveEmployees.map((e) => ({ id: e.id, name: e.name, trade: e.trade, designation: e.designation }))}
         currentUserId={currentUser?.id ?? null}
         canSelfApprove={canAutoApprove(actingRole)}
+        offsiteReviews={pendingOffsite.map((r) => ({
+          id: r.id,
+          date: r.date.toISOString().slice(0, 10),
+          employeeId: r.employee.id,
+          employeeName: r.employee.name,
+          designation: r.employee.designation,
+          projectName: r.project?.name ?? null,
+          checkIn: r.checkIn?.toISOString() ?? null,
+          lat: r.checkInLat,
+          lng: r.checkInLng,
+          location: r.checkInLocation,
+          fenceDistanceM: r.geoFenceDistance != null ? Math.round(r.geoFenceDistance) : null,
+          review: "PENDING",
+        }))}
       />
     </>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -11,7 +11,7 @@ import {
   IdCard, Building2, FolderOpen,
   CheckCircle2, ChevronRight, ArrowUp, ArrowDown, Check, Plus,
   AlertCircle, ShieldCheck, XCircle, KeyRound, Shield, Paperclip,
-  Package,
+  Package, HandCoins,
 } from "lucide-react";
 import { formatCurrency, formatDate, displayEmail } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
@@ -68,6 +68,12 @@ interface PayrollItem {
   paymentDate: string | null;
   proofUploadId: string | null;
   proofUrl: string | null;
+}
+
+interface AdvanceRow {
+  id: string; amount: number; monthlyRecovery: number; recoveredAmount: number;
+  outstanding: number; status: string; issueDate: string; notes: string | null;
+  issuedBy: string | null;
 }
 
 interface TaskItem {
@@ -226,6 +232,13 @@ export function MobileEmployeeDetailClient({
   const [showDocsModal, setShowDocsModal] = useState(false);
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [showPayrollModal, setShowPayrollModal] = useState(false);
+  const [advances, setAdvances] = useState<AdvanceRow[]>([]);
+  const [advancesLoaded, setAdvancesLoaded] = useState(false);
+  const [showAdvanceForm, setShowAdvanceForm] = useState(false);
+  const [advAmount, setAdvAmount] = useState("");
+  const [advRecovery, setAdvRecovery] = useState("");
+  const [advNotes, setAdvNotes] = useState("");
+  const [advSaving, setAdvSaving] = useState(false);
   const [showPhoneDialog, setShowPhoneDialog] = useState(false);
   const [showTasksModal, setShowTasksModal] = useState(false);
   const [showDprModal, setShowDprModal] = useState(false);
@@ -239,6 +252,71 @@ export function MobileEmployeeDetailClient({
   const [availableNumbers, setAvailableNumbers] = useState<
     { id: string; phoneNumber: string; label: string | null; department: string | null; status: string; monthlyCost: number | null; provider: string | null }[]
   >([]);
+
+  // Lazy-load the advance ledger when the payroll sheet opens.
+  const advanceEmployeeId = employee?.id ?? "";
+  useEffect(() => {
+    if (!showPayrollModal || advancesLoaded || !advanceEmployeeId) return;
+    let cancelled = false;
+    fetch(`/api/employees/${advanceEmployeeId}/advances`)
+      .then((r) => (r.ok ? r.json() : { advances: [] }))
+      .then((d) => {
+        if (!cancelled) {
+          setAdvances(d.advances ?? []);
+          setAdvancesLoaded(true);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [showPayrollModal, advancesLoaded, advanceEmployeeId]);
+
+  async function refreshAdvances() {
+    const r = await fetch(`/api/employees/${advanceEmployeeId}/advances`);
+    const d = await r.json().catch(() => ({ advances: [] }));
+    if (r.ok) setAdvances(d.advances ?? []);
+  }
+
+  async function issueAdvance() {
+    const amount = Number(advAmount);
+    const recovery = Number(advRecovery);
+    if (!amount || amount <= 0) return toast.error("Enter the advance amount");
+    if (!recovery || recovery <= 0) return toast.error("Enter the monthly recovery");
+    if (recovery > amount) return toast.error("Recovery can't exceed the advance amount");
+    setAdvSaving(true);
+    try {
+      const res = await fetch(`/api/employees/${advanceEmployeeId}/advances`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount, monthlyRecovery: recovery, notes: advNotes || undefined }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to issue advance");
+      toast.success("Advance issued — auto-deducts each payroll");
+      setShowAdvanceForm(false);
+      setAdvAmount(""); setAdvRecovery(""); setAdvNotes("");
+      await refreshAdvances();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to issue advance");
+    } finally {
+      setAdvSaving(false);
+    }
+  }
+
+  async function setAdvanceStatus(advanceId: string, status: string) {
+    try {
+      const res = await fetch(`/api/advances/${advanceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to update advance");
+      toast.success(`Advance ${status.toLowerCase()}`);
+      await refreshAdvances();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update advance");
+    }
+  }
 
   if (notFound || !employee) {
     return <MobileEmptyState icon={User} title="Employee not found" />;
@@ -1370,6 +1448,107 @@ export function MobileEmployeeDetailClient({
               <ChevronRight className="size-3.5" />
             </Link>
           )}
+
+          {/* ── Advances / loans ledger ── */}
+          <div className="mb-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-m-label font-bold flex items-center gap-1" style={{ color: "var(--color-ink-500)" }}>
+                <HandCoins className="size-3.5" /> Advances
+              </p>
+              {canManagePayroll && !showAdvanceForm && (
+                <button
+                  onClick={() => setShowAdvanceForm(true)}
+                  className="flex items-center gap-1 text-m-caption font-bold press"
+                  style={{ color: "var(--color-go)" }}
+                >
+                  <Plus className="size-3.5" /> Issue advance
+                </button>
+              )}
+            </div>
+
+            {showAdvanceForm && (
+              <div className="rounded-[0.5rem] p-2.5 mb-2 space-y-2" style={{ backgroundColor: "var(--color-paper)" }}>
+                <div className="flex gap-2">
+                  <input
+                    type="number" inputMode="decimal" placeholder="Amount ₹"
+                    value={advAmount} onChange={(e) => setAdvAmount(e.target.value)}
+                    className="flex-1 rounded-[0.5rem] px-2.5 py-2 text-m-body border border-border bg-card"
+                  />
+                  <input
+                    type="number" inputMode="decimal" placeholder="Recover ₹/mo"
+                    value={advRecovery} onChange={(e) => setAdvRecovery(e.target.value)}
+                    className="flex-1 rounded-[0.5rem] px-2.5 py-2 text-m-body border border-border bg-card"
+                  />
+                </div>
+                <input
+                  type="text" placeholder="Note (optional)"
+                  value={advNotes} onChange={(e) => setAdvNotes(e.target.value)}
+                  className="w-full rounded-[0.5rem] px-2.5 py-2 text-m-body border border-border bg-card"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={issueAdvance} disabled={advSaving}
+                    className="flex-1 rounded-[0.5rem] py-2 text-m-label font-bold press disabled:opacity-50"
+                    style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
+                  >
+                    {advSaving ? "Issuing…" : "Issue"}
+                  </button>
+                  <button
+                    onClick={() => setShowAdvanceForm(false)}
+                    className="flex-1 rounded-[0.5rem] py-2 text-m-label font-bold press"
+                    style={{ backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-700)" }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {advances.filter((a) => a.status !== "CANCELLED").length > 0 ? (
+              <div className="flex flex-col gap-1.5">
+                {advances.filter((a) => a.status !== "CANCELLED").map((a) => (
+                  <div key={a.id} className="rounded-[0.5rem] p-2.5" style={{ backgroundColor: "var(--color-paper)" }}>
+                    <div className="flex items-center justify-between">
+                      <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                        {formatCurrency(a.amount)}
+                      </p>
+                      <MobileStatusBadge status={a.status} />
+                    </div>
+                    <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+                      Recovered {formatCurrency(a.recoveredAmount)} · {formatCurrency(a.outstanding)} left · {formatCurrency(a.monthlyRecovery)}/mo
+                    </p>
+                    {/* Recovery progress bar */}
+                    <div className="mt-1.5 h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--color-ink-100)" }}>
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${Math.min(100, (a.recoveredAmount / Math.max(a.amount, 1)) * 100)}%`, backgroundColor: a.status === "SETTLED" ? "var(--color-go)" : "var(--color-warn)" }}
+                      />
+                    </div>
+                    {canManagePayroll && (a.status === "ACTIVE" || a.status === "PAUSED") && (
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          onClick={() => setAdvanceStatus(a.id, a.status === "ACTIVE" ? "PAUSED" : "ACTIVE")}
+                          className="flex-1 rounded-[0.375rem] py-1.5 text-m-caption font-bold press"
+                          style={{ backgroundColor: "var(--color-ink-100)", color: "var(--color-ink-700)" }}
+                        >
+                          {a.status === "ACTIVE" ? "Pause" : "Resume"}
+                        </button>
+                        <button
+                          onClick={() => setAdvanceStatus(a.id, "SETTLED")}
+                          className="flex-1 rounded-[0.375rem] py-1.5 text-m-caption font-bold press"
+                          style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
+                        >
+                          Mark settled
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : advancesLoaded ? (
+              <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>No advances issued.</p>
+            ) : null}
+          </div>
 
           {/* ── Payroll history ── */}
           <p className="text-m-label font-bold mb-2" style={{ color: "var(--color-ink-500)" }}>History</p>

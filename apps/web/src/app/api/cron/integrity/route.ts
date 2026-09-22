@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, json } from "@/lib/server";
+import { defaultScopeType } from "@nirman/services";
 import { withTimeout } from "@/lib/timeout";
 
 /**
@@ -61,9 +62,9 @@ async function runAudit(): Promise<Response> {
         where: { companyId: cid },
         select: {
           id: true, userId: true, role: true, secondaryRoles: true, activeRole: true,
-          active: true, reportsToUserCompanyId: true,
+          active: true, reportsToUserCompanyId: true, scopeType: true,
           approvalsDelegatedToId: true, delegationEndsAt: true,
-          user: { select: { name: true, active: true, isHidden: true } },
+          user: { select: { name: true, active: true, isHidden: true, role: true } },
         },
       }),
       prisma.employee.findMany({
@@ -210,6 +211,68 @@ async function runAudit(): Promise<Response> {
       if (e.active && e.departmentId === null) {
         findings.push({ check: "dept-orphan", detail: `${e.name} is active but has no department — invisible to dept-scoped HR` });
       }
+    }
+
+    // 12. role-mirror drift — User.role mirrors membership.role; when they
+    // diverge, list views and the held-set union read a stale hat.
+    for (const m of memberships) {
+      if (m.active && m.user.role && m.user.role !== m.role) {
+        findings.push({ check: "role-mirror-drift", detail: `${m.user.name}: account role "${m.user.role}" ≠ membership role "${m.role}"` });
+      }
+    }
+
+    // 13. demotion scope drift — every held role defaults to a narrow scope
+    // but the membership still carries explicit COMPANY scope (usually a
+    // leftover from a senior role). Review: narrow it or it's intentional.
+    // Custom roles resolve their default scope via baseRole (null → narrow).
+    const customRoleRows = await prisma.customRole.findMany({
+      where: { companyId: cid },
+      select: { key: true, baseRole: true },
+    });
+    const customRoleBase = new Map(customRoleRows.map((r) => [r.key, r.baseRole ?? "SUPERVISOR"]));
+    const customRoleKeys = new Set(customRoleRows.map((r) => r.key));
+
+    // 13b. phantom hats — a held CUSTOM_* role that was deleted still sits
+    // in the held set (fail-closed on permissions, but invisible until
+    // someone audits the membership).
+    for (const m of memberships) {
+      const phantom = [m.role, ...m.secondaryRoles].filter((r) => r.startsWith("CUSTOM_") && !customRoleKeys.has(r));
+      if (phantom.length > 0) {
+        findings.push({ check: "phantom-role", detail: `${m.user.name} holds deleted custom role(s): ${phantom.join(", ")}` });
+      }
+    }
+    const defaultScopeFor = (role: string) =>
+      defaultScopeType(role.startsWith("CUSTOM_") ? (customRoleBase.get(role) ?? "SUPERVISOR") : role);
+    for (const m of memberships) {
+      if (!m.active || m.scopeType !== "COMPANY") continue;
+      const held = [m.role, ...m.secondaryRoles];
+      if (held.every((r) => defaultScopeFor(r) !== "COMPANY")) {
+        findings.push({ check: "scope-drift", detail: `${m.user.name} holds only scoped roles but has company-wide access — review` });
+      }
+    }
+
+    // 14. inverted reporting lines — a senior reporting to a junior
+    // (higher hierarchy number reports to lower) is almost always an error.
+    for (const e of employees) {
+      if (!e.reportsToEmployeeId || e.hierarchyLevel == null) continue;
+      const mgr = empById.get(e.reportsToEmployeeId);
+      if (mgr?.hierarchyLevel != null && mgr.hierarchyLevel > e.hierarchyLevel) {
+        findings.push({ check: "reportsTo-inverted", detail: `H${e.hierarchyLevel} ${e.name} reports to H${mgr.hierarchyLevel} ${mgr.name}` });
+      }
+    }
+
+    // 15. stale off-site reviews — a PENDING off-site check-in older than a
+    // week sits as provisional PRESENT forever; surface it so HR actually
+    // decides (approve → stays, reject → absent).
+    const staleOffsite = await prisma.workerAttendance.count({
+      where: {
+        companyId: cid,
+        offSiteReview: "PENDING",
+        date: { lt: new Date(Date.now() - 7 * 86400_000) },
+      },
+    });
+    if (staleOffsite > 0) {
+      findings.push({ check: "offsite-review-stale", detail: `${staleOffsite} off-site check-in(s) pending review for over a week` });
     }
 
     // ── Report: one digest notification to every tier-1 member ──
