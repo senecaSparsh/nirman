@@ -262,3 +262,31 @@ victims), then fixed on `test/a-procurement` and re-verified live.
 - **Auto-Deposit**: setup-deposit validates IFSC (400 on bad) →
   onboardingComplete auto-flips (12/12 promotion verified on test worker).
 - **Notification bell**: 30s poll, unread dots, mark-read, deep links.
+
+## Mobile surface + security sweep (verified 2026-09-23)
+
+- **Full mobile route sweep**: all 72 /m/* routes → 200 as OWNER. Only
+  miss: bare /m/dev had no index → now redirects to /m/dev/errors
+  (de621289, same convention as /m/alerts).
+- **/m/me profile-save bug** (69c8596f): the edit sheet always sent
+  `phone` in PATCH /api/me/profile — the API loudly 400s (phone is the
+  OTP login identity; changes go through HR's conflict-checked assign).
+  Every profile save failed. Phone now read-only + dropped from body.
+  Verified: name-only → 200, phone-in-body → 400 (guard preserved).
+- **Cross-tenant**: as My Company OWNER, SRG employee + PO → 404,
+  employee list shows only own 8 — zero leakage.
+- **Attachments**: magic-byte MIME sniffing, 25MB cap, auth+company-gated
+  retrieval, upload→attach→list→serve→delete verified end-to-end.
+- **Upload surface**: storage outside public/, UPLOAD_DIR persistence
+  mount, no executable types.
+- **Deactivation**: full teardown — sessions killed, pending approvals
+  reassigned, tasks cancelled, assignments + phone numbers released.
+- **HR phone-assign**: login moves with the company number, conflict-
+  checked against other users' login (409), audit-logged.
+- **Accounts hub**: Tally radar (53 pending + Snooze), payables ₹8.75L,
+  live activity feed, GL/petty-cash/claims tabs.
+- **Stock counts**: draft/reconciled + mismatch deltas; desktop
+  /stock-counts/[id] deep-link stub (d6fcaf38 — detail is a dialog).
+- **Dev-server note**: two memory-threshold self-heal restarts observed
+  during a 49-route cold-compile sweep — wrapper recovered cleanly each
+  time (health 200). Dev-only; prod has the start-wrapper monitor.
