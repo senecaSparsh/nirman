@@ -690,6 +690,18 @@ function MembersSection({
   // SUPERVISOR and offer the role select on members the API will 403.
   const actorTierNum = roleTier(actorRole);
   const customRoleByKey = new Map(customRoles.map((cr) => [cr.key, cr]));
+  // Custom roles the actor can assign — same tier rule the desktop
+  // UsersManager uses (actor tier must be above the custom role's tier).
+  // Without this the mobile pickers only offered built-in roles, so a
+  // custom role could never be assigned from a phone.
+  const assignableCustomRoles = customRoles.filter((cr) => actorTierNum < cr.tier);
+  const assignableOptions = [
+    ...assignable.map((r) => {
+      const def = roleOptions.find((o) => o.key === r);
+      return { value: r, label: def?.label ?? r };
+    }),
+    ...assignableCustomRoles.map((cr) => ({ value: cr.key, label: cr.label })),
+  ];
   const canManageMemberRole = (role: string) => {
     if (role.startsWith("CUSTOM_")) {
       const cr = customRoleByKey.get(role);
@@ -780,10 +792,7 @@ function MembersSection({
                 label="Role"
                 value={addRole}
                 onChange={(v) => setAddRole(v as Role)}
-                options={assignable.map((r) => {
-                  const def = roleOptions.find((o) => o.key === r);
-                  return { value: r, label: def?.label ?? r };
-                })}
+                options={assignableOptions}
               />
               <button
                 onClick={addMember}
@@ -834,7 +843,7 @@ function MembersSection({
                       label=""
                       value={m.role}
                       onChange={(v) => changeRole(m.id, v)}
-                      options={[m.role, ...assignable].filter((r, i, arr) => arr.indexOf(r) === i).map((r) => {
+                      options={[m.role, ...assignable, ...assignableCustomRoles.map((cr) => cr.key)].filter((r, i, arr) => arr.indexOf(r) === i).map((r) => {
                         const def = roleOptions.find((o) => o.key === r);
                         return { value: r, label: def?.label ?? r };
                       })}

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, json, toNum, getCompany } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { requirePermission } from "@/lib/server";
+import { requireAnyPermission } from "@/lib/server";
 
 /**
  * GET /api/stock/available?locationId=...
@@ -15,7 +15,13 @@ import { requirePermission } from "@/lib/server";
  *   context (demand-slip enrichment).
  */
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.INVENTORY_VIEW);
+  // "What's in stock here / at each location" powers the material pickers in
+  // issue, transfer, scrap, sale, adjust and requisition forms — an action-
+  // perm holder must read availability or every line shows "No stock here".
+  await requireAnyPermission(
+    PERM.INVENTORY_VIEW, PERM.STOCK_ISSUE, PERM.STOCK_TRANSFER,
+    PERM.REQUISITION_CREATE, PERM.PROCUREMENT_VIEW, PERM.SALES_VIEW,
+  );
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const locationId = searchParams.get("locationId");

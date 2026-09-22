@@ -454,6 +454,12 @@ async function CommandCenterContent() {
   // "Supervisor" fallback for the user's own role.
   const customLabels = await getCustomRoleLabels([...new Set(memberships.map((m) => m.company.id))]);
   const currentRoleKey = memberships.find((m) => m.company.id === company.id)?.role;
+  // The label the user actually holds — CUSTOM_* resolves to its custom
+  // label, not the normalizeRole() "Supervisor" fallback. roleDef stays
+  // normalized (it's only used for description/capability logic).
+  const displayRoleLabel = currentRoleKey
+    ? roleDisplayLabel(currentRoleKey, company.id, customLabels)
+    : roleDef.label;
   const membershipData: MembershipData[] = memberships.map((m) => ({
     id: m.id,
     company: { id: m.company.id, name: m.company.name, businessType: m.company.businessType },
@@ -469,7 +475,7 @@ async function CommandCenterContent() {
 
   // ── PageHeader stats — the dashboard's instrument panel ──────────
   const headerStats: { label: string; value: string | number; tone?: "default" | "warning" | "danger" }[] = [
-    { label: "Role", value: roleDef.label },
+    { label: "Role", value: displayRoleLabel },
     { label: "Company", value: company.name },
   ];
   if (blockingQueues > 0) {
@@ -488,7 +494,7 @@ async function CommandCenterContent() {
     <Page>
       <PageHeader
         title="Today"
-        description={`${roleDef.label} · ${company.name} · ${formatDate(now)}`}
+        description={`${displayRoleLabel} · ${company.name} · ${formatDate(now)}`}
         stats={headerStats}
       />
 
@@ -516,7 +522,7 @@ async function CommandCenterContent() {
         active={dbUser?.active ?? true}
         createdAt={dbUser?.createdAt?.toISOString() ?? null}
         companyName={company.name}
-        roleLabel={currentRoleKey ? roleDisplayLabel(currentRoleKey, company.id, customLabels) : roleDef.label}
+        roleLabel={displayRoleLabel}
         roleDescription={roleDef.description}
         canManageCompany={canManageCompany}
         queues={queues}

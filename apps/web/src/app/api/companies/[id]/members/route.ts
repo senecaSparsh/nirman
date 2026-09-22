@@ -169,8 +169,14 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
   const newHeldSet = new Set([role, ...secondaryRoles]);
   const membership = await prisma.userCompany.upsert({
     where: { userId_companyId: { userId: user.id, companyId: id } },
+    // On update keep the existing scope — a role change shouldn't silently
+    // wipe an admin's deliberate scoping. On CREATE, default scopeType to
+    // COMPANY: the add-member form has no scope picker, so a role that
+    // defaults to PROJECT (supervisor, site engineer, scratch custom roles)
+    // would otherwise land scoped with zero entries — sees nothing. COMPANY
+    // = unscoped = working membership; narrowing happens via Set access scope.
     update: { role, secondaryRoles },
-    create: { userId: user.id, companyId: id, role, secondaryRoles },
+    create: { userId: user.id, companyId: id, role, secondaryRoles, scopeType: "COMPANY" },
     select: { id: true, userId: true, role: true, secondaryRoles: true },
   });
   if (user.role !== role) {

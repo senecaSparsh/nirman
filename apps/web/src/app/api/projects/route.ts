@@ -1,10 +1,18 @@
 import { NextRequest } from "next/server";
 import { prisma, type ProjectType, type ProjectStatus } from "@nirman/db";
-import { apiHandler, getCompany, json, projectSchema, requirePermission, scopeWhere, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, projectSchema, requirePermission, requireAnyPermission, scopeWhere, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.PROJECTS_VIEW);
+  // Projects are the target pick-list for DPRs, issues-to-project,
+  // requisitions, tasks, safety/QC and measurement forms — a role holding
+  // any of those action perms must be able to read the list. Writes stay
+  // gated on projects.manage below.
+  await requireAnyPermission(
+    PERM.PROJECTS_VIEW, PERM.DPR_SUBMIT, PERM.DPR_VIEW, PERM.STOCK_ISSUE,
+    PERM.STOCK_TRANSFER, PERM.REQUISITION_CREATE, PERM.TASKS_VIEW,
+    PERM.SAFETY_VIEW, PERM.QC_VIEW, PERM.MB_VIEW, PERM.BOQ_VIEW,
+  );
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type");

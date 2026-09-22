@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { generateMaterialCode, logAction, lookupGstByHsn, suggestHsnByMaterial, recordStockAdjustment } from "@nirman/services";
-import { apiHandler, getCompany, json, materialSchema, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, materialSchema, requirePermission, requireAnyPermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -57,7 +57,14 @@ async function autoFillHsnGst(
 }
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.INVENTORY_VIEW);
+  // Materials are the line-item pick-list for issue, transfer, requisition,
+  // quotation, PO and DPR forms — an action-perm holder must be able to
+  // read them or the picker is empty. Writes stay on inventory.manage.
+  await requireAnyPermission(
+    PERM.INVENTORY_VIEW, PERM.STOCK_ISSUE, PERM.STOCK_TRANSFER,
+    PERM.REQUISITION_CREATE, PERM.PROCUREMENT_VIEW, PERM.QUOTATION_VIEW,
+    PERM.DPR_SUBMIT, PERM.SAFETY_VIEW,
+  );
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const categoryId = searchParams.get("categoryId");
