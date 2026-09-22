@@ -55,10 +55,14 @@ export function SurfaceAdapter() {
   const pathRef = useRef(currentPath);
 
   // ── Core redirect logic — idempotent, self-healing ──────────────────────
-  // Guard is "don't re-issue the same navigation", not a sticky flag — so a
-  // resize can never permanently block. The guard clears as soon as the path
-  // changes (below), and `target === path` is a no-op.
-  const lastIssued = useRef<string | null>(null);
+  // The "already navigating" guard is time-boxed, not sticky: if the issued
+  // navigation fails transiently (server hiccup, aborted RSC fetch, a stale
+  // middleware redirect) the path never changes — and a sticky guard would
+  // leave the user stranded on the wrong surface forever. Re-issue the same
+  // target after RETRY_MS; a successful navigation still short-circuits via
+  // the path-change effect below.
+  const RETRY_MS = 2500;
+  const lastIssued = useRef<{ target: string; at: number } | null>(null);
 
   const checkAndRedirect = () => {
     const path = pathRef.current;
@@ -79,8 +83,9 @@ export function SurfaceAdapter() {
     // the user is never stranded on a desktop page on a phone-width screen.
     if (!target && isMobile && !onMobileRoute) target = "/m/home" + search;
     if (!target || target === path) return;
-    if (lastIssued.current === target) return; // already navigating there
-    lastIssued.current = target;
+    const last = lastIssued.current;
+    if (last?.target === target && Date.now() - last.at < RETRY_MS) return;
+    lastIssued.current = { target, at: Date.now() };
     router.replace(target);
   };
 
@@ -99,6 +104,18 @@ export function SurfaceAdapter() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPath]);
+
+  // Retry loop: while a redirect is in flight (issued but path hasn't changed
+  // yet — the nav may have failed transiently), keep re-checking so the user
+  // never stays stranded on a hidden surface. checkAndRedirect's time-boxed
+  // guard rate-limits the retries; it no-ops instantly once landed.
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (lastIssued.current) checkAndRedirect();
+    }, RETRY_MS / 2);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Listen for viewport changes — matchMedia change fires on crossing the
   // breakpoint; resize is a debounced fallback for edge cases.

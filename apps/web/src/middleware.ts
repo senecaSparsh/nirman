@@ -47,8 +47,8 @@ import { resolveTarget } from "@/lib/surface-map";
 // ── Mobile UA detection ─────────────────────────────────────
 // Matches phones (iPhone, Android phones, small Windows phones). Tablets
 // in landscape are intentionally NOT matched — they get the desktop surface
-// since they have enough width. This is a heuristic; there is no longer a
-// client-side corrector — once landed on a surface, the user stays there.
+// since they have enough width. This is a heuristic — the client-side
+// <SurfaceAdapter> corrects any misclassification against the real viewport.
 const MOBILE_UA = /Android(?:(?=.*Mobile)|(?=.*\bSilk\b))|iPhone|iPod|Windows Phone|BlackBerry|Opera Mini|Mobile\b/i;
 
 /** Test if a User-Agent string is a mobile device. */
@@ -183,13 +183,26 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/m", req.url));
   }
 
-  // ── Symmetric reverse redirect — desktop UA must never see mobile ──
-  // A non-mobile UA hitting any /m/* route is redirected to the desktop
-  // equivalent before a byte of mobile HTML ships — the mirror of the
-  // mobile redirect above. Mobile-only routes (no desktop equivalent)
-  // land on the desktop home, same as the /m/home fallback for phones.
+  // ── Reverse redirect — a wide desktop UA never loads a mobile document ──
+  // A non-mobile UA hitting a /m/* route via a DOCUMENT navigation (typed
+  // URL, bookmark, external link) is redirected to the desktop equivalent
+  // before a byte of mobile HTML ships — the mirror of the mobile redirect.
+  //
+  // Client-side navigations (RSC fetches from <SurfaceAdapter>'s
+  // router.replace) are NOT redirected: the adapter is viewport-aware, and
+  // a desktop UA can still be a narrow window (split screen, resized
+  // browser) where the mobile surface is correct. Bouncing the adapter's
+  // fetch strands the user on a hidden desktop page — a blank screen at
+  // <1024px (observed live). Detection uses Sec-Fetch-Mode: real document
+  // navigations send "navigate"; RSC/prefetch fetches send "cors" or
+  // "no-cors". (RSC/_rsc markers can't be used — the framework strips them
+  // before middleware runs.) Requests without Sec-Fetch-* (curl, older
+  // browsers, non-browser clients) are treated as document navigations.
+  const secFetchMode = req.headers.get("sec-fetch-mode");
+  const isDocumentNav = secFetchMode === null || secFetchMode === "navigate";
   if (
     !isMobileRequest(req) &&
+    isDocumentNav &&
     (pathname === "/m" || pathname.startsWith("/m/"))
   ) {
     const search = searchParams.size ? `?${searchParams.toString()}` : "";

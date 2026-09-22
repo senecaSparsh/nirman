@@ -35,6 +35,7 @@ function makeReq(
     ua?: string;
     cookie?: string;
     method?: string;
+    secFetchMode?: string;
   } = {},
 ): NextRequest {
   const url = `${BASE}${path}`;
@@ -42,6 +43,7 @@ function makeReq(
   if (opts.ua !== undefined) headers["user-agent"] = opts.ua;
   else headers["user-agent"] = DESKTOP_UA;
   if (opts.cookie) headers["cookie"] = opts.cookie;
+  if (opts.secFetchMode) headers["sec-fetch-mode"] = opts.secFetchMode;
 
   return new NextRequest(url, {
     method: opts.method ?? "GET",
@@ -169,6 +171,28 @@ describe("Middleware: desktop UA reverse-redirected off /m", () => {
     const res = middleware(makeReq("/m/home", { ua: MOBILE_UA }));
     expect(res.status).toBe(200);
     expect(getRedirectLocation(res)).toBeNull();
+  });
+
+  // The client adapter's router.replace issues RSC fetches (Sec-Fetch-Mode:
+  // cors) — bouncing those would strand a narrow desktop window on a hidden
+  // desktop page. Document navigations (Sec-Fetch-Mode: navigate or absent)
+  // still get the reverse redirect.
+  it("desktop UA RSC fetch on /m/* → NOT redirected (adapter must land)", () => {
+    const res = middleware(makeReq("/m/hr", { ua: DESKTOP_UA, secFetchMode: "cors" }));
+    expect(res.status).toBe(200);
+    expect(getRedirectLocation(res)).toBeNull();
+  });
+
+  it("desktop UA RSC fetch on /m → NOT redirected", () => {
+    const res = middleware(makeReq("/m", { ua: DESKTOP_UA, secFetchMode: "cors" }));
+    expect(res.status).toBe(200);
+    expect(getRedirectLocation(res)).toBeNull();
+  });
+
+  it("desktop UA document nav on /m/* → still redirected", () => {
+    const res = middleware(makeReq("/m/hr", { ua: DESKTOP_UA, secFetchMode: "navigate" }));
+    expect(res.status).toBe(307);
+    expect(getRedirectLocation(res)).toBe(`${BASE}/hr`);
   });
 });
 
