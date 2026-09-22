@@ -431,6 +431,9 @@ export async function sellAsset(input: SellAssetInput) {
         brokerPhone: input.brokerPhone ?? null,
         commissionAmount: input.commissionAmount ? new Decimal(input.commissionAmount) : null,
         commissionIsPartOfDeal: input.commissionIsPartOfDeal ?? false,
+        // Salesperson attribution — the column existed but was never written,
+        // so "my deals" views had nothing to key on.
+        createdById: input.userId ?? null,
         // Document uploads
         atsDocumentUrl: input.atsDocumentUrl ?? null,
         atsDocumentName: input.atsDocumentName ?? null,
