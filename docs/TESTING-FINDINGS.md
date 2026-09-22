@@ -235,3 +235,30 @@ victims), then fixed on `test/a-procurement` and re-verified live.
   generated artifacts (offer/agreement/ID); there's no licence/medical-fitness
   expiry field or reminder. Worth a schema feature if drivers/operators need
   it — drivingLicenceExpiry on Employee + integrity-cron reminder.
+
+## Owner cockpit sweep (verified 2026-09-23)
+
+- **Assistant** (text + mobile voice): real data across stock/approvals/
+  payroll/attendance; Hindi + Hinglish parse; per-intent permission gates
+  deny naming the missing perm; UNKNOWN → graceful help. One NLU misfire
+  noted ("who is working" → WORK_ORDER_LIST instead of ATTENDANCE_TODAY) —
+  gate still fails closed.
+- **Global search** (mobile header): cross-entity — "cement" hits pages,
+  3 material SKUs, 3 suppliers.
+- **Approvals queue** (/m/approvals): 13-item radar — POs with age badges,
+  gate passes, expenses, RA bill; expand → Approve verified live (13→12,
+  auto-orders + queue advance). Reject carries reason, batch approve exists.
+- **Alerts**: /m/alerts → lease-expiry only surface; severity buckets
+  EXPIRED/CRITICAL/WARNING/INFO at ≤30/60/90d, worst-first, digest-deduped.
+- **Integrity cron**: 15 drift checks (H1/tier-1, stale hats, reportsTo
+  cycles+inversions, phantom roles, dept orphans, stale offsite reviews)
+  → tier-1 digest; refuses to run without CRON_SECRET (fail-closed).
+- **Reports hub** (/m/reports): exec P&L — inventory ₹28.23L, revenue
+  ₹65.25L received vs ₹3.02Cr booked (honest methodology note), net profit
+  ₹4.17L; GST report ITC vs output → net payable ₹1.43L with monthly +
+  per-PO taxable detail.
+- **Notification links**: /m/ paths resolve per-surface — desktop viewers
+  land on desktop routes.
+- **Auto-Deposit**: setup-deposit validates IFSC (400 on bad) →
+  onboardingComplete auto-flips (12/12 promotion verified on test worker).
+- **Notification bell**: 30s poll, unread dots, mark-read, deep links.
