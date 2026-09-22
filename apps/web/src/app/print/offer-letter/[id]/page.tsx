@@ -1,8 +1,7 @@
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserPermissions } from "@/lib/server";
-import { PERM } from "@/lib/roles";
+import { getCompany, toNum, getEmployeeAccessScope, scopeWhere } from "@/lib/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -21,16 +20,21 @@ export default async function OfferLetterPage({
 }) {
   await connection();
   const { id } = await params;
-  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!__effPerms.includes(PERM.HR_VIEW)) {
-    return <div className="p-8 text-center text-muted-foreground">No access</div>;
+  // The offer letter is compensation data end-to-end (CTC table, wages) —
+  // requires the comp tier. Statutory IDs + bank details are docs-tier and
+  // are masked for comp-only readers (same policy as employment-agreement).
+  const __empScope = await getEmployeeAccessScope();
+  const canSeeComp = __empScope.canSeePayroll;
+  const canSeeDocs = __empScope.canSeePersonalDocs && __empScope.canSeeBankDetails;
+  if (!canSeeComp) {
+    return <div className="p-8 text-center text-muted-foreground">No access — this document contains compensation details.</div>;
   }
 
   const [employee, companyDetails] = await Promise.all([
     prisma.employee.findFirst({
-      where: { id, companyId: company.id, deletedAt: null },
+      where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("Employee") },
       include: {
         user: {
           select: {
@@ -301,7 +305,7 @@ export default async function OfferLetterPage({
               </div>
             )}
 
-            {employee.bankAccountNumber && (
+            {employee.bankAccountNumber && canSeeDocs && (
               <p className="mt-2">
                 Salary will be credited to your bank account ({employee.bankName ?? "—"},
                 A/C: ****{employee.bankAccountNumber.slice(-4)}, IFSC: {employee.bankIfsc ?? "—"})
@@ -420,7 +424,7 @@ export default async function OfferLetterPage({
               Payment of Wages Act, 1936; Minimum Wages Act, 1948; Payment of Bonus Act, 1965;
               and Payment of Gratuity Act, 1972.
             </p>
-            {(employee.panNumber || employee.pfNumber || employee.esiNumber || employee.uan) && (
+            {canSeeDocs && (employee.panNumber || employee.pfNumber || employee.esiNumber || employee.uan || employee.aadhaarNumber) && (
               <div className="mt-1">
                 <p className="font-semibold text-xs">Statutory Identifications:</p>
                 <ul className="ml-4 list-disc text-xs">

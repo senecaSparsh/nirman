@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
+import { prisma } from "@nirman/db";
 import { getEmployeeTelephonyCost, HrError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -19,6 +20,14 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   await requirePermission(PERM.HR_VIEW);
   const company = await getCompany();
   const { id } = await params;
+
+  // Scope + H1 wall — telephony cost is still employee data; a scoped
+  // viewer must not reach an out-of-scope employee's call ledger.
+  const visible = await prisma.employee.findFirst({
+    where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("Employee") },
+    select: { id: true },
+  });
+  if (!visible) return json({ error: "Employee not found" }, { status: 404 });
 
   try {
     const result = await getEmployeeTelephonyCost(id, company.id);

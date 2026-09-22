@@ -35,6 +35,15 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     });
   }
 
+  // Stored fields (workSummary, notes, names, photo URLs) render verbatim
+  // into HTML — escape every interpolation or a stored `<script>`/attribute
+  // breakout executes in the reader's session (stored XSS).
+  const esc = (s: unknown) =>
+    String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  // Photo URLs also get scheme-checked — `javascript:`/`data:` in src is an
+  // XSS vector even when escaped.
+  const safeUrl = (u: string) => (/^(https?:\/\/|\/)/i.test(u) ? esc(u) : "");
+
   const fmtDate = (d: Date) =>
     d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
 
@@ -54,9 +63,9 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
         .map(
           (l) => `
         <tr>
-          <td>${l.material.code}</td>
-          <td>${l.material.name}</td>
-          <td style="text-align:right">${fmtNumber(toNum(l.qty))} ${l.material.unit}</td>
+          <td>${esc(l.material.code)}</td>
+          <td>${esc(l.material.name)}</td>
+          <td style="text-align:right">${fmtNumber(toNum(l.qty))} ${esc(l.material.unit)}</td>
           <td style="text-align:right">${fmtCurrency(toNum(l.unitCost))}</td>
           <td style="text-align:right">${fmtCurrency(toNum(l.qty) * toNum(l.unitCost))}</td>
         </tr>`,
@@ -69,8 +78,8 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
         .map(
           (l) => `
         <tr>
-          <td>${l.taskDescription ?? "—"}</td>
-          <td>${l.employee?.name ?? l.crew?.name ?? "—"}</td>
+          <td>${esc(l.taskDescription ?? "—")}</td>
+          <td>${esc(l.employee?.name ?? l.crew?.name ?? "—")}</td>
           <td style="text-align:right">${fmtNumber(toNum(l.hoursWorked), 1)} h</td>
         </tr>`,
         )
@@ -82,7 +91,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>DPR — ${fmtDate(dpr.date)} — ${dpr.project.name}</title>
+<title>DPR — ${fmtDate(dpr.date)} — ${esc(dpr.project.name)}</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; color: #1a1a1a; padding: 24px; max-width: 800px; margin: 0 auto; }
@@ -107,20 +116,20 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   <h1>Daily Progress Report</h1>
   <div class="meta">
     <span><strong>Date:</strong> ${fmtDate(dpr.date)}</span>
-    <span><strong>Project:</strong> ${dpr.project.name}</span>
-    <span class="badge">${dpr.approvalStatus.replace(/_/g, " ")}</span>
+    <span><strong>Project:</strong> ${esc(dpr.project.name)}</span>
+    <span class="badge">${esc(dpr.approvalStatus.replace(/_/g, " "))}</span>
   </div>
   <div class="meta">
-    <span><strong>Submitted By:</strong> ${dpr.submittedBy?.name ?? "—"}</span>
-    ${dpr.workType ? `<span><strong>Work Type:</strong> ${dpr.workType}</span>` : ""}
-    ${dpr.weather ? `<span><strong>Weather:</strong> ${dpr.weather}</span>` : ""}
+    <span><strong>Submitted By:</strong> ${esc(dpr.submittedBy?.name ?? "—")}</span>
+    ${dpr.workType ? `<span><strong>Work Type:</strong> ${esc(dpr.workType)}</span>` : ""}
+    ${dpr.weather ? `<span><strong>Weather:</strong> ${esc(dpr.weather)}</span>` : ""}
     <span><strong>Progress:</strong> ${fmtNumber(toNum(dpr.progressPct))}%</span>
   </div>
 
-  ${dpr.workSummary ? `<div class="section"><p class="label">Work Summary</p><p>${dpr.workSummary}</p></div>` : ""}
-  ${dpr.blockers ? `<div class="section"><p class="label">Blockers</p><p>${dpr.blockers}</p></div>` : ""}
-  ${dpr.tomorrowPlan ? `<div class="section"><p class="label">Tomorrow's Plan</p><p>${dpr.tomorrowPlan}</p></div>` : ""}
-  ${dpr.photoUrls && dpr.photoUrls.length > 0 ? `<div class="section"><p class="label">Site Photos</p><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;">${dpr.photoUrls.map((url: string, i: number) => `<img src="${url}" alt="Site photo ${i + 1}" style="width:100%;border-radius:6px;border:1px solid #ddd;" />`).join("")}</div></div>` : ""}
+  ${dpr.workSummary ? `<div class="section"><p class="label">Work Summary</p><p>${esc(dpr.workSummary)}</p></div>` : ""}
+  ${dpr.blockers ? `<div class="section"><p class="label">Blockers</p><p>${esc(dpr.blockers)}</p></div>` : ""}
+  ${dpr.tomorrowPlan ? `<div class="section"><p class="label">Tomorrow's Plan</p><p>${esc(dpr.tomorrowPlan)}</p></div>` : ""}
+  ${dpr.photoUrls && dpr.photoUrls.length > 0 ? `<div class="section"><p class="label">Site Photos</p><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;">${dpr.photoUrls.map((url: string, i: number) => `<img src="${safeUrl(url)}" alt="Site photo ${i + 1}" style="width:100%;border-radius:6px;border:1px solid #ddd;" />`).join("")}</div></div>` : ""}
 
   <h2>Material Consumption</h2>
   <table>
@@ -150,16 +159,16 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     </tbody>
   </table>
 
-  ${dpr.notes ? `<h2>Notes</h2><div class="notes">${dpr.notes}</div>` : ""}
+  ${dpr.notes ? `<h2>Notes</h2><div class="notes">${esc(dpr.notes)}</div>` : ""}
 
   ${(dpr.subAdminApprovedBy?.name || dpr.adminApprovedBy?.name) ? `
   <h2>Approval Trail</h2>
   <table>
     <thead><tr><th>Stage</th><th>Approved By</th><th>Date</th></tr></thead>
     <tbody>
-      <tr><td>Submitted</td><td>${dpr.submittedBy?.name ?? "—"}</td><td>${fmtDate(dpr.date)}</td></tr>
-      ${dpr.subAdminApprovedBy?.name ? `<tr><td>Sub-Admin</td><td>${dpr.subAdminApprovedBy.name}</td><td>${dpr.subAdminApprovedAt ? fmtDate(dpr.subAdminApprovedAt) : "—"}</td></tr>` : ""}
-      ${dpr.adminApprovedBy?.name ? `<tr><td>Admin</td><td>${dpr.adminApprovedBy.name}</td><td>${dpr.adminApprovedAt ? fmtDate(dpr.adminApprovedAt) : "—"}</td></tr>` : ""}
+      <tr><td>Submitted</td><td>${esc(dpr.submittedBy?.name ?? "—")}</td><td>${fmtDate(dpr.date)}</td></tr>
+      ${dpr.subAdminApprovedBy?.name ? `<tr><td>Sub-Admin</td><td>${esc(dpr.subAdminApprovedBy.name)}</td><td>${dpr.subAdminApprovedAt ? fmtDate(dpr.subAdminApprovedAt) : "—"}</td></tr>` : ""}
+      ${dpr.adminApprovedBy?.name ? `<tr><td>Admin</td><td>${esc(dpr.adminApprovedBy.name)}</td><td>${dpr.adminApprovedAt ? fmtDate(dpr.adminApprovedAt) : "—"}</td></tr>` : ""}
     </tbody>
   </table>` : ""}
 

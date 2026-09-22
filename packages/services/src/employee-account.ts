@@ -1396,8 +1396,14 @@ export async function generateEmploymentAgreement(
         contractStatus: "ISSUED",
         contractIssuedAt: new Date(),
         contractAttachmentId: attachmentId,
-        // Generate a shareable acceptance token if none exists
-        contractToken: employee.contractToken ?? crypto.randomUUID(),
+        // Re-issuing ALWAYS rotates the token — a new document means new
+        // consent, and any previously forwarded/leaked link must die. The
+        // accept endpoint + share UI already handle rotation; keeping the
+        // old token here silently left stale links live.
+        contractToken: crypto.randomUUID(),
+        // A re-issued agreement also voids the prior signature — the
+        // employee must accept the new terms.
+        contractConfirmedAt: null,
       },
       select: { contractStatus: true, contractIssuedAt: true, contractToken: true },
     });
@@ -1609,8 +1615,11 @@ export async function generateOfferLetter(
         offerLetterStatus: "ISSUED",
         offerLetterIssuedAt: new Date(),
         offerLetterAttachmentId: attachmentId,
-        // Generate a shareable acceptance token if none exists
-        offerToken: employee.offerToken ?? crypto.randomUUID(),
+        // Re-issuing ALWAYS rotates the token (see contractToken above) —
+        // previously forwarded links die and the new offer needs a fresh
+        // acceptance.
+        offerToken: crypto.randomUUID(),
+        offerLetterAcceptedAt: null,
       },
       select: { offerLetterStatus: true, offerLetterIssuedAt: true, offerToken: true },
     });

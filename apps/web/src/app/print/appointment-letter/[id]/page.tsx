@@ -1,8 +1,7 @@
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserPermissions } from "@/lib/server";
-import { PERM } from "@/lib/roles";
+import { getCompany, toNum, getEmployeeAccessScope, scopeWhere } from "@/lib/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -24,16 +23,20 @@ export default async function AppointmentLetterPage({
 }) {
   await connection();
   const { id } = await params;
-  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!__effPerms.includes(PERM.HR_VIEW)) {
-    return <div className="p-8 text-center text-muted-foreground">No access</div>;
+  // Compensation summary on every letter → comp tier required. Home
+  // address + DOB are identity docs — masked for comp-only readers.
+  const __empScope = await getEmployeeAccessScope();
+  const canSeeComp = __empScope.canSeePayroll;
+  const canSeeDocs = __empScope.canSeePersonalDocs && __empScope.canSeeBankDetails;
+  if (!canSeeComp) {
+    return <div className="p-8 text-center text-muted-foreground">No access — this document contains compensation details.</div>;
   }
 
   const [employee, companyDetails] = await Promise.all([
     prisma.employee.findFirst({
-      where: { id, companyId: company.id, deletedAt: null },
+      where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("Employee") },
       include: {
         user: {
           select: {
@@ -88,7 +91,7 @@ export default async function AppointmentLetterPage({
 
   const employeeName = employee.user?.name ?? employee.name;
   const employeeDesignation = employee.user?.designation ?? employee.designation ?? "Employee";
-  const employeeAddress = employee.permanentAddress ?? employee.currentAddress;
+  const employeeAddress = canSeeDocs ? (employee.permanentAddress ?? employee.currentAddress) : null;
 
   const companyName = companyDetails?.name ?? company.name;
 
@@ -140,7 +143,7 @@ export default async function AppointmentLetterPage({
             )}
             {employee.phone && <p>Phone: {employee.phone}</p>}
             {employee.email && <p>Email: {employee.email}</p>}
-            {employee.dateOfBirth && (
+            {canSeeDocs && employee.dateOfBirth && (
               <p>Date of Birth: {formatDate(employee.dateOfBirth)}</p>
             )}
             {employee.bloodGroup && (

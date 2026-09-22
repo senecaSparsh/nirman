@@ -67,6 +67,27 @@ export default async function AcceptOfferPage({
     );
   }
 
+  // Same 30-day window the POST endpoint enforces — an expired link must not
+  // keep rendering wage/terms either, or the expiry only blocks the signature
+  // while the data keeps leaking through forwarded messages.
+  const LINK_TTL_DAYS = 30;
+  const issuedAt = employee.offerLetterIssuedAt;
+  const LINK_TTL_MS = LINK_TTL_DAYS * 24 * 60 * 60 * 1000;
+  // eslint-disable-next-line react-hooks/purity
+  const expired = !alreadyAccepted && issuedAt != null && Date.now() - issuedAt.getTime() > LINK_TTL_MS;
+  if (expired) {
+    return (
+      <div className="min-h-dvh grid place-items-center p-6 bg-gray-50">
+        <div className="max-w-md text-center space-y-2">
+          <p className="text-lg font-bold text-gray-900">This offer link has expired</p>
+          <p className="text-sm text-gray-500">
+            Offer links are valid for {LINK_TTL_DAYS} days. Ask your HR contact to re-issue it.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const employmentTypeLabel: Record<string, string> = {
     PERMANENT: "Permanent Employment",
     CONTRACT: "Fixed-Term Contract",

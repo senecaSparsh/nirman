@@ -497,6 +497,7 @@ export async function createCrew(input: CreateCrewInput) {
 
 export interface UpdateCrewInput {
   crewId: string;
+  companyId: string;
   name?: string;
   projectId?: string | null;
   supervisorId?: string | null;
@@ -508,7 +509,24 @@ export interface UpdateCrewInput {
 export async function updateCrew(input: UpdateCrewInput) {
   return withSerializableTransaction(async (tx) => {
     const existing = await tx.crew.findUnique({ where: { id: input.crewId } });
-    if (!existing) throw new HrError("Crew not found", 404);
+    if (!existing || existing.companyId !== input.companyId) {
+      throw new HrError("Crew not found", 404);
+    }
+
+    // Every connected reference must resolve inside the SAME company —
+    // otherwise a forged id attaches a cross-tenant project/supervisor.
+    if (input.projectId) {
+      const proj = await tx.project.findFirst({
+        where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
+      });
+      if (!proj) throw new HrError("Project not found in this company", 404);
+    }
+    if (input.supervisorId) {
+      const sup = await tx.employee.findFirst({
+        where: { id: input.supervisorId, companyId: input.companyId, deletedAt: null },
+      });
+      if (!sup) throw new HrError("Supervisor not found in this company", 404);
+    }
 
     const data: Prisma.CrewUpdateInput = {};
     if (input.name !== undefined) data.name = input.name;
@@ -550,13 +568,13 @@ export async function updateCrew(input: UpdateCrewInput) {
   });
 }
 
-export async function deleteCrew(crewId: string, userId?: string) {
+export async function deleteCrew(crewId: string, companyId: string, userId?: string) {
   return withSerializableTransaction(async (tx) => {
     const crew = await tx.crew.findUnique({
       where: { id: crewId },
       include: { _count: { select: { members: true } } },
     });
-    if (!crew) throw new HrError("Crew not found", 404);
+    if (!crew || crew.companyId !== companyId) throw new HrError("Crew not found", 404);
     if (crew._count.members > 0) {
       throw new HrError(
         `Cannot delete crew with ${crew._count.members} member(s). Reassign them first.`,
@@ -2316,6 +2334,31 @@ export async function submitDPR(input: SubmitDprInput) {
       where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
     });
     if (!project) throw new HrError("Project not found in this company", 404);
+
+    // Every line-level reference must resolve inside the SAME company —
+    // otherwise a forged materialId/employeeId/crewId attaches another
+    // tenant's row and leaks its name back in DPR reads/prints.
+    if (input.materialLines?.length) {
+      const materialIds = [...new Set(input.materialLines.map((l) => l.materialId))];
+      const found = await tx.material.count({
+        where: { id: { in: materialIds }, companyId: input.companyId, deletedAt: null },
+      });
+      if (found !== materialIds.length) throw new HrError("One or more materials not found in this company", 400);
+    }
+    const employeeIds = [...new Set((input.laborLines ?? []).map((l) => l.employeeId).filter(Boolean))] as string[];
+    if (employeeIds.length) {
+      const found = await tx.employee.count({
+        where: { id: { in: employeeIds }, companyId: input.companyId, deletedAt: null },
+      });
+      if (found !== employeeIds.length) throw new HrError("One or more employees not found in this company", 400);
+    }
+    const crewIds = [...new Set((input.laborLines ?? []).map((l) => l.crewId).filter(Boolean))] as string[];
+    if (crewIds.length) {
+      const found = await tx.crew.count({
+        where: { id: { in: crewIds }, companyId: input.companyId },
+      });
+      if (found !== crewIds.length) throw new HrError("One or more crews not found in this company", 400);
+    }
 
     const dateOnly = dateOnlyUTC(input.date);
     const progressPct = input.progressPct != null ? new Decimal(input.progressPct) : new Decimal(0);

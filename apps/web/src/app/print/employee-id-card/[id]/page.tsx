@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserPermissions } from "@/lib/server";
+import { getCompany, getUserPermissions, getEmployeeAccessScope, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { PrintToolbar } from "@/components/print/print-button";
 import { formatDate } from "@/lib/utils";
@@ -27,9 +27,14 @@ export default async function EmployeeIdCardPage({
   if (!__effPerms.includes(PERM.HR_VIEW)) {
     return <div className="p-8 text-center text-muted-foreground">No access</div>;
   }
+  // DOB + home address are identity-docs fields — masked unless the viewer
+  // holds the dossier tier (hr.manage|payroll.manage). hr.view site staff can
+  // still print the card: name/photo/code/project + masked DOB/address.
+  const __empScope = await getEmployeeAccessScope();
+  const canSeeDocs = __empScope.canSeePersonalDocs && __empScope.canSeeBankDetails;
 
   const employee = await prisma.employee.findFirst({
-    where: { id, companyId: company.id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("Employee") },
     include: {
       user: {
         select: {
@@ -60,8 +65,8 @@ export default async function EmployeeIdCardPage({
   // eslint-disable-next-line react-hooks/purity
   const validThru = employee.contractEndDate ?? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
 
-  // Format DOB as DD/MM/YYYY for the ID card.
-  const dobFormatted = employee.dateOfBirth
+  // Format DOB as DD/MM/YYYY for the ID card — masked for non-dossier viewers.
+  const dobFormatted = canSeeDocs && employee.dateOfBirth
     ? `${String(employee.dateOfBirth.getDate()).padStart(2, "0")}/${String(employee.dateOfBirth.getMonth() + 1).padStart(2, "0")}/${employee.dateOfBirth.getFullYear()}`
     : "—";
 
@@ -311,7 +316,7 @@ export default async function EmployeeIdCardPage({
                 Address
               </p>
               <p className="text-[6px] leading-tight text-gray-700">
-                {employee.permanentAddress ?? "Not provided"}
+                {canSeeDocs ? (employee.permanentAddress ?? "Not provided") : "On file with HR"}
               </p>
             </div>
 

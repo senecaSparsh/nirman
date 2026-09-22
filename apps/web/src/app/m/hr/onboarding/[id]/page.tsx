@@ -47,22 +47,34 @@ async function MobileOnboardingDetailContent({
   const canManagePayroll = __effPerms.includes(PERM.PAYROLL_MANAGE);
   const __empScope = await getEmployeeAccessScope();
   const canManageAccess = __effPerms.includes(PERM.USERS_MANAGE);
-  // Field-visibility policy (matches getEmployeeAccessScope): wages, bank,
-  // gov IDs, addresses, attachments and employment terms need payroll.manage
-  // or hr.manage; account-status metadata needs users.manage or hr.manage.
+  // Field-visibility policy (matches getEmployeeAccessScope +
+  // lib/employee-visibility.ts tier groups):
+  //   canSeeComp  — wages, employment terms, salary components, benefits
+  //                 (payroll.view|payroll.manage|hr.manage)
+  //   canSeeBank  — bank account fields (payroll.manage|hr.manage)
+  //   canSeeDocs  — gov IDs, addresses, DOB, attachments (payroll.manage|hr.manage)
+  //   tokens      — contractToken/offerToken are bearer credentials; only the
+  //                 docs tier may ever serialize them (payroll.view must NOT
+  //                 get them — a leaked token signs documents as the employee).
+  // Account-status metadata needs users.manage or hr.manage.
   // hr.view-only viewers get the roster + onboarding checklist state only.
-  // Comp visibility = shared flag (payroll.view|payroll.manage|hr.manage) —
-  // read-only auditors see wages here too, consistent with /api/payroll.
   const canSeeComp = __empScope.canSeePayroll;
+  const canSeeBank = __empScope.canSeeBankDetails;
+  const canSeeDocs = __empScope.canSeePersonalDocs;
+  const canSeeTokens = __empScope.canSeePersonalDocs && __empScope.canSeeBankDetails;
   const canSeeAccess = canManage || canManageAccess;
   const { id } = await params;
 
-  // Hierarchical RBAC: a PROJECT-scoped user only sees employees on their sites.
+  // Hierarchical RBAC: scoped users only see employees inside their scope —
+  // PROJECT scope filters by activeProjectId, DEPARTMENT by departmentId,
+  // and an empty assignment list sees nobody (["__none__"] fails closed).
   const scope = await getUserScope();
   const employeeProjectFilter =
     scope.scopeType === "PROJECT"
       ? { activeProjectId: { in: scope.projectIds.length > 0 ? scope.projectIds : ["__none__"] } }
-      : {};
+      : scope.scopeType === "DEPARTMENT"
+        ? { departmentId: { in: scope.departmentIds.length > 0 ? scope.departmentIds : ["__none__"] } }
+        : {};
 
   const [employee, projects, stockLocations, departments, attachments] = await Promise.all([
     prisma.employee.findFirst({
@@ -176,12 +188,12 @@ async function MobileOnboardingDetailContent({
     contractIssuedAt: employee.contractIssuedAt ? employee.contractIssuedAt.toISOString() : null,
     contractConfirmedAt: employee.contractConfirmedAt ? employee.contractConfirmedAt.toISOString() : null,
     contractTerms: canSeeComp ? employee.contractTerms : null,
-    contractToken: canSeeComp ? employee.contractToken : null,
+    contractToken: canSeeTokens ? employee.contractToken : null,
     offerLetterStatus: employee.offerLetterStatus,
     offerLetterIssuedAt: employee.offerLetterIssuedAt ? employee.offerLetterIssuedAt.toISOString() : null,
     offerLetterTerms: canSeeComp ? employee.offerLetterTerms : null,
     offerLetterAcceptedAt: employee.offerLetterAcceptedAt ? employee.offerLetterAcceptedAt.toISOString() : null,
-    offerToken: canSeeComp ? employee.offerToken : null,
+    offerToken: canSeeTokens ? employee.offerToken : null,
     idCardStatus: employee.idCardStatus,
     idCardIssuedAt: employee.idCardIssuedAt ? employee.idCardIssuedAt.toISOString() : null,
     appointmentLetterStatus: employee.appointmentLetterStatus,
@@ -189,7 +201,7 @@ async function MobileOnboardingDetailContent({
     documentsSubmitted: employee.documentsSubmitted,
     backgroundVerified: employee.backgroundVerified,
     onboardingComplete: employee.onboardingComplete,
-    dateOfBirth: canSeeComp && employee.dateOfBirth ? employee.dateOfBirth.toISOString() : null,
+    dateOfBirth: canSeeDocs && employee.dateOfBirth ? employee.dateOfBirth.toISOString() : null,
     bloodGroup: employee.bloodGroup,
     photoUrl: employee.photoUrl,
     employmentType: canSeeComp ? employee.employmentType : null,
@@ -201,21 +213,21 @@ async function MobileOnboardingDetailContent({
     autoDepositEnabled: canSeeComp ? employee.autoDepositEnabled : false,
     autoDepositSetupAt: canSeeComp && employee.autoDepositSetupAt ? employee.autoDepositSetupAt.toISOString() : null,
     payDay: canSeeComp ? employee.payDay : null,
-    bankAccountHolder: canSeeComp ? employee.bankAccountHolder : null,
-    bankAccountNumber: canSeeComp ? employee.bankAccountNumber : null,
-    bankIfsc: canSeeComp ? employee.bankIfsc : null,
-    bankName: canSeeComp ? employee.bankName : null,
-    bankBranch: canSeeComp ? employee.bankBranch : null,
-    panNumber: canSeeComp ? employee.panNumber : null,
-    aadhaarNumber: canSeeComp ? employee.aadhaarNumber : null,
-    pfNumber: canSeeComp ? employee.pfNumber : null,
-    esiNumber: canSeeComp ? employee.esiNumber : null,
-    uan: canSeeComp ? employee.uan : null,
+    bankAccountHolder: canSeeBank ? employee.bankAccountHolder : null,
+    bankAccountNumber: canSeeBank ? employee.bankAccountNumber : null,
+    bankIfsc: canSeeBank ? employee.bankIfsc : null,
+    bankName: canSeeBank ? employee.bankName : null,
+    bankBranch: canSeeBank ? employee.bankBranch : null,
+    panNumber: canSeeDocs ? employee.panNumber : null,
+    aadhaarNumber: canSeeDocs ? employee.aadhaarNumber : null,
+    pfNumber: canSeeDocs ? employee.pfNumber : null,
+    esiNumber: canSeeDocs ? employee.esiNumber : null,
+    uan: canSeeDocs ? employee.uan : null,
     emergencyContactName: employee.emergencyContactName,
     emergencyContactPhone: employee.emergencyContactPhone,
     emergencyContactRelation: employee.emergencyContactRelation,
-    permanentAddress: canSeeComp ? employee.permanentAddress : null,
-    currentAddress: canSeeComp ? employee.currentAddress : null,
+    permanentAddress: canSeeDocs ? employee.permanentAddress : null,
+    currentAddress: canSeeDocs ? employee.currentAddress : null,
     benefits: canSeeComp ? employee.benefits.map((b) => ({
       id: b.id,
       type: b.type,
@@ -240,8 +252,9 @@ async function MobileOnboardingDetailContent({
       notes: c.notes,
       active: c.active,
     })) : [],
-    // Attachments include uploaded KYC documents — comp tier only.
-    attachments: canSeeComp ? attachments.map((a) => ({
+    // Attachments include uploaded KYC documents — dossier tier only
+    // (same class as PAN/Aadhaar, not comp data).
+    attachments: canSeeDocs ? attachments.map((a) => ({
       id: a.id,
       category: a.category,
       label: a.label,
@@ -273,7 +286,7 @@ async function MobileOnboardingDetailContent({
         }
       : null,
     // Cross-company memberships reveal group structure — manage tier.
-    companyMemberships: canSeeComp && employee.userId
+    companyMemberships: canManage && employee.userId
       ? (await prisma.employee.findMany({
           where: { userId: employee.userId, deletedAt: null, id: { not: employee.id } },
           select: { id: true, companyId: true, active: true, company: { select: { name: true } } },

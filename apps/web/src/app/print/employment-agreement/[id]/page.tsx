@@ -1,8 +1,7 @@
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserPermissions } from "@/lib/server";
-import { PERM } from "@/lib/roles";
+import { getCompany, toNum, getEmployeeAccessScope, scopeWhere } from "@/lib/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -21,15 +20,22 @@ export default async function EmploymentAgreementPage({
 }) {
   await connection();
   const { id } = await params;
-  const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!__effPerms.includes(PERM.HR_VIEW)) {
-    return <div className="p-8 text-center text-muted-foreground">No access</div>;
+  // Field-visibility tiers (lib/employee-visibility.ts): this document is
+  // fundamentally compensation data — every page shows wages — so the
+  // reader needs the comp tier (payroll.view|payroll.manage|hr.manage).
+  // Statutory IDs + bank details ride the stricter docs tier and are
+  // masked for comp-only readers instead of leaking PAN/bank to auditors.
+  const __empScope = await getEmployeeAccessScope();
+  const canSeeComp = __empScope.canSeePayroll;
+  const canSeeDocs = __empScope.canSeePersonalDocs && __empScope.canSeeBankDetails;
+  if (!canSeeComp) {
+    return <div className="p-8 text-center text-muted-foreground">No access — this document contains compensation details.</div>;
   }
 
   const employee = await prisma.employee.findFirst({
-    where: { id, companyId: company.id, deletedAt: null },
+    where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("Employee") },
     include: {
       user: {
         select: {
@@ -112,9 +118,11 @@ export default async function EmploymentAgreementPage({
         : `The employee is on probation. The probation end date is to be determined. Upon satisfactory performance, the employee will be confirmed as a permanent employee.`
       : "";
 
-  const bankText = employee.bankAccountNumber
-    ? `Salary shall be auto-deposited to the employee's bank account (${employee.bankName ?? "—"}, A/C: ****${employee.bankAccountNumber.slice(-4)}, IFSC: ${employee.bankIfsc ?? "—"}) on the ${employee.payDay ?? 7}th day of each month.`
-    : `Salary shall be paid per company policy. Auto-deposit requires bank details to be configured.`;
+  const bankText = !canSeeDocs
+    ? "Salary shall be auto-deposited to the employee's bank account on file (details restricted to authorized HR/payroll managers)."
+    : employee.bankAccountNumber
+      ? `Salary shall be auto-deposited to the employee's bank account (${employee.bankName ?? "—"}, A/C: ****${employee.bankAccountNumber.slice(-4)}, IFSC: ${employee.bankIfsc ?? "—"}) on the ${employee.payDay ?? 7}th day of each month.`
+      : `Salary shall be paid per company policy. Auto-deposit requires bank details to be configured.`;
 
   const employeeName = employee.user?.name ?? employee.name;
   const employeeDesignation = employee.user?.designation ?? employee.designation ?? "Employee";
@@ -303,8 +311,9 @@ export default async function EmploymentAgreementPage({
             </p>
           </section>
 
-          {/* 9. Statutory IDs */}
-          {(employee.panNumber || employee.pfNumber || employee.esiNumber || employee.uan) && (
+          {/* 9. Statutory IDs — gov-ID dossier fields; docs tier only
+              (comp-only readers must never see PAN/PF/ESI/UAN/Aadhaar). */}
+          {canSeeDocs && (employee.panNumber || employee.pfNumber || employee.esiNumber || employee.uan || employee.aadhaarNumber) && (
             <section>
               <h4 className="font-bold text-gray-900">9. Statutory Identifications</h4>
               <ul className="ml-4 list-disc text-xs">
