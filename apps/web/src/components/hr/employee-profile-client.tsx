@@ -24,6 +24,11 @@ import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { MoneyCell, DateCell } from "@/components/ui/cells";
 import { Dialog } from "@/components/ui/dialog";
+import {
+  SALARY_COMPONENT_OPTIONS, SALARY_UNIT_OPTIONS, SALARY_FREQUENCY_OPTIONS,
+  compCalc, unitSuffix, componentLabel, frequencyLabel,
+  type SalaryComponentRow, type SalaryComponentCalc,
+} from "@/lib/salary-components";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
@@ -424,7 +429,7 @@ export function EmployeeProfileClient({
               <AttendanceTab employee={employee} />
             </TabsContent>
             <TabsContent value="payroll">
-              <PayrollTab employee={employee} canManagePayroll={permissions.canManagePayroll} />
+              <PayrollTab employee={employee} canManagePayroll={permissions.canManagePayroll} canManage={permissions.canManage} />
             </TabsContent>
             <TabsContent value="tasks">
               <TasksTab employee={employee} canAssignTasks={permissions.canAssignTasks} />
@@ -1644,7 +1649,7 @@ function AttendanceTab({ employee }: { employee: EmployeeProfileData }) {
 //  Payroll tab
 // ───────────────────────────────────────────────────────────────
 
-function PayrollTab({ employee, canManagePayroll }: { employee: EmployeeProfileData; canManagePayroll: boolean }) {
+function PayrollTab({ employee, canManagePayroll, canManage }: { employee: EmployeeProfileData; canManagePayroll: boolean; canManage: boolean }) {
   const p = employee.payroll;
   const rows = p.history;
 
@@ -1742,8 +1747,196 @@ function PayrollTab({ employee, canManagePayroll }: { employee: EmployeeProfileD
         </div>
       )}
 
+      <SalaryStructureSection employeeId={employee.id} canManage={canManage} />
+
       <AdvancesSection employeeId={employee.id} canManagePayroll={canManagePayroll} />
     </div>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────
+//  Salary Structure — the CTC breakdown that drives payroll
+//  deductions/allowances (Basic, HRA, PF, ESI, PT, TDS…). Same
+//  option catalog as the mobile onboarding salary editor.
+// ───────────────────────────────────────────────────────────────
+
+function SalaryStructureSection({ employeeId, canManage }: { employeeId: string; canManage: boolean }) {
+  const [data, setData] = useState<{ components: SalaryComponentRow[]; summary: { monthlyGross: number; monthlyDeductions: number; monthlyNet: number; annualCTC: number } } | null>(null);
+  const [denied, setDenied] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editComponents, setEditComponents] = useState<SalaryComponentRow[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [newType, setNewType] = useState("");
+  const [newCalc, setNewCalc] = useState<SalaryComponentCalc>("FIXED");
+  const [newAmount, setNewAmount] = useState("");
+  const [newPercentage, setNewPercentage] = useState("");
+  const [newFrequency, setNewFrequency] = useState("MONTHLY");
+  const [newUnit, setNewUnit] = useState("KM");
+  const [newUnitLabel, setNewUnitLabel] = useState("");
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/employees/${employeeId}/salary-components`);
+      if (res.status === 403) { setDenied(true); return; }
+      const json = await res.json();
+      if (res.ok) setData({ components: json.components ?? [], summary: json.summary });
+    } catch { /* section stays hidden on fetch failure */ }
+  }, [employeeId]);
+  useEffect(() => { load(); }, [load]);
+
+  if (denied) return null;
+
+  const shown = editing ? editComponents : (data?.components ?? []);
+  const isVariable = (c: SalaryComponentRow) => compCalc(c) === "UNIT_RATE";
+
+  function handleAdd() {
+    if (!newType) { toast.error("Select a component type"); return; }
+    if (newCalc !== "PERCENTAGE_OF_BASIC" && (!newAmount || Number(newAmount) <= 0)) { toast.error("Enter a valid amount"); return; }
+    if (newCalc === "PERCENTAGE_OF_BASIC" && (!newPercentage || Number(newPercentage) <= 0)) { toast.error("Enter a valid percentage"); return; }
+    if (newCalc === "UNIT_RATE" && newUnit === "CUSTOM" && !newUnitLabel.trim()) { toast.error("Name the unit (e.g. bag, shift)"); return; }
+    const option = SALARY_COMPONENT_OPTIONS.find((o) => o.value === newType);
+    setEditComponents((prev) => [...prev, {
+      id: `temp-${Date.now()}`,
+      type: newType,
+      amount: newCalc === "PERCENTAGE_OF_BASIC" ? 0 : Number(newAmount),
+      frequency: newFrequency,
+      isDeduction: option?.isDeduction ?? false,
+      isPercentage: newCalc === "PERCENTAGE_OF_BASIC",
+      percentageOfBasic: newCalc === "PERCENTAGE_OF_BASIC" ? Number(newPercentage) : null,
+      calculationType: newCalc,
+      unitType: newCalc === "UNIT_RATE" ? newUnit : null,
+      unitLabel: newCalc === "UNIT_RATE" && newUnit === "CUSTOM" ? newUnitLabel.trim() : null,
+      notes: null,
+      active: true,
+    }]);
+    setNewType(""); setNewAmount(""); setNewPercentage(""); setNewFrequency("MONTHLY"); setNewCalc("FIXED"); setNewUnit("KM"); setNewUnitLabel("");
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/employees/${employeeId}/salary-components`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          components: editComponents.map((c) => ({
+            type: c.type, amount: c.amount, frequency: c.frequency,
+            isDeduction: c.isDeduction, isPercentage: c.isPercentage,
+            percentageOfBasic: c.percentageOfBasic,
+            calculationType: compCalc(c), unitType: c.unitType ?? null,
+            unitLabel: c.unitLabel ?? null, notes: c.notes ?? null,
+          })),
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok) { toast.success("Salary structure saved"); setEditing(false); await load(); }
+      else toast.error(json.error ?? "Failed to save");
+    } finally { setSaving(false); }
+  }
+
+  const renderRow = (c: SalaryComponentRow, idx: number) => (
+    <div key={c.id} className="flex items-center gap-3 rounded-md border border-border bg-subtle px-3 py-2">
+      <div className="min-w-0 flex-1">
+        <span className="text-body font-medium text-foreground">{componentLabel(c.type)}</span>
+        <span className="ml-2 text-meta text-muted-foreground">
+          {compCalc(c) === "PERCENTAGE_OF_BASIC"
+            ? `${c.percentageOfBasic}% of basic`
+            : isVariable(c)
+              ? `${formatCurrency(c.amount)}${unitSuffix(c.unitType, c.unitLabel)}`
+              : frequencyLabel(c.frequency)}
+        </span>
+      </div>
+      <span className={`tnum text-body font-semibold ${c.isDeduction ? "text-danger" : "text-foreground"}`}>
+        {c.isDeduction ? "−" : ""}{formatCurrency(c.amount)}
+      </span>
+      {editing && (
+        <Button variant="outline" size="sm" onClick={() => setEditComponents((prev) => prev.filter((_, i) => i !== idx))}>
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      )}
+    </div>
+  );
+
+  return (
+    <SectionCard
+      title="Salary Structure (CTC)"
+      icon={CreditCard}
+      action={canManage && data !== null ? (
+        editing ? (
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => { setEditing(false); setEditComponents(data.components); }} disabled={saving}>Cancel</Button>
+            <Button size="sm" onClick={handleSave} disabled={saving}>{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Save</Button>
+          </div>
+        ) : (
+          <Button variant="outline" size="sm" onClick={() => { setEditComponents(data.components); setEditing(true); }}>
+            <Pencil className="h-3.5 w-3.5" /> Edit structure
+          </Button>
+        )
+      ) : undefined}
+    >
+      {data === null ? (
+        <div className="flex items-center gap-2 text-body text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading structure…</div>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-x-6 gap-y-1 text-meta text-muted-foreground">
+            <span>Monthly gross <span className="tnum font-semibold text-foreground">{formatCurrency(data.summary.monthlyGross)}</span></span>
+            <span>Monthly deductions <span className="tnum font-semibold text-danger">−{formatCurrency(data.summary.monthlyDeductions)}</span></span>
+            <span>Monthly net <span className="tnum font-semibold text-foreground">{formatCurrency(data.summary.monthlyNet)}</span></span>
+            <span>Annual CTC <span className="tnum font-semibold text-foreground">{formatCurrency(data.summary.annualCTC)}</span></span>
+          </div>
+          {shown.length === 0 ? (
+            <p className="text-body text-muted-foreground">No salary components{canManage ? " — add Basic, HRA and statutory deductions so payroll computes the full CTC." : "."}</p>
+          ) : (
+            <div className="space-y-2">
+              {shown.filter((c) => !c.isDeduction).map(renderRow)}
+              {shown.some((c) => c.isDeduction) && (
+                <>
+                  <p className="pt-1 text-meta font-semibold uppercase tracking-wide text-muted-foreground">Deductions</p>
+                  {shown.filter((c) => c.isDeduction).map(renderRow)}
+                </>
+              )}
+            </div>
+          )}
+          {editing && (
+            <div className="rounded-md border border-dashed border-border p-3 space-y-2">
+              <p className="text-meta font-semibold uppercase tracking-wide text-muted-foreground">Add component</p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <Select value={newType} onChange={(e) => setNewType(e.target.value)}>
+                  <option value="">Component type…</option>
+                  {SALARY_COMPONENT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </Select>
+                <Select value={newCalc} onChange={(e) => setNewCalc(e.target.value as SalaryComponentCalc)}>
+                  <option value="FIXED">Fixed amount</option>
+                  <option value="PERCENTAGE_OF_BASIC">% of basic</option>
+                  <option value="UNIT_RATE">Per unit (rate)</option>
+                </Select>
+                <Select value={newFrequency} onChange={(e) => setNewFrequency(e.target.value)}>
+                  {SALARY_FREQUENCY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {newCalc === "PERCENTAGE_OF_BASIC" ? (
+                  <Input type="number" min={0} value={newPercentage} onChange={(e) => setNewPercentage(e.target.value)} placeholder="%" />
+                ) : (
+                  <Input type="number" min={0} value={newAmount} onChange={(e) => setNewAmount(e.target.value)} placeholder="Amount ₹" />
+                )}
+                {newCalc === "UNIT_RATE" && (
+                  <>
+                    <Select value={newUnit} onChange={(e) => setNewUnit(e.target.value)}>
+                      {SALARY_UNIT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </Select>
+                    {newUnit === "CUSTOM" && (
+                      <Input value={newUnitLabel} onChange={(e) => setNewUnitLabel(e.target.value)} placeholder="Unit name (bag, shift…)" />
+                    )}
+                  </>
+                )}
+                <Button variant="outline" onClick={handleAdd}><Plus className="h-3.5 w-3.5" /> Add</Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </SectionCard>
   );
 }
 

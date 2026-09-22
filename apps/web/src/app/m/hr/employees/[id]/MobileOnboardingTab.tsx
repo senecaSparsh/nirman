@@ -28,6 +28,9 @@ import {
   KeyRound,
 } from "lucide-react";
 import { formatCurrency, formatDate, displayEmail } from "@/lib/utils";
+import {
+  SALARY_COMPONENT_OPTIONS, SALARY_UNIT_OPTIONS, compCalc, unitSuffix,
+} from "@/lib/salary-components";
 import { fieldError } from "@/lib/field-error";
 import { OnboardingNav, type OnboardingSubTab } from "./OnboardingNav";
 import { TermsEditor } from "./TermsEditor";
@@ -1171,59 +1174,8 @@ const SALARY_COMPONENT_LABELS: Record<string, string> = {
   OTHER: "Other",
 };
 
-const SALARY_COMPONENT_OPTIONS = [
-  { value: "BASIC", label: "Basic Salary", isDeduction: false },
-  { value: "HRA", label: "HRA (House Rent)", isDeduction: false },
-  { value: "DA", label: "DA (Dearness Allowance)", isDeduction: false },
-  { value: "TA", label: "TA (Travelling Allowance)", isDeduction: false },
-  { value: "SPECIAL_ALLOWANCE", label: "Special Allowance", isDeduction: false },
-  { value: "FOOD_ALLOWANCE", label: "Food Allowance", isDeduction: false },
-  { value: "MEDICAL_ALLOWANCE", label: "Medical Allowance", isDeduction: false },
-  { value: "UNIFORM_ALLOWANCE", label: "Uniform Allowance", isDeduction: false },
-  { value: "WASHING_ALLOWANCE", label: "Washing Allowance", isDeduction: false },
-  { value: "LTA", label: "LTA (Leave Travel)", isDeduction: false },
-  { value: "PERFORMANCE_BONUS", label: "Performance Bonus", isDeduction: false },
-  { value: "JOINING_BONUS", label: "Joining Bonus", isDeduction: false },
-  { value: "EMPLOYER_PF", label: "Employer PF (12% of basic)", isDeduction: false },
-  { value: "EMPLOYEE_PF", label: "Employee PF (deducted)", isDeduction: true },
-  { value: "EMPLOYER_ESI", label: "Employer ESI (3.25%)", isDeduction: false },
-  { value: "EMPLOYEE_ESI", label: "Employee ESI (0.75%, deducted)", isDeduction: true },
-  { value: "GRATUITY", label: "Gratuity (4.81% of basic)", isDeduction: false },
-  { value: "PROFESSION_TAX", label: "Profession Tax (deducted)", isDeduction: true },
-  { value: "TDS", label: "TDS / Income Tax (deducted)", isDeduction: true },
-  { value: "OTHER", label: "Other", isDeduction: false },
-];
-
-/** Unit options for UNIT_RATE components — paid per actual usage. */
-const SALARY_UNIT_OPTIONS = [
-  { value: "DAY", label: "per day worked", hint: "auto-counts attendance days" },
-  { value: "KM", label: "per km", hint: "e.g. travel ₹3/km" },
-  { value: "TRIP", label: "per trip", hint: "e.g. ₹500/trip" },
-  { value: "HOUR", label: "per hour", hint: "" },
-  { value: "MONTH", label: "per month", hint: "" },
-  { value: "CUSTOM", label: "custom unit", hint: "name it below" },
-];
-
-/** Short unit label for display: "₹3/km", "₹150/day", "₹500/trip". */
-function unitSuffix(unitType: string | null, unitLabel: string | null): string {
-  switch (unitType) {
-    case "DAY": return "/day";
-    case "KM": return "/km";
-    case "TRIP": return "/trip";
-    case "HOUR": return "/hr";
-    case "MONTH": return "/mo";
-    case "CUSTOM": return unitLabel ? `/${unitLabel}` : "";
-    default: return "";
-  }
-}
-
-/** Effective calc type — isPercentage covers rows written before the
- *  calculationType field existed. */
-function compCalc(c: { calculationType?: string; isPercentage?: boolean }): "FIXED" | "PERCENTAGE_OF_BASIC" | "UNIT_RATE" {
-  if (c.calculationType === "UNIT_RATE") return "UNIT_RATE";
-  if (c.calculationType === "PERCENTAGE_OF_BASIC" || c.isPercentage) return "PERCENTAGE_OF_BASIC";
-  return "FIXED";
-}
+// Shared in lib/salary-components.ts so the mobile and desktop editors stay
+// on the same option catalog.
 
 function SalarySubTab({
   employee,
