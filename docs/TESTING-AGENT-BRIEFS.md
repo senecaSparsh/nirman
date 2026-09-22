@@ -313,13 +313,13 @@ don't ship a workaround.
 
 ## Claim ledger (agents append one line)
 
-| Module | Agent/session | Branch      | Started | Status      |
-| ------ | ------------- | ----------- | ------- | ----------- |
-| A      |               |             |         |             |
-| B      |               |             |         |             |
-| C      |               |             |         |             |
-| D      |               |             |         |             |
-| E      |               |             |         |             |
-| F      | (claimed)     | test/f-rbac |         | in progress |
-| G      |               |             |         |             |
-| H      |               |             |         |             |
+| Module | Agent/session | Branch      | Started | Status                         |
+| ------ | ------------- | ----------- | ------- | ------------------------------ |
+| A      |               |             |         |                                |
+| B      |               |             |         |                                |
+| C      |               |             |         |                                |
+| D      |               |             |         |                                |
+| E      |               |             |         |                                |
+| F      | (claimed)     | test/f-rbac |         | done — see TESTING-FINDINGS.md |
+| G      |               |             |         |                                |
+| H      |               |             |         |                                |
