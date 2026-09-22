@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, toNum, getCompany } from "@/lib/server";
+import { apiHandler, json, toNum, getCompany, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requireAnyPermission } from "@/lib/server";
 
@@ -27,6 +27,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const locationId = searchParams.get("locationId");
   const materialId = searchParams.get("materialId");
 
+  // StockLocationItem is scopeable through its location — a project-scoped
+  // user sees only their projects' stock (same rule as /api/stock). Without
+  // this filter the endpoint silently exposes out-of-scope locations' stock.
+  const itemScope = await scopeWhere("StockLocationItem");
+
   // Single-material stock. Default: summed total across all locations.
   // With byLocation=true: a per-location breakdown so pickers can show
   // "N in stock" / dim zero-stock locations before the user submits.
@@ -37,6 +42,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         materialId,
         location: { companyId: company.id, deletedAt: null },
         material: { deletedAt: null },
+        AND: [itemScope],
       },
       select: {
         qty: true,
@@ -67,6 +73,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       qty: { gt: 0 },
       material: { deletedAt: null },
       location: { companyId: company.id },
+      AND: [itemScope],
     },
     include: {
       material: { select: { id: true, code: true, name: true, unit: true, barcode: true } },

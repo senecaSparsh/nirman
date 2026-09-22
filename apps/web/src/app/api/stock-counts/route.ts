@@ -2,16 +2,37 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createStockCount } from "@nirman/services";
-import { apiHandler, json, stockCountSchema, toNum, getCompany } from "@/lib/server";
+import { apiHandler, assertScopeAllows, getAssignedProjectIds, getUserScope, json, stockCountSchema, toNum, getCompany } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requirePermission } from "@/lib/server";
+
+/**
+ * Scope filter for stock counts — StockCount has no projectId/departmentId of
+ * its own (and isn't in SCOPE_FIELDS), so it scopes through its location:
+ * project scope sees counts at their projects' locations; department scope
+ * sees counts at their departments' locations; company scope sees all.
+ */
+async function stockCountScopeWhere(): Promise<Record<string, unknown>> {
+  const scope = await getUserScope();
+  if (scope.scopeType === "COMPANY") return {};
+  if (scope.scopeType === "DEPARTMENT") {
+    if (scope.departmentIds.length === 0) return { id: { in: [] } };
+    return { location: { departmentId: { in: scope.departmentIds } } };
+  }
+  const effective = await getAssignedProjectIds();
+  if (!effective || effective.length === 0) return { id: { in: [] } };
+  return { location: { projectId: { in: effective } } };
+}
 
 export const GET = apiHandler(async () => {
   await requirePermission(PERM.INVENTORY_VIEW);
   const company = await getCompany();
   const counts = await prisma.stockCount.findMany({
     take: 500,
-    where: { location: { companyId: company.id, deletedAt: null } },
+    where: {
+      location: { companyId: company.id, deletedAt: null },
+      AND: [await stockCountScopeWhere()],
+    },
     orderBy: { createdAt: "desc" },
     include: {
       location: { select: { id: true, name: true, type: true } },
@@ -63,13 +84,21 @@ export const POST = apiHandler(async (req: NextRequest) => {
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  // Verify the location belongs to the current company
+  // Verify the location belongs to the current company — the service only
+  // checks existence, so this is the tenancy guard.
   const location = await prisma.stockLocation.findFirst({
     where: { id: parsed.data.locationId, companyId: company.id, deletedAt: null },
-    select: { id: true },
+    select: { id: true, projectId: true, departmentId: true },
   });
   if (!location) {
     return json({ error: "Location not found" }, { status: 404 });
+  }
+  // A scoped user may only count stock at locations inside their scope —
+  // counting elsewhere is how stock write-offs get hidden.
+  try {
+    await assertScopeAllows({ projectId: location.projectId, departmentId: location.departmentId });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
   }
   try {
     const count = await createStockCount({

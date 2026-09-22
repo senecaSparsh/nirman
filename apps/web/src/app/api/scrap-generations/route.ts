@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
+import { prisma } from "@nirman/db";
 import { createScrapGeneration, listScrapGenerations } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere, toNum, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -25,8 +26,21 @@ export const GET = apiHandler(async (req: NextRequest) => {
   }
 
   const scraps = await listScrapGenerations(company.id, dateRange);
+  // ScrapGeneration is scopeable by projectId — hide out-of-scope rows
+  // (the service returns the full company list).
+  const scopeFilter = await scopeWhere("ScrapGeneration");
+  const allowedIds = new Set(
+    Object.keys(scopeFilter).length === 0
+      ? scraps.map((s) => s.id)
+      : (
+          await prisma.scrapGeneration.findMany({
+            where: { id: { in: scraps.map((s) => s.id) }, ...scopeFilter },
+            select: { id: true },
+          })
+        ).map((s) => s.id),
+  );
   return json({
-    rows: scraps.map((s) => ({
+    rows: scraps.filter((s) => allowedIds.has(s.id)).map((s) => ({
       ...s,
       generationDate: s.generationDate.toISOString(),
       createdAt: s.createdAt.toISOString(),
@@ -37,7 +51,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         lineTotal: toNum(l.qty) * toNum(l.unitCost),
       })),
     })),
-    count: scraps.length,
+    count: allowedIds.size,
   });
 });
 
@@ -70,6 +84,15 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
     // Scoped users can only write scrap against their assigned projects.
   await assertScopeAllows({ projectId: parsed.data.projectId });
+  // The destination location must be in scope too — generating scrap INTO
+  // another project's store plants stock where the caller can't see it.
+  const loc = await prisma.stockLocation.findFirst({
+    where: { id: parsed.data.toLocationId, deletedAt: null },
+    select: { projectId: true, departmentId: true },
+  });
+  if (loc) {
+    await assertScopeAllows({ projectId: loc.projectId ?? null, departmentId: loc.departmentId ?? null });
+  }
 const scrap = await createScrapGeneration({
     companyId: company.id,
     toLocationId: parsed.data.toLocationId,

@@ -247,6 +247,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     await tx.materialRequisition.delete({ where: { id } });
     await logAction(tx, {
       userId: user.id,
+      companyId: company.id,
       action: "REQUISITION_DELETE",
       entityType: "MaterialRequisition",
       entityId: id,

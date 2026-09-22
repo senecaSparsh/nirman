@@ -196,6 +196,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       });
       await logAction(tx, {
         userId: user.id,
+        companyId: company.id,
         action: "MATERIAL_RESTORE",
         entityType: "Material",
         entityId: mat.id,
@@ -228,6 +229,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       });
       await logAction(tx, {
         userId: user.id,
+        companyId: company.id,
         action: "MATERIAL_CREATE",
         entityType: "Material",
         entityId: mat.id,
@@ -307,6 +309,7 @@ export const PUT = apiHandler(async (req: NextRequest) => {
           });
           await logAction(tx, {
             userId: user.id,
+            companyId: company.id,
             action: "MATERIAL_RESTORE",
             entityType: "Material",
             entityId: existing.id,
@@ -318,6 +321,7 @@ export const PUT = apiHandler(async (req: NextRequest) => {
           });
           await logAction(tx, {
             userId: user.id,
+            companyId: company.id,
             action: "MATERIAL_CREATE",
             entityType: "Material",
             entityId: mat.id,

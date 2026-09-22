@@ -124,6 +124,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     await logAction(tx, {
       userId: user.id,
+      companyId: targetCompanyId,
       action: "STOCK_LOCATION_CREATE",
       entityType: "StockLocation",
       entityId: loc.id,

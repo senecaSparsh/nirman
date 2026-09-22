@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { cancelSupplierReturn, completeSupplierReturn, submitSupplierReturn } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 
 /** GET /api/supplier-returns/[id] — fetch a single supplier return by ID */
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -11,7 +11,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const company = await getCompany();
   const { id } = await params;
   const supplierReturn = await prisma.supplierReturn.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: company.id, ...await scopeWhere("SupplierReturn") },
     include: {
       supplier: { select: { id: true, name: true, phone: true } },
       location: { select: { id: true, name: true } },
@@ -32,9 +32,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const body = await req.json();
   const action = body?.action as string;
 
-  // Validate the return belongs to the user's company
+  // Validate the return belongs to the user's company AND scope — complete/
+  // submit write stock + GL at the return's location.
   const existing = await prisma.supplierReturn.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: company.id, ...await scopeWhere("SupplierReturn") },
     select: { id: true },
   });
   if (!existing) return json({ error: "Supplier return not found" }, { status: 404 });
@@ -75,7 +76,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const { id } = await params;
 
   const supplierReturn = await prisma.supplierReturn.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: company.id, ...await scopeWhere("SupplierReturn") },
     select: { id: true, status: true },
   });
   if (!supplierReturn) return json({ error: "Supplier return not found" }, { status: 404 });

@@ -2,7 +2,8 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createDirectPurchase, listDirectPurchases, recordVehicleTrip, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { prisma } from "@nirman/db";
+import { apiHandler, assertScopeAllows, getCompany, json, requirePermission, scopeWhere, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 const directPurchaseLineSchema = z.object({
@@ -43,8 +44,21 @@ export const GET = apiHandler(async (req: NextRequest) => {
     supplierId,
   });
 
+  // DirectPurchase scopes through its location — hide out-of-scope rows.
+  const scopeFilter = await scopeWhere("DirectPurchase");
+  const allowedIds = new Set(
+    Object.keys(scopeFilter).length === 0
+      ? purchases.map((p) => p.id)
+      : (
+          await prisma.directPurchase.findMany({
+            where: { id: { in: purchases.map((p) => p.id) }, ...scopeFilter },
+            select: { id: true },
+          })
+        ).map((p) => p.id),
+  );
+
   return json(
-    purchases.map((p) => ({
+    purchases.filter((p) => allowedIds.has(p.id)).map((p) => ({
       id: p.id,
       billNumber: p.billNumber,
       supplierId: p.supplierId,
@@ -82,6 +96,15 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
   const company = await getCompany();
+  // A scoped user may only book purchases INTO locations inside their scope —
+  // the service checks company ownership, not project/department scope.
+  const loc = await prisma.stockLocation.findFirst({
+    where: { id: parsed.data.locationId, deletedAt: null },
+    select: { projectId: true, departmentId: true },
+  });
+  if (loc) {
+    await assertScopeAllows({ projectId: loc.projectId ?? null, departmentId: loc.departmentId ?? null });
+  }
   try {
     const result = await createDirectPurchase({
       supplierId: parsed.data.supplierId ?? undefined,

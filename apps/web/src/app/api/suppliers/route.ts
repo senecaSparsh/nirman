@@ -61,6 +61,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     const supplier = await tx.supplier.create({ data: { ...parsed.data, companyId: company.id } });
     await logAction(tx, {
       userId: user.id,
+      companyId: company.id,
       action: "SUPPLIER_CREATE",
       entityType: "Supplier",
       entityId: supplier.id,
@@ -108,6 +109,7 @@ export const PUT = apiHandler(async (req: NextRequest) => {
         const supplier = await tx.supplier.create({ data: { ...parsed.data, companyId: company.id } });
         await logAction(tx, {
           userId: user.id,
+          companyId: company.id,
           action: "SUPPLIER_CREATE",
           entityType: "Supplier",
           entityId: supplier.id,

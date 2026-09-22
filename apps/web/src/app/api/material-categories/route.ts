@@ -51,6 +51,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       });
       await logAction(tx, {
         userId: user.id,
+        companyId: company.id,
         action: "MATERIAL_CATEGORY_RESTORE",
         entityType: "MaterialCategory",
         entityId: cat.id,
@@ -74,6 +75,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     await logAction(tx, {
       userId: user.id,
+      companyId: company.id,
       action: "MATERIAL_CATEGORY_CREATE",
       entityType: "MaterialCategory",
       entityId: cat.id,

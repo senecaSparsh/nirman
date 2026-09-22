@@ -194,10 +194,15 @@ export async function createPurchaseOrderTx(tx: Prisma.TransactionClient, input:
     let packingTotal = new Decimal(0);
     let insuranceTotal = new Decimal(0);
     let discountTotal = new Decimal(0);
+    const materialById = new Map(materials.map((m) => [m.id, m]));
     const lineData = input.lines.map((l) => {
       const qty = new Decimal(l.qtyOrdered);
       const cost = new Decimal(l.unitCost);
-      const gstRate = new Decimal(l.gstRate ?? 0);
+      // Inherit the material's configured GST rate when the line doesn't
+      // carry one — same behaviour as addLineToPurchaseOrder. Without this a
+      // PO created without explicit rates silently books 0% GST even though
+      // the material is taxable.
+      const gstRate = new Decimal(l.gstRate ?? materialById.get(l.materialId)?.gstRate ?? 0);
       const freightPU = new Decimal(l.freightPerUnit ?? 0);
       const loadingPU = new Decimal(l.loadingPerUnit ?? 0);
       const packingPU = new Decimal(l.packingPerUnit ?? 0);
@@ -811,6 +816,18 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
     for (const line of input.lines) {
       const poLine = po.lines.find((l) => l.id === line.purchaseOrderLineId);
       if (!poLine) throw new ServiceError(`PO line ${line.purchaseOrderLineId} not found`, 404);
+
+      // The received material MUST be the material the PO line ordered.
+      // materialId flows straight into the stock movement + Material cost
+      // update — without this check a caller can credit stock to an arbitrary
+      // material (even a foreign tenant's) and overwrite its cost, while the
+      // PO line still records the ordered material as "received".
+      if (line.materialId !== poLine.materialId) {
+        throw new ServiceError(
+          `Received material does not match PO line ${line.purchaseOrderLineId} — the receipt cannot be recorded`,
+          400,
+        );
+      }
 
       const recvQty = new Decimal(line.qtyReceived);
       const recvCost = new Decimal(line.unitCost);

@@ -2,8 +2,25 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { updateVendorQuote, deleteVendorQuote } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, assertScopeAllows, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { z } from "zod";
+
+/**
+ * Scope check for a quote — a VendorQuote anchors to the company through its
+ * requisition (project OR department) or a QuotationRequest. A scoped user
+ * may only see/edit quotes whose anchor sits inside their scope.
+ */
+async function assertQuoteInScope(quote: {
+  requisition?: { projectId: string | null; departmentId: string | null } | null;
+  quotationRequest?: { projectId: string | null } | null;
+}) {
+  const req = quote.requisition;
+  const qr = quote.quotationRequest;
+  await assertScopeAllows({
+    projectId: req?.projectId ?? qr?.projectId ?? null,
+    departmentId: req?.departmentId ?? null,
+  });
+}
 
 /**
  * GET /api/quotes/[id]
@@ -25,6 +42,8 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     },
     include: {
       supplier: { select: { id: true, name: true, phone: true } },
+      requisition: { select: { projectId: true, departmentId: true } },
+      quotationRequest: { select: { projectId: true } },
       lines: {
         include: { material: { select: { id: true, code: true, name: true, unit: true } } },
       },
@@ -33,6 +52,11 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     },
   });
   if (!quote) return json({ error: "Quote not found" }, { status: 404 });
+  try {
+    await assertQuoteInScope(quote);
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
+  }
 
   return json({
     id: quote.id,
@@ -123,9 +147,18 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
         { quotationRequest: { companyId: company.id } },
       ],
     },
-    select: { id: true },
+    select: {
+      id: true,
+      requisition: { select: { projectId: true, departmentId: true } },
+      quotationRequest: { select: { projectId: true } },
+    },
   });
   if (!existing) return json({ error: "Quote not found" }, { status: 404 });
+  try {
+    await assertQuoteInScope(existing);
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
+  }
 
   const updated = await updateVendorQuote({
     quoteId: id,
@@ -179,9 +212,18 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
         { quotationRequest: { companyId: company.id } },
       ],
     },
-    select: { id: true },
+    select: {
+      id: true,
+      requisition: { select: { projectId: true, departmentId: true } },
+      quotationRequest: { select: { projectId: true } },
+    },
   });
   if (!existing) return json({ error: "Quote not found" }, { status: 404 });
+  try {
+    await assertQuoteInScope(existing);
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
+  }
 
   await deleteVendorQuote(id, user.id);
   return json({ ok: true });

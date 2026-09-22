@@ -64,6 +64,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       });
       await logAction(tx, {
         userId: user.id,
+        companyId: company.id,
         action: "MATERIAL_UPDATE",
         entityType: "Material",
         entityId: id,
@@ -102,6 +103,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   await withSerializableTransaction(async (tx) => {
     await logAction(tx, {
       userId: user.id,
+      companyId: company.id,
       action: "MATERIAL_DELETE",
       entityType: "Material",
       entityId: id,

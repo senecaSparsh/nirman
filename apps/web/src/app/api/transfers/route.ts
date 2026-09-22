@@ -2,8 +2,37 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createTransfer, ServiceError } from "@nirman/services";
-import { apiHandler, json, transferSchema, toNum, getCompany, getCompanyGroupIds, requirePermission, assertScopeAllows } from "@/lib/server";
+import { apiHandler, json, transferSchema, toNum, getAssignedProjectIds, getCompany, getCompanyGroupIds, getUserScope, requirePermission, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+
+/**
+ * Scope filter for transfers — StockTransfer has no project/department of its
+ * own, so visibility flows through its endpoint locations: a transfer is in
+ * scope when AT LEAST ONE endpoint location belongs to the viewer's projects
+ * (or departments). Same rule as POST's per-location assertScopeAllows:
+ * shared warehouse locations are reachable by everyone.
+ */
+async function transferScopeWhere(): Promise<Record<string, unknown>> {
+  const scope = await getUserScope();
+  if (scope.scopeType === "COMPANY") return {};
+  if (scope.scopeType === "DEPARTMENT") {
+    if (scope.departmentIds.length === 0) return { id: { in: [] } };
+    return {
+      OR: [
+        { fromLocation: { departmentId: { in: scope.departmentIds } } },
+        { toLocation: { departmentId: { in: scope.departmentIds } } },
+      ],
+    };
+  }
+  const effective = await getAssignedProjectIds();
+  if (!effective || effective.length === 0) return { id: { in: [] } };
+  return {
+    OR: [
+      { fromLocation: { projectId: { in: effective } } },
+      { toLocation: { projectId: { in: effective } } },
+    ],
+  };
+}
 
 export const GET = apiHandler(async () => {
   await requirePermission(PERM.INVENTORY_VIEW);
@@ -15,6 +44,7 @@ export const GET = apiHandler(async () => {
         { fromLocation: { companyId: company.id } },
         { toLocation: { companyId: company.id } },
       ],
+      AND: [await transferScopeWhere()],
     },
     orderBy: { createdAt: "desc" },
     take: 500,

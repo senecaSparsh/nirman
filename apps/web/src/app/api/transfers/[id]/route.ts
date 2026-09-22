@@ -3,9 +3,34 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@nirman/db";
 import { completeTransfer, cancelTransfer, dispatchTransfer, returnTransferToSource, recordVehicleTrip } from "@nirman/services";
-import { apiHandler, json, toNum, getCompany } from "@/lib/server";
+import { apiHandler, getAssignedProjectIds, getUserScope, json, toNum, getCompany } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requirePermission, assertScopeAllows } from "@/lib/server";
+
+/**
+ * A transfer is visible to a scoped user when at least one endpoint location
+ * sits inside their scope — same rule the list filter applies. Returns true
+ * for COMPANY scope. Shared (unassigned) locations alone do NOT make a
+ * transfer visible, matching the list filter.
+ */
+async function transferInScope(
+  fromLocation: { projectId: string | null; departmentId: string | null },
+  toLocation: { projectId: string | null; departmentId: string | null },
+): Promise<boolean> {
+  const scope = await getUserScope();
+  if (scope.scopeType === "COMPANY") return true;
+  if (scope.scopeType === "DEPARTMENT") {
+    return (
+      (!!fromLocation.departmentId && scope.departmentIds.includes(fromLocation.departmentId)) ||
+      (!!toLocation.departmentId && scope.departmentIds.includes(toLocation.departmentId))
+    );
+  }
+  const effective = (await getAssignedProjectIds()) ?? [];
+  return (
+    (!!fromLocation.projectId && effective.includes(fromLocation.projectId)) ||
+    (!!toLocation.projectId && effective.includes(toLocation.projectId))
+  );
+}
 
 const transferActionSchema = z.object({
   action: z.enum(["dispatch", "complete", "cancel", "returnToSource"]),
@@ -47,8 +72,8 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
   const transfer = await prisma.stockTransfer.findUnique({
     where: { id },
     include: {
-      fromLocation: { select: { id: true, name: true, companyId: true, company: { select: { name: true } } } },
-      toLocation: { select: { id: true, name: true, companyId: true, company: { select: { name: true } } } },
+      fromLocation: { select: { id: true, name: true, companyId: true, projectId: true, departmentId: true, company: { select: { name: true } } } },
+      toLocation: { select: { id: true, name: true, companyId: true, projectId: true, departmentId: true, company: { select: { name: true } } } },
       lines: {
         include: { material: { select: { id: true, code: true, name: true, unit: true } } },
       },
@@ -59,6 +84,12 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
     !transfer ||
     (transfer.fromLocation.companyId !== company.id && transfer.toLocation.companyId !== company.id)
   ) {
+    return json({ error: "Transfer not found" }, { status: 404 });
+  }
+  // And to a scoped user only when at least one endpoint is in their scope —
+  // otherwise a scoped user can read transfers that move stock between
+  // projects they can't see.
+  if (!(await transferInScope(transfer.fromLocation, transfer.toLocation))) {
     return json({ error: "Transfer not found" }, { status: 404 });
   }
   return json({
@@ -122,6 +153,15 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     },
   });
   if (!transfer) {
+    return json({ error: "Transfer not found" }, { status: 404 });
+  }
+
+  // The transfer must be in the caller's scope at all — a scoped user can't
+  // mutate a transfer that doesn't touch one of their projects/departments
+  // (e.g. Central Warehouse → another project's site). Previously only the
+  // acting-side location was checked, and a shared/null-project source let
+  // the call through.
+  if (!(await transferInScope(transfer.fromLocation, transfer.toLocation))) {
     return json({ error: "Transfer not found" }, { status: 404 });
   }
 

@@ -103,6 +103,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       });
       await logAction(tx, {
         userId: user.id,
+        companyId: company.id,
         action: "MATERIAL_LOT_CREATE",
         entityType: "MaterialLot",
         entityId: restored.id,
@@ -128,6 +129,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     });
     await logAction(tx, {
       userId: user.id,
+      companyId: company.id,
       action: "MATERIAL_LOT_CREATE",
       entityType: "MaterialLot",
       entityId: created.id,

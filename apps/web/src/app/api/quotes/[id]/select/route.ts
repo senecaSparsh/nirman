@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { selectWinningQuote, notifyQuoteApproval, convertRequisitionToPo, getCachedRoutingScope } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, assertScopeAllows, getCompany, json, requirePermission } from "@/lib/server";
 import { z } from "zod";
 
 const selectSchema = z.object({
@@ -46,13 +46,26 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
           requestedById: true,
           status: true,
           projectId: true,
+          departmentId: true,
           lciDecision: true,
           requestedBy: { select: { name: true, phone: true } },
         },
       },
+      quotationRequest: { select: { projectId: true } },
     },
   });
   if (!existing) return json({ error: "Quote not found" }, { status: 404 });
+  // Scoped approvers may only award quotes anchored inside their scope —
+  // selection auto-converts the requisition to a PO, so this is a mutation
+  // on the out-of-scope indent too.
+  try {
+    await assertScopeAllows({
+      projectId: existing.requisition?.projectId ?? existing.quotationRequest?.projectId ?? null,
+      departmentId: existing.requisition?.departmentId ?? null,
+    });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
+  }
 
   let body: unknown;
   try {

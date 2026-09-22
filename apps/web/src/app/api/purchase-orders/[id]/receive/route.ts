@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { receiveGoods, rejectDelivery, recordVehicleTrip } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, getCompanyGroupIds, json, receiveGoodsSchema, rejectDeliverySchema, requirePermission } from "@/lib/server";
+import { apiHandler, getAssignedProjectIds, getCompany, getCompanyGroupIds, getUserScope, json, receiveGoodsSchema, rejectDeliverySchema, requirePermission } from "@/lib/server";
 
 /**
  * POST /api/purchase-orders/[id]/receive — record a goods receipt against a PO.
@@ -21,6 +21,32 @@ import { apiHandler, getCompany, getCompanyGroupIds, json, receiveGoodsSchema, r
  * parent's central warehouse). We allow receiving any PO in the company
  * GROUP, not just the user's current company.
  */
+/**
+ * Build the PO lookup used by both receive + reject paths.
+ * A project-scoped receiver may act on a PO when it targets one of their
+ * projects, delivers to one of their projects' stores, or is fully
+ * company-level (shared stores receive for everyone) — the same rule
+ * /api/goods-receipts POST applies. Previously this route only checked the
+ * company GROUP, letting a scoped user receive POs they couldn't even view.
+ */
+async function receivablePoWhere(id: string, groupCompanyIds: string[]): Promise<Record<string, unknown>> {
+  const where: Record<string, unknown> = { id, companyId: { in: groupCompanyIds } };
+  const scope = await getUserScope();
+  if (scope.scopeType !== "COMPANY") {
+    const effective = await getAssignedProjectIds();
+    where.OR = [
+      ...(effective && effective.length > 0
+        ? [
+            { projectId: { in: effective } },
+            { destinationLocation: { projectId: { in: effective } } },
+          ]
+        : []),
+      { projectId: null, destinationLocation: { projectId: null } },
+    ];
+  }
+  return where;
+}
+
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
   const company = await getCompany();
@@ -35,7 +61,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     }
     const groupCompanyIds = await getCompanyGroupIds(company);
     const po = await prisma.purchaseOrder.findFirst({
-      where: { id, companyId: { in: groupCompanyIds } },
+      where: await receivablePoWhere(id, groupCompanyIds),
       select: { destinationLocationId: true, status: true },
     });
     if (!po) return json({ error: "Purchase order not found" }, { status: 404 });
@@ -80,10 +106,11 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
 
-  // Allow receiving POs from any company in the group (parent/child).
+  // Allow receiving POs from any company in the group (parent/child) —
+  // still within the caller's project/department scope, though.
   const groupCompanyIds = await getCompanyGroupIds(company);
   const po = await prisma.purchaseOrder.findFirst({
-    where: { id, companyId: { in: groupCompanyIds } },
+    where: await receivablePoWhere(id, groupCompanyIds),
     select: { destinationLocationId: true, status: true },
   });
   if (!po) return json({ error: "Purchase order not found" }, { status: 404 });

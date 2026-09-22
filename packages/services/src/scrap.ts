@@ -187,6 +187,7 @@ export async function createScrapGeneration(input: CreateScrapGenerationInput) {
 
     await logAction(tx, {
       userId: input.createdById,
+      companyId: input.companyId,
       action: "SCRAP_GENERATION_CREATE",
       entityType: "ScrapGeneration",
       entityId: scrap.id,

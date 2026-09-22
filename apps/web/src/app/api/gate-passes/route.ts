@@ -104,6 +104,22 @@ export const POST = apiHandler(async (req: NextRequest) => {
       { status: 403 },
     );
   }
+  // The gate location must be in scope too — a pass at another project's
+  // site lets stock leave where the caller can't audit it.
+  const gpLoc = await prisma.stockLocation.findFirst({
+    where: { id: parsed.data.locationId, deletedAt: null },
+    select: { projectId: true, departmentId: true },
+  });
+  if (gpLoc) {
+    try {
+      await assertScopeAllows({ projectId: gpLoc.projectId ?? null, departmentId: gpLoc.departmentId ?? null });
+    } catch (err) {
+      return json(
+        { error: err instanceof Error ? err.message : "Scope violation" },
+        { status: 403 },
+      );
+    }
+  }
 
   const gp = await createGatePass({
     companyId: company.id,

@@ -4,7 +4,7 @@ import { prisma } from "@nirman/db";
 import type { SupplierReturnStatus } from "@nirman/db";
 import { createSupplierReturn, submitSupplierReturn, recordVehicleTrip, ServiceError } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, requirePermission, supplierReturnSchema, toNum } from "@/lib/server";
+import { apiHandler, assertScopeAllows, getCompany, json, requirePermission, supplierReturnSchema, toNum } from "@/lib/server";
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.PROCUREMENT_VIEW);
@@ -66,6 +66,20 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const parsed = supplierReturnSchema.safeParse(body);
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
+  // A scoped user may only return stock out of locations inside their scope —
+  // the service checks the location's company, not its project/department.
+  const location = await prisma.stockLocation.findFirst({
+    where: { id: parsed.data.locationId, deletedAt: null },
+    select: { id: true, companyId: true, projectId: true, departmentId: true },
+  });
+  if (!location || location.companyId !== company.id) {
+    return json({ error: "Location not found" }, { status: 404 });
+  }
+  try {
+    await assertScopeAllows({ projectId: location.projectId ?? null, departmentId: location.departmentId ?? null });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
   }
   try {
     const ret = await createSupplierReturn({

@@ -20,8 +20,18 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
   const location = await prisma.stockLocation.findFirst({
     where: { id: parsed.data.fromLocationId, companyId: company.id, deletedAt: null },
+    select: { id: true, projectId: true, departmentId: true },
   });
   if (!location) return json({ error: "Source location not found in your company" }, { status: 404 });
+  // The scope check above covers the CONSUMPTION target — the source also
+  // needs its own check: a project-scoped storekeeper must not drain another
+  // project's site store into their own project (that bypasses the
+  // transfer + gate-pass control path entirely).
+  try {
+    await assertScopeAllows({ projectId: location.projectId ?? null, departmentId: location.departmentId ?? null });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
+  }
 
   // Gate pass mode: if requireGatePass=true, create a PENDING issue + gate pass (no stock movements)
   const requireGatePass = parsed.data.requireGatePass === true;

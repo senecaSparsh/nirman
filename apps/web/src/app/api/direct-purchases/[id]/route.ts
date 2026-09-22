@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { cancelDirectPurchase, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /** GET /api/direct-purchases/[id] — fetch a single direct purchase by ID */
@@ -11,7 +11,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const company = await getCompany();
   const { id } = await params;
   const purchase = await prisma.directPurchase.findFirst({
-    where: { id, companyId: company.id },
+    where: { id, companyId: company.id, ...await scopeWhere("DirectPurchase") },
     include: {
       supplier: { select: { id: true, name: true, phone: true } },
       location: { select: { id: true, name: true } },
@@ -42,7 +42,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   if (action === "cancel") {
     const company = await getCompany();
-    const existing = await prisma.directPurchase.findFirst({ where: { id, companyId: company.id }, select: { id: true } });
+    const existing = await prisma.directPurchase.findFirst({ where: { id, companyId: company.id, ...await scopeWhere("DirectPurchase") }, select: { id: true } });
     if (!existing) return json({ error: "Direct purchase not found" }, { status: 404 });
     try {
       const result = await cancelDirectPurchase(id, user.id);

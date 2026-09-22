@@ -13,7 +13,7 @@ import { PERM } from "@/lib/roles";
  *
  * Results are filtered by the user's companyId to prevent cross-company leaks.
  * OWNER/ADMIN users see entries for their company; entries with null companyId
- * (legacy) are only visible to OWNER/ADMIN.
+ * (legacy) are only visible when the actor belongs to the caller's company.
  */
 export const GET = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.AUDIT_VIEW);
@@ -58,9 +58,12 @@ export const GET = apiHandler(async (req: NextRequest) => {
     }
 
     if (user.companyId) {
+      // Legacy rows with companyId=null are only tenant-safe when the actor
+      // belongs to this company — otherwise a Company A admin could read
+      // Company B's unattributed audit history.
       where.OR = [
         { companyId: user.companyId },
-        { companyId: null },
+        { companyId: null, user: { memberships: { some: { companyId: user.companyId } } } },
       ];
     }
 
@@ -109,7 +112,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   if (user.companyId) {
     where.OR = [
       { companyId: user.companyId },
-      { companyId: null },
+      { companyId: null, user: { memberships: { some: { companyId: user.companyId } } } },
     ];
   } else if (!isSuperuser) {
     return json({ rows: [], hasMore: false, nextCursor: null });

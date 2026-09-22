@@ -49,6 +49,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     });
     await logAction(tx, {
       userId: user.id,
+      companyId: company.id,
       action: "SUPPLIER_UPDATE",
       entityType: "Supplier",
       entityId: id,

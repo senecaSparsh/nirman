@@ -14,8 +14,18 @@ import { apiHandler, getCompany, json, requireUser } from "@/lib/server";
  */
 export const GET = apiHandler(async (req: NextRequest) => {
   await requireUser();
-  const _company = await getCompany();
+  const company = await getCompany();
   const locationId = req.nextUrl.searchParams.get("locationId");
+
+  // The count below is per-location — verify the location belongs to this
+  // company or the sequence leaks how many GRNs a foreign tenant has taken.
+  if (locationId) {
+    const loc = await prisma.stockLocation.findFirst({
+      where: { id: locationId, companyId: company.id, deletedAt: null },
+      select: { id: true },
+    });
+    if (!loc) return json({ error: "Location not found" }, { status: 404 });
+  }
 
   const year = new Date().getFullYear();
   const yearStart = new Date(year, 0, 1);

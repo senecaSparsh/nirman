@@ -94,6 +94,7 @@ export async function createStockCount(input: CreateStockCountInput) {
     });
     await logAction(tx, {
       userId: input.userId,
+      companyId: location.companyId,
       action: "STOCK_COUNT_CREATE",
       entityType: "StockCount",
       entityId: count.id,
@@ -115,10 +116,15 @@ export async function deleteStockCount(countId: string, userId?: string) {
     if (count.status !== "DRAFT") {
       throw new ServiceError(`Cannot delete count in status ${count.status}. Only draft counts can be deleted.`);
     }
+    const location = await tx.stockLocation.findUnique({
+      where: { id: count.locationId },
+      select: { companyId: true },
+    });
     await tx.stockCountLine.deleteMany({ where: { stockCountId: countId } });
     await tx.stockCount.delete({ where: { id: countId } });
     await logAction(tx, {
       userId,
+      companyId: location?.companyId ?? undefined,
       action: "STOCK_COUNT_DELETE",
       entityType: "StockCount",
       entityId: countId,
@@ -132,6 +138,10 @@ export async function confirmStockCount(countId: string, userId?: string) {
     const count = await tx.stockCount.findUnique({ where: { id: countId } });
     if (!count) throw new ServiceError("Stock count not found", 404);
     if (count.status !== "DRAFT") throw new ServiceError(`Cannot confirm count in status ${count.status}`);
+    const location = await tx.stockLocation.findUnique({
+      where: { id: count.locationId },
+      select: { companyId: true },
+    });
     const updated = await tx.stockCount.update({
       where: { id: countId },
       data: {
@@ -142,6 +152,7 @@ export async function confirmStockCount(countId: string, userId?: string) {
     });
     await logAction(tx, {
       userId,
+      companyId: location?.companyId ?? undefined,
       action: "STOCK_COUNT_CONFIRM",
       entityType: "StockCount",
       entityId: countId,
@@ -264,6 +275,7 @@ export async function reconcileStockCount(countId: string, userId?: string) {
     });
     await logAction(tx, {
       userId,
+      companyId: location?.companyId ?? undefined,
       action: "STOCK_COUNT_RECONCILE",
       entityType: "StockCount",
       entityId: countId,

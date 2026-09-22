@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { getScrapGeneration, cancelScrapGeneration } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, assertScopeAllows, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -15,6 +15,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const id = new URL(req.url).pathname.split("/").pop()!;
 
   const scrap = await getScrapGeneration(id, company.id);
+  try {
+    await assertScopeAllows({ projectId: scrap.projectId ?? null, departmentId: null });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
+  }
   return json({
     ...scrap,
     generationDate: scrap.generationDate.toISOString(),
@@ -34,6 +39,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
  */
 export const PATCH = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.INVENTORY_MANAGE);
+  const company = await getCompany();
   const id = new URL(req.url).pathname.split("/").pop()!;
   let body: Record<string, unknown>;
   try {
@@ -42,6 +48,20 @@ export const PATCH = apiHandler(async (req: NextRequest) => {
     return json({ error: "Invalid JSON body" }, { status: 400 });
   }
   const action = body?.action as string;
+
+  // Cancelling reverses stock movements + GL entries — verify the generation
+  // belongs to this company (and the caller's scope) before delegating to the
+  // service, which takes a bare id and cannot re-check tenancy.
+  const existing = await prisma.scrapGeneration.findFirst({
+    where: { id, companyId: company.id },
+    select: { id: true, projectId: true },
+  });
+  if (!existing) return json({ error: "Scrap generation not found" }, { status: 404 });
+  try {
+    await assertScopeAllows({ projectId: existing.projectId ?? null, departmentId: null });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
+  }
 
   if (action === "cancel") {
     try {
