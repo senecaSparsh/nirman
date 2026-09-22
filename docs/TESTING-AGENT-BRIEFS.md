@@ -315,7 +315,7 @@ don't ship a workaround.
 
 | Module | Agent/session  | Branch             | Started    | Status                         |
 | ------ | -------------- | ------------------ | ---------- | ------------------------------ |
-| A      | Devin subagent | test/a-procurement | 2026-09-22 | running                        |
+| A      | Devin subagent | test/a-procurement | 2026-09-22 | done — see TESTING-FINDINGS.md |
 | B      |                |                    |            |                                |
 | C      |                |                    |            |                                |
 | D      | Devin subagent | test/d-sales       | 2026-09-22 | done — see TESTING-FINDINGS.md |
