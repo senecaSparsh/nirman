@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { authMocks, setSessionUser, makeRequest, mockPrisma } from "@/test/mock-auth";
+import { authMocks, setSessionUser, setCompany, makeRequest, mockPrisma } from "@/test/mock-auth";
 
 vi.mock("@/lib/auth", () => authMocks.authFactory());
 vi.mock("@nirman/db", () => authMocks.dbFactory());
@@ -21,6 +21,7 @@ function makeCtx(id: string, memberId: string) {
 describe("DELETE /api/companies/[id]/members/[memberId]", () => {
   beforeEach(() => {
     setSessionUser(OWNER);
+    setCompany({ id: "co-1" }); // assertCompanyAccess short-circuits on the current company
     // Actor's own membership for getActingRole().
     mockPrisma().userCompany!.findUnique.mockImplementation(async (args: any) => {
       const uid = args?.where?.userId_companyId?.userId;
@@ -71,6 +72,9 @@ describe("DELETE /api/companies/[id]/members/[memberId]", () => {
   });
 
   it("blocks removing the last OWNER/ADMIN", async () => {
+    // An ADMIN touching any tier-1 member now hits the stronger guard first:
+    // only the real OWNER may demote/remove a top-level account (403), which
+    // also covers this scenario before the last-owner 400 is ever reached.
     setSessionUser(ADMIN);
     mockPrisma().userCompany!.findUnique.mockImplementation(async (args: any) => {
       const memId = args?.where?.id;
@@ -84,7 +88,7 @@ describe("DELETE /api/companies/[id]/members/[memberId]", () => {
       makeRequest("/api/companies/co-1/members/m-owner", { method: "DELETE" }),
       makeCtx("co-1", "m-owner"),
     );
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(403);
     expect(mockPrisma().userCompany!.delete).not.toHaveBeenCalled();
   });
 });
@@ -92,6 +96,7 @@ describe("DELETE /api/companies/[id]/members/[memberId]", () => {
 describe("PATCH /api/companies/[id]/members/[memberId]", () => {
   beforeEach(() => {
     setSessionUser(OWNER);
+    setCompany({ id: "co-1" }); // assertCompanyAccess short-circuits on the current company
     mockPrisma().userCompany!.findUnique.mockImplementation(async (args: any) => {
       const uid = args?.where?.userId_companyId?.userId;
       if (args?.where?.id === "m-target") return { id: "m-target", userId: "u-target", role: "SITE_ENGINEER", userPermissions: [] };
