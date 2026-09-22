@@ -8,7 +8,7 @@ import {
   seedChartOfAccounts,
   getExpenseBudgetVariance,
   type ExpenseBudgetVariance} from "@nirman/services";
-import { getActingRole, getCompany, toNum, scopeWhere, getCurrentUser, getUserPermissions } from "@/lib/server";
+import { getActingRole, getCompany, toNum, scopeWhere, getCurrentUser, getUserPermissions, getUserScope } from "@/lib/server";
 import { canAutoApprove } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
@@ -58,7 +58,7 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
   const [projects, projectCosts, expenses, auditLogs, inventoryVal, unsoldAssets, subcontractors, suppliers, purchaseOrders] = await Promise.all([
     prisma.project.findMany({
       take: 200,
-      where: { companyId: company.id, deletedAt: null },
+      where: { companyId: company.id, deletedAt: null, ...await scopeWhere("Project") },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true }}),
     prisma.projectCost.findMany({
@@ -71,11 +71,17 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
       where: {...await scopeWhere("Expense"),  companyId: company.id },
       orderBy: { date: "desc" },
       include: { project: { select: { name: true } } }}),
-    prisma.auditLog.findMany({
-      where: { companyId: company.id },
-      orderBy: { timestamp: "desc" },
-      take: 50,
-      include: { user: { select: { name: true } } }}),
+    // Audit feed: company-wide log rows aren't project-bound, so a
+    // project-scoped viewer would see every other project's activity here.
+    // The dedicated /audit page is department-gated; mirror that — only
+    // non-PROJECT scopes see this feed.
+    (await getUserScope()).scopeType === "PROJECT"
+      ? Promise.resolve([])
+      : prisma.auditLog.findMany({
+          where: { companyId: company.id },
+          orderBy: { timestamp: "desc" },
+          take: 50,
+          include: { user: { select: { name: true } } }}),
     materialInventoryValue(company.id),
     unsoldAssetValue(company.id),
     prisma.subcontractor.findMany({

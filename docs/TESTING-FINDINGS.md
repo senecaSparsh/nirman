@@ -290,3 +290,113 @@ victims), then fixed on `test/a-procurement` and re-verified live.
 - **Dev-server note**: two memory-threshold self-heal restarts observed
   during a 49-route cold-compile sweep — wrapper recovered cleanly each
   time (health 200). Dev-only; prod has the start-wrapper monitor.
+
+## Module B — Finance, payroll-adjacent & accounting sweep (verified 2026-09-23)
+
+### Cross-tenant holes reproduced → fixed
+
+All reproduced live as `priya@nirman.in` (My Company ACCOUNTANT) against
+SRG REALCON, and as `a-proc@test.in` (project-scoped) against out-of-scope
+own-company projects. Every one now fails closed.
+
+- **Project financial reports (5 routes)**: `/api/budget-variance`,
+  `/api/job-costing`, `/api/profit-center`, `/api/cash-flow`,
+  `/api/cost-overrun` took a bare `projectId` and the services looked the
+  project up by id only — a foreign tenant's project returned its full
+  P&L / budget variance / cash forecast / overrun data. Both layers now
+  gate: routes run `getCompany` + `assertScopeAllows`; services take a
+  required `companyId` and `findFirst({ id, companyId })` → 404.
+  (finance-advanced.ts, scheduling.ts + the 5 routes; mobile report
+  callers updated.)
+- **Project-cost create/delete**: `addProjectCost` trusted `projectId`
+  (`findFirst({id, deletedAt})` — no company) → a ₹7,777 cost + balanced
+  WIP/Cash journal landed inside SRG's books. `deleteProjectCost`
+  deleted by id only → removed SRG's seeded ₹72,000 RA-bill cost
+  (restored afterwards). Both now take `companyId`; delete also requires
+  the row's project to be in-scope. Subcontractor ref is company-checked
+  too. PATCH re-anchor validated: own ₹2.5L cost was moved onto the SRG
+  project — the [id] route now 404s when the target project isn't ours,
+  and a missing/foreign id 404s instead of the old bare-Error 500.
+- **Expense claims**: foreign `projectId` (header) and `categoryId`
+  (lines) stored verbatim → claim approved into an APPROVED expense on
+  SRG's project. `createExpenseClaim`/`addClaimLine` now validate both.
+- **Recurring expenses**: foreign project/category/supplier ids accepted
+  and inherited by every auto-generated draft expense.
+  `createRecurringExpense` validates all three.
+- **Expense budgets**: `setExpenseBudget` stored foreign project/category
+  ids. Validated now; [id] DELETE returns 404 instead of `{ok:true}` on
+  foreign/missing ids (same for recurring-expenses [id] PATCH/DELETE).
+- **Petty cash scope**: project-scoped FINANCE user could spend/top-up a
+  float whose project was outside their scope (list hid it, mutations
+  didn't). Spend + topups routes apply `scopeWhere("PettyCashFloat")` →
+  404 out-of-scope.
+
+### Workflow / accounting defects reproduced → fixed
+
+- **Supplier-invoice double-approve**: PATCH {action:"approve"} had no
+  status guard — re-approving re-posted the full JE (Dr expense / Cr AP)
+  and re-incremented `Supplier.balanceOwed`; a PAID invoice regressed to
+  APPROVED. Now PENDING/DISPUTED → approve, PENDING → reject only; else 409. Verified: second approve → `Invoice is already approved`.
+- **Supplier-payment double-submit**: identical repeat POSTs within
+  seconds each created a payment + JE. 15s same-(supplier, amount, mode,
+  user) window → 409 (`SP-… already recorded`). ReferenceNo dedupe stays.
+- **Employee advances posted no GL**: issuing an advance created a ledger
+  row with no journal (cash left silently); payroll recovery credited
+  `recoveredAmount` but left the deduction inside 2200 Salaries Payable
+  forever. Added `1650 Advances to Employees` (+`ensureGlAccount` for
+  already-seeded tenants). Issue → Dr 1650/Cr 1000; payroll recovery →
+  Dr 2200/Cr 1650 (clears the phantom payable, nets the receivable);
+  manual SETTLED → Dr 1000/Cr 1650; CANCELLED → Dr 6000/Cr 1650 write-off.
+  Verified live end-to-end: ₹1,200 issue JE + ₹1,400 recovery JE from a
+  July payroll covering two advances.
+- **Expense overflow**: `amount=1e18` crashed Prisma → 500. `createExpense`
+  now 400s above numeric(14,2) max.
+- **Audit trail gaps**: `logAction` calls in supplier-payment/invoice,
+  project-cost routes carried no `companyId` — cross-tenant mutations were
+  invisible to the victim's audit feed. companyId added everywhere touched.
+- **/finance scope leaks**: the project picker + P&L tiles listed every
+  company project for project-scoped viewers, and the audit feed was
+  company-wide. Projects now `scopeWhere("Project")`-filtered; audit feed
+  hidden for PROJECT scope (mirrors /audit dept-gating).
+
+### Verified-clean / reconciled surfaces
+
+- GSTR-1 / GSTR-3B vs GL for Sep 1–23 agree: outward ₹45.46L taxable /
+  ₹2.33L GST; inward ₹11.57L / ₹0.90L ITC; ₹56 reversal; net ₹1.43L.
+- Supplier chain: receipt JE (Dr inventory + Dr ITC / Cr AP), payments,
+  invoice outstanding — all balanced; A/D fixtures reconciled post-cleanup.
+- Foreign asset-sale/material-sale e-invoice ids → 404; foreign
+  subcontractor TDS certificate → 404.
+- Karan (SALES_MANAGER, no finance perms) → 403 on every finance API
+  tested; /finance page renders `<NoAccess>` correctly.
+- UI (Playwright, real sessions): /finance, /gl, /reports/*, /m/expenses,
+  /m/budget-variance, /m/reports/{job-costing,cash-flow}, /m/petty-cash —
+  all 200 with real data, zero page errors; a-proc sees only Greenfield
+  on /finance (was leaking all projects). Only console noise: the
+  telephony missed-calls badge 403s for non-telephony users (pre-existing,
+  out of Module B scope).
+- Regression coverage: `packages/services/src/test/finance-tenancy.test.ts`
+  (12 DB-backed tests: foreign-id 404s, double-approve 409, double-submit
+  409, overflow 400, own-company round-trip) + GL assertions added to
+  `employee-advance.test.ts`; route test asserts companyId forwarding +
+  404 passthrough on budget-variance.
+
+### Data notes for other agents
+
+- SRG REALCON was repaired after repro: planted ₹7,777 cost + its JE
+  removed, seeded ₹72,000 RA-bill cost re-created
+  (`cmud4fix10001vlfixrestore01`), `reallocateProjectCosts` re-run.
+  The original JE for that cost was deleted during repro — the ledger
+  side could not be byte-restored; the ProjectCost row is back.
+- My Company GL repaired for the pre-fix advance (`cmud3pz03007svl5pp7jhfnrl`):
+  posted the missing issue JE (Dr 1650/Cr 1000 ₹2,400) and Aug recovery JE
+  (Dr 2200/Cr 1650 ₹800). 1650 now holds ₹1,400 = live outstanding
+  (₹800 + ₹600 across the two B- advances) — consistent.
+- A-Vendor `balanceOwed` restored to ₹1,504 (pre-B value); B-SVC-001
+  invoice, its 2 JEs, B payments SP-…-0003/0004/0005/0006 + JEs deleted.
+- Kept: B- tagged advances, July/Aug/Sep-2026 payroll periods + attendance,
+  `b-acct@test.in` project-scoped ACCOUNTANT (useful for scope tests).
+- Pre-existing test failures outside Module B (not caused by this work):
+  `route-manifest.test.ts` wants `/stock-counts/[id]` registered (module G
+  page) and 6 `companies/[id]/members/[memberId]` assertions (module F
+  route) — verified unrelated to the files changed here.

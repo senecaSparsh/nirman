@@ -75,9 +75,13 @@ async function assertExpenseRefs(
   }
 }
 
+/** Money columns are numeric(14,2) — anything larger overflows Postgres. */
+const MAX_MONEY = new Decimal("999999999999.99");
+
 export async function createExpense(input: CreateExpenseInput) {
   const amount = new Decimal(input.amount);
   if (!amount.gt(0)) throw new ServiceError("Expense amount must be > 0");
+  if (amount.gt(MAX_MONEY)) throw new ServiceError("Expense amount exceeds the maximum storable value", 400);
   const subtotal = input.subtotal != null ? new Decimal(input.subtotal) : amount;
   const cgst = input.cgst != null ? new Decimal(input.cgst) : new Decimal(0);
   const sgst = input.sgst != null ? new Decimal(input.sgst) : new Decimal(0);
