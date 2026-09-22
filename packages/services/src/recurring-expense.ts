@@ -37,10 +37,44 @@ export function addPeriod(date: Date, frequency: string): Date {
   return d;
 }
 
+/**
+ * Validate that every referenced entity belongs to this company. A foreign
+ * project/category/supplier id would otherwise be stored verbatim and every
+ * auto-generated Expense row would inherit the cross-tenant link.
+ */
+async function assertRecurringRefs(
+  tx: Prisma.TransactionClient,
+  companyId: string,
+  refs: { projectId?: string | null; categoryId?: string | null; supplierId?: string | null },
+) {
+  if (refs.projectId) {
+    const p = await tx.project.findFirst({
+      where: { id: refs.projectId, companyId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!p) throw new ServiceError("Project not found in this company", 404);
+  }
+  if (refs.categoryId) {
+    const c = await tx.expenseCategory.findFirst({
+      where: { id: refs.categoryId, companyId },
+      select: { id: true },
+    });
+    if (!c) throw new ServiceError("Expense category not found in this company", 404);
+  }
+  if (refs.supplierId) {
+    const s = await tx.supplier.findFirst({
+      where: { id: refs.supplierId, companyId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!s) throw new ServiceError("Supplier not found in this company", 404);
+  }
+}
+
 export async function createRecurringExpense(input: CreateRecurringInput) {
   const amount = new Decimal(input.amount);
   if (!amount.gt(0)) throw new ServiceError("Amount must be > 0");
   return withSerializableTransaction(async (tx) => {
+    await assertRecurringRefs(tx, input.companyId, input);
     const recurring = await tx.recurringExpense.create({
       data: {
         companyId: input.companyId,

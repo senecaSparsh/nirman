@@ -47,6 +47,23 @@ export async function setExpenseBudget(input: SetBudgetInput) {
   const amount = new Decimal(input.amount);
   if (!amount.gt(0)) throw new ServiceError("Budget amount must be > 0");
   return withSerializableTransaction(async (tx) => {
+    // Referenced project/category must belong to this company — a foreign id
+    // would store a budget (and its variance math) against another tenant's
+    // project and leak into their cost reports.
+    if (input.projectId) {
+      const p = await tx.project.findFirst({
+        where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!p) throw new ServiceError("Project not found in this company", 404);
+    }
+    if (input.categoryId) {
+      const c = await tx.expenseCategory.findFirst({
+        where: { id: input.categoryId, companyId: input.companyId },
+        select: { id: true },
+      });
+      if (!c) throw new ServiceError("Expense category not found in this company", 404);
+    }
     // Upsert on the unique [companyId, projectId, categoryId, periodStart]
     const existing = await tx.expenseBudget.findFirst({
       where: {

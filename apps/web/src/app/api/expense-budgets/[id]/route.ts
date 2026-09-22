@@ -8,7 +8,10 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   await requirePermission(PERM.FINANCE_MANAGE);
   const company = await getCompany();
   const { id } = await params;
-  await prisma.expenseBudget.deleteMany({ where: { id, companyId: company.id, ...await scopeWhere("ExpenseBudget", {}) } });
+  // deleteMany swallows misses — a foreign or nonexistent id used to return
+  // { ok: true } as if the delete had happened. Report 404 instead.
+  const res = await prisma.expenseBudget.deleteMany({ where: { id, companyId: company.id, ...await scopeWhere("ExpenseBudget", {}) } });
+  if (res.count === 0) return json({ error: "Expense budget not found" }, { status: 404 });
   revalidatePath("/expense-budgets");
   return json({ ok: true });
 });

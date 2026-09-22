@@ -66,8 +66,26 @@ export async function createExpenseClaim(input: CreateClaimInput) {
     });
     if (!claimant) throw new ServiceError("Claimant not found in this company", 400);
 
+    // Referenced project must belong to this company — a foreign id would
+    // silently bolt this claim (and every expense approved off it) onto
+    // another tenant's project.
+    if (input.projectId) {
+      const project = await tx.project.findFirst({
+        where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!project) throw new ServiceError("Project not found in this company", 404);
+    }
+
     // Validate + pre-compute every line's GST so the running total is exact.
     const lineInputs = input.lines ?? [];
+    const categoryIds = [...new Set(lineInputs.map((l) => l.categoryId).filter((c): c is string => !!c))];
+    if (categoryIds.length > 0) {
+      const found = await tx.expenseCategory.count({
+        where: { id: { in: categoryIds }, companyId: input.companyId },
+      });
+      if (found !== categoryIds.length) throw new ServiceError("Expense category not found in this company", 404);
+    }
     const prepared = lineInputs.map((l) => {
       const amount = new Decimal(l.amount);
       if (!amount.gt(0)) throw new ServiceError("Line amount must be > 0");
@@ -139,6 +157,13 @@ export async function addClaimLine(input: AddClaimLineInput) {
     if (!claim) throw new ServiceError("Claim not found", 404);
     if (claim.status !== "DRAFT" && claim.status !== "REJECTED") {
       throw new ServiceError("Can only add lines to a DRAFT or REJECTED claim", 409);
+    }
+    if (input.categoryId) {
+      const cat = await tx.expenseCategory.findFirst({
+        where: { id: input.categoryId, companyId: input.companyId },
+        select: { id: true },
+      });
+      if (!cat) throw new ServiceError("Expense category not found in this company", 404);
     }
 
     const line = await tx.expenseClaimLine.create({
