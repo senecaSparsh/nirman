@@ -319,6 +319,7 @@ export async function createSupplierInvoice(input: {
     // 4. Log action
     await logAction(tx, {
       userId: input.userId,
+      companyId: input.companyId,
       action: "SUPPLIER_INVOICE_CREATE",
       entityType: "SupplierInvoice",
       entityId: invoice.id,
@@ -351,6 +352,18 @@ export async function approveSupplierInvoice(input: {
       where: { id: input.invoiceId, companyId: input.companyId },
     });
     if (!existing) throw new ServiceError("Supplier invoice not found", 404);
+
+    // Status guard — approving an already-APPROVED/PAID invoice used to run
+    // the whole posting path again: duplicate journal entries, double-counted
+    // Supplier.balanceOwed, and a PAID invoice silently regressing to
+    // APPROVED. Only PENDING (or DISPUTED after a resolved rejection) may
+    // transition.
+    if (input.action === "approve" && existing.status !== "PENDING" && existing.status !== "DISPUTED") {
+      throw new ServiceError(`Invoice is already ${existing.status.toLowerCase()} — cannot approve again`, 409);
+    }
+    if (input.action === "reject" && existing.status !== "PENDING") {
+      throw new ServiceError(`Invoice is already ${existing.status.toLowerCase()} — cannot reject`, 409);
+    }
 
     // Prevent self-approval — the receiver cannot approve an invoice they
     // recorded — unless a tier-1 role (OWNER/ADMIN), where no higher approver exists.
@@ -445,6 +458,7 @@ export async function approveSupplierInvoice(input: {
 
       await logAction(tx, {
         userId: input.userId,
+        companyId: input.companyId,
         action: "SUPPLIER_INVOICE_APPROVE",
         entityType: "SupplierInvoice",
         entityId: input.invoiceId,
@@ -468,6 +482,7 @@ export async function approveSupplierInvoice(input: {
       });
       await logAction(tx, {
         userId: input.userId,
+        companyId: input.companyId,
         action: "SUPPLIER_INVOICE_REJECT",
         entityType: "SupplierInvoice",
         entityId: input.invoiceId,

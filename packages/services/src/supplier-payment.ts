@@ -102,6 +102,30 @@ export async function createSupplierPayment(input: {
       }
     }
 
+    // 1c. Double-submit guard — an identical payment (same supplier, amount,
+    // mode and user) within the last 15 seconds is almost always a UI
+    // double-click or a retried submit. Without this, cash payments (which
+    // carry no referenceNo) post a duplicate JE and drain the balance twice.
+    const recentDupe = await tx.supplierPayment.findFirst({
+      where: {
+        companyId: input.companyId,
+        supplierId: input.supplierId,
+        amount,
+        paymentMode: input.paymentMode,
+        createdById: input.userId ?? null,
+        // createdAt (not paymentDate) — a backdated payment resubmitted by a
+        // double-click shares its paymentDate but still hits the window.
+        createdAt: { gte: new Date(Date.now() - 15_000) },
+      },
+      select: { paymentNumber: true },
+    });
+    if (recentDupe) {
+      throw new ServiceError(
+        `An identical ${input.paymentMode.toLowerCase()} payment of ${amount} to this supplier was recorded moments ago (${recentDupe.paymentNumber}). If this is a genuinely separate payment, wait a few seconds and retry.`,
+        409,
+      );
+    }
+
     // 2. Validate PO exists and belongs to the supplier if purchaseOrderId is provided
     if (input.purchaseOrderId) {
       const po = await tx.purchaseOrder.findUnique({ where: { id: input.purchaseOrderId } });
@@ -275,6 +299,7 @@ export async function createSupplierPayment(input: {
     // 7. Log action
     await logAction(tx, {
       userId: input.userId,
+      companyId: input.companyId,
       action: "SUPPLIER_PAYMENT_CREATE",
       entityType: "SupplierPayment",
       entityId: payment.id,
