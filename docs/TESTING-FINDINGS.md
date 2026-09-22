@@ -206,3 +206,32 @@ victims), then fixed on `test/a-procurement` and re-verified live.
 - A-tagged fixtures used throughout (A-Steel `cmud1finf0005vlxuwyoyutfy`, A-TestAgg `cmud1fiog0009vlxu8wtf6l3m`, A-Vendor `cmud1fjda000dvlxuway3cjfm`, A-Vendor2 `cmud2967o006svls8w7m5t8a1`).
 - Test pollution left: chain-1 PO `PO-20260923-0003` fully received (50×A-Steel @ Greenfield Site, ₹3422, invoice `A-INV-001` PAID 3422); `PO-20260923-0004/0005` (Hillview fixtures cancelled/cleaned); company-PO `cmud1i57p001avlxu9t55ow76` has an extra 1-unit GRN from the carve-out verification.
 - Scoped test users: `a-store@test.in` (STORE_KEEPER→Greenfield), `a-proc@test.in` (PROCUREMENT_MANAGER→Greenfield), `f-hat@test.in` (SUPERVISOR→Hillview) — all password `Crawl123!`.
+
+## HR audit round 2 — lifecycle + self-service (verified 2026-09-22/23)
+
+- **Leave self-service chain** (verified live): worker filed SICK leave via
+  /m/me → owner saw it in /api/leaves?status=PENDING → approved → PAID_LEAVE
+  rows minted for both days → "Leave Approved" InAppNotification to requester.
+- **scopeWhere 500 fix** (3af7ba6a): LeaveRequest mapped projectId (column
+  doesn't exist) — every scoped caller got PrismaClientValidationError → 500.
+  Audited all 58 SCOPE_FIELDS mappings — only invalid one.
+- **PAID_LEAVE overwrite hole** (b799a1f4): PATCH blocked PAID_LEAVE edits but
+  recordAttendance's upsert + bulkRecordAttendance clobbered the row — leave
+  balance consumed while the paid day silently became PRESENT/ABSENT. Both
+  paths now refuse (single → 409, bulk → loud SKIPPED_PAID_LEAVE in results).
+- **Offboarding** (verified live): POST /api/employees/[id]/terminate →
+  active:false + EmployeeExit (F&F ₹12.5k COMPLETED, 4-day encashment, assets
+  returned, exit interview, PF/ESI exit filed) + history preserved.
+- **Mobile Departments** (2cc03928): create + activate/deactivate — needed for
+  dept-scoped custom roles; desktop-only before.
+- **Worker attendance strip** (6f387c2c): last-14-day status cells on /m/me —
+  "did they mark me right?" the day-count couldn't answer.
+- **Login/OTP** (64ec7be4): OTP link hidden when provider unconfigured, send
+  503s honestly, added password escape on the verify screen.
+- **Bounded delegation** (verified live): CUSTOM_DEPT_ADMIN t3 {users.manage,
+  hr.*} could only mint t4-t5 roles with subsets of his own 4 perms — every
+  guard (scope/tier/base) fired; can't even edit a member holding a t3 hat.
+- **Noted gap (not built)**: no compliance-doc expiry — Employee documents are
+  generated artifacts (offer/agreement/ID); there's no licence/medical-fitness
+  expiry field or reminder. Worth a schema feature if drivers/operators need
+  it — drivingLicenceExpiry on Employee + integrity-cron reminder.
