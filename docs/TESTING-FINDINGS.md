@@ -556,3 +556,31 @@ All flows verified through real clicks at phone width (desktop UA + `__surface=1
   correct data on resolve; a "Loading…" state would be nicer polish.
 - Icon-only FABs carry `aria-label` (verified working everywhere).
 - `/m/tasks` 404 is by design — tasks live at `/m/site/tasks`.
+
+## Mobile sweep — round 5 (remaining surfaces)
+
+- `/m/projects/[id]` — lifecycle chips, budget burn (₹49.48L/₹8.5Cr), units,
+  cost, land parcels, possession-pending + Mark Possessed, quick actions
+  (DPR/Indent/Issue/Purchase). Suspense-loads ~8s cold in dev.
+- `/m/materials` + `/m/materials/[id]` — category-grouped catalog with
+  qty/value/LOW badges; detail = on-hand, MAC, reorder, EOQ, HSN/GST,
+  per-location breakdown, movement ledger.
+- `/m/suppliers` — dues leaderboard (₹10.94L owed, 8 with dues).
+- `/m/customers` — outstanding/pipeline per customer (₹2.39Cr dues).
+- `/m/supplier-payments` — paid ledger with PO links.
+- `/m/work-orders` — contractor WO card with RA-bill count.
+- `/m/land` — ₹11.26Cr portfolio, whole vs sub-divided, avail/sold/part chips.
+- `/m/boq` — project picker → BOQ tree with qty×rate→amount.
+- `/m/measurement-book` — project-gated empty state (correct).
+- `/m/equipment` — availability/in-use/maint buckets + per-asset value.
+- `/m/subcontractors` — trade list with WO counts + idle/active.
+- `/m/quality-control` — pending-inspection queue; Inspect links into the PO.
+- `/m/change-orders` — empty state + create affordance.
+- `/m/brokers` — list + deals + commission avg.
+- `/m/site` — field dashboard: receipts-overdue alert (snoozable), Site Ops
+  quick actions, tasks, in-transit POs with lateness badges, recent issues.
+- `/m/queue` — offline-op queue, honest empty state + online indicator.
+- `/m/workers` → 404 correct (workers live at `/m/hr/employees`).
+
+No new bugs this round. The gate-pass enforcement chain (issue/transfer/sale →
+auto-GP → dispatch blocked until approved) verified on all three paths.
