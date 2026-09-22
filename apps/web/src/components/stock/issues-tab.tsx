@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Package, RefreshCw, Search } from "lucide-react";
+import { Plus, Package, RefreshCw, Search, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { EmptyState } from "@/components/empty-state";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 import { IssueFormDialog } from "@/components/procurement/issue-form-dialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -46,7 +48,31 @@ export function IssuesTab({
   const [formOpen, setFormOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [projectFilter, setProjectFilter] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<MaterialIssueListRow | null>(null);
   const issueDisabled = (projects.length === 0 && departments.length === 0) || materialOptions.length === 0;
+
+  // Execute a PENDING issue (moves stock) or cancel a COMPLETED one
+  // (reverses stock + GL) — the same actions the mobile issue detail offers.
+  async function issueAction(id: string, action: "execute" | "cancel") {
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/issue-materials/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? `Failed to ${action}`);
+      toast.success(action === "execute" ? "Issue executed — stock moved" : "Issue cancelled — stock + ledger reversed");
+      setCancelTarget(null);
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   // Auto-open the issue dialog when navigated from receive goods
   useEffect(() => {
@@ -195,6 +221,35 @@ export function IssuesTab({
                     </>
                   )}
                 </div>
+                {/* Execute / Cancel — the lifecycle actions the mobile detail
+                    page exposes. Without this the desktop register was
+                    read-only: a completed issue couldn't be reversed. */}
+                {canIssue && i.status !== "CANCELLED" && (
+                  <div className="mt-1.5 flex gap-2">
+                    {i.status === "PENDING" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busyId === i.id}
+                        onClick={() => issueAction(i.id, "execute")}
+                      >
+                        {busyId === i.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                        Execute Issue
+                      </Button>
+                    )}
+                    {i.status === "COMPLETED" && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-danger hover:text-danger"
+                        disabled={busyId === i.id}
+                        onClick={() => setCancelTarget(i)}
+                      >
+                        Cancel Issue
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -202,6 +257,16 @@ export function IssuesTab({
       )}
 
       <IssueFormDialog open={formOpen} onOpenChange={setFormOpen} projects={projects} locations={locationOptions} materials={materialOptions} departments={departments} categories={categories} />
+
+      <ConfirmDialog
+        open={cancelTarget != null}
+        onOpenChange={(o) => { if (!o) setCancelTarget(null); }}
+        title={`Cancel issue ${cancelTarget?.issueNumber ?? ""}?`}
+        description="This returns the issued quantity to the source location and posts a reversing ledger entry. The issue stays on the register marked Cancelled."
+        confirmLabel="Cancel Issue"
+        variant="destructive"
+        onConfirm={async () => { if (cancelTarget) await issueAction(cancelTarget.id, "cancel"); }}
+      />
     </div>
   );
 }
