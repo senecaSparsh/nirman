@@ -311,8 +311,8 @@ function ProfileSidebar({ data }: { data: CompanyProfileData }) {
           <StatPill icon={MapPin} label="locations" value={data.stats.locations} />
           <StatPill icon={Network} label="child companies" value={data.stats.children} />
           <StatPill icon={Users} label="employees" value={data.stats.employees} href="/hr/employees" />
-          <StatPill icon={Users} label="suppliers" value={data.stats.suppliers} href="/procurement/suppliers" />
-          <StatPill icon={Users} label="customers" value={data.stats.customers} href="/sales/customers" />
+          <StatPill icon={Users} label="suppliers" value={data.stats.suppliers} href="/suppliers" />
+          <StatPill icon={Users} label="customers" value={data.stats.customers} href="/customers" />
         </CardContent>
       </Card>
     </div>
