@@ -1105,6 +1105,12 @@ export async function recordAttendance(input: LogAttendanceInput) {
 
     let record;
     if (existing) {
+      // PAID_LEAVE rows are owned by the leave flow — overwriting one here
+      // would detach the paid day from its LeaveRequest (balance stays
+      // consumed while the record changes). Cancel the leave to remove it.
+      if (existing.status === "PAID_LEAVE") {
+        throw new HrError("Paid-leave days are managed through the leave request — cancel the approved leave instead", 409);
+      }
       // Review-state preservation: a re-recorded check-in keeps an existing
       // APPROVED/REJECTED decision. A PENDING flag clears only when the new
       // check-in lands inside the fence (the off-site question resolved
@@ -1201,7 +1207,7 @@ export async function bulkRecordAttendance(input: BulkAttendanceInput) {
     const existingAttendances = employeeIds.length > 0
       ? await tx.workerAttendance.findMany({
           where: { employeeId: { in: employeeIds }, date: dateOnly },
-          select: { id: true, employeeId: true },
+          select: { id: true, employeeId: true, status: true },
         })
       : [];
     const existingByEmployeeId = new Map(existingAttendances.map((a) => [a.employeeId, a]));
@@ -1262,6 +1268,13 @@ export async function bulkRecordAttendance(input: BulkAttendanceInput) {
       };
 
       const existing = existingByEmployeeId.get(r.employeeId);
+      // PAID_LEAVE rows are owned by the leave flow — re-marking the day
+      // would detach the paid day from its LeaveRequest. Skip it loudly in
+      // the results (same convention as out-of-scope/unknown skips).
+      if (existing?.status === "PAID_LEAVE") {
+        results.push({ employeeId: r.employeeId, status: "SKIPPED_PAID_LEAVE" });
+        continue;
+      }
       if (existing) {
         // Issue 8: Don't overwrite existing notes with null when the bulk
         // re-save doesn't include notes. Only set notes if the incoming
