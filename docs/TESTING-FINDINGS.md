@@ -426,3 +426,87 @@ own-company projects. Every one now fails closed.
 ### Known residual (watch, not a bug)
 
 - `inventory-gl` check: ₹75.35 remaining delta — GL holds posting-time cost while stock cache values at current MAC; issues/sales between MAC changes drift the two bases by design. 0.003% of stock value; not a missing posting (verified per-source: receipts, sales, returns, adjustments all reconcile).
+
+## Module C — HR, attendance & field workforce
+
+All findings reproduced end-to-end with real Better-Auth sessions
+(`AUTH_BYPASS=false`) against the live dev server + psql verification, then
+fixed on `main` (concurrent-session checkout — the `test/c-hr` branch was
+wiped mid-run; commits landed directly on main where other agents merge).
+Commits `d8496379`, `a7a21247`.
+
+| module | severity                  | file                                                                                                         | summary                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------ | ------------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| C      | HIGH (FIXED)              | `apps/web/src/app/m/hr/onboarding/[id]/page.tsx`                                                             | **Full dossier leaked to `payroll.view`.** The mobile onboarding page collapsed every tier into `canSeeComp` (payroll.view) — a plain ACCOUNTANT opening `/m/hr/onboarding/[id]` received cleartext PAN, Aadhaar, PF/ESI/UAN, full bank details, home addresses, DOB, KYC attachment metadata AND both signing bearer tokens (`contractToken`/`offerToken`) — enough to forge the employee's signature unauthenticated. Reproduced live with `priya@nirman.in`. Fixed: split into `canSeeComp`/`canSeeBank`/`canSeeDocs`/`canSeeTokens` (docs+bank composite, matching `redactEmployeeRow`), added the missing DEPARTMENT-scope filter.            |
+| C      | HIGH (FIXED)              | `apps/web/src/app/m/hr/employees/[id]/page.tsx`                                                              | **Signing tokens to `payroll.view` + ungated comp fields.** `contractToken`/`offerToken` were gated at `canSeePayroll` (payroll.view) in both serialization blocks — bearer credentials to auditors. Separately, `employmentType`/`noticePeriodDays`/`contractStartDate`/`contractEndDate` were serialized with NO gate at all in block 1 → `hr.view` received employment terms. Fixed: tokens ride the docs composite; the four fields moved to `canSeePayroll`.                                                                                                                                                                                  |
+| C      | HIGH (FIXED)              | `apps/web/src/app/print/employment-agreement/[id]/page.tsx`, `.../offer-letter/`, `.../appointment-letter/`  | **Print pages = PII firehose.** Gated only on `hr.view`, then rendered cleartext PAN, PF/ESI/UAN, bank name+A/C-last4+IFSC, wages, salary components, addresses — with no `scopeWhere("Employee")` so scoped viewers could reach any employee. Reproduced: `ravi@nirman.in` (SUPERVISOR) read PAN `ABCDE1234F` + bank + wages verbatim. Fixed: comp tier required to open (wages are the document); statutory IDs + bank text masked for comp-only readers; scope filter applied. Agreement/offer/appointment now mask docs-tier; ID card stays `hr.view` (site function) with DOB+address masked.                                                 |
+| C      | HIGH (FIXED)              | `packages/services/src/hr.ts` (`updateCrew`, `deleteCrew`) + `apps/web/src/app/api/crews/[id]/route.ts`      | **Cross-tenant crew write.** `updateCrew`/`deleteCrew` looked up the crew by bare `findUnique({id})` with NO company check — a `hr.manage` holder in My Company renamed SRG REALCON's crew via `PATCH` (reproduced: `C-HACKED CREW`, 200); DELETE would have destroyed it (empty crew). Route also missed `getCompany()` entirely and had no scope check on the existing crew. Fixed: `companyId` param + ownership 404 in the service, connected `projectId`/`supervisorId` validated same-company, route adds `scopeWhere("Crew")` pre-check on PATCH+DELETE and `scopeWhere("Employee")` on memberIds.                                          |
+| C      | MEDIUM-HIGH (FIXED)       | `packages/services/src/hr.ts` (`submitDPR`)                                                                  | **Foreign reference attach + name leak.** DPR material/labor lines persisted `materialId`/`employeeId`/`crewId` verbatim — attaching an SRG material + SRG employee stored their rows on the attacker's DPR, and reads/prints echoed the victim's names back (`E2E-SRG-Cement OPC53`, `Hema Testhr` — reproduced 201). Enables catalog/directory enumeration + ledger poisoning. Fixed: every referenced id must resolve inside `companyId` → 400 otherwise.                                                                                                                                                                                       |
+| C      | MEDIUM-HIGH (FIXED)       | `apps/web/src/app/api/dprs/[id]/print/route.ts`                                                              | **Stored XSS in DPR print HTML.** `workSummary`/`notes`/`blockers`/`tomorrowPlan`/`taskDescription`, material/employee/crew names, project name, approver names, and `photoUrls` (attribute context incl. `javascript:` URLs) were interpolated raw. Reproduced: stored `<script>`/`onerror`/`onload` payloads rendered unescaped. Fixed: `esc()` on every interpolation + scheme allowlist (`https?://` or `/`) on `src`.                                                                                                                                                                                                                         |
+| C      | MEDIUM (FIXED)            | `apps/web/src/app/api/daily-reports/[id]/route.ts`                                                           | PATCH/DELETE validated `companyId` inside the service but skipped `scopeWhere("DailyReport")` — a project/dept-scoped `dpr.submit` user could edit or delete reports on projects outside their scope. Fixed: scoped existence pre-check (404) + `assertScopeAllows` on projectId changes.                                                                                                                                                                                                                                                                                                                                                          |
+| C      | MEDIUM (FIXED)            | `apps/web/src/app/accept/agreement/[token]/page.tsx`, `.../offer/[token]/page.tsx`                           | **TTL only enforced on POST, not the page.** The 30-day window returned 410 from the accept API but the GET pages kept rendering name + wages + terms on expired links — forwarded links leaked comp data indefinitely. Fixed: same TTL check on both pages (expired → expired screen, no data); applies even to already-accepted links.                                                                                                                                                                                                                                                                                                           |
+| C      | MEDIUM (FIXED)            | `packages/services/src/employee-account.ts` (`generateEmploymentAgreement`, `generateOfferLetter`)           | **Re-issue did not rotate tokens** despite the accept route's documented "re-issuing rotates the token" — `employee.contractToken ?? crypto.randomUUID()` kept the old token, so a previously forwarded link stayed live after regeneration. Worse: re-issue reset status to ISSUED but left `contractConfirmedAt`, so the stale signature implied consent for new terms. Fixed: always `crypto.randomUUID()` + clear `contractConfirmedAt`/`offerLetterAcceptedAt`. Verified: old token 404s, new token signs.                                                                                                                                    |
+| C      | LOW (FIXED)               | `apps/web/src/app/api/employees/[id]/telephony-cost/route.ts`                                                | No employee-scope check — a scoped `hr.view` could read an out-of-scope employee's call/SMS cost ledger. Fixed: `scopeWhere("Employee")` existence check → 404.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| C      | LOW (FIXED)               | `apps/web/src/app/api/departments/[id]/route.ts` (PATCH)                                                     | Cross-tenant PATCH correctly failed inside the tx but threw a plain `Error` → **500** instead of 404 (write did NOT land — verified). Mapped to 404.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| C      | HIGH (OPEN — shared file) | `apps/web/src/lib/employee-visibility.ts` (`redactEmployeeRow`) + `lib/server.ts` (`getEmployeeAccessScope`) | **`payroll.manage` receives signing bearer tokens.** The token gate is `!(canSeePersonalDocs && canSeeBankDetails)` — and `payroll.manage` (FINANCE_HEAD) satisfies BOTH flags, so `redactEmployeeRow` returns `contractToken`+`offerToken` to a role the policy doc says should never hold them (tokens = hr.manage only). Reproduced: FINANCE_HEAD `phone+917302920201@nirman.internal` fetched Devraj Pal's live `contractToken`/`offerToken` via `GET /api/employees/[id]` — usable to sign documents unauthenticated. Owner: shared-infra maintainer — gate tokens at `hr.manage` specifically (e.g. add `canSeeSigningTokens` to the scope). |
+| C      | LOW (OPEN — design)       | `apps/web/src/app/accept/*/page.tsx`                                                                         | Invalid tokens render the not-found UI but with HTTP **200** (notFound inside a dynamic server component returns 200 in dev). Cosmetic — no data leaks.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| C      | LOW (OPEN — design note)  | `packages/services/src/hr.ts` (`approveLeaveRequest`)                                                        | Rejecting a leave auto-marks the requested days `NON_PAID_LEAVE` ("Auto-created from rejected CASUAL leave — marked NPL"). Deliberate semantics per the note (rejected leave taken = unpaid absence), but worth confirming it's the intended policy — a rejected worker who stays home anyway is silently marked absent-unpaid.                                                                                                                                                                                                                                                                                                                    |
+
+## Verified-clean surfaces (negative results)
+
+- **API tier enforcement**: `GET /api/employees` + `[id]` — `hr.view` gets roster
+  allowlist only (wages null), `payroll.view` gets comp only (bank/PAN/tokens null),
+  `hr.manage`/OWNER get the full dossier. `pickEmployeeRoster`/`redactEmployeeRow`
+  work as designed on the API path — the leaks were all in page/print/mobile surfaces.
+- **Tenant isolation**: foreign employee ids → 404 on detail, PATCH, DELETE,
+  salary-history/components, account, advances; attendance/leaves `?employeeId=`
+  foreign → empty; foreign DPR GET/print/reject → 404; attendance POST with
+  foreign employeeId → 404; foreign dept PATCH/DELETE → 404.
+- **Public `/accept/*` hardening**: garbage/uuid tokens → no data; wrong-token
+  POST → 404; offer-token on agreement route → 404; token on other employee →
+  404; tampered last-char → 404; replay after signing → idempotent `alreadyAccepted`
+  (no mutation); expired → 410 POST + expired page GET (after fix).
+- **Hat switching** (`f-hat@test.in` SUPERVISOR + ACCOUNTANT + SITE_ENGINEER):
+  perms follow the worn hat only — ACCOUNTANT hat can't POST attendance/DPR
+  (403), SUPERVISOR hat loses payroll.view; unheld roles (OWNER/HR_MANAGER/
+  garbage) → 403; explicit PROJECT scope stays restrictive under every hat
+  (0 visible employees — hats don't widen sight lines).
+- **LeaveRequest scope fix** (regression target): scoped HR manager (PROJECT→
+  Hillview) sees 0 Greenfield employees/leaves; approve/reject/delete/create on
+  out-of-scope employee → 404; in-scope company-wide HR approves fine.
+- **Lifecycle chain**: hire → auto-docs (offer+agreement+id-card generated) →
+  agreement ISSUED + fresh token → public accept → CONFIRMED → ID card ISSUED →
+  salary components (CTC history row + changedBy) → terminate (soft-delete,
+  contract TERMINATED, auto-deposit off, membership deactivated, phone recycle
+  path) → restore (re-activated, contract tuple cleared, token dead). Every
+  transition wrote an `AuditLog` row (11 rows observed for one employee).
+- **DPR chain**: scoped supervisor submits on own project (out-of-scope project
+  → 403) → PM `subAdminApprove` → supervisor/PM `adminApprove` → 403 → OWNER
+  `adminApprove` → APPROVED + auto material-issue (linesCreated:1) →
+  `markCostPosted`. Resubmit/reject after APPROVED → 400. 5 audit rows per DPR.
+- **GPS attendance**: self/manager gate (other employee → 403); geofence flag
+  works (1982m off-site → geoFenceOk:false → PENDING review); review route
+  PATCH-only, hr.manage-only, PENDING-only state machine (409 on re-decide),
+  cross-tenant 404; payroll period-lock blocks writes on PAID periods with a
+  clear 409; future-date check-ins blocked; missing geofence → honest null
+  (no fence → geoFenceOk undefined, no fake pass).
+- **Leave → attendance → payroll**: approved UNPAID leave → NON_PAID_LEAVE rows
+  (deducted); approved SICK → PAID_LEAVE rows (paid); rejected → NPL (see note).
+- **Departments**: create/PATCH/DELETE own-tenant works; foreign → 404; delete
+  guarded by stock + employee references.
+- **Payroll period-lock**: attendance writes on a PAID period → 409 with
+  actionable message; check-out equally locked.
+
+## C-test fixtures left in DB
+
+- Users: `c-scoped-hr@test.in` (HR_MANAGER, PROJECT→Hillview, My Company) —
+  password `Crawl123!` like all seed users.
+- Employees: `C-Chain Worker` (cmud63ulj0056vllye3xhs66v, My Company, active,
+  contract CONFIRMED via real public-accept); `Test Worker Sharma` — leave/
+  attendance rows added on Oct dates (PAID_LEAVE 10/05-06, NON_PAID_LEAVE
+  10/08-09, NPL 10/12) + offsite review approved 9/22.
+- Crews: `C-Test Crew` (My Company), `SRG Victim Crew` (SRG — created for the
+  cross-tenant probe, name restored).
+- DPRs: 9/21 + 9/23 + 9/24 on Greenfield (the 9/24 one contains inert escaped
+  XSS payloads for future print-page verification); dept `C-Test Dept` created
+  - deleted.
