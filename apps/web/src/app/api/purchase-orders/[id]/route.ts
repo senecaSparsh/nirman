@@ -37,6 +37,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
         include: { lines: { select: { materialId: true, qtyReceived: true, unitCost: true } } },
         orderBy: { receiptDate: "desc" },
       },
+      charges: { orderBy: { createdAt: "asc" } },
     },
   });
   if (!po) return json({ error: "Purchase order not found" }, { status: 404 });
@@ -114,8 +115,20 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     expectedDate: po.expectedDate?.toISOString() ?? null,
     subtotal: toNum(po.subtotal),
     gstTotal: toNum(po.gstTotal),
+    freightTotal: toNum(po.freightTotal),
+    loadingTotal: toNum(po.loadingTotal),
+    packingTotal: toNum(po.packingTotal),
+    insuranceTotal: toNum(po.insuranceTotal),
+    discountTotal: toNum(po.discountTotal),
+    miscChargesTotal: toNum(po.miscChargesTotal),
     total: toNum(po.total),
     notes: po.notes,
+    charges: po.charges.map((c) => ({
+      id: c.id,
+      heading: c.heading,
+      amount: toNum(c.amount),
+      notes: c.notes,
+    })),
     createdAt: po.createdAt.toISOString(),
     sourceRequisition: sourceRequisition
       ? { id: sourceRequisition.id, reqNumber: sourceRequisition.reqNumber }
