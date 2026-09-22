@@ -23,12 +23,15 @@ export function CompanySwitcher({
   companies,
   currency,
   role,
+  roleLabel,
   parentCompanyId: _parentCompanyId,
 }: {
   currentCompanyId: string;
   companies: { id: string; name: string; role: string }[];
   currency: string;
   role: string;
+  /** Display label for the role — resolves CUSTOM_* to its label. */
+  roleLabel?: string;
   parentCompanyId: string | null;
 }) {
   // Switching is deliberately OWNER/ADMIN-only (matches both switch
@@ -115,7 +118,7 @@ export function CompanySwitcher({
           className="text-m-caption mt-0.5"
           style={{ color: "var(--color-ink-500)" }}
         >
-          {currency} · {role}
+          {currency} · {roleLabel ?? role}
         </p>
       </div>
     </>

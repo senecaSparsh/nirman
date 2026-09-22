@@ -1724,7 +1724,15 @@ export interface CurrentUser {
   name: string;
   /** Phone number, when the account has one (phone-login users always do). */
   phone?: string | null;
+  /** Normalized built-in role — used for permission/tier checks. */
   role: Role;
+  /**
+   * The raw stored role key — `CUSTOM_*` for a custom role. `role` collapses
+   * these to a built-in via normalizeRole (the SUPERVISOR fallback), so any
+   * surface that renders the user's role label must use rawRole +
+   * roleDisplayLabel, not role.
+   */
+  rawRole?: string;
   companyId: string | null;
   active: boolean;
 }
@@ -1765,6 +1773,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
       email: u.email ?? "",
       name: u.name ?? "",
       role: normalizeRole(u.role),
+      rawRole: u.role,
       companyId: u.companyId ?? null,
       active: u.active ?? true,
     };
@@ -1786,6 +1795,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     name: u.name ?? "",
     phone: exists.phone ?? null,
     role,
+    rawRole: exists.role ?? u.role,
     companyId: exists.companyId ?? null,
     active: exists.active ?? true,
   };

@@ -20,7 +20,7 @@ import {
   getSupplierOutstanding,
   getTallySyncStats,
 } from "@nirman/services";
-import { getCurrentUser, toNum } from "@/lib/server";
+import { getCurrentUser, toNum, getCustomRoleLabels, roleDisplayLabel } from "@/lib/server";
 import {formatCurrencyCompact, formatNumber, formatDate, humanizeAuditAction, displayEmail} from "@/lib/utils";
 import {
   MobileRow,
@@ -54,6 +54,16 @@ export default function SettingsPage() {
     <MobileHubPage>
       {async ({ company }) => {
         const user = await getCurrentUser();
+
+        // Resolve the held role's display label — user.role is normalized
+        // (CUSTOM_* → SUPERVISOR), so read the raw key and map it through
+        // roleDisplayLabel to the custom role's label.
+        const customLabels = user?.rawRole?.startsWith("CUSTOM_")
+          ? await getCustomRoleLabels([company.id])
+          : null;
+        const userRoleLabel = user?.rawRole
+          ? roleDisplayLabel(user.rawRole, company.id, customLabels)
+          : (user?.role ?? "—");
 
         const isOwner = user?.role === "OWNER" || user?.role === "ADMIN";
 
@@ -147,6 +157,7 @@ export default function SettingsPage() {
                 currentCompanyId={company.id}
                 currency={company.currency}
                 role={user?.role ?? "—"}
+                roleLabel={userRoleLabel}
                 parentCompanyId={company.parentCompanyId}
                 companies={userCompanies.map((m) => ({
                   id: m.company.id,
@@ -217,7 +228,7 @@ export default function SettingsPage() {
                 title={user?.name ?? "Profile"}
                 subtitle={displayEmail(user?.email) ?? user?.phone ?? "—"}
                 meta="Edit"
-                badge={<Badge tone="steel">{user?.role ?? "—"}</Badge>}
+                badge={<Badge tone="steel">{userRoleLabel}</Badge>}
               />
               <MobileRow
                 href="/m/queue"
