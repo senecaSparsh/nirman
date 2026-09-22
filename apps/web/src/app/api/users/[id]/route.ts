@@ -140,18 +140,30 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
   }
 
-  // Prevent removing the last OWNER hat — if the target's new held set no
-  // longer contains OWNER and nobody else holds one (primary OR secondary),
-  // the company would be orphaned.
-  if (heldSetChanged && currentHeld.includes("OWNER") && !newHeld.includes("OWNER")) {
-    const otherPrimaryOwners = await prisma.user.count({
-      where: { role: "OWNER", active: true, id: { not: userId } },
+  // Prevent stripping the company's LAST top-tier hat — if the held-set
+  // change removes every OWNER/ADMIN hat from this member and no other
+  // ACTIVE membership in this company holds one (primary OR secondary),
+  // the company is orphaned. Count memberships in THIS company only —
+  // User.role is a global mirror, so an OWNER in another tenant must not
+  // satisfy the guard and let this tenant's last admin be demoted.
+  const TIER1_ROLES = ["OWNER", "ADMIN"];
+  const heldHadTier1 = currentHeld.some((r) => TIER1_ROLES.includes(r));
+  const newHasTier1 = newHeld.some((r) => TIER1_ROLES.includes(r));
+  if (heldSetChanged && heldHadTier1 && !newHasTier1) {
+    const remainingTier1 = await prisma.userCompany.count({
+      where: {
+        companyId: company.id,
+        userId: { not: userId },
+        active: true,
+        user: { active: true },
+        OR: [
+          { role: { in: TIER1_ROLES } },
+          { secondaryRoles: { hasSome: TIER1_ROLES } },
+        ],
+      },
     });
-    const otherSecondaryOwners = await prisma.userCompany.count({
-      where: { companyId: company.id, userId: { not: userId }, secondaryRoles: { has: "OWNER" }, user: { active: true } },
-    });
-    if (otherPrimaryOwners + otherSecondaryOwners === 0) {
-      return json({ error: "Cannot demote the last remaining owner" }, { status: 400 });
+    if (remainingTier1 === 0) {
+      return json({ error: "Cannot remove the company's last owner/admin" }, { status: 400 });
     }
   }
 

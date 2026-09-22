@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
-import { PERM, ALL_PERMISSIONS, normalizeRole } from "@/lib/roles";
+import { PERM, ALL_PERMISSIONS, ALL_ROLES, normalizeRole } from "@/lib/roles";
 
 /**
  * GET /api/role-permissions?role=XXX — list additive permission overrides
@@ -32,14 +32,23 @@ export const GET = apiHandler(async (req: NextRequest) => {
  */
 export const PUT = apiHandler(async (req: NextRequest) => {
   const session = await requirePermission(PERM.USERS_MANAGE);
-  if (session.role !== "DEVELOPER" && session.role !== "OWNER") {
-    return json({ error: "Only the developer/owner can modify system-level role permissions. Use Custom Roles for company-specific permission customization." }, { status: 403 });
+  // DEVELOPER only — RolePermission is a GLOBAL table (no companyId), so a
+  // per-company OWNER editing it would silently alter EVERY tenant's role
+  // overrides. Company-specific customization uses the CustomRole system.
+  if (session.role !== "DEVELOPER") {
+    return json({ error: "Only the developer can modify system-level role permissions. Use Custom Roles for company-specific permission customization." }, { status: 403 });
   }
   const company = await getCompany();
   const body = await req.json();
   const { role, permissions } = body as { role?: string; permissions?: string[] };
 
   if (!role) return json({ error: "role is required" }, { status: 400 });
+  // Reject anything that isn't a real built-in key — normalizeRole() maps
+  // unknown/CUSTOM_* strings to SUPERVISOR, which would silently rewrite
+  // SUPERVISOR's global overrides instead of erroring.
+  if (!(ALL_ROLES as string[]).includes(role) || role === "DEVELOPER") {
+    return json({ error: "role must be a built-in role key" }, { status: 400 });
+  }
   const normalizedRole = normalizeRole(role);
   if (!Array.isArray(permissions)) return json({ error: "permissions must be an array" }, { status: 400 });
 

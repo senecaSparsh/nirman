@@ -535,6 +535,32 @@ export async function assignScopedMembership(input: AssignScopeInput) {
       }
     }
 
+    // ── Last top-tier guard: if this change strips every OWNER/ADMIN hat ──
+    // from the member and no other active membership in the company holds
+    // one (primary OR secondary), the company is orphaned — refuse before
+    // writing. Mirrors the guard in PATCH /api/users/[id] and the members
+    // DELETE route (which checks the same OWNER/ADMIN set).
+    {
+      const TIER1 = new Set(["OWNER", "ADMIN"]);
+      const newHeld = [input.role, ...(secondaryRoles ?? existing?.secondaryRoles ?? [])];
+      const hadTier1 = (existing ? [existing.role, ...existing.secondaryRoles] : []).some((r) => TIER1.has(r));
+      const hasTier1 = newHeld.some((r) => TIER1.has(r));
+      if (existing && hadTier1 && !hasTier1) {
+        const remaining = await tx.userCompany.count({
+          where: {
+            companyId: input.companyId,
+            userId: { not: input.userId },
+            active: true,
+            user: { active: true },
+            OR: [{ role: { in: [...TIER1] } }, { secondaryRoles: { hasSome: [...TIER1] } }],
+          },
+        });
+        if (remaining === 0) {
+          throw new RbacError("Cannot remove the company's last owner/admin", 400);
+        }
+      }
+    }
+
     // Cycle check on reportsTo.
     if (input.reportsToUserCompanyId) {
       const reportsTo = await tx.userCompany.findUnique({
@@ -722,6 +748,7 @@ export async function assignScopedMembership(input: AssignScopeInput) {
 
     await logAction(tx, {
       userId: input.actorUserId,
+      companyId: input.companyId,
       action: "RBAC_ASSIGN_SCOPE",
       entityType: "UserCompany",
       entityId: membership.id,

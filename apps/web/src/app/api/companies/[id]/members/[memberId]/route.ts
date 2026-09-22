@@ -1,9 +1,24 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, canManageRole, canManageRoleSet, getActingRole, json, requirePermission, userRoleSchema } from "@/lib/server";
+import { apiHandler, canManageRole, canManageRoleSet, getActingRole, getCompany, getManageableCompanyIds, json, requirePermission, userRoleSchema, type CurrentUser } from "@/lib/server";
 import { PERM, isCustomRole } from "@/lib/roles";
 import { assignScopedMembership, getDirectReports, getReportingChain } from "@nirman/services";
 import { z } from "zod";
+
+/**
+ * Tenancy guard — the [id] path param must resolve to the caller's active
+ * company or a company inside their manageable tree (their memberships +
+ * descendants — the same set GET /api/companies lists). Without it any
+ * COMPANY_MANAGE holder could read/alter another tenant's roster by id.
+ * Returns null when access is allowed, or a 404 Response to return.
+ */
+async function assertCompanyAccess(user: CurrentUser, id: string): Promise<Response | null> {
+  const current = await getCompany();
+  if (id === current.id) return null;
+  const manageable = await getManageableCompanyIds(user.id);
+  if (!manageable.includes(id)) return json({ error: "Company not found" }, { status: 404 });
+  return null;
+}
 
 const updateMemberSchema = z.object({
   role: z.string(),
@@ -34,6 +49,8 @@ const updateMemberSchema = z.object({
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string; memberId: string }> }) => {
   const actor = await requirePermission(PERM.COMPANY_MANAGE);
   const { id, memberId } = await ctx.params;
+  const denied = await assertCompanyAccess(actor, id);
+  if (denied) return denied;
   const body = await req.json();
   const parsed = updateMemberSchema.safeParse(body);
   if (!parsed.success) {
@@ -133,6 +150,30 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
       );
     }
   }
+
+  // Last top-tier guard — stripping the final OWNER/ADMIN hat from this
+  // member orphans the company when no other active membership holds one
+  // (primary OR secondary). Same rule as PATCH /api/users/[id] and the
+  // member DELETE below.
+  const TIER1_ROLES = new Set(["OWNER", "ADMIN"]);
+  if (currentHeld.some((r) => TIER1_ROLES.has(r)) && ![...newHeld].some((r) => TIER1_ROLES.has(r))) {
+    const remaining = await prisma.userCompany.count({
+      where: {
+        companyId: id,
+        userId: { not: membership.userId },
+        active: true,
+        user: { active: true },
+        OR: [
+          { role: { in: [...TIER1_ROLES] } },
+          { secondaryRoles: { hasSome: [...TIER1_ROLES] } },
+        ],
+      },
+    });
+    if (remaining === 0) {
+      return json({ error: "Cannot remove the company's last owner/admin" }, { status: 400 });
+    }
+  }
+
   const updated = await prisma.userCompany.update({
     where: { id: memberId, companyId: id },
     data: {
@@ -158,8 +199,10 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
  * chart. ?reports=1 → direct reports; otherwise → upward chain.
  */
 export const GET = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string; memberId: string }> }) => {
-  await requirePermission(PERM.COMPANY_MANAGE);
+  const user = await requirePermission(PERM.COMPANY_MANAGE);
   const { id, memberId } = await ctx.params;
+  const denied = await assertCompanyAccess(user, id);
+  if (denied) return denied;
 
   // The membership must belong to THIS company — otherwise the reporting
   // chain / direct reports of another tenant's member leak their names,
@@ -224,6 +267,8 @@ export const GET = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ 
 export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string; memberId: string }> }) => {
   const session = await requirePermission(PERM.COMPANY_MANAGE);
   const { id, memberId } = await ctx.params;
+  const denied = await assertCompanyAccess(session, id);
+  if (denied) return denied;
 
   // Membership must belong to THIS company — a foreign or missing id must
   // 404, not hit a Prisma P2025 or touch another tenant's data.

@@ -1,18 +1,35 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { resolveScopeType } from "@nirman/services";
-import { apiHandler, canManageRole, canManageRoleSet, getActingRole, json, requirePermission, userRoleSchema } from "@/lib/server";
+import { apiHandler, canManageRole, canManageRoleSet, getActingRole, getCompany, getManageableCompanyIds, json, requirePermission, userRoleSchema, type CurrentUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 import { isCustomRole } from "@/lib/roles";
+
+/**
+ * Tenancy guard — the [id] path param must resolve to the caller's active
+ * company or a company inside their manageable tree (their memberships +
+ * descendants — the same set GET /api/companies lists). Without it any
+ * COMPANY_MANAGE holder could read/alter another tenant's roster by id.
+ * Returns null when access is allowed, or a 404 Response to return.
+ */
+async function assertCompanyAccess(user: CurrentUser, id: string): Promise<Response | null> {
+  const current = await getCompany();
+  if (id === current.id) return null;
+  const manageable = await getManageableCompanyIds(user.id);
+  if (!manageable.includes(id)) return json({ error: "Company not found" }, { status: 404 });
+  return null;
+}
 
 /**
  * GET /api/companies/[id]/members — list the users that are members of
  * a company, with their per-membership role.
  */
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.COMPANY_MANAGE);
+  const user = await requirePermission(PERM.COMPANY_MANAGE);
   const { id } = await ctx.params;
+  const denied = await assertCompanyAccess(user, id);
+  if (denied) return denied;
 
   const members = await prisma.userCompany.findMany({
     where: { companyId: id, user: { isHidden: { not: true } } },
@@ -79,8 +96,10 @@ const addMemberSchema = z.object({
  * the hierarchy check).
  */
 export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.COMPANY_MANAGE);
+  const actorUser = await requirePermission(PERM.COMPANY_MANAGE);
   const { id } = await ctx.params;
+  const denied = await assertCompanyAccess(actorUser, id);
+  if (denied) return denied;
   const body = await req.json();
   const parsed = addMemberSchema.safeParse(body);
   if (!parsed.success) {

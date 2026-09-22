@@ -26,9 +26,27 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const { companyId } = parsed.data;
 
   const isDevBypass = process.env.AUTH_BYPASS === "true" && process.env.NODE_ENV !== "production" && user.id === "dev";
-  if (!isDevBypass && user.role !== "OWNER" && user.role !== "ADMIN") {
+
+  // Authorization set: the user's active memberships. The switcher is for
+  // owner/admin-tier users — but that must be judged by their MEMBERSHIPS,
+  // not the global User.role mirror: a member who is SUPERVISOR in company
+  // A and OWNER in company B is still an owner, and must be able to reach
+  // the company they own (both directions — membership is the boundary).
+  // A pure field worker holds no tier-1 membership anywhere and can never
+  // switch, so an accidental membership stays unreachable.
+  const memberships = isDevBypass
+    ? []
+    : await prisma.userCompany.findMany({
+        where: { userId: user.id, active: true, company: { deletedAt: null } },
+        select: { companyId: true, role: true },
+      });
+  const TIER1 = new Set(["OWNER", "ADMIN", "DEVELOPER"]);
+  const isAdminUser =
+    TIER1.has(user.role) || memberships.some((m) => TIER1.has(m.role));
+  if (!isDevBypass && !isAdminUser) {
     return json({ error: "Only owners and admins can switch companies" }, { status: 403 });
   }
+
   const company = await prisma.company.findFirst({
     where: {
       id: companyId,

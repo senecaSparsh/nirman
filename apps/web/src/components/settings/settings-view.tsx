@@ -1026,7 +1026,10 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
         </div>
         {canManage && (
           <div className="flex items-center gap-2">
-            {(actorRole === "DEVELOPER" || actorRole === "OWNER") && (
+            {/* RolePermission is a global (cross-tenant) table — only the
+                developer may edit it. Company-specific overrides use Custom
+                Roles, which every tier-1/3 admin can manage below. */}
+            {actorRole === "DEVELOPER" && (
               <Button size="sm" variant="outline" onClick={() => setShowRolePerms(true)}>
                 <Shield className="h-3.5 w-3.5" /> Role Permissions
               </Button>

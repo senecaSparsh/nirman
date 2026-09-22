@@ -284,6 +284,17 @@ export const DELETE = apiHandler(async (req: NextRequest) => {
     return json({ error: "No membership found" }, { status: 404 });
   }
 
+  // The admin-supplied membership must live in THIS company — without the
+  // check an admin could clear delegations on another tenant's membership
+  // by guessing its id (PUT already enforces this via the delegator lookup).
+  const target = await prisma.userCompany.findUnique({
+    where: { id: membershipId },
+    select: { companyId: true },
+  });
+  if (!target || target.companyId !== company.id) {
+    return json({ error: "Membership not found in this company" }, { status: 404 });
+  }
+
   await prisma.userCompany.update({
     where: { id: membershipId },
     data: {
