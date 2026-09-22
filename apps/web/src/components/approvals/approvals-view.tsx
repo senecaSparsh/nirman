@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { Page, Section, StatusPill, Toolbar, ToolbarCount } from "@/components/page";
+import { useConfirm } from "@/lib/use-confirm";
 import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
 import type { ApprovalPORow, ApprovalReqRow, ApprovalGatePassRow, ApprovalDprRow, ApprovalExpenseRow, ApprovalRaBillRow } from "@/lib/types";
 
@@ -146,8 +147,17 @@ export function ApprovalsView({
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [bulkApproving, setBulkApproving] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
 
+  // Batch money actions need a second thought — one stray click shouldn't
+  // push every pending order/indent through unchecked.
   async function bulkApprovePOs(pos: ApprovalPORow[]) {
+    const ok = await confirm({
+      title: `Approve ${pos.length} purchase order${pos.length === 1 ? "" : "s"}?`,
+      description: `This approves all ${pos.length} visible PO${pos.length === 1 ? "" : "s"} at once. Reject individually if any need changes.`,
+      confirmLabel: `Approve ${pos.length}`,
+    });
+    if (!ok) return;
     setBulkApproving(true);
     try {
       const res = await fetch("/api/approvals/batch", {
@@ -169,6 +179,12 @@ export function ApprovalsView({
   }
 
   async function bulkApproveReqs(reqs: ApprovalReqRow[]) {
+    const ok = await confirm({
+      title: `Approve ${reqs.length} material indent${reqs.length === 1 ? "" : "s"}?`,
+      description: `This approves all ${reqs.length} visible indent${reqs.length === 1 ? "" : "s"} at once. Reject individually if any need changes.`,
+      confirmLabel: `Approve ${reqs.length}`,
+    });
+    if (!ok) return;
     setBulkApproving(true);
     try {
       const res = await fetch("/api/approvals/batch", {
@@ -380,6 +396,7 @@ export function ApprovalsView({
           )}
         </>
       )}
+      {confirmDialog}
     </Page>
   );
 }
