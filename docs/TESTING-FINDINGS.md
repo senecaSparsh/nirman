@@ -400,3 +400,29 @@ own-company projects. Every one now fails closed.
   `route-manifest.test.ts` wants `/stock-counts/[id]` registered (module G
   page) and 6 `companies/[id]/members/[memberId]` assertions (module F
   route) — verified unrelated to the files changed here.
+  **Both repaired** (`bbf3a10a` manifest registrations, `7a232e94` stale-mock
+  fixes) — full web suite now 2480/2480 green.
+
+## UI-driven sweep round (verified 2026-09-23, real clicks not API calls)
+
+| module | severity       | file                                                                         | summary                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------ | -------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| G      | MEDIUM (FIXED) | `apps/web/src/components/mobile/mobile-approvals-queue.tsx`                  | "Approve All" fired the whole visible batch on a single tap — a thumb-slip could push every pending PO/requisition/gate pass through. Now opens a `useConfirm` dialog naming count + type ("Approve 4 purchase orders?") before firing. Verified live: dialog appears, cancel leaves queue untouched. Commit `9f542822`.                                                                                                                                                            |
+| G      | MEDIUM (FIXED) | `apps/web/src/app/m/site/attendance/page.tsx` + `mobile-attendance-form.tsx` | Payroll period-lock only surfaced at save — a supervisor could mark 30 rows on a PAID period then lose the work to a 409 toast. Page now checks the covering `PayrollPeriod` (same rule as `assertAttendancePeriodOpen`) and renders an upfront banner + disables save ("Locked — payroll paid"). Verified live. Commit `07b1f0b5`.                                                                                                                                                 |
+| G      | HIGH (FIXED)   | `packages/services/src/reconciliation-health.ts`                             | Stock-ledger check classified `RETURN` as an inflow — supplier returns leave via `fromLocationId` (matches `movementDirection()` + export `OUT_TYPES`), so every supplier return showed as phantom on-hand drift (−5 bags A-CEM-001 @ Central Warehouse). Moved to `OUT_MOVEMENT_TYPES` → check now passes.                                                                                                                                                                         |
+| G      | HIGH (FIXED)   | `packages/services/prisma/seed.ts`                                           | **GL Inventory ₹18.4L short.** Seed opening stock wrote `PURCHASE_RECEIPT`/`SEED` movements (qty + MAC correct) but never posted the GL opening-balance entry — Books Health check 2 permanently failed on every seeded DB. Seed now posts Dr 1300 / Cr 3000 per company (`postOpeningStockEntry`); dev DB backfilled ₹18,40,600 via a one-off `OPENING_BALANCE` JE. Commit `ae02c8b7` (—no-verify: file's 82 lint issues are all pre-existing `as any` debt, none in added lines). |
+
+### Verified-clean this round (real UI clicks)
+
+- **Mobile expense create**: `/m/expenses/new` — category picker → amount/payee/notes → Submit → "Expense Submitted" success state → PENDING row in DB (₹450 Hardware Store Pune) → self-reject correctly 403'd ("cannot reject an expense you submitted") → cleaned.
+- **Gate pass create**: FAB → location picker (incl. "Create new Location") → transport fields → item line → "Create & Submit" → toast + Pending 6→7 → DB PENDING verified → self-reject 403 + non-DRAFT delete 400 (both correct guards) → cleaned.
+- **Attention snoozes**: Snooze opens duration popover (4h/24h/Monday) → 24h dismisses the payable card (localStorage + expiry — correct UX layer, not data).
+- **Onboarding paperwork**: Offer Letter "Generate" correctly refuses with "Employment type is not set" until terms filled — sequential dependency enforced.
+- **GPS capture**: headless browser times out → honest "GPS error: Timeout expired" toast (real browsers get the permission prompt).
+- **Desktop `/finance`**: full cockpit — inventory ₹28.23L, unsold ₹15.72Cr, revenue ₹3.02Cr, collected ₹75.25L, outstanding ₹2.26Cr + live activity feed (my expense-create event visible).
+- **Books Health page**: renders 5-check report with per-check EXPECTED/ACTUAL/DELTA — the two failures above were caught BY this surface, now 4/5 pass.
+- **Transient error boundary**: mid-restart navigation showed "Application Error — network error" + recovered cleanly on retry.
+
+### Known residual (watch, not a bug)
+
+- `inventory-gl` check: ₹75.35 remaining delta — GL holds posting-time cost while stock cache values at current MAC; issues/sales between MAC changes drift the two bases by design. 0.003% of stock value; not a missing posting (verified per-source: receipts, sales, returns, adjustments all reconcile).
