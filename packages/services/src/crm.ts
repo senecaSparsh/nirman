@@ -1,4 +1,4 @@
-import { prisma, type Prisma } from "@nirman/db";
+import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { postPaymentReceived, postDepositReceived } from "./gl-posting";
@@ -481,9 +481,12 @@ export async function generatePaymentSchedule(input: GeneratePaymentScheduleInpu
     throw new ServiceError(`Payment percentages must sum to 100, got ${totalPct}%`, 400);
   }
 
-  // Fetch the sale to compute per-item amounts (including GST split).
-  // We compute the GST-aware amounts here, then delegate to the canonical
-  // createSalePaymentSchedule() which handles the DB writes + audit log.
+  // Fetch the sale to compute per-item amounts. The schedule must always
+  // collect exactly what the customer owes — salePrice + the sale's OWN
+  // recorded gstAmount. Recomputing a hypothetical GST rate here (5%×2/3
+  // residential / 18% commercial) disagrees with the stored gstAmount on
+  // almost every real sale and made createSalePaymentSchedule()'s
+  // sum-validation fail with a 400 on every attempt.
   const sale = await prisma.assetSale.findUnique({
     where: { id: input.assetSaleId },
     select: { salePrice: true, gstAmount: true, projectId: true, status: true, saleStage: true },
@@ -491,23 +494,8 @@ export async function generatePaymentSchedule(input: GeneratePaymentScheduleInpu
   if (!sale) throw new ServiceError("Asset sale not found", 404);
   if (sale.status === "CANCELLED") throw new ServiceError("Cannot create schedule for a cancelled sale");
 
-  // Compute GST split for real estate:
-  // For residential: 1/3 of price is land (exempt), 2/3 is construction (taxable at 5%)
-  // For commercial: full price is taxable at 18%
-  // Standalone land sales (no project) default to commercial-rate GST.
-  const project = sale.projectId
-    ? await prisma.project.findFirst({
-        where: { id: sale.projectId, deletedAt: null },
-        select: { type: true },
-      })
-    : null;
-  const isResidential = project?.type === "RESIDENTIAL";
-  const gstRate = isResidential ? new Decimal(5) : new Decimal(18);
-  const taxablePortion = isResidential ? new Decimal(2).div(3) : new Decimal(1);
-  const effectiveGstRate = gstRate.times(taxablePortion);
-
   const baseAmount = new Decimal(sale.salePrice);
-  const gstAmount = baseAmount.times(effectiveGstRate).div(100).toDecimalPlaces(2);
+  const gstAmount = new Decimal(sale.gstAmount);
   const grandTotal = baseAmount.plus(gstAmount);
 
   // Build schedule items with GST-aware amounts
@@ -671,6 +659,7 @@ export async function recordSchedulePayment(
     if (userId) {
       await logAction(tx, {
         userId,
+        companyId: sale.companyId,
         action: "SCHEDULE_PAYMENT_RECORD",
         entityType: "PaymentScheduleItem",
         entityId: scheduleItemId,
@@ -779,7 +768,6 @@ export async function sendPaymentDueReminders(companyId?: string) {
 
       const isOverdue = item.dueDate && new Date(item.dueDate) < now;
       const channel = customer.phone ? "WHATSAPP" : "EMAIL";
-      const subject = isOverdue ? "Payment Overdue" : "Payment Due Soon";
       const message =
         `Dear ${customer.name},\n\n` +
         `${isOverdue ? "Your payment is OVERDUE" : "Your payment is due soon"}.\n` +

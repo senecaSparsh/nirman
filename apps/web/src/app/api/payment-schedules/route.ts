@@ -18,9 +18,20 @@ const schema = z.object({
 
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.SALE_CREATE);
+  const company = await getCompany();
   const body = await req.json();
   const parsed = schema.safeParse(body);
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid" }, { status: 400 });
+
+  // Tenant check — the schedule deletes + replaces whatever exists on the
+  // sale, so an unchecked assetSaleId lets a caller rewrite another
+  // company's receivable plan (same guard as GET below).
+  const sale = await prisma.assetSale.findFirst({
+    where: { id: parsed.data.assetSaleId, companyId: company.id, ...await scopeWhere("AssetSale", {}) },
+    select: { id: true },
+  });
+  if (!sale) return json({ error: "Sale not found" }, { status: 404 });
+
   try {
     const d = parsed.data;
     const schedule = await generatePaymentSchedule({

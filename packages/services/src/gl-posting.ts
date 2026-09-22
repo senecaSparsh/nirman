@@ -300,6 +300,7 @@ export async function postJournalEntry(
 
   await logAction(tx, {
     userId: input.postedById,
+    companyId: input.companyId,
     action: "JOURNAL_ENTRY_POST",
     entityType: "JournalEntry",
     entityId: entry.id,

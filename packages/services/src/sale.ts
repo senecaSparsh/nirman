@@ -348,6 +348,17 @@ export async function sellAsset(input: SellAssetInput) {
       throw new ServiceError("Asset not found in this company", 404);
     }
 
+    // Broker must belong to the same company — an unchecked brokerId let a
+    // caller attach another tenant's broker row to their sale (cross-tenant
+    // reference + the victim's broker record showing foreign sales).
+    if (input.brokerId) {
+      const broker = await tx.broker.findFirst({
+        where: { id: input.brokerId, companyId: input.companyId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!broker) throw new ServiceError("Broker not found", 404);
+    }
+
     // Compute GST on the sale (Output GST liability)
     const gstRate = input.gstRate ? new Decimal(input.gstRate) : new Decimal(0);
     if (gstRate.lt(0) || gstRate.gt(100)) throw new ServiceError("gstRate must be between 0 and 100");

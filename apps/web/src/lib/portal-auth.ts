@@ -44,11 +44,15 @@ if (process.env.NODE_ENV === "production" && !PORTAL_SECRET) {
 
 /**
  * Sign a customer ID with HMAC-SHA256.
- * Returns `customerId.hexSignature`.
+ * Returns `customerId.expiresAt.hexSignature` — the expiry is part of the
+ * signed payload so a captured cookie cannot be replayed after the session
+ * window ends (cookie max-age alone is only enforced client-side).
  */
 export function signPortalCookie(customerId: string): string {
-  const hmac = createHmac("sha256", PORTAL_SECRET).update(customerId).digest("hex");
-  return `${customerId}.${hmac}`;
+  const expiresAt = Date.now() + PORTAL_COOKIE_MAX_AGE * 1000;
+  const payload = `${customerId}.${expiresAt}`;
+  const hmac = createHmac("sha256", PORTAL_SECRET).update(payload).digest("hex");
+  return `${payload}.${hmac}`;
 }
 
 /**
@@ -91,17 +95,28 @@ export function verifyPortalPreauthToken(token: string, expectedPhone: string): 
 }
 
 /**
- * Verify a signed cookie value. Returns the customer ID if valid, null otherwise.
+ * Verify a signed cookie value. Returns the customer ID if valid and not
+ * expired, null otherwise.
  */
 export function verifyPortalCookie(value: string): string | null {
   const dotIdx = value.lastIndexOf(".");
   if (dotIdx <= 0 || dotIdx === value.length - 1) return null;
-  const customerId = value.slice(0, dotIdx);
+  const payload = value.slice(0, dotIdx);
   const signature = value.slice(dotIdx + 1);
-  if (!customerId || !signature) return null;
+  if (!payload || !signature) return null;
   // Validate hex signature
   if (!/^[0-9a-f]+$/i.test(signature)) return null;
-  const expected = createHmac("sha256", PORTAL_SECRET).update(customerId).digest("hex");
+  // Split payload into customerId + expiresAt (customer ids may contain dots —
+  // the expiry is always the last segment)
+  const expIdx = payload.lastIndexOf(".");
+  if (expIdx <= 0 || expIdx === payload.length - 1) return null;
+  const customerId = payload.slice(0, expIdx);
+  const expiresAt = parseInt(payload.slice(expIdx + 1), 10);
+  if (!customerId || isNaN(expiresAt)) return null;
+  // Expired sessions are rejected server-side — a stolen cookie cannot be
+  // replayed past its window.
+  if (Date.now() > expiresAt) return null;
+  const expected = createHmac("sha256", PORTAL_SECRET).update(payload).digest("hex");
   // Timing-safe comparison
   if (signature.length !== expected.length) return null;
   try {

@@ -328,6 +328,7 @@ export async function updateUnitStatus(unitId: string, status: BuiltUnitStatus, 
 
     await logAction(tx, {
       userId,
+      companyId: unit.project.companyId,
       action: "BUILT_UNIT_STATUS_CHANGE",
       entityType: "BuiltUnit",
       entityId: unitId,

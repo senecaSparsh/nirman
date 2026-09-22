@@ -1,16 +1,20 @@
 /**
  * Unit tests for portal auth helpers.
  *
- *   signPortalCookie  — sign a customer ID with HMAC-SHA256
+ *   signPortalCookie  — sign a customer ID + expiry with HMAC-SHA256
  *   verifyPortalCookie — verify a signed cookie value
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   signPortalCookie,
   verifyPortalCookie,
   PORTAL_COOKIE_NAME,
   PORTAL_COOKIE_MAX_AGE,
 } from "./portal-auth";
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("signPortalCookie / verifyPortalCookie", () => {
   it("signs and verifies a customer ID round-trip", () => {
@@ -21,23 +25,45 @@ describe("signPortalCookie / verifyPortalCookie", () => {
     expect(verified).toBe("customer-123");
   });
 
+  it("embeds an expiry timestamp inside the signed payload", () => {
+    const signed = signPortalCookie("customer-123");
+    // format: customerId.expiresAt.hexSignature
+    const parts = signed.split(".");
+    expect(parts.length).toBe(3);
+    const expiresAt = parseInt(parts[1]!, 10);
+    expect(expiresAt).toBeGreaterThan(Date.now());
+    expect(expiresAt).toBeLessThanOrEqual(Date.now() + PORTAL_COOKIE_MAX_AGE * 1000 + 1000);
+  });
+
   it("produces different signatures for different customer IDs", () => {
     const sig1 = signPortalCookie("customer-1");
     const sig2 = signPortalCookie("customer-2");
     expect(sig1).not.toBe(sig2);
   });
 
-  it("produces the same signature for the same customer ID", () => {
-    const sig1 = signPortalCookie("customer-123");
-    const sig2 = signPortalCookie("customer-123");
-    expect(sig1).toBe(sig2);
+  it("rejects the cookie after its embedded expiry (server-side)", () => {
+    const signed = signPortalCookie("customer-123");
+    expect(verifyPortalCookie(signed)).toBe("customer-123");
+    // Move the clock beyond the 7-day session window — a replayed cookie
+    // must fail even though its signature is intact.
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.now() + PORTAL_COOKIE_MAX_AGE * 1000 + 60_000);
+    expect(verifyPortalCookie(signed)).toBeNull();
   });
 
   it("returns null for tampered signature", () => {
     const signed = signPortalCookie("customer-123");
-    // Tamper with the signature part
+    // Tamper with the signature part (customerId.expiresAt.sig)
     const parts = signed.split(".");
-    const tampered = `${parts[0]!}.${parts[1]!.slice(0, -2)}xx`;
+    const tampered = `${parts[0]!}.${parts[1]!}.${parts[2]!.slice(0, -2)}xx`;
+    expect(verifyPortalCookie(tampered)).toBeNull();
+  });
+
+  it("returns null for tampered expiry", () => {
+    const signed = signPortalCookie("customer-123");
+    const parts = signed.split(".");
+    // Push expiry far into the future but keep the original signature
+    const tampered = `${parts[0]!}.${Date.now() + 999_999_999}.${parts[2]!}`;
     expect(verifyPortalCookie(tampered)).toBeNull();
   });
 

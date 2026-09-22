@@ -79,10 +79,16 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const body = await req.json();
   const action = body?.action as string;
 
-  // Verify the relevant parcel belongs to the user's company before any action
-  const parcelIdToCheck = body?.parentParcelId ?? body?.parcelId;
-  if (parcelIdToCheck) {
-    const owned = await prisma.landParcel.findFirst({ where: { id: parcelIdToCheck, landPurchase: { companyId: company.id }, deletedAt: null, ...await scopeWhere("LandParcel", {}) }, select: { id: true } });
+  // Verify the relevant parcel belongs to the user's company before any action.
+  // Check EVERY parcel id present in the body — actions act on `parcelId`
+  // (status/valuation/edit) or `parentParcelId` (partition/unpartition), and a
+  // caller could otherwise pass an owned decoy in one field and a foreign
+  // target in the other to bypass this gate.
+  const parcelIdsToCheck = [body?.parentParcelId, body?.parcelId].filter(
+    (v): v is string => typeof v === "string" && v.length > 0,
+  );
+  for (const pid of parcelIdsToCheck) {
+    const owned = await prisma.landParcel.findFirst({ where: { id: pid, landPurchase: { companyId: company.id }, deletedAt: null, ...await scopeWhere("LandParcel", {}) }, select: { id: true } });
     if (!owned) return json({ error: "Parcel not found" }, { status: 404 });
   }
 
