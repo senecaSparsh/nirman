@@ -31,7 +31,7 @@ export async function loadCompanyProfileData(companyId: string): Promise<{
   /** Custom roles in this company — clients need `tier` for the
    *  custom-role-aware manage check (a CUSTOM_* member's role key can't be
    *  fed to canAssignRole, which normalizes it to SUPERVISOR). */
-  customRoles: { key: string; label: string; tier: number }[];
+  customRoles: { id: string; key: string; label: string; description: string; baseRole: string | null; tier: number; permissions: string[] }[];
 } | null> {
   const role = await getUserRole();
   const currentCompany = await getCompany();
@@ -109,7 +109,7 @@ export async function loadCompanyProfileData(companyId: string): Promise<{
   // Custom roles in this company — for member-role labels + tier checks.
   const customRoleRows = await prisma.customRole.findMany({
     where: { companyId },
-    select: { key: true, label: true, tier: true },
+    select: { id: true, key: true, label: true, description: true, baseRole: true, tier: true, permissions: true },
   });
   const customLabels = await getCustomRoleLabels([companyId]);
 

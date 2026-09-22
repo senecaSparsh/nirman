@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
-import { canAssignRole, roleTier, ROLE_META, type Role } from "@/lib/roles";
+import { canAssignRole, roleTier, ROLE_META, ROLE_LIST, ROLES, effectivePermissions, PERMISSION_MODULES, ALL_PERMISSIONS, type Role } from "@/lib/roles";
 import { formatCurrency, formatDate, formatDateTime, displayEmail } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import type { CompanyProfileData } from "@/components/companies/company-profile-client";
@@ -40,6 +40,16 @@ import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog"
      8. Integrations (external service connections)
      9. Activity & Audit (audit log, backups)
    ═══════════════════════════════════════════════════════════════════════════ */
+
+type CustomRoleRow = {
+  id: string;
+  key: string;
+  label: string;
+  description: string;
+  baseRole: string | null;
+  tier: number;
+  permissions: string[];
+};
 
 const LOCATION_TYPE_LABELS: Record<string, string> = {
   COMPANY_WAREHOUSE: "Warehouse",
@@ -71,7 +81,7 @@ export function MobileCompanyDetails({
   };
   roleOptions: { key: string; label: string }[];
   assignableRoles: Role[];
-  customRoles: { key: string; label: string; tier: number }[];
+  customRoles: CustomRoleRow[];
 }) {
   if (!permissions.canManage) {
     return <MobileNoAccess what="company details" />;
@@ -677,7 +687,7 @@ function MembersSection({
   actorRole: string;
   roleOptions: { key: string; label: string }[];
   assignable: Role[];
-  customRoles: { key: string; label: string; tier: number }[];
+  customRoles: CustomRoleRow[];
 }) {
   const router = useRouter();
   const [confirm, confirmDialog] = useConfirm();
@@ -982,7 +992,355 @@ function MembersSection({
         </div>
       )}
       {confirmDialog}
+      <CustomRolesBlock canManage={canManage} actorRole={actorRole} customRoles={customRoles} />
     </CollapsibleSection>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────
+//  Custom roles block — create/edit/delete company-scoped roles.
+//  Mirrors the desktop CreateRoleDialog: "Start from a role" (inherits
+//  tier + matrix, extra grants additive) or "Build from scratch"
+//  (explicit tier + hand-picked permission set — nothing granted unless
+//  checked). All guards run server-side in /api/custom-roles.
+// ───────────────────────────────────────────────────────────────
+
+function CustomRolesBlock({
+  canManage, actorRole, customRoles,
+}: {
+  canManage: boolean;
+  actorRole: string;
+  customRoles: CustomRoleRow[];
+}) {
+  const router = useRouter();
+  const [confirm, confirmDialog] = useConfirm();
+  const [formOpen, setFormOpen] = React.useState(false);
+  const [editing, setEditing] = React.useState<CustomRoleRow | null>(null);
+  const [deleting, setDeleting] = React.useState<string | null>(null);
+  const actorTierNum = roleTier(actorRole);
+  // Same manageability rule as the desktop UsersManager — the actor must
+  // sit strictly above the role's tier.
+  const manageable = customRoles.filter((cr) => actorTierNum < cr.tier);
+
+  if (!canManage) return null;
+
+  async function deleteRole(cr: CustomRoleRow) {
+    const ok = await confirm({
+      title: `Delete ${cr.label}?`,
+      description: "Members holding this role lose it immediately. This cannot be undone.",
+      confirmLabel: "Delete Role",
+      variant: "destructive",
+    });
+    if (!ok) return;
+    setDeleting(cr.id);
+    try {
+      const res = await fetch(`/api/custom-roles/${cr.id}`, { method: "DELETE" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error ?? "Failed");
+      toast.success("Custom role deleted");
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setDeleting(null);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 pt-1">
+      <div className="flex items-center gap-2">
+        <Shield className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
+        <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-700)" }}>
+          Custom Roles{manageable.length > 0 ? ` · ${manageable.length}` : ""}
+        </span>
+        <button
+          onClick={() => { setEditing(null); setFormOpen(true); }}
+          className="ml-auto flex items-center gap-1 text-m-caption font-bold press"
+          style={{ color: "var(--color-primary-600, var(--color-ink-700))" }}
+        >
+          <Plus className="size-3" /> New Role
+        </button>
+      </div>
+      {manageable.length === 0 ? (
+        <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
+          None yet — build a permission set that fits a real job, then assign it to members above.
+        </p>
+      ) : (
+        manageable.map((cr) => (
+          <div
+            key={cr.id}
+            className="rounded-[0.5rem] border px-2.5 py-2 flex items-center gap-2"
+            style={{ borderColor: "var(--color-line)" }}
+          >
+            <div className="min-w-0 flex-1">
+              <p className="text-m-caption font-bold truncate" style={{ color: "var(--color-ink-900)" }}>
+                {cr.label}
+                <span className="ml-1.5 font-normal" style={{ color: "var(--color-ink-400)" }}>
+                  {cr.baseRole ? `extends ${ROLES[cr.baseRole as Role]?.label ?? cr.baseRole}` : `Tier ${cr.tier}`} · {cr.permissions.length} perm{cr.permissions.length === 1 ? "" : "s"}
+                </span>
+              </p>
+            </div>
+            <button
+              onClick={() => { setEditing(cr); setFormOpen(true); }}
+              className="p-1.5 press"
+              aria-label={`Edit ${cr.label}`}
+            >
+              <Pencil className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
+            </button>
+            <button
+              onClick={() => deleteRole(cr)}
+              disabled={deleting === cr.id}
+              className="p-1.5 press disabled:opacity-50"
+              aria-label={`Delete ${cr.label}`}
+            >
+              {deleting === cr.id
+                ? <Loader2 className="size-3.5 animate-spin" style={{ color: "var(--color-stop)" }} />
+                : <Trash2 className="size-3.5" style={{ color: "var(--color-stop)" }} />}
+            </button>
+          </div>
+        ))
+      )}
+      {formOpen && (
+        <MobileCustomRoleForm
+          actorRole={actorRole}
+          editing={editing}
+          onClose={() => setFormOpen(false)}
+          onSaved={() => { setFormOpen(false); router.refresh(); }}
+        />
+      )}
+      {confirmDialog}
+    </div>
+  );
+}
+
+function MobileCustomRoleForm({
+  actorRole, editing, onClose, onSaved,
+}: {
+  actorRole: string;
+  editing: CustomRoleRow | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const isEdit = editing != null;
+  const [key, setKey] = React.useState(editing?.key ?? "");
+  const [label, setLabel] = React.useState(editing?.label ?? "");
+  const [description, setDescription] = React.useState(editing?.description ?? "");
+  const [mode, setMode] = React.useState<"inherit" | "scratch">(editing?.baseRole ? "inherit" : "scratch");
+  const [baseRole, setBaseRole] = React.useState<string>(editing?.baseRole ?? "SITE_ENGINEER");
+  const [tier, setTier] = React.useState<number>(editing?.tier ?? 5);
+  const [grants, setGrants] = React.useState<Set<string>>(new Set(editing?.permissions ?? []));
+  const [expandedModule, setExpandedModule] = React.useState<string | null>(null);
+  const [saving, setSaving] = React.useState(false);
+
+  const baseRoles = ROLE_LIST.filter((r) => r.key !== "OWNER" && r.key !== "DEVELOPER");
+  const basePermSet = mode === "inherit" ? new Set(effectivePermissions(baseRole)) : new Set<string>();
+  const baseIsWildcard = mode === "inherit" && ROLES[baseRole as Role]?.permissions === "*";
+  const actorTier = roleTier(actorRole);
+  const tierOptions = [2, 3, 4, 5].filter((t) => t > actorTier);
+  const tierLabels: Record<number, string> = { 2: "senior leadership", 3: "department head", 4: "staff", 5: "field" };
+
+  function toggleGrant(perm: string) {
+    setGrants((prev) => {
+      const next = new Set(prev);
+      if (next.has(perm)) next.delete(perm);
+      else next.add(perm);
+      return next;
+    });
+  }
+
+  async function save() {
+    if (!label.trim() || (!isEdit && !key.trim())) {
+      toast.error("Role key and label are required");
+      return;
+    }
+    if (mode === "scratch" && grants.size === 0) {
+      toast.error("Pick at least one permission — a role with none signs in to an empty app");
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = {
+        label: label.trim(),
+        description: description.trim(),
+        baseRole: mode === "inherit" ? baseRole : null,
+        ...(mode === "scratch" ? { tier } : {}),
+        permissions: Array.from(grants),
+      };
+      const res = isEdit
+        ? await fetch(`/api/custom-roles/${editing.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+        : await fetch("/api/custom-roles", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ key: key.trim().toUpperCase().replace(/\s+/g, "_"), ...payload }),
+          });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error ?? "Failed");
+      toast.success(json.message ?? (isEdit ? "Role updated" : "Role created"));
+      onSaved();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <MobileDialog open={true} onClose={onClose} title={isEdit ? "Edit Custom Role" : "New Custom Role"}>
+      <div className="flex flex-col gap-3">
+        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+          {isEdit
+            ? "Update the label, base, tier, and permission set. The key is fixed once created."
+            : "Start from a built-in role and add permissions, or build the set entirely from scratch."}
+        </p>
+
+        {/* Mode toggle */}
+        <div className="flex gap-2">
+          {(["inherit", "scratch"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className="flex-1 rounded-[0.5rem] py-2 text-m-caption font-bold press"
+              style={{
+                backgroundColor: mode === m ? "var(--color-ink-950)" : "var(--color-concrete)",
+                color: mode === m ? "var(--color-paper)" : "var(--color-ink-700)",
+              }}
+            >
+              {m === "inherit" ? "Start from a role" : "Build from scratch"}
+            </button>
+          ))}
+        </div>
+
+        {isEdit ? (
+          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+            Role Key · <span className="font-mono font-bold" style={{ color: "var(--color-ink-900)" }}>{editing.key}</span> (fixed)
+          </p>
+        ) : (
+          <>
+            <UnderlineInput
+              label="Role Key"
+              value={key}
+              onChange={setKey}
+              placeholder="e.g. AUDIT_VIEWER"
+            />
+            <p className="text-m-caption -mt-2" style={{ color: "var(--color-ink-400)" }}>
+              Stored as CUSTOM_{key.trim().toUpperCase().replace(/\s+/g, "_") || "…"}
+            </p>
+          </>
+        )}
+        <UnderlineInput label="Display Label" value={label} onChange={setLabel} placeholder="e.g. Read-Only Auditor" />
+        <UnderlineInput label="Description" value={description} onChange={setDescription} placeholder="Optional — what this role is for" />
+
+        {mode === "inherit" ? (
+          <EnumSelect
+            label="Base Role (inherits tier + permissions)"
+            value={baseRole}
+            onChange={setBaseRole}
+            options={baseRoles.map((r) => ({ value: r.key, label: `${r.label} (Tier ${r.tier})` }))}
+          />
+        ) : (
+          <EnumSelect
+            label="Access Level"
+            value={String(tier)}
+            onChange={(v) => setTier(Number(v))}
+            options={tierOptions.map((t) => ({ value: String(t), label: `Tier ${t} — ${tierLabels[t]}` }))}
+          />
+        )}
+
+        <div className="flex flex-col gap-1.5">
+          <p className="text-m-caption font-bold" style={{ color: "var(--color-ink-700)" }}>
+            {mode === "inherit" ? "Additional Permissions" : "Permissions"}
+          </p>
+          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+            {mode === "inherit"
+              ? "Grant permissions beyond the base role's defaults. Inherited defaults show checked."
+              : "Pick the complete permission set — nothing is granted unless you check it."}
+          </p>
+          {baseIsWildcard ? (
+            <p className="text-m-caption rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>
+              {ROLES[baseRole as Role]?.label ?? baseRole} already has all {ALL_PERMISSIONS.length} permissions — nothing to add.
+            </p>
+          ) : (
+            <div className="rounded-[0.5rem] border overflow-hidden" style={{ borderColor: "var(--color-line)" }}>
+              {PERMISSION_MODULES.map((mod) => {
+                const grantCount = mod.permissions.filter((p) => grants.has(p)).length;
+                const defaultCount = mod.permissions.filter((p) => basePermSet.has(p)).length;
+                const expanded = expandedModule === mod.key;
+                return (
+                  <div key={mod.key} className="border-b last:border-0" style={{ borderColor: "var(--color-line)" }}>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedModule(expanded ? null : mod.key)}
+                      className="w-full flex items-center gap-2 px-2.5 py-2 text-left press"
+                    >
+                      <span className="flex-1 text-m-caption font-bold" style={{ color: "var(--color-ink-900)" }}>
+                        {mod.label}
+                        <span className="ml-1.5 font-normal" style={{ color: "var(--color-ink-400)" }}>
+                          {defaultCount + grantCount}/{mod.permissions.length}
+                        </span>
+                      </span>
+                      {grantCount > 0 && <Badge tone="go">+{grantCount}</Badge>}
+                      <ChevronDown
+                        className="size-3.5 shrink-0 transition-transform"
+                        style={{ color: "var(--color-ink-500)", transform: expanded ? "rotate(180deg)" : "none" }}
+                      />
+                    </button>
+                    {expanded && (
+                      <div className="border-t" style={{ borderColor: "var(--color-line)" }}>
+                        {mod.permissions.map((perm) => {
+                          const isBase = basePermSet.has(perm);
+                          const granted = grants.has(perm);
+                          const permKey = perm.split(".")[1] ?? perm;
+                          return (
+                            <button
+                              key={perm}
+                              type="button"
+                              disabled={isBase}
+                              onClick={() => toggleGrant(perm)}
+                              className="w-full flex items-center gap-2 px-2.5 py-1.5 text-left press disabled:opacity-60 border-b last:border-0"
+                              style={{ borderColor: "var(--color-line)" }}
+                            >
+                              <span
+                                className="size-4 rounded-[0.25rem] border flex items-center justify-center shrink-0"
+                                style={{
+                                  borderColor: isBase || granted ? "var(--color-ink-950)" : "var(--color-line)",
+                                  backgroundColor: isBase || granted ? "var(--color-ink-950)" : "transparent",
+                                }}
+                              >
+                                {(isBase || granted) && <span className="text-[10px]" style={{ color: "var(--color-paper)" }}>✓</span>}
+                              </span>
+                              <span className="flex-1 text-m-caption" style={{ color: "var(--color-ink-800)" }}>
+                                {permKey.replace(/_/g, " ")}
+                                {isBase && <span style={{ color: "var(--color-ink-400)" }}> · inherited</span>}
+                              </span>
+                              <span className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>{perm}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={save}
+          disabled={saving}
+          className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold press disabled:opacity-50"
+          style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+        >
+          {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+          {isEdit ? "Save Role" : "Create Role"}
+        </button>
+      </div>
+    </MobileDialog>
   );
 }
 
