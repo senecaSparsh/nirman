@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { cn, formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { useSnooze } from "@/lib/use-snooze";
+import { useConfirm } from "@/lib/use-confirm";
 import { SnoozeButton } from "@/components/mobile/v2/snooze-button";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
@@ -197,9 +198,30 @@ const [expenseRejectReason, setExpenseRejectReason] = useState("");
 const [raBillRejectReason, setRaBillRejectReason] = useState("");
 const [claimRejectReason, setClaimRejectReason] = useState("");
  const [batchApproving, setBatchApproving] = useState(false);
+ const [confirm, confirmDialog] = useConfirm();
 
  // ── Batch approve: approve all visible items of a given type ──
+ // A single tap approves money — confirm before firing so a thumb-slip
+ // on the list can't push lakhs through the queue unchecked.
  async function batchApprove(type: "po" | "requisition" | "gatePass" | "dpr" | "expense" | "raBill" | "claim") {
+ const count =
+   type === "po" ? visiblePOs.length
+   : type === "requisition" ? visibleReqs.length
+   : type === "gatePass" ? visibleGps.length
+   : type === "dpr" ? visibleDprs.length
+   : type === "expense" ? visibleExpenses.length
+   : type === "raBill" ? visibleRaBills.length
+   : visibleClaims.length;
+ const noun =
+   type === "po" ? "purchase order" : type === "requisition" ? "requisition"
+   : type === "gatePass" ? "gate pass" : type === "dpr" ? "DPR"
+   : type === "expense" ? "expense" : type === "raBill" ? "RA bill" : "claim";
+ const ok = await confirm({
+   title: `Approve ${count} ${noun}${count === 1 ? "" : "s"}?`,
+   description: `This approves all ${count} visible ${noun}${count === 1 ? "" : "s"} at once. Reject items individually if any need changes.`,
+   confirmLabel: `Approve ${count}`,
+ });
+ if (!ok) return;
  haptic(10);
  setBatchApproving(true);
 
@@ -1661,6 +1683,7 @@ async function approveGp(gp: GatePassRow) {
  </div>
  </MobileDialog>
 )}
+ {confirmDialog}
  </div>
  );
 }
