@@ -68,12 +68,13 @@ export default async function AcceptAgreementPage({
 
   // Same 30-day window the POST endpoint enforces — an expired link must not
   // keep rendering wage/terms either, or the expiry only blocks the signature
-  // while the data keeps leaking through forwarded messages.
+  // while the data keeps leaking through forwarded messages. Applies even to
+  // already-accepted links: the employee can log in for their own copy.
   const LINK_TTL_DAYS = 30;
   const issuedAt = employee.contractIssuedAt;
   const LINK_TTL_MS = LINK_TTL_DAYS * 24 * 60 * 60 * 1000;
   // eslint-disable-next-line react-hooks/purity
-  const expired = !alreadyAccepted && issuedAt != null && Date.now() - issuedAt.getTime() > LINK_TTL_MS;
+  const expired = issuedAt != null && Date.now() - issuedAt.getTime() > LINK_TTL_MS;
   if (expired) {
     return (
       <div className="min-h-dvh grid place-items-center p-6 bg-gray-50">
