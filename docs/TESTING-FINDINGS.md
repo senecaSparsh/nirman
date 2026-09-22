@@ -121,3 +121,33 @@ re-verified against the live dev server. Commits `cf9befb2`, `8648d1fe`.
   release-test; SRG parcel renamed during exploit was restored to `PLOT-1`.
 - Dev server note: it serves the CHECKED-OUT branch — concurrent agent branch
   flips will serve unfixed main; verified on `test/d-sales`.
+
+## Custom roles — scratch/inherit builder + bounded delegation (verified 2026-09-22)
+
+- **Mobile builder added** (commit 2a37f9e3): `/m/settings/company` → Members & Access
+  → "Custom Roles" block — list (extends/tier + perm counts), edit, delete, and a
+  bottom-sheet builder with the same two modes as desktop ("Start from a role" /
+  "Build from scratch"). `/m/settings/team` redirects to `/m/hr/employees` — this
+  block is the only mobile create path.
+- **Loader widened**: `loadCompanyProfileData` now selects
+  id/baseRole/description/permissions on customRoleRows (additive — narrower
+  consumer prop types unchanged).
+- **Entry gate**: POST /api/custom-roles requires `users.manage` — `hr.manage`
+  alone cannot create roles (HR_MANAGER carries users.manage natively, t3).
+- **Bounded delegation verified LIVE** — created CUSTOM_DEPT_ADMIN (t3 scratch,
+  {users.view, users.manage, hr.view, hr.manage}), hatted on Test Worker Sharma,
+  switched his active hat: /api/me resolved exactly those 4 perms (31 supervisor
+  perms fully dropped). As that actor:
+  - t4 scratch {hr.view} → 200 (Site Clerk)
+  - t4 + finance.manage → 403 "can't grant permissions you don't have"
+  - t3 peer / t2 above → 403 tier guard
+  - inherit PROJECT_DIRECTOR (t2 base) → 403 base-authority guard
+  - inherit SITE_ENGINEER (t4) + extra → 200 (InhSE)
+  - t4 {users.manage,...} → 200 (MiniAdmin — chain delegation, further bounded)
+  - self-member PATCH → 403 (can't manage a member holding a t3 hat — peers)
+- **Tier/H-level/parent model**: `tier` = authority ladder (stored on role, DB-
+  resolved both actor+target sides); `hierarchyLevel` = org-tree depth, clamped
+  ≥ tier on create; roles have no parent — reporting lines are per-member.
+- **Resolution**: scratch (baseRole null) → effective set is exactly the granted
+  list; inherit → base matrix + extras. Actor side resolves CUSTOM_* via
+  getActingRole → resolveCustomAuthorityRole (declared tier → authority built-in).
