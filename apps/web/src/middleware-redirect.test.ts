@@ -138,23 +138,31 @@ describe("Middleware: deep route redirect (mobile UA)", () => {
   });
 });
 
-describe("Middleware: /m routes never reverse-redirected", () => {
-  it("desktop UA on /m → no redirect to /", () => {
+describe("Middleware: desktop UA reverse-redirected off /m", () => {
+  it("desktop UA on /m → redirects to /", () => {
     const res = middleware(makeReq("/m", { ua: DESKTOP_UA }));
-    expect(res.status).toBe(200);
-    expect(getRedirectLocation(res)).toBeNull();
+    expect(res.status).toBe(307);
+    expect(getRedirectLocation(res)).toBe(`${BASE}/`);
   });
 
-  it("desktop UA on /m/home → no redirect", () => {
+  it("desktop UA on /m/home → redirects to /", () => {
     const res = middleware(makeReq("/m/home", { ua: DESKTOP_UA }));
-    expect(res.status).toBe(200);
-    expect(getRedirectLocation(res)).toBeNull();
+    expect(res.status).toBe(307);
+    expect(getRedirectLocation(res)).toBe(`${BASE}/`);
   });
 
-  it("desktop UA on /m/materials → no redirect", () => {
+  it("desktop UA on /m/materials → redirects to /materials", () => {
     const res = middleware(makeReq("/m/materials", { ua: DESKTOP_UA }));
-    expect(res.status).toBe(200);
-    expect(getRedirectLocation(res)).toBeNull();
+    expect(res.status).toBe(307);
+    expect(getRedirectLocation(res)).toBe(`${BASE}/materials`);
+  });
+
+  it("desktop UA on a mobile-only /m route → lands on desktop home", () => {
+    const res = middleware(makeReq("/m/queue", { ua: DESKTOP_UA }));
+    expect(res.status).toBe(307);
+    const loc = getRedirectLocation(res);
+    expect(loc).toBeTruthy();
+    expect(loc).not.toContain("/m/");
   });
 
   it("mobile UA on /m/home → no redirect (already on mobile)", () => {

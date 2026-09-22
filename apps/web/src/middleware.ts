@@ -27,7 +27,9 @@ import { resolveTarget } from "@/lib/surface-map";
  * Rules:
  *   · "/" + mobile UA            →  302 to "/m"  (one-time landing)
  *   · deep routes + mobile UA    →  302 to their /m/* equivalents
- *   · "/m" on any UA             →  stays on "/m" (no reverse redirect)
+ *   · "/m" + mobile UA           →  stays (already mobile)
+ *   · "/m*" + non-mobile UA      →  302 to desktop equivalent (symmetric
+ *     reverse redirect — desktop users never see the mobile surface)
  *   · No desktop escape hatch — a phone never sees the desktop surface,
  *     and the CSS surface gate means it can't paint even for one frame.
  *
@@ -179,6 +181,23 @@ export function middleware(req: NextRequest) {
   // Landing page redirect (kept separate for the /m → /m/home redirect)
   if (pathname === "/" && isMobileRequest(req)) {
     return NextResponse.redirect(new URL("/m", req.url));
+  }
+
+  // ── Symmetric reverse redirect — desktop UA must never see mobile ──
+  // A non-mobile UA hitting any /m/* route is redirected to the desktop
+  // equivalent before a byte of mobile HTML ships — the mirror of the
+  // mobile redirect above. Mobile-only routes (no desktop equivalent)
+  // land on the desktop home, same as the /m/home fallback for phones.
+  if (
+    !isMobileRequest(req) &&
+    (pathname === "/m" || pathname.startsWith("/m/"))
+  ) {
+    const search = searchParams.size ? `?${searchParams.toString()}` : "";
+    const target =
+      pathname === "/m"
+        ? "/"
+        : (resolveTarget(pathname, search, false) ?? "/" + search);
+    return NextResponse.redirect(new URL(target, req.url));
   }
 
   // AUTH_BYPASS=true: skip the auth gate entirely (headless dev mode).
