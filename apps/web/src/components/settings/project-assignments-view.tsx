@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
-import { formatDate } from "@/lib/utils";
+import { formatDate, displayEmail } from "@/lib/utils";
 import { ROLES, type Role } from "@/lib/roles";
 
 export type AssignmentRow = {
@@ -138,7 +138,7 @@ export function ProjectAssignmentsView({
                   <Badge variant="default">as {roleLabel(a.scopedRole)}</Badge>
                 </div>
                 <div className="text-meta text-muted-foreground">
-                  {a.userEmail} · assigned {formatDate(a.assignedAt)}
+                  {displayEmail(a.userEmail)} · assigned {formatDate(a.assignedAt)}
                 </div>
               </div>
               {canManage && (
