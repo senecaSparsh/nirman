@@ -892,6 +892,15 @@ function SignInForm({ showDevLogin, otpEnabled }: { showDevLogin: boolean; otpEn
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
               {loading ? "Verifying…" : "Verify & sign in"}
             </Button>
+
+            <button
+              type="button"
+              onClick={() => { setPhoneStep("password"); setError(""); }}
+              className="block w-full text-center text-caption text-muted-foreground underline hover:text-foreground"
+              disabled={busy}
+            >
+              Use password instead
+            </button>
           </form>
         )}
 
