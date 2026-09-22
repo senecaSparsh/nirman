@@ -56,12 +56,41 @@ import {
   createMaterialSale,
   createMaterialSalePayment,
   createScrapGeneration,
+  postJournalEntry,
+  ACCT,
 } from "../src";
 import Decimal from "decimal.js";
 
 const prisma = new PrismaClient();
 
 // ── Helpers ──────────────────────────────────────────────────
+
+/**
+ * postOpeningStockEntry — SEED opening-stock movements put physical qty +
+ * value on the ledger, but without a journal the GL inventory account (1300)
+ * stays short by the same amount (Books Health check 2 fails). Post the
+ * matching opening-balance entry: Dr Inventory / Cr Retained Earnings.
+ */
+async function postOpeningStockEntry(
+  companyId: string,
+  stock: { code: string; qty: number; cost: number }[],
+  label: string,
+) {
+  const total = stock.reduce((s, i) => s.plus(new Decimal(i.qty).times(i.cost)), new Decimal(0));
+  if (total.isZero()) return;
+  await prisma.$transaction(async (tx) => {
+    await postJournalEntry(tx, {
+      companyId,
+      sourceType: "OPENING_BALANCE",
+      sourceId: `${companyId}:opening-stock`,
+      memo: `Opening stock at go-live — ${label}`,
+      lines: [
+        { accountCode: ACCT.INVENTORY, debit: total, credit: 0, memo: "Opening stock" },
+        { accountCode: ACCT.RETAINED_EARNINGS, debit: 0, credit: total, memo: "Opening balance" },
+      ],
+    });
+  });
+}
 
 /** Find-or-create a single record by a unique predicate (for master entities). */
 async function ensure<T extends { id: string }>(
@@ -408,6 +437,7 @@ async function main() {
       });
     });
   }
+  await postOpeningStockEntry(company.id, openingStock, company.name ?? "My Company");
 
   // ── 10. Requisition (planning layer) → approved ─────────────
   const req1 = await prisma.materialRequisition.create({
@@ -2098,6 +2128,7 @@ async function main() {
       });
     });
   }
+  await postOpeningStockEntry(infraId, infraOpeningStock, "Nirman Infrastructure");
 
   // Equipment for Nirman Infrastructure
   const infraEquipment = [

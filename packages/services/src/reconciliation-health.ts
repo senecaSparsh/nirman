@@ -179,16 +179,19 @@ const IN_MOVEMENT_TYPES = [
   "PURCHASE_RECEIPT",
   "TRANSFER_IN",
   "ADJUSTMENT_IN",
-  "RETURN",
   "SCRAP_GENERATED",
 ] as const;
 
 // StockMovement types that REMOVE stock from a location (fromLocationId is set).
+// RETURN is an outflow — supplier-returned stock leaves via fromLocationId
+// (matches movementDirection() in moving-average-cost.ts and the export
+// route's OUT_TYPES).
 const OUT_MOVEMENT_TYPES = [
   "TRANSFER_OUT",
   "ISSUE_TO_PROJECT",
   "ISSUE_TO_DEPARTMENT",
   "ADJUSTMENT_OUT",
+  "RETURN",
   "SALE",
 ] as const;
 
