@@ -821,7 +821,7 @@ function MembersSection({
                       {!m.active && <Badge tone="neutral" className="ml-1.5">inactive</Badge>}
                     </p>
                     <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
-                      {m.email}
+                      {displayEmail(m.email) ?? "—"}
                     </p>
                     {m.phone && (
                       <p className="text-m-caption truncate flex items-center gap-1" style={{ color: "var(--color-ink-500)" }}>

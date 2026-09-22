@@ -9,6 +9,7 @@ import {
   Check,
 } from "lucide-react";
 import { localDateISO } from "@/lib/utils";
+import { toast } from "sonner";
 
 /**
  * MobileExportShareBar — sticky action bar for downloading and sharing
@@ -229,8 +230,12 @@ export function MobileExportShareBar({
         });
         setShared(true);
         setTimeout(() => setShared(false), 2000);
-      } catch {
-        // User cancelled — no action needed
+      } catch (err) {
+        // AbortError = user cancelled — silent. Anything else is a real
+        // failure and must not look like a dead button.
+        if ((err as DOMException)?.name !== "AbortError") {
+          toast.error("Couldn't open the share sheet — try copying the link manually");
+        }
       }
     } else if (typeof navigator !== "undefined" && navigator.clipboard) {
       try {
@@ -238,8 +243,10 @@ export function MobileExportShareBar({
         setShared(true);
         setTimeout(() => setShared(false), 2000);
       } catch {
-        // Clipboard failed
+        toast.error("Couldn't copy the link — long-press the address bar instead");
       }
+    } else {
+      toast.error("Sharing isn't supported on this browser");
     }
     setShowMenu(false);
   }
@@ -438,8 +445,11 @@ export function MobileExportShareIcons({
         await navigator.share({ title, text: shareText, url: shareUrl });
         setShared(true);
         setTimeout(() => setShared(false), 2000);
-      } catch {
-        // User cancelled
+      } catch (err) {
+        // AbortError = user cancelled — silent. Real failures get feedback.
+        if ((err as DOMException)?.name !== "AbortError") {
+          toast.error("Couldn't open the share sheet — try copying the link manually");
+        }
       }
     } else if (typeof navigator !== "undefined" && navigator.clipboard) {
       try {
@@ -447,8 +457,10 @@ export function MobileExportShareIcons({
         setShared(true);
         setTimeout(() => setShared(false), 2000);
       } catch {
-        // Clipboard failed
+        toast.error("Couldn't copy the link — long-press the address bar instead");
       }
+    } else {
+      toast.error("Sharing isn't supported on this browser");
     }
   }
 

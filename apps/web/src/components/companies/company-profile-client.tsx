@@ -20,7 +20,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import { AddressSearchField } from "@/components/address-search-field";
 import { IntegrationsTab } from "@/components/settings/integrations-tab";
-import { formatCurrency, formatDate, formatDateTime, cn } from "@/lib/utils";
+import { formatCurrency, formatDate, formatDateTime, displayEmail, cn } from "@/lib/utils";
 import { useTabParam } from "@/lib/use-tab-param";
 import { useConfirm } from "@/lib/use-confirm";
 import { canAssignRole, roleTier, type Role } from "@/lib/roles";
@@ -609,7 +609,7 @@ function MembersTab({
                       {!m.active && <Badge variant="muted" className="ml-2">inactive</Badge>}
                       {m.lockedUntil && new Date(m.lockedUntil) > new Date() && <Badge variant="danger" className="ml-2">locked</Badge>}
                     </TD>
-                    <TD className="text-muted-foreground">{m.email}</TD>
+                    <TD className="text-muted-foreground">{displayEmail(m.email) ?? "—"}</TD>
                     <TD className="text-muted-foreground text-caption">{m.phone ?? "—"}</TD>
                     <TD>
                       {canManage && canManageMemberRole(m.role) ? (

@@ -104,7 +104,7 @@ export function EmployeeDocuments({
         body: JSON.stringify({
           entityType: "Employee",
           entityId: employeeId,
-          uploadId: uploadData.id,
+          uploadId: uploadData.uploadId,
           category,
           label: docType?.label ?? category,
         }),

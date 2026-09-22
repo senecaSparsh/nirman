@@ -668,28 +668,35 @@ export async function assignScopedMembership(input: AssignScopeInput) {
               .then((m) => m?.user.employees[0] ?? null)
           : null;
         const targetEmployeeId = mgrEmployee?.id ?? null;
-        let cyclic = targetEmployeeId === memberEmployee.id;
-        if (targetEmployeeId && !cyclic) {
-          let cur: string | null = mgrEmployee!.reportsToEmployeeId;
-          const visited = new Set<string>([memberEmployee.id, targetEmployeeId]);
-          while (cur) {
-            if (visited.has(cur)) {
-              cyclic = true;
-              break;
+        // Only mirror when the membership manager resolves to a real Employee
+        // row. A manager without one (or an explicit membership-line clear)
+        // must NOT wipe the employee-level org-chart line — it is the
+        // canonical on-site hierarchy for workers without login accounts, and
+        // an unresolvable target is "can't translate", not "no manager".
+        if (targetEmployeeId !== null) {
+          let cyclic = targetEmployeeId === memberEmployee.id;
+          if (!cyclic) {
+            let cur: string | null = mgrEmployee!.reportsToEmployeeId;
+            const visited = new Set<string>([memberEmployee.id, targetEmployeeId]);
+            while (cur) {
+              if (visited.has(cur)) {
+                cyclic = true;
+                break;
+              }
+              visited.add(cur);
+              const up = await tx.employee.findUnique({
+                where: { id: cur },
+                select: { reportsToEmployeeId: true },
+              });
+              cur = up?.reportsToEmployeeId ?? null;
             }
-            visited.add(cur);
-            const up = await tx.employee.findUnique({
-              where: { id: cur },
-              select: { reportsToEmployeeId: true },
-            });
-            cur = up?.reportsToEmployeeId ?? null;
           }
-        }
-        if (!cyclic) {
-          await tx.employee.update({
-            where: { id: memberEmployee.id },
-            data: { reportsToEmployeeId: targetEmployeeId },
-          });
+          if (!cyclic) {
+            await tx.employee.update({
+              where: { id: memberEmployee.id },
+              data: { reportsToEmployeeId: targetEmployeeId },
+            });
+          }
         }
       }
     }

@@ -30,7 +30,7 @@ import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { CreateAccountDialog } from "@/components/hr/create-account-dialog";
 import { PermissionsEditorDialog } from "@/components/settings/permissions-editor-dialog";
 import { ResetPasswordDialog } from "@/components/settings/reset-password-dialog";
-import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { formatCurrency, formatDate, cn, displayEmail } from "@/lib/utils";
 import { useTabParam } from "@/lib/use-tab-param";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { AttachmentList } from "@/components/attachments/attachment-list";
@@ -560,7 +560,7 @@ function ProfileHero({
     ? Math.round((employee.attendance.presentDays / employee.attendance.totalRecords) * 100)
     : null;
   const phone = employee.phone ?? u?.phone ?? null;
-  const email = employee.email ?? u?.email ?? null;
+  const email = employee.email ?? displayEmail(u?.email) ?? null;
   const openTaskCount = employee.tasks.filter((t) => t.status === "PENDING" || t.status === "IN_PROGRESS").length;
 
   return (
@@ -861,7 +861,7 @@ function ProfileSidebar({
   const docViewer = useDocumentViewer();
   const u = employee.user;
   const phone = employee.phone ?? u?.phone ?? null;
-  const email = employee.email ?? u?.email ?? null;
+  const email = employee.email ?? displayEmail(u?.email) ?? null;
 
   return (
     <div className="space-y-3">
@@ -1001,7 +1001,7 @@ function ProfileSidebar({
       <SidebarCard title="Login Account" icon={UserCircle}>
         {u ? (
           <>
-            <SidebarRow icon={Mail} label="Email" value={u.email} />
+            <SidebarRow icon={Mail} label="Email" value={displayEmail(u.email) ?? "—"} />
             <SidebarRow
               icon={UserCircle}
               label="Role"

@@ -77,6 +77,22 @@ describe("POST /api/attendance/self-check-out", () => {
     expect(res.status).toBe(404);
   });
 
+  it("does not scope-filter the employee lookup — a worker can always check out their own attendance", async () => {
+    // Regression: a project-scoped user (SUPERVISOR with PROJECT scope) whose
+    // employee row has no activeProjectId got 404 on their OWN check-out
+    // because scopeWhere("Employee") filtered the row out. The lookup must
+    // only use id/company/deleted/active — self-scope is meaningless here.
+    await POST(
+      makeRequest("/api/attendance/self-check-out", {
+        method: "POST",
+        body: { employeeId: "emp-1", date: "2024-01-15", checkOutLat: 28.6, checkOutLng: 77.2 },
+      }),
+      {},
+    );
+    const call = mockPrisma().employee!.findFirst.mock.calls[0]?.[0] as { where: Record<string, unknown> };
+    expect(Object.keys(call.where).sort()).toEqual(["active", "companyId", "deletedAt", "id"]);
+  });
+
   it("returns 401 when not authenticated", async () => {
     clearSession();
     const res = await POST(

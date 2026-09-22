@@ -10,30 +10,30 @@ import { prisma } from "@nirman/db";
 import { requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
-export const ATTACHMENT_ENTITY_ACCESS: Record<string, { perm: string; model: string; soft?: boolean; companyPath?: string | string[] }> = {
-  Employee:            { perm: PERM.HR_VIEW,          model: "Employee", soft: true },
-  Project:             { perm: PERM.PROJECTS_VIEW,    model: "Project", soft: true },
-  DailyProgressReport: { perm: PERM.DPR_VIEW,         model: "DailyProgressReport" },
-  PurchaseOrder:       { perm: PERM.PROCUREMENT_VIEW, model: "PurchaseOrder" },
-  MaterialRequisition: { perm: PERM.PROCUREMENT_VIEW, model: "MaterialRequisition" },
-  Supplier:            { perm: PERM.PROCUREMENT_VIEW, model: "Supplier", soft: true },
-  Material:            { perm: PERM.INVENTORY_VIEW,   model: "Material", soft: true },
-  MaterialIssue:       { perm: PERM.INVENTORY_VIEW,   model: "MaterialIssue" },
-  MaterialSale:        { perm: PERM.INVENTORY_VIEW,   model: "MaterialSale" },
-  ScrapGeneration:     { perm: PERM.INVENTORY_VIEW,   model: "ScrapGeneration" },
+export const ATTACHMENT_ENTITY_ACCESS: Record<string, { perm: string; managePerm?: string; model: string; soft?: boolean; companyPath?: string | string[] }> = {
+  Employee:            { perm: PERM.HR_VIEW,          managePerm: PERM.HR_MANAGE,          model: "Employee", soft: true },
+  Project:             { perm: PERM.PROJECTS_VIEW,    managePerm: PERM.PROJECTS_MANAGE,    model: "Project", soft: true },
+  DailyProgressReport: { perm: PERM.DPR_VIEW,         managePerm: PERM.DPR_SUBMIT,         model: "DailyProgressReport" },
+  PurchaseOrder:       { perm: PERM.PROCUREMENT_VIEW, managePerm: PERM.PROCUREMENT_MANAGE, model: "PurchaseOrder" },
+  MaterialRequisition: { perm: PERM.PROCUREMENT_VIEW, managePerm: PERM.PROCUREMENT_MANAGE, model: "MaterialRequisition" },
+  Supplier:            { perm: PERM.PROCUREMENT_VIEW, managePerm: PERM.PROCUREMENT_MANAGE, model: "Supplier", soft: true },
+  Material:            { perm: PERM.INVENTORY_VIEW,   managePerm: PERM.INVENTORY_MANAGE,   model: "Material", soft: true },
+  MaterialIssue:       { perm: PERM.INVENTORY_VIEW,   managePerm: PERM.INVENTORY_MANAGE,   model: "MaterialIssue" },
+  MaterialSale:        { perm: PERM.INVENTORY_VIEW,   managePerm: PERM.INVENTORY_MANAGE,   model: "MaterialSale" },
+  ScrapGeneration:     { perm: PERM.INVENTORY_VIEW,   managePerm: PERM.INVENTORY_MANAGE,   model: "ScrapGeneration" },
   // StockCount + StockTransfer carry no companyId — they bind through
   // locations (a transfer is visible when EITHER end is this company's,
   // since inter-company STOs exist).
-  StockCount:          { perm: PERM.INVENTORY_VIEW,   model: "StockCount", companyPath: "location" },
-  StockTransfer:       { perm: PERM.INVENTORY_VIEW,   model: "StockTransfer", companyPath: ["fromLocation", "toLocation"] },
-  Equipment:           { perm: PERM.VEHICLE_VIEW,     model: "Equipment", soft: true },
-  GatePass:            { perm: PERM.GATE_PASS_VIEW,   model: "GatePass" },
-  Expense:             { perm: PERM.FINANCE_VIEW,     model: "Expense" },
-  ExpenseClaim:        { perm: PERM.FINANCE_VIEW,     model: "ExpenseClaim" },
-  LandPurchase:        { perm: PERM.ASSETS_VIEW,      model: "LandPurchase", soft: true },
-  AssetSale:           { perm: PERM.SALES_VIEW,       model: "AssetSale" },
-  Customer:            { perm: PERM.SALES_VIEW,       model: "Customer", soft: true },
-  Tenancy:             { perm: PERM.RENTALS_VIEW,     model: "Tenancy" },
+  StockCount:          { perm: PERM.INVENTORY_VIEW,   managePerm: PERM.INVENTORY_MANAGE,   model: "StockCount", companyPath: "location" },
+  StockTransfer:       { perm: PERM.INVENTORY_VIEW,   managePerm: PERM.INVENTORY_MANAGE,   model: "StockTransfer", companyPath: ["fromLocation", "toLocation"] },
+  Equipment:           { perm: PERM.VEHICLE_VIEW,     managePerm: PERM.VEHICLE_MANAGE,     model: "Equipment", soft: true },
+  GatePass:            { perm: PERM.GATE_PASS_VIEW,   managePerm: PERM.GATE_PASS_MANAGE,   model: "GatePass" },
+  Expense:             { perm: PERM.FINANCE_VIEW,     managePerm: PERM.FINANCE_MANAGE,     model: "Expense" },
+  ExpenseClaim:        { perm: PERM.FINANCE_VIEW,     managePerm: PERM.FINANCE_MANAGE,     model: "ExpenseClaim" },
+  LandPurchase:        { perm: PERM.ASSETS_VIEW,      managePerm: PERM.ASSETS_MANAGE,      model: "LandPurchase", soft: true },
+  AssetSale:           { perm: PERM.SALES_VIEW,       managePerm: PERM.SALES_MANAGE,       model: "AssetSale" },
+  Customer:            { perm: PERM.SALES_VIEW,       managePerm: PERM.SALES_MANAGE,       model: "Customer", soft: true },
+  Tenancy:             { perm: PERM.RENTALS_VIEW,     managePerm: PERM.RENTALS_MANAGE,     model: "Tenancy" },
 };
 
 type SubjectDelegate = {
@@ -49,10 +49,14 @@ export async function assertAttachmentSubjectAccess(
   entityType: string,
   entityId: string,
   companyId: string,
+  opts?: { perm?: string },
 ): Promise<{ error: string; status: number } | null> {
   const rule = ATTACHMENT_ENTITY_ACCESS[entityType];
   if (!rule) return { error: "Unsupported attachment target", status: 403 };
-  await requirePermission(rule.perm);
+  // Write checks may substitute the entity's manage perm — a manager can
+  // always see records they manage, and view perm is implied by manage in
+  // every built-in role anyway.
+  await requirePermission(opts?.perm ?? rule.perm);
   const delegate = (prisma as unknown as Record<string, SubjectDelegate>)[
     rule.model.charAt(0).toLowerCase() + rule.model.slice(1)
   ];

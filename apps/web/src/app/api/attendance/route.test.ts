@@ -139,6 +139,9 @@ describe("POST /api/attendance", () => {
   it("creates a single attendance record and returns 201", async () => {
     const { recordAttendance } = await import("@nirman/services");
     (recordAttendance as any).mockResolvedValue({ id: "att-new" });
+    // The route scope-checks the employee row before recording —
+    // count() must return non-zero or the request 404s.
+    mockPrisma().employee?.count.mockResolvedValue(1);
     const res = await POST(
       makeRequest("/api/attendance", {
         method: "POST",

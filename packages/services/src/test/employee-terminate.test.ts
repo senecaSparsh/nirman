@@ -105,4 +105,56 @@ describe("terminateEmployee side-effects", () => {
     expect(subMem2.approvalsDelegatedToId).toBeNull();
     expect(subMem2.delegationEndsAt).toBeNull();
   });
+
+  it("restore fully resets the agreement lifecycle + termination-stamped end date", async () => {
+    const { company, user } = await createTestFixture();
+
+    const emp = await prisma.employee.create({
+      data: {
+        name: "Restored Worker", phone: "9000000099", companyId: company.id,
+        wageType: "DAILY", dailyRate: new Decimal(700), active: true,
+        employmentType: "PERMANENT",
+        // Simulate a previously confirmed agreement.
+        contractStatus: "CONFIRMED",
+        contractIssuedAt: new Date("2026-01-05"),
+        contractConfirmedAt: new Date("2026-01-06"),
+        contractToken: "old-signing-token",
+      },
+    });
+
+    const { terminateEmployee, restoreEmployee } = await import("../employee-account");
+
+    // Terminate with an explicit end date — stamps contractEndDate.
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + 10);
+    const isoEnd = endDate.toISOString().slice(0, 10);
+    await terminateEmployee({
+      employeeId: emp.id, companyId: company.id, actorUserId: user.id,
+      reason: "RESIGNATION", employmentEndDate: isoEnd,
+    });
+
+    const terminated = await prisma.employee.findUniqueOrThrow({ where: { id: emp.id } });
+    expect(terminated.contractStatus).toBe("TERMINATED");
+    expect(terminated.contractEndDate?.toISOString().slice(0, 10)).toBe(isoEnd);
+    // Exit record carries the real last day (matches the stamped end date).
+    const exit = await prisma.employeeExit.findUniqueOrThrow({ where: { employeeId: emp.id } });
+    expect(exit.terminationDate.toISOString().slice(0, 10)).toBe(isoEnd);
+
+    await restoreEmployee({ employeeId: emp.id, companyId: company.id, actorUserId: user.id });
+
+    const restored = await prisma.employee.findUniqueOrThrow({ where: { id: emp.id } });
+    expect(restored.active).toBe(true);
+    expect(restored.deletedAt).toBeNull();
+    // Agreement lifecycle fully reset — a fresh issue→confirm cycle can run.
+    expect(restored.contractStatus).toBeNull();
+    expect(restored.contractIssuedAt).toBeNull();
+    expect(restored.contractConfirmedAt).toBeNull();
+    expect(restored.contractAttachmentId).toBeNull();
+    expect(restored.contractToken).toBeNull();
+    // Termination-stamped end date cleared so lazy-expiry can't flip the
+    // next agreement to EXPIRED instantly.
+    expect(restored.contractEndDate).toBeNull();
+    // Exit record removed (re-termination must be possible).
+    expect(await prisma.employeeExit.count({ where: { employeeId: emp.id } })).toBe(0);
+  });
 });

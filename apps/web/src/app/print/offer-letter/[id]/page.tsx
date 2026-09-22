@@ -111,8 +111,10 @@ export default async function OfferLetterPage({
 
   const employeeName = employee.user?.name ?? employee.name;
   const employeeDesignation = employee.user?.designation ?? employee.designation ?? "Employee";
-  const employeePhone = employee.user?.phone ?? employee.phone ?? "—";
-  const employeeEmail = employee.user?.email ?? employee.email ?? "—";
+  // Prefer real contact details over login credentials — see employment-agreement.
+  const userEmail = employee.user?.email?.endsWith("@nirman.internal") ? null : employee.user?.email;
+  const employeePhone = employee.phone ?? employee.user?.phone ?? "—";
+  const employeeEmail = employee.email ?? userEmail ?? "—";
 
   const componentLabel: Record<string, string> = {
     BASIC: "Basic Salary",

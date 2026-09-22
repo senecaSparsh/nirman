@@ -561,6 +561,7 @@ export function MobileCreateAccountDialog({
                     value={employeeCode}
                     onChange={setEmployeeCode}
                     placeholder="SRG-FIN-0001"
+                    autoComplete="off"
                   />
                 </div>
               </div>
@@ -571,6 +572,7 @@ export function MobileCreateAccountDialog({
                     value={designation}
                     onChange={setDesignation}
                     placeholder="Site Engineer"
+                    autoComplete="off"
                   />
                 </div>
                 <div>
@@ -579,6 +581,7 @@ export function MobileCreateAccountDialog({
                     value={department}
                     onChange={setDepartment}
                     placeholder="Construction"
+                    autoComplete="off"
                   />
                 </div>
               </div>
@@ -693,6 +696,7 @@ export function MobileCreateAccountDialog({
                     value={newPhone}
                     onChange={setNewPhone}
                     placeholder="98765 43210"
+                    autoComplete="off"
                   />
                   <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                     <div>
@@ -776,6 +780,7 @@ export function MobileCreateAccountDialog({
                   value={password}
                   onChange={setPassword}
                   placeholder="Min 8 characters — blank to auto-generate"
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"

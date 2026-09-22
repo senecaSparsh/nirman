@@ -802,7 +802,7 @@ export function MobileEmployeeDetailClient({
           employeeId={employee.id}
           employeeName={employee.name}
           employeePhone={employee.phone ?? employee.user?.phone ?? null}
-          employeeEmail={employee.email ?? employee.user?.email ?? null}
+          employeeEmail={employee.email ?? displayEmail(employee.user?.email) ?? null}
           employeeDesignation={employee.designation}
           employeeHierarchyLevel={employee.hierarchyLevel}
           actorRole={actorRole}
@@ -1880,6 +1880,7 @@ export function MobileEmployeeDetailClient({
 
 /* ─── Payroll history row with mark-as-paid + proof ─── */
 function PayrollHistoryRow({ p, canManagePayroll, _employeeId }: { p: PayrollItem; canManagePayroll: boolean; _employeeId: string }) {
+  const router = useRouter();
   const [markingPaid, setMarkingPaid] = useState(false);
   const [showMarkPaid, setShowMarkPaid] = useState(false);
   const [paymentRef, setPaymentRef] = useState(p.paymentReference ?? "");
@@ -1921,6 +1922,9 @@ function PayrollHistoryRow({ p, canManagePayroll, _employeeId }: { p: PayrollIte
       setShowMarkPaid(false);
       setProofFile(null);
       setProofUploadId(null);
+      // Summary cards (Last Payment / Total Paid) are server-rendered props —
+      // refresh so they pick up the payment without a manual reload.
+      router.refresh();
     } catch (err) {
       console.error(err);
       setUploadingProof(false);
@@ -2478,7 +2482,7 @@ function EmployeeEditSheet({
   const [designation, setDesignation] = useState(employee.designation ?? "");
   const [departmentId, setDepartmentId] = useState(employee.departmentId ?? "");
   const [phone, setPhone] = useState(employee.phone ?? "");
-  const [email, setEmail] = useState(employee.email ?? "");
+  const [email, setEmail] = useState(displayEmail(employee.email) ?? "");
   const [wageType, setWageType] = useState<WageType>(employee.wageType);
   const [dailyRate, setDailyRate] = useState(employee.dailyRate != null ? String(employee.dailyRate) : "");
   const [monthlySalary, setMonthlySalary] = useState(employee.monthlySalary != null ? String(employee.monthlySalary) : "");

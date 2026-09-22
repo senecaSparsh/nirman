@@ -1412,9 +1412,13 @@ function componentCalcType(c: {
  */
 export function buildLineComponents(
   components: SalaryComponentRow[],
-  ctx: { basicAmount: Decimal; daysWorked: Decimal },
+  ctx: { basicAmount: Decimal; daysWorked: Decimal; wageType?: string; workingDays?: number },
 ): LineComponentRow[] {
   const rows: LineComponentRow[] = [];
+  // A daily-wage worker earns rate × days — a flat monthly allowance paid at
+  // full value after one worked day is a clear overpay. Prorate FIXED monthly
+  // components by days worked, exactly like a monthly salary prorates.
+  const prorateFixed = ctx.wageType === "DAILY" && (ctx.workingDays ?? 0) > 0;
   for (const c of components) {
     if (c.type === "BASIC") continue;
     if (c.frequency !== "MONTHLY") continue;
@@ -1430,7 +1434,9 @@ export function buildLineComponents(
       quantity = c.unitType === "DAY" ? ctx.daysWorked : new Decimal(0);
       amount = rate.times(quantity).toDecimalPlaces(2);
     } else {
-      amount = rate;
+      amount = prorateFixed
+        ? Decimal.min(rate, rate.times(ctx.daysWorked).div(ctx.workingDays!).toDecimalPlaces(2))
+        : rate;
     }
     rows.push({
       type: c.type,
@@ -1623,7 +1629,7 @@ export async function generatePayroll(input: GeneratePayrollInput) {
       // the draft before processing.
       const lineComponents = buildLineComponents(
         componentsByEmployee.get(emp.id) ?? [],
-        { basicAmount, daysWorked: adjustedDaysWorked },
+        { basicAmount, daysWorked: adjustedDaysWorked, wageType: emp.wageType, workingDays },
       );
 
       // Late-half-day deduction becomes its own itemized row so the payslip

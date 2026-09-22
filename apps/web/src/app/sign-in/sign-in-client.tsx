@@ -9,6 +9,7 @@ import { Input, Label, Select } from "@/components/ui/input";
 import { Loader2, AlertCircle, Building2, Phone, Mail, Fingerprint, Eye, EyeOff, ArrowUp } from "lucide-react";
 import { homeWorldFor } from "@/lib/nav";
 import { type Role, ROLES } from "@/lib/roles";
+import { displayEmail } from "@/lib/utils";
 
 type CompanyOption = { id: string; name: string; role: string; roleLabel?: string };
 type LoginMode = "phone" | "email";
@@ -921,7 +922,7 @@ function SignInForm({ showDevLogin, otpEnabled }: { showDevLogin: boolean; otpEn
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-caption font-medium text-foreground">{u.name}</p>
-                    <p className="truncate text-micro text-muted-foreground">{u.email}</p>
+                    <p className="truncate text-micro text-muted-foreground">{displayEmail(u.email) ?? "Phone sign-in"}</p>
                     {u.companies.length > 0 && (
                       <p className="mt-0.5 truncate text-micro text-muted-foreground">
                         {u.companies.map((c) => c.name).join(" · ")}

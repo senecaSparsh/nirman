@@ -256,6 +256,7 @@ export function UnderlineInput({
   pattern,
   maxLength,
   enterKeyHint,
+  autoComplete,
   id,
 }: {
   label: string;
@@ -273,6 +274,7 @@ export function UnderlineInput({
   pattern?: string;
   maxLength?: number;
   enterKeyHint?: "enter" | "done" | "go" | "next" | "previous" | "search" | "send";
+  autoComplete?: string;
   id?: string;
 }) {
   return (
@@ -293,6 +295,7 @@ export function UnderlineInput({
         pattern={pattern}
         maxLength={maxLength}
         enterKeyHint={enterKeyHint}
+        autoComplete={autoComplete}
         className={`w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors ${mono ? "font-mono" : ""}`}
         style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
       />

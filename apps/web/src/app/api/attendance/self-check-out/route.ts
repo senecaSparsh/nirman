@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma, type AttendanceStatus } from "@nirman/db";
 import { assertAttendancePeriodOpen } from "@nirman/services";
-import { apiHandler, getCompany, json, requireUser, scopeWhere, getActingRole,} from "@/lib/server";
+import { apiHandler, getCompany, json, requireUser, getActingRole,} from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 
 /**
@@ -38,14 +38,17 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const dateOnly = new Date(attendanceDate);
   dateOnly.setUTCHours(0, 0, 0, 0);
 
-  // Verify the employee belongs to this company
+  // Verify the employee belongs to this company. No scopeWhere here — a
+  // worker must always reach their OWN employee row even when their scope
+  // (e.g. project-scoped with activeProjectId unset) would otherwise filter
+  // it out; the isSelf/isManager check below is the real authorization.
+  // Matches self-check-in, which is unscoped the same way.
   const employee = await prisma.employee.findFirst({
     where: {
       id: parsed.data.employeeId,
       companyId: company.id,
       deletedAt: null,
       active: true,
-      ...await scopeWhere("Employee", {}),
     },
     select: { id: true, userId: true },
   });

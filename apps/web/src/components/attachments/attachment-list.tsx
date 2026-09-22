@@ -98,7 +98,7 @@ export function AttachmentList({
         body: JSON.stringify({
           entityType,
           entityId,
-          uploadId: uploadData.id,
+          uploadId: uploadData.uploadId,
           category: file.type.startsWith("image/") ? "photo" : "document",
           label: file.name,
         }),

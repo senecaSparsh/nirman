@@ -91,7 +91,10 @@ export default function MobileNotificationsPage() {
       }
       if (tmplRes.templates) setTemplates(tmplRes.templates);
       if (tmplRes.stats) setStats(tmplRes.stats);
-      if (Array.isArray(logRes)) setLogs(logRes);
+      // The log route returns an envelope ({ rows }) — read it, but accept a
+      // bare array too so the client isn't coupled to one shape.
+      const logRows = Array.isArray(logRes) ? logRes : logRes?.rows;
+      if (Array.isArray(logRows)) setLogs(logRows);
     } catch (err) {
       console.error("Failed to load notification data:", err);
       toast.error("Failed to load notification settings");

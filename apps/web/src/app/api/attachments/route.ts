@@ -2,9 +2,9 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma, Prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, json, getCompany, requireUser, requirePermission, getCurrentUser } from "@/lib/server";
+import { apiHandler, json, getCompany, requireUser, getCurrentUser, getUserPermissions, ForbiddenError } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { assertAttachmentSubjectAccess } from "@/lib/attachment-access";
+import { assertAttachmentSubjectAccess, ATTACHMENT_ENTITY_ACCESS } from "@/lib/attachment-access";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
 
 /**
@@ -71,23 +71,36 @@ export const GET = apiHandler(async (req: NextRequest) => {
  * Links an existing upload to an entity as an attachment.
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  // Most users can attach documents — use a broad permission
-  await requirePermission(PERM.ATTACHMENT_MANAGE);
-  const company = await getCompany();
-  const currentUser = await getCurrentUser();
-  const userId = currentUser?.id;
-  const body = await req.json();
-
-  const { entityType, entityId, uploadId, category, label } = body;
+  const body = await req.json().catch(() => ({}));
+  const { entityType, entityId, uploadId, category, label } = body as Record<string, string | undefined>;
 
   if (!entityType || !entityId || !uploadId) {
     return json({ error: "entityType, entityId, and uploadId are required" }, { status: 400 });
   }
 
+  // Either the broad admin perm or the entity's own manage perm authorizes
+  // attaching — a module manager (HR for employees, procurement for POs)
+  // must be able to attach files to records they manage without a global
+  // admin grant. Blanket attachment.manage alone no longer gates every
+  // module's uploads.
+  const rule = ATTACHMENT_ENTITY_ACCESS[entityType];
+  const perms = await getUserPermissions();
+  const hasGlobal = perms.includes(PERM.ATTACHMENT_MANAGE);
+  if (!hasGlobal && !(rule?.managePerm && perms.includes(rule.managePerm))) {
+    throw new ForbiddenError();
+  }
+
+  const company = await getCompany();
+  const currentUser = await getCurrentUser();
+  const userId = currentUser?.id;
+
   // The caller must be able to see the record they're attaching to —
   // otherwise an ATTACHMENT_MANAGE holder could silently add files to an
-  // H1 employee's dossier or an out-of-scope project.
-  const denied = await assertAttachmentSubjectAccess(entityType, entityId, company.id);
+  // H1 employee's dossier or an out-of-scope project. When the caller
+  // authorized via the entity's manage perm, check the row with that perm
+  // too — a manage-only custom role needn't also hold the view perm.
+  const denied = await assertAttachmentSubjectAccess(entityType, entityId, company.id,
+    hasGlobal ? undefined : { perm: rule!.managePerm });
   if (denied) return json({ error: denied.error }, { status: denied.status });
 
   // Verify the upload belongs to this company

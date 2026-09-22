@@ -575,3 +575,72 @@ describe("derivation helpers", () => {
     expect(related).not.toContain("/m/procurement/[id]");
   });
 });
+
+// ── G10 — desktop route registry matches the filesystem ─────────────────────
+// DESKTOP_ROUTES is what the surface adapter uses to decide whether a mobile
+// route has a real desktop equivalent. If it drifts, mobile-only pages start
+// redirecting to 404s on desktop (the /hr/onboarding regression class).
+describe("G10 — DESKTOP_ROUTES covers the desktop route tree exactly", () => {
+  const APP_ROOT = path.resolve(__dirname, "../app");
+  const SKIP_GROUPS = /\(auth\)|\(marketing\)|\(app\)/;
+
+  function desktopRoutesOnDisk(): string[] {
+    const out: string[] = [];
+    (function walk(dir: string) {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) {
+          if (e.name === "m" || e.name === "api" || e.name.startsWith("_")) continue;
+          walk(p);
+          continue;
+        }
+        if (e.name === "page.tsx") {
+          const rel = path.relative(APP_ROOT, path.dirname(p)).split(path.sep).join("/");
+          if (rel.startsWith("m/") || rel === "m" || rel.startsWith("api/")) continue;
+          const clean = rel
+            .split("/")
+            .filter((s) => !SKIP_GROUPS.test(s))
+            .join("/");
+          // Public/auth pages are never redirect targets — keep them out.
+          if (/^(sign-in|sign-up|forgot-password|reset-password|consent|accept|portal|print)/.test(clean)) continue;
+          out.push(clean ? "/" + clean : "/");
+        }
+      }
+    })(APP_ROOT);
+    return out.sort();
+  }
+
+  it("every desktop page.tsx is registered", async () => {
+    const { DESKTOP_ROUTES } = await import("@/lib/desktop-routes");
+    const missing = desktopRoutesOnDisk().filter((r) => !DESKTOP_ROUTES.has(r));
+    expect(missing, `Add these to DESKTOP_ROUTES in desktop-routes.ts:\n${missing.join("\n")}`)
+      .toEqual([]);
+  });
+
+  it("every registered desktop route has a page.tsx", async () => {
+    const { DESKTOP_ROUTES } = await import("@/lib/desktop-routes");
+    const disk = new Set(desktopRoutesOnDisk());
+    const stale = [...DESKTOP_ROUTES].filter((r) => !disk.has(r));
+    expect(stale, `Remove these from DESKTOP_ROUTES (no page.tsx):\n${stale.join("\n")}`)
+      .toEqual([]);
+  });
+
+  it("every mobile route resolves to a real desktop page or stays on mobile", async () => {
+    const { resolveTarget } = await import("@/lib/surface-map");
+    const { DESKTOP_ROUTES } = await import("@/lib/desktop-routes");
+    const dynOk = (p: string) => {
+      const segs = p.split("/");
+      return DESKTOP_ROUTES.has(p) || segs.some((_, i) =>
+        i > 0 && DESKTOP_ROUTES.has([...segs.slice(0, i), "[id]", ...segs.slice(i + 1)].join("/")));
+    };
+    const bad: string[] = [];
+    for (const r of ROUTES) {
+      if (!r.path.startsWith("/m")) continue;
+      const concrete = r.path.replace(/\[id\]/g, "abc123");
+      const target = resolveTarget(concrete, "", false);
+      if (target && !dynOk(target.split("?")[0]!)) bad.push(`${r.path} -> ${target}`);
+    }
+    expect(bad, `Mobile routes redirecting to non-existent desktop pages:\n${bad.join("\n")}`)
+      .toEqual([]);
+  });
+});

@@ -52,7 +52,9 @@ export default async function EmployeeIdCardPage({
   const employeeName = employee.user?.name ?? employee.name;
   const employeeDesignation = employee.user?.designation ?? employee.designation ?? "Employee";
   const employeeCode = employee.user?.employeeCode ?? `EMP-${employee.id.slice(-6).toUpperCase()}`;
-  const employeePhone = employee.user?.phone ?? employee.phone ?? "—";
+  // Prefer the employee's real contact phone over the login identity —
+  // see employment-agreement for the same fix.
+  const employeePhone = employee.phone ?? employee.user?.phone ?? "—";
   const bloodGroup = employee.bloodGroup ?? "—";
   const issueDate = employee.idCardIssuedAt ?? new Date();
   // eslint-disable-next-line react-hooks/purity

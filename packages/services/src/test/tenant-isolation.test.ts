@@ -451,6 +451,56 @@ describe("tenant isolation + custom-role RBAC", () => {
       expect(after.scopeType).toBe("PROJECT");
     });
 
+    it("a membership manager with no Employee row preserves the employee-level org chart line", async () => {
+      // Regression: assigning reportsToUserCompanyId to a user without a
+      // linked Employee used to write reportsToEmployeeId = null onto the
+      // member's employee row — a scope save silently wiped the on-site
+      // manager. The mirror must only write when the manager resolves to a
+      // real Employee.
+      const { company, user } = await createTestFixture();
+      const member = await createUser("mir1", "Member", company.id, "SUPERVISOR");
+      const mgrNoEmployee = await createUser("mir2", "User-Only Manager", company.id, "PROJECT_MANAGER");
+
+      // On-site manager — an employee WITHOUT a login account.
+      const onSiteMgr = await prisma.employee.create({
+        data: { companyId: company.id, name: "Site Supervisor" },
+      });
+      // Member's linked employee row, managed by the on-site supervisor.
+      const memberEmp = await prisma.employee.create({
+        data: { companyId: company.id, name: "Member Emp", userId: member.user.id, reportsToEmployeeId: onSiteMgr.id },
+      });
+
+      await assignScopedMembership({
+        actorUserId: user.id, userId: member.user.id, companyId: company.id,
+        role: "SUPERVISOR", scopeType: "COMPANY",
+        reportsToUserCompanyId: mgrNoEmployee.membership.id,
+      });
+
+      const after = await prisma.employee.findUniqueOrThrow({ where: { id: memberEmp.id } });
+      expect(after.reportsToEmployeeId).toBe(onSiteMgr.id);
+    });
+
+    it("a membership manager WITH an Employee row mirrors onto the org chart", async () => {
+      const { company, user } = await createTestFixture();
+      const member = await createUser("mir3", "Member", company.id, "SUPERVISOR");
+      const mgr = await createUser("mir4", "Manager", company.id, "PROJECT_MANAGER");
+      const mgrEmp = await prisma.employee.create({
+        data: { companyId: company.id, name: "Mgr Emp", userId: mgr.user.id },
+      });
+      const memberEmp = await prisma.employee.create({
+        data: { companyId: company.id, name: "Member Emp 2", userId: member.user.id },
+      });
+
+      await assignScopedMembership({
+        actorUserId: user.id, userId: member.user.id, companyId: company.id,
+        role: "SUPERVISOR", scopeType: "COMPANY",
+        reportsToUserCompanyId: mgr.membership.id,
+      });
+
+      const after = await prisma.employee.findUniqueOrThrow({ where: { id: memberEmp.id } });
+      expect(after.reportsToEmployeeId).toBe(mgrEmp.id);
+    });
+
     it("an explicit null reportsTo still clears the manager", async () => {
       const { company, user } = await createTestFixture();
       const target = await createUser("pres5", "Member", company.id, "SUPERVISOR");

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { ROLE_LIST, assignableRoles, canAssignRole, type Role } from "@/lib/roles";
+import { displayEmail } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
 import { useConfirm } from "@/lib/use-confirm";
 import { EmptyState } from "@/components/empty-state";
@@ -320,7 +321,7 @@ export function CompaniesManager({
                       return (
                         <TR key={m.id}>
                           <TD className="font-medium">{m.name}</TD>
-                          <TD className="text-muted-foreground">{m.email}</TD>
+                          <TD className="text-muted-foreground">{displayEmail(m.email) ?? "—"}</TD>
                           <TD>
                             {canManageCompanies && canAssignRole(actorRole, m.role) ? (
                               <Select

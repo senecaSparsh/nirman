@@ -858,7 +858,11 @@ export async function terminateEmployee(input: TerminateEmployeeInput) {
         employeeId: input.employeeId,
         companyId: input.companyId,
         terminatedBy: input.actorUserId,
-        terminationDate: now,
+        // The employee's actual last day — the caller-provided end date when
+        // given (same value stamped onto contractEndDate), else now. Restore
+        // uses this to tell a termination-stamped end date from a genuine
+        // fixed-term contract end date.
+        terminationDate: endDate ?? now,
         terminationReason: input.reason ?? null,
         finalSettlementAmount: input.finalSettlementAmount ?? null,
         finalSettlementDate: input.finalSettlementAmount != null ? now : null,
@@ -937,8 +941,12 @@ async function syncEmployeeUserFields(
 
   const data: Prisma.EmployeeUpdateInput = {};
   if (user.name && user.name !== before.name) data.name = user.name;
-  if (user.phone !== before.phone) data.phone = user.phone;
-  if (user.email !== before.email) data.email = user.email;
+  // Phone/email on User are auth credentials (login identity — a pool phone,
+  // or a phone+…@nirman.internal placeholder), while Employee.phone/email are
+  // contact info. Never overwrite an existing contact value, and never copy
+  // the internal placeholder email at all.
+  if (!before.phone && user.phone !== before.phone) data.phone = user.phone;
+  if (!before.email && user.email !== before.email && !user.email?.endsWith("@nirman.internal")) data.email = user.email;
   if (user.designation !== before.designation) data.designation = user.designation;
 
   if (Object.keys(data).length > 0) {
@@ -1318,22 +1326,34 @@ export async function generateEmploymentAgreement(
   const agreementUrl = `/print/employment-agreement/${employeeId}`;
 
   return prisma.$transaction(async (tx) => {
-    // If there's an existing attachment, update it; otherwise create one
+    // If there's an existing attachment, update it; otherwise create one.
+    // The stored link can dangle (dossier Remove deletes the attachment row
+    // without clearing this field) — verify it resolves before updating.
     let attachmentId = employee.contractAttachmentId;
-
     if (attachmentId) {
-      // Update the existing attachment's timestamp
-      await tx.entityAttachment.update({
-        where: { id: attachmentId },
-        data: { label: `Employment Agreement — ${new Date().toLocaleDateString()}` },
-      });
-    } else {
+      const exists = await tx.entityAttachment.findUnique({ where: { id: attachmentId }, select: { id: true } });
+      if (exists) {
+        await tx.entityAttachment.update({
+          where: { id: attachmentId },
+          data: { label: `Employment Agreement — ${new Date().toLocaleDateString()}` },
+        });
+      } else {
+        attachmentId = null;
+      }
+    }
+
+    if (!attachmentId) {
       // Create a new attachment record linking the print URL to the employee.
       // We use a synthetic upload record since the agreement is a generated
       // document (not a file upload). The upload URL points to the print page.
-      const upload = await tx.upload.create({
-        data: {
-          storedName: `agreement-${employeeId}.pdf`,
+      // A prior agreement's upload may still exist with the same storedName
+      // (e.g. after restore cleared the employee's link) — reuse it instead
+      // of colliding on the unique constraint.
+      const storedName = `agreement-${employeeId}.pdf`;
+      const upload = await tx.upload.upsert({
+        where: { storedName },
+        create: {
+          storedName,
           originalName: `Employment-Agreement-${employeeId.slice(-8)}.pdf`,
           mimeType: "application/pdf",
           size: 0,
@@ -1341,19 +1361,33 @@ export async function generateEmploymentAgreement(
           companyId,
           uploadedById: actorUserId,
         },
+        update: { url: agreementUrl },
       });
-      const attachment = await tx.entityAttachment.create({
-        data: {
-          companyId,
-          uploadId: upload.id,
-          entityType: "Employee",
-          entityId: employeeId,
-          category: "contract",
-          label: `Employment Agreement — ${new Date().toLocaleDateString()}`,
-          createdById: actorUserId,
-        },
+      // An attachment for this upload+employee may already exist (link was
+      // cleared without deleting the row) — reuse it; else create fresh.
+      const existing = await tx.entityAttachment.findFirst({
+        where: { uploadId: upload.id, entityType: "Employee", entityId: employeeId },
       });
-      attachmentId = attachment.id;
+      if (existing) {
+        await tx.entityAttachment.update({
+          where: { id: existing.id },
+          data: { label: `Employment Agreement — ${new Date().toLocaleDateString()}` },
+        });
+        attachmentId = existing.id;
+      } else {
+        const attachment = await tx.entityAttachment.create({
+          data: {
+            companyId,
+            uploadId: upload.id,
+            entityType: "Employee",
+            entityId: employeeId,
+            category: "contract",
+            label: `Employment Agreement — ${new Date().toLocaleDateString()}`,
+            createdById: actorUserId,
+          },
+        });
+        attachmentId = attachment.id;
+      }
     }
 
     const updated = await tx.employee.update({
@@ -1517,16 +1551,24 @@ export async function generateOfferLetter(
 
   return prisma.$transaction(async (tx) => {
     let attachmentId = employee.offerLetterAttachmentId;
-
     if (attachmentId) {
-      await tx.entityAttachment.update({
-        where: { id: attachmentId },
-        data: { label: `Offer Letter — ${new Date().toLocaleDateString()}` },
-      });
-    } else {
-      const upload = await tx.upload.create({
-        data: {
-          storedName: `offer-letter-${employeeId}.pdf`,
+      const exists = await tx.entityAttachment.findUnique({ where: { id: attachmentId }, select: { id: true } });
+      if (exists) {
+        await tx.entityAttachment.update({
+          where: { id: attachmentId },
+          data: { label: `Offer Letter — ${new Date().toLocaleDateString()}` },
+        });
+      } else {
+        attachmentId = null;
+      }
+    }
+
+    if (!attachmentId) {
+      const storedName = `offer-letter-${employeeId}.pdf`;
+      const upload = await tx.upload.upsert({
+        where: { storedName },
+        create: {
+          storedName,
           originalName: `Offer-Letter-${employeeId.slice(-8)}.pdf`,
           mimeType: "application/pdf",
           size: 0,
@@ -1534,19 +1576,31 @@ export async function generateOfferLetter(
           companyId,
           uploadedById: actorUserId,
         },
+        update: { url: offerLetterUrl },
       });
-      const attachment = await tx.entityAttachment.create({
-        data: {
-          companyId,
-          uploadId: upload.id,
-          entityType: "Employee",
-          entityId: employeeId,
-          category: "offer-letter",
-          label: `Offer Letter — ${new Date().toLocaleDateString()}`,
-          createdById: actorUserId,
-        },
+      const existing = await tx.entityAttachment.findFirst({
+        where: { uploadId: upload.id, entityType: "Employee", entityId: employeeId },
       });
-      attachmentId = attachment.id;
+      if (existing) {
+        await tx.entityAttachment.update({
+          where: { id: existing.id },
+          data: { label: `Offer Letter — ${new Date().toLocaleDateString()}` },
+        });
+        attachmentId = existing.id;
+      } else {
+        const attachment = await tx.entityAttachment.create({
+          data: {
+            companyId,
+            uploadId: upload.id,
+            entityType: "Employee",
+            entityId: employeeId,
+            category: "offer-letter",
+            label: `Offer Letter — ${new Date().toLocaleDateString()}`,
+            createdById: actorUserId,
+          },
+        });
+        attachmentId = attachment.id;
+      }
     }
 
     const updated = await tx.employee.update({
@@ -1650,16 +1704,24 @@ export async function generateAppointmentLetter(
 
   return prisma.$transaction(async (tx) => {
     let attachmentId = employee.appointmentLetterAttachmentId;
-
     if (attachmentId) {
-      await tx.entityAttachment.update({
-        where: { id: attachmentId },
-        data: { label: `Appointment Letter — ${new Date().toLocaleDateString()}` },
-      });
-    } else {
-      const upload = await tx.upload.create({
-        data: {
-          storedName: `appointment-letter-${employeeId}.pdf`,
+      const exists = await tx.entityAttachment.findUnique({ where: { id: attachmentId }, select: { id: true } });
+      if (exists) {
+        await tx.entityAttachment.update({
+          where: { id: attachmentId },
+          data: { label: `Appointment Letter — ${new Date().toLocaleDateString()}` },
+        });
+      } else {
+        attachmentId = null;
+      }
+    }
+
+    if (!attachmentId) {
+      const storedName = `appointment-letter-${employeeId}.pdf`;
+      const upload = await tx.upload.upsert({
+        where: { storedName },
+        create: {
+          storedName,
           originalName: `Appointment-Letter-${employeeId.slice(-8)}.pdf`,
           mimeType: "application/pdf",
           size: 0,
@@ -1667,19 +1729,31 @@ export async function generateAppointmentLetter(
           companyId,
           uploadedById: actorUserId,
         },
+        update: { url: appointmentLetterUrl },
       });
-      const attachment = await tx.entityAttachment.create({
-        data: {
-          companyId,
-          uploadId: upload.id,
-          entityType: "Employee",
-          entityId: employeeId,
-          category: "appointment-letter",
-          label: `Appointment Letter — ${new Date().toLocaleDateString()}`,
-          createdById: actorUserId,
-        },
+      const existing = await tx.entityAttachment.findFirst({
+        where: { uploadId: upload.id, entityType: "Employee", entityId: employeeId },
       });
-      attachmentId = attachment.id;
+      if (existing) {
+        await tx.entityAttachment.update({
+          where: { id: existing.id },
+          data: { label: `Appointment Letter — ${new Date().toLocaleDateString()}` },
+        });
+        attachmentId = existing.id;
+      } else {
+        const attachment = await tx.entityAttachment.create({
+          data: {
+            companyId,
+            uploadId: upload.id,
+            entityType: "Employee",
+            entityId: employeeId,
+            category: "appointment-letter",
+            label: `Appointment Letter — ${new Date().toLocaleDateString()}`,
+            createdById: actorUserId,
+          },
+        });
+        attachmentId = attachment.id;
+      }
     }
 
     const updated = await tx.employee.update({
@@ -1750,16 +1824,24 @@ export async function generateEmployeeIdCard(
 
   return prisma.$transaction(async (tx) => {
     let attachmentId = employee.idCardAttachmentId;
-
     if (attachmentId) {
-      await tx.entityAttachment.update({
-        where: { id: attachmentId },
-        data: { label: `Employee ID Card — ${new Date().toLocaleDateString()}` },
-      });
-    } else {
-      const upload = await tx.upload.create({
-        data: {
-          storedName: `id-card-${employeeId}.pdf`,
+      const exists = await tx.entityAttachment.findUnique({ where: { id: attachmentId }, select: { id: true } });
+      if (exists) {
+        await tx.entityAttachment.update({
+          where: { id: attachmentId },
+          data: { label: `Employee ID Card — ${new Date().toLocaleDateString()}` },
+        });
+      } else {
+        attachmentId = null;
+      }
+    }
+
+    if (!attachmentId) {
+      const storedName = `id-card-${employeeId}.pdf`;
+      const upload = await tx.upload.upsert({
+        where: { storedName },
+        create: {
+          storedName,
           originalName: `ID-Card-${employeeId.slice(-8)}.pdf`,
           mimeType: "application/pdf",
           size: 0,
@@ -1767,19 +1849,31 @@ export async function generateEmployeeIdCard(
           companyId,
           uploadedById: actorUserId,
         },
+        update: { url: idCardUrl },
       });
-      const attachment = await tx.entityAttachment.create({
-        data: {
-          companyId,
-          uploadId: upload.id,
-          entityType: "Employee",
-          entityId: employeeId,
-          category: "id-card",
-          label: `Employee ID Card — ${new Date().toLocaleDateString()}`,
-          createdById: actorUserId,
-        },
+      const existing = await tx.entityAttachment.findFirst({
+        where: { uploadId: upload.id, entityType: "Employee", entityId: employeeId },
       });
-      attachmentId = attachment.id;
+      if (existing) {
+        await tx.entityAttachment.update({
+          where: { id: existing.id },
+          data: { label: `Employee ID Card — ${new Date().toLocaleDateString()}` },
+        });
+        attachmentId = existing.id;
+      } else {
+        const attachment = await tx.entityAttachment.create({
+          data: {
+            companyId,
+            uploadId: upload.id,
+            entityType: "Employee",
+            entityId: employeeId,
+            category: "id-card",
+            label: `Employee ID Card — ${new Date().toLocaleDateString()}`,
+            createdById: actorUserId,
+          },
+        });
+        attachmentId = attachment.id;
+      }
     }
 
     const updated = await tx.employee.update({
@@ -1958,12 +2052,26 @@ export async function restoreEmployee(input: {
     if (!employee) throw new HrError("Employee not found", 404);
     if (!employee.deletedAt) throw new HrError("Employee is not archived", 409);
 
-    // 1. Restore the record. Contract goes back to ISSUED — the previous
-    //    contract was TERMINATED; a fresh issue/confirm cycle can run if the
-    //    restored employment needs new paperwork.
+    // 1. Restore the record. The agreement lifecycle resets completely —
+    //    stamping ISSUED without contractIssuedAt wedges the confirm step
+    //    (keys off the timestamp → 400s), while a NULL status beside stale
+    //    timestamps is the inverse wedge: generate sees the old issuedAt
+    //    and skips, and the old signing token stays live on a terminated
+    //    agreement. Clear the whole tuple so a fresh issue→confirm cycle
+    //    can run. The generated PDF attachment row stays in the dossier
+    //    (audit trail); only the employee's link + signing token die.
     await tx.employee.update({
       where: { id: input.employeeId },
-      data: { deletedAt: null, active: true, contractStatus: "ISSUED" },
+      data: {
+        deletedAt: null,
+        active: true,
+        contractStatus: null,
+        contractIssuedAt: null,
+        contractConfirmedAt: null,
+        contractAttachmentId: null,
+        contractTerms: null,
+        contractToken: null,
+      },
     });
 
     // 2. Re-activate the membership + user account (if linked). The user may
@@ -1981,7 +2089,25 @@ export async function restoreEmployee(input: {
       });
     }
 
-    // 3. Remove the EmployeeExit record — employeeId is @unique, so leaving
+    // 3. If terminate stamped the actual end date onto contractEndDate (the
+    //    offboard form sends employmentEndDate), restore must clear it —
+    //    otherwise the lazy-expiry check instantly flips any new agreement
+    //    to EXPIRED. Only clear when the value matches the exit record's
+    //    end date; a genuine fixed-term end date survives the restore.
+    const exit = await tx.employeeExit.findUnique({ where: { employeeId: input.employeeId } });
+    if (exit?.terminationDate && employee.contractEndDate) {
+      const sameDay =
+        employee.contractEndDate.toISOString().slice(0, 10) ===
+        exit.terminationDate.toISOString().slice(0, 10);
+      if (sameDay) {
+        await tx.employee.update({
+          where: { id: input.employeeId },
+          data: { contractEndDate: null },
+        });
+      }
+    }
+
+    // 4. Remove the EmployeeExit record — employeeId is @unique, so leaving
     //    it would block a future re-termination. The audit log preserves the
     //    full terminate → restore history.
     await tx.employeeExit.deleteMany({ where: { employeeId: input.employeeId } });
