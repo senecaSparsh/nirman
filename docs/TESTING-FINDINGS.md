@@ -584,3 +584,24 @@ All flows verified through real clicks at phone width (desktop UA + `__surface=1
 
 No new bugs this round. The gate-pass enforcement chain (issue/transfer/sale →
 auto-GP → dispatch blocked until approved) verified on all three paths.
+
+## Mobile sweep — round 6 (restricted role: a-store@test.in, STORE_KEEPER→Greenfield)
+
+- **Permission-scoped chrome**: bottom nav shows only Procurement/Stock/
+  Suppliers — no HR/Accounts/Sales/People entries anywhere.
+- **Denials fail closed + actionable**: `/m/accounts`, `/m/hr`, `/m/sales`
+  each render "X isn't part of your role — grant from Setup → Who Sees What
+  (perm.key)" — names the exact permission.
+- **Project scope on lists**: `/m/procurement` indents/POs show only
+  Greenfield-linked rows (Hillview absent).
+- **Stock is company-wide** (correct — locations aren't project-linked).
+- **Goods-receipt scope verified in code + live**: receivable list shows
+  project POs + company-level POs (shared stores) — deliberately; POST
+  guard's OR always applies (no fail-open for empty assignments) — scoped
+  keeper CANNOT receive a PO bound to a different project's store.
+- **mustChangePassword** on mobile: forced new-password screen → continues.
+- **`/m/me` for keeper**: role card, change password, bounded delegation —
+  no company financial/HR data.
+- **Note**: email sign-in for seed users fails until `/api/auth/demo-login`
+  provisions the credential Account once (dev-only lazy provisioning —
+  `nirman123` works after one demo-login call).
