@@ -19,6 +19,7 @@
 import { prisma, type Prisma } from "@nirman/db";
 import { logAction } from "./audit";
 import { HrError } from "./hr";
+import { ACCT, ensureGlAccount, postJournalEntry } from "./gl-posting";
 import { withSerializableTransaction } from "./transaction";
 
 export type AdvanceStatus = "ACTIVE" | "PAUSED" | "SETTLED" | "CANCELLED";
@@ -51,25 +52,44 @@ export async function issueAdvance(input: IssueAdvanceInput) {
   if (!employee) throw new HrError("Employee not found in this company", 404);
   if (!employee.active) throw new HrError("Cannot issue an advance to an inactive employee", 400);
 
-  const advance = await prisma.employeeAdvance.create({
-    data: {
+  return withSerializableTransaction(async (tx) => {
+    const advance = await tx.employeeAdvance.create({
+      data: {
+        companyId: input.companyId,
+        employeeId: input.employeeId,
+        amount: input.amount,
+        monthlyRecovery: input.monthlyRecovery,
+        notes: input.notes ?? null,
+        issuedById: input.actorUserId,
+      },
+    });
+
+    // Book the cash-out: the company just handed money to the employee.
+    // Without this JE the disbursement is invisible — the ledger shows
+    // neither the asset (advance receivable) nor the cash that left.
+    await ensureGlAccount(tx, input.companyId, ACCT.ADVANCE_TO_EMP);
+    await postJournalEntry(tx, {
       companyId: input.companyId,
-      employeeId: input.employeeId,
-      amount: input.amount,
-      monthlyRecovery: input.monthlyRecovery,
-      notes: input.notes ?? null,
-      issuedById: input.actorUserId,
-    },
+      sourceType: "EMPLOYEE_ADVANCE",
+      sourceId: advance.id,
+      memo: `Salary advance issued to ${employee.name}`,
+      postedById: input.actorUserId,
+      lines: [
+        { accountCode: ACCT.ADVANCE_TO_EMP, debit: input.amount, credit: 0, entityType: "Employee", entityId: input.employeeId, memo: "Advance receivable from employee" },
+        { accountCode: ACCT.CASH, debit: 0, credit: input.amount, entityType: "Employee", entityId: input.employeeId, memo: "Cash paid out as advance" },
+      ],
+    });
+
+    await logAction(tx, {
+      userId: input.actorUserId,
+      companyId: input.companyId,
+      action: "ADVANCE_ISSUE",
+      entityType: "EmployeeAdvance",
+      entityId: advance.id,
+      after: { employeeId: input.employeeId, amount: input.amount, monthlyRecovery: input.monthlyRecovery },
+    });
+    return advance;
   });
-  await logAction(prisma, {
-    userId: input.actorUserId,
-    companyId: input.companyId,
-    action: "ADVANCE_ISSUE",
-    entityType: "EmployeeAdvance",
-    entityId: advance.id,
-    after: { employeeId: input.employeeId, amount: input.amount, monthlyRecovery: input.monthlyRecovery },
-  });
-  return advance;
 }
 
 /** Advances for one employee (dossier view). */
@@ -127,6 +147,36 @@ export async function updateAdvanceStatus(
         notes: settleNote ? `${advance.notes ?? ""}\n${settleNote}`.trim() : advance.notes,
       },
     });
+
+    // Close the outstanding balance in the ledger. SETTLED is treated as a
+    // cash repayment (the employee handed the money back); CANCELLED is a
+    // bad-debt write-off to operating expense. Skipped when nothing is
+    // outstanding (fully recovered via payroll already).
+    if (status === "SETTLED" || status === "CANCELLED") {
+      const outstanding = advance.amount.minus(advance.recoveredAmount);
+      if (outstanding.gt(0)) {
+        await ensureGlAccount(tx, companyId, ACCT.ADVANCE_TO_EMP);
+        await postJournalEntry(tx, {
+          companyId,
+          sourceType: status === "SETTLED" ? "ADVANCE_SETTLEMENT" : "ADVANCE_WRITEOFF",
+          sourceId: advance.id,
+          memo: status === "SETTLED"
+            ? `Salary advance repaid in cash${settleNote ? ` — ${settleNote}` : ""}`
+            : `Salary advance written off${settleNote ? ` — ${settleNote}` : ""}`,
+          postedById: actorUserId,
+          lines: status === "SETTLED"
+            ? [
+                { accountCode: ACCT.CASH, debit: outstanding, credit: 0, entityType: "EmployeeAdvance", entityId: advance.id, memo: "Cash received repaying advance" },
+                { accountCode: ACCT.ADVANCE_TO_EMP, debit: 0, credit: outstanding, entityType: "EmployeeAdvance", entityId: advance.id, memo: "Advance receivable settled" },
+              ]
+            : [
+                { accountCode: ACCT.OPERATING_EXPENSE, debit: outstanding, credit: 0, entityType: "EmployeeAdvance", entityId: advance.id, memo: "Unrecoverable advance written off" },
+                { accountCode: ACCT.ADVANCE_TO_EMP, debit: 0, credit: outstanding, entityType: "EmployeeAdvance", entityId: advance.id, memo: "Advance receivable written off" },
+              ],
+        });
+      }
+    }
+
     await logAction(tx, {
       userId: actorUserId,
       companyId,
@@ -183,6 +233,7 @@ export async function creditAdvanceRecoveries(
     select: { id: true, advanceId: true, amount: true },
   });
   let credited = 0;
+  let creditedTotal = 0;
   for (const c of components) {
     if (!c.advanceId) continue;
     const updated = await tx.employeeAdvance.updateMany({
@@ -191,6 +242,7 @@ export async function creditAdvanceRecoveries(
     });
     if (updated.count === 0) continue;
     credited++;
+    creditedTotal += Number(c.amount);
     // Auto-settle when fully recovered.
     const adv = await tx.employeeAdvance.findUnique({
       where: { id: c.advanceId },
@@ -204,13 +256,30 @@ export async function creditAdvanceRecoveries(
     }
   }
   if (credited > 0) {
+    // Close the loop in the ledger: the payroll JE credited Salaries
+    // Payable for the FULL deduction (employee effectively "earned" it but
+    // it stays owed as a debt repayment). Settle that payable against the
+    // advance receivable — otherwise 2200 carries a phantom credit forever
+    // and the advance asset never nets down.
+    await ensureGlAccount(tx, companyId, ACCT.ADVANCE_TO_EMP);
+    await postJournalEntry(tx, {
+      companyId,
+      sourceType: "ADVANCE_RECOVERY",
+      sourceId: payrollLineIds[0] ?? undefined,
+      memo: `Salary advance recovery — ${credited} deduction(s) from paid payroll`,
+      postedById: actorUserId,
+      lines: [
+        { accountCode: ACCT.SALARIES_PAYABLE, debit: creditedTotal, credit: 0, entityType: "PayrollLine", entityId: payrollLineIds[0] ?? "", memo: "Salary payable settled by advance deduction" },
+        { accountCode: ACCT.ADVANCE_TO_EMP, debit: 0, credit: creditedTotal, entityType: "PayrollLine", entityId: payrollLineIds[0] ?? "", memo: "Advance receivable recovered via payroll" },
+      ],
+    });
     await logAction(tx, {
       userId: actorUserId,
       companyId,
       action: "ADVANCE_RECOVERY_CREDIT",
       entityType: "PayrollLine",
       entityId: payrollLineIds[0] ?? "",
-      after: { recoveredComponents: credited },
+      after: { recoveredComponents: credited, creditedTotal },
     });
   }
   return credited;

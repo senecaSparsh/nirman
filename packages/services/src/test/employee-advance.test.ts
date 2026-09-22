@@ -258,4 +258,58 @@ describe("employee advances", () => {
       issueAdvance({ employeeId: employee.id, companyId: company.id, amount: 1000, monthlyRecovery: 500, actorUserId: user.id }),
     ).rejects.toThrow(/inactive/i);
   });
+
+  it("books the cash-out at issue and settles the payable on recovery", async () => {
+    const { company, user, project } = await setup();
+    const employee = await createEmployee(company.id, project.id);
+    const { issueAdvance } = await import("../employee-advance");
+    const advance = await issueAdvance({
+      employeeId: employee.id, companyId: company.id, amount: 2000, monthlyRecovery: 800, actorUserId: user.id,
+    });
+
+    // Issue JE: Dr 1650 Advances to Employees / Cr 1000 Cash
+    const issueJe = await prisma.journalEntry.findFirstOrThrow({
+      where: { companyId: company.id, sourceType: "EMPLOYEE_ADVANCE", sourceId: advance.id },
+      include: { lines: { include: { account: { select: { code: true } } } } },
+    });
+    const advLine = issueJe.lines.find((l) => l.account.code === "1650");
+    const cashLine = issueJe.lines.find((l) => l.account.code === "1000");
+    expect(advLine?.debit.toNumber()).toBe(2000);
+    expect(advLine?.credit.toNumber()).toBe(0);
+    expect(cashLine?.credit.toNumber()).toBe(2000);
+
+    // Pay a period that carries the ₹800 recovery component.
+    const { generatePayroll } = await import("../hr");
+    const period = await generatePayroll({ companyId: company.id, year: 2025, month: 1, userId: user.id });
+    await payPeriod(period.id, user.id);
+
+    // Recovery JE: Dr 2200 Salaries Payable / Cr 1650 Advances to Employees.
+    // Without it the payroll JE's full-deduction credit leaves a phantom
+    // balance in 2200 and the receivable never nets down.
+    const recoveryJe = await prisma.journalEntry.findFirstOrThrow({
+      where: { companyId: company.id, sourceType: "ADVANCE_RECOVERY" },
+      include: { lines: { include: { account: { select: { code: true } } } } },
+    });
+    const payLine = recoveryJe.lines.find((l) => l.account.code === "2200");
+    const recvLine = recoveryJe.lines.find((l) => l.account.code === "1650");
+    expect(payLine?.debit.toNumber()).toBe(800);
+    expect(recvLine?.credit.toNumber()).toBe(800);
+  });
+
+  it("manual SETTLED posts a cash-repayment JE for the outstanding balance", async () => {
+    const { company, user, project } = await setup();
+    const employee = await createEmployee(company.id, project.id);
+    const { issueAdvance, updateAdvanceStatus } = await import("../employee-advance");
+    const advance = await issueAdvance({
+      employeeId: employee.id, companyId: company.id, amount: 1500, monthlyRecovery: 500, actorUserId: user.id,
+    });
+    await updateAdvanceStatus(advance.id, company.id, "SETTLED", user.id, "Employee repaid in cash");
+
+    const je = await prisma.journalEntry.findFirstOrThrow({
+      where: { companyId: company.id, sourceType: "ADVANCE_SETTLEMENT", sourceId: advance.id },
+      include: { lines: { include: { account: { select: { code: true } } } } },
+    });
+    expect(je.lines.find((l) => l.account.code === "1000")?.debit.toNumber()).toBe(1500);
+    expect(je.lines.find((l) => l.account.code === "1650")?.credit.toNumber()).toBe(1500);
+  });
 });

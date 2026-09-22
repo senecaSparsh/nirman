@@ -43,6 +43,7 @@ export const CHART_OF_ACCOUNTS = [
   { code: "1400", name: "Input GST / ITC", type: "ASSET" as const },
   { code: "1500", name: "WIP - Project Costs", type: "ASSET" as const },
   { code: "1600", name: "Advances to Subcontractors", type: "ASSET" as const },
+  { code: "1650", name: "Advances to Employees", type: "ASSET" as const },
   { code: "1700", name: "Unsold Assets - Land", type: "ASSET" as const },
   { code: "1800", name: "Unsold Assets - Built Units", type: "ASSET" as const },
   { code: "1900", name: "Equipment & Fixtures", type: "ASSET" as const },
@@ -86,6 +87,7 @@ export const ACCT = {
   INPUT_GST: "1400",
   WIP: "1500",
   ADVANCE_TO_SUB: "1600",
+  ADVANCE_TO_EMP: "1650",
   LAND_ASSET: "1700",
   UNIT_ASSET: "1800",
   EQUIPMENT_ASSET: "1900",
@@ -132,6 +134,25 @@ export async function seedChartOfAccounts(companyId: string) {
       update: { name: a.name, type: a.type, isSystem: true },
     });
   }
+}
+
+/**
+ * Ensure a single system account exists for a tenant — for account codes
+ * added to the chart AFTER a company's books were already seeded. Idempotent
+ * upsert; safe to call inside any posting transaction.
+ */
+export async function ensureGlAccount(
+  tx: Prisma.TransactionClient,
+  companyId: string,
+  code: string,
+) {
+  const def = CHART_OF_ACCOUNTS.find((a) => a.code === code);
+  if (!def) throw new ServiceError(`No chart-of-accounts definition for code ${code}`, 500);
+  await tx.glAccount.upsert({
+    where: { companyId_code: { companyId, code } },
+    create: { companyId, code, name: def.name, type: def.type, isSystem: true },
+    update: {},
+  });
 }
 
 /** Default expense categories a construction company needs from day one. */

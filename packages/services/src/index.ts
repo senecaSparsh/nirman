@@ -619,6 +619,7 @@ export {
 export {
   seedChartOfAccounts,
   seedCompanyDefaults,
+  ensureGlAccount,
   postJournalEntry,
   postPurchaseReceipt,
   postMaterialIssue,
