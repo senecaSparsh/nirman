@@ -434,6 +434,22 @@ input[type="number"] {
     visibility: hidden;
   }
 
+  /* Hard surface isolation — belt-and-braces with the adapter: even if a
+     wrong-surface route renders for a frame (client-side nav, resize,
+     mid-redirect), it can NEVER paint. The desktop shell is display:none
+     under 1024px; the mobile shell is display:none at 1024px+. Pure CSS —
+     no JS timing, no flash, no glimpse. */
+  @media (max-width: 1023px) {
+    [data-surface="desktop"] {
+      display: none !important;
+    }
+  }
+  @media (min-width: 1024px) {
+    [data-surface="mobile"] {
+      display: none !important;
+    }
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);

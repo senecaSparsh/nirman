@@ -6,9 +6,8 @@
  *   · Landing page ("/") with desktop UA → no redirect
  *   · Deep routes with mobile UA → /m + path
  *   · Deep routes with desktop UA → no redirect
- *   · ?desktop=1 sets escape-hatch cookie + redirects to /
- *   · ?mobile=1 clears escape-hatch cookie + redirects to /m
- *   · nirman-desktop cookie overrides mobile detection
+ *   · No desktop escape hatch — nirman-desktop cookie and ?desktop=1 are
+ *     ignored; a phone always lands on the mobile surface
  *   · /m routes never reverse-redirected to desktop
  *   · Public routes (/sign-in, /api/auth/*) never redirected
  *   · API routes never redirected
@@ -88,12 +87,12 @@ describe("Middleware: landing page redirect", () => {
     expect(getRedirectLocation(res)).toBeNull();
   });
 
-  it("mobile UA on / with nirman-desktop cookie → no redirect", () => {
+  it("mobile UA on / with nirman-desktop cookie → still redirects to /m (no escape hatch)", () => {
     const res = middleware(
       makeReq("/", { ua: MOBILE_UA, cookie: "nirman-desktop=1" }),
     );
-    expect(res.status).toBe(200);
-    expect(getRedirectLocation(res)).toBeNull();
+    expect(res.status).toBe(307);
+    expect(getRedirectLocation(res)).toBe(`${BASE}/m`);
   });
 
   it("empty UA on / → no redirect (treated as desktop)", () => {
@@ -130,12 +129,12 @@ describe("Middleware: deep route redirect (mobile UA)", () => {
     expect(getRedirectLocation(res)).toBeNull();
   });
 
-  it("mobile UA on /materials with nirman-desktop cookie → no redirect", () => {
+  it("mobile UA on /materials with nirman-desktop cookie → still redirects (no escape hatch)", () => {
     const res = middleware(
       makeReq("/materials", { ua: MOBILE_UA, cookie: "nirman-desktop=1" }),
     );
-    expect(res.status).toBe(200);
-    expect(getRedirectLocation(res)).toBeNull();
+    expect(res.status).toBe(307);
+    expect(getRedirectLocation(res)).toBe(`${BASE}/m/materials`);
   });
 });
 
@@ -165,56 +164,34 @@ describe("Middleware: /m routes never reverse-redirected", () => {
   });
 });
 
-describe("Middleware: ?desktop=1 escape hatch", () => {
-  it("sets nirman-desktop cookie and redirects to /", () => {
+describe("Middleware: no desktop escape hatch", () => {
+  it("?desktop=1 is ignored — mobile UA still redirects to /m, no cookie set", () => {
     const res = middleware(makeReq("/?desktop=1", { ua: MOBILE_UA }));
     expect(res.status).toBe(307);
-    expect(getRedirectLocation(res)).toBe(`${BASE}/`);
-    const cookie = getSetCookie(res);
-    expect(cookie).toContain("nirman-desktop=1");
+    expect(getRedirectLocation(res)).toBe(`${BASE}/m`);
+    expect(getSetCookie(res)).toBeNull();
   });
 
-  it("works from a deep route (preserves the page)", () => {
+  it("?desktop=1 on a deep route is ignored — mobile UA still redirected", () => {
     const res = middleware(makeReq("/materials?desktop=1", { ua: MOBILE_UA }));
     expect(res.status).toBe(307);
-    expect(getRedirectLocation(res)).toBe(`${BASE}/materials`);
-    expect(getSetCookie(res)).toContain("nirman-desktop=1");
+    const loc = getRedirectLocation(res);
+    expect(loc).toContain("/m/materials");
+    expect(getSetCookie(res)).toBeNull();
   });
 
-  it("works with desktop UA too (no harm)", () => {
+  it("?desktop=1 with desktop UA is a harmless pass-through", () => {
     const res = middleware(makeReq("/?desktop=1", { ua: DESKTOP_UA }));
-    expect(res.status).toBe(307);
-    expect(getRedirectLocation(res)).toBe(`${BASE}/`);
-    expect(getSetCookie(res)).toContain("nirman-desktop=1");
+    expect(res.status).toBe(200);
+    expect(getSetCookie(res)).toBeNull();
   });
-});
 
-describe("Middleware: ?mobile=1 clears escape hatch", () => {
-  it("clears nirman-desktop cookie and redirects to /m", () => {
+  it("?mobile=1 is ignored — desktop UA passes through untouched", () => {
     const res = middleware(
       makeReq("/?mobile=1", { ua: DESKTOP_UA, cookie: "nirman-desktop=1" }),
     );
-    expect(res.status).toBe(307);
-    expect(getRedirectLocation(res)).toBe(`${BASE}/m`);
-    // The cookie should be deleted (set with empty value or expiry in past)
-    const cookie = getSetCookie(res);
-    expect(cookie).toBeTruthy();
-    // NextResponse.cookies.delete() sets the cookie to empty with Max-Age=0
-    expect(cookie).toContain("nirman-desktop");
-  });
-
-  it("works from a deep route (maps to the mobile counterpart)", () => {
-    const res = middleware(
-      makeReq("/materials?mobile=1", { ua: DESKTOP_UA, cookie: "nirman-desktop=1" }),
-    );
-    expect(res.status).toBe(307);
-    expect(getRedirectLocation(res)).toBe(`${BASE}/m/materials`);
-  });
-
-  it("works even without the cookie already set", () => {
-    const res = middleware(makeReq("/?mobile=1", { ua: DESKTOP_UA }));
-    expect(res.status).toBe(307);
-    expect(getRedirectLocation(res)).toBe(`${BASE}/m`);
+    expect(res.status).toBe(200);
+    expect(getSetCookie(res)).toBeNull();
   });
 });
 
@@ -533,32 +510,34 @@ describe("Middleware: production mode (auth gate active)", () => {
     expect(getRedirectLocation(res)).toBeNull();
   });
 
-  // ── Escape hatch in production ──
-  it("?desktop=1 sets cookie + redirects to / (production)", () => {
+  // ── No escape hatch in production ──
+  it("?desktop=1 ignored — mobile UA still redirects to /m, no cookie (production)", () => {
     const res = middleware(makeReq("/?desktop=1", { ua: MOBILE_UA }));
     expect(res.status).toBe(307);
-    expect(getRedirectLocation(res)).toBe(`${BASE}/`);
-    expect(getSetCookie(res)).toContain("nirman-desktop=1");
+    expect(getRedirectLocation(res)).toBe(`${BASE}/m`);
+    expect(getSetCookie(res)).toBeNull();
   });
 
-  it("?mobile=1 clears cookie + redirects to /m (production)", () => {
+  it("?mobile=1 ignored — desktop UA passes through, no cookie (production)", () => {
     const res = middleware(
       makeReq("/?mobile=1", { ua: DESKTOP_UA, cookie: "nirman-desktop=1" }),
     );
+    // No auth cookie → the auth gate still redirects to /sign-in, but the
+    // mobile param is ignored and no nirman-desktop cookie is touched.
     expect(res.status).toBe(307);
-    expect(getRedirectLocation(res)).toBe(`${BASE}/m`);
-    expect(getSetCookie(res)).toContain("nirman-desktop");
+    expect(getRedirectLocation(res)).toContain("/sign-in");
+    expect(getSetCookie(res)).toBeNull();
   });
 
-  it("nirman-desktop cookie + mobile UA + session → no mobile redirect", () => {
+  it("nirman-desktop cookie + mobile UA + session → still mobile-redirected", () => {
     const res = middleware(
       makeReq("/materials", {
         ua: MOBILE_UA,
         cookie: "better-auth.session_token=fake; nirman-desktop=1",
       }),
     );
-    expect(res.status).toBe(200);
-    expect(getRedirectLocation(res)).toBeNull();
+    expect(res.status).toBe(307);
+    expect(getRedirectLocation(res)).toBe(`${BASE}/m/materials`);
   });
 
   // ── Public routes in production ──

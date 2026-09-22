@@ -408,7 +408,7 @@ export function AppShell({
     });
 
   return (
-    <div className="flex min-h-screen bg-background" data-switching={isCompanySwitching ? "true" : undefined}>
+    <div className="flex min-h-screen bg-background" data-surface="desktop" data-switching={isCompanySwitching ? "true" : undefined}>
       {/* ── World rail — always visible, 64px, dark ──────────────── */}
       <WorldRail
         worlds={worlds}

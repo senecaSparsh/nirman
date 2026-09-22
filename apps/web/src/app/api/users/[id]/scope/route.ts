@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { prisma } from "@nirman/db";
 import { assignScopedMembership, type ScopeType } from "@nirman/services";
 import { apiHandler, getCompany, getCustomRoleLabels, json, requirePermission, roleDisplayLabel } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -39,6 +40,25 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   }
   if (!scopeType || !["COMPANY", "DEPARTMENT", "PROJECT"].includes(scopeType)) {
     return json({ error: "scopeType must be COMPANY, DEPARTMENT, or PROJECT" }, { status: 400 });
+  }
+
+  // Cross-tenant guard — assignScopedMembership CREATES the membership when
+  // none exists, so without this check an admin could pull any foreign user
+  // into their company by guessing a user id (the membership grants the
+  // victim access to this tenant). Same check as PATCH /api/users/[id]:
+  // the target must already be a member here (or carry this company as
+  // their legacy global companyId — the repair path for unmigrated rows).
+  const target = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, companyId: true },
+  });
+  if (!target) return json({ error: "User not found" }, { status: 404 });
+  const isMember = await prisma.userCompany.findFirst({
+    where: { userId, companyId: company.id },
+    select: { id: true },
+  });
+  if (!isMember && target.companyId !== company.id) {
+    return json({ error: "User is not a member of this company" }, { status: 404 });
   }
 
   try {

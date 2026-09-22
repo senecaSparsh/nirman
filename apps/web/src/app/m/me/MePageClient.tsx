@@ -965,12 +965,6 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
       <MobileSectionTitle>Switch view</MobileSectionTitle>
       <div className="flex flex-col gap-2.5">
         <MobileRow
-          href="/"
-          icon={Monitor}
-          title="Desktop ERP"
-          subtitle="Full desktop view"
-        />
-        <MobileRow
           href="/m/pulse/approvals"
           icon={ClipboardCheck}
           title="Approvals Queue"

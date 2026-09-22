@@ -10,10 +10,12 @@ import { resolveTarget, shouldSkip } from "@/lib/surface-map";
  *
  * Watches the viewport width and instantly redirects the user to the
  * correct surface (mobile `/m/*` or desktop `/*`) when the screen size
- * crosses the breakpoint. This ensures:
- *   · No mobile user ever sees the desktop version
- *   · No desktop user ever sees the mobile version
+ * crosses the breakpoint. Combined with the CSS surface gates in
+ * globals.css (`[data-surface]` media queries) this guarantees:
+ *   · No mobile user ever sees the desktop version — not even a frame
+ *   · No desktop user ever sees the mobile version — not even a frame
  *   · Adapts instantly on resize, orientation change, or window move
+ * There is no escape hatch by design.
  *
  * BREAKPOINT: 1024px (same as the sign-in page's matchMedia check).
  * Below 1024px = mobile surface, above = desktop surface.
@@ -42,11 +44,6 @@ export {
 
 const MOBILE_BREAKPOINT = "(max-width: 1023px)";
 
-// Same mobile-UA test as the middleware — used to scope the "view desktop"
-// escape hatch to actual phones (a desktop window dragged narrow must still
-// adapt; a phone that chose desktop should be respected).
-const MOBILE_UA_RE = /Android(?:(?=.*Mobile)|(?=.*\bSilk\b))|iPhone|iPod|Windows Phone|BlackBerry|Opera Mini|Mobile\b/i;
-
 export function SurfaceAdapter() {
   const pathname = usePathname();
   const router = useRouter();
@@ -66,10 +63,6 @@ export function SurfaceAdapter() {
   const checkAndRedirect = () => {
     const path = pathRef.current;
     if (!path || shouldSkip(path)) return;
-    // "View desktop" escape hatch — only honored on a real mobile device. A
-    // desktop browser resized to a narrow window must still adapt to mobile;
-    // the cookie only exists to let a *phone* keep the desktop ERP view.
-    if (MOBILE_UA_RE.test(navigator.userAgent) && document.cookie.includes("nirman-desktop=1")) return;
 
     const isMobile = window.matchMedia(MOBILE_BREAKPOINT).matches;
     const onMobileRoute = path.startsWith("/m/") || path === "/m";

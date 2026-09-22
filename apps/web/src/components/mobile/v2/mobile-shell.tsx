@@ -430,7 +430,7 @@ export function MobileShellV2({
     !session
   ) {
     return (
-      <div className="flex min-h-dvh items-center justify-center" style={{ backgroundColor: "var(--color-paper-2)" }}>
+      <div className="flex min-h-dvh items-center justify-center" data-surface="mobile" style={{ backgroundColor: "var(--color-paper-2)" }}>
         <Loader2 className="size-6 animate-spin" style={{ color: "var(--color-ink-300)" }} />
       </div>
     );
@@ -728,7 +728,7 @@ function MobileShellInner({
   }
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden" style={{ backgroundColor: "var(--color-paper-2)" }}>
+    <div className="flex h-dvh flex-col overflow-hidden" data-surface="mobile" style={{ backgroundColor: "var(--color-paper-2)" }}>
       <CommandPalette userRole={companyInfo.role as string} />
 
       {/* ── Offline banner — subtle indicator, not an alarm ── */}

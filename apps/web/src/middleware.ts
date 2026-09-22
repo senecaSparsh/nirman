@@ -25,12 +25,11 @@ import { resolveTarget } from "@/lib/surface-map";
  * optimization for the initial page load.
  *
  * Rules:
- *   · "/" + mobile UA + no desktop cookie  →  302 to "/m"  (one-time landing)
- *   · "/m" on any UA                       →  stays on "/m" (no reverse redirect)
- *   · Deep routes are never redirected — explicit navigation is respected.
- *   · "nirman-desktop=1" cookie overrides mobile detection (escape hatch).
- *   · "?desktop=1"  sets the escape-hatch cookie (phone → desktop view).
- *   · "?mobile=1"   clears the escape-hatch cookie (back to mobile view).
+ *   · "/" + mobile UA            →  302 to "/m"  (one-time landing)
+ *   · deep routes + mobile UA    →  302 to their /m/* equivalents
+ *   · "/m" on any UA             →  stays on "/m" (no reverse redirect)
+ *   · No desktop escape hatch — a phone never sees the desktop surface,
+ *     and the CSS surface gate means it can't paint even for one frame.
  *
  * Auth (all environments): checks for the better-auth session cookie. If
  * missing, redirects to /sign-in. Set AUTH_BYPASS=true to skip the cookie
@@ -58,10 +57,6 @@ export function isMobileUA(ua: string): boolean {
 function isMobileRequest(req: NextRequest): boolean {
   const ua = req.headers.get("user-agent") ?? "";
   return isMobileUA(ua);
-}
-
-function hasDesktopCookie(req: NextRequest): boolean {
-  return req.cookies.get("nirman-desktop")?.value === "1";
 }
 
 /** Check if a pathname is a public route (always accessible, no cookie check). */
@@ -144,51 +139,6 @@ function getClientIp(req: NextRequest): string {
 export function middleware(req: NextRequest) {
   const { pathname, searchParams } = req.nextUrl;
 
-  // ── "View desktop" escape hatch ────────────────────────────
-  // Sets a session-only cookie (no maxAge → expires when browser closes)
-  // so the one-time landing redirect stops sending the user to "/m". This
-  // lets a phone user reach the full desktop ERP if they really need to,
-  // but the preference doesn't persist across browser sessions.
-  if (searchParams.get("desktop") === "1") {
-    // Land on the desktop equivalent of the page the user was on — a guard
-    // tapping "View desktop site" from /m/gate-pass wants /gate-passes,
-    // not a trip back to the dashboard. Unmapped/mobile-only paths fall
-    // back to the desktop home.
-    const target =
-      pathname.startsWith("/m/")
-        ? (resolveTarget(pathname, "", false) ?? "/")
-        : pathname;
-    const res = NextResponse.redirect(new URL(target, req.url));
-    res.cookies.set("nirman-desktop", "1", {
-      path: "/",
-      sameSite: "lax",
-    });
-    return res;
-  }
-
-  // ── "View mobile" — clear the desktop escape hatch ────────
-  // Symmetric to ?desktop=1 above. Clears the nirman-desktop cookie so
-  // the user returns to the mobile surface immediately. This is the
-  // reliable way back to mobile after using the desktop escape hatch —
-  // without it, the cookie persists until the browser closes.
-  if (searchParams.get("mobile") === "1") {
-    // Symmetric: land on the mobile equivalent of the current desktop page
-    // (e.g. /gate-passes → /m/gate-pass) instead of always going home.
-    // The `mobile` param must be stripped before re-appending search —
-    // carrying it into the target would re-trigger this branch forever.
-    const rest = new URLSearchParams(searchParams);
-    rest.delete("mobile");
-    const search = rest.size ? `?${rest.toString()}` : "";
-    const onMobileRoute = pathname === "/m" || pathname.startsWith("/m/");
-    const target =
-      !onMobileRoute && pathname !== "/"
-        ? (resolveTarget(pathname, "", true) ?? "/m")
-        : "/m";
-    const res = NextResponse.redirect(new URL(target + (target === "/m" ? "" : search), req.url));
-    res.cookies.delete("nirman-desktop");
-    return res;
-  }
-
   // ── Server-side mobile redirect (eliminates flash + handles deep routes) ──
   // Mobile UA users are redirected from desktop routes to their mobile
   // equivalents. This covers BOTH the landing page ("/") AND deep routes
@@ -206,10 +156,9 @@ export function middleware(req: NextRequest) {
   // "/m/home" instead of a nonexistent path — same as the client adapter.
   //
   // Skip: /m routes (already mobile), /print (print pages), /portal
-  // (customer portal), /api, public routes, and the nirman-desktop cookie
-  // escape hatch.
+  // (customer portal), /api, and public routes. There is intentionally NO
+  // desktop escape hatch — a phone must never see the desktop surface.
   if (
-    !hasDesktopCookie(req) &&
     isMobileRequest(req) &&
     !pathname.startsWith("/m/") &&
     pathname !== "/m" &&
@@ -228,11 +177,7 @@ export function middleware(req: NextRequest) {
   }
 
   // Landing page redirect (kept separate for the /m → /m/home redirect)
-  if (
-    pathname === "/" &&
-    !hasDesktopCookie(req) &&
-    isMobileRequest(req)
-  ) {
+  if (pathname === "/" && isMobileRequest(req)) {
     return NextResponse.redirect(new URL("/m", req.url));
   }
 
@@ -319,7 +264,7 @@ export function middleware(req: NextRequest) {
     // For mobile users hitting "/", redirect to "/m" after sign-in (not "/")
     // so they land on the mobile surface, not the desktop home.
     const redirectTarget =
-      pathname === "/" && isMobileRequest(req) && !hasDesktopCookie(req)
+      pathname === "/" && isMobileRequest(req)
         ? "/m"
         : pathname;
     signInUrl.searchParams.set("redirect", redirectTarget);

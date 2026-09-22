@@ -98,9 +98,7 @@ var p=location.pathname;
 var sk=/^\\/(sign-in|sign-up|forgot-password|reset-password|change-password|consent|accept\\/|api\\/|_next\\/|portal|print)/.test(p)||/\\/print$/.test(p)||/\\.(svg|png|jpe?g|gif|webp|ico|css|js|map|webmanifest|txt)$/.test(p);
 var mob=matchMedia('(max-width:1023px)').matches;
 var onM=p==='/m'||p.indexOf('/m/')===0;
-var uaMob=/Android(?:(?=.*Mobile)|(?=.*\\bSilk\\b))|iPhone|iPod|Windows Phone|BlackBerry|Opera Mini|Mobile\\b/i.test(navigator.userAgent);
-var desk=document.cookie.indexOf('nirman-desktop=1')>-1;
-if(!sk&&!(uaMob&&desk)&&((mob&&!onM)||(!mob&&onM))){
+if(!sk&&((mob&&!onM)||(!mob&&onM))){
 r.classList.add('surface-pending');
 setTimeout(function(){r.classList.remove('surface-pending')},1500);
 }

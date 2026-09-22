@@ -11,7 +11,6 @@ import {
   Calendar,
   Building2,
   Shield,
-  Monitor,
   type LucideIcon,
 } from "lucide-react";
 import { prisma } from "@nirman/db";
@@ -297,22 +296,6 @@ export default function SettingsPage() {
               <CurrencyToggleRow />
               <InstallAppRow />
               <TourReplayRow />
-              <Link
-                href="/?desktop=1"
-                className="flex items-center gap-2.5 rounded-[0.5rem] border px-3 py-2.5 text-m-body press"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-              >
-                <Monitor className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>
-                    View desktop site
-                  </p>
-                  <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                    Switch to the full desktop ERP interface
-                  </p>
-                </div>
-                <ChevronRight className="size-3.5 shrink-0" style={{ color: "var(--color-ink-300)" }} />
-              </Link>
             </div>
 
             {/* ════════════════════════════════════════════════════════════════════
