@@ -12,6 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/empty-state";
 import { Page, Section, StatusPill, Toolbar, ToolbarCount } from "@/components/page";
 import { useConfirm } from "@/lib/use-confirm";
@@ -401,19 +403,69 @@ export function ApprovalsView({
   );
 }
 
+/**
+ * Reject needs a reason — several APIs 400 without one (gate pass, DPR,
+ * RA bill) and the requester deserves to know why for the rest. Shared
+ * dialog so every row rejects the same way (the mobile queue always had
+ * this; the desktop queue used to fire reasonless PATCHes).
+ */
+function RejectReasonDialog({
+  open,
+  onOpenChange,
+  title,
+  busy,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  title: string;
+  busy: boolean;
+  onConfirm: (reason: string) => void;
+}) {
+  const [reason, setReason] = useState("");
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) setReason("");
+        onOpenChange(o);
+      }}
+      title={title}
+      description="The requester will see this reason."
+    >
+      <div className="space-y-4">
+        <Textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Why is this being rejected?"
+          rows={3}
+          autoFocus
+        />
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button type="button" variant="destructive" disabled={!reason.trim() || busy} onClick={() => onConfirm(reason.trim())}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />} Reject
+          </Button>
+        </div>
+      </div>
+    </Dialog>
+  );
+}
+
 function POApprovalRow({ po }: { po: ApprovalPORow }) {
   const router = useRouter();
   const [acting, setActing] = useState(false);
   const [done, setDone] = useState(false);
   const [rejected, setRejected] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
 
-  async function act(action: "approve" | "reject") {
+  async function act(action: "approve" | "reject", reason?: string) {
     setActing(true);
     try {
       const res = await fetch(`/api/purchase-orders/${po.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify(reason ? { action, rejectionReason: reason } : { action }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -515,7 +567,7 @@ function POApprovalRow({ po }: { po: ApprovalPORow }) {
         )}
         {po.canApprove && (
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" disabled={acting} onClick={() => act("reject")}>
+            <Button size="sm" variant="outline" disabled={acting} onClick={() => setRejectOpen(true)}>
               {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />} Reject
             </Button>
             <Button size="sm" disabled={acting} onClick={() => act("approve")}>
@@ -523,6 +575,13 @@ function POApprovalRow({ po }: { po: ApprovalPORow }) {
             </Button>
           </div>
         )}
+        <RejectReasonDialog
+          open={rejectOpen}
+          onOpenChange={setRejectOpen}
+          title={`Reject ${po.poNumber}`}
+          busy={acting}
+          onConfirm={(reason) => { setRejectOpen(false); act("reject", reason); }}
+        />
       </div>
     </div>
   );
@@ -534,14 +593,15 @@ function ReqApprovalRow({ req }: { req: ApprovalReqRow }) {
   const [done, setDone] = useState(false);
   const [rejected, setRejected] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
 
-  async function act(action: "approve" | "reject") {
+  async function act(action: "approve" | "reject", reason?: string) {
     setActing(true);
     try {
       const res = await fetch(`/api/requisitions/${req.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify(reason ? { action, rejectReason: reason } : { action }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -654,7 +714,7 @@ function ReqApprovalRow({ req }: { req: ApprovalReqRow }) {
           )}
           {req.canApprove && (
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" disabled={acting} onClick={() => act("reject")}>
+              <Button size="sm" variant="outline" disabled={acting} onClick={() => setRejectOpen(true)}>
                 {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />} Reject
               </Button>
               <Button size="sm" disabled={acting} onClick={() => act("approve")}>
@@ -662,6 +722,13 @@ function ReqApprovalRow({ req }: { req: ApprovalReqRow }) {
               </Button>
             </div>
           )}
+          <RejectReasonDialog
+            open={rejectOpen}
+            onOpenChange={setRejectOpen}
+            title={`Reject ${req.reqNumber}`}
+            busy={acting}
+            onConfirm={(reason) => { setRejectOpen(false); act("reject", reason); }}
+          />
         </div>
       </div>
 
@@ -728,14 +795,15 @@ function GatePassApprovalRow({ gp }: { gp: ApprovalGatePassRow }) {
   const [acting, setActing] = useState(false);
   const [done, setDone] = useState(false);
   const [rejected, setRejected] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
 
-  async function act(action: "approve" | "reject") {
+  async function act(action: "approve" | "reject", reason?: string) {
     setActing(true);
     try {
       const res = await fetch(`/api/gate-passes/${gp.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify(reason ? { action, reason } : { action }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -810,7 +878,7 @@ function GatePassApprovalRow({ gp }: { gp: ApprovalGatePassRow }) {
       </div>
       {gp.canApprove && (
         <div className="flex shrink-0 gap-2">
-          <Button size="sm" variant="outline" disabled={acting} onClick={() => act("reject")}>
+          <Button size="sm" variant="outline" disabled={acting} onClick={() => setRejectOpen(true)}>
             {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />} Reject
           </Button>
           <Button size="sm" disabled={acting} onClick={() => act("approve")}>
@@ -818,6 +886,13 @@ function GatePassApprovalRow({ gp }: { gp: ApprovalGatePassRow }) {
           </Button>
         </div>
       )}
+      <RejectReasonDialog
+        open={rejectOpen}
+        onOpenChange={setRejectOpen}
+        title={`Reject ${gp.gatePassNumber}`}
+        busy={acting}
+        onConfirm={(reason) => { setRejectOpen(false); act("reject", reason); }}
+      />
     </div>
   );
 }
@@ -827,14 +902,15 @@ function DprApprovalRow({ dpr }: { dpr: ApprovalDprRow }) {
   const [acting, setActing] = useState(false);
   const [done, setDone] = useState(false);
   const [rejected, setRejected] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
 
-  async function act(action: "subAdminApprove" | "adminApprove" | "reject") {
+  async function act(action: "subAdminApprove" | "adminApprove" | "reject", reason?: string) {
     setActing(true);
     try {
       const res = await fetch(`/api/dprs/${dpr.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify(reason ? { action, reason } : { action }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -910,7 +986,7 @@ function DprApprovalRow({ dpr }: { dpr: ApprovalDprRow }) {
       </div>
       {canApprove && (
         <div className="flex shrink-0 gap-2">
-          <Button size="sm" variant="outline" disabled={acting} onClick={() => act("reject")}>
+          <Button size="sm" variant="outline" disabled={acting} onClick={() => setRejectOpen(true)}>
             {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />} Reject
           </Button>
           <Button size="sm" disabled={acting} onClick={() => act(actionName as "subAdminApprove" | "adminApprove")}>
@@ -918,6 +994,13 @@ function DprApprovalRow({ dpr }: { dpr: ApprovalDprRow }) {
           </Button>
         </div>
       )}
+      <RejectReasonDialog
+        open={rejectOpen}
+        onOpenChange={setRejectOpen}
+        title={`Reject ${dpr.projectName ?? "DPR"}`}
+        busy={acting}
+        onConfirm={(reason) => { setRejectOpen(false); act("reject", reason); }}
+      />
     </div>
   );
 }
@@ -927,14 +1010,15 @@ function RaBillApprovalRow({ raBill }: { raBill: ApprovalRaBillRow }) {
   const [acting, setActing] = useState(false);
   const [done, setDone] = useState(false);
   const [rejected, setRejected] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
 
-  async function act(action: "approve" | "reject") {
+  async function act(action: "approve" | "reject", reason?: string) {
     setActing(true);
     try {
       const res = await fetch(`/api/ra-bills/${raBill.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify(reason ? { action, reason } : { action }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -1017,7 +1101,7 @@ function RaBillApprovalRow({ raBill }: { raBill: ApprovalRaBillRow }) {
         </div>
         {raBill.canApprove && (
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" disabled={acting} onClick={() => act("reject")}>
+            <Button size="sm" variant="outline" disabled={acting} onClick={() => setRejectOpen(true)}>
               {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />} Reject
             </Button>
             <Button size="sm" disabled={acting} onClick={() => act("approve")}>
@@ -1025,6 +1109,13 @@ function RaBillApprovalRow({ raBill }: { raBill: ApprovalRaBillRow }) {
             </Button>
           </div>
         )}
+        <RejectReasonDialog
+          open={rejectOpen}
+          onOpenChange={setRejectOpen}
+          title={`Reject RA bill ${raBill.raBillNumber}`}
+          busy={acting}
+          onConfirm={(reason) => { setRejectOpen(false); act("reject", reason); }}
+        />
       </div>
     </div>
   );
@@ -1035,14 +1126,15 @@ function ExpenseApprovalRow({ expense }: { expense: ApprovalExpenseRow }) {
   const [acting, setActing] = useState(false);
   const [done, setDone] = useState(false);
   const [rejected, setRejected] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
 
-  async function act(action: "approve" | "reject") {
+  async function act(action: "approve" | "reject", reason?: string) {
     setActing(true);
     try {
       const res = await fetch(`/api/expenses/${expense.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify(reason ? { action, rejectionReason: reason } : { action }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -1119,7 +1211,7 @@ function ExpenseApprovalRow({ expense }: { expense: ApprovalExpenseRow }) {
         </div>
         {expense.canApprove && (
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" disabled={acting} onClick={() => act("reject")}>
+            <Button size="sm" variant="outline" disabled={acting} onClick={() => setRejectOpen(true)}>
               {acting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />} Reject
             </Button>
             <Button size="sm" disabled={acting} onClick={() => act("approve")}>
@@ -1127,6 +1219,13 @@ function ExpenseApprovalRow({ expense }: { expense: ApprovalExpenseRow }) {
             </Button>
           </div>
         )}
+        <RejectReasonDialog
+          open={rejectOpen}
+          onOpenChange={setRejectOpen}
+          title={`Reject expense — ${expense.categoryName ?? expense.category}`}
+          busy={acting}
+          onConfirm={(reason) => { setRejectOpen(false); act("reject", reason); }}
+        />
       </div>
     </div>
   );
