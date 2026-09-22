@@ -182,7 +182,6 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
   const [isDark, setIsDark] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [editName, setEditName] = useState("");
-  const [editPhone, setEditPhone] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
@@ -264,7 +263,6 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
 
   function startEditProfile() {
     setEditName(userName);
-    setEditPhone(userPhone);
     setEditingProfile(true);
   }
 
@@ -278,14 +276,13 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
       const res = await fetch("/api/me/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editName.trim(), phone: editPhone.trim() || null }),
+        body: JSON.stringify({ name: editName.trim() }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? "Failed to update profile");
       }
       setUserName(editName.trim());
-      setUserPhone(editPhone.trim());
       setEditingProfile(false);
       toast.success("Profile updated");
     } catch (e: unknown) {
@@ -479,14 +476,13 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
                 required
                 autoFocus
               />
-              <UnderlineInput
-                label="Phone"
-                value={editPhone}
-                onChange={setEditPhone}
-                placeholder="—"
-                type="tel"
-                inputMode="tel"
-              />
+              <div>
+                <p className="text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>Phone</p>
+                <p className="text-m-body" style={{ color: "var(--color-ink-950)" }}>{userPhone || "—"}</p>
+                <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-400)" }}>
+                  Phone is your login ID — changes go through HR.
+                </p>
+              </div>
             </div>
           </SectionCard>
           <div className="flex gap-2 mt-2">
