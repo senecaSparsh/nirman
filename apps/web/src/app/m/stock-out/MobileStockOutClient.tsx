@@ -77,6 +77,7 @@ export function MobileStockOutClient({
   initialFromLocationId,
   onClose,
   modeDowngraded,
+  modeExplicit,
 }: {
   canTransfer: boolean;
   canIssue: boolean;
@@ -87,6 +88,9 @@ export function MobileStockOutClient({
   /** True when the URL asked for ?mode=transfer but the user lacks the
    *  transfer permission — surfaced so the fallback to issue isn't silent. */
   modeDowngraded?: boolean;
+  /** True when the URL carried an explicit ?mode= — it beats a restored
+   *  draft's mode (the user navigated to a specific flow on purpose). */
+  modeExplicit?: boolean;
 }) {
   const router = useRouter();
   const { online, enqueue } = useOfflineQueue();
@@ -186,9 +190,10 @@ export function MobileStockOutClient({
     setProjects(projs);
     setMaterials(mats);
 
-    // Pre-fill from draft or defaults
+    // Pre-fill from draft or defaults. An explicit ?mode= in the URL beats
+    // the draft's mode — the user navigated to a specific flow on purpose.
     if (hasDraft && draft) {
-      setMode(draft.mode);
+      setMode(modeExplicit ? initialMode : draft.mode);
       setFromLocationId(draft.fromLocationId);
       setToLocationId(draft.toLocationId);
       setProjectId(draft.projectId);

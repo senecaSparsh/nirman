@@ -73,7 +73,7 @@ export function TransferFormDialog({
   }, [open, defaults, clearAll]);
 
   // Available stock at the source location (cached per location).
-  const { data: availableData } = useFetch<AvailableStockRow[]>(
+  const { data: availableData, loading: availableLoading } = useFetch<AvailableStockRow[]>(
     fromLocationId ? `/api/stock/available?locationId=${fromLocationId}` : null,
   );
   const available = useMemo(() => (Array.isArray(availableData) ? availableData : []), [availableData]);
@@ -291,7 +291,11 @@ export function TransferFormDialog({
                 <Plus className="h-4 w-4" /> Add line
               </Button>
             </div>
-            {available.length === 0 ? (
+            {availableLoading ? (
+              <p className="rounded-md border border-dashed p-3 text-body text-muted-foreground">
+                Loading stock…
+              </p>
+            ) : available.length === 0 ? (
               <p className="rounded-md border border-dashed p-3 text-body text-muted-foreground">
                 No stock at this location.
               </p>
