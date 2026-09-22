@@ -31,6 +31,7 @@ import {
   GitBranch,
   Wallet,
   CalendarOff,
+  FileText,
 } from "lucide-react";
 import { useSession, authClient } from "@/lib/auth-client";
 import { useSignOut } from "@/lib/use-sign-out";
@@ -106,6 +107,8 @@ export interface MePageInitial {
    *  Null when the user has no linked Employee record. */
   hr: {
     payslip: {
+      /** PayrollLine id — powers the printable payslip at /print/payslip/[id]. */
+      id: string;
       month: number;
       year: number;
       daysWorked: number;
@@ -625,6 +628,18 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
                       ))}
                     </div>
                   )}
+                  {/* Printable payslip — same data, formatted for handing to
+                      a bank / saving as PDF. Opens the /print document. */}
+                  <a
+                    href={`/print/payslip/${initial.hr.payslip.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2.5 flex items-center justify-center gap-1.5 rounded-lg py-2 text-m-caption font-bold"
+                    style={{ border: "1px solid var(--color-line)", color: "var(--color-ink-700)" }}
+                  >
+                    <FileText className="size-3.5" />
+                    View full payslip (PDF)
+                  </a>
                 </div>
               ) : (
                 <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>

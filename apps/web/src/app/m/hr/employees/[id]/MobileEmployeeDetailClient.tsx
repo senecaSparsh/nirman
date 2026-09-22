@@ -1968,9 +1968,9 @@ function PayrollHistoryRow({ p, canManagePayroll, _employeeId }: { p: PayrollIte
         </div>
       </div>
 
-      {/* Proof indicator */}
-      {hasProof && (
-        <div className="mt-1.5 flex items-center gap-1.5">
+      {/* Proof + printable payslip */}
+      <div className="mt-1.5 flex items-center gap-1.5">
+        {hasProof && (
           <a
             href={p.proofUrl!}
             target="_blank"
@@ -1980,8 +1980,17 @@ function PayrollHistoryRow({ p, canManagePayroll, _employeeId }: { p: PayrollIte
           >
             <CheckCircle2 className="size-2.5" /> View Proof
           </a>
-        </div>
-      )}
+        )}
+        <a
+          href={`/print/payslip/${p.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 text-m-label font-bold px-1.5 py-0.5 rounded-full press"
+          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-500) 10%, transparent)", color: "var(--color-ink-700)" }}
+        >
+          <FileText className="size-2.5" /> Payslip
+        </a>
+      </div>
 
       {/* Mark as paid action */}
       {canManagePayroll && p.status === "PROCESSED" && !isPaid && !showMarkPaid && (

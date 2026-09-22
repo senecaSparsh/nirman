@@ -112,6 +112,7 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
         where: { employeeId: employee.id, payrollPeriod: { status: "PAID" } },
         orderBy: [{ payrollPeriod: { year: "desc" } }, { payrollPeriod: { month: "desc" } }],
         select: {
+          id: true,
           daysWorked: true,
           grossPay: true,
           netPay: true,
@@ -156,6 +157,7 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
     hr = {
       payslip: payslip
         ? {
+            id: payslip.id,
             month: payslip.payrollPeriod.month,
             year: payslip.payrollPeriod.year,
             daysWorked: Number(payslip.daysWorked),
