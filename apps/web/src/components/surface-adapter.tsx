@@ -86,7 +86,16 @@ export function SurfaceAdapter() {
     const last = lastIssued.current;
     if (last?.target === target && Date.now() - last.at < RETRY_MS) return;
     lastIssued.current = { target, at: Date.now() };
-    router.replace(target);
+    // Mark the navigation as adapter-issued so middleware lets it through
+    // even when it arrives as a document request (dev falls back to a hard
+    // nav when the target's chunk isn't loaded). The marker also dodges
+    // poisoned client-router-cache entries — a stale cached redirect for
+    // the bare path replays with zero server contact, observed as an
+    // infinite replace→bounce→replace loop; `?__surface=1` is a different
+    // cache key. Stripped from the URL after landing (see path effect).
+    const sep = target.includes("?") ? "&" : "?";
+    router.refresh();
+    router.replace(`${target}${sep}__surface=1`);
   };
 
   // Re-check whenever the path changes (and on mount). Reading currentPath as a
@@ -94,6 +103,14 @@ export function SurfaceAdapter() {
   useEffect(() => {
     pathRef.current = currentPath;
     lastIssued.current = null; // new path → allow a fresh redirect
+    // Strip the adapter's own nav marker — it's a transport flag, not part
+    // of the address a user should see or share.
+    if (window.location.search.includes("__surface=1")) {
+      const q = new URLSearchParams(window.location.search);
+      q.delete("__surface");
+      const qs = q.toString();
+      window.history.replaceState(null, "", currentPath + (qs ? `?${qs}` : ""));
+    }
     checkAndRedirect();
     // Pre-paint surface guard: BOOT_SCRIPT marks <html> 'surface-pending'
     // when the viewport and route surface disagree, hiding the document

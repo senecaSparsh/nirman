@@ -194,6 +194,21 @@ describe("Middleware: desktop UA reverse-redirected off /m", () => {
     expect(res.status).toBe(307);
     expect(getRedirectLocation(res)).toBe(`${BASE}/hr`);
   });
+
+  // The adapter marks its own navigations with __surface=1 — that marker is
+  // the authoritative "the client knows the viewport" signal and must skip
+  // the reverse redirect even for document requests (dev hard-nav fallback).
+  it("adapter-marked document nav on /m/* → NOT redirected", () => {
+    const res = middleware(makeReq("/m/hr?__surface=1", { ua: DESKTOP_UA, secFetchMode: "navigate" }));
+    expect(res.status).toBe(200);
+    expect(getRedirectLocation(res)).toBeNull();
+  });
+
+  it("adapter-marked desktop nav on mobile UA → NOT forward-redirected", () => {
+    const res = middleware(makeReq("/hr?__surface=1", { ua: MOBILE_UA, secFetchMode: "navigate" }));
+    expect(res.status).toBe(200);
+    expect(getRedirectLocation(res)).toBeNull();
+  });
 });
 
 describe("Middleware: no desktop escape hatch", () => {

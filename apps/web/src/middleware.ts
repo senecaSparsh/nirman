@@ -171,6 +171,7 @@ export function middleware(req: NextRequest) {
     !pathname.startsWith("/portal") &&
     !pathname.startsWith("/api") &&
     !isPublicRoute(pathname) &&
+    !searchParams.has("__surface") &&
     pathname !== "/"
   ) {
     const search = searchParams.size ? `?${searchParams.toString()}` : "";
@@ -193,16 +194,23 @@ export function middleware(req: NextRequest) {
   // a desktop UA can still be a narrow window (split screen, resized
   // browser) where the mobile surface is correct. Bouncing the adapter's
   // fetch strands the user on a hidden desktop page — a blank screen at
-  // <1024px (observed live). Detection uses Sec-Fetch-Mode: real document
-  // navigations send "navigate"; RSC/prefetch fetches send "cors" or
-  // "no-cors". (RSC/_rsc markers can't be used — the framework strips them
-  // before middleware runs.) Requests without Sec-Fetch-* (curl, older
-  // browsers, non-browser clients) are treated as document navigations.
+  // <1024px (observed live). Detection uses two signals:
+  //   1. `__surface=1` — the adapter's own marker. It survives every nav
+  //      type (RSC fetch AND the hard-navigation fallback dev uses when a
+  //      route chunk isn't loaded yet). Trusted: the adapter only marks
+  //      viewport-corrected targets, and it strips the param on landing.
+  //   2. Sec-Fetch-Mode — "navigate" for real document requests; "cors"/
+  //      "no-cors" for fetch-based navs. (RSC/_rsc markers can't be used —
+  //      the framework strips them before middleware runs.)
+  // Requests without Sec-Fetch-* (curl, older browsers, non-browser
+  // clients) are treated as document navigations.
   const secFetchMode = req.headers.get("sec-fetch-mode");
   const isDocumentNav = secFetchMode === null || secFetchMode === "navigate";
+  const isSurfaceAdapterNav = searchParams.has("__surface");
   if (
     !isMobileRequest(req) &&
     isDocumentNav &&
+    !isSurfaceAdapterNav &&
     (pathname === "/m" || pathname.startsWith("/m/"))
   ) {
     const search = searchParams.size ? `?${searchParams.toString()}` : "";
