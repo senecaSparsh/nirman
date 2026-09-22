@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, canManageRole, canManageRoleSet, getActingRole, getCompany, getManageableCompanyIds, json, requirePermission, userRoleSchema, type CurrentUser } from "@/lib/server";
+import { apiHandler, canManageRole, canManageRoleSet, getActingRole, getCompany, getManageableCompanyIds, getOwnRole, json, requirePermission, userRoleSchema, type CurrentUser } from "@/lib/server";
 import { PERM, isCustomRole } from "@/lib/roles";
 import { assignScopedMembership, getDirectReports, getReportingChain } from "@nirman/services";
 import { z } from "zod";
@@ -151,6 +151,22 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     }
   }
 
+  // Top-level protection — only the real OWNER may strip a member's last
+  // tier-1 hat. The tier-1 "peer assignment" rule would otherwise let an
+  // ADMIN demote the OWNER below tier 1 and seize the company (the demoted
+  // owner can't restore themselves). Same policy as PATCH /api/users/[id]
+  // and the reset-password route.
+  const TIER1_SET = new Set(["OWNER", "ADMIN"]);
+  if (currentHeld.some((r) => TIER1_SET.has(r)) && ![...newHeld].some((r) => TIER1_SET.has(r))) {
+    const own = await getOwnRole();
+    if (own !== "OWNER") {
+      return json(
+        { error: "Only the company owner can demote a top-level account." },
+        { status: 403 },
+      );
+    }
+  }
+
   // Last top-tier guard — stripping the final OWNER/ADMIN hat from this
   // member orphans the company when no other active membership holds one
   // (primary OR secondary). Same rule as PATCH /api/users/[id] and the
@@ -296,6 +312,18 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   const heldTopTier = [membership.role, ...(membership.secondaryRoles ?? [])].some(
     (r) => r === "OWNER" || r === "ADMIN",
   );
+  // Top-level protection — removing a member who holds a tier-1 hat is an
+  // OWNER-only act. Without it the tier-1 "peer" rule lets an ADMIN delete
+  // the OWNER's membership and seize the company outright.
+  if (heldTopTier) {
+    const own = await getOwnRole();
+    if (own !== "OWNER") {
+      return json(
+        { error: "Only the company owner can remove a top-level account." },
+        { status: 403 },
+      );
+    }
+  }
   if (heldTopTier) {
     const remaining = await prisma.userCompany.count({
       where: {

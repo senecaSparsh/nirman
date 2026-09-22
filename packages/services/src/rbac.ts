@@ -545,6 +545,12 @@ export async function assignScopedMembership(input: AssignScopeInput) {
       const newHeld = [input.role, ...(secondaryRoles ?? existing?.secondaryRoles ?? [])];
       const hadTier1 = (existing ? [existing.role, ...existing.secondaryRoles] : []).some((r) => TIER1.has(r));
       const hasTier1 = newHeld.some((r) => TIER1.has(r));
+      // Top-level protection — only an actor wearing the OWNER hat may
+      // strip a member's last tier-1 hat; the tier-1 "peer" rule would
+      // otherwise let an ADMIN demote the OWNER and seize the company.
+      if (existing && hadTier1 && !hasTier1 && actorWornRole !== "OWNER") {
+        throw new RbacError("Only the company owner can demote a top-level member.", 403);
+      }
       if (existing && hadTier1 && !hasTier1) {
         const remaining = await tx.userCompany.count({
           where: {

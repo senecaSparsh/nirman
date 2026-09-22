@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction, assertEmployeeCodeAvailable } from "@nirman/services";
-import { apiHandler, canManageRole, canManageRoleSet, getActingRole, requirePermission, getCompany, json, userRoleSchema, scopeWhere } from "@/lib/server";
+import { apiHandler, canManageRole, canManageRoleSet, getActingRole, getOwnRole, requirePermission, getCompany, json, userRoleSchema, scopeWhere } from "@/lib/server";
 import { isCustomRole, ROLES, PERM } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 
@@ -135,6 +135,26 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       const targetLabel = await roleLabel(existing.role, company.id);
       return json(
         { error: `You don't have authority to edit ${targetLabel}'s profile.` },
+        { status: 403 },
+      );
+    }
+  }
+
+  // Top-level protection — a member who currently holds a tier-1 hat
+  // (OWNER/ADMIN) may only lose it at the OWNER's hand. Without this, the
+  // tier-1 "peer assignment" rule lets an ADMIN demote the OWNER (or
+  // deactivate them) and permanently seize the company — the demoted
+  // owner can't restore themselves. Mirrors the reset-password policy:
+  // "only the real owner may touch a top-level account".
+  const TIER1 = new Set(["OWNER", "ADMIN"]);
+  const targetHoldsTier1 = currentHeld.some((r) => TIER1.has(r));
+  const stripsTier1Hat = heldSetChanged && !newHeld.some((r) => TIER1.has(r));
+  const deactivating = parsed.data.active === false && existing.active;
+  if (targetHoldsTier1 && (stripsTier1Hat || deactivating)) {
+    const own = await getOwnRole();
+    if (own !== "OWNER") {
+      return json(
+        { error: "Only the company owner can demote or deactivate a top-level account." },
         { status: 403 },
       );
     }
