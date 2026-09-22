@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { deleteProjectCost, reverseJournalEntry, postProjectCost, reallocateProjectCosts, logAction } from "@nirman/services";
+import { deleteProjectCost, reverseJournalEntry, postProjectCost, reallocateProjectCosts, logAction, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, toNum, projectCostSchema, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
@@ -61,7 +61,18 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     const existing = await tx.projectCost.findFirst({
       where: { id, project: { companyId: company.id }, ...await scopeWhere("ProjectCost") },
     });
-    if (!existing) throw new Error("Project cost not found in this company");
+    if (!existing) throw new ServiceError("Project cost not found in this company", 404);
+
+    // Re-anchoring to another project must stay inside this company —
+    // without this check a caller could park its cost row on a foreign
+    // tenant's project (assertScopeAllows alone can't see tenancy).
+    if (parsed.data.projectId !== undefined && parsed.data.projectId !== existing.projectId) {
+      const target = await tx.project.findFirst({
+        where: { id: parsed.data.projectId, companyId: company.id, deletedAt: null },
+        select: { id: true },
+      });
+      if (!target) throw new ServiceError("Project not found in this company", 404);
+    }
 
     const data: Record<string, unknown> = {};
     if (parsed.data.projectId !== undefined) data.projectId = parsed.data.projectId;
@@ -102,6 +113,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
     await logAction(tx, {
       userId: user.id,
+      companyId: company.id,
       action: "PROJECT_COST_UPDATE",
       entityType: "ProjectCost",
       entityId: id,
@@ -119,9 +131,16 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.FINANCE_MANAGE);
+  const company = await getCompany();
   const { id } = await params;
+  // Scope guard — same filter the GET/PATCH apply; foreign or out-of-scope
+  // ids must fail closed instead of deleting another tenant's cost row.
+  const visible = await prisma.projectCost.count({
+    where: { id, project: { companyId: company.id }, ...await scopeWhere("ProjectCost") },
+  });
+  if (visible === 0) return json({ error: "Project cost not found" }, { status: 404 });
   try {
-    await deleteProjectCost(id, user.id);
+    await deleteProjectCost(id, company.id, user.id);
     revalidatePath("/projects");
     revalidatePath("/m/projects");
     revalidatePath("/m/real-estate?tab=projects");

@@ -1,4 +1,4 @@
-import { prisma, type ProjectCostType } from "@nirman/db";
+import { type ProjectCostType } from "@nirman/db";
 import Decimal from "decimal.js";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
@@ -24,6 +24,7 @@ export function validateProjectCostAmount(amount: Decimal | number | string): De
 }
 
 interface AddProjectCostInput {
+  companyId: string;
   projectId: string;
   costType: ProjectCostType;
   amount: Decimal | number | string;
@@ -41,9 +42,17 @@ export async function addProjectCost(input: AddProjectCostInput) {
 
   return withSerializableTransaction(async (tx) => {
     const project = await tx.project.findFirst({
-      where: { id: input.projectId, deletedAt: null },
+      where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
     });
-    if (!project) throw new ServiceError("Project not found or deleted", 404);
+    if (!project) throw new ServiceError("Project not found in this company", 404);
+
+    if (input.subcontractorId) {
+      const sub = await tx.subcontractor.findFirst({
+        where: { id: input.subcontractorId, companyId: input.companyId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!sub) throw new ServiceError("Subcontractor not found in this company", 404);
+    }
 
     const cost = await tx.projectCost.create({
       data: {
@@ -72,6 +81,7 @@ export async function addProjectCost(input: AddProjectCostInput) {
 
     await logAction(tx, {
       userId: input.userId,
+      companyId: input.companyId,
       action: "PROJECT_COST_ADD",
       entityType: "ProjectCost",
       entityId: cost.id,
@@ -81,9 +91,11 @@ export async function addProjectCost(input: AddProjectCostInput) {
   });
 }
 
-export async function deleteProjectCost(costId: string, userId?: string) {
+export async function deleteProjectCost(costId: string, companyId: string, userId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const cost = await tx.projectCost.findUnique({ where: { id: costId } });
+    const cost = await tx.projectCost.findFirst({
+      where: { id: costId, project: { companyId } },
+    });
     if (!cost) throw new ServiceError("Project cost not found", 404);
 
     // Find and reverse the original GL entry before deleting the cost row
@@ -104,6 +116,7 @@ export async function deleteProjectCost(costId: string, userId?: string) {
 
     await logAction(tx, {
       userId,
+      companyId,
       action: "PROJECT_COST_DELETE",
       entityType: "ProjectCost",
       entityId: costId,

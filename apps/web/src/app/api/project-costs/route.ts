@@ -47,6 +47,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.FINANCE_MANAGE);
+  const company = await getCompany();
   const body = await req.json();
   const parsed = projectCostSchema.safeParse(body);
   if (!parsed.success) {
@@ -63,6 +64,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       return json({ error: "Invalid date format" }, { status: 400 });
     }
     const cost = await addProjectCost({
+      companyId: company.id,
       projectId: parsed.data.projectId,
       costType: parsed.data.costType,
       amount: parsed.data.amount,
@@ -84,11 +86,18 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
 export const DELETE = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.FINANCE_MANAGE);
+  const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
   if (!id) return json({ error: "id query param is required" }, { status: 400 });
+  // Scope guard — project-scoped finance users may only delete costs on
+  // projects inside their scope (same filter the list applies).
+  const visible = await prisma.projectCost.count({
+    where: { id, project: { companyId: company.id }, ...await scopeWhere("ProjectCost") },
+  });
+  if (visible === 0) return json({ error: "Project cost not found" }, { status: 404 });
   try {
-    await deleteProjectCost(id, user.id);
+    await deleteProjectCost(id, company.id, user.id);
     revalidatePath("/projects");
     revalidatePath("/m/projects");
     revalidatePath("/m/real-estate?tab=projects");
