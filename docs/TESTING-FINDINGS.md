@@ -45,3 +45,79 @@ Commits on `test/f-rbac`.
 - `delegationEndsAt` UI writes UTC; expiry checks are consistent within the app.
 - Company switching: non-tier-1 members get 403 (can't switch at all); tier-1 members get 404 for non-member companies.
 - Several seed users have global `User.role` ≠ membership role — per-company membership is authoritative everywhere.
+
+## Module D — Sales, land, collections & customer portal
+
+All findings reproduced end-to-end with real Better-Auth sessions
+(`AUTH_BYPASS=false`, cross-tenant attacker `karan@nirman.in` SALES_MANAGER in
+"My Company" vs "SRG REALCON" victims), then fixed on `test/d-sales` and
+re-verified against the live dev server. Commits `cf9befb2`, `8648d1fe`.
+
+| module | severity                 | file                                                             | summary                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------ | ------------------------ | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D      | HIGH (FIXED)             | `apps/web/src/app/api/sales/[id]/print/route.ts`                 | Cross-tenant printable-sale IDOR. Route called `getPrintableSaleData(id)` without a companyId — the service's company filter is optional, so any `sales.view` holder could read another tenant's full sale record: customer PII, pricing, every payment, and all document URLs. Reproduced: My Company SALES_MANAGER pulled SRG REALCON sale `SAL-SRG-20260915-0001` incl. ATS/registry/allotment upload links. Fixed: route now resolves `getCompany()` and passes `company.id` → foreign ids 404, own ids 200.                                                                                                                                                                                                                                                                                           |
+| D      | HIGH (FIXED)             | `apps/web/src/app/api/land-parcels/route.ts` (POST)              | Guard-bypass cross-tenant write. The ownership gate checked `body.parentParcelId ?? body.parcelId` — a caller could pass an OWNED parentParcelId as decoy plus a FOREIGN parcelId; the check validated the decoy while `updateParcelDetails`/status/valuation mutated the victim. Reproduced: My Company user renamed an SRG parcel (`PLOT-1` → `D-HACKED`, 200). Fixed: every parcel id present in the body must pass the company+scope check → 404.                                                                                                                                                                                                                                                                                                                                                      |
+| D      | HIGH (FIXED)             | `apps/web/src/app/api/payment-schedules/route.ts` (POST)         | Cross-tenant receivable rewrite + broken create path. POST had no ownership check on `assetSaleId` and `createSalePaymentSchedule` DELETES any existing schedule before inserting — an attacker could wipe/replace another tenant's installment plan (foreign attempt only failed by accident on the GST bug below). Separately, `generatePaymentSchedule` recomputed a hypothetical GST (5%×2/3 residential / 18% commercial) and validated items against `salePrice + recomputedGST`, while the canonical validator requires `salePrice + sale.gstAmount` — so the route 400'd on ~every real sale (reproduced on a ₹1.5Cr zero-GST sale: expected 15,000,000 got 15,500,000). Fixed: company+scope check → 404 foreign; generator now distributes `salePrice + sale.gstAmount` → 201 verified own-sale. |
+| D      | MEDIUM (FIXED)           | `apps/web/src/app/api/milestone-payments/check/route.ts`         | Unchecked `projectId` — `checkMilestonePayments(projectId)` sweeps a project's CLP schedule items and marks them DUE (customer-facing state + reminders). Only `sales.view` was required, so any tenant could trigger the sweep on another tenant's project. Fixed: project must belong to caller's company → 404 foreign, 200 own.                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| D      | MEDIUM (FIXED)           | `packages/services/src/sale.ts` (`sellAsset`)                    | Cross-tenant broker attach — `brokerId` was persisted verbatim. Reproduced: My Company user created a sale carrying SRG's broker row (`D-SRG Broker` + ₹60k commission) → the victim's broker record now references a foreign sale. Fixed: broker must belong to input.companyId → "Broker not found".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| D      | MEDIUM (FIXED)           | `apps/web/src/lib/portal-auth.ts`                                | Portal session cookie was `customerId.hmac` with NO embedded expiry — the 7-day `maxAge` is enforced only by the browser, so a captured cookie replayed forever. Fixed: signed payload is now `customerId.expiresAt.hmac`; `verifyPortalCookie` rejects expired/tampered values server-side (old-format cookies fail closed). Unit tests updated + fake-timer expiry test.                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| D      | MEDIUM (FIXED)           | `packages/services/src/gl-posting.ts`, `crm.ts`, `built-unit.ts` | Audit `companyId` gaps (same class F fixed for RBAC rows): `JOURNAL_ENTRY_POST`, `SCHEDULE_PAYMENT_RECORD`, `BUILT_UNIT_STATUS_CHANGE` rows carried `companyId: null` → invisible in the per-company audit feed. Fixed at all three call sites.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| D      | LOW (FIXED)              | `packages/services/src/sale.ts`                                  | `AssetSale.createdById` (+ `@@index`) existed but `sellAsset` never wrote it — salesperson attribution / "my deals" views had nothing to key on. Fixed: `createdById: input.userId`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| D      | LOW (OPEN — design note) | `apps/web/src/lib/portal-auth.ts` (`signPortalPreauthToken`)     | Pre-auth token (OTP-verified phone proof) claims "single-use" in comments but is replayable within its 5-min TTL — replay mints another portal session for a DIFFERENT customer on the same verified phone. Impact is bounded (token is phone-bound and short-lived; can't cross phones), but the single-use contract isn't enforced — would need a usedAt marker or nonce store to fix honestly.                                                                                                                                                                                                                                                                                                                                                                                                          |
+| D      | LOW (OPEN — UX)          | `apps/web/src/app/sign-in` flow                                  | Desktop sign-in lands on `/login` which renders the app shell around a "Page not found" panel instead of routing to `/today` (mobile correctly lands on `/m/home`). Cosmetic dead-end after every password login.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| D      | LOW (OPEN — UX)          | `apps/web/src/app/api/sales/route.ts`                            | `?mine=1` is silently ignored (returns all company sales) and no UI ever used it — dead parameter; harmless but dishonest. Consider implementing or removing.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+
+## Verified-clean surfaces (negative results, no findings)
+
+- **Lead→booking→collection→GL chain** (real API, then mobile UI): lead create
+  → activity → stage machine (NEW→CONTACTED→SITE_VISIT enforced; NEW→NEGOTIATION
+  rejected 409) → convert (customer created, lead→BOOKED) → unit HOLD → sale →
+  deposit ₹5L → unit RESERVED → schedule (25/25/50 of ₹47.25L) → installment
+  collect → completion (final payment + registry doc gated — 400 without it) →
+  unit SOLD, sale COMPLETED/PAID, saleDeedNo stored.
+- **Deposit-as-liability accounting**: deposit posts Dr Cash / Cr Customer
+  Deposits–Unearned (2500); installments pre-completion same; on completion
+  Dr AR / Cr Revenue+OutputGST, Dr COGS / Cr Unsold Assets, and
+  Dr Customer Deposits / Cr AR settlement — every JE balanced, reconciles to
+  4,725,000 collected = price+GST.
+- **Unit status machine**: AVAILABLE→HOLD→(RESERVED on deposit)→SOLD enforced;
+  SOLD→AVAILABLE rejected; PENDING-sale cancel releases unit (saleId cleared);
+  HOLD release works on parcels; completed-sale cancel rejected ("process a refund").
+- **Material sale**: qty issued via ledger (230→220), MAC COGS 1,345.70,
+  revenue 4,000 + GST 720 posted, grossProfit computed, both JEs balanced.
+- **Broker chain**: broker list tenant-isolated; commission accrual +
+  BROKER_COMMISSION_PAID JE; double-pay rejected.
+- **Parcel chain**: partition 5000→2500+2500 (parent PARTITIONED, PRO_RATA),
+  valuation update, booking against child parcel (locked via saleId).
+- **TDS**: auto 1% ≥₹50L verified on seed sales (65L→65,000; 50L→50,000); <50L
+  sales get null.
+- **Tenant gates re-verified**: sales GET/PATCH, sale document POST,
+  cheque POST, schedule GET/POST, schedule-item pay, pay-commission,
+  leads GET/POST/PATCH/DELETE/convert, customers detail, built-units PATCH,
+  e-invoice generate/cancel, uploads GET (uploader/company/membership/portal-
+  own-doc) — all 404/403 on foreign ids.
+- **sales.view boundary**: ACCOUNTANT reads list+detail (200) but every mutation
+  403 — sale create, sale payment, lead create, parcel status.
+- **Customer portal**: OTP send (3/10min cap → 429), 5-attempt cap → 429,
+  one-time codes (reuse → "Invalid or expired"), tampered/unsigned cookies →
+  401, shared-phone multi-customer select requires pre-auth (401 without, 403
+  on mismatched phone), portal cookie rejected on staff APIs (401) and staff
+  cookie rejected on portal APIs (401), `/portal/sales` strictly customerId-
+  scoped (Alice sees only D-SALE-PORTAL-1), uploads limited to own-sale docs
+  (403 foreign), dashboard shows honest empty state for no-booking customers.
+- **Audit**: every mutation writes AuditLog with companyId (LEAD__,
+  ASSET_SALE__, SALE_SCHEDULE_CREATE, SCHEDULE_PAYMENT_RECORD,
+  LAND_PARCEL_UPDATE — which even captured the parcel exploit before/after).
+- **Console**: no app errors; only expected 401 on `/api/me` pre-login SWR
+  (both surfaces) — benign.
+
+## Data notes for other agents
+
+- D-tagged fixtures left in DB: customers `D-Portal Alice/Bob`, `D-Shared MyCo`,
+  `D-Shared SRG` (shared phone +91 9800010003); brokers `D-SRG Broker` (SRG),
+  `D-MyCo Broker`; sale `D-SALE-PORTAL-1` (S-01); completed sale
+  `SAL-20260922-0001` (S-02 SOLD); `SAL-20260922-0002..4`; parcels `D-C1/D-C2`
+  under MyCo `PLOT-1` (cmu1d37m5); sale `SAL-20260914-0001` CANCELLED during
+  release-test; SRG parcel renamed during exploit was restored to `PLOT-1`.
+- Dev server note: it serves the CHECKED-OUT branch — concurrent agent branch
+  flips will serve unfixed main; verified on `test/d-sales`.
