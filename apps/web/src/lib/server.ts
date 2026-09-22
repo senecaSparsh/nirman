@@ -2015,7 +2015,9 @@ export async function scopeWhere(
     // HR
     Employee:             { department: "departmentId", project: "activeProjectId" },
     WorkerAttendance:     { project: "projectId" },
-    LeaveRequest:        { project: "projectId" },
+    // LeaveRequest has no projectId/departmentId — scope through the
+    // employee's assignment (same path PayrollLine/EmployeeAdvance use).
+    LeaveRequest:        { department: "employee.departmentId", project: "employee.activeProjectId" },
     PayrollLine:          { department: "employee.departmentId", project: "employee.activeProjectId" },
     // Salary advances scope through the employee (no own projectId) — same
     // path PayrollLine uses.
@@ -2443,11 +2445,11 @@ export async function assertScopeAllows(
   // writes (a freshly-added site engineer could issue stock to ANY project).
   if (scope.scopeType === "DEPARTMENT") {
     if (scope.departmentIds.length === 0) {
-      throw new Error("You don't have any assigned departments — ask an admin to assign your scope");
+      throw new ForbiddenError("You don't have any assigned departments — ask an admin to assign your scope");
     }
     if (target.departmentId) {
       if (!scope.departmentIds.includes(target.departmentId)) {
-        throw new Error("You can only create/edit within your department");
+        throw new ForbiddenError("You can only create/edit within your department");
       }
       return;
     }
@@ -2456,7 +2458,7 @@ export async function assertScopeAllows(
     if (target.projectId) {
       const effective = await getAssignedProjectIds();
       if (!effective || !effective.includes(target.projectId)) {
-        throw new Error("You can only create/edit within your department's projects");
+        throw new ForbiddenError("You can only create/edit within your department's projects");
       }
       return;
     }
@@ -2469,14 +2471,14 @@ export async function assertScopeAllows(
       // projectAssignment rows — the same set canAccessProject checks.
       const effective = await getAssignedProjectIds();
       if (!effective || !effective.includes(target.projectId)) {
-        throw new Error("You can only create/edit within your project");
+        throw new ForbiddenError("You can only create/edit within your project");
       }
       return;
     }
     // A project-scoped user targeting a department-only entity has no valid
     // target — departments aren't reachable through a project scope.
     if (target.departmentId) {
-      throw new Error("You can only create/edit within your project");
+      throw new ForbiddenError("You can only create/edit within your project");
     }
   }
 }
