@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Building2, MapPin, Users, Network, Shield,
   Layers, History, Pencil, Save, Loader2, Plus, Trash2, UserPlus,
-  ChevronDown, Phone, Mail, Globe, Hash, FileText, Lock, RefreshCw,
+  ChevronDown, Phone, Mail, Globe, Hash, FileText, Lock, RefreshCw, Folders,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -110,6 +110,7 @@ export function MobileCompanyDetails({
         <HierarchySection data={data} />
       ) : null}
       <ChildCompaniesSection data={data} canManage={permissions.canManageCompanies} />
+      <DepartmentsSection data={data} canManage={permissions.canManageInventory} />
       <LocationsSection data={data} canManage={permissions.canManageInventory} />
       <PolicySection data={data} canManage={permissions.canManage} canManageTelephony={permissions.canManageTelephony} />
       <ProcurementSection data={data} canManage={permissions.canManage} />
@@ -1822,6 +1823,132 @@ function LocationsSection({ data, canManage }: { data: CompanyProfileData; canMa
           >
             {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-3.5" />}
             Add Location
+          </button>
+        </div>
+      </MobileDialog>
+    </CollapsibleSection>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────
+//  Departments section — the org units that department-scoped
+//  memberships and department stores hang off. Desktop manages these
+//  in Settings → Cost Centres; this is the mobile parity surface.
+// ───────────────────────────────────────────────────────────────
+
+function DepartmentsSection({ data, canManage }: { data: CompanyProfileData; canManage: boolean }) {
+  const router = useRouter();
+  const [showAdd, setShowAdd] = React.useState(false);
+  const [form, setForm] = React.useState({ code: "", name: "", description: "" });
+  const [saving, setSaving] = React.useState(false);
+  const [busyId, setBusyId] = React.useState<string | null>(null);
+
+  async function addDepartment() {
+    if (!form.code.trim()) { toast.error("Code is required"); return; }
+    if (!form.name.trim()) { toast.error("Name is required"); return; }
+    setSaving(true);
+    try {
+      const res = await fetch("/api/departments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: form.code.trim(),
+          name: form.name.trim(),
+          description: form.description.trim() || null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed");
+      toast.success("Department added");
+      setShowAdd(false);
+      setForm({ code: "", name: "", description: "" });
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleActive(d: { id: string; name: string; active: boolean }) {
+    setBusyId(d.id);
+    try {
+      const res = await fetch(`/api/departments/${d.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: !d.active }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Failed");
+      toast.success(d.active ? `${d.name} deactivated` : `${d.name} activated`);
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const departments = data.departments ?? [];
+  return (
+    <CollapsibleSection title="Departments" icon={Folders} count={departments.length}>
+      {departments.length === 0 ? (
+        <MobileEmptyState icon={Folders} title="No departments yet" size="compact" />
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {departments.map((d) => (
+            <div
+              key={d.id}
+              className="rounded-[0.5rem] border p-2.5 flex flex-col gap-1"
+              style={{ borderColor: "var(--color-line)" }}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-m-section font-bold truncate flex-1" style={{ color: d.active ? "var(--color-ink-950)" : "var(--color-ink-500)" }}>
+                  {d.name}
+                </span>
+                <Badge tone="steel" className="shrink-0">{d.code}</Badge>
+                {!d.active && <Badge tone="stop" className="shrink-0">Inactive</Badge>}
+              </div>
+              <div className="flex items-center gap-3 text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                {d.stockLocationName && <span>Store: {d.stockLocationName}</span>}
+                <span className="ml-auto tabular-nums">{d.issueCount} issue{d.issueCount === 1 ? "" : "s"}</span>
+                {canManage && (
+                  <button
+                    onClick={() => toggleActive(d)}
+                    disabled={busyId === d.id}
+                    className="font-bold underline press disabled:opacity-50"
+                    style={{ color: d.active ? "var(--color-ink-500)" : "var(--color-ink-950)" }}
+                  >
+                    {busyId === d.id ? "…" : d.active ? "Deactivate" : "Activate"}
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {canManage && (
+        <button
+          onClick={() => setShowAdd(true)}
+          className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold border-2 border-dashed text-m-body press"
+          style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+        >
+          <Plus className="size-3.5" /> Add Department
+        </button>
+      )}
+      <MobileDialog open={showAdd} onClose={() => setShowAdd(false)} title="New Department">
+        <div className="flex flex-col gap-3 p-1">
+          <UnderlineInput label="Code" value={form.code} onChange={(v) => setForm((f) => ({ ...f, code: v.toUpperCase() }))} required placeholder="e.g. OPS" />
+          <UnderlineInput label="Name" value={form.name} onChange={(v) => setForm((f) => ({ ...f, name: v }))} required placeholder="e.g. Operations" />
+          <UnderlineInput label="Description" value={form.description} onChange={(v) => setForm((f) => ({ ...f, description: v }))} placeholder="Optional" />
+          <button
+            onClick={addDepartment}
+            disabled={saving}
+            className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
+            style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+          >
+            {saving ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-3.5" />}
+            Add Department
           </button>
         </div>
       </MobileDialog>
