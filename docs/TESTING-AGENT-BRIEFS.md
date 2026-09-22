@@ -218,9 +218,10 @@ CHAINS TO PROVE:
 6. Reset-password / deactivate / reactivate member flows, incl. tier
    checks (can't reset someone above your tier).
 
-KNOWN-OPEN ITEM (do not re-report): no member-management UI edits
-secondaryRoles post-creation — only the create-account dialog sets them.
-If you hit it, note as KNOWN.
+KNOWN-OPEN ITEM (do not re-report): secondary-role ("hats") editing for
+existing members is BUILT (desktop: hats action per member row; mobile:
+Add/Edit hats on member cards). If you find a bug IN it, report it — but
+its absence is no longer a gap.
 
 EDGE: try assigning DEVELOPER — must be impossible everywhere (picker,
 API, secondary, custom baseRole). Try last-OWNER demote — must fail.
@@ -312,13 +313,13 @@ don't ship a workaround.
 
 ## Claim ledger (agents append one line)
 
-| Module | Agent/session | Branch | Started | Status |
-| ------ | ------------- | ------ | ------- | ------ |
-| A      |               |        |         |        |
-| B      |               |        |         |        |
-| C      |               |        |         |        |
-| D      |               |        |         |        |
-| E      |               |        |         |        |
-| F      |               |        |         |        |
-| G      |               |        |         |        |
-| H      |               |        |         |        |
+| Module | Agent/session | Branch      | Started | Status      |
+| ------ | ------------- | ----------- | ------- | ----------- |
+| A      |               |             |         |             |
+| B      |               |             |         |             |
+| C      |               |             |         |             |
+| D      |               |             |         |             |
+| E      |               |             |         |             |
+| F      | (claimed)     | test/f-rbac |         | in progress |
+| G      |               |             |         |             |
+| H      |               |             |         |             |
