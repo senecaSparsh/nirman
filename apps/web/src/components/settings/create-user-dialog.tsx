@@ -73,8 +73,9 @@ export function CreateUserDialog({
     ...assignableCustom.map((cr) => ({ key: cr.key, label: cr.label })),
   ];
   // Built-in roles above the actor's grant power — shown disabled so the
-  // gap is explainable instead of silently absent.
-  const lockedBuiltin = ROLE_LIST.filter((rl) => !allAssignable.some((a) => a.key === rl.key));
+  // gap is explainable instead of silently absent. DEVELOPER is excluded
+  // entirely — reserved internal hat, not a real option.
+  const lockedBuiltin = ROLE_LIST.filter((rl) => rl.key !== "DEVELOPER" && !allAssignable.some((a) => a.key === rl.key));
   const availableDepartments = departments.filter((d) => d.active);
 
   function handleScopeTypeChange(newType: "COMPANY" | "DEPARTMENT" | "PROJECT") {

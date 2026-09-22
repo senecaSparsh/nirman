@@ -106,6 +106,10 @@ export function prettifyRoleKey(key: string): string {
  *   - Nobody can assign their own exact role (no self-cloning).
  */
 export function canAssignRole(actorRole: string | undefined | null, targetRole: string | undefined | null): boolean {
+  // DEVELOPER is the builder's internal hat — reserved, never assignable to
+  // anyone through member/user APIs, and a membership holding it can't be
+  // managed through them either.
+  if (targetRole === "DEVELOPER") return false;
   const actor = normalizeRole(actorRole);
   const target = normalizeRole(targetRole);
   const actorTier = roleTier(actor);
@@ -128,7 +132,8 @@ export function canAssignRole(actorRole: string | undefined | null, targetRole: 
  * "Add member" / "Edit member" UI.
  */
 export function assignableRoles(actorRole: string | undefined | null): Role[] {
-  return ALL_ROLES.filter((r) => canAssignRole(actorRole, r));
+  // DEVELOPER is the builder's internal hat — never offer it for assignment.
+  return ALL_ROLES.filter((r) => r !== "DEVELOPER" && canAssignRole(actorRole, r));
 }
 
 /**

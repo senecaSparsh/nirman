@@ -1248,7 +1248,8 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
       <Card>
         <CardContent className="space-y-2 p-4">
           <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Role Permissions</p>
-          {ROLE_LIST.map((r) => (
+          {/* DEVELOPER is the internal builder hat — hidden from catalogs. */}
+          {ROLE_LIST.filter((r) => r.key !== "DEVELOPER").map((r) => (
             <div key={r.key} className="flex items-start gap-3 text-body">
               <Badge variant={roleBadgeVariant(r.key)} className="mt-0.5 shrink-0">{r.label}</Badge>
               <span className="text-muted-foreground">{r.description}</span>

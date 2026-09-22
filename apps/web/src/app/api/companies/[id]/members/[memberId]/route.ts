@@ -46,6 +46,10 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     return json({ error: "Role must be a built-in role or a CUSTOM_* role key" }, { status: 400 });
   }
   const role = roleCheck.data!;
+  // DEVELOPER is an internal/system role — not assignable to members.
+  if (role === "DEVELOPER" || (parsed.data.secondaryRoles ?? []).includes("DEVELOPER")) {
+    return json({ error: "The Developer role is reserved and cannot be assigned." }, { status: 400 });
+  }
   // Every secondary role must also be a built-in or CUSTOM_* key.
   for (const sr of parsed.data.secondaryRoles ?? []) {
     if (!userRoleSchema.shape.role.safeParse(sr).success) {

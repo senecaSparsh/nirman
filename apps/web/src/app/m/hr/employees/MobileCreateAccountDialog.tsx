@@ -166,7 +166,7 @@ export function MobileCreateAccountDialog({
   const roles = assignableRoles(actorRole);
   // Senior roles the actor can't grant — rendered locked so the gap is
   // explainable instead of silently absent.
-  const lockedRoles = ROLE_LIST.filter((rl) => !roles.includes(rl.key as Role));
+  const lockedRoles = ROLE_LIST.filter((rl) => rl.key !== "DEVELOPER" && !roles.includes(rl.key as Role));
   const HIERARCHY_ROLE_MAP: Record<number, Role> = {
     1: "PROJECT_DIRECTOR",
     2: "PROJECT_MANAGER",

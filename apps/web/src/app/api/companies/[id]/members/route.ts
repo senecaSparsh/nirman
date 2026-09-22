@@ -95,6 +95,12 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
   const role = roleCheck.data!;
   // Multi-role: dedupe against the primary and validate each key.
   const secondaryRoles = [...new Set(parsed.data.secondaryRoles ?? [])].filter((r) => r !== role);
+  // DEVELOPER is an internal/system role — it's the builder's own hat, not
+  // a membership anyone can grant. Hidden from pickers and rejected here so
+  // a crafted request can't mint it either.
+  if ([role, ...secondaryRoles].includes("DEVELOPER")) {
+    return json({ error: "The Developer role is reserved and cannot be assigned." }, { status: 400 });
+  }
   for (const sr of secondaryRoles) {
     if (!userRoleSchema.shape.role.safeParse(sr).success) {
       return json({ error: "Secondary roles must be built-in or CUSTOM_* role keys" }, { status: 400 });

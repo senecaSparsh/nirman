@@ -137,13 +137,15 @@ describe("canAssignRole", () => {
 });
 
 describe("assignableRoles", () => {
-  it("OWNER can assign all roles except OWNER", () => {
+  it("OWNER can assign all roles except OWNER and DEVELOPER", () => {
     const roles = assignableRoles("OWNER");
     expect(roles).not.toContain("OWNER");
+    // DEVELOPER is the reserved internal hat — never in a picker.
+    expect(roles).not.toContain("DEVELOPER");
     expect(roles).toContain("ADMIN");
     expect(roles).toContain("PROJECT_DIRECTOR");
     expect(roles).toContain("SUPERVISOR");
-    expect(roles.length).toBe(ALL_ROLES.length - 1);
+    expect(roles.length).toBe(ALL_ROLES.length - 2);
   });
 
   it("SUPERVISOR can assign no roles", () => {

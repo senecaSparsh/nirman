@@ -97,7 +97,7 @@ export function CreateAccountDialog({
   // explainable ("requires Owner/Admin") instead of silently missing. An
   // H3 HR can fully onboard an H2 person's dossier, but top-tier logins
   // stay reserved for the top.
-  const lockedRoles = ROLE_LIST.filter((rl) => !roles.includes(rl.key as Role));
+  const lockedRoles = ROLE_LIST.filter((rl) => rl.key !== "DEVELOPER" && !roles.includes(rl.key as Role));
   // Auto-suggest a role based on the employee's hierarchy level:
   // H1 → PROJECT_DIRECTOR, H2 → PROJECT_MANAGER, H3 → SITE_ENGINEER,
   // H4 → SUPERVISOR, H5/H6 → SUPERVISOR (field worker, minimal access)
