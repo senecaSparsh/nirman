@@ -820,3 +820,23 @@ Persona verification:
   earlier offboarding test → getCompany threw "No company found" (correct
   behavior — an inactive membership must not resolve). Reactivated for the
   test.
+
+### Module E round-2 live confirmations (2026-09-23, same session)
+
+- Change-order create: foreign `boqItemId` line → 400 "BOQ item not found
+  in this project"; foreign `projectId` → 400 "Project not found in this
+  company"; own line → 201 (`CO-260923-0002`, DRAFT, left in DB).
+- NCR create: foreign `materialId` → 404, foreign `subcontractorId` → 404;
+  NCR update with foreign `subcontractorId` → 404.
+- Equipment assignment: foreign location → 404, foreign project → 404,
+  foreign equipment → 404; own assignment → 201
+  (`cmudn7n8y000pvl7uo4liatf8`).
+- WBS dependency: same-project edge → 201 + GET lists it; cross-project
+  edge → 400; foreign node GET → 404.
+- Audit trail: every probe mutation logged (MB_ENTRY_CREATE/VERIFY/
+  APPROVE, RA_BILL_CREATE, WBS_NODE_CREATE, EQUIPMENT_ASSIGN,
+  CHANGE_ORDER_CREATE).
+- Print surfaces: MB print page is JSX (React-escaped) with company+scope
+  checks; work-order print API escapes all interpolations; DPR print API
+  was fixed earlier (esc + safeUrl + scopeWhere); no RA/NCR print surfaces
+  exist to exploit.
