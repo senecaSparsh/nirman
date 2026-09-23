@@ -795,3 +795,28 @@ pickers resist synthetic input — verified manually-equivalent paths).
 - `createRaBill` sealing pattern = same "optional `companyId` input" shape
   as `createChangeOrder`/`createNcr` — callers that don't pass it keep
   working, but the service enforces when it does.
+
+## Mobile sweep — round 9 (personas + auth gates)
+
+Fixes landed:
+
+- `[...all]/route.ts` (absorbed into 4af941fc) — email sign-in now 403s on
+  `user.active=false` ("Your account is inactive") instead of minting a
+  session that 403s on every API and renders a broken shell. Phone sign-in
+  already filtered active-only; email path now matches. Verified: rohan
+  (inactive) → clean 403; a-store (active) → normal sign-in.
+- Consent gate verified: SITE_ENGINEER hits the Communication Monitoring
+  Consent wall before the app loads; "I understand and accept" → consent
+  recorded → persona landing.
+
+Persona verification:
+
+- rohan.testemp (SITE_ENGINEER, SRG REALCON): scoped nav Home/Field/DPRs/
+  Stock; site dashboard shows DPR-due banner + Site Ops grid (Edit, Quick
+  Issue, Receive Stock, Submit DPR, Attendance, Tasks, Scrap Log, Site
+  Stock); `/m/accounts` → clean denial naming finance.view; `/m/me` → role
+  card + password change + bounded delegation.
+- Fixture drift noted: rohan's UserCompany.active was deactivated by an
+  earlier offboarding test → getCompany threw "No company found" (correct
+  behavior — an inactive membership must not resolve). Reactivated for the
+  test.
