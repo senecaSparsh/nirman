@@ -856,7 +856,7 @@ export function MobileLandDetailClient({
                   <span className="rounded px-1 py-0.5 text-m-caption font-bold leading-tight whitespace-nowrap"
                     style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-500)" }}>
                     {data.leaseType === "ONE_TIME" ? "One-time" : "Yearly"}
-                    {data.leasePeriodYears ? ` · ${data.leasePeriodYears}y` : ""}
+                    {data.leasePeriodYears ? ` · ${data.leasePeriodYears} yr${data.leasePeriodYears !== 1 ? "s" : ""}` : ""}
                   </span>
                 )}
                 {data.mode === "SUBDIVIDED" && (

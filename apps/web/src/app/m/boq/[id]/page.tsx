@@ -2,7 +2,7 @@ import Link from "next/link";
 import { prisma } from "@nirman/db";
 import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber, formatEnumLabel } from "@/lib/utils";
 import {
   MobileEmptyState,
   MobileStatusBadge,
@@ -118,7 +118,7 @@ export default function MobileBoqDetailPage({
         icon={ListTree}
         title={item.description}
         subtitle={`${item.serialNo} · ${item.project.name}${item.phase ? ` · ${item.phase.name}` : ""}`}
-        status={item.type.replace(/_/g, " ")}
+        status={formatEnumLabel(item.type)}
       >
         {item.notes && (
           <p className="text-m-label leading-relaxed mt-2" style={{ color: "var(--color-ink-700)" }}>
@@ -163,7 +163,7 @@ export default function MobileBoqDetailPage({
                     {child.serialNo}
                   </span>
                   <span className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-400)" }}>
-                    {child.type.replace(/_/g, " ")}
+                    {formatEnumLabel(child.type)}
                   </span>
                 </div>
                 <p className="text-m-label font-semibold leading-snug" style={{ color: "var(--color-ink-950)" }}>

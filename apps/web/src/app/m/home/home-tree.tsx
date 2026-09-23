@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import { useRecentItems } from "@/lib/use-recent-items";
 import { useFetch } from "@/lib/use-fetch";
-import { formatDate, formatCurrencyCompact } from "@/lib/utils";
+import { formatDate, formatCurrencyCompact, formatRelativeTime } from "@/lib/utils";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { useMounted } from "@/lib/use-mounted";
 
@@ -71,14 +71,7 @@ const RECENT_ICONS: Record<string, LucideIcon> = {
 };
 
 function timeAgo(ts: number): string {
-  const diff = Date.now() - ts;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "now";
-  if (mins < 60) return `${mins}m`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  return `${days}d`;
+  return formatRelativeTime(new Date(ts));
 }
 
 // ── Briefing data type (mirrors /api/briefing response) ──

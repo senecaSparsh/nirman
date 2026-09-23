@@ -413,7 +413,7 @@ export default function MobileStockPage({
           { key: "categoryName", label: "Category" },
           { key: "totalQty", label: "On Hand" },
           { key: "unit", label: "Unit" },
-          { key: "mac", label: "MAC", format: "currency" },
+          { key: "mac", label: "Avg Rate", format: "currency" },
           { key: "stockValue", label: "Value", format: "currency" },
         ];
 

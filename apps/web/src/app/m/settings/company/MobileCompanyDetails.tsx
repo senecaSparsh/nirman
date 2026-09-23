@@ -12,7 +12,7 @@ import {
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { canAssignRole, roleTier, ROLE_META, ROLE_LIST, ROLES, effectivePermissions, PERMISSION_MODULES, ALL_PERMISSIONS, type Role } from "@/lib/roles";
-import { formatCurrency, formatDate, formatDateTime, displayEmail } from "@/lib/utils";
+import { formatCurrency, formatDate, formatDateTime, displayEmail, formatEnumLabel } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import type { CompanyProfileData } from "@/components/companies/company-profile-client";
 import { SectionCard, UnderlineInput, EnumSelect } from "@/components/mobile/v2/form-primitives";
@@ -1441,7 +1441,7 @@ function PhonePoolSection({ data, canManageTelephony }: { data: CompanyProfileDa
                 </span>
               ) : (
                 <span className="text-micro font-bold px-1.5 py-0.5 rounded-full shrink-0" style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-500)" }}>
-                  {p.status}
+                  {formatEnumLabel(p.status)}
                 </span>
               )}
             </div>

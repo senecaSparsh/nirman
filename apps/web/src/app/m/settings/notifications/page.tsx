@@ -6,7 +6,7 @@ import {
   CheckCircle2, XCircle, Clock, Send, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { toast } from "sonner";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime, formatEnumLabel } from "@/lib/utils";
 import { NotificationPermissionToggle } from "@/components/mobile/notification-permission-toggle";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
@@ -313,7 +313,7 @@ function PreferencesTab({
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <p className="text-m-body font-bold mb-2" style={{ color: "var(--color-ink-950)" }}>
-            {EVENT_LABELS[eventType] ?? eventType.replace(/_/g, " ")}
+            {EVENT_LABELS[eventType] ?? formatEnumLabel(eventType)}
           </p>
           <div className="space-y-1.5">
             {prefs.map((pref) => {
@@ -323,7 +323,7 @@ function PreferencesTab({
                   <div className="flex items-center gap-2">
                     <Icon className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
                     <span className="text-m-label font-medium" style={{ color: "var(--color-ink-700)" }}>
-                      {pref.channel.replace(/_/g, " ")}
+                      {formatEnumLabel(pref.channel)}
                     </span>
                     {channels[pref.channel] === false ? (
                       <span className="text-m-label rounded-full px-1.5 py-0.5" style={{ backgroundColor: "var(--color-warn-soft, #fef3c7)", color: "var(--color-warn, #92400e)" }}>
@@ -400,10 +400,10 @@ function TemplatesTab({
               <Icon className="size-4 shrink-0" style={{ color: "var(--color-steel)" }} />
               <div className="min-w-0 flex-1">
                 <p className="text-m-body font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
-                  {EVENT_LABELS[tmpl.eventType] ?? tmpl.eventType.replace(/_/g, " ")}
+                  {EVENT_LABELS[tmpl.eventType] ?? formatEnumLabel(tmpl.eventType)}
                 </p>
                 <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
-                  {tmpl.channel.replace(/_/g, " ")}
+                  {formatEnumLabel(tmpl.channel)}
                 </p>
               </div>
               <span

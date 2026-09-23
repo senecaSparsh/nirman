@@ -9,7 +9,7 @@ import {
   CheckCircle2, ExternalLink, MessageCircle, Pencil, Check,
   HandCoins, CalendarClock,
 } from "lucide-react";
-import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber, formatPaymentMode } from "@/lib/utils";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../MobileChequeFields";
@@ -1072,7 +1072,7 @@ export function MobileSaleDetailClient({
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>
-                      {p.mode}
+                      {formatPaymentMode(p.mode)}
                       {p.reference ? ` · ${p.reference}` : ""}
                     </p>
                     <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>

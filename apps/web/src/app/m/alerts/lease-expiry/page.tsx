@@ -130,8 +130,8 @@ async function LeaseExpiryContent() {
                       }}
                     >
                       {alert.daysUntilExpiry < 0
-                        ? `${Math.abs(alert.daysUntilExpiry)}d overdue`
-                        : `${alert.daysUntilExpiry}d left`}
+                        ? `${Math.abs(alert.daysUntilExpiry)} day${Math.abs(alert.daysUntilExpiry) !== 1 ? "s" : ""} overdue`
+                        : `${alert.daysUntilExpiry} day${alert.daysUntilExpiry !== 1 ? "s" : ""} left`}
                     </span>
                   </div>
                   <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>

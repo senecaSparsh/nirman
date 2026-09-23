@@ -183,7 +183,7 @@ export function MobileAdjustStockBtn({
 
   return (
     <>
-      <MobileFab onClick={fab.toggle} isOpen={fab.isOpen} label="Adjust stock" icon={SlidersHorizontal} />
+      <MobileFab onClick={fab.toggle} isOpen={fab.isOpen} label="Adjust stock" icon={SlidersHorizontal} extended />
 
       <MobileFabModal
         open={fab.isOpen}
@@ -448,11 +448,11 @@ export function MobileAdjustStockBtn({
                   <Loader2 className="size-4 animate-spin" />
                 ) : direction === "IN" ? (
                   <>
-                    <Plus className="size-4" /> Add
+                    <Plus className="size-4" /> Add to stock
                   </>
                 ) : (
                   <>
-                    <Minus className="size-4" /> Remove
+                    <Minus className="size-4" /> Remove from stock
                   </>
                 )}
               </button>

@@ -394,16 +394,18 @@ function ReqCard({ req, canApprove, currentUserId, canSelfApprove, onAction }: {
     );
     if (diffDays < 0) {
       const absDays = Math.abs(diffDays);
-      // Human-readable overdue: < 30d → "Nd overdue", 30-365 → "Nmo overdue", > 365 → "Ny Nmo overdue"
+      // Human-readable overdue — spelled out for non-technical users
       if (absDays < 30) {
-        neededText = `${absDays}d overdue`;
+        neededText = `${absDays} day${absDays !== 1 ? "s" : ""} overdue`;
       } else if (absDays < 365) {
         const months = Math.floor(absDays / 30);
-        neededText = `${months}mo overdue`;
+        neededText = `${months} month${months !== 1 ? "s" : ""} overdue`;
       } else {
         const years = Math.floor(absDays / 365);
         const months = Math.floor((absDays % 365) / 30);
-        neededText = months > 0 ? `${years}y ${months}mo overdue` : `${years}y overdue`;
+        neededText = months > 0
+          ? `${years} yr ${months} mo overdue`
+          : `${years} year${years !== 1 ? "s" : ""} overdue`;
       }
       neededColor = "var(--color-stop)";
       neededUrgent = true;
@@ -412,7 +414,7 @@ function ReqCard({ req, canApprove, currentUserId, canSelfApprove, onAction }: {
       neededColor = "var(--color-stop)";
       neededUrgent = true;
     } else if (diffDays <= 3) {
-      neededText = `${diffDays}d left`;
+      neededText = `${diffDays} day${diffDays !== 1 ? "s" : ""} left`;
       neededColor = "var(--color-signal)";
       neededUrgent = true;
     } else {

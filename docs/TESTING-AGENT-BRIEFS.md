@@ -317,9 +317,9 @@ don't ship a workaround.
 | ------ | -------------- | ------------------ | ---------- | ------------------------------ |
 | A      | Devin subagent | test/a-procurement | 2026-09-22 | done — see TESTING-FINDINGS.md |
 | B      | Devin subagent | test/b-finance     | 2026-09-22 | done — see TESTING-FINDINGS.md |
-| C      | Devin subagent | test/c-hr          | 2026-09-22 | running                        |
+| C      | Devin subagent | test/c-hr          | 2026-09-22 | done — see TESTING-FINDINGS.md |
 | D      | Devin subagent | test/d-sales       | 2026-09-22 | done — see TESTING-FINDINGS.md |
 | E      | Devin subagent | main (direct)      | 2026-09-22 | done — see TESTING-FINDINGS.md |
 | F      | (claimed)      | test/f-rbac        |            | done — see TESTING-FINDINGS.md |
-| G      | Devin subagent | test/g-mobile      | 2026-09-22 | running                        |
-| H      |                |                    |            |                                |
+| G      | Devin subagent | main (direct)      | 2026-09-22 | done — see TESTING-FINDINGS.md |
+| H      | Devin subagent | test/h-crosscut    | 2026-09-22 | running                        |

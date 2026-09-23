@@ -13,7 +13,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import {formatDate, formatRelativeTime} from "@/lib/utils";
+import {formatDate, formatRelativeTime, humanizeCron} from "@/lib/utils";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { useMobileBack } from "@/components/mobile/v2/mobile-back-button";
@@ -65,11 +65,11 @@ function statusStyle(status: string) {
 function scheduleLabel(w: WorkflowDetail): string {
   if (w.schedule?.intervalM) {
     const m = w.schedule.intervalM;
-    if (m >= 1440 && m % 1440 === 0) return `every ${m / 1440}d`;
-    if (m >= 60 && m % 60 === 0) return `every ${m / 60}h`;
-    return `every ${m}m`;
+    if (m >= 1440 && m % 1440 === 0) return `every ${m / 1440} day${m / 1440 !== 1 ? "s" : ""}`;
+    if (m >= 60 && m % 60 === 0) return `every ${m / 60} hour${m / 60 !== 1 ? "s" : ""}`;
+    return `every ${m} min`;
   }
-  if (w.schedule?.cron) return `cron: ${w.schedule.cron}`;
+  if (w.schedule?.cron) return humanizeCron(w.schedule.cron);
   return "Manual";
 }
 

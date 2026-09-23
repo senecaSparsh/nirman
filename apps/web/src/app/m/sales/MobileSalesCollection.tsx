@@ -8,7 +8,7 @@ import {
   IndianRupee, Loader2, Phone, ArrowRight, ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
-import { formatCurrencyCompact, formatDate } from "@/lib/utils";
+import { formatCurrencyCompact, formatDate, formatEnumLabel } from "@/lib/utils";
 import {
   MobileSearchHeader,
   MobileFilterIcon,
@@ -461,7 +461,7 @@ function OutstandingCard({
                     backgroundColor: mode === m ? "var(--color-ink-950)" : "var(--color-concrete)",
                   }}
                 >
-                  {m.replace(/_/g, " ")}
+                  {formatEnumLabel(m)}
                 </button>
               ))}
             </div>

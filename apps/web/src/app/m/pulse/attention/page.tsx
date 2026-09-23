@@ -364,7 +364,7 @@ async function AttentionContent() {
                   href={`/m/procurement/${po.id}`}
                   title={po.supplier.name}
                   subtitle={`Purchase Order ${po.poNumber} · expected ${po.expectedDate ? formatDate(po.expectedDate) : "—"}`}
-                  meta={`${daysLate}d late`}
+                  meta={`${daysLate} day${daysLate !== 1 ? "s" : ""} late`}
                   metaColor="var(--color-stop)"
                   icon={<Truck className="size-3" />}
                   borderAccent="var(--color-stop)"
@@ -502,7 +502,7 @@ async function AttentionContent() {
                   href="/m/alerts/lease-expiry"
                   title={l.sellerName}
                   subtitle={`${l.location}${l.projectName ? ` · ${l.projectName}` : ""}`}
-                  meta={isExpired ? "Expired" : `${l.daysUntilExpiry}d left`}
+                  meta={isExpired ? "Expired" : `${l.daysUntilExpiry} day${l.daysUntilExpiry !== 1 ? "s" : ""} left`}
                   metaColor={accent}
                   icon={<CalendarClock className="size-3" />}
                   borderAccent={accent}

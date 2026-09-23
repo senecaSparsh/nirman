@@ -9,7 +9,7 @@ import {
   CheckCircle2, AlertCircle, ArrowRight,
   Plus, Loader2, X, UserRoundCheck, ChevronDown,
 } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, formatEnumLabel } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -292,9 +292,9 @@ export function MobileLeadDetailClient({
           { label: "Activities", value: String(lead.stats.activityCount) },
           {
             label: "Last Contact",
-            value: lead.stats.daysSinceContact != null ? `${lead.stats.daysSinceContact}d ago` : "—",
+            value: lead.stats.daysSinceContact != null ? (lead.stats.daysSinceContact === 0 ? "Today" : `${lead.stats.daysSinceContact} day${lead.stats.daysSinceContact !== 1 ? "s" : ""} ago`) : "—",
           },
-          { label: "Source", value: lead.source.replace(/_/g, " "), tone: "signal" },
+          { label: "Source", value: formatEnumLabel(lead.source), tone: "signal" },
         ]}
       />
 

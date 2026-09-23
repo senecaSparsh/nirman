@@ -7,7 +7,7 @@ import {
   Phone, Printer, XCircle, Banknote,
   Loader2, IndianRupee, ShieldCheck,
 } from "lucide-react";
-import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber, formatPaymentMode } from "@/lib/utils";
 import { toast } from "sonner";
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../../sales/MobileChequeFields";
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
@@ -559,7 +559,7 @@ export function MobileMaterialSaleDetailClient({
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>
-                    {p.paymentMode}
+                    {formatPaymentMode(p.paymentMode)}
                     {p.referenceNo ? ` · ${p.referenceNo}` : ""}
                   </p>
                   <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>

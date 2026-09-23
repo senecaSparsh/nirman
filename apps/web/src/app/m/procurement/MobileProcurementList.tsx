@@ -646,7 +646,7 @@ function PoCard({
       (expected.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
     );
     if (isOverdue) {
-      deliveryText = `${Math.abs(diffDays)}d late`;
+      deliveryText = `${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? "s" : ""} late`;
       deliveryColor = "var(--color-stop)";
     } else if (diffDays === 0) {
       deliveryText = "today";
@@ -655,7 +655,7 @@ function PoCard({
       deliveryText = "tomorrow";
       deliveryColor = "var(--color-signal)";
     } else if (diffDays > 0) {
-      deliveryText = `${diffDays}d`;
+      deliveryText = `in ${diffDays} days`;
     } else {
       deliveryText = formatDate(po.expectedDate);
     }

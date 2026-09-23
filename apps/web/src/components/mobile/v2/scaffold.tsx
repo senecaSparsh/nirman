@@ -490,6 +490,7 @@ export function MobileFab({
   icon: Icon = Plus,
   label,
   isOpen = false,
+  extended = false,
 }: {
   href?: string;
   onClick?: (e: React.MouseEvent<HTMLButtonElement>) => void;
@@ -498,9 +499,14 @@ export function MobileFab({
   /** When true, the icon rotates 45° (Plus → × morph) and the FAB
    *  sits above the modal backdrop. */
   isOpen?: boolean;
+  /** When true, renders icon + visible text (extended FAB) so the action
+   *  is discoverable without tapping — use for non-obvious icons. */
+  extended?: boolean;
 }) {
   // z-50 when open so the FAB stays clickable above the backdrop
-  const className = "fixed right-4 grid place-items-center size-14 rounded-full text-m-body shadow-lg press transition-colors";
+  const className = extended
+    ? "fixed right-4 flex items-center gap-2 h-14 px-5 rounded-full text-m-section font-bold shadow-lg press transition-colors"
+    : "fixed right-4 grid place-items-center size-14 rounded-full text-m-body shadow-lg press transition-colors";
   const style: React.CSSProperties = {
     bottom:
       "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
@@ -523,12 +529,13 @@ export function MobileFab({
             Using a single icon + rotation avoids a cross-fade and
             gives the crisp "spin" feel Apple uses in Control Center. */}
         <Icon
-          className="size-6"
+          className="size-6 shrink-0"
           style={{
             transform: isOpen ? "rotate(45deg)" : "rotate(0deg)",
             transition: "transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)",
           }}
         />
+        {extended && label ? <span>{isOpen ? "Close" : label}</span> : null}
       </button>
     );
   }
@@ -539,7 +546,8 @@ export function MobileFab({
       className={className}
       style={style}
     >
-      <Icon className="size-6" />
+      <Icon className="size-6 shrink-0" />
+      {extended && label ? <span>{label}</span> : null}
     </Link>
   );
 }

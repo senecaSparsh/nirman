@@ -202,6 +202,36 @@ export function formatNumber(value: number | string | null | undefined, digits =
   return new Intl.NumberFormat("en-IN", { maximumFractionDigits: digits }).format(n);
 }
 
+/** "BANK_TRANSFER" → "Bank Transfer"; keeps acronyms (UPI, NEFT, RTGS) intact. */
+export function formatEnumLabel(value: string | null | undefined): string {
+  if (!value) return "—";
+  const ACRONYMS = new Set(["UPI", "NEFT", "RTGS", "IMPS", "GST", "EMI", "POS", "ATM", "BBPS", "ATS", "BBA", "BOQ", "DPR", "NCR", "PO", "WO", "HR", "IT", "KYC", "PF", "ESI", "UAN", "PAN", "TDS", "RERA", "BHK", "RK", "OTP", "SMS", "IVR", "GPS", "NOC", "MB", "GRN", "HSN", "SAC", "LR", "DO", "GR", "CC", "MEP", "HVAC", "QC", "QA", "WIP", "LOI", "AFS"]);
+  return value
+    .split(/[_\s-]+/)
+    .map((w) => (ACRONYMS.has(w.toUpperCase()) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+    .join(" ");
+}
+export const formatPaymentMode = formatEnumLabel;
+
+/** "0 9 * * *" → "Daily at 9:00 AM"; falls back to the raw expr for exotic schedules. */
+export function humanizeCron(cron: string): string {
+  const parts = cron.trim().split(/\s+/);
+  if (parts.length !== 5) return `Scheduled: ${cron}`;
+  const [min, hour, dom, , dow] = parts;
+  const fmtHour = (h: number, m: number) => {
+    const ampm = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+  };
+  const m = /^[0-9]+$/.test(min ?? "") ? Number(min) : null;
+  const h = /^[0-9]+$/.test(hour ?? "") ? Number(hour) : null;
+  const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  if (m !== null && h !== null && dom === "*" && dow === "*") return `Daily at ${fmtHour(h, m)}`;
+  if (m !== null && h !== null && dom === "*" && /^[0-6]$/.test(dow ?? "")) return `Every ${DAYS[Number(dow)]} at ${fmtHour(h, m)}`;
+  if (m !== null && h !== null && dow === "*" && /^[0-9]+$/.test(dom ?? "")) return `Monthly on day ${dom} at ${fmtHour(h, m)}`;
+  return `Scheduled: ${cron}`;
+}
+
 export function formatDate(value: Date | string | null | undefined) {
   if (!value) return "—";
   return new Intl.DateTimeFormat("en", {
@@ -281,7 +311,9 @@ export function actionPastTense(action: string): string {
     issue: "issued", complete: "completed", close: "closed",
     investigate: "marked under investigation", review: "sent for review",
     start: "started", corrective_done: "corrective action done",
-    preventive_done: "preventive action done",
+    preventive_done: "preventive action done", mitigate: "mitigated",
+    resolve: "resolved", escalate: "escalated", assign: "assigned",
+    acknowledge: "acknowledged", snooze: "snoozed",
   };
   return MAP[action] ?? `${action}ed`;
 }

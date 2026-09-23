@@ -10,7 +10,7 @@ import {
   PlayCircle, XCircle as XIcon, Printer, ExternalLink,
   Pencil, TrendingUp, UserCog, CalendarClock, FileUp,
 } from "lucide-react";
-import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber, formatPaymentMode } from "@/lib/utils";
 import { toast } from "sonner";
 import { MobileDocUploader } from "../../MobileDocUploader";
 import { ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
@@ -513,7 +513,7 @@ export function MobileRentalDetailClient({
             <Field icon={<Clock className="size-2.5" />} label="Rent-free" value={`${data.rentFreeDays} days`} />
           ) : null}
           {data.escalationPercent != null ? (
-            <Field icon={<Calendar className="size-2.5" />} label="Escalation" value={`${data.escalationPercent}% / ${data.escalationIntervalMonths}mo`} />
+            <Field icon={<Calendar className="size-2.5" />} label="Escalation" value={`${data.escalationPercent}% every ${data.escalationIntervalMonths} month${data.escalationIntervalMonths !== 1 ? "s" : ""}`} />
           ) : null}
           {data.sacCode ? (
             <Field icon={<FileText className="size-2.5" />} label="SAC Code" value={data.sacCode} mono />
@@ -533,7 +533,7 @@ export function MobileRentalDetailClient({
           <Field
             icon={<Calendar className="size-2.5" />}
             label="Expiry"
-            value={data.daysToExpiry < 0 ? `${Math.abs(data.daysToExpiry)}d ago` : `in ${data.daysToExpiry}d`}
+            value={data.daysToExpiry < 0 ? `${Math.abs(data.daysToExpiry)} day${Math.abs(data.daysToExpiry) !== 1 ? "s" : ""} ago` : `in ${data.daysToExpiry} day${data.daysToExpiry !== 1 ? "s" : ""}`}
             valueColor={data.daysToExpiry <= 30 && data.daysToExpiry >= 0 ? "var(--color-signal)" : data.daysToExpiry < 0 ? "var(--color-stop)" : undefined}
           />
         </div>
@@ -686,7 +686,7 @@ export function MobileRentalDetailClient({
                       Due {formatDate(p.dueDate)}
                       {p.status === "RECEIVED" ? ` · Paid ${formatDate(p.paymentDate)}` : ""}
                       {p.reference ? ` · ${p.reference}` : ""}
-                      {" · "}{p.mode}
+                      {" · "}{formatPaymentMode(p.mode)}
                     </p>
                   </div>
                   <span

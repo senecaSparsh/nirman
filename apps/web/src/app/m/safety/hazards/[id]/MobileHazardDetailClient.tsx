@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {Loader2, Play, Check, Trash2, X, Pencil, AlertTriangle} from "lucide-react";
 import { haptic } from "@/lib/haptic";
-import { formatDate } from "@/lib/utils";
+import { formatDate, actionPastTense } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import { ActionBar } from "@/components/mobile/v2/primitives";
 import { DetailHeroCard, DetailStatGrid, DetailTimeline, type TimelineStepData } from "@/components/mobile/v2/detail-primitives";
@@ -54,7 +54,7 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
       const res = await fetch(`/api/safety/hazards/${hazard.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, ...extra }) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
-      toast.success(`Hazard ${action}d`); router.refresh();
+      toast.success(`Hazard ${actionPastTense(action)}`); router.refresh();
     } catch (e: unknown) { toast.error(e instanceof Error ? e.message : "Failed"); }
     finally { setActing(null); setShowMitigate(false); setShowResolve(false); setShowEdit(false); setResolutionNotes(""); }
   }

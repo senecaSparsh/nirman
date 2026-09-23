@@ -5,7 +5,7 @@ import { Cloud, Hammer, Users, CheckCircle2, XCircle } from "lucide-react";
 import { getUserPermissions, toNum, scopeWhere, getCurrentUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
-import { formatDate, formatNumber, formatCurrency } from "@/lib/utils";
+import { formatDate, formatNumber, formatCurrency, formatEnumLabel } from "@/lib/utils";
 import { AttachmentList } from "@/components/attachments/attachment-list";
 import { MobileEmptyState, mobileStatusColor } from "@/components/mobile/v2/primitives";
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
@@ -191,7 +191,7 @@ export default function MobileDprDetailPage({
                       className="text-m-caption font-bold uppercase px-2 py-0.5 rounded-[0.25rem]"
                       style={{ backgroundColor: statusColor, color: "var(--color-paper)" }}
                     >
-                      {dpr.approvalStatus.replace(/_/g, " ")}
+                      {formatEnumLabel(dpr.approvalStatus)}
                     </span>
                   </div>
                   <p className="text-m-caption mt-1.5" style={{ color: "var(--color-ink-500)" }}>

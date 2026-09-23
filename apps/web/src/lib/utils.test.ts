@@ -8,6 +8,8 @@ import {
   formatDate,
   formatRelativeTime,
   humanizeAuditAction,
+  formatEnumLabel,
+  humanizeCron,
   setGlobalCurrencyMode,
   getGlobalCurrencyMode,
 } from "./utils";
@@ -188,5 +190,37 @@ describe("getGlobalCurrencyMode / setGlobalCurrencyMode", () => {
     expect(getGlobalCurrencyMode()).toBe("detailed");
     setGlobalCurrencyMode("compact");
     expect(getGlobalCurrencyMode()).toBe("compact");
+  });
+});
+
+describe("formatEnumLabel", () => {
+  it("title-cases enum values", () => {
+    expect(formatEnumLabel("BANK_TRANSFER")).toBe("Bank Transfer");
+    expect(formatEnumLabel("SUB_ADMIN_APPROVED")).toBe("Sub Admin Approved");
+  });
+  it("keeps acronyms uppercase", () => {
+    expect(formatEnumLabel("UPI")).toBe("UPI");
+    expect(formatEnumLabel("BHK_2")).toBe("BHK 2");
+    expect(formatEnumLabel("GST_APPLICABLE")).toBe("GST Applicable");
+  });
+  it("handles null/empty", () => {
+    expect(formatEnumLabel(null)).toBe("—");
+    expect(formatEnumLabel("")).toBe("—");
+  });
+});
+
+describe("humanizeCron", () => {
+  it("renders daily schedules", () => {
+    expect(humanizeCron("0 9 * * *")).toBe("Daily at 9:00 AM");
+    expect(humanizeCron("30 18 * * *")).toBe("Daily at 6:30 PM");
+  });
+  it("renders weekly schedules", () => {
+    expect(humanizeCron("0 9 * * 1")).toBe("Every Mon at 9:00 AM");
+  });
+  it("renders monthly schedules", () => {
+    expect(humanizeCron("0 9 1 * *")).toBe("Monthly on day 1 at 9:00 AM");
+  });
+  it("falls back for exotic schedules", () => {
+    expect(humanizeCron("*/5 * * * *")).toBe("Scheduled: */5 * * * *");
   });
 });

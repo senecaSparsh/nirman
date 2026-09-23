@@ -149,9 +149,9 @@ export default function MobileRequisitionDetailPage({
         if (req.neededByDate) {
           const needed = new Date(req.neededByDate); needed.setHours(0, 0, 0, 0);
           const diff = Math.round((needed.getTime() - today.getTime()) / 86400000);
-          if (diff < 0) { neededText = `${Math.abs(diff)}d overdue`; neededUrgent = true; }
+          if (diff < 0) { neededText = `${Math.abs(diff)} day${Math.abs(diff) !== 1 ? "s" : ""} overdue`; neededUrgent = true; }
           else if (diff === 0) { neededText = "today"; neededUrgent = true; }
-          else if (diff <= 3) { neededText = `${diff}d left`; neededUrgent = true; }
+          else if (diff <= 3) { neededText = `${diff} day${diff !== 1 ? "s" : ""} left`; neededUrgent = true; }
           else { neededText = formatDate(req.neededByDate); }
         }
 

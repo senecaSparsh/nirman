@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {Globe, Loader2, Plus, CheckCircle2, Eye} from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
-import { formatCurrencyCompact } from "@/lib/utils";
+import { formatCurrencyCompact, formatEnumLabel } from "@/lib/utils";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { MobileEmptyState, MobileCta } from "@/components/mobile/v2/primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
@@ -59,7 +59,7 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
     const unit = units.find((u) => u.id === unitId);
     set("builtUnitId", unitId);
     if (unit && !form.title) {
-      set("title", `${unit.unitNumber} · ${unit.unitType} · ${unit.projectName}`);
+      set("title", `${unit.unitNumber} · ${formatEnumLabel(unit.unitType)} · ${unit.projectName}`);
     }
     if (unit && unit.askingPrice && !form.askingPrice) {
       set("askingPrice", String(unit.askingPrice));
@@ -162,7 +162,7 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
             placeholder="— Select available unit —"
             options={units.map((u) => ({
               value: u.id,
-              label: `${u.unitNumber} · ${u.unitType} · ${u.projectName} · ${u.area} ${u.areaUnit}`,
+              label: `${u.unitNumber} · ${formatEnumLabel(u.unitType)} · ${u.projectName} · ${u.area} ${u.areaUnit}`,
               sub: u.askingPrice ? formatCurrencyCompact(u.askingPrice) : undefined,
             }))}
           />

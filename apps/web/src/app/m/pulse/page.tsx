@@ -199,7 +199,7 @@ export default function PulsePage() {
                 variant={approvalCount > 0 ? "primary" : "secondary"}
               >
                 {approvalCount > 0
-                  ? `Approvals · ${approvalCount}${oldestApprovalDays >= 2 ? ` · oldest ${oldestApprovalDays}d` : ""}`
+                  ? `Approvals · ${approvalCount}${oldestApprovalDays >= 2 ? ` · oldest ${oldestApprovalDays} days` : ""}`
                   : "Approvals"}
               </MobileCta>
               <MobileCta href="/m/materials" icon={Boxes} variant="secondary">

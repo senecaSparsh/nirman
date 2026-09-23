@@ -7,7 +7,7 @@ import { dprAnalysis, workforceProductivity, projectPnl } from "@nirman/services
 import {BarChart3, Building2} from "lucide-react";
 import { getCompany, toNum, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatEnumLabel } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -161,7 +161,7 @@ async function MobileComparativeContent() {
             key={p.id}
             icon={Building2}
             title={p.name}
-            subtitle={`${p.status} · Progress ${p.latestProgressPct.toFixed(1)}% · Attendance ${p.attendanceRate.toFixed(0)}%`}
+            subtitle={`${formatEnumLabel(p.status)} · Progress ${p.latestProgressPct.toFixed(1)}% · Attendance ${p.attendanceRate.toFixed(0)}%`}
             meta={p.profit !== 0 ? formatCurrency(p.profit) : formatCurrency(p.projectCost)}
             metaSub={p.margin !== 0 ? `Margin ${p.margin.toFixed(1)}%` : `Cost ${formatCurrency(p.projectCost)}`}
             tone={p.profit > 0 ? "success" : p.profit < 0 ? "warning" : "default"}
