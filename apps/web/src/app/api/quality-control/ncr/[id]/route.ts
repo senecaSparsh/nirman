@@ -36,7 +36,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
     select: { id: true },
   });
   if (!existing) return json({ error: "NCR not found" }, { status: 404 });
-  const ncr = await getNcr(id);
+  const ncr = await getNcr(id, company.id);
   return json(ncr);
 });
 
@@ -63,18 +63,18 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
           if (!parsed.data.outcome || !parsed.data.reviewNotes) return json({ error: "outcome and reviewNotes required" }, { status: 400 });
           revalidatePath("/quality-control");
           revalidatePath("/m/quality-control");
-          return json(await reviewNcr(id, { outcome: parsed.data.outcome, reviewNotes: parsed.data.reviewNotes, userId: user.id }));
+          return json(await reviewNcr(id, { outcome: parsed.data.outcome, reviewNotes: parsed.data.reviewNotes, userId: user.id }, company.id));
         case "close":
           if (!parsed.data.closureNotes) return json({ error: "closureNotes required" }, { status: 400 });
           revalidatePath("/quality-control");
           revalidatePath("/m/quality-control");
-          return json(await closeNcr(id, user.id, parsed.data.closureNotes));
+          return json(await closeNcr(id, user.id, parsed.data.closureNotes, company.id));
         case "cancel":
           revalidatePath("/quality-control");
           revalidatePath("/m/quality-control");
-          return json(await cancelNcr(id, user.id));
+          return json(await cancelNcr(id, user.id, company.id));
         case "delete":
-          await deleteNcr(id, user.id);
+          await deleteNcr(id, user.id, company.id);
           revalidatePath("/quality-control");
           revalidatePath("/m/quality-control");
           return json({ ok: true });
@@ -101,7 +101,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
       responsibleParty: parsed.data.responsibleParty,
       subcontractorId: parsed.data.subcontractorId,
       attachments: parsed.data.attachments,
-    }));
+    }, undefined, company.id));
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
   }
@@ -118,7 +118,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   });
   if (!existing) return json({ error: "NCR not found" }, { status: 404 });
   try {
-    await deleteNcr(id, user.id);
+    await deleteNcr(id, user.id, company.id);
     revalidatePath("/quality-control");
           revalidatePath("/m/quality-control");
     return json({ ok: true });

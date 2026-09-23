@@ -204,6 +204,27 @@ export function computeRateAnalysis(
   };
 }
 
+/**
+ * Every line's materialId must belong to the same company as the BOQ item's
+ * project — otherwise a caller can pin a foreign-tenant material onto the
+ * analysis and read its code/name back through getRateAnalysis.
+ */
+async function assertLineMaterials(
+  tx: Prisma.TransactionClient,
+  lines: RateAnalysisLineInput[],
+  companyId: string,
+) {
+  const ids = [...new Set(lines.map((l) => l.materialId).filter((x): x is string => !!x))];
+  if (ids.length === 0) return;
+  const found = await tx.material.findMany({
+    where: { id: { in: ids }, companyId },
+    select: { id: true },
+  });
+  if (found.length !== ids.length) {
+    throw new ServiceError("Material not found", 404);
+  }
+}
+
 // ── CRUD ───────────────────────────────────────────────────
 
 /**
@@ -214,6 +235,7 @@ export async function createRateAnalysis(input: CreateRateAnalysisInput) {
   return withSerializableTransaction(async (tx) => {
     const boqItem = await tx.boqItem.findUnique({
       where: { id: input.boqItemId },
+      include: { project: { select: { companyId: true } } },
     });
     if (!boqItem) throw new ServiceError("BOQ item not found", 404);
     if (boqItem.type !== "LINE_ITEM") {
@@ -234,6 +256,7 @@ export async function createRateAnalysis(input: CreateRateAnalysisInput) {
 
     // Validate lines
     validateLines(input.lines);
+    await assertLineMaterials(tx, input.lines, boqItem.project.companyId);
 
     // Compute totals
     const computation = computeRateAnalysis(input.lines, input.wastagePct ?? 0);
@@ -328,7 +351,7 @@ export async function updateRateAnalysis(
   return withSerializableTransaction(async (tx) => {
     const existing = await tx.rateAnalysis.findUnique({
       where: { id: rateAnalysisId },
-      include: { boqItem: true },
+      include: { boqItem: { include: { project: { select: { companyId: true } } } } },
     });
     if (!existing) throw new ServiceError("Rate analysis not found", 404);
 
@@ -347,6 +370,7 @@ export async function updateRateAnalysis(
         throw new ServiceError("At least one rate analysis line is required", 400);
       }
       validateLines(input.lines);
+      await assertLineMaterials(tx, input.lines, existing.boqItem.project.companyId);
       const wastage = input.wastagePct !== undefined ? input.wastagePct : existing.wastagePct;
       computation = computeRateAnalysis(input.lines, wastage);
 

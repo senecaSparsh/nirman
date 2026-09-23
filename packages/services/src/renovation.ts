@@ -108,8 +108,10 @@ export async function createRenovation(input: CreateRenovationInput) {
   });
 }
 
-export async function startRenovation(id: string, userId?: string) {
-  const renovation = await prisma.renovationProject.findUnique({ where: { id } });
+export async function startRenovation(id: string, userId?: string, companyId?: string) {
+  const renovation = await prisma.renovationProject.findFirst({
+    where: { id, ...(companyId ? { companyId } : {}) },
+  });
   if (!renovation) throw new ServiceError("Renovation project not found", 404);
   if (renovation.status !== "PLANNED") throw new ServiceError(`Cannot start renovation in status ${renovation.status}`);
 
@@ -140,6 +142,8 @@ export interface AddRenovationCostInput {
   notes?: string;
   receiptUrl?: string;
   userId?: string;
+  /** The caller's active company — the renovation must belong to it. */
+  companyId?: string;
 }
 
 export async function addRenovationCost(input: AddRenovationCostInput) {
@@ -147,8 +151,8 @@ export async function addRenovationCost(input: AddRenovationCostInput) {
   if (!amount.gt(0)) throw new ServiceError("Amount must be > 0");
 
   return withSerializableTransaction(async (tx) => {
-    const renovation = await tx.renovationProject.findUnique({
-      where: { id: input.renovationProjectId },
+    const renovation = await tx.renovationProject.findFirst({
+      where: { id: input.renovationProjectId, ...(input.companyId ? { companyId: input.companyId } : {}) },
     });
     if (!renovation) throw new ServiceError("Renovation project not found", 404);
     if (renovation.status === "COMPLETED") throw new ServiceError("Cannot add costs to a completed renovation");
@@ -268,11 +272,11 @@ export async function deleteRenovationCost(costId: string, userId?: string) {
 
 export async function completeRenovation(
   id: string,
-  opts: { newValuation?: Decimal | number | string; userId?: string },
+  opts: { newValuation?: Decimal | number | string; userId?: string; companyId?: string },
 ) {
   const result = await withSerializableTransaction(async (tx) => {
-    const renovation = await tx.renovationProject.findUnique({
-      where: { id },
+    const renovation = await tx.renovationProject.findFirst({
+      where: { id, ...(opts.companyId ? { companyId: opts.companyId } : {}) },
       include: { builtUnit: true, landParcel: true },
     });
     if (!renovation) throw new ServiceError("Renovation project not found", 404);
@@ -407,8 +411,10 @@ export async function completeRenovation(
   return { renovation: result.renovation, roi: result.roi };
 }
 
-export async function cancelRenovation(id: string, userId?: string) {
-  const renovation = await prisma.renovationProject.findUnique({ where: { id } });
+export async function cancelRenovation(id: string, userId?: string, companyId?: string) {
+  const renovation = await prisma.renovationProject.findFirst({
+    where: { id, ...(companyId ? { companyId } : {}) },
+  });
   if (!renovation) throw new ServiceError("Renovation project not found", 404);
   if (renovation.status === "COMPLETED") throw new ServiceError("Cannot cancel a completed renovation");
 

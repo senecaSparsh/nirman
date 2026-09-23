@@ -130,6 +130,16 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const user = await requirePermission(PERM.SALE_CREATE);
   const company = await getCompany();
   const { id } = await params;
+
+  // Scoped pre-fetch — the POST dispatcher above enforces the same check;
+  // without it a project-scoped sales user could rewrite a tenancy on an
+  // out-of-scope project.
+  const existing = await prisma.tenancy.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("Tenancy") },
+    select: { id: true },
+  });
+  if (!existing) return json({ error: "Tenancy not found or out of scope" }, { status: 404 });
+
   const body = await req.json();
   const parsed = editTenancySchema.safeParse(body);
   if (!parsed.success) {

@@ -71,6 +71,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       projectId: parsed.data.projectId ?? undefined,
       notes: parsed.data.notes ?? undefined,
       userId: user.id,
+      companyId: company.id,
     });
     return json({ ok: true, id: assignment.id }, { status: 201 });
   } catch (err: unknown) {

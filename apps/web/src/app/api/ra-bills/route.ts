@@ -20,9 +20,20 @@ const schema = z.object({
 
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.RA_SUBMIT);
+  const company = await getCompany();
   const body = await req.json();
   const parsed = schema.safeParse(body);
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid" }, { status: 400 });
+
+  // Ownership + scope check on the work order — the service otherwise
+  // resolves it by bare id and would write the RA bill into another
+  // tenant's books (and mark their MB entries as billed).
+  const wo = await prisma.subcontractorWorkOrder.findFirst({
+    where: { id: parsed.data.workOrderId, companyId: company.id, ...await scopeWhere("SubcontractorWorkOrder") },
+    select: { id: true },
+  });
+  if (!wo) return json({ error: "Work order not found" }, { status: 404 });
+
   try {
     const d = parsed.data;
     const bill = await createRaBill({
@@ -33,6 +44,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       otherDeductions: d.otherDeductions,
       notes: d.notes ?? undefined,
       userId: user.id,
+      companyId: company.id,
     });
 
     // Auto-submit by default — eliminates the useless manual "Submit for

@@ -66,6 +66,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       targetResolutionDate: parsed.data.targetResolutionDate ? new Date(parsed.data.targetResolutionDate) : null,
       attachments: parsed.data.attachments,
       userId: user.id,
+      companyId: company.id,
     });
     return json(hazard, { status: 201 });
   } catch (err: unknown) {

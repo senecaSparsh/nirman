@@ -45,6 +45,8 @@ export interface CreateIncidentInput {
   propertyDamageEstimate?: number | null;
   attachments?: string[];
   userId?: string;
+  /** The caller's active company — the project must belong to it. */
+  companyId?: string;
 }
 
 export interface UpdateIncidentInput {
@@ -81,6 +83,8 @@ export interface CreateHazardInput {
   targetResolutionDate?: Date | null;
   attachments?: string[];
   userId?: string;
+  /** The caller's active company — the project must belong to it. */
+  companyId?: string;
 }
 
 export interface CreateInspectionInput {
@@ -89,6 +93,8 @@ export interface CreateInspectionInput {
   scheduledDate: Date;
   inspectorName?: string | null;
   userId?: string;
+  /** The caller's active company — the project must belong to it. */
+  companyId?: string;
 }
 
 // ── Risk level computation ─────────────────────────────────
@@ -130,7 +136,14 @@ export async function createIncident(input: CreateIncidentInput) {
   return withSerializableTransaction(async (tx) => {
     const project = await tx.project.findFirst({ where: { id: input.projectId, deletedAt: null }, include: { company: { select: { id: true } } } });
     if (!project) throw new ServiceError("Project not found", 404);
+    // Tenant seal: the incident is written under the project's company — it
+    // must be the caller's company, otherwise the record lands in another tenant.
+    if (input.companyId && project.company.id !== input.companyId) throw new ServiceError("Project not found", 404);
     if (!input.title?.trim() || !input.description?.trim()) throw new ServiceError("Title and description are required", 400);
+    if (input.wbsNodeId) {
+      const wbs = await tx.wbsNode.findFirst({ where: { id: input.wbsNodeId, projectId: input.projectId } });
+      if (!wbs) throw new ServiceError("WBS node not found in this project", 404);
+    }
 
     const incidentNumber = await genIncidentNumber(tx, project.company.id);
     const incident = await tx.safetyIncident.create({
@@ -172,9 +185,9 @@ export async function getIncidents(projectId?: string, status?: IncidentStatus, 
   return prisma.safetyIncident.findMany({ where, orderBy: { incidentDate: "desc" }, include: { project: { select: { id: true, name: true } } }, take: 100 });
 }
 
-export async function getIncident(id: string) {
-  return prisma.safetyIncident.findUnique({
-    where: { id },
+export async function getIncident(id: string, companyId?: string) {
+  return prisma.safetyIncident.findFirst({
+    where: { id, ...(companyId ? { companyId } : {}) },
     include: {
       project: { select: { id: true, name: true } },
       wbsNode: { select: { id: true, code: true, name: true } },
@@ -185,11 +198,15 @@ export async function getIncident(id: string) {
   });
 }
 
-export async function updateIncident(id: string, input: UpdateIncidentInput, userId?: string) {
+export async function updateIncident(id: string, input: UpdateIncidentInput, userId?: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const existing = await tx.safetyIncident.findUnique({ where: { id } });
+    const existing = await tx.safetyIncident.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
     if (!existing) throw new ServiceError("Incident not found", 404);
     if (existing.status !== "REPORTED") throw new ServiceError(`Cannot edit incident in ${existing.status} status`, 400);
+    if (input.wbsNodeId) {
+      const wbs = await tx.wbsNode.findFirst({ where: { id: input.wbsNodeId, projectId: existing.projectId } });
+      if (!wbs) throw new ServiceError("WBS node not found in this project", 404);
+    }
 
     const data: Prisma.SafetyIncidentUpdateInput = {};
     if (input.title !== undefined) data.title = input.title;
@@ -214,9 +231,9 @@ export async function updateIncident(id: string, input: UpdateIncidentInput, use
   });
 }
 
-export async function investigateIncident(id: string, input: InvestigateIncidentInput) {
+export async function investigateIncident(id: string, input: InvestigateIncidentInput, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const incident = await tx.safetyIncident.findUnique({ where: { id } });
+    const incident = await tx.safetyIncident.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
     if (!incident) throw new ServiceError("Incident not found", 404);
     if (incident.status !== "REPORTED" && incident.status !== "UNDER_INVESTIGATION") {
       throw new ServiceError(`Cannot investigate incident in ${incident.status} status`, 400);
@@ -235,9 +252,9 @@ export async function investigateIncident(id: string, input: InvestigateIncident
   });
 }
 
-export async function closeIncident(id: string, userId: string, closureNotes: string) {
+export async function closeIncident(id: string, userId: string, closureNotes: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const incident = await tx.safetyIncident.findUnique({ where: { id } });
+    const incident = await tx.safetyIncident.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
     if (!incident) throw new ServiceError("Incident not found", 404);
     if (incident.status !== "INVESTIGATED") throw new ServiceError(`Cannot close incident in ${incident.status} status — must be INVESTIGATED`, 400);
     if (!closureNotes?.trim()) throw new ServiceError("Closure notes are required", 400);
@@ -248,9 +265,9 @@ export async function closeIncident(id: string, userId: string, closureNotes: st
   });
 }
 
-export async function cancelIncident(id: string, userId: string) {
+export async function cancelIncident(id: string, userId: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const incident = await tx.safetyIncident.findUnique({ where: { id } });
+    const incident = await tx.safetyIncident.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
     if (!incident) throw new ServiceError("Incident not found", 404);
     if (incident.status !== "REPORTED") throw new ServiceError(`Cannot cancel incident in ${incident.status} status`, 400);
     const updated = await tx.safetyIncident.update({ where: { id }, data: { status: "CANCELLED" } });
@@ -259,9 +276,9 @@ export async function cancelIncident(id: string, userId: string) {
   });
 }
 
-export async function deleteIncident(id: string, userId?: string) {
+export async function deleteIncident(id: string, userId?: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const existing = await tx.safetyIncident.findUnique({ where: { id } });
+    const existing = await tx.safetyIncident.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
     if (!existing) throw new ServiceError("Incident not found", 404);
     if (existing.status === "CLOSED") throw new ServiceError("Cannot delete a closed incident", 400);
     await tx.safetyIncident.delete({ where: { id } });
@@ -276,7 +293,13 @@ export async function createHazard(input: CreateHazardInput) {
   return withSerializableTransaction(async (tx) => {
     const project = await tx.project.findFirst({ where: { id: input.projectId, deletedAt: null }, include: { company: { select: { id: true } } } });
     if (!project) throw new ServiceError("Project not found", 404);
+    // Tenant seal — see createIncident.
+    if (input.companyId && project.company.id !== input.companyId) throw new ServiceError("Project not found", 404);
     if (!input.title?.trim() || !input.description?.trim()) throw new ServiceError("Title and description are required", 400);
+    if (input.wbsNodeId) {
+      const wbs = await tx.wbsNode.findFirst({ where: { id: input.wbsNodeId, projectId: input.projectId } });
+      if (!wbs) throw new ServiceError("WBS node not found in this project", 404);
+    }
 
     const likelihood = input.likelihood ?? 2;
     const severity = input.severity ?? 2;
@@ -319,9 +342,9 @@ export async function getHazards(projectId?: string, status?: HazardStatus, risk
   return prisma.safetyHazard.findMany({ where, orderBy: [{ riskLevel: "desc" }, { createdAt: "desc" }], include: { project: { select: { id: true, name: true } } }, take: 100 });
 }
 
-export async function getHazard(id: string) {
-  return prisma.safetyHazard.findUnique({
-    where: { id },
+export async function getHazard(id: string, companyId?: string) {
+  return prisma.safetyHazard.findFirst({
+    where: { id, ...(companyId ? { companyId } : {}) },
     include: {
       project: { select: { id: true, name: true } },
       wbsNode: { select: { id: true, code: true, name: true } },
@@ -332,11 +355,15 @@ export async function getHazard(id: string) {
   });
 }
 
-export async function updateHazard(id: string, input: Partial<CreateHazardInput>, userId?: string) {
+export async function updateHazard(id: string, input: Partial<CreateHazardInput>, userId?: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const existing = await tx.safetyHazard.findUnique({ where: { id } });
+    const existing = await tx.safetyHazard.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
     if (!existing) throw new ServiceError("Hazard not found", 404);
     if (existing.status === "RESOLVED") throw new ServiceError("Cannot edit a resolved hazard", 400);
+    if (input.wbsNodeId) {
+      const wbs = await tx.wbsNode.findFirst({ where: { id: input.wbsNodeId, projectId: existing.projectId } });
+      if (!wbs) throw new ServiceError("WBS node not found in this project", 404);
+    }
 
     const data: Prisma.SafetyHazardUpdateInput = {};
     if (input.title !== undefined) data.title = input.title;
@@ -362,9 +389,9 @@ export async function updateHazard(id: string, input: Partial<CreateHazardInput>
   });
 }
 
-export async function startMitigation(id: string, userId: string, mitigationPlan?: string) {
+export async function startMitigation(id: string, userId: string, mitigationPlan?: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const hazard = await tx.safetyHazard.findUnique({ where: { id } });
+    const hazard = await tx.safetyHazard.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
     if (!hazard) throw new ServiceError("Hazard not found", 404);
     if (hazard.status !== "IDENTIFIED") throw new ServiceError(`Cannot start mitigation in ${hazard.status} status`, 400);
 
@@ -377,9 +404,9 @@ export async function startMitigation(id: string, userId: string, mitigationPlan
   });
 }
 
-export async function resolveHazard(id: string, userId: string, resolutionNotes: string) {
+export async function resolveHazard(id: string, userId: string, resolutionNotes: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const hazard = await tx.safetyHazard.findUnique({ where: { id } });
+    const hazard = await tx.safetyHazard.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
     if (!hazard) throw new ServiceError("Hazard not found", 404);
     if (hazard.status !== "MITIGATING" && hazard.status !== "IDENTIFIED") throw new ServiceError(`Cannot resolve hazard in ${hazard.status} status`, 400);
     if (!resolutionNotes?.trim()) throw new ServiceError("Resolution notes are required", 400);
@@ -393,9 +420,9 @@ export async function resolveHazard(id: string, userId: string, resolutionNotes:
   });
 }
 
-export async function deleteHazard(id: string, userId?: string) {
+export async function deleteHazard(id: string, userId?: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const existing = await tx.safetyHazard.findUnique({ where: { id } });
+    const existing = await tx.safetyHazard.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
     if (!existing) throw new ServiceError("Hazard not found", 404);
     if (existing.status === "RESOLVED") throw new ServiceError("Cannot delete a resolved hazard", 400);
     await tx.safetyHazard.delete({ where: { id } });
@@ -410,6 +437,8 @@ export async function createInspection(input: CreateInspectionInput) {
   return withSerializableTransaction(async (tx) => {
     const project = await tx.project.findFirst({ where: { id: input.projectId, deletedAt: null }, include: { company: { select: { id: true } } } });
     if (!project) throw new ServiceError("Project not found", 404);
+    // Tenant seal — see createIncident.
+    if (input.companyId && project.company.id !== input.companyId) throw new ServiceError("Project not found", 404);
     if (!input.title?.trim()) throw new ServiceError("Title is required", 400);
 
     const inspectionNumber = await genInspectionNumber(tx, project.company.id);
@@ -440,9 +469,9 @@ export async function getInspections(projectId?: string, status?: SafetyInspecti
   return prisma.safetyInspection.findMany({ where, orderBy: { scheduledDate: "desc" }, include: { project: { select: { id: true, name: true } } }, take: 100 });
 }
 
-export async function getInspection(id: string) {
-  return prisma.safetyInspection.findUnique({
-    where: { id },
+export async function getInspection(id: string, companyId?: string) {
+  return prisma.safetyInspection.findFirst({
+    where: { id, ...(companyId ? { companyId } : {}) },
     include: {
       project: { select: { id: true, name: true } },
       inspector: { select: { id: true, name: true } },
@@ -450,9 +479,9 @@ export async function getInspection(id: string) {
   });
 }
 
-export async function updateInspection(id: string, input: { title?: string; scheduledDate?: Date; inspectorName?: string | null; findings?: string; complianceNotes?: string; followUpActions?: string; attachments?: string[] }, userId?: string) {
+export async function updateInspection(id: string, input: { title?: string; scheduledDate?: Date; inspectorName?: string | null; findings?: string; complianceNotes?: string; followUpActions?: string; attachments?: string[] }, userId?: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const existing = await tx.safetyInspection.findUnique({ where: { id } });
+    const existing = await tx.safetyInspection.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
     if (!existing) throw new ServiceError("Inspection not found", 404);
     if (existing.status === "COMPLETED") throw new ServiceError("Cannot edit a completed inspection", 400);
 
@@ -473,9 +502,9 @@ export async function updateInspection(id: string, input: { title?: string; sche
   });
 }
 
-export async function startInspection(id: string, userId: string) {
+export async function startInspection(id: string, userId: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const insp = await tx.safetyInspection.findUnique({ where: { id } });
+    const insp = await tx.safetyInspection.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
     if (!insp) throw new ServiceError("Inspection not found", 404);
     if (insp.status !== "SCHEDULED") throw new ServiceError(`Cannot start inspection in ${insp.status} status`, 400);
     const updated = await tx.safetyInspection.update({ where: { id }, data: { status: "IN_PROGRESS", conductedById: userId } });
@@ -484,9 +513,9 @@ export async function startInspection(id: string, userId: string) {
   });
 }
 
-export async function completeInspection(id: string, userId: string, result: InspectionResult, findings: string, complianceNotes?: string, followUpActions?: string) {
+export async function completeInspection(id: string, userId: string, result: InspectionResult, findings: string, complianceNotes?: string, followUpActions?: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const insp = await tx.safetyInspection.findUnique({ where: { id } });
+    const insp = await tx.safetyInspection.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
     if (!insp) throw new ServiceError("Inspection not found", 404);
     if (insp.status !== "IN_PROGRESS" && insp.status !== "SCHEDULED") throw new ServiceError(`Cannot complete inspection in ${insp.status} status`, 400);
     if (!findings?.trim()) throw new ServiceError("Findings are required", 400);
@@ -500,9 +529,9 @@ export async function completeInspection(id: string, userId: string, result: Ins
   });
 }
 
-export async function cancelInspection(id: string, userId: string) {
+export async function cancelInspection(id: string, userId: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const insp = await tx.safetyInspection.findUnique({ where: { id } });
+    const insp = await tx.safetyInspection.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
     if (!insp) throw new ServiceError("Inspection not found", 404);
     if (insp.status !== "SCHEDULED") throw new ServiceError(`Cannot cancel inspection in ${insp.status} status`, 400);
     const updated = await tx.safetyInspection.update({ where: { id }, data: { status: "CANCELLED" } });
@@ -511,9 +540,9 @@ export async function cancelInspection(id: string, userId: string) {
   });
 }
 
-export async function deleteInspection(id: string, userId?: string) {
+export async function deleteInspection(id: string, userId?: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const existing = await tx.safetyInspection.findUnique({ where: { id } });
+    const existing = await tx.safetyInspection.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
     if (!existing) throw new ServiceError("Inspection not found", 404);
     if (existing.status === "COMPLETED") throw new ServiceError("Cannot delete a completed inspection", 400);
     await tx.safetyInspection.delete({ where: { id } });

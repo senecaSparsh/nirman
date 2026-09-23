@@ -19,6 +19,7 @@ const schema = z.object({
 
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.MB_VERIFY);
+  const company = await getCompany();
   const body = await req.json();
   const parsed = schema.safeParse(body);
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid" }, { status: 400 });
@@ -39,6 +40,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       locationRef: d.locationRef ?? undefined,
       measureDate: d.measureDate ? new Date(d.measureDate) : undefined,
       measuredById: user.id,
+      companyId: company.id,
     });
     revalidatePath("/boq");
     revalidatePath("/projects");

@@ -302,6 +302,9 @@ export interface CreateRaBillInput {
   otherDeductions?: Decimal | number | string;
   notes?: string;
   userId?: string;
+  /** The caller's active company — the work order must belong to it,
+   *  otherwise the RA bill lands in another tenant's books. */
+  companyId?: string;
 }
 
 /**
@@ -321,6 +324,12 @@ export async function createRaBill(input: CreateRaBillInput) {
       include: { lines: { include: { boqItem: true } } },
     });
     if (!wo) throw new ServiceError("Work order not found", 404);
+    // Tenant seal: the RA bill is written under the work order's company —
+    // it must be the caller's company, otherwise the bill lands in another
+    // tenant's books and marks their MB entries as billed.
+    if (input.companyId && wo.companyId !== input.companyId) {
+      throw new ServiceError("Work order not found", 404);
+    }
     if (wo.status === "CANCELLED" || wo.status === "CLOSED") {
       throw new ServiceError(`Cannot create RA bill for work order in status ${wo.status}`, 400);
     }

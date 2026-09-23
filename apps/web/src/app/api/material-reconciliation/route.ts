@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { getProjectMaterialReconciliation } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
@@ -10,9 +10,10 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
   if (!projectId) return json({ error: "projectId is required" }, { status: 400 });
-  // Verify the project belongs to the user's company
+  // Verify the project belongs to the user's company AND is inside their
+  // assigned scope — material consumption is project-confidential.
   const project = await prisma.project.findFirst({
-    where: { id: projectId, companyId: company.id, deletedAt: null },
+    where: { id: projectId, companyId: company.id, deletedAt: null, ...await scopeWhere("Project") },
     select: { id: true },
   });
   if (!project) return json({ error: "Project not found" }, { status: 404 });

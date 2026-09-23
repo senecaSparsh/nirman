@@ -16,6 +16,7 @@ import {
   Plus,
   Phone,
   Recycle,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ROLES, type Role, ROLE_META, PERMISSION_MODULES, ALL_PERMISSIONS, effectivePermissions } from "@/lib/roles";
@@ -1019,6 +1020,13 @@ function CreateCustomRoleDialog({
                           +{grantCount}
                         </span>
                       )}
+                      <ChevronDown
+                        className="size-3.5 shrink-0 transition-transform"
+                        style={{
+                          color: "var(--color-ink-300)",
+                          transform: expanded ? "rotate(180deg)" : undefined,
+                        }}
+                      />
                     </button>
                     {expanded && (
                       <div className="border-t" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}>

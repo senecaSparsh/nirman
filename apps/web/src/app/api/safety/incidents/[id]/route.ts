@@ -38,7 +38,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
     select: { id: true },
   });
   if (!existing) return json({ error: "Incident not found" }, { status: 404 });
-  const incident = await getIncident(id);
+  const incident = await getIncident(id, company.id);
   if (!incident) return json({ error: "Incident not found" }, { status: 404 });
   return json(incident);
 });
@@ -62,14 +62,14 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
       switch (parsed.data.action) {
         case "investigate":
           if (!parsed.data.rootCause || !parsed.data.correctiveActions) return json({ error: "rootCause and correctiveActions required" }, { status: 400 });
-          return json(await investigateIncident(id, { rootCause: parsed.data.rootCause, correctiveActions: parsed.data.correctiveActions, userId: user.id }));
+          return json(await investigateIncident(id, { rootCause: parsed.data.rootCause, correctiveActions: parsed.data.correctiveActions, userId: user.id }, company.id));
         case "close":
           if (!parsed.data.closureNotes) return json({ error: "closureNotes required" }, { status: 400 });
-          return json(await closeIncident(id, user.id, parsed.data.closureNotes));
+          return json(await closeIncident(id, user.id, parsed.data.closureNotes, company.id));
         case "cancel":
-          return json(await cancelIncident(id, user.id));
+          return json(await cancelIncident(id, user.id, company.id));
         case "delete":
-          await deleteIncident(id, user.id);
+          await deleteIncident(id, user.id, company.id);
           return json({ ok: true });
       }
     } catch (err: unknown) {
@@ -85,7 +85,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     return json(await updateIncident(id, {
       ...parsed.data,
       incidentDate: parsed.data.incidentDate ? new Date(parsed.data.incidentDate) : undefined,
-    }));
+    }, undefined, company.id));
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
   }
@@ -101,7 +101,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   });
   if (!existing) return json({ error: "Incident not found" }, { status: 404 });
   try {
-    await deleteIncident(id, user.id);
+    await deleteIncident(id, user.id, company.id);
     return json({ ok: true });
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });

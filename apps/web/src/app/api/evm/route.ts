@@ -1,13 +1,21 @@
 import { NextRequest } from "next/server";
+import { prisma } from "@nirman/db";
 import { getEvmMetrics } from "@nirman/services";
-import { apiHandler, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.PROJECT_CONTROL_VIEW);
+  const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
   if (!projectId) return json({ error: "projectId is required" }, { status: 400 });
+  // EVM exposes the project's full financials — seal tenancy + scope.
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, companyId: company.id, deletedAt: null, ...await scopeWhere("Project") },
+    select: { id: true },
+  });
+  if (!project) return json({ error: "Project not found" }, { status: 404 });
   const m = await getEvmMetrics(projectId);
   return json({
     pv: toNum(m.pv),

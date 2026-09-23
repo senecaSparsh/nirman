@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { reallocateProjectCosts } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, canAccessProject, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -22,7 +22,7 @@ export const POST = apiHandler(async (_req: NextRequest, { params }: { params: P
     where: { id, companyId: company.id, deletedAt: null },
     select: { id: true, name: true },
   });
-  if (!project) return json({ error: "Project not found" }, { status: 404 });
+  if (!project || !(await canAccessProject(id))) return json({ error: "Project not found" }, { status: 404 });
 
   const result = await withSerializableTransaction(async (tx) => {
     return reallocateProjectCosts(tx, id, user.id);

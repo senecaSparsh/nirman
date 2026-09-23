@@ -29,6 +29,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.SAFETY_MANAGE);
+  const company = await getCompany();
   const body = await req.json();
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
@@ -50,6 +51,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       scheduledDate: new Date(parsed.data.scheduledDate),
       inspectorName: parsed.data.inspectorName ?? null,
       userId: user.id,
+      companyId: company.id,
     });
     return json(inspection, { status: 201 });
   } catch (err: unknown) {

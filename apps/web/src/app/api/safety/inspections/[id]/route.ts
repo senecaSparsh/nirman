@@ -33,7 +33,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
     select: { id: true },
   });
   if (!existing) return json({ error: "Inspection not found" }, { status: 404 });
-  const insp = await getInspection(id);
+  const insp = await getInspection(id, company.id);
   if (!insp) return json({ error: "Inspection not found" }, { status: 404 });
   return json(insp);
 });
@@ -56,14 +56,14 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     try {
       switch (parsed.data.action) {
         case "start":
-          return json(await startInspection(id, user.id));
+          return json(await startInspection(id, user.id, company.id));
         case "complete":
           if (!parsed.data.result || !parsed.data.findings) return json({ error: "result and findings required" }, { status: 400 });
-          return json(await completeInspection(id, user.id, parsed.data.result, parsed.data.findings, parsed.data.complianceNotes, parsed.data.followUpActions));
+          return json(await completeInspection(id, user.id, parsed.data.result, parsed.data.findings, parsed.data.complianceNotes, parsed.data.followUpActions, company.id));
         case "cancel":
-          return json(await cancelInspection(id, user.id));
+          return json(await cancelInspection(id, user.id, company.id));
         case "delete":
-          await deleteInspection(id, user.id);
+          await deleteInspection(id, user.id, company.id);
           return json({ ok: true });
       }
     } catch (err: unknown) {
@@ -77,7 +77,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     return json(await updateInspection(id, {
       ...parsed.data,
       scheduledDate: parsed.data.scheduledDate ? new Date(parsed.data.scheduledDate) : undefined,
-    }));
+    }, undefined, company.id));
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
   }
@@ -93,7 +93,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   });
   if (!existing) return json({ error: "Inspection not found" }, { status: 404 });
   try {
-    await deleteInspection(id, user.id);
+    await deleteInspection(id, user.id, company.id);
     return json({ ok: true });
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });

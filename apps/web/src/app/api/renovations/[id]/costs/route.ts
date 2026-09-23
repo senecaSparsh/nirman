@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { addRenovationCost, ServiceError } from "@nirman/services";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, renovationCostSchema, requirePermission, getCompany } from "@/lib/server";
+import { apiHandler, json, renovationCostSchema, requirePermission, getCompany, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -10,7 +10,10 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   const { id } = await params;
 
   const company = await getCompany();
-  const existing = await prisma.renovationProject.findFirst({ where: { id, companyId: company.id }, select: { id: true } });
+  const existing = await prisma.renovationProject.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("RenovationProject") },
+    select: { id: true },
+  });
   if (!existing) return json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json();
@@ -27,6 +30,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       notes: parsed.data.notes ?? undefined,
       receiptUrl: parsed.data.receiptUrl ?? undefined,
       userId: user.id,
+      companyId: company.id,
     });
     revalidatePath("/renovations");
     revalidatePath("/m/units");

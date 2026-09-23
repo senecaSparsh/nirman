@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Wallet, Building2, FileText, Printer, CheckCircle2, XCircle, IndianRupee } from "lucide-react";
+import { Wallet, Building2, FileText, Printer, CheckCircle2, XCircle, IndianRupee, ChevronDown } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { MobileSectionTitle, MobileRow, MobileEmptyState } from "@/components/mobile/v2/primitives";
@@ -263,6 +263,13 @@ export function MobileFinanceList({
                           {style.label}
                         </span>
                       </div>
+                      <ChevronDown
+                        className="size-3.5 shrink-0 transition-transform"
+                        style={{
+                          color: "var(--color-ink-300)",
+                          transform: expanded ? "rotate(180deg)" : undefined,
+                        }}
+                      />
                     </button>
                     {expanded ? (
                       <div className="flex gap-2 border-t px-2.5 py-2" style={{ borderColor: "var(--color-line)" }}>

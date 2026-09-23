@@ -86,13 +86,24 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const company = await getCompany();
   const { id } = await params;
+
+  // Ownership + scope check before lifecycle actions — the service
+  // functions otherwise run on a bare id, and `complete` posts GL +
+  // rewrites asset valuations (worst in the module).
+  const existing = await prisma.renovationProject.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("RenovationProject") },
+    select: { id: true },
+  });
+  if (!existing) return json({ error: "Renovation not found" }, { status: 404 });
+
   const body = await req.json();
   const action = body?.action;
 
   try {
     if (action === "start") {
-      const r = await startRenovation(id, user.id);
+      const r = await startRenovation(id, user.id, company.id);
       revalidatePath("/renovations");
     revalidatePath("/m/units");
       revalidatePath(`/renovations/${id}`);
@@ -101,6 +112,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       const { renovation, roi } = await completeRenovation(id, {
         newValuation: body.newValuation ?? undefined,
         userId: user.id,
+        companyId: company.id,
       });
       revalidatePath("/renovations");
     revalidatePath("/m/units");
@@ -109,7 +121,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       revalidatePath("/gl");
       return json({ ok: true, id: renovation.id, status: renovation.status, roi: roi.toFixed(2) });
     } else if (action === "cancel") {
-      const r = await cancelRenovation(id, user.id);
+      const r = await cancelRenovation(id, user.id, company.id);
       revalidatePath("/renovations");
     revalidatePath("/m/units");
       revalidatePath(`/renovations/${id}`);

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createWbsNode } from "@nirman/services";
-import { apiHandler, json, requirePermission, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -22,6 +22,7 @@ const schema = z.object({
 
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.WBS_MANAGE);
+  const company = await getCompany();
   const body = await req.json();
   const parsed = schema.safeParse(body);
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid" }, { status: 400 });
@@ -46,6 +47,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       isCritical: d.isCritical,
       sortOrder: d.sortOrder,
       userId: user.id,
+      companyId: company.id,
     });
     revalidatePath("/boq");
     revalidatePath("/projects");

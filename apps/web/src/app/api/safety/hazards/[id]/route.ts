@@ -33,7 +33,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
     select: { id: true },
   });
   if (!existing) return json({ error: "Hazard not found" }, { status: 404 });
-  const hazard = await getHazard(id);
+  const hazard = await getHazard(id, company.id);
   if (!hazard) return json({ error: "Hazard not found" }, { status: 404 });
   return json(hazard);
 });
@@ -56,12 +56,12 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     try {
       switch (parsed.data.action) {
         case "mitigate":
-          return json(await startMitigation(id, user.id, parsed.data.mitigationPlan));
+          return json(await startMitigation(id, user.id, parsed.data.mitigationPlan, company.id));
         case "resolve":
           if (!parsed.data.resolutionNotes) return json({ error: "resolutionNotes required" }, { status: 400 });
-          return json(await resolveHazard(id, user.id, parsed.data.resolutionNotes));
+          return json(await resolveHazard(id, user.id, parsed.data.resolutionNotes, company.id));
         case "delete":
-          await deleteHazard(id, user.id);
+          await deleteHazard(id, user.id, company.id);
           return json({ ok: true });
       }
     } catch (err: unknown) {
@@ -77,7 +77,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     return json(await updateHazard(id, {
       ...parsed.data,
       targetResolutionDate: parsed.data.targetResolutionDate ? new Date(parsed.data.targetResolutionDate) : undefined,
-    }));
+    }, undefined, company.id));
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
   }
@@ -93,7 +93,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   });
   if (!existing) return json({ error: "Hazard not found" }, { status: 404 });
   try {
-    await deleteHazard(id, user.id);
+    await deleteHazard(id, user.id, company.id);
     return json({ ok: true });
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });

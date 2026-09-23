@@ -74,6 +74,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       propertyDamageEstimate: parsed.data.propertyDamageEstimate ?? null,
       attachments: parsed.data.attachments,
       userId: user.id,
+      companyId: company.id,
     });
     return json(incident, { status: 201 });
   } catch (err: unknown) {

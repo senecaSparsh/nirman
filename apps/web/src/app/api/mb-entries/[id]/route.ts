@@ -29,21 +29,33 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requireUser();
+  const company = await getCompany();
   const { id } = await params;
+
+  // Ownership + scope check before any status mutation — the service only
+  // validates the status transition, so a bare id would otherwise let a
+  // caller verify/approve/reject entries in another tenant or outside
+  // their assigned projects.
+  const existing = await prisma.measurementBookEntry.findFirst({
+    where: { id, project: { companyId: company.id }, ...await scopeWhere("MeasurementBookEntry") },
+    select: { id: true },
+  });
+  if (!existing) return json({ error: "MB entry not found" }, { status: 404 });
+
   const body = await req.json();
   const action = body?.action;
 
   try {
     if (action === "verify") {
       const user = await requirePermission(PERM.MB_VERIFY);
-      const entry = await verifyMbEntry(id, user.id, user.role);
+      const entry = await verifyMbEntry(id, user.id, user.role, company.id);
       revalidatePath("/boq");
       revalidatePath("/projects");
       return json(entry);
     }
     if (action === "approve") {
       const user = await requirePermission(PERM.MB_APPROVE);
-      const entry = await approveMbEntry(id, user.id, await getActingRole());
+      const entry = await approveMbEntry(id, user.id, await getActingRole(), company.id);
       revalidatePath("/boq");
       revalidatePath("/projects");
       return json(entry);
@@ -53,7 +65,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       const schema = z.object({ reason: z.string().min(1) });
       const parsed = schema.safeParse({ reason: body.reason });
       if (!parsed.success) return json({ error: "Rejection reason is required" }, { status: 400 });
-      const entry = await rejectMbEntry(id, parsed.data.reason, user.id);
+      const entry = await rejectMbEntry(id, parsed.data.reason, user.id, company.id);
       revalidatePath("/boq");
       revalidatePath("/projects");
       return json(entry);

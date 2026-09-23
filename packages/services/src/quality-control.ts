@@ -77,6 +77,8 @@ export interface CreateCapaInput {
   preventiveAction: string;
   preventiveDueDate?: Date | null;
   userId?: string;
+  /** The caller's active company — the NCR must belong to it. */
+  companyId?: string;
 }
 
 export interface UpdateCapaInput {
@@ -169,6 +171,26 @@ export async function createNcr(input: CreateNcrInput) {
       throw new ServiceError("Title and description are required", 400);
     }
 
+    // Related-record anchors: every reference must live in this project /
+    // company, otherwise a caller can pin foreign-tenant records onto the
+    // NCR and leak their names through the detail include.
+    if (input.wbsNodeId) {
+      const wbs = await tx.wbsNode.findFirst({ where: { id: input.wbsNodeId, projectId: input.projectId } });
+      if (!wbs) throw new ServiceError("WBS node not found in this project", 404);
+    }
+    if (input.boqItemId) {
+      const boq = await tx.boqItem.findFirst({ where: { id: input.boqItemId, projectId: input.projectId } });
+      if (!boq) throw new ServiceError("BOQ item not found in this project", 404);
+    }
+    if (input.materialId) {
+      const mat = await tx.material.findFirst({ where: { id: input.materialId, companyId: project.company.id } });
+      if (!mat) throw new ServiceError("Material not found", 404);
+    }
+    if (input.subcontractorId) {
+      const sub = await tx.subcontractor.findFirst({ where: { id: input.subcontractorId, companyId: project.company.id, deletedAt: null } });
+      if (!sub) throw new ServiceError("Subcontractor not found", 404);
+    }
+
     const ncrNumber = await generateNcrNumber(tx, project.company.id);
 
     const ncr = await tx.nonConformanceReport.create({
@@ -234,9 +256,9 @@ export async function getNcrs(projectId?: string, status?: NcrStatus, severity?:
   });
 }
 
-export async function getNcr(id: string) {
-  return prisma.nonConformanceReport.findUnique({
-    where: { id },
+export async function getNcr(id: string, companyId?: string) {
+  return prisma.nonConformanceReport.findFirst({
+    where: { id, ...(companyId ? { companyId } : {}) },
     include: {
       project: { select: { id: true, name: true } },
       wbsNode: { select: { id: true, code: true, name: true } },
@@ -250,12 +272,28 @@ export async function getNcr(id: string) {
   });
 }
 
-export async function updateNcr(id: string, input: UpdateNcrInput, userId?: string) {
+export async function updateNcr(id: string, input: UpdateNcrInput, userId?: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const existing = await tx.nonConformanceReport.findUnique({ where: { id } });
+    const existing = await tx.nonConformanceReport.findFirst({
+      where: { id, ...(companyId ? { companyId } : {}) },
+    });
     if (!existing) throw new ServiceError("NCR not found", 404);
     if (existing.status !== "OPEN") {
       throw new ServiceError(`Cannot edit NCR in ${existing.status} status`, 400);
+    }
+
+    // Related-record anchors must stay inside this NCR's own project/company.
+    if (input.wbsNodeId) {
+      const wbs = await tx.wbsNode.findFirst({ where: { id: input.wbsNodeId, projectId: existing.projectId } });
+      if (!wbs) throw new ServiceError("WBS node not found in this project", 404);
+    }
+    if (input.boqItemId) {
+      const boq = await tx.boqItem.findFirst({ where: { id: input.boqItemId, projectId: existing.projectId } });
+      if (!boq) throw new ServiceError("BOQ item not found in this project", 404);
+    }
+    if (input.subcontractorId) {
+      const sub = await tx.subcontractor.findFirst({ where: { id: input.subcontractorId, companyId: existing.companyId, deletedAt: null } });
+      if (!sub) throw new ServiceError("Subcontractor not found", 404);
     }
 
     const data: Prisma.NonConformanceReportUpdateInput = {};
@@ -286,9 +324,11 @@ export async function updateNcr(id: string, input: UpdateNcrInput, userId?: stri
 
 // ── NCR Workflow ───────────────────────────────────────────
 
-export async function reviewNcr(id: string, input: ReviewNcrInput) {
+export async function reviewNcr(id: string, input: ReviewNcrInput, companyId?: string) {
   const updated = await withSerializableTransaction(async (tx) => {
-    const ncr = await tx.nonConformanceReport.findUnique({ where: { id } });
+    const ncr = await tx.nonConformanceReport.findFirst({
+      where: { id, ...(companyId ? { companyId } : {}) },
+    });
     if (!ncr) throw new ServiceError("NCR not found", 404);
     if (ncr.status !== "OPEN" && ncr.status !== "UNDER_REVIEW") {
       throw new ServiceError(`Cannot review NCR in ${ncr.status} status`, 400);
@@ -340,10 +380,10 @@ export async function reviewNcr(id: string, input: ReviewNcrInput) {
   return updated;
 }
 
-export async function closeNcr(id: string, userId: string, closureNotes: string) {
+export async function closeNcr(id: string, userId: string, closureNotes: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const ncr = await tx.nonConformanceReport.findUnique({
-      where: { id },
+    const ncr = await tx.nonConformanceReport.findFirst({
+      where: { id, ...(companyId ? { companyId } : {}) },
       include: { capa: true },
     });
     if (!ncr) throw new ServiceError("NCR not found", 404);
@@ -383,9 +423,11 @@ export async function closeNcr(id: string, userId: string, closureNotes: string)
   });
 }
 
-export async function cancelNcr(id: string, userId: string) {
+export async function cancelNcr(id: string, userId: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const ncr = await tx.nonConformanceReport.findUnique({ where: { id } });
+    const ncr = await tx.nonConformanceReport.findFirst({
+      where: { id, ...(companyId ? { companyId } : {}) },
+    });
     if (!ncr) throw new ServiceError("NCR not found", 404);
     if (ncr.status !== "OPEN") {
       throw new ServiceError(`Cannot cancel NCR in ${ncr.status} status`, 400);
@@ -408,9 +450,11 @@ export async function cancelNcr(id: string, userId: string) {
   });
 }
 
-export async function deleteNcr(id: string, userId?: string) {
+export async function deleteNcr(id: string, userId?: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const existing = await tx.nonConformanceReport.findUnique({ where: { id } });
+    const existing = await tx.nonConformanceReport.findFirst({
+      where: { id, ...(companyId ? { companyId } : {}) },
+    });
     if (!existing) throw new ServiceError("NCR not found", 404);
     if (existing.status === "CLOSED") {
       throw new ServiceError("Cannot delete a closed NCR", 400);
@@ -438,6 +482,11 @@ export async function createCapa(input: CreateCapaInput) {
       include: { project: { select: { companyId: true } } },
     });
     if (!ncr) throw new ServiceError("NCR not found", 404);
+    // Tenant seal: the CAPA is written under the NCR's company — it must be
+    // the caller's company, otherwise a CAPA lands in another tenant.
+    if (input.companyId && ncr.project.companyId !== input.companyId) {
+      throw new ServiceError("NCR not found", 404);
+    }
     if (ncr.status !== "CAPA_REQUIRED") {
       throw new ServiceError(`CAPA can only be created for NCR in CAPA_REQUIRED status (current: ${ncr.status})`, 400);
     }
@@ -498,9 +547,9 @@ export async function createCapa(input: CreateCapaInput) {
   return result.capa;
 }
 
-export async function getCapa(ncrId: string) {
-  return prisma.capa.findUnique({
-    where: { ncrId },
+export async function getCapa(ncrId: string, companyId?: string) {
+  return prisma.capa.findFirst({
+    where: { ncrId, ...(companyId ? { companyId } : {}) },
     include: {
       ncr: { select: { id: true, ncrNumber: true, title: true, severity: true } },
       correctiveDoneBy: { select: { id: true, name: true } },
@@ -511,9 +560,11 @@ export async function getCapa(ncrId: string) {
   });
 }
 
-export async function updateCapa(id: string, input: UpdateCapaInput, userId?: string) {
+export async function updateCapa(id: string, input: UpdateCapaInput, userId?: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const existing = await tx.capa.findUnique({ where: { id } });
+    const existing = await tx.capa.findFirst({
+      where: { id, ...(companyId ? { companyId } : {}) },
+    });
     if (!existing) throw new ServiceError("CAPA not found", 404);
     if (existing.status !== "DRAFT") {
       throw new ServiceError(`Cannot edit CAPA in ${existing.status} status`, 400);
@@ -540,9 +591,11 @@ export async function updateCapa(id: string, input: UpdateCapaInput, userId?: st
   });
 }
 
-export async function startCapa(id: string, userId: string) {
+export async function startCapa(id: string, userId: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const capa = await tx.capa.findUnique({ where: { id } });
+    const capa = await tx.capa.findFirst({
+      where: { id, ...(companyId ? { companyId } : {}) },
+    });
     if (!capa) throw new ServiceError("CAPA not found", 404);
     if (capa.status !== "DRAFT" && capa.status !== "REJECTED") {
       throw new ServiceError(`Cannot start CAPA in ${capa.status} status`, 400);
@@ -560,9 +613,11 @@ export async function startCapa(id: string, userId: string) {
   });
 }
 
-export async function completeCorrectiveAction(id: string, userId: string) {
+export async function completeCorrectiveAction(id: string, userId: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const capa = await tx.capa.findUnique({ where: { id } });
+    const capa = await tx.capa.findFirst({
+      where: { id, ...(companyId ? { companyId } : {}) },
+    });
     if (!capa) throw new ServiceError("CAPA not found", 404);
     if (capa.status !== "IN_PROGRESS") {
       throw new ServiceError(`Corrective action can only be completed in IN_PROGRESS status`, 400);
@@ -576,9 +631,11 @@ export async function completeCorrectiveAction(id: string, userId: string) {
   });
 }
 
-export async function completePreventiveAction(id: string, userId: string) {
+export async function completePreventiveAction(id: string, userId: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const capa = await tx.capa.findUnique({ where: { id } });
+    const capa = await tx.capa.findFirst({
+      where: { id, ...(companyId ? { companyId } : {}) },
+    });
     if (!capa) throw new ServiceError("CAPA not found", 404);
     if (capa.status !== "IN_PROGRESS") {
       throw new ServiceError(`Preventive action can only be completed in IN_PROGRESS status`, 400);
@@ -595,9 +652,11 @@ export async function completePreventiveAction(id: string, userId: string) {
   });
 }
 
-export async function verifyCapa(id: string, userId: string, verificationMethod: string, verificationNotes: string, effective: boolean) {
+export async function verifyCapa(id: string, userId: string, verificationMethod: string, verificationNotes: string, effective: boolean, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const capa = await tx.capa.findUnique({ where: { id } });
+    const capa = await tx.capa.findFirst({
+      where: { id, ...(companyId ? { companyId } : {}) },
+    });
     if (!capa) throw new ServiceError("CAPA not found", 404);
     if (capa.status !== "VERIFICATION") {
       throw new ServiceError(`Cannot verify CAPA in ${capa.status} status`, 400);
@@ -630,9 +689,11 @@ export async function verifyCapa(id: string, userId: string, verificationMethod:
   });
 }
 
-export async function closeCapa(id: string, userId: string, closureNotes: string) {
+export async function closeCapa(id: string, userId: string, closureNotes: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const capa = await tx.capa.findUnique({ where: { id } });
+    const capa = await tx.capa.findFirst({
+      where: { id, ...(companyId ? { companyId } : {}) },
+    });
     if (!capa) throw new ServiceError("CAPA not found", 404);
     if (capa.status !== "VERIFIED") {
       throw new ServiceError(`Cannot close CAPA in ${capa.status} status — must be VERIFIED`, 400);

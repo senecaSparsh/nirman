@@ -172,6 +172,29 @@ export function validateLines(lines: ChangeOrderLineInput[]) {
   }
 }
 
+/**
+ * Every line's boqItemId must resolve to a BOQ item inside the change
+ * order's own project. Without this check a caller can pin a foreign
+ * project's BOQ item onto the line — implementChangeOrder would then
+ * rewrite the other tenant's estimatedQty/rate, and getChangeOrder's
+ * `boqItem` include would leak its details back to the caller.
+ */
+async function assertLineBoqItems(
+  tx: Prisma.TransactionClient,
+  lines: ChangeOrderLineInput[],
+  projectId: string,
+) {
+  const ids = [...new Set(lines.map((l) => l.boqItemId).filter((x): x is string => !!x))];
+  if (ids.length === 0) return;
+  const found = await tx.boqItem.findMany({
+    where: { id: { in: ids }, projectId },
+    select: { id: true },
+  });
+  if (found.length !== ids.length) {
+    throw new ServiceError("BOQ item not found in this project", 404);
+  }
+}
+
 // ── CRUD ───────────────────────────────────────────────────
 
 export async function createChangeOrder(input: CreateChangeOrderInput) {
@@ -189,6 +212,10 @@ export async function createChangeOrder(input: CreateChangeOrderInput) {
     }
 
     validateLines(input.lines);
+    // Decoy-id guard: every line's boqItemId must belong to THIS project —
+    // otherwise implementChangeOrder would rewrite a foreign project's BOQ
+    // and getChangeOrder would leak its details.
+    await assertLineBoqItems(tx, input.lines, input.projectId);
     const totals = computeTotals(input.lines);
     const changeOrderNo = await generateChangeOrderNumber(tx, project.company.id);
 
@@ -305,6 +332,7 @@ export async function updateChangeOrder(id: string, input: UpdateChangeOrderInpu
 
     if (input.lines !== undefined) {
       validateLines(input.lines);
+      await assertLineBoqItems(tx, input.lines, existing.projectId);
       const totals = computeTotals(input.lines);
       data.originalAmount = totals.originalAmount.toString();
       data.revisedAmount = totals.revisedAmount.toString();
@@ -584,8 +612,10 @@ export async function implementChangeOrder(id: string, userId: string) {
       const rate = new Decimal(line.rate);
 
       if (line.boqItemId) {
-        // Update existing BOQ item
-        const boqItem = await tx.boqItem.findUnique({ where: { id: line.boqItemId } });
+        // Update existing BOQ item — but ONLY if it belongs to this change
+        // order's own project. A line pointing at a foreign project's BOQ
+        // item (decoy id) must never rewrite another tenant's budget.
+        const boqItem = await tx.boqItem.findFirst({ where: { id: line.boqItemId, projectId: co.projectId } });
         if (boqItem) {
           const newEstimatedAmount = revisedQty.times(rate).toDecimalPlaces(2);
           await tx.boqItem.update({

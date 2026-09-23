@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarCheck, Loader2 } from "lucide-react";
+import { CalendarCheck, ChevronDown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
@@ -139,7 +139,18 @@ export function MobilePayrollList({
                     title={p.monthLabel}
                     subtitle={`gross ${formatCurrency(p.totalGross)}`}
                     meta={formatCurrency(p.totalNet)}
-                    badge={<MobileStatusBadge status={p.status} />}
+                    badge={
+                      <span className="flex items-center gap-1">
+                        <MobileStatusBadge status={p.status} />
+                        <ChevronDown
+                          className="size-3.5 transition-transform"
+                          style={{
+                            color: "var(--color-ink-300)",
+                            transform: expanded ? "rotate(180deg)" : undefined,
+                          }}
+                        />
+                      </span>
+                    }
                     tone={p.status === "PAID" ? "success" : p.status === "DRAFT" ? "warning" : "default"}
                   />
                 </div>

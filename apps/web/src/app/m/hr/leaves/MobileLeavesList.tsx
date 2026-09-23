@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { ChevronDown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
@@ -242,7 +242,16 @@ function LeaveCard({
         >
           {l.employeeName}
         </Link>
-        <MobileStatusBadge status={l.status} />
+        <span className="flex items-center gap-1 shrink-0">
+          <MobileStatusBadge status={l.status} />
+          <ChevronDown
+            className="size-3.5 transition-transform"
+            style={{
+              color: "var(--color-ink-300)",
+              transform: expanded ? "rotate(180deg)" : undefined,
+            }}
+          />
+        </span>
       </div>
       <p className="text-m-caption truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>
         {l.employeeTrade ?? "—"} · {LEAVE_TYPE_LABELS[l.type] ?? l.type}

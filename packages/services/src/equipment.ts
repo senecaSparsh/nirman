@@ -82,20 +82,45 @@ interface AssignEquipmentInput {
   projectId?: string;
   notes?: string;
   userId?: string;
+  /** The caller's active company — equipment, location, and project must
+   *  all belong to it. */
+  companyId?: string;
 }
 
 export async function assignEquipment(input: AssignEquipmentInput) {
   const result = await withSerializableTransaction(async (tx) => {
     const equipment = await tx.equipment.findFirst({ where: { id: input.equipmentId, deletedAt: null } });
     if (!equipment) throw new ServiceError("Equipment not found", 404);
+    // Tenant seal: the equipment, the destination location, and the project
+    // must all live in the caller's company — previously a foreign
+    // locationId/projectId could be pinned onto the assignment, leaking the
+    // other tenant's location/project names and polluting their site view.
+    if (input.companyId && equipment.companyId !== input.companyId) {
+      throw new ServiceError("Equipment not found", 404);
+    }
     if (equipment.status !== "AVAILABLE") {
       throw new ServiceError(`Cannot assign equipment in status ${equipment.status}. Must be AVAILABLE.`);
     }
 
     const location = await tx.stockLocation.findFirst({
-      where: { id: input.locationId, deletedAt: null },
+      where: {
+        id: input.locationId,
+        deletedAt: null,
+        ...(input.companyId ? { companyId: input.companyId } : {}),
+      },
     });
     if (!location) throw new ServiceError("Location not found or deleted", 404);
+
+    if (input.projectId) {
+      const project = await tx.project.findFirst({
+        where: {
+          id: input.projectId,
+          deletedAt: null,
+          ...(input.companyId ? { companyId: input.companyId } : {}),
+        },
+      });
+      if (!project) throw new ServiceError("Project not found", 404);
+    }
 
     // Create assignment
     const assignment = await tx.equipmentAssignment.create({

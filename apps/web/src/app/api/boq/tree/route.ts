@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
+import { prisma } from "@nirman/db";
 import { getBoqTree } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 type BoqTreeNode = {
@@ -45,10 +46,17 @@ function serializeNode(node: BoqTreeNode): Record<string, unknown> {
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.BOQ_VIEW);
-  await getCompany();
+  const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
   if (!projectId) return json({ error: "projectId is required" }, { status: 400 });
+  // The tree service queries by bare projectId — seal tenancy + project
+  // scope here or any caller could read another tenant's BOQ rates.
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, companyId: company.id, deletedAt: null, ...await scopeWhere("Project") },
+    select: { id: true },
+  });
+  if (!project) return json({ error: "Project not found" }, { status: 404 });
   const { tree, totalEstimatedAmount } = await getBoqTree(projectId);
   return json({
     tree: (tree as BoqTreeNode[]).map(serializeNode),

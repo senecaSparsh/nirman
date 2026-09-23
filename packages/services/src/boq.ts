@@ -58,6 +58,16 @@ export async function createBoqItem(input: CreateBoqItemInput) {
       if (!parent) throw new ServiceError("Parent BOQ item not found", 404);
     }
 
+    // The linked material must belong to the same company as the project —
+    // a foreign materialId would poison the link and leak the other
+    // tenant's material code/name through the BOQ tree include.
+    if (input.materialId) {
+      const material = await tx.material.findFirst({
+        where: { id: input.materialId, companyId: project.companyId },
+      });
+      if (!material) throw new ServiceError("Material not found", 404);
+    }
+
     const type = input.type ?? (input.parentId ? "LINE_ITEM" : "SECTION");
 
     // Validate leaf-item fields
@@ -115,7 +125,19 @@ export async function updateBoqItem(
     const data: Prisma.BoqItemUpdateInput = {};
     if (patch.description !== undefined) data.description = patch.description;
     if (patch.serialNo !== undefined) data.serialNo = patch.serialNo;
-    if (patch.materialId !== undefined) data.material = patch.materialId ? { connect: { id: patch.materialId } } : { disconnect: true };
+    if (patch.materialId !== undefined) {
+      // Same-company material check — see createBoqItem.
+      if (patch.materialId) {
+        const itemProject = await tx.project.findUnique({ where: { id: existing.projectId }, select: { companyId: true } });
+        const material = await tx.material.findFirst({
+          where: { id: patch.materialId, companyId: itemProject?.companyId ?? "__none__" },
+        });
+        if (!material) throw new ServiceError("Material not found", 404);
+        data.material = { connect: { id: patch.materialId } };
+      } else {
+        data.material = { disconnect: true };
+      }
+    }
     if (patch.unit !== undefined) data.unit = patch.unit ?? null;
     if (patch.notes !== undefined) data.notes = patch.notes ?? null;
     if (patch.sortOrder !== undefined) data.sortOrder = patch.sortOrder;
@@ -264,6 +286,8 @@ export interface CreateWbsNodeInput {
   isCritical?: boolean;
   sortOrder?: number;
   userId?: string;
+  /** The caller's active company — the project must belong to it. */
+  companyId?: string;
 }
 
 export async function createWbsNode(input: CreateWbsNodeInput) {
@@ -272,6 +296,10 @@ export async function createWbsNode(input: CreateWbsNodeInput) {
       where: { id: input.projectId, deletedAt: null },
     });
     if (!project) throw new ServiceError("Project not found or deleted", 404);
+    // Tenant seal: a WBS node must not be written into another tenant's project.
+    if (input.companyId && project.companyId !== input.companyId) {
+      throw new ServiceError("Project not found", 404);
+    }
 
     if (input.parentId) {
       const parent = await tx.wbsNode.findFirst({
@@ -344,7 +372,20 @@ export async function updateWbsNode(
     if (patch.isCritical !== undefined) data.isCritical = patch.isCritical;
     if (patch.totalFloat !== undefined) data.totalFloat = patch.totalFloat;
     if (patch.sortOrder !== undefined) data.sortOrder = patch.sortOrder;
-    if (patch.boqItemId !== undefined) data.boqItem = patch.boqItemId ? { connect: { id: patch.boqItemId } } : { disconnect: true };
+    if (patch.boqItemId !== undefined) {
+      // The linked BOQ item must belong to this node's own project — a
+      // foreign-project boqItemId would poison the link and leak the other
+      // tenant's item details through the WBS tree include.
+      if (patch.boqItemId) {
+        const boq = await tx.boqItem.findFirst({
+          where: { id: patch.boqItemId, projectId: existing.projectId, type: "LINE_ITEM" },
+        });
+        if (!boq) throw new ServiceError("BOQ line item not found in this project", 404);
+        data.boqItem = { connect: { id: patch.boqItemId } };
+      } else {
+        data.boqItem = { disconnect: true };
+      }
+    }
 
     const updated = await tx.wbsNode.update({ where: { id }, data });
 
@@ -442,11 +483,32 @@ export async function addWbsDependency(
   type: "FS" | "SS" | "FF" | "SF" = "FS",
   lagDays = 0,
   userId?: string,
+  companyId?: string,
 ) {
   if (predecessorId === successorId) {
     throw new ServiceError("A node cannot depend on itself", 400);
   }
   return withSerializableTransaction(async (tx) => {
+    // Both endpoints must exist and live in the SAME project — previously
+    // any two arbitrary node ids were accepted, letting a caller stitch
+    // dependencies inside another tenant's schedule (and even create
+    // cross-project/cross-tenant edges).
+    const [predecessor, successor] = await Promise.all([
+      tx.wbsNode.findUnique({ where: { id: predecessorId }, select: { id: true, projectId: true } }),
+      tx.wbsNode.findUnique({ where: { id: successorId }, select: { id: true, projectId: true } }),
+    ]);
+    if (!predecessor || !successor) throw new ServiceError("WBS node not found", 404);
+    if (predecessor.projectId !== successor.projectId) {
+      throw new ServiceError("Dependencies can only link nodes within the same project", 400);
+    }
+    if (companyId) {
+      const project = await tx.project.findFirst({
+        where: { id: predecessor.projectId, companyId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!project) throw new ServiceError("WBS node not found", 404);
+    }
+
     // Check for cycles (simple check: does the predecessor already depend on the successor?)
     const reverse = await tx.wbsDependency.findFirst({
       where: { predecessorId: successorId, successorId: predecessorId },
@@ -544,6 +606,9 @@ export interface CreateMbEntryInput {
   locationRef?: string;
   measureDate?: Date;
   measuredById?: string;
+  /** The caller's active company — the project must belong to it, otherwise
+   *  an MB entry could be written into another tenant's project. */
+  companyId?: string;
 }
 
 export async function createMbEntry(input: CreateMbEntryInput) {
@@ -552,6 +617,12 @@ export async function createMbEntry(input: CreateMbEntryInput) {
       where: { id: input.projectId, deletedAt: null },
     });
     if (!project) throw new ServiceError("Project not found or deleted", 404);
+    // Tenant seal: the MB entry is written under the project's company — it
+    // must be the caller's company, otherwise the measurement lands in
+    // another tenant's project (same class as the change-order seal).
+    if (input.companyId && project.companyId !== input.companyId) {
+      throw new ServiceError("Project not found", 404);
+    }
 
     const boqItem = await tx.boqItem.findFirst({
       where: { id: input.boqItemId, projectId: input.projectId, type: "LINE_ITEM" },
@@ -628,9 +699,11 @@ export async function createMbEntry(input: CreateMbEntryInput) {
   });
 }
 
-export async function verifyMbEntry(id: string, verifiedById: string, actorRole?: string) {
+export async function verifyMbEntry(id: string, verifiedById: string, actorRole?: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const entry = await tx.measurementBookEntry.findUnique({ where: { id } });
+    const entry = await tx.measurementBookEntry.findFirst({
+      where: { id, ...(companyId ? { project: { companyId } } : {}) },
+    });
     if (!entry) throw new ServiceError("MB entry not found", 404);
     if (entry.status !== "DRAFT") {
       throw new ServiceError(`Cannot verify entry in status ${entry.status}`, 400);
@@ -658,9 +731,11 @@ export async function verifyMbEntry(id: string, verifiedById: string, actorRole?
   });
 }
 
-export async function approveMbEntry(id: string, approvedById: string, actorRole?: string) {
+export async function approveMbEntry(id: string, approvedById: string, actorRole?: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const entry = await tx.measurementBookEntry.findUnique({ where: { id } });
+    const entry = await tx.measurementBookEntry.findFirst({
+      where: { id, ...(companyId ? { project: { companyId } } : {}) },
+    });
     if (!entry) throw new ServiceError("MB entry not found", 404);
     if (entry.status !== "VERIFIED") {
       throw new ServiceError(`Cannot approve entry in status ${entry.status} (must be VERIFIED first)`, 400);
@@ -713,9 +788,11 @@ export async function approveMbEntry(id: string, approvedById: string, actorRole
   });
 }
 
-export async function rejectMbEntry(id: string, rejectReason: string, userId?: string) {
+export async function rejectMbEntry(id: string, rejectReason: string, userId?: string, companyId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const entry = await tx.measurementBookEntry.findUnique({ where: { id } });
+    const entry = await tx.measurementBookEntry.findFirst({
+      where: { id, ...(companyId ? { project: { companyId } } : {}) },
+    });
     if (!entry) throw new ServiceError("MB entry not found", 404);
     if (entry.status === "APPROVED") {
       throw new ServiceError("Cannot reject an already-approved entry", 400);

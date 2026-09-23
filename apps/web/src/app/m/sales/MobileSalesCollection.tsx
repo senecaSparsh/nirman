@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import {
   TrendingUp, CheckCircle2,
-  IndianRupee, Loader2, Phone, ArrowRight,
+  IndianRupee, Loader2, Phone, ArrowRight, ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrencyCompact, formatDate } from "@/lib/utils";
@@ -308,11 +308,20 @@ function OutstandingCard({
           <p className="text-m-section font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
             {sale.customerName}
           </p>
-          <span
-            className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0"
-            style={{ color: meta.color, backgroundColor: `color-mix(in srgb, ${meta.color} 12%, transparent)` }}
-          >
-            {meta.label}
+          <span className="flex items-center gap-1 shrink-0">
+            <span
+              className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-full"
+              style={{ color: meta.color, backgroundColor: `color-mix(in srgb, ${meta.color} 12%, transparent)` }}
+            >
+              {meta.label}
+            </span>
+            <ChevronDown
+              className="size-3.5 transition-transform"
+              style={{
+                color: "var(--color-ink-300)",
+                transform: expanded ? "rotate(180deg)" : undefined,
+              }}
+            />
           </span>
         </div>
         <p className="text-m-caption truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>

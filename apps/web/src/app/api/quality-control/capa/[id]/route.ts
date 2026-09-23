@@ -41,26 +41,26 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
         case "start":
           revalidatePath("/quality-control");
           revalidatePath("/m/quality-control");
-          return json(await startCapa(id, user.id));
+          return json(await startCapa(id, user.id, company.id));
         case "corrective_done":
           revalidatePath("/quality-control");
           revalidatePath("/m/quality-control");
-          return json(await completeCorrectiveAction(id, user.id));
+          return json(await completeCorrectiveAction(id, user.id, company.id));
         case "preventive_done":
           revalidatePath("/quality-control");
           revalidatePath("/m/quality-control");
-          return json(await completePreventiveAction(id, user.id));
+          return json(await completePreventiveAction(id, user.id, company.id));
         case "verify":
           if (!parsed.data.verificationMethod || !parsed.data.verificationNotes || parsed.data.effective === undefined)
             return json({ error: "verificationMethod, verificationNotes, and effective are required" }, { status: 400 });
           revalidatePath("/quality-control");
           revalidatePath("/m/quality-control");
-          return json(await verifyCapa(id, user.id, parsed.data.verificationMethod, parsed.data.verificationNotes, parsed.data.effective));
+          return json(await verifyCapa(id, user.id, parsed.data.verificationMethod, parsed.data.verificationNotes, parsed.data.effective, company.id));
         case "close":
           if (!parsed.data.closureNotes) return json({ error: "closureNotes required" }, { status: 400 });
           revalidatePath("/quality-control");
           revalidatePath("/m/quality-control");
-          return json(await closeCapa(id, user.id, parsed.data.closureNotes));
+          return json(await closeCapa(id, user.id, parsed.data.closureNotes, company.id));
       }
     } catch (err: unknown) {
       return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
@@ -78,7 +78,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
       correctiveDueDate: parsed.data.correctiveDueDate ? new Date(parsed.data.correctiveDueDate) : null,
       preventiveAction: parsed.data.preventiveAction,
       preventiveDueDate: parsed.data.preventiveDueDate ? new Date(parsed.data.preventiveDueDate) : null,
-    }, user.id));
+    }, user.id, company.id));
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
   }

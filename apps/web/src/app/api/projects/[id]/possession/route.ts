@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { markPossession } from "@nirman/services";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, requirePermission, getCompany } from "@/lib/server";
+import { apiHandler, canAccessProject, json, requirePermission, getCompany } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -15,7 +15,7 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
 
   const company = await getCompany();
   const existing = await prisma.project.findFirst({ where: { id, companyId: company.id }, select: { id: true } });
-  if (!existing) return json({ error: "Not found" }, { status: 404 });
+  if (!existing || !(await canAccessProject(id))) return json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json();
 
