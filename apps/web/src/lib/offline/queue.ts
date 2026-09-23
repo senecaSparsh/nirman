@@ -287,9 +287,42 @@ const ENDPOINTS: Record<QueuedOperation["kind"], string> = {
  *
  * Call this on: app focus, online event, service-worker sync event, and after
  * enqueueing a new op while online.
+ *
+ * Re-entrancy: all of those triggers can fire at once (online + focus +
+ * post-enqueue + the SW message). Two overlapping runs both read the same
+ * PENDING op and POST it twice — the first lands, the second hits the
+ * server's dedup guard and flips the op to FAILED even though the data was
+ * recorded. Concurrent calls therefore coalesce onto the single in-flight
+ * run via `inflightSync`.
  */
-export async function syncQueue(
+let inflightSync: Promise<SyncResult> | null = null;
+
+export function syncQueue(
   fetchImpl: typeof fetch = fetch,
+): Promise<SyncResult> {
+  if (inflightSync) return inflightSync;
+  const run = (async () => {
+    // Drain loop: an op enqueued mid-run wasn't in the pending list that run
+    // read. Re-run while progress is being made (remaining count shrinking);
+    // stop when a run makes no progress (e.g. it broke early on a network
+    // error leaving ops PENDING) so we can't spin forever.
+    let result = await syncQueueInner(fetchImpl);
+    let lastRemaining = result.remaining;
+    while (result.remaining > 0) {
+      result = await syncQueueInner(fetchImpl);
+      if (result.remaining >= lastRemaining) break;
+      lastRemaining = result.remaining;
+    }
+    return result;
+  })().finally(() => {
+    inflightSync = null;
+  });
+  inflightSync = run;
+  return run;
+}
+
+async function syncQueueInner(
+  fetchImpl: typeof fetch,
 ): Promise<SyncResult> {
   const pending = await pendingQueue();
   let completed = 0;

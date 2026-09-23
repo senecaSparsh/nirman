@@ -120,13 +120,17 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
 
   function prepareReceipt() {
     if (!selectedPo) return toast.error("Select a purchase order");
+    // Over-qty must surface as a toast, not a thrown error — `throw` inside an
+    // onClick propagates as an uncaught pageerror with zero user feedback.
+    let overQtyMsg: string | null = null;
     const lines = selectedPo.lines
       .map((l) => {
         const qty = Number(receipts[l.id] ?? 0);
         if (!(qty > 0)) return null;
         const remaining = l.qtyOrdered - l.qtyReceived;
         if (qty > remaining) {
-          throw new Error(`${l.materialName}: ${qty} exceeds remaining ${remaining} ${l.unit}`);
+          overQtyMsg = `${l.materialName}: ${qty} exceeds remaining ${remaining} ${l.unit}`;
+          return null;
         }
         return {
           purchaseOrderLineId: l.id,
@@ -141,6 +145,7 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
       qtyReceived: number;
       unitCost: number;
     }[];
+    if (overQtyMsg) return toast.error(overQtyMsg);
     if (lines.length === 0) return toast.error("Enter a quantity for at least one line");
 
     // Build confirmation summary
@@ -219,7 +224,13 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
       setPhotos([]);
       setWbTicketNo(""); setWbGross(""); setWbTare(""); setWbNet("");
       setConfirmLines(null);
-      router.refresh();
+      // Skip the server refresh when offline — the RSC fetch can't succeed,
+      // and Next's fallback turns it into a full document navigation that
+      // ERR_INTERNET_DISCONNECTED-kills the page (the field worker loses the
+      // form and the queue panel right after queueing). The local queue
+      // hook already re-read IndexedDB; the server list is refreshed on the
+      // next online load anyway.
+      if (navigator.onLine) router.refresh();
     });
   }
 
