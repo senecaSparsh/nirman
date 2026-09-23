@@ -11,7 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { StatusPill } from "@/components/page";
-import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatDate, formatEnumLabel } from "@/lib/utils";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
 
@@ -502,7 +502,7 @@ function InvoicesTab({ data }: { data: SupplierCockpitData }) {
                   <td className="px-3 py-2">
                     <StatusPill status={inv.status} />
                     {inv.matchStatus && inv.matchStatus !== "THREE_WAY_MATCH" && (
-                      <span className="ml-1 text-micro text-warning">{inv.matchStatus.replace(/_/g, " ")}</span>
+                      <span className="ml-1 text-micro text-warning">{formatEnumLabel(inv.matchStatus)}</span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-right tnum">{formatCurrency(inv.totalAmount)}</td>

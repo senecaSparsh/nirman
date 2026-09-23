@@ -2,6 +2,7 @@ import * as React from "react";
 import Link from "next/link";
 import { ChevronRight, Lock, type LucideIcon } from "lucide-react";
 import { statusMeaning } from "@/components/page";
+import { formatEnumLabel } from "@/lib/utils";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MOBILE V2 PRIMITIVES — "site-grade" warm palette
@@ -567,13 +568,9 @@ const MEANING_TO_TONE: Record<string, BadgeTone> = {
   alert: "stop",
 };
 
-/** Title-case a status enum value: "IN_TRANSIT" → "In Transit". */
+/** Title-case a status enum value: "IN_TRANSIT" → "In Transit", "TDS_HELD" → "TDS Held". */
 function titleCaseStatus(s: string): string {
-  return s
-    .toLowerCase()
-    .split(/[_\s]+/)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
+  return formatEnumLabel(s);
 }
 
 export function MobileStatusBadge({ status, label }: { status: string; label?: string }) {

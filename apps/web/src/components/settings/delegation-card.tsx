@@ -7,7 +7,7 @@ import { UserCheck, CalendarDays, Loader2, ArrowRight, XCircle, ShieldCheck } fr
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatEnumLabel } from "@/lib/utils";
 import { swrFetcher } from "@/lib/swr";
 
 /**
@@ -158,7 +158,7 @@ export function DelegationCard() {
                 </div>
                 {data.incoming.map((d) => (
                   <div key={d.membershipId} className="text-muted-foreground text-xs">
-                    {d.name} ({d.role.replace(/_/g, " ")}) — until {formatDate(d.endsAt)}{d.note ? ` · ${d.note}` : ""}
+                    {d.name} ({formatEnumLabel(d.role)}) — until {formatDate(d.endsAt)}{d.note ? ` · ${d.note}` : ""}
                   </div>
                 ))}
               </div>
@@ -173,7 +173,7 @@ export function DelegationCard() {
                     <option value="">Choose a member…</option>
                     {(data?.members ?? []).map((m) => (
                       <option key={m.membershipId} value={m.membershipId}>
-                        {m.name} — {m.designation ?? m.role.replace(/_/g, " ")}
+                        {m.name} — {m.designation ?? formatEnumLabel(m.role)}
                       </option>
                     ))}
                   </Select>

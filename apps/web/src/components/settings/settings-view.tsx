@@ -19,7 +19,7 @@ import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { StatusPill } from "@/components/page";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
-import { formatCurrency, displayEmail } from "@/lib/utils";
+import { formatCurrency, displayEmail, formatEnumLabel } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
 import { ROLE_LIST, ROLES, assignableRoles, canAssignRole, effectivePermissions, PERMISSION_MODULES, ALL_PERMISSIONS, roleTier, type Role } from "@/lib/roles";
 import { CompaniesManager, type CompanyRow } from "@/components/settings/companies-manager";
@@ -508,7 +508,7 @@ export function SettingsView({
                     <div className="rounded-md bg-muted/50 p-3 text-sm">
                       <div className="flex items-center gap-2">
                         <span className="text-caption text-muted-foreground">Required approver:</span>
-                        <span className="font-semibold text-foreground">{previewResult.requiredRole.replace(/_/g, " ")}</span>
+                        <span className="font-semibold text-foreground">{formatEnumLabel(previewResult.requiredRole)}</span>
                       </div>
                       <p className="text-caption text-muted-foreground mt-1">{previewResult.reason}</p>
                     </div>
@@ -899,7 +899,7 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
   const roleLabelFor = (role: string) =>
     customRoleByKey.get(role)?.label ??
     ROLE_LIST.find((rl) => rl.key === role)?.label ??
-    role.replace(/^CUSTOM_/, "").replace(/_/g, " ");
+    formatEnumLabel(role.replace(/^CUSTOM_/, ""));
 
   // Custom roles the actor can manage — strictly below their own tier
   // (mirrors the server-side gate in PUT/DELETE /api/custom-roles/[id]).
@@ -1761,7 +1761,7 @@ function CreateCustomRoleDialog({
                           const isBase = basePermSet.has(perm);
                           const granted = grants.has(perm);
                           const permKey = perm.split(".")[1] ?? perm;
-                          const permLabel = `${mod.label.split(" ")[0]} — ${permKey.replace(/_/g, " ")}`;
+                          const permLabel = `${mod.label.split(" ")[0]} — ${formatEnumLabel(permKey)}`;
                           return (
                             <div key={perm} className="flex items-center gap-3 px-3 py-1.5 border-b border-border last:border-0">
                               <button

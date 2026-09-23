@@ -18,7 +18,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { IdentityCell, MoneyCell, QtyCell } from "@/components/ui/cells";
-import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatDate, formatEnumLabel } from "@/lib/utils";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
 
 type ListingStatus = "DRAFT" | "LISTED" | "DELISTED" | "SYNC_FAILED";
@@ -77,7 +77,7 @@ const UNIT_TYPE_LABELS: Record<string, string> = {
 };
 
 function unitTypeLabel(t: string): string {
-  return UNIT_TYPE_LABELS[t] ?? t.replace(/_/g, " ");
+  return UNIT_TYPE_LABELS[t] ?? formatEnumLabel(t);
 }
 
 function pricePerSqft(price: number, area: number): number | null {

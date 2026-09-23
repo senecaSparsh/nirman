@@ -14,7 +14,7 @@ import { StatusPill } from "@/components/page";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { AttachmentList } from "@/components/attachments/attachment-list";
-import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatDate, formatNumber, formatEnumLabel } from "@/lib/utils";
 import { PaymentDialog } from "./payment-dialog";
 import { DepositDialog } from "./deposit-dialog";
 import { CompleteSaleDialog } from "./complete-sale-dialog";
@@ -601,7 +601,7 @@ export function SaleDetailDialog({
                     <TBody>
                       {sale.expenses.map((e) => (
                         <TR key={e.id}>
-                          <TD>{e.label ?? e.head.replace(/_/g, " ")}</TD>
+                          <TD>{e.label ?? formatEnumLabel(e.head)}</TD>
                           <TD>{e.borneBy === "CLIENT" ? "Client" : e.borneBy === "SELLER" ? "Seller" : "N/A"}</TD>
                           <TD className="tnum text-right">{formatCurrency(e.amount)}</TD>
                           <TD className="text-caption">{e.isIncluded ? "Yes" : "Extra"}</TD>
