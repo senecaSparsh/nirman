@@ -627,3 +627,38 @@ auto-GP → dispatch blocked until approved) verified on all three paths.
 - **Note**: email sign-in for seed users fails until `/api/auth/demo-login`
   provisions the credential Account once (dev-only lazy provisioning —
   `nirman123` works after one demo-login call).
+
+## Mobile sweep — round 7 (friction fixes + field flows)
+
+Fixes landed:
+
+- `4c1efd43` — `?mode=transfer` URL now beats a restored draft's mode (draft
+  only wins when no explicit mode in URL).
+- `14325ea7` — DPR form warns upfront when the day's report is APPROVED /
+  SUB_ADMIN_APPROVED (was: user types edits then hits a 409).
+- `021637b2` — `submitDPR` rejects future dates server-side + mobile date
+  picker capped at today (a fabricated Sep-24 DPR had gotten in).
+- `ce76ae7a` — surface-map forward mapping: literal `/m<path>` counterpart
+  wins, so desktop `/stock` → `/m/stock` (was `/m/material-issues` — a
+  back-mapping detail route stole the hub's forward map).
+- `f1e73068` — employee doc expiry: `expiresAt` on EntityAttachment +
+  expirable dossier types (medical cert, other) + `EMPLOYEE_DOC_EXPIRING`
+  in reminders cron → OWNER/ADMIN/HR_MANAGER, 14d dedupe. PATCH
+  `/api/attachments/[id]` added (verified 404 cross-company, 400 bad date).
+
+Verified end-to-end on mobile:
+
+- Field DPR (`/m/site/dpr`): dedup-to-edit by project+date, approved-lock,
+  materials+labour restore, "Update DPR" mode.
+- Scrap: FAB modal → line → `SCRAP_GENERATED` movement (IN at destination) →
+  GL post; cancel → ADJUSTMENT_OUT + JE reversal, stock restored 495→500→495.
+- Indents: form → validation → REQ-20260923-0003 → auto-approve as owner.
+- Offline queue: `offline` event → "Queue Issue (Offline)" CTA → IndexedDB
+  op → sync → SA-260923-0005 + GP minted (navigator.onLine gate verified).
+- NCR: Raise NCR → category/severity/WBS/BOQ linkage → NCR-260923-0002 →
+  detail page.
+- Measurement book: BOQ line → qty → MB-260923-0002 with cumulativeQty
+  51+8=59 (running total against the BOQ line).
+- Mobile `/m/expenses/new`: category+amount → PENDING approval queue.
+- Material reconciliation: required/issued/consumed variance + tolerance.
+- Equipment detail: depreciation math, maintenance, assign/retire actions.
