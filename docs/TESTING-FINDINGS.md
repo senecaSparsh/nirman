@@ -840,3 +840,28 @@ Persona verification:
   checks; work-order print API escapes all interpolations; DPR print API
   was fixed earlier (esc + safeUrl + scopeWhere); no RA/NCR print surfaces
   exist to exploit.
+
+## Mobile sweep — round 10 (post-deploy real-task pass)
+
+Real tasks through the mobile UI (owner, My Company):
+
+- Stock-location create: FAB → form → "E2E Mobile Yard" persisted → deleted.
+- Supplier create: FAB → form (name/phone/email) → persisted (count 20→21)
+  → deleted.
+- Vehicle create: FAB → form (number/driver) → persisted → SQL-cleaned.
+- Workflow RUN: "Overdue PO Chase-up" draft → Run Now → COMPLETED → run
+  history recorded on the detail page.
+- Tally sync quick-action: "61 entries pushed" toast on /m/pulse.
+- P&L report (/m/reports/profit): revenue ₹45.46L, GP ₹42.27L, net ₹21.55L,
+  47.4% margin, monthly trend + cost breakdown all render.
+- Lease-expiry alerts page: 4 severity buckets + clean empty state.
+- /m/settings/team correctly aliases to /m/hr/employees.
+- /m/alerts → /m/alerts/lease-expiry chain works.
+
+Regression: 2,480/2,481 web tests pass; one failure was the RA-bill WO
+scope seal (E-agent's new check) missing a mock — fixed in f4431a2b.
+
+Dev-server note: the local dev instance wedges under parallel agent edits
+(Fast Refresh storms + mass compiles) — chunk fetches race, pages bounce.
+Verified each "loop" was wedge fallout, not an app bug: routes all settle
+correctly once the server is warm. Prod is the stable verification target.
