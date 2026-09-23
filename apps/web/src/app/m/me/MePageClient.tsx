@@ -999,7 +999,7 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
       </div>
 
       {/* ── Navigation ────────────────────────────────────────────── */}
-      <MobileSectionTitle>Switch view</MobileSectionTitle>
+      <MobileSectionTitle>Quick links</MobileSectionTitle>
       <div className="flex flex-col gap-2.5">
         <MobileRow
           href="/m/pulse/approvals"
