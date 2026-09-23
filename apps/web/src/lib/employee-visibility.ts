@@ -71,7 +71,9 @@ export const EMPLOYEE_DOCS_FIELDS = [
 
 /**
  * Bearer tokens that authorize the public contract/offer signing endpoints.
- * Leaking one lets anyone sign the document as the employee — always gated.
+ * Leaking one lets anyone sign the document as the employee — gated tighter
+ * than the docs tier: hr.manage only (never payroll.manage). A finance
+ * manager needs the signed status, not the link itself.
  */
 export const EMPLOYEE_TOKEN_FIELDS = ["contractToken", "offerToken"] as const;
 
@@ -132,6 +134,7 @@ export interface EmployeeFieldScope {
   canSeePayroll: boolean;
   canSeeBankDetails: boolean;
   canSeePersonalDocs: boolean;
+  canSeeSigningTokens: boolean;
 }
 
 /**
@@ -159,9 +162,14 @@ export function redactEmployeeRow<T extends Record<string, unknown>>(
   if (!scope.canSeePayroll) {
     for (const key of EMPLOYEE_COMP_FIELDS) if (key in out) out[key] = null;
   }
-  // Bank/gov-ID docs + signing tokens ride the strictest doc tier.
+  // Bank/gov-ID docs ride the strictest doc tier (hr.manage | payroll.manage).
   if (!(scope.canSeePersonalDocs && scope.canSeeBankDetails)) {
     for (const key of EMPLOYEE_DOCS_FIELDS) if (key in out) out[key] = null;
+  }
+  // Signing tokens are a separate, narrower gate — hr.manage only. They were
+  // previously bundled into the docs tier, which let any payroll.manage
+  // holder (e.g. FINANCE_HEAD) receive live bearer signing links.
+  if (!scope.canSeeSigningTokens) {
     for (const key of EMPLOYEE_TOKEN_FIELDS) if (key in out) out[key] = null;
   }
   return out as T;

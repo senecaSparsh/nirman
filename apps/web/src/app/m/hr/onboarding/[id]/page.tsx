@@ -61,7 +61,8 @@ async function MobileOnboardingDetailContent({
   const canSeeComp = __empScope.canSeePayroll;
   const canSeeBank = __empScope.canSeeBankDetails;
   const canSeeDocs = __empScope.canSeePersonalDocs;
-  const canSeeTokens = __empScope.canSeePersonalDocs && __empScope.canSeeBankDetails;
+  // Signing links are bearer credentials — hr.manage only, never payroll.manage.
+  const canSeeTokens = __empScope.canSeeSigningTokens;
   const canSeeAccess = canManage || canManageAccess;
   const { id } = await params;
 

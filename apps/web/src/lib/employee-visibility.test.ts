@@ -49,11 +49,21 @@ const FULL_SCOPE: EmployeeFieldScope = {
   canSeePayroll: true,
   canSeeBankDetails: true,
   canSeePersonalDocs: true,
+  canSeeSigningTokens: true,
 };
 const ROSTER_SCOPE: EmployeeFieldScope = {
   canSeePayroll: false,
   canSeeBankDetails: false,
   canSeePersonalDocs: false,
+  canSeeSigningTokens: false,
+};
+// payroll.manage tier — docs+bank visible (reconciliation) but signing
+// bearer tokens must stay hidden: only hr.manage may hold the links.
+const PAYROLL_MANAGE_SCOPE: EmployeeFieldScope = {
+  canSeePayroll: true,
+  canSeeBankDetails: true,
+  canSeePersonalDocs: true,
+  canSeeSigningTokens: false,
 };
 
 const sampleRow = {
@@ -134,5 +144,16 @@ describe("employee-visibility field policy", () => {
     expect(out.dailyRate).toBe(850);
     expect(out.bankAccountNumber).toBe("123456789");
     expect(out.contractToken).toBe("tok_secret");
+  });
+
+  it("redactEmployeeRow hides signing tokens from payroll.manage (docs tier is wider than the token gate)", () => {
+    const out = redactEmployeeRow(sampleRow, PAYROLL_MANAGE_SCOPE) as Record<string, unknown>;
+    // Docs tier still visible — bank + gov IDs survive for reconciliation:
+    expect(out.bankAccountNumber).toBe("123456789");
+    expect(out.panNumber).toBe("ABCDE1234F");
+    expect(out.dailyRate).toBe(850);
+    // But bearer signing links never reach payroll.manage:
+    expect(out.contractToken).toBeNull();
+    expect(out.offerToken).toBeNull();
   });
 });

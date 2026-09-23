@@ -346,8 +346,8 @@ async function MobileEmployeeDetailContent({
     wageType: employee.wageType as "DAILY" | "MONTHLY" | "FIXED",
     // Compensation — payroll.view|payroll.manage|hr.manage.
     // Signing tokens are bearer credentials for the public accept endpoints —
-    // they ride the docs tier (canSeePersonalDocs && canSeeBankDetails), same
-    // as redactEmployeeRow: a payroll.view auditor must NOT receive them.
+    // narrower than the docs tier: hr.manage only (canSeeSigningTokens). A
+    // payroll.manage holder gets bank/docs but never the signing links.
     dailyRate: accessScope.canSeePayroll && employee.dailyRate != null ? toNum(employee.dailyRate) : null,
     monthlySalary: accessScope.canSeePayroll && employee.monthlySalary != null ? toNum(employee.monthlySalary) : null,
     joinDate: employee.joinDate ? employee.joinDate.toISOString() : null,
@@ -364,12 +364,12 @@ async function MobileEmployeeDetailContent({
     contractIssuedAt: employee.contractIssuedAt ? employee.contractIssuedAt.toISOString() : null,
     contractConfirmedAt: employee.contractConfirmedAt ? employee.contractConfirmedAt.toISOString() : null,
     contractTerms: accessScope.canSeePayroll ? employee.contractTerms : null,
-    contractToken: accessScope.canSeePersonalDocs && accessScope.canSeeBankDetails ? employee.contractToken : null,
+    contractToken: accessScope.canSeeSigningTokens ? employee.contractToken : null,
     offerLetterStatus: employee.offerLetterStatus,
     offerLetterIssuedAt: employee.offerLetterIssuedAt ? employee.offerLetterIssuedAt.toISOString() : null,
     offerLetterTerms: accessScope.canSeePayroll ? employee.offerLetterTerms : null,
     offerLetterAcceptedAt: employee.offerLetterAcceptedAt ? employee.offerLetterAcceptedAt.toISOString() : null,
-    offerToken: accessScope.canSeePersonalDocs && accessScope.canSeeBankDetails ? employee.offerToken : null,
+    offerToken: accessScope.canSeeSigningTokens ? employee.offerToken : null,
     idCardStatus: employee.idCardStatus,
     idCardIssuedAt: employee.idCardIssuedAt ? employee.idCardIssuedAt.toISOString() : null,
     appointmentLetterStatus: employee.appointmentLetterStatus,
@@ -524,12 +524,12 @@ async function MobileEmployeeDetailContent({
     contractIssuedAt: employee.contractIssuedAt ? employee.contractIssuedAt.toISOString() : null,
     contractConfirmedAt: employee.contractConfirmedAt ? employee.contractConfirmedAt.toISOString() : null,
     contractTerms: accessScope.canSeePayroll ? employee.contractTerms : null,
-    contractToken: accessScope.canSeePersonalDocs && accessScope.canSeeBankDetails ? employee.contractToken : null,
+    contractToken: accessScope.canSeeSigningTokens ? employee.contractToken : null,
     offerLetterStatus: employee.offerLetterStatus,
     offerLetterIssuedAt: employee.offerLetterIssuedAt ? employee.offerLetterIssuedAt.toISOString() : null,
     offerLetterTerms: accessScope.canSeePayroll ? employee.offerLetterTerms : null,
     offerLetterAcceptedAt: employee.offerLetterAcceptedAt ? employee.offerLetterAcceptedAt.toISOString() : null,
-    offerToken: accessScope.canSeePersonalDocs && accessScope.canSeeBankDetails ? employee.offerToken : null,
+    offerToken: accessScope.canSeeSigningTokens ? employee.offerToken : null,
     idCardStatus: employee.idCardStatus,
     idCardIssuedAt: employee.idCardIssuedAt ? employee.idCardIssuedAt.toISOString() : null,
     appointmentLetterStatus: employee.appointmentLetterStatus,

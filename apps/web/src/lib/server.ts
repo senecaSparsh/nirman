@@ -2235,6 +2235,9 @@ export async function canAccessEntity(
  *   - canSeeBankDetails: bank account fields
  *   - canSeePayroll: payroll history + salary components
  *   - canSeePersonalDocs: PAN, Aadhaar, PF, ESI, UAN
+ *   - canSeeSigningTokens: contract/offer public-signing bearer tokens
+ *     (hr.manage ONLY — a payroll/finance manager may see the contract's
+ *     status and bank details but must never hold the signing link itself)
  *   - canSeeAccessInfo: user role, phone verification status
  *   - canManageEmployee: can edit profile, onboarding, documents
  *   - canManageAccess: can assign roles, permissions, scope
@@ -2263,6 +2266,12 @@ export async function getEmployeeAccessScope() {
   // via /api/payroll lines, so wage fields must not sit behind a stricter gate.
   const canSeePayroll = hasPerm("payroll.view") || hasPerm("payroll.manage") || hasPerm("hr.manage");
   const canSeePersonalDocs = hasPerm("hr.manage") || hasPerm("payroll.manage");
+  // Signing tokens are deliberately NARROWER than the docs tier: they are
+  // bearer credentials for the public /accept/* endpoints — holding one lets
+  // anyone sign the document as the employee without any session. Only the
+  // role that actually issues/reissues the links (hr.manage) may read them;
+  // payroll.manage gets the docs tier for reconciliation, not the links.
+  const canSeeSigningTokens = hasPerm("hr.manage");
   // Access info (role, phone verification) → only USERS_MANAGE or HR_MANAGE
   const canSeeAccessInfo = hasPerm("users.manage") || hasPerm("hr.manage");
 
@@ -2278,6 +2287,7 @@ export async function getEmployeeAccessScope() {
     canSeeBankDetails,
     canSeePayroll,
     canSeePersonalDocs,
+    canSeeSigningTokens,
     canSeeAccessInfo,
     canManageEmployee,
     canManageAccess,
