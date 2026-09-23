@@ -922,3 +922,13 @@ Round 12 — procurement receive + remaining surfaces:
 - Task assign: form → PENDING persisted to assignee → deleted.
 - /m/dev/errors correctly gates developer-only (fail-closed for owner).
 - /m/books/day-book, /m/hr/advances 404 correctly (no such surfaces).
+
+Round 12 (cont) — GRN end-to-end verified:
+
+- POST /api/purchase-orders/[id]/receive with the exact payload shape the
+  MobileReceiveDialog builds: 5 KG received → line qtyReceived 0→5,
+  StockMovement PURCHASE_RECEIPT logged, StockLocationItem +5, PO status
+  → RECEIVED. Mandatory evidence (photo objects, signature dataURL,
+  geo coords, kata-parchi ticket no + gross/tare/net) all persisted.
+- Form-side verified live: all 21 inputs accept input, net weight
+  auto-computes, unload slip auto-generates, vehicle-type picker works.
