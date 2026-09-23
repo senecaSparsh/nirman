@@ -9,9 +9,13 @@ import { executeWorkflow } from "@/lib/workflow-engine";
  */
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.CANVAS_VIEW);
+  const company = await getCompany();
   const { id } = await params;
   const runs = await prisma.workflowRun.findMany({
-    where: { workflowId: id },
+    // Tenancy rides the parent workflow — WorkflowRun carries no companyId
+    // of its own, so without this join any canvas.view holder could read
+    // another tenant's run history (verified: leaked SRG run results).
+    where: { workflowId: id, workflow: { companyId: company.id, deletedAt: null } },
     orderBy: { createdAt: "desc" },
     take: 20,
   });

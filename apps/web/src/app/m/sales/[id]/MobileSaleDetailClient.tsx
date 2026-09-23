@@ -777,7 +777,7 @@ export function MobileSaleDetailClient({
                 Pay Mode
               </span>
               <span className="text-m-caption font-bold ml-auto" style={{ color: "var(--color-ink-950)" }}>
-                {paymentMode}
+                {formatPaymentMode(paymentMode)}
               </span>
             </div>
           ) : null}
@@ -1417,7 +1417,7 @@ export function MobileSaleDetailClient({
                   label="Mode"
                   value={payMode}
                   onChange={(v) => setPayMode(v as (typeof PAYMENT_MODES)[number])}
-                  options={PAYMENT_MODES.map((m) => ({ value: m, label: m.replace("_", " ") }))}
+                  options={PAYMENT_MODES.map((m) => ({ value: m, label: formatPaymentMode(m) }))}
                 />
               </div>
               <div>
@@ -1485,7 +1485,7 @@ export function MobileSaleDetailClient({
                   label="Payment Mode"
                   value={depMode}
                   onChange={(v) => setDepMode(v as (typeof PAYMENT_MODES)[number])}
-                  options={PAYMENT_MODES.map((m) => ({ value: m, label: m.replaceAll("_", " ") }))}
+                  options={PAYMENT_MODES.map((m) => ({ value: m, label: formatPaymentMode(m) }))}
                 />
               </div>
               <div>
@@ -1568,7 +1568,7 @@ export function MobileSaleDetailClient({
                   label="Payment Mode"
                   value={compPayMode}
                   onChange={(v) => setCompPayMode(v as (typeof PAYMENT_MODES)[number])}
-                  options={PAYMENT_MODES.map((m) => ({ value: m, label: m.replace("_", " ") }))}
+                  options={PAYMENT_MODES.map((m) => ({ value: m, label: formatPaymentMode(m) }))}
                 />
               </div>
 
