@@ -995,3 +995,69 @@ OPEN / NOTED:
 - /api/employees exposes wage fields (dailyRate/monthlySalary/wageType)
   to hr.view-tier callers (supervisor) — pickEmployeeRoster allowlist
   includes them deliberately, but worth a policy review.
+
+---
+
+## Round 13 — Plain-language UX pass + supplier-return GP lifecycle (2026-09-23)
+
+Focus: "make sense to a dumb user" — jargon, cryptic shorthand, misleading
+copy, and the supplier-return flow completed end-to-end through the UI.
+
+REAL BUGS FIXED:
+
+- **Supplier-return cancel orphaned the gate pass** — cancelling a return
+  left its auto-created PENDING gate pass alive forever (guard queue
+  pollution + a live pass for a dead transaction). `cancelSupplierReturn`
+  now cancels linked PENDING/DRAFT passes in the same transaction.
+- **`assertGatePassApproved` brick bug** — a CANCELLED/REJECTED gate pass
+  permanently blocked its source transaction (completion impossible,
+  no re-issue path could ever satisfy the check). Dead passes no longer
+  count; error now says "a new pass must be issued".
+- **Stale/misleading copy**: supplier-return success screen hardcoded
+  "Return is in DRAFT" but the API auto-submits → now reads the
+  `submitted` flag honestly. Button renamed "Create Draft Return" →
+  "Create Return". Detail prefers the newest linked GP (unordered
+  findFirst could surface a cancelled pass over a live re-issue) and
+  explains the CANCELLED state.
+- **P2002 → "Internal server error"** — a duplicate SKU/phone/email
+  looked like a crash. Now 409 "That sku is already in use". P2025 →
+  404 "This record no longer exists" instead of a 500.
+- **`${action}d` toast grammar** — "Inspection startd", "Hazard
+  mitigateed". Switched to actionPastTense, extended its verb map.
+- **Cryptic shorthand everywhere**: "8d late"→"8 days late",
+  "12mo"→"every 12 months", "3m ago"→"3 min ago", "every 1d"→"every
+  1 day", "10y"→"10 yrs", "oldest 4d"→"oldest 4 days" — across
+  procurement, requisitions, rentals, pulse, calls, home, alerts,
+  workflows, leads, land.
+- **Raw enum caps**: `replace(/_/g," ")` left "BANK TRANSFER"/"SUB ADMIN
+  APPROVED"/"IN APP" shouting at users. New `formatEnumLabel` util
+  (acronym-aware: BHK_2→"BHK 2", UPI stays UPI) applied to ~15 sites;
+  `MobileStatusBadge` upgraded (TDS_HELD→"TDS Held" not "Tds Held").
+- **Icon-only FAB trap**: material empty state said "tap 'Adjust stock'"
+  but the FAB was icon-only — unfindable. `MobileFab` gained `extended`
+  (visible label); adjust-stock uses it. Submit button renamed "Add"→
+  "Add to stock" (was identical to the direction toggle — mis-tappable).
+- **Error boundaries leaked dev errors**: "Cannot read properties of
+  undefined" shown verbatim on crash screens (mobile + desktop + global).
+  Now plain language; digest/error-ID still renders for support.
+- **Silent offline sync**: queued field work synced with zero feedback —
+  only the badge count dropped. `syncQueue` now toasts "Synced N queued
+  items" once per actual sync (deduped via inflightSync; dynamic sonner
+  import keeps the module service-worker-safe).
+- **Bare "Loading…"** → "Loading devices…" / "Loading salary history…".
+
+VERIFIED LIVE (UI, phone viewport):
+
+- Supplier return E2E: supplier picker → location (reveals optional PO
+  linkage) → material picker WITH STOCK HINTS ("9800 KG in stock"/"No
+  stock here") → qty+cost → credit auto-computes ₹600 → Reason → Create →
+  RET-0004 SUBMITTED + gate pass auto-created → detail shows GP "awaiting
+  approval. Completion blocked" → Cancel → confirm → CANCELLED (+GP now
+  cascades CANCELLED too, verified).
+- Gate-keeper view: status summary chips → expand pending pass → items,
+  destination, created-by → Approve/Reject/Print/Cancel in place.
+- Print proxy: /m/print/goods-receipt renders a full delivery challan at
+  390px (no overflow) with Print/PDF/Image/Share/Close actions.
+- humanizeCron + formatEnumLabel unit-tested (40 utils tests green).
+
+Suite: 2,494 web + 1,638 service tests green. Typecheck clean.
