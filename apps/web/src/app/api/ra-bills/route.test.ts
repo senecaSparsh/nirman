@@ -94,6 +94,10 @@ describe("GET /api/ra-bills", () => {
 describe("POST /api/ra-bills", () => {
   beforeEach(() => {
     setSessionUser(OWNER);
+    mockPrisma().subcontractorWorkOrder!.findFirst.mockResolvedValue({
+      id: "wo-1",
+      workOrderNumber: "WO-001",
+    });
   });
 
   it("returns 400 on invalid input (missing workOrderId)", async () => {
