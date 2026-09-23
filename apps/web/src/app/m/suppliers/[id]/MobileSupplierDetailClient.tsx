@@ -232,6 +232,20 @@ export function MobileSupplierDetailClient({
         </Link>
       </div>
 
+      {/* ── Pay dues shortcut — the supplier page shows "₹X owed" but
+           previously had no path to actually pay; deep-link into the
+           payment form with this supplier preselected. ── */}
+      {hasDues ? (
+        <Link
+          href={`/m/supplier-payments/new?supplier=${supplierId}`}
+          className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 mb-2 text-m-body font-bold press"
+          style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
+        >
+          <Banknote className="size-3.5" />
+          Record payment — {formatCurrencyCompact(balanceOwed)} owed
+        </Link>
+      ) : null}
+
       {/* ── Info row ── */}
       <DetailKeyValueCard
         entries={[
