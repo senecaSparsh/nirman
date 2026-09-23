@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma, type HazardStatus, type HazardRiskLevel } from "@nirman/db";
-import { createHazard } from "@nirman/services";
+import { createHazard, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, validateAttachments, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
@@ -70,6 +70,6 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     return json(hazard, { status: 201 });
   } catch (err: unknown) {
-    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
+    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });

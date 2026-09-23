@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { getHazard, updateHazard, startMitigation, resolveHazard, deleteHazard } from "@nirman/services";
+import { getHazard, updateHazard, startMitigation, resolveHazard, deleteHazard, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, validateAttachments, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
@@ -65,7 +65,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
           return json({ ok: true });
       }
     } catch (err: unknown) {
-      return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
+      return json({ error: err instanceof Error ? err.message : "Failed" }, { status: err instanceof ServiceError ? err.status : 400 });
     }
   }
 
@@ -79,7 +79,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
       targetResolutionDate: parsed.data.targetResolutionDate ? new Date(parsed.data.targetResolutionDate) : undefined,
     }, undefined, company.id));
   } catch (err: unknown) {
-    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
+    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });
 
@@ -96,6 +96,6 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
     await deleteHazard(id, user.id, company.id);
     return json({ ok: true });
   } catch (err: unknown) {
-    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
+    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });

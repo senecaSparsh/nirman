@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { addWbsDependency } from "@nirman/services";
+import { addWbsDependency, ServiceError } from "@nirman/services";
 import { apiHandler, assertScopeAllows, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
@@ -80,6 +80,6 @@ export const POST = apiHandler(async (req: NextRequest) => {
     );
     return json(dep, { status: 201 });
   } catch (err: unknown) {
-    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
+    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });

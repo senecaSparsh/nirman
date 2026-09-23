@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
-import { recordRentPayment } from "@nirman/services";
+import { recordRentPayment, ServiceError } from "@nirman/services";
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, rentPaymentSchema, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -44,6 +44,6 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     revalidatePath("/m/real-estate?tab=rentals");
     return json({ ok: true, id: payment.id }, { status: 201 });
   } catch (err: unknown) {
-    return json({ error: (err instanceof Error ? err.message : "Failed to record rent payment") }, { status: 400 });
+    return json({ error: (err instanceof Error ? err.message : "Failed to record rent payment") }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });

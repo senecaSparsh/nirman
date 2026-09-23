@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { getNcr, updateNcr, reviewNcr, closeNcr, cancelNcr, deleteNcr } from "@nirman/services";
+import { getNcr, updateNcr, reviewNcr, closeNcr, cancelNcr, deleteNcr, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
@@ -80,7 +80,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
           return json({ ok: true });
       }
     } catch (err: unknown) {
-      return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
+      return json({ error: err instanceof Error ? err.message : "Failed" }, { status: err instanceof ServiceError ? err.status : 400 });
     }
   }
 
@@ -103,7 +103,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
       attachments: parsed.data.attachments,
     }, undefined, company.id));
   } catch (err: unknown) {
-    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
+    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });
 
@@ -123,6 +123,6 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
           revalidatePath("/m/quality-control");
     return json({ ok: true });
   } catch (err: unknown) {
-    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
+    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });

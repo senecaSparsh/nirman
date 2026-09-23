@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
-import { updateCapa, startCapa, completeCorrectiveAction, completePreventiveAction, verifyCapa, closeCapa } from "@nirman/services";
+import { updateCapa, startCapa, completeCorrectiveAction, completePreventiveAction, verifyCapa, closeCapa, ServiceError } from "@nirman/services";
 import { prisma } from "@nirman/db";
 import { apiHandler, json, requirePermission, getCompany, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -63,7 +63,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
           return json(await closeCapa(id, user.id, parsed.data.closureNotes, company.id));
       }
     } catch (err: unknown) {
-      return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
+      return json({ error: err instanceof Error ? err.message : "Failed" }, { status: err instanceof ServiceError ? err.status : 400 });
     }
   }
 
@@ -80,6 +80,6 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
       preventiveDueDate: parsed.data.preventiveDueDate ? new Date(parsed.data.preventiveDueDate) : null,
     }, user.id, company.id));
   } catch (err: unknown) {
-    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
+    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });

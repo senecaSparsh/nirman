@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import type { EquipmentAssignmentStatus } from "@nirman/db";
-import { assignEquipment } from "@nirman/services";
+import { assignEquipment, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, equipmentAssignSchema, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -75,6 +75,6 @@ export const POST = apiHandler(async (req: NextRequest) => {
     });
     return json({ ok: true, id: assignment.id }, { status: 201 });
   } catch (err: unknown) {
-    return json({ error: (err instanceof Error ? err.message : "Failed to assign equipment") }, { status: 400 });
+    return json({ error: (err instanceof Error ? err.message : "Failed to assign equipment") }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });

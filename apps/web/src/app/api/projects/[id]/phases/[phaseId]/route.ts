@@ -7,14 +7,16 @@ export const PATCH = apiHandler(
   async (req: NextRequest, ctx: { params: Promise<{ id: string; phaseId: string }> }) => {
     await requirePermission(PERM.PROJECTS_MANAGE);
     const company = await getCompany();
-    const { phaseId } = await ctx.params;
+    const { id, phaseId } = await ctx.params;
     const body = await req.json();
     const parsed = projectPhaseSchema.safeParse(body);
     if (!parsed.success) {
       return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
     }
+    // The URL parent {id} must match the phase's own project — otherwise a
+    // caller could PATCH a phase on project B through /projects/A/phases/B.
     const existing = await prisma.projectPhase.findFirst({
-      where: { id: phaseId, project: { companyId: company.id }, ...await scopeWhere("ProjectPhase") },
+      where: { id: phaseId, projectId: id, project: { companyId: company.id }, ...await scopeWhere("ProjectPhase") },
     });
     if (!existing) return json({ error: "Phase not found" }, { status: 404 });
     // PATCH semantics: `undefined` = preserve, `null`/`""` = explicit clear.
@@ -41,9 +43,9 @@ export const DELETE = apiHandler(
   async (_req: NextRequest, ctx: { params: Promise<{ id: string; phaseId: string }> }) => {
     await requirePermission(PERM.PROJECTS_MANAGE);
     const company = await getCompany();
-    const { phaseId } = await ctx.params;
+    const { id, phaseId } = await ctx.params;
     const phase = await prisma.projectPhase.findFirst({
-      where: { id: phaseId, project: { companyId: company.id }, ...await scopeWhere("ProjectPhase") },
+      where: { id: phaseId, projectId: id, project: { companyId: company.id }, ...await scopeWhere("ProjectPhase") },
       include: {
         _count: {
           select: { stockLocations: true, builtUnits: true, materialIssues: true },

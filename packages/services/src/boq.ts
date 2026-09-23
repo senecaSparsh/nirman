@@ -308,6 +308,13 @@ export async function createWbsNode(input: CreateWbsNodeInput) {
       if (!parent) throw new ServiceError("Parent WBS node not found", 404);
     }
 
+    if (input.phaseId) {
+      const phase = await tx.projectPhase.findFirst({
+        where: { id: input.phaseId, projectId: input.projectId },
+      });
+      if (!phase) throw new ServiceError("Phase not found in this project", 404);
+    }
+
     if (input.boqItemId) {
       const boq = await tx.boqItem.findFirst({
         where: { id: input.boqItemId, projectId: input.projectId, type: "LINE_ITEM" },
@@ -628,6 +635,13 @@ export async function createMbEntry(input: CreateMbEntryInput) {
       where: { id: input.boqItemId, projectId: input.projectId, type: "LINE_ITEM" },
     });
     if (!boqItem) throw new ServiceError("BOQ line item not found (must be a LINE_ITEM)", 404);
+
+    if (input.phaseId) {
+      const phase = await tx.projectPhase.findFirst({
+        where: { id: input.phaseId, projectId: input.projectId },
+      });
+      if (!phase) throw new ServiceError("Phase not found in this project", 404);
+    }
 
     if (input.wbsNodeId) {
       const wbs = await tx.wbsNode.findFirst({

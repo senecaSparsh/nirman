@@ -10,6 +10,7 @@ import {
   cancelChangeOrder,
   implementChangeOrder,
   deleteChangeOrder,
+  ServiceError,
 } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, scopeWhere, getActingRole,} from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -115,7 +116,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
           return json({ ok: true });
       }
     } catch (err: unknown) {
-      return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
+      return json({ error: err instanceof Error ? err.message : "Failed" }, { status: err instanceof ServiceError ? err.status : 400 });
     }
   }
 
@@ -142,7 +143,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     revalidatePath("/m/construction?tab=change-orders");
     return json(updated);
   } catch (err: unknown) {
-    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
+    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });
 
@@ -165,6 +166,6 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
     revalidatePath("/m/construction?tab=change-orders");
     return json({ ok: true });
   } catch (err: unknown) {
-    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
+    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });

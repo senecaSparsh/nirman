@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { softDelete } from "@nirman/services";
+import { softDelete, ServiceError } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, requirePermission, subcontractorSchema } from "@/lib/server";
 
@@ -59,6 +59,6 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     revalidatePath("/m/subcontractors");
     return json({ ok: true });
   } catch (err: unknown) {
-    return json({ error: (err instanceof Error ? err.message : "Failed to delete subcontractor") }, { status: 400 });
+    return json({ error: (err instanceof Error ? err.message : "Failed to delete subcontractor") }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });

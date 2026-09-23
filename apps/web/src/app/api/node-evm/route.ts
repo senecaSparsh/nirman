@@ -11,7 +11,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const projectId = searchParams.get("projectId");
   if (!projectId) return json({ error: "projectId is required" }, { status: 400 });
   const project = await prisma.project.findFirst({
-    where: { id: projectId, companyId: company.id, deletedAt: null, ...await scopeWhere("Project") },
+    where: { companyId: company.id, deletedAt: null, AND: [{ id: projectId }, await scopeWhere("Project")] },
     select: { id: true },
   });
   if (!project) return json({ error: "Project not found" }, { status: 404 });

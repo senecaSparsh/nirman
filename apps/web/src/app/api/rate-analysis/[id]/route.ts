@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { updateRateAnalysis, deleteRateAnalysis } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, canAccessProject, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -40,11 +40,14 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   // Verify ownership
   const ra = await prisma.rateAnalysis.findUnique({
     where: { id },
-    include: { boqItem: { include: { project: { select: { companyId: true } } } } },
+    include: { boqItem: { include: { project: { select: { companyId: true, id: true } } } } },
   });
   if (!ra) return json({ error: "Rate analysis not found" }, { status: 404 });
   if (ra.boqItem.project.companyId !== company.id) {
     return json({ error: "Rate analysis does not belong to your company" }, { status: 403 });
+  }
+  if (!(await canAccessProject(ra.boqItem.project.id))) {
+    return json({ error: "Rate analysis not found" }, { status: 404 });
   }
 
   try {
@@ -71,11 +74,14 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   // Verify ownership
   const ra = await prisma.rateAnalysis.findUnique({
     where: { id },
-    include: { boqItem: { include: { project: { select: { companyId: true } } } } },
+    include: { boqItem: { include: { project: { select: { companyId: true, id: true } } } } },
   });
   if (!ra) return json({ error: "Rate analysis not found" }, { status: 404 });
   if (ra.boqItem.project.companyId !== company.id) {
     return json({ error: "Rate analysis does not belong to your company" }, { status: 403 });
+  }
+  if (!(await canAccessProject(ra.boqItem.project.id))) {
+    return json({ error: "Rate analysis not found" }, { status: 404 });
   }
 
   try {

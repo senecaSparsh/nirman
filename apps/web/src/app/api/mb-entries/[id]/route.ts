@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { verifyMbEntry, approveMbEntry, rejectMbEntry } from "@nirman/services";
+import { verifyMbEntry, approveMbEntry, rejectMbEntry, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, requireUser, scopeWhere, getActingRole,} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
@@ -72,7 +72,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
     return json({ error: "Unknown action. Use: verify | approve | reject" }, { status: 400 });
   } catch (err: unknown) {
-    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
+    return json({ error: err instanceof Error ? err.message : "Failed" }, { status: err instanceof ServiceError ? err.status : 400 });
   }
 });
 

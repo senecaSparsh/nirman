@@ -13,7 +13,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   // Verify the project belongs to the user's company AND is inside their
   // assigned scope — material consumption is project-confidential.
   const project = await prisma.project.findFirst({
-    where: { id: projectId, companyId: company.id, deletedAt: null, ...await scopeWhere("Project") },
+    where: { companyId: company.id, deletedAt: null, AND: [{ id: projectId }, await scopeWhere("Project")] },
     select: { id: true },
   });
   if (!project) return json({ error: "Project not found" }, { status: 404 });
