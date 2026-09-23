@@ -26,10 +26,10 @@ export default async function MeasurementBookPrintPage({ params }: { params: Pro
   const company = await getCompany();
 
   const entry = await prisma.measurementBookEntry.findFirst({
-    where: {...await scopeWhere("MeasurementBookEntry"), 
+    where: await scopeWhere("MeasurementBookEntry", {
       id,
       project: { companyId: company.id },
-    },
+    }),
     include: {
       project: { select: { name: true } },
       phase: { select: { name: true } },

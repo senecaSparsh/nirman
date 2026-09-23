@@ -35,7 +35,7 @@ export default async function TenancyDraftPage({
   }
 
   const tenancy = await prisma.tenancy.findFirst({
-    where: {...await scopeWhere("Tenancy"),  id, companyId: company.id },
+    where: await scopeWhere("Tenancy", { id, companyId: company.id }),
     include: {
       customer: { select: { name: true, phone: true, email: true, address: true } },
       project: { select: { name: true } },

@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getCompany, getUserPermissions } from "@/lib/server";
+import { toNum, getCompany, getUserPermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { amountInWords } from "@nirman/services";
 import {formatCurrency, formatNumber} from "@/lib/utils";
@@ -31,7 +31,7 @@ export default async function ScrapGenerationPrintPage({
   const company = await getCompany();
 
   const scrap = await prisma.scrapGeneration.findFirst({
-    where: { id, companyId: company.id },
+    where: await scopeWhere("ScrapGeneration", { id, companyId: company.id }),
     include: {
       toLocation: { select: { name: true } },
       project: { select: { name: true } },

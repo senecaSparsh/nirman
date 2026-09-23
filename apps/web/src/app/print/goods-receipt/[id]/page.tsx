@@ -31,10 +31,10 @@ export default async function GoodsReceiptChallanPage({
   const groupCompanyIds = await getCompanyGroupIds(company);
 
   const receipt = await prisma.goodsReceipt.findFirst({
-    where: {...await scopeWhere("GoodsReceipt"), 
+    where: await scopeWhere("GoodsReceipt", {
       id,
       location: { companyId: { in: groupCompanyIds } },
-    },
+    }),
     include: {
       purchaseOrder: {
         select: {

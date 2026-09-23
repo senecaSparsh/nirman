@@ -30,7 +30,7 @@ export default async function UnitSpecSheetPage({
   const company = await getCompany();
 
   const unit = await prisma.builtUnit.findFirst({
-    where: {...await scopeWhere("BuiltUnit"),  id, deletedAt: null, project: { companyId: company.id } },
+    where: await scopeWhere("BuiltUnit", { id, deletedAt: null, project: { companyId: company.id } }),
     include: {
       project: { select: { id: true, name: true, address: true, totalBudget: true } },
       phase: { select: { name: true } },

@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
-import { getCompany, getCurrentUser, toNum, getUserPermissions } from "@/lib/server";
+import { getCompany, getCurrentUser, toNum, getUserPermissions, scopeWhere } from "@/lib/server";
 import { getPortalCustomer } from "@/lib/portal-auth";
 import { PERM } from "@/lib/roles";
 import { PrintToolbar } from "@/components/print/print-button";
@@ -50,7 +50,14 @@ export default async function DemandNoticePage({
       return <div className="p-8 text-center text-muted-foreground">No access</div>;
     }
     item = await prisma.paymentScheduleItem.findFirst({
-      where: { id },
+      // Company + scope ride the sale relation — same rule the sale list API
+      // applies. (The post-fetch company check below stays as a backstop.)
+      where: {
+        id,
+        paymentSchedule: {
+          assetSale: { companyId: company.id, ...(await scopeWhere("AssetSale")) },
+        },
+      },
       include: itemInclude,
     });
   } else {

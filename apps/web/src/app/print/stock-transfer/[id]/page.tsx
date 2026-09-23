@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getCompany, getUserPermissions } from "@/lib/server";
+import { toNum, getCompany, getUserPermissions, getUserScope, getAssignedProjectIds } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import {formatCurrency, formatNumber} from "@/lib/utils";
 import { notFound } from "next/navigation";
@@ -36,8 +36,8 @@ export default async function StockTransferNotePage({
       ],
     },
     include: {
-      fromLocation: { select: { name: true, address: true, type: true } },
-      toLocation: { select: { name: true, address: true, type: true } },
+      fromLocation: { select: { name: true, address: true, type: true, projectId: true, departmentId: true } },
+      toLocation: { select: { name: true, address: true, type: true, projectId: true, departmentId: true } },
       createdBy: { select: { name: true } },
       dispatchedBy: { select: { name: true } },
       receivedBy: { select: { name: true } },
@@ -51,6 +51,25 @@ export default async function StockTransferNotePage({
   });
 
   if (!transfer) notFound();
+
+  // Same scope gate as GET /api/transfers/[id]: a scoped user sees the
+  // transfer only when at least one endpoint location is in their scope.
+  const scope = await getUserScope();
+  if (scope.scopeType !== "COMPANY") {
+    const { fromLocation, toLocation } = transfer;
+    let inScope = false;
+    if (scope.scopeType === "DEPARTMENT") {
+      inScope = [fromLocation.departmentId, toLocation.departmentId].some(
+        (d) => !!d && scope.departmentIds.includes(d),
+      );
+    } else {
+      const assigned = (await getAssignedProjectIds()) ?? [];
+      inScope = [fromLocation.projectId, toLocation.projectId].some(
+        (p) => !!p && assigned.includes(p),
+      );
+    }
+    if (!inScope) notFound();
+  }
 
   const totalQty = transfer.lines.reduce((s, l) => s + toNum(l.qty), 0);
   const totalValue = transfer.lines.reduce(

@@ -29,7 +29,7 @@ export default async function MaterialSaleInvoicePage({
   const company = await getCompany();
 
   const sale = await prisma.materialSale.findFirst({
-    where: {...await scopeWhere("MaterialSale"),  id, companyId: company.id },
+    where: await scopeWhere("MaterialSale", { id, companyId: company.id }),
     include: {
       customer: { select: { name: true, phone: true, address: true, gstin: true } },
       project: { select: { name: true } },

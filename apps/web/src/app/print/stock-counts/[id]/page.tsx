@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getCompany, getUserPermissions } from "@/lib/server";
+import { toNum, getCompany, getUserPermissions, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatNumber, formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
@@ -30,7 +30,7 @@ export default async function StockCountPrintPage({ params }: { params: Promise<
       location: { companyId: company.id },
     },
     include: {
-      location: { select: { name: true, type: true } },
+      location: { select: { name: true, type: true, projectId: true, departmentId: true } },
       lines: {
         include: { material: { select: { code: true, name: true, unit: true } } },
         orderBy: { material: { name: "asc" } },
@@ -39,6 +39,17 @@ export default async function StockCountPrintPage({ params }: { params: Promise<
   });
 
   if (!count) notFound();
+
+  // Same scope gate as GET /api/stock-counts/[id] — a scoped user may not
+  // print a count taken at a location outside their project/department.
+  try {
+    await assertScopeAllows({
+      projectId: count.location.projectId,
+      departmentId: count.location.departmentId,
+    });
+  } catch {
+    notFound();
+  }
 
   const totalSystem = count.lines.reduce((s, l) => s + toNum(l.systemQty), 0);
   const totalCounted = count.lines.reduce((s, l) => s + toNum(l.countedQty), 0);

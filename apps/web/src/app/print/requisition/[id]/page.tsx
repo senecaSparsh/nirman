@@ -24,14 +24,13 @@ export default async function DemandSlipPage({ params }: { params: Promise<{ id:
   const company = await getCompany();
 
   const req = await prisma.materialRequisition.findFirst({
-    where: {
-      ...await scopeWhere("MaterialRequisition"),
+    where: await scopeWhere("MaterialRequisition", {
       id,
       OR: [
         { project: { companyId: company.id } },
         { department: { companyId: company.id } },
       ],
-    },
+    }),
     include: {
       project: { select: { name: true } },
       phase: { select: { name: true } },

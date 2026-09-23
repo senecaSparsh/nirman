@@ -33,7 +33,7 @@ export default async function SaleDraftPage({
   }
 
   const sale = await prisma.assetSale.findFirst({
-    where: {...await scopeWhere("AssetSale"),  id, companyId: company.id },
+    where: await scopeWhere("AssetSale", { id, companyId: company.id }),
     include: {
       customer: { select: { name: true, phone: true, email: true, address: true } },
       project: { select: { name: true } },

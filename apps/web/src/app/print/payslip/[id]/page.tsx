@@ -35,7 +35,12 @@ export default async function PayslipPage({ params }: { params: Promise<{ id: st
     where: {
       id,
       employee: { companyId: company.id, deletedAt: null },
-      ...(canSeePayroll ? await scopeWhere("Employee") : {}),
+      // PayrollLine scopes through the employee relation — scopeWhere("PayrollLine")
+      // emits `employee.departmentId`/`employee.activeProjectId` + the H1 subject
+      // wall nested under `employee`. (scopeWhere("Employee") emitted employee-level
+      // fields like `activeProjectId`/`hierarchyLevel` onto the payrollLine where —
+      // Prisma rejected it with a 500 for every scoped payroll viewer.)
+      AND: canSeePayroll ? [await scopeWhere("PayrollLine")] : [],
     },
     include: {
       payrollPeriod: { select: { month: true, year: true, status: true } },

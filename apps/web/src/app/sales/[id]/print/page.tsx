@@ -3,7 +3,8 @@ import { getPrintableSaleData } from "@nirman/services";
 import { PrintHeader } from "@/components/print/print-header";
 import { PrintButton, CloseButton } from "./print-button";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { toNum, getCompany, getUserPermissions } from "@/lib/server";
+import { toNum, getCompany, getUserPermissions, scopeWhere } from "@/lib/server";
+import { prisma } from "@nirman/db";
 import { PERM } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,15 @@ export default async function PrintableSaleFormPage({
   const __effPerms = await getUserPermissions();
   if (!__effPerms.includes(PERM.SALES_VIEW)) notFound();
   const userCompany = await getCompany();
+
+  // Scope pre-check — getPrintableSaleData only filters by companyId; the
+  // sale detail route also requires the sale to be inside the caller's
+  // project/department scope.
+  const inScope = await prisma.assetSale.findFirst({
+    where: await scopeWhere("AssetSale", { id, companyId: userCompany.id }),
+    select: { id: true },
+  });
+  if (!inScope) notFound();
 
   let data;
   try {

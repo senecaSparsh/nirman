@@ -31,7 +31,7 @@ export default async function GatePassPrintPage({ params }: { params: Promise<{ 
   const company = await getCompany();
 
   const gp = await prisma.gatePass.findFirst({
-    where: {...await scopeWhere("GatePass"),  id, companyId: company.id },
+    where: await scopeWhere("GatePass", { id, companyId: company.id }),
     include: {
       lines: true,
       location: { select: { name: true, type: true } },

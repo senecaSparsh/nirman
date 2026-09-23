@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getCompany, getUserPermissions } from "@/lib/server";
+import { toNum, getCompany, getUserPermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { amountInWords } from "@nirman/services";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -35,7 +35,10 @@ export default async function MaterialSaleReceiptPage({
   const company = await getCompany();
 
   const payment = await prisma.materialSalePayment.findFirst({
-    where: { id },
+    // Scope filter rides the sale relation: a scoped user must not print a
+    // receipt for a sale their scope hides everywhere else (verified: the
+    // list API filters these, this page did not).
+    where: { id, sale: { companyId: company.id, ...(await scopeWhere("MaterialSale")) } },
     include: {
       sale: {
         include: {

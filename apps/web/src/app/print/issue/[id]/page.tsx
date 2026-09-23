@@ -24,13 +24,13 @@ export default async function IssueSlipPage({ params }: { params: Promise<{ id: 
   const company = await getCompany();
 
   const issue = await prisma.materialIssue.findFirst({
-    where: {...await scopeWhere("MaterialIssue"), 
+    where: await scopeWhere("MaterialIssue", {
       id,
       OR: [
         { project: { companyId: company.id } },
         { department: { companyId: company.id } },
       ],
-    },
+    }),
     include: {
       project: { select: { name: true } },
       department: { select: { code: true, name: true } },

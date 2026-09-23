@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getCompany, getUserPermissions } from "@/lib/server";
+import { toNum, getCompany, getUserPermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { amountInWords } from "@nirman/services";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -43,7 +43,9 @@ export default async function PaymentReceiptPage({
   const company = await getCompany();
 
   const payment = await prisma.assetSalePayment.findFirst({
-    where: { id },
+    // Company + project/department scope ride the sale relation — the
+    // post-fetch companyId check below stays as a belt-and-suspenders guard.
+    where: { id, assetSale: { companyId: company.id, ...(await scopeWhere("AssetSale")) } },
     include: {
       assetSale: {
         include: {

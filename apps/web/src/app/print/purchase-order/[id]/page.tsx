@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getCompany, getCompanyGroupIds, getUserPermissions } from "@/lib/server";
+import { toNum, getCompany, getCompanyGroupIds, getUserPermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { amountInWords } from "@nirman/services";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -31,7 +31,10 @@ export default async function PurchaseOrderPrintPage({
   const groupCompanyIds = await getCompanyGroupIds(company);
 
   const po = await prisma.purchaseOrder.findFirst({
-    where: { id, companyId: { in: groupCompanyIds } },
+    // scopeWhere goes through baseWhere so the deny-all branch (scoped user
+    // with zero assigned projects) keeps its `id: {in: []}` — a literal `id`
+    // spread after scopeWhere would overwrite it and fail open.
+    where: await scopeWhere("PurchaseOrder", { id, companyId: { in: groupCompanyIds } }),
     include: {
       supplier: { select: { name: true, phone: true, gstin: true, address: true } },
       project: { select: { name: true } },

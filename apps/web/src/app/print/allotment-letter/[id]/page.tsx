@@ -40,7 +40,7 @@ export default async function AllotmentLetterPage({
       return <div className="p-8 text-center text-muted-foreground">No access</div>;
     }
     sale = await prisma.assetSale.findFirst({
-      where: {...await scopeWhere("AssetSale"),  id, companyId: company.id },
+      where: await scopeWhere("AssetSale", { id, companyId: company.id }),
       include: saleInclude,
     });
   } else {
