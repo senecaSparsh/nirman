@@ -855,11 +855,13 @@ export function renderEventMessage(event: NotificationEvent): string {
   return `${humanize(event.eventType)}${varStr ? ` — ${varStr}` : ""}`;
 }
 
+const EVENT_ACRONYMS = new Set(["DPR", "GRN", "PO", "WO", "CO", "RA", "QR", "ATS", "BBA", "KYC", "PAN", "PF", "ESI", "UAN", "TDS", "GST", "RERA", "OTP", "SMS", "GPS", "NOC", "HSN", "BHK", "UPI", "NEFT", "RTGS", "IVR", "QC", "QA", "MB", "BOQ", "HR", "IT", "EMI"]);
+
 function humanize(eventType: string): string {
   return eventType
-    .replace(/_/g, " ")
-    .toLowerCase()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+    .split(/[_\s]+/)
+    .map((w) => (EVENT_ACRONYMS.has(w.toUpperCase()) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+    .join(" ");
 }
 
 /** Plain-language message per event type — what the user actually sees in the
