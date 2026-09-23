@@ -32,6 +32,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
         { department: { companyId: company.id, deletedAt: null } },
         { project: { companyId: company.id, deletedAt: null } },
       ],
+      // Cancelled issues moved no stock — including them overstated the
+      // register by 5 rows / ₹2,090 (verified against raw DB sums).
+      cancelledAt: null,
       ...dateFilter,
       ...await scopeWhere("MaterialIssue", {}),
     },
