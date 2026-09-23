@@ -186,7 +186,13 @@ export function middleware(req: NextRequest) {
   }
 
   // Landing page redirect (kept separate for the /m → /m/home redirect)
-  if (pathname === "/" && isMobileRequest(req)) {
+  // The `__surface` marker is honored here too — without it the adapter's
+  // widen-redirect ("mobile UA + wide viewport" → "/?__surface=1") gets
+  // bounced straight back to "/m", which the adapter re-redirects to "/",
+  // looping forever on a blank page (observed live: foldables, landscape
+  // tablets, devtools device emulation). The adapter is viewport-aware and
+  // is the source of truth for size-based routing.
+  if (pathname === "/" && isMobileRequest(req) && !searchParams.has("__surface")) {
     return NextResponse.redirect(new URL("/m", req.url));
   }
 
