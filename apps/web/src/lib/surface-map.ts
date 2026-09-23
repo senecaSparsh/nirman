@@ -49,7 +49,13 @@ for (const r of ROUTES) {
     // /procurement?tab=returns), the first one (the "hub" without query params)
     // should win for the reverse desktop→mobile mapping. Without this guard,
     // the last route in the manifest overwrites the correct base mapping.
-    if (!desktopToMobile.has(desktopBase)) {
+    // Exception: the literal counterpart route ("/m/stock" ↔ "/stock") always
+    // wins — a detail route that back-maps to a hub's desktopPath (e.g.,
+    // /m/material-issues → /stock) must not steal the hub's forward mapping.
+    const literal = "/m" + desktopBase;
+    if (r.path === literal) {
+      desktopToMobile.set(desktopBase, r.path);
+    } else if (!desktopToMobile.has(desktopBase)) {
       desktopToMobile.set(desktopBase, r.path);
     }
   } else if (r.kind !== "redirect") {
