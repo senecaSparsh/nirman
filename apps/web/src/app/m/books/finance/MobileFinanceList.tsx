@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Wallet, Building2, FileText, Printer, CheckCircle2, XCircle, IndianRupee, ChevronDown } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, formatEnumLabel } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { MobileSectionTitle, MobileRow, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
@@ -329,7 +329,7 @@ export function MobileFinanceList({
                 <MobileRow
                   key={e.id}
                   icon={Wallet}
-                  title={e.category}
+                  title={formatEnumLabel(e.category)}
                   subtitle={`${e.projectName ?? "Company"} · ${formatDate(e.date)}`}
                   meta={formatCurrency(e.amount)}
                 />
@@ -346,7 +346,7 @@ export function MobileFinanceList({
                 <MobileRow
                   key={c.id}
                   icon={Building2}
-                  title={`${c.costType} · ${c.projectName}`}
+                  title={`${formatEnumLabel(c.costType)} · ${c.projectName}`}
                   subtitle={`${c.vendor ?? "—"} · ${formatDate(c.date)}`}
                   meta={formatCurrency(c.amount)}
                 />

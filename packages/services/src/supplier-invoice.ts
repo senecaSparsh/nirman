@@ -240,6 +240,23 @@ export async function createSupplierInvoice(input: {
     });
     if (!supplier) throw new ServiceError("Supplier not found or deleted", 404);
 
+    // 1b. Duplicate-invoice guard — a supplier's invoice number is unique per
+    // their billing. Recording the same bill twice pays it twice.
+    const dupe = await tx.supplierInvoice.findFirst({
+      where: {
+        companyId: input.companyId,
+        supplierId: input.supplierId,
+        invoiceNumber: input.invoiceNumber.trim(),
+      },
+      select: { id: true, status: true },
+    });
+    if (dupe) {
+      throw new ServiceError(
+        `Invoice ${input.invoiceNumber.trim()} is already recorded for this supplier (${dupe.status}). Check the invoice number — the same bill cannot be booked twice.`,
+        409,
+      );
+    }
+
     // 2. Validate PO (if linked) and run three-way match
     let matchStatus: string | null = null;
     let matchNotes: string | null = null;

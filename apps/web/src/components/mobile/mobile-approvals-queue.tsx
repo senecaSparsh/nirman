@@ -20,7 +20,7 @@ import {
  MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
-import { cn, formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { cn, formatCurrency, formatNumber, formatDate, formatEnumLabel } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { useSnooze } from "@/lib/use-snooze";
 import { useConfirm } from "@/lib/use-confirm";
@@ -1179,8 +1179,8 @@ async function approveGp(gp: GatePassRow) {
  isOpen={isOpen}
  onToggle={() => setExpanded(isOpen ? null : `expense:${exp.id}`)}
  icon={Receipt}
- title={exp.description || exp.category}
- subtitle={`${exp.category} · ${formatDate(exp.date)}`}
+ title={exp.description || formatEnumLabel(exp.category)}
+ subtitle={`${formatEnumLabel(exp.category)} · ${formatDate(exp.date)}`}
  meta={formatCurrency(exp.amount)}
  ageAt={exp.createdAt}
  state={state}
