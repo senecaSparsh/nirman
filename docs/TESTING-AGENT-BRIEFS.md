@@ -319,7 +319,7 @@ don't ship a workaround.
 | B      | Devin subagent | test/b-finance     | 2026-09-22 | done — see TESTING-FINDINGS.md |
 | C      | Devin subagent | test/c-hr          | 2026-09-22 | running                        |
 | D      | Devin subagent | test/d-sales       | 2026-09-22 | done — see TESTING-FINDINGS.md |
-| E      |                |                    |            |                                |
+| E      | Devin subagent | main (direct)      | 2026-09-22 | done — see TESTING-FINDINGS.md |
 | F      | (claimed)      | test/f-rbac        |            | done — see TESTING-FINDINGS.md |
-| G      |                |                    |            |                                |
+| G      | Devin subagent | test/g-mobile      | 2026-09-22 | running                        |
 | H      |                |                    |            |                                |
