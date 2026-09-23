@@ -13,7 +13,7 @@ import {
   Trash2,
   FileText,
 } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, formatEnumLabel } from "@/lib/utils";
 import { MobileEmptyState, ActionBar } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import {
@@ -146,7 +146,7 @@ export function MobileExpenseDetailClient(props: Props) {
       {/* ── Hero ── */}
       <DetailHeroCard
         icon={Receipt}
-        title={props.category}
+        title={formatEnumLabel(props.category)}
         status={props.status}
       />
 
@@ -166,7 +166,7 @@ export function MobileExpenseDetailClient(props: Props) {
           { label: "Date", value: formatDate(props.date), mono: true },
           ...(props.projectName ? [{ label: "Project", value: <Link href={`/m/projects/${props.projectId}`} className="underline underline-offset-2 press">{props.projectName}</Link> as React.ReactNode }] : []),
           ...(payee ? [{ label: "Payee", value: payee as React.ReactNode }] : []),
-          ...(props.paymentMode ? [{ label: "Payment Mode", value: PAYMENT_MODE_LABELS[props.paymentMode] ?? props.paymentMode as React.ReactNode }] : []),
+          ...(props.paymentMode ? [{ label: "Payment Mode", value: PAYMENT_MODE_LABELS[props.paymentMode] ?? formatEnumLabel(props.paymentMode) as React.ReactNode }] : []),
           ...(props.referenceNo ? [{ label: "Reference", value: props.referenceNo as React.ReactNode }] : []),
           ...(props.notes ? [{ label: "Notes", value: props.notes as React.ReactNode }] : []),
         ]}

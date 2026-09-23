@@ -110,9 +110,17 @@ export const GET = apiHandler(async (req: NextRequest) => {
       let items: ItemRow[] = [];
 
       if (!isHistorical) {
+        // StockLocationItem scopes through its location — AND-compose so the
+        // nested `location` keys merge instead of clobbering each other.
+        // Verified: a Hillview-scoped user could export Greenfield stock
+        // values before this filter.
+        const sliScope = await scopeWhere("StockLocationItem", {});
         const liveItems = await prisma.stockLocationItem.findMany({
           where: {
-            location: { deletedAt: null, companyId: company.id },
+            AND: [
+              { location: { deletedAt: null, companyId: company.id } },
+              sliScope,
+            ],
             material: { deletedAt: null }},
           include: {
             location: { select: { id: true, name: true, type: true } },

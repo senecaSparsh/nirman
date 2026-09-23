@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { Receipt, Share2, Calendar, Tag, IndianRupee, CreditCard, Building2, FileText } from "lucide-react";
 import Link from "next/link";
-import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate, formatEnumLabel } from "@/lib/utils";
 import { toast } from "sonner";
 import { useLongPress } from "@/lib/use-long-press";
 import {
@@ -83,7 +83,7 @@ export function MobileExpensesList({
   const filterOptions = useMemo(
     () => [
       { label: "All", value: "ALL" },
-      ...categories.map((c) => ({ label: c, value: c })),
+      ...categories.map((c) => ({ label: formatEnumLabel(c), value: c })),
     ],
     [categories],
   );
@@ -233,7 +233,7 @@ function ExpenseCard({ e }: { e: ExpenseListItem }) {
 
   const overviewRows: OverviewRow[] = [
     { icon: Calendar, label: "Date", value: formatDate(e.date) },
-    { icon: Tag, label: "Category", value: e.category },
+    { icon: Tag, label: "Category", value: formatEnumLabel(e.category) },
     { icon: IndianRupee, label: "Amount", value: formatCurrency(e.amount), valueColor: "var(--color-stop)" },
     { icon: CreditCard, label: "Payment Mode", value: e.paymentMode ?? "—" },
     { icon: Building2, label: "Vendor", value: e.supplierName ?? e.payeeName ?? "—" },
@@ -276,7 +276,7 @@ function ExpenseCard({ e }: { e: ExpenseListItem }) {
             {/* Row 1: Category + amount */}
             <div className="flex items-center justify-between gap-1">
               <p className="text-m-label font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
-                {e.category}
+                {formatEnumLabel(e.category)}
               </p>
               <span
                 className="text-m-caption font-bold tabular-nums shrink-0"
@@ -335,7 +335,7 @@ function ExpenseCard({ e }: { e: ExpenseListItem }) {
         open={overviewOpen}
         onClose={() => setOverviewOpen(false)}
         origin={pressPoint}
-        title={e.category}
+        title={formatEnumLabel(e.category)}
         subtitle={formatCurrency(e.amount)}
         accentColor={statusColor}
         rows={overviewRows}
