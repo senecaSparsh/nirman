@@ -43,23 +43,32 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     });
     if (clash) return json({ error: "A department with this code already exists" }, { status: 409 });
   }
-  const updated = await withSerializableTransaction(async (tx) => {
-    const existing = await tx.department.findFirst({ where: { id, companyId: company.id } });
-    if (!existing) throw new Error("Department not found in this company");
-    const dept = await tx.department.update({ where: { id }, data: parsed.data });
-    await logAction(tx, {
-      userId: user.id,
-      action: "DEPARTMENT_UPDATE",
-      entityType: "Department",
-      entityId: id,
-      before: { name: existing.name, code: existing.code },
-      after: { name: dept.name, code: dept.code },
+  try {
+    const updated = await withSerializableTransaction(async (tx) => {
+      const existing = await tx.department.findFirst({ where: { id, companyId: company.id } });
+      if (!existing) throw new Error("Department not found in this company");
+      const dept = await tx.department.update({ where: { id }, data: parsed.data });
+      await logAction(tx, {
+        userId: user.id,
+        action: "DEPARTMENT_UPDATE",
+        entityType: "Department",
+        entityId: id,
+        before: { name: existing.name, code: existing.code },
+        after: { name: dept.name, code: dept.code },
+      });
+      return dept;
     });
-    return dept;
-  });
-  revalidatePath("/departments");
-  revalidatePath("/m/departments");
-  return json(updated);
+    revalidatePath("/departments");
+    revalidatePath("/m/departments");
+    return json(updated);
+  } catch (err: unknown) {
+    // A foreign-tenant or deleted department surfaces as a plain Error from
+    // the transaction — map it to 404, not a 500 leak of internal detail.
+    if (err instanceof Error && err.message.includes("not found")) {
+      return json({ error: "Department not found" }, { status: 404 });
+    }
+    throw err;
+  }
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
