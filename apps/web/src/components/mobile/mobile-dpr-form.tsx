@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { mutate } from "swr";
-import { Plus, X, CheckCircle2, Repeat, Zap, Loader2, Send, MapPin, ScanLine, FolderOpen } from "lucide-react";
+import { Plus, X, CheckCircle2, AlertCircle, Repeat, Zap, Loader2, Send, MapPin, ScanLine, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { SearchableMaterialPicker } from "@/components/mobile/searchable-material-picker";
@@ -26,6 +26,7 @@ type ExistingDpr = {
   id: string;
   projectId: string;
   date: string;
+  approvalStatus: string;
   weather: string | null;
   workSummary: string;
   workType: string | null;
@@ -149,6 +150,12 @@ export function MobileDprForm({
   const [fPhotos, setFPhotos] = useState<{ url: string; fileName?: string }[]>([]);
   const [editingDprId, setEditingDprId] = useState<string | null>(null);
   const [draftRestored, setDraftRestored] = useState(false);
+
+  // The server rejects edits on approved DPRs (409) — surface it upfront so
+  // the user doesn't type changes that can never save.
+  const editingDpr = fProject ? existingDprsByProject[fProject] : undefined;
+  const editingLocked = !!editingDprId && !!editingDpr
+    && (editingDpr.approvalStatus === "APPROVED" || editingDpr.approvalStatus === "SUB_ADMIN_APPROVED");
 
   const [materialLines, setMaterialLines] = useState<MaterialLine[]>([]);
   const [laborLines, setLaborLines] = useState<LaborLine[]>([]);
@@ -663,7 +670,7 @@ export function MobileDprForm({
 
   return (
     <div className="flex flex-col gap-3 pb-32">
-      {editingDprId && (
+      {editingDprId && !editingLocked && (
         <div
           className="flex items-center gap-2 rounded-[0.5rem] border p-2.5 text-m-caption font-semibold"
           style={{
@@ -674,6 +681,19 @@ export function MobileDprForm({
         >
           <CheckCircle2 className="size-3.5" />
           DPR for {fDate} already exists — editing
+        </div>
+      )}
+      {editingLocked && (
+        <div
+          className="flex items-center gap-2 rounded-[0.5rem] border p-2.5 text-m-caption font-semibold"
+          style={{
+            borderColor: "color-mix(in srgb, var(--color-stop) 30%, transparent)",
+            backgroundColor: "color-mix(in srgb, var(--color-stop) 8%, transparent)",
+            color: "var(--color-stop)",
+          }}
+        >
+          <AlertCircle className="size-3.5" />
+          DPR for {fDate} is already approved — reject it to make changes
         </div>
       )}
 
@@ -1057,7 +1077,7 @@ export function MobileDprForm({
           <button
             type="button"
             onClick={submit}
-            disabled={submitting}
+            disabled={submitting || editingLocked}
             className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >

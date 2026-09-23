@@ -29,6 +29,7 @@ export function MobileDprsFab({
     id: string;
     projectId: string;
     date: string;
+    approvalStatus: string;
     weather: string | null;
     workSummary: string;
     workType: string | null;

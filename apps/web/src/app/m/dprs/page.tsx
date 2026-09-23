@@ -137,6 +137,7 @@ async function fetchDprFormData(companyId: string) {
     id: string;
     projectId: string;
     date: string;
+    approvalStatus: string;
     weather: string | null;
     workSummary: string;
     workType: string | null;
@@ -154,6 +155,7 @@ async function fetchDprFormData(companyId: string) {
       id: d.id,
       projectId: d.projectId,
       date: d.date.toISOString().slice(0, 10),
+      approvalStatus: d.approvalStatus,
       weather: d.weather,
       workSummary: d.workSummary,
       workType: d.workType,
