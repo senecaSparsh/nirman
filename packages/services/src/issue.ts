@@ -631,6 +631,13 @@ export async function cancelMaterialIssue(id: string, userId?: string) {
       await reverseJournalEntry(tx, je.id, { postedById: userId, memo: `Reversal of ${je.memo}` });
     }
 
+    // Cancel any still-pending linked gate pass — a cancelled issue must not
+    // leave a PENDING pass in the guard queue (same cascade as supplier returns).
+    await tx.gatePass.updateMany({
+      where: { refType: "MaterialIssue", refId: issue.id, status: "PENDING" },
+      data: { status: "CANCELLED" },
+    });
+
     // Mark as cancelled
     const updated = await tx.materialIssue.update({
       where: { id: issue.id },
