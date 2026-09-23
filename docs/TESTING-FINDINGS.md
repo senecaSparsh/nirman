@@ -899,3 +899,16 @@ Round 10 (final): same saleId-drift hole patched across portal-listings,
 rentals, real-estate, and desktop sales pickers. Portal-listing create
 verified end-to-end (unit picker excludes sold units → listing DRAFT).
 Full suite: 2,487/2,487 green.
+
+Round 11 — remaining surfaces verified through real UI interactions:
+
+- Expense create → PENDING in approval queue; guards verified: cannot
+  self-reject own expense, cannot delete PENDING (must reject first).
+- Equipment register → E2E-EQ-001 persisted (₹25K Power Tool) → deleted.
+- Task assign → persisted PENDING to Ravi → deleted.
+- Supplier-return form renders complete (supplier/location/items/reason/
+  dispatch-vehicle/photo/credit); validation toasts on missing fields.
+- WBS tree renders per-project phases with progress.
+- Telephony inventory renders number statuses (Active/Recycled) + consent.
+- Rate-contracts empty state + create FAB present.
+- /m/permissions is legal-docs (land NOCs), not role perms — by design.
