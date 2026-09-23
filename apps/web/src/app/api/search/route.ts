@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, getUserPermissions, json, requireUser, scopeWhere } from "@/lib/server";
+import { apiHandler, getAssignedProjectIds, getCompany, getUserPermissions, getUserScope, json, requireUser, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -43,6 +43,31 @@ export const GET = apiHandler(async (req: NextRequest) => {
       scopeWhere("Employee"),
       scopeWhere("MaterialSale"),
     ]);
+
+  // Transfers aren't in SCOPE_FIELDS — the same endpoint-location rule the
+  // /api/transfers routes apply: visible when either end is in scope.
+  const scope = await getUserScope();
+  let transferScope: Record<string, unknown> = {};
+  if (scope.scopeType === "DEPARTMENT") {
+    transferScope = scope.departmentIds.length
+      ? {
+          OR: [
+            { fromLocation: { departmentId: { in: scope.departmentIds } } },
+            { toLocation: { departmentId: { in: scope.departmentIds } } },
+          ],
+        }
+      : { id: { in: [] } }; // scoped but nothing assigned — see nothing
+  } else if (scope.scopeType === "PROJECT") {
+    const eff = (await getAssignedProjectIds()) ?? [];
+    transferScope = eff.length
+      ? {
+          OR: [
+            { fromLocation: { projectId: { in: eff } } },
+            { toLocation: { projectId: { in: eff } } },
+          ],
+        }
+      : { id: { in: [] } };
+  }
   // Desktop routes differ from mobile per type (some entities have no desktop
   // detail page — link those to the list instead of a dead /m/ deep link).
   const desktop = req.nextUrl.searchParams.get("surface") === "desktop";
@@ -78,7 +103,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
     transfers,
   ] = await Promise.all([
     // Material is company-scoped (Material.companyId). Filter directly.
-    prisma.material.findMany({
+    // inventory.view gate — the catalogue page requires it; search must not
+    // be a side-channel for roles that can't open /materials.
+    !has(PERM.INVENTORY_VIEW) ? [] : prisma.material.findMany({
       where: { companyId, name: contains, deletedAt: null },
       take: 5,
       select: { id: true, name: true, code: true, unit: true },
@@ -88,7 +115,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       take: 5,
       select: { id: true, name: true },
     }),
-    prisma.supplier.findMany({
+    !has(PERM.PROCUREMENT_VIEW) ? [] : prisma.supplier.findMany({
       where: { companyId, name: contains, deletedAt: null },
       take: 5,
       select: { id: true, name: true },
@@ -110,7 +137,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
       take: 5,
       select: { id: true, reqNumber: true, status: true },
     }),
-    prisma.customer.findMany({
+    // Customers live under /sales — PII (name + phone) needs sales.view.
+    !has(PERM.SALES_VIEW) ? [] : prisma.customer.findMany({
       where: { companyId, name: contains, deletedAt: null },
       take: 5,
       select: { id: true, name: true, phone: true },
@@ -135,21 +163,28 @@ export const GET = apiHandler(async (req: NextRequest) => {
       take: 5,
       select: { id: true, name: true, designation: true },
     }),
-    prisma.equipment.findMany({
+    !has(PERM.ASSETS_VIEW) ? [] : prisma.equipment.findMany({
       where: { companyId, name: contains, deletedAt: null },
       take: 5,
       select: { id: true, name: true, status: true },
     }),
-    !has(PERM.FINANCE_VIEW) ? [] : prisma.materialSale.findMany({
+    !(has(PERM.FINANCE_VIEW) || has(PERM.SALES_VIEW)) ? [] : prisma.materialSale.findMany({
       where: { companyId, saleNumber: contains, ...scopeSale },
       take: 5,
       select: { id: true, saleNumber: true, status: true },
     }),
-    prisma.stockTransfer.findMany({
+    !has(PERM.INVENTORY_VIEW) ? [] : prisma.stockTransfer.findMany({
       where: {
-        OR: [
-          { fromLocation: { companyId, name: contains } },
-          { toLocation: { companyId, name: contains } },
+        // AND-composed: the endpoint-OR is the name+company match, the scope
+        // OR is tenancy — spreading a second `OR` key would silently drop one.
+        AND: [
+          {
+            OR: [
+              { fromLocation: { companyId, name: contains } },
+              { toLocation: { companyId, name: contains } },
+            ],
+          },
+          transferScope,
         ],
       },
       take: 5,
