@@ -894,3 +894,8 @@ Round 10 (cont): quotation-request create → QR-260923-0001 persisted with
 500 KG TMT line (HSN/GST auto-carried) → cancelled cleanly. Notification
 settings: stats + prefs/templates/log tabs all render; sale-cancel
 broadcast real SENT entries to stakeholders. Settings hub verified.
+
+Round 10 (final): same saleId-drift hole patched across portal-listings,
+rentals, real-estate, and desktop sales pickers. Portal-listing create
+verified end-to-end (unit picker excludes sold units → listing DRAFT).
+Full suite: 2,487/2,487 green.
