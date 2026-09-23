@@ -73,7 +73,9 @@ export default function GlobalError({
                 color: "#6b7280",
               }}
             >
-              {error.message || "A critical error occurred while loading the application."}
+              {error.message && error.message.length < 90 && !/[{}<>]|undefined|null is not/i.test(error.message)
+                ? error.message
+                : "Something went wrong — please try again. If it keeps happening, share the error ID below."}
             </p>
             {error.digest && (
               <p style={{ marginTop: "0.25rem", fontSize: "0.75rem", color: "#9ca3af" }}>

@@ -835,7 +835,7 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
             {passkeyLoading ? (
               <div className="flex items-center gap-2 text-m-body" style={{ color: "var(--color-ink-500)" }}>
                 <Loader2 className="size-3.5 animate-spin" />
-                Loading…
+                Loading devices…
               </div>
             ) : passkeys.length > 0 ? (
               <div className="mb-3 rounded-[0.625rem] border divide-y" style={{ borderColor: "var(--color-line)" }}>

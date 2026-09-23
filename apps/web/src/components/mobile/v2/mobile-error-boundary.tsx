@@ -31,7 +31,9 @@ export default function MobileErrorBoundary({
         Something went wrong
       </h2>
       <p className="text-m-body mb-1" style={{ color: "var(--color-ink-500)" }}>
-        {error.message || "An unexpected error occurred."}
+        {error.message && error.message.length < 90 && !/[{}<>]|undefined|null is not/i.test(error.message)
+          ? error.message
+          : "This page hit a snag — try again, or head home and come back."}
       </p>
       {error.digest ? (
         <p className="text-m-caption font-mono mb-4" style={{ color: "var(--color-ink-300)" }}>

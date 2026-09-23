@@ -34,7 +34,9 @@ export default function RootError({
         </div>
         <h2 className="text-lg font-semibold">Something went wrong</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          {error.message || "An unexpected error occurred. Your data is safe — try again."}
+          {error.message && error.message.length < 90 && !/[{}<>]|undefined|null is not/i.test(error.message)
+            ? error.message
+            : "An unexpected error occurred. Your data is safe — try again."}
         </p>
         {error.digest && (
           <p className="mt-1 text-xs text-muted-foreground/60">

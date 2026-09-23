@@ -3749,7 +3749,7 @@ function SalaryHistoryTimeline({ employeeId }: { employeeId: string }) {
           <p className="text-m-label font-semibold uppercase tracking-wider" style={{ color: "var(--color-ink-400)" }}>
             Salary History
           </p>
-          <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-400)" }}>Loading...</p>
+          <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-400)" }}>Loading salary history…</p>
         </div>
       </div>
     );
