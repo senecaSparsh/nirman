@@ -1752,7 +1752,9 @@ function ApprovalCard({
          color: stale ? "var(--color-danger, #dc2626)" : "var(--color-warning, #d97706)",
        }}
      >
-       {waitHrs < 48 ? `${Math.floor(waitHrs)}h` : `${Math.floor(waitHrs / 24)}d`}
+       {waitHrs < 48
+        ? `${Math.floor(waitHrs)} hr${Math.floor(waitHrs) === 1 ? "" : "s"}`
+        : `${Math.floor(waitHrs / 24)} day${Math.floor(waitHrs / 24) === 1 ? "" : "s"}`}
      </span>
    );
  })()}
