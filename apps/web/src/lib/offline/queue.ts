@@ -313,6 +313,17 @@ export function syncQueue(
       if (result.remaining >= lastRemaining) break;
       lastRemaining = result.remaining;
     }
+    // Tell the user their queued work landed — runs once per actual sync
+    // (inflightSync dedupes concurrent callers), and the badge count
+    // dropping is too subtle for someone who queued items in the field.
+    if (result.completed > 0 && typeof window !== "undefined") {
+      const { toast } = await import("sonner");
+      toast.success(
+        result.failed > 0
+          ? `Synced ${result.completed} item${result.completed !== 1 ? "s" : ""} — ${result.failed} still pending`
+          : `Synced ${result.completed} queued item${result.completed !== 1 ? "s" : ""}`,
+      );
+    }
     return result;
   })().finally(() => {
     inflightSync = null;
