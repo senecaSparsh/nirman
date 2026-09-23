@@ -514,7 +514,16 @@ export async function assertGatePassApproved(refType: string, refId: string): Pr
       403,
     );
   }
-  const notApproved = gatePasses.filter((gp) => gp.status !== "APPROVED" && gp.status !== "EXITED");
+  // Dead passes (CANCELLED/REJECTED) don't block — the caller can re-issue
+  // a fresh gate pass. Only live passes gate the exit.
+  const live = gatePasses.filter((gp) => gp.status !== "CANCELLED" && gp.status !== "REJECTED");
+  if (live.length === 0) {
+    throw new ServiceError(
+      `No active gate pass for ${refType} — a new pass must be issued before items can leave.`,
+      403,
+    );
+  }
+  const notApproved = live.filter((gp) => gp.status !== "APPROVED" && gp.status !== "EXITED");
   if (notApproved.length > 0) {
     const first = notApproved[0]!;
     throw new ServiceError(

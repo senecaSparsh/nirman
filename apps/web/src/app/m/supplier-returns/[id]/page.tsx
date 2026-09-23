@@ -66,6 +66,7 @@ export default function MobileSupplierReturnDetailPage({
         const gatePass = ret.status === "SUBMITTED"
           ? await prisma.gatePass.findFirst({
               where: {...await scopeWhere("GatePass"),  refType: "SupplierReturn", refId: ret.id },
+              orderBy: { createdAt: "desc" },
               select: { id: true, gatePassNumber: true, status: true },
             })
           : null;
@@ -130,7 +131,9 @@ export default function MobileSupplierReturnDetailPage({
               ? "approved — ready to complete."
               : gatePass?.status === "REJECTED"
                 ? "rejected — resubmit or cancel the gate pass."
-                : `${gatePass?.status}`;
+                : gatePass?.status === "CANCELLED"
+                  ? "cancelled — issue a new gate pass before completing."
+                  : `${gatePass?.status}`;
 
         return (
           <PageContextProvider value={{

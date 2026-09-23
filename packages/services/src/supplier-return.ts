@@ -302,6 +302,14 @@ export async function cancelSupplierReturn(returnId: string, userId?: string) {
     const ret = await tx.supplierReturn.findUnique({ where: { id: returnId } });
     if (!ret) throw new ServiceError("Return not found", 404);
     if (ret.status === "COMPLETED") throw new ServiceError("Cannot cancel a completed return");
+
+    // Cancel the auto-created gate pass if it's still awaiting approval —
+    // otherwise it sits PENDING forever for a dead return and blocks nothing.
+    await tx.gatePass.updateMany({
+      where: { refType: "SupplierReturn", refId: returnId, status: { in: ["PENDING", "DRAFT"] } },
+      data: { status: "CANCELLED" },
+    });
+
     const updated = await tx.supplierReturn.update({ where: { id: returnId }, data: { status: "CANCELLED" } });
     await logAction(tx, {
       userId,

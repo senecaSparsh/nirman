@@ -82,7 +82,7 @@ export default function MobileNewSupplierReturnClient({
   // Vehicle — how returned goods are transported back to supplier
   const [vehicle, setVehicle] = useState<VehicleData>({ vehicleNumber: "", vehicleType: "" });
 
-  const [success, setSuccess] = useState<{ returnId?: string; returnNumber: string; total: number } | null>(null);
+  const [success, setSuccess] = useState<{ returnId?: string; returnNumber: string; total: number; submitted?: boolean } | null>(null);
 
   // ── Draft auto-save (IndexedDB) ──
   useEffect(() => {
@@ -184,7 +184,7 @@ export default function MobileNewSupplierReturnClient({
         throw new Error(err.error ?? "Failed to create supplier return");
       }
       const data = await res.json();
-      setSuccess({ returnId: data.id, returnNumber: data.returnNumber, total });
+      setSuccess({ returnId: data.id, returnNumber: data.returnNumber, total, submitted: data.submitted === true });
       clearDraft();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create supplier return");
@@ -226,7 +226,9 @@ export default function MobileNewSupplierReturnClient({
               {formatCurrency(success.total)}
             </p>
             <p className="text-m-caption mb-4" style={{ color: "var(--color-ink-700)" }}>
-              Return is in <span className="font-bold" style={{ color: "var(--color-ink-700)" }}>DRAFT</span>. Submit for processing from the detail page.
+              {success.submitted
+                ? "Return submitted for processing."
+                : <>Return is in <span className="font-bold" style={{ color: "var(--color-ink-700)" }}>DRAFT</span>. Submit for processing from the detail page.</>}
             </p>
           </>
         )}
@@ -752,7 +754,7 @@ function ReturnForm({
             ) : (
               <>
                 {online ? <Send className="size-3.5" /> : <WifiOff className="size-3.5" />}
-                <span>{online ? "Create Draft Return" : "Queue Offline"}</span>
+                <span>{online ? "Create Return" : "Queue Offline"}</span>
               </>
             )}
           </button>
