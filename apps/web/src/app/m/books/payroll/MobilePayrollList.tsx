@@ -2,9 +2,9 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarCheck, ChevronDown, Loader2 } from "lucide-react";
+import { CalendarCheck, ChevronDown, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatEnumLabel } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { MobileSectionTitle, MobileRow, MobileStatusBadge } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileFilterIcon, MobileNoResults } from "@/components/mobile/v2/scaffold";
@@ -21,6 +21,17 @@ export type PayrollListItem = {
 };
 
 type PayrollFilter = "ALL" | "DRAFT" | "PAID" | "PROCESSED";
+
+type PayrollLineView = {
+  id: string;
+  employeeName: string;
+  trade: string | null;
+  designation: string | null;
+  daysWorked: number;
+  grossPay: number;
+  totalDeductions: number;
+  netPay: number;
+};
 
 const FILTER_CHIPS: { label: string; value: PayrollFilter }[] = [
   { label: "All", value: "ALL" },
@@ -55,6 +66,19 @@ export function MobilePayrollList({
   const [statusFilter, setStatusFilter] = useState<PayrollFilter>("ALL");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
+  const [lineCache, setLineCache] = useState<Record<string, PayrollLineView[] | "loading">>({});
+
+  function toggleExpanded(id: string) {
+    const next = expandedId === id ? null : id;
+    setExpandedId(next);
+    if (next && !lineCache[next]) {
+      setLineCache((c) => ({ ...c, [next]: "loading" }));
+      fetch(`/api/payroll/${next}`)
+        .then((r) => (r.ok ? r.json() : Promise.reject()))
+        .then((d) => setLineCache((c) => ({ ...c, [next]: d.lines ?? [] })))
+        .catch(() => setLineCache((c) => ({ ...c, [next]: [] })));
+    }
+  }
 
   async function periodAction(id: string, action: "process" | "pay") {
     setActing(true);
@@ -132,7 +156,7 @@ export function MobilePayrollList({
               <div key={p.id} className="rounded-[0.625rem] border" style={{ borderColor: "var(--color-line)" }}>
                 <div
                   className="press cursor-pointer"
-                  onClick={() => { haptic(5); setExpandedId(expanded ? null : p.id); }}
+                  onClick={() => { haptic(5); toggleExpanded(p.id); }}
                 >
                   <MobileRow
                     icon={CalendarCheck}
@@ -160,6 +184,48 @@ export function MobilePayrollList({
                       <span>Net payable</span>
                       <span className="font-bold" style={{ color: "var(--color-ink-950)" }}>{formatCurrency(p.totalNet)}</span>
                     </div>
+                    {(() => {
+                      const lines = lineCache[p.id];
+                      if (lines === "loading" || lines === undefined) {
+                        return (
+                          <div className="flex items-center gap-2 py-2 text-m-caption" style={{ color: "var(--color-ink-400)" }}>
+                            <Loader2 className="size-3.5 animate-spin" /> Loading salary breakdown…
+                          </div>
+                        );
+                      }
+                      if (lines.length === 0) return null;
+                      return (
+                        <div className="rounded-[0.5rem] border overflow-hidden" style={{ borderColor: "var(--color-line)" }}>
+                          {lines.map((l, i) => (
+                            <div
+                              key={l.id}
+                              className="flex items-center gap-2 px-2.5 py-2"
+                              style={{ borderTop: i === 0 ? undefined : "1px solid var(--color-line)" }}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="text-m-label font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
+                                  {l.employeeName}
+                                </p>
+                                <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                                  {formatEnumLabel(l.trade ?? l.designation ?? "")} · {l.daysWorked} day{l.daysWorked === 1 ? "" : "s"} · gross {formatCurrency(l.grossPay)}
+                                </p>
+                              </div>
+                              <p className="text-m-label font-bold tabular-nums shrink-0" style={{ color: "var(--color-ink-950)" }}>
+                                {formatCurrency(l.netPay)}
+                              </p>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); window.open(`/print/payslip/${l.id}`, "_blank"); }}
+                                aria-label={`Payslip for ${l.employeeName}`}
+                                title="View payslip"
+                                className="shrink-0 p-1 press"
+                              >
+                                <FileText className="size-3.5" style={{ color: "var(--color-ink-500)" }} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
                     <div className="flex gap-2">
                       {canManage && p.status === "DRAFT" ? (
                         <button

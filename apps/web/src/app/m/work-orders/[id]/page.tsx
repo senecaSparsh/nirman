@@ -3,7 +3,7 @@ import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
-import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber, formatEnumLabel } from "@/lib/utils";
 import {
   MobileEmptyState,
   MobileStatusBadge,
@@ -148,7 +148,7 @@ export default function MobileWorkOrderDetailPage({
               entries={[
                 { label: "Retention %", value: `${toNum(wo.retentionPct)}%` },
                 { label: "TDS %", value: `${toNum(wo.tdsPct)}%` },
-                { label: "TDS Category", value: wo.tdsCategory.replace(/_/g, " ") },
+                { label: "TDS Category", value: formatEnumLabel(wo.tdsCategory) },
                 { label: "Advance Recovery", value: `${toNum(wo.advanceRecoveryPct)}%` },
                 { label: "Defect Liability", value: `${wo.defectLiabilityMonths} months` },
               ]}

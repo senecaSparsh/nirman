@@ -13,7 +13,7 @@ import { PageLoading } from "@/components/page-loading";
 import { StatusPill } from "@/components/page";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
-import { actionPastTense, cn, formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { actionPastTense, cn, formatCurrency, formatDate, formatNumber, formatEnumLabel } from "@/lib/utils";
 import type { ProjectOption } from "@/lib/types";
 import {
   HardHat,
@@ -221,7 +221,7 @@ function printCertificate(detail: RaBillDetailData, raBillNumber: string) {
   <div class="deductions">
     <table>
       <tr><td>Retention (${wo.retentionPct}%)</td><td style="text-align:right">${formatCurrency(detail.retentionAmount)}</td></tr>
-      <tr><td>TDS (${wo.tdsPct}% — ${wo.tdsCategory})</td><td style="text-align:right">${formatCurrency(detail.tdsAmount)}</td></tr>
+      <tr><td>TDS (${wo.tdsPct}% — ${formatEnumLabel(wo.tdsCategory)})</td><td style="text-align:right">${formatCurrency(detail.tdsAmount)}</td></tr>
       <tr><td>Advance Recovery</td><td style="text-align:right">${formatCurrency(detail.advanceRecovery)}</td></tr>
       ${detail.otherDeductions > 0 ? `<tr><td>Other Deductions</td><td style="text-align:right">${formatCurrency(detail.otherDeductions)}</td></tr>` : ""}
       <tr class="total-row"><td>Total Deductions</td><td style="text-align:right">${formatCurrency(detail.retentionAmount + detail.tdsAmount + detail.advanceRecovery + detail.otherDeductions)}</td></tr>
@@ -654,7 +654,7 @@ function WorkOrderDetailDialog({
                   <div className="tabular-nums font-medium">{detail.retentionPct}%</div>
                 </div>
                 <div className="rounded-md bg-muted/30 px-3 py-2">
-                  <div className="text-[10px] text-muted-foreground mb-0.5">TDS <span className="text-[9px]">({detail.tdsCategory})</span></div>
+                  <div className="text-[10px] text-muted-foreground mb-0.5">TDS <span className="text-[9px]">({formatEnumLabel(detail.tdsCategory)})</span></div>
                   <div className="tabular-nums font-medium">{detail.tdsPct}%</div>
                 </div>
                 <div className="rounded-md bg-muted/30 px-3 py-2">

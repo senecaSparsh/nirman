@@ -43,7 +43,7 @@ export default async function PayslipPage({ params }: { params: Promise<{ id: st
       AND: canSeePayroll ? [await scopeWhere("PayrollLine")] : [],
     },
     include: {
-      payrollPeriod: { select: { month: true, year: true, status: true } },
+      payrollPeriod: { select: { month: true, year: true, status: true, paidAt: true } },
       components: { orderBy: [{ isDeduction: "asc" }, { createdAt: "asc" }] },
       employee: {
         select: {
@@ -187,7 +187,14 @@ export default async function PayslipPage({ params }: { params: Promise<{ id: st
             {line.paidBy && <> · recorded by {line.paidBy.name}</>}
           </div>
         )}
-        {!line.paymentDate && <div className="italic">Payment pending — {line.payrollPeriod.status.toLowerCase()} payroll.</div>}
+        {!line.paymentDate && line.payrollPeriod.status === "PAID" && (
+          <div>
+            Paid on <span className="font-semibold text-black">{formatDate(line.payrollPeriod.paidAt)}</span> — settled with this payroll.
+          </div>
+        )}
+        {!line.paymentDate && line.payrollPeriod.status !== "PAID" && (
+          <div className="italic">Payment pending — {line.payrollPeriod.status.toLowerCase()} payroll.</div>
+        )}
         {e.bankAccountNumber && (
           <div>Salary account: {e.bankName ?? "Bank"} A/c ••••{e.bankAccountNumber.slice(-4)} {e.bankIfsc ? `· ${e.bankIfsc}` : ""}</div>
         )}
