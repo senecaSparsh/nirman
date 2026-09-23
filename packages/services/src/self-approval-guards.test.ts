@@ -367,7 +367,7 @@ describe("verifyMbEntry — self-verification guard", () => {
   it("throws 403 when verifier is the measurer", async () => {
     const tx = makeMockTx({
       measurementBookEntry: {
-        findUnique: vi.fn().mockResolvedValue({
+        findFirst: vi.fn().mockResolvedValue({
           id: "mb-1",
           status: "DRAFT",
           measuredById: "user-1",
@@ -384,7 +384,7 @@ describe("verifyMbEntry — self-verification guard", () => {
   it("allows verification when verifier differs from measurer", async () => {
     const tx = makeMockTx({
       measurementBookEntry: {
-        findUnique: vi.fn().mockResolvedValue({
+        findFirst: vi.fn().mockResolvedValue({
           id: "mb-1",
           status: "DRAFT",
           measuredById: "user-2",
@@ -403,7 +403,7 @@ describe("approveMbEntry — self-approval guard", () => {
   it("throws 403 when approver is the measurer", async () => {
     const tx = makeMockTx({
       measurementBookEntry: {
-        findUnique: vi.fn().mockResolvedValue({
+        findFirst: vi.fn().mockResolvedValue({
           id: "mb-1",
           status: "VERIFIED",
           measuredById: "user-1",
@@ -420,7 +420,7 @@ describe("approveMbEntry — self-approval guard", () => {
   it("allows approval when approver differs from measurer", async () => {
     const tx = makeMockTx({
       measurementBookEntry: {
-        findUnique: vi.fn().mockResolvedValue({
+        findFirst: vi.fn().mockResolvedValue({
           id: "mb-1",
           status: "VERIFIED",
           measuredById: "user-2",
@@ -444,7 +444,7 @@ describe("rejectMbEntry — self-rejection guard", () => {
   it("throws 403 when rejecter is the measurer", async () => {
     const tx = makeMockTx({
       measurementBookEntry: {
-        findUnique: vi.fn().mockResolvedValue({
+        findFirst: vi.fn().mockResolvedValue({
           id: "mb-1",
           status: "DRAFT",
           measuredById: "user-1",
@@ -461,7 +461,7 @@ describe("rejectMbEntry — self-rejection guard", () => {
   it("allows rejection when rejecter differs from measurer", async () => {
     const tx = makeMockTx({
       measurementBookEntry: {
-        findUnique: vi.fn().mockResolvedValue({
+        findFirst: vi.fn().mockResolvedValue({
           id: "mb-1",
           status: "DRAFT",
           measuredById: "user-2",
