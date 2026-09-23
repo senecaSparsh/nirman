@@ -34,7 +34,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
       ],
       // Cancelled issues moved no stock — including them overstated the
       // register by 5 rows / ₹2,090 (verified against raw DB sums).
-      cancelledAt: null,
+      // status is authoritative: some cancelled rows have cancelledAt=null.
+      status: { not: "CANCELLED" },
       ...dateFilter,
       ...await scopeWhere("MaterialIssue", {}),
     },
