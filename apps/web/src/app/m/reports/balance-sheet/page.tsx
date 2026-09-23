@@ -103,7 +103,7 @@ async function MobileBalanceSheetContent() {
           { label: "Assets", value: formatCurrencyCompact(totalAssets), tone: "go" },
           { label: "Liabilities", value: formatCurrencyCompact(totalLiabilities), tone: "stop" },
           { label: "Equity", value: formatCurrencyCompact(totalEquity) },
-          { label: isBalanced ? "Balanced" : "Δ", value: isBalanced ? "✓" : formatCurrencyCompact(Math.abs(totalAssets - totalLiabEquity)), tone: isBalanced ? "go" : "stop" },
+          { label: isBalanced ? "Balanced" : "Off by", value: isBalanced ? "✓" : formatCurrencyCompact(Math.abs(totalAssets - totalLiabEquity)), tone: isBalanced ? "go" : "stop" },
         ]}
       />
 

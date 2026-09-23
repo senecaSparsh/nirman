@@ -334,7 +334,7 @@ export function MobileNewChangeOrderForm({
         >
           <div>
             <label className={labelClass} style={labelStyle}>
-              Schedule Δ (days)
+              Schedule change (days)
             </label>
             <input
               type="number"

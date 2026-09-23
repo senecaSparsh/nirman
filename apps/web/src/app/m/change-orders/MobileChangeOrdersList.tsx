@@ -163,7 +163,7 @@ function ChangeOrderCard({ co: c }: { co: ChangeOrderListItem }) {
         </div>
         <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
         <div>
-          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Cost Δ</p>
+          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Cost change</p>
           <p
             className="text-m-label font-bold tabular-nums flex items-center gap-0.5"
             style={{

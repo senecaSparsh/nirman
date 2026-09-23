@@ -1853,7 +1853,7 @@ function ParcelCard({
           {/* Gain */}
           <div className="ml-auto text-right">
             <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
-              Δ
+              Gain
             </p>
             <p
               className="text-m-body font-bold tabular-nums flex items-center justify-end gap-0.5"
@@ -2159,7 +2159,7 @@ function BuiltUnitCard({ unit: u, unitShort }: { unit: BuiltUnit; unitShort: str
 
           <div className="ml-auto text-right">
             <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
-              Δ
+              Gain
             </p>
             <p
               className="text-m-body font-bold tabular-nums flex items-center justify-end gap-0.5"

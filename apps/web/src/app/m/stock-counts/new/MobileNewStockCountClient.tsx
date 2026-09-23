@@ -439,7 +439,7 @@ export default function MobileNewStockCountClient({ onClose, onCreated }: { onCl
                         {line.materialName}
                       </p>
                       <p className="text-m-caption" style={{ color: "var(--color-ink-700)" }}>
-                        {line.materialCode} · sys: {formatNumber(line.systemQty, 0)} {line.unit}
+                        {line.materialCode} · books: {formatNumber(line.systemQty, 0)} {line.unit}
                       </p>
                     </div>
                     <button
@@ -548,7 +548,7 @@ export default function MobileNewStockCountClient({ onClose, onCreated }: { onCl
             </p>
             {varianceSummary.mismatches > 0 ? (
               <p className="text-m-caption" style={{ color: "var(--color-ink-700)" }}>
-                net Δ {varianceSummary.netVariance > 0 ? "+" : ""}{formatNumber(varianceSummary.netVariance, 0)}
+                net diff {varianceSummary.netVariance > 0 ? "+" : ""}{formatNumber(varianceSummary.netVariance, 0)}
               </p>
             ) : null}
           </div>

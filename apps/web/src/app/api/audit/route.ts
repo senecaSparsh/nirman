@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma, type Prisma } from "@nirman/db";
-import { apiHandler, getActingRole, json, requirePermission } from "@/lib/server";
+import { apiHandler, getActingRole, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -34,6 +34,15 @@ export const GET = apiHandler(async (req: NextRequest) => {
   // (company switch, companies superuser list) which stay on real role.
   const actingRole = await getActingRole();
   const isSuperuser = actingRole === "OWNER" || actingRole === "ADMIN";
+  // Tenancy anchor is the ACTIVE company (session membership), not the
+  // legacy global User.companyId — a user holding memberships in several
+  // companies can have a stale/global companyId pointing at another tenant.
+  let activeCompanyId: string | null = null;
+  try {
+    activeCompanyId = (await getCompany()).id;
+  } catch {
+    activeCompanyId = user.companyId ?? null;
+  }
 
   // "All Activity" view — admin-scoped, no entityType required
   if (all) {
@@ -57,13 +66,13 @@ export const GET = apiHandler(async (req: NextRequest) => {
       }
     }
 
-    if (user.companyId) {
+    if (activeCompanyId) {
       // Legacy rows with companyId=null are only tenant-safe when the actor
       // belongs to this company — otherwise a Company A admin could read
       // Company B's unattributed audit history.
       where.OR = [
-        { companyId: user.companyId },
-        { companyId: null, user: { memberships: { some: { companyId: user.companyId } } } },
+        { companyId: activeCompanyId },
+        { companyId: null, user: { memberships: { some: { companyId: activeCompanyId } } } },
       ];
     }
 
@@ -109,10 +118,10 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const where: Prisma.AuditLogWhereInput = { entityType };
   if (entityId) where.entityId = entityId;
 
-  if (user.companyId) {
+  if (activeCompanyId) {
     where.OR = [
-      { companyId: user.companyId },
-      { companyId: null, user: { memberships: { some: { companyId: user.companyId } } } },
+      { companyId: activeCompanyId },
+      { companyId: null, user: { memberships: { some: { companyId: activeCompanyId } } } },
     ];
   } else if (!isSuperuser) {
     return json({ rows: [], hasMore: false, nextCursor: null });

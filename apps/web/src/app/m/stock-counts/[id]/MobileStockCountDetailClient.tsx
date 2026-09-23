@@ -147,7 +147,7 @@ export function MobileStockCountDetailClient({
           { label: "Matched", value: String(count.itemsMatched), tone: "go" },
           { label: "Mismatch", value: String(count.itemsWithVariance), tone: count.itemsWithVariance > 0 ? "signal" : "go" },
           {
-            label: "Net Δ",
+            label: "Net diff",
             value: `${count.totalVariance > 0 ? "+" : ""}${formatNumber(count.totalVariance, 0)}`,
             tone: count.totalVariance < 0 ? "stop" : count.totalVariance > 0 ? "signal" : "go",
           },
@@ -218,7 +218,7 @@ export function MobileStockCountDetailClient({
                   {/* System vs Counted */}
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
-                      sys: {formatNumber(l.systemQty, 0)} {l.materialUnit}
+                      books: {formatNumber(l.systemQty, 0)} {l.materialUnit}
                     </span>
                     <span style={{ color: "var(--color-line)" }}>→</span>
                     <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
