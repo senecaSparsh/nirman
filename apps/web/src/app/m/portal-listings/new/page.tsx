@@ -19,6 +19,9 @@ export default function MobileNewPortalListingPage() {
             project: { companyId: company.id },
             deletedAt: null,
             status: "AVAILABLE",
+            // A unit can drift to AVAILABLE while saleId-locked (pending sale)
+            // — never offer it for a new listing.
+            saleId: null,
           },
           orderBy: { unitNumber: "asc" },
           select: {

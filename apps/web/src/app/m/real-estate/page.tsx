@@ -398,10 +398,10 @@ async function RealEstateRentalsTab() {
       include: {
         payments: { orderBy: { dueDate: "desc" }, select: { amount: true, dueDate: true, status: true, paymentDate: true } }}}),
     prisma.builtUnit.findMany({
-      where: {...await scopeWhere("BuiltUnit"),  project: { companyId: company.id }, deletedAt: null, status: { in: ["AVAILABLE", "UNDER_CONSTRUCTION"] } },
+      where: {...await scopeWhere("BuiltUnit"),  project: { companyId: company.id }, deletedAt: null, status: { in: ["AVAILABLE", "UNDER_CONSTRUCTION"] }, saleId: null },
       select: { id: true, unitNumber: true, project: { select: { name: true } } }}),
     prisma.landParcel.findMany({
-      where: {...await scopeWhere("LandParcel"),  deletedAt: null, landPurchase: { companyId: company.id }, status: "AVAILABLE" },
+      where: {...await scopeWhere("LandParcel"),  deletedAt: null, landPurchase: { companyId: company.id }, status: "AVAILABLE", saleId: null },
       select: { id: true, number: true, landPurchase: { select: { sellerName: true, location: true } } }}),
     prisma.customer.findMany({
       where: { companyId: company.id, deletedAt: null },

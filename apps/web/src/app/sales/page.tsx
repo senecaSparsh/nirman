@@ -75,6 +75,7 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
       where: {...await scopeWhere("BuiltUnit"), 
         deletedAt: null,
         status: { in: ["AVAILABLE", "HOLD"] },
+        saleId: null,
         project: { companyId: company.id, deletedAt: null }},
       orderBy: [{ project: { name: "asc" } }, { unitNumber: "asc" }],
       select: { id: true, unitNumber: true, unitType: true, projectId: true, project: { select: { name: true } } }}),

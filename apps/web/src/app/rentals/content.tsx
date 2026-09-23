@@ -36,13 +36,13 @@ export async function RentalsContent() {
     }),
     prisma.landParcel.findMany({
       take: 200,
-      where: { deletedAt: null, status: { in: ["AVAILABLE", "RENTED"] }, landPurchase: { companyId: company.id } },
+      where: { deletedAt: null, status: { in: ["AVAILABLE", "RENTED"] }, saleId: null, landPurchase: { companyId: company.id } },
       select: { id: true, number: true, area: true, areaUnit: true, projectId: true },
       orderBy: { number: "asc" },
     }),
     prisma.builtUnit.findMany({
       take: 200,
-      where: { deletedAt: null, status: { in: ["AVAILABLE", "RENTED"] }, project: { companyId: company.id } },
+      where: { deletedAt: null, status: { in: ["AVAILABLE", "RENTED"] }, saleId: null, project: { companyId: company.id } },
       select: { id: true, unitNumber: true, unitType: true, area: true, areaUnit: true, projectId: true },
       orderBy: { unitNumber: "asc" },
     }),
