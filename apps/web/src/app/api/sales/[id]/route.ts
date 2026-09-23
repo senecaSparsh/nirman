@@ -36,7 +36,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       : null,
   ]);
 
-  const totalPaid = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+  const totalPaid = s.payments.reduce((sum, p) => sum + (p.status === "VOID" ? 0 : toNum(p.amount)), 0);
   return json({
     id: s.id,
     saleNumber: s.saleNumber,

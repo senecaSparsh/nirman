@@ -310,6 +310,7 @@ export {
   completeSale,
   markRegistryDone,
   recordPayment,
+  voidAssetSalePayment,
   cancelSale,
   updateSale,
   computeSaleProfit,

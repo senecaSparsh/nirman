@@ -202,6 +202,8 @@ export function MobileSaleDetailClient({
   const docViewer = useDocumentViewer();
   const [showPayment, setShowPayment] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
+  const [voidPaymentId, setVoidPaymentId] = useState<string | null>(null);
+  const [voidReason, setVoidReason] = useState("");
   const [showComplete, setShowComplete] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -449,6 +451,30 @@ export function MobileSaleDetailClient({
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : `Failed to ${action} cheque`);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleVoidPayment() {
+    if (!voidPaymentId) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/sales/payments/${voidPaymentId}/void`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: voidReason || undefined }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to void payment");
+      }
+      toast.success("Payment voided — books reversed");
+      setVoidPaymentId(null);
+      setVoidReason("");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to void payment");
     } finally {
       setSubmitting(false);
     }
@@ -1077,6 +1103,7 @@ export function MobileSaleDetailClient({
                     </p>
                     <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                       {formatDate(p.paymentDate)}
+                      {p.status === "VOID" && <span className="font-bold" style={{ color: "var(--color-stop)" }}> · Voided</span>}
                       {p.chequeStatus === "PENDING" && <span style={{ color: "var(--color-signal)" }}> · Cheque Pending</span>}
                       {p.chequeStatus === "CLEARED" && <span style={{ color: "var(--color-go)" }}> · Cheque Cleared</span>}
                       {p.chequeStatus === "BOUNCED" && <span style={{ color: "var(--color-stop)" }}> · Cheque Bounced</span>}
@@ -1089,7 +1116,7 @@ export function MobileSaleDetailClient({
                       </p>
                     )}
                   </div>
-                  <p className="text-m-label font-bold tabular-nums shrink-0" style={{ color: p.chequeStatus === "BOUNCED" ? "var(--color-stop)" : "var(--color-go)" }}>
+                  <p className={`text-m-label font-bold tabular-nums shrink-0 ${p.status === "VOID" ? "line-through" : ""}`} style={{ color: p.status === "VOID" ? "var(--color-ink-300)" : p.chequeStatus === "BOUNCED" ? "var(--color-stop)" : "var(--color-go)" }}>
                     {formatCurrencyCompact(p.amount)}
                   </p>
                   <Printer className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
@@ -1104,7 +1131,7 @@ export function MobileSaleDetailClient({
                     <MessageCircle className="size-3" style={{ color: "var(--color-go)" }} />
                   </button>
                 )}
-                {canManage && p.chequeStatus === "PENDING" ? (
+                {canManage && p.status !== "VOID" && p.chequeStatus === "PENDING" ? (
                   <div className="flex gap-1 shrink-0">
                     <button
                       onClick={(e) => { e.preventDefault(); handleChequeAction(p.id, "clear"); }}
@@ -1123,6 +1150,16 @@ export function MobileSaleDetailClient({
                       Bounce
                     </button>
                   </div>
+                ) : null}
+                {canManage && p.status !== "VOID" ? (
+                  <button
+                    onClick={(e) => { e.preventDefault(); setVoidPaymentId(p.id); setVoidReason(""); }}
+                    disabled={submitting}
+                    className="shrink-0 rounded-[0.25rem] px-1.5 py-1 text-m-caption font-bold text-m-body press disabled:opacity-50"
+                    style={{ color: "var(--color-stop)", border: "1px solid var(--color-stop)" }}
+                  >
+                    Void
+                  </button>
                 ) : null}
               </div>
             ))}
@@ -1335,6 +1372,40 @@ export function MobileSaleDetailClient({
               style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
             >
               {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Cancel Sale"}
+            </button>
+          </div>
+        </Modal>
+      ) : null}
+
+      {/* ── Void payment confirmation modal ── */}
+      {voidPaymentId ? (
+        <Modal onClose={() => setVoidPaymentId(null)} title="Void this payment?">
+          <p className="text-m-body mb-2" style={{ color: "var(--color-ink-700)" }}>
+            The payment will be marked void and its accounting entry reversed — the amount comes back as still due. The record stays for audit.
+          </p>
+          <input
+            type="text"
+            value={voidReason}
+            onChange={(e) => setVoidReason(e.target.value)}
+            placeholder="Reason (e.g. entered twice by mistake)"
+            className="w-full rounded-[0.5rem] border px-2.5 py-2 text-m-body mb-3 outline-none"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => setVoidPaymentId(null)}
+              className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold text-m-body press"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            >
+              Keep Payment
+            </button>
+            <button
+              onClick={handleVoidPayment}
+              disabled={submitting}
+              className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
+              style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
+            >
+              {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Void Payment"}
             </button>
           </div>
         </Modal>

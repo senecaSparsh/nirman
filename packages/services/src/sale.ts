@@ -57,9 +57,9 @@ export async function syncPaymentScheduleFromPayments(tx: Prisma.TransactionClie
   });
   if (!schedule || schedule.items.length === 0) return;
 
-  // Sum all realised payments (skip uncleared cheques)
+  // Sum all realised payments (skip uncleared cheques + voided payments)
   const payments = await tx.assetSalePayment.findMany({
-    where: { assetSaleId: saleId },
+    where: { assetSaleId: saleId, status: { not: "VOID" } },
     select: { amount: true, chequeStatus: true },
   });
   const totalPaid = payments.reduce((sum, p) => {
@@ -962,7 +962,7 @@ export async function completeSale(input: CompleteSaleInput) {
     const gstAmount = new Decimal(sale.gstAmount);
     const costBasis = new Decimal(sale.costBasis);
     const totalPaidSoFar = sale.payments.reduce(
-      (sum, p) => sum.plus(new Decimal(p.amount)),
+      (sum, p) => (p.status === "VOID" ? sum : sum.plus(new Decimal(p.amount))),
       new Decimal(0),
     );
 
@@ -1073,7 +1073,7 @@ export async function completeSale(input: CompleteSaleInput) {
     let finalPaymentId: string | null = null;
     if (finalPayment.gt(0)) {
       const finalPaymentRow = await tx.assetSalePayment.findFirst({
-        where: { assetSaleId: input.saleId },
+        where: { assetSaleId: input.saleId, status: { not: "VOID" } },
         orderBy: { paymentDate: "desc" },
       });
       if (finalPaymentRow) {
@@ -1239,7 +1239,7 @@ export async function recordPayment(input: RecordPaymentInput) {
 
     const totalCollectible = new Decimal(sale.salePrice).plus(new Decimal(sale.gstAmount));
     const existingTotal = sale.payments.reduce(
-      (sum, p) => sum.plus(new Decimal(p.amount)),
+      (sum, p) => (p.status === "VOID" ? sum : sum.plus(new Decimal(p.amount))),
       new Decimal(0),
     );
     const cumulative = existingTotal.plus(amount);
@@ -1357,6 +1357,128 @@ export async function recordPayment(input: RecordPaymentInput) {
 }
 
 // ───────────────────────────────────────────────────────────
+//  Void a payment — undo a mis-entered payment.
+//  The row stays (audit trail) but is excluded from every paid-sum;
+//  the GL entry is reversed so the books net to zero.
+// ───────────────────────────────────────────────────────────
+
+export async function voidAssetSalePayment(input: {
+  paymentId: string;
+  userId?: string;
+  reason?: string;
+}) {
+  return withSerializableTransaction(async (tx) => {
+    const payment = await tx.assetSalePayment.findUnique({
+      where: { id: input.paymentId },
+      include: { assetSale: { include: { payments: true } } },
+    });
+    if (!payment) throw new ServiceError("Payment not found", 404);
+    if (payment.status === "VOID") throw new ServiceError("Payment is already void");
+    const sale = payment.assetSale;
+    if (sale.status === "CANCELLED") throw new ServiceError("Cannot void a payment on a cancelled sale");
+    if (sale.saleStage === "COMPLETED" && payment.chequeStatus === "PENDING") {
+      // A pending cheque was never realised — void is safe either way, but
+      // call it out in the reason for the audit trail.
+    }
+
+    // Mark void first — every paid-sum below now excludes this row.
+    await tx.assetSalePayment.update({
+      where: { id: payment.id },
+      data: { status: "VOID" },
+    });
+
+    const amount = new Decimal(payment.amount);
+
+    // ── GL reversal ──
+    // Post-completion payments posted PAYMENT_RECEIVED keyed by payment.id —
+    // reverse that exact entry (idempotent: skip if already reversed).
+    // Deposits posted ASSET_SALE_DEPOSIT keyed by sale.id (shared across all
+    // deposits) — post a compensating refund for just this amount instead.
+    const paymentJe = await tx.journalEntry.findFirst({
+      where: { sourceType: "PAYMENT_RECEIVED", sourceId: payment.id },
+      select: { id: true },
+      orderBy: { createdAt: "desc" },
+    });
+    if (paymentJe) {
+      const alreadyReversed = await tx.journalEntry.findFirst({
+        where: { sourceType: "PAYMENT_RECEIVED_REVERSAL", sourceId: payment.id },
+        select: { id: true },
+      });
+      if (!alreadyReversed) {
+        await reverseJournalEntry(tx, paymentJe.id, {
+          postedById: input.userId,
+          memo: `Void sale payment${input.reason ? ` — ${input.reason}` : ""}`,
+        });
+      }
+    } else if (sale.saleStage === "COMPLETED") {
+      // Completed-sale payment with no per-payment JE (deposit-settled flow):
+      // the money settled AR, so voiding re-opens the receivable and returns
+      // the cash — mirror of postPaymentReceived.
+      await postJournalEntry(tx, {
+        companyId: sale.companyId,
+        sourceType: "PAYMENT_RECEIVED_REVERSAL",
+        sourceId: payment.id,
+        memo: `Void sale payment${input.reason ? ` — ${input.reason}` : ""}`,
+        postedById: input.userId,
+        lines: [
+          { accountCode: ACCT.AR, debit: amount, credit: new Decimal(0), entityType: "AssetSale", entityId: sale.id, memo: "Re-open receivable (payment voided)" },
+          { accountCode: ACCT.CASH, debit: new Decimal(0), credit: amount, entityType: "AssetSalePayment", entityId: payment.id, memo: "Cash returned to customer" },
+        ],
+      });
+    } else {
+      await postDepositRefund(tx, {
+        companyId: sale.companyId,
+        assetSaleId: sale.id,
+        amount,
+        postedById: input.userId,
+      });
+    }
+
+    // ── Restore sale aggregates from the remaining live payments ──
+    const livePayments = sale.payments.filter((p) => p.id !== payment.id && p.status !== "VOID");
+    const liveTotal = livePayments.reduce(
+      (sum, p) => (p.chequeStatus === "PENDING" || p.chequeStatus === "BOUNCED" ? sum : sum.plus(new Decimal(p.amount))),
+      new Decimal(0),
+    );
+    const totalCollectible = new Decimal(sale.salePrice).plus(new Decimal(sale.gstAmount));
+    const paymentStatus: "PENDING" | "PARTIAL" | "PAID" =
+      liveTotal.isZero() ? "PENDING" : liveTotal.lt(totalCollectible) ? "PARTIAL" : "PAID";
+
+    const isDeposit = sale.saleStage !== "COMPLETED";
+    await tx.assetSale.update({
+      where: { id: sale.id },
+      data: {
+        paymentStatus,
+        ...(isDeposit
+          ? {
+              depositAmount: liveTotal,
+              // All deposits voided → sale drops back to PENDING so a fresh
+              // deposit can be recorded against the correct amount.
+              ...(liveTotal.isZero() && sale.saleStage === "DEPOSIT_RECEIVED" ? { saleStage: "PENDING" } : {}),
+            }
+          : {}),
+      },
+    });
+
+    await syncPaymentScheduleFromPayments(tx, sale.id);
+
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        companyId: sale.companyId,
+        action: "ASSET_SALE_PAYMENT_VOID",
+        entityType: "AssetSalePayment",
+        entityId: payment.id,
+        before: { amount: payment.amount, status: "RECEIVED" },
+        after: { status: "VOID", reason: input.reason ?? null, paymentStatus },
+      });
+    }
+
+    return { payment, paymentStatus, companyId: sale.companyId };
+  });
+}
+
+// ───────────────────────────────────────────────────────────
 //  Update sale — edit mutable fields after creation
 // ───────────────────────────────────────────────────────────
 
@@ -1440,7 +1562,7 @@ export async function updateSale(input: UpdateSaleInput) {
       if (sale.saleStage === "COMPLETED") {
         throw new ServiceError("Cannot change price on a completed sale — cancel and re-create instead");
       }
-      if (sale.payments.length > 0) {
+      if (sale.payments.some((p) => p.status !== "VOID")) {
         throw new ServiceError("Cannot change price after payments have been recorded");
       }
       const newPrice = new Decimal(input.salePrice!);
@@ -1551,8 +1673,9 @@ export async function cancelSale(saleId: string, userId?: string) {
     // and their reversal would create a phantom cash credit.
     const totalPreCompletionPayments = sale.payments.reduce(
       (sum, p) => {
-        // Skip uncleared cheques — they haven't been realised yet.
-        if (p.chequeStatus === "PENDING" || p.chequeStatus === "BOUNCED") return sum;
+        // Skip uncleared cheques — they haven't been realised yet —
+        // and voided payments (reversed already).
+        if (p.status === "VOID" || p.chequeStatus === "PENDING" || p.chequeStatus === "BOUNCED") return sum;
         return sum.plus(new Decimal(p.amount));
       },
       new Decimal(0),
