@@ -11,7 +11,20 @@ const workflowUpdateSchema = z.object({
   name: z.string().min(1).max(160).optional(),
   description: z.string().max(2000).optional(),
   icon: z.string().max(60).optional(),
-  graphJson: z.string().optional(),
+  // The builder sends a JSON object (POST accepts z.any()); a string here is
+  // a client double-encoding — parse it so we never store a stringified graph
+  // (the engine then finds no `steps` and every run 500s).
+  graphJson: z
+    .any()
+    .optional()
+    .transform((g) => {
+      if (typeof g !== "string") return g;
+      try {
+        return JSON.parse(g);
+      } catch {
+        return g; // leave unparsable strings for the engine to reject
+      }
+    }),
   status: z.enum(["DRAFT", "ACTIVE", "PAUSED", "ARCHIVED"]).optional(),
 });
 

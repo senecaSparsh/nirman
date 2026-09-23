@@ -61,6 +61,56 @@ interface RunResult {
 }
 
 /**
+ * Tenancy anchor — a workflow belongs to one company (`Workflow.companyId`).
+ * Step configs are caller-written JSON, so every id inside them
+ * (companyId / projectId / entityId / assignedToId) is untrusted input.
+ * Without an anchor a crafted graph let a run in company A read company B's
+ * records (custom_field predicate) or write into them (update_status,
+ * project_cost, auto_requisition, tasks pushed to foreign users) — verified
+ * live in the tenancy sweep. The anchor is enforced whenever the workflow
+ * has a companyId; legacy company-less workflows fall back to config values.
+ */
+async function entityBelongsToTenant(
+  entityType: string,
+  entityId: string,
+  tenantId: string,
+): Promise<boolean> {
+  const sel = { select: { id: true } } as const;
+  switch (entityType) {
+    case "Project":
+      return !!(await prisma.project.findFirst({ where: { id: entityId, companyId: tenantId }, ...sel }));
+    case "PurchaseOrder":
+      return !!(await prisma.purchaseOrder.findFirst({ where: { id: entityId, companyId: tenantId }, ...sel }));
+    case "MaterialRequisition":
+      return !!(await prisma.materialRequisition.findFirst({
+        where: { id: entityId, OR: [{ project: { companyId: tenantId } }, { department: { companyId: tenantId } }] },
+        ...sel,
+      }));
+    case "StockTransfer":
+      return !!(await prisma.stockTransfer.findFirst({
+        where: { id: entityId, OR: [{ fromLocation: { companyId: tenantId } }, { toLocation: { companyId: tenantId } }] },
+        ...sel,
+      }));
+    case "Task":
+      return !!(await prisma.task.findFirst({
+        where: { id: entityId, assignedTo: { memberships: { some: { companyId: tenantId } } } },
+        ...sel,
+      }));
+    default:
+      return false;
+  }
+}
+
+/** Task assignees must be active members of the workflow's company —
+ *  same rule POST /api/tasks enforces on the direct path. */
+async function assigneeInTenant(assignedToId: string, tenantId: string): Promise<boolean> {
+  return !!(await prisma.user.findFirst({
+    where: { id: assignedToId, active: true, memberships: { some: { companyId: tenantId } } },
+    select: { id: true },
+  }));
+}
+
+/**
  * Evaluate a condition operator against a field value and comparison value.
  * Supports: eq, ne, gt, lt, contains. Unknown operators return false.
  */
@@ -167,7 +217,7 @@ export async function executeWorkflow(
       });
 
       try {
-        const result = await executeStep(step);
+        const result = await executeStep(step, workflow.companyId ?? null);
 
         // For condition steps, resolve the branch to pick the right edge
         if (step.type === "condition") {
@@ -225,8 +275,10 @@ export async function executeWorkflow(
 
 /**
  * Execute a single workflow step based on its type.
+ * `tenantCompanyId` is the workflow's owning company — the tenancy anchor
+ * for every id the config references.
  */
-async function executeStep(step: WorkflowStep): Promise<RunResult> {
+async function executeStep(step: WorkflowStep, tenantCompanyId: string | null): Promise<RunResult> {
   const cfg = step.config;
 
   switch (step.type) {
@@ -239,6 +291,9 @@ async function executeStep(step: WorkflowStep): Promise<RunResult> {
 
       if (!assignedToId) {
         return { stepId: step.id, status: "failed", message: "No assignee specified" };
+      }
+      if (tenantCompanyId && !(await assigneeInTenant(assignedToId, tenantCompanyId))) {
+        return { stepId: step.id, status: "failed", message: "Assignee is not a member of this company" };
       }
 
       const task = await prisma.task.create({
@@ -256,6 +311,9 @@ async function executeStep(step: WorkflowStep): Promise<RunResult> {
 
       if (!assignedToId) {
         return { stepId: step.id, status: "failed", message: "No recipient specified" };
+      }
+      if (tenantCompanyId && !(await assigneeInTenant(assignedToId, tenantCompanyId))) {
+        return { stepId: step.id, status: "failed", message: "Recipient is not a member of this company" };
       }
 
       await prisma.task.create({
@@ -284,7 +342,9 @@ async function executeStep(step: WorkflowStep): Promise<RunResult> {
       //   "task_count"      → true if open task count > threshold
       //   "custom_field"    → evaluate a field on a record against a value
       const predicate = String(cfg.predicate ?? "low_stock");
-      const companyId = cfg.companyId ? String(cfg.companyId) : null;
+      // The workflow's own company anchors every predicate — a config-supplied
+      // companyId can only ever widen the read to another tenant.
+      const companyId = tenantCompanyId ?? (cfg.companyId ? String(cfg.companyId) : null);
 
       let conditionMet = false;
 
@@ -335,6 +395,11 @@ async function executeStep(step: WorkflowStep): Promise<RunResult> {
               where: {
                 status: { in: ["PENDING", "IN_PROGRESS"] },
                 ...(assignedToId ? { assignedToId } : {}),
+                // Tasks carry no companyId — tenancy flows through the
+                // assignee's membership.
+                ...(tenantCompanyId
+                  ? { assignedTo: { memberships: { some: { companyId: tenantCompanyId } } } }
+                  : {}),
               },
             });
             conditionMet = count > threshold;
@@ -366,6 +431,9 @@ async function executeStep(step: WorkflowStep): Promise<RunResult> {
 
             // Dynamic Prisma model access — typed via a minimal interface
             // since the model name is determined at runtime from the entity type.
+            if (tenantCompanyId && !(await entityBelongsToTenant(entityType, entityId, tenantCompanyId))) {
+              return { stepId: step.id, status: "failed", message: `${entityType} ${entityId} not found` };
+            }
             const model = prisma[modelName as keyof typeof prisma] as unknown as {
               findUnique: (args: { where: { id: string } }) => Promise<Record<string, unknown> | null>;
             };
@@ -425,6 +493,13 @@ async function executeStep(step: WorkflowStep): Promise<RunResult> {
         return { stepId: step.id, status: "failed", message: `Unsupported entity type: ${entityType}` };
       }
 
+      // Status writes must stay inside the workflow's own company —
+      // update() takes a bare id, so a foreign entityId would rewrite
+      // another tenant's record (verified: reachable across tenants).
+      if (tenantCompanyId && !(await entityBelongsToTenant(entityType, entityId, tenantCompanyId))) {
+        return { stepId: step.id, status: "failed", message: `${entityType} ${entityId} not found` };
+      }
+
       // Dynamic Prisma model access — typed via a minimal interface.
       const updateModel = prisma[modelName as keyof typeof prisma] as unknown as {
         update: (args: { where: { id: string }; data: Record<string, unknown> }) => Promise<unknown>;
@@ -449,6 +524,9 @@ async function executeStep(step: WorkflowStep): Promise<RunResult> {
           const assignedToId = String(cfg.assignedToId ?? "");
           if (!assignedToId) {
             return { stepId: step.id, status: "failed", message: "create_record task requires assignedToId" };
+          }
+          if (tenantCompanyId && !(await assigneeInTenant(assignedToId, tenantCompanyId))) {
+            return { stepId: step.id, status: "failed", message: "Assignee is not a member of this company" };
           }
           const task = await prisma.task.create({
             data: {
@@ -475,6 +553,14 @@ async function executeStep(step: WorkflowStep): Promise<RunResult> {
           const costType = validCostTypes.includes(costTypeStr as ProjectCostType)
             ? (costTypeStr as ProjectCostType)
             : "OTHER";
+          // A foreign projectId would plant a cost line inside another
+          // tenant's books — anchor to the workflow's company.
+          if (
+            tenantCompanyId &&
+            !(await prisma.project.findFirst({ where: { id: projectId, companyId: tenantCompanyId }, select: { id: true } }))
+          ) {
+            return { stepId: step.id, status: "failed", message: "Project not found in this company" };
+          }
           const cost = await prisma.projectCost.create({
             data: {
               projectId,
@@ -488,8 +574,9 @@ async function executeStep(step: WorkflowStep): Promise<RunResult> {
         }
 
         case "expense": {
-          // Record a company expense
-          const companyId = String(cfg.companyId ?? "");
+          // Record a company expense — anchored to the workflow's company,
+          // never a config-supplied companyId.
+          const companyId = tenantCompanyId ?? String(cfg.companyId ?? "");
           const notes = cfg.notes ? String(cfg.notes) : null;
           const amount = Number(cfg.amount ?? 0);
           if (!companyId || !amount) {
@@ -513,13 +600,20 @@ async function executeStep(step: WorkflowStep): Promise<RunResult> {
     }
 
     case "auto_requisition": {
-      // Generate a draft requisition for low-stock materials
-      const companyId = String(cfg.companyId ?? "");
+      // Generate a draft requisition for low-stock materials — anchored to
+      // the workflow's company; a config companyId/projectId pair pointing at
+      // another tenant would mint requisitions in the victim's project.
+      const companyId = tenantCompanyId ?? String(cfg.companyId ?? "");
       const projectId = String(cfg.projectId ?? "");
       const createdByById = cfg.createdByById ? String(cfg.createdByById) : undefined;
 
       if (!companyId || !projectId) {
         return { stepId: step.id, status: "failed", message: "auto_requisition requires companyId and projectId" };
+      }
+      if (
+        !(await prisma.project.findFirst({ where: { id: projectId, companyId }, select: { id: true } }))
+      ) {
+        return { stepId: step.id, status: "failed", message: "Project not found in this company" };
       }
 
       try {
