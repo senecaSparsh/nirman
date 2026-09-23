@@ -879,3 +879,13 @@ Round 10 additions: material create → detail → adjust-stock sheet
 (direction toggle, location, qty×cost line-value preview, reason) → +50 KG
 persisted, MAC ₹100, movement logged. Archive correctly guards
 "has stock" (400 + toast). Adjusted out + archived for cleanup.
+
+Round 10 — real bug: sale booking double-sell UX
+
+- /api/sales/new-options offered units with saleId set (status drifts to
+  AVAILABLE while saleId-locked). Mobile form pre-selected a sold unit →
+  every submit 400'd "Unit is already sold". Added `saleId: null` to both
+  builtUnit + landParcel option queries.
+- Full sale lifecycle verified on mobile: customer create → auto-funnel to
+  /m/sales/new → booking SAL-…0001 ₹1.50Cr → unit saleId-locked → cancel →
+  unit released. Picker now offers genuinely-available units (A-401).

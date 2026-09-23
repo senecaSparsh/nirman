@@ -20,6 +20,9 @@ export const GET = apiHandler(async () => {
         ...await scopeWhere("BuiltUnit"),
         deletedAt: null,
         status: "AVAILABLE",
+        // saleId is the double-sell lock — a unit can drift to
+        // status=AVAILABLE while still bound to a sale; never offer it.
+        saleId: null,
         project: { companyId: company.id, deletedAt: null },
       },
       orderBy: [{ project: { name: "asc" } }, { unitNumber: "asc" }],
@@ -31,6 +34,7 @@ export const GET = apiHandler(async () => {
         ...await scopeWhere("LandParcel"),
         deletedAt: null,
         status: "AVAILABLE",
+        saleId: null,
         landPurchase: { companyId: company.id },
       },
       orderBy: { number: "asc" },
