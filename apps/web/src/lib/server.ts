@@ -3611,6 +3611,19 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
           console.error("[apiHandler] Prisma P1002: database timeout");
           return json({ error: "Database request timed out — please retry", retryable: true }, { status: 504 });
         }
+        if (prismaCode === "P2002") {
+          // Unique constraint — e.g. duplicate SKU/phone/email. 409 + a
+          // plain-language message so the user knows to change the value
+          // instead of seeing a generic "internal server error".
+          const target = (err as { meta?: { target?: string[] | string } })?.meta?.target;
+          const field = Array.isArray(target) ? target[0] : typeof target === "string" ? target : null;
+          const nice = field ? field.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/_/g, " ").toLowerCase() : null;
+          return json({ error: nice ? `That ${nice} is already in use — pick a different one.` : "A record with those values already exists." }, { status: 409 });
+        }
+        if (prismaCode === "P2025") {
+          // Record not found — usually a stale page editing a deleted row.
+          return json({ error: "This record no longer exists — it may have been deleted." }, { status: 404 });
+        }
       }
 
       // Log the full error server-side but don't leak internal details to the client
