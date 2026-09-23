@@ -348,7 +348,17 @@ export async function createRaBill(input: CreateRaBillInput) {
       orderBy: { measureDate: "asc" },
     });
 
-    if (mbEntries.length === 0) {
+    if (input.mbEntryIds && input.mbEntryIds.length > 0) {
+      // Decoy-id guard: every supplied mbEntryId must resolve to an approved,
+      // unbilled entry on THIS work order's BOQ items. Silently dropping
+      // unmatched ids (foreign-tenant, out-of-scope, or already-billed
+      // entries) would bill an unintended subset — reject instead.
+      const resolved = new Set(mbEntries.map((e) => e.id));
+      const missing = [...new Set(input.mbEntryIds)].filter((id) => !resolved.has(id));
+      if (missing.length > 0) {
+        throw new ServiceError("One or more MB entries are not approved, unbilled entries of this work order", 404);
+      }
+    } else if (mbEntries.length === 0) {
       throw new ServiceError("No approved unbilled MB entries found for this work order", 400);
     }
 

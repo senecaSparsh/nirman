@@ -695,3 +695,103 @@ Verified end-to-end:
 Mobile state: every surface in the route manifest renders + works; every
 create flow tested either end-to-end or to validation level (some custom
 pickers resist synthetic input — verified manually-equivalent paths).
+
+## Module E — Construction, projects, QC & safety sweep (verified 2026-09-23)
+
+### Cross-tenant / scope holes reproduced → fixed
+
+- **MB workflow bypassed scope entirely.** `PATCH /api/mb-entries/[id]` ran
+  `verifyMbEntry`/`approveMbEntry`/`rejectMbEntry` on a bare id with no
+  ownership or project-scope check. Reproduced live: a SITE_ENGINEER scoped
+  to Hillview approved a Greenfield MB entry (`cmudmc426005gvl23svlo48a7`,
+  later reset to VERIFIED). Fixed: scoped pre-fetch + `companyId` threaded
+  into the service lookups (they now `findFirst` through `project.companyId`).
+- **Project-scoped reads leaked everything.** `GET /api/evm`,
+  `/api/node-evm`, `/api/boq/tree`, `/api/wbs/tree` and
+  `/api/material-reconciliation` all took `projectId` and queried without
+  company or scope checks — reproduced live returning full Greenfield
+  financials/BOQ to a Hillview-scoped user, and returning foreign-tenant
+  (SRG) data to My Company users. Fixed: `AND`-composed
+  `scopeWhere("Project")` + companyId pre-checks → 404.
+  **Trap worth noting**: `scopeWhere("Project")` emits `{id:{in:[...]}}`
+  which silently overwrites a literal `{id: projectId}` in the same object —
+  first-pass fix checked the WRONG project until composed under `AND`.
+- **WBS dependencies accepted any two node ids.** `addWbsDependency` never
+  loaded the nodes — cross-project and cross-tenant edges could be created;
+  GET by `nodeId` returned another tenant's graph. An `E-HACK` node exists
+  in SRG's project from an earlier probe proving write-path reachability.
+  Fixed: service validates both nodes exist, share one project, and (when
+  `companyId` passed) belong to the caller's company; route pre-checks
+  scope on the predecessor's project + scoped node check on GET.
+- **CAPA read/write by bare ncrId.** `GET/POST /api/quality-control/capa`
+  resolved NCR without tenant/scope checks — foreign CAPA + NCR titles and
+  employee names leaked. Fixed: scoped NCR pre-fetch + `companyId` into
+  `getCapa`/`createCapa`; all CAPA/NCR workflow service fns take
+  `companyId`.
+- **Decoy related-ids on writes.** `createNcr`/`updateNcr` attached any
+  `wbsNodeId`/`boqItemId`/`materialId`/`subcontractorId`; `createIncident`/
+  `createHazard`/`updateIncident`/`updateHazard` attached any `wbsNodeId`;
+  `createMbEntry`/`createWbsNode` attached any `phaseId`; `createBoqItem`/
+  `updateBoqItem`/`updateWbsNode`/rate-analysis lines attached any
+  `materialId`. All now validated against the record's own project/company.
+- **RA bill silently filtered `mbEntryIds`.** `createRaBill` intersected
+  supplied ids with the WO's BOQ items — foreign/invalid ids were dropped
+  silently, billing an unintended subset. Reproduced live: mixed
+  [own+foreign] input now → 404, foreign-only → 404, own-only → 201
+  (full chain MB create→verify→approve→RA verified). WO itself sealed by
+  `companyId`.
+- **Renovation lifecycle was bare-id.** `POST /api/renovations/[id]` ran
+  start/complete/cancel without pre-checks — `complete` posts GL + rewrites
+  asset valuations, `cancel` posts reversal JEs. Fixed: scoped pre-fetch +
+  `companyId` into all three service fns + `addRenovationCost`.
+- **Equipment assignment related-ids.** `assignEquipment` validated
+  equipment by bare id and location/project without company — foreign
+  locationId/projectId pinned onto the assignment. Reproduced live: now
+  404 for foreign location, foreign project, foreign equipment; 201 for
+  the legit assignment.
+- **Change-order line boqItemId decoy.** Lines could point at a foreign
+  project's BOQ item — `implementChangeOrder` would have rewritten that
+  tenant's estimatedQty/rate. Fixed: `assertLineBoqItems` on create+update,
+  and implement only matches items in the CO's own project.
+- **Safety/NCR/safety-service bare ids.** All incident/hazard/inspection
+  workflow + read fns (get/update/investigate/close/cancel/delete,
+  mitigate/resolve, start/complete inspection) now `findFirst` through
+  `companyId` when supplied; routes pass `company.id`.
+- **Misc**: `/api/vehicles/[id]/trips` now 404s on foreign/nonexistent
+  vehicles (was silent []); `/api/projects/[id]/phases/[phaseId]` PATCH/
+  DELETE now require `phaseId.projectId === {id}` (URL-parent decoy);
+  tenancy PATCH + payments POST got scoped pre-fetches; possession +
+  reallocate got `canAccessProject`; rate-analysis PATCH/DELETE got
+  `canAccessProject`; generic catch blocks across Module E routes now
+  propagate `ServiceError.status` (foreign ids → real 404 not 400).
+
+### Verified live (real sessions: amit OWNER, e-eng SITE_ENGINEER→Hillview,
+
+### f-hat SUPERVISOR→Hillview, cookies via /api/auth/sign-in/email)
+
+- Scoped user vs Greenfield: MB PATCH verify/reject 404, EVM/node-evm/BOQ
+  tree/WBS tree/recon all 404, CAPA GET 404, single-MB GET 404.
+- Owner vs foreign (SRG) tenant: EVM/BOQ/WBS/recon 404, RA-bill POST 404,
+  CAPA GET/POST 404, NCR GET 404, NCR/incident/MB create 404/400-safe,
+  incident cancel 404.
+- Decoys (same company, cross-project): WBS dep greenfield→foreign 400,
+  MB entry hillview-project+greenfield-boq 400, NCR patch foreign WBS 400,
+  equipment foreign loc/proj/eq 404×3, RA bill foreign/mixed mbEntryIds 404.
+- Regressions: owner EVM/BOQ/WBS/recon 200; MB create→verify→approve 201/200;
+  WBS node+dep create 201 + list 200; CAPA GET on own NCR 200; tenancy/
+  incident own flows untouched.
+
+### Data notes for other agents
+
+- Seed probes left in My Company DB: MB `cmudmc426005gvl23svlo48a7`
+  (VERIFIED), MB `cmudn760q0008vl7u45nsp066` (APPROVED, billed by
+  RA `cmudn79gm000jvl7ugcmwfnv4` DRAFT), WBS `cmudn7z3x002hvl7uvkb4fsp1`
+  (PH-02) + dep `cmudn83q7002lvl7uyabgnvqb`, equipment assignment
+  `cmudn7n8y000pvl7uo4liatf8` (Diesel Generator → Central Warehouse).
+- Foreign debris: `cmudm6b0l000cvl233epcw1vm` "E-HACK" WBS node inside SRG
+  project `cmu1fffa50002vlnzl4j9f0ei` (from an earlier probe) — cannot be
+  deleted through the app since routes now 404 foreign ids; needs a DB
+  cleanup if seed hygiene matters.
+- `createRaBill` sealing pattern = same "optional `companyId` input" shape
+  as `createChangeOrder`/`createNcr` — callers that don't pass it keep
+  working, but the service enforces when it does.
