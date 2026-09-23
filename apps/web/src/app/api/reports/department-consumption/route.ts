@@ -54,7 +54,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     categoryName: string;
     qty: number;
     cost: number;
-  }[]>`
+  }[]>(Prisma.sql`
     SELECT
       d.id AS "deptId", d.code AS "deptCode", d.name AS "deptName",
       m.code AS "materialCode", m.name AS "materialName", m.unit,
@@ -68,8 +68,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     JOIN "MaterialCategory" c ON c.id = m."categoryId"
     WHERE ${Prisma.join(conditions, " AND ")}
     GROUP BY d.id, d.code, d.name, m.id, m.code, m.name, m.unit, c.name
-  `;
-
+  `);
   // Fold the aggregated rows into the response shape
   const byDepartment = new Map<string, { code: string; name: string; total: number; materials: { code: string; name: string; unit: string; categoryName: string; qty: number; cost: number }[] }>();
   let grandTotal = 0;

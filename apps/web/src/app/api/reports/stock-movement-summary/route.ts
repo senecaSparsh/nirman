@@ -63,7 +63,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     locationItems,
   ] = await Promise.all([
     // ── Opening: all IN before `from` ──
-    prisma.$queryRaw<{ total: number }[]>`
+    prisma.$queryRaw<{ total: number }[]>(Prisma.sql`
       SELECT COALESCE(SUM(m.qty * m."unitCost"), 0)::float8 AS total
       FROM "StockMovement" m
       JOIN "StockLocation" l ON l.id = m."toLocationId"
@@ -72,9 +72,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
         AND l."deletedAt" IS NULL
         AND m."timestamp" < ${fromDate}
         ${scopeSql}
-    `,
+    `),
     // ── Opening: all OUT before `from` ──
-    prisma.$queryRaw<{ total: number }[]>`
+    prisma.$queryRaw<{ total: number }[]>(Prisma.sql`
       SELECT COALESCE(SUM(m.qty * m."unitCost"), 0)::float8 AS total
       FROM "StockMovement" m
       JOIN "StockLocation" l ON l.id = m."fromLocationId"
@@ -83,9 +83,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
         AND l."deletedAt" IS NULL
         AND m."timestamp" < ${fromDate}
         ${scopeSql}
-    `,
+    `),
     // ── Period IN per location ──
-    prisma.$queryRaw<{ id: string; name: string; type: string; received: number }[]>`
+    prisma.$queryRaw<{ id: string; name: string; type: string; received: number }[]>(Prisma.sql`
       SELECT l.id, l.name, l.type::text AS type,
              SUM(m.qty * m."unitCost")::float8 AS received
       FROM "StockMovement" m
@@ -96,9 +96,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
         AND m."timestamp" >= ${fromDate} AND m."timestamp" <= ${toDate}
         ${scopeSql}
       GROUP BY l.id, l.name, l.type
-    `,
+    `),
     // ── Period OUT per location ──
-    prisma.$queryRaw<{ id: string; name: string; type: string; issued: number }[]>`
+    prisma.$queryRaw<{ id: string; name: string; type: string; issued: number }[]>(Prisma.sql`
       SELECT l.id, l.name, l.type::text AS type,
              SUM(m.qty * m."unitCost")::float8 AS issued
       FROM "StockMovement" m
@@ -109,9 +109,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
         AND m."timestamp" >= ${fromDate} AND m."timestamp" <= ${toDate}
         ${scopeSql}
       GROUP BY l.id, l.name, l.type
-    `,
+    `),
     // ── Period IN per category ──
-    prisma.$queryRaw<{ categoryName: string; received: number }[]>`
+    prisma.$queryRaw<{ categoryName: string; received: number }[]>(Prisma.sql`
       SELECT c.name AS "categoryName",
              SUM(m.qty * m."unitCost")::float8 AS received
       FROM "StockMovement" m
@@ -124,9 +124,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
         AND m."timestamp" >= ${fromDate} AND m."timestamp" <= ${toDate}
         ${scopeSql}
       GROUP BY c.name
-    `,
+    `),
     // ── Period OUT per category ──
-    prisma.$queryRaw<{ categoryName: string; issued: number }[]>`
+    prisma.$queryRaw<{ categoryName: string; issued: number }[]>(Prisma.sql`
       SELECT c.name AS "categoryName",
              SUM(m.qty * m."unitCost")::float8 AS issued
       FROM "StockMovement" m
@@ -139,7 +139,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         AND m."timestamp" >= ${fromDate} AND m."timestamp" <= ${toDate}
         ${scopeSql}
       GROUP BY c.name
-    `,
+    `),
     // ── Live current-state (used for balance + per-location opening) ──
     prisma.stockLocationItem.findMany({
       where: {
