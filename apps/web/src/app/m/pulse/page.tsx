@@ -46,7 +46,7 @@ import { MobileHubPage } from "@/components/mobile/v2/hub-page";
  */
 export default function PulsePage() {
   return (
-    <MobileHubPage perm={PERM.PROJECTS_VIEW} what="executive dashboard" permission="projects.view">
+    <MobileHubPage perm={PERM.FINANCE_VIEW} what="executive dashboard" permission="finance.view">
       {async ({ company }) => {
         // ── Lightweight summary queries ───────────────────────────────
         // The portfolio summary uses cached Project fields (kept fresh by
