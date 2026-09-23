@@ -874,3 +874,8 @@ Document navigations to /m/* therefore hit middleware's reverse redirect
 /m/_. A mobile UA on a phone never sees this. Verified: every bounce ends
 on the correct /m/_ route once hydrated; no infinite loops in the real
 mobile path. The only true prior loop (c2b0c5b9) was already fixed.
+
+Round 10 additions: material create → detail → adjust-stock sheet
+(direction toggle, location, qty×cost line-value preview, reason) → +50 KG
+persisted, MAC ₹100, movement logged. Archive correctly guards
+"has stock" (400 + toast). Adjusted out + archived for cleanup.
