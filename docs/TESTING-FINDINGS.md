@@ -889,3 +889,8 @@ Round 10 — real bug: sale booking double-sell UX
 - Full sale lifecycle verified on mobile: customer create → auto-funnel to
   /m/sales/new → booking SAL-…0001 ₹1.50Cr → unit saleId-locked → cancel →
   unit released. Picker now offers genuinely-available units (A-401).
+
+Round 10 (cont): quotation-request create → QR-260923-0001 persisted with
+500 KG TMT line (HSN/GST auto-carried) → cancelled cleanly. Notification
+settings: stats + prefs/templates/log tabs all render; sale-cancel
+broadcast real SENT entries to stakeholders. Settings hub verified.
