@@ -662,3 +662,36 @@ Verified end-to-end on mobile:
 - Mobile `/m/expenses/new`: category+amount → PENDING approval queue.
 - Material reconciliation: required/issued/consumed variance + tolerance.
 - Equipment detail: depreciation math, maintenance, assign/retire actions.
+
+## Mobile sweep — round 8 (completion pass)
+
+Fix landed:
+
+- `8ca4b06d` — chevron affordance on all tap-to-expand rows (payroll,
+  supplier invoices, leave requests, sales collection, employee access
+  modules). Rows expanded on click but gave zero visual hint — field users
+  couldn't discover them.
+
+Verified end-to-end:
+
+- NCR raise → detail (severity/WBS/BOQ/evidence all captured).
+- Measurement book entry → cumulativeQty 51+8=59 vs BOQ line (running
+  ledger math correct).
+- Change-order form → live cost delta (12×₹950=₹11.4K computed client-side);
+  title/description validation fires.
+- Incident report form (safety): type/severity/datetime/WBS/injured/fatal/
+  damage/photo all present.
+- Work-order detail: status pipeline + financial summary + retention/TDS/
+  advance-recovery/defect-liability terms + RA-bill approve/reject actions.
+- Subcontractor 360: GSTIN/contact + WO ledger + cost history + material
+  issues.
+- Customer detail: Call/New Sale/outstanding/purchase history +
+  DeleteConfirm dialog.
+- Offline queue: navigator.onLine-driven enqueue→sync (verified the full
+  cycle lands a MaterialIssue + auto-GP in the DB).
+- Notification links resolve per-surface (`resolveLinkForSurface` — mobile
+  users never land on desktop paths).
+
+Mobile state: every surface in the route manifest renders + works; every
+create flow tested either end-to-end or to validation level (some custom
+pickers resist synthetic input — verified manually-equivalent paths).
