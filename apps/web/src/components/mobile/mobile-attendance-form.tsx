@@ -461,8 +461,9 @@ export function MobileAttendanceForm({
         {/* Quick action: mark all present */}
         {stats.present < stats.total && (
           <button
+            disabled={!!periodLocked}
             onClick={markAllPresent}
-            className="flex flex-1 items-center justify-center gap-2 rounded-[0.5rem] border-2 py-2.5 text-m-body font-bold text-m-body press"
+            className="flex flex-1 items-center justify-center gap-2 rounded-[0.5rem] border-2 py-2.5 text-m-body font-bold text-m-body press disabled:opacity-50"
             style={{
               borderColor: "color-mix(in srgb, var(--color-go) 30%, transparent)",
               backgroundColor: "color-mix(in srgb, var(--color-go) 5%, transparent)",
@@ -520,8 +521,9 @@ export function MobileAttendanceForm({
                       return (
                         <button
                           key={s}
+                          disabled={!!periodLocked}
                           onClick={() => setStatus(emp.id, s)}
-                          className="shrink-0 rounded-full border px-2.5 py-1 text-m-caption font-bold text-m-body press"
+                          className="shrink-0 rounded-full border px-2.5 py-1 text-m-caption font-bold text-m-body press disabled:opacity-50 disabled:cursor-not-allowed"
                           style={
                             active
                               ? { color: sCfg.color, backgroundColor: sCfg.bg, borderColor: sCfg.border }
@@ -542,6 +544,7 @@ export function MobileAttendanceForm({
                       <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>In</label>
                       <input
                         type="time"
+                        disabled={!!periodLocked}
                         value={r.checkIn}
                         onChange={(e) => updateRecord(emp.id, "checkIn", e.target.value)}
                         className={inputClass}
@@ -552,6 +555,7 @@ export function MobileAttendanceForm({
                       <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Out</label>
                       <input
                         type="time"
+                        disabled={!!periodLocked}
                         value={r.checkOut}
                         onChange={(e) => updateRecord(emp.id, "checkOut", e.target.value)}
                         className={inputClass}
@@ -564,6 +568,7 @@ export function MobileAttendanceForm({
                         type="number"
                         inputMode="decimal"
                         enterKeyHint="done"
+                        disabled={!!periodLocked}
                         placeholder="8"
                         min={0}
                         max={24}
