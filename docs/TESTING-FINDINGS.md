@@ -932,3 +932,66 @@ Round 12 (cont) — GRN end-to-end verified:
   geo coords, kata-parchi ticket no + gross/tare/net) all persisted.
 - Form-side verified live: all 21 inputs accept input, net weight
   auto-computes, unload slip auto-generates, vehicle-type picker works.
+
+Round 13 (Module G) — mobile field surface audit at 390x844:
+
+FIXED (committed):
+
+- Surface adapter: mobile-only routes (/m/site, /m/queue, /m/pulse) stayed
+  on /m/* when widened past 1024px → permanently blank (CSS hides the
+  mobile shell). Now unmaps to "/". (5c24c355)
+- /portal-listings collided with the broad /portal prefix → could be
+  treated as a public portal route. Boundary-matched. (5c24c355)
+- Middleware "/" → "/m" redirect ignored the __surface marker → mobile-UA
+  - wide-viewport (foldable, landscape tablet, devtools emulation) looped
+    /m ↔ /m/home ↔ /?__surface=1 forever on a blank page. Marker now
+    honored on the landing redirect. (9df81d24)
+- /m/pulse executive dashboard was gated by projects.view → SUPERVISOR
+  and SITE_ENGINEER saw company-wide portfolio value, revenue, and
+  margins. Tightened to finance.view. (5e9550f0)
+- Offline field receive: router.refresh() ran unconditionally after
+  enqueue → offline RSC fetch fails → Next falls back to a document nav →
+  ERR_INTERNET_DISCONNECTED killed the page right after queueing. Guarded
+  with navigator.onLine; page now survives with queue panel visible.
+  (f4c72a5f)
+- Offline queue sync had no re-entrancy guard: online + focus + post-
+  enqueue + SW triggers ran syncQueue() concurrently → same PENDING op
+  POSTed twice → second hit server dedup ("receipt just recorded") → op
+  marked FAILED even though data landed. Concurrent calls now coalesce
+  onto one in-flight run (+ progress-bounded drain). (f4c72a5f)
+- Over-qty receipt validation threw inside an onClick → uncaught
+  pageerror, zero user feedback. Now toasts. (f4c72a5f)
+
+VERIFIED END-TO-END (real UI + DB):
+
+- Gate-pass lifecycle: manual create (FAB form + location sheet) →
+  PENDING → approve → APPROVED → confirm exit → EXITED → (storekeeper-
+  created pass) reject with reason → REJECTED. DB verified each step.
+- DPR chain: mobile submit (Hillview, SUBMITTED) → desktop /hr/dprs queue
+  → sub-admin approve → admin approve → APPROVED; DPR-Finance bridge
+  auto-generated MaterialIssue SA-260923-0006, site stock 600→595,
+  costPostedDate set.
+- Offline queue: goods-receipt queued offline → page alive → online →
+  auto-sync (single POST) → COMPLETED → GoodsReceipt row + PO→PARTIAL.
+- Print previews /m/print/{gate-pass,purchase-order,issue,goods-receipt}
+  render bare (no mobile shell) with real data.
+- Scoped API matrix: supervisor & storekeeper get 403 on users, companies,
+  audit, payroll, gl/accounts, telephony; scope-aware 404 on out-of-scope
+  DPR approve. /api/employees → roster-redacted (no bank/PAN/Aadhaar).
+- Role-adaptive bottom nav differs correctly owner/supervisor/storekeeper.
+- Deep-link, back-nav, browser back all resolve cleanly on warm routes.
+
+OPEN / NOTED:
+
+- api/dprs/[id]/route.ts: every branch has a doubled
+  revalidatePath("/m/dprs") line (merge artifact) — harmless, cosmetic.
+- Gate-pass Reject button renders on self-created passes (tier-1
+  canSelfApprove) but the server 403s "cannot reject your own" — the UI
+  should hide Reject there (Cancel is the self-action). Minor UX.
+- Offline navigation between routes is dead in DEV only — the service
+  worker intentionally bypasses caching in dev; prod serves the cached
+  shell. Post-enqueue router.push to /m/site still navigates offline —
+  acceptable in prod (cached), dies in dev.
+- /api/employees exposes wage fields (dailyRate/monthlySalary/wageType)
+  to hr.view-tier callers (supervisor) — pickEmployeeRoster allowlist
+  includes them deliberately, but worth a policy review.
