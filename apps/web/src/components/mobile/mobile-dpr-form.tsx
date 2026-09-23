@@ -810,7 +810,7 @@ export function MobileDprForm({
 
       <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
         <FormField label="Date" required>
-          <input type="date" value={fDate} onChange={(e) => setFDate(e.target.value)} className={inputClass} style={inputStyle} />
+          <input type="date" value={fDate} max={today} onChange={(e) => setFDate(e.target.value)} className={inputClass} style={inputStyle} />
         </FormField>
         <FormField label="Progress %">
           <input type="text" inputMode="decimal" enterKeyHint="done" min="0" max="100" value={fProgress} onChange={(e) => setFProgress(e.target.value)} placeholder="0-100" className={`${inputClass} tabular-nums`} style={inputStyle} />
