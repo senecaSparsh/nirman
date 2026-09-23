@@ -865,3 +865,12 @@ Dev-server note: the local dev instance wedges under parallel agent edits
 (Fast Refresh storms + mass compiles) — chunk fetches race, pages bounce.
 Verified each "loop" was wedge fallout, not an app bug: routes all settle
 correctly once the server is warm. Prod is the stable verification target.
+
+## Clarification — "redirect loops" were test-harness artifacts
+
+Playwright's browser sends a desktop-class User-Agent at any viewport.
+Document navigations to /m/* therefore hit middleware's reverse redirect
+(desktop UA → desktop surface) before the client adapter corrects back to
+/m/_. A mobile UA on a phone never sees this. Verified: every bounce ends
+on the correct /m/_ route once hydrated; no infinite loops in the real
+mobile path. The only true prior loop (c2b0c5b9) was already fixed.
