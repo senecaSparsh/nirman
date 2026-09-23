@@ -912,3 +912,13 @@ Round 11 — remaining surfaces verified through real UI interactions:
 - Telephony inventory renders number statuses (Active/Recycled) + consent.
 - Rate-contracts empty state + create FAB present.
 - /m/permissions is legal-docs (land NOCs), not role perms — by design.
+
+Round 12 — procurement receive + remaining surfaces:
+
+- PO detail renders full lifecycle (Indent→Quote→PO→GRN→Issue), tracking
+  timeline, financials, logistics. "Receive materials" opens a rigorous
+  GRN form: mandatory weighbridge slip + photo proof + signature +
+  geo-tag (live: 28.84,77.57) + supervisor co-sign + shortage/damage.
+- Task assign: form → PENDING persisted to assignee → deleted.
+- /m/dev/errors correctly gates developer-only (fail-closed for owner).
+- /m/books/day-book, /m/hr/advances 404 correctly (no such surfaces).
