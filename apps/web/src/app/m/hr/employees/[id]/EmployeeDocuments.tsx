@@ -10,6 +10,7 @@ type Attachment = {
   id: string;
   category: string;
   label: string | null;
+  expiresAt: string | null;
   createdAt: string;
   upload: {
     id: string;
@@ -33,9 +34,9 @@ const DOCUMENT_TYPES = [
   { category: "education-certificate", label: "Education Certificate", required: false },
   { category: "experience-certificate", label: "Experience Certificate", required: false },
   { category: "address-proof", label: "Address Proof", required: false },
-  { category: "medical-certificate", label: "Medical Certificate", required: false },
+  { category: "medical-certificate", label: "Medical Certificate", required: false, expirable: true },
   { category: "previous-relieving", label: "Previous Relieving Letter", required: false },
-  { category: "other", label: "Other Document", required: false },
+  { category: "other", label: "Other Document", required: false, expirable: true },
 ] as const;
 
 /**
@@ -143,6 +144,25 @@ export function EmployeeDocuments({
     }
   }
 
+  async function handleSetExpiry(id: string, category: string, value: string) {
+    const label = DOCUMENT_TYPES.find((d) => d.category === category)?.label ?? "document";
+    try {
+      const res = await fetch(`/api/attachments/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expiresAt: value || null }),
+      });
+      if (!res.ok) throw new Error("Failed to set expiry");
+      setAttachments((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, expiresAt: value || null } : a)),
+      );
+      haptic(10);
+      toast.success(value ? `${label} expiry saved — HR will be reminded` : `${label} expiry cleared`);
+    } catch {
+      toast.error("Could not save expiry");
+    }
+  }
+
   function formatSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -233,6 +253,43 @@ export function EmployeeDocuments({
                       </span>
                     </div>
                   )}
+                  {hasDoc && firstDoc && "expirable" in docType && docType.expirable && (() => {
+                    const days = firstDoc.expiresAt
+                      ? Math.ceil((new Date(firstDoc.expiresAt).getTime() - Date.now()) / 86400000)
+                      : null;
+                    return (
+                      <div className="flex items-center gap-1.5 mt-1">
+                        {days != null && (
+                          <span
+                            className="text-micro font-bold px-1 py-0.5 rounded"
+                            style={{
+                              backgroundColor: days < 0
+                                ? "color-mix(in srgb, var(--color-stop) 15%, transparent)"
+                                : days <= 30
+                                  ? "color-mix(in srgb, var(--color-warning) 15%, transparent)"
+                                  : "var(--color-concrete)",
+                              color: days < 0 ? "var(--color-stop)" : days <= 30 ? "var(--color-warning)" : "var(--color-ink-500)",
+                            }}
+                          >
+                            {days < 0 ? "EXPIRED" : days === 0 ? "EXPIRES TODAY" : `EXPIRES IN ${days}D`}
+                          </span>
+                        )}
+                        {canManage && (
+                          <input
+                            type="date"
+                            value={firstDoc.expiresAt ? firstDoc.expiresAt.slice(0, 10) : ""}
+                            onChange={(e) => handleSetExpiry(firstDoc.id, docType.category, e.target.value)}
+                            className="text-micro border rounded px-1 py-0.5"
+                            style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}
+                            title="Set expiry — HR gets reminded 30 days before"
+                          />
+                        )}
+                        {!canManage && days == null && (
+                          <span className="text-micro" style={{ color: "var(--color-ink-300)" }}>no expiry set</span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 

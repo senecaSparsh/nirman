@@ -3344,3 +3344,82 @@ export async function checkExpiringEmploymentTerms(daysAhead = 30): Promise<{
 
   return { checked: employees.length, expiring: notified, notified };
 }
+
+// ───────────────────────────────────────────────────────────
+//  checkExpiringEmployeeDocs — cron sweep: employee attachments
+//  (medical certs, licences, safety docs) whose expiresAt falls
+//  within the next `daysAhead` days. Emits EMPLOYEE_DOC_EXPIRING
+//  to OWNER/ADMIN/HR_MANAGER, deduped per attachment within 14 days.
+// ───────────────────────────────────────────────────────────
+
+export async function checkExpiringEmployeeDocs(daysAhead = 30): Promise<{
+  checked: number;
+  expiring: number;
+  notified: number;
+}> {
+  const now = new Date();
+  const cutoff = new Date(now.getTime() + daysAhead * 24 * 60 * 60 * 1000);
+  const dedupeSince = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+
+  const docs = await prisma.entityAttachment.findMany({
+    where: {
+      entityType: "Employee",
+      expiresAt: { gte: now, lte: cutoff },
+    },
+    select: {
+      id: true,
+      companyId: true,
+      entityId: true,
+      category: true,
+      label: true,
+      expiresAt: true,
+      createdById: true,
+    },
+  });
+  if (docs.length === 0) return { checked: 0, expiring: 0, notified: 0 };
+
+  // Resolve employee names (a doc for a deleted/inactive employee is noise).
+  const employeeIds = [...new Set(docs.map((d) => d.entityId))];
+  const employees = await prisma.employee.findMany({
+    where: { id: { in: employeeIds }, active: true, deletedAt: null },
+    select: { id: true, name: true },
+  });
+  const nameById = new Map(employees.map((e) => [e.id, e.name]));
+
+  let notified = 0;
+  for (const doc of docs) {
+    const employeeName = nameById.get(doc.entityId);
+    if (!employeeName || !doc.expiresAt) continue;
+    const daysLeft = Math.ceil((doc.expiresAt.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+
+    const recent = await prisma.inAppNotification.findFirst({
+      where: {
+        companyId: doc.companyId,
+        eventType: NotificationEventType.EMPLOYEE_DOC_EXPIRING,
+        createdAt: { gte: dedupeSince },
+        metadata: { path: ["attachmentId"], equals: doc.id },
+      },
+      select: { id: true },
+    });
+    if (recent) continue;
+
+    void emitNotificationEvent({
+      eventType: NotificationEventType.EMPLOYEE_DOC_EXPIRING,
+      companyId: doc.companyId,
+      entityType: "Employee",
+      entityId: doc.entityId,
+      variables: {
+        employeeId: doc.entityId,
+        employeeName,
+        attachmentId: doc.id,
+        docLabel: doc.label ?? doc.category,
+        daysLeft: String(daysLeft),
+        endDate: doc.expiresAt.toLocaleDateString("en-IN"),
+      },
+      timestamp: new Date(),
+    });
+    notified++;
+  }
+
+  return { checked: docs.length, expiring: notified, notified };
+}

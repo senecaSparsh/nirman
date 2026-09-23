@@ -50,6 +50,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     id: a.id,
     category: a.category,
     label: a.label,
+    expiresAt: a.expiresAt,
     createdAt: a.createdAt,
     upload: a.upload,
   }));
@@ -72,7 +73,17 @@ export const GET = apiHandler(async (req: NextRequest) => {
  */
 export const POST = apiHandler(async (req: NextRequest) => {
   const body = await req.json().catch(() => ({}));
-  const { entityType, entityId, uploadId, category, label } = body as Record<string, string | undefined>;
+  const { entityType, entityId, uploadId, category, label, expiresAt } = body as Record<string, string | undefined>;
+
+  // expiresAt is optional; when present it must parse as a real date.
+  let expiry: Date | null = null;
+  if (expiresAt) {
+    const parsed = new Date(expiresAt);
+    if (Number.isNaN(parsed.getTime())) {
+      return json({ error: "expiresAt must be a valid date" }, { status: 400 });
+    }
+    expiry = parsed;
+  }
 
   if (!entityType || !entityId || !uploadId) {
     return json({ error: "entityType, entityId, and uploadId are required" }, { status: 400 });
@@ -121,6 +132,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         entityId,
         category: category ?? "other",
         label: label ?? null,
+        expiresAt: expiry,
       },
       include: {
         upload: { select: { id: true, url: true, originalName: true, mimeType: true, size: true } },
@@ -160,6 +172,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
           fileName: upload.originalName,
           category: category ?? "other",
           label: label ?? null,
+          expiresAt: expiry,
         },
       },
     ).catch(() => {
@@ -171,6 +184,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     id: attachment.id,
     category: attachment.category,
     label: attachment.label,
+    expiresAt: attachment.expiresAt,
     createdAt: attachment.createdAt,
     upload: attachment.upload,
   });

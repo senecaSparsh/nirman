@@ -793,6 +793,7 @@ export {
   getAttendanceWithTiers,
   getAttendanceTierCounts,
   checkExpiringEmploymentTerms,
+  checkExpiringEmployeeDocs,
 } from "./hr";
 
 // Leave Management — requests with approval workflow

@@ -6908,6 +6908,7 @@ model EntityAttachment {
   entityId    String   // the related entity's ID
   category    String   @default("other") // "photo" | "invoice" | "contract" | "report" | "other"
   label       String?  // optional user-facing label
+  expiresAt   DateTime? // expiry for compliance docs (medical certs, licenses) — the reminders cron sweeps it
   createdById String?
   createdAt   DateTime @default(now())
 
@@ -6919,6 +6920,7 @@ model EntityAttachment {
   @@index([companyId])
   @@index([entityType, entityId])
   @@index([uploadId])
+  @@index([entityType, expiresAt])
 }
 
 // ═══════════════════════════════════════════════════════════════

@@ -89,6 +89,7 @@ export enum NotificationEventType {
   QUOTE_APPROVED = "QUOTE_APPROVED",
   CONTRACT_EXPIRING = "CONTRACT_EXPIRING",
   PROBATION_ENDING = "PROBATION_ENDING",
+  EMPLOYEE_DOC_EXPIRING = "EMPLOYEE_DOC_EXPIRING",
 
   // Finance (3)
   EXPENSE_CREATED = "EXPENSE_CREATED",
@@ -186,6 +187,7 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   [NotificationEventType.QUOTE_APPROVED]: "IMMEDIATE",
   [NotificationEventType.CONTRACT_EXPIRING]: "DAILY",
   [NotificationEventType.PROBATION_ENDING]: "DAILY",
+  [NotificationEventType.EMPLOYEE_DOC_EXPIRING]: "DAILY",
   [NotificationEventType.EXPENSE_APPROVED]: "IMMEDIATE",
   [NotificationEventType.EXPENSE_REJECTED]: "IMMEDIATE",
 
@@ -812,6 +814,7 @@ const CO_EVENTS = new Set([NotificationEventType.CO_SUBMITTED]);
 const HR_CONTRACT_EVENTS = new Set([
   NotificationEventType.CONTRACT_EXPIRING,
   NotificationEventType.PROBATION_ENDING,
+  NotificationEventType.EMPLOYEE_DOC_EXPIRING,
 ]);
 
 export function shouldRoleReceiveEvent(role: string, eventType: NotificationEventType): boolean {
@@ -953,6 +956,8 @@ const EVENT_MESSAGES: Partial<
     `${s("employeeName") || "An employee"}'s contract ends in ${s("daysLeft") || "a few"} day(s) (${s("endDate")}). Renew or close out.`,
   [NotificationEventType.PROBATION_ENDING]: ({ s }) =>
     `${s("employeeName") || "An employee"}'s probation ends in ${s("daysLeft") || "a few"} day(s) (${s("endDate")}). Confirm or extend.`,
+  [NotificationEventType.EMPLOYEE_DOC_EXPIRING]: ({ s }) =>
+    `${s("employeeName") || "An employee"}'s ${s("docLabel") || "document"} expires in ${s("daysLeft") || "a few"} day(s) (${s("endDate")}). Collect a renewal.`,
 
   // Finance
   [NotificationEventType.EXPENSE_CREATED]: ({ s, money }) =>

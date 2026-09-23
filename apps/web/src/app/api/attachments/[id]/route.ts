@@ -78,3 +78,49 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
 
   return json({ deleted: true });
 });
+
+/**
+ * PATCH /api/attachments/[id]
+ * Body: { expiresAt?: string | null }
+ *
+ * Set or clear a document's expiry date — used by the employee dossier so
+ * compliance docs (medical certs, licences) feed the reminders cron sweep.
+ */
+export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  const company = await getCompany();
+  const { id } = await params;
+
+  const attachment = await prisma.entityAttachment.findFirst({
+    where: { id, companyId: company.id },
+    select: { id: true, entityType: true, entityId: true },
+  });
+  if (!attachment) return json({ error: "Attachment not found" }, { status: 404 });
+
+  const rule = ATTACHMENT_ENTITY_ACCESS[attachment.entityType];
+  const perms = await getUserPermissions();
+  const hasGlobal = perms.includes(PERM.ATTACHMENT_MANAGE);
+  if (!hasGlobal && !(rule?.managePerm && perms.includes(rule.managePerm))) {
+    throw new ForbiddenError();
+  }
+  const denied = await assertAttachmentSubjectAccess(attachment.entityType, attachment.entityId, company.id,
+    hasGlobal ? undefined : { perm: rule!.managePerm });
+  if (denied) return json({ error: denied.error }, { status: denied.status });
+
+  const body = await req.json().catch(() => ({}));
+  const raw = (body as Record<string, unknown>).expiresAt;
+  let expiresAt: Date | null = null;
+  if (raw != null) {
+    const parsed = new Date(String(raw));
+    if (Number.isNaN(parsed.getTime())) {
+      return json({ error: "expiresAt must be a valid date or null" }, { status: 400 });
+    }
+    expiresAt = parsed;
+  }
+
+  const updated = await prisma.entityAttachment.update({
+    where: { id },
+    data: { expiresAt },
+    select: { id: true, expiresAt: true },
+  });
+  return json(updated);
+});
