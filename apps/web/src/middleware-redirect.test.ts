@@ -294,6 +294,14 @@ describe("Middleware: /print and /portal routes never redirected", () => {
     const res = middleware(makeReq("/portal/listings", { ua: MOBILE_UA }));
     expect(getRedirectLocation(res)).toBeNull();
   });
+
+  it("/portal-listings (staff page, not portal) with mobile UA → redirects to /m/portal-listings", () => {
+    // The customer-portal prefix must not swallow the staff page — a mobile
+    // user hitting it was stranded on a CSS-hidden desktop page.
+    const res = middleware(makeReq("/portal-listings", { ua: MOBILE_UA }));
+    expect(res.status).toBe(307);
+    expect(getRedirectLocation(res)).toContain("/m/portal-listings");
+  });
 });
 
 describe("Middleware: /accept routes (email token links) never redirected", () => {

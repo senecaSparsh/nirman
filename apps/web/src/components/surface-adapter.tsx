@@ -82,6 +82,11 @@ export function SurfaceAdapter() {
     // Desktop→mobile with no mapped equivalent → land on the mobile home so
     // the user is never stranded on a desktop page on a phone-width screen.
     if (!target && isMobile && !onMobileRoute) target = "/m/home" + search;
+    // Mobile→desktop with no mapped equivalent (mobile-only routes like
+    // /m/site, /m/queue, /m/pulse): the CSS gate hides [data-surface="mobile"]
+    // at ≥1024px, so "staying" strands the user on a BLANK page. Mirror the
+    // middleware's reverse-redirect fallback — land on the desktop home.
+    if (!target && !isMobile && onMobileRoute) target = "/" + search;
     if (!target || target === path) return;
     const last = lastIssued.current;
     if (last?.target === target && Date.now() - last.at < RETRY_MS) return;

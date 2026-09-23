@@ -149,16 +149,46 @@ describe("resolveTarget: Mobile → Desktop", () => {
     );
   });
 
-  it("returns null for mobile-only route with no desktop equivalent", () => {
-    // /m/site is mobile-only
-    const target = resolveTarget("/m/site", "", false);
-    expect(target).toBeNull();
+  it("maps mobile-only /m/site to desktop home (explicit desktopPath)", () => {
+    // Widening the window on a mobile-only route must never strand the user
+    // on a CSS-hidden page — /m/site lands on the desktop dashboard.
+    expect(resolveTarget("/m/site", "", false)).toBe("/");
   });
 
-  it("returns null for /m/queue (mobile-only)", () => {
+  it("returns null for /m/queue (mobile-only, adapter falls back to /)", () => {
     const target = resolveTarget("/m/queue", "", false);
-    // /m/queue has no desktopPath and /queue doesn't exist as a desktop route
+    // /m/queue has no desktopPath and /queue doesn't exist as a desktop route.
+    // The SurfaceAdapter itself maps this null to "/" so the user is never
+    // stranded on a hidden surface.
     expect(target === null || target === "/queue").toBe(true);
+  });
+
+  it("maps /m/site/tasks to /tasks", () => {
+    expect(resolveTarget("/m/site/tasks", "", false)).toBe("/tasks");
+  });
+
+  it("maps /m/site/field to /field (GRN receiving)", () => {
+    expect(resolveTarget("/m/site/field", "", false)).toBe("/field");
+  });
+
+  it("maps /m/portal-listings to /portal-listings (staff page, not portal)", () => {
+    expect(resolveTarget("/m/portal-listings", "", false)).toBe("/portal-listings");
+    expect(shouldSkip("/portal-listings")).toBe(false);
+  });
+
+  it("maps /m/print/<type>/<id> to the bare /print document", () => {
+    expect(resolveTarget("/m/print/gate-pass/abc123", "", false)).toBe(
+      "/print/gate-pass/abc123",
+    );
+    expect(resolveTarget("/m/print/payslip/emp1", "", false)).toBe(
+      "/print/payslip/emp1",
+    );
+  });
+
+  it("maps /m/print/sale-form/<id> to /sales/<id>/print", () => {
+    expect(resolveTarget("/m/print/sale-form/sale-9", "", false)).toBe(
+      "/sales/sale-9/print",
+    );
   });
 });
 

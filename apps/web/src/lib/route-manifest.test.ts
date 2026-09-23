@@ -602,7 +602,9 @@ describe("G10 — DESKTOP_ROUTES covers the desktop route tree exactly", () => {
             .filter((s) => !SKIP_GROUPS.test(s))
             .join("/");
           // Public/auth pages are never redirect targets — keep them out.
-          if (/^(sign-in|sign-up|forgot-password|reset-password|consent|accept|portal|print)/.test(clean)) continue;
+          // The portal/print alternatives are segment-anchored so staff pages
+          // like /portal-listings are NOT swallowed by the "/portal" prefix.
+          if (/^(sign-in|sign-up|forgot-password|reset-password|consent|accept|portal|print)(\/|$)/.test(clean)) continue;
           out.push(clean ? "/" + clean : "/");
         }
       }
@@ -636,9 +638,15 @@ describe("G10 — DESKTOP_ROUTES covers the desktop route tree exactly", () => {
     const bad: string[] = [];
     for (const r of ROUTES) {
       if (!r.path.startsWith("/m")) continue;
-      const concrete = r.path.replace(/\[id\]/g, "abc123");
+      const concrete = r.path.replace(/\[[^\]]+\]/g, "abc123");
       const target = resolveTarget(concrete, "", false);
-      if (target && !dynOk(target.split("?")[0]!)) bad.push(`${r.path} -> ${target}`);
+      if (!target) continue;
+      const base = target.split("?")[0]!;
+      // /print/* documents are surface-agnostic public pages — excluded from
+      // DESKTOP_ROUTES by design, so the registry can't vouch for them. Their
+      // validity is the type dispatcher's job (identical on both surfaces).
+      if (base.startsWith("/print/")) continue;
+      if (!dynOk(base)) bad.push(`${r.path} -> ${target}`);
     }
     expect(bad, `Mobile routes redirecting to non-existent desktop pages:\n${bad.join("\n")}`)
       .toEqual([]);

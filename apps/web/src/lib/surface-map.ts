@@ -80,9 +80,14 @@ desktopToMobile.set("/", "/m/home");
 // ── Routes that should never be redirected ──────────────────────
 const SKIP_PREFIXES = [
   "/sign-in", "/sign-up", "/forgot-password", "/reset-password",
-  "/change-password", "/consent", "/accept/", "/api/", "/_next/", "/portal", "/print",
+  "/change-password", "/consent", "/accept/", "/api/", "/_next/", "/portal/", "/print",
 ];
+// Exact-match skips — the customer portal root. (A bare prefix match on
+// "/portal" would also swallow the staff page "/portal-listings" — that
+// page DOES have a mobile surface and must stay adapter-managed.)
+const SKIP_EXACT = new Set(["/portal"]);
 export function shouldSkip(pathname: string): boolean {
+  if (SKIP_EXACT.has(pathname)) return true;
   if (SKIP_PREFIXES.some((p) => pathname.startsWith(p))) return true;
   // Print-style routes outside /print/* (e.g. /sales/[id]/print) — documents
   // must render in place; there is no /m equivalent to redirect to.
@@ -190,6 +195,18 @@ export function resolveTarget(pathname: string, search: string, toMobile: boolea
   } else {
     // ── Mobile → Desktop ──
     if (pathname === "/m" || pathname === "/m/home") return "/" + (search || "");
+
+    // /m/print/<type>/<id> mirrors the desktop print document at
+    // /print/<type>/<id> — except "sale-form", whose document lives at
+    // /sales/[id]/print. Print pages are surface-agnostic (skipped from
+    // surface routing), so mapping straight to the document preserves the
+    // link across devices instead of dropping the user on the home page.
+    if (pathname.startsWith("/m/print/")) {
+      const rest = pathname.slice("/m/print/".length);
+      const [type, id] = rest.split("/");
+      if (type === "sale-form" && id) return `/sales/${id}/print` + (search || "");
+      if (type && id) return `/print/${rest}` + (search || "");
+    }
 
     const entry = matchRoute(pathname);
     if (!entry?.path.startsWith("/m/")) {

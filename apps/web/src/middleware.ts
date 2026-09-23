@@ -79,7 +79,11 @@ export function isPublicRoute(pathname: string): boolean {
     pathname.startsWith("/accept/") ||
     pathname.startsWith("/api/auth/") ||
     pathname.startsWith("/api/telephony/webhook") ||
-    pathname.startsWith("/portal") ||
+    // Customer portal only — "/portal-listings" (a staff page) must NOT
+    // match: it needs the auth cookie check + surface redirects like any
+    // other app route.
+    pathname === "/portal" ||
+    pathname.startsWith("/portal/") ||
     pathname.startsWith("/api/portal/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon") ||
@@ -168,7 +172,9 @@ export function middleware(req: NextRequest) {
     // Print-style routes outside /print/* (e.g. /sales/[id]/print) have no
     // /m equivalent — render the document in place on mobile too.
     !pathname.endsWith("/print") &&
-    !pathname.startsWith("/portal") &&
+    // "/portal" = customer portal (surface-agnostic). "/portal-listings"
+    // is a STAFF page — it must get the mobile redirect like any app route.
+    !(pathname === "/portal" || pathname.startsWith("/portal/")) &&
     !pathname.startsWith("/api") &&
     !isPublicRoute(pathname) &&
     !searchParams.has("__surface") &&
@@ -259,7 +265,9 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/accept/") ||
     pathname.startsWith("/api/auth/") ||
     pathname.startsWith("/api/telephony/webhook") ||
-    pathname.startsWith("/portal") ||
+    // Same boundary as isPublicRoute — /portal-listings is staff surface.
+    pathname === "/portal" ||
+    pathname.startsWith("/portal/") ||
     pathname.startsWith("/api/portal/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon") ||

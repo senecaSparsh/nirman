@@ -70,6 +70,7 @@ export const DESKTOP_ROUTES = new Set<string>([
   "/my-tasks",
   "/permissions",
   "/petty-cash",
+  "/portal-listings",
   "/procurement",
   "/procurement/[id]",
   "/profit-center",

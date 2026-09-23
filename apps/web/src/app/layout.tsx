@@ -95,7 +95,7 @@ if(!c){c='compact';try{localStorage.setItem('nirman-currency-mode',c);}catch(e){
    webview UA quirk or stale cookie can slip past the middleware and serve
    the wrong surface. Mirrors SurfaceAdapter's own skip/escape rules. */
 var p=location.pathname;
-var sk=/^\\/(sign-in|sign-up|forgot-password|reset-password|change-password|consent|accept\\/|api\\/|_next\\/|portal|print)/.test(p)||/\\/print$/.test(p)||/\\.(svg|png|jpe?g|gif|webp|ico|css|js|map|webmanifest|txt)$/.test(p);
+var sk=/^\\/(sign-in|sign-up|forgot-password|reset-password|change-password|consent|accept\\/|api\\/|_next\\/)/.test(p)||/^\\/(portal|print)(\\/|$)/.test(p)||/\\/print$/.test(p)||/\\.(svg|png|jpe?g|gif|webp|ico|css|js|map|webmanifest|txt)$/.test(p);
 var mob=matchMedia('(max-width:1023px)').matches;
 var onM=p==='/m'||p.indexOf('/m/')===0;
 if(!sk&&((mob&&!onM)||(!mob&&onM))){
