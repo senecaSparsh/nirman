@@ -1216,3 +1216,26 @@ Ran real end-to-end flows at phone width (not module browsing):
 
 Commits: b9bec857 (dialog leak + due settle + unit filter), 216131d4
 (termination drops zombie dues).
+
+## Round 19 — remaining seams (Sep 24)
+
+- **Customer portal** — OTP login (dev logs code; prod fails closed on SMS
+  failure) → bookings dashboard (4 sales, per-sale paid/due) → inline expand
+  (payment schedule + payment history) → Construction Progress tab shows
+  verified DPR updates → printable allotment letter + demand notice.
+  Segregation: pre-auth cookie required before customer select (no IDOR).
+- **RA bills / work orders** — WO detail: work done, paid, retention held,
+  TDS %, defect liability. RA lifecycle DRAFT→SUBMITTED→APPROVED→PAID with
+  segregation of duties (creator can't pay own bill — verified: Pay hidden
+  for Amit who created+submitted+approved).
+- **Unified approvals inbox** — 12 pending grouped by type, Approve-All per
+  group is confirm-guarded, DPR batch falls back to individual calls.
+- **Stock counts** — DRAFT→COUNTED→RECONCILED verified live; variance posts
+  ADJUSTMENT_IN/OUT movements + GL variance; insufficient-stock blocks.
+- **Advance → payroll** — auto per-line recovery deductions capped at
+  balance + available wages, credits on PAID, survives allowance edits.
+- **Assistant ("Sahayak")** — intent parser returns live data + action cards.
+- **Legal/permissions** — stage-grouped doc tracker with expiry states.
+- **Tally** — 85 JEs queued, push vouchers + pull collections.
+
+Everything checked this round worked. No new bugs.
