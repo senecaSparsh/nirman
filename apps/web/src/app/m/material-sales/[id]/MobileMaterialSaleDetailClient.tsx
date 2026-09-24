@@ -430,7 +430,7 @@ export function MobileMaterialSaleDetailClient({
               Pay Mode
             </span>
             <span className="text-m-label font-bold ml-auto" style={{ color: "var(--color-ink-950)" }}>
-              {paymentMode}
+              {formatPaymentMode(paymentMode)}
             </span>
           </div>
         ) : null}
@@ -655,7 +655,7 @@ export function MobileMaterialSaleDetailClient({
                     required
                     value={payMode}
                     onChange={(v) => setPayMode(v)}
-                    options={PAYMENT_MODES.map((m) => ({ value: m, label: m }))}
+                    options={PAYMENT_MODES.map((m) => ({ value: m, label: formatPaymentMode(m) }))}
                   />
                 </div>
               </div>
