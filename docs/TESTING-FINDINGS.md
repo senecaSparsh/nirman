@@ -1279,3 +1279,24 @@ Everything checked this round worked. No new bugs.
 - **Double-approve** — client disables via "approving" state; server
   400s a second approve. Guarded both layers.
 - **Production** — health check 9/9; deploy deferred per owner.
+
+## Round 22 — rate contracts, notifications, transfers, QC (Sep 24)
+
+- **Rate contracts wired** (5a8910c0) — `getActiveRateContract` was dead
+  code; POs could order above the agreed rate with no flag. Now: point
+  lookup API, mobile PO form auto-fills the contract rate (beats
+  last-purchase), supplier-change re-checks lines, submit warns on
+  over-rate / out-of-bounds qty.
+- **/m/notifications page** (060de6fd) — bell drawer capped at 50 and
+  the URL 404'd. Now a full history page (100 latest) with unread dots,
+  deep links via resolveLinkForSurface, mark-all-read.
+- **Stock transfer chain** — DRAFT → gate-pass-gated dispatch (blocked
+  while GP PENDING, auto-moved to IN_TRANSIT on approval) → receive
+  dialog requires photo + receiver signature + geo-tag (all mandatory).
+- **QC inspection** — pending queue → PO → Inspect → GRN PASSED →
+  queue shrinks. Verified live.
+- **Measurement book** — per-project entries with measured qty, rate,
+  earned-value roll-up; feeds RA bills.
+- Verified: duplicate "Po Approved" notifications are correct fan-out
+  (one per approver user), not a bug. Old ₹x.00 messages predate the
+  money-format fix.
