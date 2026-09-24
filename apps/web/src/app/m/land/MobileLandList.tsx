@@ -257,7 +257,7 @@ export function MobileLandList({
             <LegendDot color="var(--color-signal)" label={`${portfolio.holdCount} hold`} />
             <LegendDot color="var(--color-stop)" label={`${portfolio.soldCount} sold`} />
             {portfolio.partitionedCount > 0 ? (
-              <LegendDot color="var(--color-steel)" label={`${portfolio.partitionedCount} part`} />
+              <LegendDot color="var(--color-steel)" label={`${portfolio.partitionedCount} split`} />
             ) : null}
           </div>
         </div>
@@ -619,7 +619,7 @@ function PurchaseCard({
         {p.partitionedCount > 0 ? (
           <span className="flex items-center gap-0.5 text-m-caption font-semibold" style={{ color: "var(--color-steel)" }} title={`${p.partitionedCount} Partitioned`}>
             <Split className="size-1.5" />
-            {p.partitionedCount} Part
+            {p.partitionedCount} Split
           </span>
         ) : null}
 
