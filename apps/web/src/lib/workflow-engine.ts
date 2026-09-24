@@ -296,6 +296,17 @@ async function executeStep(step: WorkflowStep, tenantCompanyId: string | null): 
         return { stepId: step.id, status: "failed", message: "Assignee is not a member of this company" };
       }
 
+      // Dedupe: a scheduled workflow re-minting the same reminder while the
+      // previous one is still open just adds noise. Workflow tasks carry
+      // assignedById=null so a human-created task never blocks the mint.
+      const duplicate = await prisma.task.findFirst({
+        where: { title, assignedToId, status: "PENDING", assignedById: null },
+        select: { id: true },
+      });
+      if (duplicate) {
+        return { stepId: step.id, status: "success", message: `Task "${title}" already pending (id: ${duplicate.id}) — skipped` };
+      }
+
       const task = await prisma.task.create({
         data: { title, assignedToId, instructions, priority, dueDate },
       });
@@ -314,6 +325,14 @@ async function executeStep(step: WorkflowStep, tenantCompanyId: string | null): 
       }
       if (tenantCompanyId && !(await assigneeInTenant(assignedToId, tenantCompanyId))) {
         return { stepId: step.id, status: "failed", message: "Recipient is not a member of this company" };
+      }
+
+      const duplicate = await prisma.task.findFirst({
+        where: { title, assignedToId, status: "PENDING", assignedById: null },
+        select: { id: true },
+      });
+      if (duplicate) {
+        return { stepId: step.id, status: "success", message: `Notification "${title}" already pending — skipped` };
       }
 
       await prisma.task.create({
