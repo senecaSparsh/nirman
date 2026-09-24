@@ -651,6 +651,74 @@ async function executeStep(step: WorkflowStep, tenantCompanyId: string | null): 
 }
 
 /**
+ * Minimal 5-field cron matcher — fields: minute hour dom month dow.
+ * Supports star, step (star-slash-n), single values, ranges (a-b), lists.
+ * Day-of-week accepts 0–7 where 0 and 7 are Sunday.
+ */
+function cronFieldMatches(field: string, value: number, min: number, _max: number): boolean {
+  for (const part of field.split(",")) {
+    const slashIdx = part.indexOf("/");
+    const step = slashIdx !== -1 ? Number(part.slice(slashIdx + 1)) : 1;
+    const range = slashIdx !== -1 ? part.slice(0, slashIdx) : part;
+    if (range === "*") {
+      if ((value - min) % step === 0) return true;
+      continue;
+    }
+    const dashIdx = range.indexOf("-");
+    const lo = dashIdx !== -1 ? Number(range.slice(0, dashIdx)) : Number(range);
+    const hi = dashIdx !== -1 ? Number(range.slice(dashIdx + 1)) : lo;
+    if (Number.isNaN(lo) || Number.isNaN(hi) || Number.isNaN(step) || step < 1) continue;
+    if (value >= lo && value <= hi && (value - lo) % step === 0) return true;
+  }
+  return false;
+}
+
+/**
+ * Next fire time for a 5-field cron expression, scanning forward minute by
+ * minute (day-of-month and day-of-week are OR'd, matching Vixie cron).
+ * Returns null for an unparseable expression.
+ */
+export function nextRunFromCron(expr: string, from: Date): Date | null {
+  const fields = expr.trim().split(/\s+/);
+  if (fields.length !== 5) return null;
+  const [minField, hourField, domField, monthField, dowField] = fields as [string, string, string, string, string];
+  const d = new Date(from.getTime() + 60_000);
+  d.setSeconds(0, 0);
+  // Scan up to ~4 years ahead (covers Feb 29-only schedules).
+  const limit = from.getTime() + 366 * 4 * 24 * 60 * 60 * 1000;
+  while (d.getTime() < limit) {
+    const minute = d.getMinutes();
+    const hour = d.getHours();
+    const dom = d.getDate();
+    const month = d.getMonth() + 1;
+    const dow = d.getDay();
+    const domWild = domField === "*", dowWild = dowField === "*";
+    const domHit = cronFieldMatches(domField, dom, 1, 31);
+    const dowHit = cronFieldMatches(dowField, dow, 0, 7) || (dow === 0 && cronFieldMatches(dowField, 7, 0, 7));
+    const dayOk =
+      domWild && dowWild ? true
+      : domWild ? dowHit
+      : dowWild ? domHit
+      : domHit || dowHit;
+    const monthOk = cronFieldMatches(monthField, month, 1, 12);
+    if (!(dayOk && monthOk)) {
+      // Fast-forward to next midnight — no minute today can match.
+      d.setDate(d.getDate() + 1);
+      d.setHours(0, 0, 0, 0);
+      continue;
+    }
+    if (
+      cronFieldMatches(minField, minute, 0, 59) &&
+      cronFieldMatches(hourField, hour, 0, 23)
+    ) {
+      return d;
+    }
+    d.setTime(d.getTime() + 60_000);
+  }
+  return null;
+}
+
+/**
  * Process due scheduled workflows — called by the scheduler endpoint.
  * Finds all enabled schedules with nextRunAt <= now and executes them.
  */
@@ -666,26 +734,32 @@ export async function processScheduledWorkflows() {
   for (const schedule of due) {
     if (schedule.workflow.deletedAt || schedule.workflow.status !== "ACTIVE") continue;
 
+    // Compute next run time — real cron when set, else the interval, else daily.
+    let nextRun: Date;
+    if (schedule.cron) {
+      nextRun = nextRunFromCron(schedule.cron, now) ?? new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    } else if (schedule.intervalM) {
+      nextRun = new Date(now.getTime() + schedule.intervalM * 60 * 1000);
+    } else {
+      nextRun = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    }
+
+    // Claim the run atomically BEFORE executing — a second concurrent tick
+    // sees this schedule as due, but its claim fails after ours updates
+    // nextRunAt (stale-value compare-and-set). Without this, a slow run
+    // overlapping the next tick mints duplicate tasks/notifications.
+    const claimed = await prisma.scheduledWorkflow.updateMany({
+      where: { id: schedule.id, nextRunAt: schedule.nextRunAt },
+      data: { lastRunAt: now, nextRunAt: nextRun },
+    });
+    if (claimed.count === 0) continue;
+
     try {
       const run = await executeWorkflow(schedule.workflowId, "schedule");
       results.push({ workflowId: schedule.workflowId, runId: run.id, status: run.status });
     } catch (err: unknown) {
       results.push({ workflowId: schedule.workflowId, runId: "", status: `error: ${err instanceof Error ? err.message : "Unknown error"}` });
     }
-
-    // Compute next run time
-    let nextRun = new Date();
-    if (schedule.intervalM) {
-      nextRun = new Date(Date.now() + schedule.intervalM * 60 * 1000);
-    } else {
-      // Default: 1 day from now (simplified cron — real cron parsing would need a library)
-      nextRun = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    }
-
-    await prisma.scheduledWorkflow.update({
-      where: { id: schedule.id },
-      data: { lastRunAt: now, nextRunAt: nextRun },
-    });
   }
 
   return results;
