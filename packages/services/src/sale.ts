@@ -14,6 +14,7 @@ import {
   postSaleExpense,
   postBrokerCommission,
   postBrokerCommissionPaid,
+  postWipCapitalization,
   ACCT,
 } from "./gl-posting";
 import { ServiceError } from "./errors";
@@ -50,6 +51,32 @@ import { autoSyncEntryToTally } from "./auto-sync";
  * Only counts CLEARED payments (skips PENDING/BOUNCED cheques) so the
  * schedule reflects realised funds, not provisional ones.
  */
+/**
+ * Capitalize any production cost that accrued after the unit went
+ * AVAILABLE — `setBuiltUnitStatus` only capitalizes at the AVAILABLE
+ * transition, so costs posted later (late subcontractor bills, WIP
+ * reallocations) stay stranded in WIP (1500) while the sale's COGS
+ * release uses live `productionCost`. Without this catch-up, 1800 gets
+ * over-credited and can go negative. No-op for PURCHASED units (they
+ * post Dr 1800 / Cr Cash at purchase) and for already-capitalized costs.
+ */
+async function capitalizeOutstandingCost(tx: Prisma.TransactionClient, opts: { saleId: string; companyId: string; userId?: string | null }) {
+  const sale = await tx.assetSale.findUnique({ where: { id: opts.saleId }, select: { builtUnitId: true } });
+  if (!sale?.builtUnitId) return;
+  const unit = await tx.builtUnit.findFirst({ where: { id: sale.builtUnitId, deletedAt: null }, select: { id: true, projectId: true, originType: true, productionCost: true, capitalizedAmount: true } });
+  if (!unit || unit.originType !== "CREATED") return;
+  const gap = new Decimal(unit.productionCost).minus(new Decimal(unit.capitalizedAmount ?? 0));
+  if (!gap.gt(0)) return;
+  await postWipCapitalization(tx, {
+    companyId: opts.companyId,
+    builtUnitId: unit.id,
+    projectId: unit.projectId,
+    costBasis: gap,
+    postedById: opts.userId ?? undefined,
+  });
+  await tx.builtUnit.update({ where: { id: unit.id }, data: { capitalizedAmount: unit.productionCost } });
+}
+
 export async function syncPaymentScheduleFromPayments(tx: Prisma.TransactionClient, saleId: string) {
   const schedule = await tx.paymentSchedule.findFirst({
     where: { assetSaleId: saleId },
@@ -633,6 +660,7 @@ export async function sellAsset(input: SellAssetInput) {
       // Revenue recognition happens here because payment is confirmed;
       // the sale *stage* stays DEPOSIT_RECEIVED until documents are uploaded.
       if (!isChequePayment) {
+        await capitalizeOutstandingCost(tx, { saleId: sale.id, companyId, userId: input.userId });
         await postAssetSale(tx, {
           companyId,
           assetSaleId: sale.id,
@@ -1037,6 +1065,7 @@ export async function completeSale(input: CompleteSaleInput) {
 
     // ── GL postings ──
     // 1. Post full revenue + COGS (as if the sale happened now)
+    await capitalizeOutstandingCost(tx, { saleId: input.saleId, companyId: sale.companyId, userId: input.userId });
     await postAssetSale(tx, {
       companyId: sale.companyId,
       assetSaleId: input.saleId,
@@ -2233,6 +2262,7 @@ export async function clearCheque(paymentId: string, userId?: string) {
       });
 
       // Post revenue + COGS
+      await capitalizeOutstandingCost(tx, { saleId: sale.id, companyId: sale.companyId, userId });
       await postAssetSale(tx, {
         companyId: sale.companyId,
         assetSaleId: sale.id,

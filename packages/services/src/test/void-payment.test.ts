@@ -169,3 +169,59 @@ describe("voidAssetSalePayment", () => {
     ).rejects.toThrow("cancelled sale");
   });
 });
+
+describe("capitalization catch-up on sale", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("capitalizes post-AVAILABLE cost before COGS — 1800 never goes credit-negative", async () => {
+    const fixture = await createTestFixture();
+    await seedTestAccounts(fixture.company.id);
+    const customer = await prisma.customer.create({
+      data: { companyId: fixture.company.id, name: "Buyer", phone: "9999999999" },
+    });
+    // Simulate a unit that went AVAILABLE before its costs finished landing:
+    // productionCost ₹20L, only ₹15L ever capitalized into 1800.
+    const unit = await prisma.builtUnit.create({
+      data: {
+        projectId: "test-project",
+        unitType: "BHK_2",
+        unitNumber: "B-201",
+        area: new Decimal(1200),
+        areaUnit: "SQFT",
+        status: "AVAILABLE",
+        originType: "CREATED",
+        productionCost: new Decimal(2000000),
+        capitalizedAmount: new Decimal(1500000),
+      },
+    });
+    const { sellAsset, recordDeposit, completeSale } = await import("../sale");
+
+    const sale = await sellAsset({
+      assetType: "BUILT_UNIT",
+      builtUnitId: unit.id,
+      companyId: fixture.company.id,
+      customerId: customer.id,
+      salePrice: new Decimal(5000000),
+    });
+    await recordDeposit({ saleId: sale.id, depositAmount: new Decimal(5000000), paymentMode: "BANK", userId: fixture.user.id });
+    await completeSale({
+      saleId: sale.id,
+      userId: fixture.user.id,
+      registryDocumentUrl: "https://x/registry.pdf",
+      atsDocumentUrl: "https://x/ats.pdf",
+    });
+
+    // The ₹5L gap must have been capitalized into 1800 before COGS released it.
+    const cap = await prisma.journalEntry.findFirst({
+      where: { sourceType: "WIP_CAPITALIZATION", sourceId: unit.id },
+      include: { lines: true },
+    });
+    expect(cap).not.toBeNull();
+    expect(cap!.lines.find((l) => l.debit.gt(0))!.debit.toNumber()).toBe(500000);
+
+    const after = await prisma.builtUnit.findUnique({ where: { id: unit.id } });
+    expect(after!.capitalizedAmount.toString()).toBe("2000000");
+  });
+});
