@@ -72,6 +72,19 @@ export default function MobileProjectControlDetailPage({
         const vac = toNum(evm.vac);
         const pctComplete = toNum(evm.pctComplete);
 
+        // EVM is meaningless without a real BOQ — a stub/zero BOQ renders
+        // nonsense like "866% complete". Fail honestly instead.
+        if (pv <= 0) {
+          return (
+            <MobileEmptyState
+              icon={Gauge}
+              title="Set up the project BOQ first"
+              hint="Earned-value metrics need BOQ line items with estimated amounts."
+            />
+          );
+        }
+        const boqIncomplete = ev > pv;
+
         const cpiColor = cpi >= 1 ? "var(--color-go)" : cpi >= 0.9 ? "var(--color-signal)" : "var(--color-stop)";
         const spiColor = spi >= 1 ? "var(--color-go)" : spi >= 0.9 ? "var(--color-signal)" : "var(--color-stop)";
         const cvColor = cv >= 0 ? "var(--color-go)" : "var(--color-stop)";
@@ -84,6 +97,16 @@ export default function MobileProjectControlDetailPage({
             recordId: project.id,
           }}>
           <div className="flex flex-col gap-4 pb-6">
+            {boqIncomplete ? (
+              <div
+                className="rounded-[0.5rem] border p-2.5"
+                style={{ borderColor: "var(--color-signal)", backgroundColor: "color-mix(in srgb, var(--color-signal) 8%, transparent)" }}
+              >
+                <p className="text-m-caption font-semibold" style={{ color: "var(--color-ink-700)" }}>
+                  Earned value ({formatCurrencyCompact(ev)}) exceeds the BOQ’s planned value ({formatCurrencyCompact(pv)}) — the BOQ doesn’t cover all measured work, so % complete and indices overstate progress.
+                </p>
+              </div>
+            ) : null}
             {/* Header card */}
             <DetailHeroCard
               icon={Gauge}

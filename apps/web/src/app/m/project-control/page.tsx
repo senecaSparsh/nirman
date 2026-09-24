@@ -79,6 +79,24 @@ export default function MobileProjectControlPage({
         const vac = evm.vac.toNumber();
         const pctComplete = evm.pctComplete.toNumber();
 
+        // EVM is only meaningful when the project's BOQ actually covers the
+        // work. A ₹60 stub BOQ against ₹51L of real spend renders as
+        // "866% complete / CPI 0" — nonsense that looks like a broken page.
+        // pv=0 → no BOQ at all; ev>pv → BOQ under-scopes the real work.
+        if (pv <= 0) {
+          return (
+            <div>
+              <MobileProjectControlSelector projects={projects} selectedId={projectId} canCreate={canCreateProject} />
+              <MobileEmptyState
+                icon={Gauge}
+                title="Set up the project BOQ first"
+                hint="Earned-value metrics (PV/EV/CPI/SPI) need BOQ line items with estimated amounts. Add them under the project's BOQ tab."
+              />
+            </div>
+          );
+        }
+        const boqIncomplete = ev > pv;
+
         const cpiColor = cpi >= 1 ? "var(--color-go)" : cpi >= 0.9 ? "var(--color-signal)" : "var(--color-stop)";
         const spiColor = spi >= 1 ? "var(--color-go)" : spi >= 0.9 ? "var(--color-signal)" : "var(--color-stop)";
         const cvColor = cv >= 0 ? "var(--color-go)" : "var(--color-stop)";
@@ -97,6 +115,17 @@ export default function MobileProjectControlPage({
               <p className="text-m-label font-semibold" style={{ color: "var(--color-ink-700)" }}>Open detail page</p>
               <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>→</p>
             </Link>
+
+            {boqIncomplete ? (
+              <div
+                className="rounded-[0.5rem] border p-2.5 mb-3"
+                style={{ borderColor: "var(--color-signal)", backgroundColor: "color-mix(in srgb, var(--color-signal) 8%, transparent)" }}
+              >
+                <p className="text-m-caption font-semibold" style={{ color: "var(--color-ink-700)" }}>
+                  Earned value ({formatCurrencyCompact(ev)}) exceeds the BOQ’s planned value ({formatCurrencyCompact(pv)}) — the BOQ doesn’t cover all measured work, so % complete and indices overstate progress.
+                </p>
+              </div>
+            ) : null}
 
             {/* % Complete Hero */}
             <div
