@@ -63,9 +63,11 @@ const totalMB = detectTotalMemoryMB();
 //     and 78% of 512MB (400MB) was not enough (OOM at 435MB).
 //   >1GB: use 78% — enough headroom for the OS + V8 non-heap overhead,
 //     and over-allocating on larger instances wastes money.
-// Cap at 4096 for local dev (32GB+ machines don't need more than 4GB heap).
+// Cap at 8192 — the Sentry webpack plugin (withSentryConfig) raised the peak
+// past the old 4096 cap (SIGABRT OOM on the 12GB prod builder). 8GB is still
+// bounded enough for 12GB+ hosts while leaving headroom for the OS.
 const heapFraction = totalMB <= 1024 ? 0.92 : 0.78;
-const heapMB = Math.max(256, Math.min(4096, Math.floor(totalMB * heapFraction)));
+const heapMB = Math.max(256, Math.min(8192, Math.floor(totalMB * heapFraction)));
 
 const existingNodeOptions = process.env.NODE_OPTIONS || "";
 let nodeOptions;
