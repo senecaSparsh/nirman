@@ -210,9 +210,9 @@ export async function LandDetailContent({ params }: { params: Promise<{ id: stri
       possessionNotes: purchase.possessionNotes,
       // Partial registry
       partialRegistryAllowed: purchase.partialRegistryAllowed,
-      // Payments
-      totalPaid: purchase.payments.reduce((s, p) => s + toNum(p.amount), 0),
-      balanceDue: toNum(purchase.totalCost) - purchase.payments.reduce((s, p) => s + toNum(p.amount), 0),
+      // Payments — voided + bounced payments don't count as money paid
+      totalPaid: purchase.payments.reduce((s, p) => (p.status === "VOID" || p.chequeStatus === "BOUNCED") ? s : s + toNum(p.amount), 0),
+      balanceDue: toNum(purchase.totalCost) - purchase.payments.reduce((s, p) => (p.status === "VOID" || p.chequeStatus === "BOUNCED") ? s : s + toNum(p.amount), 0),
       // Payment schedule
       paymentSchedule: purchase.paymentSchedule
         ? {
@@ -238,6 +238,7 @@ export async function LandDetailContent({ params }: { params: Promise<{ id: stri
         paymentMode: p.paymentMode,
         referenceNo: p.referenceNo,
         notes: p.notes,
+        status: p.status,
         chequeNo: p.chequeNo,
         chequeDate: p.chequeDate ? p.chequeDate.toISOString() : null,
         chequeBank: p.chequeBank,

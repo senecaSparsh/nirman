@@ -375,6 +375,7 @@ export {
   completeLandPurchase,
   clearLandPurchaseCheque,
   bounceLandPurchaseCheque,
+  voidLandPurchasePayment,
   createLandPaymentSchedule,
   getLandPaymentSchedule,
   markPossession,

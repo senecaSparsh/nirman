@@ -191,6 +191,7 @@ interface LandPayment {
   paymentMode: string;
   referenceNo: string | null;
   notes: string | null;
+  status?: string;
   chequeNo: string | null;
   chequeDate: string | null;
   chequeBank: string | null;
@@ -442,6 +443,33 @@ export function MobileLandDetailClient({
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : `Failed to ${action} cheque`);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const [voidPaymentId, setVoidPaymentId] = useState<string | null>(null);
+  const [voidReason, setVoidReason] = useState("");
+
+  async function handleVoidPayment() {
+    if (!voidPaymentId) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/land-purchases/payments/${voidPaymentId}/void`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: voidReason || undefined }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to void payment");
+      }
+      toast.success("Payment voided — books reversed");
+      setVoidPaymentId(null);
+      setVoidReason("");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to void payment");
     } finally {
       setSubmitting(false);
     }
@@ -1187,26 +1215,27 @@ export function MobileLandDetailClient({
                 >
                   <span
                     className="grid place-items-center size-6 rounded-full shrink-0"
-                    style={{ backgroundColor: p.chequeStatus === "BOUNCED" ? "color-mix(in srgb, var(--color-stop) 12%, transparent)" : p.chequeStatus === "PENDING" ? "color-mix(in srgb, var(--color-signal) 12%, transparent)" : "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
+                    style={{ backgroundColor: (p.status === "VOID" || p.chequeStatus === "BOUNCED") ? "color-mix(in srgb, var(--color-stop) 12%, transparent)" : p.chequeStatus === "PENDING" ? "color-mix(in srgb, var(--color-signal) 12%, transparent)" : "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
                   >
-                    <Banknote className="size-3" style={{ color: p.chequeStatus === "BOUNCED" ? "var(--color-stop)" : p.chequeStatus === "PENDING" ? "var(--color-signal)" : "var(--color-go)" }} />
+                    <Banknote className="size-3" style={{ color: (p.status === "VOID" || p.chequeStatus === "BOUNCED") ? "var(--color-stop)" : p.chequeStatus === "PENDING" ? "var(--color-signal)" : "var(--color-go)" }} />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>
                       {p.paymentMode.replace("_", " ")}
                       {p.referenceNo ? ` · ${p.referenceNo}` : ""}
+                      {p.status === "VOID" ? " · Void" : ""}
                     </p>
                     <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                       {formatDate(p.paymentDate)}
-                      {p.chequeStatus === "PENDING" && <span style={{ color: "var(--color-signal)" }}> · Cheque Pending</span>}
-                      {p.chequeStatus === "CLEARED" && <span style={{ color: "var(--color-go)" }}> · Cleared</span>}
-                      {p.chequeStatus === "BOUNCED" && <span style={{ color: "var(--color-stop)" }}> · Bounced</span>}
+                      {p.chequeStatus === "PENDING" && p.status !== "VOID" && <span style={{ color: "var(--color-signal)" }}> · Cheque Pending</span>}
+                      {p.chequeStatus === "CLEARED" && p.status !== "VOID" && <span style={{ color: "var(--color-go)" }}> · Cleared</span>}
+                      {p.chequeStatus === "BOUNCED" && p.status !== "VOID" && <span style={{ color: "var(--color-stop)" }}> · Bounced</span>}
                     </p>
                   </div>
-                  <p className="text-m-label font-bold tabular-nums shrink-0" style={{ color: p.chequeStatus === "BOUNCED" ? "var(--color-stop)" : "var(--color-go)" }}>
+                  <p className="text-m-label font-bold tabular-nums shrink-0" style={{ color: (p.status === "VOID" || p.chequeStatus === "BOUNCED") ? "var(--color-stop)" : "var(--color-go)", textDecoration: p.status === "VOID" ? "line-through" : "none" }}>
                     {formatCurrencyCompact(p.amount)}
                   </p>
-                  {canManage && p.chequeStatus === "PENDING" && (
+                  {canManage && p.chequeStatus === "PENDING" && p.status !== "VOID" && (
                     <div className="flex gap-1 shrink-0">
                       <button
                         onClick={() => handleChequeAction(p.id, "clear")}
@@ -1225,6 +1254,16 @@ export function MobileLandDetailClient({
                         Bounce
                       </button>
                     </div>
+                  )}
+                  {canManage && p.status !== "VOID" && p.chequeStatus !== "PENDING" && (
+                    <button
+                      onClick={() => { setVoidPaymentId(p.id); setVoidReason(""); }}
+                      disabled={submitting}
+                      className="shrink-0 rounded-[0.25rem] px-1.5 py-1 text-m-caption font-bold text-m-body press disabled:opacity-50"
+                      style={{ color: "var(--color-stop)", backgroundColor: "color-mix(in srgb, var(--color-stop) 10%, transparent)" }}
+                    >
+                      Void
+                    </button>
                   )}
                 </div>
               ))}
@@ -1627,6 +1666,35 @@ export function MobileLandDetailClient({
           onClose={() => setShowSchedule(false)}
           onSaved={() => { setShowSchedule(false); router.refresh(); }}
         />
+      ) : null}
+
+      {/* ── Void payment dialog ── */}
+      {voidPaymentId ? (
+        <LandModal onClose={() => !submitting && setVoidPaymentId(null)} title="Void Payment?">
+          <p className="text-m-body mb-3" style={{ color: "var(--color-ink-700)" }}>
+            The payment is marked void and its accounting entry reversed — the amount comes back as still due. The record stays for audit.
+          </p>
+          <input
+            type="text"
+            value={voidReason}
+            onChange={(e) => setVoidReason(e.target.value)}
+            placeholder="Reason (optional) — e.g. wrong amount keyed"
+            className="mb-3 w-full rounded-[0.5rem] border px-3 py-2 text-m-body outline-none"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          />
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setVoidPaymentId(null)} disabled={submitting}
+              className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold press"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}>
+              Keep Payment
+            </button>
+            <button type="button" onClick={handleVoidPayment} disabled={submitting}
+              className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold press disabled:opacity-50"
+              style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}>
+              {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Void Payment"}
+            </button>
+          </div>
+        </LandModal>
       ) : null}
 
       {confirmDialog}

@@ -3,7 +3,7 @@ import { withSerializableTransaction } from "./transaction";
 import Decimal from "decimal.js";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
-import { postLandPurchase, postJournalEntry, ACCT } from "./gl-posting";
+import { postLandPurchase, postJournalEntry, reverseJournalEntry, ACCT } from "./gl-posting";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { ServiceError } from "./errors";
 import { addLandCostComponentTx } from "./land-cost-component";
@@ -870,7 +870,7 @@ export async function recordLandPurchasePayment(input: RecordLandPurchasePayment
     // same bank transaction booked twice.
     if (input.referenceNo) {
       const dupe = await tx.landPurchasePayment.findFirst({
-        where: { referenceNo: input.referenceNo, landPurchase: { companyId: lp.companyId } },
+        where: { referenceNo: input.referenceNo, status: { not: "VOID" }, landPurchase: { companyId: lp.companyId } },
         select: { id: true, landPurchaseId: true },
       });
       if (dupe) {
@@ -883,8 +883,10 @@ export async function recordLandPurchasePayment(input: RecordLandPurchasePayment
     const amount = new Decimal(input.amount);
     if (!amount.gt(0)) throw new ServiceError("Payment amount must be > 0");
 
+    // Committed payments count toward the total — pending cheques still
+    // represent money handed over; voided/bounced ones do not.
     const totalPaid = lp.payments.reduce(
-      (sum, p) => sum.plus(new Decimal(p.amount)),
+      (sum, p) => (p.status === "VOID" || p.chequeStatus === "BOUNCED") ? sum : sum.plus(new Decimal(p.amount)),
       new Decimal(0),
     );
     const totalCost = new Decimal(lp.totalCost);
@@ -1054,7 +1056,8 @@ export async function completeLandPurchase(input: CompleteLandPurchaseInput) {
     const allowPartial = lp.partialRegistryAllowed || input.partialRegistryAllowed;
     if (!allowPartial) {
       const totalPaid = lp.payments.reduce((s, p) => {
-        // Skip pending or bounced cheques
+        // Skip voided payments + pending or bounced cheques
+        if (p.status === "VOID") return s;
         if (p.paymentMode === "CHEQUE" && p.chequeStatus && p.chequeStatus !== "CLEARED") return s;
         return s.plus(p.amount);
       }, new Decimal(0));
@@ -1218,7 +1221,7 @@ export async function bounceLandPurchaseCheque(paymentId: string, userId?: strin
     // Recompute payment status based on remaining valid (non-bounced) payments.
     // This mirrors the sale cheque bounce logic.
     const validPayments = lp.payments.filter(
-      (p) => p.id !== paymentId && p.chequeStatus !== "BOUNCED",
+      (p) => p.id !== paymentId && p.chequeStatus !== "BOUNCED" && p.status !== "VOID",
     );
     const totalRemaining = validPayments.reduce(
       (sum, p) => sum.plus(new Decimal(p.amount)),
@@ -1248,6 +1251,95 @@ export async function bounceLandPurchaseCheque(paymentId: string, userId?: strin
     }
 
     return { chequeStatus: "BOUNCED" as const };
+  });
+}
+
+/**
+ * Void a mis-entered land-purchase payment — the row stays (status → VOID)
+ * for the audit trail but is excluded from every payment sum. The GL effect
+ * is undone in the same transaction:
+ *   - Regular payments: the payment's own JE (sourceId = payment.id) is
+ *     reversed.
+ *   - Token payments recorded at purchase creation: the GL lives inside the
+ *     purchase-level JE (sourceId = landPurchaseId), so a correcting entry
+ *     Dr AP / Cr Cash is posted instead of a full reversal.
+ *   - Pending cheques never posted GL — voiding just marks the row.
+ * If the voided payment was the token, the token fields reset (same as a
+ * bounce) so the owner can re-issue it.
+ */
+export async function voidLandPurchasePayment(input: {
+  paymentId: string;
+  companyId: string;
+  userId?: string;
+  reason?: string;
+}) {
+  return withSerializableTransaction(async (tx) => {
+    const payment = await tx.landPurchasePayment.findFirst({
+      where: { id: input.paymentId, landPurchase: { companyId: input.companyId } },
+      include: { landPurchase: true },
+    });
+    if (!payment) throw new ServiceError("Payment not found", 404);
+    if (payment.status === "VOID") throw new ServiceError("Payment is already void");
+    const lp = payment.landPurchase;
+
+    await tx.landPurchasePayment.update({
+      where: { id: payment.id },
+      data: {
+        status: "VOID",
+        voidedAt: new Date(),
+        voidedById: input.userId ?? null,
+        voidReason: input.reason ?? null,
+      },
+    });
+
+    const amount = new Decimal(payment.amount);
+
+    // GL undo — payment-level JE if one exists (regular payments + cleared
+    // cheques), else a correcting entry for a token payment folded into the
+    // purchase JE, else nothing (pending cheque never posted).
+    const je = await tx.journalEntry.findFirst({
+      where: { sourceType: "LAND_PURCHASE_PAYMENT", sourceId: payment.id },
+      select: { id: true },
+    });
+    if (je) {
+      await reverseJournalEntry(tx, je.id, {
+        postedById: input.userId,
+        memo: `Void land payment${input.reason ? ` — ${input.reason}` : ""}`,
+      });
+    } else if (lp.tokenAmount != null && amount.eq(new Decimal(lp.tokenAmount)) && payment.paymentMode !== "CHEQUE") {
+      // Token payment folded into the purchase JE — post the cash leg back.
+      await postJournalEntry(tx, {
+        companyId: lp.companyId,
+        sourceType: "LAND_PURCHASE_PAYMENT_VOID",
+        sourceId: payment.id,
+        memo: `Void land token payment${input.reason ? ` — ${input.reason}` : ""}`,
+        postedById: input.userId,
+        lines: [
+          { accountCode: ACCT.AP, debit: amount, credit: 0, entityType: "LandPurchase", entityId: lp.id, memo: "Payable re-opened (payment voided)" },
+          { accountCode: ACCT.CASH, debit: 0, credit: amount, entityType: "LandPurchase", entityId: lp.id, memo: "Cash restored (payment voided)" },
+        ],
+      });
+    }
+
+    // Token reset — same as bounce: the token was never really received.
+    if (lp.tokenAmount != null && amount.eq(new Decimal(lp.tokenAmount))) {
+      await tx.landPurchase.update({
+        where: { id: lp.id },
+        data: { tokenAmount: null, tokenPaymentDate: null, tokenPaymentMode: null },
+      });
+    }
+
+    await logAction(tx, {
+      userId: input.userId,
+      companyId: lp.companyId,
+      action: "LAND_PURCHASE_PAYMENT_VOID",
+      entityType: "LandPurchasePayment",
+      entityId: payment.id,
+      before: { status: "ACTIVE" },
+      after: { status: "VOID", reason: input.reason ?? null },
+    });
+
+    return { ok: true as const };
   });
 }
 
