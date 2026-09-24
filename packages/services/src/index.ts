@@ -882,6 +882,7 @@ export {
   activateTenancy,
   terminateTenancy,
   recordRentPayment,
+  voidRentPayment,
   applyRentEscalation,
   processDueEscalations,
   changeTenant,

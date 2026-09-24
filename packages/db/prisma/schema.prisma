@@ -5237,10 +5237,16 @@ model RentalPayment {
   dueDate     DateTime @db.Date
   mode        String   // CASH, BANK, UPI, CHEQUE
   reference   String?
-  status      String   @default("RECEIVED") // RECEIVED, PENDING, OVERDUE
+  // RECEIVED | PENDING | OVERDUE | VOID — a mis-entered receipt is voided
+  // (never deleted); queries filtering status="RECEIVED" drop VOID rows.
+  status      String   @default("RECEIVED")
+  voidedAt      DateTime?
+  voidedById    String?
+  voidReason    String?
   // ── Rent period this payment covers ──
   periodStart DateTime? @db.Date  // first day of the billing month
   periodEnd   DateTime?  @db.Date  // last day of the billing month
+
   // ── Reminder tracking (avoids resetting OVERDUE → PENDING after sending) ──
   reminderSentAt  DateTime?
   reminderCount   Int      @default(0)

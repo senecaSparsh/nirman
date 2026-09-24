@@ -83,6 +83,7 @@ const PAYMENT_STATUS_META: Record<string, { color: string; label: string; icon: 
   RECEIVED: { color: "var(--color-go)", label: "Received", icon: <CheckCircle2 className="size-2.5" /> },
   PENDING: { color: "var(--color-signal)", label: "Pending", icon: <Clock className="size-2.5" /> },
   OVERDUE: { color: "var(--color-stop)", label: "Overdue", icon: <AlertCircle className="size-2.5" /> },
+  VOID: { color: "var(--color-ink-500)", label: "Void", icon: <AlertCircle className="size-2.5" /> },
 };
 
 const PAYMENT_MODES = [
@@ -115,6 +116,32 @@ export function MobileRentalDetailClient({
   const [showUploadDraft, setShowUploadDraft] = useState(false);
   const [showChangeTenant, setShowChangeTenant] = useState(false);
   const [acting, setActing] = useState(false);
+  const [voidPaymentId, setVoidPaymentId] = useState<string | null>(null);
+  const [voidReason, setVoidReason] = useState("");
+
+  async function handleVoidPayment() {
+    if (!voidPaymentId) return;
+    setActing(true);
+    try {
+      const res = await fetch(`/api/rent-payments/${voidPaymentId}/void`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: voidReason || undefined }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to void payment");
+      }
+      toast.success("Payment voided — books reversed");
+      setVoidPaymentId(null);
+      setVoidReason("");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to void payment");
+    } finally {
+      setActing(false);
+    }
+  }
 
   if (notFound || !data) {
     return (
@@ -695,12 +722,61 @@ export function MobileRentalDetailClient({
                   >
                     {pMeta.label}
                   </span>
+                  {canManage && p.status === "RECEIVED" ? (
+                    <button
+                      type="button"
+                      onClick={() => { setVoidPaymentId(p.id); setVoidReason(""); }}
+                      className="shrink-0 rounded-full px-1.5 py-0.5 text-m-caption font-bold"
+                      style={{ color: "var(--color-stop)", backgroundColor: "color-mix(in srgb, var(--color-stop) 10%, transparent)" }}
+                    >
+                      Void
+                    </button>
+                  ) : null}
                 </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {/* ── Void payment dialog ── */}
+      {voidPaymentId ? (
+        <MobileDialog open={true} onClose={() => !acting && setVoidPaymentId(null)} title="Void payment?">
+          <div className="p-3 flex flex-col gap-3">
+            <p className="text-m-body" style={{ color: "var(--color-ink-700)" }}>
+              The receipt is marked void and its accounting entry reversed — the tenant owes the amount again. The record stays for audit.
+            </p>
+            <input
+              type="text"
+              value={voidReason}
+              onChange={(e) => setVoidReason(e.target.value)}
+              placeholder="Reason (optional) — e.g. wrong amount keyed"
+              className="w-full rounded-[0.5rem] border px-3 py-2 text-m-body outline-none"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setVoidPaymentId(null)}
+                disabled={acting}
+                className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold press"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              >
+                Keep Payment
+              </button>
+              <button
+                type="button"
+                onClick={handleVoidPayment}
+                disabled={acting}
+                className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold press disabled:opacity-50"
+                style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
+              >
+                Void Payment
+              </button>
+            </div>
+          </div>
+        </MobileDialog>
+      ) : null}
 
       {/* ── Payment sheet ── */}
       {showPayment ? (

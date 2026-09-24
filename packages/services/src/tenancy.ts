@@ -2,7 +2,7 @@ import { prisma, type Prisma, type AssetType } from "@nirman/db";
 import { withSerializableTransaction } from "./transaction";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
-import { postJournalEntry, postSecurityDepositReceived, postSecurityDepositRefunded, ACCT } from "./gl-posting";
+import { postJournalEntry, reverseJournalEntry, postSecurityDepositReceived, postSecurityDepositRefunded, ACCT } from "./gl-posting";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { sendNotification } from "./notifications";
 import { ServiceError } from "./errors";
@@ -677,6 +677,65 @@ export async function recordRentPayment(input: RecordRentInput) {
   });
 
   return result;
+}
+
+/**
+ * Void a mis-entered rent receipt — the row stays (status → VOID) for the
+ * audit trail but drops out of every received-sum (queries filter
+ * status="RECEIVED"); the posted GL entry is reversed in the same
+ * transaction. Pending/overdue dues can't be voided — they were never
+ * received (use the reminder/schedule flow instead).
+ */
+export async function voidRentPayment(input: {
+  paymentId: string;
+  companyId: string;
+  userId?: string;
+  reason?: string;
+}) {
+  return withSerializableTransaction(async (tx) => {
+    const payment = await tx.rentalPayment.findFirst({
+      where: { id: input.paymentId, tenancy: { companyId: input.companyId } },
+      include: { tenancy: { select: { id: true, tenantName: true, companyId: true } } },
+    });
+    if (!payment) throw new ServiceError("Payment not found", 404);
+    if (payment.status === "VOID") throw new ServiceError("Payment is already void");
+    if (payment.status !== "RECEIVED") {
+      throw new ServiceError("Only received payments can be voided — pending/overdue dues were never collected");
+    }
+
+    await tx.rentalPayment.update({
+      where: { id: payment.id },
+      data: {
+        status: "VOID",
+        voidedAt: new Date(),
+        voidedById: input.userId ?? null,
+        voidReason: input.reason ?? null,
+      },
+    });
+
+    const je = await tx.journalEntry.findFirst({
+      where: { sourceType: "RENT_PAYMENT", sourceId: payment.id },
+      select: { id: true },
+    });
+    if (je) {
+      await reverseJournalEntry(tx, je.id, {
+        postedById: input.userId,
+        memo: `Void rent payment from ${payment.tenancy.tenantName}${input.reason ? ` — ${input.reason}` : ""}`,
+      });
+    }
+
+    await logAction(tx, {
+      userId: input.userId,
+      companyId: input.companyId,
+      action: "RENT_PAYMENT_VOID",
+      entityType: "RentalPayment",
+      entityId: payment.id,
+      before: { status: "RECEIVED" },
+      after: { status: "VOID", reason: input.reason ?? null },
+    });
+
+    return { ok: true as const };
+  });
 }
 
 // ───────────────────────────────────────────────────────────
