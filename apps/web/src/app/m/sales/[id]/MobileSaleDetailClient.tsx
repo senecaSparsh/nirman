@@ -447,7 +447,7 @@ export function MobileSaleDetailClient({
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? `Failed to ${action} cheque`);
       }
-      toast.success(action === "clear" ? "Cheque cleared — sale completed" : "Cheque bounced");
+      toast.success(action === "clear" ? "Cheque cleared" : "Cheque bounced");
       router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : `Failed to ${action} cheque`);

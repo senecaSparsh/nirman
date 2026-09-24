@@ -167,7 +167,7 @@ export function SaleDetailDialog({
         endpoint: `/api/sales/payments/${paymentId}/cheque`,
         method: "POST",
         body: { action },
-        successMessage: action === "clear" ? "Cheque cleared — sale completed" : "Cheque bounced",
+        successMessage: action === "clear" ? "Cheque cleared" : "Cheque bounced",
         refreshOnSuccess: false,
       });
       router.refresh();
