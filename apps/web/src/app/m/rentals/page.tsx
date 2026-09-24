@@ -34,7 +34,7 @@ export default function MobileRentalsPage() {
             },
           }),
           prisma.builtUnit.findMany({
-            where: {...await scopeWhere("BuiltUnit"),  project: { companyId: company.id }, deletedAt: null, status: { in: ["AVAILABLE", "UNDER_CONSTRUCTION"] }, saleId: null },
+            where: {...await scopeWhere("BuiltUnit"),  project: { companyId: company.id }, deletedAt: null, status: "AVAILABLE", saleId: null },
             select: { id: true, unitNumber: true, project: { select: { name: true } } },
           }),
           prisma.landParcel.findMany({

@@ -7,6 +7,7 @@ import { Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
@@ -338,11 +339,13 @@ export function MobileNewTenancyDialog({
             labelClass={labelClass}
             labelStyle={labelStyle}
             renderDialog={({ open, onClose, onCreated }) => (
-              <MobileNewProjectDialog
-                open={open}
-                onClose={onClose}
-                onCreated={(p) => onCreated(p.id, p.name)}
-              />
+              <MobileFabModal open={open} onClose={onClose} title="New Project" nested>
+                <MobileNewProjectDialog
+                  open={open}
+                  onClose={onClose}
+                  onCreated={(p) => onCreated(p.id, p.name)}
+                />
+              </MobileFabModal>
             )}
           />
 

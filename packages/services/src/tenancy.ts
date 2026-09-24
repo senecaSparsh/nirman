@@ -584,13 +584,37 @@ export async function recordRentPayment(input: RecordRentInput) {
     const periodStart = input.periodStart ? new Date(input.periodStart) : null;
     const periodEnd = input.periodEnd ? new Date(input.periodEnd) : null;
 
-    // Guard against duplicate payments for the same tenancy + payment date
-    const existingPayment = await tx.rentalPayment.findFirst({
-      where: { tenancyId: t.id, paymentDate },
+    // Guard against double-settling the same rent period — a RECEIVED row for
+    // this period/due date already exists (voided receipts don't block re-entry).
+    const settledPayment = await tx.rentalPayment.findFirst({
+      where: {
+        tenancyId: t.id,
+        status: "RECEIVED",
+        OR: [
+          ...(periodStart ? [{ periodStart }] : []),
+          { paymentDate },
+          { dueDate },
+        ],
+      },
     });
-    if (existingPayment) {
+    if (settledPayment) {
       throw new ServiceError("Payment already recorded for this period", 409);
     }
+
+    // Settle the scheduled due row in place — activation mints a PENDING/OVERDUE
+    // row per month; paying it must flip that row to RECEIVED, not mint a second
+    // row for the same period (otherwise the schedule still shows it overdue).
+    const dueRow = await tx.rentalPayment.findFirst({
+      where: {
+        tenancyId: t.id,
+        status: { in: ["PENDING", "OVERDUE"] },
+        OR: [
+          ...(periodStart ? [{ periodStart }] : []),
+          { dueDate },
+        ],
+      },
+      orderBy: { dueDate: "asc" },
+    });
 
     // ── Compute output GST from the SAC code ──
     // Renting out equipment/property is a SERVICE supply under GST.
@@ -611,22 +635,38 @@ export async function recordRentPayment(input: RecordRentInput) {
     // tax fraction is amount × rate / (100 + rate) — not amount × rate.
     const { gstAmount, revenueAmount } = computeRentGst(amount, gstRate);
 
-    const payment = await tx.rentalPayment.create({
-      data: {
-        tenancyId: t.id,
-        amount,
-        tdsAmount,
-        tdsCertificateNo: input.tdsCertificateNo ?? null,
-        netReceived,
-        paymentDate,
-        dueDate,
-        mode: input.mode,
-        reference: input.reference ?? null,
-        status: "RECEIVED",
-        periodStart,
-        periodEnd,
-      },
-    });
+    const payment = dueRow
+      ? await tx.rentalPayment.update({
+          where: { id: dueRow.id },
+          data: {
+            amount,
+            tdsAmount,
+            tdsCertificateNo: input.tdsCertificateNo ?? null,
+            netReceived,
+            paymentDate,
+            mode: input.mode,
+            reference: input.reference ?? null,
+            status: "RECEIVED",
+            periodStart: periodStart ?? dueRow.periodStart,
+            periodEnd: periodEnd ?? dueRow.periodEnd,
+          },
+        })
+      : await tx.rentalPayment.create({
+          data: {
+            tenancyId: t.id,
+            amount,
+            tdsAmount,
+            tdsCertificateNo: input.tdsCertificateNo ?? null,
+            netReceived,
+            paymentDate,
+            dueDate,
+            mode: input.mode,
+            reference: input.reference ?? null,
+            status: "RECEIVED",
+            periodStart,
+            periodEnd,
+          },
+        });
 
     // GL: Dr Cash (net received), Dr TDS Receivable (TDS deducted), Cr Sales Revenue (rent income), Cr Output GST
     const glLines: { accountCode: string; debit: Decimal | number; credit: Decimal | number; entityType: string; entityId: string; memo: string }[] = [
