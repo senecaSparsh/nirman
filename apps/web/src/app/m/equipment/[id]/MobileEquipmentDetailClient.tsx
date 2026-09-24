@@ -8,7 +8,7 @@ import {
   CheckCircle2, Archive, Loader2, X, Search, ChevronRight,
   TrendingDown, Package, Send, Check, Pencil, Trash2,
 } from "lucide-react";
-import {formatCurrencyCompact, formatDate} from "@/lib/utils";
+import {formatCurrencyCompact, formatDate, formatEnumLabel} from "@/lib/utils";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { useConfirm } from "@/lib/use-confirm";
@@ -1015,7 +1015,7 @@ function MaintenanceModal({
                         : { backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)", border: "1px solid var(--color-line)" }
                     }
                   >
-                    {t}
+                    {formatEnumLabel(t)}
                   </button>
                 );
               })}
