@@ -293,6 +293,17 @@ export function NotificationBell({ className, alertItems = [] }: { className?: s
                 );
               })}
             </div>
+            {/* The drawer caps at 50 — the full history lives on
+                /m/notifications (mobile-only surface; no desktop route yet). */}
+            {typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches && (
+              <Link
+                href="/m/notifications"
+                onClick={() => setOpen(false)}
+                className="block border-t border-border px-3 py-2 text-center text-caption font-medium text-muted-foreground transition-colors hover:bg-subtle hover:text-foreground"
+              >
+                View all notifications
+              </Link>
+            )}
             </>
           )}
         </div>
