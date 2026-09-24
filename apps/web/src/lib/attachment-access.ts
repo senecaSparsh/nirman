@@ -10,15 +10,19 @@ import { prisma } from "@nirman/db";
 import { requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
-export const ATTACHMENT_ENTITY_ACCESS: Record<string, { perm: string; managePerm?: string; model: string; soft?: boolean; companyPath?: string | string[] }> = {
+export const ATTACHMENT_ENTITY_ACCESS: Record<string, { perm: string; managePerm?: string; model: string; soft?: boolean; companyPath?: string | string[]; keepScope?: boolean }> = {
   Employee:            { perm: PERM.HR_VIEW,          managePerm: PERM.HR_MANAGE,          model: "Employee", soft: true },
   Project:             { perm: PERM.PROJECTS_VIEW,    managePerm: PERM.PROJECTS_MANAGE,    model: "Project", soft: true },
   DailyProgressReport: { perm: PERM.DPR_VIEW,         managePerm: PERM.DPR_SUBMIT,         model: "DailyProgressReport" },
   PurchaseOrder:       { perm: PERM.PROCUREMENT_VIEW, managePerm: PERM.PROCUREMENT_MANAGE, model: "PurchaseOrder" },
-  MaterialRequisition: { perm: PERM.PROCUREMENT_VIEW, managePerm: PERM.PROCUREMENT_MANAGE, model: "MaterialRequisition" },
+  // MaterialRequisition + MaterialIssue carry no companyId — the tenant
+  // binding goes through project OR department. Unlike StockCount/Transfer
+  // they DO sit in the scope registry (projectId/departmentId FKs), so
+  // scopeWhere must still apply on top of the tenant path.
+  MaterialRequisition: { perm: PERM.PROCUREMENT_VIEW, managePerm: PERM.PROCUREMENT_MANAGE, model: "MaterialRequisition", companyPath: ["project", "department"], keepScope: true },
+  MaterialIssue:       { perm: PERM.INVENTORY_VIEW,   managePerm: PERM.INVENTORY_MANAGE,   model: "MaterialIssue",       companyPath: ["project", "department"], keepScope: true },
   Supplier:            { perm: PERM.PROCUREMENT_VIEW, managePerm: PERM.PROCUREMENT_MANAGE, model: "Supplier", soft: true },
   Material:            { perm: PERM.INVENTORY_VIEW,   managePerm: PERM.INVENTORY_MANAGE,   model: "Material", soft: true },
-  MaterialIssue:       { perm: PERM.INVENTORY_VIEW,   managePerm: PERM.INVENTORY_MANAGE,   model: "MaterialIssue" },
   MaterialSale:        { perm: PERM.INVENTORY_VIEW,   managePerm: PERM.INVENTORY_MANAGE,   model: "MaterialSale" },
   ScrapGeneration:     { perm: PERM.INVENTORY_VIEW,   managePerm: PERM.INVENTORY_MANAGE,   model: "ScrapGeneration" },
   // StockCount + StockTransfer carry no companyId — they bind through
@@ -62,18 +66,21 @@ export async function assertAttachmentSubjectAccess(
   ];
   if (!delegate) return { error: "Unsupported attachment target", status: 403 };
   const paths = rule.companyPath ? (Array.isArray(rule.companyPath) ? rule.companyPath : [rule.companyPath]) : null;
+  const tenantClause = paths
+    ? paths.length === 1
+      ? { [paths[0]!]: { companyId } }
+      : { OR: paths.map((p) => ({ [p]: { companyId } })) }
+    : { companyId };
+  // Relationally-scoped models (companyPath) aren't in the scope registry —
+  // the path IS their tenant binding. keepScope models (project/department-FK
+  // entities like MaterialRequisition) ARE registered, so their per-project
+  // scoping still applies on top. AND them: scopeWhere may return its own
+  // OR, which a spread would silently overwrite.
+  const scopeClause = !paths || rule.keepScope ? await scopeWhere(rule.model) : {};
   const subject = await delegate.findFirst({
     where: {
       id: entityId,
-      ...(paths
-        ? paths.length === 1
-          ? { [paths[0]!]: { companyId } }
-          : { OR: paths.map((p) => ({ [p]: { companyId } })) }
-        : { companyId }),
-      ...(rule.soft ? { deletedAt: null } : {}),
-      // Relationally-scoped models (companyPath) aren't in the scope
-      // registry — the path IS their tenant binding.
-      ...(paths ? {} : await scopeWhere(rule.model)),
+      AND: [tenantClause, scopeClause, ...(rule.soft ? [{ deletedAt: null }] : [])],
     },
     select: { id: true },
   });
