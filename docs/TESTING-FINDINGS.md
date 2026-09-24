@@ -1239,3 +1239,23 @@ Commits: b9bec857 (dialog leak + due settle + unit filter), 216131d4
 - **Tally** — 85 JEs queued, push vouchers + pull collections.
 
 Everything checked this round worked. No new bugs.
+
+## Round 20 — returns + workflows + delegation (Sep 24)
+
+- **Supplier returns** — full chain live: draft → submit (auto-creates a
+  gate pass, completion blocked until approved) → GP approved → complete
+  posts RETURN stock movement + credit-note JE. Cross-module wiring
+  (return → gate → stock → GL) verified.
+- **Workflow engine** — manual run of "Overdue PO Chase-up": condition
+  evaluated, exactly one task minted + notification sent (the atomic-claim
+  race fix holds). Run dialog targets the right card.
+- **Delegation** — /m/me "out of office" handoff: scoped to same company,
+  one-level only (no re-delegation), expiry via delegationEndsAt, audit
+  records onBehalfOfId.
+- **RA bill submit fix** (a145dc45) — mobile hid Submit for the bill's
+  creator; the server only blocks self-approve/pay. Draft bills were
+  dead-locked. Verified: submit → auto-approve via tier-1 canAutoApprove.
+- **Native dialogs purged** (2b493f6c) — last window.prompt/confirm on
+  mobile replaced with usePrompt/useConfirm (offsite rejection reason,
+  employee restore, onboarding early-complete warning).
+- Route coverage: every /m/* link target has a page (static audit).
