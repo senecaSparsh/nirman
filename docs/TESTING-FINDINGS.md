@@ -1108,3 +1108,51 @@ VERIFIED LIVE (phone viewport, DB-checked):
   integrations (Tally config), audit count, edit details.
 - Attendance lock verified on /m/site/attendance too (27 chips
   disabled+dimmed during paid-payroll lock).
+
+## Round 16 — finance-integrity flows (Sep 24, cont.)
+
+FIXED:
+
+- **Unit cost stranded in WIP → 1800 went credit-negative**: a unit whose
+  productionCost grew after AVAILABLE (late subcontractor bills, WIP
+  reallocations) sold with COGS releasing the live cost while only
+  capitalizedAmount had ever debited Unit Asset — a sold unit showed
+  1800 Cr ₹2.99L. `capitalizeOutstandingCost` now runs before every
+  postAssetSale call (create-immediate, completeSale, cheque-clearance)
+  — posts Dr 1800 / Cr 1500 for the gap first. Demo DB backfilled
+  (1800 net now ₹0). Regression test added. (8a80a391)
+- **Material delete orphaned history**: zero-stock materials could be
+  deleted while BOQ items, PO lines, requisitions, issues, and receipts
+  still referenced them — recon rendered "—". Guard now counts those
+  references and blocks with an explanatory error; orphaned rows label
+  themselves "(material deleted)" instead of "—". (2e17a97d)
+- **Cross-tenant equipment assignment (data)**: SCT-001 was assigned to
+  an SRG project + location while owned by My Company — assignment
+  predates the tenant seal in assignEquipment (verified the seal blocks
+  foreign projectId today). Row repointed to a same-company project +
+  yard; a sweep across attendance/DPR/issue/PO/sale links found zero
+  remaining leaks.
+- **Raw caps**: maintenance-type chips (SCHEDULED/REPAIR/INSPECTION →
+  Scheduled/Repair/Inspection), notification "₹1000.00" → "₹1,000"
+  Indian-grouped money in event-bus + quote/payment messages.
+
+VERIFIED LIVE:
+
+- Petty cash: float sheet (balance/top-ups/spent) → Record Spend ₹50 →
+  spentTotal 650→700 persisted.
+- Requisition detail: Indent→Quote→PO→GRN→Issue tracker, 0/3-quote gate,
+  audit-logged Waive with required reason.
+- Equipment: list (6 assets, values, assignment), detail (depreciation
+  ₹32K→₹24K, active assignment), Return executes (assignment RETURNED,
+  status AVAILABLE), maintenance dialog (type/cost/vendor/notes).
+- Procurement PO detail: tracking timeline + "receive the balance" nudge
+  on partially-received POs.
+- GL trial balance: Dr = Cr ₹2.51Cr across 26 accounts.
+- Settings/company: identity, phone pool, departments, integrations
+  (Tally), audit count.
+- Reports hub: simplified P&L with honest "cash received ≠ booked"
+  accounting note pointing at the GL P&L.
+- Leads: pipeline stages, score, convert-to-customer, activity timeline.
+- Notifications: 69 unread, per-type deep-links land on /m/ routes.
+- Inventory hub: low-stock alerts grouped by category with reorder
+  points, per-module links.
