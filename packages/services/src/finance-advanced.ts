@@ -139,33 +139,41 @@ export async function getProjectProfitCenter(projectId: string, companyId: strin
     new Decimal(0),
   );
 
-  // Labour cost: payroll lines for employees whose activeProjectId = projectId
-  const payrollLines = await prisma.payrollLine.aggregate({
-    where: { employee: { activeProjectId: projectId } },
-    _sum: { netPay: true },
+  // ProjectCost is the single cost ledger — payroll processing mints LABOUR
+  // rows (hr.ts), RA-bill approval mints CONTRACTOR rows at grossAmount
+  // (subcontractor.ts), legal docs mint TRANSFER_DUTY, and manual entries
+  // cover the rest. Aggregating payroll/raBills separately here double-counts:
+  // the same spend would appear once in its own bucket AND again inside a
+  // "Σ all ProjectCost" overhead bucket. Derive every bucket from the ledger.
+  const projectCostRows = await prisma.projectCost.findMany({
+    where: { projectId },
+    select: { amount: true, costType: true },
   });
-  const labourCost = new Decimal(payrollLines._sum?.netPay ?? 0);
+  const byCostType = new Map<string, Decimal>();
+  for (const c of projectCostRows) {
+    byCostType.set(c.costType, (byCostType.get(c.costType) ?? new Decimal(0)).plus(new Decimal(c.amount)));
+  }
+  const labourCost = byCostType.get("LABOUR") ?? new Decimal(0);
+  const subcontractorCost = byCostType.get("CONTRACTOR") ?? new Decimal(0);
 
   // Equipment cost: maintenance costs for equipment assigned to this project
+  // (equipment maintenance does NOT mint ProjectCost rows — separate source)
+  // plus manually-logged EQUIPMENT project costs.
   const equipMaintenance = await prisma.equipmentMaintenance.aggregate({
     where: { equipment: { assignments: { some: { projectId } } } },
     _sum: { cost: true },
   });
-  const equipmentCost = new Decimal(equipMaintenance._sum?.cost ?? 0);
+  const equipmentCost = new Decimal(equipMaintenance._sum?.cost ?? 0)
+    .plus(byCostType.get("EQUIPMENT") ?? new Decimal(0));
 
-  // Subcontractor cost: net paid on RA bills
-  const raBills = await prisma.raBill.aggregate({
-    where: { workOrder: { projectId }, status: "PAID" },
-    _sum: { netPayable: true },
-  });
-  const subcontractorCost = new Decimal(raBills._sum.netPayable ?? 0);
-
-  // Overhead: project expenses
-  const expenses = await prisma.projectCost.aggregate({
-    where: { projectId },
-    _sum: { amount: true },
-  });
-  const overheadCost = new Decimal(expenses._sum.amount ?? 0);
+  // Overhead: OVERHEAD + PERMIT + TRANSFER_DUTY + any other ledger types not
+  // already surfaced as their own bucket.
+  const overheadCost = projectCostRows.reduce(
+    (sum, c) => (["LABOUR", "CONTRACTOR", "EQUIPMENT"].includes(c.costType)
+      ? sum
+      : sum.plus(new Decimal(c.amount))),
+    new Decimal(0),
+  );
 
   const totalCost = landCost
     .plus(materialCost)
@@ -583,6 +591,14 @@ export async function getBudgetVariance(projectId: string, companyId: string): P
   const projectCostActual = projectCosts.reduce(
     (s, c) => s.plus(new Decimal(c.amount)), new Decimal(0),
   );
+  // RA-bill approval mints CONTRACTOR project-cost rows at grossAmount —
+  // the same billing already appears as BOQ lines' actual (RA line sums).
+  // The non-BOQ side must only carry RA spend NOT tagged to a BOQ line,
+  // otherwise subcontractor cost double-counts in the grand total.
+  const contractorActual = projectCosts.reduce(
+    (s, c) => (c.costType === "CONTRACTOR" ? s.plus(new Decimal(c.amount)) : s), new Decimal(0),
+  );
+  const contractorNotOnBoq = Decimal.max(0, contractorActual.minus(boqActual));
 
   // Group project costs by type for finer granularity
   const costsByType = new Map<string, Decimal>();
@@ -591,7 +607,7 @@ export async function getBudgetVariance(projectId: string, companyId: string): P
     costsByType.set(key, (costsByType.get(key) ?? new Decimal(0)).plus(new Decimal(c.amount)));
   }
 
-  const nonBoqActual = landActual.plus(materialActual).plus(projectCostActual);
+  const nonBoqActual = landActual.plus(materialActual).plus(projectCostActual.minus(contractorActual).plus(contractorNotOnBoq));
   const nonBoqBudget = Decimal.max(0, totalBudget.minus(boqBudget));
 
   // Allocate the residual proportionally to each non-BOQ category's share of actual cost.
@@ -604,13 +620,16 @@ export async function getBudgetVariance(projectId: string, companyId: string): P
   if (materialActual.gt(0)) {
     nonBoqCategories.push({ source: "MATERIAL", description: "Material Issues", actual: materialActual });
   }
-  // Project costs broken down by type
+  // Project costs broken down by type. CONTRACTOR gets special handling:
+  // the portion already shown as BOQ-line actuals is skipped; only RA spend
+  // with no BOQ linkage shows here.
   for (const [costType, amount] of costsByType) {
-    if (amount.gt(0)) {
+    const effective = costType === "CONTRACTOR" ? contractorNotOnBoq : amount;
+    if (effective.gt(0)) {
       nonBoqCategories.push({
         source: "PROJECT_COST",
         description: `${costType.charAt(0) + costType.slice(1).toLowerCase()} Costs`,
-        actual: amount,
+        actual: effective,
       });
     }
   }
