@@ -76,7 +76,9 @@ export function MobileRaBillActions({
   // Self-approval protection: creator/submitter cannot approve or reject —
   // unless a tier-1 approver (OWNER/ADMIN), where no higher reviewer exists.
   const selfBlock = (isCreator || isSubmitter) && !canSelfApprove;
-  const showSubmitBtn = canSubmit && (status === "DRAFT" || status === "REJECTED") && !isCreator;
+  // Submit is NOT self-blocked — the creator submits their own draft for a
+  // reviewer to approve; the segregation guard lives on approve/pay, not here.
+  const showSubmitBtn = canSubmit && (status === "DRAFT" || status === "REJECTED");
   const showApproveBtn = canApprove && status === "SUBMITTED" && !selfBlock;
   const showRejectBtn = canApprove && status === "SUBMITTED" && !selfBlock;
   // Pay is segregation-of-duties: the server unconditionally blocks the
