@@ -1300,3 +1300,30 @@ Everything checked this round worked. No new bugs.
 - Verified: duplicate "Po Approved" notifications are correct fan-out
   (one per approver user), not a bug. Old ₹x.00 messages predate the
   money-format fix.
+
+## Round 23 — sales UX + transfers + QC + notifications (Sep 24)
+
+- **Cheque-clear toast lied** (187b8b4b) — clearing a ₹3L deposit cheque
+  on a ₹30L sale toasted "sale completed" while ₹27L remained due. Copy
+  fixed on mobile + desktop; sale only completes via explicit completeSale
+  or the full-pay-cheque auto path (registry-gated).
+- **Bell drawer → history** (9d206c11) — "View all notifications" footer
+  on mobile opens the new /m/notifications page.
+- **Sale lifecycle verified live** — pending cheque → Clear → payment
+  RECEIVED/CLEARED, balance ₹30L→₹27L, schedule resynced. Complete Sale
+  blocked without ATS/BBA (client guard + server 400). Complete dialog
+  covers registry no., TDS (>₹50L), home-loan sanction details.
+- **GL cheque model consistent** — pending cheque debits Cash at record;
+  bounce reverses per sale stage (deposit refund vs AR reversal) and
+  releases the asset on full reversal.
+- **Stock transfer custody chain** — dispatch blocked behind gate-pass
+  approval (verified: PENDING GP showed "Awaiting GP approval", approval
+  moved transfer to IN_TRANSIT); receive demands photo + receiver
+  signature + geo-tag, all mandatory.
+- **QC inspection** — queue → PO → Inspect → GRN PASSED → queue shrinks.
+- **Collections tab** — ₹2.37Cr outstanding across 5 deals, per-deal
+  progress + Call shortcut.
+- **Measurement book** — per-project entries, earned-value roll-up.
+- Verified non-bugs: fan-out notifications (one per approver), old
+  ₹x.00 messages predate the money-format fix, /m/transfers desktop
+  bounce is the intended surface adapter.
