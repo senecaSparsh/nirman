@@ -1156,3 +1156,36 @@ VERIFIED LIVE:
 - Notifications: 69 unread, per-type deep-links land on /m/ routes.
 - Inventory hub: low-stock alerts grouped by category with reorder
   points, per-module links.
+
+## Round 17 — payment void/reversal everywhere (Sep 24)
+
+Every user-entered payment can now be voided (never deleted — audit trail
+kept) with the GL effect reversed in the same transaction:
+
+- `voidSupplierPayment` (ae302c64): restores balanceOwed, reverses the JE,
+  re-opens invoices it marked PAID (shared reconcile now reverts PAID→
+  APPROVED when coverage drops). VOID excluded from PO/invoice overpayment
+  guards, UTR + 15s double-submit dupe guards, persona-home spend,
+  supplier-detail totals, list "Total Paid".
+- `voidMaterialSalePayment` (955f5452): recomputes sale paymentStatus
+  (PAID→PARTIAL/PENDING), reverses the JE; VOID excluded from paid-sums +
+  ref dupe guard.
+- `voidLandPurchasePayment` (48a3eddd): reverses the payment-level JE —
+  token payments folded into the purchase JE get a correcting
+  Dr AP / Cr Cash instead; token fields reset like a bounce. Also fixed
+  latent bug: bounced cheques inflated the overpayment guard and land
+  paid-totals (both now exclude VOID + BOUNCED).
+- `voidRentPayment` (639bc8ff): RECEIVED → VOID, reverses RENT_PAYMENT JE
+  (covers SMS-parser auto-matched receipts). PENDING/OVERDUE dues can't
+  be voided — never collected.
+
+APIs: /api/{sales,material-sales}/payments/[id]/void (sales.manage),
+/api/supplier-payments/[id]/void (finance.manage),
+/api/land-purchases/payments/[id]/void (assets.manage),
+/api/rent-payments/[id]/void (finance.manage).
+Mobile: Void chip/action + reason dialog + badge on every payment list.
+
+6 new integration tests across the three service fns; 59 land tests +
+17 reconcile tests still green. Verified live: supplier ₹300 void
+(badge, Total Paid ₹1.54L→₹1.53L), material-sale ₹20 void (PAID→PARTIAL),
+land ₹1K void.
