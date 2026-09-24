@@ -65,7 +65,7 @@ export async function SupplierDetailContent({ params }: { params: Promise<{ id: 
       orderBy: { invoiceDate: "desc" },
       take: 20,
       include: {
-        payments: { select: { amount: true, tdsAmount: true, netPaidAmount: true } },
+        payments: { where: { status: { not: "VOID" } }, select: { amount: true, tdsAmount: true, netPaidAmount: true } },
       },
     }),
 

@@ -637,6 +637,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
         amount: toNum(p.amount),
         paymentDate: p.paymentDate.toISOString(),
         paymentMode: p.paymentMode,
+        status: p.status,
       }));
       const last = batch[batch.length - 1];
       const nextCursor = hasMore && last

@@ -46,9 +46,10 @@ export default function MobileSupplierPaymentsPage({
           invoiceNumber: p.invoice?.invoiceNumber ?? null,
           amount: toNum(p.amount),
           paymentDate: p.paymentDate.toISOString(),
-          paymentMode: p.paymentMode}));
+          paymentMode: p.paymentMode,
+          status: p.status}));
 
-        const totalAmount = rows.reduce((s, p) => s + p.amount, 0);
+        const totalAmount = rows.reduce((s, p) => s + (p.status === "VOID" ? 0 : p.amount), 0);
 
         return (
           <div>

@@ -605,7 +605,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
           _sum: { amount: true },
         }),
         prisma.supplierPayment.aggregate({
-          where: { companyId: company.id, paymentDate: { gte: startOfMonth } },
+          where: { companyId: company.id, paymentDate: { gte: startOfMonth }, status: { not: "VOID" } },
           _sum: { amount: true },
         }),
         prisma.supplierInvoice.findMany({

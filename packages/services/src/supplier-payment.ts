@@ -1,11 +1,70 @@
 import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
-import { postJournalEntry, ACCT } from "./gl-posting";
+import { postJournalEntry, reverseJournalEntry, ACCT } from "./gl-posting";
 import { ServiceError } from "./errors";
 import { autoSyncEntryToTally } from "./auto-sync";
 import { withSerializableTransaction } from "./transaction";
 import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
+
+/**
+ * Reconcile invoice PAID status against non-VOID payments. An invoice is
+ * PAID once cumulative payments cover its total — linked payments earmark
+ * their invoice; unlinked payments allocate FIFO (oldest first) across the
+ * supplier's open invoices. When a payment is voided and coverage drops,
+ * a PAID invoice reverts to APPROVED so it can be paid again.
+ */
+async function reconcileSupplierInvoiceStatuses(
+  tx: Prisma.TransactionClient,
+  supplierId: string,
+  companyId: string,
+) {
+  const invoices = await tx.supplierInvoice.findMany({
+    where: {
+      supplierId,
+      companyId,
+      status: { in: ["APPROVED", "MATCHED", "PAID"] },
+    },
+    orderBy: [{ invoiceDate: "asc" }, { createdAt: "asc" }],
+    select: { id: true, status: true, totalAmount: true },
+  });
+  if (invoices.length === 0) return;
+
+  const [linkedGroups, unlinkedSum] = await Promise.all([
+    tx.supplierPayment.groupBy({
+      by: ["invoiceId"],
+      where: { supplierId, companyId, invoiceId: { not: null }, status: { not: "VOID" } },
+      _sum: { amount: true },
+    }),
+    tx.supplierPayment.aggregate({
+      where: { supplierId, companyId, invoiceId: null, status: { not: "VOID" } },
+      _sum: { amount: true },
+    }),
+  ]);
+  const linkedByInvoice = new Map(
+    linkedGroups.map((g) => [g.invoiceId as string, new Decimal(g._sum.amount ?? 0)]),
+  );
+  let unlinkedAvailable = new Decimal(unlinkedSum._sum.amount ?? 0);
+
+  const toMarkPaid: string[] = [];
+  const toReopen: string[] = [];
+  for (const inv of invoices) {
+    const need = new Decimal(inv.totalAmount).minus(linkedByInvoice.get(inv.id) ?? new Decimal(0));
+    const covered = need.lte(0) || unlinkedAvailable.gte(need);
+    if (covered) {
+      if (need.gt(0)) unlinkedAvailable = unlinkedAvailable.minus(need);
+      if (inv.status !== "PAID") toMarkPaid.push(inv.id);
+    } else if (inv.status === "PAID") {
+      toReopen.push(inv.id);
+    }
+  }
+  if (toMarkPaid.length > 0) {
+    await tx.supplierInvoice.updateMany({ where: { id: { in: toMarkPaid } }, data: { status: "PAID" } });
+  }
+  if (toReopen.length > 0) {
+    await tx.supplierInvoice.updateMany({ where: { id: { in: toReopen } }, data: { status: "APPROVED" } });
+  }
+}
 
 /**
  * Supplier Payment Service — recording money paid out to suppliers.
@@ -92,7 +151,7 @@ export async function createSupplierPayment(input: {
     // transaction; reusing it means paying the same money twice in the books.
     if (input.referenceNo) {
       const dupe = await tx.supplierPayment.findFirst({
-        where: { companyId: input.companyId, referenceNo: input.referenceNo },
+        where: { companyId: input.companyId, referenceNo: input.referenceNo, status: { not: "VOID" } },
         select: { id: true, paymentNumber: true },
       });
       if (dupe) {
@@ -112,6 +171,7 @@ export async function createSupplierPayment(input: {
         supplierId: input.supplierId,
         amount,
         paymentMode: input.paymentMode,
+        status: { not: "VOID" },
         createdById: input.userId ?? null,
         // createdAt (not paymentDate) — a backdated payment resubmitted by a
         // double-click shares its paymentDate but still hits the window.
@@ -145,7 +205,7 @@ export async function createSupplierPayment(input: {
       }
       // Check for overpayment: sum existing payments + new amount should not exceed PO total
       const existingPayments = await tx.supplierPayment.aggregate({
-        where: { purchaseOrderId: input.purchaseOrderId },
+        where: { purchaseOrderId: input.purchaseOrderId, status: { not: "VOID" } },
         _sum: { amount: true },
       });
       const alreadyPaid = new Decimal(existingPayments._sum.amount ?? 0);
@@ -177,7 +237,7 @@ export async function createSupplierPayment(input: {
       }
       // Prevent overpayment: sum existing payments for this invoice should not exceed invoice total
       const existingInvoicePayments = await tx.supplierPayment.aggregate({
-        where: { invoiceId: input.invoiceId },
+        where: { invoiceId: input.invoiceId, status: { not: "VOID" } },
         _sum: { amount: true },
       });
       const alreadyPaidToInvoice = new Decimal(existingInvoicePayments._sum.amount ?? 0);
@@ -251,50 +311,9 @@ export async function createSupplierPayment(input: {
       lines,
     });
 
-    // 6b. Reconcile invoice statuses. An invoice is PAID once cumulative
-    // payments cover its total — linked payments earmark their invoice;
-    // unlinked payments allocate FIFO (oldest first) across the supplier's
-    // open invoices. A partial payment never marks an invoice PAID.
-    const openInvoices = await tx.supplierInvoice.findMany({
-      where: {
-        supplierId: input.supplierId,
-        companyId: input.companyId,
-        status: { in: ["APPROVED", "MATCHED"] },
-      },
-      orderBy: [{ invoiceDate: "asc" }, { createdAt: "asc" }],
-      select: { id: true, totalAmount: true },
-    });
-    if (openInvoices.length > 0) {
-      const [linkedGroups, unlinkedSum] = await Promise.all([
-        tx.supplierPayment.groupBy({
-          by: ["invoiceId"],
-          where: { supplierId: input.supplierId, companyId: input.companyId, invoiceId: { not: null } },
-          _sum: { amount: true },
-        }),
-        tx.supplierPayment.aggregate({
-          where: { supplierId: input.supplierId, companyId: input.companyId, invoiceId: null },
-          _sum: { amount: true },
-        }),
-      ]);
-      const linkedByInvoice = new Map(
-        linkedGroups.map((g) => [g.invoiceId as string, new Decimal(g._sum.amount ?? 0)]),
-      );
-      let unlinkedAvailable = new Decimal(unlinkedSum._sum.amount ?? 0);
-      const toMarkPaid: string[] = [];
-      for (const inv of openInvoices) {
-        const need = new Decimal(inv.totalAmount).minus(linkedByInvoice.get(inv.id) ?? new Decimal(0));
-        if (need.lte(0) || unlinkedAvailable.gte(need)) {
-          if (need.gt(0)) unlinkedAvailable = unlinkedAvailable.minus(need);
-          toMarkPaid.push(inv.id);
-        }
-      }
-      if (toMarkPaid.length > 0) {
-        await tx.supplierInvoice.updateMany({
-          where: { id: { in: toMarkPaid } },
-          data: { status: "PAID" },
-        });
-      }
-    }
+    // 6b. Reconcile invoice statuses — linked payments earmark their
+    // invoice; unlinked payments allocate FIFO across open invoices.
+    await reconcileSupplierInvoiceStatuses(tx, input.supplierId, input.companyId);
 
     // 7. Log action
     await logAction(tx, {
@@ -321,6 +340,78 @@ export async function createSupplierPayment(input: {
   })();
 
   return payment;
+}
+
+/**
+ * Void a mis-entered supplier payment — the row stays (status → VOID) for
+ * the audit trail but is excluded from every payment sum; the posted GL
+ * entry is reversed (Dr Cash / Cr AP) so the books net out. Side effects
+ * of the original payment are undone in the same transaction:
+ *   - Supplier.balanceOwed is incremented back
+ *   - Invoices marked PAID solely by this payment re-open to APPROVED
+ */
+export async function voidSupplierPayment(input: {
+  paymentId: string;
+  companyId: string;
+  userId?: string;
+  reason?: string;
+}) {
+  const result = await withSerializableTransaction(async (tx) => {
+    const payment = await tx.supplierPayment.findFirst({
+      where: { id: input.paymentId, companyId: input.companyId },
+    });
+    if (!payment) throw new ServiceError("Payment not found", 404);
+    if (payment.status === "VOID") throw new ServiceError("Payment is already void");
+
+    // 1. Mark the payment void
+    await tx.supplierPayment.update({
+      where: { id: payment.id },
+      data: {
+        status: "VOID",
+        voidedAt: new Date(),
+        voidedById: input.userId ?? null,
+        voidReason: input.reason ?? null,
+      },
+    });
+
+    // 2. Restore the supplier's outstanding balance
+    const supplier = await tx.supplier.findFirst({ where: { id: payment.supplierId } });
+    if (supplier) {
+      await tx.supplier.update({
+        where: { id: supplier.id },
+        data: { balanceOwed: new Decimal(supplier.balanceOwed).plus(payment.amount) },
+      });
+    }
+
+    // 3. Reverse the GL entry posted at creation
+    const je = await tx.journalEntry.findFirst({
+      where: { sourceType: "SUPPLIER_PAYMENT", sourceId: payment.id },
+      select: { id: true },
+    });
+    if (je) {
+      await reverseJournalEntry(tx, je.id, {
+        postedById: input.userId,
+        memo: `Void supplier payment ${payment.paymentNumber}${input.reason ? ` — ${input.reason}` : ""}`,
+      });
+    }
+
+    // 4. Re-open invoices that were marked PAID only because of this payment
+    await reconcileSupplierInvoiceStatuses(tx, payment.supplierId, input.companyId);
+
+    await logAction(tx, {
+      userId: input.userId,
+      companyId: input.companyId,
+      action: "SUPPLIER_PAYMENT_VOID",
+      entityType: "SupplierPayment",
+      entityId: payment.id,
+      before: { status: "ACTIVE" },
+      after: { status: "VOID", reason: input.reason ?? null },
+    });
+
+    return { paymentNumber: payment.paymentNumber };
+  });
+
+  return result;
 }
 
 export async function getSupplierPayments(opts: {
