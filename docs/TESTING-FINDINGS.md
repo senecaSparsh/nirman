@@ -1189,3 +1189,30 @@ Mobile: Void chip/action + reason dialog + badge on every payment list.
 17 reconcile tests still green. Verified live: supplier ₹300 void
 (badge, Total Paid ₹1.54L→₹1.53L), material-sale ₹20 void (PAID→PARTIAL),
 land ₹1K void.
+
+## Round 18 — connected persona chains (Sep 24)
+
+Ran real end-to-end flows at phone width (not module browsing):
+
+- **Rental lifecycle**: New Tenancy → Activate (unit→RENTED, 12 dues minted,
+  deposit JE) → Record Rent (settled the Oct due in place) → Terminate
+  (unit→AVAILABLE, deposit refund JE). Bugs found+fixed: project form leaked
+  inline into the New Tenancy/Land dialogs (MobileNewProjectDialog is a
+  form body — two call sites missed the MobileFabModal wrapper); rent
+  payment minted a duplicate row instead of settling the scheduled due;
+  unit picker offered UNDER_CONSTRUCTION units the server rejects;
+  termination left 10 zombie PENDING dues that would rot into OVERDUE.
+- **Expense claim**: file (project + category + GST + line) → submit →
+  approve → mark paid. Verified claim accrual JE + reimbursement JE.
+- **Stock count**: DRAFT → Confirm (COUNTED + confirmedBy trail) →
+  Reconcile (all-match, no adjustment). Cross-tenant count correctly
+  denied ("not found" for an SRG count id).
+- **Quotation requests**: comparative statement per supplier (rate, GST,
+  landed cost, variance vs last rate, commercial terms); approve-winner →
+  PO link verified on the existing APPROVED row.
+- **Nav badges**: Inventory "3" = 3 DRAFT POs — matches DB exactly.
+- Tally sync machinery is real (85 queued JEs, push vouchers + pull
+  collections via HTTP provider).
+
+Commits: b9bec857 (dialog leak + due settle + unit filter), 216131d4
+(termination drops zombie dues).
