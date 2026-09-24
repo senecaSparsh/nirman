@@ -184,9 +184,18 @@ the `coolify-proxy` container isn't on the app network. Fix:
   `pre-commit` runs lint-staged (eslint --fix on staged files), `pre-push` runs
   `pnpm typecheck` (blocks push on type errors). Bypass: `git push --no-verify`.
   **Monitoring/Backup:** (11) **Sentry** — if `SENTRY_DSN` is set, runtime errors
-  (server + client) are sent to Sentry with 10% trace sampling. `apiHandler` also
-  captures 500 errors directly via dynamic `Sentry.captureException`. No-op without
-  the DSN (zero overhead). Config in `sentry.server.config.ts` + `sentry.client.config.ts`.
+  (server + client + edge) are sent to Sentry with 10% prod trace sampling (100% dev).
+  `apiHandler` also captures 500 errors directly via dynamic `Sentry.captureException`,
+  `instrumentation.ts` exports `onRequestError` for unhandled request errors, and
+  `global-error.tsx` reports layout errors. Client init lives in
+  `src/instrumentation-client.ts` (DSN: `NEXT_PUBLIC_SENTRY_DSN`) with session replay
+  (10% sessions, 100% error sessions) and router-transition spans. Server/edge configs
+  at repo-root `sentry.server.config.ts` / `sentry.edge.config.ts`. `next.config.ts` is
+  wrapped in `withSentryConfig` — it auto-instruments route handlers, emits the
+  `/monitoring` tunnel route (ad-blocker bypass, excluded from middleware), and uploads
+  source maps when `SENTRY_AUTH_TOKEN` + `SENTRY_ORG` + `SENTRY_PROJECT` are set
+  (`productionBrowserSourceMaps` turns on only for those builds; uploaded maps are
+  deleted from the shipped bundle). No-op without the DSN (zero overhead).
   (12) **Automated backups** — `POST /api/cron/backup` (cron-triggered, requires
   `CRON_SECRET`, 120s timeout) exports all companies' data to the `BackupRecord` table
   with 30-day retention (auto-pruned). The scheduler sidecar runs it daily. Health

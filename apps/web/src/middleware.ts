@@ -335,7 +335,8 @@ export const config = {
   // routes are excluded to avoid running UA regex + cookie logic on every
   // API call — a meaningful saving under load.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|api/auth/telephony|api/portal|api/telephony|api/health|api/cron|.*\\..*).*)",
+    // "monitoring" = the Sentry tunnel route — must bypass auth/UA logic.
+    "/((?!_next/static|_next/image|favicon.ico|monitoring|api/auth/telephony|api/portal|api/telephony|api/health|api/cron|.*\\..*).*)",
     "/api/auth/(.*)",
   ],
 };

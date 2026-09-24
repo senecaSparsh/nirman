@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import bundleAnalyzer from "@next/bundle-analyzer";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
@@ -22,10 +23,12 @@ const nextConfig: NextConfig = {
   // Note: ESLint is not run during `next build` in Next.js 16 — the
   // `eslint` config key was removed. Linting is handled by `next lint`
   // and CI/pre-commit hooks separately. This saves ~30-50MB RAM.
-  // Disable browser source maps in production — saves ~20-50MB RAM during
-  // build and reduces deploy artifact size. Server-side stack traces are
-  // still available via Node's native source map support.
-  productionBrowserSourceMaps: false,
+  // Browser source maps are generated ONLY when Sentry upload is configured
+  // (SENTRY_AUTH_TOKEN set) — withSentryConfig's deleteSourcemapsAfterUpload
+  // strips them from the shipped bundle so maps exist for the upload but not
+  // for end users. Without the token this stays false: ~20-50MB RAM saved on
+  // build and no map files in the deploy artifact.
+  productionBrowserSourceMaps: !!process.env.SENTRY_AUTH_TOKEN,
   // Limit build workers to 1 to stay within 512MB RAM on small hosts
   // (default spawns 47 workers which OOMs).
   experimental: {
@@ -150,4 +153,18 @@ if (process.env.NODE_ENV === "development") {
   });
 }
 
-export default withBundleAnalyzer(nextConfig);
+// withSentryConfig: auto-instruments route handlers/server components,
+// creates the /monitoring tunnel route (ad-blocker bypass), and uploads
+// source maps on webpack builds when SENTRY_AUTH_TOKEN + SENTRY_ORG +
+// SENTRY_PROJECT are set. Without them the upload step no-ops (build
+// succeeds — Sentry just captures errors without mapped frames). No
+// webpack.treeshake options — dev runs on Turbopack where they're ignored.
+export default withSentryConfig(withBundleAnalyzer(nextConfig), {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  widenClientFileUpload: true,
+  tunnelRoute: "/monitoring",
+  silent: !process.env.CI,
+  sourcemaps: { deleteSourcemapsAfterUpload: true },
+});

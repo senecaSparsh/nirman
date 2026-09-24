@@ -16,37 +16,26 @@
  * See: https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation
  */
 
+import * as Sentry from "@sentry/nextjs";
+
 export async function register() {
+  // Sentry init lives in the dedicated config files — importing them here is
+  // what makes them active (each guards on its DSN and no-ops without one).
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    await import("../sentry.server.config");
+  }
+  if (process.env.NEXT_RUNTIME === "edge") {
+    await import("../sentry.edge.config");
+  }
+
   // Only run on the server (not in the edge runtime).
   if (process.env.NEXT_RUNTIME === "nodejs") {
     // 1. Validate environment variables.
     const { validateEnv } = await import("./lib/env-validation");
     validateEnv();
 
-    // 2. Initialize Sentry if configured (optional — no-op without SENTRY_DSN).
     const sentryDsn = process.env.SENTRY_DSN;
-    if (sentryDsn) {
-      try {
-        const Sentry = await import("@sentry/nextjs");
-        Sentry.init({
-          dsn: sentryDsn,
-          tracesSampleRate: 0.1, // 10% of transactions traced (perf)
-          profilesSampleRate: 0.1, // 10% of profiles sampled
-          environment: process.env.NODE_ENV,
-          // Don't send PII.
-          sendDefaultPii: false,
-          // Filter out noisy non-errors.
-          ignoreErrors: [
-            "module factory is not available", // Turbopack cache desync (handled client-side)
-            "ChunkLoadError", // Stale chunks (handled client-side)
-            "Failed to fetch dynamically imported module", // Stale chunks
-          ],
-        });
-        console.log("[instrumentation] Sentry initialized");
-      } catch (err) {
-        console.warn("[instrumentation] Sentry init failed (continuing without):", err);
-      }
-    }
+    if (sentryDsn) console.log("[instrumentation] Sentry initialized");
 
     // 3. Global unhandled error/rejection handlers.
     // These catch errors that escape all try/catch blocks. Without them,
@@ -78,3 +67,7 @@ export async function register() {
     );
   }
 }
+
+// Auto-captures unhandled server-side request errors (route handlers,
+// server components, server actions). Requires @sentry/nextjs >= 8.28.
+export const onRequestError = Sentry.captureRequestError;
