@@ -45,12 +45,16 @@ type EntityType =
   | "Subcontractor"
   | "Equipment";
 
+type SoftDeletableModel = {
+  update(args: { where: { id: string }; data: { deletedAt: Date | null } }): Promise<unknown>;
+};
+
 export async function softDelete(entityType: EntityType, entityId: string): Promise<void> {
   // Run guard check first
   await guardDelete(entityType, entityId);
 
   const model = getModel(entityType);
-  await (model as any).update({
+  await model.update({
     where: { id: entityId },
     data: { deletedAt: new Date() },
   });
@@ -58,14 +62,14 @@ export async function softDelete(entityType: EntityType, entityId: string): Prom
 
 export async function restoreEntity(entityType: EntityType, entityId: string): Promise<void> {
   const model = getModel(entityType);
-  await (model as any).update({
+  await model.update({
     where: { id: entityId },
     data: { deletedAt: null },
   });
 }
 
-function getModel(entityType: EntityType) {
-  const map: Record<EntityType, any> = {
+function getModel(entityType: EntityType): SoftDeletableModel {
+  const map: Record<EntityType, SoftDeletableModel> = {
     Company: prisma.company,
     Project: prisma.project,
     StockLocation: prisma.stockLocation,
@@ -96,6 +100,22 @@ async function guardDelete(entityType: EntityType, entityId: string): Promise<vo
       });
       const hasStock = items.some((i) => Number(i.qty) > 0);
       if (hasStock) throw new ServiceError("Cannot delete material with stock at any location. Transfer or adjust stock first.");
+      // Even with zero stock, deleting a referenced material orphans history —
+      // BOQ reconciliation, PO/GRN lines, requisitions, and issue/movement
+      // records all point at this row and would render "material deleted".
+      const [boqRefs, poRefs, reqRefs, issueRefs, grnRefs] = await Promise.all([
+        prisma.boqItem.count({ where: { materialId: entityId } }),
+        prisma.purchaseOrderLine.count({ where: { materialId: entityId } }),
+        prisma.materialRequisitionLine.count({ where: { materialId: entityId } }),
+        prisma.materialIssueLine.count({ where: { materialId: entityId } }),
+        prisma.goodsReceiptLine.count({ where: { materialId: entityId } }),
+      ]);
+      const refs = boqRefs + poRefs + reqRefs + issueRefs + grnRefs;
+      if (refs > 0) {
+        throw new ServiceError(
+          "Cannot delete a material that appears in BOQs, purchase orders, requisitions, issues, or receipts — those records need its name. It is kept for history.",
+        );
+      }
       break;
     }
 

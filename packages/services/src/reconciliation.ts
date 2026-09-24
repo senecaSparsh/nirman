@@ -192,7 +192,7 @@ export async function getProjectMaterialReconciliation(
       description: item.description,
       materialId: item.materialId,
       materialCode: item.material?.code ?? "—",
-      materialName: item.material?.name ?? "—",
+      materialName: item.material?.name ?? `${item.description} (material deleted)`,
       unit: item.unit ?? item.material?.unit ?? "—",
       requiredQty: requiredQty.toDecimalPlaces(3),
       issuedQty: issuedQty.toDecimalPlaces(3),
