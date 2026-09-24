@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { createRateContract, getRateContracts } from "@nirman/services";
+import { createRateContract, getActiveRateContract, getRateContracts } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
@@ -41,9 +41,25 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 });
 
-export const GET = apiHandler(async (_req: NextRequest) => {
+export const GET = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.PROCUREMENT_VIEW);
   const company = await getCompany();
+  // Point lookup for PO-line auto-fill: the active contract for a
+  // supplier+material pair, if one exists.
+  const materialId = req.nextUrl.searchParams.get("materialId");
+  const supplierId = req.nextUrl.searchParams.get("supplierId");
+  if (materialId && supplierId) {
+    const contract = await getActiveRateContract(materialId, supplierId);
+    if (!contract || contract.companyId !== company.id) return json(null);
+    return json({
+      id: contract.id,
+      contractNumber: contract.contractNumber,
+      agreedRate: toNum(contract.agreedRate),
+      minQty: contract.minQty ? toNum(contract.minQty) : null,
+      maxQty: contract.maxQty ? toNum(contract.maxQty) : null,
+      validTo: contract.validTo,
+    });
+  }
   const contracts = await getRateContracts(company.id);
   return json(contracts.map((c) => ({
     ...c,

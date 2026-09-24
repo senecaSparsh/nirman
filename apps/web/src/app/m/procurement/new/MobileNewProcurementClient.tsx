@@ -89,6 +89,10 @@ export default function MobileNewProcurementClient({ data, initialProjectId, onC
   const [success, setSuccess] = useState<{ poId: string; poNumber: string; total: number } | null>(null);
   // Track last-purchase-price source per line for the "auto-filled from last PO" hint
   const [lastPriceHint, setLastPriceHint] = useState<Record<number, { poNumber: string; date: string } | null>>({});
+  // Track rate-contract source per line — an active supplier contract beats
+  // last-purchase price as the auto-fill source. Bounds ride along so submit
+  // can flag qty outside the contracted range.
+  const [contractHint, setContractHint] = useState<Record<number, { contractNumber: string; minQty: number | null; maxQty: number | null; agreedRate: number } | null>>({});
   // Empty-data guard dialog state (declared early to respect rules-of-hooks)
   const [guardDialog, setGuardDialog] = useState<"supplier" | "material" | "location" | null>(null);
 
@@ -176,6 +180,32 @@ export default function MobileNewProcurementClient({ data, initialProjectId, onC
     setDraftRestored(true);
   }
 
+  // Supplier changed after lines were picked — re-check contracts so the
+  // agreed rate can still auto-fill (only touches empty/auto-filled rates).
+  useEffect(() => {
+    if (!supplierId) return;
+    lines.forEach((l, index) => {
+      if (!l.materialId) return;
+      fetch(`/api/rate-contracts?materialId=${l.materialId}&supplierId=${supplierId}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((contract) => {
+          if (contract?.agreedRate > 0) {
+            setContractHint((h) => ({ ...h, [index]: { contractNumber: contract.contractNumber, minQty: contract.minQty ?? null, maxQty: contract.maxQty ?? null, agreedRate: contract.agreedRate } }));
+            setLines((prev) => {
+              const next = [...prev];
+              if (next[index] && next[index]!.materialId === l.materialId && !next[index]!.unitCost) {
+                next[index] = { ...next[index]!, unitCost: String(contract.agreedRate) };
+              }
+              return next;
+            });
+          } else {
+            setContractHint((h) => (h[index] ? { ...h, [index]: null } : h));
+          }
+        })
+        .catch(() => {});
+    });
+  }, [supplierId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleAddLine = () => {
     setLines([...lines, { materialId: "", qty: "", unitCost: "", gstRate: "0" }]);
   };
@@ -211,28 +241,56 @@ export default function MobileNewProcurementClient({ data, initialProjectId, onC
         setLines([...updated]);
         // Clear previous hint for this line
         setLastPriceHint((prev) => ({ ...prev, [index]: null }));
-        // Fetch last purchase price (async, doesn't block)
-        fetch(`/api/materials/${val}/last-purchase`)
-          .then((r) => r.ok ? r.json() : null)
-          .then((data) => {
-            if (data && data.unitCost > 0) {
-              setLines((prev) => {
-                const next = [...prev];
-                if (next[index] && next[index]!.materialId === val && !next[index]!.unitCost) {
-                  next[index] = { ...next[index]!, unitCost: String(data.unitCost) };
-                  // Record hint if source is a receipt
-                  if (data.source === "receipt" && data.poNumber) {
-                    setLastPriceHint((h) => ({
-                      ...h,
-                      [index]: { poNumber: data.poNumber, date: data.date },
-                    }));
+        // Clear previous hints for this line
+        setContractHint((prev) => ({ ...prev, [index]: null }));
+        const fillFromLastPurchase = () => {
+          // Fetch last purchase price (async, doesn't block)
+          fetch(`/api/materials/${val}/last-purchase`)
+            .then((r) => r.ok ? r.json() : null)
+            .then((data) => {
+              if (data && data.unitCost > 0) {
+                setLines((prev) => {
+                  const next = [...prev];
+                  if (next[index] && next[index]!.materialId === val && !next[index]!.unitCost) {
+                    next[index] = { ...next[index]!, unitCost: String(data.unitCost) };
+                    // Record hint if source is a receipt
+                    if (data.source === "receipt" && data.poNumber) {
+                      setLastPriceHint((h) => ({
+                        ...h,
+                        [index]: { poNumber: data.poNumber, date: data.date },
+                      }));
+                    }
                   }
-                }
-                return next;
-              });
-            }
-          })
-          .catch(() => {});
+                  return next;
+                });
+              }
+            })
+            .catch(() => {});
+        };
+        // An active rate contract for this supplier+material is the agreed
+        // rate — it wins over last-purchase as the auto-fill source. Only
+        // fall back to last-purchase when no contract covers the pair.
+        if (supplierId) {
+          fetch(`/api/rate-contracts?materialId=${val}&supplierId=${supplierId}`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((contract) => {
+              if (contract?.agreedRate > 0) {
+                setLines((prev) => {
+                  const next = [...prev];
+                  if (next[index] && next[index]!.materialId === val && !next[index]!.unitCost) {
+                    next[index] = { ...next[index]!, unitCost: String(contract.agreedRate) };
+                  }
+                  return next;
+                });
+                setContractHint((h) => ({ ...h, [index]: { contractNumber: contract.contractNumber, minQty: contract.minQty ?? null, maxQty: contract.maxQty ?? null, agreedRate: contract.agreedRate } }));
+              } else {
+                fillFromLastPurchase();
+              }
+            })
+            .catch(fillFromLastPurchase);
+        } else {
+          fillFromLastPurchase();
+        }
       }
     }
   };
@@ -256,6 +314,24 @@ export default function MobileNewProcurementClient({ data, initialProjectId, onC
     if (!locationId) { toast.error("Please select a destination location"); return; }
     const validLines = lines.filter((l) => l.materialId && Number(l.qty) > 0 && Number(l.unitCost) >= 0);
     if (validLines.length === 0) { toast.error("Add at least one line item with qty and cost"); return; }
+
+    // Contract guardrails — agreed rate + qty bounds. Over-rate or out-of-
+    // bounds lines are allowed but flagged loudly so the deviation is a
+    // decision, not an accident.
+    for (const [i, l] of lines.entries()) {
+      const c = contractHint[i];
+      if (!c || !l.materialId) continue;
+      const qty = Number(l.qty) || 0;
+      const rate = Number(l.unitCost) || 0;
+      if (rate > c.agreedRate) {
+        toast.warning(`Line ${i + 1}: ₹${rate} is above contract rate ₹${c.agreedRate} (${c.contractNumber})`, { duration: 6000 });
+      }
+      if (c.maxQty && qty > c.maxQty) {
+        toast.warning(`Line ${i + 1}: qty ${qty} exceeds contract max ${c.maxQty} (${c.contractNumber})`, { duration: 6000 });
+      } else if (c.minQty && qty < c.minQty) {
+        toast.warning(`Line ${i + 1}: qty ${qty} below contract min ${c.minQty} (${c.contractNumber})`, { duration: 6000 });
+      }
+    }
 
     setSubmitting(true);
     try {
@@ -518,6 +594,7 @@ export default function MobileNewProcurementClient({ data, initialProjectId, onC
       selectedProject={selectedProject}
       selectedLocation={selectedLocation}
       lastPriceHint={lastPriceHint}
+      contractHint={contractHint}
       charges={charges}
       setCharges={setCharges}
     />
@@ -543,6 +620,7 @@ function PoForm({
   subtotal, gstTotal, miscChargesTotal, total,
   selectedSupplier, selectedProject, selectedLocation,
   lastPriceHint,
+  contractHint,
   charges, setCharges,
 }: {
   suppliers: SupplierItem[];
@@ -582,6 +660,7 @@ function PoForm({
   selectedProject?: ProjectItem;
   selectedLocation?: LocationItem;
   lastPriceHint: Record<number, { poNumber: string; date: string } | null>;
+  contractHint: Record<number, { contractNumber: string; minQty: number | null; maxQty: number | null; agreedRate: number } | null>;
   charges: PoCharge[];
   setCharges: React.Dispatch<React.SetStateAction<PoCharge[]>>;
 }) {
@@ -764,7 +843,11 @@ function PoForm({
                         className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
                         style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
                       />
-                      {lastPriceHint[idx] ? (
+                      {contractHint[idx] ? (
+                        <p className="text-m-caption mt-0.5 font-semibold" style={{ color: "var(--color-go)" }}>
+                          Contract rate · {contractHint[idx]!.contractNumber}
+                        </p>
+                      ) : lastPriceHint[idx] ? (
                         <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
                           From {lastPriceHint[idx]!.poNumber}
                         </p>
