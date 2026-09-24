@@ -507,6 +507,12 @@ export async function terminateTenancy(tenancyId: string, companyId: string, use
     }
     const updated = await tx.tenancy.update({ where: { id: t.id }, data: { status: "TERMINATED" } });
 
+    // Drop the remaining uncollected schedule — PENDING dues are placeholders
+    // with no GL entry; leaving them lets the overdue sweep flag a terminated
+    // lease forever. OVERDUE rows stay (real debt still owed by the ex-tenant);
+    // RECEIVED rows stay (collection history).
+    await tx.rentalPayment.deleteMany({ where: { tenancyId: t.id, status: "PENDING" } });
+
     // Refund the security deposit: Dr Security Deposits Payable, Cr Cash.
     // Only refund if the tenancy was ACTIVE (deposit was posted at activation).
     // PENDING tenancies never had the deposit posted to GL, so there's nothing
@@ -931,6 +937,8 @@ export async function changeTenant(input: ChangeTenantInput) {
       await tx.builtUnit.update({ where: { id: t.builtUnitId }, data: { status: "AVAILABLE" } });
     }
     await tx.tenancy.update({ where: { id: t.id }, data: { status: "TERMINATED" } });
+    // Same as terminateTenancy — drop the old tenancy's uncollected schedule.
+    await tx.rentalPayment.deleteMany({ where: { tenancyId: t.id, status: "PENDING" } });
 
     // Refund old security deposit if was ACTIVE
     if (t.status === "ACTIVE" && new Decimal(t.securityDeposit).gt(0)) {
