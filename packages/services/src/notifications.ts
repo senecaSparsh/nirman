@@ -382,7 +382,7 @@ export async function notifyQuoteApproval(
   requisition: { id: string; number: string },
   recipients: Array<{ phone: string; name: string }>,
 ) {
-  const message = `✅ Quote Selected for ${requisition.number}: ${quote.vendorName} — ₹${quote.totalAmount.toFixed(2)}${quote.isCheapest ? " (cheapest)" : " (override — not cheapest)"}`;
+  const message = `✅ Quote Selected for ${requisition.number}: ${quote.vendorName} — ₹${quote.totalAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}${quote.isCheapest ? " (cheapest)" : " (override — not cheapest)"}`;
 
   const results = [];
   for (const r of recipients) {
@@ -416,9 +416,10 @@ export async function notifyPaymentDue(
   },
   recipients: Array<{ phone?: string | null; email?: string | null; name: string }>,
 ) {
+  const fmt = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
   const dueStr = payment.dueDate ? ` due on ${payment.dueDate}` : "";
-  const balanceStr = payment.balanceDue != null ? ` (Total balance: ₹${payment.balanceDue.toFixed(2)})` : "";
-  const message = `🔔 Payment Reminder: ${payment.type} payment of ₹${payment.amount.toFixed(2)} for ${payment.entityName}${dueStr}${balanceStr}. Please process before the due date.`;
+  const balanceStr = payment.balanceDue != null ? ` (Total balance: ${fmt(payment.balanceDue)})` : "";
+  const message = `🔔 Payment Reminder: ${payment.type} payment of ${fmt(payment.amount)} for ${payment.entityName}${dueStr}${balanceStr}. Please process before the due date.`;
 
   const results = [];
   for (const r of recipients) {

@@ -839,10 +839,13 @@ export function shouldRoleReceiveEvent(role: string, eventType: NotificationEven
 export function renderEventMessage(event: NotificationEvent): string {
   const v = event.variables as Record<string, unknown>;
   const s = (key: string): string => (v[key] == null ? "" : String(v[key]));
-  // Money vars arrive as decimal strings — prefix ₹ when non-empty.
+  // Money vars arrive as decimal strings — ₹ + Indian digit grouping.
   const money = (key: string): string => {
     const raw = s(key);
-    return raw ? `₹${raw}` : "";
+    if (!raw) return "";
+    const n = Number(raw);
+    if (Number.isNaN(n)) return `₹${raw}`;
+    return `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
   };
 
   const msg = EVENT_MESSAGES[event.eventType]?.({ s, money });
