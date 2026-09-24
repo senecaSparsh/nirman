@@ -1061,3 +1061,50 @@ VERIFIED LIVE (UI, phone viewport):
 - humanizeCron + formatEnumLabel unit-tested (40 utils tests green).
 
 Suite: 2,494 web + 1,638 service tests green. Typecheck clean.
+
+## Round 15 — field-finance flows (Sep 24, cont.)
+
+FIXED:
+
+- **Scheduler race → duplicate tasks**: `processScheduledWorkflows` read
+  due schedules then executed+advanced nextRunAt non-atomically — two
+  overlapping ticks minted duplicate tasks ("Chase overdue suppliers" x2
+  seen live). Now claims each schedule via compare-and-set updateMany on
+  nextRunAt BEFORE executing; loser skips. (c1a68bfc)
+- **`cron` field was dead config**: a "0 9 * * 1" workflow silently ran
+  every 24h instead of weekly. Minimal 5-field evaluator added (star,
+  step, range, list; Vixie dom+dow OR semantics; day-level fast-forward
+  so Feb-29 schedules don't scan 2M minutes). 9 unit tests. Falls back
+  to daily on unparseable exprs.
+- **Old notification links 404**: pre-/m/-convention links to
+  `/purchase-orders/<id>` dead-ended on both surfaces. Redirect added →
+  `/procurement/<id>`.
+- **CO approve dialog**: "Client Approval By" looked optional — Confirm
+  with it empty produced only a toast. `*` marker added.
+- **Jargon**: "5d late"→"5 days late" (site dash tasks + in-transit POs),
+  "2d"→"in 2 days", land "part"→"split" (reads as "partial" otherwise),
+  material-sale "CASH"→"Cash" in pay-mode row + picker chips.
+
+VERIFIED LIVE (phone viewport, DB-checked):
+
+- Field receive E2E: /m/site/receive → PO picker → qty 5 CFT + gate
+  entry GE-TEST-001 → Review sheet → Confirm → PO PARTIAL (5/10),
+  GoodsReceipt + PURCHASE_RECEIPT stock movement posted.
+- Change order E2E: draft → submit → Approve&Implement (client name
+  required, audit) → IMPLEMENTED + BOQ qty updated (5→6 CUM).
+- DPR reject→resubmit: rejection reason visible, resubmit re-enters
+  chain (XSS test content correctly rendered as escaped text).
+- Material sale payments: ₹4,700 + ₹20 → PARTIAL→PAID, balance math,
+  Print/Invoice actions swap in; doc-viewer invoice works.
+- Land: purchase detail (seller, reg no, parcels), possession toggle
+  both ways, per-parcel Hold/Valuate/Partition/Sell actions present.
+- Petty cash: float card → ledger sheet → ₹50 spend recorded,
+  spentTotal 650→700.
+- Safety: incident detail (root cause, corrective actions, 3-stage
+  timeline), report form (photos, injuries, WBS link).
+- Requisition detail: Indent→Quote→PO→GRN→Issue tracker, 0/3 quote
+  gate, audit-logged Waive with required reason.
+- Settings/company: identity, phone pool (assigned/available + add),
+  integrations (Tally config), audit count, edit details.
+- Attendance lock verified on /m/site/attendance too (27 chips
+  disabled+dimmed during paid-payroll lock).
