@@ -1259,3 +1259,23 @@ Everything checked this round worked. No new bugs.
   mobile replaced with usePrompt/useConfirm (offsite rejection reason,
   employee restore, onboarding early-complete warning).
 - Route coverage: every /m/* link target has a page (static audit).
+
+## Round 21 — SMS matching, field hub, workflow dedupe (Sep 24)
+
+- **Bank SMS → payment** — full chain live: parse (HDFC NEFT ₹1.5L,
+  counterparty extracted) → unmatched state with "Match to sale" → match
+  sheet lists open payments (sales + rent dues) → match posts
+  AssetSalePayment + deposit JE + schedule sync + status recompute.
+- **Workflow task dedupe** (e0d058cd) — scheduled runs re-minted identical
+  pending tasks every cycle (dashboard showed duplicates); create_task +
+  send_notification now skip when an identical workflow-minted PENDING
+  task exists. Verified: re-run reports "already pending — skipped".
+- **Field dashboard** (/m/site) — overdue PO receipts w/ snooze, daily
+  site ops, my-tasks, in-transit lateness, recent issues.
+- **Standard consumptions** — benchmark create→persist verified; variance
+  engine auto-runs on DPR submission (over-consumption detection).
+- **Print dispatcher** — 26 doctypes under /m/print/[type]/[id]; PO print
+  verified (letterhead, GSTIN, HSN table, amount-in-words, share actions).
+- **Double-approve** — client disables via "approving" state; server
+  400s a second approve. Guarded both layers.
+- **Production** — health check 9/9; deploy deferred per owner.
