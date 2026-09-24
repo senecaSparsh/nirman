@@ -444,7 +444,7 @@ export function MobileChangeOrderDetailClient({
                 Client Approval
               </p>
               <div>
-                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Client Approval By</label>
+                <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Client Approval By *</label>
                 <input
                   value={clientApprovedBy}
                   onChange={(e) => setClientApprovedBy(e.target.value)}
