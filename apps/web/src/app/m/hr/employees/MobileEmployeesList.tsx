@@ -16,6 +16,7 @@ import {
   MobileNoResults,
 } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
+import { useConfirm } from "@/lib/use-confirm";
 
 type WageTypeFilter = "ALL" | "DAILY" | "MONTHLY" | "ARCHIVED";
 
@@ -80,6 +81,7 @@ export function MobileEmployeesList({
   const [archivedItems, setArchivedItems] = useState<EmployeeListItem[] | null>(null);
   const [archivedLoading, setArchivedLoading] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
+  const [confirm, confirmDialog] = useConfirm();
   const router = useRouter();
 
   React.useEffect(() => {
@@ -93,7 +95,11 @@ export function MobileEmployeesList({
   }, [wageFilter, archivedItems]);
 
   async function restoreEmployee(id: string, name: string) {
-    if (!window.confirm(`Restore ${name}? They'll be re-activated and can log in again.`)) return;
+    if (!(await confirm({
+      title: `Restore ${name}?`,
+      description: "They'll be re-activated and can log in again.",
+      confirmLabel: "Restore",
+    }))) return;
     setRestoring(id);
     try {
       const res = await fetch(`/api/employees/${id}/restore`, { method: "POST" });
@@ -200,6 +206,7 @@ export function MobileEmployeesList({
       ) : (
         <GroupedList items={items} pendingCount={pendingCount} />
       )}
+      {confirmDialog}
     </div>
   );
 }

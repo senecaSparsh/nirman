@@ -6,6 +6,7 @@ import { MapPin, Check, X, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
+import { usePrompt } from "@/lib/use-prompt";
 
 export interface OffsiteReviewItem {
   id: string;
@@ -30,12 +31,19 @@ export interface OffsiteReviewItem {
 export function OffsiteReviewStrip({ rows }: { rows: OffsiteReviewItem[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
+  const [prompt, promptDialog] = usePrompt();
 
   async function review(id: string, decision: "APPROVED" | "REJECTED") {
     // A rejection flips the day to ABSENT — always record why so the worker
     // and the audit log carry the reason, not just the verdict.
     const note = decision === "REJECTED"
-      ? window.prompt("Reason for rejection (shown on the record):")
+      ? await prompt({
+          title: "Reject off-site check-in",
+          label: "Reason",
+          placeholder: "Shown on the worker's attendance record",
+          multiline: true,
+          confirmLabel: "Reject",
+        })
       : null;
     if (decision === "REJECTED" && note === null) return; // cancelled
     setBusy(id);
@@ -114,6 +122,7 @@ export function OffsiteReviewStrip({ rows }: { rows: OffsiteReviewItem[] }) {
           </div>
         </div>
       ))}
+      {promptDialog}
     </div>
   );
 }

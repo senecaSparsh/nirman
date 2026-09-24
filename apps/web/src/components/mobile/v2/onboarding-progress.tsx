@@ -12,6 +12,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { haptic } from "@/lib/haptic";
+import { useConfirm } from "@/lib/use-confirm";
 import {
   buildOnboardingSteps,
   type OnboardingStep,
@@ -69,6 +70,7 @@ export function OnboardingProgress({
 }) {
   const router = useRouter();
   const [completing, setCompleting] = useState(false);
+  const [confirm, confirmDialog] = useConfirm();
   const pct = Math.round((completedCount / steps.length) * 100);
 
   async function completeOnboarding() {
@@ -76,9 +78,11 @@ export function OnboardingProgress({
     // Completing early auto-marks documentsSubmitted + backgroundVerified —
     // the manager is confirming those steps are actually done. Warn before
     // fabricating verification flags on an incomplete dossier.
-    if (!isComplete && !window.confirm(
-      `Only ${completedCount}/${steps.length} steps done. Completing now will mark documents and background verification as done. Continue?`,
-    )) return;
+    if (!isComplete && !(await confirm({
+      title: "Complete onboarding early?",
+      description: `Only ${completedCount}/${steps.length} steps done. Completing now will mark documents and background verification as done.`,
+      confirmLabel: "Complete anyway",
+    }))) return;
     setCompleting(true);
     try {
       const res = await fetch(`/api/employees/${employeeId}/complete-onboarding`, { method: "POST" });
@@ -198,21 +202,24 @@ export function OnboardingProgress({
   // ── If href is provided, wrap the progress bar in a link ──
   if (href) {
     return (
-      <Link
-        href={href}
-        className="block rounded-[0.75rem] border p-3 press"
-        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      >
-        {progressContent}
-        <div className="flex items-center justify-center mt-2">
-          <ChevronRight className="size-3.5" style={{ color: "var(--color-ink-400)" }} />
-        </div>
-      </Link>
+      <>
+        <Link
+          href={href}
+          className="block rounded-[0.75rem] border p-3 press"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          {progressContent}
+          <div className="flex items-center justify-center mt-2">
+            <ChevronRight className="size-3.5" style={{ color: "var(--color-ink-400)" }} />
+          </div>
+        </Link>
+        {confirmDialog}
+      </>
     );
   }
 
   if (bare) {
-    return <>{progressContent}</>;
+    return <>{progressContent}{confirmDialog}</>;
   }
 
   return (
@@ -221,6 +228,7 @@ export function OnboardingProgress({
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       {progressContent}
+      {confirmDialog}
     </div>
   );
 }
