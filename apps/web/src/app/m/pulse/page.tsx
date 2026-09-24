@@ -5,6 +5,7 @@ import {
   getTallySyncStats,
   lowStockAlerts,
   leaseExpiryAlerts,
+  canAutoApprove,
 } from "@nirman/services";
 import {
   ClipboardCheck,
@@ -17,7 +18,7 @@ import {
   Plus,
   Wallet,
 } from "lucide-react";
-import { toNum, scopeWhere } from "@/lib/server";
+import { toNum, scopeWhere, getCurrentUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 import {
@@ -47,10 +48,16 @@ import { MobileHubPage } from "@/components/mobile/v2/hub-page";
 export default function PulsePage() {
   return (
     <MobileHubPage perm={PERM.FINANCE_VIEW} what="executive dashboard" permission="finance.view">
-      {async ({ company }) => {
+      {async ({ company, actingRole }) => {
         // ── Lightweight summary queries ───────────────────────────────
         // The portfolio summary uses cached Project fields (kept fresh by
         // reallocateProjectCosts) — no per-project P&L recomputation here.
+        // Approval counts must match /m/pulse/attention: it hides the
+        // viewer's own pending items for non-tier-1 approvers (they can't
+        // self-approve), so "N things need you" stays honest.
+        const user = await getCurrentUser();
+        const hideSelf = !canAutoApprove(actingRole);
+        const notSelf = hideSelf && user ? { not: user.id } : undefined;
         const [
           portfolio,
           tallyStats,
@@ -59,12 +66,15 @@ export default function PulsePage() {
           pendingReqs,
           pendingDprs,
           pendingClaims,
+          pendingGatePasses,
+          pendingExpenses,
+          pendingRaBills,
           oldestPO,
           oldestReq,
           oldestDpr,
           oldestClaim,
           overduePOs,
-          overBudgetCount,
+          overBudgetProjects,
           leaseExpiry,
           recentSales,
         ] = await Promise.all([
@@ -79,16 +89,27 @@ export default function PulsePage() {
           })),
           lowStockAlerts(company.id).catch(() => []),
           prisma.purchaseOrder.count({
-            where: { companyId: company.id, status: "DRAFT" },
+            where: { companyId: company.id, status: "DRAFT", createdById: notSelf },
           }),
           prisma.materialRequisition.count({
-            where: { project: { companyId: company.id }, status: "SUBMITTED" },
+            where: { ...await scopeWhere("MaterialRequisition"), project: { companyId: company.id }, status: "SUBMITTED", requestedById: notSelf },
           }),
           prisma.dailyProgressReport.count({
-            where: { companyId: company.id, approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] } },
+            where: { companyId: company.id, approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] }, submittedById: notSelf },
           }),
           prisma.expenseClaim.count({
-            where: { companyId: company.id, status: "SUBMITTED" },
+            where: { companyId: company.id, status: "SUBMITTED", claimantId: notSelf, ...await scopeWhere("ExpenseClaim", {}) },
+          }),
+          // Same categories the attention drill-down counts — keep the
+          // headline number consistent with the detail page.
+          prisma.gatePass.count({
+            where: { companyId: company.id, status: "PENDING", submittedById: notSelf },
+          }),
+          prisma.expense.count({
+            where: { companyId: company.id, status: "PENDING", submittedById: notSelf },
+          }),
+          prisma.raBill.count({
+            where: { companyId: company.id, status: "SUBMITTED", createdById: notSelf, submittedById: notSelf },
           }),
           // Approval aging — the oldest item waiting in each queue. When
           // these sit >48h the owner needs to see it (and the cron
@@ -116,7 +137,9 @@ export default function PulsePage() {
               expectedDate: { lt: new Date() },
             },
           }),
-          prisma.project.count({
+          // Matches /m/pulse/attention: only projects where actual spend
+          // exceeds budget — not every project that has both fields set.
+          prisma.project.findMany({
             where: {
               companyId: company.id,
               deletedAt: null,
@@ -124,6 +147,7 @@ export default function PulsePage() {
               totalBudget: { gt: 0 },
               totalProjectCost: { gt: 0 },
             },
+            select: { totalBudget: true, totalProjectCost: true },
           }),
           leaseExpiryAlerts(company.id).catch(() => []),
           prisma.assetSale.findMany({
@@ -134,7 +158,7 @@ export default function PulsePage() {
           }),
         ]);
 
-        const approvalCount = draftPOs + pendingReqs + pendingDprs + pendingClaims;
+        const approvalCount = draftPOs + pendingReqs + pendingDprs + pendingClaims + pendingGatePasses + pendingExpenses + pendingRaBills;
         const oldestPendingAt = [
           oldestPO._min.createdAt,
           oldestReq._min.createdAt,
@@ -146,6 +170,9 @@ export default function PulsePage() {
         const oldestApprovalDays = oldestPendingAt
           ? Math.floor((new Date().getTime() - oldestPendingAt.getTime()) / 86_400_000)
           : 0;
+        const overBudgetCount = overBudgetProjects.filter(
+          (p) => toNum(p.totalProjectCost) > toNum(p.totalBudget),
+        ).length;
         const attentionCount =
           approvalCount + overduePOs + lowStock.length + overBudgetCount + tallyStats.pending + leaseExpiry.length;
         const topProjects = portfolio.projects.slice(0, 5);
