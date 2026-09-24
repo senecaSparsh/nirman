@@ -164,7 +164,7 @@ export default function SitePage() {
                       subtitle={t.status.replace(/_/g, " ").toLowerCase()}
                       meta={
                         isOverdue
-                          ? `${overdueDays}d late`
+                          ? `${overdueDays} day${overdueDays === 1 ? "" : "s"} late`
                           : t.dueDate
                             ? formatDate(t.dueDate)
                             : t.priority
@@ -205,14 +205,14 @@ export default function SitePage() {
                     ? Math.ceil((new Date(po.expectedDate).getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24))
                     : 0;
                   const meta = isOverdue
-                    ? `${overdueDays}d late`
+                    ? `${overdueDays} day${overdueDays === 1 ? "" : "s"} late`
                     : !po.expectedDate
                       ? "no ETA"
                       : daysUntil === 0
                         ? "today"
                         : daysUntil === 1
                           ? "tomorrow"
-                          : `${daysUntil}d`;
+                          : `in ${daysUntil} days`;
                   return (
                     <MobileRow
                       key={po.id}
