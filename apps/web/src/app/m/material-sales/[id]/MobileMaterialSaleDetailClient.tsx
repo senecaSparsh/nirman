@@ -43,6 +43,7 @@ type PaymentItem = {
   paymentDate: string;
   paymentMode: string;
   referenceNo: string | null;
+  status?: string;
   chequeNo: string | null;
   chequeBank: string | null;
   chequePhotoUrl: string | null;
@@ -132,6 +133,32 @@ export function MobileMaterialSaleDetailClient({
   const [payMode, setPayMode] = useState("CASH");
   const [payRef, setPayRef] = useState("");
   const [payCheque, setPayCheque] = useState<MobileChequeState>(EMPTY_MOBILE_CHEQUE);
+  const [voidPaymentId, setVoidPaymentId] = useState<string | null>(null);
+  const [voidReason, setVoidReason] = useState("");
+
+  async function handleVoidPayment() {
+    if (!voidPaymentId) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/material-sales/payments/${voidPaymentId}/void`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: voidReason || undefined }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to void payment");
+      }
+      toast.success("Payment voided — books reversed");
+      setVoidPaymentId(null);
+      setVoidReason("");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to void payment");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   if (notFound) {
     return (
@@ -155,7 +182,7 @@ export function MobileMaterialSaleDetailClient({
       : "var(--color-go)";
 
   const statusLabel = isCancelled ? "Cancelled" : isPartial ? "Partial" : isPending ? "Unpaid" : "Paid";
-  const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
+  const totalPaid = payments.reduce((s, p) => s + (p.status === "VOID" ? 0 : p.amount), 0);
   const balanceDue = Math.max(0, totalAmount - totalPaid);
 
   async function handleCancel() {
@@ -544,23 +571,26 @@ export function MobileMaterialSaleDetailClient({
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
             {payments.map((p, i) => (
-              <button
+              <div
                 key={p.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => docViewer.openDoc(`/m/print/material-sale-receipt/${p.id}`, "Sale Receipt")}
-                className="w-full flex items-center gap-2 px-2.5 py-2 text-m-body press text-left"
+                onKeyDown={(e) => { if (e.key === "Enter") docViewer.openDoc(`/m/print/material-sale-receipt/${p.id}`, "Sale Receipt"); }}
+                className="w-full flex items-center gap-2 px-2.5 py-2 text-m-body press text-left cursor-pointer"
                 style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
               >
                 <span
                   className="grid place-items-center size-6 rounded-full shrink-0"
-                  style={{ backgroundColor: "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
+                  style={{ backgroundColor: p.status === "VOID" ? "color-mix(in srgb, var(--color-stop) 12%, transparent)" : "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
                 >
-                  <Banknote className="size-3" style={{ color: "var(--color-go)" }} />
+                  <Banknote className="size-3" style={{ color: p.status === "VOID" ? "var(--color-stop)" : "var(--color-go)" }} />
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>
                     {formatPaymentMode(p.paymentMode)}
                     {p.referenceNo ? ` · ${p.referenceNo}` : ""}
+                    {p.status === "VOID" ? " · Void" : ""}
                   </p>
                   <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                     {formatDate(p.paymentDate)}
@@ -572,11 +602,22 @@ export function MobileMaterialSaleDetailClient({
                     </p>
                   )}
                 </div>
-                <p className="text-m-label font-bold tabular-nums shrink-0" style={{ color: "var(--color-go)" }}>
+                <p className="text-m-label font-bold tabular-nums shrink-0" style={{ color: p.status === "VOID" ? "var(--color-ink-500)" : "var(--color-go)", textDecoration: p.status === "VOID" ? "line-through" : "none" }}>
                   {formatCurrencyCompact(p.amount)}
                 </p>
-                <Printer className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
-              </button>
+                {canManage && p.status !== "VOID" && !isCancelled ? (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setVoidPaymentId(p.id); }}
+                    className="shrink-0 rounded-full px-2 py-1 text-m-caption font-bold"
+                    style={{ color: "var(--color-stop)", backgroundColor: "color-mix(in srgb, var(--color-stop) 10%, transparent)" }}
+                  >
+                    Void
+                  </button>
+                ) : (
+                  <Printer className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
+                )}
+              </div>
             ))}
           </div>
         </>
@@ -619,6 +660,41 @@ export function MobileMaterialSaleDetailClient({
               style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
             >
               {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Cancel Sale"}
+            </button>
+          </div>
+        </Modal>
+      ) : null}
+
+      {/* ── Void payment confirmation ── */}
+      {voidPaymentId ? (
+        <Modal onClose={() => !submitting && setVoidPaymentId(null)} title="Void Payment?">
+          <p className="text-m-body mb-3" style={{ color: "var(--color-ink-700)" }}>
+            The payment is marked void and its accounting entry reversed — the customer owes the amount again. The record stays for audit.
+          </p>
+          <input
+            type="text"
+            value={voidReason}
+            onChange={(e) => setVoidReason(e.target.value)}
+            placeholder="Reason (optional) — e.g. wrong amount keyed"
+            className="mb-3 w-full rounded-[0.5rem] border px-3 py-2 text-m-body outline-none"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => setVoidPaymentId(null)}
+              disabled={submitting}
+              className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold press"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+            >
+              Keep Payment
+            </button>
+            <button
+              onClick={handleVoidPayment}
+              disabled={submitting}
+              className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold press disabled:opacity-50"
+              style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}
+            >
+              {submitting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Void Payment"}
             </button>
           </div>
         </Modal>

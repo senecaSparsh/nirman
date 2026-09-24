@@ -30,7 +30,7 @@ export default function MobileMaterialSaleDetailPage({
               orderBy: { paymentDate: "desc" },
               select: {
                 id: true, amount: true, paymentDate: true,
-                paymentMode: true, referenceNo: true,
+                paymentMode: true, referenceNo: true, status: true,
                 chequeNo: true, chequeBank: true, chequePhotoUrl: true}}}});
 
         if (!sale) {
@@ -146,6 +146,7 @@ export default function MobileMaterialSaleDetailPage({
               paymentDate: p.paymentDate.toISOString(),
               paymentMode: p.paymentMode,
               referenceNo: p.referenceNo,
+              status: p.status,
               chequeNo: p.chequeNo,
               chequeBank: p.chequeBank,
               chequePhotoUrl: p.chequePhotoUrl}))}

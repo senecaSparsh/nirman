@@ -350,7 +350,7 @@ export {
 } from "./material-sale";
 
 // Material Sale Payment — partial / additional payments against material sales
-export { createMaterialSalePayment, getMaterialSalePayments } from "./sale-payment";
+export { createMaterialSalePayment, voidMaterialSalePayment, getMaterialSalePayments } from "./sale-payment";
 
 // Renovation / Value-Add — track enhancement work on existing assets
 export {

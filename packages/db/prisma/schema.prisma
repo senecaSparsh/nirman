@@ -5356,6 +5356,13 @@ model MaterialSalePayment {
   chequeClearDate DateTime?
   chequeBounceReason String?
 
+  // Void support — a mis-entered payment is voided (never deleted) so the
+  // audit trail survives; voided rows are excluded from every payment sum.
+  status        String   @default("RECEIVED") // RECEIVED | VOID
+  voidedAt      DateTime?
+  voidedById    String?
+  voidReason    String?
+
   sale       MaterialSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
   createdBy  User?        @relation("SalePaymentCreator", fields: [createdById], references: [id], onDelete: SetNull)
 

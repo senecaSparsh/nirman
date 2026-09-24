@@ -1,7 +1,7 @@
 import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
-import { postMaterialSalePayment } from "./gl-posting";
+import { postMaterialSalePayment, reverseJournalEntry } from "./gl-posting";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
 import { autoSyncEntryToTally } from "./auto-sync";
@@ -71,7 +71,7 @@ export async function createMaterialSalePayment(input: {
     // same bank transaction booked twice.
     if (input.referenceNo) {
       const dupe = await tx.materialSalePayment.findFirst({
-        where: { referenceNo: input.referenceNo, sale: { companyId: input.companyId } },
+        where: { referenceNo: input.referenceNo, status: { not: "VOID" }, sale: { companyId: input.companyId } },
         select: { id: true, saleId: true },
       });
       if (dupe) {
@@ -83,7 +83,7 @@ export async function createMaterialSalePayment(input: {
 
     // 2. Calculate total paid so far (existing payments)
     const existingPayments = await tx.materialSalePayment.findMany({
-      where: { saleId: input.saleId },
+      where: { saleId: input.saleId, status: { not: "VOID" } },
       select: { amount: true },
     });
     const previouslyPaid = existingPayments.reduce(
@@ -169,6 +169,74 @@ export async function createMaterialSalePayment(input: {
   })();
 
   return payment;
+}
+
+/**
+ * Void a mis-entered material-sale payment — the row stays (status → VOID)
+ * for the audit trail but is excluded from paid-sums; the posted GL entry
+ * is reversed and the sale's paymentStatus is recomputed (PAID → PARTIAL or
+ * PENDING) so the customer owes the amount again.
+ */
+export async function voidMaterialSalePayment(input: {
+  paymentId: string;
+  companyId: string;
+  userId?: string;
+  reason?: string;
+}) {
+  return withSerializableTransaction(async (tx) => {
+    const payment = await tx.materialSalePayment.findFirst({
+      where: { id: input.paymentId, sale: { companyId: input.companyId } },
+      include: { sale: true },
+    });
+    if (!payment) throw new ServiceError("Payment not found", 404);
+    if (payment.status === "VOID") throw new ServiceError("Payment is already void");
+
+    await tx.materialSalePayment.update({
+      where: { id: payment.id },
+      data: {
+        status: "VOID",
+        voidedAt: new Date(),
+        voidedById: input.userId ?? null,
+        voidReason: input.reason ?? null,
+      },
+    });
+
+    // Recompute paymentStatus from the remaining non-void payments
+    const remaining = await tx.materialSalePayment.aggregate({
+      where: { saleId: payment.saleId, status: { not: "VOID" } },
+      _sum: { amount: true },
+    });
+    const totalPaid = new Decimal(remaining._sum.amount ?? 0);
+    const saleTotal = new Decimal(payment.sale.totalAmount);
+    const paymentStatus = totalPaid.lte(0) ? "PENDING" : totalPaid.gte(saleTotal) ? "PAID" : "PARTIAL";
+    await tx.materialSale.update({
+      where: { id: payment.saleId },
+      data: { paymentStatus },
+    });
+
+    // Reverse the GL entry posted at creation
+    const je = await tx.journalEntry.findFirst({
+      where: { sourceType: "MATERIAL_SALE_PAYMENT", sourceId: payment.id },
+      select: { id: true },
+    });
+    if (je) {
+      await reverseJournalEntry(tx, je.id, {
+        postedById: input.userId,
+        memo: `Void material-sale payment${input.reason ? ` — ${input.reason}` : ""}`,
+      });
+    }
+
+    await logAction(tx, {
+      userId: input.userId,
+      action: "MATERIAL_SALE_PAYMENT_VOID",
+      entityType: "MaterialSalePayment",
+      entityId: payment.id,
+      before: { status: "RECEIVED" },
+      after: { status: "VOID", reason: input.reason ?? null, paymentStatus },
+    });
+
+    return { paymentStatus };
+  });
 }
 
 export async function getMaterialSalePayments(saleId: string) {
