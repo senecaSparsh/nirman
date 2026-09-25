@@ -126,7 +126,14 @@ export function GatePassesView({
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Action failed");
-        toast.success(`Gate pass ${actionPastTense(action)}`);
+        if (data.executionWarning) {
+          toast.warning(`Gate pass ${actionPastTense(action)} — but the linked movement failed`, {
+            description: data.executionWarning,
+            duration: 8000,
+          });
+        } else {
+          toast.success(`Gate pass ${actionPastTense(action)}`);
+        }
         router.refresh();
       } catch (err: unknown) {
         toast.error(err instanceof Error ? err.message : "Action failed");

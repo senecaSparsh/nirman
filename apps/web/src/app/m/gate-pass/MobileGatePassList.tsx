@@ -209,7 +209,17 @@ export function MobileGatePassList({
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Action failed");
-        toast.success(`Gate pass ${actionPastTense(action)}`);
+        // Approving a pass whose linked movement failed to auto-execute
+        // (e.g. linked transfer deleted, insufficient stock) leaves stock
+        // unmoved — the gate guard must know, not just see "approved".
+        if (data.executionWarning) {
+          toast.warning(`Gate pass ${actionPastTense(action)} — but the linked movement failed`, {
+            description: data.executionWarning,
+            duration: 8000,
+          });
+        } else {
+          toast.success(`Gate pass ${actionPastTense(action)}`);
+        }
         router.refresh();
       } catch (err: unknown) {
         // ── Revert: restore the original status from server props ──
