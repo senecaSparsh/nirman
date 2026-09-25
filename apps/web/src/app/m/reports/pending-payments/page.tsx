@@ -112,7 +112,10 @@ async function MobilePendingPaymentsContent() {
 
       <MobileReportSummary
         items={[
-          { label: "Payable", value: formatCurrencyCompact(totalPayable), tone: "stop" },
+          // Overdue-PO payable only — not all supplier balances (those live
+          // on the Accounts hub at ₹10.96L). Labeled so the number isn't
+          // misread as the company-wide payable figure.
+          { label: "Overdue payable", value: formatCurrencyCompact(totalPayable), tone: "stop" },
           { label: "Receivable", value: formatCurrencyCompact(totalReceivable), tone: "go" },
           { label: "Net Cash", value: formatCurrencyCompact(netCash), tone: netCash >= 0 ? "go" : "stop" },
           { label: "Draft POs", value: formatCurrencyCompact(totalDraft), tone: "signal" },
