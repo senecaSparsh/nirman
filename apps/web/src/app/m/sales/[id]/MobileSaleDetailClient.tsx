@@ -88,6 +88,9 @@ export function MobileSaleDetailClient({
   bbaDate,
   tdsAmount,
   tdsCertificateNo,
+  irnStatus,
+  irn,
+  irnError,
   // Home loan
   homeLoanBank,
   homeLoanAmount,
@@ -151,6 +154,9 @@ export function MobileSaleDetailClient({
   bbaDate: string | null;
   tdsAmount: number | null;
   tdsCertificateNo: string | null;
+  irnStatus: string | null;
+  irn: string | null;
+  irnError: string | null;
   homeLoanBank: string | null;
   homeLoanAmount: number | null;
   customer: { id: string; name: string; phone: string | null } | null;
@@ -211,6 +217,22 @@ export function MobileSaleDetailClient({
   const [showCommission, setShowCommission] = useState(false);
   const [payingCommission, setPayingCommission] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [irnBusy, setIrnBusy] = useState(false);
+
+  async function generateIrn() {
+    setIrnBusy(true);
+    try {
+      const res = await fetch(`/api/e-invoice/asset-sale/${saleId}`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "IRN generation failed");
+      toast.success(`IRN generated: ${String(data.irn ?? "").slice(0, 16)}…`);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "IRN generation failed");
+    } finally {
+      setIrnBusy(false);
+    }
+  }
 
   const [payAmount, setPayAmount] = useState("");
   const [payMode, setPayMode] = useState<(typeof PAYMENT_MODES)[number]>("CASH");
@@ -841,7 +863,7 @@ export function MobileSaleDetailClient({
             </div>
           ) : null}
 
-          {(allotmentLetterNo || bbaNo || tdsAmount != null) ? (
+          {(allotmentLetterNo || bbaNo || tdsAmount != null || irnStatus) ? (
             <div className="px-2 py-1.5 space-y-0.5" style={{ borderTop: "1px solid var(--color-line)" }}>
               <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Compliance</p>
               {allotmentLetterNo && (
@@ -862,6 +884,55 @@ export function MobileSaleDetailClient({
                   <span className="font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>{formatCurrencyCompact(tdsAmount)}{tdsCertificateNo ? ` · ${tdsCertificateNo}` : ""}</span>
                 </div>
               )}
+              {/* e-Invoice IRN — mandatory for B2B sales over the threshold.
+                  Desktop can generate/cancel it; mobile only showed the GST
+                  amount with no IRN status at all. */}
+              {irnStatus ? (
+                <div className="flex justify-between items-center text-m-caption">
+                  <span style={{ color: "var(--color-ink-500)" }}>e-Invoice:</span>
+                  {irnStatus === "GENERATED" ? (
+                    <span className="font-bold" style={{ color: "var(--color-success)" }} title={irn ?? undefined}>
+                      IRN {irn ? `…${irn.slice(-8)}` : "generated"}
+                    </span>
+                  ) : canManage ? (
+                    <button
+                      onClick={generateIrn}
+                      disabled={irnBusy}
+                      className="font-bold"
+                      style={{ color: "var(--color-primary)" }}
+                      title={irnError ?? "Generate e-Invoice IRN (B2B — needs GSTIN on both parties)"}
+                    >
+                      {irnBusy ? "Generating…" : irnStatus === "FAILED" ? "Retry IRN →" : "Generate IRN →"}
+                    </button>
+                  ) : (
+                    <span style={{ color: "var(--color-ink-500)" }}>{irnStatus === "FAILED" ? "IRN failed" : "Not generated"}</span>
+                  )}
+                </div>
+              ) : canManage && gstRate > 0 ? (
+                <div className="flex justify-between items-center text-m-caption">
+                  <span style={{ color: "var(--color-ink-500)" }}>e-Invoice:</span>
+                  <button
+                    onClick={generateIrn}
+                    disabled={irnBusy}
+                    className="font-bold"
+                    style={{ color: "var(--color-primary)" }}
+                  >
+                    {irnBusy ? "Generating…" : "Generate IRN →"}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* IRN prompt when no compliance block otherwise renders */}
+          {!allotmentLetterNo && !bbaNo && tdsAmount == null && !irnStatus && canManage && gstRate > 0 ? (
+            <div className="px-2 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
+              <div className="flex justify-between items-center text-m-caption">
+                <span style={{ color: "var(--color-ink-500)" }}>e-Invoice IRN not generated</span>
+                <button onClick={generateIrn} disabled={irnBusy} className="font-bold" style={{ color: "var(--color-primary)" }}>
+                  {irnBusy ? "Generating…" : "Generate →"}
+                </button>
+              </div>
             </div>
           ) : null}
 

@@ -71,6 +71,9 @@ export default function MobileSaleDetailPage({
               bbaDate={null}
               tdsAmount={null}
               tdsCertificateNo={null}
+              irnStatus={null}
+              irn={null}
+              irnError={null}
               homeLoanBank={null}
               homeLoanAmount={null}
               customer={null}
@@ -187,6 +190,9 @@ export default function MobileSaleDetailPage({
             bbaDate={sale.bbaDate ? sale.bbaDate.toISOString() : null}
             tdsAmount={sale.tdsAmount ? toNum(sale.tdsAmount) : null}
             tdsCertificateNo={sale.tdsCertificateNo}
+            irnStatus={sale.irnStatus}
+            irn={sale.irn}
+            irnError={sale.irnError}
             // Home loan
             homeLoanBank={sale.homeLoanBank}
             homeLoanAmount={sale.homeLoanAmount ? toNum(sale.homeLoanAmount) : null}
