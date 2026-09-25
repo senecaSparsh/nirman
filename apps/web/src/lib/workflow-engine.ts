@@ -300,11 +300,20 @@ async function executeStep(step: WorkflowStep, tenantCompanyId: string | null): 
       // previous one is still open just adds noise. Workflow tasks carry
       // assignedById=null so a human-created task never blocks the mint.
       const duplicate = await prisma.task.findFirst({
-        where: { title, assignedToId, status: "PENDING", assignedById: null },
+        where: {
+          title,
+          assignedToId,
+          // Any open copy blocks the mint — a PENDING-only check mints a
+          // second chase task while the first is being worked (IN_PROGRESS
+          // or BLOCKED). Completed/cancelled copies don't block: the
+          // reminder legitimately recurs once handled.
+          status: { in: ["PENDING", "IN_PROGRESS", "BLOCKED"] },
+          assignedById: null,
+        },
         select: { id: true },
       });
       if (duplicate) {
-        return { stepId: step.id, status: "success", message: `Task "${title}" already pending (id: ${duplicate.id}) — skipped` };
+        return { stepId: step.id, status: "success", message: `Task "${title}" already open (id: ${duplicate.id}) — skipped` };
       }
 
       const task = await prisma.task.create({
@@ -328,11 +337,16 @@ async function executeStep(step: WorkflowStep, tenantCompanyId: string | null): 
       }
 
       const duplicate = await prisma.task.findFirst({
-        where: { title, assignedToId, status: "PENDING", assignedById: null },
+        where: {
+          title,
+          assignedToId,
+          status: { in: ["PENDING", "IN_PROGRESS", "BLOCKED"] },
+          assignedById: null,
+        },
         select: { id: true },
       });
       if (duplicate) {
-        return { stepId: step.id, status: "success", message: `Notification "${title}" already pending — skipped` };
+        return { stepId: step.id, status: "success", message: `Notification "${title}" already open — skipped` };
       }
 
       await prisma.task.create({
@@ -546,6 +560,18 @@ async function executeStep(step: WorkflowStep, tenantCompanyId: string | null): 
           }
           if (tenantCompanyId && !(await assigneeInTenant(assignedToId, tenantCompanyId))) {
             return { stepId: step.id, status: "failed", message: "Assignee is not a member of this company" };
+          }
+          const duplicate = await prisma.task.findFirst({
+            where: {
+              title,
+              assignedToId,
+              status: { in: ["PENDING", "IN_PROGRESS", "BLOCKED"] },
+              assignedById: null,
+            },
+            select: { id: true },
+          });
+          if (duplicate) {
+            return { stepId: step.id, status: "success", message: `Task "${title}" already open (id: ${duplicate.id}) — skipped` };
           }
           const task = await prisma.task.create({
             data: {
