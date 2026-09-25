@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input, Textarea, Label } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
+import { useConfirm } from "@/lib/use-confirm";
 import { EmptyState } from "@/components/empty-state";
 import { formatCurrency, formatDate, cn } from "@/lib/utils";
 import { QuoteUploadDialog } from "./quote-upload-dialog";
@@ -69,6 +70,7 @@ export function ComparativeQuotePanel({
   onWinnerSelected?: () => void;
 }) {
   const router = useRouter();
+  const [confirm, confirmDialog] = useConfirm();
   const [statement, setStatement] = useState<ComparativeStatement | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -96,6 +98,16 @@ export function ComparativeQuotePanel({
   }, [fetchStatement]);
 
   async function selectWinner(quoteId: string) {
+    // Selecting a winner auto-creates an ORDERED purchase order — a
+    // real-world consequence that can't be undone from this screen.
+    const quote = statement?.quotes.find((q) => q.id === quoteId);
+    const ok = await confirm({
+      title: `Select ${quote?.supplierName ?? "this supplier"}?`,
+      description:
+        "Selecting a winner creates the purchase order automatically at the quoted price.",
+      confirmLabel: "Select & create PO",
+    });
+    if (!ok) return;
     setSelectingId(quoteId);
     try {
       const res = await fetch(`/api/quotes/${quoteId}/select`, {
@@ -814,6 +826,8 @@ export function ComparativeQuotePanel({
           onSaved={() => { setEditQuote(null); fetchStatement(); router.refresh(); }}
         />
       )}
+
+      {confirmDialog}
     </div>
   );
 }

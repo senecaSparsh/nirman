@@ -89,6 +89,17 @@ export function MobileQuotePanel({
   }, [fetchStatement]);
 
   async function selectWinner(quoteId: string) {
+    // A tap here auto-creates an ORDERED purchase order — a real-world
+    // consequence (supplier gets a PO) that can't be undone from this
+    // screen. Deleting a quote gets a confirm; creating a PO needs one too.
+    const quote = statement?.quotes.find((q) => q.id === quoteId);
+    const ok = await confirm({
+      title: `Select ${quote?.supplierName ?? "this supplier"}?`,
+      description:
+        "Selecting a winner creates the purchase order automatically at the quoted price.",
+      confirmLabel: "Select & create PO",
+    });
+    if (!ok) return;
     haptic(10);
     setSelectingId(quoteId);
     try {
