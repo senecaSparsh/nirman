@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { withSurfaceParam } from "@/lib/surface-map";
 
 /**
  * /m/site/issue — redirects to the unified stock-out page in issue mode.
@@ -7,12 +8,15 @@ import { redirect } from "next/navigation";
 export default async function MobileIssuePage({
   searchParams,
 }: {
-  searchParams: Promise<{ project?: string; from?: string }>;
+  searchParams: Promise<{ project?: string; from?: string ; __surface?: string }>;
 }) {
   const params = await searchParams;
   redirect(
-    "/m/stock-out?mode=issue" +
-      (params.project ? "&project=" + params.project : "") +
-      (params.from ? "&from=" + params.from : ""),
+    withSurfaceParam(
+      "/m/stock-out?mode=issue" +
+        (params.project ? "&project=" + params.project : "") +
+        (params.from ? "&from=" + params.from : ""),
+      params,
+    ),
   );
 }

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { withSurfaceParam } from "@/lib/surface-map";
 
 /**
  * /m/settings/team — Redirected to /m/hr/employees.
@@ -15,6 +16,11 @@ import { redirect } from "next/navigation";
  *
  * Users without USERS_MANAGE permission don't see the access section at all.
  */
-export default function TeamPage() {
-  redirect("/m/hr/employees");
+export default async function TeamPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ __surface?: string }>;
+}) {
+  const params = await searchParams;
+  redirect(withSurfaceParam("/m/hr/employees", params));
 }

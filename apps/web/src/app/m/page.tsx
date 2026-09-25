@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { withSurfaceParam } from "@/lib/surface-map";
 import { connection } from "next/server";
 
 /**
@@ -9,7 +10,12 @@ import { connection } from "next/server";
  * This is a pure redirect: no UI. `connection()` opts the segment into
  * dynamic rendering (PPR-safe — no `force-dynamic` allowed on Next 16).
  */
-export default async function MobileIndexPage() {
+export default async function MobileIndexPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ __surface?: string }>;
+}) {
+  const params = await searchParams;
   await connection();
-  redirect("/m/home");
+  redirect(withSurfaceParam("/m/home", params));
 }

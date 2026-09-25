@@ -1,9 +1,15 @@
 import { redirect } from "next/navigation";
+import { withSurfaceParam } from "@/lib/surface-map";
 
 /**
  * /m/requisitions — redirects to the unified procurement hub.
  * Indents are now a tab within /m/procurement.
  */
-export default function MobileRequisitionsPage() {
-  redirect("/m/procurement?tab=indents");
+export default async function MobileRequisitionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ __surface?: string }>;
+}) {
+  const params = await searchParams;
+  redirect(withSurfaceParam("/m/procurement?tab=indents", params));
 }

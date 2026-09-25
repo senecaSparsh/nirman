@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { withSurfaceParam } from "@/lib/surface-map";
 
 /**
  * /m/transfers/new — redirects to the unified stock-out page in transfer mode.
@@ -7,8 +8,8 @@ import { redirect } from "next/navigation";
 export default async function NewTransferPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string }>;
+  searchParams: Promise<{ from?: string ; __surface?: string }>;
 }) {
   const params = await searchParams;
-  redirect("/m/stock-out?mode=transfer" + (params.from ? "&from=" + params.from : ""));
+  redirect(withSurfaceParam("/m/stock-out?mode=transfer" + (params.from ? "&from=" + params.from : ""), params));
 }

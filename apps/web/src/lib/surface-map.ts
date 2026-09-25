@@ -318,3 +318,21 @@ export function mapDynamicSegments(pathname: string, sourcePattern: string | und
 
   return "/" + resultSegs.join("/");
 }
+
+/**
+ * Forward the `__surface` pin through a server-side `redirect()`. The pin
+ * marks a viewport-corrected nav — a desktop UA at mobile width (narrow
+ * window, split screen) intentionally on the mobile surface. A server
+ * redirect that drops the param bounces that user back to the desktop
+ * surface mid-flow. Pass the page's resolved searchParams through.
+ */
+export function withSurfaceParam(
+  target: string,
+  params: { __surface?: string | string[] } | undefined,
+): string {
+  const raw = params?.__surface;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (!value) return target;
+  const sep = target.includes("?") ? "&" : "?";
+  return `${target}${sep}__surface=${encodeURIComponent(value)}`;
+}
