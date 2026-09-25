@@ -95,6 +95,7 @@ interface TransferData {
   driverPhone: string | null;
   transporterName: string | null;
   challanNumber: string | null;
+  ewayBillNo: string | null;
   packageCount: number | null;
   dispatchPhotos: { url: string; fileName?: string }[] | null;
   dispatchSignature: string | null;
@@ -642,6 +643,13 @@ export function MobileTransferDetailClient({
             value={transfer.challanNumber ?? "Not specified"}
             mono={!!transfer.challanNumber}
             muted={!transfer.challanNumber}
+          />
+          <TransportField
+            icon={FileText}
+            label="e-Way Bill"
+            value={transfer.ewayBillNo ?? "Not specified"}
+            mono={!!transfer.ewayBillNo}
+            muted={!transfer.ewayBillNo}
           />
           <TransportField
             icon={Building2}

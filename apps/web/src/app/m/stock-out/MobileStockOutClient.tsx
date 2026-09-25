@@ -55,6 +55,7 @@ interface StockOutDraft {
   freight: string;
   handlingFee: string;
   markupPct: string;
+  ewayBillNo: string;
 }
 
 const inputClass =
@@ -131,6 +132,9 @@ export function MobileStockOutClient({
   const [freight, setFreight] = useState("");
   const [handlingFee, setHandlingFee] = useState("");
   const [markupPct, setMarkupPct] = useState("");
+  // e-Way Bill — mandatory for road transport of goods over ₹50K in India.
+  // Stored on the StockTransfer, prints on the goods-receipt doc.
+  const [ewayBillNo, setEwayBillNo] = useState("");
 
   // ── Selector modal state (from / to-location / to-project / material / lot) ──
   const [modal, setModal] = useState<{
@@ -229,16 +233,16 @@ export function MobileStockOutClient({
     const hasContent = fromLocationId || toLocationId || projectId || builtUnitId ||
       receiverName || receiverMobile || notes ||
       lines.some((l) => l.materialId || l.qty) ||
-      freight || handlingFee || markupPct;
+      freight || handlingFee || markupPct || ewayBillNo;
     if (!hasContent) return;
     saveDraft({
       mode, fromLocationId, toLocationId, projectId, builtUnitId,
       receiverName, receiverMobile, vehicle, notes, lines,
-      freight, handlingFee, markupPct,
+      freight, handlingFee, markupPct, ewayBillNo,
     });
   }, [mode, fromLocationId, toLocationId, projectId, builtUnitId,
       receiverName, receiverMobile, vehicle, notes, lines,
-      freight, handlingFee, markupPct, loading,
+      freight, handlingFee, markupPct, ewayBillNo, loading,
       success, saveDraft]);
 
   // ── Built units when a project is selected (issue mode) ──
@@ -316,6 +320,7 @@ export function MobileStockOutClient({
       setFreight("");
       setHandlingFee("");
       setMarkupPct("");
+      setEwayBillNo("");
     }
   };
 
@@ -426,6 +431,7 @@ export function MobileStockOutClient({
           driverName: vehicle.driverName,
           driverPhone: vehicle.driverPhone,
           transporterName: vehicle.transporterName || undefined,
+          ewayBillNo: ewayBillNo.trim() || undefined,
           lines: validLines.map((l) => ({
             materialId: l.materialId, qty: Number(l.qty),
             lotNumber: l.lotNumber.trim() || null,
@@ -674,6 +680,7 @@ export function MobileStockOutClient({
           setFreight(draft.freight ?? "");
           setHandlingFee(draft.handlingFee ?? "");
           setMarkupPct(draft.markupPct ?? "");
+          setEwayBillNo(draft.ewayBillNo ?? "");
             setDraftRestored(true);
             haptic(10);
           }}
@@ -1004,6 +1011,21 @@ export function MobileStockOutClient({
               </span>
             </div>
             <VehicleCapture value={vehicle} onChange={setVehicle} compact />
+            {mode === "transfer" && (
+              <div className="flex items-center gap-2">
+                <label className={labelClass} style={labelStyle}>
+                  e-Way Bill
+                </label>
+                <input
+                  type="text"
+                  value={ewayBillNo}
+                  onChange={(e) => setEwayBillNo(e.target.value)}
+                  placeholder="No. — required for goods over ₹50K"
+                  className="flex-1 h-7 px-1 text-m-caption font-bold outline-none border-b focus:border-b-2 transition-colors"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+                />
+              </div>
+            )}
           </div>
 
           {/* ══════ SECTION: ITEMS ══════ */}

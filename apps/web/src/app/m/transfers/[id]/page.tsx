@@ -124,6 +124,7 @@ export default function MobileTransferDetailPage({
           driverPhone: transfer.driverPhone,
           transporterName: transfer.transporterName,
           challanNumber: transfer.challanNumber,
+          ewayBillNo: transfer.ewayBillNo,
           packageCount: transfer.packageCount,
           // Receive info
           receivedAt: transfer.receivedAt ? transfer.receivedAt.toISOString() : null,
