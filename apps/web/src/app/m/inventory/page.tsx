@@ -91,7 +91,10 @@ export default function InventoryHomePage() {
     );
     const minStock = m.minStock ? toNum(m.minStock) : null;
     const reorderPoint = m.reorderPoint ? toNum(m.reorderPoint) : null;
-    const isLow = reorderPoint != null && totalQty < reorderPoint;
+    // <=, not <: stock AT the reorder point is due — the alert service
+    // (lowStockAlerts, feeds pulse/attention) uses lte; a strict < here
+    // silently dropped the 5 materials sitting exactly on the boundary.
+    const isLow = reorderPoint != null && totalQty <= reorderPoint;
     const isOut = totalQty <= 0;
     return {
       id: m.id,
