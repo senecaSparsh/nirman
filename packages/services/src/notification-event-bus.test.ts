@@ -120,7 +120,8 @@ describe("renderEventMessage", () => {
     const msg = renderEventMessage(event);
     // Human-readable — no raw "SALE_CREATED: key=value" debug format.
     expect(msg).toContain("Sale S-001");
-    expect(msg).toContain("₹5000000.00");
+    // Currency renders Indian-formatted (₹50,00,000), not raw decimals.
+    expect(msg).toContain("₹50,00,000");
     expect(msg).not.toContain("SALE_CREATED:");
     expect(msg).not.toContain("=");
   });
