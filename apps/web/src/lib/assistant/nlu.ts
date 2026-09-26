@@ -1251,23 +1251,31 @@ function extractEntities(text: string): ParsedIntent["entities"] {
     }
   }
 
-  // ── Project name (quoted or after "project") ──
-  const projMatch = text.match(/project\s+["']?([a-zA-Z\s]{3,30})["']?/i);
-  if (projMatch && projMatch[1]) {
-    entities.projectName = projMatch[1].trim();
-  }
-  // Also try "mere ___ project me" pattern
-  const mereProjMatch = text.match(/(?:mere|meri|mere|is|us)\s+([a-zA-Z\s]{3,25})\s+project/i);
-  if (mereProjMatch && mereProjMatch[1] && !entities.projectName) {
+  // ── Project name — "X project me/ke/ko" captures the name BEFORE project
+  // ("Greenfield project ke liye"); a "project X" capture only counts when X
+  // isn't a postposition ("project ke liye" → "ke liye" is not a name). ──
+  const mereProjMatch = text.match(/(?:mere|meri|is|us)\s+([a-zA-Z\s]{3,25})\s+project/i);
+  if (mereProjMatch && mereProjMatch[1]) {
     entities.projectName = mereProjMatch[1].trim();
   }
-  // Try "___ project me" pattern (without "mere")
-  const projMeMatch = text.match(/([a-zA-Z]{3,25}(?:\s+[a-zA-Z]+)?)\s+project\s+(?:me|mein|ko|ke)/i);
+  const projMeMatch = text.match(/([a-zA-Z]{3,25}(?:\s+[a-zA-Z]+)?)\s+project\s+(?:me|mein|ko|ke|liye|se|par|ka)\b/i);
   if (projMeMatch && projMeMatch[1] && !entities.projectName) {
-    const name = projMeMatch[1].trim();
-    // Filter out common false positives
-    if (!["sab", "all", "the", "a", "an"].includes(name.toLowerCase())) {
+    // Drop a leading want-verb/material word — "chahiye Greenfield project"
+    // should resolve to "Greenfield", not "chahiye Greenfield".
+    const stopWords = /^(chahiye|mangwa|mangwao|mangwana|bhejo|bhej|de|dena|order|kharid|lao|lana|laana|cement|steel|sand|bags?|kg|ton|bricks?|aggregate|rod|pipe|paint|tiles?)\s+/i;
+    const name = projMeMatch[1].trim().replace(stopWords, "");
+    if (name && !["sab", "all", "the", "a", "an"].includes(name.toLowerCase())) {
       entities.projectName = name;
+    }
+  }
+  if (!entities.projectName) {
+    const projMatch = text.match(/project\s+["']?([a-zA-Z\s]{3,30})["']?/i);
+    if (projMatch && projMatch[1]) {
+      const cand = projMatch[1].trim();
+      const first = cand.split(/\s+/)[0]?.toLowerCase() ?? "";
+      if (!["ke","ko","ki","me","mein","liye","se","par","ka","hai","h"].includes(first)) {
+        entities.projectName = cand;
+      }
     }
   }
 
@@ -1358,9 +1366,10 @@ function extractEntities(text: string): ParsedIntent["entities"] {
   // ── Ordinal ("first one", "pehla", "doosra") ──
   entities.ordinal = extractOrdinal(text);
 
-  // ── Quantity + unit ("5 bag", "10 kg", "pachaas cft", "do ton") ──
-  // First try digit-based quantity
-  const qtyMatch = text.match(/(\d+(?:\.\d+)?)\s*(bag|bags|kg|kgs|nos|cft|mtr|ton|tonnes|litre|litres|lt|ltr|box|boxes|piece|pieces|pcs|set|sets|roll|rolls|feet|ft|cum|sqm|sqft|rmt|bundle|bundles|drum|drums|tank|tanks|gal|gallon|gallons|cylinder|cylinders)/i);
+  // ── Quantity + unit ("5 bag", "10 kg", "50 cement bags", "pachaas cft") ──
+  // Allow ONE material word between the number and the unit — Hindi/field
+  // phrasing is "50 cement bags" / "10 steel kgs", not "50 bags cement".
+  const qtyMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:[a-z][a-z0-9-]*\s+)?(bag|bags|kg|kgs|nos|cft|mtr|ton|tonnes|litre|litres|lt|ltr|box|boxes|piece|pieces|pcs|set|sets|roll|rolls|feet|ft|cum|sqm|sqft|rmt|bundle|bundles|drum|drums|tank|tanks|gal|gallon|gallons|cylinder|cylinders|rod|rods|bar|bars|sheet|sheets|pipe|pipes|coil|coils|truck|trucks|trip|trips|load|loads|brick|bricks|tile|tiles|block|blocks|paver|pavers|bagge|boriyan)/i);
   if (qtyMatch && qtyMatch[1]) {
     entities.quantity = parseFloat(qtyMatch[1]);
     entities.unit = qtyMatch[2]?.toUpperCase().replace(/S$/, "");
@@ -1448,6 +1457,16 @@ export function parseIntent(rawText: string): ParsedIntent {
   if (entities.action === "approve" && entities.ordinal && bestIntent === "UNKNOWN") {
     bestIntent = "APPROVE_PO";
     bestScore = 8;
+  }
+
+  // ── Want-verb + material → CREATE_REQUISITION — the natural field ask is
+  // "cement chahiye" / "50 bag mangwa do", not the keyword phrase "material
+  // chahiye". If a material name and a want/order verb co-occur, they want a
+  // new indent, not a stock read. (Stock read = bare name with no verb.) ──
+  const wantVerbs = /\b(chahiye|mangwa|mangwao|mangwana|mangwa do|bhejo|bhej do|bhejna|de do|dena|dena hai|order karo|order karna|kharid|kharidna|kharid do|le aao|lao|lana|laana|lana hai|chahiye tha|zarurat|jarurat|zaroorat)\b/i;
+  if (entities.materialName && wantVerbs.test(text)) {
+    bestIntent = "CREATE_REQUISITION";
+    bestScore = Math.max(bestScore, 8);
   }
 
   // ── Fallback: if a material name is found but no intent matched, treat as stock query ──

@@ -60,6 +60,7 @@ interface ParsedEntities {
   askingPrice?: number;
   vendor?: string;
   quantity?: number;
+  unit?: string;
   supplierName?: string;
   customerName?: string;
 }
@@ -192,7 +193,7 @@ async function executeIntent(
     case "CREATE_PO":
       return createPoResponse();
     case "CREATE_REQUISITION":
-      return createReqResponse();
+      return createReqResponse(entities);
     case "AUTO_REQUISITION":
       return autoReqResponse();
     case "DPR_LIST":
@@ -1067,9 +1068,19 @@ function createPoResponse(): AssistantResponse {
     cards: [{ type: "link", label: "➕ New PO Form", href: "/m/procurement/new", variant: "primary" }]};
 }
 
-function createReqResponse(): AssistantResponse {
+function createReqResponse(entities: ParsedEntities): AssistantResponse {
+  // Echo back what the parser heard — a field user types "50 cement bags
+  // chahiye Greenfield ke liye" and should see the assistant captured it,
+  // not a blank prompt. Partial captures still get the generic ask.
+  const bits: string[] = [];
+  if (entities.materialName) bits.push(`**${entities.materialName}**`);
+  if (entities.quantity != null) bits.push(`${entities.quantity}${entities.unit ? ` ${entities.unit}` : ""}`);
+  if (entities.projectName) bits.push(`for ${entities.projectName}`);
+  const heard = bits.length
+    ? `\n\nSamjha: ${bits.join(" · ")}.`
+    : "";
   return {
-    text: `Nayi Requisition banani hai?\n\nMaterial aur quantity bataiye. Ya form kholein:`,
+    text: `Nayi Requisition banani hai?${heard}\n\n${bits.length ? "Details confirm karke" : "Material aur quantity bataiye. Ya"} form kholein:`,
     intent: "CREATE_REQUISITION",
     confidence: 0.8,
     cards: [{ type: "link", label: "➕ New Indent", href: "/m/procurement?tab=indents", variant: "primary" }]};
