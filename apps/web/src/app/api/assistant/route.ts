@@ -740,7 +740,10 @@ async function approveReqResponse(companyId: string, entities: ParsedEntities): 
   }
 
   const req = await prisma.materialRequisition.findFirst({
-    where: { reqNumber: { contains: entities.reqNumber.replace("REQ-", ""), mode: "insensitive" } },
+    where: {
+      reqNumber: { contains: entities.reqNumber.replace("REQ-", ""), mode: "insensitive" },
+      OR: [{ project: { companyId } }, { department: { companyId } }],
+    },
     include: { project: true }});
 
   if (!req) {
@@ -794,7 +797,10 @@ async function rejectReqResponse(companyId: string, entities: ParsedEntities): P
     return { text: "Kaunsa indent reject karna hai? Number bataiye.", intent: "REJECT_REQUISITION", confidence: 0.7 };
   }
   const req = await prisma.materialRequisition.findFirst({
-    where: { reqNumber: { contains: entities.reqNumber.replace("REQ-", ""), mode: "insensitive" } }});
+    where: {
+      reqNumber: { contains: entities.reqNumber.replace("REQ-", ""), mode: "insensitive" },
+      OR: [{ project: { companyId } }, { department: { companyId } }],
+    }});
   if (!req) return { text: `Indent "${entities.reqNumber}" nahi mili.`, intent: "REJECT_REQUISITION", confidence: 0.7 };
 
   return {
