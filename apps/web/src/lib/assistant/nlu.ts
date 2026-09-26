@@ -41,6 +41,10 @@ export type Intent =
   | "DPR_LIST"
   | "DELIVERIES_DUE"
   | "LEAVE_REQUEST"
+  | "GST_QUERY"
+  | "TDS_QUERY"
+  | "INCIDENT_REPORT"
+  | "SUPPLIER_SCORECARD"
   | "TRIAL_BALANCE"
   | "EQUIPMENT_STATUS"
   | "EXPENSE_LIST"
@@ -481,6 +485,61 @@ const INTENTS: IntentDef[] = [
       "chutti karna", "leave karna", "chutti dena",
     ],
     weight: 2,
+  },
+
+  // ── GST payable / filing ───────────────────────────────────────────────
+  {
+    intent: "GST_QUERY",
+    keywords: [
+      "gst", "gst kitna", "gst bharna", "gst payable",
+      "gst liability", "gst dikhao", "gst report",
+      "gstr", "gstr1", "gstr3b", "gstr 3b",
+      "output gst", "itc", "input tax credit",
+      "tax kitna", "gst return", "gst file",
+      "cgst sgst", "igst", "gst bill",
+    ],
+    weight: 3,
+  },
+
+  // ── TDS certificates ───────────────────────────────────────────────────
+  {
+    intent: "TDS_QUERY",
+    keywords: [
+      "tds", "tds certificate", "tds dikhao",
+      "tds report", "tds deduct", "tds kata",
+      "194c", "194j", "form 16a", "16a",
+      "tds chahiye", "tds nikala",
+    ],
+    weight: 3,
+  },
+
+  // ── Safety incident / hazard report ────────────────────────────────────
+  {
+    intent: "INCIDENT_REPORT",
+    keywords: [
+      "incident", "accident", "hadsa", "hadsa",
+      "safety incident", "incident report",
+      "accident hua", "koi ghir gaya", "injury",
+      "hazard", "khatar", "unsafe", "near miss",
+      "ncr", "non conformance", "safety report karo",
+      "incident report karo", "incident batao", "incident dikhao",
+    ],
+    weight: 3,
+  },
+
+  // ── Supplier scorecard / best vendor ───────────────────────────────────
+  {
+    intent: "SUPPLIER_SCORECARD",
+    keywords: [
+      "best supplier", "kaun supplier", "supplier best",
+      "accha supplier", "achha supplier", "supplier ranking",
+      "supplier performance", "supplier scorecard", "vendor rating",
+      "best vendor", "reliable supplier", "sabse accha supplier",
+      "supplier review", "vendor kaun accha", "supplier kaun",
+      "kaunsa supplier", "top supplier", "supplier compare",
+      "on time supplier", "kab time pe deta",
+    ],
+    weight: 3,
   },
 
   // ── Trial balance ─────────────────────────────────────────────────────

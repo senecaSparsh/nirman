@@ -15,6 +15,7 @@ import { prisma } from "@nirman/db";
 import {
   lowStockAlerts,
   getCompanyPortfolioSummary,
+  generateGstr3b,
   trialBalance} from "@nirman/services";
 import { apiHandler, json, requireUser, getActingRole, getCompany, toNum, scopeWhere } from "@/lib/server";
 import { parseIntent, type Intent } from "@/lib/assistant/nlu";
@@ -202,6 +203,14 @@ async function executeIntent(
       return deliveriesDueResponse(companyId);
     case "LEAVE_REQUEST":
       return leaveRequestResponse();
+    case "GST_QUERY":
+      return gstQueryResponse(companyId);
+    case "TDS_QUERY":
+      return tdsQueryResponse();
+    case "INCIDENT_REPORT":
+      return incidentReportResponse();
+    case "SUPPLIER_SCORECARD":
+      return supplierScorecardResponse(companyId);
     case "TRIAL_BALANCE":
       return trialBalanceResponse(companyId);
     case "EQUIPMENT_STATUS":
@@ -303,6 +312,10 @@ function checkIntentPermission(intent: Intent, role: Role): { allowed: boolean; 
     EQUIPMENT_STATUS: PERM.ASSETS_VIEW,
     EXPENSE_LIST: PERM.FINANCE_VIEW,
     DELIVERIES_DUE: PERM.PROCUREMENT_VIEW,
+    GST_QUERY: PERM.FINANCE_VIEW,
+    TDS_QUERY: PERM.FINANCE_VIEW,
+    INCIDENT_REPORT: PERM.PROJECTS_VIEW,
+    SUPPLIER_SCORECARD: PERM.PROCUREMENT_VIEW,
     TASK_LIST: PERM.TASKS_VIEW,
     WORKER_LIST: PERM.HR_VIEW,
     ATTENTION: PERM.PROJECTS_VIEW,
@@ -1170,6 +1183,88 @@ async function deliveriesDueResponse(companyId: string): Promise<AssistantRespon
     intent: "DELIVERIES_DUE",
     confidence: 0.9,
     cards: [{ type: "link", label: "All POs", href: "/m/procurement?tab=pos" }]};
+}
+
+async function gstQueryResponse(companyId: string): Promise<AssistantResponse> {
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const gstr3b = await generateGstr3b(companyId, monthStart, now).catch(() => null);
+  if (!gstr3b) {
+    return { text: "GST data nahi mila. Finance view permission check karein.", intent: "GST_QUERY", confidence: 0.7, cards: [{ type: "link", label: "GST report", href: "/m/reports/gst" }] };
+  }
+  const net = toNum((gstr3b as { netGstPayable?: unknown }).netGstPayable ?? 0);
+  const out = toNum((gstr3b as { outwardOutputGst?: unknown }).outwardOutputGst ?? 0);
+  const itc = toNum((gstr3b as { itcAvailable?: unknown }).itcAvailable ?? 0);
+  return {
+    text: `🧾 **GST (is mahine):**\n\n• Output GST (sales): ${formatCurrency(out)}\n• ITC (credit): ${formatCurrency(itc)}\n• **Net payable: ${formatCurrency(net)}**\n\nFile GSTR-3B by the 20th.`,
+    intent: "GST_QUERY",
+    confidence: 0.9,
+    cards: [{ type: "link", label: "Full GST report", href: "/m/reports/gst", variant: "primary" }]};
+}
+
+function tdsQueryResponse(): AssistantResponse {
+  return {
+    text: `TDS certificates — subcontractor/vendor ka 194C/194J deduction register aur Form 16A yahan se download karein.`,
+    intent: "TDS_QUERY",
+    confidence: 0.9,
+    cards: [
+      { type: "link", label: "TDS certificates", href: "/m/reports/tds-certificates", variant: "primary" },
+      { type: "link", label: "Supplier payments", href: "/m/supplier-payments" },
+    ]};
+}
+
+function incidentReportResponse(): AssistantResponse {
+  return {
+    text: `Safety incident report karna hai? Incident log karein — site, severity, injured count, aur photo. NCR (non-conformance) bhi wahi se raise hogi.`,
+    intent: "INCIDENT_REPORT",
+    confidence: 0.9,
+    cards: [
+      { type: "link", label: "⚠️ Report incident", href: "/m/safety/incidents", variant: "primary" },
+      { type: "link", label: "Hazards", href: "/m/safety/hazards" },
+    ]};
+}
+
+async function supplierScorecardResponse(companyId: string): Promise<AssistantResponse> {
+  // Rank suppliers by delivered PO volume + completion count — a proxy for
+  // reliability (no explicit rating field; history is the signal).
+  const suppliers = await prisma.supplier.findMany({
+    where: { companyId, deletedAt: null },
+    take: 50,
+    select: {
+      id: true, name: true, leadTimeDays: true, balanceOwed: true,
+      purchaseOrders: {
+        where: { status: { in: ["RECEIVED", "ORDERED", "PARTIAL"] } },
+        select: { total: true, status: true, expectedDate: true },
+      },
+    },
+  });
+  const ranked = suppliers
+    .map((s) => {
+      const delivered = s.purchaseOrders.filter((p) => p.status === "RECEIVED");
+      return {
+        name: s.name,
+        orders: s.purchaseOrders.length,
+        delivered: delivered.length,
+        value: delivered.reduce((sum, p) => sum + toNum(p.total), 0),
+        lead: s.leadTimeDays,
+      };
+    })
+    .filter((s) => s.orders > 0)
+    .sort((a, b) => b.delivered - a.delivered || b.value - a.value)
+    .slice(0, 6);
+
+  if (ranked.length === 0) {
+    return { text: "Koi supplier PO history nahi hai abhi tak.", intent: "SUPPLIER_SCORECARD", confidence: 0.7 };
+  }
+  let text = `🏆 **Supplier Scorecard:**\n\n`;
+  for (const s of ranked) {
+    text += `• ${s.name} — ${s.delivered}/${s.orders} delivered | ${formatCurrency(s.value)}${s.lead ? ` | ~${s.lead}d lead` : ""}\n`;
+  }
+  return {
+    text,
+    intent: "SUPPLIER_SCORECARD",
+    confidence: 0.9,
+    cards: [{ type: "link", label: "All suppliers", href: "/m/suppliers" }]};
 }
 
 function leaveRequestResponse(): AssistantResponse {
