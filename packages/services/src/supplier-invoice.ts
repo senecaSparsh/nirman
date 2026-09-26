@@ -373,9 +373,9 @@ export async function approveSupplierInvoice(input: {
     // Status guard — approving an already-APPROVED/PAID invoice used to run
     // the whole posting path again: duplicate journal entries, double-counted
     // Supplier.balanceOwed, and a PAID invoice silently regressing to
-    // APPROVED. Only PENDING (or DISPUTED after a resolved rejection) may
-    // transition.
-    if (input.action === "approve" && existing.status !== "PENDING" && existing.status !== "DISPUTED") {
+    // APPROVED. PENDING, MATCHED (three-way match succeeded — awaiting the
+    // human approve), and DISPUTED-after-resolve may transition.
+    if (input.action === "approve" && existing.status !== "PENDING" && existing.status !== "MATCHED" && existing.status !== "DISPUTED") {
       throw new ServiceError(`Invoice is already ${existing.status.toLowerCase()} — cannot approve again`, 409);
     }
     if (input.action === "reject" && existing.status !== "PENDING") {
