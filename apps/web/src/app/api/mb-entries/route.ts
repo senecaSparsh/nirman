@@ -43,7 +43,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
       companyId: company.id,
     });
     revalidatePath("/boq");
+    revalidatePath("/m/boq");
     revalidatePath("/projects");
+    revalidatePath("/m/projects");
     return json(entry, { status: 201 });
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: err instanceof ServiceError ? err.status : 400 });

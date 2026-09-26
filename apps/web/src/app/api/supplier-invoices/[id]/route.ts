@@ -115,6 +115,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     });
     revalidatePath("/finance");
     revalidatePath("/supplier-invoices");
+    revalidatePath("/m/books/finance");
     return json({
       ok: true,
       id: updated.id,
@@ -137,6 +138,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     revalidatePath("/finance");
     revalidatePath("/gl");
     revalidatePath("/approvals");
+    revalidatePath("/m/books/finance");
 
     return json({
       ok: true,

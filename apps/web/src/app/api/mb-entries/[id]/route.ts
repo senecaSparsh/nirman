@@ -50,14 +50,18 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       const user = await requirePermission(PERM.MB_VERIFY);
       const entry = await verifyMbEntry(id, user.id, user.role, company.id);
       revalidatePath("/boq");
+    revalidatePath("/m/boq");
       revalidatePath("/projects");
+    revalidatePath("/m/projects");
       return json(entry);
     }
     if (action === "approve") {
       const user = await requirePermission(PERM.MB_APPROVE);
       const entry = await approveMbEntry(id, user.id, await getActingRole(), company.id);
       revalidatePath("/boq");
+    revalidatePath("/m/boq");
       revalidatePath("/projects");
+    revalidatePath("/m/projects");
       return json(entry);
     }
     if (action === "reject") {
@@ -67,7 +71,9 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       if (!parsed.success) return json({ error: "Rejection reason is required" }, { status: 400 });
       const entry = await rejectMbEntry(id, parsed.data.reason, user.id, company.id);
       revalidatePath("/boq");
+    revalidatePath("/m/boq");
       revalidatePath("/projects");
+    revalidatePath("/m/projects");
       return json(entry);
     }
     return json({ error: "Unknown action. Use: verify | approve | reject" }, { status: 400 });

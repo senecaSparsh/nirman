@@ -108,5 +108,6 @@ export const POST = apiHandler(async (req: NextRequest) => {
     userId: user.id,
   });
   revalidatePath("/sales");
+  revalidatePath("/m/leads");
   return json({ id: lead.id }, { status: 201 });
 });

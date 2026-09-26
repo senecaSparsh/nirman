@@ -111,6 +111,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       await submitExpenseClaim(claim.id, company.id, user.id);
     }
     revalidatePath("/expense-claims");
+  revalidatePath("/m/expense-claims");
     return json({ ok: true, id: claim.id, submitted: !!parsed.data.submit }, { status: 201 });
   } catch (err) {
     if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status });

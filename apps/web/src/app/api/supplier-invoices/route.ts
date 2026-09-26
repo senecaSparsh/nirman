@@ -107,6 +107,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
     revalidatePath("/finance");
     revalidatePath("/m/suppliers");
+    revalidatePath("/m/books/finance");
     return json(
       {
         id: invoice.id,

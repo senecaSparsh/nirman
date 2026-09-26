@@ -197,5 +197,6 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
   revalidatePath("/requisitions");
   revalidatePath("/procurement");
+  revalidatePath("/m/procurement");
   return json({ ok: true, id: quote.id }, { status: 201 });
 });

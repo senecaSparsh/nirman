@@ -58,6 +58,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       userId: user.id,
     });
     revalidatePath("/boq");
+    revalidatePath("/m/boq");
     return json(item, { status: 201 });
   } catch (err: unknown) {
     return json({ error: err instanceof ServiceError ? err.message : "Failed to create BOQ item" }, { status: err instanceof ServiceError ? err.status : 400 });

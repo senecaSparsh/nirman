@@ -44,6 +44,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       userId: user.id,
     });
     revalidatePath("/boq");
+    revalidatePath("/m/boq");
     return json(item);
   } catch (err: unknown) {
     return json({ error: err instanceof ServiceError ? err.message : "Failed to update BOQ item" }, { status: err instanceof ServiceError ? err.status : 400 });
@@ -63,6 +64,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   try {
     await deleteBoqItem(id, user.id);
     revalidatePath("/boq");
+    revalidatePath("/m/boq");
     return json({ ok: true });
   } catch (err: unknown) {
     return json({ error: err instanceof ServiceError ? err.message : "Failed to delete BOQ item" }, { status: err instanceof ServiceError ? err.status : 400 });
