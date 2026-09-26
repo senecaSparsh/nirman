@@ -220,6 +220,25 @@ export async function approveGatePass(id: string, approverId: string, notes?: st
       throw new ServiceError("Cannot approve your own gate pass");
     }
 
+    // refType/refId is a polymorphic soft reference — no FK protects it. If the
+    // linked source document no longer exists, approving this pass would
+    // silently authorize a movement that can't run. Fail closed: the pass is
+    // meaningless without its document and should be cancelled.
+    if (gp.refType && gp.refId) {
+      const refExists =
+        gp.refType === "MaterialIssue" ? await tx.materialIssue.findUnique({ where: { id: gp.refId }, select: { id: true } })
+        : gp.refType === "StockTransfer" ? await tx.stockTransfer.findUnique({ where: { id: gp.refId }, select: { id: true } })
+        : gp.refType === "MaterialSale" ? await tx.materialSale.findUnique({ where: { id: gp.refId }, select: { id: true } })
+        : gp.refType === "SupplierReturn" ? await tx.supplierReturn.findUnique({ where: { id: gp.refId }, select: { id: true } })
+        : null;
+      if (refExists === null && ["MaterialIssue", "StockTransfer", "MaterialSale", "SupplierReturn"].includes(gp.refType)) {
+        throw new ServiceError(
+          `The linked ${gp.refType.replace(/([A-Z])/g, " $1").trim().toLowerCase()} no longer exists — cancel this gate pass instead`,
+          409,
+        );
+      }
+    }
+
     const updated = await tx.gatePass.update({
       where: { id },
       data: { status: "APPROVED", approvedById: approverId, approvedAt: new Date(), approvalNotes: notes ?? null },
