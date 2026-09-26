@@ -40,6 +40,7 @@ export type Intent =
   | "AUTO_REQUISITION"
   | "DPR_LIST"
   | "DELIVERIES_DUE"
+  | "LEAVE_REQUEST"
   | "TRIAL_BALANCE"
   | "EQUIPMENT_STATUS"
   | "EXPENSE_LIST"
@@ -461,6 +462,23 @@ const INTENTS: IntentDef[] = [
       "kab aayega", "po delivery", "order kab aayega", "aayega kya",
       "kya aa raha", "aa raha hai", "expected po", "due deliveries",
       "delivery status", "dispatch aaya", "dispatch status",
+    ],
+    weight: 2,
+  },
+
+  // ── Leave request (self-service) ───────────────────────────────────────
+  {
+    intent: "LEAVE_REQUEST",
+    keywords: [
+      "leave", "chutti", "chhutti", "chutti chahiye",
+      "leave chahiye", "leave lena", "leave request",
+      "chutti lena", "chhutti lena", "apply leave",
+      "leave apply", "chutti apply", "naya leave",
+      "new leave", "leave nikaal", "chutti maangna",
+      "aaja nahi aaunga", "kal nahi aaunga", "nahi aaunga",
+      "sick leave", "casual leave", "emergency leave",
+      "off lena hai", "off chahiye", "holiday lena",
+      "chutti karna", "leave karna", "chutti dena",
     ],
     weight: 2,
   },

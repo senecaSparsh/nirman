@@ -200,6 +200,8 @@ async function executeIntent(
       return dprListResponse(companyId);
     case "DELIVERIES_DUE":
       return deliveriesDueResponse(companyId);
+    case "LEAVE_REQUEST":
+      return leaveRequestResponse();
     case "TRIAL_BALANCE":
       return trialBalanceResponse(companyId);
     case "EQUIPMENT_STATUS":
@@ -1168,6 +1170,19 @@ async function deliveriesDueResponse(companyId: string): Promise<AssistantRespon
     intent: "DELIVERIES_DUE",
     confidence: 0.9,
     cards: [{ type: "link", label: "All POs", href: "/m/procurement?tab=pos" }]};
+}
+
+function leaveRequestResponse(): AssistantResponse {
+  // Self-service — a worker applies for their own leave on /m/me; managers
+  // review the queue on /m/hr/leaves. Point at the apply surface.
+  return {
+    text: `Chutti request karni hai?\n\nApni leave apply karein — type (sick/casual), dates, aur reason chunein. Manager ko approval ka intezar hoga.`,
+    intent: "LEAVE_REQUEST",
+    confidence: 0.9,
+    cards: [
+      { type: "link", label: "📅 Apply for leave", href: "/m/me", variant: "primary" },
+      { type: "link", label: "Leave list", href: "/m/hr/leaves" },
+    ]};
 }
 
 async function trialBalanceResponse(companyId: string): Promise<AssistantResponse> {
