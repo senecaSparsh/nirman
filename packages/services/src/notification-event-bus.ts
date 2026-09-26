@@ -97,6 +97,7 @@ export enum NotificationEventType {
   EXPENSE_REJECTED = "EXPENSE_REJECTED",
   PROJECT_COST_ADDED = "PROJECT_COST_ADDED",
   GL_ENTRY_POSTED = "GL_ENTRY_POSTED",
+  SUPPLIER_INVOICE_SUBMITTED = "SUPPLIER_INVOICE_SUBMITTED",
 
   // Equipment (4)
   EQUIPMENT_MAINTENANCE_DUE = "EQUIPMENT_MAINTENANCE_DUE",
@@ -193,6 +194,9 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
 
   // Finance
   [NotificationEventType.EXPENSE_CREATED]: "DAILY",
+  // A supplier bill landing for approval — routine finance queue, not
+  // urgent enough to interrupt (the /approvals digest surfaces it).
+  [NotificationEventType.SUPPLIER_INVOICE_SUBMITTED]: "DAILY",
   [NotificationEventType.PROJECT_COST_ADDED]: "DAILY",
   [NotificationEventType.GL_ENTRY_POSTED]: "WEEKLY",
 
@@ -753,6 +757,7 @@ const FINANCE_EVENTS = new Set([
   NotificationEventType.GL_ENTRY_POSTED,
   NotificationEventType.PAYROLL_PROCESSED,
   NotificationEventType.SUPPLIER_PAYMENT_DUE,
+  NotificationEventType.SUPPLIER_INVOICE_SUBMITTED,
   NotificationEventType.PETTY_CASH_LOW_BALANCE,
   NotificationEventType.PETTY_CASH_TOPUP,
 ]);
@@ -971,6 +976,8 @@ const EVENT_MESSAGES: Partial<
     `Project cost added${money("amount") ? ` — ${money("amount")}` : ""}${s("projectName") ? ` on ${s("projectName")}` : ""}.`,
   [NotificationEventType.GL_ENTRY_POSTED]: ({ s, money }) =>
     `Journal entry ${s("entryNumber") || "posted"}${money("amount") ? ` — ${money("amount")}` : ""}.`,
+  [NotificationEventType.SUPPLIER_INVOICE_SUBMITTED]: ({ s, money }) =>
+    `Supplier invoice ${s("invoiceNumber") || "recorded"}${s("supplierName") ? ` from ${s("supplierName")}` : ""}${money("totalAmount") ? ` — ${money("totalAmount")}` : ""} — awaiting approval.`,
 
   // Equipment
   [NotificationEventType.EQUIPMENT_MAINTENANCE_DUE]: ({ s }) =>

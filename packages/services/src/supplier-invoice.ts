@@ -5,6 +5,7 @@ import { ServiceError } from "./errors";
 import { postSupplierInvoice } from "./gl-posting";
 import { withSerializableTransaction } from "./transaction";
 import { canAutoApprove } from "./rbac";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 
 /**
  * Supplier Invoice Service — three-way matching before paying suppliers.
@@ -233,7 +234,7 @@ export async function createSupplierInvoice(input: {
     );
   }
 
-  return withSerializableTransaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     // 1. Validate supplier
     const supplier = await tx.supplier.findFirst({
       where: { id: input.supplierId, companyId: input.companyId, deletedAt: null },
@@ -351,6 +352,25 @@ export async function createSupplierInvoice(input: {
 
     return invoice;
   });
+
+  // Outside the tx — a bill that matched (or was keyed in manually) needs a
+  // finance review; notify the approvers it landed. Fire-and-forget.
+  void emitNotificationEvent({
+    eventType: NotificationEventType.SUPPLIER_INVOICE_SUBMITTED,
+    companyId: input.companyId,
+    entityType: "SupplierInvoice",
+    entityId: result.id,
+    excludeIds: [input.userId ?? null],
+    variables: {
+      invoiceId: result.id,
+      invoiceNumber: result.invoiceNumber,
+      supplierName: result.supplier?.name ?? "",
+      totalAmount: result.totalAmount?.toString() ?? "",
+    },
+    timestamp: new Date(),
+  });
+
+  return result;
 }
 
 // ── Approve Supplier Invoice ───────────────────────────────────────

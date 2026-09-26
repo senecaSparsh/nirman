@@ -46,6 +46,7 @@ const EVENT_TYPES = [
   // Finance (3)
   { value: "EXPENSE_CREATED", label: "Expense Created", group: "Finance" },
   { value: "PROJECT_COST_ADDED", label: "Project Cost Added", group: "Finance" },
+  { value: "SUPPLIER_INVOICE_SUBMITTED", label: "Supplier Invoice Submitted", group: "Finance" },
   { value: "GL_ENTRY_POSTED", label: "GL Entry Posted", group: "Finance" },
 ];
 
