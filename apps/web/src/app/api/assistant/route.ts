@@ -198,6 +198,8 @@ async function executeIntent(
       return autoReqResponse();
     case "DPR_LIST":
       return dprListResponse(companyId);
+    case "DELIVERIES_DUE":
+      return deliveriesDueResponse(companyId);
     case "TRIAL_BALANCE":
       return trialBalanceResponse(companyId);
     case "EQUIPMENT_STATUS":
@@ -298,6 +300,7 @@ function checkIntentPermission(intent: Intent, role: Role): { allowed: boolean; 
     TRIAL_BALANCE: PERM.FINANCE_VIEW,
     EQUIPMENT_STATUS: PERM.ASSETS_VIEW,
     EXPENSE_LIST: PERM.FINANCE_VIEW,
+    DELIVERIES_DUE: PERM.PROCUREMENT_VIEW,
     TASK_LIST: PERM.TASKS_VIEW,
     WORKER_LIST: PERM.HR_VIEW,
     ATTENTION: PERM.PROJECTS_VIEW,
@@ -1126,6 +1129,45 @@ async function dprListResponse(companyId: string): Promise<AssistantResponse> {
     intent: "DPR_LIST",
     confidence: 0.9,
     cards: [{ type: "link", label: "All DPRs", href: "/m/dprs" }]};
+}
+
+async function deliveriesDueResponse(companyId: string): Promise<AssistantResponse> {
+  // Open POs (ordered/dispatched, not yet fully received) with a delivery
+  // window — expectedDate set or overdue. The site manager's daily question.
+  const now = new Date();
+  const pos = await prisma.purchaseOrder.findMany({
+    where: {
+      companyId,
+      status: { in: ["ORDERED", "PARTIAL"] },
+      ...await scopeWhere("PurchaseOrder"),
+    },
+    orderBy: [{ expectedDate: "asc" }],
+    take: 10,
+    include: { supplier: { select: { name: true } }, _count: { select: { lines: true } } },
+  });
+
+  if (pos.length === 0) {
+    return { text: "Koi open PO nahi hai — sab receive ho chuka ya abhi kuch order nahi hua.", intent: "DELIVERIES_DUE", confidence: 0.9 };
+  }
+
+  const today = pos.filter((p) => p.expectedDate && p.expectedDate.toDateString() === now.toDateString());
+  const overdue = pos.filter((p) => p.expectedDate && p.expectedDate < now && !today.includes(p));
+  const upcoming = pos.filter((p) => !p.expectedDate || p.expectedDate > now);
+
+  let text = `🚚 **Incoming Deliveries (${pos.length} open POs):**\n\n`;
+  const line = (p: (typeof pos)[number], tag: string) =>
+    `• ${tag}${p.poNumber} — ${p.supplier?.name ?? "?"} | ${p.expectedDate ? p.expectedDate.toISOString().split("T")[0] : "no ETA"} | ${formatCurrency(toNum(p.total))}\n`;
+
+  for (const p of overdue.slice(0, 5)) text += line(p, "🔴 ");
+  for (const p of today.slice(0, 5)) text += line(p, "🟢 ");
+  for (const p of upcoming.slice(0, 5)) text += line(p, "⚪ ");
+  if (overdue.length) text += `\n⚠️ ${overdue.length} overdue — supplier ko call karein.`;
+
+  return {
+    text,
+    intent: "DELIVERIES_DUE",
+    confidence: 0.9,
+    cards: [{ type: "link", label: "All POs", href: "/m/procurement?tab=pos" }]};
 }
 
 async function trialBalanceResponse(companyId: string): Promise<AssistantResponse> {

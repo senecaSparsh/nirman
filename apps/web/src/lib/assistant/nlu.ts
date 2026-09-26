@@ -39,6 +39,7 @@ export type Intent =
   | "CREATE_REQUISITION"
   | "AUTO_REQUISITION"
   | "DPR_LIST"
+  | "DELIVERIES_DUE"
   | "TRIAL_BALANCE"
   | "EQUIPMENT_STATUS"
   | "EXPENSE_LIST"
@@ -383,6 +384,13 @@ const INTENTS: IntentDef[] = [
       // "site par". Covers "site pe kitne log aaye", "site pe kaun hai".
       "site pe kitne", "site mein kitne", "site pe log",
       "log aaye", "kitne log aaye", "site pe kaun",
+      // Reversed word order — "kitne log site pe hain" leads with the count
+      // and the verb trails, which none of the "site pe kitne" forms match.
+      "kitne log site", "log site pe", "site pe hain", "site pe hai",
+      "kaun site pe", "kaun site par", "site par kaun",
+      // "who" forms — "kaun absent hai", "kaun aaya", "kaun nahi aaya".
+      "kaun absent", "absent kaun", "kaun nahi aaya", "kaun aaya",
+      "kaun present", "kaun hai site", "kaun hai aaj",
     ],
     weight: 2,
   },
@@ -437,6 +445,22 @@ const INTENTS: IntentDef[] = [
       "progress dikhao", "site report",
       "dpr pending", "dpr status",
       "dpr kitne", "kitne dpr",
+    ],
+    weight: 2,
+  },
+
+  // ── Deliveries due (inbound POs arriving today/tomorrow) ───────────────
+  {
+    intent: "DELIVERIES_DUE",
+    keywords: [
+      "delivery", "deliveries", "kya aayega", "kya aane wala",
+      "aaj kya aayega", "kal kya aayega", "aane wala maal",
+      "kya delivery hai", "delivery due", "deliveries due",
+      "aaj ki delivery", "kal ki delivery", "expected delivery",
+      "incoming material", "incoming stock", "maal kab aayega",
+      "kab aayega", "po delivery", "order kab aayega", "aayega kya",
+      "kya aa raha", "aa raha hai", "expected po", "due deliveries",
+      "delivery status", "dispatch aaya", "dispatch status",
     ],
     weight: 2,
   },
