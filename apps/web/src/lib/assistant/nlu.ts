@@ -1106,13 +1106,16 @@ function extractEntities(text: string): ParsedIntent["entities"] {
   const lower = text.toLowerCase();
 
   // ── PO number (e.g., PO-20260812-0011, PO-0011, po 11) ──
-  const poMatch = text.match(/PO[-\s]?(\d{4,})/i);
+  // Full doc numbers carry a date+sequence (PO-YYYYMMDD-NNNN) — capture the
+  // whole hyphenated run so the DB contains-match lands on one PO, not
+  // every PO issued that day.
+  const poMatch = text.match(/PO[-\s]?(\d{8}[-\s]?\d{4}|\d{4,})/i);
   if (poMatch) {
     entities.poNumber = poMatch[0].replace(/\s+/g, "").toUpperCase();
   }
 
   // ── Requisition number (e.g., REQ-2024-0007, REQ-0007, req 7) ──
-  const reqMatch = text.match(/REQ[-\s]?(\d{4,})/i);
+  const reqMatch = text.match(/REQ[-\s]?(\d{8}[-\s]?\d{4}|\d{4,})/i);
   if (reqMatch) {
     entities.reqNumber = reqMatch[0].replace(/\s+/g, "").toUpperCase();
   }
