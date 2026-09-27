@@ -18,6 +18,7 @@ export type RateContractListItem = {
   validTo: string;
   minQty: number | null;
   maxQty: number | null;
+  totalReleasedQty: number;
   notes: string | null;
   isExpired: boolean;
   isActive: boolean;
@@ -141,6 +142,24 @@ function ContractCard({ contract: c }: { contract: RateContractListItem }) {
           {c.minQty && c.maxQty ? " · " : ""}
           {c.maxQty ? `Max: ${c.maxQty} ${c.materialUnit}` : ""}
         </p>
+      )}
+      {c.maxQty != null && (
+        <div className="mt-1.5">
+          <div className="flex items-center justify-between">
+            <p className="text-m-caption font-semibold" style={{ color: c.totalReleasedQty >= c.maxQty ? "var(--color-red-500)" : "var(--color-ink-600)" }}>
+              Released {c.totalReleasedQty} / {c.maxQty} {c.materialUnit}
+            </p>
+          </div>
+          <div className="mt-1 h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--color-line)" }}>
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${Math.min(100, (c.totalReleasedQty / c.maxQty) * 100)}%`,
+                backgroundColor: c.totalReleasedQty >= c.maxQty ? "var(--color-red-500)" : "var(--color-brand)",
+              }}
+            />
+          </div>
+        </div>
       )}
     </Link>
   );

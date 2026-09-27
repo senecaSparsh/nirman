@@ -69,6 +69,7 @@ export default function MobileRateContractsPage() {
           validTo: c.validTo.toISOString(),
           minQty: c.minQty ? toNum(c.minQty) : null,
           maxQty: c.maxQty ? toNum(c.maxQty) : null,
+          totalReleasedQty: toNum(c.totalReleasedQty),
           notes: c.notes,
           isExpired: new Date(c.validTo) < now,
           isActive: new Date(c.validFrom) <= now && new Date(c.validTo) >= now,
