@@ -1638,14 +1638,24 @@ export const HELP_TEXT = `Main ye sab kar sakta hoon:
 • "Profit kitna hua?" — P&L
 • "Cement par kitna kharcha?" — spend analysis
 
-💵 **Finance**
+💵 **Finance & Compliance**
 • "Cash position" — cash & bank
 • "Trial balance" — GL summary
 • "Supplier ko kitna dena?" — payables
 • "Supplier ko pay karo" — make payment
+• "GST kitna bharna?" — net GST payable
+• "TDS certificate" — 194C/194J register
 
-👷 **Site & Workers**
+� **Field Ops**
+• "Kal kya delivery hai?" — incoming POs
+• "50 cement bags chahiye" — new indent
+• "Kaun supplier best hai?" — scorecard
+• "Safety incident report" — log an incident
+
+�👷 **Site & Workers**
 • "Aaj kitne worker aaye?" — attendance
+• "Kitne log site pe hain?" — who's on site
+• "Chutti chahiye" — apply for leave
 • "Auto requisition chala" — auto-generate
 • "Kya karna hai?" — what needs attention
 
