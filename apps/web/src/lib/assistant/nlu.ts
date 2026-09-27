@@ -47,6 +47,7 @@ export type Intent =
   | "SUPPLIER_SCORECARD"
   | "TRIAL_BALANCE"
   | "EQUIPMENT_STATUS"
+  | "FUEL_USAGE"
   | "EXPENSE_LIST"
   | "TRANSFER_STOCK"
   | "ISSUE_MATERIAL"
@@ -570,6 +571,21 @@ const INTENTS: IntentDef[] = [
       "equipment list", "tools list",
     ],
     weight: 2,
+  },
+
+  // ── Fuel / diesel usage — diesel-leakage + run-hours ──────────────────
+  {
+    intent: "FUEL_USAGE",
+    keywords: [
+      "fuel", "diesel", "petrol", "tel",
+      "fuel usage", "diesel usage", "fuel kitna", "diesel kitna",
+      "jcb ka diesel", "machine ka diesel", "equipment ka fuel",
+      "diesel kha", "fuel kharcha", "diesel kharcha",
+      "litres", "litre per hour", "l/hr", "fuel rate",
+      "kitna diesel", "kaunsa machine diesel", "sabse zyada diesel",
+      "diesel leak", "fuel leak", "mileage",
+    ],
+    weight: 3,
   },
 
   // ── Expense list ──────────────────────────────────────────────────────

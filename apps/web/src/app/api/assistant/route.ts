@@ -215,6 +215,8 @@ async function executeIntent(
       return trialBalanceResponse(companyId);
     case "EQUIPMENT_STATUS":
       return equipmentResponse(companyId);
+    case "FUEL_USAGE":
+      return fuelUsageResponse(companyId, rawText);
     case "EXPENSE_LIST":
       return expenseResponse(companyId);
     case "TRANSFER_STOCK":
@@ -310,6 +312,7 @@ function checkIntentPermission(intent: Intent, role: Role): { allowed: boolean; 
     DPR_LIST: PERM.DPR_VIEW,
     TRIAL_BALANCE: PERM.FINANCE_VIEW,
     EQUIPMENT_STATUS: PERM.ASSETS_VIEW,
+    FUEL_USAGE: PERM.ASSETS_VIEW,
     EXPENSE_LIST: PERM.FINANCE_VIEW,
     DELIVERIES_DUE: PERM.PROCUREMENT_VIEW,
     GST_QUERY: PERM.FINANCE_VIEW,
@@ -1391,6 +1394,86 @@ async function equipmentResponse(companyId: string): Promise<AssistantResponse> 
     intent: "EQUIPMENT_STATUS",
     confidence: 0.9,
     cards: [{ type: "link", label: "All equipment", href: "/m/equipment" }]};
+}
+
+async function fuelUsageResponse(companyId: string, text: string): Promise<AssistantResponse> {
+  const logs = await prisma.equipmentUsageLog.findMany({
+    where: { companyId },
+    orderBy: { logDate: "desc" },
+    take: 400,
+    include: { equipment: { select: { id: true, name: true, assetTag: true } } }});
+
+  if (logs.length === 0) {
+    return {
+      text: "Abhi tak koi fuel/usage log nahi hai. Machine ki daily diesel + run-hours log karo — leakage aur service dono track honge.",
+      intent: "FUEL_USAGE", confidence: 0.7,
+      cards: [{ type: "link", label: "Equipment", href: "/m/equipment" }]};
+  }
+
+  // Per-machine totals
+  const byMachine = new Map<string, { id: string; name: string; tag: string; fuel: number; run: number; cost: number; km: boolean }>();
+  for (const l of logs) {
+    const key = l.equipmentId;
+    const e = byMachine.get(key) ?? { id: l.equipmentId, name: l.equipment.name, tag: l.equipment.assetTag ?? "", fuel: 0, run: 0, cost: 0, km: l.meterKind === "KM" };
+    if (l.fuelLitres) e.fuel += Number(l.fuelLitres);
+    if (l.fuelCost) e.cost += Number(l.fuelCost);
+    if (l.openingMeter != null && l.closingMeter != null) e.run += Number(l.closingMeter) - Number(l.openingMeter);
+    byMachine.set(key, e);
+  }
+  const machines = [...byMachine.values()];
+  const totalFuel = machines.reduce((a, m) => a + m.fuel, 0);
+  const totalCost = machines.reduce((a, m) => a + m.cost, 0);
+
+  // If the ask names a specific machine (assetTag/name), answer just for it.
+  const q = text.toLowerCase();
+  const specific = machines.find((m) => {
+    const nm = m.name.toLowerCase(), tg = m.tag.toLowerCase();
+    const base = nm.split(" ")[0] ?? nm;
+    return (base.length > 2 && q.includes(base)) || (tg && q.includes(tg));
+  });
+
+  const fmt = (n: number) => n >= 100000 ? `₹${(n / 100000).toFixed(1)}L` : n >= 1000 ? `₹${(n / 1000).toFixed(1)}K` : `₹${Math.round(n)}`;
+  const unit = (m: { km: boolean }) => (m.km ? "L/100km" : "L/hr");
+
+  if (specific) {
+    const rate = specific.run > 0 ? specific.fuel / specific.run : null;
+    return {
+      text: `⛽ **${specific.name} (${specific.tag}):**
+
+` +
+        `• Total fuel: ${specific.fuel.toFixed(0)}L (${fmt(specific.cost)})
+` +
+        (specific.run > 0 ? `• Run: ${specific.run.toFixed(0)} ${specific.km ? "km" : "hrs"}
+` : "") +
+        (rate != null ? `• Avg: ${rate.toFixed(1)} ${unit(specific)}
+` : ""),
+      intent: "FUEL_USAGE", confidence: 0.92,
+      cards: [{ type: "link", label: "Open machine", href: `/m/equipment/${specific.id}` }]};
+  }
+
+  // Fleet view — top consumers, so the owner sees "kaunsa machine sabse zyada kha raha"
+  const ranked = machines.filter((m) => m.fuel > 0).sort((a, b) => {
+    const ra = a.run > 0 ? a.fuel / a.run : a.fuel, rb = b.run > 0 ? b.fuel / b.run : b.fuel;
+    return rb - ra;
+  });
+  let out = `⛽ **Fuel & Diesel usage (${machines.length} machines):**
+
+` +
+    `Total: ${totalFuel.toFixed(0)}L · ${fmt(totalCost)}
+
+`;
+  for (const m of ranked.slice(0, 5)) {
+    const rate = m.run > 0 ? `${(m.fuel / m.run).toFixed(1)} ${unit(m)}` : `${m.fuel.toFixed(0)}L`;
+    out += `• ${m.name}: ${m.fuel.toFixed(0)}L · ${rate} (${fmt(m.cost)})
+`;
+  }
+  const top = ranked[0];
+  if (top) out += `
+⚠️ **${top.name}** sabse zyada — ${top.fuel.toFixed(0)}L. Leakage ya over-use check karo.`;
+
+  return {
+    text: out, intent: "FUEL_USAGE", confidence: 0.9,
+    cards: [{ type: "link", label: "Equipment", href: "/m/equipment" }]};
 }
 
 async function expenseResponse(companyId: string): Promise<AssistantResponse> {

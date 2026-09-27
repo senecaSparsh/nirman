@@ -115,4 +115,15 @@ describe("SUGGESTION_CHIPS", () => {
     const stock = SUGGESTION_CHIPS.find((c) => c.label === "Stock kya hai?");
     expect(stock).toBeDefined();
   });
+  it("parses fuel/diesel usage queries", () => {
+    for (const q of [
+      "jcb ka diesel kitna laga",
+      "equipment ka fuel",
+      "kaunsa machine sabse zyada diesel kha raha",
+      "fuel usage",
+      "diesel kharcha",
+    ]) {
+      expect(parseIntent(q).intent).toBe("FUEL_USAGE");
+    }
+  });
 });
