@@ -78,6 +78,15 @@ export function MobileAttendanceForm({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [gps, setGps] = useState<{ lat: number; lng: number; label: string } | null>(null);
   const [gpsFetching, setGpsFetching] = useState(false);
+  // Quick-added workers this session — a churn day-labourer (theke-wala) can be
+  // registered + marked present in one step, without leaving the sheet to fill
+  // the full employee form. CASUAL+DAILY by default (no phone/bank needed).
+  const [addedWorkers, setAddedWorkers] = useState<EmployeeRow[]>([]);
+  const [addOpen, setAddOpen] = useState(false);
+  const [nwName, setNwName] = useState("");
+  const [nwTrade, setNwTrade] = useState("");
+  const [nwRate, setNwRate] = useState("");
+  const [nwBusy, setNwBusy] = useState(false);
 
   const [records, setRecords] = useState<Record<string, { status: AttendanceStatus; checkIn: string; checkOut: string; hoursWorked: string }>>(() => {
     const init: Record<string, { status: AttendanceStatus; checkIn: string; checkOut: string; hoursWorked: string }> = {};
@@ -141,11 +150,50 @@ export function MobileAttendanceForm({
     toast.success("Draft restored");
   }
 
+  // Server-loaded employees + workers quick-added this session.
+  const allEmployees = useMemo(() => [...employees, ...addedWorkers], [employees, addedWorkers]);
+
   const filteredEmployees = useMemo(() => {
-    if (!search) return employees;
+    if (!search) return allEmployees;
     const q = search.toLowerCase();
-    return employees.filter((e) => e.name.toLowerCase().includes(q) || (e.trade?.toLowerCase().includes(q) ?? false));
-  }, [employees, search]);
+    return allEmployees.filter((e) => e.name.toLowerCase().includes(q) || (e.trade?.toLowerCase().includes(q) ?? false));
+  }, [allEmployees, search]);
+
+  async function quickAddWorker() {
+    const name = nwName.trim();
+    if (!name) { toast.error("Worker name is required"); return; }
+    setNwBusy(true);
+    try {
+      // The attendance-log permission covers churn-labour registration —
+      // a mukadam needn't hold hr.manage to add a day-worker who just arrived.
+      const res = await fetch("/api/attendance/quick-worker", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          trade: nwTrade.trim() || undefined,
+          dailyRate: nwRate ? Number(nwRate) : undefined,
+          activeProjectId: fProject || undefined,
+        }),
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { toast.error(data?.error || "Could not add worker"); return; }
+      const worker: EmployeeRow = {
+        id: data.id,
+        name: data.name ?? name,
+        trade: nwTrade.trim() || null,
+        dailyRate: nwRate ? Number(nwRate) : null,
+        wageType: "DAILY",
+      };
+      setAddedWorkers((p) => [...p, worker]);
+      setRecords((prev) => ({ ...prev, [worker.id]: { status: "PRESENT", checkIn: "", checkOut: "", hoursWorked: "" } }));
+      setNwName(""); setNwTrade(""); setNwRate(""); setAddOpen(false);
+      haptic(30);
+      toast.success(`${name} added & marked present`);
+    } catch { toast.error("Could not add worker"); }
+    finally { setNwBusy(false); }
+  }
 
   const stats = useMemo(() => {
     let present = 0, absent = 0, halfDay = 0, overtime = 0, leave = 0, late = 0, paidLeave = 0, nonPaidLeave = 0;
@@ -475,6 +523,54 @@ export function MobileAttendanceForm({
           </button>
         )}
         </div>
+        {/* Quick-add a churn day-worker (theke-wala) without leaving the
+            sheet — CASUAL/DAILY, no phone or bank required. */}
+        <button
+          disabled={!!periodLocked}
+          onClick={() => { setAddOpen((o) => !o); haptic(10); }}
+          className="mt-2 flex w-full items-center justify-center gap-2 rounded-[0.5rem] border-2 border-dashed py-2 text-m-caption font-bold press disabled:opacity-50"
+          style={{ borderColor: "color-mix(in srgb, var(--color-accent) 40%, transparent)", color: "var(--color-accent)" }}
+        >
+          <Users className="size-3.5" />
+          {addOpen ? "Close" : "+ New day-worker (theke-wala)"}
+        </button>
+        {addOpen && (
+          <div className="mt-2 rounded-[0.625rem] border p-2.5 flex flex-col gap-2" style={{ borderColor: "var(--color-line)", backgroundColor: "color-mix(in srgb, var(--color-accent) 4%, transparent)" }}>
+            <input
+              value={nwName}
+              onChange={(e) => setNwName(e.target.value)}
+              placeholder="Worker name *"
+              className="h-9 rounded-md border px-2.5 text-m-body font-medium outline-none"
+              style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+            />
+            <div className="flex gap-2">
+              <input
+                value={nwTrade}
+                onChange={(e) => setNwTrade(e.target.value)}
+                placeholder="Trade (beldar, mason…)"
+                className="h-9 flex-1 rounded-md border px-2.5 text-m-body font-medium outline-none"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              />
+              <input
+                value={nwRate}
+                onChange={(e) => setNwRate(e.target.value)}
+                placeholder="₹/day"
+                inputMode="decimal"
+                className="h-9 w-24 rounded-md border px-2.5 text-m-body font-medium outline-none"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              />
+            </div>
+            <button
+              disabled={nwBusy || !nwName.trim()}
+              onClick={quickAddWorker}
+              className="flex items-center justify-center gap-2 rounded-md py-2 text-m-body font-bold text-white press disabled:opacity-50"
+              style={{ backgroundColor: "var(--color-accent)" }}
+            >
+              {nwBusy ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCircle2 className="size-3.5" />}
+              Add & mark present
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Worker list ─────────────────────────────────────── */}
