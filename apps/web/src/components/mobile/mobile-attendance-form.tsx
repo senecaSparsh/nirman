@@ -197,7 +197,7 @@ export function MobileAttendanceForm({
 
   const stats = useMemo(() => {
     let present = 0, absent = 0, halfDay = 0, overtime = 0, leave = 0, late = 0, paidLeave = 0, nonPaidLeave = 0;
-    for (const emp of employees) {
+    for (const emp of allEmployees) {
       const r = records[emp.id];
       if (!r) continue;
       if (r.status === "PRESENT") present++;
@@ -209,8 +209,8 @@ export function MobileAttendanceForm({
       else if (r.status === "PAID_LEAVE") paidLeave++;
       else if (r.status === "NON_PAID_LEAVE") nonPaidLeave++;
     }
-    return { present, absent, halfDay, overtime, leave, late, paidLeave, nonPaidLeave, total: employees.length };
-  }, [records, employees]);
+    return { present, absent, halfDay, overtime, leave, late, paidLeave, nonPaidLeave, total: allEmployees.length };
+  }, [records, allEmployees]);
 
   function setStatus(employeeId: string, status: AttendanceStatus) {
     haptic(10);
@@ -225,7 +225,7 @@ export function MobileAttendanceForm({
     haptic(20);
     setRecords((prev) => {
       const next: Record<string, { status: AttendanceStatus; checkIn: string; checkOut: string; hoursWorked: string }> = {};
-      for (const emp of employees) {
+      for (const emp of allEmployees) {
         const existing = prev[emp.id];
         if (existing && existing.status !== "PRESENT") {
           next[emp.id] = { ...existing, status: "PRESENT" as AttendanceStatus };
@@ -273,7 +273,7 @@ export function MobileAttendanceForm({
   }
 
   async function submit() {
-    const recordList = employees.map((emp) => {
+    const recordList = allEmployees.map((emp) => {
       const r = records[emp.id] ?? { status: "PRESENT" as AttendanceStatus, checkIn: "", checkOut: "", hoursWorked: "" };
       const hrs = r.hoursWorked ? Number(r.hoursWorked) : null;
       return {

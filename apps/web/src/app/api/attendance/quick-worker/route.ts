@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { apiHandler, getCompany, json, requireAnyPermission, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, requireAnyPermission, assertScopeAllows, getAssignedProjectIds } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { createEmployee } from "@nirman/services";
 import { z } from "zod";
@@ -39,10 +39,21 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
 
+  // A churn worker added without a project context lands with
+  // activeProjectId=null — invisible on the mukadam's project-scoped roll
+  // tomorrow. When the marker runs exactly one site, default the worker to
+  // it so they stay on the roll. Multiple/zero projects → leave unassigned
+  // (company-scoped callers still see them; ambiguous site otherwise).
+  let activeProjectId = parsed.data.activeProjectId ?? null;
+  if (!activeProjectId) {
+    const assigned = await getAssignedProjectIds().catch(() => null);
+    if (assigned && assigned.length === 1) activeProjectId = assigned[0]!;
+  }
+
   // The project/crew must be inside the marker's scope — a supervisor can't
   // register a worker onto a site they don't run.
   try {
-    await assertScopeAllows({ projectId: parsed.data.activeProjectId ?? null });
+    await assertScopeAllows({ projectId: activeProjectId });
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
   }
@@ -55,7 +66,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     wageType: "DAILY",
     employmentType: "CASUAL",
     crewId: parsed.data.crewId ?? undefined,
-    activeProjectId: parsed.data.activeProjectId ?? undefined,
+    activeProjectId: activeProjectId ?? undefined,
     userId: user.id,
   });
 

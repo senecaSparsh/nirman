@@ -1081,7 +1081,7 @@ export async function recordAttendance(input: LogAttendanceInput) {
     // Payment-bearing statuses can't be pre-marked for future days —
     // "present next Tuesday" pays a day nobody has worked. Absence/leave
     // pre-marks are allowed (rota planning).
-    const todayOnly = dateOnlyUTC(new Date());
+    const todayOnly = todayISTUTC();
     const markStatus = input.status;
     if (dateOnly > todayOnly && (markStatus === "PRESENT" || markStatus === "LATE" || markStatus === "HALF_DAY" || markStatus === "OVERTIME")) {
       throw new HrError("Cannot mark present-type attendance for a future date", 400);
@@ -1217,7 +1217,7 @@ export async function bulkRecordAttendance(input: BulkAttendanceInput) {
     // Payment-bearing statuses can't be pre-marked for future days —
     // "present next Tuesday" pays a day nobody has worked. And PAID_LEAVE
     // may only be minted by an approved LeaveRequest (balance + approval).
-    const todayOnly = dateOnlyUTC(new Date());
+    const todayOnly = todayISTUTC();
     if (dateOnly > todayOnly) {
       const paidMarks = input.records.filter((r) =>
         r.status === "PRESENT" || r.status === "LATE" || r.status === "HALF_DAY" || r.status === "OVERTIME",
@@ -1236,7 +1236,7 @@ export async function bulkRecordAttendance(input: BulkAttendanceInput) {
     const employees = employeeIds.length > 0
       ? await tx.employee.findMany({
           where: { id: { in: employeeIds }, companyId: input.companyId, deletedAt: null, active: true },
-          select: { id: true, joinDate: true, active: true },
+          select: { id: true, joinDate: true, active: true, dailyRate: true },
         })
       : [];
     const validEmployeeIds = new Set(employees.map((e) => e.id));
@@ -1291,6 +1291,9 @@ export async function bulkRecordAttendance(input: BulkAttendanceInput) {
       const data = {
         companyId: input.companyId,
         projectId: input.projectId ?? null,
+        // Snapshot the day's rate so a later wage change doesn't retro-apply —
+        // payroll prices this day at the rate the worker actually worked.
+        dailyRate: emp?.dailyRate ?? null,
         checkIn: r.checkIn ? combineTimeWithDate(dateOnly, r.checkIn) : null,
         checkOut: r.checkOut ? combineTimeWithDate(dateOnly, r.checkOut) : null,
         hoursWorked: hoursWorked != null ? new Decimal(hoursWorked) : null,
@@ -2986,6 +2989,20 @@ function startOfDay(d: Date): Date {
 function dateOnlyUTC(d: Date | string): Date {
   const s = typeof d === "string" ? d : d.toISOString().slice(0, 10);
   return new Date(s + "T00:00:00.000Z");
+}
+
+/**
+ * The current IST business date anchored to UTC-midnight — the correct
+ * "today" for same-day guards regardless of the process timezone. Without
+ * this, `dateOnlyUTC(new Date())` returns the *UTC* date: in the
+ * 00:00–05:30 IST window the Indian business day has already rolled to the
+ * next day while UTC is still on the prior one, so the server rejects a
+ * legit same-day morning attendance mark as "a future date." (IST is fixed
+ * UTC+5:30, no DST.)
+ */
+function todayISTUTC(): Date {
+  const istNow = new Date(Date.now() + 5.5 * 3600_000);
+  return new Date(istNow.toISOString().slice(0, 10) + "T00:00:00.000Z");
 }
 
 /**
