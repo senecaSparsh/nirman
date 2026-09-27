@@ -110,18 +110,47 @@ export default function MobileEquipmentDetailPage({
             vendor: m.vendor,
             notes: m.notes,
           })),
-          usageLogs: equipment.usageLogs.map((l) => ({
-            id: l.id,
-            logDate: l.logDate.toISOString(),
-            meterKind: l.meterKind,
-            openingMeter: l.openingMeter == null ? null : toNum(l.openingMeter),
-            closingMeter: l.closingMeter == null ? null : toNum(l.closingMeter),
-            fuelLitres: l.fuelLitres == null ? null : toNum(l.fuelLitres),
-            fuelCost: l.fuelCost == null ? null : toNum(l.fuelCost),
-            operatorName: l.operatorName,
-            notes: l.notes,
-            projectName: l.project?.name ?? null,
-          })),
+          usageLogs: (() => {
+            // Diesel-leakage signal: each log's litres-per-run-unit compared to
+            // the machine's own median. A day running >40% above the machine's
+            // normal rate is flagged suspectedLeak — catches fuel theft or a
+            // failing engine without needing a rated spec on file.
+            const rate = (l: (typeof equipment.usageLogs)[number]) => {
+              if (l.fuelLitres == null || l.openingMeter == null || l.closingMeter == null)
+                return null;
+              const run = Number(l.closingMeter) - Number(l.openingMeter);
+              return run > 0 ? Number(l.fuelLitres) / run : null;
+            };
+            const rates = equipment.usageLogs
+              .map(rate)
+              .filter((r): r is number => r != null)
+              .sort((a, b) => a - b);
+            const median =
+              rates.length === 0
+                ? null
+                : rates.length % 2 === 1
+                  ? (rates[(rates.length - 1) / 2] ?? null)
+                  : ((rates[rates.length / 2 - 1] ?? 0) + (rates[rates.length / 2] ?? 0)) / 2;
+            const leakThreshold = median != null && rates.length >= 3 ? median * 1.4 : null;
+            return equipment.usageLogs.map((l) => {
+              const r = rate(l);
+              return {
+                id: l.id,
+                logDate: l.logDate.toISOString(),
+                meterKind: l.meterKind,
+                openingMeter: l.openingMeter == null ? null : toNum(l.openingMeter),
+                closingMeter: l.closingMeter == null ? null : toNum(l.closingMeter),
+                fuelLitres: l.fuelLitres == null ? null : toNum(l.fuelLitres),
+                fuelCost: l.fuelCost == null ? null : toNum(l.fuelCost),
+                rate: r,
+                suspectedLeak:
+                  leakThreshold != null && r != null && r > leakThreshold,
+                operatorName: l.operatorName,
+                notes: l.notes,
+                projectName: l.project?.name ?? null,
+              };
+            });
+          })(),
         };
 
         return (

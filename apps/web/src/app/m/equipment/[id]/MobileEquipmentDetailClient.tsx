@@ -70,6 +70,8 @@ interface UsageLog {
   closingMeter: number | null;
   fuelLitres: number | null;
   fuelCost: number | null;
+  rate: number | null;         // fuelLitres / run — litres-per-hour (or per-km)
+  suspectedLeak: boolean;      // rate > 1.4× the machine's own median
   operatorName: string | null;
   notes: string | null;
   projectName: string | null;
@@ -472,9 +474,19 @@ export function MobileEquipmentDetailClient({
                       {formatDate(l.logDate)}
                     </span>
                     {perUnit != null ? (
-                      <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>
-                        {perUnit.toFixed(1)} L/{l.meterKind === "KM" ? "km" : "hr"}
-                      </span>
+                      l.suspectedLeak ? (
+                        <span
+                          className="inline-flex items-center gap-1 text-m-caption font-bold tabular-nums rounded-full px-1.5 py-0.5"
+                          style={{ color: "var(--color-danger)", backgroundColor: "var(--color-danger-soft)" }}
+                          title="Running hot — >40% above this machine's normal rate"
+                        >
+                          {perUnit.toFixed(1)} L/{l.meterKind === "KM" ? "km" : "hr"} · high
+                        </span>
+                      ) : (
+                        <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>
+                          {perUnit.toFixed(1)} L/{l.meterKind === "KM" ? "km" : "hr"}
+                        </span>
+                      )
                     ) : null}
                   </div>
                   <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
