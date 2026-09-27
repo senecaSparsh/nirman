@@ -403,6 +403,22 @@ export function computeBasicAmount(
   return employee.monthlySalary != null ? new Decimal(employee.monthlySalary) : new Decimal(0);
 }
 
+/**
+ * Rate-accurate DAILY basic — Σ attendanceWeight(status) × the rate stamped on
+ * each attendance row (falls back to the current employee.dailyRate for rows
+ * marked before the snapshot existed). A mid-period raise pays the early days
+ * at the old rate instead of retro-applying the new one.
+ */
+export function computeDailyBasicFromAttendance(
+  attendances: { status: string; dailyRate?: Decimal | number | string | null }[],
+  fallbackRate: Decimal | number | string,
+): Decimal {
+  return attendances.reduce(
+    (sum, a) => sum.plus(attendanceWeight(a.status) ? new Decimal(a.dailyRate ?? fallbackRate ?? 0).times(attendanceWeight(a.status)) : 0),
+    new Decimal(0),
+  );
+}
+
 /** grossPay = basic + overtime + allowance + bonus. */
 export function computeGrossPay(
   basic: Decimal | number | string,
@@ -1107,6 +1123,9 @@ export async function recordAttendance(input: LogAttendanceInput) {
       checkIn: input.checkIn ?? null,
       checkOut: input.checkOut ?? null,
       hoursWorked: hoursWorked != null ? new Decimal(hoursWorked) : null,
+      // Snapshot the worker's daily rate at record-time — a mid-period raise
+      // must not retro-apply to days already worked at the old rate.
+      dailyRate: employee.dailyRate ?? null,
       status,
       notes: input.notes ?? null,
       recordedById: input.recordedById ?? null,
@@ -1643,7 +1662,12 @@ export async function generatePayroll(input: GeneratePayrollInput) {
       // Each 4 LATE days in the month deducts 0.5 from daysWorked.
       const lateHalfDayDeductions = computeLateHalfDayDeductions(attendances);
       const adjustedDaysWorked = daysWorked.minus(new Decimal(lateHalfDayDeductions * 0.5));
-      let basicAmount = computeBasicAmount(emp, adjustedDaysWorked, workingDays);
+      let basicAmount = emp.wageType === "DAILY"
+        // Per-day rate from the attendance snapshot — a mid-period raise pays
+        // the early days at the old rate, not retroactively at the new one.
+        ? computeDailyBasicFromAttendance(attendances, emp.dailyRate)
+            .minus(new Decimal(lateHalfDayDeductions * 0.5).times(emp.dailyRate ?? 0))
+        : computeBasicAmount(emp, adjustedDaysWorked, workingDays);
       // FIXED wage ignores daysWorked (flat amount) — but a mid-month joiner
       // still only earns the fraction of the period they were employed.
       if (emp.wageType === "FIXED" && joinDateOnly && joinDateOnly > startDate) {

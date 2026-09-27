@@ -1824,6 +1824,10 @@ model WorkerAttendance {
   checkIn     DateTime?
   checkOut    DateTime?
   hoursWorked Decimal?         @db.Decimal(5, 2) // total hours on site (incl. overtime)
+  // Rate snapshot — the worker's dailyRate AS OF this worked day. Without it,
+  // a mid-period raise applies retroactively to days worked at the old rate
+  // (over-payment). Payroll prefers this; null falls back to current rate.
+  dailyRate   Decimal?         @db.Decimal(14, 2)
   status      AttendanceStatus @default(PRESENT)
   notes       String?
   recordedById String?
