@@ -434,6 +434,40 @@ export async function confirmExit(id: string, securityId: string, exitDetails: C
     if (!gp) throw new ServiceError("Gate pass not found", 404);
     if (gp.status !== "APPROVED") throw new ServiceError(`Cannot confirm exit for gate pass in status ${gp.status}. Items can only exit after approval.`);
 
+    // Close the phantom-exit gap: approval auto-executes the linked source
+    // transaction, but when that execution fails (e.g. missing chart of
+    // accounts) the pass still lands APPROVED. If the truck then exits while
+    // the source issue is still PENDING, the material physically leaves and
+    // the stock never deducts — the books lie about what's on site. Re-run
+    // the execution here (idempotent on a PENDING row); if it can't complete,
+    // block the exit — material can't leave the gate without the books
+    // recording it.
+    if (gp.refType === "MaterialIssue" && gp.refId) {
+      const issue = await tx.materialIssue.findUnique({ where: { id: gp.refId }, select: { status: true } });
+      if (issue?.status === "PENDING") {
+        const { executeMaterialIssue } = await import("./issue");
+        await executeMaterialIssue(gp.refId, securityId);
+      }
+    } else if (gp.refType === "MaterialSale" && gp.refId) {
+      const sale = await tx.materialSale.findUnique({ where: { id: gp.refId }, select: { status: true } });
+      if (sale?.status === "PENDING") {
+        const { executeMaterialSale } = await import("./material-sale");
+        await executeMaterialSale(gp.refId, securityId);
+      }
+    } else if (gp.refType === "StockTransfer" && gp.refId) {
+      const tr = await tx.stockTransfer.findUnique({ where: { id: gp.refId }, select: { status: true } });
+      if (tr?.status === "DRAFT") {
+        const { dispatchTransfer } = await import("./transfer");
+        await dispatchTransfer(gp.refId, securityId, {
+          vehicleType: gp.vehicleType ?? undefined,
+          vehicleNumber: gp.vehicleNumber ?? undefined,
+          driverName: gp.driverName ?? undefined,
+          driverPhone: gp.driverPhone ?? undefined,
+          transporterName: gp.transporterName ?? undefined,
+        });
+      }
+    }
+
     const updated = await tx.gatePass.update({
       where: { id },
       data: {
