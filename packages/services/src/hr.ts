@@ -2429,7 +2429,9 @@ export async function submitDPR(input: SubmitDprInput) {
     const dateOnly = dateOnlyUTC(input.date);
     // A DPR reports work already done — filing for a future day fabricates
     // progress (attendance has the same guard for payment-bearing marks).
-    if (dateOnly > dateOnlyUTC(new Date())) {
+    // Compare against the IST business day — a UTC "today" reads the Indian
+    // day's early-morning (00:00–05:30 IST) filings as "future."
+    if (dateOnly > todayISTUTC()) {
       throw new HrError("Cannot file a DPR for a future date", 400);
     }
     const progressPct = input.progressPct != null ? new Decimal(input.progressPct) : new Decimal(0);
