@@ -8,14 +8,15 @@ import { resolveTarget, shouldSkip } from "@/lib/surface-map";
  * ═══════════════════════════════════════════════════════════════════
  * SURFACE ADAPTER — screen-size-based mobile/desktop routing
  *
- * Watches the viewport width and instantly redirects the user to the
- * correct surface (mobile `/m/*` or desktop `/*`) when the screen size
- * crosses the breakpoint. Combined with the CSS surface gates in
- * globals.css (`[data-surface]` media queries) this guarantees:
+ * Watches the viewport width and instantly redirects a phone-width screen
+ * off a desktop route onto the mobile surface. Combined with the CSS
+ * surface gates in globals.css this guarantees:
  *   · No mobile user ever sees the desktop version — not even a frame
- *   · No desktop user ever sees the mobile version — not even a frame
  *   · Adapts instantly on resize, orientation change, or window move
- * There is no escape hatch by design.
+ * The reverse is deliberately NOT enforced: `/m/*` is a first-class
+ * surface that renders the mobile UI as a centered phone-width column on
+ * wide screens (an owner previews the field app on a laptop), so a wide
+ * viewport never redirects a mobile route to desktop.
  *
  * BREAKPOINT: 1024px (same as the sign-in page's matchMedia check).
  * Below 1024px = mobile surface, above = desktop surface.
@@ -70,8 +71,11 @@ export function SurfaceAdapter() {
 
     const isMobile = window.matchMedia(MOBILE_BREAKPOINT).matches;
     const onMobileRoute = path.startsWith("/m/") || path === "/m";
-    const needsRedirect =
-      (isMobile && !onMobileRoute) || (!isMobile && onMobileRoute);
+    // /m/* is a first-class surface — never redirect it to desktop. Only
+    // the phone-on-a-desktop-route case redirects (a narrow viewport must
+    // never render desktop chrome). A wide window on /m/* renders the
+    // centered mobile column (globals.css @media min-width:1024px).
+    const needsRedirect = isMobile && !onMobileRoute;
     if (!needsRedirect) {
       lastIssued.current = null;
       return;
@@ -82,11 +86,6 @@ export function SurfaceAdapter() {
     // Desktop→mobile with no mapped equivalent → land on the mobile home so
     // the user is never stranded on a desktop page on a phone-width screen.
     if (!target && isMobile && !onMobileRoute) target = "/m/home" + search;
-    // Mobile→desktop with no mapped equivalent (mobile-only routes like
-    // /m/site, /m/queue, /m/pulse): the CSS gate hides [data-surface="mobile"]
-    // at ≥1024px, so "staying" strands the user on a BLANK page. Mirror the
-    // middleware's reverse-redirect fallback — land on the desktop home.
-    if (!target && !isMobile && onMobileRoute) target = "/" + search;
     if (!target || target === path) return;
     const last = lastIssued.current;
     if (last?.target === target && Date.now() - last.at < RETRY_MS) return;

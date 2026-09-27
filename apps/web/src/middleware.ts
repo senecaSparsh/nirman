@@ -196,42 +196,14 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/m", req.url));
   }
 
-  // ── Reverse redirect — a wide desktop UA never loads a mobile document ──
-  // A non-mobile UA hitting a /m/* route via a DOCUMENT navigation (typed
-  // URL, bookmark, external link) is redirected to the desktop equivalent
-  // before a byte of mobile HTML ships — the mirror of the mobile redirect.
-  //
-  // Client-side navigations (RSC fetches from <SurfaceAdapter>'s
-  // router.replace) are NOT redirected: the adapter is viewport-aware, and
-  // a desktop UA can still be a narrow window (split screen, resized
-  // browser) where the mobile surface is correct. Bouncing the adapter's
-  // fetch strands the user on a hidden desktop page — a blank screen at
-  // <1024px (observed live). Detection uses two signals:
-  //   1. `__surface=1` — the adapter's own marker. It survives every nav
-  //      type (RSC fetch AND the hard-navigation fallback dev uses when a
-  //      route chunk isn't loaded yet). Trusted: the adapter only marks
-  //      viewport-corrected targets, and it strips the param on landing.
-  //   2. Sec-Fetch-Mode — "navigate" for real document requests; "cors"/
-  //      "no-cors" for fetch-based navs. (RSC/_rsc markers can't be used —
-  //      the framework strips them before middleware runs.)
-  // Requests without Sec-Fetch-* (curl, older browsers, non-browser
-  // clients) are treated as document navigations.
-  const secFetchMode = req.headers.get("sec-fetch-mode");
-  const isDocumentNav = secFetchMode === null || secFetchMode === "navigate";
-  const isSurfaceAdapterNav = searchParams.has("__surface");
-  if (
-    !isMobileRequest(req) &&
-    isDocumentNav &&
-    !isSurfaceAdapterNav &&
-    (pathname === "/m" || pathname.startsWith("/m/"))
-  ) {
-    const search = searchParams.size ? `?${searchParams.toString()}` : "";
-    const target =
-      pathname === "/m"
-        ? "/"
-        : (resolveTarget(pathname, search, false) ?? "/" + search);
-    return NextResponse.redirect(new URL(target, req.url));
-  }
+  // ── /m/* is a first-class surface — never redirect it to desktop ──
+  // A mobile URL opened on a wide screen (owner previewing the field app,
+  // a shared link, a desktop bookmark) must render the mobile UI, not
+  // bounce to the desktop route. There is intentionally NO reverse
+  // redirect: only desktop→mobile fires (a phone must never see desktop);
+  // mobile→desktop does not. globals.css renders [data-surface="mobile"]
+  // as a centered phone-width column on ≥1024px so it reads as a phone
+  // frame, not a stretched layout.
 
   // AUTH_BYPASS=true: skip the auth gate entirely (headless dev mode).
   // Hard-gated to non-production so it can never leak into a real deploy

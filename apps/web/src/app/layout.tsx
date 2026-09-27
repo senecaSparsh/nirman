@@ -98,7 +98,10 @@ var p=location.pathname;
 var sk=/^\\/(sign-in|sign-up|forgot-password|reset-password|change-password|consent|accept\\/|api\\/|_next\\/)/.test(p)||/^\\/(portal|print)(\\/|$)/.test(p)||/\\/print$/.test(p)||/\\.(svg|png|jpe?g|gif|webp|ico|css|js|map|webmanifest|txt)$/.test(p);
 var mob=matchMedia('(max-width:1023px)').matches;
 var onM=p==='/m'||p.indexOf('/m/')===0;
-if(!sk&&((mob&&!onM)||(!mob&&onM))){
+/* Only the phone-on-desktop-route case hides pending redirect — /m/* on a
+   wide screen is a legit mobile surface (centered phone column), so a
+   mobile route never triggers the hide. */
+if(!sk&&mob&&!onM){
 r.classList.add('surface-pending');
 setTimeout(function(){r.classList.remove('surface-pending')},1500);
 }

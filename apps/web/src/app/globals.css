@@ -434,11 +434,14 @@ input[type="number"] {
     visibility: hidden;
   }
 
-  /* Hard surface isolation — belt-and-braces with the adapter: even if a
-     wrong-surface route renders for a frame (client-side nav, resize,
-     mid-redirect), it can NEVER paint. The desktop shell is display:none
-     under 1024px; the mobile shell is display:none at 1024px+. Pure CSS —
-     no JS timing, no flash, no glimpse. */
+  /* Surface routing — the desktop shell is display:none under 1024px (a
+     phone-width screen never paints desktop chrome). The MOBILE surface
+     (/m/*) is NOT hidden on wide screens: /m/* is a first-class, shareable
+     surface the owner opens on a laptop to preview the field app, so it
+     renders as a centered phone-width column instead of redirecting.
+     translateZ(0) makes the shell a containing block so fixed-position
+     children (the bottom tab bar, FABs) pin inside the column, not the
+     viewport. */
   @media (max-width: 1023px) {
     [data-surface="desktop"] {
       display: none !important;
@@ -446,7 +449,11 @@ input[type="number"] {
   }
   @media (min-width: 1024px) {
     [data-surface="mobile"] {
-      display: none !important;
+      max-width: 430px;
+      margin-inline: auto;
+      transform: translateZ(0);
+      border-inline: 1px solid var(--color-line);
+      box-shadow: 0 0 56px rgba(15, 20, 30, 0.16);
     }
   }
 
