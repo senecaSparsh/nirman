@@ -3,6 +3,7 @@ import { prisma } from "@nirman/db";
 import { apiHandler, json } from "@/lib/server";
 import { runBookReconciliation, createInAppNotification } from "@nirman/services";
 import { withTimeout } from "@/lib/timeout";
+import { startOfDayIST } from "@/lib/utils";
 
 /**
  * POST /api/cron/reconciliation — nightly self-audit of the books.
@@ -68,8 +69,7 @@ async function run(): Promise<Response> {
           select: { userId: true },
         });
 
-        const startOfToday = new Date();
-        startOfToday.setHours(0, 0, 0, 0);
+        const startOfToday = startOfDayIST();
         for (const { userId } of execs) {
           // Dedupe per day — a persistently-failing check shouldn't spam.
           const sent = await prisma.inAppNotification.findFirst({

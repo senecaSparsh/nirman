@@ -3,6 +3,7 @@ import { prisma } from "@nirman/db";
 import { apiHandler, json } from "@/lib/server";
 import { createInAppNotification } from "@nirman/services";
 import { withTimeout } from "@/lib/timeout";
+import { startOfDayIST } from "@/lib/utils";
 
 /**
  * POST /api/cron/approval-aging — escalation nudge for stalled approvals.
@@ -65,8 +66,7 @@ async function run(): Promise<Response> {
       // Sites that didn't file today's DPR — a silent site is invisible to
       // management until someone notices. Only ACTIVE projects: a PLANNED
       // site isn't expected to report yet.
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
+      const startOfToday = startOfDayIST();
       const activeProjects = await prisma.project.findMany({
         where: { companyId: company.id, deletedAt: null, status: "ACTIVE" },
         select: { id: true, name: true },

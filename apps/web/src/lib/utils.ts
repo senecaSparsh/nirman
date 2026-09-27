@@ -63,6 +63,28 @@ export function localDateISO(d: Date = new Date()): string {
   return d.toLocaleDateString("en-CA");
 }
 
+/**
+ * The instant that is **IST midnight** for `d`'s business day — the correct
+ * "today" boundary for server queries regardless of the process timezone.
+ *
+ * Every day-boundary WHERE clause (`date >= startOfDay`, dedupe "today",
+ * "no DPR today") must use this, NOT `setHours(0,0,0,0)` — that floors to the
+ * *server's* local midnight, which is UTC on a prod container → the Indian
+ * business day starts at 05:30, so records filed 00:00–05:30 IST land on the
+ * previous day. IST is fixed UTC+5:30 (no DST), so this is a constant offset.
+ */
+export function startOfDayIST(d: Date = new Date()): Date {
+  const IST_MS = 330 * 60 * 1000; // UTC+5:30
+  const shifted = new Date(d.getTime() + IST_MS);
+  shifted.setUTCHours(0, 0, 0, 0);
+  return new Date(shifted.getTime() - IST_MS);
+}
+
+/** End of the IST business day containing `d` (exclusive upper bound). */
+export function endOfDayIST(d: Date = new Date()): Date {
+  return new Date(startOfDayIST(d).getTime() + 24 * 60 * 60 * 1000);
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMergeCustom(clsx(inputs));
 }

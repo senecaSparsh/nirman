@@ -12,6 +12,7 @@
  */
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
+import { startOfDayIST } from "@/lib/utils";
 import {
   lowStockAlerts,
   getCompanyPortfolioSummary,
@@ -1917,8 +1918,7 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
   }
 
   if (hasPermission(role, PERM.SALES_VIEW)) {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    const todayStart = startOfDayIST();
     const [todayMatSales, todayAssetSales] = await Promise.all([
       prisma.materialSale.count({ where: { companyId, createdAt: { gte: todayStart } } }),
       prisma.assetSale.count({ where: { companyId, createdAt: { gte: todayStart }, saleStage: { notIn: ["CANCELLED"] } } }),
@@ -1941,8 +1941,7 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
   }
 
   if (hasPermission(role, PERM.HR_VIEW)) {
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    const todayStart = startOfDayIST();
     const attendanceToday = await prisma.workerAttendance.count({
       where: { companyId, date: { gte: todayStart }, ...await scopeWhere("WorkerAttendance") }});
     if (attendanceToday > 0) {

@@ -3,6 +3,7 @@ import { prisma } from "@nirman/db";
 import { apiHandler, json } from "@/lib/server";
 import { createInAppNotification, leaseExpiryAlerts, computeServiceStatus } from "@nirman/services";
 import { withTimeout } from "@/lib/timeout";
+import { startOfDayIST } from "@/lib/utils";
 
 /**
  * POST /api/cron/daily-digest — the morning briefing, pushed.
@@ -37,8 +38,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
 }, { skipSession: true, rateLimit: false });
 
 async function run(): Promise<Response> {
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
+  // The business "today" is IST-midnight, not server-local (prod runs UTC —
+  // setHours(0) would start the Indian day at 05:30, silently mis-bucketing
+  // morning attendance/DPR/deliveries as "yesterday").
+  const startOfToday = startOfDayIST();
 
   const companies = await prisma.company.findMany({
     where: { deletedAt: null },
