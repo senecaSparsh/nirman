@@ -5,8 +5,8 @@ import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { resolveLinkForSurface } from "@/lib/surface-map";
 import { formatRelativeTime } from "@/lib/utils";
 import { MobileNotificationsMarkAll } from "./MobileNotificationsMarkAll";
+import { NotificationRow } from "./NotificationRow";
 import { Bell } from "lucide-react";
-import Link from "next/link";
 
 export const metadata = { title: "Notifications · Nirman" };
 
@@ -59,8 +59,8 @@ export default function MobileNotificationsPage() {
               <div className="px-4 space-y-2">
                 {notifications.map((n) => {
                   const href = resolveLinkForSurface(n.link);
-                  const body = (
-                    <>
+                  return (
+                    <NotificationRow key={n.id} id={n.id} href={href}>
                       <div className="flex items-start gap-2.5">
                         {!n.isRead && (
                           <span className="mt-1.5 size-1.5 rounded-full shrink-0" style={{ backgroundColor: "var(--color-brand)" }} />
@@ -79,17 +79,7 @@ export default function MobileNotificationsPage() {
                           </p>
                         </div>
                       </div>
-                    </>
-                  );
-                  const cls = "block rounded-[0.625rem] border p-3";
-                  return href ? (
-                    <Link key={n.id} href={href} className={`${cls} press`} style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-                      {body}
-                    </Link>
-                  ) : (
-                    <div key={n.id} className={cls} style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-                      {body}
-                    </div>
+                    </NotificationRow>
                   );
                 })}
               </div>
