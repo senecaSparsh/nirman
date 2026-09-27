@@ -2184,12 +2184,51 @@ export async function processPayroll(input: { payrollPeriodId: string; userId?: 
     // directly (without calling addProjectCost) to avoid double GL posting —
     // the payroll GL entry already records the salary expense + payable.
     const projectLabour = new Map<string, Decimal>();
+    // Split each line's gross across the projects the employee actually worked
+    // on — a theke-wala on Site A Mon–Tue + Site B Wed–Fri must cost those days
+    // to the right project, not all to their default activeProjectId. Day-share
+    // = Σ attendance weight per project ÷ total worked weight.
+    const empIds = period.lines.map((l) => l.employeeId);
+    const periodAttendances = await tx.workerAttendance.findMany({
+      where: {
+        companyId: period.companyId,
+        employeeId: { in: empIds },
+        date: { gte: period.startDate, lte: period.endDate },
+        projectId: { not: null },
+      },
+      select: { employeeId: true, projectId: true, status: true },
+    }).catch(() => [] as { employeeId: string; projectId: string | null; status: string }[]);
+    // employeeId → projectId → worked-weight
+    const perProjectDays = new Map<string, Map<string, number>>();
+    for (const a of periodAttendances) {
+      if (!a.projectId) continue;
+      const w = attendanceWeight(a.status);
+      if (w <= 0) continue;
+      const m = perProjectDays.get(a.employeeId) ?? new Map<string, number>();
+      m.set(a.projectId, (m.get(a.projectId) ?? 0) + w);
+      perProjectDays.set(a.employeeId, m);
+    }
     for (const line of period.lines) {
-      const projectId = line.employee?.activeProjectId;
-      if (!projectId) continue;
       const grossPay = new Decimal(line.grossPay);
       if (grossPay.lte(0)) continue;
-      projectLabour.set(projectId, (projectLabour.get(projectId) ?? new Decimal(0)).plus(grossPay));
+      const splits = perProjectDays.get(line.employeeId);
+      const totalWeight = splits ? [...splits.values()].reduce((s, w) => s + w, 0) : 0;
+      if (splits && totalWeight > 0) {
+        // Apportion gross across worked projects by day-share.
+        let allocated = new Decimal(0);
+        const entries = [...splits.entries()];
+        entries.forEach(([projectId, w], i) => {
+          // Last entry takes the remainder so Σ shares == grossPay exactly.
+          const share = i === entries.length - 1
+            ? grossPay.minus(allocated)
+            : grossPay.times(new Decimal(w).div(totalWeight)).toDecimalPlaces(2);
+          allocated = allocated.plus(share);
+          projectLabour.set(projectId, (projectLabour.get(projectId) ?? new Decimal(0)).plus(share));
+        });
+      } else if (line.employee?.activeProjectId) {
+        // No per-day project tags — fall back to the default project.
+        projectLabour.set(line.employee.activeProjectId, (projectLabour.get(line.employee.activeProjectId) ?? new Decimal(0)).plus(grossPay));
+      }
     }
 
     for (const [projectId, amount] of projectLabour) {
