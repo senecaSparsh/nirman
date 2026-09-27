@@ -372,6 +372,87 @@ async function matchPayment(
     }
   }
 
+  // 1b. Installment-level match — buyers commonly pay ONE installment
+  //     (e.g. ₹10L of a ₹30L sale), not the whole outstanding. If the SMS
+  //     amount uniquely equals a single unpaid schedule item across all
+  //     active sales, record it against that sale. Ambiguous (multiple
+  //     installments share the amount) → skip, leave for manual review.
+  const dueInstallments = await prisma.paymentScheduleItem.findMany({
+    where: {
+      status: { in: ["PENDING", "DUE", "PARTIAL"] },
+      paymentSchedule: {
+        assetSale: { companyId, status: "ACTIVE", paymentStatus: { in: ["PENDING", "PARTIAL"] } },
+      },
+    },
+    select: {
+      id: true,
+      installmentNo: true,
+      totalAmount: true,
+      paymentSchedule: {
+        select: {
+          assetSaleId: true,
+          assetSale: {
+            select: { id: true, saleNumber: true, saleStage: true, customer: { select: { name: true } } },
+          },
+        },
+      },
+    },
+  });
+  const installMatches = dueInstallments.filter((i) =>
+    new Decimal(i.totalAmount).minus(amount).abs().lt(1),
+  );
+  const distinctSales = [...new Set(installMatches.map((i) => i.paymentSchedule.assetSaleId))];
+  if (installMatches.length >= 1 && distinctSales.length === 1) {
+    const saleId = distinctSales[0]!;
+    const sale = await prisma.assetSale.findFirst({
+      where: { id: saleId, companyId },
+      include: { customer: { select: { name: true } } },
+    });
+    if (sale) {
+      const item = installMatches[0]!;
+      const confidence =
+        counterparty && sale.customer?.name?.toLowerCase().includes(counterparty.toLowerCase().split(" ")[0]!)
+          ? 92
+          : 78;
+      const payment = await withSerializableTransaction(async (tx) => {
+        const p = await tx.assetSalePayment.create({
+          data: { assetSaleId: sale.id, amount, paymentDate: new Date(), mode: "BANK", status: "RECEIVED" },
+        });
+        if (sale.saleStage === "COMPLETED") {
+          await postPaymentReceived(tx, { companyId, assetSaleId: sale.id, paymentId: p.id, amount });
+        } else {
+          await postDepositReceived(tx, { companyId, assetSaleId: sale.id, amount });
+        }
+        await syncPaymentScheduleFromPayments(tx, sale.id);
+        const allPayments = await tx.assetSalePayment.findMany({
+          where: { assetSaleId: sale.id, status: "RECEIVED" },
+          select: { amount: true },
+        });
+        const newTotalPaid = allPayments.reduce((s, p) => s.plus(new Decimal(p.amount)), new Decimal(0));
+        const totalDue = new Decimal(sale.salePrice).plus(new Decimal(sale.gstAmount));
+        const newStatus = newTotalPaid.gte(totalDue) ? "PAID" : newTotalPaid.gt(0) ? "PARTIAL" : "PENDING";
+        await tx.assetSale.update({ where: { id: sale.id }, data: { paymentStatus: newStatus } });
+        return p;
+      });
+      void emitNotificationEvent({
+        eventType: NotificationEventType.SALE_PAYMENT_RECEIVED,
+        companyId,
+        entityType: "AssetSale",
+        entityId: sale.id,
+        variables: { amount: amount.toString(), saleNumber: sale.saleNumber },
+        timestamp: new Date(),
+      });
+      return {
+        matched: true,
+        entityType: "ASSET_SALE",
+        entityId: sale.id,
+        paymentId: payment.id,
+        confidence,
+        reason: `Matched to asset sale ${sale.saleNumber} — installment ${item.installmentNo} amount`,
+      };
+    }
+  }
+
   // 2. Check tenancy rent payments — find tenancies with due rent
   const tenancies = await prisma.tenancy.findMany({
     where: {
