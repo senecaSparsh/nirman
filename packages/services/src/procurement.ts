@@ -186,6 +186,57 @@ export async function createPurchaseOrderTx(tx: Prisma.TransactionClient, input:
       if (cost.lt(0)) throw new ServiceError(`unitCost must be >= 0 for material ${line.materialId}`);
     }
 
+    // 3b. Rate-contract enforcement — an agreed rate is a control, not a
+    // hint. If an ACTIVE contract covers (material, supplier), the PO must
+    // honour it: block over-rate lines and releases beyond the contract's
+    // maxQty, and track cumulative releasedQty so the cap is real. Before
+    // this, contracts were stored but never consulted — a ₹350 locked rate
+    // meant nothing when a PO went out at ₹400.
+    const now = new Date();
+    const activeContracts = await tx.rateContract.findMany({
+      where: {
+        companyId: input.companyId,
+        supplierId: input.supplierId,
+        materialId: { in: materialIds },
+        status: "ACTIVE",
+        validFrom: { lte: now },
+        validTo: { gte: now },
+      },
+      orderBy: { validTo: "desc" },
+    });
+    const contractByMaterial = new Map(activeContracts.map((c) => [c.materialId, c]));
+    const materialNameById = new Map(materials.map((m) => [m.id, m.name]));
+    const contractQtyDelta = new Map<string, Decimal>();
+    for (const line of input.lines) {
+      const contract = contractByMaterial.get(line.materialId);
+      if (!contract) continue;
+      const qty = new Decimal(line.qtyOrdered);
+      const cost = new Decimal(line.unitCost);
+      const agreed = new Decimal(contract.agreedRate);
+      const matName = materialNameById.get(line.materialId) ?? line.materialId;
+      if (cost.gt(agreed)) {
+        throw new ServiceError(
+          `Rate contract ${contract.contractNumber} locks ${matName} at ${agreed.toFixed(2)}/unit — PO rate ${cost.toFixed(2)} exceeds it. Use the agreed rate or revise the contract.`,
+          400,
+        );
+      }
+      const released = new Decimal(contract.totalReleasedQty).plus(contractQtyDelta.get(contract.id) ?? 0).plus(qty);
+      if (contract.maxQty != null && released.gt(contract.maxQty)) {
+        throw new ServiceError(
+          `Rate contract ${contract.contractNumber} for ${matName} caps total released qty at ${contract.maxQty} — this release would reach ${released}.`,
+          400,
+        );
+      }
+      contractQtyDelta.set(contract.id, new Decimal(contractQtyDelta.get(contract.id) ?? 0).plus(qty));
+    }
+    // Apply the cumulative release inside the same serializable tx
+    for (const [contractId, delta] of contractQtyDelta) {
+      await tx.rateContract.update({
+        where: { id: contractId },
+        data: { totalReleasedQty: { increment: delta } },
+      });
+    }
+
     // 4. Compute totals — line subtotals + GST + per-line landed-cost components
     let subtotal = new Decimal(0);
     let gstTotal = new Decimal(0);
