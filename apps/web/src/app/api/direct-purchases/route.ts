@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { startOfDayIST, endOfDayIST } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createDirectPurchase, listDirectPurchases, recordVehicleTrip, ServiceError } from "@nirman/services";
@@ -39,8 +40,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
   const purchases = await listDirectPurchases({
     companyId: company.id,
-    from: from ? new Date(from) : undefined,
-    to: to ? new Date(to) : undefined,
+    from: from ? startOfDayIST(new Date(from)) : undefined,
+    to: to ? new Date(endOfDayIST(new Date(to)).getTime() - 1) : undefined,
     supplierId,
   });
 

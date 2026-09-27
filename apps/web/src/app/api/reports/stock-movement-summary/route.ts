@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { Prisma, prisma } from "@nirman/db";
 import { apiHandler, getCompany, getUserScope, json, requirePermission, toNum } from "@/lib/server";
+import { istDateRange } from "@/lib/utils";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -44,9 +45,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
   // Default to current financial year if not provided
   const now = new Date();
   const fyStart = new Date(now.getFullYear() - (now.getMonth() < 3 ? 1 : 0), 3, 1);
-  const fromDate = from ? new Date(from) : fyStart;
-  const toDate = to ? new Date(to) : now;
-  toDate.setHours(23, 59, 59, 999);
+  // Bound the calendar range in IST — a "Sep 1–27" report must cover Sep 27
+  // 00:00–23:59 IST, not the server's local day (UTC prod drifts it 5.5h).
+  const range = istDateRange(from ? from : fyStart, to ? to : now);
+  const fromDate = range.gte;
+  const toDate = range.lte;
 
   // Project-scoped users only see movements at their projects' locations.
   const scope = await getUserScope();

@@ -85,6 +85,23 @@ export function endOfDayIST(d: Date = new Date()): Date {
   return new Date(startOfDayIST(d).getTime() + 24 * 60 * 60 * 1000);
 }
 
+/**
+ * Inclusive `{ gte, lte }` bounds for a from/to **calendar date** (date-input
+ * string "YYYY-MM-DD" or Date) in IST. A report "Sep 1 – 27" must cover Sep 27
+ * 00:00–23:59 IST — not the server's local day. `new Date("2026-09-27")` alone
+ * parses to UTC-midnight (05:30 IST) and `setHours(23,59,59)` bounds in
+ * server-local — both drift 5.5h on a UTC prod box, silently shifting
+ * boundary-day transactions into the wrong report period.
+ */
+export function istDateRange(
+  from: string | Date,
+  to: string | Date,
+): { gte: Date; lte: Date } {
+  const fromD = typeof from === "string" ? new Date(`${from}T00:00:00.000Z`) : from;
+  const toD = typeof to === "string" ? new Date(`${to}T00:00:00.000Z`) : to;
+  return { gte: startOfDayIST(fromD), lte: new Date(endOfDayIST(toD).getTime() - 1) };
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMergeCustom(clsx(inputs));
 }

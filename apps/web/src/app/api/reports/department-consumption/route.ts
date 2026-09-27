@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { startOfDayIST, endOfDayIST } from "@/lib/utils";
 import { Prisma, prisma } from "@nirman/db";
 import { apiHandler, getCompany, getUserScope, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -27,11 +28,10 @@ export const GET = apiHandler(async (req: NextRequest) => {
     Prisma.sql`d."deletedAt" IS NULL`,
     Prisma.sql`i."departmentId" IS NOT NULL`,
   ];
-  if (from) conditions.push(Prisma.sql`i."issueDate" >= ${new Date(from)}`);
+  if (from) conditions.push(Prisma.sql`i."issueDate" >= ${startOfDayIST(new Date(from))}`);
   if (to) {
     // inclusive end-of-day
-    const end = new Date(to);
-    end.setHours(23, 59, 59, 999);
+    const end = new Date(endOfDayIST(new Date(to)).getTime() - 1);
     conditions.push(Prisma.sql`i."issueDate" <= ${end}`);
   }
 

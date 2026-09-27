@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { istDateRange } from "@/lib/utils";
 import { generateGstr1, generateGstr3b } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
@@ -22,9 +23,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     return json({ error: "from and to query params are required (YYYY-MM-DD)" }, { status: 400 });
   }
 
-  const fromDate = new Date(from);
-  const toDate = new Date(to);
-  toDate.setHours(23, 59, 59, 999);
+  const { gte: fromDate, lte: toDate } = istDateRange(from, to);
 
   if (type === "gstr1") {
     const report = await generateGstr1(company.id, fromDate, toDate);

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { startOfDayIST, endOfDayIST } from "@/lib/utils";
 import { getPurchaserPerformance } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -17,10 +18,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const to = searchParams.get("to");
 
   const dateRange: { from?: Date; to?: Date } = {};
-  if (from) dateRange.from = new Date(from);
+  if (from) dateRange.from = startOfDayIST(new Date(from));
   if (to) {
-    const end = new Date(to);
-    end.setHours(23, 59, 59, 999);
+    const end = new Date(endOfDayIST(new Date(to)).getTime() - 1);
     dateRange.to = end;
   }
 
