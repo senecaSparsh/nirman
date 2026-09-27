@@ -179,6 +179,16 @@ async function run(): Promise<Response> {
       const expired = expiringLots.filter((l) => l.expiryDate! < new Date());
       const soonExpiring = expiringLots.filter((l) => l.expiryDate! >= new Date());
 
+      // ── Stuck in-transit — material dispatched but never confirmed ──
+      // A transfer left the source but was never logged at the destination:
+      // the goods are silently in limbo (lost/theft/forgotten) until flagged.
+      const staleTransit = await prisma.stockTransfer.count({
+        where: {
+          fromLocation: { companyId: company.id }, status: "IN_TRANSIT",
+          dispatchedAt: { not: null, lt: new Date(Date.now() - 24 * 3600_000) },
+        },
+      }).catch(() => 0);
+
       // ── Build the digest line ──
       const parts: string[] = [];
       if (approvalsTotal) parts.push(`${approvalsTotal} approval${approvalsTotal > 1 ? "s" : ""} waiting`);
@@ -198,6 +208,7 @@ async function run(): Promise<Response> {
       if (serviceDue) parts.push(`🔧 ${serviceDue} machine${serviceDue > 1 ? "s" : ""} service overdue`);
       if (expired.length) parts.push(`⚠️ ${expired.length} material lot${expired.length > 1 ? "s" : ""} EXPIRED${expired[0]?.material?.name ? ` (${expired[0].material.name})` : ""} — review before use`);
       if (soonExpiring.length) parts.push(`⏳ ${soonExpiring.length} material lot${soonExpiring.length > 1 ? "s" : ""} expiring in ≤7d — use/sell first`);
+      if (staleTransit) parts.push(`🚚 ${staleTransit} transfer${staleTransit > 1 ? "s" : ""} in transit >1 day — confirm or investigate`);
       if (parts.length === 0) parts.push("All clear — no pending approvals or alerts");
 
       let notified = 0;
