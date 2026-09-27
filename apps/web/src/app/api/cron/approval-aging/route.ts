@@ -57,11 +57,16 @@ async function run(): Promise<Response> {
     try {
       const agingHours = company.approvalAgingHours ?? DEFAULT_AGING_HOURS;
       const cutoff = new Date(Date.now() - agingHours * 3600_000);
-      const [agedPOs, agedReqs, agedDprs, agedClaims] = await Promise.all([
+      const [agedPOs, agedReqs, agedDprs, agedClaims, agedUnconverted] = await Promise.all([
         prisma.purchaseOrder.count({ where: { companyId: company.id, status: "DRAFT", createdAt: { lt: cutoff } } }),
         prisma.materialRequisition.count({ where: { project: { companyId: company.id }, status: "SUBMITTED", createdAt: { lt: cutoff } } }),
         prisma.dailyProgressReport.count({ where: { companyId: company.id, approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] }, createdAt: { lt: cutoff } } }),
         prisma.expenseClaim.count({ where: { companyId: company.id, status: "SUBMITTED", submittedAt: { lt: cutoff } } }),
+        // APPROVED but never converted to a PO — the material was sanctioned
+        // but procurement never ordered it, so it never arrives. The
+        // SUBMITTED bucket above covers approval-stall; this covers the
+        // post-approval execution gap.
+        prisma.materialRequisition.count({ where: { project: { companyId: company.id }, status: "APPROVED", updatedAt: { lt: cutoff } } }),
       ]);
       // Sites that didn't file today's DPR — a silent site is invisible to
       // management until someone notices. Only ACTIVE projects: a PLANNED
@@ -81,20 +86,21 @@ async function run(): Promise<Response> {
       const reported = new Set(todaysDprs.map((d) => d.projectId));
       const missingDprProjects = activeProjects.filter((p) => !reported.has(p.id));
 
-      const total = agedPOs + agedReqs + agedDprs + agedClaims;
+      const total = agedPOs + agedReqs + agedDprs + agedClaims + agedUnconverted;
       if (total === 0 && missingDprProjects.length === 0) {
         results.push({ companyId: company.id, aged: 0, notified: 0 });
         continue;
       }
 
       // Oldest waiting item across queues, for the digest line.
-      const [poMin, reqMin, dprMin, claimMin] = await Promise.all([
+      const [poMin, reqMin, dprMin, claimMin, unconvMin] = await Promise.all([
         prisma.purchaseOrder.aggregate({ where: { companyId: company.id, status: "DRAFT" }, _min: { createdAt: true } }),
         prisma.materialRequisition.aggregate({ where: { project: { companyId: company.id }, status: "SUBMITTED" }, _min: { createdAt: true } }),
         prisma.dailyProgressReport.aggregate({ where: { companyId: company.id, approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] } }, _min: { createdAt: true } }),
         prisma.expenseClaim.aggregate({ where: { companyId: company.id, status: "SUBMITTED" }, _min: { submittedAt: true } }),
+        prisma.materialRequisition.aggregate({ where: { project: { companyId: company.id }, status: "APPROVED" }, _min: { updatedAt: true } }),
       ]);
-      const oldest = [poMin._min.createdAt, reqMin._min.createdAt, dprMin._min.createdAt, claimMin._min.submittedAt]
+      const oldest = [poMin._min.createdAt, reqMin._min.createdAt, dprMin._min.createdAt, claimMin._min.submittedAt, unconvMin._min.updatedAt]
         .filter((d): d is Date => d != null)
         .sort((a, b) => a.getTime() - b.getTime())[0];
       const oldestDays = oldest ? Math.floor((Date.now() - oldest.getTime()) / 86_400_000) : 0;
@@ -134,6 +140,7 @@ async function run(): Promise<Response> {
       if (agedReqs) parts.push(`${agedReqs} indent${agedReqs > 1 ? "s" : ""}`);
       if (agedDprs) parts.push(`${agedDprs} DPR${agedDprs > 1 ? "s" : ""}`);
       if (agedClaims) parts.push(`${agedClaims} expense claim${agedClaims > 1 ? "s" : ""}`);
+      if (agedUnconverted) parts.push(`${agedUnconverted} approved indent${agedUnconverted > 1 ? "s" : ""} not yet ordered`);
       const missingSites = missingDprProjects.map((p) => p.name).join(", ");
       if (missingDprProjects.length) {
         parts.push(`${missingDprProjects.length} site${missingDprProjects.length > 1 ? "s" : ""} (${missingSites}) without today's DPR`);
