@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, json } from "@/lib/server";
-import { createInAppNotification, leaseExpiryAlerts } from "@nirman/services";
+import { createInAppNotification, leaseExpiryAlerts, computeServiceStatus } from "@nirman/services";
 import { withTimeout } from "@/lib/timeout";
 
 /**
@@ -120,6 +120,48 @@ async function run(): Promise<Response> {
         delegates.forEach((d) => userIds.add(d.userId));
       }
 
+      // ── Equipment anomalies — diesel leaks + service-due, the things an
+      //    owner would never see unless the system surfaces them. ──
+      const equipRows = await prisma.equipment.findMany({
+        where: { companyId: company.id, deletedAt: null },
+        select: {
+          id: true, name: true, serviceIntervalHours: true, lastServiceMeter: true,
+          usageLogs: {
+            orderBy: { logDate: "desc" }, take: 30,
+            select: { logDate: true, openingMeter: true, closingMeter: true, fuelLitres: true },
+          },
+        },
+      }).catch(() => []);
+      let leakMachines = 0;
+      let serviceDue = 0;
+      let leakWorst: string | null = null;
+      for (const eq of equipRows) {
+        // Service-due: latest closingMeter − lastServiceMeter vs interval
+        const latest = eq.usageLogs.find((l) => l.closingMeter != null)?.closingMeter;
+        const svc = computeServiceStatus(
+          latest != null ? Number(latest) : null,
+          eq.lastServiceMeter != null ? Number(eq.lastServiceMeter) : null,
+          eq.serviceIntervalHours != null ? Number(eq.serviceIntervalHours) : null,
+        );
+        if (svc?.dueNow) serviceDue += 1;
+        // Leak: any log in the last ~2 days running >40% above the machine's median
+        const rates = eq.usageLogs
+          .map((l) => (l.fuelLitres != null && l.openingMeter != null && l.closingMeter != null && Number(l.closingMeter) > Number(l.openingMeter)
+            ? Number(l.fuelLitres) / (Number(l.closingMeter) - Number(l.openingMeter)) : null))
+          .filter((r): r is number => r != null)
+          .sort((a, b) => a - b);
+        if (rates.length >= 3) {
+          const med = rates.length % 2 ? rates[(rates.length - 1) / 2]! : (rates[rates.length / 2 - 1]! + rates[rates.length / 2]!) / 2;
+          const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 2);
+          const recentLeak = eq.usageLogs.some((l) => {
+            const r = l.fuelLitres != null && l.openingMeter != null && l.closingMeter != null && Number(l.closingMeter) > Number(l.openingMeter)
+              ? Number(l.fuelLitres) / (Number(l.closingMeter) - Number(l.openingMeter)) : null;
+            return r != null && r > med * 1.4 && new Date(l.logDate) >= cutoff;
+          });
+          if (recentLeak) { leakMachines += 1; if (!leakWorst) leakWorst = eq.name; }
+        }
+      }
+
       // ── Build the digest line ──
       const parts: string[] = [];
       if (approvalsTotal) parts.push(`${approvalsTotal} approval${approvalsTotal > 1 ? "s" : ""} waiting`);
@@ -135,6 +177,8 @@ async function run(): Promise<Response> {
           `${worst.daysUntilExpiry < 0 ? "EXPIRED" : `${worst.daysUntilExpiry}d left`}`,
         );
       }
+      if (leakMachines) parts.push(`⛽ ${leakMachines} machine${leakMachines > 1 ? "s" : ""} burning excess diesel${leakWorst ? ` (${leakWorst})` : ""} — check fuel log`);
+      if (serviceDue) parts.push(`🔧 ${serviceDue} machine${serviceDue > 1 ? "s" : ""} service overdue`);
       if (parts.length === 0) parts.push("All clear — no pending approvals or alerts");
 
       let notified = 0;
