@@ -40,6 +40,7 @@ import {
   Warehouse,
   Wrench,
 } from "lucide-react";
+import Link from "next/link";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -526,13 +527,14 @@ export function OrbitNavigator({
                   End of the line — no further details to explore
                 </p>
                 {node.href ? (
-                  <a
+                  <Link
                     href={node.href}
+                    prefetch
                     className="mt-2 inline-flex items-center gap-1 text-m-label font-semibold underline"
                     style={{ color: "var(--color-steel)" }}
                   >
                     View full page →
-                  </a>
+                  </Link>
                 ) : null}
               </div>
             ) : null}
@@ -691,14 +693,15 @@ function CenterCard({
 
       {/* View full page link */}
       {node.href ? (
-        <a
+        <Link
           href={node.href}
+          prefetch
           className="mt-2 inline-flex items-center gap-1 text-m-caption font-semibold underline"
           style={{ color: "var(--color-steel)" }}
         >
           <ExternalLink className="size-2.5" />
           Open page
-        </a>
+        </Link>
       ) : null}
     </div>
   );
@@ -751,14 +754,15 @@ function ChildCard({
             </button>
           ) : null}
           {child.href ? (
-            <a
+            <Link
               href={child.href}
+              prefetch
               className="grid place-items-center size-4 rounded-[0.25rem] press"
               style={{ color: "var(--color-steel)" }}
               title="Open full page"
             >
               <ExternalLink className="size-2.5" />
-            </a>
+            </Link>
           ) : null}
         </div>
       </div>
