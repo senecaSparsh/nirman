@@ -165,6 +165,20 @@ async function run(): Promise<Response> {
         }
       }
 
+      // ── Perishable stock — lots expiring within 7 days (use/sell first) ──
+      // Cement/adhesive perishables go bad on the shelf; FEFO picks the
+      // soonest-expiring first, but the owner should know what's at risk.
+      const in7 = new Date(Date.now() + 7 * 86400_000);
+      const expiringLots = await prisma.materialLot.findMany({
+        where: {
+          companyId: company.id, deletedAt: null, currentQty: { gt: 0 },
+          expiryDate: { not: null, lte: in7 },
+        },
+        select: { expiryDate: true, material: { select: { name: true } } },
+      }).catch(() => []);
+      const expired = expiringLots.filter((l) => l.expiryDate! < new Date());
+      const soonExpiring = expiringLots.filter((l) => l.expiryDate! >= new Date());
+
       // ── Build the digest line ──
       const parts: string[] = [];
       if (approvalsTotal) parts.push(`${approvalsTotal} approval${approvalsTotal > 1 ? "s" : ""} waiting`);
@@ -182,6 +196,8 @@ async function run(): Promise<Response> {
       }
       if (leakMachines) parts.push(`⛽ ${leakMachines} machine${leakMachines > 1 ? "s" : ""} burning excess diesel${leakWorst ? ` (${leakWorst})` : ""} — check fuel log`);
       if (serviceDue) parts.push(`🔧 ${serviceDue} machine${serviceDue > 1 ? "s" : ""} service overdue`);
+      if (expired.length) parts.push(`⚠️ ${expired.length} material lot${expired.length > 1 ? "s" : ""} EXPIRED${expired[0]?.material?.name ? ` (${expired[0].material.name})` : ""} — review before use`);
+      if (soonExpiring.length) parts.push(`⏳ ${soonExpiring.length} material lot${soonExpiring.length > 1 ? "s" : ""} expiring in ≤7d — use/sell first`);
       if (parts.length === 0) parts.push("All clear — no pending approvals or alerts");
 
       let notified = 0;

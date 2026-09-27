@@ -1,5 +1,4 @@
 import { prisma, type Prisma, type StockMovementType } from "@nirman/db";
-import { withSerializableTransaction } from "./transaction";
 import Decimal from "decimal.js";
 import {
   computeMovingAverageCost,
@@ -175,15 +174,24 @@ export async function recordMovement(
             `Material ${input.materialId} is lot-tracked: could not determine companyId for FIFO lot selection`,
           );
         }
-        // FIFO: find the oldest lot with available stock
+        // FEFO over FIFO: the soonest-expiring lot with stock goes first —
+        // for cement/perishables, issuing by receivedDate alone strands a
+        // newer-but-sooner-expiring lot on the shelf. Lots with no expiry
+        // (expiryDate NULL) sort last (Postgres ASC = NULLS LAST), so the
+        // non-perishable fallback is still oldest-received FIFO.
         const fifoLot = await tx.materialLot.findFirst({
           where: {
             materialId: input.materialId,
             companyId,
             deletedAt: null,
             currentQty: { gt: 0 },
+            // Never auto-pick an already-expired lot — expired cement is
+            // weaker and silently issuing it is a structural-safety risk.
+            // Expired stock stays on the books but must be selected
+            // explicitly (lotId/lotNumber) — a deliberate, auditable choice.
+            OR: [{ expiryDate: null }, { expiryDate: { gt: new Date() } }],
           },
-          orderBy: { receivedDate: "asc" },
+          orderBy: [{ expiryDate: "asc" }, { receivedDate: "asc" }],
         });
         if (!fifoLot) {
           throw new ServiceError(
@@ -456,7 +464,6 @@ export async function withStockTransaction<T>(
   fn: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
   const MAX_RETRIES = 5;
-  let lastError: unknown;
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
       return await prisma.$transaction(fn, {
@@ -464,7 +471,6 @@ export async function withStockTransaction<T>(
         isolationLevel: "Serializable",
       });
     } catch (err) {
-      lastError = err;
       const msg = err instanceof Error ? err.message : String(err);
       const code = (err as { code?: string }).code;
       // Retry on write conflict / deadlock (Serializable isolation can cause these)
@@ -484,7 +490,6 @@ export async function withStockTransaction<T>(
       throw err;
     }
   }
-  const msg = lastError instanceof Error ? lastError.message : String(lastError);
   throw new ServiceError(
     "This operation conflicted with another concurrent transaction. Please retry.",
     409,
