@@ -964,13 +964,26 @@ async function cashPositionResponse(companyId: string): Promise<AssistantRespons
     select: { balanceOwed: true }});
   const totalPayable = suppliers.reduce((s, sup) => s + toNum(sup.balanceOwed), 0);
 
-  // Customer receivables from pending sales
-  const pendingSales = await prisma.materialSale.findMany({
-    where: { companyId, paymentStatus: { in: ["PENDING", "PARTIAL"] } },
-    include: { payments: { select: { amount: true } } }});
+  // Customer receivables — BOTH surfaces: surplus-material sales AND unit/flat
+  // sales. The old query only counted materialSale, which hid the actual
+  // receivable — a booked flat's unpaid installments (the crores) never showed
+  // in "aane wala". Count each surface's unpaid balance:
+  const [pendingMaterialSales, pendingAssetSales] = await Promise.all([
+    prisma.materialSale.findMany({
+      where: { companyId, paymentStatus: { in: ["PENDING", "PARTIAL"] } },
+      include: { payments: { select: { amount: true } } }}),
+    prisma.assetSale.findMany({
+      where: { companyId, saleStage: { notIn: ["CANCELLED"] }, paymentStatus: { in: ["PENDING", "PARTIAL"] } },
+      include: { payments: { select: { amount: true, status: true } } }}),
+  ]);
   let totalReceivable = 0;
-  for (const s of pendingSales) {
+  for (const s of pendingMaterialSales) {
     totalReceivable += toNum(s.totalAmount) - s.payments.reduce((ps, p) => ps + toNum(p.amount), 0);
+  }
+  for (const s of pendingAssetSales) {
+    const gross = toNum(s.salePrice) + toNum(s.gstAmount);
+    const received = s.payments.filter((p) => p.status !== "VOID").reduce((ps, p) => ps + toNum(p.amount), 0);
+    totalReceivable += Math.max(0, gross - received);
   }
 
   let text = `💵 **Cash Position:**\n\n`;
