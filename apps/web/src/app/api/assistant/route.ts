@@ -838,27 +838,47 @@ async function rejectReqResponse(companyId: string, entities: ParsedEntities): P
 }
 
 async function salesListResponse(companyId: string): Promise<AssistantResponse> {
-  const sales = await prisma.materialSale.findMany({
-    where: { companyId },
-    include: { customer: true, payments: { select: { amount: true } } },
-    orderBy: { createdAt: "desc" },
-    take: 10});
+  // "Aaj ki sales" must show BOTH surfaces — flat bookings (AssetSale, the
+  // revenue) AND surplus material sales. The old query only read materialSale:
+  // a booked flat worth lakhs never appeared in the owner's sales feed.
+  const [materialSales, assetSales] = await Promise.all([
+    prisma.materialSale.findMany({
+      where: { companyId },
+      include: { customer: true, payments: { select: { amount: true, status: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 10}),
+    prisma.assetSale.findMany({
+      where: { companyId, saleStage: { notIn: ["CANCELLED"] } },
+      include: { customer: { select: { name: true } }, builtUnit: { select: { unitNumber: true } }, payments: { select: { amount: true, status: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 10}),
+  ]);
 
-  if (sales.length === 0) {
+  type Row = { label: string; total: number; paid: number; status: string; at: Date };
+  const rows: Row[] = [];
+  for (const s of materialSales) {
+    const paid = s.payments.filter((p) => p.status !== "VOID").reduce((ps, p) => ps + toNum(p.amount), 0);
+    rows.push({ label: `${s.saleNumber} — ${s.customer?.name ?? "Walk-in"}`, total: toNum(s.totalAmount), paid, status: s.paymentStatus, at: s.createdAt });
+  }
+  for (const s of assetSales) {
+    const paid = s.payments.filter((p) => p.status !== "VOID").reduce((ps, p) => ps + toNum(p.amount), 0);
+    const unit = s.builtUnit?.unitNumber ? ` (${s.builtUnit.unitNumber})` : "";
+    rows.push({ label: `${s.customer?.name ?? "Buyer"}${unit}`, total: toNum(s.salePrice) + toNum(s.gstAmount), paid, status: s.paymentStatus, at: s.createdAt });
+  }
+  rows.sort((a, b) => b.at.getTime() - a.at.getTime());
+
+  if (rows.length === 0) {
     return { text: "Abhi tak koi sale nahi hui. Pehli sale banaiye!", intent: "SALES_LIST", confidence: 0.8, cards: [{ type: "link", label: "New sale", href: "/m/sales/new", variant: "primary" }] };
   }
 
-  const totalRevenue = sales.reduce((s, sale) => s + toNum(sale.totalAmount), 0);
-  const paidAmount = sales.reduce(
-    (s, sale) => s + sale.payments.reduce((ps, p) => ps + toNum(p.amount), 0),
-    0,
-  );
+  const totalRevenue = rows.reduce((s, r) => s + r.total, 0);
+  const paidAmount = rows.reduce((s, r) => s + r.paid, 0);
   const pending = totalRevenue - paidAmount;
 
-  let text = `💰 **Recent Sales (${sales.length}):**\n\n`;
-  for (const s of sales.slice(0, 6)) {
-    const status = s.paymentStatus === "PAID" ? "✅" : s.paymentStatus === "PARTIAL" ? "⏳" : "❌";
-    text += `${status} ${s.saleNumber} — ${s.customer?.name ?? "Walk-in"} | ${formatCurrency(toNum(s.totalAmount))} | ${s.paymentStatus}\n`;
+  let text = `💰 **Recent Sales (${rows.length}):**\n\n`;
+  for (const r of rows.slice(0, 6)) {
+    const status = r.status === "PAID" ? "✅" : r.status === "PARTIAL" ? "⏳" : "❌";
+    text += `${status} ${r.label} | ${formatCurrency(r.total)} | ${r.status}\n`;
   }
   text += `\n📊 Total: ${formatCurrency(totalRevenue)} | Collected: ${formatCurrency(paidAmount)} | Pending: ${formatCurrency(pending)}`;
 
@@ -867,7 +887,7 @@ async function salesListResponse(companyId: string): Promise<AssistantResponse> 
     intent: "SALES_LIST",
     confidence: 0.9,
     cards: [
-      { type: "link", label: "All sales", href: "/m/material-sales" },
+      { type: "link", label: "All sales", href: "/m/sales" },
       { type: "link", label: "New sale", href: "/m/sales/new", variant: "primary" },
     ]};
 }
@@ -1509,10 +1529,13 @@ async function monthlySummaryResponse(companyId: string): Promise<AssistantRespo
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const attendanceScope = await scopeWhere("WorkerAttendance", {});
 
-  const [sales, expenses, poCount, poTotal, newReqs, attendanceDays] = await Promise.all([
+  const [sales, assetSales, expenses, poCount, poTotal, newReqs, attendanceDays] = await Promise.all([
     prisma.materialSale.findMany({
       where: { companyId, createdAt: { gte: monthStart } },
-      include: { payments: { select: { amount: true } } }}),
+      include: { payments: { select: { amount: true, status: true } } }}),
+    prisma.assetSale.findMany({
+      where: { companyId, createdAt: { gte: monthStart }, saleStage: { notIn: ["CANCELLED"] } },
+      include: { payments: { select: { amount: true, status: true } } }}),
     prisma.expense.findMany({
       where: { companyId, createdAt: { gte: monthStart } }}),
     prisma.purchaseOrder.count({
@@ -1526,18 +1549,18 @@ async function monthlySummaryResponse(companyId: string): Promise<AssistantRespo
       where: { companyId, date: { gte: monthStart }, ...attendanceScope }}),
   ]);
 
-  const totalSales = sales.reduce((s, sale) => s + toNum(sale.totalAmount), 0);
+  const totalSales = sales.reduce((s, sale) => s + toNum(sale.totalAmount), 0)
+    + assetSales.reduce((s, a) => s + toNum(a.salePrice) + toNum(a.gstAmount), 0);
   const totalCollected = sales.reduce(
-    (s, sale) => s + sale.payments.reduce((ps, p) => ps + toNum(p.amount), 0),
-    0,
-  );
+    (s, sale) => s + sale.payments.filter((p) => p.status !== "VOID").reduce((ps, p) => ps + toNum(p.amount), 0), 0)
+    + assetSales.reduce((s, a) => s + a.payments.filter((p) => p.status !== "VOID").reduce((ps, p) => ps + toNum(p.amount), 0), 0);
   const totalExpenses = expenses.reduce((s, e) => s + toNum(e.amount), 0);
   const poSum = toNum(poTotal._sum.total ?? 0);
   const monthName = now.toLocaleString("en-IN", { month: "long" });
 
   let text = `📅 **${monthName} ${now.getFullYear()} Summary:**\n\n`;
   text += `💰 **Sales:**\n`;
-  text += `• Total sales: ${sales.length} | Value: ${formatCurrency(totalSales)}\n`;
+  text += `• Total sales: ${sales.length + assetSales.length} | Value: ${formatCurrency(totalSales)}\n`;
   text += `• Collected: ${formatCurrency(totalCollected)} | Pending: ${formatCurrency(totalSales - totalCollected)}\n\n`;
   text += `📦 **Procurement:**\n`;
   text += `• Purchase orders: ${poCount} | Value: ${formatCurrency(poSum)}\n`;
@@ -1761,11 +1784,14 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
   if (hasPermission(role, PERM.SALES_VIEW)) {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
-    const todaySales = await prisma.materialSale.count({
-      where: { companyId, createdAt: { gte: todayStart } }});
+    const [todayMatSales, todayAssetSales] = await Promise.all([
+      prisma.materialSale.count({ where: { companyId, createdAt: { gte: todayStart } } }),
+      prisma.assetSale.count({ where: { companyId, createdAt: { gte: todayStart }, saleStage: { notIn: ["CANCELLED"] } } }),
+    ]);
+    const todaySales = todayMatSales + todayAssetSales;
     if (todaySales > 0) {
       items.push(`Aaj ${todaySales} sales hui`);
-      cards.push({ type: "link", label: "Sales dekho", href: "/m/material-sales" });
+      cards.push({ type: "link", label: "Sales dekho", href: "/m/sales" });
     }
   }
 
