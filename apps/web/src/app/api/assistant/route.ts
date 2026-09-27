@@ -881,25 +881,50 @@ function saleCreateResponse(): AssistantResponse {
 }
 
 async function paymentStatusResponse(companyId: string): Promise<AssistantResponse> {
-  const sales = await prisma.materialSale.findMany({
-    where: { companyId, paymentStatus: { in: ["PENDING", "PARTIAL"] } },
-    include: { customer: true, payments: { select: { amount: true } } },
-    orderBy: { createdAt: "desc" },
-    take: 10});
+  // Pending = BOTH surplus-material-sale dues AND flat-sale installments due.
+  // The old query only read materialSale — a builder's actual receivables sit
+  // on paymentScheduleItem (unit installments), so "payment kitni baki" hid
+  // the crores and answered only the petty ₹.
+  const [sales, installments] = await Promise.all([
+    prisma.materialSale.findMany({
+      where: { companyId, paymentStatus: { in: ["PENDING", "PARTIAL"] } },
+      include: { customer: true, payments: { select: { amount: true, status: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 10}),
+    prisma.paymentScheduleItem.findMany({
+      where: {
+        paymentSchedule: { assetSale: { companyId, saleStage: { notIn: ["CANCELLED"] } } },
+        status: { in: ["DUE", "PARTIAL", "PENDING"] }},
+      include: {
+        paymentSchedule: {
+          include: {
+            assetSale: { select: { customer: { select: { name: true } }, builtUnit: { select: { unitNumber: true } } } }}}},
+      orderBy: { dueDate: "asc" },
+      take: 10}),
+  ]);
 
-  let totalPending = 0;
+  const rows: { label: string; due: number }[] = [];
   for (const s of sales) {
-    totalPending += toNum(s.totalAmount) - s.payments.reduce((ps, p) => ps + toNum(p.amount), 0);
+    const due = toNum(s.totalAmount) - s.payments.filter((p) => p.status !== "VOID").reduce((ps, p) => ps + toNum(p.amount), 0);
+    if (due > 0) rows.push({ label: `${s.saleNumber} — ${s.customer?.name ?? "Walk-in"}`, due });
   }
+  for (const i of installments) {
+    const due = toNum(i.amount) - toNum(i.paidAmount);
+    if (due <= 0) continue;
+    const buyer = i.paymentSchedule?.assetSale?.customer?.name ?? "Buyer";
+    const unit = i.paymentSchedule?.assetSale?.builtUnit?.unitNumber;
+    rows.push({ label: `${buyer}${unit ? ` (${unit})` : ""} — ${i.description ?? `Installment ${i.installmentNo}`}`, due });
+  }
+  rows.sort((a, b) => b.due - a.due);
 
-  if (sales.length === 0) {
+  if (rows.length === 0) {
     return { text: "✅ Sab payments received! Koi pending nahi hai. 🎉", intent: "PAYMENT_STATUS", confidence: 0.9 };
   }
 
-  let text = `💵 **Pending Payments (${sales.length}):**\n\n`;
-  for (const s of sales.slice(0, 6)) {
-    const remaining = toNum(s.totalAmount) - s.payments.reduce((ps, p) => ps + toNum(p.amount), 0);
-    text += `• ${s.saleNumber} — ${s.customer?.name ?? "Walk-in"} | Baki: ${formatCurrency(remaining)}\n`;
+  const totalPending = rows.reduce((s, r) => s + r.due, 0);
+  let text = `💵 **Pending Payments (${rows.length}):**\n\n`;
+  for (const r of rows.slice(0, 6)) {
+    text += `• ${r.label} | Baki: ${formatCurrency(r.due)}\n`;
   }
   text += `\n💰 Total pending: ${formatCurrency(totalPending)}`;
 
@@ -907,7 +932,7 @@ async function paymentStatusResponse(companyId: string): Promise<AssistantRespon
     text,
     intent: "PAYMENT_STATUS",
     confidence: 0.9,
-    cards: [{ type: "link", label: "All sales", href: "/m/material-sales" }]};
+    cards: [{ type: "link", label: "Collections", href: "/m/reports/pending-payments" }]};
 }
 
 async function projectListResponse(companyId: string): Promise<AssistantResponse> {
