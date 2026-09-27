@@ -641,3 +641,42 @@ export async function listEquipmentUsage(companyId: string, equipmentId?: string
     },
   });
 }
+
+export interface ServiceStatus {
+  dueNow: boolean;        // interval reached/exceeded
+  hoursToService: number | null;  // negative when overdue
+  latestMeter: number | null;
+  intervalHours: number | null;
+}
+
+/**
+ * Preventive maintenance off ACTUAL run-hours — the latest usage-log meter
+ * minus the meter at last service, vs the machine's service interval.
+ * Returns null interval when the machine has no service schedule configured.
+ */
+export function computeServiceStatus(
+  latestMeter: number | null,
+  lastServiceMeter: number | null,
+  serviceIntervalHours: number | null,
+): ServiceStatus | null {
+  if (serviceIntervalHours == null || serviceIntervalHours <= 0) return null;
+  if (latestMeter == null) return { dueNow: false, hoursToService: serviceIntervalHours, latestMeter: null, intervalHours: serviceIntervalHours };
+  const sinceService = lastServiceMeter != null ? latestMeter - lastServiceMeter : latestMeter;
+  const hoursToService = serviceIntervalHours - sinceService;
+  return {
+    dueNow: hoursToService <= 0,
+    hoursToService,
+    latestMeter,
+    intervalHours: serviceIntervalHours,
+  };
+}
+
+/** Latest recorded meter reading for a machine (for service-due checks). */
+export async function getLatestMeter(equipmentId: string): Promise<number | null> {
+  const log = await prisma.equipmentUsageLog.findFirst({
+    where: { equipmentId, closingMeter: { not: null } },
+    orderBy: { logDate: "desc" },
+    select: { closingMeter: true },
+  });
+  return log?.closingMeter != null ? Number(log.closingMeter) : null;
+}

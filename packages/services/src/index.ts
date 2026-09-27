@@ -498,8 +498,10 @@ export {
   logEquipmentUsage,
   getEquipmentUsageSummary,
   listEquipmentUsage,
+  computeServiceStatus,
+  getLatestMeter,
 } from "./equipment";
-export type { LogEquipmentUsageInput, EquipmentUsageSummary } from "./equipment";
+export type { LogEquipmentUsageInput, EquipmentUsageSummary, ServiceStatus } from "./equipment";
 
 // Requisition — material request → approve → convert to PO
 export {

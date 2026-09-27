@@ -49,6 +49,9 @@ interface EquipmentData {
   currentValue: number;
   purchaseDate: string | null;
   notes: string | null;
+  serviceIntervalHours: number | null;
+  lastServiceMeter: number | null;
+  serviceStatus: { dueNow: boolean; hoursToService: number | null; latestMeter: number | null; intervalHours: number | null } | null;
   activeAssignment: {
     id: string;
     locationId: string;
@@ -327,6 +330,33 @@ export function MobileEquipmentDetailClient({
           <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
             · −{formatCurrencyCompact(depreciation)}
           </span>
+        </div>
+      ) : null}
+
+      {/* ── Service due — preventive maintenance off actual run-hours ── */}
+      {equipment.serviceStatus ? (
+        <div
+          className="rounded-[0.5rem] border p-2.5 mb-3 flex items-center gap-2"
+          style={{
+            borderColor: equipment.serviceStatus.dueNow ? "var(--color-danger)" : "var(--color-line)",
+            backgroundColor: equipment.serviceStatus.dueNow ? "var(--color-danger-soft)" : "var(--color-paper)",
+          }}
+        >
+          <Wrench className="size-4 shrink-0" style={{ color: equipment.serviceStatus.dueNow ? "var(--color-danger)" : "var(--color-steel)" }} />
+          <div className="flex-1">
+            {equipment.serviceStatus.dueNow ? (
+              <span className="text-m-body font-bold" style={{ color: "var(--color-danger)" }}>
+                Service overdue{equipment.serviceStatus.hoursToService != null ? ` — ${Math.abs(Math.round(equipment.serviceStatus.hoursToService))} hrs past` : ""}
+              </span>
+            ) : (
+              <span className="text-m-body font-semibold" style={{ color: "var(--color-ink-700)" }}>
+                Next service in {equipment.serviceStatus.hoursToService != null ? Math.round(equipment.serviceStatus.hoursToService) : "—"} hrs
+              </span>
+            )}
+            <span className="block text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+              every {equipment.serviceIntervalHours} hrs{equipment.serviceStatus.latestMeter != null ? ` · meter ${equipment.serviceStatus.latestMeter}` : ""}
+            </span>
+          </div>
         </div>
       ) : null}
 

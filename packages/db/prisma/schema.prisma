@@ -3316,6 +3316,11 @@ model Equipment {
   currentValue    Decimal         @default(0) @db.Decimal(14, 2) // after depreciation
   purchaseDate    DateTime?
   notes           String?
+  // Preventive maintenance off actual run-hours (from usageLogs), not
+  // calendar guesses. When latest closingMeter − lastServiceMeter ≥
+  // serviceIntervalHours the machine is due — catches the engine before it fails.
+  serviceIntervalHours Decimal?         @db.Decimal(12, 1)
+  lastServiceMeter     Decimal?         @db.Decimal(12, 1) // meter reading at last service
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   deletedAt       DateTime?

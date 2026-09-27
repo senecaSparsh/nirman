@@ -1,4 +1,5 @@
 import { prisma } from "@nirman/db";
+import { computeServiceStatus } from "@nirman/services";
 import { toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
@@ -83,6 +84,15 @@ export default function MobileEquipmentDetailPage({
           currentValue: toNum(equipment.currentValue),
           purchaseDate: equipment.purchaseDate?.toISOString() ?? null,
           notes: equipment.notes,
+          serviceIntervalHours: equipment.serviceIntervalHours != null ? toNum(equipment.serviceIntervalHours) : null,
+          lastServiceMeter: equipment.lastServiceMeter != null ? toNum(equipment.lastServiceMeter) : null,
+          serviceStatus: computeServiceStatus(
+            equipment.usageLogs.find((l) => l.closingMeter != null)?.closingMeter != null
+              ? Number(equipment.usageLogs.find((l) => l.closingMeter != null)!.closingMeter)
+              : null,
+            equipment.lastServiceMeter != null ? Number(equipment.lastServiceMeter) : null,
+            equipment.serviceIntervalHours != null ? Number(equipment.serviceIntervalHours) : null,
+          ),
           activeAssignment: activeAssignment
             ? {
                 id: activeAssignment.id,
