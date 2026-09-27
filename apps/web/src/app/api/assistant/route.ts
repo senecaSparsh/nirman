@@ -217,6 +217,8 @@ async function executeIntent(
       return equipmentResponse(companyId);
     case "FUEL_USAGE":
       return fuelUsageResponse(companyId, rawText);
+    case "PROJECT_MARGIN":
+      return projectMarginResponse(companyId);
     case "EXPENSE_LIST":
       return expenseResponse(companyId);
     case "TRANSFER_STOCK":
@@ -305,6 +307,7 @@ function checkIntentPermission(intent: Intent, role: Role): { allowed: boolean; 
     PAYMENT_STATUS: PERM.SALES_VIEW,
     PROJECT_STATUS: PERM.PROJECTS_VIEW,
     PROJECT_LIST: PERM.PROJECTS_VIEW,
+    PROJECT_MARGIN: PERM.PROJECTS_VIEW,
     CASH_POSITION: PERM.FINANCE_VIEW,
     SUPPLIER_PAYABLE: PERM.FINANCE_VIEW,
     SUPPLIER_LIST: PERM.PROCUREMENT_VIEW,
@@ -1474,6 +1477,55 @@ async function fuelUsageResponse(companyId: string, text: string): Promise<Assis
   return {
     text: out, intent: "FUEL_USAGE", confidence: 0.9,
     cards: [{ type: "link", label: "Equipment", href: "/m/equipment" }]};
+}
+
+async function projectMarginResponse(companyId: string): Promise<AssistantResponse> {
+  const projects = await prisma.project.findMany({
+    where: { companyId, deletedAt: null },
+    select: {
+      id: true, name: true, status: true,
+      totalBudget: true, totalProjectCost: true, costPerSqft: true,
+      _count: { select: { assetSales: true } },
+    },
+    take: 20,
+    orderBy: { updatedAt: "desc" }});
+
+  const withNumbers = projects
+    .map((p) => ({
+      ...p,
+      budget: p.totalBudget ? Number(p.totalBudget) : null,
+      spent: p.totalProjectCost ? Number(p.totalProjectCost) : null,
+    }))
+    .filter((p) => p.budget != null || p.spent != null);
+
+  if (withNumbers.length === 0) {
+    return {
+      text: "Kisi project par budget/cost data nahi hai. Project detail me totalBudget + actual cost set karo — tab margin track hoga.",
+      intent: "PROJECT_MARGIN", confidence: 0.7,
+      cards: [{ type: "link", label: "Projects", href: "/m/projects" }]};
+  }
+
+  const fmt = (n: number) => Math.abs(n) >= 1e7 ? `₹${(n/1e7).toFixed(1)}Cr` : n >= 1e5 ? `₹${(n/1e5).toFixed(1)}L` : `₹${(n/1e3).toFixed(0)}K`;
+
+  let out = `📊 **Project margin (budget vs actual):**\n\n`;
+  const losers: { name: string; over: number }[] = [];
+  for (const p of withNumbers.slice(0, 6)) {
+    if (p.budget != null && p.spent != null) {
+      const used = p.budget > 0 ? Math.round((p.spent / p.budget) * 100) : null;
+      const over = p.spent - p.budget;
+      const flag = over > 0 ? "🔴 over" : used != null && used > 90 ? "🟠 near" : "🟢";
+      out += `• ${p.name}: spent ${fmt(p.spent)} / ${fmt(p.budget)} budget — ${flag}${used != null ? ` ${used}%` : ""}\n`;
+      if (over > 0) losers.push({ name: p.name, over });
+    } else {
+      out += `• ${p.name}: ${p.spent != null ? `spent ${fmt(p.spent)}` : "budget-only"}\n`;
+    }
+  }
+  if (losers.length) out += `\n🔴 **Over budget:** ${losers.map((l) => `${l.name} (+${fmt(l.over)})`).join(", ")} — cost control needed.`;
+  else out += `\n🟢 Koi project budget se over nahi — sab control me.`;
+
+  return {
+    text: out, intent: "PROJECT_MARGIN", confidence: 0.9,
+    cards: [{ type: "link", label: "Projects", href: "/m/projects" }]};
 }
 
 async function expenseResponse(companyId: string): Promise<AssistantResponse> {

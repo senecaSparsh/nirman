@@ -48,6 +48,7 @@ export type Intent =
   | "TRIAL_BALANCE"
   | "EQUIPMENT_STATUS"
   | "FUEL_USAGE"
+  | "PROJECT_MARGIN"
   | "EXPENSE_LIST"
   | "TRANSFER_STOCK"
   | "ISSUE_MATERIAL"
@@ -581,9 +582,23 @@ const INTENTS: IntentDef[] = [
       "fuel usage", "diesel usage", "fuel kitna", "diesel kitna",
       "jcb ka diesel", "machine ka diesel", "equipment ka fuel",
       "diesel kha", "fuel kharcha", "diesel kharcha",
+      "machine ka kharcha", "machine kharcha", "kharaz machine", "fuel me kitna",
       "litres", "litre per hour", "l/hr", "fuel rate",
       "kitna diesel", "kaunsa machine diesel", "sabse zyada diesel",
       "diesel leak", "fuel leak", "mileage",
+    ],
+    weight: 3,
+  },
+
+  // ── Project profit / margin — "kaunsa project loss me hai" ────────────
+  {
+    intent: "PROJECT_MARGIN",
+    keywords: [
+      "project margin", "project profit", "project loss", "loss making",
+      "kaunsa project loss", "project me loss", "project ka profit",
+      "kaunsa project profitable", "budget se zyada", "over budget",
+      "budget exceed", "margin kitna", "project ka margin",
+      "profit kaunsa project", "nuksaan project", "project loss hai",
     ],
     weight: 3,
   },
