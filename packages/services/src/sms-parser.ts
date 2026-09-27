@@ -147,15 +147,22 @@ export interface IngestSmsResult {
   duplicate: boolean;
 }
 
-function smsHash(sender: string, message: string, receivedAt: Date): string {
+/**
+ * Dedup identity = the SMS *content* (sender + message text), NOT the arrival
+ * timestamp. Bank SMS embed the transaction ref + value date in the message
+ * body, so byte-identical messages are the same transaction. Hashing
+ * `receivedAt` (our ingestion time) meant the same forwarded SMS arriving
+ * twice produced different hashes → double-posted payments.
+ */
+function smsHash(sender: string, message: string): string {
   return createHash("sha256")
-    .update(`${sender}|${message}|${receivedAt.toISOString()}`)
+    .update(`${sender}|${message}`)
     .digest("hex");
 }
 
 export async function ingestSms(input: IngestSmsInput): Promise<IngestSmsResult> {
   const receivedAt = input.receivedAt ?? new Date();
-  const hash = smsHash(input.sender, input.message, receivedAt);
+  const hash = smsHash(input.sender, input.message);
 
   // Check for duplicate
   const existing = await prisma.bankSms.findUnique({ where: { smsHash: hash } });
