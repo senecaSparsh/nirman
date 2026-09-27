@@ -288,7 +288,21 @@ export function PurchaseOrderFormDialog({
           <Field label="Supplier" required error={errors.supplierId}>
             <SelectWithCreate
               value={supplierId}
-              onChange={setSupplierId}
+              onChange={(id) => {
+                setSupplierId(id);
+                // Auto-suggest the ETA from the supplier's configured lead
+                // time — most POs ship without an expectedDate, which leaves
+                // the site unable to plan receiving. Only fill when blank so
+                // a manually-set date is never clobbered.
+                if (!expectedDate) {
+                  const lead = localSuppliers.find((s) => s.id === id)?.leadTimeDays;
+                  if (lead != null && lead > 0) {
+                    const d = new Date();
+                    d.setDate(d.getDate() + lead);
+                    setExpectedDate(d.toISOString().slice(0, 10));
+                  }
+                }
+              }}
               onBlur={() => onBlur("supplierId")}
               required
               aria-invalid={!!errors.supplierId}
@@ -335,7 +349,7 @@ export function PurchaseOrderFormDialog({
               )}
             />
           </Field>
-          <Field label="Expected Date">
+          <Field label="Expected Date" hint="Auto-filled from the supplier's lead time — the site plans receiving off this.">
             <Input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
           </Field>
         </div>

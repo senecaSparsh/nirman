@@ -24,7 +24,7 @@ export default function MobileNewProcurementPage({
         const [suppliers, projects, materials, locations, categories] = await Promise.all([
           prisma.supplier.findMany({
             where: { companyId: company.id, deletedAt: null },
-            select: { id: true, name: true, phone: true },
+            select: { id: true, name: true, phone: true, leadTimeDays: true },
             orderBy: { name: "asc" },
           }),
           prisma.project.findMany({
@@ -50,7 +50,7 @@ export default function MobileNewProcurementPage({
         ]);
 
         const serialized = {
-          suppliers: suppliers.map((s) => ({ id: s.id, name: s.name, phone: s.phone })),
+          suppliers: suppliers.map((s) => ({ id: s.id, name: s.name, phone: s.phone, leadTimeDays: s.leadTimeDays })),
           projects: projects.map((p) => ({ id: p.id, name: p.name })),
           materials: materials.map((m) => ({
             id: m.id,

@@ -23,7 +23,7 @@ import { useSmartDefaults } from "@/lib/use-smart-defaults";
 import { SmartDefaultsBadge } from "@/components/mobile/v2/smart-defaults-badge";
 import { SelectorModal } from "@/components/mobile/v2/form-primitives";
 
-interface SupplierItem { id: string; name: string; phone?: string | null; }
+interface SupplierItem { id: string; name: string; phone?: string | null; leadTimeDays?: number | null; }
 interface ProjectItem { id: string; name: string; }
 interface MaterialItem { id: string; name: string; code: string; unit: string; gstRate: number; barcode?: string | null; }
 interface LocationItem { id: string; name: string; type: string; projectId: string | null; }
@@ -697,7 +697,19 @@ function PoForm({
 
   const handleSelect = (id: string) => {
     if (!modal) return;
-    if (modal.type === "supplier") setSupplierId(id);
+    if (modal.type === "supplier") {
+      setSupplierId(id);
+      // Auto-suggest the ETA from the supplier's configured lead time when the
+      // field is blank — an unset expectedDate leaves the site unable to plan.
+      if (!expectedDate) {
+        const lead = suppliers.find((s) => s.id === id)?.leadTimeDays;
+        if (lead != null && lead > 0) {
+          const d = new Date();
+          d.setDate(d.getDate() + lead);
+          setExpectedDate(d.toISOString().slice(0, 10));
+        }
+      }
+    }
     else if (modal.type === "project") setProjectId(id);
     else if (modal.type === "location") setLocationId(id);
     else if (modal.type === "material" && modal.lineIndex !== undefined) {
