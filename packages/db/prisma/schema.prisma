@@ -7338,3 +7338,24 @@ model NumberSequence {
   @@unique([prefix])
 }
 
+
+// ───────────────────────────────────────────────────────────
+//  IDEMPOTENCY — durable dedupe for mutations. The offline queue
+//  sends each op's client-generated id as X-Idempotency-Key; the
+//  apiHandler replays the stored response on a retry instead of
+//  double-applying (a re-synced offline op must not create two
+//  requisitions / two receipts / two payments).
+// ───────────────────────────────────────────────────────────
+model IdempotencyKey {
+  id             String   @id @default(cuid())
+  key            String   // client op id (offline queue) or caller-supplied key
+  userId         String
+  method         String
+  path           String
+  status         Int      // HTTP status of the stored response
+  responseBody   String?  // stored JSON body to replay
+  createdAt      DateTime @default(now())
+
+  @@unique([key, userId])
+  @@index([createdAt])
+}

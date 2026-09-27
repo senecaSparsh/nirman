@@ -377,7 +377,12 @@ async function syncQueueInner(
     try {
       const res = await fetchImpl(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          // Idempotent sync: the op's id is the server's dedup key — a
+          // retried POST replays the stored response instead of double-applying.
+          "X-Idempotency-Key": op.id,
+        },
         body: JSON.stringify(op.payload),
         credentials: "include",
       });

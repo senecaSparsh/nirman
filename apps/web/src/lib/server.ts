@@ -3497,8 +3497,42 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
           return res;
         }
 
+        // ── Idempotent mutations (opt-in via X-Idempotency-Key) ────────────
+        // The offline queue sends each op's client id as the key. A retried
+        // sync (response lost, double-POST) must NOT re-apply — replay the
+        // stored response instead. Durable (DB) so it survives a restart.
+        let idemRecord: { key: string; userId: string; path: string } | null = null;
+        const idemKey = req.method === "POST" ? req.headers.get("x-idempotency-key")?.trim() : null;
+        if (idemKey) {
+          const idemUser = await getCurrentUser();
+          const idemUserId = idemUser?.id ?? "anon";
+          const pathname = new URL(req.url).pathname;
+          const prior = await prisma.idempotencyKey.findUnique({
+            where: { key_userId: { key: idemKey, userId: idemUserId } },
+          }).catch(() => null);
+          if (prior) {
+            return json(
+              prior.responseBody ? JSON.parse(prior.responseBody) : { ok: true, replayed: true },
+              { status: prior.status, headers: { "X-Idempotent-Replay": "true" } },
+            );
+          }
+          idemRecord = { key: idemKey, userId: idemUserId, path: pathname };
+        }
+
         const requestStartAt = new Date();
         const res = await fn(req as TReq, ctx);
+
+        // Store the success body under the idempotency key so a retried
+        // request replays instead of re-applying (4xx/5xx never recorded —
+        // a legit retry after a real failure must go through).
+        if (idemRecord && res.status >= 200 && res.status < 300) {
+          const bodyText = await res.clone().text().catch(() => null);
+          if (bodyText != null && bodyText.length < 100_000) {
+            await prisma.idempotencyKey.create({
+              data: { key: idemRecord.key, userId: idemRecord.userId, method: req.method, path: idemRecord.path, status: res.status, responseBody: bodyText },
+            }).catch(() => {});
+          }
+        }
 
         // ── Auto-add Cache-Control to GET responses ────────────
         // If the handler didn't set a Cache-Control header, add a
