@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Wrench, MapPin, Settings, IndianRupee,
   CheckCircle2, Archive, Loader2, X, Search, ChevronRight,
-  TrendingDown, Package, Send, Check, Pencil, Trash2,
+  TrendingDown, Package, Send, Check, Pencil, Trash2, Fuel,
 } from "lucide-react";
 import {formatCurrencyCompact, formatDate, formatEnumLabel} from "@/lib/utils";
 import { toast } from "sonner";
@@ -59,6 +59,20 @@ interface EquipmentData {
   } | null;
   assignments: Assignment[];
   maintenance: MaintenanceRecord[];
+  usageLogs: UsageLog[];
+}
+
+interface UsageLog {
+  id: string;
+  logDate: string;
+  meterKind: string;
+  openingMeter: number | null;
+  closingMeter: number | null;
+  fuelLitres: number | null;
+  fuelCost: number | null;
+  operatorName: string | null;
+  notes: string | null;
+  projectName: string | null;
 }
 
 interface LocationItem { id: string; name: string; type: string; }
@@ -90,6 +104,18 @@ export function MobileEquipmentDetailClient({
   const [showMaintenance, setShowMaintenance] = useState(false);
   const [showRetire, setShowRetire] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showUsage, setShowUsage] = useState(false);
+  const [usageSaving, setUsageSaving] = useState(false);
+  const [usageForm, setUsageForm] = useState({
+    projectId: "",
+    meterKind: "HOURS" as "HOURS" | "KM",
+    openingMeter: "",
+    closingMeter: "",
+    fuelLitres: "",
+    fuelCost: "",
+    operatorName: "",
+    notes: "",
+  });
   const [deleting, setDeleting] = useState(false);
 
   async function handleDelete() {
@@ -113,6 +139,51 @@ export function MobileEquipmentDetailClient({
       toast.error(err instanceof Error ? err.message : "Failed to delete");
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function handleLogUsage() {
+    if (!equipment) return;
+    const opening = usageForm.openingMeter.trim() ? Number(usageForm.openingMeter) : null;
+    const closing = usageForm.closingMeter.trim() ? Number(usageForm.closingMeter) : null;
+    const fuel = usageForm.fuelLitres.trim() ? Number(usageForm.fuelLitres) : null;
+    const fuelCost = usageForm.fuelCost.trim() ? Number(usageForm.fuelCost) : null;
+    if (closing == null && fuel == null) {
+      toast.error("Enter a closing meter reading or fuel added");
+      return;
+    }
+    if (closing != null && opening == null) {
+      toast.error("Enter the opening meter reading");
+      return;
+    }
+    setUsageSaving(true);
+    try {
+      const res = await fetch("/api/equipment-usage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          equipmentId: equipment.id,
+          projectId: usageForm.projectId || equipment.activeAssignment?.projectId || null,
+          meterKind: usageForm.meterKind,
+          openingMeter: opening,
+          closingMeter: closing,
+          fuelLitres: fuel,
+          fuelCost,
+          operatorName: usageForm.operatorName.trim() || undefined,
+          notes: usageForm.notes.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to log usage");
+      haptic(10);
+      toast.success("Usage logged");
+      setShowUsage(false);
+      setUsageForm({ projectId: "", meterKind: "HOURS", openingMeter: "", closingMeter: "", fuelLitres: "", fuelCost: "", operatorName: "", notes: "" });
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to log usage");
+    } finally {
+      setUsageSaving(false);
     }
   }
 
@@ -374,9 +445,74 @@ export function MobileEquipmentDetailClient({
         </>
       ) : null}
 
+      {/* ── Usage / fuel log — diesel-leakage + run-hours telemetry ── */}
+      {equipment.usageLogs.length > 0 ? (
+        <>
+          <div className="flex items-center gap-1.5 mb-2">
+            <Fuel className="size-3" style={{ color: "var(--color-steel)" }} />
+            <span className="text-m-caption font-bold uppercase tracking-wide" style={{ color: "var(--color-steel)" }}>
+              Fuel & Usage ({equipment.usageLogs.length})
+            </span>
+            <div className="flex-1 h-px" style={{ backgroundColor: "var(--color-line)" }} />
+          </div>
+          <div className="flex flex-col gap-1.5 mb-3">
+            {equipment.usageLogs.map((l) => {
+              const run = l.openingMeter != null && l.closingMeter != null ? l.closingMeter - l.openingMeter : null;
+              const perUnit = run != null && run > 0 && l.fuelLitres != null && l.fuelLitres > 0
+                ? l.fuelLitres / run
+                : null;
+              return (
+                <div
+                  key={l.id}
+                  className="rounded-[0.5rem] border p-2.5"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
+                      {formatDate(l.logDate)}
+                    </span>
+                    {perUnit != null ? (
+                      <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>
+                        {perUnit.toFixed(1)} L/{l.meterKind === "KM" ? "km" : "hr"}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    {l.fuelLitres != null ? (
+                      <span className="text-m-caption font-semibold tabular-nums" style={{ color: "var(--color-ink-700)" }}>
+                        {l.fuelLitres} L{l.fuelCost != null ? ` · ${formatCurrencyCompact(l.fuelCost)}` : ""}
+                      </span>
+                    ) : null}
+                    {run != null ? (
+                      <>
+                        {l.fuelLitres != null ? <span style={{ color: "var(--color-line)" }}>·</span> : null}
+                        <span className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                          {run} {l.meterKind === "KM" ? "km" : "hrs"}
+                        </span>
+                      </>
+                    ) : null}
+                    {l.operatorName ? (
+                      <>
+                        <span style={{ color: "var(--color-line)" }}>·</span>
+                        <span className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>{l.operatorName}</span>
+                      </>
+                    ) : null}
+                  </div>
+                  {l.projectName || l.notes ? (
+                    <p className="text-m-caption mt-0.5 truncate" style={{ color: "var(--color-ink-400)" }}>
+                      {[l.projectName, l.notes].filter(Boolean).join(" · ")}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ) : null}
+
       {/* ── Action buttons ── */}
       {canManage && !isRetired && !isSold ? (
-        <div className="flex gap-2 mt-2">
+        <div className="flex flex-wrap gap-2 mt-2">
           {/* Assign (only if available) */}
           {isAvailable ? (
             <button
@@ -389,6 +525,17 @@ export function MobileEquipmentDetailClient({
               <span>Assign to Project</span>
             </button>
           ) : null}
+
+          {/* Log daily fuel / usage — the diesel-leakage capture */}
+          <button
+            onClick={() => setShowUsage(true)}
+            disabled={acting !== null}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold border text-m-body press disabled:opacity-50"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          >
+            <Fuel className="size-4" />
+            <span>Log Fuel</span>
+          </button>
 
           {/* Record maintenance (if not already in maintenance) */}
           {!isMaintenance ? (
@@ -526,6 +673,128 @@ export function MobileEquipmentDetailClient({
           }}
         />
       ) : null}
+      {/* ── Fuel / usage log modal ── */}
+      {showUsage ? (
+        <MobileDialog open={true} onClose={() => setShowUsage(false)} title="Log fuel & usage">
+          <div className="p-3 space-y-3">
+            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+              Daily fuel + meter reading — catches diesel leakage and drives service scheduling.
+            </p>
+
+            {projects.length > 0 ? (
+              <div>
+                <label className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Site (optional)</label>
+                <select
+                  value={usageForm.projectId}
+                  onChange={(e) => setUsageForm((f) => ({ ...f, projectId: e.target.value }))}
+                  className="mt-1 w-full rounded-[0.5rem] border px-2.5 py-2 text-m-body"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                >
+                  <option value="">{equipment.activeAssignment?.projectName ?? "— current site —"}</option>
+                  {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+            ) : null}
+
+            <div>
+              <label className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Meter type</label>
+              <div className="mt-1 flex gap-2">
+                {(["HOURS", "KM"] as const).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setUsageForm((f) => ({ ...f, meterKind: k }))}
+                    className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold border press"
+                    style={{
+                      borderColor: usageForm.meterKind === k ? "var(--color-ink-950)" : "var(--color-line)",
+                      backgroundColor: usageForm.meterKind === k ? "var(--color-ink-950)" : "var(--color-paper)",
+                      color: usageForm.meterKind === k ? "var(--color-paper)" : "var(--color-ink-950)",
+                    }}
+                  >
+                    {k === "HOURS" ? "Hour-meter" : "Odometer (km)"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Opening</label>
+                <input
+                  type="number" inputMode="decimal" value={usageForm.openingMeter}
+                  onChange={(e) => setUsageForm((f) => ({ ...f, openingMeter: e.target.value }))}
+                  placeholder="0"
+                  className="mt-1 w-full rounded-[0.5rem] border px-2.5 py-2 text-m-body"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                />
+              </div>
+              <div>
+                <label className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Closing</label>
+                <input
+                  type="number" inputMode="decimal" value={usageForm.closingMeter}
+                  onChange={(e) => setUsageForm((f) => ({ ...f, closingMeter: e.target.value }))}
+                  placeholder="0"
+                  className="mt-1 w-full rounded-[0.5rem] border px-2.5 py-2 text-m-body"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Fuel added (L)</label>
+                <input
+                  type="number" inputMode="decimal" value={usageForm.fuelLitres}
+                  onChange={(e) => setUsageForm((f) => ({ ...f, fuelLitres: e.target.value }))}
+                  placeholder="e.g. 20"
+                  className="mt-1 w-full rounded-[0.5rem] border px-2.5 py-2 text-m-body"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                />
+              </div>
+              <div>
+                <label className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Fuel cost ₹</label>
+                <input
+                  type="number" inputMode="decimal" value={usageForm.fuelCost}
+                  onChange={(e) => setUsageForm((f) => ({ ...f, fuelCost: e.target.value }))}
+                  placeholder="optional"
+                  className="mt-1 w-full rounded-[0.5rem] border px-2.5 py-2 text-m-body"
+                  style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Operator</label>
+              <input
+                type="text" value={usageForm.operatorName}
+                onChange={(e) => setUsageForm((f) => ({ ...f, operatorName: e.target.value }))}
+                placeholder="Who ran it"
+                className="mt-1 w-full rounded-[0.5rem] border px-2.5 py-2 text-m-body"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+              />
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setShowUsage(false)}
+                className="flex-1 rounded-[0.5rem] py-2.5 text-m-body font-bold border press"
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLogUsage}
+                disabled={usageSaving}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-body font-bold press disabled:opacity-50"
+                style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+              >
+                {usageSaving ? <Loader2 className="size-4 animate-spin" /> : <><Fuel className="size-4" /><span>Log</span></>}
+              </button>
+            </div>
+          </div>
+        </MobileDialog>
+      ) : null}
+
       {confirmDialog}
     </div>
   );

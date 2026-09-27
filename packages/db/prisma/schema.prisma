@@ -97,6 +97,7 @@ model Company {
   renovations    RenovationProject[]
   expenses       Expense[]
   equipment      Equipment[]
+  equipmentUsageLogs EquipmentUsageLog[]
   supplierReturns SupplierReturn[]
   employees      Employee[]
   employeeResources EmployeeResource[]
@@ -903,6 +904,7 @@ model User {
   createdExpenses        Expense[]              @relation("ExpenseCreator")
   createdProjectCosts    ProjectCost[]
   createdAssetSales      AssetSale[]
+  loggedEquipmentUsage   EquipmentUsageLog[]
   createdMaterialSales   MaterialSale[]
   createdMaterialSaleReturns MaterialSaleReturn[]
   createdRenovations     RenovationProject[]
@@ -1324,6 +1326,7 @@ model Project {
   expenses       Expense[]
   phases         ProjectPhase[]
   equipmentAssignments EquipmentAssignment[]
+  equipmentUsageLogs   EquipmentUsageLog[]
   crews          Crew[]
   attendances    WorkerAttendance[]
   dailyProgressReports DailyProgressReport[]
@@ -3320,6 +3323,7 @@ model Equipment {
   company     Company              @relation(fields: [companyId], references: [id], onDelete: Restrict)
   assignments EquipmentAssignment[]
   maintenance EquipmentMaintenance[]
+  usageLogs   EquipmentUsageLog[]
 
   @@index([companyId])
   @@index([status])
@@ -3369,6 +3373,44 @@ model EquipmentMaintenance {
   equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
 
   @@index([equipmentId])
+}
+
+// ───────────────────────────────────────────────────────────
+//  EQUIPMENT DAILY USAGE LOG — fuel + run-hours per machine per day.
+//  The single biggest site-level leakage is diesel: a generator or JCB
+//  that "ran 8 hours" on 40L when it should run on 28L is theft. This
+//  log captures fuel filled + meter readings daily so litres-per-hour
+//  and cost-per-hour are derivable, and so maintenance can be scheduled
+//  off actual run-hours instead of calendar guesses.
+// ───────────────────────────────────────────────────────────
+model EquipmentUsageLog {
+  id          String   @id @default(cuid())
+  equipmentId String
+  companyId   String
+  projectId   String?          // site where the machine ran that day
+  logDate     DateTime @default(now())
+  // Meter — hour-meter for plant/machinery, odometer for vehicles. The
+  // run for the day = closingMeter − openingMeter.
+  meterKind   String   @default("HOURS") // HOURS | KM
+  openingMeter Decimal?        @db.Decimal(14, 2)
+  closingMeter Decimal?        @db.Decimal(14, 2)
+  // Fuel added today (diesel/petrol). fuelCost is the ₹ paid.
+  fuelLitres  Decimal?         @db.Decimal(14, 3)
+  fuelCost    Decimal?         @db.Decimal(14, 2)
+  operatorName String?         // who ran it
+  notes       String?
+  loggedById  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  project   Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  loggedBy  User?     @relation(fields: [loggedById], references: [id], onDelete: SetNull)
+
+  @@index([equipmentId, logDate])
+  @@index([companyId])
+  @@index([projectId])
 }
 
 // ───────────────────────────────────────────────────────────

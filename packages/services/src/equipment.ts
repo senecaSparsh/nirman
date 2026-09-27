@@ -500,3 +500,144 @@ export function computeDepreciatedValue(
   // Don't go below zero
   return depreciated.lt(0) ? new Decimal(0) : depreciated;
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+//  EQUIPMENT USAGE LOG — daily fuel + run-hours per machine.
+//
+//  Diesel is the biggest controllable site leakage: a JCB or generator that
+//  logs 8 run-hours but drank 40L when the machine spec is ~4L/hr is theft
+//  or a broken machine. The log captures fuel filled + opening/closing meter
+//  so litres-per-hour and cost-per-hour are derivable, and so preventive
+//  maintenance can schedule off actual run-hours instead of calendar guesses.
+//
+//  Operational telemetry only — the fuel *purchase* is already an expense /
+//  procurement flow, so no GL posting here (that would double-count).
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface LogEquipmentUsageInput {
+  equipmentId: string;
+  companyId: string;
+  projectId?: string | null;
+  logDate?: Date | string;
+  meterKind?: "HOURS" | "KM";
+  openingMeter?: Decimal | number | string | null;
+  closingMeter?: Decimal | number | string | null;
+  fuelLitres?: Decimal | number | string | null;
+  fuelCost?: Decimal | number | string | null;
+  operatorName?: string;
+  notes?: string;
+  userId?: string;
+}
+
+export async function logEquipmentUsage(input: LogEquipmentUsageInput) {
+  return withSerializableTransaction(async (tx) => {
+    const equipment = await tx.equipment.findFirst({
+      where: { id: input.equipmentId, companyId: input.companyId, deletedAt: null },
+    });
+    if (!equipment) throw new ServiceError("Equipment not found or deleted", 404);
+    if (equipment.status === "RETIRED") throw new ServiceError("Cannot log usage on retired equipment");
+
+    // Validate the meter pair — closing must be ≥ opening when both present,
+    // and a closing without an opening is meaningless for run-hours.
+    const opening = input.openingMeter != null ? new Decimal(input.openingMeter) : null;
+    const closing = input.closingMeter != null ? new Decimal(input.closingMeter) : null;
+    if (closing != null && opening == null) {
+      throw new ServiceError("Closing meter requires an opening reading", 400);
+    }
+    if (opening != null && closing != null && closing.lt(opening)) {
+      throw new ServiceError("Closing meter cannot be below opening meter", 400);
+    }
+
+    const fuelLitres = input.fuelLitres != null ? new Decimal(input.fuelLitres) : null;
+    const fuelCost = input.fuelCost != null ? new Decimal(input.fuelCost) : null;
+    if (fuelLitres != null && fuelLitres.lte(0)) throw new ServiceError("fuelLitres must be > 0", 400);
+    if (fuelCost != null && fuelCost.lt(0)) throw new ServiceError("fuelCost cannot be negative", 400);
+
+    if (input.projectId) {
+      const project = await tx.project.findFirst({
+        where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
+      });
+      if (!project) throw new ServiceError("Project not found or does not belong to this company", 404);
+    }
+
+    const log = await tx.equipmentUsageLog.create({
+      data: {
+        equipmentId: input.equipmentId,
+        companyId: input.companyId,
+        projectId: input.projectId ?? null,
+        logDate: input.logDate ? new Date(input.logDate) : new Date(),
+        meterKind: input.meterKind ?? "HOURS",
+        openingMeter: opening,
+        closingMeter: closing,
+        fuelLitres,
+        fuelCost,
+        operatorName: input.operatorName,
+        notes: input.notes,
+        loggedById: input.userId,
+      },
+    });
+
+    await logAction(tx, {
+      userId: input.userId,
+      action: "EQUIPMENT_USAGE_LOG",
+      entityType: "EquipmentUsageLog",
+      entityId: log.id,
+      after: {
+        equipmentId: input.equipmentId,
+        fuelLitres: fuelLitres?.toString() ?? null,
+        run: opening != null && closing != null ? closing.minus(opening).toString() : null,
+      },
+    });
+
+    return log;
+  });
+}
+
+export interface EquipmentUsageSummary {
+  totalFuelLitres: Decimal;
+  totalFuelCost: Decimal;
+  totalRun: Decimal; // sum of (closing − opening) across logs
+  runUnit: string;   // "hrs" | "km"
+  litresPerUnit: Decimal | null;  // fuel / run — the leakage signal
+  costPerUnit: Decimal | null;    // fuelCost / run
+}
+
+export async function getEquipmentUsageSummary(equipmentId: string): Promise<EquipmentUsageSummary> {
+  const logs = await prisma.equipmentUsageLog.findMany({
+    where: { equipmentId },
+    orderBy: { logDate: "asc" },
+  });
+  let totalFuel = new Decimal(0);
+  let totalCost = new Decimal(0);
+  let totalRun = new Decimal(0);
+  let runUnit = "hrs";
+  for (const l of logs) {
+    if (l.fuelLitres) totalFuel = totalFuel.plus(l.fuelLitres);
+    if (l.fuelCost) totalCost = totalCost.plus(l.fuelCost);
+    if (l.openingMeter != null && l.closingMeter != null) {
+      totalRun = totalRun.plus(new Decimal(l.closingMeter).minus(l.openingMeter));
+    }
+    if (l.meterKind === "KM") runUnit = "km";
+  }
+  return {
+    totalFuelLitres: totalFuel,
+    totalFuelCost: totalCost,
+    totalRun,
+    runUnit,
+    litresPerUnit: totalRun.gt(0) ? totalFuel.div(totalRun) : null,
+    costPerUnit: totalRun.gt(0) ? totalCost.div(totalRun) : null,
+  };
+}
+
+export async function listEquipmentUsage(companyId: string, equipmentId?: string) {
+  return prisma.equipmentUsageLog.findMany({
+    where: { companyId, ...(equipmentId ? { equipmentId } : {}) },
+    orderBy: { logDate: "desc" },
+    take: 200,
+    include: {
+      equipment: { select: { id: true, name: true, assetTag: true } },
+      project: { select: { id: true, name: true } },
+      loggedBy: { select: { name: true } },
+    },
+  });
+}

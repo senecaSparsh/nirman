@@ -34,6 +34,11 @@ export default function MobileEquipmentDetailPage({
               orderBy: { startDate: "desc" },
               take: 10,
             },
+            usageLogs: {
+              orderBy: { logDate: "desc" },
+              take: 15,
+              include: { project: { select: { id: true, name: true } } },
+            },
           },
         });
 
@@ -104,6 +109,18 @@ export default function MobileEquipmentDetailPage({
             cost: toNum(m.cost),
             vendor: m.vendor,
             notes: m.notes,
+          })),
+          usageLogs: equipment.usageLogs.map((l) => ({
+            id: l.id,
+            logDate: l.logDate.toISOString(),
+            meterKind: l.meterKind,
+            openingMeter: l.openingMeter == null ? null : toNum(l.openingMeter),
+            closingMeter: l.closingMeter == null ? null : toNum(l.closingMeter),
+            fuelLitres: l.fuelLitres == null ? null : toNum(l.fuelLitres),
+            fuelCost: l.fuelCost == null ? null : toNum(l.fuelCost),
+            operatorName: l.operatorName,
+            notes: l.notes,
+            projectName: l.project?.name ?? null,
           })),
         };
 

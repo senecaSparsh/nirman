@@ -495,7 +495,11 @@ export {
   unretireEquipment,
   sellEquipment,
   computeDepreciatedValue,
+  logEquipmentUsage,
+  getEquipmentUsageSummary,
+  listEquipmentUsage,
 } from "./equipment";
+export type { LogEquipmentUsageInput, EquipmentUsageSummary } from "./equipment";
 
 // Requisition — material request → approve → convert to PO
 export {
