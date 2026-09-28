@@ -340,18 +340,29 @@ export async function reconcileInventoryGl(
   const glCredit = new Decimal(glGrouped?._sum?.credit ?? 0);
   const glBalance = glDebit.minus(glCredit); // asset → debit-normal
 
-  // Stock value = Σ qty × MAC.
-  const items = await prisma.stockLocationItem.findMany({
-    where: {
-      location: { deletedAt: null, companyId },
-      material: { deletedAt: null },
-    },
-    select: { qty: true, movingAvgCost: true },
-  });
-  const stockValue = items.reduce(
-    (sum, i) => sum.plus(new Decimal(i.qty).times(new Decimal(i.movingAvgCost))),
-    new Decimal(0),
-  );
+  // Stock value = the stock ledger's authoritative running value (latest
+  // StockMovement.balanceValueAfter per material+location), NOT a recomputed
+  // Σ(qty × MAC). Re-multiplying the per-unit movingAvgCost — stored rounded
+  // to 2 decimals — loses the sub-paise residual and false-positives a FAIL
+  // on a healthy book (e.g. 65 × 376.92 = 24499.80 vs the true ledger value
+  // 24500.00). The ledger value is what the GL is supposed to equal, so it is
+  // the correct comparator: a missed/doubled GL posting still diverges.
+  const valuedLocations = await prisma.$queryRaw<{ value: Decimal }[]>`
+    SELECT COALESCE(SUM(v."balanceValueAfter"), 0) AS value FROM (
+      SELECT DISTINCT ON (m."materialId", m."locationId")
+        m."balanceValueAfter"
+      FROM (
+        SELECT id, "materialId", "toLocationId" AS "locationId", "balanceValueAfter", timestamp
+        FROM "StockMovement" WHERE "toLocationId" IS NOT NULL
+        UNION ALL
+        SELECT id, "materialId", "fromLocationId" AS "locationId", "balanceValueAfter", timestamp
+        FROM "StockMovement" WHERE "fromLocationId" IS NOT NULL
+      ) m
+      INNER JOIN "StockLocation" loc ON loc.id = m."locationId" AND loc."companyId" = ${companyId} AND loc."deletedAt" IS NULL
+      INNER JOIN "Material" mat ON mat.id = m."materialId" AND mat."deletedAt" IS NULL
+      ORDER BY m."materialId", m."locationId", m.timestamp DESC, m.id DESC
+    ) v`;
+  const stockValue = new Decimal(valuedLocations[0]?.value ?? 0);
 
   return buildCheck({
     id: "inventory-gl",
