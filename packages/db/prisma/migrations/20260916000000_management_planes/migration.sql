@@ -21,6 +21,9 @@ ADD COLUMN     "delegationStartedAt" TIMESTAMP(3);
 CREATE INDEX "AuditLog_timestamp_idx" ON "AuditLog"("timestamp");
 
 -- CreateIndex
+-- nirman:accept-risk fingerprint is NULL for every existing row (column added
+-- nullable in this same migration) and Postgres unique indexes allow multiple
+-- NULLs — the index cannot collide on the populated table.
 CREATE UNIQUE INDEX "ErrorLog_fingerprint_key" ON "ErrorLog"("fingerprint");
 
 -- CreateIndex

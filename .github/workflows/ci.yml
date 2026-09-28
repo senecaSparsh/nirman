@@ -55,6 +55,29 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
+    # The service tests hit a real Postgres (the vitest setup truncates + seeds
+    # tables). Without one, every DB-backed test fails — this is what kept CI
+    # red. Same postgres service the migrations job uses.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nirman_inventory_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/nirman_inventory_test?schema=public"
+      # migrate deploy reads DIRECT_URL for the non-pooled migration connection
+      DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/nirman_inventory_test"
+
     steps:
       - uses: actions/checkout@v4
 
@@ -72,6 +95,10 @@ jobs:
 
       - name: Generate Prisma client
         run: pnpm --filter @nirman/db generate
+
+      - name: Apply schema to test DB
+        working-directory: packages/db
+        run: pnpm exec prisma migrate deploy
 
       - name: Run tests
         run: pnpm --filter @nirman/services test

@@ -16,9 +16,15 @@ export default defineConfig({
     },
     // Setup file that sets DATABASE_URL before any imports
     setupFiles: ["src/test/setup.ts"],
-    // Use the test database — set BEFORE any module imports @nirman/db
+    // Use the test database — set BEFORE any module imports @nirman/db.
+    // CI injects its own DATABASE_URL (a postgres service); locally we fall
+    // back to the dev machine's test DB. The hardcoded localhost URL only
+    // works on the maintainer's laptop — without the env override every
+    // DB-backed test fails in CI (this was the chronic red pipeline).
     env: {
-      DATABASE_URL: "postgresql://sparshagarwal@localhost:5432/nirman_inventory_test?schema=public",
+      DATABASE_URL:
+        process.env.DATABASE_URL ??
+        "postgresql://sparshagarwal@localhost:5432/nirman_inventory_test?schema=public",
       NODE_ENV: "test",
     },
     // Integration tests are slower — give them more time
