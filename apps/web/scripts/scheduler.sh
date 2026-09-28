@@ -86,6 +86,7 @@ loop 86400  /api/cron/daily-digest   "x-cron-secret: $CRON_SECRET" &
 loop 86400  /api/cron/approval-aging "x-cron-secret: $CRON_SECRET" &
 loop 86400  /api/cron/integrity      "x-cron-secret: $CRON_SECRET" &
 loop 86400  /api/cron/reconciliation "x-cron-secret: $CRON_SECRET" &
+loop 3600   /api/cron/tally-sync     "x-cron-secret: $CRON_SECRET" &
 loop 604800 /api/cron/hsn-seed       "x-cron-secret: $CRON_SECRET" &
 
 wait
