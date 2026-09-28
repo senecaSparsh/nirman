@@ -3,8 +3,17 @@ import Decimal from "decimal.js";
 import { createHash } from "crypto";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
-import { postPaymentReceived, postDepositReceived, postMaterialSalePayment, postJournalEntry, ACCT } from "./gl-posting";
-import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
+import {
+  postPaymentReceived,
+  postDepositReceived,
+  postMaterialSalePayment,
+  postJournalEntry,
+  ACCT,
+} from "./gl-posting";
+import {
+  emitNotificationEvent,
+  NotificationEventType,
+} from "./notification-event-bus";
 import { withSerializableTransaction } from "./transaction";
 import { syncPaymentScheduleFromPayments } from "./sale";
 
@@ -68,24 +77,42 @@ function detectBank(sender: string): string | null {
 const AMOUNT_REGEX = /(?:Rs\.?|INR)\s*\.?\s*([0-9,]+(?:\.[0-9]{1,2})?)/i;
 
 // UPI reference extraction
-const UPI_REF_REGEX = /(?:UPI\s*Ref(?:\.|No|Number)?)?\s*[:#]?\s*([0-9]{10,22})/i;
+const UPI_REF_REGEX =
+  /(?:UPI\s*Ref(?:\.|No|Number)?)?\s*[:#]?\s*([0-9]{10,22})/i;
 
 // Account number extraction — "a/c XX1234", "account xxx1234", "a/c no 1234"
-const ACCOUNT_REGEX = /(?:a\/c(?:\s*no)?|account)\s*(?:no\.?\s*)?(?:[Xx]+)?([0-9]{3,8})/i;
+const ACCOUNT_REGEX =
+  /(?:a\/c(?:\s*no)?|account)\s*(?:no\.?\s*)?(?:[Xx]+)?([0-9]{3,8})/i;
 
 // Transaction type detection
 function detectTxnType(message: string): "CREDIT" | "DEBIT" | "REFUND" | null {
   const lower = message.toLowerCase();
   if (lower.includes("refund")) return "REFUND";
-  if (lower.includes("credited") || lower.includes("received") || lower.includes("deposited") || lower.includes("credit")) return "CREDIT";
-  if (lower.includes("debited") || lower.includes("withdrawn") || lower.includes("spent") || lower.includes("debit")) return "DEBIT";
+  if (
+    lower.includes("credited") ||
+    lower.includes("received") ||
+    lower.includes("deposited") ||
+    lower.includes("credit")
+  )
+    return "CREDIT";
+  if (
+    lower.includes("debited") ||
+    lower.includes("withdrawn") ||
+    lower.includes("spent") ||
+    lower.includes("debit")
+  )
+    return "DEBIT";
   return null;
 }
 
 // Counterparty extraction — "from JOHN DOE", "by RAMESH KUMAR"
 const COUNTERPARTY_REGEX = /(?:from|by)\s+([A-Z][A-Z\s]{3,30})/;
 
-export function parseSms(sender: string, message: string, receivedAt?: Date): ParsedSms {
+export function parseSms(
+  sender: string,
+  message: string,
+  receivedAt?: Date,
+): ParsedSms {
   const bankName = detectBank(sender);
   const txnType = detectTxnType(message);
 
@@ -155,17 +182,19 @@ export interface IngestSmsResult {
  * twice produced different hashes → double-posted payments.
  */
 function smsHash(sender: string, message: string): string {
-  return createHash("sha256")
-    .update(`${sender}|${message}`)
-    .digest("hex");
+  return createHash("sha256").update(`${sender}|${message}`).digest("hex");
 }
 
-export async function ingestSms(input: IngestSmsInput): Promise<IngestSmsResult> {
+export async function ingestSms(
+  input: IngestSmsInput,
+): Promise<IngestSmsResult> {
   const receivedAt = input.receivedAt ?? new Date();
   const hash = smsHash(input.sender, input.message);
 
   // Check for duplicate
-  const existing = await prisma.bankSms.findUnique({ where: { smsHash: hash } });
+  const existing = await prisma.bankSms.findUnique({
+    where: { smsHash: hash },
+  });
   if (existing) {
     return {
       id: existing.id,
@@ -197,7 +226,10 @@ export async function ingestSms(input: IngestSmsInput): Promise<IngestSmsResult>
         txnType: parsed.txnType,
         counterparty: parsed.counterparty,
         status: parsed.txnType === "CREDIT" ? "UNMATCHED" : "IGNORED",
-        matchReason: parsed.txnType !== "CREDIT" ? "Not a credit transaction" : "No amount detected",
+        matchReason:
+          parsed.txnType !== "CREDIT"
+            ? "Not a credit transaction"
+            : "No amount detected",
         smsHash: hash,
       },
     });
@@ -214,7 +246,11 @@ export async function ingestSms(input: IngestSmsInput): Promise<IngestSmsResult>
   }
 
   // Try to match the amount to an existing sale/tenancy
-  const matchResult = await matchPayment(input.companyId, parsed.amount, parsed.counterparty);
+  const matchResult = await matchPayment(
+    input.companyId,
+    parsed.amount,
+    parsed.counterparty,
+  );
 
   const sms = await prisma.bankSms.create({
     data: {
@@ -232,7 +268,9 @@ export async function ingestSms(input: IngestSmsInput): Promise<IngestSmsResult>
       matchedEntityType: matchResult.entityType,
       matchedEntityId: matchResult.entityId,
       paymentRecordId: matchResult.paymentId,
-      matchConfidence: matchResult.confidence ? new Decimal(matchResult.confidence) : null,
+      matchConfidence: matchResult.confidence
+        ? new Decimal(matchResult.confidence)
+        : null,
       matchReason: matchResult.reason,
       smsHash: hash,
     },
@@ -300,16 +338,166 @@ async function matchPayment(
     },
   });
 
-  for (const sale of assetSales) {
-    const totalPaid = sale.payments.reduce((s, p) => s.plus(new Decimal(p.amount)), new Decimal(0));
-    const outstanding = new Decimal(sale.salePrice).plus(new Decimal(sale.gstAmount)).minus(totalPaid);
-    // Match if the SMS amount equals the outstanding (exact match within 1 rupee)
-    if (outstanding.minus(amount).abs().lt(1)) {
-      // Exact match — high confidence
-      const confidence = counterparty && sale.customer?.name?.toLowerCase().includes(counterparty.toLowerCase().split(" ")[0]!)
+  // Collect every sale whose outstanding equals the SMS amount, then only
+  // auto-match if it's UNAMBIGUOUS — two open sales with the same outstanding
+  // (e.g. two identical ₹5L flat bookings) would otherwise cross-match to
+  // whichever the DB returned first. Same ambiguity guard the installment
+  // matcher below uses.
+  const exactMatches = assetSales.filter((sale) => {
+    const totalPaid = sale.payments.reduce(
+      (s, p) => s.plus(new Decimal(p.amount)),
+      new Decimal(0),
+    );
+    const outstanding = new Decimal(sale.salePrice)
+      .plus(new Decimal(sale.gstAmount))
+      .minus(totalPaid);
+    return outstanding.minus(amount).abs().lt(1);
+  });
+
+  if (exactMatches.length === 1) {
+    const sale = exactMatches[0]!;
+    // Exact match — high confidence
+    const confidence =
+      counterparty &&
+      sale.customer?.name
+        ?.toLowerCase()
+        .includes(counterparty.toLowerCase().split(" ")[0]!)
         ? 95
         : 80;
-      // Create the payment + post GL + update parent status in one transaction
+    // Create the payment + post GL + update parent status in one transaction
+    const payment = await withSerializableTransaction(async (tx) => {
+      const p = await tx.assetSalePayment.create({
+        data: {
+          assetSaleId: sale.id,
+          amount,
+          paymentDate: new Date(),
+          mode: "BANK",
+          status: "RECEIVED",
+        },
+      });
+      // Post GL: Dr Cash, Cr Accounts Receivable (post-completion)
+      //   or Dr Cash, Cr Customer Deposits (pre-completion).
+      //   This mirrors the logic in sale.ts:recordPayment — pre-completion
+      //   payments are deposits (revenue not yet recognised), post-completion
+      //   payments settle the receivable.  Without this check, SMS-matched
+      //   pre-completion payments would post to AR, and completeSale's
+      //   deposit-settlement would find nothing to settle — causing a GL
+      //   mismatch between the costing layer and the general ledger.
+      const isCompleted = sale.saleStage === "COMPLETED";
+      if (isCompleted) {
+        await postPaymentReceived(tx, {
+          companyId,
+          assetSaleId: sale.id,
+          paymentId: p.id,
+          amount,
+        });
+      } else {
+        await postDepositReceived(tx, {
+          companyId,
+          assetSaleId: sale.id,
+          amount,
+        });
+      }
+      // Sync payment schedule items with actual payment totals
+      await syncPaymentScheduleFromPayments(tx, sale.id);
+      // Recompute + update parent payment status
+      const allPayments = await tx.assetSalePayment.findMany({
+        where: { assetSaleId: sale.id, status: "RECEIVED" },
+        select: { amount: true },
+      });
+      const newTotalPaid = allPayments.reduce(
+        (s, p) => s.plus(new Decimal(p.amount)),
+        new Decimal(0),
+      );
+      const totalDue = new Decimal(sale.salePrice).plus(
+        new Decimal(sale.gstAmount),
+      );
+      const newStatus = newTotalPaid.gte(totalDue)
+        ? "PAID"
+        : newTotalPaid.gt(0)
+          ? "PARTIAL"
+          : "PENDING";
+      await tx.assetSale.update({
+        where: { id: sale.id },
+        data: { paymentStatus: newStatus },
+      });
+      return p;
+    });
+    // Emit notification (best-effort, outside tx)
+    void emitNotificationEvent({
+      eventType: NotificationEventType.SALE_PAYMENT_RECEIVED,
+      companyId,
+      entityType: "AssetSale",
+      entityId: sale.id,
+      variables: { amount: amount.toString(), saleNumber: sale.saleNumber },
+      timestamp: new Date(),
+    });
+    return {
+      matched: true,
+      entityType: "ASSET_SALE",
+      entityId: sale.id,
+      paymentId: payment.id,
+      confidence,
+      reason: `Matched to asset sale ${sale.saleNumber} — exact outstanding amount`,
+    };
+  }
+
+  // 1b. Installment-level match — buyers commonly pay ONE installment
+  //     (e.g. ₹10L of a ₹30L sale), not the whole outstanding. If the SMS
+  //     amount uniquely equals a single unpaid schedule item across all
+  //     active sales, record it against that sale. Ambiguous (multiple
+  //     installments share the amount) → skip, leave for manual review.
+  const dueInstallments = await prisma.paymentScheduleItem.findMany({
+    where: {
+      status: { in: ["PENDING", "DUE", "PARTIAL"] },
+      paymentSchedule: {
+        assetSale: {
+          companyId,
+          status: "ACTIVE",
+          paymentStatus: { in: ["PENDING", "PARTIAL"] },
+        },
+      },
+    },
+    select: {
+      id: true,
+      installmentNo: true,
+      totalAmount: true,
+      paymentSchedule: {
+        select: {
+          assetSaleId: true,
+          assetSale: {
+            select: {
+              id: true,
+              saleNumber: true,
+              saleStage: true,
+              customer: { select: { name: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+  const installMatches = dueInstallments.filter((i) =>
+    new Decimal(i.totalAmount).minus(amount).abs().lt(1),
+  );
+  const distinctSales = [
+    ...new Set(installMatches.map((i) => i.paymentSchedule.assetSaleId)),
+  ];
+  if (installMatches.length >= 1 && distinctSales.length === 1) {
+    const saleId = distinctSales[0]!;
+    const sale = await prisma.assetSale.findFirst({
+      where: { id: saleId, companyId },
+      include: { customer: { select: { name: true } } },
+    });
+    if (sale) {
+      const item = installMatches[0]!;
+      const confidence =
+        counterparty &&
+        sale.customer?.name
+          ?.toLowerCase()
+          .includes(counterparty.toLowerCase().split(" ")[0]!)
+          ? 92
+          : 78;
       const payment = await withSerializableTransaction(async (tx) => {
         const p = await tx.assetSalePayment.create({
           data: {
@@ -320,16 +508,7 @@ async function matchPayment(
             status: "RECEIVED",
           },
         });
-        // Post GL: Dr Cash, Cr Accounts Receivable (post-completion)
-        //   or Dr Cash, Cr Customer Deposits (pre-completion).
-        //   This mirrors the logic in sale.ts:recordPayment — pre-completion
-        //   payments are deposits (revenue not yet recognised), post-completion
-        //   payments settle the receivable.  Without this check, SMS-matched
-        //   pre-completion payments would post to AR, and completeSale's
-        //   deposit-settlement would find nothing to settle — causing a GL
-        //   mismatch between the costing layer and the general ledger.
-        const isCompleted = sale.saleStage === "COMPLETED";
-        if (isCompleted) {
+        if (sale.saleStage === "COMPLETED") {
           await postPaymentReceived(tx, {
             companyId,
             assetSaleId: sale.id,
@@ -343,102 +522,27 @@ async function matchPayment(
             amount,
           });
         }
-        // Sync payment schedule items with actual payment totals
         await syncPaymentScheduleFromPayments(tx, sale.id);
-        // Recompute + update parent payment status
         const allPayments = await tx.assetSalePayment.findMany({
           where: { assetSaleId: sale.id, status: "RECEIVED" },
           select: { amount: true },
         });
-        const newTotalPaid = allPayments.reduce((s, p) => s.plus(new Decimal(p.amount)), new Decimal(0));
-        const totalDue = new Decimal(sale.salePrice).plus(new Decimal(sale.gstAmount));
-        const newStatus = newTotalPaid.gte(totalDue) ? "PAID" : newTotalPaid.gt(0) ? "PARTIAL" : "PENDING";
+        const newTotalPaid = allPayments.reduce(
+          (s, p) => s.plus(new Decimal(p.amount)),
+          new Decimal(0),
+        );
+        const totalDue = new Decimal(sale.salePrice).plus(
+          new Decimal(sale.gstAmount),
+        );
+        const newStatus = newTotalPaid.gte(totalDue)
+          ? "PAID"
+          : newTotalPaid.gt(0)
+            ? "PARTIAL"
+            : "PENDING";
         await tx.assetSale.update({
           where: { id: sale.id },
           data: { paymentStatus: newStatus },
         });
-        return p;
-      });
-      // Emit notification (best-effort, outside tx)
-      void emitNotificationEvent({
-        eventType: NotificationEventType.SALE_PAYMENT_RECEIVED,
-        companyId,
-        entityType: "AssetSale",
-        entityId: sale.id,
-        variables: { amount: amount.toString(), saleNumber: sale.saleNumber },
-        timestamp: new Date(),
-      });
-      return {
-        matched: true,
-        entityType: "ASSET_SALE",
-        entityId: sale.id,
-        paymentId: payment.id,
-        confidence,
-        reason: `Matched to asset sale ${sale.saleNumber} — exact outstanding amount`,
-      };
-    }
-  }
-
-  // 1b. Installment-level match — buyers commonly pay ONE installment
-  //     (e.g. ₹10L of a ₹30L sale), not the whole outstanding. If the SMS
-  //     amount uniquely equals a single unpaid schedule item across all
-  //     active sales, record it against that sale. Ambiguous (multiple
-  //     installments share the amount) → skip, leave for manual review.
-  const dueInstallments = await prisma.paymentScheduleItem.findMany({
-    where: {
-      status: { in: ["PENDING", "DUE", "PARTIAL"] },
-      paymentSchedule: {
-        assetSale: { companyId, status: "ACTIVE", paymentStatus: { in: ["PENDING", "PARTIAL"] } },
-      },
-    },
-    select: {
-      id: true,
-      installmentNo: true,
-      totalAmount: true,
-      paymentSchedule: {
-        select: {
-          assetSaleId: true,
-          assetSale: {
-            select: { id: true, saleNumber: true, saleStage: true, customer: { select: { name: true } } },
-          },
-        },
-      },
-    },
-  });
-  const installMatches = dueInstallments.filter((i) =>
-    new Decimal(i.totalAmount).minus(amount).abs().lt(1),
-  );
-  const distinctSales = [...new Set(installMatches.map((i) => i.paymentSchedule.assetSaleId))];
-  if (installMatches.length >= 1 && distinctSales.length === 1) {
-    const saleId = distinctSales[0]!;
-    const sale = await prisma.assetSale.findFirst({
-      where: { id: saleId, companyId },
-      include: { customer: { select: { name: true } } },
-    });
-    if (sale) {
-      const item = installMatches[0]!;
-      const confidence =
-        counterparty && sale.customer?.name?.toLowerCase().includes(counterparty.toLowerCase().split(" ")[0]!)
-          ? 92
-          : 78;
-      const payment = await withSerializableTransaction(async (tx) => {
-        const p = await tx.assetSalePayment.create({
-          data: { assetSaleId: sale.id, amount, paymentDate: new Date(), mode: "BANK", status: "RECEIVED" },
-        });
-        if (sale.saleStage === "COMPLETED") {
-          await postPaymentReceived(tx, { companyId, assetSaleId: sale.id, paymentId: p.id, amount });
-        } else {
-          await postDepositReceived(tx, { companyId, assetSaleId: sale.id, amount });
-        }
-        await syncPaymentScheduleFromPayments(tx, sale.id);
-        const allPayments = await tx.assetSalePayment.findMany({
-          where: { assetSaleId: sale.id, status: "RECEIVED" },
-          select: { amount: true },
-        });
-        const newTotalPaid = allPayments.reduce((s, p) => s.plus(new Decimal(p.amount)), new Decimal(0));
-        const totalDue = new Decimal(sale.salePrice).plus(new Decimal(sale.gstAmount));
-        const newStatus = newTotalPaid.gte(totalDue) ? "PAID" : newTotalPaid.gt(0) ? "PARTIAL" : "PENDING";
-        await tx.assetSale.update({ where: { id: sale.id }, data: { paymentStatus: newStatus } });
         return p;
       });
       void emitNotificationEvent({
@@ -475,9 +579,13 @@ async function matchPayment(
   for (const tenancy of tenancies) {
     // Check if the amount matches the monthly rent
     if (new Decimal(tenancy.monthlyRent).minus(amount).abs().lt(1)) {
-      const confidence = counterparty && tenancy.tenantName.toLowerCase().includes(counterparty.toLowerCase().split(" ")[0]!)
-        ? 90
-        : 70;
+      const confidence =
+        counterparty &&
+        tenancy.tenantName
+          .toLowerCase()
+          .includes(counterparty.toLowerCase().split(" ")[0]!)
+          ? 90
+          : 70;
       // Create the payment + post GL in one transaction
       const payment = await withSerializableTransaction(async (tx) => {
         const p = await tx.rentalPayment.create({
@@ -498,8 +606,20 @@ async function matchPayment(
           sourceId: p.id,
           memo: `Rent received from ${tenancy.tenantName} (bank SMS auto-match)`,
           lines: [
-            { accountCode: ACCT.CASH, debit: amount, credit: 0, entityType: "RentalPayment", entityId: p.id },
-            { accountCode: ACCT.SALES_REVENUE, debit: 0, credit: amount, entityType: "Tenancy", entityId: tenancy.id },
+            {
+              accountCode: ACCT.CASH,
+              debit: amount,
+              credit: 0,
+              entityType: "RentalPayment",
+              entityId: p.id,
+            },
+            {
+              accountCode: ACCT.SALES_REVENUE,
+              debit: 0,
+              credit: amount,
+              entityType: "Tenancy",
+              entityId: tenancy.id,
+            },
           ],
         });
         return p;
@@ -529,12 +649,19 @@ async function matchPayment(
   });
 
   for (const sale of materialSales) {
-    const totalPaid = sale.payments.reduce((s, p) => s.plus(new Decimal(p.amount)), new Decimal(0));
+    const totalPaid = sale.payments.reduce(
+      (s, p) => s.plus(new Decimal(p.amount)),
+      new Decimal(0),
+    );
     const outstanding = new Decimal(sale.totalAmount).minus(totalPaid);
     if (outstanding.minus(amount).abs().lt(1)) {
-      const confidence = counterparty && sale.customer?.name?.toLowerCase().includes(counterparty.toLowerCase().split(" ")[0]!)
-        ? 90
-        : 75;
+      const confidence =
+        counterparty &&
+        sale.customer?.name
+          ?.toLowerCase()
+          .includes(counterparty.toLowerCase().split(" ")[0]!)
+          ? 90
+          : 75;
       // Create the payment + post GL + update parent status in one transaction
       const payment = await withSerializableTransaction(async (tx) => {
         const p = await tx.materialSalePayment.create({
@@ -557,9 +684,16 @@ async function matchPayment(
           where: { saleId: sale.id },
           select: { amount: true },
         });
-        const newTotalPaid = allPayments.reduce((s, p) => s.plus(new Decimal(p.amount)), new Decimal(0));
+        const newTotalPaid = allPayments.reduce(
+          (s, p) => s.plus(new Decimal(p.amount)),
+          new Decimal(0),
+        );
         const totalDue = new Decimal(sale.totalAmount);
-        const newStatus = newTotalPaid.gte(totalDue) ? "PAID" : newTotalPaid.gt(0) ? "PARTIAL" : "PENDING";
+        const newStatus = newTotalPaid.gte(totalDue)
+          ? "PAID"
+          : newTotalPaid.gt(0)
+            ? "PARTIAL"
+            : "PENDING";
         await tx.materialSale.update({
           where: { id: sale.id },
           data: { paymentStatus: newStatus },
@@ -606,14 +740,17 @@ export async function manualMatchSms(input: ManualMatchInput) {
   });
   if (!sms) throw new ServiceError("SMS not found", 404);
   if (!sms.amount) throw new ServiceError("SMS has no parsed amount");
-  if (sms.status === "MATCHED") throw new ServiceError("SMS is already matched");
+  if (sms.status === "MATCHED")
+    throw new ServiceError("SMS is already matched");
 
   const amount = new Decimal(sms.amount);
   let paymentId: string | null = null;
 
   if (input.entityType === "ASSET_SALE") {
     paymentId = await withSerializableTransaction(async (tx) => {
-      const sale = await tx.assetSale.findFirst({ where: { id: input.entityId, companyId: input.companyId } });
+      const sale = await tx.assetSale.findFirst({
+        where: { id: input.entityId, companyId: input.companyId },
+      });
       if (!sale) throw new ServiceError("Asset sale not found", 404);
       const p = await tx.assetSalePayment.create({
         data: {
@@ -649,9 +786,18 @@ export async function manualMatchSms(input: ManualMatchInput) {
         where: { assetSaleId: input.entityId, status: "RECEIVED" },
         select: { amount: true },
       });
-      const newTotalPaid = allPayments.reduce((s, p) => s.plus(new Decimal(p.amount)), new Decimal(0));
-      const totalDue = new Decimal(sale.salePrice).plus(new Decimal(sale.gstAmount));
-      const newStatus = newTotalPaid.gte(totalDue) ? "PAID" : newTotalPaid.gt(0) ? "PARTIAL" : "PENDING";
+      const newTotalPaid = allPayments.reduce(
+        (s, p) => s.plus(new Decimal(p.amount)),
+        new Decimal(0),
+      );
+      const totalDue = new Decimal(sale.salePrice).plus(
+        new Decimal(sale.gstAmount),
+      );
+      const newStatus = newTotalPaid.gte(totalDue)
+        ? "PAID"
+        : newTotalPaid.gt(0)
+          ? "PARTIAL"
+          : "PENDING";
       await tx.assetSale.update({
         where: { id: input.entityId },
         data: { paymentStatus: newStatus },
@@ -660,7 +806,9 @@ export async function manualMatchSms(input: ManualMatchInput) {
     });
   } else if (input.entityType === "TENANCY") {
     paymentId = await withSerializableTransaction(async (tx) => {
-      const tenancy = await tx.tenancy.findFirst({ where: { id: input.entityId, companyId: input.companyId } });
+      const tenancy = await tx.tenancy.findFirst({
+        where: { id: input.entityId, companyId: input.companyId },
+      });
       if (!tenancy) throw new ServiceError("Tenancy not found", 404);
       const p = await tx.rentalPayment.create({
         data: {
@@ -680,15 +828,29 @@ export async function manualMatchSms(input: ManualMatchInput) {
         sourceId: p.id,
         memo: `Rent received from ${tenancy.tenantName} (manual SMS match)`,
         lines: [
-          { accountCode: ACCT.CASH, debit: amount, credit: 0, entityType: "RentalPayment", entityId: p.id },
-          { accountCode: ACCT.SALES_REVENUE, debit: 0, credit: amount, entityType: "Tenancy", entityId: input.entityId },
+          {
+            accountCode: ACCT.CASH,
+            debit: amount,
+            credit: 0,
+            entityType: "RentalPayment",
+            entityId: p.id,
+          },
+          {
+            accountCode: ACCT.SALES_REVENUE,
+            debit: 0,
+            credit: amount,
+            entityType: "Tenancy",
+            entityId: input.entityId,
+          },
         ],
       });
       return p.id;
     });
   } else if (input.entityType === "MATERIAL_SALE") {
     paymentId = await withSerializableTransaction(async (tx) => {
-      const sale = await tx.materialSale.findFirst({ where: { id: input.entityId, companyId: input.companyId } });
+      const sale = await tx.materialSale.findFirst({
+        where: { id: input.entityId, companyId: input.companyId },
+      });
       if (!sale) throw new ServiceError("Material sale not found", 404);
       const p = await tx.materialSalePayment.create({
         data: {
@@ -710,9 +872,16 @@ export async function manualMatchSms(input: ManualMatchInput) {
         where: { saleId: input.entityId },
         select: { amount: true },
       });
-      const newTotalPaid = allPayments.reduce((s, p) => s.plus(new Decimal(p.amount)), new Decimal(0));
+      const newTotalPaid = allPayments.reduce(
+        (s, p) => s.plus(new Decimal(p.amount)),
+        new Decimal(0),
+      );
       const totalDue = new Decimal(sale.totalAmount);
-      const newStatus = newTotalPaid.gte(totalDue) ? "PAID" : newTotalPaid.gt(0) ? "PARTIAL" : "PENDING";
+      const newStatus = newTotalPaid.gte(totalDue)
+        ? "PAID"
+        : newTotalPaid.gt(0)
+          ? "PARTIAL"
+          : "PENDING";
       await tx.materialSale.update({
         where: { id: input.entityId },
         data: { paymentStatus: newStatus },
