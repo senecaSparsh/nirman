@@ -1638,6 +1638,7 @@ export async function generatePayroll(input: GeneratePayrollInput) {
     let totalOvertime = new Decimal(0);
     let totalDeductions = new Decimal(0);
     let totalNet = new Decimal(0);
+    const zeroGrossEmployees: string[] = [];
 
     for (const emp of employees) {
       const attendances = attendancesByEmployee.get(emp.id) ?? [];
@@ -1786,6 +1787,14 @@ export async function generatePayroll(input: GeneratePayrollInput) {
         },
       });
 
+      // A worker who put in days but earned ₹0 almost always has no dailyRate
+      // set (quick-added day labour without an agreed wage). Track them so we
+      // can flag it — a ₹0 payslip is a silent under-payment the owner must
+      // catch on the draft, not discover at the end of the month.
+      if (adjustedDaysWorked.gt(0) && grossPay.lte(0)) {
+        zeroGrossEmployees.push(emp.name);
+      }
+
       totalGross = totalGross.plus(grossPay);
       totalOvertime = totalOvertime.plus(overtimeAmount);
       totalDeductions = totalDeductions.plus(lineTotalDeductions);
@@ -1802,8 +1811,25 @@ export async function generatePayroll(input: GeneratePayrollInput) {
       action: "PAYROLL_GENERATE",
       entityType: "PayrollPeriod",
       entityId: period.id,
-      after: { month: input.month, year: input.year, employees: employees.length, totalNet: totalNet.toString() },
+      after: { month: input.month, year: input.year, employees: employees.length, totalNet: totalNet.toString(), zeroGrossEmployees },
     });
+
+    // Flag ₹0-earners — workers who logged days but have no dailyRate produce
+    // a ₹0 line that an owner could rubber-stamp without noticing. Name them
+    // so the wage can be set before the period is processed.
+    if (zeroGrossEmployees.length > 0) {
+      void emitNotificationEvent({
+        eventType: NotificationEventType.PAYROLL_ZERO_GROSS,
+        companyId: input.companyId,
+        entityType: "PayrollPeriod",
+        entityId: period.id,
+        variables: {
+          month: `${input.month}/${input.year}`,
+          zeroGross: `${zeroGrossEmployees.length} worker${zeroGrossEmployees.length !== 1 ? "s" : ""} earned ₹0 (no daily rate set): ${zeroGrossEmployees.slice(0, 5).join(", ")}`,
+        },
+        timestamp: new Date(),
+      });
+    }
     return updated;
   });
 }

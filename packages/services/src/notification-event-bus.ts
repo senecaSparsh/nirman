@@ -76,6 +76,7 @@ export enum NotificationEventType {
   DPR_APPROVED = "DPR_APPROVED",
   DPR_REJECTED = "DPR_REJECTED",
   PAYROLL_PROCESSED = "PAYROLL_PROCESSED",
+  PAYROLL_ZERO_GROSS = "PAYROLL_ZERO_GROSS",
   LEAVE_SUBMITTED = "LEAVE_SUBMITTED",
   LEAVE_APPROVED = "LEAVE_APPROVED",
   LEAVE_REJECTED = "LEAVE_REJECTED",
@@ -175,6 +176,7 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   [NotificationEventType.DPR_APPROVED]: "IMMEDIATE",
   [NotificationEventType.DPR_REJECTED]: "IMMEDIATE",
   [NotificationEventType.PAYROLL_PROCESSED]: "DAILY",
+  [NotificationEventType.PAYROLL_ZERO_GROSS]: "IMMEDIATE",
   [NotificationEventType.LEAVE_SUBMITTED]: "IMMEDIATE",
   [NotificationEventType.LEAVE_APPROVED]: "IMMEDIATE",
   [NotificationEventType.LEAVE_REJECTED]: "IMMEDIATE",
@@ -756,6 +758,7 @@ const FINANCE_EVENTS = new Set([
   NotificationEventType.PROJECT_COST_ADDED,
   NotificationEventType.GL_ENTRY_POSTED,
   NotificationEventType.PAYROLL_PROCESSED,
+  NotificationEventType.PAYROLL_ZERO_GROSS,
   NotificationEventType.SUPPLIER_PAYMENT_DUE,
   NotificationEventType.SUPPLIER_INVOICE_SUBMITTED,
   NotificationEventType.PETTY_CASH_LOW_BALANCE,
@@ -936,6 +939,8 @@ const EVENT_MESSAGES: Partial<
     `Daily report rejected${s("reason") ? `: ${s("reason")}` : ""}.`,
   [NotificationEventType.PAYROLL_PROCESSED]: ({ s, money }) =>
     `Payroll processed${s("month") ? ` for ${s("month")}` : ""}${money("totalAmount") ? ` — ${money("totalAmount")}` : ""}.`,
+  [NotificationEventType.PAYROLL_ZERO_GROSS]: ({ s }) =>
+    `Payroll draft${s("month") ? ` for ${s("month")}` : ""} has workers earning ₹0 — ${s("zeroGross") || "set their daily rate"}.`,
   [NotificationEventType.LEAVE_SUBMITTED]: ({ s }) =>
     `${s("employeeName") || "An employee"} requested ${s("leaveType") ? s("leaveType").toLowerCase() : "leave"} leave (${s("days") || "?"} day${s("days") === "1" ? "" : "s"}${s("startDate") ? ` from ${s("startDate")}` : ""}) — needs approval.`,
   [NotificationEventType.LEAVE_APPROVED]: ({ s }) =>
