@@ -18,6 +18,15 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# The Prisma schema declares `url = env("DATABASE_URL")` + `directUrl =
+# env("DIRECT_URL")`. `pnpm install` runs `prisma generate` in postinstall,
+# which resolves both — unset vars abort the whole install in every job.
+# These are placeholders for codegen only (generate doesn't open a connection);
+# the test + migration jobs override with their real postgres service below.
+env:
+  DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+  DIRECT_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+
 jobs:
   # ── Lint + Typecheck ──────────────────────────────────────────
   quality:
