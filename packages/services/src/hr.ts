@@ -3197,7 +3197,7 @@ export async function generateMaterialIssueFromDPR(
     const dpr = await tx.dailyProgressReport.findUnique({
       where: { id: dprId },
       include: {
-        materialLines: true,
+        materialLines: { include: { material: { select: { name: true } } } },
         project: { select: { id: true, name: true, companyId: true } },
       },
     });
@@ -3242,6 +3242,7 @@ export async function generateMaterialIssueFromDPR(
     // 6. Check stock availability for each material line
     let linesCreated = 0;
     let skipped = 0;
+    const skippedMaterials: { name: string; qty: Decimal; available: Decimal }[] = [];
     const issueLines: { materialId: string; qty: Decimal; unitCost: Decimal }[] = [];
 
     for (const dprLine of dpr.materialLines) {
@@ -3255,8 +3256,15 @@ export async function generateMaterialIssueFromDPR(
       });
 
       if (!stockItem || new Decimal(stockItem.qty).lt(new Decimal(dprLine.qty))) {
-        // Skip this line — not enough stock
+        // Skip this line — not enough stock. Track it: a skipped material was
+        // reported consumed on the DPR but never posts a movement or cost, so
+        // it must surface to a human (not silently drop from project cost).
         skipped++;
+        skippedMaterials.push({
+          name: dprLine.material?.name ?? dprLine.materialId,
+          qty: new Decimal(dprLine.qty),
+          available: stockItem ? new Decimal(stockItem.qty) : new Decimal(0),
+        });
         continue;
       }
 
@@ -3345,6 +3353,29 @@ export async function generateMaterialIssueFromDPR(
         totalCost: totalCost.toString(),
       },
     });
+
+    // 12. Surface skipped lines — a DPR material that didn't post (insufficient
+    // stock at approval) reported consumption but never hit project cost or the
+    // ledger. Notify stock/procurement managers so the shortage is investigated
+    // instead of silently dropped from the project's books.
+    if (skippedMaterials.length > 0) {
+      const names = skippedMaterials
+        .map((s) => `${s.name} (needed ${s.qty}, had ${s.available})`)
+        .join(", ");
+      void emitNotificationEvent({
+        eventType: NotificationEventType.LOW_STOCK_ALERT,
+        companyId: dpr.project.companyId,
+        entityType: "DailyProgressReport",
+        entityId: dprId,
+        variables: {
+          materialName: names,
+          currentQty: "0",
+          projectId: dpr.projectId,
+          projectName: dpr.project.name,
+        },
+        timestamp: new Date(),
+      });
+    }
 
     return { materialIssueId: materialIssue.id, linesCreated, skipped };
   });
