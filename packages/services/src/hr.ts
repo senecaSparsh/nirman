@@ -2626,6 +2626,19 @@ export async function deleteDpr(dprId: string, userId?: string) {
     });
     if (!dpr) throw new HrError("DPR not found", 404);
 
+    // An APPROVED DPR has posted real cost — the generated material issue
+    // deducted stock + wrote GL, and the labour ProjectCost landed. Deleting
+    // it (sourceDprId is SetNull) would orphan all of that: the books keep a
+    // cost with no field record, and the issued material is "gone" with no
+    // DPR justifying it. Only a pre-approval DPR (SUBMITTED/REJECTED, nothing
+    // posted yet) is safely deletable.
+    if (dpr.approvalStatus === "APPROVED" || dpr.costPostedDate != null) {
+      throw new HrError(
+        "Cannot delete an approved DPR — its material issue and labour cost have already posted. Reject/void it through the approval flow instead.",
+        409,
+      );
+    }
+
     // Prevent deleting a DPR that has auto-generated scrap — the scrap
     // record and its stock movements have financial implications and
     // must be handled explicitly (reverse the movements, delete the
