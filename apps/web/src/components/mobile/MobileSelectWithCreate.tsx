@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode, type ComponentType, type CSSProperties } from "react";
+import { useState, useEffect, type ReactNode, type ComponentType, type CSSProperties } from "react";
 import { haptic } from "@/lib/haptic";
 import { SelectorCard, SelectorRow, SelectorModal } from "@/components/mobile/v2/form-primitives";
 
@@ -109,6 +109,18 @@ export function MobileSelectWithCreate({
     (o, i, arr) => arr.findIndex((x) => x.value === o.value) === i,
   );
   const selected = allOptions.find((o) => o.value === value);
+
+  // Single-option fast path: a required field with exactly one possible
+  // answer (one store, one project — the common single-site case) shouldn't
+  // cost a sheet trip just to tap the only row. Auto-fill it; the field
+  // still renders tappable so the user can open the sheet to review/clear.
+  useEffect(() => {
+    if (required && !value && allOptions.length === 1) {
+      const only = allOptions[0];
+      if (only) onChange(only.value);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [required, value, allOptions.length]);
 
   // Build items for SelectorModal — include a "none" option if placeholder is set
   const items = [

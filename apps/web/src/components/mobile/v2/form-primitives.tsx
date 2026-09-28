@@ -515,6 +515,13 @@ export function SelectorModal({
     );
   }, [items, query]);
 
+  // Short lists don't need search — rendering the input (with autoFocus)
+  // pops the on-screen keyboard over half the sheet, forcing the user to
+  // dismiss it or scroll just to tap one of 2–3 visible options. Hide the
+  // search row entirely when the whole list fits on screen (~7 rows);
+  // it returns for long lists where search actually earns its place.
+  const showSearch = items.length > 7;
+
   const sheet = (
     <div
       className="fixed inset-0 z-[60] flex items-end justify-center"
@@ -534,21 +541,23 @@ export function SelectorModal({
           </button>
         </div>
 
-        {/* Search */}
-        <div className="p-2 border-b" style={{ borderColor: "var(--color-line)" }}>
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5" style={{ color: "var(--color-ink-500)" }} />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search…"
-              autoFocus
-              className="w-full h-7 pl-8 pr-2 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
-              style={{ backgroundColor: "transparent" }}
-            />
+        {/* Search — only when the list is long enough to warrant it */}
+        {showSearch ? (
+          <div className="p-2 border-b" style={{ borderColor: "var(--color-line)" }}>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5" style={{ color: "var(--color-ink-500)" }} />
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search…"
+                autoFocus
+                className="w-full h-7 pl-8 pr-2 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
+                style={{ backgroundColor: "transparent" }}
+              />
+            </div>
           </div>
-        </div>
+        ) : null}
 
         {/* List */}
         <div className="flex-1 overflow-y-auto overscroll-contain">
