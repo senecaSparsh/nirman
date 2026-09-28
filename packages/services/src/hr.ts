@@ -1558,7 +1558,7 @@ export async function generatePayroll(input: GeneratePayrollInput) {
   const { startDate, endDate } = monthRange(input.year, input.month);
   const workingDays = computeWorkingDays(startDate, endDate);
 
-  return withSerializableTransaction(async (tx) => {
+  const result = await withSerializableTransaction(async (tx) => {
     // Find or create the period.
     let period = await tx.payrollPeriod.findUnique({
       where: { companyId_year_month: { companyId: input.companyId, year: input.year, month: input.month } },
@@ -1813,25 +1813,27 @@ export async function generatePayroll(input: GeneratePayrollInput) {
       entityId: period.id,
       after: { month: input.month, year: input.year, employees: employees.length, totalNet: totalNet.toString(), zeroGrossEmployees },
     });
-
-    // Flag ₹0-earners — workers who logged days but have no dailyRate produce
-    // a ₹0 line that an owner could rubber-stamp without noticing. Name them
-    // so the wage can be set before the period is processed.
-    if (zeroGrossEmployees.length > 0) {
-      void emitNotificationEvent({
-        eventType: NotificationEventType.PAYROLL_ZERO_GROSS,
-        companyId: input.companyId,
-        entityType: "PayrollPeriod",
-        entityId: period.id,
-        variables: {
-          month: `${input.month}/${input.year}`,
-          zeroGross: `${zeroGrossEmployees.length} worker${zeroGrossEmployees.length !== 1 ? "s" : ""} earned ₹0 (no daily rate set): ${zeroGrossEmployees.slice(0, 5).join(", ")}`,
-        },
-        timestamp: new Date(),
-      });
-    }
-    return updated;
+    return { period: updated, zeroGrossEmployees };
   });
+
+  // Flag ₹0-earners AFTER the tx commits — emitting inside the Serializable
+  // callback would re-fire on every serialization retry (duplicate alerts)
+  // and could send for a period that rolled back. Post-commit is the only
+  // safe boundary.
+  if (result.zeroGrossEmployees.length > 0) {
+    void emitNotificationEvent({
+      eventType: NotificationEventType.PAYROLL_ZERO_GROSS,
+      companyId: input.companyId,
+      entityType: "PayrollPeriod",
+      entityId: result.period.id,
+      variables: {
+        month: `${input.month}/${input.year}`,
+        zeroGross: `${result.zeroGrossEmployees.length} worker${result.zeroGrossEmployees.length !== 1 ? "s" : ""} earned ₹0 (no daily rate set): ${result.zeroGrossEmployees.slice(0, 5).join(", ")}`,
+      },
+      timestamp: new Date(),
+    });
+  }
+  return result.period;
 }
 
 export interface AdjustPayrollLineInput {

@@ -192,7 +192,6 @@ export async function buildMaterialSaleEInvoicePayload(
   });
 
   const subtotal = new Decimal(sale.subtotal).toNumber();
-  const gstTotal = new Decimal(sale.gstTotal).toNumber();
   const totalAmount = new Decimal(sale.totalAmount).toNumber();
   const split = splitGst(new Decimal(sale.gstTotal), sale.company.gstin, sale.customer.gstin);
 
@@ -328,42 +327,64 @@ export async function generateMaterialSaleIrn(
   companyId: string,
   userId?: string,
 ): Promise<{ irn: string; ackNo: string; status: string }> {
-  return withSerializableTransaction(async (tx) => {
-    const payload = await buildMaterialSaleEInvoicePayload(saleId, companyId);
-    if (!payload) {
-      throw new ServiceError(
-        "e-Invoice not eligible: both company and customer must have GSTIN (B2B only)",
-        400,
-      );
-    }
+  // The GSP/portal call MUST NOT run inside the Serializable transaction —
+  // a serialization retry re-fires provider.generate (a second IRN request
+  // for the same invoice), a long network RTT holds locks + a pooled
+  // connection hostage, and a rollback would orphan a registered IRN.
+  // Instead: claim the IRN slot in a fast tx (GENERATING blocks a concurrent
+  // generate), call the portal outside, then write the result in a fresh tx.
+  const payload = await buildMaterialSaleEInvoicePayload(saleId, companyId);
+  if (!payload) {
+    throw new ServiceError(
+      "e-Invoice not eligible: both company and customer must have GSTIN (B2B only)",
+      400,
+    );
+  }
 
-    // Check if IRN already exists
-    const existing = await tx.materialSale.findUnique({
-      where: { id: saleId },
-      select: { irn: true, irnStatus: true },
+  // Claim the slot — a concurrent/double-tap generate sees GENERATING or
+  // GENERATED and bails instead of double-submitting to the portal.
+  await withSerializableTransaction(async (tx) => {
+    const claimed = await tx.materialSale.updateMany({
+      where: {
+        id: saleId,
+        OR: [{ irnStatus: null }, { irnStatus: { notIn: ["GENERATED", "GENERATING"] } }],
+      },
+      data: { irnStatus: "GENERATING", irnError: null },
     });
-    if (existing?.irn && existing.irnStatus === "GENERATED") {
+    if (claimed.count === 0) {
+      const existing = await tx.materialSale.findUnique({
+        where: { id: saleId },
+        select: { irn: true, irnStatus: true },
+      });
+      if (existing?.irnStatus === "GENERATING") {
+        throw new ServiceError("IRN generation is already in progress for this invoice", 409);
+      }
       throw new ServiceError("IRN already generated for this invoice", 409);
     }
+  });
 
-    let result: EInvoiceResult;
-    try {
-      result = await provider.generate(payload);
-    } catch (err) {
-      // Record the failure
-      await tx.materialSale.update({
-        where: { id: saleId },
-        data: {
-          irnStatus: "FAILED",
-          irnError: err instanceof Error ? err.message : "Unknown error",
-        },
-      });
-      throw new ServiceError(
-        `e-Invoice generation failed: ${err instanceof Error ? err.message : "Unknown error"}`,
-        502,
-      );
-    }
+  // Portal call outside the tx — safe to retry the claim+write, the network
+  // call itself only happens once per generate() invocation.
+  let result: EInvoiceResult;
+  try {
+    result = await provider.generate(payload);
+  } catch (err) {
+    // Release the claim so a retry can attempt again.
+    await prisma.materialSale.update({
+      where: { id: saleId },
+      data: {
+        irnStatus: "FAILED",
+        irnError: err instanceof Error ? err.message : "Unknown error",
+      },
+    });
+    throw new ServiceError(
+      `e-Invoice generation failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+      502,
+    );
+  }
 
+  // Record the registered IRN in a fresh tx — never rolled-back-after-register.
+  return withSerializableTransaction(async (tx) => {
     const updated = await tx.materialSale.update({
       where: { id: saleId },
       data: {
@@ -396,40 +417,56 @@ export async function generateAssetSaleIrn(
   companyId: string,
   userId?: string,
 ): Promise<{ irn: string; ackNo: string; status: string }> {
-  return withSerializableTransaction(async (tx) => {
-    const payload = await buildAssetSaleEInvoicePayload(saleId, companyId);
-    if (!payload) {
-      throw new ServiceError(
-        "e-Invoice not eligible: both company and customer must have GSTIN (B2B only)",
-        400,
-      );
-    }
+  // Same transaction-boundary fix as generateMaterialSaleIrn — the portal
+  // call must not run inside the retried Serializable tx (retry would fire a
+  // second IRN request; a rollback would orphan a registered IRN; the RTT
+  // would hold a pooled connection). Claim → call outside → record.
+  const payload = await buildAssetSaleEInvoicePayload(saleId, companyId);
+  if (!payload) {
+    throw new ServiceError(
+      "e-Invoice not eligible: both company and customer must have GSTIN (B2B only)",
+      400,
+    );
+  }
 
-    const existing = await tx.assetSale.findUnique({
-      where: { id: saleId },
-      select: { irn: true, irnStatus: true },
+  await withSerializableTransaction(async (tx) => {
+    const claimed = await tx.assetSale.updateMany({
+      where: {
+        id: saleId,
+        OR: [{ irnStatus: null }, { irnStatus: { notIn: ["GENERATED", "GENERATING"] } }],
+      },
+      data: { irnStatus: "GENERATING", irnError: null },
     });
-    if (existing?.irn && existing.irnStatus === "GENERATED") {
+    if (claimed.count === 0) {
+      const existing = await tx.assetSale.findUnique({
+        where: { id: saleId },
+        select: { irn: true, irnStatus: true },
+      });
+      if (existing?.irnStatus === "GENERATING") {
+        throw new ServiceError("IRN generation is already in progress for this invoice", 409);
+      }
       throw new ServiceError("IRN already generated for this invoice", 409);
     }
+  });
 
-    let result: EInvoiceResult;
-    try {
-      result = await provider.generate(payload);
-    } catch (err) {
-      await tx.assetSale.update({
-        where: { id: saleId },
-        data: {
-          irnStatus: "FAILED",
-          irnError: err instanceof Error ? err.message : "Unknown error",
-        },
-      });
-      throw new ServiceError(
-        `e-Invoice generation failed: ${err instanceof Error ? err.message : "Unknown error"}`,
-        502,
-      );
-    }
+  let result: EInvoiceResult;
+  try {
+    result = await provider.generate(payload);
+  } catch (err) {
+    await prisma.assetSale.update({
+      where: { id: saleId },
+      data: {
+        irnStatus: "FAILED",
+        irnError: err instanceof Error ? err.message : "Unknown error",
+      },
+    });
+    throw new ServiceError(
+      `e-Invoice generation failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+      502,
+    );
+  }
 
+  return withSerializableTransaction(async (tx) => {
     const updated = await tx.assetSale.update({
       where: { id: saleId },
       data: {
@@ -465,18 +502,39 @@ export async function cancelMaterialSaleIrn(
   reason: string,
   userId?: string,
 ): Promise<{ status: string }> {
-  return withSerializableTransaction(async (tx) => {
-    const sale = await tx.materialSale.findFirst({
-      where: { id: saleId, companyId },
-      select: { irn: true, irnStatus: true },
+  // Claim the cancel by flipping GENERATED → CANCELLING inside the tx — a
+  // concurrent cancel sees CANCELLING and bails. The portal call itself runs
+  // outside so a tx retry can't re-fire a second cancel request.
+  const irn = await withSerializableTransaction(async (tx) => {
+    const claimed = await tx.materialSale.updateMany({
+      where: { id: saleId, companyId, irnStatus: "GENERATED", irn: { not: null } },
+      data: { irnStatus: "CANCELLING" },
     });
-    if (!sale) throw new ServiceError("Sale not found", 404);
-    if (!sale.irn || sale.irnStatus !== "GENERATED") {
+    if (claimed.count === 0) {
+      const sale = await tx.materialSale.findFirst({
+        where: { id: saleId, companyId },
+        select: { irn: true, irnStatus: true },
+      });
+      if (!sale) throw new ServiceError("Sale not found", 404);
+      if (sale.irnStatus === "CANCELLING") {
+        throw new ServiceError("IRN cancellation is already in progress", 409);
+      }
       throw new ServiceError("No active IRN to cancel", 400);
     }
+    const sale = await tx.materialSale.findUnique({ where: { id: saleId }, select: { irn: true } });
+    return sale!.irn!;
+  });
 
-    const result = await provider.cancel(sale.irn, reason);
+  let result: EInvoiceCancelResult;
+  try {
+    result = await provider.cancel(irn, reason);
+  } catch (err) {
+    // Restore GENERATED so the cancel can be retried.
+    await prisma.materialSale.update({ where: { id: saleId }, data: { irnStatus: "GENERATED" } });
+    throw err;
+  }
 
+  return withSerializableTransaction(async (tx) => {
     await tx.materialSale.update({
       where: { id: saleId },
       data: {
@@ -492,8 +550,8 @@ export async function cancelMaterialSaleIrn(
       userId,
       entityType: "MaterialSale",
       entityId: saleId,
-      before: { irn: sale.irn, status: "GENERATED" },
-      after: { irn: sale.irn, status: "CANCELLED", reason },
+      before: { irn, status: "GENERATED" },
+      after: { irn, status: "CANCELLED", reason },
     });
 
     return { status: "CANCELLED" };
@@ -506,18 +564,37 @@ export async function cancelAssetSaleIrn(
   reason: string,
   userId?: string,
 ): Promise<{ status: string }> {
-  return withSerializableTransaction(async (tx) => {
-    const sale = await tx.assetSale.findFirst({
-      where: { id: saleId, companyId },
-      select: { irn: true, irnStatus: true },
+  // Same boundary fix as cancelMaterialSaleIrn — CANCELLING claim inside the
+  // tx, portal call outside, CANCELLED write in a fresh tx.
+  const irn = await withSerializableTransaction(async (tx) => {
+    const claimed = await tx.assetSale.updateMany({
+      where: { id: saleId, companyId, irnStatus: "GENERATED", irn: { not: null } },
+      data: { irnStatus: "CANCELLING" },
     });
-    if (!sale) throw new ServiceError("Sale not found", 404);
-    if (!sale.irn || sale.irnStatus !== "GENERATED") {
+    if (claimed.count === 0) {
+      const sale = await tx.assetSale.findFirst({
+        where: { id: saleId, companyId },
+        select: { irn: true, irnStatus: true },
+      });
+      if (!sale) throw new ServiceError("Sale not found", 404);
+      if (sale.irnStatus === "CANCELLING") {
+        throw new ServiceError("IRN cancellation is already in progress", 409);
+      }
       throw new ServiceError("No active IRN to cancel", 400);
     }
+    const sale = await tx.assetSale.findUnique({ where: { id: saleId }, select: { irn: true } });
+    return sale!.irn!;
+  });
 
-    const result = await provider.cancel(sale.irn, reason);
+  let result: EInvoiceCancelResult;
+  try {
+    result = await provider.cancel(irn, reason);
+  } catch (err) {
+    await prisma.assetSale.update({ where: { id: saleId }, data: { irnStatus: "GENERATED" } });
+    throw err;
+  }
 
+  return withSerializableTransaction(async (tx) => {
     await tx.assetSale.update({
       where: { id: saleId },
       data: {
@@ -533,8 +610,8 @@ export async function cancelAssetSaleIrn(
       userId,
       entityType: "AssetSale",
       entityId: saleId,
-      before: { irn: sale.irn, status: "GENERATED" },
-      after: { irn: sale.irn, status: "CANCELLED", reason },
+      before: { irn, status: "GENERATED" },
+      after: { irn, status: "CANCELLED", reason },
     });
 
     return { status: "CANCELLED" };
