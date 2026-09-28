@@ -351,14 +351,30 @@ export async function recordMovement(
 
   const balanceValueAfter = stockValueAfterIssue(newQty, newMAC);
 
-  // Update the current-state cache
-  await tx.stockLocationItem.update({
-    where: { id: item.id },
-    data: {
-      qty: newQty,
-      movingAvgCost: newMAC,
-    },
-  });
+  // Update the current-state cache. For OUT movements use an atomic
+  // conditional decrement — `qty >= moveQty` + `decrement` in one statement —
+  // so stock can't dip below zero even if a future caller runs this outside
+  // the Serializable transaction (the read-modify-write above would then be
+  // a lost-update race). IN movements can only grow qty, so a plain set is safe.
+  if (direction === "OUT") {
+    const updated = await tx.stockLocationItem.updateMany({
+      where: { id: item.id, qty: { gte: moveQty } },
+      data: { qty: { decrement: moveQty }, movingAvgCost: newMAC },
+    });
+    if (updated.count === 0) {
+      throw new ServiceError(
+        `Insufficient stock: requested ${moveQty} ${input.materialId}, available ${oldQty} at location ${locationId}`,
+      );
+    }
+  } else {
+    await tx.stockLocationItem.update({
+      where: { id: item.id },
+      data: {
+        qty: newQty,
+        movingAvgCost: newMAC,
+      },
+    });
+  }
 
   // Append the immutable ledger entry
   const movement = await tx.stockMovement.create({

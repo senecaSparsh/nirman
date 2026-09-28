@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
@@ -57,6 +57,10 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
   const [scanning, setScanning] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [confirmLines, setConfirmLines] = useState<{ name: string; qty: number; unit: string; cost: number }[] | null>(null);
+  // Double-submit lock — a fast double-tap on "Confirm" fires before React
+  // re-renders a `submitting` state, so a ref (updates synchronously) is the
+  // only reliable guard. Without it, two queued ops apply the receipt twice.
+  const submitLock = useRef(false);
 
   // ── Delivery details (collapsible) ──
   const [showDeliveryDetails, setShowDeliveryDetails] = useState(false);
@@ -159,6 +163,8 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
 
   function confirmReceipt() {
     if (!selectedPo || !confirmLines) return;
+    if (submitLock.current) return;
+    submitLock.current = true;
     const lines = selectedPo.lines
       .map((l) => {
         const qty = Number(receipts[l.id] ?? 0);
@@ -231,7 +237,7 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
       // hook already re-read IndexedDB; the server list is refreshed on the
       // next online load anyway.
       if (navigator.onLine) router.refresh();
-    });
+    }).finally(() => { submitLock.current = false; });
   }
 
   return (
