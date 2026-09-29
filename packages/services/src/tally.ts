@@ -1,7 +1,5 @@
 import { prisma } from "@nirman/db";
-import type { Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
-import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 
 /**
@@ -314,6 +312,11 @@ ${ledgerEntries}
 
 // ── Sync Operations ────────────────────────────────────────
 
+// A deterministically-failing entry stops auto-retrying after this many
+// attempts (≈8 hours of the hourly cron — enough for transient outages) —
+// it stays FAILED in the log for manual fix instead of churning forever.
+const MAX_TALLY_RETRY_ATTEMPTS = 8;
+
 /**
  * Get all unsynced journal entries for a company.
  * Includes entries that have never been synced (tallySyncLog: null)
@@ -328,10 +331,14 @@ export async function getUnsyncedEntries(companyId: string) {
       OR: [
         // Never attempted
         { tallySyncLog: null },
-        // Last attempt failed — retry
-        { tallySyncLog: { syncStatus: "FAILED" } },
+        // Last attempt failed — retry, but only up to the cap: a
+        // deterministically-failing entry (a bad voucher mapping Tally always
+        // rejects) would otherwise churn hourly forever, growing a FAILED
+        // backlog that masks real new failures. Past the cap it stays FAILED
+        // in the log for manual fix but is excluded from auto-retry.
+        { tallySyncLog: { syncStatus: "FAILED", attempts: { lt: MAX_TALLY_RETRY_ATTEMPTS } } },
         // Last attempt still pending (interrupted sync)
-        { tallySyncLog: { syncStatus: "PENDING" } },
+        { tallySyncLog: { syncStatus: "PENDING", attempts: { lt: MAX_TALLY_RETRY_ATTEMPTS } } },
       ],
     },
     include: {
@@ -423,6 +430,7 @@ export async function syncEntryToTally(
       syncedAt: result.success ? new Date() : null,
       tallyVoucherNumber: result.voucherNumber ?? null,
       errorMessage: result.error ?? null,
+      attempts: { increment: 1 },
     },
   });
 
@@ -559,15 +567,6 @@ function buildExportEnvelope(collectionName: string, filters?: Record<string, st
     </DATA>
   </BODY>
 </ENVELOPE>`;
-}
-
-/**
- * Parse a simple XML tag value (first occurrence).
- */
-function extractXmlTag(xml: string, tag: string): string | null {
-  const re = new RegExp(`<${tag}>\\s*([^<]*?)\\s*</${tag}>`, "i");
-  const m = xml.match(re);
-  return m?.[1]?.trim() ?? null;
 }
 
 /**

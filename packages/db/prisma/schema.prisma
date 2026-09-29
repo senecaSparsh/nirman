@@ -4772,6 +4772,7 @@ model TallySyncLog {
   referenceNumber    String?  // voucher reference number from Tally (for reverse-sync matching)
   tallyAmount        Decimal?  @db.Decimal(14, 2) // amount from Tally (for variance checks)
   syncStatus         TallySyncStatus @default(PENDING)
+  attempts           Int      @default(0) // retry counter — a deterministically-failing entry stops auto-retrying past the cap and stays FAILED for manual fix
   syncedAt           DateTime?
   errorMessage       String?
   xmlPayload         String   // the generated/imported Tally XML
