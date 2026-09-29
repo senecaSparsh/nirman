@@ -593,6 +593,15 @@ export async function cancelMaterialSale(id: string, companyId: string, userId?:
     });
     if (!sale) throw new ServiceError("Material sale not found", 404);
     if (sale.status === "CANCELLED") throw new ServiceError("Sale is already cancelled");
+    // A generated e-invoice (IRN) lives on the GST portal — cancelling the sale
+    // here while the IRN stays live leaves a valid tax document pointing at a
+    // voided transaction. Cancel the e-invoice on the portal first.
+    if (sale.irnStatus === "GENERATED") {
+      throw new ServiceError(
+        "This sale has a live e-invoice (IRN) on the GST portal. Cancel the e-invoice first, then cancel the sale — otherwise the portal shows a valid invoice for a voided sale.",
+        409,
+      );
+    }
 
     // Check for existing payments — don't allow cancellation if payments exist
     const paymentCount = await tx.materialSalePayment.count({ where: { saleId: sale.id } });

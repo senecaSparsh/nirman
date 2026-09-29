@@ -1679,6 +1679,16 @@ export async function cancelSale(saleId: string, userId?: string) {
     if (sale.saleStage === "COMPLETED") {
       throw new ServiceError("Cannot cancel a completed sale — process a refund instead");
     }
+    // An e-invoice (IRN) registered on the GST portal can't be silently dropped
+    // — cancelling the sale locally while the IRN stays live leaves a real tax
+    // document pointing at a cancelled transaction. Require the IRN to be
+    // cancelled on the portal first so the two systems stay consistent.
+    if (sale.irnStatus === "GENERATED") {
+      throw new ServiceError(
+        "This sale has a live e-invoice (IRN) on the GST portal. Cancel the e-invoice first, then cancel the sale — otherwise the portal shows a valid invoice for a voided transaction.",
+        409,
+      );
+    }
 
     // Revert asset status to AVAILABLE + unlock
     await markAssetStatus(tx, sale.assetType, sale.landParcelId, sale.builtUnitId, "AVAILABLE", sale.projectId);
