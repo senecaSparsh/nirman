@@ -224,6 +224,43 @@ export async function completeSupplierReturn(input: CompleteSupplierReturnInput)
       }
     }
 
+    // PO-linked returns can't exceed what that PO actually delivered — a
+    // return against a PO credits the supplier's AP for the returned qty, so
+    // returning more than the PO received would inflate the credit note for
+    // goods the supplier never supplied under it. Sum the qty already returned
+    // on prior completed returns for the same PO + material.
+    if (ret.purchaseOrderId) {
+      const poLines = await tx.purchaseOrderLine.findMany({
+        where: { purchaseOrderId: ret.purchaseOrderId, materialId: { in: ret.lines.map((l) => l.materialId) } },
+        select: { materialId: true, qtyReceived: true },
+      });
+      const receivedByMaterial = new Map(poLines.map((l) => [l.materialId, new Decimal(l.qtyReceived)]));
+      const priorReturns = await tx.supplierReturnLine.findMany({
+        where: {
+          materialId: { in: ret.lines.map((l) => l.materialId) },
+          supplierReturn: { purchaseOrderId: ret.purchaseOrderId, status: "COMPLETED", id: { not: ret.id } },
+        },
+        select: { materialId: true, qty: true },
+      });
+      const returnedByMaterial = new Map<string, Decimal>();
+      for (const pr of priorReturns) {
+        returnedByMaterial.set(pr.materialId, (returnedByMaterial.get(pr.materialId) ?? new Decimal(0)).plus(new Decimal(pr.qty)));
+      }
+      for (const line of ret.lines) {
+        const received = receivedByMaterial.get(line.materialId);
+        if (received == null) {
+          throw new ServiceError(`Material ${line.materialId} was not on PO ${ret.purchaseOrderId} — cannot return it against that PO`);
+        }
+        const alreadyReturned = returnedByMaterial.get(line.materialId) ?? new Decimal(0);
+        const returnable = received.minus(alreadyReturned);
+        if (new Decimal(line.qty).gt(returnable)) {
+          throw new ServiceError(
+            `Return qty ${line.qty} exceeds what PO delivered (${received} received, ${alreadyReturned} already returned — ${returnable} returnable) for material ${line.materialId}`,
+          );
+        }
+      }
+    }
+
     // Record RETURN movements (stock leaves the location back to supplier)
     for (const line of ret.lines) {
       await recordMovement(tx, {
