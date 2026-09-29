@@ -526,7 +526,12 @@ export function DataTable<T>({
       const col = columns.find((c) => c.key === key);
       return rows.reduce((acc, row) => {
         const v = col ? valueOf(col, row) : getPath(row, key);
-        return acc + (typeof v === "number" && !Number.isNaN(v) ? v : 0);
+        // Decimal columns serialize as strings over JSON ("123.45") — a strict
+        // `typeof === "number"` silently drops them, so a money/qty footer
+        // reads 0 while the rows above it show real values. Coerce numeric
+        // strings so the sum matches the rows.
+        const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+        return acc + (Number.isFinite(n) ? n : 0);
       }, 0);
     },
     [columns, valueOf],

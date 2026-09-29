@@ -322,7 +322,10 @@ export function EditableGrid<R extends Record<string, unknown>>({
     for (const key of colsToSum) {
       result[key] = rows.reduce((sum, r) => {
         const v = r[key];
-        return sum + (typeof v === "number" && !isNaN(v) ? v : 0);
+        // Coerce Decimal-strings ("123.45") — a strict number check drops them
+        // so the footer reads 0 while rows show real values.
+        const n = typeof v === "number" ? v : typeof v === "string" ? Number(v) : NaN;
+        return sum + (Number.isFinite(n) ? n : 0);
       }, 0);
     }
     return result;
