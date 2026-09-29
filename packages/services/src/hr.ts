@@ -2462,6 +2462,11 @@ export async function submitDPR(input: SubmitDprInput) {
     if (dateOnly > todayISTUTC()) {
       throw new HrError("Cannot file a DPR for a future date", 400);
     }
+    // A DPR posts labour cost + attendance for its date — filing it into a
+    // PROCESSED/PAID payroll period lands cost in a closed month whose payroll
+    // already ran, so the labour is never captured there but still hits the
+    // project ledger. Correct it with an adjustment in the open period.
+    await assertAttendancePeriodOpen(input.companyId, dateOnly, tx);
     const progressPct = input.progressPct != null ? new Decimal(input.progressPct) : new Decimal(0);
 
     const headerData = {
