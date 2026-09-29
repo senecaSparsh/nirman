@@ -9,7 +9,7 @@ import { Field } from "@/components/field";
 import { PageLoading } from "@/components/page-loading";
 import { StatusPill } from "@/components/page";
 import { EmptyState } from "@/components/empty-state";
-import { cn, formatDate, formatCurrency, formatNumber } from "@/lib/utils";
+import { cn, formatDate, formatCurrency, formatNumber, toNum} from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { useFetch } from "@/lib/use-fetch";
@@ -1356,7 +1356,7 @@ function WbsDetailDialog({ node, onClose, canEdit, allNodes, onReload, projectId
 
   const _isMilestone = node.type === "MILESTONE";
   const approvedEntries = entries.filter((e) => e.status === "APPROVED");
-  const totalApproved = approvedEntries.reduce((sum, e) => sum + e.measuredQty, 0);
+  const totalApproved = approvedEntries.reduce((sum, e) => sum + toNum(e.measuredQty), 0);
   const hasBoq = !!node.boqItem;
   const r = rollup(node);
   const displayProgress = node.children.length > 0 ? r.progress : node.progressPct;
@@ -1440,7 +1440,7 @@ function WbsDetailDialog({ node, onClose, canEdit, allNodes, onReload, projectId
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Pending verification</span>
                     <span className="tabular-nums text-amber-600 dark:text-amber-400">
-                      {formatNumber(entries.filter((e) => e.status === "VERIFIED").reduce((s, e) => s + e.measuredQty, 0), 3)} {node.boqItem.unit ?? ""}
+                      {formatNumber(entries.filter((e) => e.status === "VERIFIED").reduce((s, e) => s + toNum(e.measuredQty), 0), 3)} {node.boqItem.unit ?? ""}
                     </span>
                   </div>
                 )}
@@ -1458,7 +1458,7 @@ function WbsDetailDialog({ node, onClose, canEdit, allNodes, onReload, projectId
                 </div>
                 {entries.some((e) => e.status === "VERIFIED") && (
                   <p className="text-[11px] text-amber-600 dark:text-amber-400 pt-1">
-                    {formatNumber(entries.filter((e) => e.status === "VERIFIED").reduce((s, e) => s + e.measuredQty, 0), 3)} {node.boqItem.unit ?? ""} awaiting approval — will increase progress once approved.
+                    {formatNumber(entries.filter((e) => e.status === "VERIFIED").reduce((s, e) => s + toNum(e.measuredQty), 0), 3)} {node.boqItem.unit ?? ""} awaiting approval — will increase progress once approved.
                   </p>
                 )}
               </div>

@@ -119,11 +119,11 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
         const sellable = parcels.filter((p) => p.status !== "PARTITIONED");
         const sold = sellable.filter((p) => p.salePrice != null);
         const unsold = sellable.filter((p) => p.salePrice == null);
-        const unsoldValue = unsold.reduce((s, p) => s + p.currentValuation, 0);
-        const costBasis = unsold.reduce((s, p) => s + p.acquisitionCost, 0);
-        const soldRevenue = sold.reduce((s, p) => s + (p.salePrice ?? p.currentValuation), 0);
-        const soldProfit = sold.reduce((s, p) => s + (p.saleProfit ?? 0), 0);
-        const availableArea = unsold.filter((p) => p.status === "AVAILABLE").reduce((s, p) => s + p.area, 0);
+        const unsoldValue = unsold.reduce((s, p) => s + toNum(p.currentValuation), 0);
+        const costBasis = unsold.reduce((s, p) => s + toNum(p.acquisitionCost), 0);
+        const soldRevenue = sold.reduce((s, p) => s + toNum((p.salePrice ?? p.currentValuation)), 0);
+        const soldProfit = sold.reduce((s, p) => s + toNum((p.saleProfit ?? 0)), 0);
+        const availableArea = unsold.filter((p) => p.status === "AVAILABLE").reduce((s, p) => s + toNum(p.area), 0);
         const totalAreaNum = toNum(purchase.totalArea);
         const costPerUnit = totalAreaNum > 0 ? toNum(purchase.totalCost) / totalAreaNum : 0;
 

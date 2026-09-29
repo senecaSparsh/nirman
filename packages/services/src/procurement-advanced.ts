@@ -25,6 +25,8 @@ export interface VendorRating {
   overallScore: Decimal;        // 0-1 weighted average
   totalPos: number;
   totalReceipts: number;
+  /** Receipts whose inspection is done — the denominator for qualityRate. */
+  inspectedReceipts: number;
   totalQuotes: number;
 }
 
@@ -65,10 +67,24 @@ export function computeVendorScore(input: {
 }
 
 /**
+ * Quality inputs from goods-receipt inspection statuses. PENDING receipts
+ * haven't been inspected, so they're excluded from the denominator rather
+ * than counted as failures. Pure function — no DB access.
+ */
+export function countInspectionOutcomes(statuses: string[]): { inspectedCount: number; acceptedCount: number } {
+  const inspected = statuses.filter((s) => s !== "PENDING");
+  return {
+    inspectedCount: inspected.length,
+    acceptedCount: inspected.filter((s) => s === "PASSED").length,
+  };
+}
+
+/**
  * Compute a vendor rating for a single supplier.
  *
  * - On-time delivery: % of POs where the first GoodsReceipt date ≤ PO.expectedDate
- * - Quality acceptance: % of GoodsReceipts with status ACCEPTED
+ * - Quality acceptance: % of inspected GoodsReceipts that PASSED (pending
+ *   inspections are excluded; neutral until the first inspection)
  * - Price competitiveness: for each VendorQuote by this supplier, check if they
  *   were the lowest quote in that requisition. Score = #lowest / #total quotes.
  *
@@ -111,21 +127,15 @@ export async function computeVendorRating(supplierId: string): Promise<VendorRat
       onTimeCount++;
     }
   }
-  const onTimeRate = pos.length > 0
-    ? new Decimal(onTimeCount).div(pos.length)
-    : new Decimal(1); // no POs → neutral
 
-  // Quality acceptance
+  // Quality acceptance — measured over INSPECTED receipts only. A receipt
+  // still awaiting inspection (PENDING) says nothing about quality; counting
+  // it as "not passed" scored every new supplier 0% until someone inspected.
   const receipts = await prisma.goodsReceipt.findMany({
     where: { purchaseOrder: { supplierId } },
     select: { id: true, inspectionStatus: true },
   });
-  const acceptedCount = receipts.filter(
-    (r) => r.inspectionStatus === "PASSED",
-  ).length;
-  const qualityRate = receipts.length > 0
-    ? new Decimal(acceptedCount).div(receipts.length)
-    : new Decimal(1); // no receipts → neutral
+  const { inspectedCount, acceptedCount } = countInspectionOutcomes(receipts.map((r) => r.inspectionStatus));
 
   // Price competitiveness
   const quotes = await prisma.vendorQuote.findMany({
@@ -135,15 +145,16 @@ export async function computeVendorRating(supplierId: string): Promise<VendorRat
   const totalQuotes = await prisma.vendorQuote.count({
     where: { supplierId, status: { in: ["PENDING", "SELECTED", "REJECTED"] } },
   });
-  // Score = selected quotes / total submitted quotes (how often they win)
-  const priceCompetitiveness = totalQuotes > 0
-    ? new Decimal(quotes.length).div(totalQuotes)
-    : new Decimal(0.5); // no quotes → neutral
 
-  const overallScore = onTimeRate
-    .times(0.4)
-    .plus(qualityRate.times(0.3))
-    .plus(priceCompetitiveness.times(0.3));
+  // Same formula as the pure scorer (weights + neutral defaults live there).
+  const { onTimeRate, qualityRate, priceCompetitiveness, overallScore } = computeVendorScore({
+    onTimeCount,
+    totalPos: pos.length,
+    acceptedCount,
+    totalReceipts: inspectedCount,
+    selectedQuotes: quotes.length,
+    totalQuotes,
+  });
 
   return {
     supplierId,
@@ -154,6 +165,7 @@ export async function computeVendorRating(supplierId: string): Promise<VendorRat
     overallScore: overallScore.toDecimalPlaces(4),
     totalPos: pos.length,
     totalReceipts: receipts.length,
+    inspectedReceipts: inspectedCount,
     totalQuotes,
   };
 }

@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { MessageSquare, } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { swrFetcher } from "@/lib/swr";
+import { useHideOnScroll } from "@/lib/use-hide-on-scroll";
 import { FeedbackDialog } from "./feedback-dialog";
 
 /**
@@ -29,6 +30,9 @@ import { FeedbackDialog } from "./feedback-dialog";
  */
 export function FeedbackButton() {
   const [open, setOpen] = useState(false);
+  // On phones the button floats over list rows — step aside while the user
+  // scrolls down through content, return the instant they scroll up.
+  const hidden = useHideOnScroll();
 
   // Read the user's role from SWR — pre-seeded by the root layout's
   // fallback so the role (and thus the badge visibility) is correct on
@@ -52,7 +56,12 @@ export function FeedbackButton() {
           rail's avatar/sign-out cluster. */}
       <div
         data-feedback-button
-        className="fixed z-40 flex flex-col items-start gap-2 no-print left-4 bottom-[calc(4.75rem+max(env(safe-area-inset-bottom),0px)+0.5rem)] lg:left-auto lg:right-4 lg:bottom-4 lg:items-end"
+        data-hidden={hidden}
+        className={cn(
+          "fixed z-40 flex flex-col items-start gap-2 no-print left-4 bottom-[calc(4.75rem+max(env(safe-area-inset-bottom),0px)+0.5rem)] lg:left-auto lg:right-4 lg:bottom-4 lg:items-end",
+          "transition-[transform,opacity] duration-200 ease-out motion-reduce:transition-opacity",
+          "max-lg:data-[hidden=true]:translate-y-3 max-lg:data-[hidden=true]:opacity-0 max-lg:data-[hidden=true]:pointer-events-none",
+        )}
       >
         {/* Feedback inbox badge for developer/owner/admin */}
         {unreadCount > 0 && (

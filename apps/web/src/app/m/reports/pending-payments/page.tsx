@@ -79,9 +79,9 @@ async function MobilePendingPaymentsContent() {
     value: po.lines.reduce((s, l) => s + toNum(l.qtyOrdered) * toNum(l.unitCost), 0),
   }));
 
-  const totalPayable = overdueRows.reduce((s, r) => s + r.payable, 0);
-  const totalReceivable = receivableRows.reduce((s, r) => s + r.outstanding, 0);
-  const totalDraft = draftRows.reduce((s, r) => s + r.value, 0);
+  const totalPayable = overdueRows.reduce((s, r) => s + toNum(r.payable), 0);
+  const totalReceivable = receivableRows.reduce((s, r) => s + toNum(r.outstanding), 0);
+  const totalDraft = draftRows.reduce((s, r) => s + toNum(r.value), 0);
   const netCash = totalReceivable - totalPayable;
 
   if (overdueRows.length === 0 && receivableRows.length === 0 && draftRows.length === 0) {

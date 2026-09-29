@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import {formatNumber} from "@/lib/utils";
+import {formatNumber, toNum} from "@/lib/utils";
 import type { LandParcelRow } from "@/lib/types";
 
 export function ParcelValuationDialog({
@@ -66,7 +66,7 @@ export function ParcelValuationDialog({
     if (!isChild || !siblings || parentArea == null) return null;
     const otherSiblingsSum = siblings
       .filter((s) => s.id !== parcel?.id)
-      .reduce((sum, s) => sum + s.area, 0);
+      .reduce((sum, s) => sum + toNum(s.area), 0);
     const newTotal = otherSiblingsSum + areaNum;
     const diff = newTotal - parentArea;
     return { otherSiblingsSum, newTotal, diff, parentArea };

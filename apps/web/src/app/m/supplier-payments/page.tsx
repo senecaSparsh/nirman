@@ -49,7 +49,7 @@ export default function MobileSupplierPaymentsPage({
           paymentMode: p.paymentMode,
           status: p.status}));
 
-        const totalAmount = rows.reduce((s, p) => s + (p.status === "VOID" ? 0 : p.amount), 0);
+        const totalAmount = rows.reduce((s, p) => s + toNum((p.status === "VOID" ? 0 : p.amount)), 0);
 
         return (
           <div>

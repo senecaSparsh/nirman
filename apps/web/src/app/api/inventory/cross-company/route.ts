@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { toNum } from "@/lib/utils";
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -128,7 +129,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     materials: result,
     summary: {
       totalMaterials: result.length,
-      totalValue: result.reduce((sum, m) => sum + m.totalValue, 0),
+      totalValue: result.reduce((sum, m) => sum + toNum(m.totalValue), 0),
       totalQty: result.length,
     },
   });

@@ -72,8 +72,8 @@ async function MobilePurchaseTrendsContent() {
   }
   const topSuppliers = Array.from(supplierMap.values()).sort((a, b) => b.total - a.total).slice(0, 10);
 
-  const grandTotal = monthly.reduce((s, m) => s + m.total, 0);
-  const totalOrders = monthly.reduce((s, m) => s + m.count, 0);
+  const grandTotal = monthly.reduce((s, m) => s + toNum(m.total), 0);
+  const totalOrders = monthly.reduce((s, m) => s + toNum(m.count), 0);
 
   if (totalOrders === 0) {
     return <MobileEmptyState icon={TrendingUp} title="No purchases in the last 12 months" hint="Purchase orders will appear here once created" />;

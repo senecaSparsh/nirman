@@ -12,7 +12,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { StatusPill } from "@/components/page";
-import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatDate, toNum} from "@/lib/utils";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
 import { LotTrackingDialog } from "./lot-tracking-dialog";
 import { AdjustStockDialog } from "./adjust-stock-dialog";
@@ -116,8 +116,8 @@ export function MaterialCockpit({ data, suppliers, locations }: { data: Material
   const [lotOpen, setLotOpen] = useState(false);
   const [adjustOpen, setAdjustOpen] = useState(false);
   const { material } = data;
-  const totalQty = data.stockItems.reduce((s, si) => s + si.qty, 0);
-  const totalValue = data.stockItems.reduce((s, si) => s + si.totalValue, 0);
+  const totalQty = data.stockItems.reduce((s, si) => s + toNum(si.qty), 0);
+  const totalValue = data.stockItems.reduce((s, si) => s + toNum(si.totalValue), 0);
   // Aggregate MAC = qty-weighted average across all locations.
   // Falls back to material.currentCost only when no stock exists.
   const aggregateMac = totalQty > 0 ? totalValue / totalQty : material.currentCost;
@@ -537,8 +537,8 @@ function ProcurementTab({ data }: { data: MaterialCockpitData }) {
 
 function ConsumptionTab({ data }: { data: MaterialCockpitData }) {
   const { material } = data;
-  const totalIssued = data.issues.reduce((s, i) => s + i.qty, 0);
-  const totalCost = data.issues.reduce((s, i) => s + i.qty * i.unitCost, 0);
+  const totalIssued = data.issues.reduce((s, i) => s + toNum(i.qty), 0);
+  const totalCost = data.issues.reduce((s, i) => s + toNum(i.qty * i.unitCost), 0);
 
   return (
     <div className="space-y-4">

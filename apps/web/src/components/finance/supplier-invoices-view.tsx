@@ -15,7 +15,7 @@ import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { SupplierFormDialog } from "@/components/procurement/supplier-form-dialog";
 import { SupplierPaymentFormDialog } from "@/components/procurement/supplier-payment-form-dialog";
 import { HsnSacSearch } from "@/components/hsn-sac-search";
-import { localDateISO, formatCurrency, formatDate, cn } from "@/lib/utils";
+import { localDateISO, formatCurrency, formatDate, cn, toNum} from "@/lib/utils";
 import type { SupplierRow } from "@/lib/types";
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -696,8 +696,8 @@ function SupplierInvoiceFormDialog({
       gstRate: String(l.gstRate),
     })));
     // Auto-fill subtotal from lines
-    const sub = poDetail.lines.reduce((s, l) => s + l.qtyOrdered * l.unitCost, 0);
-    const gst = poDetail.lines.reduce((s, l) => s + l.qtyOrdered * l.unitCost * (l.gstRate / 100), 0);
+    const sub = poDetail.lines.reduce((s, l) => s + toNum(l.qtyOrdered * l.unitCost), 0);
+    const gst = poDetail.lines.reduce((s, l) => s + toNum(l.qtyOrdered * l.unitCost * (l.gstRate / 100)), 0);
     setForm((f) => ({ ...f, subtotal: sub.toFixed(2), gstAmount: gst.toFixed(2), totalAmount: (sub + gst).toFixed(2) }));
   }, [poDetail, form.purchaseOrderId]);
 

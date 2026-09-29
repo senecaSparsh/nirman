@@ -355,7 +355,7 @@ async function ProcurementContent() {
 
   const openPoValue = poRows
     .filter((p) => ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"].includes(p.status))
-    .reduce((s, p) => s + p.total, 0);
+    .reduce((s, p) => s + toNum(p.total), 0);
 
   const pendingRequisitions = requisitionRows.filter((r) => r.status === "SUBMITTED").length;
 

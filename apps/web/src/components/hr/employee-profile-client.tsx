@@ -35,7 +35,7 @@ import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { CreateAccountDialog } from "@/components/hr/create-account-dialog";
 import { PermissionsEditorDialog } from "@/components/settings/permissions-editor-dialog";
 import { ResetPasswordDialog } from "@/components/settings/reset-password-dialog";
-import { formatCurrency, formatDate, cn, displayEmail } from "@/lib/utils";
+import { formatCurrency, formatDate, cn, displayEmail, toNum} from "@/lib/utils";
 import { useTabParam } from "@/lib/use-tab-param";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { AttachmentList } from "@/components/attachments/attachment-list";
@@ -1445,7 +1445,7 @@ function OverviewTab({ employee }: { employee: EmployeeProfileData }) {
 
   const approvedLeaveDays = employee.leaves.history
     .filter((l) => l.status === "APPROVED")
-    .reduce((s, l) => s + l.days, 0);
+    .reduce((s, l) => s + toNum(l.days), 0);
 
   return (
     <div className="space-y-4">
@@ -1988,7 +1988,7 @@ function AdvancesSection({ employeeId, canManagePayroll }: { employeeId: string;
   };
 
   const open = (advances ?? []).filter((a) => a.status === "ACTIVE" || a.status === "PAUSED");
-  const outstandingTotal = open.reduce((s, a) => s + a.outstanding, 0);
+  const outstandingTotal = open.reduce((s, a) => s + toNum(a.outstanding), 0);
 
   return (
     <SectionCard
@@ -2336,7 +2336,7 @@ function LeavesTab({ employee, canManage }: { employee: EmployeeProfileData; can
           { label: "Total Requests", value: l.total },
           { label: "Pending", value: l.pending, tone: l.pending > 0 ? "text-warning" : "text-foreground" },
           { label: "Approved", value: l.approved, tone: "text-success" },
-          { label: "Days Taken", value: rows.filter((r) => r.status === "APPROVED").reduce((s, r) => s + r.days, 0).toFixed(1) },
+          { label: "Days Taken", value: rows.filter((r) => r.status === "APPROVED").reduce((s, r) => s + toNum(r.days), 0).toFixed(1) },
         ]}
       />
 

@@ -20,7 +20,7 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { statusColor, StatusPill } from "@/components/page";
-import { formatCurrency, formatNumber, formatDate, cn } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatDate, cn, toNum} from "@/lib/utils";
 import { ProjectDetailActions } from "./project-detail-actions";
 import { PhasesSection, type PhaseRow } from "./phases-section";
 import { BuiltUnitFormDialog } from "@/components/built-units/built-unit-form-dialog";
@@ -1309,13 +1309,13 @@ function FinanceTab({ data }: { data: ProjectHubData }) {
   const soldUnits = units.filter((u) => u.saleId != null);
   const availableUnits = units.filter((u) => u.status === "AVAILABLE");
   const soldPct = units.length > 0 ? (soldUnits.length / units.length) * 100 : 0;
-  const avgSalePrice = soldUnits.length > 0 ? soldUnits.reduce((s, u) => s + (u.askingPrice ?? 0), 0) / soldUnits.length : 0;
-  const soldArea = soldUnits.reduce((s, u) => s + u.area, 0);
+  const avgSalePrice = soldUnits.length > 0 ? soldUnits.reduce((s, u) => s + toNum((u.askingPrice ?? 0)), 0) / soldUnits.length : 0;
+  const soldArea = soldUnits.reduce((s, u) => s + toNum(u.area), 0);
   const revPerSqft = soldArea > 0 ? pnl.revenue / soldArea : 0;
 
   // ── Procurement spend (unique — Procurement tab only lists POs) ──
   const pos = data.purchaseOrders.filter((p) => p.projectId === project.id || p.procurementScope === "COMPANY");
-  const poTotal = pos.reduce((s, p) => s + p.total, 0);
+  const poTotal = pos.reduce((s, p) => s + toNum(p.total), 0);
   const openPOs = pos.filter((p) => ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"].includes(p.status));
   const receivedPOs = pos.filter((p) => p.status === "RECEIVED");
   // Top supplier by total spend
@@ -1325,7 +1325,7 @@ function FinanceTab({ data }: { data: ProjectHubData }) {
 
   // ── Work order health (unique — Construction tab only lists WOs) ──
   const wos = data.workOrders;
-  const woTotal = wos.reduce((s, w) => s + w.totalValue, 0);
+  const woTotal = wos.reduce((s, w) => s + toNum(w.totalValue), 0);
   const completedWOs = wos.filter((w) => w.status === "COMPLETED" || w.status === "CLOSED");
   const activeWOs = wos.filter((w) => ["DRAFT", "APPROVED", "IN_PROGRESS"].includes(w.status));
   const totalRABills = wos.reduce((s, w) => s + w.raBillCount, 0);
@@ -1608,7 +1608,7 @@ function FinanceTab({ data }: { data: ProjectHubData }) {
 
 function EquipmentTab({ data }: { data: ProjectHubData }) {
   const equipment = data.equipment;
-  const totalValue = equipment.reduce((s, e) => s + e.currentValue, 0);
+  const totalValue = equipment.reduce((s, e) => s + toNum(e.currentValue), 0);
 
   return (
     <div className="space-y-4">

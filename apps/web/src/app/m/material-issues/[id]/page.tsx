@@ -126,6 +126,7 @@ export default function MobileMaterialIssueDetailPage({
           nextAction = {
             when: "PENDING",
             label: "Execute the issue",
+            verb: "Execute",
             reason: `Gate pass ${linkedGp.gatePassNumber} is approved — stock can move now.`,
             action: { type: "anchor", hash: "#approve" },
             perm: PERM.STOCK_ISSUE,
@@ -149,6 +150,7 @@ export default function MobileMaterialIssueDetailPage({
             {nextAction ? (
               <NextActionCardView
                 label={nextAction.label}
+                actionVerb={nextAction.verb}
                 reason={nextAction.reason}
                 tone={nextAction.tone ?? "signal"}
                 hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}

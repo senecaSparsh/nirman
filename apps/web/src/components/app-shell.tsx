@@ -27,7 +27,7 @@ import {
   type NavLink,
 } from "@/lib/nav";
 import { badgeCountUrl, badgeCountFrom } from "@/lib/nav-badges";
-import { cn } from "@/lib/utils";
+import { cn, toNum} from "@/lib/utils";
 import dynamic from "next/dynamic";
 // Heavy client-only components — lazy-loaded with ssr:false so they
 // never enter the initial server bundle or block first paint.
@@ -389,7 +389,7 @@ export function AppShell({
   const worldBadge = (w: World) =>
     w.sections
       .flatMap((s) => s.items)
-      .reduce((sum, i) => sum + (badgeCounts[i.href] ?? 0), 0);
+      .reduce((sum, i) => sum + toNum((badgeCounts[i.href] ?? 0)), 0);
 
   // ── Build alert items for the notification bell's "Needs attention" ──
   // Map each badge link to an urgency level based on its href.

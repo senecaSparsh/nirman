@@ -105,7 +105,7 @@ export function NextActionCardView({
   href,
   hash,
   tone = "signal",
-  actionVerb = "Do",
+  actionVerb,
   onClick,
 }: {
   label: string;
@@ -113,7 +113,8 @@ export function NextActionCardView({
   href?: string;
   hash?: string;
   tone?: "signal" | "go" | "stop";
-  actionVerb?: string;
+  /** Required — pass the flow-map's `verb`. The button must say what it does. */
+  actionVerb: string;
   onClick?: () => void;
 }) {
   return (
@@ -213,7 +214,7 @@ export function NextActionCard({
       href={href}
       hash={act.type === "anchor" ? act.hash : undefined}
       onClick={handleClick}
-      actionVerb="Do"
+      actionVerb={action.verb}
     />
   );
 }

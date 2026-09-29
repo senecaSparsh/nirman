@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import {Users} from "lucide-react";
 import { getCompany, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, toNum} from "@/lib/utils";
 import { getPurchaserPerformance } from "@nirman/services";
 import {
   MobileSectionTitle,
@@ -52,9 +52,9 @@ async function MobilePurchaserPerformanceContent({
     totalSpend: r.totalSpend.toNumber(),
     potentialSavings: r.potentialSavings.toNumber()}));
 
-  const totalQuotes = mapped.reduce((s, r) => s + r.quotesUploaded, 0);
-  const totalSpend = mapped.reduce((s, r) => s + r.totalSpend, 0);
-  const totalSavings = mapped.reduce((s, r) => s + r.potentialSavings, 0);
+  const totalQuotes = mapped.reduce((s, r) => s + toNum(r.quotesUploaded), 0);
+  const totalSpend = mapped.reduce((s, r) => s + toNum(r.totalSpend), 0);
+  const totalSavings = mapped.reduce((s, r) => s + toNum(r.potentialSavings), 0);
 
   if (mapped.length === 0) {
     return <MobileEmptyState icon={Users} title="No purchaser activity yet" hint="Quote uploads and PO conversions will appear here" />;

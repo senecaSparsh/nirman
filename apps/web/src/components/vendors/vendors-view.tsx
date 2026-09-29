@@ -16,7 +16,7 @@ import { GenericCsvImportDialog } from "@/components/csv-import-dialog";
 import { DateCell, IdentityCell, MoneyCell, QtyCell } from "@/components/ui/cells";
 import { statusColor } from "@/components/page";
 import { useTabParam } from "@/lib/use-tab-param";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, toNum} from "@/lib/utils";
 
 export type VendorRow = {
   id: string;
@@ -102,8 +102,8 @@ export function VendorsView({
     }
   }
 
-  const _totalBalance = vendors.reduce((s, v) => s + v.balanceOwed, 0);
-  const _totalSpent = vendors.reduce((s, v) => s + v.totalSpent, 0);
+  const _totalBalance = vendors.reduce((s, v) => s + toNum(v.balanceOwed), 0);
+  const _totalSpent = vendors.reduce((s, v) => s + toNum(v.totalSpent), 0);
   const _withDues = vendors.filter((v) => v.balanceOwed > 0).length;
 
   return (

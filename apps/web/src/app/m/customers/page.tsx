@@ -111,9 +111,9 @@ export default function MobileCustomersPage() {
         });
 
         // Portfolio stats
-        const totalOutstanding = rows.reduce((s, r) => s + r.outstanding, 0);
+        const totalOutstanding = rows.reduce((s, r) => s + toNum(r.outstanding), 0);
         const withDues = rows.filter((r) => r.dueCount > 0);
-        const pipelineValue = rows.reduce((s, r) => s + r.totalValue, 0);
+        const pipelineValue = rows.reduce((s, r) => s + toNum(r.totalValue), 0);
 
         // Existing phone numbers for duplicate-check in the new-customer FAB modal
         const existingPhones = batch

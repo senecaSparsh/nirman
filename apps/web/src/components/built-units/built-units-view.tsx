@@ -24,7 +24,7 @@ import { PurchaseUnitDialog } from "./purchase-unit-dialog";
 import { BuiltUnitEditDialog } from "./built-unit-edit-dialog";
 import { UnitValuationDialog } from "./unit-valuation-dialog";
 import { SellAssetDialog } from "@/components/sales/sell-asset-dialog";
-import { formatCurrency, formatNumber, formatDate, cn } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatDate, cn, toNum} from "@/lib/utils";
 import type {
   BuiltUnitRow, BuiltUnitType, BuiltUnitStatus,
   ProjectOption, PhaseOption, SellableAssetRow,
@@ -166,10 +166,10 @@ export function BuiltUnitsView({
     const available = units.filter((u) => u.status === "AVAILABLE");
     // "Sold" = has an active sale (unit may be RESERVED during staged sale flow)
     const sold = units.filter((u) => u.saleId != null);
-    const sellableValue = available.reduce((s, u) => s + (u.askingPrice ?? 0), 0);
-    const realizedRevenue = sold.reduce((s, u) => s + (u.askingPrice ?? u.currentValuation), 0);
+    const sellableValue = available.reduce((s, u) => s + toNum((u.askingPrice ?? 0)), 0);
+    const realizedRevenue = sold.reduce((s, u) => s + toNum((u.askingPrice ?? u.currentValuation)), 0);
     const avgPricePerSqft = available.length > 0
-      ? available.reduce((s, u) => s + ((u.askingPrice ?? 0) / Math.max(u.area, 1)), 0) / available.length
+      ? available.reduce((s, u) => s + toNum(((u.askingPrice ?? 0) / Math.max(u.area, 1))), 0) / available.length
       : 0;
     const salesVelocity = units.length > 0
       ? (sold.length / units.length) * 100
@@ -244,7 +244,7 @@ export function BuiltUnitsView({
         units: g.units,
         floors,
         statusCounts: gStatusCounts,
-        value: g.units.reduce((s, u) => s + (u.askingPrice ?? 0), 0),
+        value: g.units.reduce((s, u) => s + toNum((u.askingPrice ?? 0)), 0),
       };
     });
   }, [filtered]);

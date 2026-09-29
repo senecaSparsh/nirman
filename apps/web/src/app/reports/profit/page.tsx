@@ -84,10 +84,10 @@ async function ProfitReportContent() {
     netProfit: m.revenue - m.cogs - m.operating - m.salaries,
   }));
 
-  const totalRevenue = monthly.reduce((s, m) => s + m.revenue, 0);
-  const totalCogs = monthly.reduce((s, m) => s + m.cogs, 0);
-  const totalOperating = monthly.reduce((s, m) => s + m.operating, 0);
-  const totalSalaries = monthly.reduce((s, m) => s + m.salaries, 0);
+  const totalRevenue = monthly.reduce((s, m) => s + toNum(m.revenue), 0);
+  const totalCogs = monthly.reduce((s, m) => s + toNum(m.cogs), 0);
+  const totalOperating = monthly.reduce((s, m) => s + toNum(m.operating), 0);
+  const totalSalaries = monthly.reduce((s, m) => s + toNum(m.salaries), 0);
   const grossProfit = totalRevenue - totalCogs;
   const netProfit = grossProfit - totalOperating - totalSalaries;
   const margin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;

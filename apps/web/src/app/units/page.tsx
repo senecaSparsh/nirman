@@ -315,7 +315,7 @@ async function BuiltUnitsContent() {
   // "Sold" = has an active sale (unit may be RESERVED during staged sale flow).
   const soldCount = unitRows.filter((u) => u.saleId != null).length;
   const availableCount = unitRows.filter((u) => u.status === "AVAILABLE").length;
-  const totalValuation = unitRows.reduce((s, u) => s + u.currentValuation, 0);
+  const totalValuation = unitRows.reduce((s, u) => s + toNum(u.currentValuation), 0);
 
   return (
     <div className="space-y-6">

@@ -11,6 +11,7 @@ import {
   scopeWhere,
 } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { summarizeLines } from "@/lib/line-summary";
 
 /**
  * Generic cursor-based pagination endpoint for mobile list pages.
@@ -79,7 +80,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
         take: BATCH_SIZE + 1, // +1 to check if there are more
         include: {
           supplier: { select: { name: true } },
-          lines: { select: { qtyOrdered: true, qtyReceived: true } },
+          lines: { select: { qtyOrdered: true, qtyReceived: true, material: { select: { name: true, unit: true } } } },
         },
       });
       const hasMore = pos.length > BATCH_SIZE;
@@ -106,6 +107,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
           qtyReceived,
           isOverdue,
           createdById: p.createdById,
+          itemSummary: summarizeLines(p.lines.map((l) => ({ name: l.material.name, qty: toNum(l.qtyOrdered), unit: l.material.unit }))),
         };
       });
       const last = batch[batch.length - 1];
@@ -279,7 +281,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
         take: BATCH_SIZE + 1,
         include: {
           project: { select: { name: true } },
-          lines: { select: { qtyRequested: true } },
+          lines: { select: { qtyRequested: true, material: { select: { name: true, unit: true } } } },
           vendorQuotes: { select: { id: true } },
           requestedBy: { select: { id: true, name: true } },
         },
@@ -294,6 +296,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
         createdAt: r.createdAt.toISOString(),
         neededByDate: r.neededByDate?.toISOString() ?? null,
         lineCount: r.lines.length,
+        itemSummary: summarizeLines(r.lines.map((l) => ({ name: l.material.name, qty: toNum(l.qtyRequested), unit: l.material.unit }))),
         quoteCount: r.vendorQuotes.length,
         minQuotesRequired: r.minQuotesRequired,
         quotesWaived: r.quotesWaived,

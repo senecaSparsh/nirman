@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { SupplierFormDialog } from "@/components/procurement/supplier-form-dialog";
 import { QuoteUploadDialog } from "./quote-upload-dialog";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatNumber, toNum} from "@/lib/utils";
 import type { RequisitionDetail } from "@/lib/types";
 
 type SupplierOption = { id: string; name: string };
@@ -151,7 +151,7 @@ export function ConvertToPoDialog({
         return { ...l, lineTotal: l.qtyRequested * cost };
       })
     : [];
-  const grandTotal = lineTotals.reduce((s, l) => s + l.lineTotal, 0);
+  const grandTotal = lineTotals.reduce((s, l) => s + toNum(l.lineTotal), 0);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();

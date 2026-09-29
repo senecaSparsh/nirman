@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { SignatureShell, SignatureNote, ageLabel, toneColor, type Tone } from "./shared";
 
+import { toNum } from "@/lib/utils";
 /* ═══════════════════════════════════════════════════════════════════════════
    PIPELINE FLOW — the procurement persona's signature component
 
@@ -73,7 +74,7 @@ export function PipelineFlow({ data }: { data: PipelineData }) {
   const { stages } = data;
   const [active, setActive] = React.useState<string | null>(null);
 
-  const total = stages.reduce((s, x) => s + x.count, 0);
+  const total = stages.reduce((s, x) => s + toNum(x.count), 0);
   const stuck = stages.filter((s) => s.count > 0 && (s.oldestDays ?? 0) >= 14);
 
   if (stages.length === 0) {

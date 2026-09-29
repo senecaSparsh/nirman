@@ -110,8 +110,8 @@ async function GstReportContent({
     netGst: m.outputGst - m.inputGst, // positive = payable, negative = credit
   }));
 
-  const totalInput = monthly.reduce((s, m) => s + m.inputGst, 0);
-  const totalOutput = monthly.reduce((s, m) => s + m.outputGst, 0);
+  const totalInput = monthly.reduce((s, m) => s + toNum(m.inputGst), 0);
+  const totalOutput = monthly.reduce((s, m) => s + toNum(m.outputGst), 0);
   const netPayable = totalOutput - totalInput;
 
   // Also pull purchase orders and sales for transaction-level detail

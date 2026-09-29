@@ -127,7 +127,7 @@ export async function MaterialsContent() {
     .filter((r) => r.totalQty < r.minStock)
     .sort((a, b) => b.shortfall - a.shortfall);
 
-  const stockValue = materialRows.reduce((s, m) => s + m.totalValue, 0);
+  const stockValue = materialRows.reduce((s, m) => s + toNum(m.totalValue), 0);
 
   return (
     <>

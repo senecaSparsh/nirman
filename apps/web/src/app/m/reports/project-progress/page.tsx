@@ -91,9 +91,9 @@ async function MobileProjectProgressContent() {
     }),
   );
 
-  const totalCost = rows.reduce((s, r) => s + r.totalCost, 0);
-  const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
-  const totalProfit = rows.reduce((s, r) => s + r.profit, 0);
+  const totalCost = rows.reduce((s, r) => s + toNum(r.totalCost), 0);
+  const totalRevenue = rows.reduce((s, r) => s + toNum(r.revenue), 0);
+  const totalProfit = rows.reduce((s, r) => s + toNum(r.profit), 0);
 
   if (rows.length === 0) {
     return (

@@ -125,9 +125,9 @@ export default function MobileSalesPage() {
             occurredAt: lead.activities[0].occurredAt.toISOString()} : null}));
 
         // Aggregate stats
-        const totalValue = items.reduce((s, x) => s + x.salePrice, 0);
-        const totalCollected = items.reduce((s, x) => s + x.totalPaid, 0);
-        const totalOutstanding = items.reduce((s, x) => s + x.balance, 0);
+        const totalValue = items.reduce((s, x) => s + toNum(x.salePrice), 0);
+        const totalCollected = items.reduce((s, x) => s + toNum(x.totalPaid), 0);
+        const totalOutstanding = items.reduce((s, x) => s + toNum(x.balance), 0);
         const outstandingCount = items.filter((x) => x.balance > 0).length;
         const settledCount = items.filter((x) => x.balance <= 0).length;
         const collectionPct = totalValue > 0 ? Math.round((totalCollected / totalValue) * 100) : 0;

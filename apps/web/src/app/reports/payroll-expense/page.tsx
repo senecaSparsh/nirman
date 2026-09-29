@@ -95,9 +95,9 @@ async function PayrollExpenseContent() {
     .map((r) => ({ crew: r.crew, gross: r.gross, net: r.net, employees: r.employees.size }))
     .sort((a, b) => b.gross - a.gross);
 
-  const totalGross = monthly.reduce((s, m) => s + m.gross, 0);
-  const totalNet = monthly.reduce((s, m) => s + m.net, 0);
-  const totalOvertime = monthly.reduce((s, m) => s + m.overtime, 0);
+  const totalGross = monthly.reduce((s, m) => s + toNum(m.gross), 0);
+  const totalNet = monthly.reduce((s, m) => s + toNum(m.net), 0);
+  const totalOvertime = monthly.reduce((s, m) => s + toNum(m.overtime), 0);
 
   return (
     <>

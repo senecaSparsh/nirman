@@ -27,7 +27,7 @@ import {
   ChevronRight,
   KeyRound,
 } from "lucide-react";
-import { formatCurrency, formatDate, displayEmail } from "@/lib/utils";
+import { formatCurrency, formatDate, displayEmail, toNum} from "@/lib/utils";
 import {
   SALARY_COMPONENT_OPTIONS, SALARY_UNIT_OPTIONS, compCalc, unitSuffix,
 } from "@/lib/salary-components";
@@ -1211,10 +1211,10 @@ function SalarySubTab({
   const isVariable = (c: { calculationType?: string; isPercentage?: boolean }) => compCalc(c) === "UNIT_RATE";
   const monthlyGross = (editing ? editComponents : earnings)
     .filter((c) => !c.isDeduction && c.frequency === "MONTHLY" && !isVariable(c))
-    .reduce((sum, c) => sum + c.amount, 0);
+    .reduce((sum, c) => sum + toNum(c.amount), 0);
   const monthlyDeductions = (editing ? editComponents : deductions)
     .filter((c) => c.isDeduction && c.frequency === "MONTHLY" && !isVariable(c))
-    .reduce((sum, c) => sum + c.amount, 0);
+    .reduce((sum, c) => sum + toNum(c.amount), 0);
   const monthlyNet = monthlyGross - monthlyDeductions;
   const annualCTC = (editing ? editComponents : components).reduce((sum, c) => {
     if (c.isDeduction || isVariable(c)) return sum;

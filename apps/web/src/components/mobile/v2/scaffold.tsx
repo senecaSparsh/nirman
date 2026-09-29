@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Search, X, Plus, ChevronDown, RotateCw, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useHideOnScroll } from "@/lib/use-hide-on-scroll";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MOBILE V2 SCAFFOLD — shared list-page building blocks
@@ -53,18 +54,20 @@ export function MobileSearchHeader({
   onClear?: () => void;
 }) {
   const [searchFocused, setSearchFocused] = React.useState(false);
+  const hasBelow = !!filterChips || !!resultCount || !!showClear;
 
   return (
     <div
-      className="sticky top-0 z-20 px-2.5 py-2.5 mb-3 rounded-[0.625rem] border"
+      className="sticky top-0 z-20 py-1.5 mb-1.5"
       style={{
-        /* Solid paper card — symmetric with the stat strip above it. */
-        backgroundColor: "var(--color-paper)",
-        borderColor: "var(--color-line)",
+        /* Page-coloured band, not a card: the input is already the bordered
+           object, so wrapping it in a second bordered box doubled the lines.
+           Opaque so rows scroll cleanly underneath while it's stuck. */
+        backgroundColor: "var(--color-paper-2)",
       }}
     >
       {/* Search + action row — search expands to full width on focus */}
-      <div className="flex items-center gap-1.5 mb-2">
+      <div className={`flex items-center gap-1.5 ${hasBelow ? "mb-2" : ""}`}>
         <div
           className="relative transition-all duration-200 ease-out"
           style={{ flex: searchFocused ? "1 1 100%" : "1 1 auto" }}
@@ -80,12 +83,14 @@ export function MobileSearchHeader({
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
             placeholder={placeholder}
-            className="w-full h-9 rounded-[0.5rem] border-2 pl-8 pr-3 text-m-body focus:outline-none"
+            className="w-full h-9 rounded-[0.5rem] border pl-8 pr-3 text-m-body focus:outline-none"
             style={{
               borderColor:
                 query || searchFocused
                   ? "var(--color-ink-950)"
                   : "var(--color-line)",
+              /* 1px border + 1px ring when active = 2px emphasis without a layout shift */
+              boxShadow: query || searchFocused ? "0 0 0 1px var(--color-ink-950)" : "none",
               backgroundColor: "var(--color-paper)",
               color: "var(--color-ink-950)",
             }}
@@ -503,10 +508,13 @@ export function MobileFab({
    *  is discoverable without tapping — use for non-obvious icons. */
   extended?: boolean;
 }) {
+  // Step aside while scrolling down so the FAB doesn't sit on the last
+  // visible row; never while its own form is open (it's the close button).
+  const scrolledAway = useHideOnScroll() && !isOpen;
   // z-50 when open so the FAB stays clickable above the backdrop
   const className = extended
-    ? "fixed right-4 flex items-center gap-2 h-14 px-5 rounded-full text-m-section font-bold shadow-lg press transition-colors"
-    : "fixed right-4 grid place-items-center size-14 rounded-full text-m-body shadow-lg press transition-colors";
+    ? "fixed right-4 flex items-center gap-2 h-14 px-5 rounded-full text-m-section font-bold shadow-lg press"
+    : "fixed right-4 grid place-items-center size-14 rounded-full text-m-body shadow-lg press";
   const style: React.CSSProperties = {
     bottom:
       "calc(3.5rem + max(env(safe-area-inset-bottom), 0px) + 0.75rem)",
@@ -516,6 +524,11 @@ export function MobileFab({
       ? "0 4px 16px rgba(0,0,0,0.3)"
       : "0 4px 12px rgba(0,0,0,0.2)",
     zIndex: isOpen ? 60 : 30,
+    transform: scrolledAway ? "translateY(calc(100% + 1.5rem))" : undefined,
+    opacity: scrolledAway ? 0 : 1,
+    pointerEvents: scrolledAway ? "none" : undefined,
+    transition:
+      "transform 220ms cubic-bezier(0.23, 1, 0.32, 1), opacity 180ms ease-out, background-color 150ms ease",
   };
   if (onClick) {
     return (
@@ -597,39 +610,64 @@ export interface SummaryStat {
   label: string;
   value: string;
   tone?: "default" | "go" | "stop" | "signal";
+  /** Makes the stat a filter shortcut — a count you can't tap is a dead end. */
+  onClick?: () => void;
+  /** Highlights the stat whose filter is currently applied. */
+  active?: boolean;
 }
 
 /**
- * Compact KPI strip — centered stats inside a subtle bordered box.
+ * Compact KPI strip — equal cells split by hairlines. When a stat has
+ * `onClick` it becomes a filter shortcut; the active one is inked.
+ * A zero count on a toned stat stays neutral so "0 late" never shouts.
  */
 export function MobileSummaryStrip({ stats }: { stats: SummaryStat[] }) {
-  const toneColor = (tone?: SummaryStat["tone"]) =>
-    tone === "go"
-      ? "var(--color-go)"
-      : tone === "stop"
-        ? "var(--color-stop)"
-        : tone === "signal"
-          ? "var(--color-signal-dark)"
-          : "var(--color-ink-950)";
+  const toneColor = (s: SummaryStat) =>
+    s.value === "0"
+      ? "var(--color-ink-950)"
+      : s.tone === "go"
+        ? "var(--color-go)"
+        : s.tone === "stop"
+          ? "var(--color-stop)"
+          : s.tone === "signal"
+            ? "var(--color-signal-dark)"
+            : "var(--color-ink-950)";
 
   return (
     <div
-      className="flex items-baseline justify-around py-2.5 mb-3 rounded-[0.625rem] border"
+      className="flex items-stretch mb-2 rounded-[0.625rem] border overflow-hidden divide-x"
       style={{
         borderColor: "var(--color-line)",
         backgroundColor: "var(--color-paper)",
       }}
     >
-      {stats.map((s) => (
-        <div key={s.label} className="flex flex-col items-center min-w-0">
-          <p className="text-m-label truncate" style={{ color: "var(--color-ink-400)" }}>
-            {s.label}
-          </p>
-          <p className="text-m-figure truncate" style={{ color: toneColor(s.tone) }}>
-            {s.value}
-          </p>
-        </div>
-      ))}
+      {stats.map((s) => {
+        const body = (
+          <>
+            <span className="text-m-figure truncate" style={{ color: toneColor(s) }}>
+              {s.value}
+            </span>
+            <span className="text-m-label truncate" style={{ color: s.active ? "var(--color-ink-950)" : "var(--color-ink-400)" }}>
+              {s.label}
+            </span>
+          </>
+        );
+        const cls = "flex-1 min-w-0 flex flex-col items-center gap-0.5 py-2";
+        const style: React.CSSProperties = {
+          borderColor: "var(--color-line)",
+          backgroundColor: s.active ? "var(--color-concrete)" : undefined,
+          boxShadow: s.active ? "inset 0 -2px 0 var(--color-ink-950)" : undefined,
+        };
+        return s.onClick ? (
+          <button key={s.label} type="button" onClick={s.onClick} aria-pressed={!!s.active} className={`${cls} press`} style={style}>
+            {body}
+          </button>
+        ) : (
+          <div key={s.label} className={cls} style={style}>
+            {body}
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -48,7 +48,7 @@ export default function MobileExpensesPage() {
           supplierName: e.supplier?.name ?? null,
           receiptUrl: e.receiptUrl}));
 
-        const totalAmount = rows.reduce((s, e) => s + e.amount, 0);
+        const totalAmount = rows.reduce((s, e) => s + toNum(e.amount), 0);
         const categories = new Set(rows.map((e) => e.category));
 
         const exportColumns: MobileColumnSpec[] = [

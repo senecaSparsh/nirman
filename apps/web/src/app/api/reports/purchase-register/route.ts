@@ -103,8 +103,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
   rows.sort((a, b) => a.date.localeCompare(b.date));
   rows.forEach((r, i) => (r.srNo = i + 1));
 
-  const totalPurchases = rows.filter((r) => r.type === "PURCHASE").reduce((s, r) => s + r.billAmt, 0);
-  const totalReturns = rows.filter((r) => r.type === "RETURN").reduce((s, r) => s + r.billAmt, 0);
+  const totalPurchases = rows.filter((r) => r.type === "PURCHASE").reduce((s, r) => s + toNum(r.billAmt), 0);
+  const totalReturns = rows.filter((r) => r.type === "RETURN").reduce((s, r) => s + toNum(r.billAmt), 0);
   const netTotal = totalPurchases + totalReturns;
 
   return json({

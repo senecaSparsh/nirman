@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@nirman/db";
 import {
-  ScanLine, Truck,
+  ScanLine, Truck, Phone,
   Building2, IndianRupee, ClipboardList, Printer,
 } from "lucide-react";
 import { getCompanyGroupIds, getCurrentUser, getUserPermissions, toNum, scopeWhere } from "@/lib/server";
@@ -142,7 +142,7 @@ export default function MobilePoDetailPage({
           paymentMode: p.paymentMode,
           referenceNo: p.referenceNo,
         }));
-        const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
+        const totalPaid = payments.reduce((s, p) => s + toNum(p.amount), 0);
 
         const poPayload = {
           id: po.id,
@@ -189,8 +189,8 @@ export default function MobilePoDetailPage({
         const hasCharges = freightTotal > 0 || loadingTotal > 0 || packingTotal > 0 || insuranceTotal > 0 || discountTotal > 0 || miscChargesTotal > 0 || charges.length > 0;
 
         // Derived KPIs
-        const totalQtyOrdered = lines.reduce((s, l) => s + l.qtyOrdered, 0);
-        const totalQtyReceived = lines.reduce((s, l) => s + l.qtyReceived, 0);
+        const totalQtyOrdered = lines.reduce((s, l) => s + toNum(l.qtyOrdered), 0);
+        const totalQtyReceived = lines.reduce((s, l) => s + toNum(l.qtyReceived), 0);
         const receivePct = totalQtyOrdered > 0 ? (totalQtyReceived / totalQtyOrdered) * 100 : 0;
         const pendingLines = lines.filter((l) => l.remaining > 0).length;
         const subtotal = toNum(po.subtotal);
@@ -256,8 +256,8 @@ export default function MobilePoDetailPage({
           // Step 3 — Ordered
           if (po.status === "APPROVED") {
             timelineSteps.push({
-              label: "Auto-ordering…",
-              detail: "Approval automatically places the order",
+              label: "Waiting to be ordered",
+              detail: "Not yet sent to the supplier — mark it ordered once they confirm",
               state: "current",
             });
           } else if (po.status === "ORDERED" || po.status === "PARTIAL" || po.status === "RECEIVED") {
@@ -343,6 +343,7 @@ export default function MobilePoDetailPage({
             {nextAction ? (
               <NextActionCardView
                 label={nextAction.label}
+                actionVerb={nextAction.verb}
                 reason={nextAction.reason}
                 tone={nextAction.tone ?? "signal"}
                 hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}
@@ -446,8 +447,8 @@ export default function MobilePoDetailPage({
                   </span>
                   <p className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>Financials</p>
                 </div>
-                <div className="space-y-1.5">
-                  <KpiRow label="Total" value={formatCurrencyCompact(total)} />
+                {/* Reads like a bill: components first, total last and inked. */}
+                <div className="flex flex-col gap-1.5">
                   <KpiRow label="Subtotal" value={formatCurrencyCompact(subtotal)} />
                   <KpiRow label="GST" value={formatCurrencyCompact(gstTotal)} />
                   {freightTotal > 0 ? <KpiRow label="Freight" value={formatCurrency(freightTotal)} /> : null}
@@ -456,7 +457,12 @@ export default function MobilePoDetailPage({
                   {insuranceTotal > 0 ? <KpiRow label="Insurance" value={formatCurrency(insuranceTotal)} /> : null}
                   {discountTotal > 0 ? <KpiRow label="Discount" value={`−${formatCurrency(discountTotal)}`} tone="go" /> : null}
                   {miscChargesTotal > 0 ? <KpiRow label="Misc" value={formatCurrency(miscChargesTotal)} /> : null}
-                  <KpiRow label="Avg/line" value={lines.length > 0 ? formatCurrency(total / lines.length) : "—"} />
+                  <div className="flex items-baseline justify-between gap-1 pt-1.5 border-t" style={{ borderColor: "var(--color-line)" }}>
+                    <span className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>Total</span>
+                    <span className="text-m-section tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                      {formatCurrencyCompact(total)}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -471,12 +477,24 @@ export default function MobilePoDetailPage({
                   </span>
                   <p className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>Logistics</p>
                 </div>
-                <div className="space-y-1.5">
+                <div className="flex flex-col gap-1.5">
                   <KpiRow label="Recv at" value={po.destinationLocation.name} />
-                  {po.expectedDate ? <KpiRow label="Expected" value={formatDate(po.expectedDate)} /> : null}
+                  {po.expectedDate ? (
+                    <KpiRow label="Expected" value={formatDate(po.expectedDate)} tone={overdueDays > 0 ? "stop" : undefined} />
+                  ) : null}
                   {po.orderDate ? <KpiRow label="Ordered" value={formatDate(po.orderDate)} /> : null}
-                  {po.supplier.phone ? <KpiRow label="Phone" value={po.supplier.phone} /> : null}
                   {po.supplier.gstin ? <KpiRow label="GSTIN" value={po.supplier.gstin} /> : null}
+                  {/* The one thing a buyer does with a supplier's number is call it. */}
+                  {po.supplier.phone ? (
+                    <a
+                      href={`tel:${po.supplier.phone.replace(/\s+/g, "")}`}
+                      className="mt-0.5 flex items-center justify-center gap-1.5 h-8 rounded-[0.5rem] border text-m-label font-bold press"
+                      style={{ borderColor: "var(--color-line)", color: "var(--color-ink-950)" }}
+                    >
+                      <Phone className="size-3" />
+                      Call supplier
+                    </a>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -515,50 +533,57 @@ export default function MobilePoDetailPage({
               </div>
             ) : null}
 
-            {/* ── Lines + Receipts — 2-col side by side, each stacking vertically ── */}
-            <div className="grid grid-cols-2 gap-2 mb-3 items-start">
-              {/* Lines column */}
-              <div className="flex flex-col gap-1.5">
-                <h3 className="text-m-body font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
-                  Lines ({lines.length})
+            {/* ── Lines — full-width rows so material names aren't cut off ── */}
+            <div className="mb-3">
+              <div className="flex items-baseline justify-between mb-1.5">
+                <h3 className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
+                  Items ({lines.length})
                 </h3>
+                <span className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                  {formatCurrencyCompact(subtotal)}
+                </span>
+              </div>
+              <div className="rounded-[0.625rem] border overflow-hidden divide-y" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
                 {lines.map((l) => {
                   const linePct = l.qtyOrdered > 0 ? (l.qtyReceived / l.qtyOrdered) * 100 : 0;
-                  const lineTone = linePct >= 100 ? "var(--color-go)" : linePct > 0 ? "var(--color-signal)" : "var(--color-ink-500)";
+                  const lineTone = linePct >= 100 ? "var(--color-go)" : linePct > 0 ? "var(--color-signal)" : "var(--color-ink-300)";
                   return (
                     <Link
                       key={l.id}
                       href={`/m/materials/${l.materialId}`}
-                      className="flex flex-col rounded-[0.5rem] border p-2 text-m-body press overflow-hidden"
-                      style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                      className="flex flex-col gap-1 px-2.5 py-2 press"
+                      style={{ borderColor: "var(--color-line)" }}
                     >
-                      <div className="h-0.5 -mx-2 -mt-2 mb-1.5" style={{ backgroundColor: lineTone }} />
-                      <p className="text-m-caption font-bold leading-tight truncate mb-0.5" style={{ color: "var(--color-ink-950)" }}>
-                        {l.materialName}
-                      </p>
-                      <div className="flex items-baseline justify-between mb-1">
-                        <span className="text-m-caption font-semibold tabular-nums" style={{ color: "var(--color-ink-700)" }}>
-                          {formatNumber(l.qtyReceived, 0)}/{formatNumber(l.qtyOrdered, 0)} {l.unit}
-                        </span>
-                        <span className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
-                          @ {formatCurrency(l.unitCost)}
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p className="min-w-0 truncate text-m-strong" style={{ color: "var(--color-ink-950)" }}>
+                          {l.materialName}
+                        </p>
+                        <span className="shrink-0 text-m-strong tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+                          {formatCurrency(l.lineTotal)}
                         </span>
                       </div>
-                      <div className="h-0.5 rounded-full overflow-hidden mb-1" style={{ backgroundColor: "var(--color-concrete)" }}>
-                        <div className="h-full rounded-full" style={{ width: `${Math.min(100, linePct)}%`, backgroundColor: lineTone }} />
+                      <div className="flex items-center gap-2">
+                        <span className="shrink-0 text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                          {formatNumber(l.qtyOrdered, 0)} {l.unit} @ {formatCurrency(l.unitCost)}
+                        </span>
+                        <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--color-concrete)" }}>
+                          <div className="h-full rounded-full" style={{ width: `${Math.min(100, linePct)}%`, backgroundColor: lineTone }} />
+                        </div>
+                        <span className="shrink-0 text-m-caption font-semibold tabular-nums" style={{ color: linePct >= 100 ? "var(--color-go)" : "var(--color-ink-700)" }}>
+                          {formatNumber(l.qtyReceived, 0)} recd
+                        </span>
                       </div>
-                      <p className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-steel)" }}>
-                        {formatCurrency(l.lineTotal)}
-                      </p>
                     </Link>
                   );
                 })}
               </div>
+            </div>
 
-              {/* Receipts column */}
+            {/* ── Receipts ── */}
+            <div className="mb-3">
               <div className="flex flex-col gap-1.5">
-                <h3 className="text-m-body font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
-                  Receipts ({receipts.length})
+                <h3 className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
+                  Deliveries received ({receipts.length})
                 </h3>
                 {receipts.length > 0 ? (
                   receipts.map((r) => {
@@ -570,20 +595,19 @@ export default function MobilePoDetailPage({
                     return (
                       <div
                         key={r.id}
-                        className="flex flex-col rounded-[0.5rem] border p-2 overflow-hidden"
-                        style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+                        className="flex items-center gap-2 rounded-[0.5rem] border border-l-[3px] px-2.5 py-1.5"
+                        style={{ borderColor: "var(--color-line)", borderLeftColor: inspTone, backgroundColor: "var(--color-paper)" }}
                       >
-                        <div className="h-0.5 -mx-2 -mt-2 mb-1.5" style={{ backgroundColor: inspTone }} />
-                        <p className="text-m-caption font-bold leading-tight mb-0.5" style={{ color: "var(--color-ink-950)" }}>
-                          {formatDate(r.receiptDate)}
-                        </p>
-                        <p className="text-m-caption mb-1 uppercase font-semibold" style={{ color: inspTone }}>
-                          {r.inspectionStatus}
-                        </p>
-                        <p className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-steel)" }}>
-                          {formatNumber(r.qty, 0)} units
-                        </p>
-                        <div className="mt-1 flex gap-1.5">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-m-strong tabular-nums truncate" style={{ color: "var(--color-ink-950)" }}>
+                            {formatNumber(r.qty, 0)} {r.qty === 1 ? "unit" : "units"}
+                            <span className="font-normal" style={{ color: "var(--color-ink-500)" }}>{` · ${formatDate(r.receiptDate)}`}</span>
+                          </p>
+                          <p className="text-m-micro uppercase font-bold" style={{ color: inspTone }}>
+                            {r.inspectionStatus === "PENDING" ? "Inspection pending" : r.inspectionStatus}
+                          </p>
+                        </div>
+                        <div className="shrink-0 flex items-center gap-1">
                           <DetailPrintButton href={`/m/print/goods-receipt/${r.id}`} title="Goods Receipt" />
                           {canManagePayments ? <MobileGrnBillButton goodsReceiptId={r.id} /> : null}
                           {canInspect && r.inspectionStatus === "PENDING" ? <MobileGrnInspectButton goodsReceiptId={r.id} /> : null}
@@ -592,11 +616,9 @@ export default function MobilePoDetailPage({
                     );
                   })
                 ) : (
-                  <MobileEmptyState
-                    icon={ScanLine}
-                    title="No receipts yet"
-                    size="compact"
-                  />
+                  <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                    {isReceivable ? "Nothing received yet — record the delivery when it reaches site." : "Nothing received yet."}
+                  </p>
                 )}
               </div>
             </div>

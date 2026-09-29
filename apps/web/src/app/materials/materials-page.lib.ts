@@ -131,5 +131,5 @@ export function buildLowStockRows(
 
 /** Sum the totalValue of all material rows → total stock value. */
 export function computeStockValue(rows: MaterialRow[]): number {
-  return rows.reduce((s, m) => s + m.totalValue, 0);
+  return rows.reduce((s, m) => s + toNum(m.totalValue), 0);
 }

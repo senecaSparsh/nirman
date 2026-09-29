@@ -11,7 +11,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { DateCell } from "@/components/ui/cells";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
-import { formatDate, cn } from "@/lib/utils";
+import { formatDate, cn, toNum} from "@/lib/utils";
 import { EmployeeName } from "@/components/employee-name";
 
 export type LeaveRow = {
@@ -86,7 +86,7 @@ function LeaveStatsBar({ leaves }: { leaves: LeaveRow[] }) {
   const pending = leaves.filter((l) => l.status === "PENDING").length;
   const approved = leaves.filter((l) => l.status === "APPROVED").length;
   const rejected = leaves.filter((l) => l.status === "REJECTED").length;
-  const totalDays = leaves.filter((l) => l.status === "APPROVED").reduce((sum, l) => sum + l.days, 0);
+  const totalDays = leaves.filter((l) => l.status === "APPROVED").reduce((sum, l) => sum + toNum(l.days), 0);
 
   return (
     <div className="grid grid-cols-2 divide-border overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-4 sm:divide-x divide-y sm:divide-y-0">

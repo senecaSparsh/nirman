@@ -52,8 +52,8 @@ async function MobileGlContent() {
     })
     .filter((r) => r.debit !== 0 || r.credit !== 0);
 
-  const totalDebit = rows.reduce((s, r) => s + r.debit, 0);
-  const totalCredit = rows.reduce((s, r) => s + r.credit, 0);
+  const totalDebit = rows.reduce((s, r) => s + toNum(r.debit), 0);
+  const totalCredit = rows.reduce((s, r) => s + toNum(r.credit), 0);
 
   // Serialize for the client component (search by account code or name)
   const serialized = rows.map((r) => ({

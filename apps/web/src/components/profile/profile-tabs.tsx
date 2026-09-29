@@ -36,7 +36,7 @@ import {
   CheckSquare,
   type LucideIcon,
 } from "lucide-react";
-import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatDate, toNum} from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Section, MetricGrid, Metric } from "@/components/page";
 import { MyTasksPanel } from "@/components/tasks/my-tasks-panel";
@@ -504,7 +504,7 @@ export function OverviewCharts(props: ProfileTabsProps) {
         )}
         <KpiCard
           label="Pending actions"
-          value={formatNumber(props.pendingActions.reduce((s, a) => s + a.value, 0), 0)}
+          value={formatNumber(props.pendingActions.reduce((s, a) => s + toNum(a.value), 0), 0)}
           sub={`${props.pendingActions.length} categories`}
         />
       </div>
@@ -532,7 +532,7 @@ export function OverviewCharts(props: ProfileTabsProps) {
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-body font-semibold">Stock health</h3>
               <span className="text-caption text-muted-foreground">
-                {formatNumber(props.stockHealth.reduce((s, m) => s + m.value, 0), 0)} tracked materials
+                {formatNumber(props.stockHealth.reduce((s, m) => s + toNum(m.value), 0), 0)} tracked materials
               </span>
             </div>
             <PieSeries

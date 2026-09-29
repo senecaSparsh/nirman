@@ -128,7 +128,7 @@ async function EquipmentContent() {
   const available = equipmentRows.filter((e) => e.status === "AVAILABLE").length;
   const assigned = equipmentRows.filter((e) => e.status === "ASSIGNED").length;
   const maintenance = equipmentRows.filter((e) => e.status === "IN_MAINTENANCE").length;
-  const totalValue = equipmentRows.reduce((s, e) => s + e.currentValue, 0);
+  const totalValue = equipmentRows.reduce((s, e) => s + toNum(e.currentValue), 0);
 
   return (
     <>

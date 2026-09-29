@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import { FileText, Check, X, Copy, Share2, Eye, Printer, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
-import {formatNumber, formatDate, formatCurrencyCompact} from "@/lib/utils";
+import {formatNumber, formatDate, formatCurrencyCompact, toNum} from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { useConfirm } from "@/lib/use-confirm";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
@@ -419,7 +419,7 @@ function MobileProcurementListInner({
                 </h3>
                 <span className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
                   {s.items.length} PO{s.items.length !== 1 ? "s" : ""}
-                  {s.key !== "done" ? ` · ${formatCurrencyCompact(s.items.reduce((sum, p) => sum + p.total, 0))}` : ""}
+                  {s.key !== "done" ? ` · ${formatCurrencyCompact(s.items.reduce((sum, p) => sum + toNum(p.total), 0))}` : ""}
                 </span>
               </div>
               <MobileCardGrid cols={2}>

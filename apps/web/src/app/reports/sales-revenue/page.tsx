@@ -79,9 +79,9 @@ async function SalesRevenueContent() {
   const unitTypes = [...new Set(saleRecords.map((r) => r.unitType).filter(Boolean))] as string[];
 
   // Initial aggregations (all data, no filter)
-  const totalSales = saleRecords.reduce((s, r) => s + r.salePrice, 0);
-  const totalCollected = saleRecords.reduce((s, r) => s + r.collected, 0);
-  const totalOutstanding = saleRecords.reduce((s, r) => s + r.outstanding, 0);
+  const totalSales = saleRecords.reduce((s, r) => s + toNum(r.salePrice), 0);
+  const totalCollected = saleRecords.reduce((s, r) => s + toNum(r.collected), 0);
+  const totalOutstanding = saleRecords.reduce((s, r) => s + toNum(r.outstanding), 0);
 
   return (
     <>

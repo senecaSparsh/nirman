@@ -86,9 +86,9 @@ export default async function PortalSalesPage() {
     };
   });
 
-  const totalBooked = rows.reduce((s, x) => s + x.totalAmount, 0);
-  const totalPaid = rows.reduce((s, x) => s + x.totalPaid, 0);
-  const totalDue = rows.reduce((s, x) => s + x.balanceDue, 0);
+  const totalBooked = rows.reduce((s, x) => s + toNum(x.totalAmount), 0);
+  const totalPaid = rows.reduce((s, x) => s + toNum(x.totalPaid), 0);
+  const totalDue = rows.reduce((s, x) => s + toNum(x.balanceDue), 0);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">

@@ -8,7 +8,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, toNum} from "@/lib/utils";
 import { AttachmentList } from "@/components/attachments/attachment-list";
 import { useConfirm } from "@/lib/use-confirm";
 import type { AssetSaleRow, CustomerRow } from "@/lib/types";
@@ -41,9 +41,9 @@ export function CustomerDetailDialog({
   );
 
   const totals = useMemo(() => {
-    const totalValue = customerSales.reduce((s, x) => s + x.salePrice + x.gstAmount, 0);
-    const totalPaid = customerSales.reduce((s, x) => s + x.totalPaid, 0);
-    const outstanding = customerSales.reduce((s, x) => s + x.balanceDue, 0);
+    const totalValue = customerSales.reduce((s, x) => s + toNum(x.salePrice) + toNum(x.gstAmount), 0);
+    const totalPaid = customerSales.reduce((s, x) => s + toNum(x.totalPaid), 0);
+    const outstanding = customerSales.reduce((s, x) => s + toNum(x.balanceDue), 0);
     const bbaDone = customerSales.filter((s) => s.bbaNo).length;
     const bbaPending = customerSales.filter((s) => !s.bbaNo).length;
     return { totalValue, totalPaid, outstanding, bbaDone, bbaPending };

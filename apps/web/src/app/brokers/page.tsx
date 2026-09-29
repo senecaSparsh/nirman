@@ -45,8 +45,8 @@ export default async function BrokersPage() {
   });
 
   const totalDeals = rows.reduce((s, b) => s + b.dealCount, 0);
-  const totalCommission = rows.reduce((s, b) => s + b.totalCommission, 0);
-  const totalUnpaid = rows.reduce((s, b) => s + (b.totalCommission - b.commissionPaid), 0);
+  const totalCommission = rows.reduce((s, b) => s + toNum(b.totalCommission), 0);
+  const totalUnpaid = rows.reduce((s, b) => s + toNum((b.totalCommission - b.commissionPaid)), 0);
 
   const perms = {
     canCreate: __effPerms.includes(PERM.SALE_CREATE),

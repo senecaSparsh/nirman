@@ -7,7 +7,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { StatusPill } from "@/components/page";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
-import { formatCurrency, formatNumber, formatDate, cn } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatDate, cn, toNum} from "@/lib/utils";
 
 export type ProjectAnalysis = {
   id: string;
@@ -36,12 +36,12 @@ export function ComparativeReportView({ projects }: { projects: ProjectAnalysis[
   const totals = useMemo(() => {
     return {
       projects: projects.length,
-      avgProgress: projects.length > 0 ? projects.reduce((s, p) => s + p.latestProgressPct, 0) / projects.length : 0,
-      totalLaborHours: projects.reduce((s, p) => s + p.totalLaborHours, 0),
-      totalCost: projects.reduce((s, p) => s + p.projectCost, 0),
-      totalLabourCost: projects.reduce((s, p) => s + p.labourCost, 0),
-      totalRevenue: projects.reduce((s, p) => s + p.revenue, 0),
-      avgAttendance: projects.length > 0 ? projects.reduce((s, p) => s + p.attendanceRate, 0) / projects.length : 0,
+      avgProgress: projects.length > 0 ? projects.reduce((s, p) => s + toNum(p.latestProgressPct), 0) / projects.length : 0,
+      totalLaborHours: projects.reduce((s, p) => s + toNum(p.totalLaborHours), 0),
+      totalCost: projects.reduce((s, p) => s + toNum(p.projectCost), 0),
+      totalLabourCost: projects.reduce((s, p) => s + toNum(p.labourCost), 0),
+      totalRevenue: projects.reduce((s, p) => s + toNum(p.revenue), 0),
+      avgAttendance: projects.length > 0 ? projects.reduce((s, p) => s + toNum(p.attendanceRate), 0) / projects.length : 0,
     };
   }, [projects]);
 

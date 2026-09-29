@@ -8,6 +8,7 @@ import type { PortalCustomer } from "@/lib/portal-auth";
 import { EmptyState } from "@/components/empty-state";
 import { useFetch } from "@/lib/use-fetch";
 
+import { toNum } from "@/lib/utils";
 interface PortalSale {
   id: string;
   saleNumber: string;
@@ -94,9 +95,9 @@ export function PortalDashboard({ customer }: { customer: PortalCustomer }) {
     router.refresh();
   }
 
-  const totalBooked = sales.reduce((s, x) => s + x.totalAmount, 0);
-  const totalPaid = sales.reduce((s, x) => s + x.totalPaid, 0);
-  const totalDue = sales.reduce((s, x) => s + x.balanceDue, 0);
+  const totalBooked = sales.reduce((s, x) => s + toNum(x.totalAmount), 0);
+  const totalPaid = sales.reduce((s, x) => s + toNum(x.totalPaid), 0);
+  const totalDue = sales.reduce((s, x) => s + toNum(x.balanceDue), 0);
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">

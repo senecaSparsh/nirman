@@ -84,9 +84,9 @@ async function BalanceSheetContent() {
     equity.push({ code: "3900", name: "Net Income (current period)", balance: netIncome });
   }
 
-  const totalAssets = assets.reduce((s, a) => s + a.balance, 0);
-  const totalLiabilities = liabilities.reduce((s, a) => s + a.balance, 0);
-  const totalEquity = equity.reduce((s, a) => s + a.balance, 0);
+  const totalAssets = assets.reduce((s, a) => s + toNum(a.balance), 0);
+  const totalLiabilities = liabilities.reduce((s, a) => s + toNum(a.balance), 0);
+  const totalEquity = equity.reduce((s, a) => s + toNum(a.balance), 0);
   const totalLiabEquity = totalLiabilities + totalEquity;
   const isBalanced = Math.abs(totalAssets - totalLiabEquity) < 0.01;
 

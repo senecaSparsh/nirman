@@ -86,8 +86,8 @@ async function IssueRegisterContent({
     };
   });
 
-  const totalAmount = rows.reduce((s, r) => s + r.billAmt, 0);
-  const totalRound = rows.reduce((s, r) => s + r.round, 0);
+  const totalAmount = rows.reduce((s, r) => s + toNum(r.billAmt), 0);
+  const totalRound = rows.reduce((s, r) => s + toNum(r.round), 0);
 
   const report = {
     from,

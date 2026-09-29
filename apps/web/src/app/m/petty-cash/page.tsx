@@ -36,8 +36,8 @@ export default function MobilePettyCashPage() {
           lastTopUpDate: f.topUps[0]?.date.toISOString() ?? null}));
 
         // floatAmount is the running balance (already net of top-ups + spends)
-        const totalBalance = rows.reduce((s, f) => s + f.floatAmount, 0);
-        const totalTopUps = rows.reduce((s, f) => s + f.topUpTotal, 0);
+        const totalBalance = rows.reduce((s, f) => s + toNum(f.floatAmount), 0);
+        const totalTopUps = rows.reduce((s, f) => s + toNum(f.topUpTotal), 0);
 
         return (
           <>

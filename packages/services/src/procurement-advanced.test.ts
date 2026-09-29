@@ -4,7 +4,7 @@
  *   computeVendorScore — weighted vendor rating from raw metrics
  */
 import { describe, it, expect } from "vitest";
-import { computeVendorScore } from "./procurement-advanced";
+import { computeVendorScore, countInspectionOutcomes } from "./procurement-advanced";
 import Decimal from "decimal.js";
 
 describe("computeVendorScore", () => {
@@ -101,5 +101,22 @@ describe("computeVendorScore", () => {
     });
     // overall = 1.0×0.4 + 0×0.3 + 0×0.3 = 0.4
     expect(r.overallScore.toNumber()).toBeCloseTo(0.4, 4);
+  });
+});
+
+describe("countInspectionOutcomes", () => {
+  it("excludes receipts still awaiting inspection", () => {
+    // 1 passed + 2 pending: quality is 1/1, not 1/3.
+    expect(countInspectionOutcomes(["PASSED", "PENDING", "PENDING"])).toEqual({ inspectedCount: 1, acceptedCount: 1 });
+  });
+
+  it("counts failed and rejected as inspected but not accepted", () => {
+    expect(countInspectionOutcomes(["PASSED", "FAILED", "REJECTED"])).toEqual({ inspectedCount: 3, acceptedCount: 1 });
+  });
+
+  it("keeps a supplier neutral until the first inspection", () => {
+    const { inspectedCount, acceptedCount } = countInspectionOutcomes(["PENDING", "PENDING"]);
+    const r = computeVendorScore({ onTimeCount: 1, totalPos: 1, acceptedCount, totalReceipts: inspectedCount, selectedQuotes: 0, totalQuotes: 0 });
+    expect(r.qualityRate.toNumber()).toBe(1);
   });
 });

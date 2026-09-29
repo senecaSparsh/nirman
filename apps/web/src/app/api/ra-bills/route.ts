@@ -139,11 +139,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
     }));
 
     const totalUnbilledQty = linesWithEntries.reduce(
-      (sum, l) => sum + l.unbilledEntries.reduce((s, e) => s + e.measuredQty, 0),
+      (sum, l) => sum + l.unbilledEntries.reduce((s, e) => s + toNum(e.measuredQty), 0),
       0,
     );
     const estimatedGross = linesWithEntries.reduce(
-      (sum, l) => sum + l.unbilledEntries.reduce((s, e) => s + e.measuredQty * l.agreedRate, 0),
+      (sum, l) => sum + l.unbilledEntries.reduce((s, e) => s + toNum(e.measuredQty) * toNum(l.agreedRate), 0),
       0,
     );
 

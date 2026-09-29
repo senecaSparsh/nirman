@@ -133,10 +133,10 @@ export async function LandDetailContent({ params }: { params: Promise<{ id: stri
   const sellable = parcelRows.filter((p) => p.status !== "PARTITIONED");
   const sold = sellable.filter((p) => p.salePrice != null);
   const unsold = sellable.filter((p) => p.salePrice == null);
-  const unsoldValue = unsold.reduce((s, p) => s + p.currentValuation, 0);
-  const costBasis = unsold.reduce((s, p) => s + p.acquisitionCost, 0);
-  const soldRevenue = sold.reduce((s, p) => s + (p.salePrice ?? p.currentValuation), 0);
-  const soldProfit = sold.reduce((s, p) => s + (p.saleProfit ?? 0), 0);
+  const unsoldValue = unsold.reduce((s, p) => s + toNum(p.currentValuation), 0);
+  const costBasis = unsold.reduce((s, p) => s + toNum(p.acquisitionCost), 0);
+  const soldRevenue = sold.reduce((s, p) => s + toNum((p.salePrice ?? p.currentValuation)), 0);
+  const soldProfit = sold.reduce((s, p) => s + toNum((p.saleProfit ?? 0)), 0);
 
   const projectOptions: ProjectOption[] = purchase.project
     ? [{ id: purchase.project.id, name: purchase.project.name, type: purchase.project.type, status: purchase.project.status }]
@@ -266,7 +266,7 @@ export async function LandDetailContent({ params }: { params: Promise<{ id: stri
       holdCount: unsold.filter((p) => p.status === "HOLD").length,
       soldCount: sold.length,
       partitionedCount: parcelRows.filter((p) => p.status === "PARTITIONED").length,
-      availableArea: unsold.filter((p) => p.status === "AVAILABLE").reduce((s, p) => s + p.area, 0),
+      availableArea: unsold.filter((p) => p.status === "AVAILABLE").reduce((s, p) => s + toNum(p.area), 0),
       unsoldValue,
       costBasis,
       valuationGain: unsoldValue - costBasis,

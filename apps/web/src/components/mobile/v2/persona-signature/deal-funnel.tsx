@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Filter, PhoneCall, Flame, TrendingUp } from "lucide-react";
 import { SignatureShell, SignatureNote, money, toneColor, type Tone } from "./shared";
 
+import { toNum } from "@/lib/utils";
 /* ═══════════════════════════════════════════════════════════════════════════
    DEAL FUNNEL — the sales persona's signature component
 
@@ -61,9 +62,9 @@ export function DealFunnel({ data }: { data: FunnelData }) {
   const { stages, followUps, won, lost } = data;
 
   const openStages = stages.filter((s) => s.id !== "BOOKED");
-  const pipelineValue = openStages.reduce((s, x) => s + x.value, 0);
+  const pipelineValue = openStages.reduce((s, x) => s + toNum(x.value), 0);
   const maxCount = Math.max(1, ...stages.map((s) => s.count));
-  const totalLeads = stages.reduce((s, x) => s + x.count, 0);
+  const totalLeads = stages.reduce((s, x) => s + toNum(x.count), 0);
 
   if (totalLeads === 0 && !won?.count) {
     return (

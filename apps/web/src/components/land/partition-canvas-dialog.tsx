@@ -7,7 +7,7 @@ import { Check, AlertCircle, Layers, Construction } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
-import { formatNumber, formatCurrency } from "@/lib/utils";
+import { formatNumber, formatCurrency, toNum} from "@/lib/utils";
 import { rectangle, type Polygon } from "@nirman/services/geometry";
 import { PartitionCanvas, type PlotResult } from "./partition-canvas";
 import type { LandParcelRow } from "@/lib/types";
@@ -63,7 +63,7 @@ export function PartitionCanvasDialog({
   // Area conservation: since we split geometrically, areas always sum to parent.
   // But we show it for user confidence.
   const childAreas = plots.map((p) => p.area * (parcel?.area ?? 0));
-  const childAreaSum = childAreas.reduce((s, a) => s + a, 0);
+  const childAreaSum = childAreas.reduce((s, a) => s + toNum(a), 0);
   const parentArea = parcel?.area ?? 0;
   const areaDiff = childAreaSum - parentArea;
   const areaMatches = Math.abs(areaDiff) < 0.001;
@@ -87,10 +87,10 @@ export function PartitionCanvasDialog({
     })).filter((x) => !x.isInfra);
     if (saleableAreas.length === 0) return 0;
     if (allocationModel === "MARKET_VALUE") {
-      const sumW = saleableAreas.reduce((s, x) => s + x.area * x.weight, 0);
+      const sumW = saleableAreas.reduce((s, x) => s + toNum(x.area * x.weight), 0);
       return sumW > 0 ? (totalBasis * area * (forms[i]?.weightFactor ? Number(forms[i]!.weightFactor) || 1 : 1)) / sumW : 0;
     }
-    const sumSaleable = saleableAreas.reduce((s, x) => s + x.area, 0);
+    const sumSaleable = saleableAreas.reduce((s, x) => s + toNum(x.area), 0);
     return sumSaleable > 0 ? (totalBasis * area) / sumSaleable : 0;
   });
 

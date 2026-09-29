@@ -140,6 +140,7 @@ export default function MobileUnitDetailPage({
             {nextAction ? (
               <NextActionCardView
                 label={nextAction.label}
+                actionVerb={nextAction.verb}
                 reason={nextAction.reason}
                 tone={nextAction.tone ?? "signal"}
                 hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}

@@ -7,7 +7,7 @@ import { Plus, Trash2, Layers, Check, AlertCircle, Construction } from "lucide-r
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
-import { formatNumber, formatCurrency } from "@/lib/utils";
+import { formatNumber, formatCurrency, toNum} from "@/lib/utils";
 import type { LandParcelRow } from "@/lib/types";
 
 type AllocationModel = "PRO_RATA" | "MARKET_VALUE";
@@ -58,13 +58,13 @@ function computePreview(
       const w = children[i]!.weightFactor ? Number(children[i]!.weightFactor) || 1 : 1;
       return areas[i]! * w;
     });
-    const sumW = weighted.reduce((s, v) => s + v, 0);
+    const sumW = weighted.reduce((s, v) => s + toNum(v), 0);
     if (sumW <= 0) return { costs, totalBasis };
     saleableIdx.forEach((idx, k) => {
       costs[idx] = (totalBasis * weighted[k]!) / sumW;
     });
   } else {
-    const sumSaleable = saleableIdx.reduce((s, i) => s + areas[i]!, 0);
+    const sumSaleable = saleableIdx.reduce((s, i) => s + toNum(areas[i]!), 0);
     if (sumSaleable <= 0) return { costs, totalBasis };
     for (const i of saleableIdx) {
       costs[i] = (totalBasis * areas[i]!) / sumSaleable;

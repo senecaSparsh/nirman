@@ -112,3 +112,26 @@ describe("flowPosition", () => {
     expect(lower).toEqual(upper);
   });
 });
+
+describe("next action verbs", () => {
+  const all = Object.values(FLOWS).flatMap((f) => f.next.map((a) => ({ flow: f.id, ...a })));
+
+  it("every next action has a short, specific button verb", () => {
+    for (const a of all) {
+      expect(a.verb, `${a.flow}/${a.when}`).toMatch(/\S/);
+      expect(a.verb, `${a.flow}/${a.when}`).not.toMatch(/^(do|go|ok)$/i);
+      expect(a.verb.split(" ").length, `${a.flow}/${a.when}`).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it("never shows internal jargon to users", () => {
+    for (const a of all) {
+      expect(`${a.label} ${a.reason}`, `${a.flow}/${a.when}`).not.toMatch(/transient/i);
+    }
+  });
+
+  it("a converted indent links to its own PO, not the PO list", () => {
+    const action = nextActionFor("requisition", "CONVERTED", () => true);
+    expect(action?.action).toEqual({ type: "navigate", href: "/m/procurement/{poId}" });
+  });
+});

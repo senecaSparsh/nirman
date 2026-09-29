@@ -58,7 +58,7 @@ export async function StockLocationsContent() {
     };
   });
 
-  const totalStockValue = locationRows.reduce((s, l) => s + l.stockValue, 0);
+  const totalStockValue = locationRows.reduce((s, l) => s + toNum(l.stockValue), 0);
   const warehouseCount = locationRows.filter((l) => l.type === "COMPANY_WAREHOUSE" || l.type === "CENTRAL_WAREHOUSE").length;
   const siteCount = locationRows.filter((l) => l.type === "PROJECT_SITE").length;
 

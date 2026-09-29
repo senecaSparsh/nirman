@@ -135,10 +135,10 @@ async function LandContent() {
     const sold = parcelSummaries.filter((p) => saleByParcel.has(p.id));
     const unsold = parcelSummaries.filter((p) => !saleByParcel.has(p.id));
 
-    const soldRevenue = sold.reduce((s, p) => s + (saleByParcel.get(p.id)?.salePrice ?? p.currentValuation), 0);
-    const soldProfit = sold.reduce((s, p) => s + (saleByParcel.get(p.id)?.saleProfit ?? 0), 0);
-    const unsoldValue = unsold.reduce((s, p) => s + p.currentValuation, 0);
-    const costBasis = unsold.reduce((s, p) => s + p.acquisitionCost, 0);
+    const soldRevenue = sold.reduce((s, p) => s + toNum((saleByParcel.get(p.id)?.salePrice ?? p.currentValuation)), 0);
+    const soldProfit = sold.reduce((s, p) => s + toNum((saleByParcel.get(p.id)?.saleProfit ?? 0)), 0);
+    const unsoldValue = unsold.reduce((s, p) => s + toNum(p.currentValuation), 0);
+    const costBasis = unsold.reduce((s, p) => s + toNum(p.acquisitionCost), 0);
 
     return {
       id: lp.id,
@@ -173,7 +173,7 @@ async function LandContent() {
       parcelCount: parcelSummaries.length,
       availableArea: unsold
         .filter((p) => p.status === "AVAILABLE")
-        .reduce((s, p) => s + p.area, 0),
+        .reduce((s, p) => s + toNum(p.area), 0),
       parcels: parcelSummaries,
       soldCount: sold.length,
       soldRevenue,
@@ -231,18 +231,18 @@ async function LandContent() {
   const unsoldParcels = sellableParcels.filter((p) => p.salePrice == null);
   const portfolio: LandPortfolio = {
     purchaseCount: purchaseRows.length,
-    totalArea: purchaseRows.reduce((s, p) => s + p.totalArea, 0),
+    totalArea: purchaseRows.reduce((s, p) => s + toNum(p.totalArea), 0),
     parcelCount: sellableParcels.length,
     availableCount: unsoldParcels.filter((p) => p.status === "AVAILABLE").length,
     holdCount: unsoldParcels.filter((p) => p.status === "HOLD").length,
     soldCount: soldParcels.length,
     partitionedCount: parcelRows.filter((p) => p.status === "PARTITIONED").length,
-    availableArea: unsoldParcels.filter((p) => p.status === "AVAILABLE").reduce((s, p) => s + p.area, 0),
-    costBasis: unsoldParcels.reduce((s, p) => s + p.acquisitionCost, 0),
-    unsoldValue: unsoldParcels.reduce((s, p) => s + p.currentValuation, 0),
+    availableArea: unsoldParcels.filter((p) => p.status === "AVAILABLE").reduce((s, p) => s + toNum(p.area), 0),
+    costBasis: unsoldParcels.reduce((s, p) => s + toNum(p.acquisitionCost), 0),
+    unsoldValue: unsoldParcels.reduce((s, p) => s + toNum(p.currentValuation), 0),
     unrealizedGain: 0,
-    soldRevenue: soldParcels.reduce((s, p) => s + (p.salePrice ?? p.currentValuation), 0),
-    soldProfit: soldParcels.reduce((s, p) => s + (p.saleProfit ?? 0), 0),
+    soldRevenue: soldParcels.reduce((s, p) => s + toNum((p.salePrice ?? p.currentValuation)), 0),
+    soldProfit: soldParcels.reduce((s, p) => s + toNum((p.saleProfit ?? 0)), 0),
     totalValue: 0,
   };
   portfolio.unrealizedGain = portfolio.unsoldValue - portfolio.costBasis;

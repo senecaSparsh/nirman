@@ -1911,3 +1911,17 @@ input[type="number"] {
   user-select: text;
   -webkit-user-select: text;
 }
+
+/* ── Floating feedback button vs. sticky form footers ─────────────
+   53 /m forms end in a `sticky bottom-0` submit/total bar that sits
+   just above the tab bar — exactly where the feedback button floats,
+   so it covered the running total on every form. When such a bar is
+   on the page, lift the button above it. Matching the utility classes
+   means no form has to opt in (and a new form gets it for free).
+   ──────────────────────────────────────────────────────────────── */
+@media (max-width: 1023.98px) {
+  body:has(.m-shell-content [class~="sticky"][class~="bottom-0"])
+    [data-feedback-button] {
+    bottom: calc(4.75rem + max(env(safe-area-inset-bottom), 0px) + 4.25rem);
+  }
+}

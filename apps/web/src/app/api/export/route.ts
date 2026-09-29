@@ -214,8 +214,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
         supplierMap.get(name)!.total += toNum(o.total); supplierMap.get(name)!.count += 1;
       }
       const topSuppliers = Array.from(supplierMap.values()).sort((a, b) => b.total - a.total).slice(0, 10);
-      const grandTotal = monthly.reduce((s, m) => s + m.total, 0);
-      const totalOrders = monthly.reduce((s, m) => s + m.count, 0);
+      const grandTotal = monthly.reduce((s, m) => s + toNum(m.total), 0);
+      const totalOrders = monthly.reduce((s, m) => s + toNum(m.count), 0);
       sheets = buildPurchaseTrendsReport({ monthly, topSuppliers, grandTotal, totalOrders });
       break;
     }
@@ -280,9 +280,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
         const prog = progressByProject.get(p.id);
         return { name: p.name, type: p.type, status: p.status, budget: toNum(p.totalBudget), totalCost: toNum(pnl.total), materials: toNum(pnl.materials), labour: toNum(pnl.labour), land: toNum(pnl.land), revenue: toNum(pnl.revenue), profit: toNum(pnl.profit), margin: toNum(pnl.margin), progressPct: prog?.progressPct ?? 0, unitCount: p._count.builtUnits, phaseCount: p.phases.length };
       }));
-      const totalCost = rows.reduce((s, r) => s + r.totalCost, 0);
-      const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
-      const totalProfit = rows.reduce((s, r) => s + r.profit, 0);
+      const totalCost = rows.reduce((s, r) => s + toNum(r.totalCost), 0);
+      const totalRevenue = rows.reduce((s, r) => s + toNum(r.revenue), 0);
+      const totalProfit = rows.reduce((s, r) => s + toNum(r.profit), 0);
       sheets = buildProjectProgressReport({ rows, totalCost, totalRevenue, totalProfit });
       break;
     }
@@ -316,9 +316,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
         row.employees.add(line.employee.id);
       }
       const crewRows = Array.from(byCrew.values()).map((r) => ({ crew: r.crew, gross: r.gross, net: r.net, employees: r.employees.size })).sort((a, b) => b.gross - a.gross);
-      const totalGross = monthly.reduce((s, m) => s + m.gross, 0);
-      const totalNet = monthly.reduce((s, m) => s + m.net, 0);
-      const totalOvertime = monthly.reduce((s, m) => s + m.overtime, 0);
+      const totalGross = monthly.reduce((s, m) => s + toNum(m.gross), 0);
+      const totalNet = monthly.reduce((s, m) => s + toNum(m.net), 0);
+      const totalOvertime = monthly.reduce((s, m) => s + toNum(m.overtime), 0);
       sheets = buildPayrollExpenseReport({ monthly, tradeRows, crewRows, totalGross, totalNet, totalOvertime });
       break;
     }
@@ -350,9 +350,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
         include: { supplier: { select: { name: true } }, lines: { select: { qtyOrdered: true, unitCost: true } } },
         orderBy: { createdAt: "desc" }});
       const draftRows = draftPOs.map((po) => ({ poNumber: po.poNumber, supplier: po.supplier.name, value: po.lines.reduce((s, l) => s + toNum(l.qtyOrdered) * toNum(l.unitCost), 0), createdAt: po.createdAt.toISOString() }));
-      const totalPayable = overdueRows.reduce((s, r) => s + r.payable, 0);
-      const totalReceivable = receivableRows.reduce((s, r) => s + r.outstanding, 0);
-      const totalDraft = draftRows.reduce((s, r) => s + r.value, 0);
+      const totalPayable = overdueRows.reduce((s, r) => s + toNum(r.payable), 0);
+      const totalReceivable = receivableRows.reduce((s, r) => s + toNum(r.outstanding), 0);
+      const totalDraft = draftRows.reduce((s, r) => s + toNum(r.value), 0);
       sheets = buildPendingPaymentsReport({ overduePOs: overdueRows, receivables: receivableRows, draftPOs: draftRows, totalPayable, totalReceivable, totalDraft });
       break;
     }
@@ -395,7 +395,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       const rows = await getPurchaserPerformance(company.id, { from: fromDate, to: toDate });
       sheets = buildPurchaserPerformanceReport({
         rows: rows.map((r) => ({ userName: r.userName, userEmail: r.userEmail, role: r.role, quotesUploaded: r.quotesUploaded, requisitionsHandled: r.requisitionsHandled, cheapestSelected: r.cheapestSelected, totalSpend: r.totalSpend.toNumber(), potentialSavings: r.potentialSavings.toNumber(), avgQuotesPerRequisition: r.avgQuotesPerRequisition, cheapestSelectionRate: r.cheapestSelectionRate })),
-        totalQuotes: rows.reduce((s, r) => s + r.quotesUploaded, 0),
+        totalQuotes: rows.reduce((s, r) => s + toNum(r.quotesUploaded), 0),
         totalSpend: rows.reduce((s, r) => s + r.totalSpend.toNumber(), 0),
         totalSavings: rows.reduce((s, r) => s + r.potentialSavings.toNumber(), 0),
         from: from ?? fromDate.toISOString().slice(0, 10),
@@ -445,7 +445,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       const rows = Array.from(byDept.values())
         .map((d) => ({ departmentName: d.name, totalAmount: d.total }))
         .sort((a, b) => b.totalAmount - a.totalAmount);
-      const grandTotal = rows.reduce((s, r) => s + r.totalAmount, 0);
+      const grandTotal = rows.reduce((s, r) => s + toNum(r.totalAmount), 0);
       sheets = buildStockIssueSummaryReport({ rows, grandTotal });
       break;
     }
@@ -495,10 +495,10 @@ export const GET = apiHandler(async (req: NextRequest) => {
         .map((v) => ({ companyName: v.name, openingAmount: v.opening, receivedAmount: v.received, issuedAmount: v.issued, balanceAmount: v.balance }))
         .sort((a, b) => b.balanceAmount - a.balanceAmount);
       const firmTotal = {
-        openingAmount: rows.reduce((s, r) => s + r.openingAmount, 0),
-        receivedAmount: rows.reduce((s, r) => s + r.receivedAmount, 0),
-        issuedAmount: rows.reduce((s, r) => s + r.issuedAmount, 0),
-        balanceAmount: rows.reduce((s, r) => s + r.balanceAmount, 0)};
+        openingAmount: rows.reduce((s, r) => s + toNum(r.openingAmount), 0),
+        receivedAmount: rows.reduce((s, r) => s + toNum(r.receivedAmount), 0),
+        issuedAmount: rows.reduce((s, r) => s + toNum(r.issuedAmount), 0),
+        balanceAmount: rows.reduce((s, r) => s + toNum(r.balanceAmount), 0)};
       sheets = buildStockMovementSummaryReport({ rows, firmTotal });
       break;
     }
@@ -532,7 +532,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
           departmentName: targetName,
           totalAmount: toNum(issue.totalAmount)};
       });
-      const totalAmount = rows.reduce((s, r) => s + r.totalAmount, 0);
+      const totalAmount = rows.reduce((s, r) => s + toNum(r.totalAmount), 0);
       sheets = buildIssueRegisterReport({ rows, totalAmount });
       break;
     }
@@ -578,7 +578,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
           billAmount: -returnAmount});
       }
       regRows.sort((a, b) => a.date.localeCompare(b.date));
-      const netTotal = regRows.reduce((s, r) => s + r.billAmount, 0);
+      const netTotal = regRows.reduce((s, r) => s + toNum(r.billAmount), 0);
       sheets = buildPurchaseRegisterReport({ rows: regRows, netTotal });
       break;
     }

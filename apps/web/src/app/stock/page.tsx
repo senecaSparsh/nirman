@@ -500,7 +500,7 @@ async function StockContent() {
     })),
   }));
 
-  const stockValue = stockRows.reduce((s, r) => s + r.value, 0);
+  const stockValue = stockRows.reduce((s, r) => s + toNum(r.value), 0);
 
   return (
     <>

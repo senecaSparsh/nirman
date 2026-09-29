@@ -46,7 +46,7 @@ export default function MobileSuppliersPage() {
           balanceOwed: toNum(s.balanceOwed),
         }));
 
-        const totalOwed = rows.reduce((s, sup) => s + sup.balanceOwed, 0);
+        const totalOwed = rows.reduce((s, sup) => s + toNum(sup.balanceOwed), 0);
         const withDues = rows.filter((s) => s.balanceOwed > 0);
 
         const exportColumns: MobileColumnSpec[] = [

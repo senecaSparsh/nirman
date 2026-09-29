@@ -311,8 +311,8 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
   // "Booked revenue" = sum of sale prices for non-cancelled sales.
   // This includes RESERVED (deposit only) — it's the total contract value,
   // not realized revenue. "Collected" is what's actually been received.
-  const bookedRevenue = saleRows.filter((s) => s.status !== "CANCELLED").reduce((s, r) => s + r.salePrice, 0);
-  const collected = saleRows.filter((s) => s.status !== "CANCELLED").reduce((s, r) => s + r.totalPaid, 0);
+  const bookedRevenue = saleRows.filter((s) => s.status !== "CANCELLED").reduce((s, r) => s + toNum(r.salePrice), 0);
+  const collected = saleRows.filter((s) => s.status !== "CANCELLED").reduce((s, r) => s + toNum(r.totalPaid), 0);
 
   // Unit inventory summary — "kitni unit bachi, kitni bik gayi"
   const unitCountByStatus = Object.fromEntries(unitStats.map((u) => [u.status, u._count]));

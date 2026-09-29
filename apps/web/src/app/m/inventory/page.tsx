@@ -111,7 +111,7 @@ export default function InventoryHomePage() {
     };
   });
 
-  const totalStockValue = materialRows.reduce((s, m) => s + m.stockValue, 0);
+  const totalStockValue = materialRows.reduce((s, m) => s + toNum(m.stockValue), 0);
 
   // ── Build attention banners for the carousel ──
   // Show out-of-stock first (red), then low-stock (amber), then pending
@@ -322,13 +322,13 @@ async function loadInventoryTree(current: {
           id: p.id,
           name: p.name,
           status: p.status,
-          stockValue: projectLocs.reduce((s, l) => s + l.stockValue, 0),
+          stockValue: projectLocs.reduce((s, l) => s + toNum(l.stockValue), 0),
           skuCount: projectLocs.reduce((s, l) => s + l.skuCount, 0),
           locations: projectLocs,
         };
       });
-    const warehouseValue = warehouses.reduce((s, l) => s + l.stockValue, 0);
-    const ownValue = warehouseValue + ownProjects.reduce((s, p) => s + p.stockValue, 0);
+    const warehouseValue = warehouses.reduce((s, l) => s + toNum(l.stockValue), 0);
+    const ownValue = warehouseValue + ownProjects.reduce((s, p) => s + toNum(p.stockValue), 0);
     const ownSkus = warehouses.reduce((s, l) => s + l.skuCount, 0)
       + ownProjects.reduce((s, p) => s + p.skuCount, 0);
     nodes.set(c.id, {
@@ -359,7 +359,7 @@ async function loadInventoryTree(current: {
 
   function rollup(node: InventoryCompanyNode) {
     for (const sub of node.subsidiaries) rollup(sub);
-    node.stockValue += node.subsidiaries.reduce((s, sub) => s + sub.stockValue, 0);
+    node.stockValue += node.subsidiaries.reduce((s, sub) => s + toNum(sub.stockValue), 0);
     node.skuCount += node.subsidiaries.reduce((s, sub) => s + sub.skuCount, 0);
     node.subsidiaries.sort((a, b) => a.name.localeCompare(b.name));
   }
@@ -383,11 +383,11 @@ async function loadInventoryTree(current: {
     for (const s of node.subsidiaries) n += countTreeLocations(s);
     return n;
   }
-  const visibleLocationCount = roots.reduce((s, n) => s + countTreeLocations(n), 0);
+  const visibleLocationCount = roots.reduce((s, n) => s + toNum(countTreeLocations(n)), 0);
 
   return {
     rootName,
-    totalValue: roots.reduce((s, n) => s + n.stockValue, 0),
+    totalValue: roots.reduce((s, n) => s + toNum(n.stockValue), 0),
     companyCount: companies.length,
     locationCount: visibleLocationCount,
     skuCount: roots.reduce((s, n) => s + n.skuCount, 0),

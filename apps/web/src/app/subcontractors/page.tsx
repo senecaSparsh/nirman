@@ -44,9 +44,9 @@ export default async function SubcontractorsPage() {
     };
   });
 
-  const totalWorkDone = rows.reduce((s, r) => s + (r.totalWorkDone ?? 0), 0);
-  const totalPaid = rows.reduce((s, r) => s + (r.totalPaid ?? 0), 0);
-  const totalRetention = rows.reduce((s, r) => s + (r.retentionBalance ?? 0), 0);
+  const totalWorkDone = rows.reduce((s, r) => s + toNum((r.totalWorkDone ?? 0)), 0);
+  const totalPaid = rows.reduce((s, r) => s + toNum((r.totalPaid ?? 0)), 0);
+  const totalRetention = rows.reduce((s, r) => s + toNum((r.retentionBalance ?? 0)), 0);
 
   const perms = {
     canCreate: __effPerms.includes(PERM.PROCUREMENT_MANAGE),

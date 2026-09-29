@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { StatusPill } from "@/components/page";
 import { EmployeeName } from "@/components/employee-name";
-import { formatCurrency, cn } from "@/lib/utils";
+import { formatCurrency, cn, toNum} from "@/lib/utils";
 
 export type CrewMember = {
   id: string;
@@ -161,15 +161,15 @@ export function CrewsView({
       label: "Daily Cost",
       align: "right",
       sortable: true,
-      sortValue: (c) => c.members.filter((m) => m.wageType === "DAILY").reduce((s, m) => s + (m.dailyRate ?? 0), 0),
+      sortValue: (c) => c.members.filter((m) => m.wageType === "DAILY").reduce((s, m) => s + toNum((m.dailyRate ?? 0)), 0),
       render: (c) => {
         const daily = c.members.filter((m) => m.wageType === "DAILY");
         // Rates hidden for non-payroll viewers → no aggregate to show.
         if (daily.length > 0 && daily.every((m) => m.dailyRate == null)) return <span className="text-faint">—</span>;
-        const dailyCost = daily.reduce((s, m) => s + (m.dailyRate ?? 0), 0);
+        const dailyCost = daily.reduce((s, m) => s + toNum((m.dailyRate ?? 0)), 0);
         return dailyCost > 0 ? <span className="tnum text-body">{formatCurrency(dailyCost)}/day</span> : <span className="text-faint">—</span>;
       },
-      exportValue: (c) => c.members.filter((m) => m.wageType === "DAILY").reduce((s, m) => s + (m.dailyRate ?? 0), 0),
+      exportValue: (c) => c.members.filter((m) => m.wageType === "DAILY").reduce((s, m) => s + toNum((m.dailyRate ?? 0)), 0),
     },
     {
       key: "active",
@@ -291,7 +291,7 @@ export function CrewsView({
 function CrewDetailDialog({ crew, onClose }: { crew: CrewRow; onClose: () => void }) {
   const dailyMembers = crew.members.filter((m) => m.wageType === "DAILY");
   const ratesHidden = dailyMembers.length > 0 && dailyMembers.every((m) => m.dailyRate == null);
-  const dailyCost = dailyMembers.reduce((s, m) => s + (m.dailyRate ?? 0), 0);
+  const dailyCost = dailyMembers.reduce((s, m) => s + toNum((m.dailyRate ?? 0)), 0);
   const memberColumns: Column<CrewMember>[] = [
     {
       key: "name",

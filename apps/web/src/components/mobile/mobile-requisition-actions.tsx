@@ -16,7 +16,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
+import { formatCurrencyCompact, formatNumber, toNum} from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDialog";
@@ -694,7 +694,7 @@ function ConvertForm({
           <span>Estimated total</span>
           <span className="tabular-nums" style={{ color: "var(--color-go)" }}>
             {formatCurrencyCompact(
-              lines.reduce((s, l) => s + (lineCosts[l.materialId] ?? 0) * l.qtyRequested, 0),
+              lines.reduce((s, l) => s + toNum((lineCosts[l.materialId] ?? 0) * l.qtyRequested), 0),
             )}
           </span>
         </div>

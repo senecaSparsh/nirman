@@ -116,8 +116,8 @@ async function MobileExpensesContent() {
   }
   const projectRows = Array.from(byProject.values()).sort((a, b) => b.amount - a.amount);
 
-  const totalOperating = monthly.reduce((s, m) => s + m.operating, 0);
-  const totalProject = monthly.reduce((s, m) => s + m.project, 0);
+  const totalOperating = monthly.reduce((s, m) => s + toNum(m.operating), 0);
+  const totalProject = monthly.reduce((s, m) => s + toNum(m.project), 0);
   const total = totalOperating + totalProject;
 
   if (expenses.length === 0 && projectCosts.length === 0) {
@@ -208,7 +208,7 @@ async function MobileExpensesContent() {
               title="Expenses By Category"
               rows={categoryRows as unknown as Record<string, unknown>[]}
               columns={categoryCsvColumns}
-              summary={`${categoryRows.length} categories · ${formatCurrency(categoryRows.reduce((s, c) => s + c.amount, 0))}`}
+              summary={`${categoryRows.length} categories · ${formatCurrency(categoryRows.reduce((s, c) => s + toNum(c.amount), 0))}`}
             />
           </div>
           <div className="flex flex-col gap-2 mb-4">

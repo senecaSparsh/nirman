@@ -1,3 +1,4 @@
+import { toNum } from "@/lib/utils";
 /**
  * Enhanced NLU Matching Engine for the Owner Assistant ("Sahayak").
  *
@@ -579,7 +580,7 @@ export function scoreKeywordMatch(inputTokens: string[], keyword: string): numbe
       }
     }
     if (allMatch && wordScores.length === phraseLen) {
-      const avgScore = wordScores.reduce((a, b) => a + b, 0) / wordScores.length;
+      const avgScore = wordScores.reduce((a, b) => a + toNum(b), 0) / wordScores.length;
       // Check negation at phrase start
       const negated = isNegatedContext(inputTokens, i);
       const finalScore = negated ? avgScore * 0.1 : avgScore;

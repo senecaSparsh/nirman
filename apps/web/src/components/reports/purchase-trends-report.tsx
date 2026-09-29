@@ -4,7 +4,7 @@ import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/empty-state";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatNumber, toNum} from "@/lib/utils";
 import { downloadCSV, downloadExcel } from "@/lib/export";
 import { AreaSeries, BarSeries } from "./charts";
 
@@ -105,9 +105,9 @@ export function PurchaseTrendsReport({
             ))}
             <TR>
               <TD className="font-bold">Total</TD>
-              <TD className="text-right tnum font-bold">{formatNumber(monthly.reduce((s, m) => s + m.count, 0), 0)}</TD>
-              <TD className="text-right tnum font-bold">{formatCurrency(monthly.reduce((s, m) => s + m.subtotal, 0))}</TD>
-              <TD className="text-right tnum font-bold">{formatCurrency(monthly.reduce((s, m) => s + m.gst, 0))}</TD>
+              <TD className="text-right tnum font-bold">{formatNumber(monthly.reduce((s, m) => s + toNum(m.count), 0), 0)}</TD>
+              <TD className="text-right tnum font-bold">{formatCurrency(monthly.reduce((s, m) => s + toNum(m.subtotal), 0))}</TD>
+              <TD className="text-right tnum font-bold">{formatCurrency(monthly.reduce((s, m) => s + toNum(m.gst), 0))}</TD>
               <TD className="text-right tnum font-bold">{formatCurrency(grandTotal)}</TD>
             </TR>
           </TBody>

@@ -10,7 +10,7 @@ import { Field } from "@/components/field";
 import { Input } from "@/components/ui/input";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/empty-state";
-import {formatCurrency, formatDate} from "@/lib/utils";
+import {formatCurrency, formatDate, toNum} from "@/lib/utils";
 
 type TdsSubcontractor = {
   subcontractorId: string;
@@ -75,8 +75,8 @@ export function TdsCertificatesView() {
       .finally(() => setCertLoading(false));
   }
 
-  const totalTds = subcontractors.reduce((s, x) => s + x.totalTds, 0);
-  const totalGross = subcontractors.reduce((s, x) => s + x.totalGross, 0);
+  const totalTds = subcontractors.reduce((s, x) => s + toNum(x.totalTds), 0);
+  const totalGross = subcontractors.reduce((s, x) => s + toNum(x.totalGross), 0);
 
   const tdsColumns: Column<TdsSubcontractor>[] = [
     {

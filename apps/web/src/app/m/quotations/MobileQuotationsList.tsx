@@ -28,6 +28,8 @@ export type QuotationListItem = {
   submittedByName: string;
   createdAt: string;
   lineCount: number;
+  /** "Cement PPC · 50 BAG +2 more" — see lib/line-summary. */
+  itemSummary?: string | null;
   quoteCount: number;
   minQuotesRequired: number;
   quotesMet: boolean;
@@ -102,7 +104,8 @@ export function MobileQuotationsList({
         (r) =>
           r.requestNumber.toLowerCase().includes(q) ||
           r.title.toLowerCase().includes(q) ||
-          r.projectName?.toLowerCase().includes(q),
+          r.projectName?.toLowerCase().includes(q) ||
+          r.itemSummary?.toLowerCase().includes(q),
       );
     }
     return result;
@@ -131,7 +134,7 @@ export function MobileQuotationsList({
       <MobileSearchHeader
         query={query}
         onQueryChange={setQuery}
-        placeholder="Search quote no, title, project…"
+        placeholder="Search material, project, quote no…"
         action={
           <div className="flex items-center gap-1 shrink-0">
             <MobileFilterIcon
@@ -248,6 +251,12 @@ function QuotationCard({
 }) {
   const style = STATUS_STYLE[req.status] ?? STATUS_STYLE.OPEN!;
   const accentColor = style.color;
+  // System-written titles ("Auto-generated from Indent REQ-…") say nothing
+  // about what's being quoted — lead with the material instead, and keep a
+  // human-written title when someone bothered to write one.
+  const isAutoTitle = /^auto-generated/i.test(req.title);
+  const headline = isAutoTitle && req.itemSummary ? req.itemSummary : req.title;
+  const sourceRef = isAutoTitle ? req.title.match(/REQ-[\w-]+/)?.[0] : null;
 
   return (
     <button
@@ -265,10 +274,11 @@ function QuotationCard({
       <div className="p-2.5 flex flex-col gap-1 flex-1 min-w-0">
         <div className="flex items-center justify-between gap-1">
           <span
-            className="text-m-caption font-mono font-bold truncate"
-            style={{ color: "var(--color-ink-950)" }}
+            className="text-m-micro font-mono truncate"
+            style={{ color: "var(--color-ink-400)" }}
           >
             {req.requestNumber}
+            {sourceRef ? ` · from ${sourceRef}` : ""}
           </span>
           <span
             className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem] shrink-0"
@@ -278,10 +288,10 @@ function QuotationCard({
           </span>
         </div>
         <p
-          className="text-m-body font-bold leading-tight truncate"
+          className="text-m-strong leading-tight truncate"
           style={{ color: "var(--color-ink-950)" }}
         >
-          {req.title}
+          {headline}
         </p>
         <span
           className="text-m-caption truncate"

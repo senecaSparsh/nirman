@@ -80,14 +80,14 @@ async function MobileComparativeContent() {
 
   const avgProgress =
     projectAnalyses.length > 0
-      ? projectAnalyses.reduce((s, p) => s + p.latestProgressPct, 0) / projectAnalyses.length
+      ? projectAnalyses.reduce((s, p) => s + toNum(p.latestProgressPct), 0) / projectAnalyses.length
       : 0;
-  const totalLaborHours = projectAnalyses.reduce((s, p) => s + p.totalLaborHours, 0);
+  const totalLaborHours = projectAnalyses.reduce((s, p) => s + toNum(p.totalLaborHours), 0);
   const avgAttendance =
     projectAnalyses.length > 0
-      ? projectAnalyses.reduce((s, p) => s + p.attendanceRate, 0) / projectAnalyses.length
+      ? projectAnalyses.reduce((s, p) => s + toNum(p.attendanceRate), 0) / projectAnalyses.length
       : 0;
-  const totalProfit = projectAnalyses.reduce((s, p) => s + p.profit, 0);
+  const totalProfit = projectAnalyses.reduce((s, p) => s + toNum(p.profit), 0);
 
   if (projects.length === 0) {
     return (

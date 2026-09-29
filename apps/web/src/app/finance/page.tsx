@@ -164,8 +164,8 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
   const projectOptions: ProjectOption[] = projects.map((p) => ({
     id: p.id, name: p.name, type: p.type, status: p.status}));
 
-  const totalCosts = projectCostRows.reduce((s, c) => s + c.amount, 0);
-  const totalExpenses = expenseRows.reduce((s, e) => s + e.amount, 0);
+  const totalCosts = projectCostRows.reduce((s, c) => s + toNum(c.amount), 0);
+  const totalExpenses = expenseRows.reduce((s, e) => s + toNum(e.amount), 0);
   const outstanding = totalRevenue - totalCollected;
 
   const perms = {

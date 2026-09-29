@@ -878,8 +878,8 @@ async function salesListResponse(companyId: string): Promise<AssistantResponse> 
     return { text: "Abhi tak koi sale nahi hui. Pehli sale banaiye!", intent: "SALES_LIST", confidence: 0.8, cards: [{ type: "link", label: "New sale", href: "/m/sales/new", variant: "primary" }] };
   }
 
-  const totalRevenue = rows.reduce((s, r) => s + r.total, 0);
-  const paidAmount = rows.reduce((s, r) => s + r.paid, 0);
+  const totalRevenue = rows.reduce((s, r) => s + toNum(r.total), 0);
+  const paidAmount = rows.reduce((s, r) => s + toNum(r.paid), 0);
   const pending = totalRevenue - paidAmount;
 
   let text = `💰 **Recent Sales (${rows.length}):**\n\n`;
@@ -948,7 +948,7 @@ async function paymentStatusResponse(companyId: string): Promise<AssistantRespon
     return { text: "✅ Sab payments received! Koi pending nahi hai. 🎉", intent: "PAYMENT_STATUS", confidence: 0.9 };
   }
 
-  const totalPending = rows.reduce((s, r) => s + r.due, 0);
+  const totalPending = rows.reduce((s, r) => s + toNum(r.due), 0);
   let text = `💵 **Pending Payments (${rows.length}):**\n\n`;
   for (const r of rows.slice(0, 6)) {
     text += `• ${r.label} | Baki: ${formatCurrency(r.due)}\n`;
@@ -1425,8 +1425,8 @@ async function fuelUsageResponse(companyId: string, text: string): Promise<Assis
     byMachine.set(key, e);
   }
   const machines = [...byMachine.values()];
-  const totalFuel = machines.reduce((a, m) => a + m.fuel, 0);
-  const totalCost = machines.reduce((a, m) => a + m.cost, 0);
+  const totalFuel = machines.reduce((a, m) => a + toNum(m.fuel), 0);
+  const totalCost = machines.reduce((a, m) => a + toNum(m.cost), 0);
 
   // If the ask names a specific machine (assetTag/name), answer just for it.
   const q = text.toLowerCase();

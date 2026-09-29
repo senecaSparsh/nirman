@@ -14,7 +14,7 @@ import { SupplierFormDialog } from "@/components/procurement/supplier-form-dialo
 import { StatusPill } from "@/components/page";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/empty-state";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, toNum} from "@/lib/utils";
 import type { SupplierReturnRow, SupplierRow, StockLocationRow, MaterialRow } from "@/lib/types";
 
 export function SupplierReturnsView({
@@ -375,7 +375,7 @@ function SupplierReturnDetailDialog({
     }
   }
 
-  const _totalValue = ret.lines.reduce((s, l) => s + l.qty, 0);
+  const _totalValue = ret.lines.reduce((s, l) => s + toNum(l.qty), 0);
 
   return (
     <Dialog

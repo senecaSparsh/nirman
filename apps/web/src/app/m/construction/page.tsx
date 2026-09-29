@@ -308,6 +308,7 @@ async function ConstructionQualityTab() {
       {listNext && canManage && openNcrCount > 0 ? (
         <NextActionCardView
           label={listNext.label(openNcrCount)}
+          actionVerb="Show"
           reason={listNext.reason}
           tone="signal"
           href={`/m/construction?tab=quality&status=${listNext.filterChip}`}

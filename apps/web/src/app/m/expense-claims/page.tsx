@@ -57,7 +57,7 @@ export default function MobileExpenseClaimsPage() {
           submittedAt: c.submittedAt?.toISOString() ?? c.createdAt.toISOString(),
           description: c.description ?? null}));
 
-        const totalAmount = rows.reduce((s, c) => s + c.totalAmount, 0);
+        const totalAmount = rows.reduce((s, c) => s + toNum(c.totalAmount), 0);
         const pendingCount = rows.filter((c) => c.status === "SUBMITTED").length;
 
         return (

@@ -23,7 +23,7 @@ import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { MobileNewBrokerClient } from "./new/MobileNewBrokerClient";
 import { haptic } from "@/lib/haptic";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, toNum} from "@/lib/utils";
 
 export type BrokerListItem = {
   id: string;
@@ -69,7 +69,7 @@ export function MobileBrokersList({
     {
       label: "Avg Commission",
       value: items.length > 0
-        ? `${formatNumber(items.reduce((s, b) => s + (b.defaultCommissionPercent ?? 0), 0) / items.length, 1)}%`
+        ? `${formatNumber(items.reduce((s, b) => s + toNum((b.defaultCommissionPercent ?? 0)), 0) / items.length, 1)}%`
         : "—",
     },
   ];

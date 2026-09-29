@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 
+import { toNum } from "@/lib/utils";
 type CallStatus = "RINGING" | "ANSWERED" | "MISSED" | "BUSY" | "REJECTED" | "FAILED" | "VOICEMAIL";
 type Direction = "INBOUND" | "OUTBOUND" | "INTERNAL";
 
@@ -127,7 +128,7 @@ export function CallsView({
   }, [calls, search, filterDirection, filterStatus, filterPhone]);
 
   const missedCount = calls.filter((c) => c.status === "MISSED").length;
-  const totalDuration = calls.reduce((sum, c) => sum + c.durationSec, 0);
+  const totalDuration = calls.reduce((sum, c) => sum + toNum(c.durationSec), 0);
 
   return (
     <Page>

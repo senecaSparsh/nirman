@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronsLeft } from "lucide-react";
 import type { World, NavLink } from "@/lib/nav";
-import { cn } from "@/lib/utils";
+import { cn, toNum} from "@/lib/utils";
 
 /**
  * BUILD NAV PANEL — the 5-stage accordion sidebar for the Build world.
@@ -106,7 +106,7 @@ export function BuildNavPanel({
 
   // Count total badges for a section (for the collapsed card)
   function sectionBadgeCount(section: { items: NavLink[] }): number {
-    return section.items.reduce((sum, item) => sum + (badgeCounts[item.href] ?? 0), 0);
+    return section.items.reduce((sum, item) => sum + toNum((badgeCounts[item.href] ?? 0)), 0);
   }
 
   return (

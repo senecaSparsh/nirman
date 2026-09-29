@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { toNum } from "@/lib/utils";
 import { prisma } from "@nirman/db";
 import { sendRentDueReminders, sendPaymentDueReminders, processDueEscalations, checkMilestonePayments, processPendingNotifications, generateDueRentSchedules, generateDueRecurringExpenses, checkExpiringLegalDocs, checkExpiringEmploymentTerms, checkExpiringEmployeeDocs } from "@nirman/services";
 import { apiHandler, json } from "@/lib/server";
@@ -57,7 +58,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       .then((companies) => Promise.all(
         companies.map((c) => generateDueRecurringExpenses(c.id).catch(() => ({ count: 0 }))),
       ))
-      .then((results) => ({ generated: results.reduce((sum, r) => sum + r.count, 0) }))
+      .then((results) => ({ generated: results.reduce((sum, r) => sum + toNum(r.count), 0) }))
       .catch(() => ({ generated: 0 })),
     // Check for legal documents expiring in the next 30 days
     checkExpiringLegalDocs(30).catch(() => ({ checked: 0, expiring: 0, notified: 0 })),

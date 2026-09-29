@@ -160,8 +160,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
   ]);
 
   const opening = (openingInRows[0]?.total ?? 0) - (openingOutRows[0]?.total ?? 0);
-  const received = inByLocation.reduce((s, r) => s + r.received, 0);
-  const issued = outByLocation.reduce((s, r) => s + r.issued, 0);
+  const received = inByLocation.reduce((s, r) => s + toNum(r.received), 0);
+  const issued = outByLocation.reduce((s, r) => s + toNum(r.issued), 0);
 
   // Balance = Opening + Received - Issued (also verifiable against live StockLocationItem)
   const balance = opening + received - issued;

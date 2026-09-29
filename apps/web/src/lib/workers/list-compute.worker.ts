@@ -1,3 +1,4 @@
+import { toNum } from "@/lib/utils";
 /**
  * Web Worker for offloading list computations from the main thread.
  *
@@ -112,8 +113,8 @@ function filterItems(items: Record<string, unknown>[], filter: FilterConfig): Re
 function aggregateItems(items: Record<string, unknown>[], agg: AggregateConfig): number {
   const values = items.map((i) => Number(getFieldValue(i, agg.field) ?? 0));
   switch (agg.op) {
-    case "sum": return values.reduce((s, v) => s + v, 0);
-    case "avg": return values.length > 0 ? values.reduce((s, v) => s + v, 0) / values.length : 0;
+    case "sum": return values.reduce((s, v) => s + toNum(v), 0);
+    case "avg": return values.length > 0 ? values.reduce((s, v) => s + toNum(v), 0) / values.length : 0;
     case "count": return items.length;
     case "min": return values.length > 0 ? Math.min(...values) : 0;
     case "max": return values.length > 0 ? Math.max(...values) : 0;

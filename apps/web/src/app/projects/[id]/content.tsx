@@ -537,10 +537,10 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
   }));
 
   // Variance data
-  const materialIssuesTotal = issueRows.reduce((s, i) => s + i.totalCost, 0);
-  const otherCostsTotal = costRows.reduce((s, c) => s + c.amount, 0);
-  const workOrderTotal = workOrderRows.reduce((s, w) => s + w.totalValue, 0);
-  const landCostTotal = parcelRows.reduce((s, p) => s + p.acquisitionCost, 0);
+  const materialIssuesTotal = issueRows.reduce((s, i) => s + toNum(i.totalCost), 0);
+  const otherCostsTotal = costRows.reduce((s, c) => s + toNum(c.amount), 0);
+  const workOrderTotal = workOrderRows.reduce((s, w) => s + toNum(w.totalValue), 0);
+  const landCostTotal = parcelRows.reduce((s, p) => s + toNum(p.acquisitionCost), 0);
   const actualTotal = toNum(pnlResult.total);
   const budgetTotal = project.totalBudget ? toNum(project.totalBudget) : 0;
 

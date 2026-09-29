@@ -3,8 +3,10 @@ import { prisma } from "@nirman/db";
 
 import { getCompanyGroupIds,
   toNum,
+  getCurrentUser,
   getCurrentUserMembership, scopeWhere, projectScopeFilter } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { summarizeLines } from "@/lib/line-summary";
 import { canAutoApprove } from "@nirman/services";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
@@ -23,7 +25,8 @@ export default function MobileProcurementPage() {
         const canApprove = perms.includes(PERM.PO_APPROVE);
         const canApproveRequisition = perms.includes(PERM.REQUISITION_APPROVE);
         const canCreateQuotation = perms.includes(PERM.QUOTATION_MANAGE);
-        const membership = await getCurrentUserMembership();
+        const [membership, currentUser] = await Promise.all([getCurrentUserMembership(), getCurrentUser()]);
+        const currentUserId = currentUser?.id ?? null;
 
         // ── Fetch data for all hub tabs + form dropdown data in parallel ──
         const BATCH_SIZE = 60;
@@ -35,7 +38,7 @@ export default function MobileProcurementPage() {
             take: BATCH_SIZE + 1,
             include: {
               supplier: { select: { name: true } },
-              lines: { select: { qtyOrdered: true, qtyReceived: true } }}}),
+              lines: { select: { qtyOrdered: true, qtyReceived: true, material: { select: { name: true, unit: true } } } }}}),
           prisma.directPurchase.findMany({
             where: { companyId: company.id },
             orderBy: { billDate: "desc" },
@@ -51,7 +54,7 @@ export default function MobileProcurementPage() {
             take: BATCH_SIZE + 1,
             include: {
               project: { select: { name: true } },
-              lines: { select: { qtyRequested: true } },
+              lines: { select: { qtyRequested: true, material: { select: { name: true, unit: true } } } },
               vendorQuotes: { select: { id: true } },
               requestedBy: { select: { name: true } }}}),
           // ── Quotations tab ──
@@ -62,7 +65,7 @@ export default function MobileProcurementPage() {
             include: {
               project: { select: { id: true, name: true } },
               submittedBy: { select: { id: true, name: true } },
-              lines: { select: { id: true, qtyRequired: true, materialId: true } },
+              lines: { select: { id: true, qtyRequired: true, materialId: true, material: { select: { name: true, unit: true } } } },
               quotes: {
                 where: { status: { not: "REJECTED" } },
                 select: {
@@ -149,7 +152,9 @@ export default function MobileProcurementPage() {
             total: toNum(p.total),
             qtyOrdered,
             qtyReceived,
-            isOverdue};
+            isOverdue,
+            createdById: p.createdById,
+            itemSummary: summarizeLines(p.lines.map((l) => ({ name: l.material.name, qty: toNum(l.qtyOrdered), unit: l.material.unit })))};
         });
 
         const directPurchaseItems: DirectPurchaseListItem[] = directPurchases.map((d) => ({
@@ -187,6 +192,7 @@ export default function MobileProcurementPage() {
           createdAt: r.createdAt.toISOString(),
           neededByDate: r.neededByDate?.toISOString() ?? null,
           lineCount: r.lines.length,
+          itemSummary: summarizeLines(r.lines.map((l) => ({ name: l.material.name, qty: toNum(l.qtyRequested), unit: l.material.unit }))),
           quoteCount: r.vendorQuotes.length,
           minQuotesRequired: r.minQuotesRequired,
           quotesWaived: r.quotesWaived,
@@ -232,6 +238,7 @@ export default function MobileProcurementPage() {
             submittedByName: r.submittedBy?.name ?? "—",
             createdAt: r.createdAt.toISOString(),
             lineCount: r.lines.length,
+            itemSummary: summarizeLines(r.lines.map((l) => ({ name: l.material.name, qty: toNum(l.qtyRequired), unit: l.material.unit }))),
             quoteCount: quotes.length,
             minQuotesRequired: r.minQuotesRequired,
             quotesMet: quotes.length >= r.minQuotesRequired,
@@ -322,6 +329,7 @@ export default function MobileProcurementPage() {
             indentCanCreate={canCreateIndent}
             indentCanApprove={canApproveRequisition}
             indentCanSelfApprove={canAutoApprove(actingRole)}
+            indentCurrentUserId={currentUserId}
             indentSubmittedCount={reqSubmittedCount}
             indentLoadMoreUrl="/api/mobile/list/requisitions"
             indentNextCursor={reqNextCursor}
@@ -335,6 +343,7 @@ export default function MobileProcurementPage() {
             poCanCreate={canCreate}
             poCanApprove={canApprove}
             poCanSelfApprove={canAutoApprove(actingRole)}
+            poCurrentUserId={currentUserId}
             poDraftCount={poDraftCount}
             poLoadMoreUrl="/api/mobile/list/procurement"
             poNextCursor={poNextCursor}

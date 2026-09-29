@@ -84,9 +84,9 @@ export default function MobileSubcontractorDetailPage({
           projectName: m.project?.name ?? null,
         }));
 
-        const totalWorkDone = workOrders.reduce((s, w) => s + w.totalWorkDone, 0);
-        const totalPaid = workOrders.reduce((s, w) => s + w.totalPaid, 0);
-        const totalCosts = projectCosts.reduce((s, c) => s + c.amount, 0);
+        const totalWorkDone = workOrders.reduce((s, w) => s + toNum(w.totalWorkDone), 0);
+        const totalPaid = workOrders.reduce((s, w) => s + toNum(w.totalPaid), 0);
+        const totalCosts = projectCosts.reduce((s, c) => s + toNum(c.amount), 0);
         const activeJobs = workOrders.filter(
           (w) => w.status === "ACTIVE" || w.status === "ISSUED",
         ).length;

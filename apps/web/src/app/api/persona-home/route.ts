@@ -328,9 +328,9 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     return {
       projects: cards,
       totals: {
-        budget: cards.reduce((s, c) => s + c.budget, 0),
-        spent: cards.reduce((s, c) => s + c.spent, 0),
-        crew: cards.reduce((s, c) => s + c.crew, 0),
+        budget: cards.reduce((s, c) => s + toNum(c.budget), 0),
+        spent: cards.reduce((s, c) => s + toNum(c.spent), 0),
+        crew: cards.reduce((s, c) => s + toNum(c.crew), 0),
         atRisk: cards.filter((c) => c.flag !== "ok").length,
       },
     };
@@ -654,7 +654,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
         suppliers: toNum(supplierOut._sum.amount),
       },
       aging: buckets,
-      payableTotal: buckets.reduce((s, b) => s + b.amount, 0),
+      payableTotal: buckets.reduce((s, b) => s + toNum(b.amount), 0),
       pending: { expenses: pendingExpenses },
     };
   }

@@ -15,7 +15,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { PageLoading } from "@/components/page-loading";
 import { EmptyState } from "@/components/empty-state";
-import { formatCurrency, formatNumber, cn } from "@/lib/utils";
+import { formatCurrency, formatNumber, cn, toNum} from "@/lib/utils";
 
 type MonthlyAddition = {
   month: string;
@@ -241,10 +241,10 @@ export function RealEstateInventoryView() {
                   <td className="py-2 pr-4 text-right font-semibold tnum text-muted-foreground">{data.underConstructionUnits}</td>
                   <td className="py-2 pr-4 text-right font-semibold tnum text-muted-foreground">{data.availableParcels}</td>
                   <td className="py-2 pr-4 text-right font-semibold tnum text-foreground">
-                    {formatCurrency(data.projects.reduce((s, p) => s + p.landCost, 0))}
+                    {formatCurrency(data.projects.reduce((s, p) => s + toNum(p.landCost), 0))}
                   </td>
                   <td className="py-2 pr-4 text-right font-semibold tnum text-foreground">
-                    {formatCurrency(data.projects.reduce((s, p) => s + p.constructionCost, 0))}
+                    {formatCurrency(data.projects.reduce((s, p) => s + toNum(p.constructionCost), 0))}
                   </td>
                   <td className="py-2 text-right font-semibold tnum text-foreground">{formatCurrency(data.totalAssetValue)}</td>
                 </tr>

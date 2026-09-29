@@ -121,7 +121,7 @@ export default function MobileRequisitionDetailPage({
         };
 
         // Timeline data
-        const totalItems = lines.reduce((s, l) => s + l.qtyRequested, 0);
+        const totalItems = lines.reduce((s, l) => s + toNum(l.qtyRequested), 0);
         const quoteCount = req.vendorQuotes.length;
         const quotesMet = quoteCount >= req.minQuotesRequired || req.quotesWaived;
 
@@ -279,10 +279,19 @@ export default function MobileRequisitionDetailPage({
             {nextAction ? (
               <NextActionCardView
                 label={nextAction.label}
+                actionVerb={nextAction.verb}
                 reason={nextAction.reason}
                 tone={nextAction.tone ?? "signal"}
                 hash={nextAction.action.type === "anchor" ? nextAction.action.hash : undefined}
-                href={nextAction.action.type === "navigate" ? nextAction.action.href.replace("{id}", req.id) : undefined}
+                href={
+                  nextAction.action.type === "navigate"
+                    ? nextAction.action.href.includes("{poId}")
+                      ? req.convertedPoId
+                        ? nextAction.action.href.replace("{poId}", req.convertedPoId)
+                        : "/m/procurement?tab=pos"
+                      : nextAction.action.href.replace("{id}", req.id)
+                    : undefined
+                }
               />
             ) : null}
 

@@ -286,8 +286,8 @@ async function CommandCenterContent() {
     row.value += toNum(o.total);
   }
   const procurementTrend = Array.from(trendMap.values());
-  const totalPOs6mo = procurementTrend.reduce((s, m) => s + m.count, 0);
-  const totalSpend6mo = procurementTrend.reduce((s, m) => s + m.value, 0);
+  const totalPOs6mo = procurementTrend.reduce((s, m) => s + toNum(m.count), 0);
+  const totalSpend6mo = procurementTrend.reduce((s, m) => s + toNum(m.value), 0);
   // Trend: current month vs previous month
   const curMonth = procurementTrend[procurementTrend.length - 1];
   const prevMonth = procurementTrend[procurementTrend.length - 2];
@@ -373,8 +373,8 @@ async function CommandCenterContent() {
     count: availableUnits.length, href: "/units", cta: __effPerms.includes(PERM.SALE_CREATE) ? "Sell" : "View", urgency: "soon", icon: "home",
     items: availableUnits.map((u) => ({ label: u.unitNumber, sub: u.project.name }))});
 
-  const blockingQueues = queues.filter((q) => q.urgency === "blocking").reduce((n, q) => n + q.count, 0);
-  const totalQueues = queues.reduce((n, q) => n + q.count, 0);
+  const blockingQueues = queues.filter((q) => q.urgency === "blocking").reduce((n, q) => n + toNum(q.count), 0);
+  const totalQueues = queues.reduce((n, q) => n + toNum(q.count), 0);
 
   // ── Pending actions by type (for chart) ──────────────────────────
   const pendingActions: { label: string; value: number }[] = [];
@@ -445,7 +445,7 @@ async function CommandCenterContent() {
     action: log.action,
     entityType: log.entityType,
     timestamp: log.timestamp.toISOString()}));
-  const totalActions = activityCounts.reduce((s, g) => s + g.count, 0);
+  const totalActions = activityCounts.reduce((s, g) => s + toNum(g.count), 0);
   const hasActivity = !isDevBypass && activityCounts.length > 0;
 
   // ── Memberships ──────────────────────────────────────────────────

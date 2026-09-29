@@ -66,8 +66,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
         unitCost: toNum(l.unitCost),
         remaining: toNum(l.qtyOrdered) - toNum(l.qtyReceived),
       }));
-      const totalOrdered = lines.reduce((s, l) => s + l.qtyOrdered, 0);
-      const totalReceived = lines.reduce((s, l) => s + l.qtyReceived, 0);
+      const totalOrdered = lines.reduce((s, l) => s + toNum(l.qtyOrdered), 0);
+      const totalReceived = lines.reduce((s, l) => s + toNum(l.qtyReceived), 0);
       return {
         id: po.id,
         poNumber: po.poNumber,

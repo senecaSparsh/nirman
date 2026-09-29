@@ -64,7 +64,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       : null,
   }));
 
-  const totalQty = lines.reduce((s, l) => s + l.qtyRequested, 0);
+  const totalQty = lines.reduce((s, l) => s + toNum(l.qtyRequested), 0);
 
   // Quote summary for the comparative quote engine
   const quotes = await prisma.vendorQuote.findMany({

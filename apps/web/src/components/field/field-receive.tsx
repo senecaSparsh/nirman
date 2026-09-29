@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { cn, formatNumber, formatCurrency, formatDateTime } from "@/lib/utils";
+import { cn, formatNumber, formatCurrency, formatDateTime, toNum} from "@/lib/utils";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import type { QueuedOperation } from "@/lib/offline/queue";
 import { VehicleCapture, type VehicleData } from "@/components/mobile/vehicle-capture";
@@ -483,7 +483,7 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
               <div className="mt-3 flex justify-between border-t border-border pt-2.5 text-body font-semibold">
                 <span>Total value</span>
                 <span className="tnum">
-                  {formatCurrency(confirmLines.reduce((s, l) => s + l.cost, 0))}
+                  {formatCurrency(confirmLines.reduce((s, l) => s + toNum(l.cost), 0))}
                 </span>
               </div>
 

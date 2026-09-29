@@ -122,7 +122,7 @@ export async function RentalsContent() {
         stats={[
           { label: "Tenancies", value: tenancyRows.length, hint: "All rental agreements for land parcels and built units, including ended ones." },
           { label: "Active", value: tenancyRows.filter((t) => t.status === "ACTIVE").length, hint: "Tenancies currently in effect with an active tenant." },
-          { label: "Monthly rent", value: formatCurrency(tenancyRows.filter((t) => t.status === "ACTIVE").reduce((s, t) => s + t.monthlyRent, 0)), hint: "Sum of current monthly rent across all active tenancies (before escalations)." },
+          { label: "Monthly rent", value: formatCurrency(tenancyRows.filter((t) => t.status === "ACTIVE").reduce((s, t) => s + toNum(t.monthlyRent), 0)), hint: "Sum of current monthly rent across all active tenancies (before escalations)." },
         ]}
       />
       <RentalsView

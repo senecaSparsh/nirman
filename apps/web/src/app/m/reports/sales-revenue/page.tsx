@@ -63,9 +63,9 @@ async function MobileSalesRevenueContent() {
     };
   });
 
-  const totalSales = records.reduce((s, r) => s + r.salePrice, 0);
-  const totalCollected = records.reduce((s, r) => s + r.collected, 0);
-  const totalOutstanding = records.reduce((s, r) => s + r.outstanding, 0);
+  const totalSales = records.reduce((s, r) => s + toNum(r.salePrice), 0);
+  const totalCollected = records.reduce((s, r) => s + toNum(r.collected), 0);
+  const totalOutstanding = records.reduce((s, r) => s + toNum(r.outstanding), 0);
 
   if (records.length === 0) {
     return (

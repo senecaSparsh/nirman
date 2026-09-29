@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 import { useRecentItems } from "@/lib/use-recent-items";
 import { useFetch } from "@/lib/use-fetch";
-import { formatDate, formatCurrencyCompact, formatRelativeTime } from "@/lib/utils";
+import { formatDate, formatCurrencyCompact, formatRelativeTime, toNum} from "@/lib/utils";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { useMounted } from "@/lib/use-mounted";
 
@@ -213,7 +213,7 @@ export function HomeTree({ userName }: { userName: string | null }) {
     }
   }
 
-  const briefingTotal = briefingChildren.reduce((s, c) => s + c.count, 0);
+  const briefingTotal = briefingChildren.reduce((s, c) => s + toNum(c.count), 0);
   const hasBriefing = briefingChildren.length > 0;
   const hasRecent = recentItems.length > 0;
 

@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
-import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { formatCurrency, formatDate, cn, toNum} from "@/lib/utils";
 import type { AssetSaleRow } from "@/lib/types";
 
 // ════════════════════════════════════════════════════════════════
@@ -135,9 +135,9 @@ export function BbaPipelineBoard({
 
   // Summary stats
   const stats = useMemo(() => {
-    const totalRevenue = filtered.reduce((s, x) => s + x.salePrice + x.gstAmount, 0);
-    const totalCollected = filtered.reduce((s, x) => s + x.totalPaid, 0);
-    const totalOutstanding = filtered.reduce((s, x) => s + x.balanceDue, 0);
+    const totalRevenue = filtered.reduce((s, x) => s + toNum(x.salePrice) + toNum(x.gstAmount), 0);
+    const totalCollected = filtered.reduce((s, x) => s + toNum(x.totalPaid), 0);
+    const totalOutstanding = filtered.reduce((s, x) => s + toNum(x.balanceDue), 0);
     const bbaDone = filtered.filter((s) => s.bbaNo).length;
     const bbaPending = filtered.filter((s) => !s.bbaNo).length;
     const overduePayments = filtered.filter(
@@ -216,8 +216,8 @@ export function BbaPipelineBoard({
       {/* ── Kanban Board ───────────────────────────────────────── */}
       <div className="flex gap-3 overflow-x-auto pb-2">
         {columns.map((col) => {
-          const colTotal = col.items.reduce((s, x) => s + x.salePrice + x.gstAmount, 0);
-          const colCollected = col.items.reduce((s, x) => s + x.totalPaid, 0);
+          const colTotal = col.items.reduce((s, x) => s + toNum(x.salePrice) + toNum(x.gstAmount), 0);
+          const colCollected = col.items.reduce((s, x) => s + toNum(x.totalPaid), 0);
           return (
             <div key={col.stage} className="flex w-72 shrink-0 flex-col">
               {/* Column header */}

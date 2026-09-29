@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useFetch } from "@/lib/use-fetch";
 import { BookOpen, ChevronDown, ChevronRight, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrencyDetailed, formatCurrencyCompact } from "@/lib/utils";
+import { formatCurrencyDetailed, formatCurrencyCompact, toNum} from "@/lib/utils";
 import type { GlPreviewLine } from "@nirman/services/gl-preview";
 
 /**
@@ -29,8 +29,8 @@ export function GlPreviewPanel({
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
-  const totalDebit = lines.reduce((s, l) => s + l.debit, 0);
-  const totalCredit = lines.reduce((s, l) => s + l.credit, 0);
+  const totalDebit = lines.reduce((s, l) => s + toNum(l.debit), 0);
+  const totalCredit = lines.reduce((s, l) => s + toNum(l.credit), 0);
   const balanced = Math.abs(totalDebit - totalCredit) < 0.01;
   const hasLines = lines.length > 0;
 

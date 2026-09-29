@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, toNum} from "@/lib/utils";
 import { BarSeries, AreaSeries } from "./charts";
 
 export type MonthlyExpenseRow = { label: string; operating: number; project: number };
@@ -272,7 +272,7 @@ export function ExpensesReport({
             <TabsContent value="vendor">
               <div className="rounded-xl border border-border bg-card p-4">
                 <h3 className="text-body font-semibold text-foreground">Top Vendors / Payees</h3>
-                <p className="text-meta text-muted-foreground">{vendorRows.length} vendors · {formatCurrency(vendorRows.reduce((s, v) => s + v.amount, 0))} total</p>
+                <p className="text-meta text-muted-foreground">{vendorRows.length} vendors · {formatCurrency(vendorRows.reduce((s, v) => s + toNum(v.amount), 0))} total</p>
                 <div className="mt-3 overflow-hidden rounded-lg border border-border">
                   <DataTable
                     data={vendorRows}

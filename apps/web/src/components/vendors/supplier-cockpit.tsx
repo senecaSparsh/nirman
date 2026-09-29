@@ -11,7 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { StatusPill } from "@/components/page";
-import { formatCurrency, formatNumber, formatDate, formatEnumLabel } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatDate, formatEnumLabel, toNum} from "@/lib/utils";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
 
@@ -271,7 +271,7 @@ function OverviewTab({ data }: { data: SupplierCockpitData }) {
         {/* Outstanding invoices summary */}
         {data.invoices.length > 0 && (() => {
           const outstanding = data.invoices.filter((i) => i.balanceDue > 0);
-          const totalOutstanding = outstanding.reduce((s, i) => s + i.balanceDue, 0);
+          const totalOutstanding = outstanding.reduce((s, i) => s + toNum(i.balanceDue), 0);
           const overdue = outstanding.filter((i) => i.dueDate && now !== null && new Date(i.dueDate) < now);
           return (
             <div className="rounded-lg border border-border bg-card p-4">
@@ -279,7 +279,7 @@ function OverviewTab({ data }: { data: SupplierCockpitData }) {
               <div className="space-y-2">
                 <div className="flex items-baseline justify-between">
                   <span className="text-caption text-muted-foreground">Total Invoiced</span>
-                  <span className="tnum text-body font-medium">{formatCurrency(data.invoices.reduce((s, i) => s + i.totalAmount, 0))}</span>
+                  <span className="tnum text-body font-medium">{formatCurrency(data.invoices.reduce((s, i) => s + toNum(i.totalAmount), 0))}</span>
                 </div>
                 <div className="flex items-baseline justify-between">
                   <span className="text-caption text-muted-foreground">Outstanding</span>
@@ -293,7 +293,7 @@ function OverviewTab({ data }: { data: SupplierCockpitData }) {
                 )}
                 <div className="flex items-baseline justify-between">
                   <span className="text-caption text-muted-foreground">Total Paid (all-time)</span>
-                  <span className="tnum text-body font-medium text-success">{formatCurrency(data.payments.reduce((s, p) => s + p.netPaid, 0))}</span>
+                  <span className="tnum text-body font-medium text-success">{formatCurrency(data.payments.reduce((s, p) => s + toNum(p.netPaid), 0))}</span>
                 </div>
               </div>
             </div>
@@ -461,8 +461,8 @@ function ReturnsTab({ data }: { data: SupplierCockpitData }) {
 
 function InvoicesTab({ data }: { data: SupplierCockpitData }) {
   const { invoices } = data;
-  const totalInv = invoices.reduce((s, i) => s + i.totalAmount, 0);
-  const totalOutstanding = invoices.reduce((s, i) => s + i.balanceDue, 0);
+  const totalInv = invoices.reduce((s, i) => s + toNum(i.totalAmount), 0);
+  const totalOutstanding = invoices.reduce((s, i) => s + toNum(i.balanceDue), 0);
   return (
     <div className="space-y-3">
       {invoices.length > 0 && (
@@ -524,9 +524,9 @@ function InvoicesTab({ data }: { data: SupplierCockpitData }) {
 
 function PaymentsTab({ data }: { data: SupplierCockpitData }) {
   const { payments } = data;
-  const totalGross = payments.reduce((s, p) => s + p.amount, 0);
-  const totalTds = payments.reduce((s, p) => s + p.tdsAmount, 0);
-  const totalNet = payments.reduce((s, p) => s + p.netPaid, 0);
+  const totalGross = payments.reduce((s, p) => s + toNum(p.amount), 0);
+  const totalTds = payments.reduce((s, p) => s + toNum(p.tdsAmount), 0);
+  const totalNet = payments.reduce((s, p) => s + toNum(p.netPaid), 0);
   return (
     <div className="space-y-3">
       {payments.length > 0 && (

@@ -275,7 +275,7 @@ async function MobileEmployeeDetailContent({
     proofUploadId: l.proofUploadId as string | null,
     proofUrl: (l.proofUpload as { url: string } | undefined)?.url ?? null,
   }));
-  const totalNetPaid = payrollHistory.filter((p) => p.status === "PAID").reduce((s, p) => s + p.netPay, 0);
+  const totalNetPaid = payrollHistory.filter((p) => p.status === "PAID").reduce((s, p) => s + toNum(p.netPay), 0);
 
   const leaveHistory = employee.leaveRequests.map((l) => ({
     id: l.id,
@@ -297,7 +297,7 @@ async function MobileEmployeeDetailContent({
     hoursWorked: toNum(d.hoursWorked),
     taskDescription: d.taskDescription,
   }));
-  const totalDprHours = dprHistory.reduce((s, d) => s + d.hoursWorked, 0);
+  const totalDprHours = dprHistory.reduce((s, d) => s + toNum(d.hoursWorked), 0);
 
   // ── Compute available companies for multi-company add ──
   // Descendants only — matching POST /api/employees/[id]/add-to-company,

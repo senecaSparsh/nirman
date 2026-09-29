@@ -98,9 +98,9 @@ async function MobilePayrollExpenseContent() {
     .map((r) => ({ crew: r.crew, gross: r.gross, net: r.net, employees: r.employees.size }))
     .sort((a, b) => b.gross - a.gross);
 
-  const totalGross = monthly.reduce((s, m) => s + m.gross, 0);
-  const totalNet = monthly.reduce((s, m) => s + m.net, 0);
-  const totalOvertime = monthly.reduce((s, m) => s + m.overtime, 0);
+  const totalGross = monthly.reduce((s, m) => s + toNum(m.gross), 0);
+  const totalNet = monthly.reduce((s, m) => s + toNum(m.net), 0);
+  const totalOvertime = monthly.reduce((s, m) => s + toNum(m.overtime), 0);
 
   if (periods.length === 0) {
     return (
@@ -193,7 +193,7 @@ async function MobilePayrollExpenseContent() {
               title="Payroll By Trade"
               rows={tradeRows as unknown as Record<string, unknown>[]}
               columns={tradeCsvColumns}
-              summary={`${tradeRows.length} trades · Gross ${formatCurrency(tradeRows.reduce((s, t) => s + t.gross, 0))}`}
+              summary={`${tradeRows.length} trades · Gross ${formatCurrency(tradeRows.reduce((s, t) => s + toNum(t.gross), 0))}`}
             />
           </div>
           <div className="flex flex-col gap-2 mb-4">

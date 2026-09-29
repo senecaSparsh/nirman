@@ -252,8 +252,8 @@ async function EmployeeProfileContent({
     netPay: toNum(l.netPay),
     paidAt: l.payrollPeriod.paidAt?.toISOString() ?? null,
   }));
-  const totalNetPaid = payrollHistory.filter((p) => p.status === "PAID").reduce((s, p) => s + p.netPay, 0);
-  const avgNet = payrollHistory.length > 0 ? payrollHistory.reduce((s, p) => s + p.netPay, 0) / payrollHistory.length : 0;
+  const totalNetPaid = payrollHistory.filter((p) => p.status === "PAID").reduce((s, p) => s + toNum(p.netPay), 0);
+  const avgNet = payrollHistory.length > 0 ? payrollHistory.reduce((s, p) => s + toNum(p.netPay), 0) / payrollHistory.length : 0;
   const lastPayroll = payrollHistory[0] ?? null;
 
   // ── Leave stats ──
@@ -284,7 +284,7 @@ async function EmployeeProfileContent({
     hoursWorked: toNum(d.hoursWorked),
     taskDescription: d.taskDescription,
   }));
-  const totalDprHours = dprHistory.reduce((s, d) => s + d.hoursWorked, 0);
+  const totalDprHours = dprHistory.reduce((s, d) => s + toNum(d.hoursWorked), 0);
 
   // ── Compute available companies before building the data object ──
   // Descendants only — matching POST /api/employees/[id]/add-to-company,

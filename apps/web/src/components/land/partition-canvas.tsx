@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { toNum } from "@/lib/utils";
 import {
   polygonArea,
   splitConvexPolygon,
@@ -155,7 +156,7 @@ export function PartitionCanvas({
 
   // Compute actual areas (normalized × parentArea)
   const actualAreas = plots.map((p) => p.area * parentArea);
-  const totalArea = actualAreas.reduce((s, a) => s + a, 0);
+  const totalArea = actualAreas.reduce((s, a) => s + toNum(a), 0);
 
   return (
     <div className="space-y-2">

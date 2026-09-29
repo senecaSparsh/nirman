@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { getVendorRankings } from "@nirman/services";
+import { computeVendorRating } from "@nirman/services";
 import { toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { Truck } from "lucide-react";
@@ -52,8 +52,9 @@ export default function MobileSupplierDetailPage({
         const totalPaid = supplier.supplierPayments.reduce((s, p) => s + toNum(p.amount), 0);
 
         // Vendor rating — auto-computed from POs, receipts, quote comparisons.
-        const rankings = await getVendorRankings(company.id);
-        const rating = rankings.find((r) => r.supplierId === supplier.id) ?? null;
+        // Rate just this supplier: getVendorRankings() rates EVERY supplier in
+        // the company sequentially (~5 queries each) only to .find() this one.
+        const rating = await computeVendorRating(supplier.id).catch(() => null);
 
         const pos = supplier.purchaseOrders.map((po) => ({
           id: po.id,
@@ -104,6 +105,7 @@ export default function MobileSupplierDetailPage({
               overallScore: toNum(rating.overallScore),
               totalPos: rating.totalPos,
               totalReceipts: rating.totalReceipts,
+              inspectedReceipts: rating.inspectedReceipts,
             } : null}
             canManage={canManage}
           />

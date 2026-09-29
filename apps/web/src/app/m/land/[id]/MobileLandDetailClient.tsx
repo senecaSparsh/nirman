@@ -17,7 +17,7 @@ import { MobileLegalDocsSection } from "@/components/legal/mobile-legal-docs-sec
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../../sales/MobileChequeFields";
 import { MobileDocUploader } from "../../MobileDocUploader";
 import { AttachmentList } from "@/components/attachments/attachment-list";
-import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate, toNum} from "@/lib/utils";
 import { mobileStatusColor, ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { DetailKeyValue, DetailAlertBanner } from "@/components/mobile/v2/detail-primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
@@ -2825,7 +2825,7 @@ function MobileCadastrePlan({ parcels }: { parcels: Parcel[] }) {
     const sorted = [...targets].sort((a, b) => b.area - a.area);
     if (sorted.length === 0) return [];
 
-    const totalArea = sorted.reduce((s, p) => s + p.area, 0);
+    const totalArea = sorted.reduce((s, p) => s + toNum(p.area), 0);
     if (totalArea <= 0) return [];
 
     const targetRows = Math.max(1, Math.round(Math.sqrt(sorted.length)));
@@ -2850,7 +2850,7 @@ function MobileCadastrePlan({ parcels }: { parcels: Parcel[] }) {
     let y = 0;
     const W = 100, H = 100;
     for (const row of rows) {
-      const rowArea = row.reduce((s, p) => s + p.area, 0);
+      const rowArea = row.reduce((s, p) => s + toNum(p.area), 0);
       const rowHeight = (rowArea / totalArea) * H;
       let x = 0;
       for (const p of row) {

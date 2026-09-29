@@ -1,4 +1,5 @@
 import { NextRequest, } from "next/server";
+import { toNum } from "@/lib/utils";
 import { prisma } from "@nirman/db";
 import { apiHandler, json } from "@/lib/server";
 import { withTimeout } from "@/lib/timeout";
@@ -94,7 +95,7 @@ async function doBackup(): Promise<Response> {
   const durationMs = Date.now() - startTime;
   console.log(
     `[cron/backup] completed in ${durationMs}ms — ${results.length} companies, ` +
-    `${results.reduce((s, r) => s + r.records, 0)} total records`,
+    `${results.reduce((s, r) => s + toNum(r.records), 0)} total records`,
   );
 
   return json({

@@ -76,7 +76,7 @@ export async function VendorsContent() {
   });
 
   const withDues = vendorRows.filter((v) => v.balanceOwed > 0).length;
-  const totalOwed = vendorRows.reduce((s, v) => s + v.balanceOwed, 0);
+  const totalOwed = vendorRows.reduce((s, v) => s + toNum(v.balanceOwed), 0);
 
   return (
     <>

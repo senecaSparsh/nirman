@@ -243,16 +243,16 @@ async function RealEstateLandTab() {
 
   const portfolio: Portfolio = {
     purchaseCount: landPurchases.length,
-    totalArea: items.reduce((s, i) => s + i.totalArea, 0),
+    totalArea: items.reduce((s, i) => s + toNum(i.totalArea), 0),
     areaUnit: items[0]?.areaUnit ?? "SQ_FT",
     parcelCount: items.reduce((s, i) => s + i.parcelCount, 0),
     availableCount: items.reduce((s, i) => s + i.availableCount, 0),
     holdCount: items.reduce((s, i) => s + i.holdCount, 0),
     soldCount: items.reduce((s, i) => s + i.soldCount, 0),
     partitionedCount: items.reduce((s, i) => s + i.partitionedCount, 0),
-    availableArea: items.reduce((s, i) => s + i.availableArea, 0),
-    unsoldValue: items.reduce((s, i) => s + i.unsoldValue, 0),
-    costBasis: items.reduce((s, i) => s + i.costBasis, 0)};
+    availableArea: items.reduce((s, i) => s + toNum(i.availableArea), 0),
+    unsoldValue: items.reduce((s, i) => s + toNum(i.unsoldValue), 0),
+    costBasis: items.reduce((s, i) => s + toNum(i.costBasis), 0)};
 
   return (
     <MobileLandList
@@ -452,9 +452,9 @@ async function RealEstateRentalsTab() {
   });
 
   const stats = {
-    totalMonthlyRent: items.reduce((s, i) => s + i.monthlyRent, 0),
-    totalReceived: items.reduce((s, i) => s + i.totalReceived, 0),
-    totalOverdue: items.reduce((s, i) => s + i.overdueAmount, 0),
+    totalMonthlyRent: items.reduce((s, i) => s + toNum(i.monthlyRent), 0),
+    totalReceived: items.reduce((s, i) => s + toNum(i.totalReceived), 0),
+    totalOverdue: items.reduce((s, i) => s + toNum(i.overdueAmount), 0),
     activeCount: items.filter((i) => i.status === "ACTIVE").length,
     pendingCount: items.filter((i) => i.status === "PENDING").length,
     expiringCount: items.filter((i) => i.expiringSoon).length};

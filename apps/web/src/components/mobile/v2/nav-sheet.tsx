@@ -182,14 +182,17 @@ export function NavSheet({ open, onClose, moduleId, persona, permissions, userNa
     // navigate actions go to the specified href.
     let href: string | undefined;
     if (action.action.type === "navigate") {
-      href = action.action.href;
+      href = action.action.href.replace("{id}", pageCtx.recordId ?? "");
+      // Record-specific placeholders (e.g. an indent's {poId}) are only known
+      // to the detail page's own NextActionCard — never link to a raw template.
+      if (href.includes("{")) return null;
     } else if (action.action.type === "anchor") {
       href = `${pathname}${action.action.hash}`;
     } else if (action.action.type === "filter") {
       href = `${pathname}?tab=${action.action.chip}`;
     }
     return { ...action, href };
-  }, [pageCtx.flowId, pageCtx.status, pageCtx.canActions, pathname]);
+  }, [pageCtx.flowId, pageCtx.status, pageCtx.canActions, pageCtx.recordId, pathname]);
 
   // ── Flow-aware Related: use flow-map nodes when available ──
   // If the page announced a flowId, show the flow's other nodes as

@@ -8,7 +8,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatusPill } from "@/components/page";
 import { EmptyState } from "@/components/empty-state";
-import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { formatCurrency, formatDate, cn, toNum} from "@/lib/utils";
 
 export type AgingBucket = "current" | "1-30d" | "31-60d" | "61-90d" | ">90d";
 
@@ -442,7 +442,7 @@ function AgingSummaryCard({
     { key: "61-90d", label: "61-90d" },
     { key: ">90d", label: ">90d" },
   ];
-  const total = buckets.reduce((s, b) => s + summary[b.key], 0);
+  const total = buckets.reduce((s, b) => s + toNum(summary[b.key]), 0);
 
   return (
     <div className="rounded-lg border border-border bg-card p-3">

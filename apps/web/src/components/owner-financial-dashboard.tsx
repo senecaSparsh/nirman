@@ -4,7 +4,7 @@ import Link from "next/link";
 import { TrendingUp, TrendingDown, Wallet, Building2, ArrowRight, BarChart3 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, toNum} from "@/lib/utils";
 
 export interface CashPositionData {
   cashBalance: number;
@@ -36,8 +36,8 @@ export function OwnerFinancialDashboard({
   projectProfits: ProjectProfitRow[];
 }) {
   const netCash = cashPosition.cashBalance + cashPosition.arBalance - cashPosition.apBalance;
-  const totalRevenue = projectProfits.reduce((s, p) => s + p.revenue, 0);
-  const totalCost = projectProfits.reduce((s, p) => s + p.cost, 0);
+  const totalRevenue = projectProfits.reduce((s, p) => s + toNum(p.revenue), 0);
+  const totalCost = projectProfits.reduce((s, p) => s + toNum(p.cost), 0);
   const totalProfit = totalRevenue - totalCost;
   const overallMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 

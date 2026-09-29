@@ -93,9 +93,9 @@ export default function MobileCustomerDetailPage({
           (a, b) => new Date(b.saleDate).getTime() - new Date(a.saleDate).getTime(),
         );
 
-        const totalValue = allSales.reduce((s, sale) => s + sale.totalWithGst, 0);
-        const totalPaid = allSales.reduce((s, sale) => s + sale.paid, 0);
-        const totalOutstanding = allSales.reduce((s, sale) => s + sale.balance, 0);
+        const totalValue = allSales.reduce((s, sale) => s + toNum(sale.totalWithGst), 0);
+        const totalPaid = allSales.reduce((s, sale) => s + toNum(sale.paid), 0);
+        const totalOutstanding = allSales.reduce((s, sale) => s + toNum(sale.balance), 0);
         const activeDeals = allSales.filter((s) => s.saleStage !== "COMPLETED" && s.saleStage !== "CANCELLED").length;
 
         const data = {

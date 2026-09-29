@@ -184,7 +184,9 @@ export function MobileQuotePanel({
   );
 
   const kpis = useMemo(() => {
-    if (activeQuotes.length === 0) return null;
+    // A comparison needs two things to compare — with one quote, lowest ==
+    // highest and savings is ₹0, which is noise that reads like a result.
+    if (activeQuotes.length < 2) return null;
     const totals = activeQuotes.map((q) => q.landedTotal);
     const lowest = Math.min(...totals);
     const highest = Math.max(...totals);

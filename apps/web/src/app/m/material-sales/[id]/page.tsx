@@ -109,7 +109,7 @@ export default function MobileMaterialSaleDetailPage({
             saleNumber={sale.saleNumber}
             status={sale.status}
             paymentStatus={sale.paymentStatus}
-            nextAction={nextAction ? { label: nextAction.label, reason: nextAction.reason, tone: nextAction.tone ?? "signal", hash: nextAction.action.type === "anchor" ? nextAction.action.hash : undefined, href: nextAction.action.type === "navigate" ? nextAction.action.href.replace("{id}", sale.id) : undefined } : null}
+            nextAction={nextAction ? { label: nextAction.label, verb: nextAction.verb, reason: nextAction.reason, tone: nextAction.tone ?? "signal", hash: nextAction.action.type === "anchor" ? nextAction.action.hash : undefined, href: nextAction.action.type === "navigate" ? nextAction.action.href.replace("{id}", sale.id) : undefined } : null}
             saleDate={sale.saleDate.toISOString()}
             subtotal={toNum(sale.subtotal)}
             gstTotal={toNum(sale.gstTotal)}

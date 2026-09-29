@@ -18,7 +18,7 @@ import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
 import { EmployeeQuickCreateDialog } from "@/components/hr/employee-quick-create-dialog";
 import { EmployeeName } from "@/components/employee-name";
-import { formatDate, formatNumber, formatCurrency, formatCurrencyCompact, formatCurrencyDetailed, cn } from "@/lib/utils";
+import { formatDate, formatNumber, formatCurrency, formatCurrencyCompact, formatCurrencyDetailed, cn, toNum} from "@/lib/utils";
 
 export type DprApprovalStatus = "SUBMITTED" | "SUB_ADMIN_APPROVED" | "APPROVED" | "REJECTED";
 
@@ -47,7 +47,7 @@ function DprStatsBar({ dprs }: { dprs: DprRow[] }) {
   const subApproved = dprs.filter((d) => d.approvalStatus === "SUB_ADMIN_APPROVED").length;
   const approved = dprs.filter((d) => d.approvalStatus === "APPROVED").length;
   const rejected = dprs.filter((d) => d.approvalStatus === "REJECTED").length;
-  const avgProgress = total > 0 ? dprs.reduce((sum, d) => sum + d.progressPct, 0) / total : 0;
+  const avgProgress = total > 0 ? dprs.reduce((sum, d) => sum + toNum(d.progressPct), 0) / total : 0;
 
   return (
     <div className="grid grid-cols-2 divide-border overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-6 sm:divide-x divide-y sm:divide-y-0">
@@ -1149,7 +1149,7 @@ function DprDetailDialog({
                     <div className="text-micro text-muted-foreground">Material Cost</div>
                     <div className="tnum text-body font-semibold">
                       {formatCurrency(
-                        (detail.materialLines ?? []).reduce((s, l) => s + l.qty * l.unitCost, 0),
+                        (detail.materialLines ?? []).reduce((s, l) => s + toNum(l.qty * l.unitCost), 0),
                       )}
                     </div>
                     <div className="text-micro text-muted-foreground">
@@ -1160,7 +1160,7 @@ function DprDetailDialog({
                     <div className="text-micro text-muted-foreground">Labor Hours</div>
                     <div className="tnum text-body font-semibold">
                       {formatNumber(
-                        (detail.laborLines ?? []).reduce((s, l) => s + l.hoursWorked, 0),
+                        (detail.laborLines ?? []).reduce((s, l) => s + toNum(l.hoursWorked), 0),
                         1,
                       )} hrs
                     </div>
@@ -1172,7 +1172,7 @@ function DprDetailDialog({
                     <div className="text-micro text-muted-foreground">Est. Labor Cost*</div>
                     <div className="tnum text-body font-semibold">
                       {formatCurrency(
-                        (detail.laborLines ?? []).reduce((s, l) => s + l.hoursWorked, 0) * LABOR_RATE_ESTIMATE,
+                        (detail.laborLines ?? []).reduce((s, l) => s + toNum(l.hoursWorked), 0) * LABOR_RATE_ESTIMATE,
                       )}
                     </div>
                     <div className="text-micro text-muted-foreground">*{formatCurrency(LABOR_RATE_ESTIMATE)}/hr estimate</div>

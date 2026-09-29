@@ -19,7 +19,7 @@ import { LocationFormDialog } from "@/components/materials/location-form-dialog"
 import { VehicleCaptureSection, EMPTY_VEHICLE, type VehicleData } from "@/components/vehicle-capture-section";
 import { IdentityCell, MoneyCell, DateCell } from "@/components/ui/cells";
 import { StatusPill } from "@/components/page";
-import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { formatCurrency, formatDate, cn, toNum} from "@/lib/utils";
 import type { ProjectOption } from "@/lib/types";
 import { MaterialSalePaymentFormDialog } from "./material-sale-payment-form-dialog";
 
@@ -272,7 +272,7 @@ export function MaterialSalesView({
   // Compute total paid for a sale from loaded payments (or server-provided ones)
   function totalPaid(sale: MaterialSaleRow): number {
     const payments = paymentsBySale[sale.id] ?? sale.payments ?? [];
-    return payments.reduce((sum, p) => sum + p.amount, 0);
+    return payments.reduce((sum, p) => sum + toNum(p.amount), 0);
   }
 
   // Outstanding balance = totalAmount - totalPaid

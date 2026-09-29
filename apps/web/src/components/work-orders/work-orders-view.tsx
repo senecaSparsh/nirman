@@ -13,7 +13,7 @@ import { PageLoading } from "@/components/page-loading";
 import { StatusPill } from "@/components/page";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
-import { actionPastTense, cn, formatCurrency, formatDate, formatNumber, formatEnumLabel } from "@/lib/utils";
+import { actionPastTense, cn, formatCurrency, formatDate, formatNumber, formatEnumLabel, toNum} from "@/lib/utils";
 import type { ProjectOption } from "@/lib/types";
 import {
   HardHat,
@@ -286,9 +286,9 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
     const active = workOrders.filter((w) => w.status === "ACTIVE").length;
     const draft = workOrders.filter((w) => w.status === "DRAFT").length;
     const issued = workOrders.filter((w) => w.status === "ISSUED").length;
-    const totalWorkDone = workOrders.reduce((s, w) => s + w.totalWorkDone, 0);
-    const totalPaid = workOrders.reduce((s, w) => s + w.totalPaid, 0);
-    const retentionHeld = workOrders.reduce((s, w) => s + w.retentionBalance, 0);
+    const totalWorkDone = workOrders.reduce((s, w) => s + toNum(w.totalWorkDone), 0);
+    const totalPaid = workOrders.reduce((s, w) => s + toNum(w.totalPaid), 0);
+    const retentionHeld = workOrders.reduce((s, w) => s + toNum(w.retentionBalance), 0);
     const raBills = workOrders.reduce((s, w) => s + w._count.raBills, 0);
     return { total, active, draft, issued, totalWorkDone, totalPaid, retentionHeld, raBills };
   }, [workOrders]);
@@ -503,9 +503,9 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
                 <tfoot className="border-t border-border bg-muted/20 text-xs">
                   <tr>
                     <td className="px-3 py-2 font-medium" colSpan={3}>Total ({filteredWOs.length})</td>
-                    <td className="px-3 py-2 text-right tabular-nums font-medium">{formatCurrency(filteredWOs.reduce((s, w) => s + w.totalWorkDone, 0))}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{formatCurrency(filteredWOs.reduce((s, w) => s + w.totalPaid, 0))}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-amber-600">{formatCurrency(filteredWOs.reduce((s, w) => s + w.retentionBalance, 0))}</td>
+                    <td className="px-3 py-2 text-right tabular-nums font-medium">{formatCurrency(filteredWOs.reduce((s, w) => s + toNum(w.totalWorkDone), 0))}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{formatCurrency(filteredWOs.reduce((s, w) => s + toNum(w.totalPaid), 0))}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-amber-600">{formatCurrency(filteredWOs.reduce((s, w) => s + toNum(w.retentionBalance), 0))}</td>
                     <td className="px-3 py-2 text-center tabular-nums text-muted-foreground">{filteredWOs.reduce((s, w) => s + w._count.raBills, 0)}</td>
                     <td colSpan={2}></td>
                   </tr>

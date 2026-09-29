@@ -79,9 +79,9 @@ async function MobileIssueRegisterContent() {
     };
   });
 
-  const totalAmount = records.reduce((s, r) => s + r.billAmt, 0);
-  const totalRound = records.reduce((s, r) => s + r.round, 0);
-  const totalQty = records.reduce((s, r) => s + r.totalQty, 0);
+  const totalAmount = records.reduce((s, r) => s + toNum(r.billAmt), 0);
+  const totalRound = records.reduce((s, r) => s + toNum(r.round), 0);
+  const totalQty = records.reduce((s, r) => s + toNum(r.totalQty), 0);
 
   if (records.length === 0) {
     return (

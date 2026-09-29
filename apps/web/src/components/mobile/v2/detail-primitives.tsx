@@ -416,16 +416,16 @@ export function DetailTimeline({
 }) {
   return (
     <div
-      className="rounded-[0.625rem] border p-3 mb-3"
+      className="rounded-[0.625rem] border px-3 py-2.5 mb-3"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
-      <p className="text-m-caption font-bold uppercase tracking-wider mb-3" style={{ color: "var(--color-steel)" }}>
+      <p className="text-m-caption font-bold uppercase tracking-wider mb-2" style={{ color: "var(--color-steel)" }}>
         {title}
       </p>
-      <div className="relative pl-6">
+      <div className="relative pl-5">
         {/* Vertical connector line */}
         <div
-          className="absolute left-[7px] top-1 bottom-1 w-px"
+          className="absolute left-[4.5px] top-1.5 bottom-1.5 w-px"
           style={{ backgroundColor: "var(--color-line)" }}
         />
         {steps.map((step, i) => (
@@ -464,46 +464,48 @@ function TimelineRow({ step, isLast }: { step: TimelineStepData; isLast: boolean
           ? "var(--color-stop)"
           : "var(--color-ink-400)";
 
+  // One line per step (order-tracker style): label · detail on the left,
+  // date on the right. The current step gets a second line for its detail
+  // since that's the one telling you what happens next.
+  const isCurrent = step.state === "current";
+  const detailInline = !!step.detail && !step.href && !isCurrent;
+
   return (
-    <div className={`relative ${isLast ? "" : "pb-4"}`}>
+    <div className={`relative ${isLast ? "" : "pb-2"}`}>
       {/* Dot */}
-      <div
-        className="absolute -left-6 top-0.5 flex items-center justify-center rounded-full border"
+      <span
+        className="absolute -left-5 top-[3px] rounded-full"
         style={{
-          width: 14,
-          height: 14,
-          borderColor,
+          width: 10,
+          height: 10,
+          border: `1.5px ${step.state === "pending" ? "dashed" : "solid"} ${borderColor}`,
           backgroundColor: dotColor,
-          borderWidth: 1.5,
-          borderStyle: step.state === "pending" ? "dashed" : "solid",
+          boxShadow: isCurrent ? "0 0 0 3px var(--color-signal-wash)" : undefined,
         }}
-      >
-        {step.state === "done" && (
-          <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "var(--color-paper)" }} />
-        )}
-        {step.state === "current" && (
-          <span style={{ width: 5, height: 5, borderRadius: "50%", backgroundColor: "var(--color-ink-950)" }} />
+      />
+      <div className="flex items-baseline justify-between gap-2 min-w-0">
+        <p className="min-w-0 truncate text-m-body" style={{ color: labelColor }}>
+          <span className="font-bold">{step.label}</span>
+          {detailInline ? (
+            <span style={{ color: "var(--color-ink-500)" }}>{` · ${step.detail}`}</span>
+          ) : null}
+        </p>
+        {step.date && (
+          <span className="shrink-0 text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+            {step.date}
+          </span>
         )}
       </div>
-      {/* Content */}
-      <p className="text-m-body font-bold" style={{ color: labelColor }}>
-        {step.label}
-      </p>
-      {step.date && (
-        <p className="text-m-caption mt-0.5 tabular-nums" style={{ color: "var(--color-ink-500)" }}>
-          {step.date}
-        </p>
-      )}
       {step.detail && step.href ? (
         <Link
           href={step.href}
-          className="inline-flex items-center text-m-caption font-semibold mt-0.5 press hover:underline"
+          className="inline-flex items-center text-m-caption font-semibold press hover:underline"
           style={{ color: "var(--color-ink-700)" }}
         >
           {step.detail}
         </Link>
-      ) : step.detail ? (
-        <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-700)" }}>
+      ) : step.detail && isCurrent ? (
+        <p className="text-m-caption" style={{ color: "var(--color-ink-700)" }}>
           {step.detail}
         </p>
       ) : null}

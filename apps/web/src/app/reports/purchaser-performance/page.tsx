@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { getPurchaserPerformance } from "@nirman/services";
 import { getCompany, getUserPermissions } from "@/lib/server";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, toNum} from "@/lib/utils";
 import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
@@ -61,7 +61,7 @@ async function PurchaserPerformanceContent({
       potentialSavings: r.potentialSavings.toNumber(),
     })),
     count: rows.length,
-    totalQuotes: rows.reduce((s, r) => s + r.quotesUploaded, 0),
+    totalQuotes: rows.reduce((s, r) => s + toNum(r.quotesUploaded), 0),
     totalSpend: rows.reduce((s, r) => s + r.totalSpend.toNumber(), 0),
     totalSavings: rows.reduce((s, r) => s + r.potentialSavings.toNumber(), 0),
   };

@@ -241,6 +241,21 @@ export function formatNumber(value: number | string | null | undefined, digits =
   return new Intl.NumberFormat("en-IN", { maximumFractionDigits: digits }).format(n);
 }
 
+/**
+ * Coerce a Prisma Decimal / numeric-string / number to a JS number.
+ *
+ * `s + r.amount` on a Decimal field string-concatenates (Decimal.valueOf()
+ * returns a string → `0 + Decimal` = "0123.45"), so every `reduce`/`+`-sum over
+ * a raw Prisma row totals a garbage string. Wrap the operand in toNum. This is
+ * the client-safe twin of `toNum` in lib/server.ts — keep them in sync.
+ */
+export function toNum(v: unknown): number {
+  if (v == null) return 0;
+  if (typeof v === "number") return v;
+  const n = Number(String(v));
+  return Number.isNaN(n) ? 0 : n;
+}
+
 /** "BANK_TRANSFER" → "Bank Transfer"; keeps acronyms (UPI, NEFT, RTGS) intact. */
 export function formatEnumLabel(value: string | null | undefined): string {
   if (!value) return "—";

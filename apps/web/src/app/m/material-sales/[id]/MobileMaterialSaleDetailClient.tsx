@@ -7,7 +7,7 @@ import {
   Phone, Printer, XCircle, Banknote,
   Loader2, IndianRupee, ShieldCheck,
 } from "lucide-react";
-import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber, formatPaymentMode } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber, formatPaymentMode, toNum} from "@/lib/utils";
 import { toast } from "sonner";
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../../sales/MobileChequeFields";
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
@@ -105,7 +105,7 @@ export function MobileMaterialSaleDetailClient({
   payments: PaymentItem[];
   canManage: boolean;
   gatePass: { id: string; gatePassNumber: string; status: string } | null;
-  nextAction?: { label: string; reason: string; tone: "signal" | "go" | "stop"; hash?: string; href?: string } | null;
+  nextAction?: { label: string; verb: string; reason: string; tone: "signal" | "go" | "stop"; hash?: string; href?: string } | null;
   notFound?: boolean;
 }) {
   const router = useRouter();
@@ -182,7 +182,7 @@ export function MobileMaterialSaleDetailClient({
       : "var(--color-go)";
 
   const statusLabel = isCancelled ? "Cancelled" : isPartial ? "Partial" : isPending ? "Unpaid" : "Paid";
-  const totalPaid = payments.reduce((s, p) => s + (p.status === "VOID" ? 0 : p.amount), 0);
+  const totalPaid = payments.reduce((s, p) => s + toNum((p.status === "VOID" ? 0 : p.amount)), 0);
   const balanceDue = Math.max(0, totalAmount - totalPaid);
 
   async function handleCancel() {
@@ -258,6 +258,7 @@ export function MobileMaterialSaleDetailClient({
       {nextAction ? (
         <NextActionCardView
           label={nextAction.label}
+          actionVerb={nextAction.verb}
           reason={nextAction.reason}
           tone={nextAction.tone}
           hash={nextAction.hash}

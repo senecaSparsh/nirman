@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { formatNumber } from "@/lib/utils";
+import { formatNumber, toNum} from "@/lib/utils";
 import type { LandParcelSummary, LandParcelStatus } from "@/lib/types";
 
 /**
@@ -58,7 +58,7 @@ function treemap(parcels: LandParcelSummary[], width = 100, height = 100): Layou
   const sorted = [...targets].sort((a, b) => b.area - a.area);
   if (sorted.length === 0) return [];
 
-  const totalArea = sorted.reduce((s, p) => s + p.area, 0);
+  const totalArea = sorted.reduce((s, p) => s + toNum(p.area), 0);
   if (totalArea <= 0) return [];
 
   // Pack into rows. Target ~sqrt(n) rows for a balanced aspect ratio.
@@ -83,7 +83,7 @@ function treemap(parcels: LandParcelSummary[], width = 100, height = 100): Layou
   const cells: LayoutCell[] = [];
   let y = 0;
   for (const row of rows) {
-    const rowArea = row.reduce((s, p) => s + p.area, 0);
+    const rowArea = row.reduce((s, p) => s + toNum(p.area), 0);
     const rowHeight = (rowArea / totalArea) * height;
     let x = 0;
     for (const p of row) {

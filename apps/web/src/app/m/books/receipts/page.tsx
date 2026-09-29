@@ -63,7 +63,7 @@ async function BooksReceiptsContent() {
     })),
   ].sort((a, b) => +new Date(b.paymentDate) - +new Date(a.paymentDate));
 
-  const total = items.reduce((s, r) => s + r.amount, 0);
+  const total = items.reduce((s, r) => s + toNum(r.amount), 0);
   const avg = items.length > 0 ? total / items.length : 0;
 
   return (

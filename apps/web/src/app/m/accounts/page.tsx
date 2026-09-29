@@ -504,7 +504,7 @@ async function AccountsExpensesTab() {
     supplierName: e.supplier?.name ?? null,
     receiptUrl: e.receiptUrl}));
 
-  const totalAmount = rows.reduce((s, e) => s + e.amount, 0);
+  const totalAmount = rows.reduce((s, e) => s + toNum(e.amount), 0);
   const categories = new Set(rows.map((e) => e.category));
 
   return (
@@ -567,7 +567,7 @@ async function AccountsClaimsTab() {
     submittedAt: c.submittedAt?.toISOString() ?? c.createdAt.toISOString(),
     description: c.description ?? null}));
 
-  const totalAmount = rows.reduce((s, c) => s + c.totalAmount, 0);
+  const totalAmount = rows.reduce((s, c) => s + toNum(c.totalAmount), 0);
   const pendingCount = rows.filter((c) => c.status === "SUBMITTED").length;
 
   return (
@@ -613,8 +613,8 @@ async function AccountsPettyCashTab() {
     lastTopUpDate: f.topUps[0]?.date.toISOString() ?? null}));
 
   // floatAmount is the running balance (already net of top-ups + spends)
-  const totalBalance = rows.reduce((s, f) => s + f.floatAmount, 0);
-  const totalTopUps = rows.reduce((s, f) => s + f.topUpTotal, 0);
+  const totalBalance = rows.reduce((s, f) => s + toNum(f.floatAmount), 0);
+  const totalTopUps = rows.reduce((s, f) => s + toNum(f.topUpTotal), 0);
 
   return (
     <MobilePettyCashList
@@ -666,7 +666,7 @@ async function AccountsPaymentsTab() {
     paymentMode: p.paymentMode,
     status: p.status}));
 
-  const totalAmount = rows.reduce((s, p) => s + (p.status === "VOID" ? 0 : p.amount), 0);
+  const totalAmount = rows.reduce((s, p) => s + toNum((p.status === "VOID" ? 0 : p.amount)), 0);
 
   return (
     <MobileSupplierPaymentsList
@@ -710,7 +710,7 @@ async function AccountsReceiptsTab() {
       paymentDate: r.paymentDate.toISOString()})),
   ].sort((a, b) => +new Date(b.paymentDate) - +new Date(a.paymentDate));
 
-  const total = items.reduce((s, r) => s + r.amount, 0);
+  const total = items.reduce((s, r) => s + toNum(r.amount), 0);
   const avg = items.length > 0 ? total / items.length : 0;
 
   return (
@@ -765,8 +765,8 @@ async function AccountsGlTab() {
     })
     .filter((r) => r.debit !== 0 || r.credit !== 0);
 
-  const totalDebit = rows.reduce((s, r) => s + r.debit, 0);
-  const totalCredit = rows.reduce((s, r) => s + r.credit, 0);
+  const totalDebit = rows.reduce((s, r) => s + toNum(r.debit), 0);
+  const totalCredit = rows.reduce((s, r) => s + toNum(r.credit), 0);
 
   const serialized: GlListItem[] = rows.map((r) => ({
     code: r.code, name: r.name, type: r.type,

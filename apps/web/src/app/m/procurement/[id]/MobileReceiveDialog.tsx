@@ -7,7 +7,7 @@ import { haptic } from "@/lib/haptic";
 import {
   ScanLine, CheckCircle2, X, Truck, Calendar, XCircle, Scale, Plus, AlertCircle, Printer, FileText,
 } from "lucide-react";
-import { formatNumber, formatCurrency } from "@/lib/utils";
+import { formatNumber, formatCurrency, toNum} from "@/lib/utils";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { useFetch } from "@/lib/use-fetch";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
@@ -1342,7 +1342,7 @@ export function MobileReceiveDialog({
                 ))}
                 <div className="flex justify-between border-t pt-2.5 mt-1" style={{ borderColor: "var(--color-line)" }}>
                   <span className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>Total value</span>
-                  <span className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-go)" }}>{formatCurrency(confirmLines.reduce((s, l) => s + l.cost, 0))}</span>
+                  <span className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-go)" }}>{formatCurrency(confirmLines.reduce((s, l) => s + toNum(l.cost), 0))}</span>
                 </div>
               </div>
               <div className="border-t p-3" style={{ borderColor: "var(--color-line)" }}>

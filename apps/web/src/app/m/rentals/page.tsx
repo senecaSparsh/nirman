@@ -102,9 +102,9 @@ export default function MobileRentalsPage() {
 
         const active = rows.filter((t) => t.status === "ACTIVE");
         const pending = rows.filter((t) => t.status === "PENDING");
-        const totalMonthlyRent = active.reduce((s, t) => s + t.monthlyRent, 0);
-        const totalReceived = rows.reduce((s, t) => s + t.totalReceived, 0);
-        const totalOverdue = rows.reduce((s, t) => s + t.overdueAmount, 0);
+        const totalMonthlyRent = active.reduce((s, t) => s + toNum(t.monthlyRent), 0);
+        const totalReceived = rows.reduce((s, t) => s + toNum(t.totalReceived), 0);
+        const totalOverdue = rows.reduce((s, t) => s + toNum(t.overdueAmount), 0);
         const expiringCount = rows.filter((t) => t.expiringSoon).length;
 
         const exportColumns: MobileColumnSpec[] = [

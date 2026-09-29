@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { StatusPill } from "@/components/page";
-import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { formatCurrency, formatNumber, formatDate, toNum} from "@/lib/utils";
 import { ReceiveGoodsDialog } from "./receive-goods-dialog";
 import { SupplierPaymentFormDialog } from "./supplier-payment-form-dialog";
 import { useFetch } from "@/lib/use-fetch";
@@ -382,7 +382,7 @@ export function PurchaseOrderDetailPanel({
               <div className="flex items-center justify-between">
                 <p className="text-body font-medium">Supplier Payments</p>
                 <span className="text-caption text-muted-foreground tnum">
-                  Paid: {formatCurrency(payments.reduce((s, p) => s + p.amount, 0))} / {formatCurrency(detail.total)}
+                  Paid: {formatCurrency(payments.reduce((s, p) => s + toNum(p.amount), 0))} / {formatCurrency(detail.total)}
                 </span>
               </div>
               <div className="rounded-lg border border-border/60">
@@ -438,7 +438,7 @@ export function PurchaseOrderDetailPanel({
         purchaseOrderId={detail?.id}
         purchaseOrderNumber={detail?.poNumber}
         defaultSupplierId={detail?.supplierId}
-        defaultAmount={detail ? Math.max(0, detail.total - payments.reduce((s, p) => s + p.amount, 0)) : undefined}
+        defaultAmount={detail ? Math.max(0, detail.total - payments.reduce((s, p) => s + toNum(p.amount), 0)) : undefined}
         onSuccess={() => {
           // Re-fetch payments so the history updates immediately
           if (detail) refetchPayments();

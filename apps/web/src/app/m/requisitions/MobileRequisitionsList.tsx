@@ -31,6 +31,9 @@ import { usePrompt } from "@/lib/use-prompt";
 
 type ReqStatus =
   | "ALL"
+  /** Pseudo-filters behind the tappable stats: approved indents split by the quote gate. */
+  | "NEED_QUOTES"
+  | "READY"
   | "DRAFT"
   | "SUBMITTED"
   | "APPROVED"
@@ -45,6 +48,8 @@ export type RequisitionListItem = {
   createdAt: string;
   neededByDate: string | null;
   lineCount: number;
+  /** "Cement PPC · 50 BAG +2 more" — see lib/line-summary. */
+  itemSummary?: string | null;
   quoteCount: number;
   minQuotesRequired: number;
   quotesWaived: boolean;
@@ -56,6 +61,8 @@ export type RequisitionListItem = {
 
 const FILTER_CHIPS: { label: string; value: ReqStatus }[] = [
   { label: "All", value: "ALL" },
+  { label: "Need quotes", value: "NEED_QUOTES" },
+  { label: "Ready for PO", value: "READY" },
   { label: "Draft", value: "DRAFT" },
   { label: "Submitted", value: "SUBMITTED" },
   { label: "Approved", value: "APPROVED" },
@@ -71,6 +78,10 @@ const STATUS_STYLE: Record<string, { color: string; label: string }> = {
   REJECTED: { color: "var(--color-stop)", label: "Rejected" },
   CONVERTED: { color: "var(--color-go)", label: "Converted" },
 };
+
+function quotesMetFor(r: RequisitionListItem): boolean {
+  return r.quoteCount >= r.minQuotesRequired || r.quotesWaived;
+}
 
 export function MobileRequisitionsList(props: {
   items: RequisitionListItem[];
@@ -135,7 +146,11 @@ function MobileRequisitionsListInner({
 
   const filtered = useMemo(() => {
     let result = items;
-    if (statusFilter !== "ALL") {
+    if (statusFilter === "NEED_QUOTES") {
+      result = result.filter((r) => r.status === "APPROVED" && !quotesMetFor(r));
+    } else if (statusFilter === "READY") {
+      result = result.filter((r) => r.status === "APPROVED" && quotesMetFor(r));
+    } else if (statusFilter !== "ALL") {
       result = result.filter((r) => r.status === statusFilter);
     }
     if (query.trim()) {
@@ -143,11 +158,17 @@ function MobileRequisitionsListInner({
       result = result.filter(
         (r) =>
           r.reqNumber.toLowerCase().includes(q) ||
-          r.projectName?.toLowerCase().includes(q),
+          r.projectName?.toLowerCase().includes(q) ||
+          r.itemSummary?.toLowerCase().includes(q),
       );
     }
     return result;
   }, [items, query, statusFilter]);
+
+  const toggleFilter = (v: ReqStatus) => {
+    haptic(5);
+    setStatusFilter(statusFilter === v ? "ALL" : v);
+  };
 
   if (items.length === 0) {
     return (
@@ -168,13 +189,13 @@ function MobileRequisitionsListInner({
 
   return (
     <div>
-      {/* ── Summary strip (same position across all procurement tabs) ── */}
+      {/* ── Summary strip — where indents are stuck, each a one-tap filter ── */}
       <MobileSummaryStrip
         stats={[
-          { label: "Total", value: String(items.length) },
-          { label: "Draft", value: String(items.filter((r) => r.status === "DRAFT").length) },
-          { label: "Submitted", value: String(items.filter((r) => r.status === "SUBMITTED").length) },
-          { label: "Approved", value: String(items.filter((r) => r.status === "APPROVED").length) },
+          { label: "To approve", value: String(items.filter((r) => r.status === "SUBMITTED").length), tone: "signal", onClick: () => toggleFilter("SUBMITTED"), active: statusFilter === "SUBMITTED" },
+          { label: "Need quotes", value: String(items.filter((r) => r.status === "APPROVED" && !quotesMetFor(r)).length), tone: "signal", onClick: () => toggleFilter("NEED_QUOTES"), active: statusFilter === "NEED_QUOTES" },
+          { label: "Ready for PO", value: String(items.filter((r) => r.status === "APPROVED" && quotesMetFor(r)).length), tone: "go", onClick: () => toggleFilter("READY"), active: statusFilter === "READY" },
+          { label: "Converted", value: String(items.filter((r) => r.status === "CONVERTED").length), onClick: () => toggleFilter("CONVERTED"), active: statusFilter === "CONVERTED" },
         ]}
       />
 
@@ -182,7 +203,7 @@ function MobileRequisitionsListInner({
       <MobileSearchHeader
         query={query}
         onQueryChange={setQuery}
-        placeholder="Search req no, project…"
+        placeholder="Search material, project, indent no…"
         action={
           <div className="flex items-center gap-1 shrink-0">
             <MobileFilterIcon
@@ -423,7 +444,7 @@ function ReqCard({ req, canApprove, currentUserId, canSelfApprove, onAction }: {
   }
 
   // Quote gate status for approved reqs
-  const quotesMet = req.quoteCount >= req.minQuotesRequired || req.quotesWaived;
+  const quotesMet = quotesMetFor(req);
 
   const card = (
     <Link
@@ -438,51 +459,39 @@ function ReqCard({ req, canApprove, currentUserId, canSelfApprove, onAction }: {
       <div className="w-1 shrink-0" style={{ backgroundColor: accentColor }} />
 
       <div className="p-2 flex flex-col gap-1 flex-1 min-w-0">
-        {/* Row 1: Req number + needed-by badge */}
+        {/* Row 1: What's being asked for — the thing people scan for, so it
+            gets the full card width. */}
+        <span
+          className="text-m-strong leading-tight truncate"
+          style={{ color: "var(--color-ink-950)" }}
+        >
+          {req.itemSummary ?? `${req.lineCount} item${req.lineCount !== 1 ? "s" : ""}`}
+        </span>
+
+        {/* Row 2: Where + who */}
+        <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
+          <span className="font-semibold" style={{ color: "var(--color-ink-700)" }}>
+            {req.projectName ?? "No project"}
+          </span>
+          {req.requestedByName ? ` · ${req.requestedByName}` : ""}
+        </p>
+
+        {/* Row 3: Reference number (for matching paperwork) + needed-by */}
         <div className="flex items-center justify-between gap-1">
-          <span
-            className="text-m-caption font-mono font-bold truncate"
-            style={{ color: "var(--color-ink-950)" }}
-          >
+          <span className="text-m-micro font-mono truncate" style={{ color: "var(--color-ink-400)" }}>
             {req.reqNumber}
           </span>
           {neededText ? (
             <span
-              className="text-m-caption font-bold tabular-nums px-2 py-0.5 rounded-[0.375rem] shrink-0"
+              className="text-m-micro font-bold tabular-nums px-1.5 py-px rounded-[0.25rem] shrink-0"
               style={{
-                backgroundColor: neededUrgent
-                  ? neededColor
-                  : "var(--color-concrete)",
+                backgroundColor: neededUrgent ? neededColor : "var(--color-concrete)",
                 color: neededUrgent ? "var(--color-paper)" : "var(--color-ink-500)",
               }}
             >
               {neededText}
             </span>
           ) : null}
-        </div>
-
-        {/* Row 2: Project name */}
-        <p
-          className="text-m-label font-bold leading-tight truncate"
-          style={{ color: "var(--color-ink-950)" }}
-        >
-          {req.projectName ?? "No project"}
-        </p>
-
-        {/* Row 3: Requester + line count */}
-        <div className="flex items-center justify-between gap-1">
-          <span
-            className="text-m-caption truncate"
-            style={{ color: "var(--color-ink-500)" }}
-          >
-            {req.requestedByName ?? "—"}
-          </span>
-          <span
-            className="text-m-caption font-semibold tabular-nums shrink-0"
-            style={{ color: "var(--color-ink-700)" }}
-          >
-            {req.lineCount} item{req.lineCount !== 1 ? "s" : ""}
-          </span>
         </div>
 
         {/* Row 4: Bottom area — fixed height, status-specific action context */}

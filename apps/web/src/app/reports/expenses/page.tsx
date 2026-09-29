@@ -144,8 +144,8 @@ async function ExpensesReportContent({
   const tdsTotal = expenses.reduce((s, e) => s + toNum(e.tdsAmount), 0);
   const subtotalTotal = expenses.reduce((s, e) => s + toNum(e.subtotal), 0);
 
-  const totalOperating = monthly.reduce((s, m) => s + m.operating, 0);
-  const totalProject = monthly.reduce((s, m) => s + m.project, 0);
+  const totalOperating = monthly.reduce((s, m) => s + toNum(m.operating), 0);
+  const totalProject = monthly.reduce((s, m) => s + toNum(m.project), 0);
   const total = totalOperating + totalProject;
 
   return (

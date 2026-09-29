@@ -25,7 +25,7 @@ import { DirectPurchaseFormDialog } from "./direct-purchase-form-dialog";
 import { RequisitionsView } from "@/components/requisitions/requisitions-view";
 import { SupplierReturnsView } from "@/components/supplier-returns/supplier-returns-view";
 import { WorkflowStrip } from "@/components/workflow-strip";
-import { localDateISO, formatCurrency, formatDate } from "@/lib/utils";
+import { localDateISO, formatCurrency, formatDate, toNum} from "@/lib/utils";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { downloadCSV, downloadExcel } from "@/lib/export";
 import type {
@@ -412,7 +412,7 @@ function PurchaseOrdersTab({
   ];
 
   const _openCount = filtered.filter((p) => ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"].includes(p.status)).length;
-  const _totalValue = filtered.filter((p) => p.status !== "CANCELLED").reduce((s, p) => s + p.total, 0);
+  const _totalValue = filtered.filter((p) => p.status !== "CANCELLED").reduce((s, p) => s + toNum(p.total), 0);
   const _draftCount = purchaseOrders.filter((p) => p.status === "DRAFT").length;
   const _orderedCount = purchaseOrders.filter((p) => p.status === "ORDERED").length;
 
@@ -708,7 +708,7 @@ function SuppliersTab({ suppliers, canManage, canManagePayments }: { suppliers: 
   const [deleting, setDeleting] = useState<SupplierRow | null>(null);
   const [paySupplier, setPaySupplier] = useState<SupplierRow | null>(null);
 
-  const _totalOwed = suppliers.reduce((s, v) => s + v.balanceOwed, 0);
+  const _totalOwed = suppliers.reduce((s, v) => s + toNum(v.balanceOwed), 0);
   const _withDues = suppliers.filter((s) => s.balanceOwed > 0).length;
 
   const columns: Column<SupplierRow>[] = [
@@ -868,7 +868,7 @@ function DirectPurchasesTab({
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const filtered = directPurchases.filter((p) => !statusFilter || p.status === statusFilter);
-  const _totalAmount = filtered.filter((p) => p.status === "COMPLETED").reduce((s, p) => s + p.billAmount, 0);
+  const _totalAmount = filtered.filter((p) => p.status === "COMPLETED").reduce((s, p) => s + toNum(p.billAmount), 0);
 
   const supplierOptions = suppliers.map((s) => ({ id: s.id, name: s.name }));
 

@@ -7,7 +7,7 @@ import { Select } from "@/components/ui/input";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { StatusPill } from "@/components/page";
 import { EmptyState } from "@/components/empty-state";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatNumber, toNum} from "@/lib/utils";
 import { downloadCSV } from "@/lib/export";
 import { AreaSeries, BarSeries } from "./charts";
 
@@ -51,9 +51,9 @@ export function SalesRevenueReport({
   }, [saleRecords, projectFilter, unitTypeFilter]);
 
   const stats = useMemo(() => {
-    const totalSales = filtered.reduce((s, r) => s + r.salePrice, 0);
-    const totalCollected = filtered.reduce((s, r) => s + r.collected, 0);
-    const totalOutstanding = filtered.reduce((s, r) => s + r.outstanding, 0);
+    const totalSales = filtered.reduce((s, r) => s + toNum(r.salePrice), 0);
+    const totalCollected = filtered.reduce((s, r) => s + toNum(r.collected), 0);
+    const totalOutstanding = filtered.reduce((s, r) => s + toNum(r.outstanding), 0);
     return { totalSales, totalCollected, totalOutstanding, count: filtered.length };
   }, [filtered]);
 

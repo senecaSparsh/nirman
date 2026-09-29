@@ -448,7 +448,7 @@ export default function MobileStockPage({
             scrapExportColumns={scrapCsvColumns}
             onHandItems={onHandRows}
             onHandExportColumns={onHandCsvColumns}
-            onHandTotalValue={onHandRows.reduce((s, r) => s + r.stockValue, 0)}
+            onHandTotalValue={onHandRows.reduce((s, r) => s + toNum(r.stockValue), 0)}
             onHandLowCount={onHandRows.filter((r) => r.isLow || r.isOut).length}
           />
         );

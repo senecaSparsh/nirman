@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { toNum } from "@/lib/utils";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserPermissions } from "@/lib/server";
@@ -54,7 +55,7 @@ async function CallAnalyticsContent() {
   const missed = calls.filter((c) => c.status === "MISSED").length;
   const answered = calls.filter((c) => c.status === "ANSWERED").length;
   const voicemail = calls.filter((c) => c.status === "VOICEMAIL").length;
-  const totalDuration = calls.reduce((sum, c) => sum + c.durationSec, 0);
+  const totalDuration = calls.reduce((sum, c) => sum + toNum(c.durationSec), 0);
   const avgDuration = answered > 0 ? Math.round(totalDuration / answered) : 0;
   const missedRate = total > 0 ? (missed / total) * 100 : 0;
   const totalCost = calls.reduce((sum, c) => sum + (c.callCost ? parseFloat(c.callCost.toString()) : 0), 0);

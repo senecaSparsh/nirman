@@ -206,8 +206,8 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     queues.push({ key: "units-sell", count: availableUnits, urgency: "soon" });
   }
 
-  const blockingQueues = queues.filter((q) => q.urgency === "blocking").reduce((n, q) => n + q.count, 0);
-  const totalQueues = queues.reduce((n, q) => n + q.count, 0);
+  const blockingQueues = queues.filter((q) => q.urgency === "blocking").reduce((n, q) => n + toNum(q.count), 0);
+  const totalQueues = queues.reduce((n, q) => n + toNum(q.count), 0);
 
   return json({
     queues,

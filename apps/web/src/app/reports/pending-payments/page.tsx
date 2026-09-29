@@ -114,9 +114,9 @@ async function PendingPaymentsContent() {
     createdAt: po.createdAt.toISOString(),
   }));
 
-  const totalPayable = overdueRows.reduce((s, r) => s + r.payable, 0);
-  const totalReceivable = receivableRows.reduce((s, r) => s + r.outstanding, 0);
-  const totalDraft = draftRows.reduce((s, r) => s + r.value, 0);
+  const totalPayable = overdueRows.reduce((s, r) => s + toNum(r.payable), 0);
+  const totalReceivable = receivableRows.reduce((s, r) => s + toNum(r.outstanding), 0);
+  const totalDraft = draftRows.reduce((s, r) => s + toNum(r.value), 0);
   const netCash = totalReceivable - totalPayable;
 
   // Aging bucket summaries

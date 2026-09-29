@@ -14,7 +14,7 @@ import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
 import { GlPreviewPanel } from "@/components/finance/gl-preview-panel";
-import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { formatCurrency, formatDate, cn, toNum} from "@/lib/utils";
 import type { GlPreviewLine } from "@nirman/services/gl-preview";
 
 type PayrollStatus = "DRAFT" | "PROCESSED" | "PAID";
@@ -154,8 +154,8 @@ function PayrollStatsBar({ periods }: { periods: PayrollRow[] }) {
   const drafts = periods.filter((p) => p.status === "DRAFT").length;
   const processed = periods.filter((p) => p.status === "PROCESSED").length;
   const paid = periods.filter((p) => p.status === "PAID").length;
-  const totalNetPaid = periods.filter((p) => p.status === "PAID").reduce((sum, p) => sum + p.totalNet, 0);
-  const avgNet = total > 0 ? periods.reduce((sum, p) => sum + p.totalNet, 0) / total : 0;
+  const totalNetPaid = periods.filter((p) => p.status === "PAID").reduce((sum, p) => sum + toNum(p.totalNet), 0);
+  const avgNet = total > 0 ? periods.reduce((sum, p) => sum + toNum(p.totalNet), 0) / total : 0;
 
   return (
     <div className="grid grid-cols-2 divide-border overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-4 sm:divide-x divide-y sm:divide-y-0">
@@ -518,11 +518,11 @@ function PayrollSummaryDialog({
         professionTax: number; tax: number; deductions: number;
       }> = linesData.lines ?? [];
 
-      const totalPF = lines.reduce((s, l) => s + l.pf, 0);
-      const totalEmployerPf = lines.reduce((s, l) => s + l.employerPf, 0);
-      const totalESI = lines.reduce((s, l) => s + l.esi, 0);
-      const totalProfessionTax = lines.reduce((s, l) => s + l.professionTax, 0);
-      const totalTDS = lines.reduce((s, l) => s + l.tax, 0);
+      const totalPF = lines.reduce((s, l) => s + toNum(l.pf), 0);
+      const totalEmployerPf = lines.reduce((s, l) => s + toNum(l.employerPf), 0);
+      const totalESI = lines.reduce((s, l) => s + toNum(l.esi), 0);
+      const totalProfessionTax = lines.reduce((s, l) => s + toNum(l.professionTax), 0);
+      const totalTDS = lines.reduce((s, l) => s + toNum(l.tax), 0);
 
       const res = await fetch("/api/gl/preview", {
         method: "POST",

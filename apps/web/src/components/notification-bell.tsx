@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {Bell, Check, CheckCheck, ChevronRight} from "lucide-react";
-import { cn, formatRelativeTime } from "@/lib/utils";
+import { cn, formatRelativeTime, toNum} from "@/lib/utils";
 import { resolveLinkForSurface } from "@/components/surface-adapter";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
@@ -135,7 +135,7 @@ export function NotificationBell({ className, alertItems = [] }: { className?: s
     }
   }
 
-  const alertTotal = alertItems.reduce((sum, i) => sum + i.count, 0);
+  const alertTotal = alertItems.reduce((sum, i) => sum + toNum(i.count), 0);
   const badgeCount = unreadCount + alertTotal;
   const hasBlocking = alertItems.some((i) => i.urgency === "blocking");
   const blocking = alertItems.filter((i) => i.urgency === "blocking");

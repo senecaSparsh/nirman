@@ -9,7 +9,7 @@ import {
   Package, Truck, Plus,
   type LucideIcon,
 } from "lucide-react";
-import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
+import { formatNumber, formatCurrency, formatDate, toNum} from "@/lib/utils";
 import { MobileFab } from "@/components/mobile/v2/scaffold";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { DetailStatGrid } from "@/components/mobile/v2/detail-primitives";
@@ -165,7 +165,7 @@ export function MobileLocationDetail({
     return Array.from(map.entries()).map(([label, items]) => ({ label, items }));
   }, [filteredMovements, now]);
 
-  const totalQty = items.reduce((s, i) => s + i.qty, 0);
+  const totalQty = items.reduce((s, i) => s + toNum(i.qty), 0);
 
   return (
     <div>
