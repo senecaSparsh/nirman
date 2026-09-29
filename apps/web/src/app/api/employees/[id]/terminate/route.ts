@@ -106,6 +106,12 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     const phoneMsg = result.recycledPhoneId
       ? " Their phone number has been recycled and is available for re-assignment."
       : "";
+    // An unrecovered salary advance can never be deducted from a future
+    // paycheck once terminated — flag it so the settler nets it from the
+    // final settlement or writes it off, instead of losing it silently.
+    const advanceMsg = result.outstandingAdvance
+      ? ` WARNING: ₹${result.outstandingAdvance} salary advance is still outstanding — deduct it from the final settlement or write it off.`
+      : "";
 
     // Check for pending resources (not yet returned)
     const pendingResources = await prisma.employeeResource.findMany({
@@ -119,7 +125,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       ...result,
       pendingResources: pendingResources.length > 0 ? pendingResources : undefined,
       pendingDepositTotal: pendingDepositTotal > 0 ? pendingDepositTotal : undefined,
-      message: `Employee terminated. All history is preserved.${phoneMsg}${pendingResources.length > 0 ? ` WARNING: ${pendingResources.length} resource(s) still pending return${pendingDepositTotal > 0 ? ` (deposit total: ₹${pendingDepositTotal})` : ""}.` : ""}`,
+      message: `Employee terminated. All history is preserved.${phoneMsg}${advanceMsg}${pendingResources.length > 0 ? ` WARNING: ${pendingResources.length} resource(s) still pending return${pendingDepositTotal > 0 ? ` (deposit total: ₹${pendingDepositTotal})` : ""}.` : ""}`,
     });
   } catch (err: unknown) {
     if (err instanceof HrError) {

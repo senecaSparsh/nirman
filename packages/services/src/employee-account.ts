@@ -1,4 +1,5 @@
 import { prisma, type Prisma } from "@nirman/db";
+import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { withSerializableTransaction } from "./transaction";
 import { assertEmployeeCodeAvailable } from "./sequence";
@@ -879,10 +880,28 @@ export async function terminateEmployee(input: TerminateEmployeeInput) {
       },
     });
 
+    // Surface the outstanding salary advance — a worker leaving with an
+    // unrecovered advance can never repay it via payroll deduction (there are
+    // no more paychecks). The settler must net it from the final settlement or
+    // write it off — returning the balance keeps it from being forgotten and
+    // silently written off as a loss nobody noticed.
+    const openAdvances = await tx.employeeAdvance.findMany({
+      where: {
+        employeeId: input.employeeId,
+        status: { in: ["ACTIVE", "PAUSED"] },
+      },
+      select: { amount: true, recoveredAmount: true },
+    });
+    const outstandingAdvance = openAdvances.reduce(
+      (s, a) => s.plus(new Decimal(a.amount).minus(new Decimal(a.recoveredAmount))),
+      new Decimal(0),
+    );
+
     return {
       employeeId: input.employeeId,
       userId: employee.userId,
       recycledPhoneId,
+      outstandingAdvance: outstandingAdvance.gt(0) ? outstandingAdvance.toString() : null,
     };
   });
 }
