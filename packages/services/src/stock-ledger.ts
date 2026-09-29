@@ -267,6 +267,19 @@ export async function recordMovement(
 
     // ── Update the MaterialLot balance ──
     if (lotId) {
+      // A caller-supplied lotId could belong to a DIFFERENT material — the
+      // movement records materialId X but the lot tracks material Y, so a
+      // mismatched pair would decrement Y's lot while moving X's stock. Lock
+      // the pair: the lot's materialId must match the movement's materialId.
+      const lotForCheck = await tx.materialLot.findUnique({
+        where: { id: lotId },
+        select: { materialId: true },
+      });
+      if (lotForCheck && lotForCheck.materialId !== input.materialId) {
+        throw new ServiceError(
+          `Lot ${lotId} belongs to a different material — the movement records material ${input.materialId} but the lot tracks ${lotForCheck.materialId}. Pick the right lot.`,
+        );
+      }
       if (direction === "IN") {
         // Create or update the lot
         const recvCost = new Decimal(input.unitCost ?? 0);
