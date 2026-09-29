@@ -2071,6 +2071,7 @@ enum PurchaseOrderStatus {
   ORDERED
   PARTIAL
   RECEIVED
+  SHORT_CLOSED // supplier short-shipped; remaining qty written off, PO closed
   CANCELLED
 }
 

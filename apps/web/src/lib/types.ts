@@ -120,7 +120,7 @@ export type PurchaseOrderRow = {
   destinationLocationId: string;
   destinationLocationName: string;
   destinationLocationType: "CENTRAL_WAREHOUSE" | "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT";
-  status: "DRAFT" | "APPROVED" | "REJECTED" | "ORDERED" | "PARTIAL" | "RECEIVED" | "CANCELLED";
+  status: "DRAFT" | "APPROVED" | "REJECTED" | "ORDERED" | "PARTIAL" | "RECEIVED" | "SHORT_CLOSED" | "CANCELLED";
   orderDate: string;
   expectedDate: string | null;
   subtotal: number;
@@ -495,7 +495,7 @@ export type PurchaseOrderListRow = {
   projectName: string | null;
   destinationLocationId: string;
   destinationLocationName: string;
-  status: "DRAFT" | "APPROVED" | "REJECTED" | "ORDERED" | "PARTIAL" | "RECEIVED" | "CANCELLED";
+  status: "DRAFT" | "APPROVED" | "REJECTED" | "ORDERED" | "PARTIAL" | "RECEIVED" | "SHORT_CLOSED" | "CANCELLED";
   orderDate: string;
   expectedDate: string | null;
   subtotal: number;

@@ -6,6 +6,7 @@ import {
   rejectPurchaseOrder,
   resubmitPurchaseOrder,
   cancelPurchaseOrder,
+  shortClosePurchaseOrder,
   orderPurchaseOrder,
   addLineToPurchaseOrder,
   canAutoApprove,
@@ -147,8 +148,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (!existing) return json({ error: "Purchase order not found" }, { status: 404 });
   const body = await req.json();
   const action = body?.action as string | undefined;
-  if (!action || !["approve", "reject", "resubmit", "order", "cancel", "addLine"].includes(action)) {
-    return json({ error: "Invalid action. Use approve, reject, resubmit, order, cancel, or addLine." }, { status: 400 });
+  if (!action || !["approve", "reject", "resubmit", "order", "cancel", "shortClose", "addLine"].includes(action)) {
+    return json({ error: "Invalid action. Use approve, reject, resubmit, order, cancel, shortClose, or addLine." }, { status: 400 });
   }
   if (action === "approve") {
     const user = await requirePermission(PERM.PO_APPROVE);
@@ -232,8 +233,24 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   } else if (action === "cancel") {
     const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
     await cancelPurchaseOrder(id, user.id);
+  } else if (action === "shortClose") {
+    const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+    try {
+      const result = await shortClosePurchaseOrder({
+        poId: id,
+        companyId: company.id,
+        userId: user.id,
+        reason: body?.reason,
+      });
+      revalidatePath(`/procurement/${id}`);
+      revalidatePath(`/m/procurement/${id}`);
+      return json({ ok: true, status: result.status, shortfall: result.shortfall });
+    } catch (err) {
+      if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status });
+      throw err;
+    }
   } else {
-    return json({ error: "Unknown action. Use: approve | reject | resubmit | order | addLine | cancel" }, { status: 400 });
+    return json({ error: "Unknown action. Use: approve | reject | resubmit | order | addLine | cancel | shortClose" }, { status: 400 });
   }
   revalidatePath("/procurement");
   revalidatePath("/m/procurement");

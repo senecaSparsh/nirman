@@ -63,6 +63,12 @@ export interface NextAction {
   when: string;
   /** One-line imperative: "Receive the delivery", "Approve the requisition". */
   label: string;
+  /**
+   * The 1–2 word button text on the NextActionCard ("Approve", "Receive",
+   * "Open PO"). A generic "Do" makes the user read the whole card to learn
+   * what tapping will do; the verb alone should answer that.
+   */
+  verb: string;
   /** One-line why: "Goods have arrived on site — verify against the PO". */
   reason: string;
   /**
@@ -113,6 +119,7 @@ const PROCUREMENT_FLOW: FlowDef = {
     { status: "ORDERED", label: "Ordered", detailHref: "/m/procurement/{id}" },
     { status: "PARTIAL", label: "Partially received", detailHref: "/m/procurement/{id}" },
     { status: "RECEIVED", label: "Received", detailHref: "/m/procurement/{id}" },
+    { status: "SHORT_CLOSED", label: "Short-closed", detailHref: "/m/procurement/{id}" },
     { status: "REJECTED", label: "Rejected", detailHref: "/m/procurement/{id}" },
     { status: "CANCELLED", label: "Cancelled", detailHref: "/m/procurement/{id}" },
   ],
@@ -120,21 +127,28 @@ const PROCUREMENT_FLOW: FlowDef = {
     {
       when: "DRAFT",
       label: "Approve & order",
+      verb: "Approve",
       reason: "This PO is in the approval queue. The approver's decision auto-orders it from the supplier.",
       action: { type: "anchor", hash: "#approve" },
       perm: PERM.PO_APPROVE,
       tone: "signal",
     },
     {
+      // Approval normally auto-orders, so a PO only rests here when it was
+      // approved before that rule (or the auto-order didn't go through).
+      // The page's action bar offers "Mark as ordered" for exactly this case.
       when: "APPROVED",
-      label: "Auto-ordering…",
-      reason: "Approval automatically places the order with the supplier. This status is transient.",
-      action: { type: "anchor", hash: "#receive" },
+      label: "Place the order",
+      verb: "Order",
+      reason: "Approved but not yet sent to the supplier. Mark it ordered once they confirm.",
+      action: { type: "anchor", hash: "#approve" },
+      perm: PERM.PROCUREMENT_MANAGE,
       tone: "signal",
     },
     {
       when: "ORDERED",
       label: "Receive the delivery",
+      verb: "Receive",
       reason: "Goods are in transit. When they arrive, verify against the PO lines.",
       action: { type: "anchor", hash: "#receive" },
       perm: PERM.PROCUREMENT_VIEW,
@@ -143,6 +157,7 @@ const PROCUREMENT_FLOW: FlowDef = {
     {
       when: "PARTIAL",
       label: "Receive the balance",
+      verb: "Receive",
       reason: "Some lines are still pending — record the next delivery.",
       action: { type: "anchor", hash: "#receive" },
       perm: PERM.PROCUREMENT_VIEW,
@@ -151,6 +166,7 @@ const PROCUREMENT_FLOW: FlowDef = {
     {
       when: "RECEIVED",
       label: "Issue to site",
+      verb: "Issue",
       reason: "Stock is in the warehouse — issue it to the project when needed.",
       action: { type: "navigate", href: "/m/stock-out?mode=issue" },
       tone: "go",
@@ -158,6 +174,7 @@ const PROCUREMENT_FLOW: FlowDef = {
     {
       when: "REJECTED",
       label: "Fix & resubmit",
+      verb: "Fix",
       reason: "This PO was rejected — correct it and resubmit for approval.",
       action: { type: "anchor", hash: "#resubmit" },
       perm: PERM.PROCUREMENT_MANAGE,
@@ -192,6 +209,7 @@ const REQUISITION_FLOW: FlowDef = {
     {
       when: "DRAFT",
       label: "Submit for approval",
+      verb: "Submit",
       reason: "A draft stays with you until you submit it to an approver.",
       action: { type: "anchor", hash: "#submit" },
       perm: PERM.REQUISITION_CREATE,
@@ -200,6 +218,7 @@ const REQUISITION_FLOW: FlowDef = {
     {
       when: "SUBMITTED",
       label: "Approve or reject",
+      verb: "Review",
       reason: "Waiting for an approver to review the request.",
       action: { type: "anchor", hash: "#approve" },
       perm: PERM.REQUISITION_APPROVE,
@@ -208,6 +227,7 @@ const REQUISITION_FLOW: FlowDef = {
     {
       when: "APPROVED",
       label: "Collect quotes & select winner",
+      verb: "Quotes",
       reason: "Approved — gather ≥3 vendor quotes, then select a winner to auto-create the PO.",
       action: { type: "anchor", hash: "#quotes" },
       perm: PERM.PROCUREMENT_MANAGE,
@@ -216,6 +236,7 @@ const REQUISITION_FLOW: FlowDef = {
     {
       when: "REJECTED",
       label: "Fix & resubmit",
+      verb: "Fix",
       reason: "This indent was rejected — correct the quantities or notes and resubmit.",
       action: { type: "anchor", hash: "#submit" },
       perm: PERM.REQUISITION_CREATE,
@@ -223,9 +244,11 @@ const REQUISITION_FLOW: FlowDef = {
     },
     {
       when: "CONVERTED",
-      label: "Open the purchase order",
-      reason: "This requisition has become a PO — track it there.",
-      action: { type: "navigate", href: "/m/procurement" },
+      label: "Track the purchase order",
+      verb: "Open PO",
+      reason: "This indent is now a PO — delivery and receipt are tracked there.",
+      // {poId} is substituted by the detail page with the converted PO's id.
+      action: { type: "navigate", href: "/m/procurement/{poId}" },
       tone: "go",
     },
   ],
@@ -256,6 +279,7 @@ const STOCK_TRANSFER_FLOW: FlowDef = {
     {
       when: "DRAFT",
       label: "Dispatch the transfer",
+      verb: "Dispatch",
       reason: "A draft hasn't left the source location yet.",
       action: { type: "anchor", hash: "#dispatch" },
       perm: PERM.STOCK_TRANSFER,
@@ -264,6 +288,7 @@ const STOCK_TRANSFER_FLOW: FlowDef = {
     {
       when: "IN_TRANSIT",
       label: "Confirm arrival",
+      verb: "Confirm",
       reason: "Stock is on the way — confirm it reached the destination.",
       action: { type: "anchor", hash: "#receive" },
       perm: PERM.STOCK_TRANSFER,
@@ -296,6 +321,7 @@ const MATERIAL_ISSUE_FLOW: FlowDef = {
     {
       when: "PENDING",
       label: "Approve the gate pass",
+      verb: "Gate pass",
       reason: "Stock hasn't moved yet — the auto-created gate pass must be approved first. Tap to open the gate-pass queue.",
       action: { type: "navigate", href: "/m/gate-pass" },
       perm: PERM.STOCK_ISSUE,
@@ -321,6 +347,7 @@ const MATERIAL_SALE_FLOW: FlowDef = {
     {
       when: "PENDING",
       label: "Approve the gate pass",
+      verb: "Gate pass",
       reason: "The sale is waiting for gate pass approval before stock can move. Tap to open the gate-pass queue.",
       action: { type: "navigate", href: "/m/gate-pass" },
       perm: PERM.SALE_CREATE,
@@ -329,6 +356,7 @@ const MATERIAL_SALE_FLOW: FlowDef = {
     {
       when: "ACTIVE",
       label: "Record a payment",
+      verb: "Record",
       reason: "Sale is active — record the first payment from the buyer.",
       action: { type: "anchor", hash: "#payment" },
       perm: PERM.SALE_CREATE,
@@ -365,6 +393,7 @@ const DPR_FLOW: FlowDef = {
     {
       when: "SUBMITTED",
       label: "Sub-admin approval",
+      verb: "Approve",
       reason: "A project manager or HR manager reviews first.",
       action: { type: "anchor", hash: "#subAdminApprove" },
       perm: PERM.DPR_APPROVE_SUB_ADMIN,
@@ -373,6 +402,7 @@ const DPR_FLOW: FlowDef = {
     {
       when: "SUB_ADMIN_APPROVED",
       label: "Final admin approval",
+      verb: "Approve",
       reason: "Cleared by sub-admin — an owner/admin gives the final sign-off.",
       action: { type: "anchor", hash: "#adminApprove" },
       perm: PERM.DPR_APPROVE_ADMIN,
@@ -381,6 +411,7 @@ const DPR_FLOW: FlowDef = {
     {
       when: "REJECTED",
       label: "Resubmit after fixes",
+      verb: "Resubmit",
       reason: "This DPR was rejected — fix the notes and resubmit.",
       action: { type: "anchor", hash: "#resubmit" },
       perm: PERM.DPR_SUBMIT,
@@ -417,6 +448,7 @@ const NCR_FLOW: FlowDef = {
     {
       when: "OPEN",
       label: "Start review",
+      verb: "Review",
       reason: "A newly raised NCR needs QA/QC to investigate.",
       action: { type: "anchor", hash: "#review" },
       perm: PERM.QC_MANAGE,
@@ -425,6 +457,7 @@ const NCR_FLOW: FlowDef = {
     {
       when: "UNDER_REVIEW",
       label: "Decide on CAPA",
+      verb: "Decide",
       reason: "Review done — decide if a corrective action plan is needed.",
       action: { type: "anchor", hash: "#capa" },
       perm: PERM.QC_MANAGE,
@@ -433,6 +466,7 @@ const NCR_FLOW: FlowDef = {
     {
       when: "CAPA_REQUIRED",
       label: "Fill in the CAPA",
+      verb: "Fill in",
       reason: "A draft CAPA has been auto-created — fill in root cause, corrective action, and preventive action.",
       action: { type: "anchor", hash: "#capa" },
       perm: PERM.QC_MANAGE,
@@ -469,6 +503,7 @@ const BUILT_UNIT_FLOW: FlowDef = {
     {
       when: "PLANNED",
       label: "Start construction",
+      verb: "Start",
       reason: "Planned units have no costs yet — mark under construction when work begins.",
       action: { type: "anchor", hash: "#status" },
       perm: PERM.ASSETS_MANAGE,
@@ -477,6 +512,7 @@ const BUILT_UNIT_FLOW: FlowDef = {
     {
       when: "UNDER_CONSTRUCTION",
       label: "Mark available",
+      verb: "Update",
       reason: "Construction complete — make the unit available for sale.",
       action: { type: "anchor", hash: "#status" },
       perm: PERM.ASSETS_MANAGE,
@@ -485,6 +521,7 @@ const BUILT_UNIT_FLOW: FlowDef = {
     {
       when: "AVAILABLE",
       label: "Create a sale",
+      verb: "Sell",
       reason: "The unit is ready — record a sale when a buyer is found.",
       action: { type: "navigate", href: "/m/sales" },
       perm: PERM.SALE_CREATE,
@@ -493,6 +530,7 @@ const BUILT_UNIT_FLOW: FlowDef = {
     {
       when: "RESERVED",
       label: "Convert to sale",
+      verb: "Convert",
       reason: "Deposit received — finalise the sale.",
       action: { type: "navigate", href: "/m/sales" },
       perm: PERM.SALE_CREATE,

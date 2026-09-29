@@ -15,7 +15,7 @@ import { DetailHeroCard, DetailKeyValueCard, DetailStatGrid } from "@/components
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { useConfirm } from "@/lib/use-confirm";
-type PoStatus = "DRAFT" | "APPROVED" | "REJECTED" | "ORDERED" | "PARTIAL" | "RECEIVED" | "CANCELLED";
+type PoStatus = "DRAFT" | "APPROVED" | "REJECTED" | "ORDERED" | "PARTIAL" | "RECEIVED" | "SHORT_CLOSED" | "CANCELLED";
 
 type PoItem = {
   id: string;
@@ -41,6 +41,7 @@ const STATUS_LABELS: Record<PoStatus, string> = {
   ORDERED: "Ordered",
   PARTIAL: "Partial",
   RECEIVED: "Received",
+  SHORT_CLOSED: "Short-closed",
   CANCELLED: "Cancelled",
 };
 
@@ -89,6 +90,7 @@ export function MobileSupplierDetailClient({
     overallScore: number;
     totalPos: number;
     totalReceipts: number;
+    inspectedReceipts: number;
   } | null;
   canManage?: boolean;
 }) {
@@ -270,14 +272,28 @@ export function MobileSupplierDetailClient({
         <div className="mt-2">
           <div className="text-m-caption font-bold mb-1" style={{ color: "var(--color-ink-500)" }}>
             Performance · {rating.totalPos} PO{rating.totalPos === 1 ? "" : "s"}
+            {rating.totalReceipts === 0
+              ? " · rated after the first delivery"
+              : rating.inspectedReceipts === 0
+                ? " · quality rated after first inspection"
+                : ""}
           </div>
+          {/* Without data the service returns a neutral placeholder (100% /
+              default), which is not a measurement — show a dash rather than
+              a green or red number the supplier hasn't earned yet. */}
           <DetailStatGrid
             cols={4}
             stats={[
-              { label: "On-time", value: `${Math.round(rating.onTimeRate * 100)}%`, tone: rating.onTimeRate >= 0.8 ? "go" : "stop" },
-              { label: "Quality", value: `${Math.round(rating.qualityRate * 100)}%`, tone: rating.qualityRate >= 0.8 ? "go" : "stop" },
+              rating.totalReceipts > 0
+                ? { label: "On-time", value: `${Math.round(rating.onTimeRate * 100)}%`, tone: rating.onTimeRate >= 0.8 ? "go" : "stop" }
+                : { label: "On-time", value: "—", tone: "default" },
+              rating.inspectedReceipts > 0
+                ? { label: "Quality", value: `${Math.round(rating.qualityRate * 100)}%`, tone: rating.qualityRate >= 0.8 ? "go" : "stop" }
+                : { label: "Quality", value: "—", tone: "default" },
               { label: "Price", value: `${Math.round(rating.priceCompetitiveness * 100)}%`, tone: "default" },
-              { label: "Score", value: `${Math.round(rating.overallScore * 100)}`, tone: rating.overallScore >= 0.7 ? "go" : "stop" },
+              rating.totalReceipts > 0 && rating.inspectedReceipts > 0
+                ? { label: "Score", value: `${Math.round(rating.overallScore * 100)}`, tone: rating.overallScore >= 0.7 ? "go" : "stop" }
+                : { label: "Score", value: "—", tone: "default" },
             ]}
           />
         </div>

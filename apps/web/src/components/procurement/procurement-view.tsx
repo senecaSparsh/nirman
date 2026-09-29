@@ -407,6 +407,7 @@ function PurchaseOrdersTab({
     { status: "ORDERED", label: "Ordered", color: "var(--color-stage-procure)", items: filtered.filter((p) => p.status === "ORDERED") },
     { status: "PARTIAL", label: "Partial", color: "var(--color-stage-build)", items: filtered.filter((p) => p.status === "PARTIAL") },
     { status: "RECEIVED", label: "Received", color: "var(--color-stage-sell)", items: filtered.filter((p) => p.status === "RECEIVED") },
+    { status: "SHORT_CLOSED", label: "Short-closed", color: "var(--color-stage-hold)", items: filtered.filter((p) => p.status === "SHORT_CLOSED") },
     { status: "CANCELLED", label: "Cancelled", color: "var(--color-danger)", items: filtered.filter((p) => p.status === "CANCELLED") },
   ];
 

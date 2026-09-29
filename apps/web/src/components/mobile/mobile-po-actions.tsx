@@ -106,6 +106,17 @@ export function MobilePoActions({
     hapticOnSuccess: 10,
   });
 
+  const shortCloseAction = useOptimisticAction({
+    endpoint: `/api/purchase-orders/${po.id}`,
+    method: "PATCH",
+    body: { action: "shortClose" },
+    optimisticUpdate: () => setVisibleStatus("SHORT_CLOSED"),
+    revert: () => setVisibleStatus("PARTIAL"),
+    successMessage: `PO ${po.poNumber} short-closed`,
+    successDescription: "The undelivered remainder is written off — re-order if the project still needs it.",
+    hapticOnSuccess: [10, 30, 10],
+  });
+
   // Use the optimistic status for button visibility so the action bar
   // updates immediately — no flash of the old buttons.
   // Self-approval prevention: the creator cannot approve their own PO — unless
@@ -119,6 +130,9 @@ export function MobilePoActions({
   const showOrder = visibleStatus === "APPROVED" && canManage;
   const showCancel = (visibleStatus === "DRAFT" || visibleStatus === "ORDERED") && canManage;
   const showResubmit = visibleStatus === "REJECTED" && canManage;
+  // PARTIAL = goods came in but the supplier can't supply the rest — offer a
+  // short-close so the PO stops sitting open expecting stock that won't arrive.
+  const showShortClose = visibleStatus === "PARTIAL" && canManage;
   const canAddLine =
     (visibleStatus === "ORDERED" || visibleStatus === "PARTIAL") && canManage;
   const canRecordPayment =
@@ -126,7 +140,7 @@ export function MobilePoActions({
     !!supplierId &&
     (visibleStatus === "PARTIAL" || visibleStatus === "RECEIVED");
 
-  if (!showApprove && !showOrder && !showCancel && !showResubmit && !canAddLine && !canRecordPayment) return null;
+  if (!showApprove && !showOrder && !showCancel && !showResubmit && !showShortClose && !canAddLine && !canRecordPayment) return null;
 
   return (
     <ActionBar>
@@ -210,6 +224,20 @@ export function MobilePoActions({
                 icon={IndianRupee}
                 label="Record Payment"
                 variant="primary"
+              />
+            )}
+            {showShortClose && (
+              <ActionButton
+                onClick={() => {
+                  haptic(10);
+                  if (window.confirm("Short-close this PO? The undelivered remainder is written off — the received stock stays real. Re-order if the project still needs it.")) {
+                    shortCloseAction.execute();
+                  }
+                }}
+                busy={shortCloseAction.isPending}
+                icon={XCircle}
+                label="Short-close"
+                variant="outline"
               />
             )}
           </>

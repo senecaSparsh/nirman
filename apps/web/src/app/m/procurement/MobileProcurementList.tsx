@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
-import { AlertTriangle, FileText, Check, X, Copy, Share2, Eye, Printer, ShoppingCart } from "lucide-react";
+import { FileText, Check, X, Copy, Share2, Eye, Printer, ShoppingCart } from "lucide-react";
 import { toast } from "sonner";
 import {formatNumber, formatDate, formatCurrencyCompact} from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
@@ -30,12 +30,16 @@ import { MobileLoadMore, usePaginatedList } from "@/components/mobile/v2/load-mo
 
 type PoStatus =
   | "ALL"
+  /** Pseudo-filters (not DB statuses) backing the tappable summary stats. */
+  | "LATE"
+  | "OPEN"
   | "DRAFT"
   | "APPROVED"
   | "REJECTED"
   | "ORDERED"
   | "PARTIAL"
   | "RECEIVED"
+  | "SHORT_CLOSED"
   | "CANCELLED";
 
 export type ProcurementListItem = {
@@ -50,6 +54,8 @@ export type ProcurementListItem = {
   qtyReceived: number;
   isOverdue: boolean;
   createdById?: string | null;
+  /** "Red Clay Brick · 100 NOS +1 more" — see lib/line-summary. */
+  itemSummary?: string | null;
 };
 
 export type DirectPurchaseListItem = {
@@ -67,6 +73,8 @@ type ProcurementTab = "purchase-orders" | "cash-purchases";
 
 const FILTER_CHIPS: { label: string; value: PoStatus }[] = [
   { label: "All", value: "ALL" },
+  { label: "Late", value: "LATE" },
+  { label: "On the way", value: "OPEN" },
   { label: "Draft", value: "DRAFT" },
   { label: "Approved", value: "APPROVED" },
   { label: "Rejected", value: "REJECTED" },
@@ -83,8 +91,26 @@ const STATUS_STYLE: Record<string, { color: string; label: string }> = {
   ORDERED: { color: "var(--color-steel)", label: "Ordered" },
   PARTIAL: { color: "var(--color-steel)", label: "Partial" },
   RECEIVED: { color: "var(--color-go)", label: "Received" },
+  SHORT_CLOSED: { color: "var(--color-amber, #b45309)", label: "Short-closed" },
   CANCELLED: { color: "var(--color-stop)", label: "Cancelled" },
 };
+
+/* ── Urgency sections — a buyer opens this list to find what's late and
+   what's waiting on them, so those float to the top instead of being
+   buried in creation order. Order within a section stays newest-first. ── */
+type Urgency = "late" | "action" | "transit" | "done";
+const URGENCY_SECTIONS: { key: Urgency; label: string; color: string }[] = [
+  { key: "late", label: "Late", color: "var(--color-stop)" },
+  { key: "action", label: "Needs action", color: "var(--color-signal)" },
+  { key: "transit", label: "On the way", color: "var(--color-steel)" },
+  { key: "done", label: "Done", color: "var(--color-go)" },
+];
+function urgencyOf(po: ProcurementListItem): Urgency {
+  if (po.isOverdue) return "late";
+  if (po.status === "DRAFT" || po.status === "REJECTED" || po.status === "APPROVED") return "action";
+  if (po.status === "ORDERED" || po.status === "PARTIAL") return "transit";
+  return "done";
+}
 
 export function MobileProcurementList(props: {
   items: ProcurementListItem[];
@@ -117,7 +143,9 @@ function MobileProcurementListInner({
   canApprove,
   canSelfApprove,
   currentUserId,
-  draftCount = 0,
+  // Stats are derived from the loaded items (so they stay right after
+  // load-more); the server's batch draft count is no longer read here.
+  draftCount: _draftCount,
   loadMoreUrl,
   nextCursor: initialCursor,
   exportTitle,
@@ -158,7 +186,11 @@ function MobileProcurementListInner({
 
   const filtered = useMemo(() => {
     let result = items;
-    if (statusFilter !== "ALL") {
+    if (statusFilter === "LATE") {
+      result = result.filter((p) => p.isOverdue);
+    } else if (statusFilter === "OPEN") {
+      result = result.filter((p) => p.status === "ORDERED" || p.status === "PARTIAL");
+    } else if (statusFilter !== "ALL") {
       result = result.filter((p) => p.status === statusFilter);
     }
     if (query.trim()) {
@@ -166,11 +198,31 @@ function MobileProcurementListInner({
       result = result.filter(
         (p) =>
           p.poNumber.toLowerCase().includes(q) ||
-          p.supplierName.toLowerCase().includes(q),
+          p.supplierName.toLowerCase().includes(q) ||
+          p.itemSummary?.toLowerCase().includes(q),
       );
     }
     return result;
   }, [items, query, statusFilter]);
+
+  const sections = useMemo(
+    () =>
+      URGENCY_SECTIONS.map((s) => ({ ...s, items: filtered.filter((p) => urgencyOf(p) === s.key) })).filter(
+        (s) => s.items.length > 0,
+      ),
+    [filtered],
+  );
+
+  const toggleFilter = (v: PoStatus) => {
+    haptic(5);
+    setStatusFilter(statusFilter === v ? "ALL" : v);
+  };
+  const poStats = [
+    { label: "Late", value: String(items.filter((p) => p.isOverdue).length), tone: "stop" as const, onClick: () => toggleFilter("LATE"), active: statusFilter === "LATE" },
+    { label: "To approve", value: String(items.filter((p) => p.status === "DRAFT").length), tone: "signal" as const, onClick: () => toggleFilter("DRAFT"), active: statusFilter === "DRAFT" },
+    { label: "On the way", value: String(items.filter((p) => p.status === "ORDERED" || p.status === "PARTIAL").length), onClick: () => toggleFilter("OPEN"), active: statusFilter === "OPEN" },
+    { label: "Received", value: String(items.filter((p) => p.status === "RECEIVED").length), tone: "go" as const, onClick: () => toggleFilter("RECEIVED"), active: statusFilter === "RECEIVED" },
+  ];
 
   // Filter direct purchases by search query
   const filteredDirectPurchases = useMemo(() => {
@@ -268,14 +320,7 @@ function MobileProcurementListInner({
     return (
       <div>
         {/* ── Summary strip (same position across all procurement tabs) ── */}
-        <MobileSummaryStrip
-          stats={[
-            { label: "POs", value: String(items.length) },
-            { label: "Draft", value: String(draftCount) },
-            { label: "Ordered", value: String(items.filter((p) => p.status === "ORDERED" || p.status === "PARTIAL").length) },
-            { label: "Received", value: String(items.filter((p) => p.status === "RECEIVED").length) },
-          ]}
-        />
+        <MobileSummaryStrip stats={poStats} />
 
         {/* ── Sticky search header (same position across all procurement tabs) ── */}
         <MobileSearchHeader
@@ -303,21 +348,14 @@ function MobileProcurementListInner({
 
   return (
     <div>
-      {/* ── Summary strip (same position across all procurement tabs) ── */}
-      <MobileSummaryStrip
-        stats={[
-          { label: "POs", value: String(items.length) },
-          { label: "Draft", value: String(draftCount) },
-          { label: "Ordered", value: String(items.filter((p) => p.status === "ORDERED" || p.status === "PARTIAL").length) },
-          { label: "Received", value: String(items.filter((p) => p.status === "RECEIVED").length) },
-        ]}
-      />
+      {/* ── Summary strip — each count is a one-tap filter ── */}
+      <MobileSummaryStrip stats={poStats} />
 
       {/* ── Sticky search header (same position across all procurement tabs) ── */}
       <MobileSearchHeader
         query={query}
         onQueryChange={setQuery}
-        placeholder="Search Purchase Order no, supplier…"
+        placeholder="Search supplier, material, PO no…"
         action={
           <div className="flex items-center gap-1 shrink-0">
             <MobileFilterIcon
@@ -372,11 +410,25 @@ function MobileProcurementListInner({
               </span>
             </div>
           )}
-          <MobileCardGrid cols={2}>
-            {filtered.map((po) => (
-              <PoCard key={po.id} po={po} canApprove={canApprove} currentUserId={currentUserId} canSelfApprove={canSelfApprove} onAction={() => router.refresh()} />
-            ))}
-          </MobileCardGrid>
+          {sections.map((s) => (
+            <section key={s.key} className="mb-3">
+              <div className="flex items-center justify-between mb-1.5">
+                <h3 className="flex items-center gap-1.5 text-m-section" style={{ color: "var(--color-ink-950)" }}>
+                  <span className="size-1.5 rounded-full" style={{ backgroundColor: s.color }} />
+                  {s.label}
+                </h3>
+                <span className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
+                  {s.items.length} PO{s.items.length !== 1 ? "s" : ""}
+                  {s.key !== "done" ? ` · ${formatCurrencyCompact(s.items.reduce((sum, p) => sum + p.total, 0))}` : ""}
+                </span>
+              </div>
+              <MobileCardGrid cols={2}>
+                {s.items.map((po) => (
+                  <PoCard key={po.id} po={po} canApprove={canApprove} currentUserId={currentUserId} canSelfApprove={canSelfApprove} onAction={() => router.refresh()} />
+                ))}
+              </MobileCardGrid>
+            </section>
+          ))}
           {loadMoreUrl ? (
             <MobileLoadMore
               onClick={loadMore}
@@ -674,28 +726,27 @@ function PoCard({
       <div className="h-0.5 w-full" style={{ backgroundColor: accentColor }} />
 
       <div className="p-2 flex flex-col gap-1 flex-1">
-        {/* Row 1: PO number + status label */}
+        {/* Row 1: Who you're buying from + status */}
         <div className="flex items-center justify-between gap-1">
           <span
-            className="text-m-body font-mono font-bold truncate"
+            className="text-m-strong leading-tight truncate"
             style={{ color: "var(--color-ink-950)" }}
           >
-            {po.poNumber}
+            {po.supplierName}
           </span>
+          {/* Real status, not "Overdue" — lateness is already carried by the
+              Late section, the red strip and the "N days late" line. */}
           <span
-            className="text-m-caption font-bold uppercase shrink-0"
-            style={{ color: accentColor }}
+            className="text-m-micro font-bold uppercase shrink-0"
+            style={{ color: style.color }}
           >
-            {isOverdue ? "Overdue" : style.label}
+            {style.label}
           </span>
         </div>
 
-        {/* Row 2: Supplier name */}
-        <p
-          className="text-m-body font-bold leading-tight truncate"
-          style={{ color: "var(--color-ink-950)" }}
-        >
-          {po.supplierName}
+        {/* Row 2: What you're buying */}
+        <p className="text-m-caption leading-tight truncate" style={{ color: "var(--color-ink-700)" }}>
+          {po.itemSummary ?? "—"}
         </p>
 
         {/* Row 3: Total + delivery */}
@@ -723,53 +774,35 @@ function PoCard({
           ) : null}
         </div>
 
-        {/* Row 4: Bottom area — fixed height for equal card sizes */}
-        <div className="mt-auto pt-1 h-[1.75rem] flex items-center">
-          {showProgress ? (
-            <div className="w-full">
-              <div className="flex items-center justify-between mb-0.5">
-                <span
-                  className="text-m-caption"
-                  style={{ color: "var(--color-ink-500)" }}
-                >
-                  Received
-                </span>
-                <span
-                  className="text-m-caption font-bold tabular-nums"
-                  style={{ color: "var(--color-ink-700)" }}
-                >
-                  {formatNumber(po.qtyReceived, 0)}/
-                  {formatNumber(po.qtyOrdered, 0)}
-                </span>
-              </div>
-              <div
-                className="h-1 rounded-full overflow-hidden"
-                style={{ backgroundColor: "var(--color-concrete)" }}
-              >
-                <div
-                  className="h-full rounded-full"
-                  style={{
-                    width: `${Math.min(recvPct, 100)}%`,
-                    backgroundColor:
-                      po.status === "PARTIAL"
-                        ? "var(--color-signal)"
-                        : "var(--color-steel)",
-                  }}
-                />
-              </div>
-            </div>
-          ) : isOverdue ? (
-            <div className="flex items-center gap-1">
-              <AlertTriangle
-                className="size-3"
-                style={{ color: "var(--color-stop)" }}
-              />
-              <span
-                className="text-m-caption font-semibold"
-                style={{ color: "var(--color-stop)" }}
-              >
-                Awaiting receipt
+        {/* Row 4: Reference + receipt progress — fixed height so every card
+            in the grid is the same size (ragged grids read as broken). */}
+        <div className="mt-auto pt-1 h-[1.75rem] flex flex-col justify-center">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-m-micro font-mono truncate" style={{ color: "var(--color-ink-400)" }}>
+              {po.poNumber}
+            </span>
+            {showProgress ? (
+              <span className="text-m-micro font-bold tabular-nums shrink-0" style={{ color: "var(--color-ink-700)" }}>
+                {formatNumber(po.qtyReceived, 0)}/{formatNumber(po.qtyOrdered, 0)} recd
               </span>
+            ) : null}
+          </div>
+          {showProgress ? (
+            <div
+              className="h-1 mt-0.5 rounded-full overflow-hidden"
+              style={{ backgroundColor: "var(--color-concrete)" }}
+            >
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: `${Math.min(recvPct, 100)}%`,
+                  backgroundColor: isOverdue
+                    ? "var(--color-stop)"
+                    : po.status === "PARTIAL"
+                      ? "var(--color-signal)"
+                      : "var(--color-steel)",
+                }}
+              />
             </div>
           ) : null}
         </div>

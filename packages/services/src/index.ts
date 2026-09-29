@@ -62,6 +62,7 @@ export {
   resubmitPurchaseOrder,
   orderPurchaseOrder,
   cancelPurchaseOrder,
+  shortClosePurchaseOrder,
   addLineToPurchaseOrder,
   receiveGoods,
   rejectDelivery,

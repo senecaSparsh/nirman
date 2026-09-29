@@ -49,7 +49,7 @@ export function PurchaseOrderDetailView({
   const [approvalNotes, setApprovalNotes] = useState("");
   const [showApproveField, setShowApproveField] = useState(false);
 
-  async function doAction(action: "approve" | "order" | "cancel" | "resubmit") {
+  async function doAction(action: "approve" | "order" | "cancel" | "resubmit" | "shortClose") {
     setActing(true);
     try {
       const payload: Record<string, unknown> = { action };
@@ -76,6 +76,10 @@ export function PurchaseOrderDetailView({
       } else if (action === "resubmit") {
         toast.success(`PO ${detail.poNumber} resubmitted`, {
           description: "It's back in draft — edit if needed, then ask an approver to review.",
+        });
+      } else if (action === "shortClose") {
+        toast.success(`PO ${detail.poNumber} short-closed`, {
+          description: "The undelivered remainder is written off — re-order if the project still needs it.",
         });
       }
       setApprovalNotes("");
@@ -204,6 +208,17 @@ export function PurchaseOrderDetailView({
         {(detail.status === "DRAFT" || detail.status === "ORDERED") && canManage && (
           <Button size="sm" variant="outline" onClick={() => doAction("cancel")} disabled={acting} className="text-muted-foreground hover:text-danger">
             <X className="h-4 w-4" /> Cancel PO
+          </Button>
+        )}
+        {detail.status === "PARTIAL" && canManage && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => { if (window.confirm("Short-close this PO? The undelivered remainder is written off — the received stock stays real. Re-order if the project still needs it.")) doAction("shortClose"); }}
+            disabled={acting}
+            className="text-muted-foreground hover:text-amber-600"
+          >
+            <Package className="h-4 w-4" /> Short-close
           </Button>
         )}
         <a

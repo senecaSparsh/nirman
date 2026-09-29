@@ -647,6 +647,84 @@ export async function cancelPurchaseOrder(poId: string, userId?: string) {
 }
 
 /**
+ * Short-close a partially-received Purchase Order.
+ *
+ * A supplier who delivers 60 of 100 bags and can't supply the rest leaves the
+ * PO stuck at PARTIAL forever — it keeps appearing on "open POs" reports as if
+ * 40 more are coming, and the requisition stays half-fulfilled. Short-closing
+ * marks the PO terminal: the received stock stays real, the undelivered
+ * remainder is written off as a shortfall, and the gap is surfaced (an event
+ * with the per-line shortfall) so the business re-orders instead of silently
+ * under-supplying a project.
+ *
+ * Only PARTIAL POs can be short-closed. An un-received PO uses CANCELLED; a
+ * fully-received one is already terminal.
+ *
+ * Returns the per-line shortfall so callers can report it.
+ */
+export async function shortClosePurchaseOrder(input: {
+  poId: string;
+  companyId?: string;
+  userId?: string;
+  reason?: string;
+}): Promise<{ status: "SHORT_CLOSED"; shortfall: { materialId: string; ordered: string; received: string; short: string }[] }> {
+  return withSerializableTransaction(async (tx) => {
+    const po = await tx.purchaseOrder.findUnique({
+      where: { id: input.poId },
+      include: { lines: { select: { materialId: true, qtyOrdered: true, qtyReceived: true } } },
+    });
+    if (!po) throw new ServiceError("PO not found", 404);
+    if (input.companyId && po.companyId !== input.companyId) {
+      throw new ServiceError("PO not found in this company", 404);
+    }
+    if (po.status === "SHORT_CLOSED") throw new ServiceError("PO is already short-closed", 409);
+    if (po.status !== "PARTIAL") {
+      throw new ServiceError(
+        `Only a partially-received PO can be short-closed (current: ${po.status}). ` +
+          "An unreceived PO should be cancelled instead.",
+        409,
+      );
+    }
+
+    // Compute the undelivered remainder per line — the quantity the project
+    // was expecting that will now never arrive.
+    const shortfall = po.lines
+      .map((l) => {
+        const ordered = new Decimal(l.qtyOrdered);
+        const received = new Decimal(l.qtyReceived);
+        return {
+          materialId: l.materialId,
+          ordered: ordered.toString(),
+          received: received.toString(),
+          short: ordered.minus(received).toString(),
+        };
+      })
+      .filter((l) => new Decimal(l.short).gt(0));
+
+    await tx.purchaseOrder.update({
+      where: { id: input.poId },
+      data: { status: "SHORT_CLOSED" },
+    });
+
+    await logAction(tx, {
+      userId: input.userId,
+      companyId: po.companyId,
+      action: "PURCHASE_ORDER_SHORT_CLOSE",
+      entityType: "PurchaseOrder",
+      entityId: input.poId,
+      before: { status: po.status },
+      after: {
+        status: "SHORT_CLOSED",
+        reason: input.reason ?? null,
+        shortfall,
+      },
+    });
+
+    return { status: "SHORT_CLOSED" as const, shortfall };
+  });
+}
+
+/**
  * Add a single line to an existing Purchase Order.
  *
  * Allowed only when the PO is in ORDERED or PARTIAL status (lines can be

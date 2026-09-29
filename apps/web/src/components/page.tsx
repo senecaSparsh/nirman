@@ -337,6 +337,7 @@ const STATUS_MEANING: Record<string, StatusMeaning> = {
   COMPLETED: "good",
   COMPLETE: "good",
   CLOSED: "good",
+  SHORT_CLOSED: "neutral", // partial delivery, remainder written off
   PAID: "good",
   PROCESSED: "good",
   SOLD: "good",
