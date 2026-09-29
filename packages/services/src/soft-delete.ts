@@ -146,6 +146,19 @@ async function guardDelete(entityType: EntityType, entityId: string): Promise<vo
         },
       });
       if (openPos > 0) throw new ServiceError("Cannot delete supplier with open purchase orders.");
+      // A supplier you still owe money can't be deleted — the AP stays in the
+      // GL but deleting the supplier row hides the payable from every "who do
+      // we owe" list (all filter deletedAt), so the debt becomes untracked in
+      // the app while still being owed. Settle or write it off first.
+      const supplier = await prisma.supplier.findUnique({
+        where: { id: entityId },
+        select: { balanceOwed: true },
+      });
+      if (supplier && new Decimal(supplier.balanceOwed).gt(0)) {
+        throw new ServiceError(
+          `Cannot delete a supplier with an outstanding balance (₹${new Decimal(supplier.balanceOwed)} owed). Settle or write it off first — deleting them hides a payable you still owe.`,
+        );
+      }
       break;
     }
 
@@ -158,6 +171,16 @@ async function guardDelete(entityType: EntityType, entityId: string): Promise<vo
       if (activeSales > 0) throw new ServiceError("Cannot delete customer with active or pending asset sales.");
       if (activeMaterialSales > 0) throw new ServiceError("Cannot delete customer with active material sales.");
       if (activeTenancies > 0) throw new ServiceError("Cannot delete customer with active or pending tenancies.");
+      // A customer who still owes you money can't be deleted — a COMPLETED sale
+      // with a PENDING/PARTIAL payment status isn't caught by the active-sale
+      // check above, so deleting the row hides a receivable that was never
+      // collected. Chase the payment or write it off first.
+      const unpaidSales = await prisma.assetSale.count({
+        where: { customerId: entityId, status: { not: "CANCELLED" }, paymentStatus: { in: ["PENDING", "PARTIAL"] } },
+      });
+      if (unpaidSales > 0) throw new ServiceError(
+        `Cannot delete a customer with ${unpaidSales} unpaid or partially-paid sale(s) — a receivable you haven't collected. Collect or write off the balance first.`,
+      );
       break;
     }
 
