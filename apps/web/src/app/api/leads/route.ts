@@ -20,7 +20,7 @@ const createLeadSchema = z.object({
   assignedToId: z.string().optional().nullable(),
   nextFollowUpAt: z.coerce.date().optional().nullable(),
   notes: z.string().trim().max(2000).optional().nullable(),
-}).refine((value) => value.budgetMin == null || value.budgetMax == null || value.budgetMax >= value.budgetMin, {
+}).refine((value) => value.budgetMin == null || value.budgetMax == null || toNum(value.budgetMax) >= toNum(value.budgetMin), {
   message: "Maximum budget must be greater than or equal to minimum budget",
   path: ["budgetMax"],
 });

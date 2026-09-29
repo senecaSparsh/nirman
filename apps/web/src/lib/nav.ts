@@ -1,3 +1,4 @@
+import { toNum } from "@/lib/utils";
 import {
   Package,
   Truck,
@@ -1044,7 +1045,7 @@ export function worldForPath(pathname: string): World {
   // handles the world overview page which isn't a nav item.
   for (const w of WORLDS) {
     if (w.href === pathname || (w.href !== "/" && pathname.startsWith(w.href))) {
-      if (!best || w.href.length > best.len) {
+      if (!best || toNum(w.href.length) > toNum(best.len)) {
         best = { world: w, len: w.href.length };
       }
     }
@@ -1053,7 +1054,7 @@ export function worldForPath(pathname: string): World {
     for (const s of w.sections) {
       for (const i of s.items) {
         const matches = i.href === "/" ? pathname === "/" : pathname.startsWith(i.href);
-        if (matches && (!best || i.href.length > best.len)) {
+        if (matches && (!best || toNum(i.href.length) > toNum(best.len))) {
           best = { world: w, len: i.href.length };
         }
       }

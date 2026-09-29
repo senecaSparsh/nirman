@@ -125,7 +125,7 @@ export function buildLowStockRows(
         standardCost: toNum(m.standardCost),
       };
     })
-    .filter((r) => r.totalQty < r.minStock)
+    .filter((r) => toNum(r.totalQty) < toNum(r.minStock))
     .sort((a, b) => b.shortfall - a.shortfall);
 }
 

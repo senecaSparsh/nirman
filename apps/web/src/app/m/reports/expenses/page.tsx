@@ -178,7 +178,7 @@ async function MobileExpensesContent() {
           data={monthly.map((m) => ({
             label: m.label,
             value: m.operating + m.project,
-            tone: (m.project > m.operating ? "signal" : "default") as "signal" | "default",
+            tone: (toNum(m.project) > toNum(m.operating) ? "signal" : "default") as "signal" | "default",
           }))}
           formatValue={(v) => formatCurrencyCompact(v)}
         />

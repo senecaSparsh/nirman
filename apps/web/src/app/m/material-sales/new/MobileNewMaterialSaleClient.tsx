@@ -15,7 +15,7 @@ import {
   WifiOff,
   ShieldCheck,
 } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, toNum} from "@/lib/utils";
 import { toast } from "sonner";
 import { useDrafts } from "@/lib/offline/use-drafts";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
@@ -510,11 +510,11 @@ export default function MobileNewMaterialSaleClient({
     const isPaid =
       !isPending &&
       success.amountPaid !== undefined &&
-      success.amountPaid >= success.totalAmount - 0.01;
+      toNum(success.amountPaid) >= toNum(success.totalAmount) - 0.01;
     const isPartial =
       !isPending &&
       success.amountPaid !== undefined &&
-      success.amountPaid < success.totalAmount - 0.01;
+      toNum(success.amountPaid) < toNum(success.totalAmount) - 0.01;
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
         <div

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { toNum } from "@/lib/utils";
 import { HardHat, Users, ClipboardList, Inbox, AlertTriangle } from "lucide-react";
 import { SignatureShell, SignatureNote, money, toneColor, type Tone } from "./shared";
 
@@ -92,7 +93,7 @@ export function ProjectPulse({ data }: { data: PulseData }) {
           <MiniStat
             label="Spent"
             value={money(totals.spent)}
-            tone={totals.spent > totals.budget && totals.budget > 0 ? "bad" : "neutral"}
+            tone={toNum(totals.spent) > toNum(totals.budget) && totals.budget > 0 ? "bad" : "neutral"}
           />
           <MiniStat label="On site" value={String(totals.crew)} tone="steel" />
         </div>

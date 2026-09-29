@@ -252,7 +252,7 @@ async function CommandCenterContent() {
       const minStock = toNum(m.minStock);
       return { name: m.name, unit: m.unit, totalQty, minStock, shortfall: minStock - totalQty };
     })
-    .filter((m) => m.totalQty < m.minStock)
+    .filter((m) => toNum(m.totalQty) < toNum(m.minStock))
     .sort((a, b) => b.shortfall - a.shortfall)
     .slice(0, 5);
 
@@ -261,7 +261,7 @@ async function CommandCenterContent() {
     const totalQty = m.stockItems.reduce((s, i) => s + toNum(i.qty), 0);
     return { totalQty, minStock: toNum(m.minStock) };
   });
-  const lowStockCount = lowStockFull.filter((m) => m.totalQty < m.minStock).length;
+  const lowStockCount = lowStockFull.filter((m) => toNum(m.totalQty) < toNum(m.minStock)).length;
   const healthyStockCount = lowStockFull.length - lowStockCount;
   const stockHealth = healthyStockCount > 0 || lowStockCount > 0
     ? [

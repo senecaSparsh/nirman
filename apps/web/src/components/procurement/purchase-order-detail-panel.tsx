@@ -281,7 +281,7 @@ export function PurchaseOrderDetailPanel({
                     </TD>
                     <TD className="tnum text-right">{formatNumber(l.qtyOrdered, 3)} {l.unit}</TD>
                     <TD className="text-right">
-                      {l.qtyReceived >= l.qtyOrdered ? (
+                      {toNum(l.qtyReceived) >= toNum(l.qtyOrdered) ? (
                         <Badge variant="success" className="px-1.5 py-0 tnum">{formatNumber(l.qtyReceived, 3)}</Badge>
                       ) : l.qtyReceived > 0 ? (
                         <Badge variant="warning" className="px-1.5 py-0 tnum">{formatNumber(l.qtyReceived, 3)}</Badge>

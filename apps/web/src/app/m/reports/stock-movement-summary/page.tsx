@@ -227,7 +227,7 @@ async function MobileStockMovementSummaryContent() {
           data={locationRows.map((l) => ({
             label: l.name,
             value: l.received - l.issued,
-            tone: l.received >= l.issued ? ("go" as const) : ("stop" as const),
+            tone: toNum(l.received) >= toNum(l.issued) ? ("go" as const) : ("stop" as const),
           }))}
           formatValue={(v) => formatCurrencyCompact(v)}
         />

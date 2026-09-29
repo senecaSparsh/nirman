@@ -32,7 +32,7 @@ import {
 import { MobileStatusBadge, ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { DetailHeroCard, DetailAlertBanner, DetailPrintButton } from "@/components/mobile/v2/detail-primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
-import { formatDate, formatNumber, formatCurrency } from "@/lib/utils";
+import { formatDate, formatNumber, formatCurrency, toNum} from "@/lib/utils";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import {
@@ -927,8 +927,8 @@ export function MobileTransferDetailClient({
         <div className="flex flex-col gap-1.5">
           {transfer.lines.map((l, idx) => {
             const hasPartialReceipt =
-              isCompleted && l.qtyReceived > 0 && l.qtyReceived < l.qty;
-            const hasShortage = isCompleted && l.qtyReceived < l.qty;
+              isCompleted && l.qtyReceived > 0 && toNum(l.qtyReceived) < toNum(l.qty);
+            const hasShortage = isCompleted && toNum(l.qtyReceived) < toNum(l.qty);
             const lineValue =
               l.unitCostAtSource != null ? l.qty * l.unitCostAtSource : null;
             return (

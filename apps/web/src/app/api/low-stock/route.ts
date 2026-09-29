@@ -59,7 +59,7 @@ export const GET = apiHandler(async () => {
         standardCost: toNum(m.standardCost),
       };
     })
-    .filter((r) => r.totalQty < r.reorderPoint)
+    .filter((r) => toNum(r.totalQty) < toNum(r.reorderPoint))
     .sort((a, b) => b.shortfall - a.shortfall);
 
   return json(rows);

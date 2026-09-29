@@ -10,7 +10,7 @@ import { Input, Label, Select } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/empty-state";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, toNum} from "@/lib/utils";
 import type { ProjectOption, ExpenseCategoryRow } from "@/lib/types";
 
 type FloatRow = {
@@ -179,7 +179,7 @@ export function PettyCashView({
         <div className="space-y-2">
           {floats.map((f) => {
             const isOpen = expanded.has(f.id);
-            const lowBalance = f.floatAmount < f.topUpTotal * 0.2;
+            const lowBalance = toNum(f.floatAmount) < toNum(f.topUpTotal) * 0.2;
             return (
               <div key={f.id} className="rounded-lg border border-border overflow-hidden">
                 <button

@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { EmptyState } from "@/components/empty-state";
 import { Page, Section, StatusPill, Toolbar, ToolbarCount } from "@/components/page";
 import { useConfirm } from "@/lib/use-confirm";
-import { formatCurrency, formatDate, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatDate, formatNumber, toNum} from "@/lib/utils";
 import type { ApprovalPORow, ApprovalReqRow, ApprovalGatePassRow, ApprovalDprRow, ApprovalExpenseRow, ApprovalRaBillRow } from "@/lib/types";
 
 // ── Urgency badge ──────────────────────────────────────────────
@@ -657,7 +657,7 @@ function ReqApprovalRow({ req }: { req: ApprovalReqRow }) {
 
   // Check if any line has low stock (currentStock < qtyRequested)
   const hasLowStock = req.lineDetails.some(
-    (l) => l.currentStock !== null && l.currentStock < l.qtyRequested,
+    (l) => l.currentStock !== null && toNum(l.currentStock) < toNum(l.qtyRequested),
   );
 
   return (
@@ -757,7 +757,7 @@ function ReqApprovalRow({ req }: { req: ApprovalReqRow }) {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {req.lineDetails.map((line) => {
-                    const lowStock = line.currentStock !== null && line.currentStock < line.qtyRequested;
+                    const lowStock = line.currentStock !== null && toNum(line.currentStock) < toNum(line.qtyRequested);
                     return (
                       <tr key={line.materialId}>
                         <td className="py-1.5 pr-4">

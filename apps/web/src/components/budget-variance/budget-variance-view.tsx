@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { PageLoading } from "@/components/page-loading";
 import { EmptyState } from "@/components/empty-state";
 import { DataTable } from "@/components/ui/data-table";
-import { formatCurrency, cn } from "@/lib/utils";
+import { formatCurrency, cn, toNum} from "@/lib/utils";
 import { statusBadgeVariant } from "@/components/page";
 import { BarChart3 } from "lucide-react";
 
@@ -160,7 +160,7 @@ export function BudgetVarianceView({ projects }: { projects: Project[] }) {
                     const maxVal = Math.max(i.budgetedAmount, i.actualAmount, 1);
                     const budgetPct = (i.budgetedAmount / maxVal) * 100;
                     const actualPct = (i.actualAmount / maxVal) * 100;
-                    const isOver = i.actualAmount > i.budgetedAmount && i.budgetedAmount > 0;
+                    const isOver = toNum(i.actualAmount) > toNum(i.budgetedAmount) && i.budgetedAmount > 0;
                     return (
                       <div key={i.id} className="space-y-1">
                         <div className="flex items-center justify-between text-caption">

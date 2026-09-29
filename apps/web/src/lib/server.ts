@@ -3439,7 +3439,7 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
     // If the server is at capacity, reject early with 503 + Retry-After.
     // This prevents request queueing that wastes DB connections + memory.
     const bp = getBackpressureStats();
-    if (bp.activeRequests >= bp.maxConcurrency) {
+    if (toNum(bp.activeRequests) >= toNum(bp.maxConcurrency)) {
       return json(
         { error: "Server is busy — please retry shortly", retryable: true },
         { status: 503, headers: { "Retry-After": "2" } },

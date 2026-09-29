@@ -106,7 +106,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       minRequired: req.minQuotesRequired,
       waived: req.quotesWaived,
       waivedReason: req.quotesWaivedReason,
-      gateSatisfied: req.quotesWaived || nonRejectedQuotes.length >= req.minQuotesRequired,
+      gateSatisfied: req.quotesWaived || toNum(nonRejectedQuotes.length) >= toNum(req.minQuotesRequired),
       cheapest: cheapestQuote
         ? { id: cheapestQuote.id, supplierName: cheapestQuote.supplier.name, landedTotal: toNum(cheapestQuote.landedTotal) }
         : null,

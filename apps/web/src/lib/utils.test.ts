@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import Decimal from "decimal.js";
 import {
   cn,
   formatCurrency,
@@ -12,6 +13,7 @@ import {
   humanizeCron,
   setGlobalCurrencyMode,
   getGlobalCurrencyMode,
+  toNum,
 } from "./utils";
 
 describe("cn", () => {
@@ -222,5 +224,42 @@ describe("humanizeCron", () => {
   });
   it("falls back for exotic schedules", () => {
     expect(humanizeCron("*/5 * * * *")).toBe("Scheduled: */5 * * * *");
+  });
+});
+
+describe("toNum", () => {
+  it("passes numbers through unchanged", () => {
+    expect(toNum(42)).toBe(42);
+    expect(toNum(0)).toBe(0);
+    expect(toNum(-3.5)).toBe(-3.5);
+  });
+
+  it("converts numeric strings", () => {
+    expect(toNum("123.45")).toBe(123.45);
+    expect(toNum("0.001")).toBe(0.001);
+  });
+
+  it("converts a Prisma Decimal to a number — the reduce-sum regression", () => {
+    // Decimal.valueOf() returns a string, so `0 + Decimal` concatenates:
+    // this is the bug the codemod fixed across ~130 reduce-sum sites.
+    const rows = [{ amount: new Decimal("100.50") }, { amount: new Decimal("200.25") }];
+    // The bug: unwrapped produces a string (cast — the + concatenates at runtime)
+    const buggy = rows.reduce((s, r) => (s as number) + (r.amount as unknown as number), 0);
+    expect(buggy).not.toBe(300.75);
+    // The fix: toNum() sums correctly
+    expect(rows.reduce((s, r) => s + toNum(r.amount), 0)).toBe(300.75);
+    expect(typeof rows.reduce((s, r) => s + toNum(r.amount), 0)).toBe("number");
+  });
+
+  it("sums a mixed null/Decimal field without NaN poisoning", () => {
+    const rows = [{ v: new Decimal("10") }, { v: null }, { v: new Decimal("5.5") }];
+    expect(rows.reduce((s, r) => s + toNum(r.v), 0)).toBe(15.5);
+  });
+
+  it("returns 0 for null/undefined/non-numeric instead of NaN", () => {
+    expect(toNum(null)).toBe(0);
+    expect(toNum(undefined)).toBe(0);
+    expect(toNum("abc")).toBe(0);
+    expect(toNum({})).toBe(0);
   });
 });

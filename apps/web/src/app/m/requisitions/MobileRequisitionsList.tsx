@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { MobileLink as Link } from "@/components/mobile/mobile-link";
 import { CheckCircle2, ShoppingCart, Send, Check, X, Eye, Copy, Share2 } from "lucide-react";
 import { toast } from "sonner";
-import { formatDate } from "@/lib/utils";
+import { formatDate, toNum} from "@/lib/utils";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { haptic } from "@/lib/haptic";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
@@ -80,7 +80,7 @@ const STATUS_STYLE: Record<string, { color: string; label: string }> = {
 };
 
 function quotesMetFor(r: RequisitionListItem): boolean {
-  return r.quoteCount >= r.minQuotesRequired || r.quotesWaived;
+  return toNum(r.quoteCount) >= toNum(r.minQuotesRequired) || r.quotesWaived;
 }
 
 export function MobileRequisitionsList(props: {

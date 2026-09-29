@@ -1,3 +1,4 @@
+import { toNum } from "@/lib/utils";
 import { NextRequest } from "next/server";
 import {
   createQuotationRequest,
@@ -52,7 +53,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         lineCount: r.lines.length,
         quoteCount: r.quotes.length,
         minQuotesRequired: r.minQuotesRequired,
-        quotesMet: r.quotes.length >= r.minQuotesRequired,
+        quotesMet: toNum(r.quotes.length) >= toNum(r.minQuotesRequired),
         selectedQuoteId: r.selectedQuoteId ?? null,
         convertedPo: null,
       })),
@@ -93,7 +94,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       lineCount: r.lines.length,
       quoteCount: r.quotes.length,
       minQuotesRequired: r.minQuotesRequired,
-      quotesMet: r.quotes.length >= r.minQuotesRequired,
+      quotesMet: toNum(r.quotes.length) >= toNum(r.minQuotesRequired),
       selectedQuoteId: r.selectedQuoteId ?? null,
       convertedPo: r.convertedPo
         ? { id: r.convertedPo.id, poNumber: r.convertedPo.poNumber, status: r.convertedPo.status }

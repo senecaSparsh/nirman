@@ -1047,7 +1047,7 @@ export function QuotationsTab({
     ) : <span className="text-muted-foreground">—</span>, sortValue: (r) => r.requiredByDate ?? "" },
     { key: "submittedByName", label: "Submitted by", render: (r) => <span className="text-muted-foreground">{r.submittedByName ?? "—"}</span>, sortValue: (r) => r.submittedByName ?? "" },
     { key: "quoteCount", label: "Quotes", render: (r) => {
-      const quotesMet = r.quoteCount >= r.minQuotesRequired;
+      const quotesMet = toNum(r.quoteCount) >= toNum(r.minQuotesRequired);
       return (
         <span className={`inline-flex items-center gap-1 text-xs font-semibold ${quotesMet ? "text-green-600" : "text-amber-600"}`}>
           {quotesMet ? <Check className="size-3" /> : <AlertCircle className="size-3" />}
@@ -1122,7 +1122,7 @@ export function QuotationsTab({
               </div>
               <div>
                 <dt className="text-micro text-muted-foreground">Quotes collected</dt>
-                <dd className={selected.quoteCount >= selected.minQuotesRequired ? "text-success font-medium" : "text-warning font-medium"}>
+                <dd className={toNum(selected.quoteCount) >= toNum(selected.minQuotesRequired) ? "text-success font-medium" : "text-warning font-medium"}>
                   {selected.quoteCount}/{selected.minQuotesRequired}
                 </dd>
               </div>

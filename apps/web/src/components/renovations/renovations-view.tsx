@@ -14,7 +14,7 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { IdentityCell, MoneyCell } from "@/components/ui/cells";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
-import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { formatCurrency, formatDate, cn, toNum} from "@/lib/utils";
 import { StatusPill } from "@/components/page";
 
 export type RenovationRow = {
@@ -546,7 +546,7 @@ export function RenovationsView({
             totalFormat={(_key, sum) => formatCurrency(sum)}
             rowTone={(r) => {
               if (r.status === "CANCELLED") return "danger";
-              if (r.budget > 0 && r.actualCost > r.budget * 1.2) return "warning";
+              if (r.budget > 0 && toNum(r.actualCost) > toNum(r.budget) * 1.2) return "warning";
               if (r.status === "COMPLETED" && r.newValuation && r.actualCost > 0) {
                 const roi = ((r.newValuation - r.originalValuation - r.actualCost) / r.actualCost) * 100;
                 if (roi < 0) return "danger";
@@ -593,10 +593,10 @@ export function RenovationsView({
                 <div className="text-muted-foreground">Budget variance</div>
                 <div className={cn(
                   "text-foreground",
-                  current.budget > 0 && current.actualCost > current.budget ? "text-danger" : "text-success",
+                  current.budget > 0 && toNum(current.actualCost) > toNum(current.budget) ? "text-danger" : "text-success",
                 )}>
                   {current.budget > 0
-                    ? `${current.actualCost > current.budget ? "+" : ""}${(((current.actualCost - current.budget) / current.budget) * 100).toFixed(0)}%`
+                    ? `${toNum(current.actualCost) > toNum(current.budget) ? "+" : ""}${(((current.actualCost - current.budget) / current.budget) * 100).toFixed(0)}%`
                     : "—"}
                 </div>
               </div>

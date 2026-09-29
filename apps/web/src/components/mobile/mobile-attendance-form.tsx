@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Users, CheckCircle2, Search, ChevronDown, ChevronRight, CheckCheck, Loader2, MapPin, X, FolderOpen, Lock } from "lucide-react";
 import { toast } from "sonner";
-import { formatCurrencyCompact, localDateISO } from "@/lib/utils";
+import { formatCurrencyCompact, localDateISO, toNum} from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { useDrafts } from "@/lib/offline/use-drafts";
 import { enqueue } from "@/lib/offline/queue";
@@ -507,7 +507,7 @@ export function MobileAttendanceForm({
           )}
         </button>
         {/* Quick action: mark all present */}
-        {stats.present < stats.total && (
+        {toNum(stats.present) < toNum(stats.total) && (
           <button
             disabled={!!periodLocked}
             onClick={markAllPresent}

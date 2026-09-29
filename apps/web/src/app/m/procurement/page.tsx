@@ -241,7 +241,7 @@ export default function MobileProcurementPage() {
             itemSummary: summarizeLines(r.lines.map((l) => ({ name: l.material.name, qty: toNum(l.qtyRequired), unit: l.material.unit }))),
             quoteCount: quotes.length,
             minQuotesRequired: r.minQuotesRequired,
-            quotesMet: quotes.length >= r.minQuotesRequired,
+            quotesMet: toNum(quotes.length) >= toNum(r.minQuotesRequired),
             selectedQuoteId: r.selectedQuoteId ?? null,
             cheapestLandedTotal: cheapest ? toNum(cheapest.landedTotal) : null,
             isPendingMyApproval: pendingIds.has(r.id),

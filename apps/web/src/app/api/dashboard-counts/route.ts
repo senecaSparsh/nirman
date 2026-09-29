@@ -134,7 +134,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     const totalQty = qtyByMaterial.get(m.id) ?? 0;
     return { totalQty, minStock: toNum(m.minStock) };
   });
-  const lowStockCount = lowStockFull.filter((m) => m.totalQty < m.minStock).length;
+  const lowStockCount = lowStockFull.filter((m) => toNum(m.totalQty) < toNum(m.minStock)).length;
   const healthyStockCount = lowStockFull.length - lowStockCount;
 
   // ── Procurement trend (6 months) ──

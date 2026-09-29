@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, toNum} from "@/lib/utils";
 import { MobileStatusBadge } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
@@ -146,7 +146,7 @@ function ContractCard({ contract: c }: { contract: RateContractListItem }) {
       {c.maxQty != null && (
         <div className="mt-1.5">
           <div className="flex items-center justify-between">
-            <p className="text-m-caption font-semibold" style={{ color: c.totalReleasedQty >= c.maxQty ? "var(--color-red-500)" : "var(--color-ink-600)" }}>
+            <p className="text-m-caption font-semibold" style={{ color: toNum(c.totalReleasedQty) >= toNum(c.maxQty) ? "var(--color-red-500)" : "var(--color-ink-600)" }}>
               Released {c.totalReleasedQty} / {c.maxQty} {c.materialUnit}
             </p>
           </div>
@@ -155,7 +155,7 @@ function ContractCard({ contract: c }: { contract: RateContractListItem }) {
               className="h-full rounded-full"
               style={{
                 width: `${Math.min(100, (c.totalReleasedQty / c.maxQty) * 100)}%`,
-                backgroundColor: c.totalReleasedQty >= c.maxQty ? "var(--color-red-500)" : "var(--color-brand)",
+                backgroundColor: toNum(c.totalReleasedQty) >= toNum(c.maxQty) ? "var(--color-red-500)" : "var(--color-brand)",
               }}
             />
           </div>

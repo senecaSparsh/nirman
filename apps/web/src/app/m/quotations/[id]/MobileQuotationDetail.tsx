@@ -27,7 +27,7 @@ import {
   ExternalLink,
   Trash2,
 } from "lucide-react";
-import { localDateISO, formatCurrency, formatNumber, formatDate } from "@/lib/utils";
+import { localDateISO, formatCurrency, formatNumber, formatDate, toNum} from "@/lib/utils";
 import { downloadCSV } from "@/lib/export";
 import { useConfirm } from "@/lib/use-confirm";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
@@ -353,7 +353,7 @@ export function MobileQuotationDetail({
       {/* ── Quote gate status + Add button (compact) ── */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          {activeQuotes.length >= request.minQuotesRequired ? (
+          {toNum(activeQuotes.length) >= toNum(request.minQuotesRequired) ? (
             <span className="flex items-center gap-1 text-m-label font-semibold" style={{ color: "var(--color-go)" }}>
               <Check className="size-3" />
               {activeQuotes.length}/{request.minQuotesRequired} quotes

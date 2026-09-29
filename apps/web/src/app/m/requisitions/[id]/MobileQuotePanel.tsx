@@ -18,7 +18,7 @@ import {
   Pencil,
   ShieldCheck,
 } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, toNum} from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDialog";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
@@ -327,7 +327,7 @@ export function MobileQuotePanel({
             .map((q) => q.lines.find((l) => l.materialId === mid))
             .filter((l): l is NonNullable<typeof l> => l != null);
           if (quotesForMaterial.length === 0) return false;
-          return quotesForMaterial.every((l) => l.unitLandedCost > lr.unitCost * 1.15);
+          return quotesForMaterial.every((l) => toNum(l.unitLandedCost) > toNum(lr.unitCost) * 1.15);
         });
         if (flagged.length === 0) return null;
         return (

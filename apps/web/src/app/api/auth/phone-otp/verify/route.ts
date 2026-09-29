@@ -1,3 +1,4 @@
+import { toNum } from "@/lib/utils";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@nirman/db";
 import { json, getCustomRoleLabels, roleDisplayLabel } from "@/lib/server";
@@ -56,7 +57,7 @@ export const POST = async (req: NextRequest) => {
   }
 
   // Check attempt lockout.
-  if (otp.attempts >= OTP_CONFIG.MAX_ATTEMPTS) {
+  if (toNum(otp.attempts) >= toNum(OTP_CONFIG.MAX_ATTEMPTS)) {
     // Invalidate the code so it can't be retried.
     await prisma.phoneOtp.update({
       where: { id: otp.id },

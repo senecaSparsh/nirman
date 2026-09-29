@@ -1,3 +1,4 @@
+import { toNum } from "@/lib/utils";
 /**
  * Conversation state machine for the Owner Assistant ("Sahayak").
  *
@@ -312,7 +313,7 @@ export function processConversation(
     }
 
     // All slots filled — ready to execute
-    const hasMoreSteps = (task.steps && task.currentStep !== undefined && task.currentStep < task.steps.length - 1) || false;
+    const hasMoreSteps = (task.steps && task.currentStep !== undefined && toNum(task.currentStep) < toNum(task.steps.length) - 1) || false;
     return {
       intent: task.intent,
       entities: mergedEntities,
