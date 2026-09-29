@@ -3503,7 +3503,18 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
         // stored response instead. Durable (DB) so it survives a restart.
         let idemRecord: { key: string; userId: string; path: string } | null = null;
         const idemKey = req.method === "POST" ? req.headers.get("x-idempotency-key")?.trim() : null;
+        // Hash the request body so a reused key with a DIFFERENT payload is
+        // rejected (422) instead of silently replaying the stored response —
+        // silent replay would drop the caller's real data while looking like
+        // a success. req.clone() reads a copy without consuming the body for
+        // the handler.
+        let requestHash: string | null = null;
         if (idemKey) {
+          const rawBody = await req.clone().text().catch(() => "");
+          if (rawBody) {
+            const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(rawBody));
+            requestHash = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+          }
           const idemUser = await getCurrentUser();
           const idemUserId = idemUser?.id ?? "anon";
           const pathname = new URL(req.url).pathname;
@@ -3511,6 +3522,16 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
             where: { key_userId: { key: idemKey, userId: idemUserId } },
           }).catch(() => null);
           if (prior) {
+            // Same key + different body = the caller is reusing a key for a
+            // different intent — reject loudly instead of replaying the wrong
+            // response. (Legacy rows have no requestHash — treat as replayable
+            // for backward compatibility.)
+            if (prior.requestHash && requestHash && prior.requestHash !== requestHash) {
+              return json(
+                { error: "Idempotency key was already used with a different request body." },
+                { status: 422 },
+              );
+            }
             return json(
               prior.responseBody ? JSON.parse(prior.responseBody) : { ok: true, replayed: true },
               { status: prior.status, headers: { "X-Idempotent-Replay": "true" } },
@@ -3529,7 +3550,7 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
           const bodyText = await res.clone().text().catch(() => null);
           if (bodyText != null && bodyText.length < 100_000) {
             await prisma.idempotencyKey.create({
-              data: { key: idemRecord.key, userId: idemRecord.userId, method: req.method, path: idemRecord.path, status: res.status, responseBody: bodyText },
+              data: { key: idemRecord.key, userId: idemRecord.userId, method: req.method, path: idemRecord.path, status: res.status, responseBody: bodyText, requestHash },
             }).catch(() => {});
           }
         }

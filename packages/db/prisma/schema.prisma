@@ -7359,6 +7359,7 @@ model IdempotencyKey {
   path           String
   status         Int      // HTTP status of the stored response
   responseBody   String?  // stored JSON body to replay
+  requestHash    String?  // sha256 of the original request body — a reused key with different data must not silently replay
   createdAt      DateTime @default(now())
 
   @@unique([key, userId])
