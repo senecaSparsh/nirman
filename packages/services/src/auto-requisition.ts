@@ -110,6 +110,25 @@ export async function generateAutoRequisition(opts: {
     });
     const alreadyRequisitioned = new Set(openRequisitionLines.map((l) => l.materialId));
 
+    // 3a-ii. Also skip materials with an OPEN purchase order — a requisition
+    // that's already converted to a PO drops out of the requisition dedup
+    // above, so without this the same material re-requisitions while the PO is
+    // still in transit → a second PO gets raised (double-order of stock that's
+    // already coming). ORDERED/PARTIAL/DRAFT/APPROVED POs all mean stock is
+    // committed or en route. Scoped to the same project — a PO bound for a
+    // different site doesn't cover this project's stock.
+    const openPoLines = await tx.purchaseOrderLine.findMany({
+      where: {
+        materialId: { in: candidateMaterialIds },
+        purchaseOrder: {
+          status: { in: ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"] },
+          OR: [{ projectId }, { destinationLocation: { projectId } }],
+        },
+      },
+      select: { materialId: true },
+    });
+    const alreadyOrdered = new Set(openPoLines.map((l) => l.materialId));
+
     // 3b. Build the line list with EOQ / replenish-to-buffer qty.
     const lines: AutoRequisitionResult["lines"] = [];
     const skipped: AutoRequisitionResult["skipped"] = [];
@@ -121,6 +140,15 @@ export async function generateAutoRequisition(opts: {
           code: alert.code,
           name: alert.name,
           reason: "Open requisition already exists for this material",
+        });
+        continue;
+      }
+      if (alreadyOrdered.has(alert.materialId)) {
+        skipped.push({
+          materialId: alert.materialId,
+          code: alert.code,
+          name: alert.name,
+          reason: "An open purchase order already covers this material — stock is on the way",
         });
         continue;
       }
