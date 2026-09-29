@@ -217,6 +217,23 @@ export async function recordMovement(
         },
       });
       if (lot && !lot.deletedAt) {
+        // The FEFO auto-pick filters out expired lots, but a manually-keyed
+        // lotNumber bypasses that — a worker can physically grab an expired
+        // bag and key its lot. Block issuing expired stock INTO USE (a site
+        // issue or a sale — expired cement/adhesive is a real quality+safety
+        // hazard). Disposition movements still pass: RETURN to supplier and
+        // ADJUSTMENT_OUT (write-off) are how expired stock correctly leaves
+        // the books, so they aren't blocked.
+        const lotExpiry = lot.expiryDate ? new Date(lot.expiryDate) : null;
+        const expiredOutIntoUse =
+          direction === "OUT" &&
+          (["ISSUE_TO_PROJECT", "ISSUE_TO_DEPARTMENT", "SALE", "TRANSFER_OUT"] as StockMovementType[]).includes(input.movementType) &&
+          lotExpiry !== null && lotExpiry < new Date();
+        if (expiredOutIntoUse && lotExpiry) {
+          throw new ServiceError(
+            `Lot ${input.lotNumber} expired on ${lotExpiry.toDateString()} — expired stock can't be issued or sold. Return it (RETURN) or write it off (ADJUSTMENT_OUT) instead.`,
+          );
+        }
         lotId = lot.id;
       } else if (direction === "IN") {
         // Auto-create the lot on receipt (IN movement) with full metadata
