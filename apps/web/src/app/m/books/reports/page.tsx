@@ -37,7 +37,7 @@ async function MobileReportsContent() {
 
   const [stockItems, sales, purchaseOrders, pendingPayments, projectCosts, expenses] = await Promise.all([
     prisma.stockLocationItem.findMany({
-      where: { location: { companyId: company.id }, ...(await scopeWhere("StockLocationItem")) },
+      where: { AND: [{ location: { companyId: company.id  } }, await scopeWhere("StockLocationItem")] },
       select: { qty: true, movingAvgCost: true },
     }),
     prisma.assetSale.findMany({

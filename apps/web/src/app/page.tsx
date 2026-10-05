@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { prisma, type DprApprovalStatus } from "@nirman/db";
 import { trialBalance, projectPnl, materialInventoryValue } from "@nirman/services";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
-import { getCompany, toNum, getUserRole, getCurrentUser, scopeWhere, getUserPermissions, getCustomRoleLabels, roleDisplayLabel } from "@/lib/server";
+import {   getCompany, toNum, getUserRole, getCurrentUser, scopeWhere, getUserPermissions, getCustomRoleLabels, roleDisplayLabel } from "@/lib/server";
 import {
   PERM,
   ROLES,
@@ -120,7 +120,7 @@ async function CommandCenterContent() {
       take: 200,
       where: { companyId: company.id, deletedAt: null, minStock: { not: null } },
       select: { id: true, name: true, unit: true, minStock: true,
-        stockItems: { where: { location: { deletedAt: null, companyId: company.id } }, select: { qty: true } } }}),
+        stockItems: { where: { AND: [{ location: { deletedAt: null, companyId: company.id } }, await scopeWhere("StockLocationItem")] }, select: { qty: true } } }}),
     prisma.purchaseOrder.findMany({
       where: { companyId: company.id, status: "DRAFT", createdById: { not: userId } },
       orderBy: { createdAt: "desc" }, take: 5,

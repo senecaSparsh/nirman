@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum, getActionPermissions } from "@/lib/server";
+import { scopeWhere,  toNum, getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { FileText } from "lucide-react";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
@@ -40,7 +40,7 @@ export default function MobileRateContractsPage() {
             : [],
           canManage
             ? prisma.material.findMany({
-                where: { deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
+                where: { deletedAt: null, stockItems: { some: { AND: [{ location: { companyId: company.id  } }, await scopeWhere("StockLocationItem")] } } },
                 orderBy: { name: "asc" },
                 select: { id: true, name: true, unit: true },
               })

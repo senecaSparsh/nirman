@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, scopeWhere, getScopedFormOptions, getUserPermissions } from "@/lib/server";
+import {   getCompany, toNum, scopeWhere, getScopedFormOptions, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { ClipboardList } from "lucide-react";
 import { MobileDprForm } from "@/components/mobile/mobile-dpr-form";
@@ -188,7 +188,7 @@ async function MobileDprContent({
       orderBy: { name: "asc" },
     }),
     prisma.material.findMany({
-      where: { companyId: company.id, deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
+      where: { companyId: company.id, deletedAt: null, stockItems: { some: { AND: [{ location: { companyId: company.id  } }, await scopeWhere("StockLocationItem")] } } },
       select: { id: true, name: true, unit: true, standardCost: true },
       orderBy: { name: "asc" },
       take: 100,

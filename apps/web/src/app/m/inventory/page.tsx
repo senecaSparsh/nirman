@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { Suspense } from "react";
-import { getCompanyGroupIds, toNum, scopeWhere } from "@/lib/server";
+import {   getCompanyGroupIds, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
@@ -53,7 +53,7 @@ export default function InventoryHomePage() {
           companyId: company.id,
           deletedAt: null,
           OR: [
-            { stockItems: { some: { location: { companyId: company.id } } } },
+            { stockItems: { some: { AND: [{ location: { companyId: company.id  } }, await scopeWhere("StockLocationItem")] } } },
             { reorderPoint: { not: null } },
           ],
         },

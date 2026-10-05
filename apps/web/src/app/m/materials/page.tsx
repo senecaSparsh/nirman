@@ -32,7 +32,7 @@ export default function MobileMaterialsPage({
         const actions = await getActionPermissions();
 
         const materials = await prisma.material.findMany({
-          where: { deletedAt: null, stockItems: { some: { location: { companyId: company.id }, ...(await scopeWhere("StockLocationItem")) } } },
+          where: { deletedAt: null, stockItems: { some: { AND: [{ location: { companyId: company.id  } }, await scopeWhere("StockLocationItem")] } } },
           select: {
             id: true,
             code: true,
@@ -43,7 +43,7 @@ export default function MobileMaterialsPage({
             minStock: true,
             reorderPoint: true,
             category: { select: { name: true } },
-            stockItems: { where: { location: { companyId: company.id , ...(await scopeWhere("StockLocationItem"))} }, select: { qty: true, movingAvgCost: true } },
+            stockItems: { where: { AND: [{ location: { companyId: company.id   } }, await scopeWhere("StockLocationItem")] }, select: { qty: true, movingAvgCost: true } },
           },
           orderBy: { name: "asc" },
           take: 200,

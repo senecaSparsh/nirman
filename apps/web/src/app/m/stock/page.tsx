@@ -224,7 +224,7 @@ export default function MobileStockPage({
           prisma.material.findMany({
             where: {
               deletedAt: null,
-              stockItems: { some: { location: { companyId: company.id }, ...(await scopeWhere("StockLocationItem")) } }},
+              stockItems: { some: { AND: [{ location: { companyId: company.id  } }, await scopeWhere("StockLocationItem")] } }},
             select: {
               id: true,
               code: true,
@@ -233,7 +233,7 @@ export default function MobileStockPage({
               category: { select: { name: true } },
               reorderPoint: true,
               stockItems: {
-                where: { location: { companyId: company.id }, ...(await scopeWhere("StockLocationItem")) },
+                where: { AND: [{ location: { companyId: company.id  } }, await scopeWhere("StockLocationItem")] },
                 select: { qty: true, movingAvgCost: true, location: { select: { id: true, name: true, type: true } } }}},
             orderBy: { name: "asc" },
             take: 200}),

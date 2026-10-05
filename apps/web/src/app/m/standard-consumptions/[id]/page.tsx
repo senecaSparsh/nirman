@@ -34,7 +34,7 @@ export default function MobileStandardConsumptionDetailPage({
             },
           }),
           prisma.material.findMany({
-            where: { companyId: company.id, deletedAt: null, stockItems: { some: { location: { companyId: company.id }, ...(await scopeWhere("StockLocationItem")) } } },
+            where: { companyId: company.id, deletedAt: null, stockItems: { some: { AND: [{ location: { companyId: company.id  } }, await scopeWhere("StockLocationItem")] } } },
             select: { id: true, name: true, unit: true },
             orderBy: { name: "asc" },
           }),

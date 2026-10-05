@@ -8,7 +8,7 @@ import {
   BookOpen,
   FileText,
   Package} from "lucide-react";
-import { getCompany, toNum, scopeWhere, getActionPermissions, filterOptionsByScope, getUserPermissions } from "@/lib/server";
+import {   getCompany, toNum, scopeWhere, getActionPermissions, filterOptionsByScope, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
@@ -539,7 +539,7 @@ async function ConstructionBoqTab({ projectId }: { projectId?: string }) {
     getBoqTree(projectId),
     __effPerms.includes(PERM.BOQ_MANAGE)
       ? prisma.material.findMany({
-          where: { companyId: company.id, deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
+          where: { companyId: company.id, deletedAt: null, stockItems: { some: { AND: [{ location: { companyId: company.id  } }, await scopeWhere("StockLocationItem")] } } },
           orderBy: { name: "asc" },
           select: { id: true, name: true, unit: true }})
       : [],
