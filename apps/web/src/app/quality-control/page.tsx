@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, scopeWhere, projectScopeFilter, getUserPermissions } from "@/lib/server";
+import { getCompany, scopeWhere, projectScopeFilter, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
@@ -21,7 +21,7 @@ export default function QualityControlPage() {
 
 async function QcContent() {
   await connection();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.QC_VIEW)) {
