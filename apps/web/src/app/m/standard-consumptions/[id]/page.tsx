@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { scopeWhere,  toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import Link from "next/link";
@@ -34,7 +34,7 @@ export default function MobileStandardConsumptionDetailPage({
             },
           }),
           prisma.material.findMany({
-            where: { companyId: company.id, deletedAt: null, stockItems: { some: { location: { companyId: company.id } } } },
+            where: { companyId: company.id, deletedAt: null, stockItems: { some: { location: { companyId: company.id }, ...(await scopeWhere("StockLocationItem")) } } },
             select: { id: true, name: true, unit: true },
             orderBy: { name: "asc" },
           }),

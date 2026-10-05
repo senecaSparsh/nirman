@@ -79,7 +79,7 @@ async function ProcurementContent() {
       include: {
         category: { select: { id: true, name: true, unit: true } },
         stockItems: {
-          where: { location: { deletedAt: null, companyId: company.id } },
+          where: { location: { deletedAt: null, companyId: company.id }, ...(await scopeWhere("StockLocationItem")) },
           select: { qty: true, movingAvgCost: true }}}}),
     prisma.stockLocation.findMany({
       take: 500,

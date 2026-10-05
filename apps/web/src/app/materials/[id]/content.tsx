@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { getCompany, toNum, getUserPermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { NoAccess } from "@/components/no-access";
 import { MaterialCockpit, type MaterialCockpitData } from "@/components/materials/material-cockpit";
@@ -21,7 +21,7 @@ export async function MaterialDetailContent({ params }: { params: Promise<{ id: 
     include: {
       category: { select: { name: true } },
       stockItems: {
-        where: { location: { deletedAt: null, companyId: company.id } },
+        where: { location: { deletedAt: null, companyId: company.id }, ...(await scopeWhere("StockLocationItem")) },
         include: { location: { select: { id: true, name: true, type: true } } },
       },
     },

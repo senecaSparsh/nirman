@@ -28,8 +28,8 @@ export default function MobileStockPage({
           // inter-company transfers cross company boundaries but stay in the group.
           const companyGroupIds = await getCompanyGroupIds(company);
           const [location, locationItems, movements, inTransitIncoming, inTransitOutgoing, categories] = await Promise.all([
-            prisma.stockLocation.findUnique({
-              where: { id: locationId, companyId: company.id, deletedAt: null },
+            prisma.stockLocation.findFirst({
+              where: { id: locationId, companyId: company.id, deletedAt: null, ...await scopeWhere("StockLocation") },
               select: { id: true, name: true, type: true }}),
             prisma.stockLocationItem.findMany({
               where: { ...await scopeWhere("StockLocationItem"), locationId, location: { companyId: company.id }, qty: { not: 0 } },
@@ -39,7 +39,7 @@ export default function MobileStockPage({
             // (line 30) ensures locationId belongs to company.id, so any
             // movement from/to that location is inherently within the company.
             prisma.stockMovement.findMany({
-              where: { ...await scopeWhere("StockMovement"),...await scopeWhere("StockMovement"),
+              where: { ...await scopeWhere("StockMovement"),
                 AND: [{ OR: [{ fromLocationId: locationId }, { toLocationId: locationId }] }]},
               orderBy: { timestamp: "desc" },
               take: 50,
@@ -147,7 +147,7 @@ export default function MobileStockPage({
             orderBy: { name: "asc" }}),
           // ── Ledger: movements ──
           prisma.stockMovement.findMany({
-            where: { ...await scopeWhere("StockMovement"),...await scopeWhere("StockMovement"),
+            where: { ...await scopeWhere("StockMovement"),
               ...(materialId ? { materialId } : {}),
               AND: [{ OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }] }]},
             orderBy: { timestamp: "desc" },
@@ -192,7 +192,7 @@ export default function MobileStockPage({
               lines: { include: { material: { select: { name: true, unit: true } } } }}}),
           // ── Counts tab ──
           prisma.stockCount.findMany({
-            where: { ...await scopeWhere("StockCount"), AND: [await scopeWhere("StockCount"), { location: { companyId: company.id, deletedAt: null } }] },
+            where: { ...await scopeWhere("StockCount"), AND: [{ location: { companyId: company.id, deletedAt: null } }] },
             orderBy: { createdAt: "desc" },
             take: 80,
             include: {
@@ -224,7 +224,7 @@ export default function MobileStockPage({
           prisma.material.findMany({
             where: {
               deletedAt: null,
-              stockItems: { some: { location: { companyId: company.id } } }},
+              stockItems: { some: { location: { companyId: company.id }, ...(await scopeWhere("StockLocationItem")) } }},
             select: {
               id: true,
               code: true,
@@ -233,7 +233,7 @@ export default function MobileStockPage({
               category: { select: { name: true } },
               reorderPoint: true,
               stockItems: {
-                where: { location: { companyId: company.id } },
+                where: { location: { companyId: company.id }, ...(await scopeWhere("StockLocationItem")) },
                 select: { qty: true, movingAvgCost: true, location: { select: { id: true, name: true, type: true } } }}},
             orderBy: { name: "asc" },
             take: 200}),

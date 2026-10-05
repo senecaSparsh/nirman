@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { getCompany, toNum, getUserPermissions, scopeWhere } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
 import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
@@ -40,7 +40,7 @@ export async function MaterialsContent() {
       include: {
         category: { select: { id: true, name: true, unit: true } },
         stockItems: {
-          where: { location: { deletedAt: null, companyId: company.id } },
+          where: { location: { deletedAt: null, companyId: company.id }, ...(await scopeWhere("StockLocationItem")) },
           select: { qty: true, movingAvgCost: true },
         },
       },
@@ -51,7 +51,7 @@ export async function MaterialsContent() {
       include: {
         category: { select: { name: true } },
         stockItems: {
-          where: { location: { deletedAt: null, companyId: company.id } },
+          where: { location: { deletedAt: null, companyId: company.id }, ...(await scopeWhere("StockLocationItem")) },
           select: { qty: true },
         },
       },

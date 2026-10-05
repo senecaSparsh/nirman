@@ -127,7 +127,7 @@ async function fetchDprFormData(companyId: string) {
       select: { id: true, name: true },
       orderBy: { name: "asc" }}),
     prisma.material.findMany({
-      where: { companyId, deletedAt: null, stockItems: { some: { location: { companyId } } } },
+      where: { companyId, deletedAt: null, stockItems: { some: { location: { companyId }, ...(await scopeWhere("StockLocationItem")) } } },
       select: { id: true, name: true, unit: true, standardCost: true },
       orderBy: { name: "asc" },
       take: 100}),
