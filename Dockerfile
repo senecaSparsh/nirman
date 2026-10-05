@@ -41,6 +41,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json ./apps/web/
 COPY packages/db/package.json ./packages/db/
+COPY packages/rbac/package.json ./packages/rbac/
 COPY packages/services/package.json ./packages/services/
 
 # Install ALL deps (including devDeps — needed for build)
