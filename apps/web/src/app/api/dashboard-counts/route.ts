@@ -84,7 +84,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     // removes the old take:1000 silent truncation.
     prisma.stockLocationItem.groupBy({
       by: ["materialId"],
-      where: { location: { deletedAt: null, companyId: company.id } },
+      where: { AND: [{ location: { deletedAt: null, companyId: company.id } }, await scopeWhere("StockLocationItem")] },
       _sum: { qty: true },
     }),
     // Excludes items the user created — the Today queue only shows what
@@ -98,7 +98,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       where: { companyId: company.id, status: "ACTIVE", ...assetSaleScope },
       select: { id: true, paymentStatus: true },
     }),
-    prisma.stockCount.count({ where: { location: { companyId: company.id }, status: { in: ["DRAFT", "COUNTED"] } } }),
+    prisma.stockCount.count({ where: { AND: [{ location: { companyId: company.id } }, await scopeWhere("StockCount")], status: { in: ["DRAFT", "COUNTED"] } } }),
     prisma.builtUnit.count({ where: { project: { companyId: company.id }, deletedAt: null, status: "AVAILABLE", ...builtUnitScope } }),
     prisma.materialRequisition.count({ where: { project: { companyId: company.id }, status: "APPROVED", ...reqScope } }),
     prisma.purchaseOrder.count({ where: { companyId: company.id, status: "APPROVED", ...poScope } }),

@@ -1685,7 +1685,7 @@ async function monthlySummaryResponse(companyId: string): Promise<AssistantRespo
       where: { companyId, createdAt: { gte: monthStart } },
       _sum: { total: true }}),
     prisma.materialRequisition.count({
-      where: { project: { companyId }, createdAt: { gte: monthStart } }}),
+      where: { AND: [{ project: { companyId } }, await scopeWhere("MaterialRequisition")], createdAt: { gte: monthStart } }}),
     prisma.workerAttendance.count({
       where: { companyId, date: { gte: monthStart }, ...attendanceScope }}),
   ]);
@@ -1959,9 +1959,9 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
   if (hasPermission(role, PERM.ASSETS_VIEW)) {
     const [availableUnits, reservedUnits, depositSales] = await Promise.all([
       prisma.builtUnit.count({
-        where: { project: { companyId, deletedAt: null }, status: "AVAILABLE", deletedAt: null }}),
+        where: { AND: [{ project: { companyId, deletedAt: null } }, await scopeWhere("BuiltUnit")], status: "AVAILABLE", deletedAt: null }}),
       prisma.builtUnit.count({
-        where: { project: { companyId, deletedAt: null }, status: "RESERVED", deletedAt: null }}),
+        where: { AND: [{ project: { companyId, deletedAt: null } }, await scopeWhere("BuiltUnit")], status: "RESERVED", deletedAt: null }}),
       prisma.assetSale.count({
         where: { companyId, saleStage: "DEPOSIT_RECEIVED" }}),
     ]);
@@ -1999,7 +1999,7 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
 
 async function landQueryResponse(companyId: string): Promise<AssistantResponse> {
   const parcels = await prisma.landParcel.findMany({
-    where: { landPurchase: { companyId }, deletedAt: null },
+    where: { AND: [{ landPurchase: { companyId } }, await scopeWhere("LandParcel")], deletedAt: null },
     include: { landPurchase: true },
     orderBy: { createdAt: "desc" },
     take: 10});
@@ -2083,7 +2083,7 @@ async function workOrderResponse(companyId: string): Promise<AssistantResponse> 
 
 async function boqResponse(companyId: string): Promise<AssistantResponse> {
   const items = await prisma.boqItem.findMany({
-    where: { project: { companyId, deletedAt: null }, type: "LINE_ITEM" },
+    where: { AND: [{ project: { companyId, deletedAt: null } }, await scopeWhere("BoqItem")], type: "LINE_ITEM" },
     orderBy: { createdAt: "desc" },
     take: 10,
     include: { project: { select: { name: true } } }});
@@ -2105,7 +2105,7 @@ async function boqResponse(companyId: string): Promise<AssistantResponse> {
 
 async function wbsResponse(companyId: string): Promise<AssistantResponse> {
   const nodes = await prisma.wbsNode.findMany({
-    where: { project: { companyId, deletedAt: null } },
+    where: { AND: [{ project: { companyId, deletedAt: null } }, await scopeWhere("WbsNode")] },
     orderBy: { createdAt: "asc" },
     take: 15,
     include: { project: { select: { name: true } } }});
@@ -2559,13 +2559,13 @@ async function profitMarginResponse(companyId: string): Promise<AssistantRespons
 async function availableInventoryResponse(companyId: string): Promise<AssistantResponse> {
   const [availableUnits, availableLand, reservedUnits] = await Promise.all([
     prisma.builtUnit.findMany({
-      where: { project: { companyId, deletedAt: null }, status: "AVAILABLE", deletedAt: null },
+      where: { AND: [{ project: { companyId, deletedAt: null } }, await scopeWhere("BuiltUnit")], status: "AVAILABLE", deletedAt: null },
       select: { unitType: true, area: true, askingPrice: true }}),
     prisma.landParcel.findMany({
-      where: { landPurchase: { companyId }, status: "AVAILABLE", deletedAt: null, isInfrastructure: false },
+      where: { AND: [{ landPurchase: { companyId } }, await scopeWhere("LandParcel")], status: "AVAILABLE", deletedAt: null, isInfrastructure: false },
       select: { area: true, askingPrice: true, currentValuation: true }}),
     prisma.builtUnit.count({
-      where: { project: { companyId, deletedAt: null }, status: "RESERVED", deletedAt: null }}),
+      where: { AND: [{ project: { companyId, deletedAt: null } }, await scopeWhere("BuiltUnit")], status: "RESERVED", deletedAt: null }}),
   ]);
 
   if (availableUnits.length === 0 && availableLand.length === 0) {

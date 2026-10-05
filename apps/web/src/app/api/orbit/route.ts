@@ -225,15 +225,15 @@ async function getCompanyNode(id: string, currentCompanyId: string): Promise<Orb
       _sum: { totalProjectCost: true },
     }).catch(() => ({ _sum: { totalProjectCost: null } })),
     prisma.stockLocationItem.aggregate({
-      where: { location: { companyId: c.id } },
+      where: { AND: [{ location: { companyId: c.id } }, await scopeWhere("StockLocationItem")] },
       _sum: { qty: true },
     }).catch(() => ({ _sum: { qty: null } })),
     prisma.landParcel.aggregate({
-      where: { landPurchase: { companyId: c.id }, deletedAt: null },
+      where: { AND: [{ landPurchase: { companyId: c.id, deletedAt: null } }, await scopeWhere("LandParcel")] },
       _sum: { currentValuation: true },
     }).catch(() => ({ _sum: { currentValuation: null } })),
     prisma.builtUnit.aggregate({
-      where: { project: { companyId: c.id }, deletedAt: null },
+      where: { AND: [{ project: { companyId: c.id }, deletedAt: null }, await scopeWhere("BuiltUnit")] },
       _sum: { currentValuation: true },
     }).catch(() => ({ _sum: { currentValuation: null } })),
     c.parentCompanyId

@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, projectScopeFilter, getUserPermissions } from "@/lib/server";
+import { getCompany, projectScopeFilter, getUserPermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { ProjectAssignmentsView } from "@/components/settings/project-assignments-view";
 import { NoAccess } from "@/components/no-access";
@@ -22,7 +22,7 @@ export async function ProjectAssignmentsContent() {
   const [assignments, users, projects] = await Promise.all([
     prisma.projectAssignment.findMany({
       take: 500,
-      where: { project: { companyId: company.id } },
+      where: { project: { companyId: company.id }, ...await scopeWhere("ProjectAssignment") },
       include: {
         user: { select: { id: true, name: true, email: true, role: true } },
         project: { select: { id: true, name: true } }},
