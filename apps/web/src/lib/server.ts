@@ -2332,7 +2332,11 @@ export async function getEmployeeAccessScope() {
 export async function getActionPermissions() {
   const role = await getUserRole();
   const scope = await getUserScope();
-  const perms = await getUserPermissions();
+  // Effective = global ∪ scoped-role perms — a Site One PM hat grants
+  // create-FABs inside its own scope. Org-scoped flags (canCreateProject,
+  // canCreateCompany, canCreateStockLocation) still check scopeType
+  // === "COMPANY" so they stay closed for scoped users.
+  const perms = await getEffectivePermissions();
   const hasPerm = (p: string) => perms.includes(p);
 
   // ── Create permissions (FABs) ──
