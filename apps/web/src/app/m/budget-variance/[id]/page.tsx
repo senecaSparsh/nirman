@@ -30,7 +30,7 @@ export default function MobileBudgetVarianceDetailPage({
       what="budget variance analysis"
       permission={PERM.PROJECT_CONTROL_VIEW}
       skeletonSections={4}
-    >
+     scopeAware>
       {async ({ id, company }) => {
         const project = await prisma.project.findFirst({
           where: { companyId: company.id, deletedAt: null, AND: [{ id }, await scopeWhere("Project")] },

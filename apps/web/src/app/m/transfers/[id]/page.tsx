@@ -22,7 +22,7 @@ export default function MobileTransferDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} perm={PERM.INVENTORY_VIEW} what="transfer" managePerm={PERM.STOCK_TRANSFER} skeletonSections={6}>
+    <MobileDetailPage params={params} perm={PERM.INVENTORY_VIEW} what="transfer" managePerm={PERM.STOCK_TRANSFER} skeletonSections={6} scopeAware>
       {async ({ id, company, role, canManage }) => {
         const overrides = await getUserPermissions();
 

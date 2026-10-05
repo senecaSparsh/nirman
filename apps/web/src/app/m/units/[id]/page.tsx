@@ -37,7 +37,7 @@ export default function MobileUnitDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} managePerm={PERM.ASSETS_MANAGE} skeletonSections={6}>
+    <MobileDetailPage params={params} managePerm={PERM.ASSETS_MANAGE} skeletonSections={6} scopeAware>
       {async ({ id, company, role, canManage, perms }) => {
         const overrides = await getUserPermissions();
 

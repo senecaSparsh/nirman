@@ -26,7 +26,7 @@ export default function MobileScrapDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} managePerm={PERM.INVENTORY_MANAGE} skeletonSections={6}>
+    <MobileDetailPage params={params} managePerm={PERM.INVENTORY_MANAGE} skeletonSections={6} scopeAware>
       {async ({ id, company, canManage }) => {
         const scrap = await prisma.scrapGeneration.findFirst({
           where: { id, companyId: company.id, ...await scopeWhere("ScrapGeneration") },

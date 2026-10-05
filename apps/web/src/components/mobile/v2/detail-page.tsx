@@ -1,6 +1,6 @@
 import { Suspense, type ReactNode } from "react";
 import { connection } from "next/server";
-import { getActingRole, getOwnRole, getCompany, getUserRole, getUserPermissions } from "@/lib/server";
+import { getActingRole, getOwnRole, getCompany, getUserRole, getUserPermissions, getScopedRolePermissions } from "@/lib/server";
 import { hasPermission, type Permission } from "@/lib/roles";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
@@ -82,6 +82,7 @@ export async function MobileDetailPage({
   what,
   permission,
   skeletonSections,
+  scopeAware,
   children,
 }: {
   params: Promise<{ id: string }>;
@@ -96,6 +97,9 @@ export async function MobileDetailPage({
   permission?: string;
   /** Number of skeleton sections in the Suspense fallback. */
   skeletonSections?: number;
+  /** When true, scoped-role perms (e.g. a Site One PM hat) satisfy the page
+   *  gate + action buttons. Only set on pages whose lookups are scope-filtered. */
+  scopeAware?: boolean;
   children: (ctx: MobileDetailPageCtx) => Promise<ReactNode> | ReactNode;
 }) {
   const content = async () => {
@@ -105,7 +109,11 @@ export async function MobileDetailPage({
     const role = await getUserRole();
     const actingRole = await getActingRole();
     const ownRole = await getOwnRole();
-    const overrides = await getUserPermissions();
+    // Union scoped-role perms when the page opts in — its lookup must be
+    // scope-filtered (findFirst + scopeWhere) for the gate to be honest.
+    const overrides = scopeAware
+      ? [...(await getUserPermissions()), ...(await getScopedRolePermissions())]
+      : await getUserPermissions();
 
     if (perm) {
       const allowed = Array.isArray(perm)

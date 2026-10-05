@@ -29,7 +29,7 @@ export default function MobileBoqDetailPage({
       permission={PERM.BOQ_VIEW}
       managePerm={PERM.BOQ_MANAGE}
       skeletonSections={5}
-    >
+     scopeAware>
       {async ({ id, company, canManage }) => {
         const item = await prisma.boqItem.findFirst({
     where: {...await scopeWhere("BoqItem"),  id, project: { companyId: company.id } },

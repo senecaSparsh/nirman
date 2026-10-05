@@ -24,7 +24,7 @@ export default function MobileStandardConsumptionDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} perm={PERM.INVENTORY_VIEW} what="standard consumption details" permission={PERM.INVENTORY_VIEW} managePerm={PERM.INVENTORY_MANAGE} skeletonSections={3}>
+    <MobileDetailPage params={params} perm={PERM.INVENTORY_VIEW} what="standard consumption details" permission={PERM.INVENTORY_VIEW} managePerm={PERM.INVENTORY_MANAGE} skeletonSections={3} scopeAware>
       {async ({ id, company, role: _role, canManage }) => {
         const [sc, materials] = await Promise.all([
           prisma.standardConsumption.findFirst({

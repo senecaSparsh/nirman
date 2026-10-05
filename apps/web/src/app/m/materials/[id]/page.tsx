@@ -41,7 +41,7 @@ export default function MobileMaterialDetailPage({
       what="material details"
       permission={PERM.INVENTORY_VIEW}
       skeletonSections={6}
-    >
+     scopeAware>
       {async ({ id, company, canManage, perms }) => {
         const [material, stockItems, movements, locationRows] = await Promise.all([
           prisma.material.findFirst({

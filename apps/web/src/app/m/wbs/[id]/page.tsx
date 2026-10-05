@@ -32,7 +32,7 @@ export default function MobileWbsDetailPage({
       managePerm={PERM.WBS_MANAGE}
       what="WBS node details"
       skeletonSections={5}
-    >
+     scopeAware>
       {async ({ id, company, canManage }) => {
         const node = await prisma.wbsNode.findFirst({
           where: {...await scopeWhere("WbsNode"),  id, project: { companyId: company.id } },

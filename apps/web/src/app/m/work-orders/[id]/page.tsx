@@ -28,7 +28,7 @@ export default function MobileWorkOrderDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} perm={[PERM.WO_MANAGE, PERM.RA_SUBMIT, PERM.RA_APPROVE, PERM.RA_PAY]} what="work order details" permission={PERM.WO_MANAGE} managePerm={PERM.WO_MANAGE} skeletonSections={5}>
+    <MobileDetailPage params={params} perm={[PERM.WO_MANAGE, PERM.RA_SUBMIT, PERM.RA_APPROVE, PERM.RA_PAY]} what="work order details" permission={PERM.WO_MANAGE} managePerm={PERM.WO_MANAGE} skeletonSections={5} scopeAware>
       {async ({ id, company, canManage, actingRole, perms }) => {
         const wo = await prisma.subcontractorWorkOrder.findFirst({
           where: {...await scopeWhere("SubcontractorWorkOrder"),  id, companyId: company.id },

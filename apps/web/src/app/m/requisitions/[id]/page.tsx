@@ -29,7 +29,7 @@ export default function MobileRequisitionDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} managePerm={PERM.PROCUREMENT_MANAGE} skeletonSections={6}>
+    <MobileDetailPage params={params} managePerm={PERM.PROCUREMENT_MANAGE} skeletonSections={6} scopeAware>
       {async ({ id, company, role, canManage, actingRole, perms }) => {
         const overrides = await getUserPermissions();
         const actions = await getActionPermissions();

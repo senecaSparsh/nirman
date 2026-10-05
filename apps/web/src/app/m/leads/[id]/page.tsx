@@ -18,7 +18,7 @@ export default function MobileLeadDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params}>
+    <MobileDetailPage params={params} scopeAware>
       {async ({ id, company, perms }) => {
         const canCreate = perms.includes(PERM.SALE_CREATE);
         const canManage = perms.includes(PERM.SALES_MANAGE);

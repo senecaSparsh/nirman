@@ -42,7 +42,7 @@ export default function MobilePoDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} perm={PERM.PROCUREMENT_VIEW} managePerm={PERM.PROCUREMENT_MANAGE} skeletonSections={6}>
+    <MobileDetailPage params={params} perm={PERM.PROCUREMENT_VIEW} managePerm={PERM.PROCUREMENT_MANAGE} skeletonSections={6} scopeAware>
       {async ({ id, company, role, canManage, actingRole, perms }) => {
         const groupCompanyIds = await getCompanyGroupIds(company);
         const overrides = await getUserPermissions();

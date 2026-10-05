@@ -11,7 +11,7 @@ export default function MobileSaleDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} skeletonSections={6}>
+    <MobileDetailPage params={params} skeletonSections={6} scopeAware>
       {async ({ id, company, perms }) => {
         const sale = await prisma.assetSale.findFirst({
           where: {...await scopeWhere("AssetSale"),  id, companyId: company.id },

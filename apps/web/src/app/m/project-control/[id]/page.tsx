@@ -31,7 +31,7 @@ export default function MobileProjectControlDetailPage({
       what="project control metrics"
       permission={PERM.PROJECT_CONTROL_VIEW}
       skeletonSections={5}
-    >
+     scopeAware>
       {async ({ id, company }) => {
         const project = await prisma.project.findFirst({
           where: { companyId: company.id, deletedAt: null, AND: [{ id }, await scopeWhere("Project")] },

@@ -13,7 +13,7 @@ export default function MobileMaterialIssueDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} skeletonSections={4}>
+    <MobileDetailPage params={params} skeletonSections={4} scopeAware>
       {async ({ id, company, role, perms }) => {
         const overrides = await getUserPermissions();
         const canIssue = perms.includes(PERM.STOCK_ISSUE);

@@ -12,7 +12,7 @@ export default function MobileMaterialSaleDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} skeletonSections={6}>
+    <MobileDetailPage params={params} skeletonSections={6} scopeAware>
       {async ({ id, company, role, perms }) => {
         const overrides = await getUserPermissions();
 

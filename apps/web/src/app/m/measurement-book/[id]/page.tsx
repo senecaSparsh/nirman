@@ -30,7 +30,7 @@ export default function MobileMbDetailPage({
       what="measurement book entry details"
       permission={PERM.MB_VIEW}
       skeletonSections={5}
-    >
+     scopeAware>
       {async ({ id, company, actingRole, perms }) => {
         const entry = await prisma.measurementBookEntry.findFirst({
           where: {...await scopeWhere("MeasurementBookEntry"),  id, project: { companyId: company.id } },

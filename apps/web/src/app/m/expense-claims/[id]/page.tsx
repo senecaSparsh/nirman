@@ -18,7 +18,7 @@ export default function MobileExpenseClaimDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} skeletonSections={4}>
+    <MobileDetailPage params={params} skeletonSections={4} scopeAware>
       {async ({ id, company, actingRole, perms }) => {
         const claim = await prisma.expenseClaim.findFirst({
           where: {...await scopeWhere("ExpenseClaim"),  id, companyId: company.id },
