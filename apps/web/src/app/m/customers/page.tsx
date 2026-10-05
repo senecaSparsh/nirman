@@ -16,7 +16,7 @@ import { MobileCustomersLeadsTabs } from "./MobileCustomersLeadsTabs";
  */
 export default function MobileCustomersPage() {
   return (
-    <MobileListPage perm={PERM.SALES_VIEW} managePerm={PERM.SALES_MANAGE} skeletonRows={8} what="customers" permission="sales.view">
+    <MobileListPage perm={PERM.SALES_VIEW} managePerm={PERM.SALES_MANAGE} skeletonRows={8} what="customers" permission="sales.view" scopeAware>
       {async ({ company, canManage }) => {
         const actions = await getActionPermissions();
         const canCreate = actions?.canCreateCustomer ?? canManage;
@@ -28,7 +28,7 @@ export default function MobileCustomersPage() {
             orderBy: [{ createdAt: "desc" }, { id: "desc" }],
             include: {
               assetSales: {
-                where: { companyId: company.id, status: "ACTIVE" },
+                where: { AND: [{ companyId: company.id, status: "ACTIVE" }, await scopeWhere("AssetSale")] },
                 select: {
                   salePrice: true,
                   gstAmount: true,
@@ -37,7 +37,7 @@ export default function MobileCustomersPage() {
                 },
               },
               materialSales: {
-                where: { companyId: company.id, status: "ACTIVE" },
+                where: { AND: [{ companyId: company.id, status: "ACTIVE" }, await scopeWhere("MaterialSale")] },
                 select: {
                   totalAmount: true,
                   paymentStatus: true,

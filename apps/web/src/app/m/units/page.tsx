@@ -33,7 +33,7 @@ export default function MobileUnitsPage({
   }>;
 }) {
   return (
-    <MobileListPage managePerm={PERM.ASSETS_MANAGE} skeletonRows={8}>
+    <MobileListPage managePerm={PERM.ASSETS_MANAGE} skeletonRows={8} scopeAware>
       {async ({ company, canManage }) => {
         const actions = await getActionPermissions();
         const canCreate = actions?.canCreateBuiltUnit ?? canManage;

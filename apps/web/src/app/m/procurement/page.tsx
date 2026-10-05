@@ -15,7 +15,7 @@ import { MobileProcurementHubTabs } from "./MobileProcurementHubTabs";
 
 export default function MobileProcurementPage() {
   return (
-    <MobileHubPage skeleton={<MobileSkeletonList rows={8} />} perm={PERM.PROCUREMENT_VIEW} what="procurement" permission="procurement.view">
+    <MobileHubPage skeleton={<MobileSkeletonList rows={8} />} perm={PERM.PROCUREMENT_VIEW} what="procurement" permission="procurement.view" scopeAware>
       {async ({ company, actingRole, perms }) => {
         const groupCompanyIds = await getCompanyGroupIds(company);
         const canCreate = perms.includes(PERM.PROCUREMENT_MANAGE);

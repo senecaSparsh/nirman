@@ -15,7 +15,7 @@ export default function MobileSupplierPaymentsPage({
   searchParams: Promise<{ supplierId?: string }>;
 }) {
   return (
-    <MobileListPage perm={PERM.FINANCE_VIEW} managePerm={PERM.FINANCE_MANAGE}>
+    <MobileListPage perm={PERM.FINANCE_VIEW} managePerm={PERM.FINANCE_MANAGE} scopeAware>
       {async ({ company, canManage, perms }) => {
         const canViewProcurement = perms.includes(PERM.PROCUREMENT_VIEW);
         const { supplierId: filterSupplierId } = await searchParams;

@@ -18,7 +18,7 @@ import { MobileChangeOrdersFab } from "./MobileChangeOrdersFab";
  */
 export default function MobileChangeOrdersPage() {
   return (
-    <MobileListPage managePerm={PERM.WO_MANAGE}>
+    <MobileListPage managePerm={PERM.WO_MANAGE} scopeAware>
       {async ({ company, canManage }) => {
         const actions = await getActionPermissions();
         const [changeOrders, projects] = await Promise.all([
