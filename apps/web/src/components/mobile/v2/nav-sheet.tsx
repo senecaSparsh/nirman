@@ -92,13 +92,15 @@ interface NavSheetProps {
   persona: Persona;
   /** Effective permissions from /api/me — used to gate which routes appear. */
   permissions: string[];
+  /** Perms from project-scoped role hats — consulted only for scopeAware routes. */
+  scopedPermissions?: string[];
   /** Current user's display name — shown in the profile section at the bottom. */
   userName?: string;
   /** Current company name — shown under the user's name in the profile section. */
   companyName?: string;
 }
 
-export function NavSheet({ open, onClose, moduleId, persona, permissions, userName, companyName }: NavSheetProps) {
+export function NavSheet({ open, onClose, moduleId, persona, permissions, scopedPermissions, userName, companyName }: NavSheetProps) {
   const pathname = usePathname();
   const [mounted, setMounted] = React.useState(open);
   const [exiting, setExiting] = React.useState(false);
@@ -221,7 +223,7 @@ export function NavSheet({ open, onClose, moduleId, persona, permissions, userNa
   // Uses both persona (for ranking/ordering) AND permissions (for access gating).
   // Only routes the user can actually open appear in the nav sheet. This prevents
   // users from seeing pages they'd just get a 403 on when tapping.
-  const navCtx: NavContext = { permissions, persona };
+  const navCtx: NavContext = { permissions, scopedPermissions, persona };
   const allModules = menuGroupsFor(navCtx);
   const currentExpanded = allModules[expandedModule] ? expandedModule : moduleId;
 

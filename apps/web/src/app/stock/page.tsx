@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getCompanyGroupIds, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { getCompany, getCompanyGroupIds, toNum, scopeWhere, getEffectivePermissions } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
 import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
@@ -46,7 +46,7 @@ export default function StockPage() {
 
 async function StockContent() {
   await connection();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.INVENTORY_VIEW)) {

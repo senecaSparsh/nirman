@@ -152,6 +152,12 @@ export interface RouteEntry {
    * legitimate read-only users).
    */
   perm?: string;
+  /** True when this page's data is fully scope-filtered — a project-scoped
+   *  user's scoped-role perms may satisfy `perm`. Org-level surfaces (GL,
+   *  payroll, telephony, the executive pulse) leave this off — a scoped
+   *  FINANCE_VIEW hat must not open them. Mirrors the `scopeAware` flag on
+   *  MobileListPage/MobileHubPage. */
+  scopeAware?: boolean;
   /** One plain-language line. Powers menu subtitles, search and tooltips.
    *  Same contract as `hint` in lib/nav.ts — written once, reused everywhere. */
   hint?: string;
@@ -184,7 +190,7 @@ export const ROUTES: RouteEntry[] = [
   { path: "/m/accounts", title: "Accounts", parent: "/m/home", kind: "hub", module: "accounts", perm: "finance.view", icon: BookOpen, hint: "Expenses, claims, petty cash, supplier payments, receipts, GL, recurring + budgets (Planned tab)", desktopPath: "/finance", keywords: ["recurring", "rent", "retainer", "budget", "planned", "monthly expense", "utility"], sharesListWith: ["/m/books/gl", "/m/books/receipts", "/m/expense-claims", "/m/expenses", "/m/petty-cash", "/m/supplier-payments"] },
   { path: "/m/alerts", title: "Alerts", parent: "/m/home", kind: "redirect", module: "home", perm: "assets.view", icon: AlertTriangle, redirectTo: "/m/alerts/lease-expiry" },
   { path: "/m/alerts/lease-expiry", title: "Lease Expiry", parent: "/m/home", kind: "list", module: "home", perm: "assets.view", icon: CalendarOff, hint: "Leasehold land with a lease ending within 90 days, or already expired", desktopPath: "/land" },
-  { path: "/m/attendance", title: "Attendance", parent: "/m/hr", kind: "list", module: "hr", perm: "hr.view", icon: CalendarCheck, hint: "Daily headcount — GPS-tagged check-ins by site", desktopPath: "/hr/attendance" },
+  { path: "/m/attendance", title: "Attendance", parent: "/m/hr", kind: "list", module: "hr", perm: "hr.view", icon: CalendarCheck, hint: "Daily headcount — GPS-tagged check-ins by site", desktopPath: "/hr/attendance",  scopeAware: true,},
   { path: "/m/books", title: "Books", parent: "/m/accounts", kind: "redirect", module: "accounts", icon: BookOpen, redirectTo: "/m/accounts" },
   { path: "/m/books/finance", title: "Supplier Invoices", parent: "/m/accounts", kind: "list", module: "accounts", perm: "finance.view", icon: Receipt, hint: "Bills, GRN-based invoicing", personas: ["executive", "finance"], desktopPath: "/finance?tab=invoices" },
   { path: "/m/books/gl", title: "General Ledger", shortTitle: "GL", parent: "/m/accounts", kind: "list", module: "accounts", perm: "finance.view", icon: BookOpen, hint: "Chart of accounts, trial balance", personas: ["executive", "finance"], sharesListWith: ["/m/accounts"], desktopPath: "/gl" },
@@ -200,17 +206,17 @@ export const ROUTES: RouteEntry[] = [
   { path: "/m/budget-variance/[id]", title: "Budget Variance", parent: "/m/budget-variance", kind: "detail", module: "inventory", perm: "project_control.view", icon: Gauge },
   { path: "/m/calls", title: "Call Log", parent: "/m/home", kind: "list", module: "home", perm: "call.view", icon: PhoneIncoming, hint: "Call history, recordings, tags", desktopPath: "/calls", personas: ["executive"], keywords: ["call", "phone", "recording", "telephony", "voicemail", "missed call", "call log", "communication"] },
   { path: "/m/calls/[id]", title: "Call Log Detail", parent: "/m/calls", kind: "detail", module: "home", perm: "call.view", icon: PhoneIncoming },
-  { path: "/m/change-orders", title: "Change Orders", parent: "/m/inventory", kind: "list", module: "inventory", perm: "projects.view", icon: GitBranch, hint: "Formal modifications to project scope, BOQ, budget, and schedule with approval workflow", desktopPath: "/change-orders", keywords: ["change order", "scope change", "variation", "modification", "addition", "deletion", "budget change", "schedule change"], sharesListWith: ["/m/construction"] },
+  { path: "/m/change-orders", title: "Change Orders", parent: "/m/inventory", kind: "list", module: "inventory", perm: "projects.view", icon: GitBranch, hint: "Formal modifications to project scope, BOQ, budget, and schedule with approval workflow", desktopPath: "/change-orders", keywords: ["change order", "scope change", "variation", "modification", "addition", "deletion", "budget change", "schedule change"], sharesListWith: ["/m/construction"],  scopeAware: true,},
   { path: "/m/change-orders/[id]", title: "Change Order", parent: "/m/change-orders", kind: "detail", module: "inventory", perm: "projects.view", icon: GitBranch },
-  { path: "/m/construction", title: "Construction", parent: "/m/inventory", kind: "hub", module: "inventory", perm: "projects.view", icon: Hammer, hint: "Subcontractor scope & RA bills", personas: ["executive", "ops", "field"], sharesListWith: ["/m/change-orders", "/m/quality-control", "/m/work-orders"], desktopPath: "/projects" },
-  { path: "/m/crm", title: "CRM", parent: "/m/home", kind: "hub", module: "home", perm: "sales.view", icon: Contact, hint: "Leads, calls, customers in one place", personas: ["executive", "ops", "sales"] },
+  { path: "/m/construction", title: "Construction", parent: "/m/inventory", kind: "hub", module: "inventory", perm: "projects.view", icon: Hammer, hint: "Subcontractor scope & RA bills", personas: ["executive", "ops", "field"], sharesListWith: ["/m/change-orders", "/m/quality-control", "/m/work-orders"], desktopPath: "/projects",  scopeAware: true,},
+  { path: "/m/crm", title: "CRM", parent: "/m/home", kind: "hub", module: "home", perm: "sales.view", icon: Contact, hint: "Leads, calls, customers in one place", personas: ["executive", "ops", "sales"],  scopeAware: true,},
   { path: "/m/customers", title: "Customers", parent: "/m/home", kind: "list", module: "home", perm: "sales.view", icon: Contact, hint: "Buyers and tenants — contacts, bookings, and payments", desktopPath: "/customers", sharesListWith: ["/m/leads"] },
   { path: "/m/customers/[id]", title: "Customer Detail", parent: "/m/customers", kind: "detail", module: "home", perm: "sales.view", icon: Contact },
   { path: "/m/customers/new", title: "New Customer", parent: "/m/customers", kind: "create", module: "home", perm: "sales.manage", icon: Contact },
   { path: "/m/departments", title: "Departments", parent: "/m/inventory", kind: "list", module: "inventory", perm: "inventory.view", icon: Building2, hint: "Operational cost centers — workshop, lab, manufacturing", desktopPath: "/departments", personas: ["executive", "ops", "procurement", "field"], keywords: ["department", "cost center", "cost centre", "boiler", "workshop", "lab", "manufacturing", "processing"] },
   { path: "/m/dev", title: "Dev Tools", parent: "/m/settings", kind: "tool", module: "settings", perm: "audit.view", icon: Bug, redirectTo: "/m/dev/errors", desktopPath: "/dev/errors", hidden: true },
   { path: "/m/dev/errors", title: "Error Console", parent: "/m/settings", kind: "tool", module: "settings", perm: "audit.view", icon: Bug, hint: "Every client + server error, deduplicated — resolve and get alerted on regression", desktopPath: "/dev/errors", hidden: true, keywords: ["error", "bug", "crash", "exception", "console", "developer", "triage", "stack trace"] },
-  { path: "/m/dprs", title: "Daily Progress Reports", shortTitle: "DPRs", parent: "/m/site", kind: "list", module: "home", perm: "dpr.view", icon: ClipboardList, hint: "Daily progress reports — submit, review, and approve", desktopPath: "/hr/dprs" },
+  { path: "/m/dprs", title: "Daily Progress Reports", shortTitle: "DPRs", parent: "/m/site", kind: "list", module: "home", perm: "dpr.view", icon: ClipboardList, hint: "Daily progress reports — submit, review, and approve", desktopPath: "/hr/dprs",  scopeAware: true,},
   { path: "/m/dprs/[id]", title: "Daily Progress Report Detail", parent: "/m/dprs", kind: "detail", module: "home", perm: "dpr.view", icon: ClipboardList, flowId: "dpr", desktopPath: "/hr/dprs" },
   { path: "/m/equipment", title: "Equipment", parent: "/m/inventory", kind: "list", module: "inventory", perm: "assets.view", icon: Wrench, hint: "Tools, assignments", desktopPath: "/equipment", personas: ["executive", "ops", "procurement", "field"], keywords: ["machine", "tool", "asset", "plant", "maintenance", "equipment"] },
   { path: "/m/equipment/[id]", title: "Equipment Detail", parent: "/m/equipment", kind: "detail", module: "inventory", perm: "assets.view", icon: Wrench },
@@ -219,12 +225,12 @@ export const ROUTES: RouteEntry[] = [
   { path: "/m/expense-claims", title: "Expense Claims", parent: "/m/accounts", kind: "list", module: "accounts", perm: "finance.view", icon: FileText, hint: "Employee reimbursement claims — submit, approve, and pay out", desktopPath: "/finance?tab=claims", keywords: ["claim", "reimbursement", "employee expense", "travel", "site expense"], sharesListWith: ["/m/accounts"] },
   { path: "/m/expense-claims/new", title: "New Expense Claim", parent: "/m/expense-claims", kind: "create", module: "accounts", perm: "expense.create", icon: FileText },
   { path: "/m/expense-claims/[id]", title: "Expense Claim", parent: "/m/expense-claims", kind: "detail", module: "accounts", perm: "finance.view", icon: FileText },
-  { path: "/m/expenses", title: "Operating Expenses", shortTitle: "Expenses", parent: "/m/accounts", kind: "list", module: "accounts", perm: "finance.view", icon: Wallet, hint: "Book and approve operating expenses — categories, payment mode, GST, receipts, and approval workflow", desktopPath: "/finance?tab=expenses", keywords: ["expense", "spend", "opex", "voucher", "bill", "reimbursement", "petty cash", "approval"], sharesListWith: ["/m/accounts"] },
+  { path: "/m/expenses", title: "Operating Expenses", shortTitle: "Expenses", parent: "/m/accounts", kind: "list", module: "accounts", perm: "finance.view", icon: Wallet, hint: "Book and approve operating expenses — categories, payment mode, GST, receipts, and approval workflow", desktopPath: "/finance?tab=expenses", keywords: ["expense", "spend", "opex", "voucher", "bill", "reimbursement", "petty cash", "approval"], sharesListWith: ["/m/accounts"],  scopeAware: true,},
   { path: "/m/expenses/new", title: "New Expense", parent: "/m/expenses", kind: "create", module: "accounts", perm: "expense.create", icon: Plus, hint: "Record a new operating expense — amount, category, payment mode, and optional receipt" },
   { path: "/m/expenses/[id]", title: "Expense", parent: "/m/expenses", kind: "detail", module: "accounts", perm: "finance.view", icon: BookOpen },
   { path: "/m/gate-pass", title: "Gate Pass", parent: "/m/inventory", kind: "list", module: "inventory", perm: "gate_pass.view", icon: ShieldCheck, hint: "Approve items leaving the gate", desktopPath: "/gate-passes", personas: ["executive", "ops", "procurement", "field"] },
   { path: "/m/home", title: "Home", parent: null, kind: "hub", module: "home", icon: Home, hint: "Your companies, dashboards, and everything waiting on you" },
-  { path: "/m/hr", title: "HR", parent: "/m/home", kind: "hub", module: "hr", perm: "hr.view", icon: Users, hint: "Attendance, DPRs, employees, leaves, and payroll in one place", desktopPath: "/hr" },
+  { path: "/m/hr", title: "HR", parent: "/m/home", kind: "hub", module: "hr", perm: "hr.view", icon: Users, hint: "Attendance, DPRs, employees, leaves, and payroll in one place", desktopPath: "/hr",  scopeAware: true,},
   { path: "/m/hr/employees", title: "Employees", parent: "/m/hr", kind: "list", module: "hr", perm: "hr.view", icon: Users, hint: "Staff and labour — their wage rate and where they're posted (crews/gangs tab inside)", desktopPath: "/hr/employees", keywords: ["staff", "labour", "worker", "mazdoor", "roster", "employee", "gang", "crew", "team", "group", "contractor", "mazdor gang"] },
   { path: "/m/hr/employees/[id]", title: "Employee", parent: "/m/hr/employees", kind: "detail", module: "hr", perm: "hr.view", icon: Users },
   { path: "/m/hr/leaves", title: "Leaves", parent: "/m/hr", kind: "list", module: "hr", perm: "hr.view", icon: CalendarOff, hint: "Leave records and approvals" },
@@ -233,13 +239,13 @@ export const ROUTES: RouteEntry[] = [
   { path: "/m/hr/onboarding", title: "Onboarding", parent: "/m/hr", kind: "list", module: "hr", perm: "hr.view", icon: UserPlus, hint: "Onboarding progress for every employee — done, in progress, not started", desktopPath: "/hr/employees" },
   { path: "/m/hr/onboarding/[id]", title: "Onboarding", parent: "/m/hr/onboarding", kind: "detail", module: "hr", perm: "hr.view", icon: UserPlus, desktopPath: "/hr/employees/[id]" },
   { path: "/m/hr/pending", title: "Pending", parent: "/m/hr", kind: "list", module: "hr", perm: "hr.view", icon: ClipboardCheck, hint: "Everything that needs your attention — pending approvals, leaves, payrolls, POs, and overdue tasks in one place", desktopPath: "/hr/pending", keywords: ["pending", "approval", "overdue", "task", "leave", "payroll", "po", "requisition", "queue", "action"] },
-  { path: "/m/inventory", title: "Inventory", parent: "/m/home", kind: "hub", module: "inventory", perm: "inventory.view", icon: Boxes, hint: "Raw material and real estate — stock, indents, projects, units", badge: { endpoint: "/api/purchase-orders?status=DRAFT" } },
-  { path: "/m/land", title: "Land & Parcels", parent: "/m/inventory", kind: "list", module: "inventory", perm: "assets.view", icon: MapIcon, hint: "What land you own, what it cost, and how it's been subdivided", desktopPath: "/land", keywords: ["plot", "parcel", "partition", "subdivide", "khasra", "acquisition", "land bank"], sharesListWith: ["/m/real-estate"] },
+  { path: "/m/inventory", title: "Inventory", parent: "/m/home", kind: "hub", module: "inventory", perm: "inventory.view", icon: Boxes, hint: "Raw material and real estate — stock, indents, projects, units", badge: { endpoint: "/api/purchase-orders?status=DRAFT" },  scopeAware: true,},
+  { path: "/m/land", title: "Land & Parcels", parent: "/m/inventory", kind: "list", module: "inventory", perm: "assets.view", icon: MapIcon, hint: "What land you own, what it cost, and how it's been subdivided", desktopPath: "/land", keywords: ["plot", "parcel", "partition", "subdivide", "khasra", "acquisition", "land bank"], sharesListWith: ["/m/real-estate"],  scopeAware: true,},
   { path: "/m/land/[id]", title: "Land Parcel", parent: "/m/land", kind: "detail", module: "inventory", perm: "assets.view", icon: MapIcon },
-  { path: "/m/leads", title: "Lead Pipeline", shortTitle: "Leads", parent: "/m/home", kind: "list", module: "home", perm: "sales.view", icon: Filter, hint: "Stage, priority, follow-up triage", personas: ["executive", "ops", "sales"], sharesListWith: ["/m/customers"] },
+  { path: "/m/leads", title: "Lead Pipeline", shortTitle: "Leads", parent: "/m/home", kind: "list", module: "home", perm: "sales.view", icon: Filter, hint: "Stage, priority, follow-up triage", personas: ["executive", "ops", "sales"], sharesListWith: ["/m/customers"],  scopeAware: true,},
   { path: "/m/leads/[id]", title: "Lead Detail", parent: "/m/leads", kind: "detail", module: "home", perm: "sales.view", icon: Filter, desktopPath: "/leads" },
   { path: "/m/leads/new", title: "New Lead", parent: "/m/leads", kind: "create", module: "home", perm: "sales.manage", icon: Filter },
-  { path: "/m/material-issues", title: "Material Issues", parent: "/m/stock", kind: "list", module: "inventory", perm: "inventory.view", icon: Package, hint: "Stock issued to projects and departments — the issue register", flowId: "materialIssue", desktopPath: "/stock" },
+  { path: "/m/material-issues", title: "Material Issues", parent: "/m/stock", kind: "list", module: "inventory", perm: "inventory.view", icon: Package, hint: "Stock issued to projects and departments — the issue register", flowId: "materialIssue", desktopPath: "/stock",  scopeAware: true,},
   { path: "/m/material-issues/[id]", title: "Material Issue", parent: "/m/material-issues", kind: "detail", module: "inventory", perm: "inventory.view", icon: Package, flowId: "materialIssue", desktopPath: "/stock" },
   { path: "/m/material-reconciliation", title: "Material Reconciliation", parent: "/m/inventory", kind: "list", module: "inventory", perm: "project_control.view", icon: Package, hint: "Required vs issued vs consumed", desktopPath: "/material-reconciliation", personas: ["executive", "ops", "field", "procurement", "finance"], keywords: ["reconciliation", "wastage", "consumption", "tolerance", "variance", "stock"] },
   { path: "/m/material-sales", title: "Material Sales", parent: "/m/inventory", kind: "list", module: "inventory", perm: "sales.view", icon: Banknote, hint: "Sell raw material directly", flowId: "materialSale", desktopPath: "/material-sales", personas: ["executive", "ops", "procurement", "field"], keywords: ["surplus", "scrap", "resale", "material sale", "cost recovery", "by-product"] },
@@ -253,13 +259,13 @@ export const ROUTES: RouteEntry[] = [
   { path: "/m/measurement-book", title: "Measurement Book", parent: "/m/inventory", kind: "list", module: "inventory", perm: "mb.view", icon: Ruler, hint: "Site engineer's verified record of actual quantities executed", desktopPath: "/measurement-book", keywords: ["mb", "measurement", "quantity", "site", "executed", "verified", "approved"] },
   { path: "/m/measurement-book/[id]", title: "Measurement Entry", parent: "/m/measurement-book", kind: "detail", module: "inventory", perm: "mb.view", icon: Ruler },
   { path: "/m/permissions", title: "Permissions & Legal", parent: "/m/inventory", kind: "list", module: "inventory", perm: "assets.view", icon: Scale, hint: "NOCs, licenses, certificates, expiry alerts", desktopPath: "/permissions", personas: ["executive", "ops", "sales"], keywords: ["permission", "legal", "noc", "sanction", "license", "certificate", "fire", "pollution", "completion", "occupancy", "agreement to sell", "transfer duty", "building permission", "map approval", "cla", "registry"] },
-  { path: "/m/petty-cash", title: "Petty Cash", parent: "/m/accounts", kind: "list", module: "accounts", perm: "finance.view", icon: Banknote, hint: "Site/office cash floats — top-ups and balances", desktopPath: "/finance?tab=petty-cash", keywords: ["petty cash", "float", "cash", "imprest"], sharesListWith: ["/m/accounts"] },
+  { path: "/m/petty-cash", title: "Petty Cash", parent: "/m/accounts", kind: "list", module: "accounts", perm: "finance.view", icon: Banknote, hint: "Site/office cash floats — top-ups and balances", desktopPath: "/finance?tab=petty-cash", keywords: ["petty cash", "float", "cash", "imprest"], sharesListWith: ["/m/accounts"],  scopeAware: true,},
   { path: "/m/petty-cash/new", title: "New Petty Cash Float", parent: "/m/petty-cash", kind: "create", module: "accounts", perm: "finance.manage", icon: Banknote },
   { path: "/m/portal-listings", title: "Portal Listings", parent: "/m/inventory", kind: "list", module: "inventory", perm: "sales.view", icon: Globe, hint: "99acres, MagicBricks sync", personas: ["executive", "ops", "sales"], desktopPath: "/portal-listings" },
   { path: "/m/portal-listings/[id]", title: "Portal Listing", parent: "/m/portal-listings", kind: "detail", module: "inventory", icon: Globe, desktopPath: "/portal-listings" },
   { path: "/m/portal-listings/new", title: "New Portal Listing", parent: "/m/portal-listings", kind: "create", module: "inventory", perm: "sales.manage", icon: Globe, desktopPath: "/portal-listings" },
   { path: "/m/print/[type]/[id]", title: "Document", parent: "/m/home", kind: "tool", module: "home", icon: FileText, hidden: true },
-  { path: "/m/procurement", title: "Procurement", parent: "/m/inventory", kind: "hub", module: "inventory", perm: "procurement.view", icon: FileText, hint: "What you've ordered, from whom, and what's still to arrive at site", flowId: "procurement", desktopPath: "/procurement", personas: ["executive", "ops", "procurement", "field"], keywords: ["po", "order", "buy", "procure", "procurement", "purchase order"], badge: { endpoint: "/api/purchase-orders?status=DRAFT" } },
+  { path: "/m/procurement", title: "Procurement", parent: "/m/inventory", kind: "hub", module: "inventory", perm: "procurement.view", icon: FileText, hint: "What you've ordered, from whom, and what's still to arrive at site", flowId: "procurement", desktopPath: "/procurement", personas: ["executive", "ops", "procurement", "field"], keywords: ["po", "order", "buy", "procure", "procurement", "purchase order"], badge: { endpoint: "/api/purchase-orders?status=DRAFT" },  scopeAware: true,},
   { path: "/m/procurement/[id]", title: "Purchase Order", parent: "/m/procurement", kind: "detail", module: "inventory", perm: "procurement.view", icon: FileText, flowId: "procurement" },
   { path: "/m/procurement/new", title: "New Purchase Order", parent: "/m/procurement", kind: "create", module: "inventory", perm: "procurement.manage", icon: FileText },
   { path: "/m/profit-center", title: "Profit Center", parent: "/m/accounts", kind: "list", module: "accounts", perm: "finance.view", icon: PieChart, hint: "Per-project revenue, cost, margin", desktopPath: "/cost-control?tab=profit-center", personas: ["executive", "finance", "ops"], keywords: ["profit", "loss", "pnl", "margin", "revenue", "cost per sqft", "job costing"] },
@@ -267,11 +273,11 @@ export const ROUTES: RouteEntry[] = [
   { path: "/m/project-control/[id]", title: "Project Control", parent: "/m/project-control", kind: "detail", module: "inventory", perm: "project_control.view", icon: Gauge },
   { path: "/m/projects", title: "Projects", parent: "/m/inventory", kind: "list", module: "inventory", perm: "projects.view", icon: HardHat, hint: "Each site: its phases, its spend, and its cost per sq.ft", desktopPath: "/projects", keywords: ["site", "tower", "phase", "construction", "wip", "project", "rera"], sharesListWith: ["/m/real-estate"] },
   { path: "/m/projects/[id]", title: "Project Detail", parent: "/m/projects", kind: "detail", module: "inventory", perm: "projects.view", icon: HardHat },
-  { path: "/m/approvals", title: "Approvals", parent: "/m/home", kind: "list", module: "home", icon: ClipboardCheck, hint: "POs, requisitions, gate passes, DPRs, expenses, and RA bills awaiting your sign-off", desktopPath: "/approvals", keywords: ["approval", "pending", "queue", "sign off", "review", "approve", "reject", "po", "requisition", "gate pass", "dpr", "expense", "ra bill"] },
+  { path: "/m/approvals", title: "Approvals", parent: "/m/home", kind: "list", module: "home", icon: ClipboardCheck, hint: "POs, requisitions, gate passes, DPRs, expenses, and RA bills awaiting your sign-off", desktopPath: "/approvals", keywords: ["approval", "pending", "queue", "sign off", "review", "approve", "reject", "po", "requisition", "gate pass", "dpr", "expense", "ra bill"],  scopeAware: true,},
   { path: "/m/pulse", title: "Executive Dashboard", parent: "/m/home", kind: "hub", module: "home", perm: "finance.view", icon: Sun, hint: "Portfolio KPIs, project health, approvals", desktopPath: "/" },
   { path: "/m/pulse/approvals", title: "Approvals", parent: "/m/pulse", kind: "list", module: "home", icon: ClipboardCheck, hint: "POs, requisitions awaiting sign-off", redirectTo: "/m/approvals", desktopPath: "/approvals" },
   { path: "/m/pulse/attention", title: "Attention Queue", parent: "/m/pulse", kind: "list", module: "home", perm: "tasks.view", icon: AlertTriangle, hint: "All alerts in one place", desktopPath: "/approvals" },
-  { path: "/m/quality-control", title: "Quality Control", parent: "/m/inventory", kind: "list", module: "inventory", perm: "qc.view", icon: ShieldAlert, hint: "Non-Conformance Reports (NCR) and Corrective And Preventive Actions (CAPA)", desktopPath: "/quality-control", keywords: ["quality", "ncr", "capa", "non-conformance", "corrective", "preventive", "qa", "qc", "defect", "rework"], sharesListWith: ["/m/construction"] },
+  { path: "/m/quality-control", title: "Quality Control", parent: "/m/inventory", kind: "list", module: "inventory", perm: "qc.view", icon: ShieldAlert, hint: "Non-Conformance Reports (NCR) and Corrective And Preventive Actions (CAPA)", desktopPath: "/quality-control", keywords: ["quality", "ncr", "capa", "non-conformance", "corrective", "preventive", "qa", "qc", "defect", "rework"], sharesListWith: ["/m/construction"],  scopeAware: true,},
   { path: "/m/quality-control/ncr/[id]", title: "NCR", parent: "/m/quality-control", kind: "detail", module: "inventory", perm: "qc.view", icon: ShieldAlert },
   { path: "/m/queue", title: "Offline Queue", parent: "/m/home", kind: "list", module: "home", icon: ClipboardList, hint: "Pending sync items & recent actions" },
   { path: "/m/quotations", title: "Quotations", parent: "/m/inventory", kind: "list", module: "inventory", perm: "quotation.view", icon: Tags, hint: "Collect supplier quotes, compare per-piece landed cost (with auto GST), and approve the winner", redirectTo: "/m/procurement?tab=quotations", desktopPath: "/procurement?tab=quotations", keywords: ["quote", "quotation", "vendor quote", "comparative", "rate", "price", "tender", "bid", "hsn", "gst", "landed cost", "per piece"] },
@@ -279,7 +285,7 @@ export const ROUTES: RouteEntry[] = [
   { path: "/m/quotations/new", title: "New Quotation", parent: "/m/procurement", kind: "redirect", module: "inventory", icon: Tags, redirectTo: "/m/procurement?tab=quotations&new=1" },
   { path: "/m/rate-contracts", title: "Rate Contracts", parent: "/m/inventory", kind: "list", module: "inventory", perm: "procurement.view", icon: FileSignature, hint: "Fixed-rate supplier agreements", desktopPath: "/rate-contracts", personas: ["executive", "ops", "procurement", "field"], keywords: ["rate contract", "framework agreement", "fixed rate", "supplier agreement"] },
   { path: "/m/rate-contracts/[id]", title: "Rate Contract", parent: "/m/rate-contracts", kind: "detail", module: "inventory", perm: "procurement.view", icon: FileSignature },
-  { path: "/m/real-estate", title: "Real Estate", parent: "/m/inventory", kind: "hub", module: "inventory", perm: "projects.view", icon: Building2, hint: "Projects, units, land, customers, rentals", personas: ["executive", "ops", "sales"], sharesListWith: ["/m/brokers", "/m/land", "/m/projects", "/m/rentals", "/m/units"], desktopPath: "/sales" },
+  { path: "/m/real-estate", title: "Real Estate", parent: "/m/inventory", kind: "hub", module: "inventory", perm: "projects.view", icon: Building2, hint: "Projects, units, land, customers, rentals", personas: ["executive", "ops", "sales"], sharesListWith: ["/m/brokers", "/m/land", "/m/projects", "/m/rentals", "/m/units"], desktopPath: "/sales",  scopeAware: true,},
   { path: "/m/rent", title: "Rent", parent: "/m/home", kind: "list", module: "home", perm: "rentals.view", icon: Key, hint: "Units you've rented out and the rent due each month", redirectTo: "/m/real-estate?tab=rentals" },
   { path: "/m/rentals", title: "Rentals", parent: "/m/home", kind: "list", module: "home", perm: "rentals.view", icon: Key, hint: "Units you've rented out and the rent due each month", desktopPath: "/rentals", keywords: ["lease", "tenant", "rent", "monthly", "leave and license"], sharesListWith: ["/m/real-estate"] },
   { path: "/m/rentals/[id]", title: "Rental Detail", parent: "/m/rentals", kind: "detail", module: "home", perm: "rentals.view", icon: Key },
@@ -307,11 +313,11 @@ export const ROUTES: RouteEntry[] = [
   { path: "/m/requisitions", title: "Indents", parent: "/m/inventory", kind: "list", module: "inventory", perm: "procurement.view", icon: Inbox, hint: "Site raises an indent for material. Approve it, then convert it to a purchase order", redirectTo: "/m/procurement?tab=indents", desktopPath: "/procurement?tab=indents", keywords: ["indent", "requisition", "request", "ask", "demand", "material request"] },
   { path: "/m/requisitions/[id]", title: "Indent", parent: "/m/procurement", kind: "detail", module: "inventory", perm: "procurement.view", icon: Inbox, flowId: "requisition" },
   { path: "/m/requisitions/new", title: "New Indent", parent: "/m/procurement", kind: "create", module: "inventory", perm: "procurement.manage", icon: Inbox },
-  { path: "/m/safety", title: "Safety", parent: "/m/inventory", kind: "list", module: "inventory", perm: "safety.view", icon: LifeBuoy, hint: "Hazards, incidents, and safety inspections across all sites", desktopPath: "/safety", keywords: ["safety", "hazard", "incident", "inspection", "accident", "near miss", "ppe", "compliance"] },
+  { path: "/m/safety", title: "Safety", parent: "/m/inventory", kind: "list", module: "inventory", perm: "safety.view", icon: LifeBuoy, hint: "Hazards, incidents, and safety inspections across all sites", desktopPath: "/safety", keywords: ["safety", "hazard", "incident", "inspection", "accident", "near miss", "ppe", "compliance"],  scopeAware: true,},
   { path: "/m/safety/hazards/[id]", title: "Hazard", parent: "/m/safety", kind: "detail", module: "inventory", perm: "safety.view", icon: LifeBuoy },
   { path: "/m/safety/incidents/[id]", title: "Incident", parent: "/m/safety", kind: "detail", module: "inventory", perm: "safety.view", icon: LifeBuoy },
   { path: "/m/safety/inspections/[id]", title: "Inspection", parent: "/m/safety", kind: "detail", module: "inventory", perm: "safety.view", icon: LifeBuoy },
-  { path: "/m/sales", title: "Sales", parent: "/m/home", kind: "list", module: "home", perm: "sales.view", icon: ShoppingCart, hint: "Bookings, payment plans and what's still to collect (customers tab inside)", desktopPath: "/sales", personas: ["executive", "ops", "sales"], keywords: ["booking", "sale", "deal", "agreement", "collection", "allotment", "buyer", "client", "tenant", "party", "customer"] },
+  { path: "/m/sales", title: "Sales", parent: "/m/home", kind: "list", module: "home", perm: "sales.view", icon: ShoppingCart, hint: "Bookings, payment plans and what's still to collect (customers tab inside)", desktopPath: "/sales", personas: ["executive", "ops", "sales"], keywords: ["booking", "sale", "deal", "agreement", "collection", "allotment", "buyer", "client", "tenant", "party", "customer"],  scopeAware: true,},
   { path: "/m/sales/[id]", title: "Sale Detail", parent: "/m/sales", kind: "detail", module: "home", perm: "sales.view", icon: ShoppingCart },
   { path: "/m/sales/new", title: "New Sale", parent: "/m/sales", kind: "create", module: "home", perm: "sale.create", icon: ShoppingCart },
   { path: "/m/scrap-generations", title: "Scrap", parent: "/m/inventory", kind: "list", module: "inventory", perm: "inventory.view", icon: Trash2, hint: "Record and track scrap generation", redirectTo: "/m/stock?tab=scrap" },
@@ -323,7 +329,7 @@ export const ROUTES: RouteEntry[] = [
   { path: "/m/settings/notifications", title: "Notifications", parent: "/m/settings", kind: "list", module: "settings", perm: "company.manage", icon: AlertTriangle, hint: "Alerts, templates, delivery", personas: ["executive"] },
   { path: "/m/settings/project-assignments", title: "Project Assignments", parent: "/m/settings", kind: "list", module: "settings", perm: "users.view", icon: ShieldCheck, hint: "Scope user access to specific projects", desktopPath: "/settings/project-assignments", personas: ["executive"], keywords: ["access", "permission", "role", "assignment", "scope", "sub admin", "user access"] },
   { path: "/m/settings/team", title: "Employees & Access", parent: "/m/settings", kind: "redirect", redirectTo: "/m/hr/employees", module: "settings", perm: "users.view", icon: Users, hint: "Manage employees, roles, access control", personas: ["executive"] },
-  { path: "/m/site", title: "Field Dashboard", shortTitle: "Field", parent: "/m/home", kind: "hub", module: "home", perm: "tasks.view", icon: MapPin, hint: "Field dashboard — tasks, DPR, in-transit stock, attendance", desktopPath: "/" },
+  { path: "/m/site", title: "Field Dashboard", shortTitle: "Field", parent: "/m/home", kind: "hub", module: "home", perm: "tasks.view", icon: MapPin, hint: "Field dashboard — tasks, DPR, in-transit stock, attendance", desktopPath: "/",  scopeAware: true,},
   { path: "/m/site/attendance", title: "Mark Attendance", parent: "/m/site", kind: "tool", module: "home", perm: "hr.view", icon: Calendar, hint: "Bulk check-in with GPS", personas: ["executive", "ops", "hr", "field"], desktopPath: "/hr/attendance" },
   { path: "/m/site/dpr", title: "New DPR", parent: "/m/site", kind: "tool", module: "home", perm: "dpr.view", icon: ClipboardList, hint: "Submit a new daily progress report", personas: ["executive", "ops", "hr", "field"], desktopPath: "/hr/dprs" },
   { path: "/m/site/field", title: "Receive", parent: "/m/site", kind: "tool", module: "home", perm: "procurement.view", icon: Package, hint: "Barcode receiving with offline queue and qty validation", desktopPath: "/field" },
@@ -335,7 +341,7 @@ export const ROUTES: RouteEntry[] = [
   { path: "/m/sms", title: "Bank SMS", parent: "/m/home", kind: "list", module: "home", perm: "sales.view", icon: MessageSquare, hint: "Auto-parse bank SMS into payments", desktopPath: "/sales?tab=bank-sms", personas: ["executive", "finance"], keywords: ["sms", "bank", "payment", "auto", "upi", "text", "message", "parse", "credit", "received"] },
   { path: "/m/standard-consumptions", title: "Standard Consumptions", parent: "/m/inventory", kind: "list", module: "inventory", perm: "inventory.view", icon: Beaker, hint: "Material consumption benchmarks", desktopPath: "/standard-consumptions", personas: ["executive", "ops", "field", "hr", "finance"], keywords: ["standard consumption", "benchmark", "variance", "norms", "work type", "scrap detection"] },
   { path: "/m/standard-consumptions/[id]", title: "Standard Consumption", parent: "/m/standard-consumptions", kind: "detail", module: "inventory", perm: "inventory.view", icon: Beaker },
-  { path: "/m/stock", title: "Stock", parent: "/m/inventory", kind: "hub", module: "inventory", perm: "inventory.view", icon: Package, hint: "The full stock lifecycle — on-hand by location, every movement, transfers, issues to site, scrap, and counts", desktopPath: "/stock", personas: ["executive", "ops", "procurement", "field"], keywords: ["stock", "on hand", "movement", "transfer", "issue", "audit", "history", "ledger", "stock register", "scrap", "count", "physical verification", "reconcile", "variance"] },
+  { path: "/m/stock", title: "Stock", parent: "/m/inventory", kind: "hub", module: "inventory", perm: "inventory.view", icon: Package, hint: "The full stock lifecycle — on-hand by location, every movement, transfers, issues to site, scrap, and counts", desktopPath: "/stock", personas: ["executive", "ops", "procurement", "field"], keywords: ["stock", "on hand", "movement", "transfer", "issue", "audit", "history", "ledger", "stock register", "scrap", "count", "physical verification", "reconcile", "variance"],  scopeAware: true,},
   { path: "/m/stock-counts", title: "Stock Inventory", parent: "/m/inventory", kind: "list", module: "inventory", perm: "inventory.view", icon: Calculator, hint: "Physical stock counts and reconciliation", redirectTo: "/m/stock?tab=counts" },
   { path: "/m/stock-counts/[id]", title: "Stock Count", parent: "/m/stock", kind: "detail", module: "inventory", perm: "inventory.view", icon: Package },
   { path: "/m/stock-counts/new", title: "New Stock Count", parent: "/m/stock", kind: "create", module: "inventory", perm: "inventory.manage", icon: Package },
@@ -506,6 +512,9 @@ export function childrenOf(path: string): RouteEntry[] {
 export interface NavContext {
   /** Effective permissions from /api/me — role matrix + all overrides. */
   permissions: string[];
+  /** Permissions granted by project-scoped role hats (ProjectAssignment.
+   *  scopedRole). Only consulted for routes marked scopeAware. */
+  scopedPermissions?: string[];
   /** Derived from role. Ranking only. */
   persona: Persona;
 }
@@ -525,10 +534,28 @@ export function permFor(route: RouteEntry): string | undefined {
   return undefined;
 }
 
-/** The hard gate. Universal routes (no perm anywhere up the chain) always pass. */
-export function canAccess(route: RouteEntry, permissions: string[]): boolean {
+/** Whether this route (or an ancestor) is scope-aware — walks the parent
+ *  chain exactly like permFor does for the perm itself. */
+export function scopeAwareFor(route: RouteEntry): boolean {
+  let cur: RouteEntry | undefined = route;
+  const seen = new Set<string>();
+  while (cur && !seen.has(cur.path)) {
+    if (cur.scopeAware) return true;
+    seen.add(cur.path);
+    cur = cur.parent ? ROUTE_BY_PATH.get(cur.parent) : undefined;
+  }
+  return false;
+}
+
+/** The hard gate. Universal routes (no perm anywhere up the chain) always
+ *  pass. A scope-aware route additionally accepts the scoped-role perms —
+ *  the page's queries are scopeWhere-filtered so the hat can only unlock
+ *  in-scope data. */
+export function canAccess(route: RouteEntry, permissions: string[], scopedPermissions?: string[]): boolean {
   const perm = permFor(route);
-  return !perm || permissions.includes(perm);
+  if (!perm) return true;
+  if (permissions.includes(perm)) return true;
+  return !!scopedPermissions?.length && scopeAwareFor(route) && scopedPermissions.includes(perm);
 }
 
 /**
@@ -560,7 +587,7 @@ export function tabsFor(ctx: NavContext): RouteEntry[] {
   const take = (p: string) => {
     if (picked.length >= preferred.length || picked.some((r) => r.path === p)) return;
     const entry = ROUTE_BY_PATH.get(p);
-    if (entry && entry.kind !== "redirect" && canAccess(entry, ctx.permissions)) picked.push(entry);
+    if (entry && entry.kind !== "redirect" && canAccess(entry, ctx.permissions, ctx.scopedPermissions)) picked.push(entry);
   };
   preferred.forEach(take);
   TAB_BACKFILL.forEach(take);
@@ -613,7 +640,7 @@ export function deptFanFor(ctx: NavContext, shownPaths: ReadonlySet<string>): Ro
   for (const p of order) {
     if (shownPaths.has(p) || DEPT_FAN_EXCLUDE.has(p)) continue;
     const entry = ROUTE_BY_PATH.get(p);
-    if (entry && entry.kind !== "redirect" && !entry.hidden && canAccess(entry, ctx.permissions)) {
+    if (entry && entry.kind !== "redirect" && !entry.hidden && canAccess(entry, ctx.permissions, ctx.scopedPermissions)) {
       out.push(entry);
     }
   }
@@ -645,7 +672,7 @@ export function menuFor(ctx: NavContext): MenuSection[] {
     { home: [], inventory: [], hr: [], accounts: [], settings: [] };
   for (const r of ROUTES) {
     if (NON_MENU_KINDS.has(r.kind) || r.hidden) continue;
-    if (!canAccess(r, ctx.permissions)) continue;
+    if (!canAccess(r, ctx.permissions, ctx.scopedPermissions)) continue;
     buckets[r.module].push(r);
   }
   const prominentModules = new Set(
@@ -672,7 +699,7 @@ export function badgeEndpointsFor(ctx: NavContext): { path: string; endpoint: st
 export function searchableFor(ctx: NavContext): typeof SEARCH_INDEX {
   return SEARCH_INDEX.filter((r) => {
     const entry = ROUTE_BY_PATH.get(r.path);
-    return entry ? canAccess(entry, ctx.permissions) : false;
+    return entry ? canAccess(entry, ctx.permissions, ctx.scopedPermissions) : false;
   });
 }
 

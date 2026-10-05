@@ -3054,6 +3054,21 @@ async function resolveCustomAuthorityRole(companyId: string, rawRole: string): P
   return TIER_TO_AUTHORITY_ROLE[customRole.tier] ?? "SUPERVISOR";
 }
 
+/**
+ * Permissions the user actually holds right now, including the project-scoped
+ * role hats from ProjectAssignment. Use for PAGE-GATE decisions only on
+ * surfaces whose queries are scopeWhere-filtered — a scoped PM's FINANCE_VIEW
+ * hat must not open the org-wide GL. Server-side auth still goes through
+ * requirePermission/scopeWhere per record; this is for the UI gate.
+ */
+export async function getEffectivePermissions(): Promise<string[]> {
+  const [globalPerms, scopedPerms] = await Promise.all([
+    getUserPermissions(),
+    getScopedRolePermissions(),
+  ]);
+  return [...new Set([...globalPerms, ...scopedPerms])];
+}
+
 export async function getUserPermissions(): Promise<string[]> {
   return memoizeInRequest("permissions", async () => {
   const user = await getCurrentUser();
@@ -3110,6 +3125,9 @@ export interface NavBootstrap {
     role: string;
     ownRole: string;
     permissions: string[];
+    /** Permissions from project-scoped role hats — nav consults them only
+     *  for routes marked scopeAware. */
+    scopedPermissions: string[];
     /** Multi-role: all hats the member holds (primary + secondary). */
     roles: string[];
     /** Multi-role: the hat currently worn (equals `role` when no switch). */
@@ -3151,9 +3169,10 @@ export async function getNavBootstrap(): Promise<NavBootstrap | null> {
       const user = await getCurrentUser();
       if (!user) return null;
 
-      const [company, permissions, ownRole] = await Promise.all([
+      const [company, permissions, scopedPermissions, ownRole] = await Promise.all([
         getCompany(),
         getUserPermissions(),
+        getScopedRolePermissions(),
         getOwnRole(),
       ]);
       const held = await getHeldRoles(user.id, company.id);
@@ -3198,6 +3217,7 @@ export async function getNavBootstrap(): Promise<NavBootstrap | null> {
           role: user.role,
           ownRole,
           permissions,
+          scopedPermissions,
           roles: held?.heldRoles ?? [user.role],
           activeRole: held?.activeRole ?? user.role,
           roleLabels,

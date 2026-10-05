@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getActingRole, getCompany, getCompanyGroupIds, getCurrentUser, getCurrentUserMembership, toNum, scopeWhere, projectScopeFilter, getUserPermissions } from "@/lib/server";
+import { getActingRole, getCompany, getCompanyGroupIds, getCurrentUser, getCurrentUserMembership, toNum, scopeWhere, projectScopeFilter, getEffectivePermissions } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
 import { PERM } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
@@ -28,7 +28,7 @@ export default function ProcurementPage() {
 async function ProcurementContent() {
   await connection();
   const actingRole = await getActingRole();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) {

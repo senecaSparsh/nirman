@@ -78,6 +78,8 @@ interface CompanyInfo {
   ownRole?: string;
   parentCompanyId: string | null;
   permissions: string[];
+  /** Perms from project-scoped role hats — used only for scopeAware routes. */
+  scopedPermissions?: string[];
   /** Current user's display name — shown in the NavSheet profile section. */
   userName: string;
   /** Multi-role: all hats the member holds (primary + secondary). */
@@ -127,6 +129,7 @@ export function MobileShellV2({
           ownRole: initial.me.ownRole ?? initial.me.role,
           parentCompanyId: initial.company.parentCompanyId,
           permissions: initial.me.permissions,
+          scopedPermissions: initial.me.scopedPermissions ?? [],
           userName: initial.me.name ?? "User",
           roles: initial.me.roles ?? [initial.me.role],
           activeRole: initial.me.activeRole ?? initial.me.role,
@@ -203,7 +206,7 @@ export function MobileShellV2({
   // ── Resolve company name + role via /api/me + /api/company ──
   // Skipped when `initial` is provided — the /m layout already resolved
   // the same data server-side, so refetching would just double the work.
-  const meQ = useFetch<{ role?: string; ownRole?: string; name?: string; permissions?: string[]; roles?: string[]; activeRole?: string; roleLabels?: Record<string, string> } | null>("/api/me", { skip: !!initial });
+  const meQ = useFetch<{ role?: string; ownRole?: string; name?: string; permissions?: string[]; scopedPermissions?: string[]; roles?: string[]; activeRole?: string; roleLabels?: Record<string, string> } | null>("/api/me", { skip: !!initial });
   const companyQ = useFetch<{ name?: string; parentCompanyId?: string | null; companies?: CompanyOption[] } | null>("/api/company", { skip: !!initial });
   useEffect(() => {
     const me = meQ.data;
@@ -219,6 +222,7 @@ export function MobileShellV2({
         permissions: Array.isArray(me?.permissions) && me.permissions.length > 0
           ? me.permissions
           : prev.permissions,
+        scopedPermissions: Array.isArray(me?.scopedPermissions) ? me.scopedPermissions : prev.scopedPermissions,
         userName: me?.name ?? prev.userName,
         roles: Array.isArray(me?.roles) && me.roles.length > 0 ? me.roles : prev.roles,
         activeRole: me?.activeRole ?? prev.activeRole,
@@ -251,7 +255,7 @@ export function MobileShellV2({
   // which returns only the badges for the current user's tab set.
   const persona = roleToPersona(companyInfo.ownRole ?? companyInfo.role);
   const refreshBadgeCounts = useCallback(() => {
-    const ctx: NavContext = { permissions: companyInfo.permissions, persona };
+    const ctx: NavContext = { permissions: companyInfo.permissions, scopedPermissions: companyInfo.scopedPermissions, persona };
     const badgeEndpoints = manifestBadgeEndpointsFor(ctx);
     if (badgeEndpoints.length === 0) return;
     let cancelled = false;
@@ -274,7 +278,7 @@ export function MobileShellV2({
     return () => {
       cancelled = true;
     };
-  }, [companyInfo.permissions, persona]);
+  }, [companyInfo.permissions, companyInfo.scopedPermissions, persona]);
 
   // ── Company switch via unified hook ───────────────────────
   // Uses useCompanySwitch for optimistic UI + generation-counter race
@@ -450,7 +454,7 @@ export function MobileShellV2({
   // (procurement persona) the highlighted tab wasn't even on screen, Settings
   // could never highlight at all, and badges — keyed by manifest path — never
   // matched the old `?tab=` hrefs. One source fixes all three.
-  const personaTabs = manifestTabsFor({ permissions: companyInfo.permissions, persona });
+  const personaTabs = manifestTabsFor({ permissions: companyInfo.permissions, scopedPermissions: companyInfo.scopedPermissions, persona });
 
   return (
     <MobileShellInner
@@ -568,7 +572,7 @@ function MobileShellInner({
   // The manifest's activeTabFor walks the parent chain to find the nearest
   // tab root, returning exactly ONE tab. The old isModuleActive compared
   // query-stripped hrefs and matched several tabs on /m/hr.
-  const navCtx: NavContext = { permissions: companyInfo.permissions, persona };
+  const navCtx: NavContext = { permissions: companyInfo.permissions, scopedPermissions: companyInfo.scopedPermissions, persona };
   const activeTabPath = manifestActiveTabFor(pathname, navCtx);
   const activeTab = personaTabs.find((t) => t.path === activeTabPath);
 
@@ -1126,6 +1130,7 @@ function MobileShellInner({
         moduleId={activeTab?.module ?? manifestMatchRoute(pathname)?.module ?? "home"}
         persona={persona}
         permissions={companyInfo.permissions}
+        scopedPermissions={companyInfo.scopedPermissions}
         userName={companyInfo.userName}
         companyName={companyInfo.name}
       />

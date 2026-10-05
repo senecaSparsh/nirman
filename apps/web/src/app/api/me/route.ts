@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getActingDelegations, getActingRole, getCompany, getCustomRoleLabels, getHeldRoles, getOwnRole, getSession, getUserPermissions, json, roleDisplayLabel } from "@/lib/server";
+import { apiHandler, getActingDelegations, getActingRole, getCompany, getCustomRoleLabels, getHeldRoles, getOwnRole, getScopedRolePermissions, getSession, getUserPermissions, json, roleDisplayLabel } from "@/lib/server";
 
 /**
  * GET /api/me — the current user's identity + EFFECTIVE permissions.
@@ -27,7 +27,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   // rather than the session because Better-Auth's session user may not always
   // include additional fields reliably (e.g. after a session is created via
   // the custom phone-password flow). The DB is the source of truth.
-  const [dbUser, permissions, actingRole, ownRole, actingDelegations, company] = await Promise.all([
+  const [dbUser, permissions, scopedPermissions, actingRole, ownRole, actingDelegations, company] = await Promise.all([
     prisma.user.findUnique({
       where: { id: sessionUser.id },
       select: {
@@ -45,6 +45,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       },
     }),
     getUserPermissions().catch(() => [] as string[]),
+    getScopedRolePermissions().catch(() => [] as string[]),
     getActingRole().catch(() => null),
     getOwnRole().catch(() => null),
     getActingDelegations().catch(() => []),
@@ -82,6 +83,10 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     lastLoginAt: dbUser?.lastLoginAt?.toISOString() ?? null,
     mustChangePassword: dbUser?.mustChangePassword ?? false,
     permissions,
+    // Perms granted by project-scoped role hats — valid ONLY on
+    // scope-aware surfaces (scopeWhere-filtered queries). The nav
+    // consults this to show links a scoped PM can actually open.
+    scopedPermissions,
     // The role the user is currently ACTING as — equals `role` when no
     // delegation is live. Client affordance gates (admin nav, manage buttons)
     // should consult this so a delegate sees the surface they can act on.
