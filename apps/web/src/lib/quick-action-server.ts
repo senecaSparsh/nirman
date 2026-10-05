@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { getCurrentUser, getCompany, getOwnRole, getUserPermissions } from "@/lib/server";
+import { getCurrentUser, getCompany, getOwnRole, getUserPermissions, getScopedRolePermissions } from "@/lib/server";
 import { roleToPersona, type Persona } from "@/lib/mobile-nav-v2";
 import { quickActionKeysFor } from "@/lib/quick-action-catalogs";
 import {
@@ -39,6 +39,7 @@ function accessibleExtraActions(
   module: "inventory" | "hr" | "accounts" | "site" | "sales",
   permissions: string[],
   catalogHrefs: Set<string>,
+  scopedPermissions?: string[],
 ): ExtraActionDef[] {
   const moduleId = MODULE_MAP[module];
   const result: ExtraActionDef[] = [];
@@ -46,7 +47,7 @@ function accessibleExtraActions(
     if (r.module !== moduleId) continue;
     if (EXCLUDED_KINDS.has(r.kind)) continue;
     if (r.hidden) continue;
-    if (!canAccess(r, permissions)) continue;
+    if (!canAccess(r, permissions, scopedPermissions)) continue;
     // Never offer the module's own hub — a quick action that links to
     // the page you're already on is a dead tap. Same for routes that
     // redirect back onto it (e.g. a legacy hub path).
@@ -112,7 +113,7 @@ export async function loadQuickActionContext(
 
     // Load saved layouts + user permissions in parallel.
     const keys = quickActionKeysFor(module);
-    const [rows, permissions] = await Promise.all([
+    const [rows, permissions, scopedPermissions] = await Promise.all([
       prisma.userPreference
         .findMany({
           where: { userId: user.id, companyId: company.id, key: { in: keys } },
@@ -120,6 +121,7 @@ export async function loadQuickActionContext(
         })
         .catch(() => [] as { key: string; value: unknown }[]),
       getUserPermissions(),
+      getScopedRolePermissions(),
     ]);
 
     const savedLayouts: Record<string, string[]> = {};
@@ -133,7 +135,7 @@ export async function loadQuickActionContext(
     // We import the catalog to know which routes are already curated.
     const catalogHrefs = await buildCatalogHrefSet(module);
 
-    const extraActions = accessibleExtraActions(module, permissions, catalogHrefs);
+    const extraActions = accessibleExtraActions(module, permissions, catalogHrefs, scopedPermissions);
 
     return { persona, savedLayouts, extraActions, permissions };
   } catch {
