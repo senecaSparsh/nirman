@@ -154,6 +154,26 @@ async function MobileDprContent({
     };
   }
 
+  // Payroll-locked periods — a DPR posts labour cost for its date, so it
+  // can't land in a PROCESSED/PAID period. Surface the lock UP FRONT (the
+  // server already rejects these with 409) so the user doesn't fill the
+  // whole form only to be told "locked" on submit.
+  const lockedPeriods = (
+    await prisma.payrollPeriod.findMany({
+      where: {
+        companyId: company.id,
+        status: { in: ["PROCESSED", "PAID"] },
+      },
+      select: { month: true, year: true, status: true, startDate: true, endDate: true },
+      orderBy: { startDate: "desc" },
+      take: 24,
+    })
+  ).map((p) => ({
+    start: p.startDate.toISOString().slice(0, 10),
+    end: p.endDate.toISOString().slice(0, 10),
+    label: `${p.month}/${p.year} payroll ${p.status.toLowerCase()}`,
+  }));
+
   const scopedOpts = await getScopedFormOptions();
   const [projects, employees, crews, materials] = await Promise.all([
     Promise.resolve(scopedOpts.projects),
@@ -184,6 +204,7 @@ async function MobileDprContent({
       existingDprsByProject={existingDprsByProject}
       yesterdayDprsByProject={yesterdayDprsByProject}
       initialProjectId={initialProjectId ?? null}
+      lockedPeriods={lockedPeriods}
     />
   );
 }

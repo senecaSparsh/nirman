@@ -42,14 +42,34 @@ const transferActionSchema = z.object({
   transporterName: z.string().optional(),
   challanNumber: z.string().optional(),
   packageCount: z.union([z.number(), z.string()]).optional().transform((v) => (v != null ? Number(v) : undefined)),
-  dispatchPhotos: z.array(z.string()).optional(),
+  dispatchPhotos: z.array(z.union([
+    z.string(),
+    z.object({
+      url: z.string(),
+      fileName: z.string().optional().nullable(),
+      lat: z.number().optional().nullable(),
+      lng: z.number().optional().nullable(),
+      capturedAt: z.string().optional().nullable(),
+    }),
+  ])).optional(),
   dispatchSignature: z.string().optional(),
   // Complete (receive) fields
   receiverSignature: z.string().optional(),
   receiverLat: z.union([z.number(), z.string()]).optional().transform((v) => (v != null ? Number(v) : undefined)),
   receiverLng: z.union([z.number(), z.string()]).optional().transform((v) => (v != null ? Number(v) : undefined)),
   receiverLocation: z.string().optional(),
-  photos: z.array(z.string()).optional(),
+  // Accept plain url strings (legacy) or the proof-capture objects — the
+  // service stores the array as JSON so per-photo geo/fileName is preserved.
+  photos: z.array(z.union([
+    z.string(),
+    z.object({
+      url: z.string(),
+      fileName: z.string().optional().nullable(),
+      lat: z.number().optional().nullable(),
+      lng: z.number().optional().nullable(),
+      capturedAt: z.string().optional().nullable(),
+    }),
+  ])).optional(),
   deliveryMode: z.string().optional(),
   shortageRemarks: z.string().optional(),
   damageRemarks: z.string().optional(),

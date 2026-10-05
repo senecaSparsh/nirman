@@ -9,7 +9,7 @@ import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 export default function MobileDprsPage() {
   return (
-    <MobileListPage perm={PERM.DPR_VIEW} what="DPRs" permission="dpr.view">
+    <MobileListPage perm={PERM.DPR_VIEW} scopeAware what="DPRs" permission="dpr.view">
       {async ({ company, actingRole, perms }) => {
         const canSubmit = perms.includes(PERM.DPR_SUBMIT);
         const canApproveSubAdmin = perms.includes(PERM.DPR_APPROVE_SUB_ADMIN);
@@ -115,7 +115,7 @@ async function fetchDprFormData(companyId: string) {
       where: {...await scopeWhere("DailyProgressReport"),  companyId, date: { gte: startOfYesterday, lt: startOfToday } },
       include: { materialLines: true, laborLines: true }}),
     prisma.project.findMany({
-      where: { companyId, deletedAt: null, status: { in: ["ACTIVE", "PLANNED"] } },
+      where: { ...await scopeWhere("Project"), companyId, deletedAt: null, status: { in: ["ACTIVE", "PLANNED"] } },
       select: { id: true, name: true },
       orderBy: { name: "asc" }}),
     prisma.employee.findMany({

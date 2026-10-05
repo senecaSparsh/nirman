@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, getUserPermissions, json, requireUser, toNum, scopeWhere, getActingRole,} from "@/lib/server";
+import { apiHandler, getCompany, getUserPermissions, json, requireUser, toNum, scopeWhere, getActingRole, getScopedRolePermissions,} from "@/lib/server";
 import { canAutoApprove } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 
@@ -16,9 +16,15 @@ import { PERM } from "@/lib/roles";
 export const GET = apiHandler(async (req: NextRequest) => {
   const user = await requireUser();
   const perms = await getUserPermissions();
-  const canApprovePo = perms.includes(PERM.PO_APPROVE);
-  const canApproveReq = perms.includes(PERM.REQUISITION_APPROVE);
-  const canApproveGatePass = perms.includes(PERM.GATE_PASS_APPROVE);
+  // A project assignment can lift authority — a SITE_ENGINEER scoped as
+  // PROJECT_MANAGER on Site One approves Site One's POs. Their queue shows
+  // only in-scope items, so granting the flag when ANY of their scoped roles
+  // carries the perm is safe (the row-level scope filter does the bounding).
+  const scopedPerms = await getScopedRolePermissions();
+  const hasPerm = (p: string) => perms.includes(p) || scopedPerms.includes(p);
+  const canApprovePo = hasPerm(PERM.PO_APPROVE);
+  const canApproveReq = hasPerm(PERM.REQUISITION_APPROVE);
+  const canApproveGatePass = hasPerm(PERM.GATE_PASS_APPROVE);
   // countOnly — used by nav badges: return just the total pending count
   // instead of the full lists with budget context (the shell only needs
   // the number, and the full response returns an object whose .length
@@ -45,6 +51,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   // Pre-compute scope filters for scoped models
   const reqScope = await scopeWhere("MaterialRequisition", {});
   const gpScope = await scopeWhere("GatePass", {});
+  const poScope = await scopeWhere("PurchaseOrder", {});
 
   if (countOnly) {
     // Count only what THIS user can approve — a req-only approver must not
@@ -52,7 +59,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     const [poCount, reqCount, gpCount] = await Promise.all([
       canApprovePo
         ? prisma.purchaseOrder.count({
-            where: { companyId: company.id, status: "DRAFT", createdById: selfFilter },
+            where: { ...poScope, companyId: company.id, status: "DRAFT", createdById: selfFilter },
           })
         : Promise.resolve(0),
       canApproveReq
@@ -71,7 +78,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
   const [purchaseOrders, requisitions, gatePasses] = await Promise.all([
     prisma.purchaseOrder.findMany({
-      where: { companyId: company.id, status: "DRAFT", createdById: selfFilter },
+      where: { ...poScope, companyId: company.id, status: "DRAFT", createdById: selfFilter },
       orderBy: { createdAt: "desc" },
       take: 100,
       include: {

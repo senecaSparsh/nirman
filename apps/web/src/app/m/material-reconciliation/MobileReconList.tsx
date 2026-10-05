@@ -175,7 +175,7 @@ function ReconCard({ item }: { item: ReconItem }) {
             className="text-m-caption mt-0.5"
             style={{ color: "var(--color-ink-500)" }}
           >
-            wastage
+            {item.wastagePct < 0 ? "under-consumed" : "wastage"}
           </p>
         </div>
       </div>

@@ -1,0 +1,23 @@
+import { chromium } from "playwright";
+const BASE = "http://localhost:3000";
+const UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1";
+const browser = await chromium.launch();
+const ctx = await browser.newContext({ userAgent: UA, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+const p = await ctx.newPage();
+const res = await p.request.post(`${BASE}/api/auth/demo-login`, { data: { role: "OWNER" } });
+const { email, password } = await res.json();
+await p.request.post(`${BASE}/api/auth/sign-in/email`, { data: { email, password } });
+// API-context nav — shows the redirect chain, not browser
+const r = await p.request.get(`${BASE}/m/pulse`, { maxRedirects: 0 });
+console.log("/m/pulse ->", r.status(), r.headers()["location"] ?? "");
+await p.close();
+const page = await ctx.newPage();
+page.on("pageerror", (e) => console.log("PAGEERROR:", e.message.slice(0, 300)));
+await page.goto(`${BASE}/m/pulse`, { waitUntil: "domcontentloaded" });
+await page.waitForTimeout(4000);
+console.log("final url:", page.url(), "| title:", await page.title());
+const mainCount = await page.locator("main").count();
+console.log("main elements:", mainCount);
+if (mainCount) console.log((await page.locator("main").first().innerText()).slice(0, 300).replace(/\n/g, " | "));
+else console.log("body:", (await page.locator("body").innerText()).slice(0, 300).replace(/\n/g, " | "));
+await browser.close();

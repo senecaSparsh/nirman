@@ -1,7 +1,7 @@
 import { prisma } from "@nirman/db";
 import { getBudgetVariance } from "@nirman/services";
 import { TrendingUp, TrendingDown, AlertTriangle, FolderOpen } from "lucide-react";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
@@ -33,7 +33,7 @@ export default function MobileBudgetVarianceDetailPage({
     >
       {async ({ id, company }) => {
         const project = await prisma.project.findFirst({
-          where: { id, companyId: company.id, deletedAt: null },
+          where: { companyId: company.id, deletedAt: null, AND: [{ id }, await scopeWhere("Project")] },
           select: { id: true, name: true, totalBudget: true },
         });
 

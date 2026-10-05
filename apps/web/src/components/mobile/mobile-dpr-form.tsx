@@ -113,6 +113,7 @@ export function MobileDprForm({
   existingDprsByProject,
   yesterdayDprsByProject,
   initialProjectId,
+  lockedPeriods,
   onClose,
   onCreated,
 }: {
@@ -124,6 +125,10 @@ export function MobileDprForm({
   yesterdayDprsByProject: Record<string, YesterdayDpr>;
   /** Deep-link prefill (?project=) — wins over the last-used default. */
   initialProjectId?: string | null;
+  /** Payroll periods already processed/paid — a DPR can't post labour cost
+   *  into them (server returns 409). Surfaced up-front so the user doesn't
+   *  fill the whole form before learning it's locked. */
+  lockedPeriods?: { start: string; end: string; label: string }[];
   /** Called when the form is dismissed (modal close). */
   onClose?: () => void;
   /** Called after a DPR is successfully submitted/updated. */
@@ -156,6 +161,12 @@ export function MobileDprForm({
   const editingDpr = fProject ? existingDprsByProject[fProject] : undefined;
   const editingLocked = !!editingDprId && !!editingDpr
     && (editingDpr.approvalStatus === "APPROVED" || editingDpr.approvalStatus === "SUB_ADMIN_APPROVED");
+
+  // Payroll-lock: the selected date sits inside a processed/paid period —
+  // the server will reject the submit, so say so before they type.
+  const payrollLock = (lockedPeriods ?? []).find(
+    (p) => fDate >= p.start && fDate <= p.end,
+  );
 
   const [materialLines, setMaterialLines] = useState<MaterialLine[]>([]);
   const [laborLines, setLaborLines] = useState<LaborLine[]>([]);
@@ -696,6 +707,22 @@ export function MobileDprForm({
           DPR for {fDate} is already approved — reject it to make changes
         </div>
       )}
+      {payrollLock && !editingDprId && (
+        <div
+          className="flex items-center gap-2 rounded-[0.5rem] border p-2.5 text-m-caption font-semibold"
+          style={{
+            borderColor: "color-mix(in srgb, var(--color-signal) 35%, transparent)",
+            backgroundColor: "color-mix(in srgb, var(--color-signal) 10%, transparent)",
+            color: "var(--color-signal-dark)",
+          }}
+        >
+          <AlertCircle className="size-3.5 shrink-0" />
+          <span>
+            {fDate} falls in a locked period — {payrollLock.label}. The DPR will be
+            rejected on submit; correct it with an adjustment in the next period.
+          </span>
+        </div>
+      )}
 
       {/* ── Draft restoration banner ─────────────────────────── */}
       {hasDraft && !editingDprId && !draftRestored && (
@@ -1077,7 +1104,7 @@ export function MobileDprForm({
           <button
             type="button"
             onClick={submit}
-            disabled={submitting || editingLocked}
+            disabled={submitting || editingLocked || !!payrollLock}
             className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
@@ -1086,7 +1113,7 @@ export function MobileDprForm({
             ) : (
               <Send className="size-3.5" />
             )}
-            {submitting ? "Submitting…" : editingDprId ? "Update DPR" : "Submit DPR"}
+            {submitting ? "Submitting…" : payrollLock ? "Locked — payroll processed" : editingDprId ? "Update DPR" : "Submit DPR"}
           </button>
         </div>
       </div>

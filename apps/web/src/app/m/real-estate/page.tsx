@@ -28,7 +28,7 @@ export default function MobileRealEstateHubPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   return (
-    <MobileHubPage perm={PERM.PROJECTS_VIEW} what="real estate" permission="projects.view">
+    <MobileHubPage perm={PERM.PROJECTS_VIEW} scopeAware what="real estate" permission="projects.view">
       {async () => {
         const { tab } = await searchParams;
 
@@ -71,7 +71,7 @@ async function RealEstateProjectsTab() {
   const canManage = __effPerms.includes(PERM.PROJECTS_MANAGE);
 
   const projects = await prisma.project.findMany({
-    where: { companyId: company.id, deletedAt: null },
+    where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
     orderBy: { name: "asc" },
     select: {
       id: true, name: true, status: true, type: true,
@@ -120,7 +120,7 @@ async function RealEstateUnitsTab() {
       include: { project: { select: { id: true, name: true } } }}),
     canManage
       ? prisma.project.findMany({
-          where: { companyId: company.id, deletedAt: null },
+          where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
           orderBy: { name: "asc" },
           select: { id: true, name: true }})
       : [],
@@ -178,7 +178,7 @@ async function RealEstateLandTab() {
             _count: { select: { children: true } }}}}}),
     canManage
       ? prisma.project.findMany({
-          where: { companyId: company.id, deletedAt: null },
+          where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
           select: { id: true, name: true },
           orderBy: { name: "asc" }})
       : [],
@@ -193,6 +193,7 @@ async function RealEstateLandTab() {
   const items: LandPurchaseItem[] = landPurchases.map((lp) => {
     const availableCount = lp.parcels.filter((p) => p.status === "AVAILABLE").length;
     const holdCount = lp.parcels.filter((p) => p.status === "HOLD").length;
+    const reservedCount = lp.parcels.filter((p) => p.status === "RESERVED").length;
     const soldCount = lp.parcels.filter((p) => p.status === "SOLD").length;
     const partitionedCount = lp.parcels.filter((p) => p._count.children > 0).length;
     const availableArea = lp.parcels
@@ -223,6 +224,7 @@ async function RealEstateLandTab() {
       parcelCount: lp.parcels.length,
       availableCount,
       holdCount,
+      reservedCount,
       soldCount,
       partitionedCount,
       availableArea,
@@ -248,6 +250,7 @@ async function RealEstateLandTab() {
     parcelCount: items.reduce((s, i) => s + i.parcelCount, 0),
     availableCount: items.reduce((s, i) => s + i.availableCount, 0),
     holdCount: items.reduce((s, i) => s + i.holdCount, 0),
+    reservedCount: items.reduce((s, i) => s + (i.reservedCount ?? 0), 0),
     soldCount: items.reduce((s, i) => s + i.soldCount, 0),
     partitionedCount: items.reduce((s, i) => s + i.partitionedCount, 0),
     availableArea: items.reduce((s, i) => s + toNum(i.availableArea), 0),

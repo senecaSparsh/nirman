@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { DetailPrintButton } from "@/components/mobile/v2/detail-primitives";
@@ -21,7 +21,7 @@ export default function MobileStockCountDetailPage({
     <MobileDetailPage params={params} skeletonSections={6}>
       {async ({ id, company, perms }) => {
         const count = await prisma.stockCount.findFirst({
-          where: { id, location: { companyId: company.id, deletedAt: null } },
+          where: { id, location: { companyId: company.id, deletedAt: null }, ...await scopeWhere("StockCount") },
           include: {
             location: { select: { id: true, name: true, type: true } },
             lines: {

@@ -181,7 +181,7 @@ export interface RouteEntry {
 
 export const ROUTES: RouteEntry[] = [
   { path: "/m", title: "Home", parent: null, kind: "redirect", module: "home", icon: Home, redirectTo: "/m/home" },
-  { path: "/m/accounts", title: "Accounts", parent: "/m/home", kind: "hub", module: "accounts", perm: "finance.view", icon: BookOpen, hint: "Expenses, claims, petty cash, supplier payments, receipts, GL", desktopPath: "/finance", sharesListWith: ["/m/books/gl", "/m/books/receipts", "/m/expense-claims", "/m/expenses", "/m/petty-cash", "/m/supplier-payments"] },
+  { path: "/m/accounts", title: "Accounts", parent: "/m/home", kind: "hub", module: "accounts", perm: "finance.view", icon: BookOpen, hint: "Expenses, claims, petty cash, supplier payments, receipts, GL, recurring + budgets (Planned tab)", desktopPath: "/finance", keywords: ["recurring", "rent", "retainer", "budget", "planned", "monthly expense", "utility"], sharesListWith: ["/m/books/gl", "/m/books/receipts", "/m/expense-claims", "/m/expenses", "/m/petty-cash", "/m/supplier-payments"] },
   { path: "/m/alerts", title: "Alerts", parent: "/m/home", kind: "redirect", module: "home", perm: "assets.view", icon: AlertTriangle, redirectTo: "/m/alerts/lease-expiry" },
   { path: "/m/alerts/lease-expiry", title: "Lease Expiry", parent: "/m/home", kind: "list", module: "home", perm: "assets.view", icon: CalendarOff, hint: "Leasehold land with a lease ending within 90 days, or already expired", desktopPath: "/land" },
   { path: "/m/attendance", title: "Attendance", parent: "/m/hr", kind: "list", module: "hr", perm: "hr.view", icon: CalendarCheck, hint: "Daily headcount — GPS-tagged check-ins by site", desktopPath: "/hr/attendance" },

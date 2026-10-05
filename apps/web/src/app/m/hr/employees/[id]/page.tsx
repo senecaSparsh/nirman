@@ -119,7 +119,7 @@ async function MobileEmployeeDetailContent({
       orderBy: { name: "asc" },
     }),
     prisma.stockLocation.findMany({
-      where: { companyId: company.id, deletedAt: null },
+      where: { companyId: company.id, deletedAt: null, ...await scopeWhere("StockLocation") },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

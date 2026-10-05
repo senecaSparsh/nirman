@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { getCompany } from "@/lib/server";
+import { getCompany, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import { MobileNewSupplierPaymentClient } from "./MobileNewSupplierPaymentClient";
@@ -24,7 +24,8 @@ export default function MobileNewSupplierPaymentPage() {
             take: 200,
           }),
           prisma.purchaseOrder.findMany({
-            where: {
+            where: { ...await scopeWhere("PurchaseOrder"),
+              ...await scopeWhere("PurchaseOrder"),
               companyId: company.id,
               supplierId: { not: undefined as unknown as string },
               status: { in: ["APPROVED", "ORDERED", "PARTIAL", "RECEIVED"] },
@@ -40,7 +41,7 @@ export default function MobileNewSupplierPaymentPage() {
             take: 100,
           }),
           prisma.supplierInvoice.findMany({
-            where: {
+            where: { ...await scopeWhere("SupplierInvoice"),
               companyId: company.id,
               status: { in: ["APPROVED", "MATCHED"] },
             },

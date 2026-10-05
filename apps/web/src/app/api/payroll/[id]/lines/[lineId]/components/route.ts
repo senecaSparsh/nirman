@@ -19,7 +19,7 @@ export const PUT = apiHandler(async (req: NextRequest, { params }: { params: Pro
 
   // Scoped pre-fetch — same guard as the PATCH sibling route.
   const existing = await prisma.payrollLine.findFirst({
-    where: { id: lineId, employee: { companyId: company.id }, ...await scopeWhere("PayrollLine") },
+    where: { id: lineId, AND: [{ employee: { companyId: company.id } }, await scopeWhere("PayrollLine")] },
   });
   if (!existing) return json({ error: "Payroll line not found or out of scope" }, { status: 404 });
 

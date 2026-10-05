@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { createLegalDoc, listLegalDocs, listAllLegalDocs, countAllLegalDocs } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -27,11 +27,15 @@ export const GET = apiHandler(async (req: NextRequest) => {
       });
       return json({ count });
     }
-    const docs = await listAllLegalDocs(company.id, {
-      type: sp.get("type") ?? undefined,
-      status: sp.get("status") ?? undefined,
-      appliesTo: sp.get("appliesTo") ?? undefined,
-    });
+    const docs = await listAllLegalDocs(
+      company.id,
+      {
+        type: sp.get("type") ?? undefined,
+        status: sp.get("status") ?? undefined,
+        appliesTo: sp.get("appliesTo") ?? undefined,
+      },
+      await scopeWhere("LegalDocument"),
+    );
     return json(
       docs.map((d) => ({
         id: d.id,
@@ -66,7 +70,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const landPurchaseId = sp.get("landPurchaseId");
   const projectId = sp.get("projectId");
 
-  const docs = await listLegalDocs(company.id, { landPurchaseId: landPurchaseId ?? undefined, projectId: projectId ?? undefined });
+  const docs = await listLegalDocs(
+    company.id,
+    { landPurchaseId: landPurchaseId ?? undefined, projectId: projectId ?? undefined },
+    await scopeWhere("LegalDocument"),
+  );
 
   return json(
     docs.map((d) => ({

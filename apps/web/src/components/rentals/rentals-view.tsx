@@ -1249,6 +1249,7 @@ function TenancyDetailDialog({
               onChange={onUploadAgreement}
               maxPhotos={1}
               label="Upload Agreement"
+              accept=".pdf,image/*"
               className="mt-1"
             />
           )}

@@ -50,6 +50,7 @@ export enum NotificationEventType {
   REQUISITION_CONVERTED_TO_PO = "REQUISITION_CONVERTED_TO_PO",
   PO_CREATED = "PO_CREATED",
   PO_APPROVED = "PO_APPROVED",
+  PO_REJECTED = "PO_REJECTED",
   PO_ORDERED = "PO_ORDERED",
   GOODS_RECEIVED = "GOODS_RECEIVED",
   SUPPLIER_PAYMENT_DUE = "SUPPLIER_PAYMENT_DUE",
@@ -150,6 +151,7 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   [NotificationEventType.REQUISITION_CONVERTED_TO_PO]: "DAILY",
   [NotificationEventType.PO_CREATED]: "IMMEDIATE",
   [NotificationEventType.PO_APPROVED]: "IMMEDIATE",
+  [NotificationEventType.PO_REJECTED]: "IMMEDIATE",
   [NotificationEventType.PO_ORDERED]: "DAILY",
   [NotificationEventType.GOODS_RECEIVED]: "DAILY",
   [NotificationEventType.SUPPLIER_PAYMENT_DUE]: "IMMEDIATE",
@@ -734,6 +736,7 @@ const PROCUREMENT_EVENTS = new Set([
   NotificationEventType.REQUISITION_CONVERTED_TO_PO,
   NotificationEventType.PO_CREATED,
   NotificationEventType.PO_APPROVED,
+  NotificationEventType.PO_REJECTED,
   NotificationEventType.PO_ORDERED,
   NotificationEventType.GOODS_RECEIVED,
   NotificationEventType.SUPPLIER_PAYMENT_DUE,
@@ -893,6 +896,8 @@ const EVENT_MESSAGES: Partial<
     `PO ${s("poNumber")} created${money("total") ? ` for ${money("total")}` : ""} — needs approval.`,
   [NotificationEventType.PO_APPROVED]: ({ s, money }) =>
     `PO ${s("poNumber")} approved${money("total") ? ` (${money("total")})` : ""} — ready to order.`,
+  [NotificationEventType.PO_REJECTED]: ({ s }) =>
+    `PO ${s("poNumber")} rejected${s("reason") ? `: ${s("reason")}` : ""}.`,
   [NotificationEventType.PO_ORDERED]: ({ s }) =>
     `PO ${s("poNumber")} sent to supplier.`,
   [NotificationEventType.GOODS_RECEIVED]: ({ s }) =>

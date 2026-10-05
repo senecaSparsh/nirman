@@ -34,7 +34,7 @@ export default function MobileWbsPage({
       {async ({ company, projectId, perms }) => {
         // Fetch projects for the selector (PLANNED or ACTIVE only)
         const projects = await prisma.project.findMany({
-          where: {
+          where: { ...await scopeWhere("Project"),
             companyId: company.id,
             deletedAt: null,
             status: { in: ["PLANNED", "ACTIVE"] }},
@@ -43,7 +43,7 @@ export default function MobileWbsPage({
 
         const selectedProject = projectId
           ? await prisma.project.findFirst({
-              where: {
+              where: { ...await scopeWhere("Project"),
                 id: projectId,
                 companyId: company.id,
                 deletedAt: null},

@@ -48,7 +48,7 @@ export default function MobileMaterialDetailPage({
             where: { id, companyId: company.id, deletedAt: null },
             include: { category: { select: { name: true } } }}),
           prisma.stockLocationItem.findMany({
-            where: { materialId: id, location: { companyId: company.id } },
+            where: { materialId: id, AND: [await scopeWhere("StockLocationItem"), { location: { companyId: company.id } }] },
             include: { location: { select: { id: true, name: true, type: true } } },
             orderBy: { location: { name: "asc" } }}),
           prisma.stockMovement.findMany({
@@ -62,7 +62,7 @@ export default function MobileMaterialDetailPage({
           // All company stock locations — passed to the adjust-stock sheet so the
           // location select is never empty, even when this material has zero stock.
           prisma.stockLocation.findMany({
-            where: { companyId: company.id, deletedAt: null },
+            where: { ...await scopeWhere("StockLocation"), companyId: company.id, deletedAt: null },
             orderBy: [{ type: "asc" }, { name: "asc" }],
             include: { project: { select: { id: true, name: true } } }}),
         ]);

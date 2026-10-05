@@ -52,6 +52,7 @@ interface LandPurchaseItem {
   parcelCount: number;
   availableCount: number;
   holdCount: number;
+  reservedCount?: number;
   soldCount: number;
   partitionedCount: number;
   availableArea: number;
@@ -68,6 +69,7 @@ interface Portfolio {
   parcelCount: number;
   availableCount: number;
   holdCount: number;
+  reservedCount?: number;
   soldCount: number;
   partitionedCount: number;
   availableArea: number;
@@ -585,7 +587,7 @@ function PurchaseCard({
         </div>
         <div className="text-right min-w-0">
           <p className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
-            Value
+            Unsold val.
           </p>
           <p className="text-m-caption font-bold tabular-nums leading-tight" style={{ color: "var(--color-ink-950)" }}>
             {formatCurrencyCompact(p.unsoldValue)}
@@ -623,14 +625,20 @@ function PurchaseCard({
           </span>
         ) : null}
 
-        {/* Gain */}
-        <span
-          className="ml-auto flex items-center gap-0.5 text-m-caption font-bold tabular-nums"
-          style={{ color: gainPositive ? "var(--color-go)" : "var(--color-stop)" }}
-        >
-          <TrendingUp className="size-1.5" style={{ transform: gainPositive ? "none" : "scaleY(-1)" }} />
-          {gainPct > 0 ? "+" : ""}{gainPct}%
-        </span>
+        {/* Gain — meaningless when nothing is left unsold; label by outcome */}
+        {p.availableCount === 0 && ((p.soldCount ?? 0) + (p.reservedCount ?? 0)) > 0 ? (
+          <span className="ml-auto text-m-caption font-bold" style={{ color: "var(--color-ink-700)" }}>
+            {p.soldCount > 0 ? "Sold out" : "Reserved"}
+          </span>
+        ) : (
+          <span
+            className="ml-auto flex items-center gap-0.5 text-m-caption font-bold tabular-nums"
+            style={{ color: gainPositive ? "var(--color-go)" : "var(--color-stop)" }}
+          >
+            <TrendingUp className="size-1.5" style={{ transform: gainPositive ? "none" : "scaleY(-1)" }} />
+            {gainPct > 0 ? "+" : ""}{gainPct}%
+          </span>
+        )}
       </div>
     </Link>
   );

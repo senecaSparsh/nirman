@@ -35,7 +35,7 @@ export default function MobileGatePassPage() {
               exitedBy: { select: { name: true } },
               submittedBy: { select: { name: true } }}}),
           prisma.stockLocation.findMany({
-            where: { companyId: company.id, deletedAt: null },
+            where: { ...await scopeWhere("StockLocation"), companyId: company.id, deletedAt: null },
             select: { id: true, name: true },
             orderBy: { name: "asc" }}),
           prisma.project.findMany({

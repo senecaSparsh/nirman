@@ -23,7 +23,7 @@ export default function MobileChangeOrdersPage() {
         const actions = await getActionPermissions();
         const [changeOrders, projects] = await Promise.all([
           prisma.changeOrder.findMany({
-            where: {...await scopeWhere("ChangeOrder"),  companyId: company.id },
+            where: { ...await scopeWhere("ChangeOrder"),...await scopeWhere("ChangeOrder"),  companyId: company.id },
             orderBy: { createdAt: "desc" },
             take: 50,
             include: {
@@ -34,7 +34,7 @@ export default function MobileChangeOrdersPage() {
           }),
           canManage
             ? prisma.project.findMany({
-                where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+                where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
                 orderBy: { name: "asc" },
                 select: { id: true, name: true },
               })

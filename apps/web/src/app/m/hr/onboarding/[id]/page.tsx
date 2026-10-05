@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum, getUserScope, getUserPermissions, getEmployeeAccessScope, getCurrentUser, canManageSpecificEmployee, employeeVisibilityWhere } from "@/lib/server";
+import { getCompany, getUserRole, toNum, getUserScope, getUserPermissions, getEmployeeAccessScope, getCurrentUser, canManageSpecificEmployee, employeeVisibilityWhere, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
@@ -99,7 +99,7 @@ async function MobileOnboardingDetailContent({
       },
     }),
     prisma.project.findMany({
-      where: { companyId: company.id, deletedAt: null },
+      where: { companyId: company.id, deletedAt: null, ...await scopeWhere("Project") },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

@@ -479,6 +479,25 @@ export async function confirmExit(id: string, securityId: string, exitDetails: C
       },
     });
 
+    // Log the vehicle trip — the truck physically left the gate with goods.
+    // Auto-builds the Vehicle master so /vehicles populates from usage.
+    if (gp.vehicleNumber) {
+      const { recordVehicleTrip } = await import("./vehicle");
+      await recordVehicleTrip({
+        companyId: gp.companyId,
+        vehicleNumber: gp.vehicleNumber,
+        vehicleType: gp.vehicleType ?? "OTHER",
+        driverName: gp.driverName ?? undefined,
+        driverPhone: gp.driverPhone ?? undefined,
+        transporterName: gp.transporterName ?? undefined,
+        movementType: gp.category,
+        refType: gp.refType ?? "GatePass",
+        refId: gp.refId ?? id,
+        fromLocationId: gp.locationId,
+        tx,
+      });
+    }
+
     await logAction(tx, {
       userId: securityId,
       companyId: gp.companyId,

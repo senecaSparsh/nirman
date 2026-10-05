@@ -8,6 +8,7 @@ import { useLongPressNav } from "@/lib/use-long-press-nav";
 import { useSmartDefaults } from "@/lib/use-smart-defaults";
 import { useTodayDateState } from "@/lib/use-today-date";
 import { useDrafts } from "@/lib/offline/use-drafts";
+import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { DraftBanner } from "@/components/mobile/draft-banner";
 import { SmartDefaultsBadge } from "@/components/mobile/v2/smart-defaults-badge";
 import { SectionCard, SelectorModal } from "@/components/mobile/v2/form-primitives";
@@ -61,7 +62,8 @@ export function MobileNewExpenseClaimClient({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [success, setSuccess] = useState<{ id: string; submitted: boolean; lineCount: number; total: number } | null>(null);
+  const [success, setSuccess] = useState<{ id: string; submitted: boolean; lineCount: number; total: number; queued?: boolean } | null>(null);
+  const { enqueue } = useOfflineQueue();
   const [uploading, setUploading] = useState(false);
   const [claimantId, setClaimantId] = useState("");
   const [projectId, setProjectId] = useState("");
@@ -189,14 +191,23 @@ export function MobileNewExpenseClaimClient({
       return;
     }
     setSaving(true);
+    const preparedLines: {
+      categoryId: string | null;
+      category: string;
+      amount: number;
+      gstRate: number | null;
+      date?: string;
+      receiptUrl: string | null;
+      notes: string | null;
+    }[] = [];
     try {
       // Record smart defaults
       recordDefaults({ projectId });
 
       // Upload any attached receipts first — Files can't ride in the JSON
       // claim payload, so each gets its own upload and the resulting URL is
-      // sent on the line below.
-      const preparedLines = [];
+      // sent on the line below. uploadReceipt degrades to null on failure,
+      // so an offline submit just skips receipt photos.
       for (const line of validLines) {
         let receiptUrl = line.receiptUrl;
         if (line.receiptFile) {
@@ -238,6 +249,26 @@ export function MobileNewExpenseClaimClient({
       });
       clearDraft();
     } catch (err) {
+      // Network failure (offline / tunnel drop / captive portal): queue the
+      // whole claim so field work survives. TypeError is fetch's network
+      // error; navigator.onLine false is the fast path. Receipt files never
+      // entered preparedLines' JSON — receiptUrl is already null there.
+      const offline = !navigator.onLine || err instanceof TypeError;
+      if (offline) {
+        await enqueue("expense-claim", {
+          claimantId,
+          projectId: projectId || undefined,
+          description: description.trim() || undefined,
+          lines: preparedLines,
+          submit: true,
+        });
+        toast.success("Claim queued — will sync when you're back online", {
+          description: "Find it under Settings → Sync Queue. Reattach receipt photos after it lands.",
+        });
+        setSuccess({ id: "", submitted: true, lineCount: validLines.length, total: totalAmount, queued: true });
+        clearDraft();
+        return;
+      }
       toast.error(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setSaving(false);
@@ -255,24 +286,32 @@ export function MobileNewExpenseClaimClient({
   if (success) {
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-        <div className="grid place-items-center size-14 rounded-full mb-3" style={{ backgroundColor: success.submitted ? "color-mix(in srgb, var(--color-go) 12%, transparent)" : "color-mix(in srgb, var(--color-signal) 12%, transparent)" }}>
-          <CheckCircle2 className="size-7" style={{ color: success.submitted ? "var(--color-go)" : "var(--color-signal)" }} />
+        <div className="grid place-items-center size-14 rounded-full mb-3" style={{ backgroundColor: success.submitted && !success.queued ? "color-mix(in srgb, var(--color-go) 12%, transparent)" : "color-mix(in srgb, var(--color-signal) 12%, transparent)" }}>
+          <CheckCircle2 className="size-7" style={{ color: success.submitted && !success.queued ? "var(--color-go)" : "var(--color-signal)" }} />
         </div>
         <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
-          {success.submitted ? "Expense Claim Submitted" : "Expense Claim Saved as Draft"}
+          {success.queued ? "Claim Queued" : success.submitted ? "Expense Claim Submitted" : "Expense Claim Saved as Draft"}
         </p>
         <p className="text-m-caption font-mono mb-1" style={{ color: "var(--color-ink-700)" }}>
           {success.lineCount} line {success.lineCount === 1 ? "item" : "items"} · {formatCurrency(success.total)}
         </p>
         <p className="text-m-caption mb-4" style={{ color: "var(--color-ink-500)" }}>
-          {success.submitted
-            ? "It's now in the approval queue for a manager to review."
-            : "Submit it for approval from the claim detail page."}
+          {success.queued
+            ? "You're offline — it's in the sync queue and will post automatically when you're back online."
+            : success.submitted
+              ? "It's now in the approval queue for a manager to review."
+              : "Submit it for approval from the claim detail page."}
         </p>
         <div className="flex gap-3 w-full max-w-xs">
-          <button onClick={() => { if (onCreated) onCreated(success.id); else { router.push(`/m/expense-claims/${success.id}`); router.refresh(); } }} className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
-            <Eye className="size-4 inline mr-1" /> View Claim
-          </button>
+          {success.queued || !success.id ? (
+            <button onClick={() => router.push("/m/queue")} className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+              <Eye className="size-4 inline mr-1" /> View Sync Queue
+            </button>
+          ) : (
+            <button onClick={() => { if (onCreated) onCreated(success.id); else { router.push(`/m/expense-claims/${success.id}`); router.refresh(); } }} className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold press active:scale-95" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
+              <Eye className="size-4 inline mr-1" /> View Claim
+            </button>
+          )}
           <button onClick={() => { setSuccess(null); setDescription(""); setLines([emptyLine(today)]); setExtraProjects([]); setExtraEmployees([]); router.refresh(); }} className="flex-1 rounded-[0.5rem] px-4 py-2.5 text-m-body font-bold border-2 press active:scale-95" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)", backgroundColor: "var(--color-paper)" }}>
             <Plus className="size-4 inline mr-1" /> Create Another
           </button>

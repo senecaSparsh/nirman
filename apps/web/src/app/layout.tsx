@@ -14,6 +14,7 @@ import { SurfaceAdapter } from "@/components/surface-adapter";
 // in Server Components).
 import { LazySwRegister } from "@/components/lazy-sw-register";
 import { ChunkErrorRecovery } from "@/components/dev/chunk-error-recovery";
+import { NativeAppInit } from "@/components/native/native-app-init";
 import { CurrencyProvider } from "@/components/currency-provider";
 import { runWithCurrencyMode, type CurrencyMode } from "@/lib/currency-server";
 import { runWithRequestContext, getNavBootstrap } from "@/lib/server";
@@ -73,6 +74,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  // Edge-to-edge — without this, env(safe-area-inset-*) is 0 inside the
+  // Capacitor WebView and iOS standalone PWA, so the UI renders under the
+  // notch/home indicator.
+  viewportFit: "cover",
 };
 
 /**
@@ -183,6 +188,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
         <LazySwRegister isDev={process.env.NODE_ENV !== "production"} />
         <ChunkErrorRecovery />
+        {/* Capacitor bridge init — mounts at the root so it covers sign-in
+            and every surface, not just /m/*. No-op on the open web. */}
+        <NativeAppInit />
       </body>
     </html>
   ));

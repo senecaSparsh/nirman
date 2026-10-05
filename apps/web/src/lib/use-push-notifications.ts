@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { isNativeApp, nativePlatform, registerNativePush } from "@/lib/native";
 
 /**
  * usePushNotifications — manages browser notification permission and
@@ -33,6 +34,24 @@ export function usePushNotifications() {
   // Check current permission on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (isNativeApp()) {
+      // Inside the Capacitor shell the Notification API doesn't exist;
+      // permission lives on the native PushNotifications plugin instead.
+      import("@capacitor/push-notifications")
+        .then(({ PushNotifications }) => PushNotifications.checkPermissions())
+        .then((p) => {
+          const state =
+            p.receive === "granted"
+              ? "granted"
+              : p.receive === "denied"
+                ? "denied"
+                : "default";
+          setPermission(state);
+          setSubscribed(state === "granted");
+        })
+        .catch(() => setPermission("unsupported"));
+      return;
+    }
     if (typeof Notification === "undefined") {
       setPermission("unsupported");
       return;
@@ -49,9 +68,25 @@ export function usePushNotifications() {
   }, []);
 
   const requestPermission = useCallback(async () => {
-    if (typeof window === "undefined" || typeof Notification === "undefined") return;
+    if (typeof window === "undefined") return;
     setLoading(true);
     try {
+      if (isNativeApp()) {
+        const { PushNotifications } = await import("@capacitor/push-notifications");
+        const perm = await PushNotifications.requestPermissions();
+        const state =
+          perm.receive === "granted"
+            ? "granted"
+            : perm.receive === "denied"
+              ? "denied"
+              : "default";
+        setPermission(state);
+        if (state === "granted") {
+          setSubscribed(await registerNativePush());
+        }
+        return;
+      }
+      if (typeof Notification === "undefined") return;
       const result = await Notification.requestPermission();
       setPermission(result as PermissionState);
 
@@ -97,6 +132,50 @@ export function usePushNotifications() {
   }, []);
 
   const unsubscribe = useCallback(async () => {
+    if (isNativeApp()) {
+      try {
+        const { PushNotifications } = await import("@capacitor/push-notifications");
+        // Re-register to get the current device token, then deactivate it
+        // server-side. The OS-level registration stays intact so
+        // re-enabling later is silent.
+        const { value: token } = await new Promise<{ value: string }>(
+          (resolve, reject) => {
+            let settled = false;
+            let h1: { remove: () => Promise<void> } | null = null;
+            let h2: { remove: () => Promise<void> } | null = null;
+            const cleanup = () => {
+              void h1?.remove();
+              void h2?.remove();
+            };
+            const finish = (fn: () => void) => {
+              if (settled) return;
+              settled = true;
+              cleanup();
+              fn();
+            };
+            void PushNotifications.addListener("registration", (t) => {
+              finish(() => resolve(t));
+            }).then((h) => (h1 = h));
+            void PushNotifications.addListener("registrationError", (e) => {
+              finish(() => reject(e));
+            }).then((h) => (h2 = h));
+            void PushNotifications.register();
+            // register() may not emit `registration` when the device is
+            // already registered — don't hang the unsubscribe forever.
+            setTimeout(() => finish(() => reject(new Error("token timeout"))), 15000);
+          },
+        );
+        await fetch("/api/notifications/native-token", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token, platform: nativePlatform() }),
+        }).catch(() => {});
+        setSubscribed(false);
+      } catch {
+        // ignore
+      }
+      return;
+    }
     if ("serviceWorker" in navigator) {
       try {
         const reg = await navigator.serviceWorker.ready;

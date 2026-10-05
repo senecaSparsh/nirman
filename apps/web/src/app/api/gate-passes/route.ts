@@ -93,18 +93,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
 
-  try {
-    await assertScopeAllows({
-      projectId: parsed.data.projectId ?? null,
-      departmentId: null,
-    });
-  } catch (err) {
-    return json(
-      { error: err instanceof Error ? err.message : "Scope violation" },
-      { status: 403 },
-    );
-  }
-  // The gate location must be in scope too — a pass at another project's
+  // The gate location must be in scope — a pass at another project's
   // site lets stock leave where the caller can't audit it.
   const gpLoc = await prisma.stockLocation.findFirst({
     where: { id: parsed.data.locationId, deletedAt: null },
@@ -121,10 +110,32 @@ export const POST = apiHandler(async (req: NextRequest) => {
     }
   }
 
+  // The location owns the project — a pass leaving Site One Store IS a Site
+  // One pass. The client-sent projectId is only a tag for company-level
+  // locations (e.g. a warehouse pass going to a project); a project-linked
+  // location overrides it so a scoped user's pass can't escape their scope
+  // or get tagged to the wrong site.
+  if (gpLoc?.projectId && parsed.data.projectId && parsed.data.projectId !== gpLoc.projectId) {
+    return json({ error: "The location belongs to a different project — remove the project or pick a location there" }, { status: 400 });
+  }
+  const effectiveProjectId = gpLoc?.projectId ?? parsed.data.projectId ?? null;
+
+  try {
+    await assertScopeAllows({
+      projectId: effectiveProjectId,
+      departmentId: null,
+    });
+  } catch (err) {
+    return json(
+      { error: err instanceof Error ? err.message : "Scope violation" },
+      { status: 403 },
+    );
+  }
+
   const gp = await createGatePass({
     companyId: company.id,
     locationId: parsed.data.locationId,
-    projectId: parsed.data.projectId ?? undefined,
+    projectId: effectiveProjectId ?? undefined,
     category: parsed.data.category,
     refType: parsed.data.refType ?? undefined,
     refId: parsed.data.refId ?? undefined,

@@ -1,6 +1,6 @@
 import { Suspense, type ReactNode } from "react";
 import { connection } from "next/server";
-import { getActingRole, getOwnRole, getCompany, getUserRole, getUserPermissions } from "@/lib/server";
+import { getActingRole, getOwnRole, getCompany, getUserRole, getUserPermissions, getScopedRolePermissions } from "@/lib/server";
 import { hasPermission, type Permission } from "@/lib/roles";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
@@ -65,6 +65,7 @@ export async function MobileHubPage({
   what,
   permission,
   skeleton,
+  scopeAware = false,
   children,
 }: {
   /** View permission — hard gate. Omit for no gate. */
@@ -74,6 +75,10 @@ export async function MobileHubPage({
   permission?: string;
   /** Custom skeleton fallback. Defaults to <MobileSkeletonHome />. */
   skeleton?: ReactNode;
+  /** Set when every query in this page is scopeWhere-filtered — lets
+   *  scoped-role perms satisfy the gate. Do NOT set on org-level surfaces
+   *  (GL, payroll, telephony). */
+  scopeAware?: boolean;
   children: (ctx: MobileHubPageCtx) => Promise<ReactNode> | ReactNode;
 }) {
   const content = async () => {
@@ -82,7 +87,11 @@ export async function MobileHubPage({
     const role = await getUserRole();
     const actingRole = await getActingRole();
     const ownRole = await getOwnRole();
-    const overrides = await getUserPermissions();
+    // Union scoped-role perms ONLY when the page opts in — its queries must
+    // be fully scopeWhere-filtered. Org-level surfaces keep the global gate.
+    const overrides = scopeAware
+      ? [...(await getUserPermissions()), ...(await getScopedRolePermissions())]
+      : await getUserPermissions();
 
     if (perm && !hasPermission(role, perm, overrides)) {
       return <MobileNoAccess what={what ?? "this page"} permission={permission} />;

@@ -19,7 +19,7 @@ import {
   getSupplierOutstanding,
   getTallySyncStats,
 } from "@nirman/services";
-import { getCurrentUser, toNum, getCustomRoleLabels, roleDisplayLabel } from "@/lib/server";
+import { getCurrentUser, toNum, getCustomRoleLabels, roleDisplayLabel, scopeWhere } from "@/lib/server";
 import {formatCurrencyCompact, formatNumber, formatDate, humanizeAuditAction, displayEmail} from "@/lib/utils";
 import {
   MobileRow,
@@ -123,6 +123,7 @@ export default function SettingsPage() {
           // Pending payables (overdue POs)
           prisma.purchaseOrder.count({
             where: {
+              ...await scopeWhere("PurchaseOrder"),
               companyId: company.id,
               status: { in: ["RECEIVED", "PARTIAL"] },
             },
@@ -130,6 +131,7 @@ export default function SettingsPage() {
           // Receivable dues (unpaid asset sales)
           prisma.assetSale.count({
             where: {
+              ...await scopeWhere("AssetSale"),
               companyId: company.id,
               paymentStatus: { in: ["PENDING", "PARTIAL"] },
             },

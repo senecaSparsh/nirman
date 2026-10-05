@@ -11,7 +11,7 @@ import { MobileFab } from "@/components/mobile/v2/scaffold";
  */
 export default function MobilePettyCashPage() {
   return (
-    <MobileListPage perm={PERM.FINANCE_VIEW} managePerm={PERM.FINANCE_MANAGE} skeletonRows={4}>
+    <MobileListPage perm={PERM.FINANCE_VIEW} scopeAware managePerm={PERM.FINANCE_MANAGE} skeletonRows={4}>
       {async ({ company, canManage, perms }) => {
         const canSpend = perms.includes(PERM.EXPENSE_CREATE);
         const currentUser = await getCurrentUser();

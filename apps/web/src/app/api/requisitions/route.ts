@@ -92,6 +92,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     // Auto-submit by default — eliminates the useless manual "Submit for
     // Approval" step. The indent goes straight to the approval queue.
     let submitted = false;
+    let autoApproved = false;
     let submitError: string | null = null;
     if (autoSubmit !== false) {
       try {
@@ -102,6 +103,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         // for a second approver who may not exist.
         if (canAutoApprove(await getActingRole())) {
           await approveRequisition(req.id, user.id, undefined, await getActingRole());
+          autoApproved = true;
         }
       } catch (err) {
         // If auto-submit fails (e.g. transition not allowed), still return
@@ -114,7 +116,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
     revalidatePath("/requisitions");
     revalidatePath("/m/procurement");
-    return json({ ok: true, id: req.id, reqNumber: req.reqNumber, submitted, submitError }, { status: 201 });
+    return json({ ok: true, id: req.id, reqNumber: req.reqNumber, submitted, autoApproved, submitError }, { status: 201 });
   } catch (err: unknown) {
     if (err instanceof ServiceError) {
       return json({ error: err.message }, { status: err.status ?? 400 });

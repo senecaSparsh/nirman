@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { getCompany, toNum } from "@/lib/server";
+import { getCompany, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import MobileNewProcurementClient from "./MobileNewProcurementClient";
@@ -38,7 +38,7 @@ export default function MobileNewProcurementPage({
             orderBy: { name: "asc" },
           }),
           prisma.stockLocation.findMany({
-            where: { companyId: company.id, deletedAt: null },
+            where: { ...await scopeWhere("StockLocation"), companyId: company.id, deletedAt: null },
             select: { id: true, name: true, type: true, projectId: true },
             orderBy: { name: "asc" },
           }),

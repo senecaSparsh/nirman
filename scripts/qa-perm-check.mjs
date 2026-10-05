@@ -1,0 +1,12 @@
+import { chromium } from "playwright";
+const BASE = "http://localhost:3000";
+const ctx = await (await chromium.launch()).newContext();
+const p = await ctx.newPage();
+const res = await p.request.post(`${BASE}/api/auth/demo-login`, { data: { role: "SITE_ENGINEER" } });
+const { email, password } = await res.json();
+console.log("engineer email:", email);
+await p.request.post(`${BASE}/api/auth/sign-in/email`, { data: { email, password } });
+const me = await p.request.get(`${BASE}/api/me`);
+const d = await me.json().catch(() => ({}));
+console.log("role:", d.role, "| activeRole:", d.activeRole, "| perms has sales.view?", JSON.stringify(d.permissions ?? d.perms ?? "").includes("sales.view"));
+await ctx.browser().close();

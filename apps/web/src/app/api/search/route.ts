@@ -32,7 +32,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const contains = { contains: q, mode: "insensitive" as const };
   // Location-scope filters for project/department-scoped users — search must
   // not become a side-channel that reveals records outside their scope.
-  const [scopeProject, scopePO, scopeReq, scopeUnit, scopeLand, scopeDPR, scopeEmployee, scopeSale] =
+  const [scopeProject, scopePO, scopeReq, scopeUnit, scopeLand, scopeDPR, scopeEmployee, scopeSale, scopeLead] =
     await Promise.all([
       scopeWhere("Project"),
       scopeWhere("PurchaseOrder"),
@@ -42,6 +42,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       scopeWhere("DailyProgressReport"),
       scopeWhere("Employee"),
       scopeWhere("MaterialSale"),
+      scopeWhere("Lead"),
     ]);
 
   // Transfers aren't in SCOPE_FIELDS — the same endpoint-location rule the
@@ -85,6 +86,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     equipment: (id: string) => (desktop ? `/equipment` : `/m/equipment/${id}`),
     sale: (id: string) => (desktop ? `/material-sales` : `/m/material-sales/${id}`),
     transfer: (id: string) => (desktop ? `/transfers` : `/m/transfers/${id}`),
+    lead: (id: string) => (desktop ? `/leads` : `/m/leads/${id}`),
   };
 
   const [
@@ -101,6 +103,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     equipment,
     materialSales,
     transfers,
+    leads,
   ] = await Promise.all([
     // Material is company-scoped (Material.companyId). Filter directly.
     // inventory.view gate — the catalogue page requires it; search must not
@@ -195,6 +198,18 @@ export const GET = apiHandler(async (req: NextRequest) => {
         toLocation: { select: { name: true } },
       },
     }),
+    // Leads — sales pipeline search by name OR phone (PII gated on sales.view,
+    // same as customers). Scoped: Lead.projectId.
+    !has(PERM.SALES_VIEW) ? [] : prisma.lead.findMany({
+      where: {
+        companyId,
+        deletedAt: null,
+        OR: [{ name: contains }, { phone: contains }],
+        ...scopeLead,
+      },
+      take: 5,
+      select: { id: true, name: true, phone: true, stage: true, project: { select: { name: true } } },
+    }),
   ]);
 
   const results = [
@@ -252,6 +267,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
       label: `${t.fromLocation.name} → ${t.toLocation.name}`,
       sublabel: t.status,
       href: HREF.transfer(t.id),
+    })),
+    ...leads.map((l) => ({
+      type: "lead", id: l.id, label: l.name,
+      sublabel: [l.phone, l.project?.name, l.stage].filter(Boolean).join(" · "),
+      href: HREF.lead(l.id),
     })),
   ];
 

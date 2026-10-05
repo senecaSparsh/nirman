@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserPermissions } from "@/lib/server";
+import { scopeWhere,  getCompany, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
@@ -31,7 +31,7 @@ async function VehiclesContent() {
 
   const vehicles = await prisma.vehicle.findMany({
     take: 500,
-    where: { companyId: company.id, deletedAt: null },
+    where: { ...await scopeWhere("Vehicle"), companyId: company.id, deletedAt: null },
     orderBy: { lastUsedAt: "desc" },
     include: {
       trips: {

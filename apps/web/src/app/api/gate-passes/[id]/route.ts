@@ -9,8 +9,8 @@ import {
   cancelGatePass,
   canAutoApprove,
 } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, requireUser, toNum, scopeWhere, getActingRole,} from "@/lib/server";
-import { PERM } from "@/lib/roles";
+import { apiHandler, getCompany, json, requirePermission, requireUser, toNum, scopeWhere, getActingRole, getActingRoleForProject, getUserPermissions, ForbiddenError,} from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 import { prisma } from "@nirman/db";
 
 /**
@@ -60,7 +60,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const company = await getCompany();
   const existing = await prisma.gatePass.findFirst({
     where: { id, companyId: company.id, ...await scopeWhere("GatePass", {}) },
-    select: { id: true },
+    select: { id: true, projectId: true },
   });
   if (!existing) return json({ error: "Gate pass not found" }, { status: 404 });
 
@@ -74,8 +74,15 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       await approveGatePass(id, user.id, undefined, await getActingRole());
     }
   } else if (action === "approve") {
-    const user = await requirePermission(PERM.GATE_PASS_APPROVE);
-    const approved = await approveGatePass(id, user.id, body?.notes, await getActingRole());
+    const user = await requireUser();
+    // Scoped-role lift — a scoped assignment on this pass's project can carry
+    // GATE_PASS_APPROVE locally (e.g. site PM releasing their own gate pass).
+    const actingRole = (await getActingRoleForProject(existing.projectId)) ?? (await getActingRole());
+    const perms = await getUserPermissions();
+    if (!perms.includes(PERM.GATE_PASS_APPROVE) && !hasPermission(actingRole, PERM.GATE_PASS_APPROVE)) {
+      throw new ForbiddenError("You need gate-pass approval rights on this project");
+    }
+    const approved = await approveGatePass(id, user.id, body?.notes, actingRole);
     // Surface auto-execution failure (e.g. insufficient stock) — the pass is
     // approved but the linked transaction couldn't run, which the approver
     // needs to see rather than discover later at the gate.
@@ -83,8 +90,13 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       execWarning = approved.executionError;
     }
   } else if (action === "reject") {
-    const user = await requirePermission(PERM.GATE_PASS_APPROVE);
+    const user = await requireUser();
     if (!body?.reason?.trim()) return json({ error: "Rejection reason is required" }, { status: 400 });
+    const actingRole = (await getActingRoleForProject(existing.projectId)) ?? (await getActingRole());
+    const perms = await getUserPermissions();
+    if (!perms.includes(PERM.GATE_PASS_APPROVE) && !hasPermission(actingRole, PERM.GATE_PASS_APPROVE)) {
+      throw new ForbiddenError("You need gate-pass approval rights on this project");
+    }
     await rejectGatePass(id, user.id, body.reason.trim());
   } else if (action === "resubmit") {
     const user = await requirePermission(PERM.GATE_PASS_CREATE);

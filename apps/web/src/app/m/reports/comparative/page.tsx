@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { dprAnalysis, workforceProductivity, projectPnl } from "@nirman/services";
 import {BarChart3, Building2} from "lucide-react";
-import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { scopeWhere, getCompany, toNum, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatEnumLabel } from "@/lib/utils";
 import {
@@ -36,7 +36,7 @@ async function MobileComparativeContent() {
   const company = await getCompany();
 
   const projects = await prisma.project.findMany({
-    where: { companyId: company.id, deletedAt: null },
+    where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
     select: { id: true, name: true, status: true },
     orderBy: { name: "asc" },
   });

@@ -48,7 +48,7 @@ export default async function AllotmentLetterPage({
     const customer = await getPortalCustomer();
     if (customer) {
       sale = await prisma.assetSale.findFirst({
-        where: { id, customerId: customer.id },
+        where: { ...await scopeWhere("AssetSale"), id, customerId: customer.id },
         include: saleInclude,
       });
       if (sale) {

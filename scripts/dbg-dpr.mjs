@@ -1,0 +1,23 @@
+import { chromium } from "playwright";
+const BASE = "http://localhost:3000";
+const UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1";
+const browser = await chromium.launch();
+const ctx = await browser.newContext({ userAgent: UA, viewport:{width:390,height:844}, isMobile:true, hasTouch:true });
+const p = await ctx.newPage();
+const res = await p.request.post(`${BASE}/api/auth/demo-login`, { data:{role:"SITE_ENGINEER"} });
+const { email, password } = await res.json();
+await p.request.post(`${BASE}/api/auth/sign-in/email`, { data:{email,password} });
+await p.close();
+const page = await ctx.newPage();
+page.on("response", async r => { if (r.url().includes("/api/dprs")) console.log("DPR API", r.status(), r.url().split(BASE)[1]); });
+await page.goto(`${BASE}/m/site/dpr`, { waitUntil:"networkidle", timeout:120000 });
+await page.waitForTimeout(3000);
+console.log("FIELDS:", await page.evaluate(()=>JSON.stringify({inputs:[...document.querySelectorAll("input,textarea,select")].map(i=>({tag:i.tagName,ph:i.placeholder,name:i.name})).slice(0,20)})));
+await page.screenshot({path:"/tmp/dpr-form.png"});
+// try filling
+await page.locator('text=/select project/i').first().click().catch(e=>console.log('proj click',e.message.slice(0,80)));
+await page.waitForTimeout(1200);
+const opts = await page.evaluate(()=>[...document.querySelectorAll('[role=option],li,button')].map(o=>o.innerText.trim().slice(0,30)).filter(Boolean).slice(0,15));
+console.log("OPTIONS:", JSON.stringify(opts));
+await page.screenshot({path:"/tmp/dpr-select.png"});
+await browser.close();

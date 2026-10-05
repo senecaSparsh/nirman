@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { materialInventoryValue, lowStockAlerts } from "@nirman/services";
-import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { scopeWhere,  getCompany, toNum, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { PageLoading } from "@/components/page-loading";
@@ -61,13 +61,13 @@ async function BuildContent() {
     portalListings,
   ] = await Promise.all([
     // Acquire — Supplier has no companyId; scope via purchaseOrders relation
-    prisma.landParcel.count({ where: { deletedAt: null } }),
+    prisma.landParcel.count({ where: { ...await scopeWhere("LandParcel"), deletedAt: null } }),
     prisma.supplier.count({ where: { deletedAt: null, purchaseOrders: { some: { companyId: company.id } } } }),
     prisma.rateContract.count({ where: { companyId: company.id, status: "ACTIVE" } }),
     // Procure
-    prisma.materialRequisition.count({ where: { project: { companyId: company.id }, status: "SUBMITTED" } }),
-    prisma.purchaseOrder.count({ where: { companyId: company.id, status: { in: ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"] } } }),
-    prisma.purchaseOrder.count({ where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() } } }),
+    prisma.materialRequisition.count({ where: { ...await scopeWhere("MaterialRequisition"), project: { companyId: company.id }, status: "SUBMITTED" } }),
+    prisma.purchaseOrder.count({ where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: { in: ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"] } } }),
+    prisma.purchaseOrder.count({ where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() } } }),
     prisma.supplierReturn.count({ where: { companyId: company.id, status: { in: ["DRAFT", "SUBMITTED"] } } }),
     // Stock
     materialInventoryValue(company.id),
@@ -75,13 +75,13 @@ async function BuildContent() {
     prisma.material.count({ where: { companyId: company.id, deletedAt: null } }),
     prisma.equipment.count({ where: { companyId: company.id, deletedAt: null, status: { not: "RETIRED" } } }),
     // Construct
-    prisma.project.count({ where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } } }),
-    prisma.subcontractorWorkOrder.count({ where: { companyId: company.id, status: "ACTIVE" } }),
+    prisma.project.count({ where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } } }),
+    prisma.subcontractorWorkOrder.count({ where: { ...await scopeWhere("SubcontractorWorkOrder"), companyId: company.id, status: "ACTIVE" } }),
     // Sell
-    prisma.builtUnit.count({ where: { deletedAt: null, status: "AVAILABLE" } }),
-    prisma.builtUnit.count({ where: { deletedAt: null, status: "SOLD" } }),
-    prisma.assetSale.count({ where: { companyId: company.id, paymentStatus: { in: ["PENDING", "PARTIAL"] } } }),
-    prisma.tenancy.count({ where: { companyId: company.id, status: "ACTIVE" } }),
+    prisma.builtUnit.count({ where: { ...await scopeWhere("BuiltUnit"), deletedAt: null, status: "AVAILABLE" } }),
+    prisma.builtUnit.count({ where: { ...await scopeWhere("BuiltUnit"), deletedAt: null, status: "SOLD" } }),
+    prisma.assetSale.count({ where: { ...await scopeWhere("AssetSale"), companyId: company.id, paymentStatus: { in: ["PENDING", "PARTIAL"] } } }),
+    prisma.tenancy.count({ where: { ...await scopeWhere("Tenancy"), companyId: company.id, status: "ACTIVE" } }),
     prisma.portalListing.count({ where: { companyId: company.id, status: "LISTED" } }),
   ]);
 

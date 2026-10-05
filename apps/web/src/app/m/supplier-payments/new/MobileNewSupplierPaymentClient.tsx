@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
 import { Loader2, Camera, X, Send, CheckCircle2, Eye, Plus } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyDetailed } from "@/lib/utils";
+import { haptic } from "@/lib/haptic";
 import { useTodayDateState } from "@/lib/use-today-date";
 import { useLongPressNav } from "@/lib/use-long-press-nav";
 import { MobileNewSupplierForm } from "@/app/m/suppliers/MobileNewSupplierDialog";
@@ -195,13 +196,23 @@ export function MobileNewSupplierPaymentClient({
             onClick={() => setModal("supplier")}
           />
 
-          {/* Outstanding balance hint */}
+          {/* Outstanding balance hint — exact figure + one-tap full payment.
+              Compact ₹4.7K hides paise/units and invites overpaying past the
+              real owed amount (the server rejects overpayments). */}
           {selectedSupplier && Number(selectedSupplier.balanceOwed) > 0 && (
             <div
-              className="rounded-[0.375rem] px-2.5 py-1.5 text-m-caption font-semibold"
+              className="flex items-center justify-between gap-2 rounded-[0.375rem] px-2.5 py-1.5 text-m-caption font-semibold"
               style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
             >
-              Outstanding: {formatCurrency(Number(selectedSupplier.balanceOwed))}
+              <span>Outstanding: {formatCurrencyDetailed(Number(selectedSupplier.balanceOwed))}</span>
+              <button
+                type="button"
+                onClick={() => { haptic(8); setAmount(String(Number(selectedSupplier.balanceOwed))); }}
+                className="rounded-[0.25rem] border px-2 py-0.5 text-m-caption font-bold press"
+                style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+              >
+                Pay in full
+              </button>
             </div>
           )}
         </div>

@@ -18,7 +18,7 @@ export default function MobileNewLeadPage() {
 
         const [projects, units, assignees] = await Promise.all([
           prisma.project.findMany({
-            where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+            where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
             orderBy: { name: "asc" },
             select: { id: true, name: true },
           }),

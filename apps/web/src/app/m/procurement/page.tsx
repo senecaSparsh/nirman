@@ -33,7 +33,7 @@ export default function MobileProcurementPage() {
         const [pos, directPurchases, reqs, quotationRequests, quotationProjects, quotationMaterials, formSuppliers, _formProjects, _formMaterials, formLocations, formCategories, formPurchaseOrders] = await Promise.all([
           // ── POs tab ──
           prisma.purchaseOrder.findMany({
-            where: { companyId: { in: groupCompanyIds } },
+            where: { ...await scopeWhere("PurchaseOrder"), companyId: { in: groupCompanyIds } },
             orderBy: [{ createdAt: "desc" }, { id: "desc" }],
             take: BATCH_SIZE + 1,
             include: {
@@ -49,7 +49,7 @@ export default function MobileProcurementPage() {
               lines: { select: { qty: true } }}}),
           // ── Indents tab ──
           prisma.materialRequisition.findMany({
-            where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id } },
+            where: { ...await scopeWhere("MaterialRequisition"),...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id } },
             orderBy: [{ createdAt: "desc" }, { id: "desc" }],
             take: BATCH_SIZE + 1,
             include: {
@@ -59,7 +59,7 @@ export default function MobileProcurementPage() {
               requestedBy: { select: { name: true } }}}),
           // ── Quotations tab ──
           prisma.quotationRequest.findMany({
-            where: { companyId: { in: groupCompanyIds } },
+            where: { ...await scopeWhere("QuotationRequest"), companyId: { in: groupCompanyIds } },
             orderBy: { createdAt: "desc" },
             take: 80,
             include: {
@@ -76,7 +76,7 @@ export default function MobileProcurementPage() {
                   isCheapest: true}},
               convertedPo: { select: { id: true, poNumber: true, status: true } }}}),
           prisma.project.findMany({
-            where: { companyId: company.id, deletedAt: null, ...await projectScopeFilter() },
+            where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null, ...await projectScopeFilter() },
             select: { id: true, name: true },
             orderBy: { name: "asc" }}),
           prisma.material.findMany({
@@ -99,7 +99,7 @@ export default function MobileProcurementPage() {
           // materials already fetched above as quotationMaterials — reuse
           Promise.resolve(null),
           prisma.stockLocation.findMany({
-            where: { companyId: company.id, deletedAt: null },
+            where: { ...await scopeWhere("StockLocation"), companyId: company.id, deletedAt: null },
             select: { id: true, name: true, type: true, projectId: true },
             orderBy: { name: "asc" }}),
           prisma.materialCategory.findMany({
@@ -107,7 +107,7 @@ export default function MobileProcurementPage() {
             select: { id: true, name: true, unit: true, hsnCode: true, gstRate: true },
             orderBy: { name: "asc" }}).then((rows) => rows.map((c) => ({ ...c, gstRate: c.gstRate ? c.gstRate.toNumber() : null }))),
           prisma.purchaseOrder.findMany({
-            where: { status: { in: ["APPROVED", "ORDERED", "RECEIVED"] }, companyId: company.id },
+            where: { ...await scopeWhere("PurchaseOrder"), status: { in: ["APPROVED", "ORDERED", "RECEIVED"] }, companyId: company.id },
             select: { id: true, poNumber: true, supplierId: true },
             orderBy: { createdAt: "desc" },
             take: 100}),

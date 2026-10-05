@@ -21,7 +21,7 @@ async function SiteStockContent() {
 
   const [locations, recentMovements] = await Promise.all([
     prisma.stockLocation.findMany({
-      where: { companyId: company.id, deletedAt: null },
+      where: { ...await scopeWhere("StockLocation"), companyId: company.id, deletedAt: null },
       select: {
         id: true,
         name: true,

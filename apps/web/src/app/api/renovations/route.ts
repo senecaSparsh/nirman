@@ -90,7 +90,6 @@ const renovation = await createRenovation({
     });
     revalidatePath("/renovations");
     revalidatePath("/m/units");
-    revalidatePath(`/renovations/${renovation.id}`);
     return json({ ok: true, id: renovation.id, renovationNumber: renovation.renovationNumber }, { status: 201 });
   } catch (err) {
     const message = err instanceof ServiceError ? err.message : "Failed to create renovation";

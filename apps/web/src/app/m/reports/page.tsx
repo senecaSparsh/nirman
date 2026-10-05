@@ -131,7 +131,13 @@ export default function MobileReportsHubPage({
                 <div className="flex flex-col gap-2 mb-4">
                   <MobileRow icon={ShoppingCart} title="Total received" meta={formatCurrency(totalReceived)} tone="success" />
                   <MobileRow icon={ClipboardCheck} title="Booked (active sales)" meta={formatCurrency(salesBooked)} />
-                  <MobileRow icon={TrendingUp} title="Outstanding" meta={formatCurrency(salesBooked - totalReceived)} tone="warning" />
+                  {/* Received > booked = advance money held against unbilled
+                      work — not a receivable. Clamp Outstanding at 0 and show
+                      the excess separately so the row never reads negative. */}
+                  <MobileRow icon={TrendingUp} title="Outstanding" meta={formatCurrency(Math.max(0, salesBooked - totalReceived))} tone="warning" />
+                  {salesBooked - totalReceived < 0 ? (
+                    <MobileRow icon={TrendingUp} title="Advance held" meta={formatCurrency(totalReceived - salesBooked)} tone="success" />
+                  ) : null}
                 </div>
 
                 {/* ── Cost breakdown ── */}

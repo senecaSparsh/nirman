@@ -1,4 +1,5 @@
 import { prisma } from "@nirman/db";
+import { scopeWhere } from "@/lib/server";
 import { getAttendanceWithTiers } from "@nirman/services";
 import { CalendarCheck, MapPin } from "lucide-react";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
@@ -25,7 +26,7 @@ export default function MobileAttendancePage({
   searchParams: Promise<{ projectId?: string }>;
 }) {
   return (
-    <MobileListPage perm={PERM.HR_VIEW} what="attendance" permission="hr.view">
+    <MobileListPage perm={PERM.HR_VIEW} scopeAware what="attendance" permission="hr.view">
       {async ({ company, ownRole, perms }) => {
         const { projectId } = await searchParams;
         const canManageAttendance = perms.includes(PERM.HR_MANAGE);
@@ -39,7 +40,7 @@ export default function MobileAttendancePage({
         const [tieredRecords, projects, pendingOffsite] = await Promise.all([
           getAttendanceWithTiers({ companyId: company.id, from, to: today }),
           prisma.project.findMany({
-            where: { companyId: company.id, deletedAt: null },
+            where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
             select: { id: true, name: true },
             orderBy: { name: "asc" }}),
           // Off-site check-ins awaiting HR review — provisional PRESENT
@@ -47,6 +48,7 @@ export default function MobileAttendancePage({
           canManageAttendance
             ? prisma.workerAttendance.findMany({
                 where: {
+                  ...await scopeWhere("WorkerAttendance"),
                   companyId: company.id,
                   offSiteReview: "PENDING",
                   employee: { deletedAt: null },

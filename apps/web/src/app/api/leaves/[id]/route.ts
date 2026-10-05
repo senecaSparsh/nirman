@@ -1,19 +1,20 @@
 import { NextRequest } from "next/server";
 import { approveLeaveRequest, cancelLeaveRequest } from "@nirman/services";
-import { apiHandler, getActingRole, getCompany, json, leaveActionSchema, requirePermission, requireUser, scopeWhere } from "@/lib/server";
+import { apiHandler, ForbiddenError, getActingRole, getActingRoleForProject, getCompany, getUserPermissions, json, leaveActionSchema, requireUser, scopeWhere } from "@/lib/server";
 import { hasPermission } from "@/lib/roles";
 import { PERM } from "@/lib/roles";
 import { prisma } from "@nirman/db";
 
 // POST /api/leaves/[id] — approve or reject a leave request
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.HR_MANAGE);
+  const user = await requireUser();
   const company = await getCompany();
   const { id } = await params;
 
-  // Scoped pre-fetch
+  // Scoped pre-fetch (LeaveRequest scopes through employee.activeProjectId)
   const existing = await prisma.leaveRequest.findFirst({
     where: { id, companyId: company.id, ...await scopeWhere("LeaveRequest") },
+    select: { id: true, employee: { select: { activeProjectId: true } } },
   });
   if (!existing) return json({ error: "Leave request not found or out of scope" }, { status: 404 });
 
@@ -22,6 +23,14 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
+  // Scoped-role lift — a scoped HR_MANAGER/PM hat on the employee's project
+  // grants leave-approval authority locally without global hr.manage.
+  const actingRole =
+    (await getActingRoleForProject(existing.employee.activeProjectId)) ?? (await getActingRole());
+  const perms = await getUserPermissions();
+  if (!perms.includes(PERM.HR_MANAGE) && !hasPermission(actingRole, PERM.HR_MANAGE)) {
+    throw new ForbiddenError("You need leave approval rights on this project");
+  }
   try {
     const leave = await approveLeaveRequest({
       leaveId: id,
@@ -29,7 +38,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       approvedById: user.id,
       approve: parsed.data.approve,
       rejectedReason: parsed.data.rejectedReason ?? undefined,
-      actorRole: await getActingRole(),
+      actorRole: actingRole,
     });
     return json({ ok: true, id: leave.id, status: leave.status });
   } catch (err: unknown) {

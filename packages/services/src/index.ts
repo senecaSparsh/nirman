@@ -908,14 +908,6 @@ export {
   type UploadDraftInput,
 } from "./tenancy";
 
-// Daily Report — site operations log (separate from DPR)
-export {
-  createDailyReport,
-  updateDailyReport,
-  deleteDailyReport,
-  type CreateDailyReportInput,
-} from "./daily-report";
-
 // Partition geometry — pure polygon functions for the CAD/GIS partition canvas
 export {
   signedArea,

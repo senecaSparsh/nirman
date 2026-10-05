@@ -35,7 +35,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       deductions: parsed.data.deductions,
       userId: user.id,
     });
-    revalidatePath("/payroll");
+    revalidatePath("/hr/payroll");
     revalidatePath("/m/books/payroll");
     return json({ ok: true });
   } catch (err: unknown) {

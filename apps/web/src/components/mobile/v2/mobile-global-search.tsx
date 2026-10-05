@@ -67,6 +67,7 @@ const TYPE_ICONS: Record<string, LucideIcon> = {
   equipment: Wrench,
   sale: TrendingUp,
   transfer: ArrowLeftRight,
+  lead: Users,
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -76,6 +77,7 @@ const TYPE_LABELS: Record<string, string> = {
   material: "Materials",
   supplier: "Suppliers",
   customer: "Customers",
+  lead: "Leads",
   unit: "Built Units",
   land: "Land Parcels",
   dpr: "DPRs",
@@ -88,7 +90,7 @@ const TYPE_LABELS: Record<string, string> = {
 // Order of groups in results
 const TYPE_ORDER = [
   "po", "requisition", "project", "material", "supplier",
-  "customer", "unit", "land", "dpr", "employee",
+  "customer", "lead", "unit", "land", "dpr", "employee",
   "equipment", "sale", "transfer",
 ];
 
@@ -156,7 +158,7 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
   // Reset active index when results change
   useEffect(() => {
     setActiveIndex(-1);
-  }, [results]);
+  }, [results, query]);
 
   // Group results by type
   const grouped = useMemo(() => TYPE_ORDER.map((type) => ({
@@ -190,6 +192,24 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
   // Flat list for keyboard navigation
   const flatResults = useMemo(() => grouped.flatMap((g) => g.items), [grouped]);
 
+  // Unified keyboard-navigable list — pages render above entity groups, so
+  // arrow keys walk them in the same order they appear on screen.
+  const navItems = useMemo(
+    () => [
+      ...pageResults.map((entry) => ({ kind: "page" as const, href: entry.path })),
+      ...flatResults.map((item) => ({ kind: "entity" as const, item })),
+    ],
+    [pageResults, flatResults],
+  );
+
+  // `type:id` → position in flatResults, so the render loop isn't an O(n²)
+  // findIndex scan for every rendered row.
+  const flatIdxByKey = useMemo(() => {
+    const map = new Map<string, number>();
+    flatResults.forEach((r, i) => map.set(`${r.type}:${r.id}`, i));
+    return map;
+  }, [flatResults]);
+
   // Handle result tap
   const handleSelect = useCallback(
     (item: SearchResult | RecentItem) => {
@@ -213,19 +233,25 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
       onClose();
       return;
     }
-    if (flatResults.length === 0) return;
+    if (navItems.length === 0) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActiveIndex((prev) => (prev + 1) % flatResults.length);
+      setActiveIndex((prev) => (prev + 1) % navItems.length);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setActiveIndex((prev) => (prev <= 0 ? flatResults.length - 1 : prev - 1));
+      setActiveIndex((prev) => (prev <= 0 ? navItems.length - 1 : prev - 1));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      const item = flatResults[activeIndex];
-      if (item) handleSelect(item);
+      const nav = navItems[activeIndex];
+      if (!nav) return;
+      if (nav.kind === "page") {
+        onClose();
+        router.push(nav.href);
+      } else {
+        handleSelect(nav.item);
+      }
     }
-  }, [flatResults, activeIndex, handleSelect, onClose]);
+  }, [navItems, activeIndex, handleSelect, onClose, router]);
 
   if (!open) return null;
 
@@ -327,8 +353,9 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
             >
               Pages
             </div>
-            {pageResults.map((entry) => {
+            {pageResults.map((entry, pageIdx) => {
               const Icon = entry.icon as LucideIcon;
+              const isActive = pageIdx === activeIndex;
               return (
                 <button
                   key={entry.path}
@@ -337,6 +364,9 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
                     router.push(entry.path);
                   }}
                   className="text-m-body press w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+                  style={{
+                    backgroundColor: isActive ? "var(--color-concrete)" : "transparent",
+                  }}
                 >
                   <div
                     className="shrink-0 flex items-center justify-center size-8 rounded-[0.625rem]"
@@ -377,8 +407,8 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
                   {group.label}
                 </div>
                 {group.items.map((item) => {
-                  const flatIdx = flatResults.findIndex((r) => r.id === item.id && r.type === item.type);
-                  const isActive = flatIdx === activeIndex;
+                  const flatIdx = flatIdxByKey.get(`${item.type}:${item.id}`) ?? -1;
+                  const isActive = flatIdx !== -1 && pageResults.length + flatIdx === activeIndex;
                   const Icon = TYPE_ICONS[item.type] ?? FileText;
                   return (
                     <button

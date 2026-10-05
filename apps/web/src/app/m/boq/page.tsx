@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { getBoqTree } from "@nirman/services";
 import {FileText, ListTree, Package} from "lucide-react";
-import { toNum, getActionPermissions } from "@/lib/server";
+import { toNum, getActionPermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
@@ -28,7 +28,7 @@ export default function MobileBoqPage({
         // Fetch active/planned projects for the selector.
         const [projects, canCreateProject] = await Promise.all([
           prisma.project.findMany({
-            where: {
+            where: { ...await scopeWhere("Project"),
               companyId: company.id,
               deletedAt: null,
               status: { in: ["PLANNED", "ACTIVE"] }},

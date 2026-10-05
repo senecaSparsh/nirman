@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { scopeWhere,  getCompany, toNum, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
@@ -33,7 +33,7 @@ async function PermissionsContent() {
   // Fetch all legal documents for this company, with project + land names
   const docs = await prisma.legalDocument.findMany({
     take: 500,
-    where: { companyId: company.id, deletedAt: null },
+    where: { ...await scopeWhere("LegalDocument"), companyId: company.id, deletedAt: null },
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
     include: {
       project: { select: { id: true, name: true } },

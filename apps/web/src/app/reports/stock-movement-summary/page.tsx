@@ -102,7 +102,7 @@ async function StockMovementSummaryContent({
     }),
     prisma.stockLocationItem.findMany({
       take: 500,
-      where: {
+      where: { ...await scopeWhere("StockLocationItem"),
         location: { companyId: company.id, deletedAt: null },
         material: { deletedAt: null },
       },

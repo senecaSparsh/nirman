@@ -70,7 +70,7 @@ async function MaterialSalesContent() {
     }),
     prisma.stockLocation.findMany({
       take: 200,
-      where: { companyId: company.id, deletedAt: null },
+      where: { ...await scopeWhere("StockLocation"), companyId: company.id, deletedAt: null },
       select: { id: true, name: true, type: true },
       orderBy: { name: "asc" },
     }),
@@ -88,7 +88,7 @@ async function MaterialSalesContent() {
     }),
     prisma.project.findMany({
       take: 200,
-      where: { companyId: company.id, deletedAt: null },
+      where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true },
     }),
@@ -97,7 +97,7 @@ async function MaterialSalesContent() {
   // Build stock availability map: { "locationId|materialId": qty }
   const stockItems = await prisma.stockLocationItem.findMany({
     take: 200,
-    where: { location: { companyId: company.id, deletedAt: null } },
+    where: { ...await scopeWhere("StockLocationItem"), location: { companyId: company.id, deletedAt: null } },
     select: { locationId: true, materialId: true, qty: true, movingAvgCost: true },
   });
   const stockMap = new Map<string, { qty: number; mac: number }>();
@@ -129,6 +129,10 @@ async function MaterialSalesContent() {
     vehicleType: s.vehicleType,
     driverName: s.driverName,
     driverPhone: s.driverPhone,
+    irn: s.irn,
+    irnAckNo: s.irnAckNo,
+    irnStatus: s.irnStatus,
+    irnError: s.irnError,
     lineCount: s.lines.length,
     payments: s.payments.map((p) => ({
       id: p.id,

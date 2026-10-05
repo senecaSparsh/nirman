@@ -28,8 +28,9 @@ export function deriveBbaStage(s: AssetSaleRow): BbaStage {
   // Use the explicit REGISTRY_PENDING saleStage if set, otherwise derive from payment status
   if (s.saleStage === "REGISTRY_PENDING") return "REGISTRY_PENDING";
   if (s.paymentStatus === "PAID" && !s.saleDeedNo) return "REGISTRY_PENDING";
-  if (s.paymentStatus === "PARTIAL" && s.bbaNo) return "PAYMENTS_PROGRESS";
-  if (s.bbaNo) return "BBA_SIGNED";
+  const bbaSigned = Boolean(s.bbaNo) || Boolean(s.bbaDocumentUrl);
+  if (s.paymentStatus === "PARTIAL" && bbaSigned) return "PAYMENTS_PROGRESS";
+  if (bbaSigned) return "BBA_SIGNED";
   return "BOOKED";
 }
 
@@ -138,8 +139,9 @@ export function BbaPipelineBoard({
     const totalRevenue = filtered.reduce((s, x) => s + toNum(x.salePrice) + toNum(x.gstAmount), 0);
     const totalCollected = filtered.reduce((s, x) => s + toNum(x.totalPaid), 0);
     const totalOutstanding = filtered.reduce((s, x) => s + toNum(x.balanceDue), 0);
-    const bbaDone = filtered.filter((s) => s.bbaNo).length;
-    const bbaPending = filtered.filter((s) => !s.bbaNo).length;
+    const isBbaSigned = (s: AssetSaleRow) => Boolean(s.bbaNo) || Boolean(s.bbaDocumentUrl);
+    const bbaDone = filtered.filter(isBbaSigned).length;
+    const bbaPending = filtered.filter((s) => !isBbaSigned(s)).length;
     const overduePayments = filtered.filter(
       (s) => s.balanceDue > 0 && s.paymentSchedule?.items.some((i) => i.status === "DUE"),
     ).length;
@@ -371,7 +373,7 @@ function BbaSaleCard({
 
       {/* Footer: BBA badge + broker */}
       <div className="mt-2 flex items-center gap-1.5">
-        {sale.bbaNo ? (
+        {sale.bbaNo || sale.bbaDocumentUrl ? (
           <span className="inline-flex items-center gap-1 rounded bg-success/10 px-1.5 py-0.5 text-micro font-medium text-success">
             <FileText className="h-2.5 w-2.5" /> BBA
           </span>
@@ -396,7 +398,7 @@ function BbaSaleCard({
       <div className="mt-2 flex items-center gap-1 text-micro text-muted-foreground/70 group-hover:text-brand">
         <ArrowRight className="h-2.5 w-2.5 shrink-0" />
         <span className="truncate">
-          {stage === "BOOKED" && !sale.bbaNo && "Upload BBA to advance"}
+          {stage === "BOOKED" && !sale.bbaNo && !sale.bbaDocumentUrl && "Upload BBA to advance"}
           {stage === "BBA_SIGNED" && "Record payment to advance"}
           {stage === "PAYMENTS_PROGRESS" && "Complete payment balance"}
           {stage === "REGISTRY_PENDING" && "Upload sale deed to complete"}

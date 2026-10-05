@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +30,8 @@ const SIZES = {
  * left, primary on the right. Pass it rather than putting buttons in
  * `children`, so they stay pinned while the body scrolls.
  */
+const openDialogs: symbol[] = [];
+
 export function Dialog({
   open,
   onOpenChange,
@@ -52,22 +55,30 @@ export function Dialog({
   children: React.ReactNode;
   className?: string;
 }) {
+  const idRef = React.useRef(Symbol("dialog"));
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+
   React.useEffect(() => {
     if (!open) return;
+    const id = idRef.current;
+    openDialogs.push(id);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onOpenChange(false);
+      if (e.key === "Escape" && openDialogs[openDialogs.length - 1] === id) onOpenChange(false);
     };
     document.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
+      const i = openDialogs.indexOf(id);
+      if (i !== -1) openDialogs.splice(i, 1);
+      if (openDialogs.length === 0) document.body.style.overflow = "";
     };
   }, [open, onOpenChange]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center pb-[65px] sm:items-start sm:overflow-y-auto sm:p-6 sm:pb-6">
       <div
         className="drawer-backdrop fixed inset-0 bg-foreground/40 backdrop-blur-[2px]"
@@ -117,6 +128,7 @@ export function Dialog({
           </footer>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

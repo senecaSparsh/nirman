@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { getBudgetVariance } from "@nirman/services";
+import { scopeWhere } from "@/lib/server";
 import { TrendingUp, TrendingDown, AlertTriangle, Plus } from "lucide-react";
 import { PERM } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
@@ -26,7 +27,7 @@ export default function MobileBudgetVariancePage({
         if (!perms.includes(PERM.FINANCE_VIEW)) notFound();
 
         const projects = await prisma.project.findMany({
-          where: { companyId: company.id, deletedAt: null },
+          where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
           orderBy: { name: "asc" },
           select: { id: true, name: true }});
 
@@ -146,12 +147,17 @@ export default function MobileBudgetVariancePage({
                     <span
                       className="text-m-caption font-semibold tabular-nums px-2 py-0.5 rounded-[0.375rem]"
                       style={{
-                        backgroundColor: isOverBudget
-                          ? "color-mix(in srgb, var(--color-stop) 12%, transparent)"
-                          : "color-mix(in srgb, var(--color-go) 12%, transparent)",
-                        color: varianceColor}}
+                        backgroundColor:
+                          totalBudget <= 0
+                            ? "var(--color-concrete)"
+                            : isOverBudget
+                              ? "color-mix(in srgb, var(--color-stop) 12%, transparent)"
+                              : "color-mix(in srgb, var(--color-go) 12%, transparent)",
+                        color: totalBudget <= 0 ? "var(--color-ink-700)" : varianceColor}}
                     >
-                      {isOverBudget ? "OVER" : "UNDER"} {formatNumber(Math.abs(totalVariancePct), 1)}%
+                      {totalBudget <= 0
+                        ? "NO BUDGET SET"
+                        : `${isOverBudget ? "OVER" : "UNDER"} ${formatNumber(Math.abs(totalVariancePct), 1)}%`}
                     </span>
                   </div>
 

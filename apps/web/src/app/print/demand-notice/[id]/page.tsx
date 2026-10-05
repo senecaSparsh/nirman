@@ -66,7 +66,7 @@ export default async function DemandNoticePage({
     const customer = await getPortalCustomer();
     if (customer) {
       item = await prisma.paymentScheduleItem.findFirst({
-        where: { id, paymentSchedule: { assetSale: { customerId: customer.id } } },
+        where: { ...await scopeWhere("PaymentScheduleItem"), id, paymentSchedule: { assetSale: { customerId: customer.id } } },
         include: itemInclude,
       });
       const saleCompanyId = item?.paymentSchedule?.assetSale?.companyId;

@@ -32,24 +32,41 @@ async function PendingPaymentsContent() {
 
   const now = new Date();
 
-  // 1. Overdue POs (ORDERED/PARTIAL past expectedDate) — outbound payables
-  const overduePOs = await prisma.purchaseOrder.findMany({
+  // 1. Outbound payables — every PO with goods received but not yet paid
+  //    for. Supplier payments are recorded per-supplier (not per-PO), so we
+  //    allocate each supplier's paid pool FIFO over their oldest received
+  //    POs to get a per-PO unpaid balance.
+  const receivedPOs = await prisma.purchaseOrder.findMany({
     take: 500,
-    where: {
+    where: { ...await scopeWhere("PurchaseOrder"),
       companyId: company.id,
-      status: { in: ["ORDERED", "PARTIAL"] },
-      expectedDate: { lt: now },
+      status: { in: ["ORDERED", "PARTIAL", "RECEIVED"] },
+      lines: { some: { qtyReceived: { gt: 0 } } },
     },
     include: {
-      supplier: { select: { name: true } },
+      supplier: { select: { id: true, name: true } },
       lines: { select: { qtyOrdered: true, qtyReceived: true, unitCost: true } },
     },
-    orderBy: { expectedDate: "asc" },
+    orderBy: { createdAt: "asc" },
   });
 
-  const overdueRows = overduePOs.map((po) => {
+  const supplierPayments = await prisma.supplierPayment.findMany({
+    where: { ...await scopeWhere("SupplierPayment"), companyId: company.id, status: "ACTIVE" },
+    select: { supplierId: true, amount: true },
+  });
+  const paidBySupplier = new Map<string, number>();
+  for (const p of supplierPayments) {
+    paidBySupplier.set(p.supplierId, (paidBySupplier.get(p.supplierId) ?? 0) + toNum(p.amount));
+  }
+
+  const overdueRows = receivedPOs.map((po) => {
     const receivedValue = po.lines.reduce((s, l) => s + toNum(l.qtyReceived) * toNum(l.unitCost), 0);
     const orderedValue = po.lines.reduce((s, l) => s + toNum(l.qtyOrdered) * toNum(l.unitCost), 0);
+    const paidPool = paidBySupplier.get(po.supplierId) ?? 0;
+    const applied = Math.min(paidPool, receivedValue);
+    paidBySupplier.set(po.supplierId, paidPool - applied);
+    const payable = receivedValue - applied;
+    const fullyPaid = payable <= 0.01;
     const daysOverdue = po.expectedDate ? Math.floor((now.getTime() - po.expectedDate.getTime()) / 86400000) : 0;
     return {
       id: po.id,
@@ -58,12 +75,13 @@ async function PendingPaymentsContent() {
       expectedDate: po.expectedDate?.toISOString() ?? null,
       orderedValue,
       receivedValue,
-      payable: receivedValue, // pay for what's been received
+      payable,
       status: po.status,
       daysOverdue,
       agingBucket: getAgingBucket(daysOverdue),
+      fullyPaid,
     };
-  });
+  }).filter((r) => !r.fullyPaid);
 
   // 2. Outstanding sale receivables — inbound
   const sales = await prisma.assetSale.findMany({
@@ -102,7 +120,7 @@ async function PendingPaymentsContent() {
   // 3. Draft POs awaiting approval (not yet payable, but pending action)
   const draftPOs = await prisma.purchaseOrder.findMany({
     take: 500,
-    where: { companyId: company.id, status: "DRAFT" },
+    where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: "DRAFT" },
     include: { supplier: { select: { name: true } }, lines: { select: { qtyOrdered: true, unitCost: true } } },
     orderBy: { createdAt: "desc" },
   });
@@ -127,9 +145,9 @@ async function PendingPaymentsContent() {
     <>
       <PageHeader
         title="Pending Payments"
-        description="Outbound payables (overdue POs received but unpaid), inbound receivables (sales with outstanding balances), and draft POs awaiting approval."
+        description="Outbound payables (goods received but unpaid), inbound receivables (sales with outstanding balances), and draft POs awaiting approval."
         stats={[
-          { label: "Payable (overdue)", value: formatCurrency(totalPayable) },
+          { label: "Payable", value: formatCurrency(totalPayable) },
           { label: "Receivable", value: formatCurrency(totalReceivable) },
           { label: "Net cash", value: formatCurrency(netCash) },
           { label: "Draft POs", value: formatCurrency(totalDraft) },

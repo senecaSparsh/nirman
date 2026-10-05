@@ -236,13 +236,14 @@ export const GET = apiHandler(async (req: NextRequest) => {
       }
       let totalSales = 0; let totalCollected = 0; let totalOutstanding = 0;
       for (const s of sales) {
-        totalSales += toNum(s.salePrice);
+        const invoiceValue = toNum(s.salePrice) + toNum(s.gstAmount);
+        totalSales += invoiceValue;
         const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
         totalCollected += collected;
-        totalOutstanding += toNum(s.salePrice) - collected;
+        totalOutstanding += Math.max(0, invoiceValue - collected);
         const key = `${s.saleDate.getFullYear()}-${s.saleDate.getMonth()}`;
         const row = monthlyMap.get(key);
-        if (row) { row.sales += toNum(s.salePrice); row.count += 1; }
+        if (row) { row.sales += invoiceValue; row.count += 1; }
         for (const p of s.payments) {
           const pkey = `${p.paymentDate.getFullYear()}-${p.paymentDate.getMonth()}`;
           const prow = monthlyMap.get(pkey);
@@ -255,7 +256,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         const name = s.customer.name;
         if (!customerMap.has(name)) customerMap.set(name, { name, sales: 0, collected: 0, count: 0 });
         const row = customerMap.get(name)!;
-        row.sales += toNum(s.salePrice);
+        row.sales += toNum(s.salePrice) + toNum(s.gstAmount);
         row.collected += s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
         row.count += 1;
       }
@@ -343,7 +344,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       const receivableRows = sales.map((s) => {
         const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
         const daysSinceSale = Math.floor((now.getTime() - s.saleDate.getTime()) / 86400000);
-        return { saleNumber: s.saleNumber, customer: s.customer.name, project: s.project?.name ?? "Standalone", saleDate: s.saleDate.toISOString(), salePrice: toNum(s.salePrice), collected, outstanding: toNum(s.salePrice) - collected, paymentStatus: s.paymentStatus, daysSinceSale, agingBucket: daysSinceSale <= 0 ? "current" : daysSinceSale <= 30 ? "1-30d" : daysSinceSale <= 60 ? "31-60d" : daysSinceSale <= 90 ? "61-90d" : ">90d" };
+        return { saleNumber: s.saleNumber, customer: s.customer.name, project: s.project?.name ?? "Standalone", saleDate: s.saleDate.toISOString(), salePrice: toNum(s.salePrice) + toNum(s.gstAmount), collected, outstanding: Math.max(0, toNum(s.salePrice) + toNum(s.gstAmount) - collected), paymentStatus: s.paymentStatus, daysSinceSale, agingBucket: daysSinceSale <= 0 ? "current" : daysSinceSale <= 30 ? "1-30d" : daysSinceSale <= 60 ? "31-60d" : daysSinceSale <= 90 ? "61-90d" : ">90d" };
       }).filter((r) => r.outstanding > 0.01);
       const draftPOs = await prisma.purchaseOrder.findMany({
         where: { companyId: company.id, status: "DRAFT" },

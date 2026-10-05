@@ -51,7 +51,7 @@ async function SalesRevenueContent() {
     }),
     prisma.project.findMany({
       take: 200,
-      where: { companyId: company.id, deletedAt: null },
+      where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),

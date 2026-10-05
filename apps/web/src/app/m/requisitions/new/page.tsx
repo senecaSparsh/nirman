@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { getCompany, projectScopeFilter } from "@/lib/server";
+import { getCompany, projectScopeFilter, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import { MobileNewRequisitionClient } from "./MobileNewRequisitionClient";
@@ -12,7 +12,7 @@ export default function MobileNewRequisitionPage() {
 
         const [projects, materials, suppliers, stockItems] = await Promise.all([
           prisma.project.findMany({
-            where: { companyId: company.id, deletedAt: null, ...await projectScopeFilter() },
+            where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null, ...await projectScopeFilter() },
             select: { id: true, name: true },
             orderBy: { name: "asc" },
           }),
@@ -27,7 +27,7 @@ export default function MobileNewRequisitionPage() {
             orderBy: { name: "asc" },
           }),
           prisma.stockLocationItem.findMany({
-            where: { location: { companyId: company.id } },
+            where: { ...await scopeWhere("StockLocationItem"), location: { companyId: company.id } },
             select: { materialId: true, qty: true },
           }),
         ]);

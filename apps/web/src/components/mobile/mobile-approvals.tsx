@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import { prisma, type DprApprovalStatus } from "@nirman/db";
-import { getActingRole, getCompany, getUserRole, getUserPermissions, getCurrentUser, toNum, scopeWhere  } from "@/lib/server";
+import { getActingRole, getCompany, getUserRole, getUserPermissions, getCurrentUser, toNum, scopeWhere, getScopedRolePermissions  } from "@/lib/server";
 import { canAutoApprove } from "@nirman/services";
 import { PERM, hasPermission } from "@/lib/roles";
 import { MobilePageHeader } from "@/components/mobile/v2/primitives";
@@ -26,6 +26,11 @@ export async function MobileApprovals({ title }: { title: string }) {
   // UserPermission grants. Passing as `overrides` to hasPermission means a
   // permission granted to one individual is honored here, matching the API.
   const overrides = await getUserPermissions();
+  // Scoped-role lift — a SITE_ENGINEER wearing PROJECT_MANAGER on a project
+  // gains that hat's approve perms within the project's rows (queue items are
+  // already scope-filtered, so the lift only lands where it belongs).
+  const scopedRolePerms = await getScopedRolePermissions();
+  const hasScopedOrGlobal = (p: string) => overrides.includes(p) || scopedRolePerms.includes(p);
   const currentUser = await getCurrentUser();
   const userId = currentUser?.id ?? "";
   // Tier-1 approvers (OWNER/ADMIN) may approve their own creations — no higher
@@ -33,14 +38,14 @@ export async function MobileApprovals({ title }: { title: string }) {
   // Everyone else's own items are hidden (they can't self-approve anyway).
   const hideSelf = !canAutoApprove(actingRole);
 
-  const canApprovePo = hasPermission(role, PERM.PO_APPROVE, overrides);
-  const canApproveReq = hasPermission(role, PERM.REQUISITION_APPROVE, overrides);
-  const canApproveGatePass = hasPermission(role, PERM.GATE_PASS_APPROVE, overrides);
-  const canApproveDprSubAdmin = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN, overrides);
-  const canApproveDprAdmin = hasPermission(role, PERM.DPR_APPROVE_ADMIN, overrides);
- const canApproveExpense = hasPermission(role, PERM.EXPENSE_APPROVE, overrides);
-  const canApproveRaBill = hasPermission(role, PERM.RA_APPROVE, overrides);
-  const canManageHr = hasPermission(role, PERM.HR_MANAGE, overrides);
+  const canApprovePo = hasPermission(role, PERM.PO_APPROVE, overrides) || hasScopedOrGlobal(PERM.PO_APPROVE);
+  const canApproveReq = hasPermission(role, PERM.REQUISITION_APPROVE, overrides) || hasScopedOrGlobal(PERM.REQUISITION_APPROVE);
+  const canApproveGatePass = hasPermission(role, PERM.GATE_PASS_APPROVE, overrides) || hasScopedOrGlobal(PERM.GATE_PASS_APPROVE);
+  const canApproveDprSubAdmin = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN, overrides) || hasScopedOrGlobal(PERM.DPR_APPROVE_SUB_ADMIN);
+  const canApproveDprAdmin = hasPermission(role, PERM.DPR_APPROVE_ADMIN, overrides) || hasScopedOrGlobal(PERM.DPR_APPROVE_ADMIN);
+ const canApproveExpense = hasPermission(role, PERM.EXPENSE_APPROVE, overrides) || hasScopedOrGlobal(PERM.EXPENSE_APPROVE);
+  const canApproveRaBill = hasPermission(role, PERM.RA_APPROVE, overrides) || hasScopedOrGlobal(PERM.RA_APPROVE);
+  const canManageHr = hasPermission(role, PERM.HR_MANAGE, overrides) || hasScopedOrGlobal(PERM.HR_MANAGE);
 
   // If the user can't approve anything, don't surface the queue.
   if (!canApprovePo && !canApproveReq && !canApproveGatePass && !canApproveDprSubAdmin && !canApproveDprAdmin && !canApproveExpense && !canApproveRaBill && !canManageHr) {

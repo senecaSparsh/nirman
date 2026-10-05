@@ -8,13 +8,18 @@ const withBundleAnalyzer = bundleAnalyzer({
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1", "localhost"],
-  transpilePackages: ["@nirman/db"],
+  transpilePackages: ["@nirman/db", "@nirman/rbac"],
   // cacheComponents (PPR) disabled — it prerenders 200+ routes at build time,
   // consuming too much memory on small hosts. Pages render on demand instead,
   // which is fine for a single-client app.
   cacheComponents: false,
   serverExternalPackages: ["nodemailer"],
   poweredByHeader: false,
+  // Every dynamic image in this app renders an auth-gated /api/uploads/<id>
+  // URL. next/image optimizes by fetching the URL server-side, which carries
+  // no session cookie — so it 401/400s and the thumbnail breaks. Images are
+  // already-served at final size; skip the optimizer globally.
+  images: { unoptimized: true },
   // Skip TypeScript checking during build — tsc --noEmit runs separately
   // in CI/typecheck. This saves ~1GB RAM on small hosts.
   typescript: {
@@ -52,6 +57,19 @@ const nextConfig: NextConfig = {
     // duplicates the module graph in memory. On a 1-CPU container,
     // parallelism > 1 is pure memory waste.
     config.parallelism = 1;
+    // QA artifacts (Playwright MCP snapshots/screenshots written into the
+    // repo root during interactive testing) must not trigger Fast Refresh —
+    // each rebuild remounts the app and wipes client state mid-interaction.
+    config.watchOptions = {
+      ...config.watchOptions,
+      ignored: [
+        "**/node_modules/**",
+        "**/.git/**",
+        "**/.next/**",
+        "**/.playwright-mcp/**",
+        "**/qa-*.png",
+      ],
+    };
     return config;
   },
   async headers() {

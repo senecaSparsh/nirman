@@ -364,16 +364,57 @@ export async function reconcileInventoryGl(
     ) v`;
   const stockValue = new Decimal(valuedLocations[0]?.value ?? 0);
 
+  // In-transit stock: TRANSFER_OUT removes qty from the source
+  // StockLocationItem the moment a transfer dispatches, but GL keeps it in
+  // 1300 until the receiving site books the TRANSFER_IN. Stock that is on a
+  // truck between sites is still company inventory — count it so the tie-out
+  // doesn't false-fail on every in-flight transfer.
+  const inTransitLines = await prisma.stockTransferLine.findMany({
+    where: {
+      stockTransfer: {
+        status: "IN_TRANSIT",
+        fromLocation: { companyId, deletedAt: null },
+      },
+    },
+    select: { qty: true, unitCostAtSource: true },
+  });
+  const inTransitValue = inTransitLines.reduce(
+    (sum, l) => sum.plus(new Decimal(l.qty).times(l.unitCostAtSource ?? 0)),
+    new Decimal(0),
+  );
+  const inTransitQty = inTransitLines.reduce(
+    (sum, l) => sum.plus(l.qty),
+    new Decimal(0),
+  );
+
+  const details: ReconciliationDetail[] = [];
+  if (inTransitQty.gt(0)) {
+    details.push({
+      id: "in-transit",
+      label: "In-transit stock (dispatched, not yet received)",
+      expected: "0",
+      actual: inTransitValue.toString(),
+      delta: "0",
+    });
+  }
+
   return buildCheck({
     id: "inventory-gl",
     name: "GL Inventory vs Stock Value",
     description:
-      "Compares the GL Inventory account (1300) balance to Σ(qty × MAC) across all locations. Divergence means a receipt/issue posted to the GL without a matching stock movement (or vice-versa).",
+      "Compares the GL Inventory account (1300) balance to Σ(qty × MAC) across all locations plus in-transit stock (dispatched but not yet received — still company inventory). Divergence means a receipt/issue posted to the GL without a matching stock movement (or vice-versa).",
     expected: glBalance,
-    actual: stockValue,
+    actual: stockValue.plus(inTransitValue),
     tolerance,
+    // Paise-level drift is routine here: transfer dispatch stores
+    // unitCostAtSource at 2dp while the underlying movement deducted at full
+    // MAC precision, and the GL posts 2dp rounded amounts — small residuals
+    // accumulate. Band anything under ₹1 as WARN so real posting failures
+    // still FAIL loudly.
+    warnAt: "1",
+    details,
     message:
-      "The GL inventory balance and the physical stock value disagree. A posting may have been missed or a stock movement occurred without a GL entry. Check recent receipts and issues.",
+      "The GL inventory balance and the stock value disagree. A posting may have been missed or a stock movement occurred without a GL entry. Check recent receipts and issues.",
   });
 }
 

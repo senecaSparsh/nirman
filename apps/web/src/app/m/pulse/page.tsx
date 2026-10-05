@@ -103,37 +103,38 @@ export default function PulsePage() {
           // Same categories the attention drill-down counts — keep the
           // headline number consistent with the detail page.
           prisma.gatePass.count({
-            where: { companyId: company.id, status: "PENDING", submittedById: notSelf },
+            where: { companyId: company.id, status: "PENDING", submittedById: notSelf, ...await scopeWhere("GatePass", {}) },
           }),
           prisma.expense.count({
-            where: { companyId: company.id, status: "PENDING", submittedById: notSelf },
+            where: { companyId: company.id, status: "PENDING", submittedById: notSelf, ...await scopeWhere("Expense", {}) },
           }),
           prisma.raBill.count({
-            where: { companyId: company.id, status: "SUBMITTED", createdById: notSelf, submittedById: notSelf },
+            where: { companyId: company.id, status: "SUBMITTED", createdById: notSelf, submittedById: notSelf, ...await scopeWhere("RaBill", {}) },
           }),
           // Approval aging — the oldest item waiting in each queue. When
           // these sit >48h the owner needs to see it (and the cron
           // escalation job nudges the responsible manager).
           prisma.purchaseOrder.aggregate({
-            where: { companyId: company.id, status: "DRAFT" },
+            where: { companyId: company.id, status: "DRAFT", ...await scopeWhere("PurchaseOrder") },
             _min: { createdAt: true },
           }),
           prisma.materialRequisition.aggregate({
-            where: { project: { companyId: company.id }, status: "SUBMITTED" },
+            where: { project: { companyId: company.id }, status: "SUBMITTED", ...await scopeWhere("MaterialRequisition") },
             _min: { createdAt: true },
           }),
           prisma.dailyProgressReport.aggregate({
-            where: { companyId: company.id, approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] } },
+            where: { companyId: company.id, approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] }, ...await scopeWhere("DailyProgressReport") },
             _min: { createdAt: true },
           }),
           prisma.expenseClaim.aggregate({
-            where: { companyId: company.id, status: "SUBMITTED" },
+            where: { companyId: company.id, status: "SUBMITTED", ...await scopeWhere("ExpenseClaim") },
             _min: { submittedAt: true },
           }),
           prisma.purchaseOrder.count({
             where: {
               companyId: company.id,
               status: { in: ["ORDERED", "PARTIAL"] },
+              ...await scopeWhere("PurchaseOrder"),
               expectedDate: { lt: new Date() },
             },
           }),
@@ -146,6 +147,7 @@ export default function PulsePage() {
               status: { in: ["PLANNED", "ACTIVE"] },
               totalBudget: { gt: 0 },
               totalProjectCost: { gt: 0 },
+              ...await scopeWhere("Project"),
             },
             select: { totalBudget: true, totalProjectCost: true },
           }),

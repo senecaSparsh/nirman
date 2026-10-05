@@ -25,7 +25,7 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
         try { await refreshLandTotalCost(id); } catch (err) { console.warn("Land total cost refresh failed:", err); }
 
         const purchase = await prisma.landPurchase.findFirst({
-          where: {...await scopeWhere("LandPurchase"),  id, companyId: company.id, deletedAt: null },
+          where: { ...await scopeWhere("LandPurchase"), id, companyId: company.id, deletedAt: null },
           include: {
             project: { select: { id: true, name: true } },
             parcels: {
@@ -54,7 +54,7 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
         const parcelIds = purchase.parcels.map((p) => p.id);
         const [landSales, customers, parcelBuiltUnits, legalDocs] = await Promise.all([
           prisma.assetSale.findMany({
-            where: {...await scopeWhere("AssetSale"),  landParcelId: { in: parcelIds }, assetType: "LAND", status: "ACTIVE" },
+            where: { ...await scopeWhere("AssetSale"), landParcelId: { in: parcelIds }, assetType: "LAND", status: "ACTIVE" },
             select: {
               id: true, saleNumber: true, salePrice: true, profit: true, saleDate: true,
               landParcelId: true, paymentStatus: true, saleStage: true,
@@ -65,7 +65,7 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
             select: { id: true, name: true }}),
           // Built units linked to parcels (subdivided inventory — flats/shops built on the land)
           prisma.builtUnit.findMany({
-            where: {...await scopeWhere("BuiltUnit"),  landParcelId: { in: parcelIds }, deletedAt: null },
+            where: { ...await scopeWhere("BuiltUnit"), landParcelId: { in: parcelIds }, deletedAt: null },
             select: {
               id: true, unitNumber: true, unitType: true, status: true,
               area: true, areaUnit: true, floor: true, wing: true,
@@ -76,7 +76,7 @@ export default function MobileLandDetailPage({ params }: { params: Promise<{ id:
             orderBy: [{ unitNumber: "asc" }]}),
           // Legal documents for this land purchase
           prisma.legalDocument.findMany({
-            where: { landPurchaseId: purchase.id, companyId: company.id, deletedAt: null },
+            where: { ...await scopeWhere("LegalDocument"), landPurchaseId: purchase.id, companyId: company.id, deletedAt: null },
             orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }]}),
         ]);
 

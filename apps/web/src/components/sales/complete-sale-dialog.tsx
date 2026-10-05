@@ -216,6 +216,7 @@ export function CompleteSaleDialog({
             onChange={(photos) => setRegistryDocUrl(photos[0]?.url ?? "")}
             maxPhotos={1}
             label="Upload Registry Document (PDF/Image)"
+            accept=".pdf,image/*"
           />
           <p className="text-caption text-muted-foreground">
             The signed & registered sale deed is required to complete the sale and transfer title.

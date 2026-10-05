@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, toNum, requireUser, getCompany } from "@/lib/server";
+import { apiHandler, json, toNum, requireUser, getCompany, scopeWhere } from "@/lib/server";
 
 /**
  * GET /api/materials/[id]/last-purchase
@@ -16,13 +16,16 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   const company = await getCompany();
   const { id } = await params;
 
-  // Find the most recent goods receipt line for this material,
-  // scoped to locations in the current company.
+  // Find the most recent goods receipt line for this material, scoped to
+  // in-scope locations — a scoped user's price hint must come from THEIR
+  // project's history, not another site's negotiated rate.
+  const grScope = await scopeWhere("GoodsReceipt");
   const lastReceipt = await prisma.goodsReceiptLine.findFirst({
     where: {
       materialId: id,
       goodsReceipt: {
         location: { companyId: company.id, deletedAt: null },
+        ...(grScope ?? {}),
       },
     },
     orderBy: {

@@ -73,7 +73,7 @@ async function InventoryValueContent({
     // ── Live mode: read current balances ──
     const liveItems = await prisma.stockLocationItem.findMany({
       take: 500,
-      where: {
+      where: { ...await scopeWhere("StockLocationItem"),
         location: { deletedAt: null, companyId: company.id },
         material: { deletedAt: null },
       },
@@ -150,7 +150,7 @@ async function InventoryValueContent({
       }),
       prisma.stockLocation.findMany({
         take: 200,
-        where: { companyId: company.id, deletedAt: null },
+        where: { ...await scopeWhere("StockLocation"), companyId: company.id, deletedAt: null },
         select: { id: true, name: true, type: true },
       }),
       prisma.material.findMany({

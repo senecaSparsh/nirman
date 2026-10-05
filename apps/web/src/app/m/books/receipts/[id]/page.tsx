@@ -5,7 +5,7 @@ import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { prisma } from "@nirman/db";
 import { amountInWords } from "@nirman/services";
-import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { getCompany, toNum, getUserPermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
@@ -102,7 +102,7 @@ function HistoryTable({
 
 async function AssetReceiptView({ id, companyId, companyName }: { id: string; companyId: string; companyName: string }) {
   const payment = await prisma.assetSalePayment.findFirst({
-    where: { id, assetSale: { companyId } },
+    where: { AND: [{ id }, { assetSale: { companyId } }, await scopeWhere("AssetSalePayment")] },
     include: {
       assetSale: {
         include: {
@@ -247,7 +247,7 @@ async function AssetReceiptView({ id, companyId, companyName }: { id: string; co
 
 async function MaterialReceiptView({ id, companyId, companyName }: { id: string; companyId: string; companyName: string }) {
   const payment = await prisma.materialSalePayment.findFirst({
-    where: { id, sale: { companyId } },
+    where: { AND: [{ id }, { sale: { companyId } }, await scopeWhere("MaterialSalePayment")] },
     include: {
       sale: {
         include: {

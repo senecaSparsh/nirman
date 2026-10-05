@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import {Camera, X, Loader2} from "lucide-react";
+import {Camera, X, Loader2, FileText} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -9,6 +9,11 @@ type Photo = {
   url: string;
   fileName?: string;
 };
+
+function isImageFile(photo: Photo): boolean {
+  const name = photo.fileName ?? photo.url;
+  return /\.(jpe?g|png|gif|webp|heic|heif|avif)$/i.test(name) || photo.url.startsWith("data:image") || photo.url.startsWith("blob:");
+}
 
 /**
  * PhotoUploader — reusable photo upload component.
@@ -29,12 +34,14 @@ export function PhotoUploader({
   onChange,
   maxPhotos = 10,
   label = "Add Photo",
+  accept = "image/*",
   className,
 }: {
   photos: Photo[];
   onChange: (photos: Photo[]) => void;
   maxPhotos?: number;
   label?: string;
+  accept?: string;
   className?: string;
 }) {
   const [uploading, setUploading] = useState(false);
@@ -105,12 +112,27 @@ export function PhotoUploader({
               key={i}
               className="group relative h-20 w-20 overflow-hidden rounded-lg border border-border bg-muted"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={photo.url}
-                alt={photo.fileName ?? `Photo ${i + 1}`}
-                className="h-full w-full object-cover"
-              />
+              {isImageFile(photo) ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={photo.url}
+                  alt={photo.fileName ?? `Photo ${i + 1}`}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <a
+                  href={photo.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex h-full w-full flex-col items-center justify-center gap-1 p-1 text-muted-foreground hover:text-foreground"
+                  title={photo.fileName ?? "Open document"}
+                >
+                  <FileText className="h-6 w-6" />
+                  <span className="w-full truncate px-0.5 text-center text-[9px] leading-tight">
+                    {photo.fileName?.split("/").pop() ?? "Document"}
+                  </span>
+                </a>
+              )}
               <button
                 type="button"
                 onClick={() => removePhoto(i)}
@@ -153,8 +175,10 @@ export function PhotoUploader({
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
-        capture="environment"
+        accept={accept}
+        // capture only makes sense for image-only pickers — it forces the
+        // camera on mobile, blocking file/document selection entirely.
+        capture={accept === "image/*" ? "environment" : undefined}
         multiple
         className="hidden"
         onChange={(e) => {

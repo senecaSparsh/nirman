@@ -13,7 +13,7 @@ import { MobileFab } from "@/components/mobile/v2/scaffold";
  */
 export default function MobileExpensesPage() {
   return (
-    <MobileListPage perm={PERM.FINANCE_VIEW}>
+    <MobileListPage perm={PERM.FINANCE_VIEW} scopeAware>
       {async ({ company, perms }) => {
         const canView = perms.includes(PERM.FINANCE_VIEW);
         const canCreate = perms.includes(PERM.EXPENSE_CREATE);

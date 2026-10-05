@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { scopeWhere,  getCompany, toNum, getUserPermissions } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
 import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
@@ -36,7 +36,7 @@ async function PurchaseTrendsContent() {
 
   const orders = await prisma.purchaseOrder.findMany({
     take: 200,
-    where: {
+    where: { ...await scopeWhere("PurchaseOrder"),
       companyId: company.id,
       status: { not: "CANCELLED" },
       orderDate: { gte: from },

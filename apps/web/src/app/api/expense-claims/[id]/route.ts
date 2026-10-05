@@ -9,7 +9,7 @@ import {
   canAutoApprove,
   ServiceError,
 } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, requirePermission, requireAnyPermission, scopeWhere, getActingRole,} from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, requirePermission, requireAnyPermission, requireUser, scopeWhere, getActingRole, getActingRoleForProject, getUserPermissions, ForbiddenError,} from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { z } from "zod";
 
@@ -93,8 +93,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   try {
     if (d.action === "submit") {
       const user = await requireAnyPermission(PERM.EXPENSE_CREATE, PERM.CLAIM_CREATE);
-      // Self-service claimants can submit only their own claims.
-      if (!hasPermission(await getActingRole(), PERM.EXPENSE_CREATE) && existing.claimantId !== user.id) {
+      // Self-service claimants can submit only their own claims; the scoped
+      // role on the claim's project counts toward EXPENSE_CREATE too.
+      const submitRole = (await getActingRoleForProject((existing as { projectId?: string | null }).projectId ?? null)) ?? (await getActingRole());
+      if (!hasPermission(submitRole, PERM.EXPENSE_CREATE) && existing.claimantId !== user.id) {
         return json({ error: "You can only submit your own claims" }, { status: 403 });
       }
       await submitExpenseClaim(id, company.id, user.id);
@@ -105,12 +107,26 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
         await approveExpenseClaim(id, company.id, user.id, await getActingRole());
       }
     } else if (d.action === "approve") {
-      const user = await requirePermission(PERM.EXPENSE_APPROVE);
-      await approveExpenseClaim(id, company.id, user.id, await getActingRole());
+      const user = await requireUser();
+      // Scoped-role lift — claim may belong to a project; the scoped role on
+      // that project grants EXPENSE_APPROVE locally even without the global perm.
+      const claimProj = await prisma.expenseClaim.findFirst({ where: { id, companyId: company.id }, select: { projectId: true } });
+      const actingRole = (await getActingRoleForProject(claimProj?.projectId ?? null)) ?? (await getActingRole());
+      const perms = await getUserPermissions();
+      if (!perms.includes(PERM.EXPENSE_APPROVE) && !hasPermission(actingRole, PERM.EXPENSE_APPROVE)) {
+        throw new ForbiddenError("You need expense approval rights on this project");
+      }
+      await approveExpenseClaim(id, company.id, user.id, actingRole);
     } else if (d.action === "reject") {
-      const user = await requirePermission(PERM.EXPENSE_APPROVE);
+      const user = await requireUser();
       if (!d.rejectionReason?.trim() && !d.reason?.trim()) return json({ error: "A rejection reason is required" }, { status: 400 });
-      await rejectExpenseClaim(id, company.id, (d.rejectionReason ?? d.reason ?? "").trim(), user.id);
+      const claimProj = await prisma.expenseClaim.findFirst({ where: { id, companyId: company.id }, select: { projectId: true } });
+      const actingRole = (await getActingRoleForProject(claimProj?.projectId ?? null)) ?? (await getActingRole());
+      const perms = await getUserPermissions();
+      if (!perms.includes(PERM.EXPENSE_APPROVE) && !hasPermission(actingRole, PERM.EXPENSE_APPROVE)) {
+        throw new ForbiddenError("You need expense approval rights on this project");
+      }
+      await rejectExpenseClaim(id, company.id, (d.rejectionReason ?? d.reason ?? "").trim(), user.id, actingRole);
     } else if (d.action === "pay") {
       const user = await requirePermission(PERM.FINANCE_MANAGE);
       if (!d.paymentMode) return json({ error: "Payment mode is required" }, { status: 400 });

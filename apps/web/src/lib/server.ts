@@ -1203,18 +1203,6 @@ export const rentScheduleSchema = z.object({
   monthsAhead: z.coerce.number().int().positive().max(60).optional(),
 });
 
-// ── Daily Reports ──
-export const dailyReportSchema = z.object({
-  projectId: z.string().optional().nullable(),
-  date: z.string().min(1, "Date is required"),
-  attendanceSummary: z.string().optional().nullable(),
-  workDone: z.string().min(1, "Work done is required"),
-  materialUsed: z.string().optional().nullable(),
-  equipment: z.string().optional().nullable(),
-  delay: z.string().optional().nullable(),
-  remarks: z.string().optional().nullable(),
-});
-
 // ── Project Costs ──
 export const projectCostSchema = z.object({
   projectId: z.string().min(1, "Project is required"),
@@ -2037,7 +2025,6 @@ export async function scopeWhere(
     // Task is intentionally not scopeable — see KNOWN_UNSCOPABLE below.
     Crew:                 { project: "projectId" },
     DailyProgressReport:  { project: "projectId" },
-    DailyReport:          { project: "projectId" },
     QuotationRequest:     { project: "projectId" },
     Quotation:            { project: "projectId" }, // alias for backward compat
     ChangeOrder:          { project: "projectId" },
@@ -2064,6 +2051,11 @@ export async function scopeWhere(
     PettyCashFloat:       { project: "projectId" },
     AssetSale:            { project: "projectId" },
     MaterialSale:         { project: "projectId" },
+    // Payment rows scope through their parent sale — a receipt/instalment for
+    // a Site Two unit is invisible to a Site One-scoped user.
+    AssetSalePayment:     { project: "assetSale.projectId" },
+    MaterialSalePayment:  { project: "sale.projectId" },
+    PaymentScheduleItem:  { project: "paymentSchedule.assetSale.projectId" },
     // Land
     LandPurchase:         { project: "projectId" },
     LandParcel:           { project: "projectId" },
@@ -2076,9 +2068,13 @@ export async function scopeWhere(
     // Sales / CRM
     Lead:                 { project: "projectId" },
     // Gate
-    GatePass:             { project: "projectId" },
+    // A gate pass scopes to the project tag OR the issuing location's
+    // project — a pass physically leaving Site One Store is a Site One
+    // pass even when projectId is null (company-level tag missing).
+    GatePass:             { project: ["projectId", "location.projectId"], department: "location.departmentId" },
     // Equipment
     EquipmentAssignment:  { project: "projectId" },
+    EquipmentUsageLog:    { project: "projectId" },
     // Renovations run inside a project; site stores belong to a project or
     // department — both are scopeable.
     RenovationProject:    { project: "projectId" },
@@ -2099,6 +2095,11 @@ export async function scopeWhere(
     ScrapGeneration:      { project: "projectId" },
     // Trips have no projectId — scope via either endpoint's location.
     VehicleTrip:          { project: ["fromLocation.projectId", "toLocation.projectId"] },
+    // Transfers the same — a project user sees transfers touching their
+    // sites' locations on either end.
+    StockTransfer:        { project: ["fromLocation.projectId", "toLocation.projectId"] },
+    StockCount:           { project: "location.projectId", department: "location.departmentId" },
+    StockCountLine:       { project: "stockCount.location.projectId", department: "stockCount.location.departmentId" },
     // Models without project/department FKs are not scopeable
   };
 
@@ -2146,10 +2147,13 @@ export async function scopeWhere(
   const buildFieldFilter = (fieldSpec: string | string[], ids: string[]) => {
     const specs = Array.isArray(fieldSpec) ? fieldSpec : [fieldSpec];
     const clauses = specs.map((spec) => {
-      if (spec.includes(".")) {
-        // Nested relation filter (e.g. "employee.departmentId")
-        const [rel, key] = spec.split(".");
-        return { [rel!]: { [key!]: { in: ids } } };
+      const parts = spec.split(".");
+      if (parts.length > 1) {
+        // Nested relation filter — supports arbitrary depth
+        // ("employee.departmentId", "stockCount.location.projectId").
+        let clause: Record<string, unknown> = { [parts.at(-1)!]: { in: ids } };
+        for (let i = parts.length - 2; i >= 0; i--) clause = { [parts[i]!]: clause };
+        return clause;
       }
       return { [spec]: { in: ids } };
     });
@@ -2977,6 +2981,46 @@ export async function getActingRole(): Promise<Role> {
     if (roleTier(dr) < roleTier(best)) best = dr;
   }
   return best;
+}
+
+/**
+ * Resolve the role the current user acts as *within a specific project*.
+ * Their ProjectAssignment.scopedRole says which hat they wear at that site —
+ * a SITE_ENGINEER assigned as PROJECT_MANAGER on Site One can approve Site
+ * One POs but not Site Two's. Returns the higher-authority of (acting role,
+ * scopedRole for this project), or null when the user has no assignment.
+ */
+/**
+ * Permissions granted by the user's project assignments' scopedRoles.
+ * The queue already scope-filters its items, so a scoped-PM's PO_APPROVE
+ * only applies to their projects' rows — the "where" stays bounded even
+ * though the permission looks global in the response.
+ */
+export async function getScopedRolePermissions(): Promise<string[]> {
+  const user = await getCurrentUser();
+  if (!user) return [];
+  const assignments = await prisma.projectAssignment
+    .findMany({ where: { userId: user.id }, select: { scopedRole: true } })
+    .catch(() => [] as { scopedRole: string }[]);
+  if (assignments.length === 0) return [];
+  const perms = new Set<string>();
+  for (const a of assignments) {
+    for (const p of effectivePermissions(normalizeRole(a.scopedRole), [])) perms.add(p);
+  }
+  return [...perms];
+}
+
+export async function getActingRoleForProject(projectId: string | null): Promise<Role | null> {
+  if (!projectId) return null;
+  const user = await getCurrentUser();
+  if (!user) return null;
+  const assignment = await prisma.projectAssignment
+    .findFirst({ where: { userId: user.id, projectId }, select: { scopedRole: true } })
+    .catch(() => null);
+  if (!assignment?.scopedRole) return null;
+  const scoped = normalizeRole(assignment.scopedRole);
+  const base = await getActingRole();
+  return roleTier(scoped) < roleTier(base) ? scoped : base;
 }
 
 /**

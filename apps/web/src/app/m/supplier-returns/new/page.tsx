@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { getCompany } from "@/lib/server";
+import { scopeWhere, getCompany } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import MobileNewSupplierReturnClient from "./MobileNewSupplierReturnClient";
@@ -24,7 +24,7 @@ export default function MobileNewSupplierReturnPage() {
             orderBy: { name: "asc" },
           }),
           prisma.stockLocation.findMany({
-            where: { deletedAt: null, companyId: company.id },
+            where: { ...await scopeWhere("StockLocation"), deletedAt: null, companyId: company.id },
             select: { id: true, name: true, type: true },
             orderBy: { name: "asc" },
           }),
@@ -34,7 +34,7 @@ export default function MobileNewSupplierReturnPage() {
             orderBy: { name: "asc" },
           }),
           prisma.purchaseOrder.findMany({
-            where: { status: { in: ["APPROVED", "ORDERED", "RECEIVED"] }, companyId: company.id },
+            where: { ...await scopeWhere("PurchaseOrder"), status: { in: ["APPROVED", "ORDERED", "RECEIVED"] }, companyId: company.id },
             select: { id: true, poNumber: true, supplierId: true },
             orderBy: { createdAt: "desc" },
             take: 100,

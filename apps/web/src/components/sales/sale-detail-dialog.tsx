@@ -462,6 +462,7 @@ export function SaleDetailDialog({
                       onChange={(photos) => uploadDocument("ATS", photos)}
                       maxPhotos={1}
                       label="Upload ATS"
+                      accept=".pdf,image/*"
                       className="mt-1"
                     />
                   )}
@@ -482,6 +483,7 @@ export function SaleDetailDialog({
                       onChange={(photos) => uploadDocument("BBA", photos)}
                       maxPhotos={1}
                       label="Upload BBA"
+                      accept=".pdf,image/*"
                       className="mt-1"
                     />
                   )}
@@ -502,6 +504,7 @@ export function SaleDetailDialog({
                       onChange={(photos) => uploadDocument("REGISTRY", photos)}
                       maxPhotos={1}
                       label="Upload Registry"
+                      accept=".pdf,image/*"
                       className="mt-1"
                     />
                   )}

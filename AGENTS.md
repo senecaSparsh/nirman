@@ -71,6 +71,12 @@ the `coolify-proxy` container isn't on the app network. Fix:
 - `pnpm db:push` — push schema to DB (dev). `pnpm db:migrate` for migrations.
 - `pnpm db:studio` — Prisma Studio.
 - `pnpm --filter @nirman/services test` — run service unit tests (vitest).
+- `pnpm --filter mobile sync|open:ios|open:android` — Capacitor native shell in
+  `apps/mobile` (loads `https://nirman.life` in the WebView; middleware routes
+  the mobile UA to `/m/*`). `CAP_SERVER_URL=http://<lan-ip>:3000` for local dev.
+  Native device push tokens are stored in `PushSubscription` with
+  `capacitor://<platform>/<token>` endpoints — `sendPushToUser` routes them to
+  APNs (needs `APNS_*` env vars; see `apps/mobile/README.md`).
 
 ## Conventions
 
@@ -1124,3 +1130,36 @@ feedback is routed to the DEVELOPER (god-mode) + OWNER + ADMIN accounts.
   playback, user info (name/email/role/company), page URL link, resolve/
   archive/reopen actions. Nav: Settings gear → "Feedback Inbox" link
   (OWNERS only = OWNER/ADMIN/DEVELOPER).
+
+## Mobile UI review & conventions (learned)
+
+- **Scripted mobile walkthrough (Playwright, dev)**: sign in by calling
+  `POST /api/auth/demo-login {role:"OWNER"}` then `POST /api/auth/sign-in/email`
+  with the returned `{email,password}` from inside the page (demo-login alone
+  does NOT create a session). Use a 390×844 `isMobile` context. `/m` scrolls
+  an inner container (`.m-shell-content`), not the window — `fullPage`
+  screenshots only capture the viewport; resize the viewport to the scroller's
+  `scrollHeight` instead. Keep throwaway scripts outside the repo (copy into
+  `apps/web` only to resolve `@playwright/test`, then delete).
+- **List cards lead with the "what", not the machine ID**: indent / PO /
+  quotation cards headline the material via `summarizeLines()`
+  (`lib/line-summary.ts` → "Cement PPC · 50 BAG +2 more"); the REQ/PO/QR
+  number is a `text-m-micro font-mono` tag. Search must match that summary.
+  Server page and `/api/mobile/list/[type]` must return the same item shape.
+- **Summary stats are filters**: `MobileSummaryStrip` stats take
+  `onClick`/`active`; a count you can't tap is a dead end. Zero counts render
+  neutral even when toned.
+- **Flow-map `verb` is required** on every `NextAction` (the NextActionCard
+  button text — never a generic "Do"); `flow-map.test.ts` enforces it.
+  Record-specific hrefs use placeholders (`{id}`, `{poId}`) substituted by
+  the detail page; the NavSheet drops any href with an unresolved placeholder.
+- **Floating buttons**: `useHideOnScroll()` (`lib/use-hide-on-scroll.ts`)
+  tucks the feedback button and `MobileFab` away on scroll-down; a globals.css
+  rule lifts the feedback button above any `sticky bottom-0` form footer.
+- **No-data ≠ bad**: never tint a placeholder metric red/green (e.g. vendor
+  quality before any inspection — show "—"). Vendor quality is measured over
+  inspected receipts only (`countInspectionOutcomes`).
+- **Known pre-existing web test failures** (not from mobile work, as of
+  2026-09-27): route-manifest (`/m/hr/payroll`, `/m/notifications` missing),
+  scope-registry (`EquipmentUsageLog`), middleware desktop-UA `/m` redirects,
+  `sales/[id]/print` page test.

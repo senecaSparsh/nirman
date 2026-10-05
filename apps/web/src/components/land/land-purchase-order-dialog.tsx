@@ -320,6 +320,7 @@ export function LandPurchaseOrderDialog({
             onChange={(photos) => setAtsDocUrl(photos[0]?.url ?? "")}
             maxPhotos={1}
             label="Upload ATS Document"
+            accept=".pdf,image/*"
           />
           <p className="text-caption text-muted-foreground">
             Upload the signed ATS now, or later from the land purchase detail. The registry document is required to complete the purchase.

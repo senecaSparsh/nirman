@@ -3,7 +3,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { approveSupplierInvoice, getSupplierInvoice } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getActingRole, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, ForbiddenError, getActingRole, getCompany, getUserPermissions, json, requirePermission, requireUser, scopeWhere, getActingRoleForProject } from "@/lib/server";
+import { hasPermission } from "@/lib/roles";
 
 /**
  * GET /api/supplier-invoices/[id]
@@ -13,6 +14,12 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   await requirePermission(PERM.FINANCE_VIEW);
   const company = await getCompany();
   const { id } = await params;
+
+  const inScope = await prisma.supplierInvoice.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("SupplierInvoice") },
+    select: { id: true },
+  });
+  if (!inScope) return json({ error: "Supplier invoice not found" }, { status: 404 });
 
   const invoice = await getSupplierInvoice(id, company.id);
   if (!invoice) return json({ error: "Supplier invoice not found" }, { status: 404 });
@@ -84,7 +91,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
  * Approves or rejects (disputes) a supplier invoice.
  */
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.FINANCE_MANAGE);
+  const user = await requireUser();
   const company = await getCompany();
   const { id } = await params;
   const body = await req.json();
@@ -95,12 +102,13 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   // Handle document upload separately (no approval workflow)
   if (body.action === "upload-document") {
+    await requirePermission(PERM.FINANCE_MANAGE);
     if (!body.invoiceDocumentUrl) {
       return json({ error: "invoiceDocumentUrl is required for upload-document" }, { status: 400 });
     }
-    // Verify the invoice belongs to this company before updating.
+    // Verify the invoice belongs to this company AND is in scope.
     const existing = await prisma.supplierInvoice.findFirst({
-      where: { id, companyId: company.id },
+      where: { id, companyId: company.id, ...await scopeWhere("SupplierInvoice") },
       select: { id: true },
     });
     if (!existing) {
@@ -114,7 +122,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       },
     });
     revalidatePath("/finance");
-    revalidatePath("/supplier-invoices");
+    revalidatePath("/suppliers");
     revalidatePath("/m/books/finance");
     return json({
       ok: true,
@@ -124,6 +132,19 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     });
   }
 
+  // Scope gate + scoped-role lift — a FINANCE-scoped approver (e.g. site PM
+  // wearing the scoped ACCOUNTANT hat) can act on their project's invoices.
+  const scopeCheck = await prisma.supplierInvoice.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("SupplierInvoice") },
+    select: { purchaseOrder: { select: { projectId: true } } },
+  });
+  if (!scopeCheck) return json({ error: "Supplier invoice not found" }, { status: 404 });
+  const actingRole = (await getActingRoleForProject(scopeCheck.purchaseOrder?.projectId ?? null)) ?? (await getActingRole());
+  const perms = await getUserPermissions();
+  if (!perms.includes(PERM.FINANCE_MANAGE) && !hasPermission(actingRole, PERM.FINANCE_MANAGE)) {
+    throw new ForbiddenError("You need finance approval rights on this project");
+  }
+
   try {
     const updated = await approveSupplierInvoice({
       invoiceId: id,
@@ -131,10 +152,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       userId: user.id,
       action: body.action,
       notes: body.notes,
-      actorRole: await getActingRole(),
+      actorRole: actingRole,
     });
 
-    revalidatePath("/supplier-invoices");
+    revalidatePath("/suppliers");
     revalidatePath("/finance");
     revalidatePath("/gl");
     revalidatePath("/approvals");

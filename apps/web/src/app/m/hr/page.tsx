@@ -38,7 +38,7 @@ import { buildOrgTree } from "@/lib/org-tree-builder";
  */
 export default function HrHomePage() {
   return (
-    <MobileHubPage perm={PERM.HR_VIEW} what="HR" permission="hr.view">
+    <MobileHubPage perm={PERM.HR_VIEW} scopeAware what="HR" permission="hr.view">
       {async ({ company, perms }) => {
         const currentUser = await getCurrentUser();
         const canManageTeam = perms.includes(PERM.USERS_VIEW);
@@ -212,7 +212,29 @@ export default function HrHomePage() {
 
         // If no alerts, show contextual banner
         if (attentionBanners.length === 0) {
-          if (todayAttendance === 0 && employees > 0) {
+          // Payroll-lock check: attendance for a PROCESSED/PAID period can't
+          // be edited — nagging the user to "take attendance" the server will
+          // reject is a dead end. Show the lock state instead.
+          const lockedAttendancePeriod = await prisma.payrollPeriod
+            .findFirst({
+              where: {
+                companyId: company.id,
+                status: { in: ["PROCESSED", "PAID"] },
+                startDate: { lte: todayDateOnly },
+                endDate: { gte: todayDateOnly },
+              },
+              select: { month: true, year: true, status: true }})
+            .catch(() => null);
+          if (todayAttendance === 0 && employees > 0 && lockedAttendancePeriod) {
+            attentionBanners.push({
+              id: "attendance-locked",
+              title: `Attendance locked — ${lockedAttendancePeriod.month}/${lockedAttendancePeriod.year} payroll ${lockedAttendancePeriod.status.toLowerCase()}`,
+              subtitle: "Correct with an adjustment in the next period",
+              href: "/m/site/attendance",
+              severity: "low",
+              qtyText: "!",
+              category: "Attendance Pending"});
+          } else if (todayAttendance === 0 && employees > 0) {
             // Attendance hasn't been recorded yet — prompt the user
             attentionBanners.push({
               id: "attendance-pending",

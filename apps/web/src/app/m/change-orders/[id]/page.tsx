@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum, getCurrentUser } from "@/lib/server";
+import { scopeWhere, toNum, getCurrentUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
 import { notFound } from "next/navigation";
@@ -14,8 +14,8 @@ export default async function MobileChangeOrderDetailPage({
   return (
     <MobileDetailPage params={params} managePerm={PERM.WO_MANAGE} skeletonSections={6}>
       {async ({ id, company, canManage, actingRole }) => {
-        const co = await prisma.changeOrder.findUnique({
-          where: { id },
+        const co = await prisma.changeOrder.findFirst({
+          where: { id, companyId: company.id, ...await scopeWhere("ChangeOrder") },
           include: {
             project: { select: { id: true, name: true, totalBudget: true } },
             phase: { select: { id: true, name: true } },
@@ -27,7 +27,7 @@ export default async function MobileChangeOrderDetailPage({
             approvedBy: { select: { id: true, name: true } },
             implementedBy: { select: { id: true, name: true } }}});
 
-        if (!co || co.companyId !== company.id) notFound();
+        if (!co) notFound();
 
         const currentUser = await getCurrentUser();
         const serialized = {

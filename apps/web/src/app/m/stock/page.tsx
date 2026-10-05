@@ -32,14 +32,14 @@ export default function MobileStockPage({
               where: { id: locationId, companyId: company.id, deletedAt: null },
               select: { id: true, name: true, type: true }}),
             prisma.stockLocationItem.findMany({
-              where: { locationId, location: { companyId: company.id }, qty: { not: 0 } },
+              where: { ...await scopeWhere("StockLocationItem"), locationId, location: { companyId: company.id }, qty: { not: 0 } },
               include: { material: { select: { id: true, name: true, code: true, unit: true } } },
               orderBy: { material: { name: "asc" } }}),
             // Movements are already company-scoped: the location check above
             // (line 30) ensures locationId belongs to company.id, so any
             // movement from/to that location is inherently within the company.
             prisma.stockMovement.findMany({
-              where: {...await scopeWhere("StockMovement"),
+              where: { ...await scopeWhere("StockMovement"),...await scopeWhere("StockMovement"),
                 AND: [{ OR: [{ fromLocationId: locationId }, { toLocationId: locationId }] }]},
               orderBy: { timestamp: "desc" },
               take: 50,
@@ -49,14 +49,14 @@ export default function MobileStockPage({
                 toLocation: { select: { id: true, name: true } }}}),
             // In-transit transfers incoming to this location (cross-company within group)
             prisma.stockTransfer.findMany({
-              where: { toLocationId: locationId, status: "IN_TRANSIT", fromLocation: { companyId: { in: companyGroupIds } } },
+              where: { ...await scopeWhere("StockTransfer"), toLocationId: locationId, status: "IN_TRANSIT", fromLocation: { companyId: { in: companyGroupIds } } },
               include: {
                 fromLocation: { select: { name: true } },
                 lines: { include: { material: { select: { name: true, unit: true } } } }},
               orderBy: { dispatchedAt: "desc" }}),
             // In-transit transfers outgoing from this location (cross-company within group)
             prisma.stockTransfer.findMany({
-              where: { fromLocationId: locationId, status: "IN_TRANSIT", toLocation: { companyId: { in: companyGroupIds } } },
+              where: { ...await scopeWhere("StockTransfer"), fromLocationId: locationId, status: "IN_TRANSIT", toLocation: { companyId: { in: companyGroupIds } } },
               include: {
                 toLocation: { select: { name: true } },
                 lines: { include: { material: { select: { name: true, unit: true } } } }},
@@ -138,7 +138,7 @@ export default function MobileStockPage({
         ] = await Promise.all([
           // ── Ledger: locations ──
           prisma.stockLocation.findMany({
-            where: { companyId: company.id, deletedAt: null },
+            where: { ...await scopeWhere("StockLocation"), companyId: company.id, deletedAt: null },
             select: {
               id: true,
               name: true,
@@ -147,7 +147,7 @@ export default function MobileStockPage({
             orderBy: { name: "asc" }}),
           // ── Ledger: movements ──
           prisma.stockMovement.findMany({
-            where: {...await scopeWhere("StockMovement"),
+            where: { ...await scopeWhere("StockMovement"),...await scopeWhere("StockMovement"),
               ...(materialId ? { materialId } : {}),
               AND: [{ OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }] }]},
             orderBy: { timestamp: "desc" },
@@ -165,7 +165,7 @@ export default function MobileStockPage({
           // ── Ledger: material stock items ──
           materialId
             ? prisma.stockLocationItem.findMany({
-                where: { materialId, qty: { not: 0 } },
+                where: { ...await scopeWhere("StockLocationItem"), materialId, qty: { not: 0 } },
                 include: { location: { select: { id: true, name: true } } },
                 orderBy: { location: { name: "asc" } }})
             : [],
@@ -176,10 +176,13 @@ export default function MobileStockPage({
             orderBy: { name: "asc" }}).then((rows) => rows.map((c) => ({ ...c, gstRate: c.gstRate ? c.gstRate.toNumber() : null }))),
           // ── Transfers tab ──
           prisma.stockTransfer.findMany({
-            where: {
-              OR: [
-                { fromLocation: { companyId: company.id, deletedAt: null } },
-                { toLocation: { companyId: company.id, deletedAt: null } },
+            where: { ...await scopeWhere("StockTransfer"),
+              AND: [
+                await scopeWhere("StockTransfer"),
+                { OR: [
+                  { fromLocation: { companyId: company.id, deletedAt: null } },
+                  { toLocation: { companyId: company.id, deletedAt: null } },
+                ]},
               ]},
             orderBy: [{ createdAt: "desc" }, { id: "desc" }],
             take: BATCH_SIZE + 1,
@@ -189,7 +192,7 @@ export default function MobileStockPage({
               lines: { include: { material: { select: { name: true, unit: true } } } }}}),
           // ── Counts tab ──
           prisma.stockCount.findMany({
-            where: { location: { companyId: company.id, deletedAt: null } },
+            where: { ...await scopeWhere("StockCount"), AND: [await scopeWhere("StockCount"), { location: { companyId: company.id, deletedAt: null } }] },
             orderBy: { createdAt: "desc" },
             take: 80,
             include: {
@@ -200,7 +203,7 @@ export default function MobileStockPage({
               reconciledBy: { select: { name: true } }}}),
           // ── Scrap tab ──
           prisma.scrapGeneration.findMany({
-            where: { companyId: company.id },
+            where: { ...await scopeWhere("ScrapGeneration"), companyId: company.id },
             orderBy: { createdAt: "desc" },
             take: 80,
             select: {

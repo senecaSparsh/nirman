@@ -38,7 +38,7 @@ async function MobileProjectAssignmentsContent() {
 
   const [assignments, users, projects] = await Promise.all([
     prisma.projectAssignment.findMany({
-      where: {...await scopeWhere("ProjectAssignment"),  project: { companyId: company.id } },
+      where: { ...await scopeWhere("ProjectAssignment"),...await scopeWhere("ProjectAssignment"),  project: { companyId: company.id } },
       include: {
         user: { select: { id: true, name: true, email: true, role: true, phone: true } },
         project: { select: { id: true, name: true } }},
@@ -51,7 +51,7 @@ async function MobileProjectAssignmentsContent() {
       select: { id: true, name: true, email: true, role: true, phone: true },
       orderBy: { name: "asc" }}),
     prisma.project.findMany({
-      where: { companyId: company.id, deletedAt: null },
+      where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
       select: { id: true, name: true },
       orderBy: { name: "asc" }}),
   ]);

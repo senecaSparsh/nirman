@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Nirman</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #1a1a1a;
+        color: #e5e5e5;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+      }
+      .wrap {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        padding: 32px;
+        text-align: center;
+        box-sizing: border-box;
+      }
+      .logo {
+        width: 72px;
+        height: 72px;
+        border-radius: 18px;
+        background: #2a2a2a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 34px;
+        font-weight: 700;
+      }
+      h1 {
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0;
+      }
+      p {
+        font-size: 14px;
+        color: #9ca3af;
+        margin: 0;
+        max-width: 280px;
+        line-height: 1.5;
+      }
+      button {
+        margin-top: 8px;
+        padding: 12px 28px;
+        border: 0;
+        border-radius: 10px;
+        background: #e5e5e5;
+        color: #1a1a1a;
+        font-size: 15px;
+        font-weight: 600;
+      }
+      button:active {
+        opacity: 0.8;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      Shown only when the WebView can't reach nirman.life (no connectivity /
+      server down). The real app UI is always the remote site.
+    -->
+    <div class="wrap">
+      <div class="logo">N</div>
+      <h1>Can’t reach Nirman</h1>
+      <p>
+        Check your internet connection and try again. If the problem continues,
+        the service may be temporarily down.
+      </p>
+      <button
+        onclick="location.href = (window.Capacitor && Capacitor.getServerUrl && Capacitor.getServerUrl()) || 'https://nirman.life'"
+      >
+        Retry
+      </button>
+    </div>
+    <!--
+      This page is the `server.errorPath` target — Capacitor swaps to it
+      when the remote site fails to load. Retry navigates back to the
+      configured server URL (dev builds pointing at a LAN IP keep working
+      via Capacitor.getServerUrl()).
+    -->
+  </body>
+</html>

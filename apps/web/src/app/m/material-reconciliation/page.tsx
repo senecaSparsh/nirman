@@ -1,4 +1,5 @@
 import { prisma } from "@nirman/db";
+import { scopeWhere } from "@/lib/server";
 import { getProjectMaterialReconciliation } from "@nirman/services";
 import { Package, AlertTriangle, Plus } from "lucide-react";
 import { PERM } from "@/lib/roles";
@@ -30,7 +31,7 @@ export default function MobileMaterialReconciliationPage({
         const canCreateProject = perms.includes(PERM.PROJECTS_MANAGE);
 
         const projects = await prisma.project.findMany({
-          where: { companyId: company.id, deletedAt: null },
+          where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
           orderBy: { name: "asc" },
           select: { id: true, name: true }});
 

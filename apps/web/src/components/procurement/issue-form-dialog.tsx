@@ -77,7 +77,7 @@ export function IssueFormDialog({
   // Built units when a project is selected (for per-unit issue)
   const { data: builtUnitsData } = useFetch<{ id: string; unitNumber: string; unitType: string | null }[]>(
     target === "PROJECT" && projectId
-      ? `/api/built-units?projectId=${projectId}&status=AVAILABLE,BOOKED,SOLD`
+      ? `/api/built-units?projectId=${projectId}&status=AVAILABLE,UNDER_CONSTRUCTION,PLANNED`
       : null,
   );
   const builtUnits = builtUnitsData ?? [];
@@ -180,6 +180,15 @@ export function IssueFormDialog({
       if (defaults.fromLocationId) setFromLocationId(defaults.fromLocationId);
     }
   }, [open, defaults]);
+
+  // Re-sync availability when the stock fetch resolves — the user may pick a
+  // material before the location's stock arrives, leaving "Available" stuck
+  // at "—" and disabling the over-issue warning.
+  useEffect(() => {
+    setLines((ls) => ls.map((l) =>
+      l.materialId ? { ...l, available: stockMap[l.materialId]?.qty ?? null } : l,
+    ));
+  }, [stockMap]);
 
   function addLine() { setLines((ls) => [...ls, { id: crypto.randomUUID(), materialId: "", materialName: "", unit: "", qty: "", lotNumber: "", available: null }]); }
 

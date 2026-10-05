@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, getUserRole, getEmployeeAccessScope, canManageSpecificEmployee, getCurrentUser, getCompanyDescendantIds, getScopedFormOptions, getUserPermissions } from "@/lib/server";
+import { scopeWhere,  getCompany, toNum, getUserRole, getEmployeeAccessScope, canManageSpecificEmployee, getCurrentUser, getCompanyDescendantIds, getScopedFormOptions, getUserPermissions } from "@/lib/server";
 import { PERM, ROLES, canAssignRole, canAssignCustomRole, type Role } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
@@ -49,7 +49,7 @@ async function EmployeeProfileContent({
   const scopedDeptIds = scopedOpts.departments.map((d) => d.id);
 
   const employee = await prisma.employee.findFirst({
-    where: { id, companyId: company.id, deletedAt: null, ...accessScope.employeeFilter },
+    where: { ...await scopeWhere("Employee"), id, companyId: company.id, deletedAt: null, ...accessScope.employeeFilter },
     include: {
       crew: { select: { id: true, name: true, projectId: true, project: { select: { id: true, name: true } } } },
       activeProject: { select: { id: true, name: true } },
@@ -205,7 +205,7 @@ async function EmployeeProfileContent({
   }> = [];
   if (employee.userId) {
     const taskRows = await prisma.task.findMany({
-      where: { assignedToId: employee.userId },
+      where: { ...await scopeWhere("Task"), assignedToId: employee.userId },
       orderBy: [{ status: "asc" }, { dueDate: "asc" }, { createdAt: "desc" }],
       take: 100,
       include: { assignedBy: { select: { name: true } } },
@@ -295,7 +295,7 @@ async function EmployeeProfileContent({
     const existingCompanyIds = new Set([
       company.id,
       ...((await prisma.employee.findMany({
-        where: { userId: employee.userId, deletedAt: null },
+        where: { ...await scopeWhere("Employee"), userId: employee.userId, deletedAt: null },
         select: { companyId: true },
       })).map((e) => e.companyId)),
     ]);
@@ -483,7 +483,7 @@ async function EmployeeProfileContent({
     // ── Multi-company: other Employee records for the same person (linked via userId) ──
     companyMemberships: employee.userId
       ? (await prisma.employee.findMany({
-          where: {
+          where: { ...await scopeWhere("Employee"),
             userId: employee.userId,
             deletedAt: null,
             id: { not: employee.id },

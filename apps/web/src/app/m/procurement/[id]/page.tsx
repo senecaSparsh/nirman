@@ -50,7 +50,7 @@ export default function MobilePoDetailPage({
         // Show POs from the entire company group — quotation-approved POs may
         // be created in a different company (parent/child) than the user's current.
         const po = await prisma.purchaseOrder.findFirst({
-          where: { id, companyId: { in: groupCompanyIds } },
+          where: { ...await scopeWhere("PurchaseOrder"), id, companyId: { in: groupCompanyIds } },
           include: {
             supplier: { select: { name: true, phone: true, gstin: true } },
             project: { select: { id: true, name: true } },
@@ -80,7 +80,7 @@ export default function MobilePoDetailPage({
 
         // Look up the source requisition (if this PO was converted from one)
         const sourceRequisition = po ? await prisma.materialRequisition.findFirst({
-          where: {...await scopeWhere("MaterialRequisition"),  convertedPoId: po.id },
+          where: { ...await scopeWhere("MaterialRequisition"),...await scopeWhere("MaterialRequisition"),  convertedPoId: po.id },
           select: { id: true, reqNumber: true },
         }) : null;
 

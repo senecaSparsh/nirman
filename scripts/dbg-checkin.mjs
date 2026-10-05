@@ -1,0 +1,32 @@
+import { chromium } from "playwright";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+const { PrismaClient } = require("../packages/db/src/generated/prisma/client.js");
+const prisma = new PrismaClient();
+const BASE = "http://localhost:3000";
+const UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1";
+const browser = await chromium.launch();
+const ctx = await browser.newContext({ userAgent: UA, viewport:{width:390,height:844}, isMobile:true, hasTouch:true, geolocation:{latitude:28.61,longitude:77.2}, permissions:["geolocation"] });
+const p = await ctx.newPage();
+const res = await p.request.post(`${BASE}/api/auth/demo-login`, { data:{role:"SITE_ENGINEER"} });
+const { email, password } = await res.json();
+await p.request.post(`${BASE}/api/auth/sign-in/email`, { data:{email,password} });
+await p.close();
+const page = await ctx.newPage();
+// capture api responses
+page.on("response", async r => { if (r.url().includes("/api/attendance")) console.log("API", r.status(), r.url()); });
+await page.goto(`${BASE}/m/home`, { waitUntil:"networkidle", timeout:120000 });
+await page.waitForTimeout(3000);
+const btns = await page.evaluate(()=>[...document.querySelectorAll("button,a")].map(b=>b.innerText.trim().slice(0,30)).filter(Boolean));
+console.log("BUTTONS:", JSON.stringify(btns.slice(0,25)));
+// click the Check In
+const el = page.locator('text=/check in/i').first();
+await el.click().catch(e=>console.log("click err", e.message.slice(0,100)));
+await page.waitForTimeout(5000);
+const txt = await page.evaluate(()=>document.body.innerText.slice(0,800));
+console.log("AFTER:", txt);
+await page.screenshot({ path:"/tmp/eng-checkin.png" });
+const emp = await prisma.employee.findFirst({ where:{ name:"Yash Saxena" } });
+const att = await prisma.workerAttendance.findMany({ where:{ employeeId: emp.id }, orderBy:{ createdAt:"desc" }, take:3, select:{ id:true, date:true, status:true, checkIn:true } });
+console.log("ATT ROWS:", JSON.stringify(att));
+await browser.close(); await prisma.$disconnect();

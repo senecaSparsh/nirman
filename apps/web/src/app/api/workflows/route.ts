@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, workflowSchema } from "@/lib/server";
+import { apiHandler, assertScopeAllows, getCompany, json, requirePermission, scopeWhere, workflowSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -61,7 +61,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
   );
   const defaultProject = needsDefaultProject
     ? await prisma.project.findFirst({
-        where: { companyId: company.id, deletedAt: null, status: { notIn: ["COMPLETED", "ON_HOLD"] } },
+        // A scoped creator's default must be an in-scope project — the
+        // auto_requisition step would otherwise mint indents for a site the
+        // creator can't even view.
+        where: { companyId: company.id, deletedAt: null, status: { notIn: ["COMPLETED", "ON_HOLD"] }, ...await scopeWhere("Project") },
         orderBy: { createdAt: "asc" },
         select: { id: true },
       })
@@ -70,7 +73,16 @@ export const POST = apiHandler(async (req: NextRequest) => {
     const cfg = (step.config ??= {});
     if ((step.type === "condition" || step.type === "auto_requisition") && !cfg.companyId) cfg.companyId = company.id;
     if ((step.type === "create_task" || step.type === "send_notification") && !cfg.assignedToId) cfg.assignedToId = user.id;
-    if (step.type === "auto_requisition" && !cfg.projectId && defaultProject) cfg.projectId = defaultProject.id;
+    if (step.type === "auto_requisition") {
+      if (!cfg.projectId && defaultProject) cfg.projectId = defaultProject.id;
+      // An explicit projectId must be in the creator's scope — a scoped
+      // manager cannot wire an auto-requisition to another site.
+      try {
+        await assertScopeAllows({ projectId: (cfg.projectId as string) ?? null, departmentId: null });
+      } catch {
+        return json({ error: "auto_requisition project is outside your scope" }, { status: 403 });
+      }
+    }
   }
 
   const created = await withSerializableTransaction(async (tx) => {

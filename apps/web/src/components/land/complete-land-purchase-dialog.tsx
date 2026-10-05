@@ -107,6 +107,7 @@ export function CompleteLandPurchaseDialog({
             onChange={(photos) => setRegistryDocUrl(photos[0]?.url ?? "")}
             maxPhotos={1}
             label="Upload Registry Document (PDF/Image)"
+            accept=".pdf,image/*"
           />
         </div>
 

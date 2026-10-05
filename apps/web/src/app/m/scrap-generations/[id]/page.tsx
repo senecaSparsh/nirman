@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { scopeWhere, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import Link from "next/link";
@@ -29,7 +29,7 @@ export default function MobileScrapDetailPage({
     <MobileDetailPage params={params} managePerm={PERM.INVENTORY_MANAGE} skeletonSections={6}>
       {async ({ id, company, canManage }) => {
         const scrap = await prisma.scrapGeneration.findFirst({
-          where: { id, companyId: company.id },
+          where: { id, companyId: company.id, ...await scopeWhere("ScrapGeneration") },
           include: {
             toLocation: { select: { id: true, name: true, type: true } },
             project: { select: { id: true, name: true } },

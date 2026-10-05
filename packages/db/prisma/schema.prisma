@@ -112,7 +112,6 @@ model Company {
   userPreferences UserPreference[]
   leaveRequests  LeaveRequest[]
   tenancies      Tenancy[]
-  dailyReports   DailyReport[]
   directPurchases DirectPurchase[]
   scrapGenerations ScrapGeneration[]
   standardConsumptions StandardConsumption[]
@@ -929,7 +928,6 @@ model User {
   issuedResources      EmployeeResource[] @relation("EmployeeResourceIssuedBy")
   returnedResources    EmployeeResource[] @relation("EmployeeResourceReturnedTo")
   approvedLeaves       LeaveRequest[]    @relation("LeaveApprover")
-  submittedDailyReports DailyReport[]
   createdTenancies     Tenancy[]
   projectAssignments   ProjectAssignment[]
   assignedProjectAssignments ProjectAssignment[] @relation("ProjectAssignmentAssigner")
@@ -1330,7 +1328,6 @@ model Project {
   crews          Crew[]
   attendances    WorkerAttendance[]
   dailyProgressReports DailyProgressReport[]
-  dailyReports       DailyReport[]
   tenancies          Tenancy[]
   activeEmployees Employee[] @relation("EmployeeActiveProject")
   userScopes       UserScope[]    // Sub-Sub-Admin scope entries pointing at this project
@@ -5309,36 +5306,6 @@ model RentalPayment {
 
   @@index([tenancyId])
   @@index([status])
-}
-
-// ───────────────────────────────────────────────────────────
-//  DAILY REPORT — site operations log (separate from DPR)
-//  (architecture: HR → Daily Reports sub-module)
-//  Fields: Attendance, Work Done, Material Used, Equipment, Delay, Remarks
-// ───────────────────────────────────────────────────────────
-
-model DailyReport {
-  id           String   @id @default(cuid())
-  companyId    String
-  projectId    String?
-  date         DateTime @db.Date
-  attendanceSummary String?  // e.g. "42 present, 3 absent, 1 leave"
-  workDone     String   // narrative of work completed today
-  materialUsed String?  // free-text or summary of materials consumed
-  equipment    String?  // equipment deployed + hours
-  delay        String?  // delays encountered + reasons
-  remarks      String?
-  submittedById String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  project    Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  submittedBy User?   @relation(fields: [submittedById], references: [id], onDelete: SetNull)
-
-  @@index([companyId])
-  @@index([projectId])
-  @@index([date])
 }
 
 // ───────────────────────────────────────────────────────────────

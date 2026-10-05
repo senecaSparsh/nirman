@@ -2,7 +2,8 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { issueWorkOrder, completeWorkOrder, payAdvance, releaseRetention, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
+import { apiHandler, ForbiddenError, getActingRole, getActingRoleForProject, getCompany, getUserPermissions, json, requirePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
+import { hasPermission } from "@/lib/roles";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -48,7 +49,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   await requireUser();
   const { id } = await params;
   const company = await getCompany();
-  const existing = await prisma.subcontractorWorkOrder.findFirst({ where: { id, companyId: company.id, ...await scopeWhere("SubcontractorWorkOrder") }, select: { id: true } });
+  const existing = await prisma.subcontractorWorkOrder.findFirst({ where: { id, companyId: company.id, ...await scopeWhere("SubcontractorWorkOrder") }, select: { id: true, projectId: true } });
   if (!existing) return json({ error: "Work order not found" }, { status: 404 });
   const body = await req.json();
   const action = body?.action;
@@ -58,7 +59,14 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     action === "issue" || action === "complete" || action === "pay-advance" ? PERM.WO_MANAGE :
     action === "release-retention" ? PERM.RA_PAY :
     PERM.ASSETS_MANAGE; // fallback for unknown actions
-  const user = await requirePermission(requiredPerm);
+  // Scoped-role lift — a scoped assignment on this WO's project can carry the
+  // permission locally (e.g. site PM issuing their own project's work order).
+  const actingRole = (await getActingRoleForProject(existing.projectId)) ?? (await getActingRole());
+  const perms = await getUserPermissions();
+  if (!perms.includes(requiredPerm) && !hasPermission(actingRole, requiredPerm)) {
+    throw new ForbiddenError("You need work-order rights on this project");
+  }
+  const user = await requireUser();
 
   try {
     if (action === "issue") {

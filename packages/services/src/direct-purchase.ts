@@ -245,6 +245,24 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
         lines: lineData.map((l) => ({ qty: l.qty, unitCost: l.unitCost, gstRate: l.gstRate })),
       });
 
+      // Log the inbound vehicle trip — auto-builds the Vehicle master from usage.
+      if (input.vehicleNumber) {
+        const { recordVehicleTrip } = await import("./vehicle");
+        await recordVehicleTrip({
+          companyId: input.companyId,
+          vehicleNumber: input.vehicleNumber,
+          vehicleType: input.vehicleType ?? "OTHER",
+          photoUrl: input.vehiclePhotoUrl,
+          driverName: input.driverName,
+          driverPhone: input.driverPhone,
+          movementType: "DIRECT_PURCHASE",
+          refType: "DirectPurchase",
+          refId: purchase.id,
+          toLocationId: input.locationId,
+          tx,
+        });
+      }
+
       if (input.createdById) {
         await logAction(tx, {
           userId: input.createdById,

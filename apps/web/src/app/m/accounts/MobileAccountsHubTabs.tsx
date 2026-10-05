@@ -11,7 +11,7 @@ import { MobileNewExpenseClaimClient } from "../expense-claims/new/MobileNewExpe
 import { MobileNewPettyCashClient } from "../petty-cash/new/MobileNewPettyCashClient";
 import { MobileNewSupplierPaymentClient } from "../supplier-payments/new/MobileNewSupplierPaymentClient";
 
-const TABS = ["overview", "expenses", "claims", "petty-cash", "payments", "receipts", "gl"] as const;
+const TABS = ["overview", "expenses", "claims", "petty-cash", "payments", "receipts", "planned", "gl"] as const;
 type TabValue = (typeof TABS)[number];
 
 const TAB_META: { value: TabValue; label: string; count?: number }[] = [
@@ -21,6 +21,7 @@ const TAB_META: { value: TabValue; label: string; count?: number }[] = [
   { value: "petty-cash", label: "Petty Cash" },
   { value: "payments", label: "Payments" },
   { value: "receipts", label: "Receipts" },
+  { value: "planned", label: "Planned" },
   { value: "gl", label: "GL" },
 ];
 

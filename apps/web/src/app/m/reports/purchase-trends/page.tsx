@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import {TrendingUp, Users} from "lucide-react";
-import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { scopeWhere, getCompany, toNum, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
@@ -39,7 +39,7 @@ async function MobilePurchaseTrendsContent() {
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
   const orders = await prisma.purchaseOrder.findMany({
-    where: { companyId: company.id, status: { not: "CANCELLED" }, orderDate: { gte: from } },
+    where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: { not: "CANCELLED" }, orderDate: { gte: from } },
     select: { id: true, poNumber: true, orderDate: true, status: true, total: true, subtotal: true, gstTotal: true, supplier: { select: { name: true } } },
     orderBy: { orderDate: "asc" },
   });

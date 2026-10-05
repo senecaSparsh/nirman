@@ -1,4 +1,5 @@
 import { prisma } from "@nirman/db";
+import { scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import { MobileStockLocationsList } from "./MobileStockLocationsList";
@@ -13,7 +14,7 @@ export default function MobileStockLocationsPage() {
     <MobileListPage perm={PERM.INVENTORY_VIEW} what="stock locations" permission="inventory.view" managePerm={PERM.INVENTORY_MANAGE}>
       {async ({ company, canManage }) => {
         const locations = await prisma.stockLocation.findMany({
-          where: { companyId: company.id, deletedAt: null },
+          where: { ...await scopeWhere("StockLocation"), companyId: company.id, deletedAt: null },
           orderBy: [{ type: "asc" }, { name: "asc" }],
           include: {
             project: { select: { name: true } },
@@ -22,7 +23,7 @@ export default function MobileStockLocationsPage() {
         });
 
         const projects = await prisma.project.findMany({
-          where: { companyId: company.id, deletedAt: null },
+          where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
           orderBy: { name: "asc" },
           select: { id: true, name: true },
         });

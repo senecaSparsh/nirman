@@ -155,7 +155,7 @@ function buildReqColumns(opts: {
               onClick={(e) => { e.stopPropagation(); opts.onView(r); }}
               title="Open the indent — upload supplier quotes, compare landed costs and select a winner"
             >
-              Collect quotes
+              {(r.quoteCount ?? 0) >= (r.minQuotesRequired ?? 3) ? "Select winner" : "Collect quotes"}
             </Button>
           )}
           <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); opts.onPrint(r); }} title="Print">

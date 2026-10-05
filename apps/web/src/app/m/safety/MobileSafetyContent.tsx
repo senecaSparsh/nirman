@@ -39,14 +39,16 @@ export function MobileSafetyContent({
   inspections,
   projects,
   canManage,
+  initialTab = "incidents",
 }: {
   incidents: IncidentListItem[];
   hazards: HazardListItem[];
   inspections: InspectionListItem[];
   projects: { id: string; name: string }[];
   canManage: boolean;
+  initialTab?: Tab;
 }) {
-  const [tab, setTab] = useState<Tab>("incidents");
+  const [tab, setTab] = useState<Tab>(initialTab);
 
   return (
     <div>

@@ -66,7 +66,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
   const { draft, hasDraft, draftUpdatedAt, saveDraft, clearDraft } = useDrafts<ReqDraft>("requisition", "requisition-new");
   const [draftRestored, setDraftRestored] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState<{ id: string; reqNumber: string; submitted: boolean } | null>(null);
+  const [success, setSuccess] = useState<{ id: string; reqNumber: string; submitted: boolean; autoApproved?: boolean } | null>(null);
   const [localSuppliers, setLocalSuppliers] = useState<SupplierItem[]>(data.suppliers);
 
   // ── Smart defaults — pre-fill project from last-used (if no draft) ──
@@ -197,7 +197,11 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(result.error ?? "Failed to create indent");
-      if (result.submitted) {
+      if (result.autoApproved) {
+        toast.success(`Indent ${result.reqNumber ?? "created"} approved — ready for procurement`, {
+          action: { label: "View Indent", onClick: () => router.push(`/m/requisitions/${result.id}`) },
+        });
+      } else if (result.submitted) {
         toast.success(`Indent ${result.reqNumber ?? "created"} submitted for approval`, {
           action: { label: "View Indent", onClick: () => router.push(`/m/requisitions/${result.id}`) },
         });
@@ -213,7 +217,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
         );
       }
       clearDraft();
-      setSuccess({ id: result.id, reqNumber: result.reqNumber ?? "created", submitted: result.submitted });
+      setSuccess({ id: result.id, reqNumber: result.reqNumber ?? "created", submitted: result.submitted, autoApproved: result.autoApproved });
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Error creating indent");
     } finally {
@@ -252,15 +256,17 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
           <CheckCircle2 className="size-7" style={{ color: success.submitted ? "var(--color-go)" : "var(--color-signal)" }} />
         </div>
         <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
-          {success.submitted ? "Indent Submitted" : "Indent Saved as Draft"}
+          {success.autoApproved ? "Indent Approved" : success.submitted ? "Indent Submitted" : "Indent Saved as Draft"}
         </p>
         <p className="text-m-caption font-mono mb-3" style={{ color: "var(--color-ink-700)" }}>
           {success.reqNumber}
         </p>
         <p className="text-m-caption mb-4" style={{ color: "var(--color-ink-700)" }}>
-          {success.submitted
-            ? "It's now in the approval queue for a manager to review."
-            : "You can submit it for approval from the indent list."}
+          {success.autoApproved
+            ? "Approved instantly — it's ready for quote collection and POs."
+            : success.submitted
+              ? "It's now in the approval queue for a manager to review."
+              : "You can submit it for approval from the indent list."}
         </p>
         <div className="flex gap-3 w-full max-w-xs">
           {success.id ? (

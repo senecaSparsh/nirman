@@ -3,5 +3,5 @@ import { redirect } from "next/navigation";
 export const metadata = { title: "Portal Listings · Nirman" };
 
 export default function PortalListingsPage() {
-  redirect("/units?tab=portal");
+  redirect("/units?tab=portals");
 }

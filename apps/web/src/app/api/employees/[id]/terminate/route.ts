@@ -100,8 +100,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     revalidatePath(`/m/hr/employees/${id}`);
     revalidatePath("/hr/employees");
     revalidatePath("/m/hr/employees");
-    revalidatePath("/m/hr/employees");
-    revalidatePath("/settings/people");
+    revalidatePath("/settings?tab=people");
 
     const phoneMsg = result.recycledPhoneId
       ? " Their phone number has been recycled and is available for re-assignment."

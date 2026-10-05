@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { submitDPR, deleteDpr, subAdminApproveDpr, adminApproveDpr, rejectDpr, resubmitDpr, sendNotification, markDprCostPosted, generateMaterialIssueFromDPR, canAutoApprove } from "@nirman/services";
-import { apiHandler, getCompany, json, dprSchema, requirePermission, requireUser, toNum, scopeWhere, assertScopeAllows, getActingRole,} from "@/lib/server";
+import { apiHandler, getCompany, json, dprSchema, requirePermission, requireUser, toNum, scopeWhere, assertScopeAllows, getActingRole, getActingRoleForProject, getUserPermissions, ForbiddenError,} from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -90,9 +90,16 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   // ── Approval actions ──
   if (body.action === "subAdminApprove") {
-    const user = await requirePermission(PERM.DPR_APPROVE_SUB_ADMIN);
+    const user = await requireUser();
+    // Scoped-role lift — a field-role scoped as PROJECT_MANAGER on this DPR's
+    // project approves it there even without global dpr.approve_sub_admin.
+    const actingRole = (await getActingRoleForProject(existing.projectId)) ?? (await getActingRole());
+    const perms = await getUserPermissions();
+    if (!perms.includes(PERM.DPR_APPROVE_SUB_ADMIN) && !hasPermission(actingRole, PERM.DPR_APPROVE_SUB_ADMIN)) {
+      throw new ForbiddenError("You need DPR approval rights on this project");
+    }
     try {
-      await subAdminApproveDpr(id, user.id, body.notes, await getActingRole());
+      await subAdminApproveDpr(id, user.id, body.notes, actingRole);
       // Notify the DPR submitter that their DPR was sub-admin approved
       try {
         const dpr = await prisma.dailyProgressReport.findFirst({
@@ -121,9 +128,14 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
   }
   if (body.action === "adminApprove") {
-    const user = await requirePermission(PERM.DPR_APPROVE_ADMIN);
+    const user = await requireUser();
+    const actingRole = (await getActingRoleForProject(existing.projectId)) ?? (await getActingRole());
+    const perms = await getUserPermissions();
+    if (!perms.includes(PERM.DPR_APPROVE_ADMIN) && !hasPermission(actingRole, PERM.DPR_APPROVE_ADMIN)) {
+      throw new ForbiddenError("You need admin DPR approval rights on this project");
+    }
     try {
-      await adminApproveDpr(id, user.id, body.notes, await getActingRole());
+      await adminApproveDpr(id, user.id, body.notes, actingRole);
       // Notify the DPR submitter that their DPR was fully approved
       try {
         const dpr = await prisma.dailyProgressReport.findFirst({

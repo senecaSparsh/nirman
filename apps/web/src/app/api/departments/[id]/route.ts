@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, getCompany, json, departmentSchema, requirePermission } from "@/lib/server";
+import { apiHandler, assertScopeAllows, getCompany, json, departmentSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -35,6 +35,12 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   // the schema must not report success while writing nothing.
   if (!Object.values(parsed.data).some((v) => v !== undefined)) {
     return json({ error: "No updatable fields in request — check field names" }, { status: 400 });
+  }
+  // A department-scoped manager edits their own department, not another's.
+  try {
+    await assertScopeAllows({ projectId: null, departmentId: id });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
   }
   // If code is changing, ensure uniqueness among non-deleted departments in the same company
   if (parsed.data.code) {

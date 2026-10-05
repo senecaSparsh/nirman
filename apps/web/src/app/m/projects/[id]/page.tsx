@@ -103,7 +103,7 @@ export default function MobileProjectDetailPage({
         include: { employee: { select: { name: true } } }}),
       // Legal documents for this project
       prisma.legalDocument.findMany({
-        where: { projectId: id, companyId: company.id, deletedAt: null },
+        where: { projectId: id, companyId: company.id, deletedAt: null, ...await scopeWhere("LegalDocument") },
         orderBy: [{ type: "asc" }, { createdAt: "desc" }],
         take: 50}),
       // Equipment currently assigned to this project — "what's on my site".

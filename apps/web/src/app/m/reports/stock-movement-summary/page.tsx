@@ -41,18 +41,19 @@ async function MobileStockMovementSummaryContent() {
   const toDate = new Date(now);
   toDate.setHours(23, 59, 59, 999);
 
-  const IN_TYPES: StockMovementType[] = ["PURCHASE_RECEIPT", "ADJUSTMENT_IN"];
+  const IN_TYPES: StockMovementType[] = ["PURCHASE_RECEIPT", "ADJUSTMENT_IN", "TRANSFER_IN", "SCRAP_GENERATED"];
   const OUT_TYPES: StockMovementType[] = [
     "ISSUE_TO_PROJECT",
     "ISSUE_TO_DEPARTMENT",
     "ADJUSTMENT_OUT",
+    "TRANSFER_OUT",
     "RETURN",
     "SALE",
   ];
 
   const [inBefore, outBefore, inPeriod, outPeriod, locationItems] = await Promise.all([
     prisma.stockMovement.findMany({
-      where: {...await scopeWhere("StockMovement"), 
+      where: { ...await scopeWhere("StockMovement"),...await scopeWhere("StockMovement"), 
         movementType: { in: IN_TYPES },
         toLocation: { companyId: company.id, deletedAt: null },
         timestamp: { lt: fromDate },
@@ -60,7 +61,7 @@ async function MobileStockMovementSummaryContent() {
       select: { qty: true, unitCost: true },
     }),
     prisma.stockMovement.findMany({
-      where: {...await scopeWhere("StockMovement"), 
+      where: { ...await scopeWhere("StockMovement"),...await scopeWhere("StockMovement"), 
         movementType: { in: OUT_TYPES },
         fromLocation: { companyId: company.id, deletedAt: null },
         timestamp: { lt: fromDate },
@@ -68,7 +69,7 @@ async function MobileStockMovementSummaryContent() {
       select: { qty: true, unitCost: true },
     }),
     prisma.stockMovement.findMany({
-      where: {...await scopeWhere("StockMovement"), 
+      where: { ...await scopeWhere("StockMovement"),...await scopeWhere("StockMovement"), 
         movementType: { in: IN_TYPES },
         toLocation: { companyId: company.id, deletedAt: null },
         timestamp: { gte: fromDate, lte: toDate },
@@ -82,7 +83,7 @@ async function MobileStockMovementSummaryContent() {
       orderBy: { timestamp: "asc" },
     }),
     prisma.stockMovement.findMany({
-      where: {...await scopeWhere("StockMovement"), 
+      where: { ...await scopeWhere("StockMovement"),...await scopeWhere("StockMovement"), 
         movementType: { in: OUT_TYPES },
         fromLocation: { companyId: company.id, deletedAt: null },
         timestamp: { gte: fromDate, lte: toDate },
@@ -96,7 +97,7 @@ async function MobileStockMovementSummaryContent() {
       orderBy: { timestamp: "asc" },
     }),
     prisma.stockLocationItem.findMany({
-      where: {
+      where: { ...await scopeWhere("StockLocationItem"),
         location: { companyId: company.id, deletedAt: null },
         material: { deletedAt: null },
       },

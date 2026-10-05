@@ -46,6 +46,12 @@ export interface SetBudgetInput {
 export async function setExpenseBudget(input: SetBudgetInput) {
   const amount = new Decimal(input.amount);
   if (!amount.gt(0)) throw new ServiceError("Budget amount must be > 0");
+  if (Number.isNaN(input.periodStart.getTime()) || Number.isNaN(input.periodEnd.getTime())) {
+    throw new ServiceError("Invalid budget period dates");
+  }
+  if (input.periodEnd < input.periodStart) {
+    throw new ServiceError("Period end must be on or after period start");
+  }
   return withSerializableTransaction(async (tx) => {
     // Referenced project/category must belong to this company — a foreign id
     // would store a budget (and its variance math) against another tenant's

@@ -89,7 +89,7 @@ async function AttentionContent() {
   ] = await Promise.all([
     canApprovePo
       ? prisma.purchaseOrder.findMany({
-          where: { companyId: company.id, status: "DRAFT", createdById: hideSelf ? { not: userId } : undefined },
+          where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: "DRAFT", createdById: hideSelf ? { not: userId } : undefined },
           orderBy: { createdAt: "desc" },
           take: 20,
           include: { supplier: { select: { id: true, name: true } } },
@@ -97,7 +97,7 @@ async function AttentionContent() {
       : Promise.resolve([]),
     canApproveReq
       ? prisma.materialRequisition.findMany({
-          where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED", requestedById: hideSelf ? { not: userId } : undefined },
+          where: { ...await scopeWhere("MaterialRequisition"),...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED", requestedById: hideSelf ? { not: userId } : undefined },
           orderBy: { createdAt: "desc" },
           take: 20,
           include: { project: { select: { id: true, name: true } } },
@@ -105,32 +105,32 @@ async function AttentionContent() {
       : Promise.resolve([]),
     canApproveGatePass
       ? prisma.gatePass.count({
-          where: { companyId: company.id, status: "PENDING", submittedById: hideSelf ? { not: userId } : undefined },
+          where: { ...await scopeWhere("GatePass"), companyId: company.id, status: "PENDING", submittedById: hideSelf ? { not: userId } : undefined },
         })
       : Promise.resolve(0),
     canApproveDpr
       ? prisma.dailyProgressReport.count({
-          where: { companyId: company.id, approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] }, submittedById: hideSelf ? { not: userId } : undefined },
+          where: { ...await scopeWhere("DailyProgressReport"), companyId: company.id, approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] }, submittedById: hideSelf ? { not: userId } : undefined },
         })
       : Promise.resolve(0),
     canApproveExpense
       ? prisma.expense.count({
-          where: { companyId: company.id, status: "PENDING", submittedById: hideSelf ? { not: userId } : undefined },
+          where: { ...await scopeWhere("Expense"), companyId: company.id, status: "PENDING", submittedById: hideSelf ? { not: userId } : undefined },
         })
       : Promise.resolve(0),
     canApproveExpense
       ? prisma.expenseClaim.count({
-          where: { companyId: company.id, status: "SUBMITTED", claimantId: hideSelf ? { not: userId } : undefined, ...await scopeWhere("ExpenseClaim", {}) },
+          where: { ...await scopeWhere("ExpenseClaim"), companyId: company.id, status: "SUBMITTED", claimantId: hideSelf ? { not: userId } : undefined, ...await scopeWhere("ExpenseClaim", {}) },
         })
       : Promise.resolve(0),
     canApproveRa
       ? prisma.raBill.count({
-          where: { companyId: company.id, status: "SUBMITTED", createdById: hideSelf ? { not: userId } : undefined, submittedById: hideSelf ? { not: userId } : undefined },
+          where: { ...await scopeWhere("RaBill"), companyId: company.id, status: "SUBMITTED", createdById: hideSelf ? { not: userId } : undefined, submittedById: hideSelf ? { not: userId } : undefined },
         })
       : Promise.resolve(0),
     canViewProcurement
       ? prisma.purchaseOrder.findMany({
-          where: {
+          where: { ...await scopeWhere("PurchaseOrder"),
             companyId: company.id,
             status: { in: ["ORDERED", "PARTIAL"] },
             expectedDate: { lt: new Date() },
@@ -148,7 +148,7 @@ async function AttentionContent() {
       : Promise.resolve({ total: 0, synced: 0, failed: 0, pending: 0, imported: 0, variance: 0 }),
     canViewProjectControl
       ? prisma.project.findMany({
-          where: {
+          where: { ...await scopeWhere("Project"),
             companyId: company.id,
             deletedAt: null,
             status: { in: ["PLANNED", "ACTIVE"] },

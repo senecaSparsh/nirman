@@ -41,13 +41,13 @@ export default function MobileUnitsPage({
 
         const project = projectId
           ? await prisma.project.findFirst({
-              where: { id: projectId, companyId: company.id, deletedAt: null },
+              where: { ...await scopeWhere("Project"), id: projectId, companyId: company.id, deletedAt: null },
               select: { id: true, name: true, type: true },
             })
           : null;
 
         const units = await prisma.builtUnit.findMany({
-          where: {...await scopeWhere("BuiltUnit"), 
+          where: { ...await scopeWhere("BuiltUnit"),...await scopeWhere("BuiltUnit"), 
             deletedAt: null,
             project: { companyId: company.id, deletedAt: null },
             ...(projectId ? { projectId } : {}),
@@ -97,7 +97,7 @@ export default function MobileUnitsPage({
         // Fetch active projects for the create-unit dialog dropdown
         const projects = canCreate
           ? await prisma.project.findMany({
-              where: { companyId: company.id, deletedAt: null },
+              where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
               orderBy: { name: "asc" },
               select: { id: true, name: true },
             })

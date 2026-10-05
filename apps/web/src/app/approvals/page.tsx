@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { prisma, type DprApprovalStatus } from "@nirman/db";
-import { getCompany, getUserPermissions, getCurrentUser, toNum, scopeWhere } from "@/lib/server";
+import { getCompany, getUserPermissions, getCurrentUser, getScopedRolePermissions, toNum, scopeWhere } from "@/lib/server";
 import { canAutoApprove } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
@@ -28,14 +28,16 @@ export default function ApprovalsPage() {
 }
 
 async function ApprovalsContent() {
-  const perms = await getUserPermissions();
-  const canApprovePo = perms.includes(PERM.PO_APPROVE);
-  const canApproveReq = perms.includes(PERM.REQUISITION_APPROVE);
-  const canApproveGatePass = perms.includes(PERM.GATE_PASS_APPROVE);
-  const canApproveDprSubAdmin = perms.includes(PERM.DPR_APPROVE_SUB_ADMIN);
-  const canApproveDprAdmin = perms.includes(PERM.DPR_APPROVE_ADMIN);
-  const canApproveExpense = perms.includes(PERM.EXPENSE_APPROVE);
-  const canApproveRaBill = perms.includes(PERM.RA_APPROVE);
+  // Union global perms with scoped-role perms — a site PM's queue on desktop
+  // must show what their project hat can approve, same as mobile.
+  const perms = new Set([...(await getUserPermissions()), ...(await getScopedRolePermissions())]);
+  const canApprovePo = perms.has(PERM.PO_APPROVE);
+  const canApproveReq = perms.has(PERM.REQUISITION_APPROVE);
+  const canApproveGatePass = perms.has(PERM.GATE_PASS_APPROVE);
+  const canApproveDprSubAdmin = perms.has(PERM.DPR_APPROVE_SUB_ADMIN);
+  const canApproveDprAdmin = perms.has(PERM.DPR_APPROVE_ADMIN);
+  const canApproveExpense = perms.has(PERM.EXPENSE_APPROVE);
+  const canApproveRaBill = perms.has(PERM.RA_APPROVE);
 
   if (!canApprovePo && !canApproveReq && !canApproveGatePass && !canApproveDprSubAdmin && !canApproveDprAdmin && !canApproveExpense && !canApproveRaBill) {
     return <NoAccess what="the approval queue" />;

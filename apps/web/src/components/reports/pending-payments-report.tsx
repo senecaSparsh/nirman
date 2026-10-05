@@ -100,7 +100,7 @@ export function PendingPaymentsReport({
       <EmptyState
         icon={<AlertCircle className="h-5 w-5" />}
         title="No pending payments"
-        description="All POs are on time and all sales are fully collected."
+        description="All received goods are paid for and all sales are fully collected."
       />
     );
   }
@@ -153,7 +153,11 @@ export function PendingPaymentsReport({
       label: "Overdue",
       align: "right",
       sortable: true,
-      render: (p) => <span className={cn("tnum", p.daysOverdue > 30 ? "text-danger font-medium" : "text-warning")}>{p.daysOverdue}d</span>,
+      render: (p) => (
+        <span className={cn("tnum", p.daysOverdue > 30 ? "text-danger font-medium" : p.daysOverdue > 0 ? "text-warning" : "text-ink-faint")}>
+          {p.daysOverdue > 0 ? `${p.daysOverdue}d` : "—"}
+        </span>
+      ),
       exportValue: (p) => p.daysOverdue,
     },
     {
@@ -337,7 +341,7 @@ export function PendingPaymentsReport({
 
       <Tabs defaultValue="payables">
         <TabsList>
-          <TabsTrigger value="payables" count={overduePOs.length}>Overdue POs</TabsTrigger>
+          <TabsTrigger value="payables" count={overduePOs.length}>Unpaid POs</TabsTrigger>
           <TabsTrigger value="receivables" count={receivables.length}>Receivables</TabsTrigger>
           {draftPOs.length > 0 && (
             <TabsTrigger value="drafts" count={draftPOs.length}>Draft POs</TabsTrigger>

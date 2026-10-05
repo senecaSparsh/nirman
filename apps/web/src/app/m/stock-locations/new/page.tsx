@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { PERM } from "@/lib/roles";
-import { getCompany, getCompanyGroupIds } from "@/lib/server";
+import { scopeWhere, getCompany, getCompanyGroupIds } from "@/lib/server";
 import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import MobileNewStockLocationClient from "./MobileNewStockLocationClient";
 
@@ -17,7 +17,7 @@ export default function NewStockLocationPage() {
 
         const [projects, companies] = await Promise.all([
           prisma.project.findMany({
-            where: { deletedAt: null, companyId: { in: groupIds } },
+            where: { ...await scopeWhere("Project"), deletedAt: null, companyId: { in: groupIds } },
             orderBy: { name: "asc" },
             select: { id: true, name: true, companyId: true },
           }),

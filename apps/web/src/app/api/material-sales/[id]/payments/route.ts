@@ -91,7 +91,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     revalidatePath("/m/material-sales");
     revalidatePath("/m/sales");
     revalidatePath("/material-sales");
-    revalidatePath(`/material-sales/${saleId}`);
+    revalidatePath(`/m/material-sales/${saleId}`);
     return json(
       {
         id: payment.id,

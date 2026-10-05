@@ -1,6 +1,6 @@
 "use client";
 
-import {useState} from "react";
+import {useState, useEffect} from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {Package, ChevronDown, ChevronRight, Truck, Scale} from "lucide-react";
@@ -132,9 +132,11 @@ export function ReceiveGoodsDialog({
   const [shortageRemarks, setShortageRemarks] = useState("");
   const [receivingPhotoUrl, setReceivingPhotoUrl] = useState("");
 
-  // Re-init lines when PO changes
-  function ensureLines() {
-    if (po && lines.length === 0) {
+  // Populate receivable lines as soon as the dialog opens — previously this
+  // ran on form `onFocus`, so the grid stayed empty until the user happened
+  // to click inside the form (and the dialog looked broken).
+  useEffect(() => {
+    if (open && po && lines.length === 0) {
       setLines(
         po.lines
           .filter((l) => l.remaining > 0)
@@ -157,7 +159,8 @@ export function ReceiveGoodsDialog({
           })),
       );
     }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, po]);
 
   // Intercept grid changes to auto-calc qty from weight
   function handleGridChange(newRows: RecvLine[]) {
@@ -303,7 +306,7 @@ export function ReceiveGoodsDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
         </div>
       ) : (
-        <form onSubmit={onSubmit} className="space-y-3" onFocus={ensureLines}>
+        <form onSubmit={onSubmit} className="space-y-3">
           {lines.length > 0 && (
             <>
               <div className="flex justify-end">

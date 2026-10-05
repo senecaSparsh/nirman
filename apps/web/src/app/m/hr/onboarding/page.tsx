@@ -3,7 +3,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { UserPlus, ChevronRight } from "lucide-react";
-import { getCompany, getUserScope, getUserPermissions, employeeVisibilityWhere } from "@/lib/server";
+import { scopeWhere, getCompany, getUserScope, getUserPermissions, employeeVisibilityWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import {
@@ -62,7 +62,7 @@ async function MobileOnboardingQueueContent() {
       : {};
 
   const employees = await prisma.employee.findMany({
-    where: {
+    where: { ...await scopeWhere("Employee"),
       companyId: company.id,
       deletedAt: null,
       // H1 wall — owner/admin dossiers (incl. their onboarding state) are

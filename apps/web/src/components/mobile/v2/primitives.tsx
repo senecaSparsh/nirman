@@ -173,8 +173,11 @@ export function SectionHead({
 
 export function ActionBar({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className="fixed inset-x-0 bottom-0 z-40 px-4 pt-2.5 pb-safe"
+    <>
+      {/* In-flow spacer keeps scroll content clear of the fixed bar. */}
+      <div aria-hidden className="h-16 shrink-0" />
+      <div
+        className="fixed inset-x-0 bottom-[calc(4.5rem+max(env(safe-area-inset-bottom),0px))] z-40 px-4 pt-2.5 pb-2"
       style={{
         /* Apple §12 — match the bottom nav's translucent material so
            stacked bars (nav + action) read as one glass layer, not two
@@ -186,7 +189,8 @@ export function ActionBar({ children }: { children: React.ReactNode }) {
       }}
     >
       <div className="mx-auto w-full max-w-[34rem]">{children}</div>
-    </div>
+      </div>
+    </>
   );
 }
 

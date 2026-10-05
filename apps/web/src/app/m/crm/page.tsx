@@ -18,7 +18,7 @@ import { DepartmentActivityFeed } from "@/components/department-activity-feed";
  */
 export default function MobileCrmPage() {
   return (
-    <MobileHubPage perm={PERM.SALES_VIEW} what="CRM" permission="sales.view">
+    <MobileHubPage perm={PERM.SALES_VIEW} scopeAware what="CRM" permission="sales.view">
       {async ({ company, perms }) => {
         const canSales =
           perms.includes(PERM.SALES_VIEW) || perms.includes(PERM.SALES_MANAGE);
@@ -37,7 +37,9 @@ export default function MobileCrmPage() {
             where: {
               companyId: company.id,
               stage: { in: ["NEW", "CONTACTED", "SITE_VISIT", "NEGOTIATION"] },
-              deletedAt: null}}),
+              deletedAt: null,
+              ...await scopeWhere("Lead"),
+            }}),
           prisma.callLog.count({
             where: {
               companyId: company.id,
@@ -45,7 +47,7 @@ export default function MobileCrmPage() {
           prisma.customer.count({
             where: { companyId: company.id, deletedAt: null }}),
           prisma.assetSale.count({
-            where: { companyId: company.id, status: "ACTIVE" }}),
+            where: { companyId: company.id, status: "ACTIVE", ...await scopeWhere("AssetSale") }}),
         ]);
 
         // Total outstanding from active sales

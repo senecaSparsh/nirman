@@ -52,7 +52,7 @@ async function MobileLeavesContent() {
     }),
     actions.canRecordLeave
       ? prisma.employee.findMany({
-          where: { companyId: company.id, active: true, deletedAt: null },
+          where: { ...await scopeWhere("Employee"), companyId: company.id, active: true, deletedAt: null },
           orderBy: { name: "asc" },
           select: { id: true, name: true, trade: true },
         })

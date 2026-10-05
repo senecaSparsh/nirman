@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { approvePurchaseOrder, approveGatePass, approveRequisition, canAutoApprove } from "@nirman/services";
-import { apiHandler, getCompany, getUserPermissions, json, requireUser, scopeWhere, getActingRole,} from "@/lib/server";
-import { PERM } from "@/lib/roles";
+import { apiHandler, getCompany, getUserPermissions, json, requireUser, scopeWhere, getActingRole, getActingRoleForProject,} from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 import { z } from "zod";
 
 /**
@@ -58,30 +58,33 @@ export const POST = apiHandler(async (req: NextRequest) => {
   // ── Bulk-fetch valid candidates (one query per type, not N+1) ─────
   const reqScope = await scopeWhere("MaterialRequisition", {});
   const gpScope = await scopeWhere("GatePass", {});
+  const poScope = await scopeWhere("PurchaseOrder", {});
   const [validPos, validReqs, validGps] = await Promise.all([
-    canApprovePo && poIds.length > 0
+    // Fetch candidates regardless of global perm — the scoped-role lift on
+    // the item's project may grant authority that the global check misses.
+    poIds.length > 0
       ? prisma.purchaseOrder.findMany({
-          where: { id: { in: poIds }, companyId: company.id, status: "DRAFT", createdById: selfFilter },
-          select: { id: true },
+          where: { id: { in: poIds }, companyId: company.id, status: "DRAFT", createdById: selfFilter, ...poScope },
+          select: { id: true, projectId: true },
         })
       : Promise.resolve([]),
-    canApproveReq && reqIds.length > 0
+    reqIds.length > 0
       ? prisma.materialRequisition.findMany({
           where: { id: { in: reqIds }, project: { companyId: company.id }, status: "SUBMITTED", requestedById: selfFilter, ...reqScope },
-          select: { id: true },
+          select: { id: true, projectId: true },
         })
       : Promise.resolve([]),
-    canApproveGp && gpIds.length > 0
+    gpIds.length > 0
       ? prisma.gatePass.findMany({
           where: { id: { in: gpIds }, companyId: company.id, status: "PENDING", createdById: selfFilter, ...gpScope },
-          select: { id: true },
+          select: { id: true, projectId: true },
         })
       : Promise.resolve([]),
   ]);
 
-  const validPoIds = new Set(validPos.map((p) => p.id));
-  const validReqIds = new Set(validReqs.map((r) => r.id));
-  const validGpIds = new Set(validGps.map((g) => g.id));
+  const validPoIds = new Map(validPos.map((p) => [p.id, p.projectId]));
+  const validReqIds = new Map(validReqs.map((r) => [r.id, r.projectId]));
+  const validGpIds = new Map(validGps.map((g) => [g.id, g.projectId]));
 
   // ── Process each item ─────────────────────────────────────────────
   const results: Array<{
@@ -94,7 +97,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
   for (const item of parsed.data.items) {
     try {
       if (item.type === "po") {
-        if (!canApprovePo) {
+        const poProjectId = validPoIds.get(item.id);
+        // A scoped-PM on this PO's project carries PO_APPROVE locally — global
+        // perm alone would hide the scoped hat.
+        const poRole = (await getActingRoleForProject(poProjectId ?? null)) ?? (await getActingRole());
+        const poAllowed = canApprovePo || hasPermission(poRole, PERM.PO_APPROVE);
+        if (!poAllowed) {
           results.push({ type: item.type, id: item.id, success: false, error: "No permission to approve POs" });
           continue;
         }
@@ -102,10 +110,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
           results.push({ type: item.type, id: item.id, success: false, error: "PO not found, not in DRAFT status, or you cannot approve your own PO" });
           continue;
         }
-        await approvePurchaseOrder(item.id, await getActingRole(), user.id);
+        await approvePurchaseOrder(item.id, poRole, user.id);
         results.push({ type: item.type, id: item.id, success: true });
       } else if (item.type === "requisition") {
-        if (!canApproveReq) {
+        const reqProjectId = validReqIds.get(item.id);
+        const reqRole = (await getActingRoleForProject(reqProjectId ?? null)) ?? (await getActingRole());
+        const reqAllowed = canApproveReq || hasPermission(reqRole, PERM.REQUISITION_APPROVE);
+        if (!reqAllowed) {
           results.push({ type: item.type, id: item.id, success: false, error: "No permission to approve indents" });
           continue;
         }
@@ -113,10 +124,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
           results.push({ type: item.type, id: item.id, success: false, error: "Indent not found, not submitted, or you cannot approve your own indent" });
           continue;
         }
-        await approveRequisition(item.id, user.id);
+        await approveRequisition(item.id, user.id, undefined, reqRole);
         results.push({ type: item.type, id: item.id, success: true });
       } else if (item.type === "gatePass") {
-        if (!canApproveGp) {
+        const gpProjectId = validGpIds.get(item.id);
+        const gpRole = (await getActingRoleForProject(gpProjectId ?? null)) ?? (await getActingRole());
+        const gpAllowed = canApproveGp || hasPermission(gpRole, PERM.GATE_PASS_APPROVE);
+        if (!gpAllowed) {
           results.push({ type: item.type, id: item.id, success: false, error: "No permission to approve gate passes" });
           continue;
         }
@@ -124,7 +138,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
           results.push({ type: item.type, id: item.id, success: false, error: "Gate pass not found, not pending, or you cannot approve your own gate pass" });
           continue;
         }
-        const approved = await approveGatePass(item.id, user.id, undefined, await getActingRole());
+        const approved = await approveGatePass(item.id, user.id, undefined, gpRole);
         // Approval succeeded but the linked transaction may have failed to
         // auto-execute (e.g. insufficient stock) — surface that to the
         // approver instead of silently leaving a PENDING issue.

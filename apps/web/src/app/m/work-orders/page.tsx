@@ -35,7 +35,7 @@ export default function MobileWorkOrdersPage() {
           actions.canCreateWorkOrder
             ? filterOptionsByScope(
                 await prisma.project.findMany({
-                  where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+                  where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
                   orderBy: { name: "asc" },
                   select: { id: true, name: true },
                 }),

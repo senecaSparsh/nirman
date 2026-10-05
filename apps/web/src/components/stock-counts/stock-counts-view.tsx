@@ -373,7 +373,9 @@ function StockCountFormDialog({
       toast.error("Select a location");
       return;
     }
-    const lineEntries = lines.filter((l) => l.countedQty.trim() !== "");
+    // EditableGrid commits number cells as numbers, but the column may also
+    // hold the initial "" string — normalise before trimming.
+    const lineEntries = lines.filter((l) => String(l.countedQty ?? "").trim() !== "");
     if (lineEntries.length === 0) {
       toast.error("Enter at least one counted quantity");
       return;

@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { getCompany, getCurrentUser } from "@/lib/server";
+import { scopeWhere, getCompany, getCurrentUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import { MobileNewPettyCashClient } from "./MobileNewPettyCashClient";
@@ -18,7 +18,7 @@ export default function MobileNewPettyCashPage() {
 
         const [projects, employees] = await Promise.all([
           prisma.project.findMany({
-            where: { companyId: company.id, deletedAt: null },
+            where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
             orderBy: { name: "asc" },
             select: { id: true, name: true },
           }),

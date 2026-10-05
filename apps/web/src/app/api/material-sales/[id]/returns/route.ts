@@ -43,7 +43,6 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       userId: user.id,
     });
     revalidatePath("/material-sales");
-    revalidatePath(`/material-sales/${saleId}`);
     revalidatePath("/m/material-sales");
     revalidatePath(`/m/material-sales/${saleId}`);
     revalidatePath("/m/sales");

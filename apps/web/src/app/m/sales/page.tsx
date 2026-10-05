@@ -25,7 +25,7 @@ import { DepartmentActivityFeed } from "@/components/department-activity-feed";
  */
 export default function MobileSalesPage() {
   return (
-    <MobileListPage perm={PERM.SALES_VIEW} what="sales" permission="sales.view">
+    <MobileListPage perm={PERM.SALES_VIEW} scopeAware what="sales" permission="sales.view">
       {async ({ company, perms }) => {
         const currentUser = await getCurrentUser();
         const actions = await getActionPermissions();
@@ -51,7 +51,7 @@ export default function MobileSalesPage() {
               activities: { orderBy: { occurredAt: "desc" }, take: 1 },
               _count: { select: { activities: true } }}}),
           prisma.project.findMany({
-            where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+            where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
             orderBy: { name: "asc" },
             select: { id: true, name: true }}),
           prisma.builtUnit.findMany({

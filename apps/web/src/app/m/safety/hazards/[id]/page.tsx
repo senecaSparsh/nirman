@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { notFound } from "next/navigation";
-import { getCompany, getUserPermissions } from "@/lib/server";
+import { scopeWhere, getCompany, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
@@ -23,8 +23,8 @@ async function MobileHazardDetailContent({ id }: { id: string }) {
   const __effPerms = await getUserPermissions();
   const canManage = __effPerms.includes(PERM.SAFETY_MANAGE);
 
-  const hazard = await prisma.safetyHazard.findUnique({
-    where: { id },
+  const hazard = await prisma.safetyHazard.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("SafetyHazard") },
     include: {
       project: { select: { id: true, name: true } },
       wbsNode: { select: { id: true, code: true, name: true } },
@@ -34,7 +34,7 @@ async function MobileHazardDetailContent({ id }: { id: string }) {
     },
   });
 
-  if (!hazard || hazard.companyId !== company.id) notFound();
+  if (!hazard) notFound();
 
   const serialized = {
     id: hazard.id, hazardNumber: hazard.hazardNumber, title: hazard.title, description: hazard.description,

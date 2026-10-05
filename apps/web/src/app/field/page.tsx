@@ -3,7 +3,7 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
-import { getCompany, getUserPermissions } from "@/lib/server";
+import { scopeWhere,  getCompany, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { NoAccess } from "@/components/no-access";
 import { FieldReceive } from "@/components/field/field-receive";
@@ -49,7 +49,7 @@ async function ReceivableOrders({
   const company = await getCompany();
   const pos = await prisma.purchaseOrder.findMany({
     take: 500,
-    where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] } },
+    where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] } },
     orderBy: { createdAt: "desc" },
     include: {
       supplier: { select: { id: true, name: true } },

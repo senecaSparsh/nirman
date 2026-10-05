@@ -15,7 +15,7 @@ export default function MobileLeadsPage({
   searchParams: Promise<{ stage?: string }>;
 }) {
   return (
-    <MobileListPage perm={PERM.SALES_VIEW} managePerm={PERM.SALE_CREATE} what="leads" permission="sales.view">
+    <MobileListPage perm={PERM.SALES_VIEW} scopeAware managePerm={PERM.SALE_CREATE} what="leads" permission="sales.view">
       {async ({ company, canManage }) => {
         const { stage } = await searchParams;
         const actions = await getActionPermissions();
@@ -42,7 +42,7 @@ export default function MobileLeadsPage({
         const [newLeadProjects, newLeadUnits, newLeadAssignees] = canCreate
           ? await Promise.all([
               prisma.project.findMany({
-                where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+                where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
                 orderBy: { name: "asc" },
                 select: { id: true, name: true },
               }),

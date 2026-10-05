@@ -79,6 +79,9 @@ export function MobileMaterialSaleDetailClient({
   payments,
   canManage,
   gatePass,
+  irn,
+  irnStatus,
+  irnError,
   nextAction,
   notFound,
 }: {
@@ -105,6 +108,9 @@ export function MobileMaterialSaleDetailClient({
   payments: PaymentItem[];
   canManage: boolean;
   gatePass: { id: string; gatePassNumber: string; status: string } | null;
+  irn?: string | null;
+  irnStatus?: string | null;
+  irnError?: string | null;
   nextAction?: { label: string; verb: string; reason: string; tone: "signal" | "go" | "stop"; hash?: string; href?: string } | null;
   notFound?: boolean;
 }) {
@@ -135,6 +141,22 @@ export function MobileMaterialSaleDetailClient({
   const [payCheque, setPayCheque] = useState<MobileChequeState>(EMPTY_MOBILE_CHEQUE);
   const [voidPaymentId, setVoidPaymentId] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState("");
+  const [irnBusy, setIrnBusy] = useState(false);
+
+  async function generateIrn() {
+    setIrnBusy(true);
+    try {
+      const res = await fetch(`/api/e-invoice/material-sale/${saleId}`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "IRN generation failed");
+      toast.success(`IRN generated: ${String(data.irn ?? "").slice(0, 16)}…`);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "IRN generation failed");
+    } finally {
+      setIrnBusy(false);
+    }
+  }
 
   async function handleVoidPayment() {
     if (!voidPaymentId) return;
@@ -463,6 +485,39 @@ export function MobileMaterialSaleDetailClient({
           </div>
         ) : null}
 
+        {/* e-Invoice IRN — B2B material sales need an IRN before the invoice
+            is valid for the buyer's GST credit. Status lives on the sale. */}
+        {status === "ACTIVE" && gstTotal > 0 ? (
+          <div className="flex items-center gap-2 px-2.5 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
+            <span className="text-m-caption font-semibold uppercase shrink-0" style={{ color: "var(--color-ink-500)" }}>
+              e-Invoice
+            </span>
+            {irnStatus === "GENERATED" ? (
+              <span className="text-m-label font-bold ml-auto" style={{ color: "var(--color-success)" }} title={irn ?? undefined}>
+                IRN {irn ? `…${irn.slice(-8)}` : "generated"}
+              </span>
+            ) : irnStatus === "GENERATING" ? (
+              <span className="text-m-label font-bold ml-auto" style={{ color: "var(--color-ink-500)" }}>
+                Generating…
+              </span>
+            ) : canManage ? (
+              <button
+                onClick={generateIrn}
+                disabled={irnBusy}
+                className="text-m-label font-bold ml-auto"
+                style={{ color: "var(--color-primary)" }}
+                title={irnError ?? "Generate e-Invoice IRN (B2B — needs GSTIN on both parties)"}
+              >
+                {irnBusy ? "Generating…" : irnStatus === "FAILED" ? "Retry IRN →" : "Generate IRN →"}
+              </button>
+            ) : (
+              <span className="text-m-label font-bold ml-auto" style={{ color: "var(--color-ink-500)" }}>
+                {irnStatus === "FAILED" ? "IRN failed" : "Not generated"}
+              </span>
+            )}
+          </div>
+        ) : null}
+
         {notes ? (
           <div className="px-2.5 py-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
             <p className="text-m-caption font-semibold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>
@@ -706,8 +761,16 @@ export function MobileMaterialSaleDetailClient({
         <Modal onClose={() => setShowPayment(false)} title="Record Payment">
           <form onSubmit={handlePayment} className="flex flex-col gap-3">
             {balanceDue > 0 ? (
-              <div className="text-m-caption rounded-[0.375rem] px-2 py-1.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 8%, transparent)", color: "var(--color-signal)" }}>
-                Balance due: <span className="font-bold tabular-nums">{formatCurrency(balanceDue)}</span>
+              <div className="flex items-center justify-between gap-2 text-m-caption rounded-[0.375rem] px-2 py-1.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 8%, transparent)", color: "var(--color-signal)" }}>
+                <span>Balance due: <span className="font-bold tabular-nums">{formatCurrency(balanceDue)}</span></span>
+                <button
+                  type="button"
+                  onClick={() => setPayAmount(String(balanceDue))}
+                  className="rounded-full px-2 py-0.5 text-m-caption font-bold press"
+                  style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 16%, transparent)" }}
+                >
+                  Pay in full
+                </button>
               </div>
             ) : null}
             <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>

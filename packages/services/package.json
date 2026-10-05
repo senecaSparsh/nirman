@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@nirman/db": "workspace:*",
+    "@nirman/rbac": "workspace:*",
     "decimal.js": "^10.4.3",
     "exceljs": "^4.4.0",
     "hsn-code-package": "^3.0.0",

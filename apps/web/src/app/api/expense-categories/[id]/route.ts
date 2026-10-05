@@ -26,8 +26,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   // isActive toggle handled directly (not in the service update)
   if (d.isActive !== undefined && Object.keys(d).length === 1) {
     await prisma.expenseCategory.updateMany({ where: { id, companyId: company.id }, data: { isActive: d.isActive } });
-    revalidatePath("/expenses");
-    revalidatePath("/expense-categories");
+    revalidatePath("/finance");
+    revalidatePath("/m/accounts");
     return json({ ok: true });
   }
   try {
@@ -45,8 +45,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
     throw err;
   }
-  revalidatePath("/expenses");
-  revalidatePath("/expense-categories");
+  revalidatePath("/finance");
+  revalidatePath("/m/accounts");
   return json({ ok: true });
 });
 
@@ -60,7 +60,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status });
     throw err;
   }
-  revalidatePath("/expenses");
-  revalidatePath("/expense-categories");
+  revalidatePath("/finance");
+  revalidatePath("/m/accounts");
   return json({ ok: true });
 });

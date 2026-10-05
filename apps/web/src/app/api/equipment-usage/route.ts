@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { logEquipmentUsage, listEquipmentUsage } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, assertScopeAllows, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 const usageSchema = z.object({
@@ -23,7 +23,10 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const equipmentId = searchParams.get("equipmentId") ?? undefined;
-  const logs = await listEquipmentUsage(company.id, equipmentId);
+  // Equipment usage is project-tagged — a scoped user sees only their sites'
+  // logs, not another project's fuel/run-hour data.
+  const scope = await scopeWhere("EquipmentUsageLog");
+  const logs = await listEquipmentUsage(company.id, equipmentId, scope ?? undefined);
   return json(logs.map((l) => ({
     id: l.id,
     equipmentId: l.equipmentId,
@@ -51,6 +54,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const parsed = usageSchema.safeParse(body);
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
+  // The logged project's cost feed must be in scope — logging Site Two's
+  // equipment hours inflates their job costing from a Site One login.
+  try {
+    await assertScopeAllows({ projectId: parsed.data.projectId ?? null, departmentId: null });
+  } catch (err) {
+    return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
   }
   const log = await logEquipmentUsage({ ...parsed.data, companyId: company.id, userId: user.id });
   revalidatePath("/equipment");

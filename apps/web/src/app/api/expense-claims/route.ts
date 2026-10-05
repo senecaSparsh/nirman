@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { createExpenseClaim, submitExpenseClaim, ServiceError } from "@nirman/services";
+import { createExpenseClaim, submitExpenseClaim, approveExpenseClaim, canAutoApprove, ServiceError } from "@nirman/services";
 import { apiHandler, getCompany, json, toNum, requireAnyPermission, scopeWhere, assertScopeAllows, getActingRole,} from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { z } from "zod";
@@ -109,6 +109,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
     // create→lines→submit lifecycle in one atomic request.
     if (parsed.data.submit) {
       await submitExpenseClaim(claim.id, company.id, user.id);
+      // Same rule as PATCH submit: tier-1 creators (OWNER/ADMIN) auto-approve —
+      // no higher approver exists above them.
+      if (canAutoApprove(await getActingRole())) {
+        await approveExpenseClaim(claim.id, company.id, user.id, await getActingRole());
+      }
     }
     revalidatePath("/expense-claims");
   revalidatePath("/m/expense-claims");

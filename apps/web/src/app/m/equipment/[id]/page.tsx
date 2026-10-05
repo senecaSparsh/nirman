@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { computeServiceStatus } from "@nirman/services";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobileEquipmentDetailClient } from "./MobileEquipmentDetailClient";
@@ -59,12 +59,12 @@ export default function MobileEquipmentDetailPage({
         // Fetch locations and projects for assignment modal
         const [locations, projects] = await Promise.all([
           prisma.stockLocation.findMany({
-            where: { companyId: company.id, deletedAt: null },
+            where: { companyId: company.id, deletedAt: null, ...await scopeWhere("StockLocation") },
             select: { id: true, name: true, type: true },
             orderBy: { name: "asc" },
           }),
           prisma.project.findMany({
-            where: { companyId: company.id, deletedAt: null },
+            where: { companyId: company.id, deletedAt: null, ...await scopeWhere("Project") },
             select: { id: true, name: true },
             orderBy: { name: "asc" },
           }),

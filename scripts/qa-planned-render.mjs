@@ -1,0 +1,17 @@
+import { chromium } from "playwright";
+const BASE = "http://localhost:3000";
+const UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1";
+const browser = await chromium.launch();
+const ctx = await browser.newContext({ userAgent: UA, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+const p = await ctx.newPage();
+const res = await p.request.post(`${BASE}/api/auth/demo-login`, { data: { role: "OWNER" } });
+const { email, password } = await res.json();
+await p.request.post(`${BASE}/api/auth/sign-in/email`, { data: { email, password } });
+await p.close();
+const page = await ctx.newPage();
+page.setDefaultTimeout(60000);
+await page.goto(`${BASE}/m/accounts?tab=planned`, { waitUntil: "networkidle" });
+await page.waitForTimeout(1500);
+console.log((await page.locator("main").innerText()).replace(/\n/g, " | ").slice(0, 800));
+await page.screenshot({ path: "/tmp/planned-rendered.png", fullPage: true });
+await browser.close();

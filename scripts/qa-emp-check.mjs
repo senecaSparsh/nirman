@@ -1,0 +1,22 @@
+import { chromium } from "playwright";
+const BASE = "http://localhost:3000";
+const UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1";
+const browser = await chromium.launch();
+const ctx = await browser.newContext({ userAgent: UA, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+const p = await ctx.newPage();
+const res = await p.request.post(`${BASE}/api/auth/demo-login`, { data: { role: "OWNER" } });
+const { email, password } = await res.json();
+await p.request.post(`${BASE}/api/auth/sign-in/email`, { data: { email, password } });
+await p.close();
+const page = await ctx.newPage();
+page.setDefaultTimeout(60000);
+await page.goto(`${BASE}/m/hr/employees`, { waitUntil: "networkidle" });
+await page.waitForTimeout(1500);
+console.log((await page.locator("main").innerText()).slice(0, 800).replace(/\n/g, " | "));
+await page.screenshot({ path: "/tmp/emp-staff.png", fullPage: true });
+// switch to crews tab via UI click
+await page.getByRole("button", { name: /^Crews/ }).click();
+await page.waitForTimeout(1000);
+console.log("crews:", (await page.locator("main").innerText()).slice(0, 300).replace(/\n/g, " | "));
+await page.screenshot({ path: "/tmp/emp-crews.png" });
+await browser.close();

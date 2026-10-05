@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { Package, Layers, MapPin } from "lucide-react";
-import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { scopeWhere, getCompany, toNum, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
@@ -45,7 +45,7 @@ async function MobileInventoryValueContent({
 
   // Live mode only (historical mode is heavy — desktop-only)
   const liveItems = await prisma.stockLocationItem.findMany({
-    where: {
+    where: { ...await scopeWhere("StockLocationItem"),
       location: { deletedAt: null, companyId: company.id },
       material: { deletedAt: null },
     },

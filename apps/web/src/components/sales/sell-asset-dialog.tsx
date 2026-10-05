@@ -634,6 +634,7 @@ export function SellAssetDialog({
                 onChange={(photos) => setAtsDocUrl(photos[0]?.url ?? "")}
                 maxPhotos={1}
                 label="Upload ATS Document"
+                accept=".pdf,image/*"
               />
               <p className="text-caption text-muted-foreground">
                 Upload the signed Agreement to Sell. The Builder-Buyer Agreement and Registry document can be uploaded later from the sale detail.

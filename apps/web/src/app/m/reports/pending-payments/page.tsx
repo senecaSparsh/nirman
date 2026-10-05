@@ -45,17 +45,17 @@ async function MobilePendingPaymentsContent() {
 
   const [overduePOs, sales, draftPOs] = await Promise.all([
     prisma.purchaseOrder.findMany({
-      where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: now } },
+      where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: now } },
       include: { supplier: { select: { name: true } }, lines: { select: { qtyOrdered: true, qtyReceived: true, unitCost: true } } },
       orderBy: { expectedDate: "asc" },
     }),
     prisma.assetSale.findMany({
-      where: {...await scopeWhere("AssetSale"),  companyId: company.id, status: "ACTIVE", paymentStatus: { in: ["PENDING", "PARTIAL"] } },
+      where: { ...await scopeWhere("AssetSale"),...await scopeWhere("AssetSale"),  companyId: company.id, status: "ACTIVE", paymentStatus: { in: ["PENDING", "PARTIAL"] } },
       include: { customer: { select: { name: true } }, project: { select: { name: true } }, payments: { select: { amount: true } } },
       orderBy: { saleDate: "asc" },
     }),
     prisma.purchaseOrder.findMany({
-      where: { companyId: company.id, status: "DRAFT" },
+      where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: "DRAFT" },
       include: { supplier: { select: { name: true } }, lines: { select: { qtyOrdered: true, unitCost: true } } },
       orderBy: { createdAt: "desc" },
     }),
@@ -69,7 +69,7 @@ async function MobilePendingPaymentsContent() {
 
   const receivableRows = sales.map((s) => {
     const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
-    const outstanding = toNum(s.salePrice) - collected;
+    const outstanding = Math.max(0, toNum(s.salePrice) + toNum(s.gstAmount) - collected);
     const daysSinceSale = Math.floor((now.getTime() - s.saleDate.getTime()) / 86400000);
     return { id: s.id, saleNumber: s.saleNumber, customer: s.customer.name, project: s.project?.name ?? "—", outstanding, daysSinceSale, agingBucket: getAgingBucket(daysSinceSale) };
   }).filter((r) => r.outstanding > 0.01);

@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@nirman/db";
 import { recordAttendance } from "@nirman/services";
-import { apiHandler, getCompany, json, requireUser, getActingRole, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, requireUser, getActingRole, assertScopeAllows, scopeWhere } from "@/lib/server";
 import { hasPermission, PERM } from "@/lib/roles";
 
 /**
@@ -65,6 +65,19 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const isManager = hasPermission(await getActingRole(), PERM.HR_MANAGE);
   if (!isSelf && !isManager) {
     return json({ error: "You can only check in your own attendance" }, { status: 403 });
+  }
+
+  // A scoped manager may only check in employees within their scope —
+  // a Site One HR-scoped user marking Site Two staff present is a payroll
+  // fraud vector (attendance feeds wages).
+  if (!isSelf) {
+    const inScope = await prisma.employee.findFirst({
+      where: { id: employee.id, companyId: company.id, deletedAt: null, ...await scopeWhere("Employee") },
+      select: { id: true },
+    });
+    if (!inScope) {
+      return json({ error: "Employee not found" }, { status: 404 });
+    }
   }
 
   // Geo-fence validation — pick the most specific fence for where the

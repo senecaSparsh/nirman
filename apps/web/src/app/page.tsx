@@ -150,12 +150,12 @@ async function CommandCenterContent() {
       orderBy: { approvedAt: "asc" as const }, take: 5,
       include: { project: { select: { name: true } } }}),
     prisma.purchaseOrder.findMany({
-      where: { companyId: company.id, status: "APPROVED" },
+      where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: "APPROVED" },
       orderBy: { approvedAt: "asc" as const }, take: 5,
       include: { supplier: { select: { name: true } } }}),
     prisma.purchaseOrder.findMany({
       take: 200,
-      where: {
+      where: { ...await scopeWhere("PurchaseOrder"),
         companyId: company.id,
         status: { not: "CANCELLED" },
         orderDate: { gte: sixMonthsAgo }},
@@ -171,7 +171,7 @@ async function CommandCenterContent() {
     // excludes DPRs, gate passes, expenses, claims and RA bills.
     canApproveGatePass
       ? prisma.gatePass.findMany({
-          where: { companyId: company.id, status: "PENDING", createdById: { not: userId } },
+          where: { ...await scopeWhere("GatePass"), companyId: company.id, status: "PENDING", createdById: { not: userId } },
           orderBy: { createdAt: "desc" }, take: 5,
           include: { location: { select: { name: true } } }})
       : [],
@@ -183,19 +183,19 @@ async function CommandCenterContent() {
       : [],
     canApproveExpense
       ? prisma.expense.findMany({
-          where: { companyId: company.id, status: "PENDING", submittedById: { not: userId } },
+          where: { ...await scopeWhere("Expense"), companyId: company.id, status: "PENDING", submittedById: { not: userId } },
           orderBy: { createdAt: "desc" }, take: 5,
           include: { project: { select: { name: true } } }})
       : [],
     canApproveExpense
       ? prisma.expenseClaim.findMany({
-          where: { companyId: company.id, status: "SUBMITTED", claimantId: { not: userId } },
+          where: { ...await scopeWhere("ExpenseClaim"), companyId: company.id, status: "SUBMITTED", claimantId: { not: userId } },
           orderBy: { createdAt: "desc" }, take: 5,
           include: { project: { select: { name: true } }, claimant: { select: { name: true } } }})
       : [],
     canApproveRaBill
       ? prisma.raBill.findMany({
-          where: { companyId: company.id, status: "SUBMITTED", createdById: { not: userId }, submittedById: { not: userId } },
+          where: { ...await scopeWhere("RaBill"), companyId: company.id, status: "SUBMITTED", createdById: { not: userId }, submittedById: { not: userId } },
           orderBy: { createdAt: "desc" }, take: 5,
           include: { project: { select: { name: true } }, workOrder: { select: { workOrderNumber: true } } }})
       : [],
@@ -211,7 +211,7 @@ async function CommandCenterContent() {
       trialBalance(company.id),
       prisma.project.findMany({
         take: 200,
-        where: { companyId: company.id, deletedAt: null },
+        where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
         select: { id: true, name: true, status: true },
         orderBy: { name: "asc" }}),
       materialInventoryValue(company.id),

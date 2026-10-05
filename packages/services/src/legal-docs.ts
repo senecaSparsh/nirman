@@ -262,8 +262,8 @@ export async function deleteLegalDoc(id: string, companyId: string, userId?: str
  * List legal documents for a land purchase or project.
  * Ordered by sortOrder (guided flow sequence), then by createdAt.
  */
-export async function listLegalDocs(companyId: string, filter: { landPurchaseId?: string; projectId?: string }) {
-  const where: Record<string, unknown> = { companyId, deletedAt: null };
+export async function listLegalDocs(companyId: string, filter: { landPurchaseId?: string; projectId?: string }, scopeFilter?: Record<string, unknown>) {
+  const where: Record<string, unknown> = { companyId, deletedAt: null, ...(scopeFilter ?? {}) };
   if (filter.landPurchaseId) where.landPurchaseId = filter.landPurchaseId;
   if (filter.projectId) where.projectId = filter.projectId;
 
@@ -280,8 +280,9 @@ export async function listLegalDocs(companyId: string, filter: { landPurchaseId?
 function allLegalDocsWhere(
   companyId: string,
   filter?: { type?: string; status?: string; appliesTo?: string },
+  scopeFilter?: Record<string, unknown>,
 ) {
-  const where: Record<string, unknown> = { companyId, deletedAt: null };
+  const where: Record<string, unknown> = { companyId, deletedAt: null, ...(scopeFilter ?? {}) };
   if (filter?.type) {
     // Support comma-separated list (e.g. "PENDING,EXPIRED,RENEWAL_DUE")
     const parts = filter.type.split(",").map((s) => s.trim()).filter(Boolean);
@@ -301,9 +302,10 @@ function allLegalDocsWhere(
 export async function listAllLegalDocs(
   companyId: string,
   filter?: { type?: string; status?: string; appliesTo?: string },
+  scopeFilter?: Record<string, unknown>,
 ) {
   return prisma.legalDocument.findMany({
-    where: allLegalDocsWhere(companyId, filter) as never,
+    where: allLegalDocsWhere(companyId, filter, scopeFilter) as never,
     orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
     take: 500,
     include: {
@@ -317,9 +319,10 @@ export async function listAllLegalDocs(
 export async function countAllLegalDocs(
   companyId: string,
   filter?: { type?: string; status?: string; appliesTo?: string },
+  scopeFilter?: Record<string, unknown>,
 ) {
   return prisma.legalDocument.count({
-    where: allLegalDocsWhere(companyId, filter) as never,
+    where: allLegalDocsWhere(companyId, filter, scopeFilter) as never,
   });
 }
 

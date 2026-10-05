@@ -55,7 +55,7 @@ export default function MobileConstructionHubPage({
   searchParams: Promise<{ tab?: string; project?: string }>;
 }) {
   return (
-    <MobileHubPage perm={PERM.PROJECTS_VIEW} what="construction" permission="projects.view">
+    <MobileHubPage perm={PERM.PROJECTS_VIEW} scopeAware what="construction" permission="projects.view">
       {async () => {
         const { tab, project: projectId } = await searchParams;
 
@@ -111,7 +111,7 @@ async function ConstructionWorkOrdersTab() {
     actions.canCreateWorkOrder
       ? filterOptionsByScope(
           await prisma.project.findMany({
-            where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+            where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] }, ...await scopeWhere("Project") },
             orderBy: { name: "asc" },
             select: { id: true, name: true }}),
           actions.allowedProjectIds,
@@ -197,7 +197,7 @@ async function ConstructionChangeOrdersTab() {
         _count: { select: { lines: true } }}}),
     canManage
       ? prisma.project.findMany({
-          where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+          where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] }, ...await scopeWhere("Project") },
           orderBy: { name: "asc" },
           select: { id: true, name: true }})
       : [],
@@ -265,7 +265,7 @@ async function ConstructionQualityTab() {
         capa: { select: { id: true, status: true, capaNumber: true } }}}),
     canManage
       ? prisma.project.findMany({
-          where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+          where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] }, ...await scopeWhere("Project") },
           orderBy: { name: "asc" },
           select: { id: true, name: true }})
       : [],
@@ -366,7 +366,7 @@ async function ConstructionSafetyTab() {
       include: { project: { select: { id: true, name: true } } }}),
     canManage
       ? prisma.project.findMany({
-          where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+          where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] }, ...await scopeWhere("Project") },
           orderBy: { name: "asc" },
           select: { id: true, name: true }})
       : [],
@@ -520,7 +520,7 @@ async function ConstructionBoqTab({ projectId }: { projectId?: string }) {
   const canCreateProject = __effPerms.includes(PERM.PROJECTS_MANAGE);
 
   const projects: BoqProjectOption[] = await prisma.project.findMany({
-    where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+    where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] }, ...await scopeWhere("Project") },
     orderBy: { name: "asc" },
     select: { id: true, name: true }});
 
@@ -594,7 +594,7 @@ async function ConstructionWbsTab({ projectId }: { projectId?: string }) {
   const actions = await getActionPermissions();
 
   const projects = await prisma.project.findMany({
-    where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+    where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] }, ...await scopeWhere("Project") },
     orderBy: { name: "asc" },
     select: { id: true, name: true }});
 

@@ -32,15 +32,15 @@ import {
  */
 export default function InventoryHomePage() {
   return (
-    <MobileHubPage perm={PERM.INVENTORY_VIEW} what="inventory" permission="inventory.view">
+    <MobileHubPage perm={PERM.INVENTORY_VIEW} scopeAware what="inventory" permission="inventory.view">
       {async ({ company }) => {
         const [draftPOs, pendingReqs, recentRequisitions, materials, inventoryTree, qaCtx] =
     await Promise.all([
       prisma.purchaseOrder.count({
-        where: { companyId: company.id, status: "DRAFT" },
+        where: { companyId: company.id, status: "DRAFT", ...await scopeWhere("PurchaseOrder") },
       }),
       prisma.materialRequisition.count({
-        where: { project: { companyId: company.id }, status: "SUBMITTED" },
+        where: { project: { companyId: company.id }, status: "SUBMITTED", ...await scopeWhere("MaterialRequisition") },
       }),
       prisma.materialRequisition.findMany({
         where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED" },
@@ -66,7 +66,9 @@ export default function InventoryHomePage() {
           reorderPoint: true,
           category: { select: { name: true } },
           stockItems: {
-            where: { location: { companyId: company.id } },
+            // Scope the stock rollup to in-scope locations — a Site One
+            // user's material totals must not include Site Two's bins.
+            where: { location: { companyId: company.id, ...await scopeWhere("StockLocation") } },
             select: { qty: true, movingAvgCost: true },
           },
         },
@@ -273,7 +275,7 @@ async function loadInventoryTree(current: {
 
   const [locations, projects] = await Promise.all([
     prisma.stockLocation.findMany({
-      where: { companyId: { in: groupIds }, deletedAt: null },
+      where: { companyId: { in: groupIds }, deletedAt: null, ...await scopeWhere("StockLocation") },
       select: {
         id: true,
         name: true,
@@ -288,7 +290,7 @@ async function loadInventoryTree(current: {
       orderBy: { name: "asc" },
     }),
     prisma.project.findMany({
-      where: { companyId: { in: groupIds }, deletedAt: null },
+      where: { companyId: { in: groupIds }, deletedAt: null, ...await scopeWhere("Project") },
       select: { id: true, name: true, status: true, companyId: true },
       orderBy: { name: "asc" },
     }),

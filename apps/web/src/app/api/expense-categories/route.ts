@@ -45,8 +45,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
       description: parsed.data.description ?? null,
       userId: user.id,
     });
-    revalidatePath("/expenses");
-    revalidatePath("/expense-categories");
+    revalidatePath("/finance");
+    revalidatePath("/m/accounts");
     return json({ ok: true, id: cat.id }, { status: 201 });
   } catch (err) {
     if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status });

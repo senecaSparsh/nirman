@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getCompany, getUserPermissions, assertScopeAllows } from "@/lib/server";
+import { scopeWhere,  toNum, getCompany, getUserPermissions, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatNumber, formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
@@ -25,7 +25,7 @@ export default async function StockCountPrintPage({ params }: { params: Promise<
   const company = await getCompany();
 
   const count = await prisma.stockCount.findFirst({
-    where: {
+    where: { ...await scopeWhere("StockCount"),
       id,
       location: { companyId: company.id },
     },

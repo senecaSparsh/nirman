@@ -13,7 +13,8 @@ import {
   ServiceError,
 } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, getCompanyGroupIds, json, requirePermission, requireUser, toNum, scopeWhere, getActingRole,} from "@/lib/server";
+import { apiHandler, getCompany, getCompanyGroupIds, json, requirePermission, requireUser, toNum, scopeWhere, getActingRole, getActingRoleForProject, assertScopeAllows, getUserPermissions, ForbiddenError,} from "@/lib/server";
+import { hasPermission } from "@nirman/rbac";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.PROCUREMENT_VIEW);
@@ -152,30 +153,58 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     return json({ error: "Invalid action. Use approve, reject, resubmit, order, cancel, shortClose, or addLine." }, { status: 400 });
   }
   if (action === "approve") {
-    const user = await requirePermission(PERM.PO_APPROVE);
+    const user = await requireUser();
     // Prevent self-approval — the creator cannot approve their own PO.
     const po = await prisma.purchaseOrder.findFirst({
       where: { id, companyId: { in: groupCompanyIds } },
-      select: { createdById: true },
+      select: { createdById: true, projectId: true },
     });
+    if (!po) return json({ error: "Purchase order not found" }, { status: 404 });
+    // A project/department-scoped approver may only approve within scope —
+    // approving an out-of-scope PO is the classic spend-control bypass.
+    try {
+      await assertScopeAllows({ projectId: po.projectId ?? null });
+    } catch (err) {
+      return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
+    }
+    // Acting role within this project — a scoped assignment (e.g. SITE_ENGINEER
+    // wearing PROJECT_MANAGER on this site) lifts authority for this project only.
+    const actingRole = (await getActingRoleForProject(po.projectId)) ?? (await getActingRole());
+    // Either the global perm or the scoped role's grant counts — the scope
+    // check above already bounds which projects the lift applies to.
+    const perms = await getUserPermissions();
+    if (!perms.includes(PERM.PO_APPROVE) && !hasPermission(actingRole, PERM.PO_APPROVE)) {
+      throw new ForbiddenError("You need purchase-order approval rights on this project");
+    }
     // Prevent self-approval — the creator cannot approve their own PO, unless
     // they're a tier-1 role (OWNER/ADMIN) where no higher approver exists.
-    if (po?.createdById === user.id && !canAutoApprove(await getActingRole())) {
+    if (po?.createdById === user.id && !canAutoApprove(actingRole)) {
       return json({ error: "You cannot approve your own purchase order. Ask another approver to review it." }, { status: 403 });
     }
-    await approvePurchaseOrder(id, await getActingRole(), user.id, body?.approvalNotes, body?.autoOrder ?? true);
+    await approvePurchaseOrder(id, actingRole, user.id, body?.approvalNotes, body?.autoOrder ?? true);
   } else if (action === "reject") {
-    const user = await requirePermission(PERM.PO_APPROVE);
+    const user = await requireUser();
     // Prevent self-rejection — the creator cannot reject their own PO.
     const po = await prisma.purchaseOrder.findFirst({
       where: { id, companyId: { in: groupCompanyIds } },
-      select: { createdById: true },
+      select: { createdById: true, projectId: true },
     });
+    if (!po) return json({ error: "Purchase order not found" }, { status: 404 });
+    try {
+      await assertScopeAllows({ projectId: po.projectId ?? null });
+    } catch (err) {
+      return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
+    }
+    const actingRole = (await getActingRoleForProject(po.projectId)) ?? (await getActingRole());
+    const rejectPerms = await getUserPermissions();
+    if (!rejectPerms.includes(PERM.PO_APPROVE) && !hasPermission(actingRole, PERM.PO_APPROVE)) {
+      throw new ForbiddenError("You need purchase-order approval rights on this project");
+    }
     if (po?.createdById === user.id) {
       return json({ error: "You cannot reject your own purchase order. Ask another approver to review it." }, { status: 403 });
     }
     try {
-      await rejectPurchaseOrder(id, await getActingRole(), user.id, body?.rejectionReason);
+      await rejectPurchaseOrder(id, actingRole, user.id, body?.rejectionReason);
     } catch (err) {
       if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status });
       throw err;

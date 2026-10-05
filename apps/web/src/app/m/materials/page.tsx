@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum, getActionPermissions } from "@/lib/server";
+import { toNum, getActionPermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { Package } from "lucide-react";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
@@ -60,7 +60,7 @@ export default function MobileMaterialsPage({
         // Fetch stock locations for the opening-stock section in the FAB dialog
         const locations = actions.canCreateMaterial
           ? await prisma.stockLocation.findMany({
-              where: { companyId: company.id, deletedAt: null },
+              where: { ...await scopeWhere("StockLocation"), companyId: company.id, deletedAt: null },
               orderBy: [{ type: "asc" }, { name: "asc" }],
               select: {
                 id: true,

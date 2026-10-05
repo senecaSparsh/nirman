@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { notFound } from "next/navigation";
-import { getCompany, getUserPermissions } from "@/lib/server";
+import { scopeWhere, getCompany, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { MobileNcrDetailClient } from "./MobileNcrDetailClient";
@@ -35,8 +35,8 @@ async function MobileNcrDetailContent({ id }: { id: string }) {
     );
   }
 
-  const ncr = await prisma.nonConformanceReport.findUnique({
-    where: { id },
+  const ncr = await prisma.nonConformanceReport.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("NonConformanceReport") },
     include: {
       project: { select: { id: true, name: true } },
       wbsNode: { select: { id: true, code: true, name: true } },
@@ -56,7 +56,7 @@ async function MobileNcrDetailContent({ id }: { id: string }) {
     },
   });
 
-  if (!ncr || ncr.companyId !== company.id) notFound();
+  if (!ncr) notFound();
 
   const serialized = {
     id: ncr.id,

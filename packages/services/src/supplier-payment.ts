@@ -421,10 +421,12 @@ export async function getSupplierPayments(opts: {
   companyId: string;
   supplierId?: string;
   purchaseOrderId?: string;
+  scope?: Record<string, unknown>;
 }) {
   return prisma.supplierPayment.findMany({
     where: {
       companyId: opts.companyId,
+      ...(opts.scope ?? {}),
       ...(opts.supplierId ? { supplierId: opts.supplierId } : {}),
       ...(opts.purchaseOrderId ? { purchaseOrderId: opts.purchaseOrderId } : {}),
     },

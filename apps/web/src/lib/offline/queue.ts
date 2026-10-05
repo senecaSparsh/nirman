@@ -52,7 +52,8 @@ export interface QueuedOperation {
     | "supplier-return"
     | "purchase-order"
     | "attendance"
-    | "dpr";
+    | "dpr"
+    | "expense-claim";
   /** Serialized JSON body to POST. */
   payload: unknown;
   status: QueueStatus;
@@ -278,6 +279,9 @@ const ENDPOINTS: Record<QueuedOperation["kind"], string> = {
   // failure is safe — the server resolves to the same record.
   "attendance": "/api/attendance",
   "dpr": "/api/dprs",
+  // Claims POST one atomic body (header + lines + submit=true) — safe to
+  // replay; the server validates on sync and keeps FAILED ops for review.
+  "expense-claim": "/api/expense-claims",
 };
 
 /**

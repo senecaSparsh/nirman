@@ -50,15 +50,17 @@ async function MobileSalesRevenueContent() {
 
   const records = sales.map((s) => {
     const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+    // Invoice value = sale price + GST — collections are received GST-inclusive
+    const salePrice = toNum(s.salePrice) + toNum(s.gstAmount);
     return {
       id: s.id,
       saleNumber: s.saleNumber,
       customer: s.customer.name,
       projectName: s.project?.name ?? "—",
       unitType: s.builtUnit?.unitType ?? null,
-      salePrice: toNum(s.salePrice),
+      salePrice,
       collected,
-      outstanding: toNum(s.salePrice) - collected,
+      outstanding: Math.max(0, salePrice - collected),
       saleDate: s.saleDate.toISOString(),
     };
   });

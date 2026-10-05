@@ -2,6 +2,7 @@ import { type ComponentType, type CSSProperties } from "react";
 import Link from "next/link";
 import { prisma } from "@nirman/db";
 import { getEvmMetrics } from "@nirman/services";
+import { scopeWhere } from "@/lib/server";
 import { Gauge, TrendingUp, TrendingDown, AlertTriangle, Target, DollarSign } from "lucide-react";
 import { PERM } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
@@ -26,7 +27,7 @@ export default function MobileProjectControlPage({
         const canCreateProject = perms.includes(PERM.PROJECTS_MANAGE);
 
         const projects = await prisma.project.findMany({
-          where: { companyId: company.id, deletedAt: null },
+          where: { ...await scopeWhere("Project"), ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
           orderBy: { name: "asc" },
           select: { id: true, name: true }});
 
@@ -44,7 +45,7 @@ export default function MobileProjectControlPage({
         }
 
         const project = await prisma.project.findFirst({
-          where: { id: projectId, companyId: company.id, deletedAt: null },
+          where: { ...await scopeWhere("Project"), id: projectId, companyId: company.id, deletedAt: null },
           select: { id: true, name: true, totalBudget: true }});
 
         if (!project) {

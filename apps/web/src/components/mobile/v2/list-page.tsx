@@ -1,6 +1,6 @@
 import { Suspense, type ReactNode } from "react";
 import { connection } from "next/server";
-import { getActingRole, getOwnRole, getCompany, getUserRole, getUserPermissions } from "@/lib/server";
+import { getActingRole, getOwnRole, getCompany, getUserRole, getUserPermissions, getScopedRolePermissions } from "@/lib/server";
 import { hasPermission, type Permission } from "@/lib/roles";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
@@ -71,6 +71,7 @@ export async function MobileListPage({
   what,
   permission,
   skeletonRows = 6,
+  scopeAware = false,
   children,
 }: {
   /** View permission — hard gate. Omit for no gate. */
@@ -82,6 +83,10 @@ export async function MobileListPage({
   permission?: string;
   /** Number of skeleton rows in the Suspense fallback. */
   skeletonRows?: number;
+  /** Set when every query in this page is scopeWhere-filtered — lets
+   *  scoped-role perms (e.g. a project-scoped PM hat) satisfy the page gate.
+   *  Do NOT set on org-level surfaces (GL, payroll, telephony, settings). */
+  scopeAware?: boolean;
   children: (ctx: MobileListPageCtx) => Promise<ReactNode> | ReactNode;
 }) {
   const content = async () => {
@@ -90,7 +95,13 @@ export async function MobileListPage({
     const role = await getUserRole();
     const actingRole = await getActingRole();
     const ownRole = await getOwnRole();
-    const overrides = await getUserPermissions();
+    // Union scoped-role perms ONLY when the page opts in — its queries must
+    // be fully scopeWhere-filtered (a site-scoped PM opens the expenses/stock
+    // lists for *their* scope). Org-level surfaces (GL, payroll, telephony)
+    // keep the global-only gate — a scoped FINANCE_VIEW hat must not open them.
+    const overrides = scopeAware
+      ? [...(await getUserPermissions()), ...(await getScopedRolePermissions())]
+      : await getUserPermissions();
 
     if (perm && !hasPermission(role, perm, overrides)) {
       return <MobileNoAccess what={what ?? "this page"} permission={permission} />;

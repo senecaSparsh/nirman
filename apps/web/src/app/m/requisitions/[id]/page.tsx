@@ -86,7 +86,7 @@ export default function MobileRequisitionDetailPage({
             orderBy: { name: "asc" },
           }),
           prisma.stockLocation.findMany({
-            where: { companyId: company.id, deletedAt: null },
+            where: { ...await scopeWhere("StockLocation"), companyId: company.id, deletedAt: null },
             select: { id: true, name: true, type: true, projectId: true },
             orderBy: { name: "asc" },
           }),

@@ -21,7 +21,7 @@ import { SiteInteractive } from "./site-interactive";
  */
 export default function SitePage() {
   return (
-    <MobileHubPage perm={PERM.TASKS_VIEW} what="site" permission="tasks.view">
+    <MobileHubPage perm={PERM.TASKS_VIEW} scopeAware what="site" permission="tasks.view">
       {async ({ company }) => {
         const user = await getCurrentUser();
         const perms = await getUserPermissions();
@@ -72,7 +72,31 @@ export default function SitePage() {
         // ── Attention banners ──
         const attentionBanners: AttentionBanner[] = [];
 
-        if (canSubmitDpr && !myDprToday) {
+        // Payroll-lock check: a DPR posts labour cost for its date, so it
+        // can't be filed into a PROCESSED/PAID payroll period. Nagging the
+        // engineer for a report the server will reject is confusing — show
+        // why it's locked instead of "Due".
+        const lockedPeriod = await prisma.payrollPeriod.findFirst({
+          where: {
+            companyId: company.id,
+            status: { in: ["PROCESSED", "PAID"] },
+            startDate: { lte: today },
+            endDate: { gte: today },
+          },
+          select: { month: true, year: true, status: true },
+        });
+
+        if (canSubmitDpr && !myDprToday && lockedPeriod) {
+          attentionBanners.push({
+            id: "dpr-locked",
+            title: `DPR locked — ${lockedPeriod.month}/${lockedPeriod.year} payroll ${lockedPeriod.status.toLowerCase()}`,
+            subtitle: "Report today's work via an adjustment in the next period",
+            href: "/m/site/dpr",
+            severity: "low",
+            qtyText: "!",
+            category: "Daily Progress Report",
+          });
+        } else if (canSubmitDpr && !myDprToday) {
           attentionBanners.push({
             id: "dpr",
             title: "Today's Daily Progress Report not submitted",

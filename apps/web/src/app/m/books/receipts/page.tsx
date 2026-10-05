@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { Wallet } from "lucide-react";
-import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { scopeWhere, getCompany, toNum, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
@@ -28,13 +28,13 @@ async function BooksReceiptsContent() {
 
   const [assetPayments, materialPayments] = await Promise.all([
     prisma.assetSalePayment.findMany({
-      where: { assetSale: { companyId: company.id }, status: "RECEIVED" },
+      where: { ...await scopeWhere("AssetSalePayment"), assetSale: { companyId: company.id }, status: "RECEIVED" },
       orderBy: { paymentDate: "desc" },
       take: 50,
       include: { assetSale: { select: { customer: { select: { name: true } }, saleNumber: true } } },
     }).catch(() => []),
     prisma.materialSalePayment.findMany({
-      where: { sale: { companyId: company.id } },
+      where: { ...await scopeWhere("MaterialSalePayment"), sale: { companyId: company.id } },
       orderBy: { paymentDate: "desc" },
       take: 50,
       include: { sale: { select: { customer: { select: { name: true } }, saleNumber: true, partyName: true } } },

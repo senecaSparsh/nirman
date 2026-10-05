@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Package, Plus, Trash2, Printer, CreditCard, SearchX, ShieldCheck, RotateCcw } from "lucide-react";
+import { Package, Plus, Trash2, Printer, CreditCard, SearchX, ShieldCheck, RotateCcw, Zap, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label, Textarea } from "@/components/ui/input";
@@ -144,6 +144,11 @@ export type MaterialSaleRow = {
   vehicleType: string | null;
   driverName: string | null;
   driverPhone: string | null;
+  // e-Invoice (IRN) — B2B sales need this before the invoice is valid
+  irn: string | null;
+  irnAckNo: string | null;
+  irnStatus: string | null;
+  irnError: string | null;
   lineCount: number;
   payments?: MaterialSalePaymentRow[];
   lines: {
@@ -442,6 +447,24 @@ export function MaterialSalesView({
     }
   }
 
+  async function generateIrn(sale: MaterialSaleRow) {
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/e-invoice/material-sale/${sale.id}`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "IRN generation failed");
+      toast.success(`IRN generated: ${data.irn.slice(0, 16)}…`);
+      setDetailTarget((d) => (d && d.id === sale.id ? { ...d, irnStatus: "GENERATED", irn: data.irn } : d));
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "IRN generation failed");
+      setDetailTarget((d) => (d && d.id === sale.id ? { ...d, irnStatus: "FAILED" } : d));
+      router.refresh();
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   function requestCancelSale(sale: MaterialSaleRow) {
     setCancelTarget(sale);
     setConfirmCancelOpen(true);
@@ -672,6 +695,7 @@ export function MaterialSalesView({
           onPrint={() => {}}
           onRecordPayment={() => { setPaymentDialogSale(detailTarget); setDetailTarget(null); }}
           onCancel={() => { requestCancelSale(detailTarget); setDetailTarget(null); }}
+          onGenerateIrn={() => generateIrn(detailTarget)}
           onCreateReturn={() => { setReturnDialogSale(detailTarget); setDetailTarget(null); }}
           canCancel={canCancel}
           canRecordPayment={canRecordPayment}
@@ -854,6 +878,7 @@ function MaterialSaleDetailDialog({
   onPrint: _onPrint,
   onRecordPayment,
   onCancel,
+  onGenerateIrn,
   onCreateReturn,
   canCancel,
   canRecordPayment,
@@ -869,6 +894,7 @@ function MaterialSaleDetailDialog({
   onPrint: () => void;
   onRecordPayment: () => void;
   onCancel: () => void;
+  onGenerateIrn: () => void;
   onCreateReturn: () => void;
   canCancel: boolean;
   canRecordPayment: boolean;
@@ -884,14 +910,40 @@ function MaterialSaleDetailDialog({
       className="max-w-2xl"
       action={
         sale.status === "ACTIVE" ? (
-          <a
-            href={`/print/material-sale/${sale.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground transition-colors hover:bg-accent"
-          >
-            <Printer className="h-3.5 w-3.5" /> Print
-          </a>
+          <div className="flex items-center gap-2">
+            {sale.irnStatus === "GENERATED" ? (
+              <span
+                className="inline-flex items-center gap-1 rounded-md border border-success/30 bg-success/10 px-3 py-1.5 text-xs font-medium text-success"
+                title={`IRN: ${sale.irn}${sale.irnAckNo ? ` · Ack ${sale.irnAckNo}` : ""}`}
+              >
+                <CheckCircle2 className="h-3 w-3" /> IRN Generated
+              </span>
+            ) : sale.irnStatus === "GENERATING" ? (
+              <span className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                Generating IRN…
+              </span>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={submitting}
+                onClick={onGenerateIrn}
+                title={sale.irnStatus === "FAILED"
+                  ? (sale.irnError ?? "Retry IRN generation")
+                  : "Generate e-Invoice IRN (B2B only — requires GSTIN on both parties)"}
+              >
+                <Zap className="h-4 w-4" /> {sale.irnStatus === "FAILED" ? "Retry IRN" : "Generate IRN"}
+              </Button>
+            )}
+            <a
+              href={`/print/material-sale/${sale.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-body font-medium text-foreground transition-colors hover:bg-accent"
+            >
+              <Printer className="h-3.5 w-3.5" /> Print
+            </a>
+          </div>
         ) : undefined
       }
     >

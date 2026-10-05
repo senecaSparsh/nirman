@@ -3,7 +3,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createSupplierPayment, getSupplierPayments } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, assertScopeAllows, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
+import { prisma } from "@nirman/db";
 
 const paymentSchema = z.object({
   supplierId: z.string().min(1, "supplierId is required"),
@@ -30,7 +31,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const supplierId = searchParams.get("supplierId") ?? undefined;
   const purchaseOrderId = searchParams.get("purchaseOrderId") ?? undefined;
 
-  const payments = await getSupplierPayments({ companyId: company.id, supplierId, purchaseOrderId });
+  const payments = await getSupplierPayments({ companyId: company.id, supplierId, purchaseOrderId, scope: await scopeWhere("SupplierPayment") });
 
   return json(
     payments.map((p) => ({
@@ -70,6 +71,26 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
   const data = parsed.data;
+
+  // Scope-check the payment's anchor — a scoped finance user pays only
+  // in-scope POs/invoices (paying Site Two's supplier from a Site One login
+  // would corrupt both projects' AP ledgers).
+  if (data.purchaseOrderId || data.invoiceId) {
+    const [po, inv] = await Promise.all([
+      data.purchaseOrderId
+        ? prisma.purchaseOrder.findFirst({ where: { id: data.purchaseOrderId, companyId: company.id }, select: { projectId: true } })
+        : null,
+      data.invoiceId
+        ? prisma.supplierInvoice.findFirst({ where: { id: data.invoiceId, companyId: company.id }, select: { purchaseOrder: { select: { projectId: true } } } })
+        : null,
+    ]);
+    const anchorProjectId = po?.projectId ?? inv?.purchaseOrder?.projectId ?? null;
+    try {
+      await assertScopeAllows({ projectId: anchorProjectId, departmentId: null });
+    } catch (err) {
+      return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
+    }
+  }
 
   try {
     const payment = await createSupplierPayment({

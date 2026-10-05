@@ -21,7 +21,7 @@ import { MobileNcrFab } from "./MobileNcrFab";
  */
 export default function MobileQualityControlPage() {
   return (
-    <MobileListPage perm={PERM.QC_VIEW} managePerm={PERM.QC_MANAGE} what="quality control">
+    <MobileListPage perm={PERM.QC_VIEW} scopeAware managePerm={PERM.QC_MANAGE} what="quality control">
       {async ({ company, canManage }) => {
         const actions = await getActionPermissions();
         const canCreateNcr = actions?.canCreateNcr ?? canManage;
@@ -38,7 +38,7 @@ export default function MobileQualityControlPage() {
           }),
           canManage
             ? prisma.project.findMany({
-                where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+                where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] }, ...await scopeWhere("Project") },
                 orderBy: { name: "asc" },
                 select: { id: true, name: true },
               })
@@ -51,7 +51,7 @@ export default function MobileQualityControlPage() {
               })
             : [],
           prisma.goodsReceipt.findMany({
-            where: { inspectionStatus: "PENDING", location: { companyId: company.id } },
+            where: { inspectionStatus: "PENDING", location: { companyId: company.id }, ...await scopeWhere("GoodsReceipt") },
             orderBy: { receiptDate: "desc" },
             take: 20,
             include: {

@@ -26,21 +26,29 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     scrapValuationPct: z.number().min(0).max(100).optional(),
   });
 
-  const parsed = schema.parse(body);
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
+
+  // Auto-generating scrap writes stock records — the standalone scrap
+  // endpoint gates that behind INVENTORY_MANAGE, so this path must too.
+  // Read-only variance analysis stays at DPR_SUBMIT.
+  if (parsed.data.autoGenerateScrap) {
+    await requirePermission(PERM.INVENTORY_MANAGE);
+  }
 
   const result = await runDprVarianceAnalysis(id, {
     companyId: company.id,
-    autoGenerateScrap: parsed.autoGenerateScrap,
-    scrapToLocationId: parsed.scrapToLocationId,
-    scrapValuationPct: parsed.scrapValuationPct,
+    autoGenerateScrap: parsed.data.autoGenerateScrap,
+    scrapToLocationId: parsed.data.scrapToLocationId,
+    scrapValuationPct: parsed.data.scrapValuationPct,
     userId: user.id,
   });
 
   // Revalidate pages affected by variance analysis + scrap generation
-  revalidatePath("/hr/daily-reports");
   revalidatePath("/hr/dprs");
   revalidatePath("/m/dprs");
-    revalidatePath("/m/dprs");
   if (result.scrapGenerationId) {
     revalidatePath("/stock");
     revalidatePath("/m/inventory");

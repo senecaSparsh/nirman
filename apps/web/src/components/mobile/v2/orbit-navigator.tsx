@@ -480,13 +480,19 @@ export function OrbitNavigator({
                               {chip.count > 99 ? "99" : chip.count}
                             </span>
                           </div>
-                          {/* Label — radially outward, never moves the anchor */}
+                          {/* Label — radially outward, never moves the anchor.
+                              A paper-backed pill keeps the text legible where
+                              the label crosses the orbit track or slides under
+                              a neighbouring node on crowded rings (12+ chips). */}
                           <span
                             className={`absolute left-1/2 -translate-x-1/2 w-20 text-center text-m-caption font-semibold leading-tight line-clamp-2 ${labelAbove ? "bottom-full mb-1" : "top-full mt-1"}`}
                             style={{
                               color: isEmpty
                                 ? "var(--color-ink-300)"
                                 : "var(--color-ink-950)",
+                              backgroundColor: "color-mix(in srgb, var(--color-paper) 88%, transparent)",
+                              borderRadius: "0.25rem",
+                              padding: "0 0.125rem",
                             }}
                           >
                             {chip.label}

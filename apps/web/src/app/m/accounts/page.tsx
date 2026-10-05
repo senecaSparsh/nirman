@@ -11,7 +11,7 @@ import {
   ArrowDownLeft,
   Users} from "lucide-react";
 import { prisma } from "@nirman/db";
-import { getTallySyncStats, getSupplierOutstanding } from "@nirman/services";
+import { getTallySyncStats, getSupplierOutstanding, getExpenseBudgetVariance } from "@nirman/services";
 import { getCompany, getCurrentUser, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
 import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 import { PERM } from "@/lib/roles";
@@ -26,6 +26,7 @@ import { TallySyncButton } from "@/components/mobile/tally-sync-button";
 import { AttentionBannerCarousel, type AttentionBanner } from "@/components/mobile/v2/attention-banner-carousel";
 import { AccountsInteractive } from "./accounts-interactive";
 import { MobileAccountsHubTabs } from "./MobileAccountsHubTabs";
+import { MobilePlannedView, type RecurringItem, type BudgetItem } from "./MobilePlannedView";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 // ── List components (reused from their existing pages, unchanged) ──
@@ -61,14 +62,14 @@ export default function AccountsHomePage({
         // ── Fetch badge counts for the tab bar ──
         const needEmployees = canCreateClaim || canManagePettyCash;
         const needPayments = canManagePayments;
-        const needCategories = canCreateClaim;
+        const needCategories = canCreateClaim || canManagePayments;
         const currentUser = await getCurrentUser();
         const [pendingClaimsCount, projects, subcontractors, employees, paymentForm, expenseCategories] = await Promise.all([
           prisma.expenseClaim.count({
-            where: { companyId: company.id, status: "SUBMITTED" }}).catch(() => 0),
+            where: { ...await scopeWhere("ExpenseClaim"), companyId: company.id, status: "SUBMITTED" }}).catch(() => 0),
           (canCreateExpense || canCreateProjectCost || canCreateClaim || canManagePettyCash)
             ? prisma.project.findMany({
-                where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+                where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
                 select: { id: true, name: true },
                 orderBy: { name: "asc" }})
             : [],
@@ -93,7 +94,8 @@ export default function AccountsHomePage({
                     orderBy: { name: "asc" },
                     take: 200}),
                   prisma.purchaseOrder.findMany({
-                    where: {
+                    where: { ...await scopeWhere("PurchaseOrder"),
+                      ...await scopeWhere("PurchaseOrder"),
                       companyId: company.id,
                       supplierId: { not: undefined as unknown as string },
                       status: { in: ["APPROVED", "ORDERED", "PARTIAL", "RECEIVED"] }},
@@ -101,7 +103,7 @@ export default function AccountsHomePage({
                     orderBy: { createdAt: "desc" },
                     take: 100}),
                   prisma.supplierInvoice.findMany({
-                    where: { companyId: company.id, status: { in: ["PENDING", "PARTIAL"] } },
+                    where: { ...await scopeWhere("SupplierInvoice"), companyId: company.id, status: { in: ["PENDING", "PARTIAL"] } },
                     select: { id: true, invoiceNumber: true, supplierId: true, totalAmount: true, status: true },
                     orderBy: { createdAt: "desc" },
                     take: 100}),
@@ -124,7 +126,7 @@ export default function AccountsHomePage({
           claims: pendingClaimsCount};
 
         // ── Render the active tab's content ──
-        const validTabs = ["overview", "expenses", "claims", "petty-cash", "payments", "receipts", "gl"];
+        const validTabs = ["overview", "expenses", "claims", "petty-cash", "payments", "receipts", "planned", "gl"];
         const activeTab = validTabs.includes(tab ?? "") ? tab! : "overview";
 
         let content: React.ReactNode;
@@ -138,6 +140,15 @@ export default function AccountsHomePage({
           content = <AccountsPaymentsTab />;
         } else if (activeTab === "receipts") {
           content = <AccountsReceiptsTab />;
+        } else if (activeTab === "planned") {
+          content = (
+            <AccountsPlannedTab
+              projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+              categories={expenseCategories.map((c) => ({ id: c.id, name: c.name }))}
+              suppliers={paymentForm.suppliers.map((s) => ({ id: s.id, name: s.name }))}
+              canManage={canManagePayments}
+            />
+          );
         } else if (activeTab === "gl") {
           content = <AccountsGlTab />;
         } else {
@@ -233,9 +244,9 @@ async function AccountsOverviewContent() {
     // Finance-category approvals — same statuses the approvals queue surfaces
     // (expense PENDING · expense claim SUBMITTED · RA bill SUBMITTED).
     Promise.all([
-      prisma.expense.count({ where: { companyId: company.id, status: "PENDING" } }),
-      prisma.expenseClaim.count({ where: { companyId: company.id, status: "SUBMITTED" } }),
-      prisma.raBill.count({ where: { companyId: company.id, status: "SUBMITTED" } }),
+      prisma.expense.count({ where: { companyId: company.id, status: "PENDING", ...await scopeWhere("Expense") } }),
+      prisma.expenseClaim.count({ where: { companyId: company.id, status: "SUBMITTED", ...await scopeWhere("ExpenseClaim") } }),
+      prisma.raBill.count({ where: { companyId: company.id, status: "SUBMITTED", ...await scopeWhere("RaBill") } }),
     ])
       .then(([e, c, b]) => e + c + b)
       .catch(() => 0),
@@ -476,7 +487,7 @@ async function AccountsExpensesTab() {
 
   const BATCH_SIZE = 40;
   const expenses = await prisma.expense.findMany({
-    where: {...await scopeWhere("Expense"),  companyId: company.id },
+    where: { ...await scopeWhere("Expense"),...await scopeWhere("Expense"),  companyId: company.id },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: BATCH_SIZE + 1,
     include: {
@@ -544,7 +555,7 @@ async function AccountsClaimsTab() {
 
   const BATCH_SIZE = 40;
   const claims = await prisma.expenseClaim.findMany({
-    where: {...await scopeWhere("ExpenseClaim"),  companyId: company.id },
+    where: { ...await scopeWhere("ExpenseClaim"),...await scopeWhere("ExpenseClaim"),  companyId: company.id },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: BATCH_SIZE + 1,
     include: {
@@ -592,7 +603,7 @@ async function AccountsPettyCashTab() {
   const canSpend = __effPerms.includes(PERM.EXPENSE_CREATE);
 
   const floats = await prisma.pettyCashFloat.findMany({
-    where: {...await scopeWhere("PettyCashFloat"),  companyId: company.id },
+    where: { ...await scopeWhere("PettyCashFloat"),...await scopeWhere("PettyCashFloat"),  companyId: company.id },
     orderBy: { name: "asc" },
     include: {
       project: { select: { id: true, name: true } },
@@ -638,7 +649,7 @@ async function AccountsPaymentsTab() {
 
   const BATCH_SIZE = 40;
   const payments = await prisma.supplierPayment.findMany({
-    where: { companyId: company.id },
+    where: { ...await scopeWhere("SupplierPayment"), companyId: company.id },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: BATCH_SIZE + 1,
     include: {
@@ -688,12 +699,12 @@ async function AccountsReceiptsTab() {
 
   const [assetPayments, materialPayments] = await Promise.all([
     prisma.assetSalePayment.findMany({
-      where: { assetSale: { companyId: company.id }, status: "RECEIVED" },
+      where: { ...await scopeWhere("AssetSalePayment"), assetSale: { companyId: company.id }, status: "RECEIVED" },
       orderBy: { paymentDate: "desc" },
       take: 50,
       include: { assetSale: { select: { customer: { select: { name: true } }, saleNumber: true } } }}).catch(() => []),
     prisma.materialSalePayment.findMany({
-      where: { sale: { companyId: company.id } },
+      where: { ...await scopeWhere("MaterialSalePayment"), sale: { companyId: company.id } },
       orderBy: { paymentDate: "desc" },
       take: 50,
       include: { sale: { select: { customer: { select: { name: true } }, saleNumber: true, partyName: true } } }}).catch(() => []),
@@ -813,5 +824,92 @@ async function AccountsGlTab() {
         />
       )}
     </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * PLANNED TAB — recurring expenses + expense budgets with variance
+ * ═══════════════════════════════════════════════════════════════════════════ */
+async function AccountsPlannedTab({
+  projects,
+  categories,
+  suppliers,
+  canManage,
+}: {
+  projects: { id: string; name: string }[];
+  categories: { id: string; name: string }[];
+  suppliers: { id: string; name: string }[];
+  canManage: boolean;
+}) {
+  await connection();
+  const company = await getCompany();
+
+  const [recurringRows, budgetRows, variance] = await Promise.all([
+    prisma.recurringExpense.findMany({
+      where: { companyId: company.id, ...await scopeWhere("RecurringExpense", {}) },
+      orderBy: { nextRunDate: "asc" },
+      take: 300,
+      include: {
+        project: { select: { id: true, name: true } },
+        categoryMaster: { select: { id: true, name: true } },
+        supplier: { select: { id: true, name: true } },
+      },
+    }),
+    prisma.expenseBudget.findMany({
+      where: { companyId: company.id, ...await scopeWhere("ExpenseBudget", {}) },
+      orderBy: { periodStart: "desc" },
+      take: 300,
+      include: {
+        project: { select: { id: true, name: true } },
+        categoryMaster: { select: { id: true, name: true } },
+      },
+    }),
+    getExpenseBudgetVariance(company.id).catch(() => []),
+  ]);
+
+  const varianceMap = new Map(variance.map((v) => [v.budgetId, v]));
+
+  const recurring: RecurringItem[] = recurringRows.map((r) => ({
+    id: r.id,
+    category: r.category,
+    categoryName: r.categoryMaster?.name ?? null,
+    amount: toNum(r.amount),
+    frequency: r.frequency,
+    startDate: r.startDate.toISOString(),
+    endDate: r.endDate?.toISOString() ?? null,
+    nextRunDate: r.nextRunDate.toISOString(),
+    lastRunDate: r.lastRunDate?.toISOString() ?? null,
+    isActive: r.isActive,
+    projectName: r.project?.name ?? null,
+    payeeName: r.payeeName,
+    supplierName: r.supplier?.name ?? null,
+    paymentMode: r.paymentMode,
+  }));
+
+  const budgets: BudgetItem[] = budgetRows.map((b) => {
+    const v = varianceMap.get(b.id);
+    return {
+      id: b.id,
+      category: b.category,
+      categoryName: b.categoryMaster?.name ?? null,
+      amount: toNum(b.amount),
+      periodStart: b.periodStart.toISOString(),
+      periodEnd: b.periodEnd.toISOString(),
+      projectName: b.project?.name ?? null,
+      actualAmount: v?.actualAmount ?? 0,
+      variance: v?.variance ?? toNum(b.amount),
+      utilizationPct: v?.utilizationPct ?? 0,
+    };
+  });
+
+  return (
+    <MobilePlannedView
+      recurring={recurring}
+      budgets={budgets}
+      projects={projects}
+      categories={categories}
+      suppliers={suppliers}
+      canManage={canManage}
+    />
   );
 }

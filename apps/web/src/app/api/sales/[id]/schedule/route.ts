@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createSalePaymentSchedule, autoGenerateScheduleItems } from "@nirman/services";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, paymentScheduleSchema, requirePermission, getCompany } from "@/lib/server";
+import { apiHandler, json, paymentScheduleSchema, requirePermission, getCompany, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -25,7 +25,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   const { id } = await params;
 
   const company = await getCompany();
-  const existing = await prisma.assetSale.findFirst({ where: { id, companyId: company.id }, select: { id: true } });
+  const existing = await prisma.assetSale.findFirst({ where: { id, companyId: company.id, ...await scopeWhere("AssetSale", {}) }, select: { id: true } });
   if (!existing) return json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json();

@@ -29,9 +29,12 @@ export default function MobileTransferDetailPage({
         const transfer = await prisma.stockTransfer.findFirst({
           where: {
             id,
-            OR: [
-              { fromLocation: { companyId: company.id, deletedAt: null } },
-              { toLocation: { companyId: company.id, deletedAt: null } },
+            AND: [
+              await scopeWhere("StockTransfer"),
+              { OR: [
+                { fromLocation: { companyId: company.id, deletedAt: null } },
+                { toLocation: { companyId: company.id, deletedAt: null } },
+              ]},
             ],
           },
           include: {

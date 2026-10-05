@@ -110,6 +110,122 @@ async function generatePoNumber(tx: Prisma.TransactionClient, companyId: string)
   return nextSequenceNumber(tx, prefix, 4);
 }
 
+/**
+ * Rate-contract enforcement for PO lines — an agreed rate is a control,
+ * not a hint. For each line covered by an ACTIVE in-validity contract for
+ * (supplier, material): the unit rate must not exceed the agreed rate and
+ * the cumulative released qty must not exceed the contract's maxQty. The
+ * matching contracts' `totalReleasedQty` is incremented inside the
+ * caller's transaction, so PO creation and release tracking are atomic.
+ *
+ * Contract selection: `orderBy validTo desc` + Map last-write-wins → the
+ * earliest-expiring matching contract is charged per material.
+ */
+async function applyRateContractRules(
+  tx: Prisma.TransactionClient,
+  input: {
+    companyId: string;
+    supplierId: string;
+    lines: { materialId: string; qtyOrdered: Decimal | number | string; unitCost: Decimal | number | string }[];
+    materialNameById?: Map<string, string>;
+  },
+): Promise<void> {
+  const now = new Date();
+  const materialIds = [...new Set(input.lines.map((l) => l.materialId))];
+  const activeContracts = await tx.rateContract.findMany({
+    where: {
+      companyId: input.companyId,
+      supplierId: input.supplierId,
+      materialId: { in: materialIds },
+      status: "ACTIVE",
+      validFrom: { lte: now },
+      validTo: { gte: now },
+    },
+    orderBy: { validTo: "desc" },
+  });
+  const contractByMaterial = new Map(activeContracts.map((c) => [c.materialId, c]));
+  const contractQtyDelta = new Map<string, Decimal>();
+  for (const line of input.lines) {
+    const contract = contractByMaterial.get(line.materialId);
+    if (!contract) continue;
+    const qty = new Decimal(line.qtyOrdered);
+    const cost = new Decimal(line.unitCost);
+    const agreed = new Decimal(contract.agreedRate);
+    const matName = input.materialNameById?.get(line.materialId) ?? line.materialId;
+    if (cost.gt(agreed)) {
+      throw new ServiceError(
+        `Rate contract ${contract.contractNumber} locks ${matName} at ${agreed.toFixed(2)}/unit — PO rate ${cost.toFixed(2)} exceeds it. Use the agreed rate or revise the contract.`,
+        400,
+      );
+    }
+    const released = new Decimal(contract.totalReleasedQty).plus(contractQtyDelta.get(contract.id) ?? 0).plus(qty);
+    if (contract.maxQty != null && released.gt(contract.maxQty)) {
+      throw new ServiceError(
+        `Rate contract ${contract.contractNumber} for ${matName} caps total released qty at ${contract.maxQty} — this release would reach ${released}.`,
+        400,
+      );
+    }
+    contractQtyDelta.set(contract.id, new Decimal(contractQtyDelta.get(contract.id) ?? 0).plus(qty));
+  }
+  for (const [contractId, delta] of contractQtyDelta) {
+    await tx.rateContract.update({
+      where: { id: contractId },
+      data: { totalReleasedQty: { increment: delta } },
+    });
+  }
+}
+
+/**
+ * Return committed quantity to rate contracts — the mirror of
+ * `applyRateContractRules`, used when a PO dies (reject/cancel) or its
+ * undelivered remainder is written off (short-close). `totalReleasedQty`
+ * is cumulative committed qty, so only non-terminal POs should consume it.
+ *
+ * Selection mirrors creation (earliest validTo wins per material) but is
+ * constrained to contracts whose validity window covered `poCreatedAt` —
+ * the contract may have lapsed since, yet only contracts that were live
+ * when the PO was created could have been incremented for it. Without
+ * this, cancelling an old PO would eat qty committed by newer POs on a
+ * newer contract. Clamped at 0 so drift never goes negative.
+ */
+async function releaseRateContractQty(
+  tx: Prisma.TransactionClient,
+  input: {
+    companyId: string;
+    supplierId: string;
+    poCreatedAt: Date;
+    lines: { materialId: string; qty: Decimal | number | string }[];
+  },
+): Promise<void> {
+  const materialIds = [...new Set(input.lines.map((l) => l.materialId))];
+  if (materialIds.length === 0) return;
+  const contracts = await tx.rateContract.findMany({
+    where: {
+      companyId: input.companyId,
+      supplierId: input.supplierId,
+      materialId: { in: materialIds },
+      validFrom: { lte: input.poCreatedAt },
+      validTo: { gte: input.poCreatedAt },
+    },
+    orderBy: { validTo: "desc" },
+  });
+  const contractByMaterial = new Map(contracts.map((c) => [c.materialId, c]));
+  const delta = new Map<string, Decimal>();
+  for (const line of input.lines) {
+    const contract = contractByMaterial.get(line.materialId);
+    if (!contract) continue;
+    delta.set(contract.id, new Decimal(delta.get(contract.id) ?? 0).plus(line.qty));
+  }
+  for (const [contractId, qty] of delta) {
+    const contract = contracts.find((c) => c.id === contractId)!;
+    const next = Decimal.max(new Decimal(0), new Decimal(contract.totalReleasedQty).minus(qty));
+    await tx.rateContract.update({
+      where: { id: contractId },
+      data: { totalReleasedQty: next },
+    });
+  }
+}
+
 export async function createPurchaseOrder(input: CreatePOInput) {
   const po = await withSerializableTransaction(async (tx) => createPurchaseOrderTx(tx, input));
 
@@ -187,55 +303,15 @@ export async function createPurchaseOrderTx(tx: Prisma.TransactionClient, input:
     }
 
     // 3b. Rate-contract enforcement — an agreed rate is a control, not a
-    // hint. If an ACTIVE contract covers (material, supplier), the PO must
-    // honour it: block over-rate lines and releases beyond the contract's
-    // maxQty, and track cumulative releasedQty so the cap is real. Before
-    // this, contracts were stored but never consulted — a ₹350 locked rate
-    // meant nothing when a PO went out at ₹400.
-    const now = new Date();
-    const activeContracts = await tx.rateContract.findMany({
-      where: {
-        companyId: input.companyId,
-        supplierId: input.supplierId,
-        materialId: { in: materialIds },
-        status: "ACTIVE",
-        validFrom: { lte: now },
-        validTo: { gte: now },
-      },
-      orderBy: { validTo: "desc" },
-    });
-    const contractByMaterial = new Map(activeContracts.map((c) => [c.materialId, c]));
+    // hint. Blocks over-rate lines and releases beyond the contract's
+    // maxQty, and tracks cumulative releasedQty so the cap is real.
     const materialNameById = new Map(materials.map((m) => [m.id, m.name]));
-    const contractQtyDelta = new Map<string, Decimal>();
-    for (const line of input.lines) {
-      const contract = contractByMaterial.get(line.materialId);
-      if (!contract) continue;
-      const qty = new Decimal(line.qtyOrdered);
-      const cost = new Decimal(line.unitCost);
-      const agreed = new Decimal(contract.agreedRate);
-      const matName = materialNameById.get(line.materialId) ?? line.materialId;
-      if (cost.gt(agreed)) {
-        throw new ServiceError(
-          `Rate contract ${contract.contractNumber} locks ${matName} at ${agreed.toFixed(2)}/unit — PO rate ${cost.toFixed(2)} exceeds it. Use the agreed rate or revise the contract.`,
-          400,
-        );
-      }
-      const released = new Decimal(contract.totalReleasedQty).plus(contractQtyDelta.get(contract.id) ?? 0).plus(qty);
-      if (contract.maxQty != null && released.gt(contract.maxQty)) {
-        throw new ServiceError(
-          `Rate contract ${contract.contractNumber} for ${matName} caps total released qty at ${contract.maxQty} — this release would reach ${released}.`,
-          400,
-        );
-      }
-      contractQtyDelta.set(contract.id, new Decimal(contractQtyDelta.get(contract.id) ?? 0).plus(qty));
-    }
-    // Apply the cumulative release inside the same serializable tx
-    for (const [contractId, delta] of contractQtyDelta) {
-      await tx.rateContract.update({
-        where: { id: contractId },
-        data: { totalReleasedQty: { increment: delta } },
-      });
-    }
+    await applyRateContractRules(tx, {
+      companyId: input.companyId,
+      supplierId: input.supplierId,
+      lines: input.lines,
+      materialNameById,
+    });
 
     // 4. Compute totals — line subtotals + GST + per-line landed-cost components
     let subtotal = new Decimal(0);
@@ -520,7 +596,10 @@ export async function rejectPurchaseOrder(
   rejectionReason?: string,
 ) {
   const result = await withSerializableTransaction(async (tx) => {
-    const po = await tx.purchaseOrder.findUnique({ where: { id: poId } });
+    const po = await tx.purchaseOrder.findUnique({
+      where: { id: poId },
+      include: { lines: { select: { materialId: true, qtyOrdered: true } } },
+    });
     if (!po) throw new ServiceError("PO not found", 404);
     if (po.status !== "DRAFT") throw new ServiceError(`Cannot reject PO in status ${po.status}`);
 
@@ -564,18 +643,31 @@ export async function rejectPurchaseOrder(
       before: { status: po.status },
       after: { status: "REJECTED", rejectedAt: updated.rejectedAt },
     });
+    // A rejected PO never becomes an order — hand its committed qty back
+    // to the rate contract so the cap isn't consumed by a dead PO.
+    // Resubmitting re-consumes it via applyRateContractRules.
+    await releaseRateContractQty(tx, {
+      companyId: po.companyId,
+      supplierId: po.supplierId,
+      poCreatedAt: po.createdAt,
+      lines: po.lines.map((l) => ({ materialId: l.materialId, qty: l.qtyOrdered })),
+    });
     return { updated, po };
   });
 
   void emitNotificationEvent({
-    eventType: NotificationEventType.PO_APPROVED,
+    eventType: NotificationEventType.PO_REJECTED,
     companyId: result.po.companyId,
     entityType: "PurchaseOrder",
     entityId: poId,
     variables: {
       poNumber: result.updated.poNumber ?? poId,
-      total: new Decimal(result.updated.total).toFixed(2),
+      reason: rejectionReason ?? "",
     },
+    // The creator must hear about the rejection even if their role isn't in
+    // the procurement role-set; the rejector already knows what they did.
+    extraRecipientIds: [result.po.createdById],
+    excludeIds: [rejectedById],
     timestamp: new Date(),
   });
 
@@ -588,11 +680,21 @@ export async function rejectPurchaseOrder(
  */
 export async function resubmitPurchaseOrder(poId: string, userId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const po = await tx.purchaseOrder.findUnique({ where: { id: poId } });
+    const po = await tx.purchaseOrder.findUnique({
+      where: { id: poId },
+      include: { lines: { select: { materialId: true, qtyOrdered: true, unitCost: true } } },
+    });
     if (!po) throw new ServiceError("PO not found", 404);
     if (po.status !== "REJECTED") {
       throw new ServiceError(`Cannot resubmit PO in status ${po.status}`, 400);
     }
+    // Rejection released the contract qty — re-commit it (re-checks rate
+    // and cap against the contract as it stands now).
+    await applyRateContractRules(tx, {
+      companyId: po.companyId,
+      supplierId: po.supplierId,
+      lines: po.lines,
+    });
     const updated = await tx.purchaseOrder.update({
       where: { id: poId },
       data: {
@@ -619,7 +721,7 @@ export async function cancelPurchaseOrder(poId: string, userId?: string) {
   return withSerializableTransaction(async (tx) => {
     const po = await tx.purchaseOrder.findUnique({
       where: { id: poId },
-      include: { lines: { select: { qtyReceived: true } } },
+      include: { lines: { select: { materialId: true, qtyOrdered: true, qtyReceived: true } } },
     });
     if (!po) throw new ServiceError("PO not found", 404);
     if (po.status === "CANCELLED") throw new ServiceError("PO already cancelled");
@@ -633,6 +735,14 @@ export async function cancelPurchaseOrder(poId: string, userId?: string) {
       throw new ServiceError("Cannot cancel PO with received goods — received stock is real. Use a stock adjustment instead.");
     }
     const updated = await tx.purchaseOrder.update({ where: { id: poId }, data: { status: "CANCELLED" } });
+    // A cancelled PO never delivers — release its committed qty back to
+    // the rate contract so the maxQty cap isn't consumed by a dead PO.
+    await releaseRateContractQty(tx, {
+      companyId: po.companyId,
+      supplierId: po.supplierId,
+      poCreatedAt: po.createdAt,
+      lines: po.lines.map((l) => ({ materialId: l.materialId, qty: l.qtyOrdered })),
+    });
     await logAction(tx, {
       userId,
       companyId: po.companyId,
@@ -706,6 +816,16 @@ export async function shortClosePurchaseOrder(input: {
       data: { status: "SHORT_CLOSED" },
     });
 
+    // The shortfall will never arrive — release only that qty back to the
+    // rate contract. Received qty stays committed (goods were really
+    // released under the contract).
+    await releaseRateContractQty(tx, {
+      companyId: po.companyId,
+      supplierId: po.supplierId,
+      poCreatedAt: po.createdAt,
+      lines: shortfall.map((l) => ({ materialId: l.materialId, qty: l.short })),
+    });
+
     await logAction(tx, {
       userId: input.userId,
       companyId: po.companyId,
@@ -747,7 +867,7 @@ export async function addLineToPurchaseOrder(input: {
   return withSerializableTransaction(async (tx) => {
     const po = await tx.purchaseOrder.findUnique({
       where: { id: input.poId },
-      select: { id: true, status: true, companyId: true, poNumber: true },
+      select: { id: true, status: true, companyId: true, poNumber: true, supplierId: true },
     });
     if (!po) throw new ServiceError("PO not found", 404);
     if (po.status !== "ORDERED" && po.status !== "PARTIAL") {
@@ -778,6 +898,15 @@ export async function addLineToPurchaseOrder(input: {
 
     const gstRate = new Decimal(material.gstRate ?? 0);
     const lineTotal = qty.times(cost);
+
+    // Rate contracts apply to top-up lines too — the agreed rate and
+    // maxQty cap are real controls regardless of when the line was added.
+    await applyRateContractRules(tx, {
+      companyId: po.companyId,
+      supplierId: po.supplierId,
+      lines: [{ materialId: input.materialId, qtyOrdered: qty, unitCost: cost }],
+      materialNameById: new Map([[material.id, material.name]]),
+    });
 
     const line = await tx.purchaseOrderLine.create({
       data: {
@@ -1074,6 +1203,24 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
         },
       },
     });
+
+    // Log the inbound vehicle trip — auto-builds the Vehicle master from usage.
+    if (input.vehicleNumber) {
+      const { recordVehicleTrip } = await import("./vehicle");
+      await recordVehicleTrip({
+        companyId: po.companyId,
+        vehicleNumber: input.vehicleNumber,
+        vehicleType: input.vehicleType ?? "OTHER",
+        driverName: input.driverName,
+        driverPhone: input.driverPhone,
+        transporterName: input.transporterName,
+        movementType: "PURCHASE_RECEIPT",
+        refType: "GoodsReceipt",
+        refId: goodsReceipt.id,
+        toLocationId: input.locationId,
+        tx,
+      });
+    }
 
     // 4. Recompute PO status
     const refreshedLines = await tx.purchaseOrderLine.findMany({

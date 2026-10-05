@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { PERM } from "@/lib/roles";
-import { getCompany } from "@/lib/server";
+import { getCompany, scopeWhere } from "@/lib/server";
 import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import MobileNewMaterialClient from "./MobileNewMaterialClient";
 
@@ -21,7 +21,7 @@ export default function NewMaterialPage() {
             select: { id: true, name: true, unit: true, hsnCode: true, gstRate: true },
           }),
           prisma.stockLocation.findMany({
-            where: { companyId: company.id, deletedAt: null },
+            where: { ...await scopeWhere("StockLocation"), companyId: company.id, deletedAt: null },
             orderBy: [{ type: "asc" }, { name: "asc" }],
             select: { id: true, name: true, type: true, project: { select: { name: true } } },
           }),

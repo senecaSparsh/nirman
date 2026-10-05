@@ -50,7 +50,7 @@ async function PoDetailContent({
   const { id } = await params;
 
   const po = await prisma.purchaseOrder.findFirst({
-    where: { id, companyId: company.id },
+    where: { ...await scopeWhere("PurchaseOrder"), id, companyId: company.id },
     include: {
       supplier: true,
       project: { select: { id: true, name: true } },

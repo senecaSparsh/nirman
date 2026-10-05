@@ -96,7 +96,7 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
       select: { id: true, name: true, gstin: true, phone: true, email: true, address: true, balanceOwed: true, leadTimeDays: true }}),
     prisma.purchaseOrder.findMany({
       take: 200,
-      where: { companyId: company.id, status: { in: ["APPROVED", "ORDERED", "PARTIAL", "RECEIVED"] } },
+      where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: { in: ["APPROVED", "ORDERED", "PARTIAL", "RECEIVED"] } },
       orderBy: { poNumber: "desc" },
       select: { id: true, poNumber: true, supplierId: true }}),
   ]);
@@ -245,7 +245,7 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
 
   // Fetch supplier payments tab data conditionally
   const supplierPaymentsData = needSupplierPayments ? await prisma.supplierPayment.findMany({
-    take: 200, where: { companyId: company.id }, orderBy: { paymentDate: "desc" },
+    take: 200, where: { ...await scopeWhere("SupplierPayment"), companyId: company.id }, orderBy: { paymentDate: "desc" },
     include: { supplier: { select: { id: true, name: true } }, purchaseOrder: { select: { poNumber: true } }, invoice: { select: { invoiceNumber: true } }, createdBy: { select: { name: true } } }}) : [];
 
   return (

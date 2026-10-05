@@ -76,7 +76,6 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     });
     revalidatePath("/renovations");
     revalidatePath("/m/units");
-    revalidatePath(`/renovations/${id}`);
     return json({ ok: true, id: updated.id, title: updated.title });
   } catch (err) {
     const message = err instanceof ServiceError ? err.message : "Failed to update renovation";
@@ -105,8 +104,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     if (action === "start") {
       const r = await startRenovation(id, user.id, company.id);
       revalidatePath("/renovations");
-    revalidatePath("/m/units");
-      revalidatePath(`/renovations/${id}`);
+      revalidatePath("/m/units");
       return json({ ok: true, id: r.id, status: r.status });
     } else if (action === "complete") {
       const { renovation, roi } = await completeRenovation(id, {
@@ -115,16 +113,14 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
         companyId: company.id,
       });
       revalidatePath("/renovations");
-    revalidatePath("/m/units");
-      revalidatePath(`/renovations/${id}`);
+      revalidatePath("/m/units");
       revalidatePath("/projects");
       revalidatePath("/gl");
       return json({ ok: true, id: renovation.id, status: renovation.status, roi: roi.toFixed(2) });
     } else if (action === "cancel") {
       const r = await cancelRenovation(id, user.id, company.id);
       revalidatePath("/renovations");
-    revalidatePath("/m/units");
-      revalidatePath(`/renovations/${id}`);
+      revalidatePath("/m/units");
       return json({ ok: true, id: r.id, status: r.status });
     }
     return json({ error: "Unknown action. Use 'start', 'complete', or 'cancel'." }, { status: 400 });

@@ -126,6 +126,9 @@ export default function MobileMaterialSaleDetailPage({
             customer={sale.customer ? { id: sale.customer.id, name: sale.customer.name, phone: sale.customer.phone } : null}
             project={sale.project ? { id: sale.project.id, name: sale.project.name } : null}
             gatePass={gatePass ? { id: gatePass.id, gatePassNumber: gatePass.gatePassNumber, status: gatePass.status } : null}
+            irn={sale.irn}
+            irnStatus={sale.irnStatus}
+            irnError={sale.irnError}
             lines={sale.lines.map((l) => ({
               id: l.id,
               materialId: l.material.id,

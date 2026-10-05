@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { submitRaBill, approveRaBill, rejectRaBill, payRaBill, canAutoApprove, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, requireUser, toNum, scopeWhere, getActingRole,} from "@/lib/server";
-import { PERM } from "@/lib/roles";
+import { apiHandler, getCompany, json, requirePermission, requireUser, toNum, scopeWhere, getActingRole, getActingRoleForProject, getUserPermissions, ForbiddenError,} from "@/lib/server";
+import { PERM, hasPermission } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.ASSETS_VIEW);
@@ -58,13 +58,15 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const body = await req.json();
   const action = body?.action;
 
-  // Enforce granular permissions per action (segregation of duties)
+  // Enforce granular permissions per action (segregation of duties). Approve/
+  // reject defer their perm check until the bill's project is known — a
+  // scoped assignment (scopedRole on the project) can carry RA_APPROVE locally.
   const requiredPerm =
     action === "submit" ? PERM.RA_SUBMIT :
-    action === "approve" || action === "reject" ? PERM.RA_APPROVE :
     action === "pay" ? PERM.RA_PAY :
+    action === "approve" || action === "reject" ? null :
     PERM.ASSETS_MANAGE; // fallback
-  const user = await requirePermission(requiredPerm);
+  const user = requiredPerm ? await requirePermission(requiredPerm) : await requireUser();
   const company = await getCompany();
 
   // Scoped pre-fetch
@@ -88,7 +90,15 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       return json(bill);
     }
     if (action === "approve") {
-      const bill = await approveRaBill(id, user.id, await getActingRole());
+      // Scoped-role lift — an RA bill belongs to a project; the approver's
+      // assignment scopedRole on it grants the authority locally.
+      const raProject = await prisma.raBill.findFirst({ where: { id }, select: { projectId: true } });
+      const actingRole = (await getActingRoleForProject(raProject?.projectId ?? null)) ?? (await getActingRole());
+      const perms = await getUserPermissions();
+      if (!perms.includes(PERM.RA_APPROVE) && !hasPermission(actingRole, PERM.RA_APPROVE)) {
+        throw new ForbiddenError("You need RA bill approval rights on this project");
+      }
+      const bill = await approveRaBill(id, user.id, actingRole);
       revalidatePath("/finance");
       revalidatePath("/m/accounts");
       return json(bill);
@@ -96,6 +106,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     if (action === "reject") {
       const schema = { reason: body.reason };
       if (!schema.reason) return json({ error: "Rejection reason is required" }, { status: 400 });
+      const actingRole = (await getActingRoleForProject(existing.projectId)) ?? (await getActingRole());
+      const perms = await getUserPermissions();
+      if (!perms.includes(PERM.RA_APPROVE) && !hasPermission(actingRole, PERM.RA_APPROVE)) {
+        throw new ForbiddenError("You need RA bill approval rights on this project");
+      }
       const bill = await rejectRaBill(id, body.reason, user.id);
       revalidatePath("/finance");
       revalidatePath("/m/accounts");

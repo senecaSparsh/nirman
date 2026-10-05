@@ -629,9 +629,13 @@ export async function getEquipmentUsageSummary(equipmentId: string): Promise<Equ
   };
 }
 
-export async function listEquipmentUsage(companyId: string, equipmentId?: string) {
+export async function listEquipmentUsage(
+  companyId: string,
+  equipmentId?: string,
+  scopeFilter?: Record<string, unknown>,
+) {
   return prisma.equipmentUsageLog.findMany({
-    where: { companyId, ...(equipmentId ? { equipmentId } : {}) },
+    where: { companyId, ...(equipmentId ? { equipmentId } : {}), ...(scopeFilter ?? {}) },
     orderBy: { logDate: "desc" },
     take: 200,
     include: {

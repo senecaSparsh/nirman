@@ -96,7 +96,7 @@ async function EmployeesContent() {
   // hierarchyLevel once and let the client compare per row.
   const currentUser = await getCurrentUser();
   const viewerEmployee = await prisma.employee.findFirst({
-    where: { userId: currentUser?.id, companyId: company.id, deletedAt: null },
+    where: { ...await scopeWhere("Employee"), userId: currentUser?.id, companyId: company.id, deletedAt: null },
     select: { hierarchyLevel: true }}).catch(() => null);
 
   // Map userId → membershipId + reportsToUserCompanyId for quick lookup.

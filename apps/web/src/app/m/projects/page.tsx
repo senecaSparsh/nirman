@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum, getActionPermissions } from "@/lib/server";
+import { toNum, getActionPermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { Building2, Home } from "lucide-react";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
@@ -25,7 +25,7 @@ export default function MobileProjectsPage() {
         const actions = await getActionPermissions();
         const canCreate = actions?.canCreateProject ?? canManage;
         const projects = await prisma.project.findMany({
-          where: { companyId: company.id, deletedAt: null },
+          where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
           orderBy: { name: "asc" },
           select: {
             id: true,

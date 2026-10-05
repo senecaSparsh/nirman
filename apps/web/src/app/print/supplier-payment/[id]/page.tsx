@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getCompany, getUserPermissions } from "@/lib/server";
+import { scopeWhere,  toNum, getCompany, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { amountInWords } from "@nirman/services";
 import {formatCurrency} from "@/lib/utils";
@@ -29,7 +29,7 @@ export default async function SupplierPaymentPrintPage({
   const company = await getCompany();
 
   const payment = await prisma.supplierPayment.findFirst({
-    where: { id, companyId: company.id },
+    where: { ...await scopeWhere("SupplierPayment"), id, companyId: company.id },
     include: {
       supplier: { select: { name: true, phone: true, gstin: true, address: true } },
       purchaseOrder: { select: { poNumber: true } },

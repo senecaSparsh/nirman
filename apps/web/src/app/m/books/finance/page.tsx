@@ -35,7 +35,7 @@ async function MobileFinanceContent() {
 
   const [expenses, projectCosts, projects, subcontractors, supplierInvoices] = await Promise.all([
     prisma.expense.findMany({
-      where: {...await scopeWhere("Expense"),  companyId: company.id },
+      where: { ...await scopeWhere("Expense"),...await scopeWhere("Expense"),  companyId: company.id },
       orderBy: { date: "desc" },
       take: 30,
       include: { project: { select: { name: true } } },
@@ -48,7 +48,7 @@ async function MobileFinanceContent() {
     }),
     (canCreateExpense || canCreateProjectCost)
       ? prisma.project.findMany({
-          where: { companyId: company.id, deletedAt: null },
+          where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
           orderBy: { name: "asc" },
           select: { id: true, name: true },
         })
@@ -61,7 +61,7 @@ async function MobileFinanceContent() {
         })
       : [],
     prisma.supplierInvoice.findMany({
-      where: { companyId: company.id },
+      where: { ...await scopeWhere("SupplierInvoice"), companyId: company.id },
       orderBy: { invoiceDate: "desc" },
       take: 30,
       include: {

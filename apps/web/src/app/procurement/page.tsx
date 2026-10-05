@@ -56,7 +56,7 @@ async function ProcurementContent() {
   const [pos, suppliers, materials, locations, projects, directPurchases, categories, requisitions, phases, supplierReturns, quotationRequests, directReports] = await Promise.all([
     prisma.purchaseOrder.findMany({
       take: 500,
-      where: { companyId: company.id },
+      where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id },
       orderBy: { createdAt: "desc" },
       include: {
         supplier: { select: { id: true, name: true } },
@@ -85,7 +85,7 @@ async function ProcurementContent() {
       take: 500,
       // Include locations across the whole company group so PO destinations
       // (a project site in a sibling/child SPV) are selectable.
-      where: { companyId: { in: groupCompanyIds }, deletedAt: null },
+      where: { ...await scopeWhere("StockLocation"), companyId: { in: groupCompanyIds }, deletedAt: null },
       orderBy: [{ companyId: "asc" }, { type: "asc" }, { name: "asc" }],
       include: {
         company: { select: { id: true, name: true } },
@@ -148,7 +148,7 @@ async function ProcurementContent() {
           include: { material: { select: { code: true, name: true, unit: true } } }}}}),
     // ── Quotation requests — for the Quotations tab ──
     prisma.quotationRequest.findMany({
-      where: { companyId: company.id },
+      where: { ...await scopeWhere("QuotationRequest"), companyId: company.id },
       orderBy: { createdAt: "desc" },
       take: 100,
       include: {

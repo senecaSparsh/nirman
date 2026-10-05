@@ -14,7 +14,7 @@ import { DepartmentActivityFeed } from "@/components/department-activity-feed";
  */
 export default function MobileLandPage() {
   return (
-    <MobileListPage perm={PERM.ASSETS_VIEW} what="land parcels" permission="assets.view" managePerm={PERM.ASSETS_MANAGE}>
+    <MobileListPage perm={PERM.ASSETS_VIEW} scopeAware what="land parcels" permission="assets.view" managePerm={PERM.ASSETS_MANAGE}>
       {async ({ company, canManage }) => {
         const actions = await getActionPermissions();
         const purchases = await prisma.landPurchase.findMany({
@@ -39,7 +39,7 @@ export default function MobileLandPage() {
         const [projects, sellers] = canManage
           ? await Promise.all([
               prisma.project.findMany({
-                where: { companyId: company.id, deletedAt: null },
+                where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
                 orderBy: { name: "asc" },
                 select: { id: true, name: true },
               }),

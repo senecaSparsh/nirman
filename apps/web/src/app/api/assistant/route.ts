@@ -583,7 +583,7 @@ async function stockQueryResponse(companyId: string, entities: ParsedEntities): 
 
   // General stock summary — top items by qty across company locations
   const stockItems = await prisma.stockLocationItem.findMany({
-    where: { location: { companyId, deletedAt: null }, qty: { gt: 0 } },
+    where: { AND: [await scopeWhere("StockLocationItem"), { location: { companyId, deletedAt: null }, qty: { gt: 0 } }] },
     select: {
       qty: true,
       movingAvgCost: true,
@@ -648,12 +648,12 @@ async function lowStockResponse(companyId: string): Promise<AssistantResponse> {
 async function approvalsListResponse(companyId: string): Promise<AssistantResponse> {
   const [draftPOs, pendingReqs] = await Promise.all([
     prisma.purchaseOrder.findMany({
-      where: { companyId, status: "DRAFT" },
+      where: { ...await scopeWhere("PurchaseOrder"), companyId, status: "DRAFT" },
       include: { supplier: true, _count: { select: { lines: true } } },
       orderBy: { createdAt: "desc" },
       take: 10}),
     prisma.materialRequisition.findMany({
-      where: { OR: [{ project: { companyId } }, { department: { companyId } }], status: "SUBMITTED" },
+      where: { AND: [await scopeWhere("MaterialRequisition"), { OR: [{ project: { companyId } }, { department: { companyId } }] }], status: "SUBMITTED" },
       include: { project: true, _count: { select: { lines: true } } },
       orderBy: { createdAt: "desc" },
       take: 10}),
@@ -693,7 +693,8 @@ async function approvalsListResponse(companyId: string): Promise<AssistantRespon
 async function approvePoResponse(companyId: string, entities: ParsedEntities): Promise<AssistantResponse> {
   if (!entities.poNumber) {
     const draftPOs = await prisma.purchaseOrder.findMany({
-      where: { companyId, status: "DRAFT" },
+      where: { companyId,
+      ...await scopeWhere("PurchaseOrder"), status: "DRAFT" },
       include: { supplier: true },
       orderBy: { createdAt: "desc" },
       take: 10});
@@ -715,7 +716,8 @@ async function approvePoResponse(companyId: string, entities: ParsedEntities): P
   }
 
   const po = await prisma.purchaseOrder.findFirst({
-    where: { companyId, poNumber: { contains: entities.poNumber.replace("PO-", ""), mode: "insensitive" } },
+    where: { companyId,
+      ...await scopeWhere("PurchaseOrder"), poNumber: { contains: entities.poNumber.replace("PO-", ""), mode: "insensitive" } },
     include: { supplier: true }});
 
   if (!po) {
@@ -744,7 +746,7 @@ async function approvePoResponse(companyId: string, entities: ParsedEntities): P
 async function approveReqResponse(companyId: string, entities: ParsedEntities): Promise<AssistantResponse> {
   if (!entities.reqNumber) {
     const pendingReqs = await prisma.materialRequisition.findMany({
-      where: { OR: [{ project: { companyId } }, { department: { companyId } }], status: "SUBMITTED" },
+      where: { AND: [await scopeWhere("MaterialRequisition"), { OR: [{ project: { companyId } }, { department: { companyId } }] }], status: "SUBMITTED" },
       include: { project: true },
       orderBy: { createdAt: "desc" },
       take: 10});
@@ -768,7 +770,7 @@ async function approveReqResponse(companyId: string, entities: ParsedEntities): 
   const req = await prisma.materialRequisition.findFirst({
     where: {
       reqNumber: { contains: entities.reqNumber.replace("REQ-", ""), mode: "insensitive" },
-      OR: [{ project: { companyId } }, { department: { companyId } }],
+      AND: [await scopeWhere("MaterialRequisition"), { OR: [{ project: { companyId } }, { department: { companyId } }] }],
     },
     include: { project: true }});
 
@@ -800,7 +802,8 @@ async function rejectPoResponse(companyId: string, entities: ParsedEntities): Pr
     return { text: "Kaunsa PO reject karna hai? PO number bataiye (jaise PO-0011).", intent: "REJECT_PO", confidence: 0.7 };
   }
   const po = await prisma.purchaseOrder.findFirst({
-    where: { companyId, poNumber: { contains: entities.poNumber.replace("PO-", ""), mode: "insensitive" } }});
+    where: { companyId,
+      ...await scopeWhere("PurchaseOrder"), poNumber: { contains: entities.poNumber.replace("PO-", ""), mode: "insensitive" } }});
   if (!po) return { text: `PO "${entities.poNumber}" nahi mila.`, intent: "REJECT_PO", confidence: 0.7 };
 
   return {
@@ -825,7 +828,7 @@ async function rejectReqResponse(companyId: string, entities: ParsedEntities): P
   const req = await prisma.materialRequisition.findFirst({
     where: {
       reqNumber: { contains: entities.reqNumber.replace("REQ-", ""), mode: "insensitive" },
-      OR: [{ project: { companyId } }, { department: { companyId } }],
+      AND: [await scopeWhere("MaterialRequisition"), { OR: [{ project: { companyId } }, { department: { companyId } }] }],
     }});
   if (!req) return { text: `Indent "${entities.reqNumber}" nahi mili.`, intent: "REJECT_REQUISITION", confidence: 0.7 };
 
@@ -850,12 +853,12 @@ async function salesListResponse(companyId: string): Promise<AssistantResponse> 
   // a booked flat worth lakhs never appeared in the owner's sales feed.
   const [materialSales, assetSales] = await Promise.all([
     prisma.materialSale.findMany({
-      where: { companyId },
+      where: { companyId, ...await scopeWhere("MaterialSale") },
       include: { customer: true, payments: { select: { amount: true, status: true } } },
       orderBy: { createdAt: "desc" },
       take: 10}),
     prisma.assetSale.findMany({
-      where: { companyId, saleStage: { notIn: ["CANCELLED"] } },
+      where: { companyId, saleStage: { notIn: ["CANCELLED"] }, ...await scopeWhere("AssetSale") },
       include: { customer: { select: { name: true } }, builtUnit: { select: { unitNumber: true } }, payments: { select: { amount: true, status: true } } },
       orderBy: { createdAt: "desc" },
       take: 10}),
@@ -914,13 +917,13 @@ async function paymentStatusResponse(companyId: string): Promise<AssistantRespon
   // the crores and answered only the petty ₹.
   const [sales, installments] = await Promise.all([
     prisma.materialSale.findMany({
-      where: { companyId, paymentStatus: { in: ["PENDING", "PARTIAL"] } },
+      where: { companyId, paymentStatus: { in: ["PENDING", "PARTIAL"] }, ...await scopeWhere("MaterialSale") },
       include: { customer: true, payments: { select: { amount: true, status: true } } },
       orderBy: { createdAt: "desc" },
       take: 10}),
     prisma.paymentScheduleItem.findMany({
       where: {
-        paymentSchedule: { assetSale: { companyId, saleStage: { notIn: ["CANCELLED"] } } },
+        paymentSchedule: { assetSale: { companyId, saleStage: { notIn: ["CANCELLED"] }, ...await scopeWhere("AssetSale") } },
         status: { in: ["DUE", "PARTIAL", "PENDING"] }},
       include: {
         paymentSchedule: {
@@ -966,7 +969,7 @@ async function projectListResponse(companyId: string): Promise<AssistantResponse
   const portfolio = await getCompanyPortfolioSummary(companyId).catch(() => null);
 
   const projects = await prisma.project.findMany({
-    where: { companyId, deletedAt: null },
+    where: { ...await scopeWhere("Project"), companyId, deletedAt: null },
     orderBy: { createdAt: "desc" },
     take: 10});
 
@@ -1022,10 +1025,10 @@ async function cashPositionResponse(companyId: string): Promise<AssistantRespons
   // in "aane wala". Count each surface's unpaid balance:
   const [pendingMaterialSales, pendingAssetSales] = await Promise.all([
     prisma.materialSale.findMany({
-      where: { companyId, paymentStatus: { in: ["PENDING", "PARTIAL"] } },
+      where: { companyId, paymentStatus: { in: ["PENDING", "PARTIAL"] }, ...await scopeWhere("MaterialSale") },
       include: { payments: { select: { amount: true } } }}),
     prisma.assetSale.findMany({
-      where: { companyId, saleStage: { notIn: ["CANCELLED"] }, paymentStatus: { in: ["PENDING", "PARTIAL"] } },
+      where: { companyId, saleStage: { notIn: ["CANCELLED"] }, paymentStatus: { in: ["PENDING", "PARTIAL"] }, ...await scopeWhere("AssetSale") },
       include: { payments: { select: { amount: true, status: true } } }}),
   ]);
   let totalReceivable = 0;
@@ -1218,6 +1221,7 @@ async function deliveriesDueResponse(companyId: string): Promise<AssistantRespon
   const pos = await prisma.purchaseOrder.findMany({
     where: {
       companyId,
+      ...await scopeWhere("PurchaseOrder"),
       status: { in: ["ORDERED", "PARTIAL"] },
       ...await scopeWhere("PurchaseOrder"),
     },
@@ -1284,8 +1288,8 @@ function incidentReportResponse(): AssistantResponse {
     intent: "INCIDENT_REPORT",
     confidence: 0.9,
     cards: [
-      { type: "link", label: "⚠️ Report incident", href: "/m/safety/incidents", variant: "primary" },
-      { type: "link", label: "Hazards", href: "/m/safety/hazards" },
+      { type: "link", label: "⚠️ Report incident", href: "/m/safety", variant: "primary" },
+      { type: "link", label: "Hazards", href: "/m/safety?tab=hazards" },
     ]};
 }
 
@@ -1402,7 +1406,7 @@ async function equipmentResponse(companyId: string): Promise<AssistantResponse> 
 
 async function fuelUsageResponse(companyId: string, text: string): Promise<AssistantResponse> {
   const logs = await prisma.equipmentUsageLog.findMany({
-    where: { companyId },
+    where: { companyId, ...await scopeWhere("EquipmentUsageLog") },
     orderBy: { logDate: "desc" },
     take: 400,
     include: { equipment: { select: { id: true, name: true, assetTag: true } } }});
@@ -1482,7 +1486,8 @@ async function fuelUsageResponse(companyId: string, text: string): Promise<Assis
 
 async function projectMarginResponse(companyId: string): Promise<AssistantResponse> {
   const projects = await prisma.project.findMany({
-    where: { companyId, deletedAt: null },
+    where: { companyId,
+      ...await scopeWhere("Project"), deletedAt: null },
     select: {
       id: true, name: true, status: true,
       totalBudget: true, totalProjectCost: true, costPerSqft: true,
@@ -1531,7 +1536,7 @@ async function projectMarginResponse(companyId: string): Promise<AssistantRespon
 
 async function expenseResponse(companyId: string): Promise<AssistantResponse> {
   const expenses = await prisma.expense.findMany({
-    where: { companyId },
+    where: { companyId, ...await scopeWhere("Expense") },
     orderBy: { createdAt: "desc" },
     take: 10,
     include: { project: true }});
@@ -1624,7 +1629,7 @@ async function attentionResponse(companyId: string): Promise<AssistantResponse> 
   const dprScope = await scopeWhere("DailyProgressReport", {});
   const [draftPOs, pendingReqs, overduePOs, lowStock, pendingDPRs] = await Promise.all([
     prisma.purchaseOrder.count({ where: { companyId, status: "DRAFT" } }),
-    prisma.materialRequisition.count({ where: { OR: [{ project: { companyId } }, { department: { companyId } }], status: "SUBMITTED" } }),
+    prisma.materialRequisition.count({ where: { AND: [await scopeWhere("MaterialRequisition"), { OR: [{ project: { companyId } }, { department: { companyId } }] }], status: "SUBMITTED" } }),
     prisma.purchaseOrder.count({
       where: { companyId, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() } }}),
     lowStockAlerts(companyId).catch(() => []),
@@ -1792,7 +1797,7 @@ async function spendAnalysisResponse(companyId: string, entities: ParsedEntities
 
   // General spend analysis — by category
   const expenses = await prisma.expense.findMany({
-    where: { companyId },
+    where: { companyId, ...await scopeWhere("Expense") },
     orderBy: { createdAt: "desc" },
     take: 50});
 
@@ -1821,13 +1826,14 @@ async function spendAnalysisResponse(companyId: string, entities: ParsedEntities
 
 async function approveAllResponse(companyId: string): Promise<AssistantResponse> {
   const draftPOs = await prisma.purchaseOrder.findMany({
-    where: { companyId, status: "DRAFT" },
+    where: { companyId,
+      ...await scopeWhere("PurchaseOrder"), status: "DRAFT" },
     include: { supplier: true },
     orderBy: { createdAt: "desc" },
     take: 20});
 
   const pendingReqs = await prisma.materialRequisition.findMany({
-    where: { OR: [{ project: { companyId } }, { department: { companyId } }], status: "SUBMITTED" },
+    where: { AND: [await scopeWhere("MaterialRequisition"), { OR: [{ project: { companyId } }, { department: { companyId } }] }], status: "SUBMITTED" },
     include: { project: true },
     orderBy: { createdAt: "desc" },
     take: 20});
@@ -1899,7 +1905,7 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
   if (hasPermission(role, PERM.PROCUREMENT_VIEW)) {
     const [draftPOs, pendingReqs] = await Promise.all([
       prisma.purchaseOrder.count({ where: { companyId, status: "DRAFT" } }),
-      prisma.materialRequisition.count({ where: { OR: [{ project: { companyId } }, { department: { companyId } }], status: "SUBMITTED" } }),
+      prisma.materialRequisition.count({ where: { AND: [await scopeWhere("MaterialRequisition"), { OR: [{ project: { companyId } }, { department: { companyId } }] }], status: "SUBMITTED" } }),
     ]);
     if (draftPOs > 0 || pendingReqs > 0) {
       items.push(`Approvals: ${draftPOs} POs + ${pendingReqs} requisitions pending`);
@@ -2118,7 +2124,8 @@ async function wbsResponse(companyId: string): Promise<AssistantResponse> {
 
 async function budgetVarianceResponse(companyId: string): Promise<AssistantResponse> {
   const projects = await prisma.project.findMany({
-    where: { companyId, deletedAt: null, totalProjectCost: { not: null } },
+    where: { companyId,
+      ...await scopeWhere("Project"), deletedAt: null, totalProjectCost: { not: null } },
     take: 10,
     select: { id: true, name: true, totalProjectCost: true, totalBudget: true }});
 
@@ -2386,7 +2393,8 @@ async function unitValuationResponse(companyId: string, entities: ParsedEntities
 // ── Cost per Sqft — project construction cost per sqft ────────────────────
 async function costPerSqftResponse(companyId: string): Promise<AssistantResponse> {
   const projects = await prisma.project.findMany({
-    where: { companyId, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+    where: { companyId,
+      ...await scopeWhere("Project"), deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
     select: {
       id: true, name: true, type: true,
       totalBudget: true, totalProjectCost: true,
@@ -2513,7 +2521,8 @@ async function paymentScheduleResponse(companyId: string, _entities: ParsedEntit
 // ── Profit Margin per Project ─────────────────────────────────────────────
 async function profitMarginResponse(companyId: string): Promise<AssistantResponse> {
   const projects = await prisma.project.findMany({
-    where: { companyId, deletedAt: null },
+    where: { companyId,
+      ...await scopeWhere("Project"), deletedAt: null },
     select: { id: true, name: true, totalBudget: true, totalProjectCost: true, totalSellableArea: true },
     orderBy: { name: "asc" }});
 
@@ -2614,7 +2623,8 @@ async function availableInventoryResponse(companyId: string): Promise<AssistantR
 // ── Construction Progress ─────────────────────────────────────────────────
 async function constructionProgressResponse(companyId: string): Promise<AssistantResponse> {
   const projects = await prisma.project.findMany({
-    where: { companyId, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+    where: { companyId,
+      ...await scopeWhere("Project"), deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
     select: {
       id: true, name: true, type: true, status: true,
       startDate: true, endDate: true,
@@ -2716,7 +2726,8 @@ async function addToProjectResponse(companyId: string, entities: ParsedEntities)
   const project = await findProjectByName(companyId, projectName);
   if (!project) {
     const projects = await prisma.project.findMany({
-      where: { companyId, deletedAt: null },
+      where: { companyId,
+      ...await scopeWhere("Project"), deletedAt: null },
       select: { name: true },
       take: 5});
     return {

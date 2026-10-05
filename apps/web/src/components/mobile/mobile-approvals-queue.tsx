@@ -1241,7 +1241,7 @@ async function approveGp(gp: GatePassRow) {
  onToggle={() => setExpanded(isOpen ? null : `claim:${c.id}`)}
  icon={Receipt}
  title={c.claimantName}
- subtitle={`Claim · ${c.projectName ?? "No project"} · ${formatDate(c.submittedAt ?? c.createdAt)}`}
+ subtitle={`${c.description?.trim() || "Claim"} · ${c.projectName ?? "No project"} · ${formatDate(c.submittedAt ?? c.createdAt)}`}
  meta={formatCurrency(c.totalAmount)}
  ageAt={c.submittedAt ?? c.createdAt}
  state={state}

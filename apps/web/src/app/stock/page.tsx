@@ -84,7 +84,7 @@ async function StockContent() {
     // ── On Hand ──
     prisma.stockLocationItem.findMany({
       take: 500,
-      where: {
+      where: { ...await scopeWhere("StockLocationItem"),
         qty: { gt: 0 },
         location: { deletedAt: null, companyId: company.id },
         material: { deletedAt: null },
@@ -100,14 +100,14 @@ async function StockContent() {
     // Company locations (on-hand filter + transfers source + issues source)
     prisma.stockLocation.findMany({
       take: 500,
-      where: { companyId: company.id, deletedAt: null },
+      where: { ...await scopeWhere("StockLocation"), companyId: company.id, deletedAt: null },
       orderBy: [{ type: "asc" }, { name: "asc" }],
       include: { project: { select: { id: true, name: true } }, stockItems: { select: { qty: true, movingAvgCost: true } } },
     }),
     // Group locations (inter-company STO destinations)
     prisma.stockLocation.findMany({
       take: 500,
-      where: { companyId: { in: groupCompanyIds }, deletedAt: null },
+      where: { ...await scopeWhere("StockLocation"), companyId: { in: groupCompanyIds }, deletedAt: null },
       orderBy: [{ companyId: "asc" }, { type: "asc" }, { name: "asc" }],
       include: {
         company: { select: { id: true, name: true } },
@@ -130,12 +130,12 @@ async function StockContent() {
     // ── Total movement count (the list is capped at 200, but the stat
     //    should show the real total, not the truncated list length) ──
     prisma.stockMovement.count({
-      where: { OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }] },
+      where: { ...await scopeWhere("StockMovement"), OR: [{ fromLocation: { companyId: company.id } }, { toLocation: { companyId: company.id } }] },
     }),
     // ── Projects / departments (shared by movements, issues) ──
     prisma.project.findMany({
       take: 200,
-      where: { companyId: company.id, deletedAt: null },
+      where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true },
     }),
@@ -148,7 +148,7 @@ async function StockContent() {
     // ── Transfers ──
     prisma.stockTransfer.findMany({
       take: 500,
-      where: {
+      where: { ...await scopeWhere("StockTransfer"),
         OR: [
           { fromLocation: { companyId: company.id } },
           { toLocation: { companyId: company.id } },
@@ -195,7 +195,7 @@ async function StockContent() {
     // ── Scrap ──
     prisma.scrapGeneration.findMany({
       take: 500,
-      where: { companyId: company.id },
+      where: { ...await scopeWhere("ScrapGeneration"), companyId: company.id },
       include: {
         lines: { include: { material: { select: { code: true, name: true, unit: true } } } },
         toLocation: { select: { name: true } },
@@ -207,7 +207,7 @@ async function StockContent() {
     }),
     prisma.stockLocation.findMany({
       take: 200,
-      where: { companyId: company.id, deletedAt: null },
+      where: { ...await scopeWhere("StockLocation"), companyId: company.id, deletedAt: null },
       select: { id: true, name: true, type: true },
       orderBy: { name: "asc" },
     }),
@@ -219,14 +219,14 @@ async function StockContent() {
     }),
     prisma.project.findMany({
       take: 200,
-      where: { companyId: company.id, deletedAt: null },
+      where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
       select: { id: true, name: true, type: true, status: true },
       orderBy: { name: "asc" },
     }),
     // ── Counts ──
     prisma.stockCount.findMany({
       take: 500,
-      where: { location: { companyId: company.id, deletedAt: null } },
+      where: { ...await scopeWhere("StockCount"), location: { companyId: company.id, deletedAt: null } },
       orderBy: { createdAt: "desc" },
       include: {
         location: { select: { id: true, name: true, type: true } },
@@ -235,7 +235,7 @@ async function StockContent() {
     }),
     prisma.stockLocation.findMany({
       take: 500,
-      where: { companyId: company.id, deletedAt: null },
+      where: { ...await scopeWhere("StockLocation"), companyId: company.id, deletedAt: null },
       orderBy: [{ type: "asc" }, { name: "asc" }],
       include: {
         project: { select: { id: true, name: true } },

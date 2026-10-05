@@ -19,7 +19,7 @@ export default function MobileMaterialIssueDetailPage({
         const canIssue = perms.includes(PERM.STOCK_ISSUE);
 
         const issue = await prisma.materialIssue.findFirst({
-          where: {...await scopeWhere("MaterialIssue"), 
+          where: { ...await scopeWhere("MaterialIssue"),...await scopeWhere("MaterialIssue"), 
             id,
             OR: [
               { project: { companyId: company.id } },
@@ -49,7 +49,7 @@ export default function MobileMaterialIssueDetailPage({
         const pendingCostMap = new Map<string, number>();
         if (issue.status === "PENDING" && issue.lines.some((l) => toNum(l.unitCost) === 0)) {
           const macRows = await prisma.stockLocationItem.findMany({
-            where: {
+            where: { ...await scopeWhere("StockLocationItem"),
               locationId: issue.fromLocationId,
               materialId: { in: issue.lines.map((l) => l.material.id) }},
             select: { materialId: true, movingAvgCost: true }});
@@ -60,7 +60,7 @@ export default function MobileMaterialIssueDetailPage({
         // status so the next-action card and the Execute button reflect
         // reality — "Approve the gate pass" only while it's pending.
         const linkedGp = await prisma.gatePass.findFirst({
-          where: { refType: "MaterialIssue", refId: issue.id },
+          where: { ...await scopeWhere("GatePass"), refType: "MaterialIssue", refId: issue.id },
           select: { id: true, status: true, gatePassNumber: true },
           orderBy: { createdAt: "desc" }});
 

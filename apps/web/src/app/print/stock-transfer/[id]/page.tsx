@@ -2,7 +2,7 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
-import { toNum, getCompany, getUserPermissions, getUserScope, getAssignedProjectIds } from "@/lib/server";
+import { scopeWhere,  toNum, getCompany, getUserPermissions, getUserScope, getAssignedProjectIds } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import {formatCurrency, formatNumber} from "@/lib/utils";
 import { notFound } from "next/navigation";
@@ -28,7 +28,7 @@ export default async function StockTransferNotePage({
   const company = await getCompany();
 
   const transfer = await prisma.stockTransfer.findFirst({
-    where: {
+    where: { ...await scopeWhere("StockTransfer"),
       id,
       OR: [
         { fromLocation: { companyId: company.id } },

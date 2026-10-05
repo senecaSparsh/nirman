@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { notFound } from "next/navigation";
-import { getCompany, getUserPermissions } from "@/lib/server";
+import { scopeWhere, getCompany, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
@@ -23,15 +23,15 @@ async function MobileInspectionDetailContent({ id }: { id: string }) {
   const __effPerms = await getUserPermissions();
   const canManage = __effPerms.includes(PERM.SAFETY_MANAGE);
 
-  const insp = await prisma.safetyInspection.findUnique({
-    where: { id },
+  const insp = await prisma.safetyInspection.findFirst({
+    where: { id, companyId: company.id, ...await scopeWhere("SafetyInspection") },
     include: {
       project: { select: { id: true, name: true } },
       inspector: { select: { id: true, name: true } },
     },
   });
 
-  if (!insp || insp.companyId !== company.id) notFound();
+  if (!insp) notFound();
 
   const serialized = {
     id: insp.id, inspectionNumber: insp.inspectionNumber, title: insp.title, status: insp.status, result: insp.result,

@@ -10,6 +10,7 @@ import { Loader2, AlertCircle, Building2, Phone, Mail, Fingerprint, Eye, EyeOff,
 import { homeWorldFor } from "@/lib/nav";
 import { type Role, ROLES } from "@/lib/roles";
 import { displayEmail } from "@/lib/utils";
+import { clearLocalSessionData } from "@/lib/session-cleanup";
 
 type CompanyOption = { id: string; name: string; role: string; roleLabel?: string };
 type LoginMode = "phone" | "email";
@@ -228,6 +229,19 @@ function SignInForm({ showDevLogin, otpEnabled }: { showDevLogin: boolean; otpEn
     const me = await fetch("/api/me")
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null);
+    // Cross-user device guard: local caches (form drafts, offline mutation
+    // queue, recent items, snoozed alerts) are keyed by form, not user. If
+    // the previous session on this device belonged to someone else, wipe
+    // before landing — otherwise their drafts surface inside the new user's
+    // forms and queued mutations could replay under the wrong session.
+    // Same-user re-login keeps everything (offline work survives).
+    if (me?.id) {
+      const prevUserId = localStorage.getItem("nirman.lastUser");
+      if (prevUserId && prevUserId !== me.id) {
+        await clearLocalSessionData().catch(() => {});
+      }
+      localStorage.setItem("nirman.lastUser", me.id);
+    }
     if (me?.mustChangePassword) {
       window.location.assign("/change-password");
       return;

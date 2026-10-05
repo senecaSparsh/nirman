@@ -18,7 +18,7 @@ import { MobileMaterialIssuesList, type MaterialIssueListItem } from "./MobileMa
  */
 export default function MobileMaterialIssuesPage() {
   return (
-    <MobileListPage perm={PERM.INVENTORY_VIEW} managePerm={PERM.STOCK_ISSUE} what="material issues" permission="inventory.view">
+    <MobileListPage perm={PERM.INVENTORY_VIEW} scopeAware managePerm={PERM.STOCK_ISSUE} what="material issues" permission="inventory.view">
       {async ({ company, canManage }) => {
         const BATCH_SIZE = 40;
         const issues = await prisma.materialIssue.findMany({

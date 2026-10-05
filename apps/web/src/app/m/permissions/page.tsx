@@ -1,4 +1,5 @@
 import { prisma } from "@nirman/db";
+import { scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileListPage } from "@/components/mobile/v2/list-page";
 import {
@@ -32,7 +33,7 @@ export default function MobilePermissionsPage() {
         // create form — a legal doc must be linked to one of them.
         const [docs, projects, landPurchases] = await Promise.all([
           prisma.legalDocument.findMany({
-            where: { companyId: company.id, deletedAt: null },
+            where: { companyId: company.id, deletedAt: null, ...await scopeWhere("LegalDocument") },
             orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
             include: {
               project: { select: { id: true, name: true } },
@@ -41,14 +42,14 @@ export default function MobilePermissionsPage() {
           }),
           canManage
             ? prisma.project.findMany({
-                where: { companyId: company.id, deletedAt: null },
+                where: { companyId: company.id, deletedAt: null, ...await scopeWhere("Project") },
                 orderBy: { name: "asc" },
                 select: { id: true, name: true },
               })
             : [],
           canManage
             ? prisma.landPurchase.findMany({
-                where: { companyId: company.id, deletedAt: null },
+                where: { companyId: company.id, deletedAt: null, ...await scopeWhere("LandPurchase") },
                 orderBy: { createdAt: "desc" },
                 select: { id: true, sellerName: true, location: true },
               })

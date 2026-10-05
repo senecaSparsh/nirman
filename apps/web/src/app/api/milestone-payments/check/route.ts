@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { checkMilestonePayments } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const POST = apiHandler(async (req: NextRequest) => {
@@ -14,7 +14,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   // mutation (and customer-facing trigger) that must not run on another
   // tenant's project.
   const project = await prisma.project.findFirst({
-    where: { id: projectId, companyId: company.id, deletedAt: null },
+    where: { companyId: company.id, deletedAt: null, AND: [{ id: projectId }, await scopeWhere("Project")] },
     select: { id: true },
   });
   if (!project) return json({ error: "Project not found" }, { status: 404 });

@@ -9,34 +9,45 @@ import { DepartmentActivityFeed } from "@/components/department-activity-feed";
  * /m/safety — mobile Safety Management.
  * Tabbed view: Incidents | Hazards | Inspections
  */
-export default function MobileSafetyPage() {
+const SAFETY_TABS = ["incidents", "hazards", "inspections"] as const;
+type SafetyTab = (typeof SAFETY_TABS)[number];
+
+export default async function MobileSafetyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const params = await searchParams;
+  const initialTab: SafetyTab = SAFETY_TABS.includes(params.tab as SafetyTab)
+    ? (params.tab as SafetyTab)
+    : "incidents";
   return (
-    <MobileListPage perm={PERM.SAFETY_VIEW} managePerm={PERM.SAFETY_MANAGE} what="safety management">
+    <MobileListPage perm={PERM.SAFETY_VIEW} scopeAware managePerm={PERM.SAFETY_MANAGE} what="safety management">
       {async ({ company, canManage }) => {
         const actions = await getActionPermissions();
         const canCreateSafety = actions?.canCreateSafetyItem ?? canManage;
         const [incidents, hazards, inspections, projects] = await Promise.all([
           prisma.safetyIncident.findMany({
-            where: {...await scopeWhere("SafetyIncident"),  companyId: company.id },
+            where: { ...await scopeWhere("SafetyIncident"),...await scopeWhere("SafetyIncident"),  companyId: company.id },
             orderBy: { incidentDate: "desc" },
             take: 50,
             include: { project: { select: { id: true, name: true } } },
           }),
           prisma.safetyHazard.findMany({
-            where: {...await scopeWhere("SafetyHazard"),  companyId: company.id },
+            where: { ...await scopeWhere("SafetyHazard"),...await scopeWhere("SafetyHazard"),  companyId: company.id },
             orderBy: [{ riskLevel: "desc" }, { createdAt: "desc" }],
             take: 50,
             include: { project: { select: { id: true, name: true } } },
           }),
           prisma.safetyInspection.findMany({
-            where: {...await scopeWhere("SafetyInspection"),  companyId: company.id },
+            where: { ...await scopeWhere("SafetyInspection"),...await scopeWhere("SafetyInspection"),  companyId: company.id },
             orderBy: { scheduledDate: "desc" },
             take: 50,
             include: { project: { select: { id: true, name: true } } },
           }),
           canManage
             ? prisma.project.findMany({
-                where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+                where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
                 orderBy: { name: "asc" },
                 select: { id: true, name: true },
               })
@@ -92,6 +103,7 @@ export default function MobileSafetyPage() {
             inspections={serializedInspections}
             projects={projects}
             canManage={canCreateSafety}
+            initialTab={initialTab}
           />
         </>
         );

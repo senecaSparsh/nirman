@@ -26,6 +26,7 @@ const KIND_LABELS: Record<QueuedOperation["kind"], { label: string; icon: typeof
   "purchase-order": { label: "Purchase Order", icon: ShoppingCart },
   "attendance": { label: "Attendance", icon: Users },
   "dpr": { label: "Daily Report", icon: FileText },
+  "expense-claim": { label: "Expense Claim", icon: FileText },
 };
 
 const STATUS_STYLES: Record<string, { color: string; icon: typeof CheckCircle2; label: string }> = {

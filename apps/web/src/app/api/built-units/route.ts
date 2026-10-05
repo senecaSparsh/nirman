@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@nirman/db";
-import type { BuiltUnitStatus, BuiltUnitType } from "@nirman/db";
+import { prisma, BuiltUnitStatus, BuiltUnitType } from "@nirman/db";
 import { createBuiltUnits } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission, toNum, builtUnitSchema, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -14,12 +13,21 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const status = searchParams.get("status");
   const unitType = searchParams.get("unitType");
 
+  const statusList = status?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
+  const invalidStatus = statusList.filter((s) => !Object.values(BuiltUnitStatus).includes(s as BuiltUnitStatus));
+  if (invalidStatus.length) {
+    return json({ error: `Invalid status: ${invalidStatus.join(", ")}` }, { status: 400 });
+  }
+  if (unitType && !Object.values(BuiltUnitType).includes(unitType as BuiltUnitType)) {
+    return json({ error: `Invalid unitType: ${unitType}` }, { status: 400 });
+  }
+
   const units = await prisma.builtUnit.findMany({
     where: {
       deletedAt: null,
       project: { companyId: company.id },
       ...(projectId ? { projectId } : {}),
-      ...(status ? { status: { in: status.split(",") as BuiltUnitStatus[] } } : {}),
+      ...(statusList.length ? { status: { in: statusList as BuiltUnitStatus[] } } : {}),
       ...(unitType ? { unitType: unitType as BuiltUnitType } : {}),
       ...await scopeWhere("BuiltUnit", {}),
     },

@@ -373,14 +373,16 @@ export async function approveExpenseClaim(claimId: string, companyId: string, us
   return updated;
 }
 
-export async function rejectExpenseClaim(claimId: string, companyId: string, reason: string, userId?: string) {
+export async function rejectExpenseClaim(claimId: string, companyId: string, reason: string, userId?: string, actorRole?: string) {
   if (!reason.trim()) throw new ServiceError("A rejection reason is required", 400);
   const updated = await withSerializableTransaction(async (tx) => {
     const claim = await tx.expenseClaim.findFirst({ where: { id: claimId, companyId } });
     if (!claim) throw new ServiceError("Claim not found", 404);
     if (claim.status !== "SUBMITTED") throw new ServiceError(`Only SUBMITTED claims can be rejected (current: ${claim.status})`, 409);
-    // Prevent self-rejection: the claimant cannot reject their own claim.
-    if (userId && claim.claimantId === userId) {
+    // Prevent self-rejection: the claimant cannot reject their own claim —
+    // unless a tier-1 role (OWNER/ADMIN), who may withdraw their own claim
+    // (mirrors the self-approval carve-out in approveExpenseClaim).
+    if (userId && claim.claimantId === userId && !canAutoApprove(actorRole)) {
       throw new ServiceError("You cannot reject your own claim.", 403);
     }
     const updated = await tx.expenseClaim.update({
