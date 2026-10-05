@@ -3,7 +3,7 @@ import Link from "next/link";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { UserPlus, ChevronRight } from "lucide-react";
-import { scopeWhere, getCompany, getUserScope, getUserPermissions, employeeVisibilityWhere } from "@/lib/server";
+import { scopeWhere, getCompany, getUserScope, getEffectivePermissions, employeeVisibilityWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import {
@@ -42,7 +42,7 @@ export default function MobileOnboardingQueuePage() {
 async function MobileOnboardingQueueContent() {
   await connection();
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
 
   if (!__effPerms.includes(PERM.HR_VIEW)) {
     return (

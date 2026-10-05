@@ -3,7 +3,7 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { CheckSquare, Plus } from "lucide-react";
-import { getCurrentUser, getCompany, scopeWhere, getUserPermissions, getCustomRoleLabels, roleDisplayLabel } from "@/lib/server";
+import { getCurrentUser, getCompany, scopeWhere, getEffectivePermissions, getCustomRoleLabels, roleDisplayLabel } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileStatCard, MobileEmptyState, MobileCta } from "@/components/mobile/v2/primitives";
 import { MobileTaskList } from "@/components/mobile/mobile-task-list";
@@ -22,7 +22,7 @@ async function SiteTasksContent() {
   await connection();
   const user = await getCurrentUser();
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   const canAssign = __effPerms.includes(PERM.TASKS_ASSIGN);
 
   const [tasks, teamMembers] = await Promise.all([

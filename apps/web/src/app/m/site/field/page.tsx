@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { scopeWhere, getCompany, getCompanyGroupIds, getUserScope, getUserPermissions } from "@/lib/server";
+import { scopeWhere, getCompany, getCompanyGroupIds, getUserScope, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { PackageCheck } from "lucide-react";
 import { FieldReceive } from "@/components/field/field-receive";
@@ -49,7 +49,7 @@ async function MobileFieldReceiveContent({
 }) {
   await connection();
   const { po: preselectPoId } = await searchParams;
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) {
     return <MobileNoAccess what="receive materials" permission="procurement.view" />;
   }

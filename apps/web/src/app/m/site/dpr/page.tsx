@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import {   getCompany, toNum, scopeWhere, getScopedFormOptions, getUserPermissions } from "@/lib/server";
+import {   getCompany, toNum, scopeWhere, getScopedFormOptions, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { ClipboardList } from "lucide-react";
 import { MobileDprForm } from "@/components/mobile/mobile-dpr-form";
@@ -41,7 +41,7 @@ async function MobileDprContent({
 }) {
   await connection();
   const { project: initialProjectId } = await searchParams;
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.DPR_SUBMIT)) {

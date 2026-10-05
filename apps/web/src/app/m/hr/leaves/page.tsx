@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { CalendarDays, Plus } from "lucide-react";
-import { getCompany, getActionPermissions, scopeWhere, getUserPermissions } from "@/lib/server";
+import { getCompany, getActionPermissions, scopeWhere, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { ANNUAL_LEAVE_ENTITLEMENT } from "@nirman/services";
 import {
@@ -33,7 +33,7 @@ export default function MobileLeavesPage() {
 async function MobileLeavesContent() {
   await connection();
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.HR_VIEW)) {
     redirect("/m");
   }

@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, scopeWhere, getScopedFormOptions, getUserPermissions, getEmployeeAccessScope } from "@/lib/server";
+import { getCompany, toNum, scopeWhere, getScopedFormOptions, getEffectivePermissions, getEmployeeAccessScope } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { Users } from "lucide-react";
 import { MobileAttendanceForm } from "@/components/mobile/mobile-attendance-form";
@@ -32,7 +32,7 @@ export default function MobileAttendancePage() {
 
 async function MobileAttendanceContent() {
   await connection();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.HR_MANAGE) && !__effPerms.includes(PERM.ATTENDANCE_LOG)) {

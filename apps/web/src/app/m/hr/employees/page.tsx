@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { Users } from "lucide-react";
-import { getCompany, toNum, getEmployeeAccessScope, getActionPermissions, filterOptionsByScope, getCompanyDescendantIds, getCurrentUser, getUserPermissions, scopeWhere } from "@/lib/server";
+import { getCompany, toNum, getEmployeeAccessScope, getActionPermissions, filterOptionsByScope, getCompanyDescendantIds, getCurrentUser, getEffectivePermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 import {
@@ -33,7 +33,7 @@ export default function MobileEmployeesPage() {
 async function MobileEmployeesContent() {
   await connection();
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   // Gate: require HR_VIEW to access the employee roster
   if (!__effPerms.includes(PERM.HR_VIEW)) {
     redirect("/m");
