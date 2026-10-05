@@ -131,6 +131,8 @@ COPY --from=builder --chown=nirman:nirman /app/packages/db/scripts ./packages/db
 COPY --from=builder --chown=nirman:nirman /app/packages/services/package.json ./packages/services/package.json
 COPY --from=builder --chown=nirman:nirman /app/packages/services/src ./packages/services/src
 COPY --from=builder --chown=nirman:nirman /app/packages/services/prisma ./packages/services/prisma
+COPY --from=builder --chown=nirman:nirman /app/packages/rbac/package.json ./packages/rbac/package.json
+COPY --from=builder --chown=nirman:nirman /app/packages/rbac/src ./packages/rbac/src
 
 # Persistent upload directory — Coolify mounts a volume here.
 # Files are stored outside public/ for auth-gated access (see /api/uploads).
