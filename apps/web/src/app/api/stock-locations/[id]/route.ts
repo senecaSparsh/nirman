@@ -4,7 +4,6 @@ import { prisma } from "@nirman/db";
 import { softDelete, logAction } from "@nirman/services";
 import { apiHandler, assertScopeAllows, getCompany, json, stockLocationSchema, scopeWhere, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { requirePermission } from "@/lib/server";
 import { withSerializableTransaction } from "@nirman/services";
 
 /** GET /api/stock-locations/[id] — fetch a single stock location by ID */
@@ -98,7 +97,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   // Deleting a location affects org topology — keep it company-level.
-  await requirePermission(PERM.INVENTORY_MANAGE);
+  await requireEffectivePermission(PERM.INVENTORY_MANAGE);
   const company = await getCompany();
   const { id } = await params;
   // Verify the location belongs to the active company before soft-deleting

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { getHazard, updateHazard, startMitigation, resolveHazard, deleteHazard, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, validateAttachments, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, validateAttachments, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -24,7 +24,7 @@ const actionSchema = z.object({
 });
 
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.SAFETY_VIEW);
+  await requireEffectivePermission(PERM.SAFETY_VIEW);
   const company = await getCompany();
   const { id } = await ctx.params;
   // Verify company ownership before returning (prevent cross-tenant IDOR)
@@ -39,7 +39,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.SAFETY_MANAGE);
+  const user = await requireEffectivePermission(PERM.SAFETY_MANAGE);
   const company = await getCompany();
   const { id } = await ctx.params;
   const body = await req.json();
@@ -84,7 +84,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.SAFETY_MANAGE);
+  const user = await requireEffectivePermission(PERM.SAFETY_MANAGE);
   const company = await getCompany();
   const { id } = await ctx.params;
   const existing = await prisma.safetyHazard.findFirst({

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createExpense, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, requirePermission, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
@@ -184,7 +184,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
 });
 
 export const DELETE = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.FINANCE_MANAGE);
+  const user = await requireEffectivePermission(PERM.FINANCE_MANAGE);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");

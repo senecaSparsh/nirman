@@ -11,7 +11,7 @@ import {
   canAutoApprove,
 } from "@nirman/services";
 import { PERM, hasPermission } from "@/lib/roles";
-import { apiHandler, ForbiddenError, getCompany, getUserPermissions, json, requirePermission, requireAnyPermission, requireUser, toNum, UnauthorizedError, scopeWhere, getActingRole, getActingRoleForProject,} from "@/lib/server";
+import { apiHandler, ForbiddenError, getCompany, getUserPermissions, json, requireEffectivePermission, requireAnyPermission, requireUser, toNum, UnauthorizedError, scopeWhere, getActingRole, getActingRoleForProject,} from "@/lib/server";
 import { z } from "zod";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -27,7 +27,7 @@ const companyAnchor = (companyId: string) => ({
 });
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.PROCUREMENT_VIEW);
+  await requireEffectivePermission(PERM.PROCUREMENT_VIEW);
   const company = await getCompany();
   const { id } = await params;
   const req = await prisma.materialRequisition.findFirst({
@@ -206,7 +206,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       return json({ ok: true });
     }
     if (action === "waiveQuotes") {
-      const user = await requirePermission(PERM.PO_APPROVE);
+      const user = await requireEffectivePermission(PERM.PO_APPROVE);
       const reason = body?.reason as string;
       if (!reason?.trim()) return json({ error: "A waiver reason is required" }, { status: 400 });
       await waiveQuoteRequirement({ requisitionId: id, waivedById: user.id, reason });
@@ -215,7 +215,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       return json({ ok: true });
     }
     if (action === "convert") {
-      const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+      const user = await requireEffectivePermission(PERM.PROCUREMENT_MANAGE);
       const parsed = convertSchema.safeParse(body);
       if (!parsed.success) {
         return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
@@ -243,7 +243,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+  const user = await requireEffectivePermission(PERM.PROCUREMENT_MANAGE);
   const company = await getCompany();
   const { id } = await params;
   const req = await prisma.materialRequisition.findFirst({

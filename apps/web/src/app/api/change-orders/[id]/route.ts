@@ -12,7 +12,7 @@ import {
   deleteChangeOrder,
   ServiceError,
 } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere, getActingRole,} from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, scopeWhere, getActingRole,} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -47,7 +47,7 @@ const actionSchema = z.object({
 
 // GET /api/change-orders/[id]
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requireEffectivePermission(PERM.ASSETS_VIEW);
   const company = await getCompany();
   const { id } = await ctx.params;
   const existing = await prisma.changeOrder.findFirst({
@@ -62,7 +62,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
 
 // PATCH /api/change-orders/[id] — update (DRAFT/REJECTED) or workflow action
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.WO_MANAGE);
+  const user = await requireEffectivePermission(PERM.WO_MANAGE);
   const company = await getCompany();
   const { id } = await ctx.params;
   const body = await req.json();
@@ -149,7 +149,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
 
 // DELETE /api/change-orders/[id]
 export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.WO_MANAGE);
+  const user = await requireEffectivePermission(PERM.WO_MANAGE);
   const company = await getCompany();
   const { id } = await ctx.params;
 

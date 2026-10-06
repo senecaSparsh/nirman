@@ -9,7 +9,7 @@ import {
   canAutoApprove,
   ServiceError,
 } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, requirePermission, requireAnyPermission, requireUser, scopeWhere, getActingRole, getActingRoleForProject, getUserPermissions, ForbiddenError,} from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, requireEffectivePermission, requireAnyPermission, requireUser, scopeWhere, getActingRole, getActingRoleForProject, getUserPermissions, ForbiddenError,} from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { z } from "zod";
 
@@ -128,7 +128,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       }
       await rejectExpenseClaim(id, company.id, (d.rejectionReason ?? d.reason ?? "").trim(), user.id, actingRole);
     } else if (d.action === "pay") {
-      const user = await requirePermission(PERM.FINANCE_MANAGE);
+      const user = await requireEffectivePermission(PERM.FINANCE_MANAGE);
       if (!d.paymentMode) return json({ error: "Payment mode is required" }, { status: 400 });
       await payExpenseClaim(id, company.id, { paymentMode: d.paymentMode, referenceNo: d.referenceNo ?? null }, user.id);
     } else {

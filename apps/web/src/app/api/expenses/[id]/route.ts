@@ -10,7 +10,7 @@ import {
   deleteExpense,
   ServiceError,
 } from "@nirman/services";
-import { apiHandler, ForbiddenError, getCompany, getUserPermissions, json, toNum, requirePermission, requireUser, scopeWhere, assertScopeAllows, getActingRole, getActingRoleForProject, requireEffectivePermission} from "@/lib/server";
+import { apiHandler, ForbiddenError, getCompany, getUserPermissions, json, toNum, requireUser, scopeWhere, assertScopeAllows, getActingRole, getActingRoleForProject, requireEffectivePermission} from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { z } from "zod";
 
@@ -263,7 +263,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.FINANCE_MANAGE);
+  const user = await requireEffectivePermission(PERM.FINANCE_MANAGE);
   const company = await getCompany();
   const { id } = await params;
   // Scoped pre-fetch
