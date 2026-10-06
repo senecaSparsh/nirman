@@ -10,7 +10,7 @@ import MobileNewStockLocationClient from "./MobileNewStockLocationClient";
  */
 export default function NewStockLocationPage() {
   return (
-    <MobileNewEntityPage perm={PERM.INVENTORY_MANAGE} what="add stock locations" permission="inventory.manage" fields={4}>
+    <MobileNewEntityPage perm={PERM.INVENTORY_MANAGE} what="add stock locations" permission="inventory.manage" fields={4} scopeAware>
       {async () => {
         const company = await getCompany();
         const groupIds = await getCompanyGroupIds(company);

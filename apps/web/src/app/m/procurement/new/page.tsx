@@ -16,7 +16,7 @@ export default function MobileNewProcurementPage({
   searchParams: Promise<{ project?: string }>;
 }) {
   return (
-    <MobileNewEntityPage perm={PERM.PROCUREMENT_MANAGE} what="create purchase orders" permission="procurement.manage" fields={6}>
+    <MobileNewEntityPage perm={PERM.PROCUREMENT_MANAGE} what="create purchase orders" permission="procurement.manage" fields={6} scopeAware>
       {async () => {
         const company = await getCompany();
         const { project: initialProjectId } = await searchParams;

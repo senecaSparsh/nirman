@@ -6,7 +6,7 @@ import { MobileNewRequisitionClient } from "./MobileNewRequisitionClient";
 
 export default function MobileNewRequisitionPage() {
   return (
-    <MobileNewEntityPage perm={PERM.REQUISITION_CREATE} what="create material indents" permission="requisition.create" fields={4}>
+    <MobileNewEntityPage perm={PERM.REQUISITION_CREATE} what="create material indents" permission="requisition.create" fields={4} scopeAware>
       {async () => {
         const company = await getCompany();
 

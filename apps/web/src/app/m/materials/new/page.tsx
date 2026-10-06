@@ -10,7 +10,7 @@ import MobileNewMaterialClient from "./MobileNewMaterialClient";
  */
 export default function NewMaterialPage() {
   return (
-    <MobileNewEntityPage perm={PERM.INVENTORY_MANAGE} what="add materials" permission="inventory.manage" fields={5}>
+    <MobileNewEntityPage perm={PERM.INVENTORY_MANAGE} what="add materials" permission="inventory.manage" fields={5} scopeAware>
       {async () => {
         const company = await getCompany();
         // Fetch categories + stock locations for the dropdowns (company-scoped)

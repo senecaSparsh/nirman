@@ -11,7 +11,7 @@ import { MobileNewPettyCashClient } from "./MobileNewPettyCashClient";
  */
 export default function MobileNewPettyCashPage() {
   return (
-    <MobileNewEntityPage perm={PERM.FINANCE_MANAGE} what="create petty cash floats" permission="finance.manage" fields={4}>
+    <MobileNewEntityPage perm={PERM.FINANCE_MANAGE} what="create petty cash floats" permission="finance.manage" fields={4} scopeAware>
       {async () => {
         const company = await getCompany();
         const currentUser = await getCurrentUser();

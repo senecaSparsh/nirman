@@ -12,7 +12,7 @@ import { MobileNewSupplierPaymentClient } from "./MobileNewSupplierPaymentClient
  */
 export default function MobileNewSupplierPaymentPage() {
   return (
-    <MobileNewEntityPage perm={PERM.FINANCE_MANAGE} what="record supplier payments" permission="finance.manage" fields={6}>
+    <MobileNewEntityPage perm={PERM.FINANCE_MANAGE} what="record supplier payments" permission="finance.manage" fields={6} scopeAware>
       {async () => {
         const company = await getCompany();
 

@@ -11,7 +11,7 @@ import { MobileNewLeadClient } from "./MobileNewLeadClient";
  */
 export default function MobileNewLeadPage() {
   return (
-    <MobileNewEntityPage perm={PERM.SALE_CREATE} what="create leads" permission="sale.create" fields={6}>
+    <MobileNewEntityPage perm={PERM.SALE_CREATE} what="create leads" permission="sale.create" fields={6} scopeAware>
       {async () => {
         const company = await getCompany();
         const currentUser = await getCurrentUser();

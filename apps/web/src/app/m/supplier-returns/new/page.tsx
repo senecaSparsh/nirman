@@ -12,7 +12,7 @@ import MobileNewSupplierReturnClient from "./MobileNewSupplierReturnClient";
  */
 export default function MobileNewSupplierReturnPage() {
   return (
-    <MobileNewEntityPage perm={PERM.PROCUREMENT_MANAGE} what="create supplier returns" permission="procurement.manage" fields={6}>
+    <MobileNewEntityPage perm={PERM.PROCUREMENT_MANAGE} what="create supplier returns" permission="procurement.manage" fields={6} scopeAware>
       {async () => {
         const company = await getCompany();
 

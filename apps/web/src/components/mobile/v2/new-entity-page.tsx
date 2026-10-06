@@ -1,6 +1,6 @@
 import { Suspense, type ReactNode } from "react";
 import { connection } from "next/server";
-import { getUserRole, getUserPermissions } from "@/lib/server";
+import { getUserRole, getUserPermissions, getScopedRolePermissions } from "@/lib/server";
 import { hasPermission, type Permission } from "@/lib/roles";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
@@ -96,6 +96,7 @@ export async function MobileNewEntityPage({
   fields = 5,
   suspense = true,
   soft = false,
+  scopeAware,
   children,
 }: {
   /** Permission to gate on. Omit for no gate. */
@@ -108,12 +109,17 @@ export async function MobileNewEntityPage({
   suspense?: boolean;
   /** If true, don't block — pass canManage to children instead. */
   soft?: boolean;
+  /** When true, scoped-role perms (e.g. a Site One PM hat) satisfy the gate —
+   *  only set on forms whose POST validates scope (assertScopeAllows). */
+  scopeAware?: boolean;
   children: (ctx: MobileNewEntityCtx) => Promise<ReactNode> | ReactNode;
 }) {
   const content = async () => {
     await connection();
     const role = await getUserRole();
-    const overrides = await getUserPermissions();
+    const overrides = scopeAware
+      ? [...(await getUserPermissions()), ...(await getScopedRolePermissions())]
+      : await getUserPermissions();
     const canManage = perm ? hasPermission(role, perm, overrides) : true;
 
     if (!soft && perm && !canManage) {

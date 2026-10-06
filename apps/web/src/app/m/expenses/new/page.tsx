@@ -12,7 +12,7 @@ export default function MobileNewExpensePage({
   searchParams: Promise<{ project?: string; amount?: string; payee?: string; category?: string }>;
 }) {
   return (
-    <MobileNewEntityPage perm={PERM.EXPENSE_CREATE} what="record expenses" permission="expense.create" fields={3}>
+    <MobileNewEntityPage perm={PERM.EXPENSE_CREATE} what="record expenses" permission="expense.create" fields={3} scopeAware>
       {async () => {
         const company = await getCompany();
         const user = await getCurrentUser();
