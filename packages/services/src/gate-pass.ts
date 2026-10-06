@@ -164,6 +164,8 @@ export async function createGatePass(input: CreateGatePassInput) {
       entityType: "GatePass",
       entityId: result.id,
       variables: { gatePassNumber: result.gatePassNumber, category: input.category },
+      // The submitter can't approve their own pass — don't tell them to.
+      excludeIds: [input.createdById],
       timestamp: new Date(),
     });
   }
@@ -202,6 +204,7 @@ export async function submitGatePass(id: string, userId: string) {
     entityType: "GatePass",
     entityId: id,
     variables: { gatePassNumber: result.updated.gatePassNumber },
+    excludeIds: [userId],
     timestamp: new Date(),
   });
 
@@ -416,6 +419,7 @@ export async function resubmitGatePass(id: string, userId: string, notes?: strin
     entityType: "GatePass",
     entityId: id,
     variables: { gatePassNumber: result.updated.gatePassNumber },
+    excludeIds: [userId],
     timestamp: new Date(),
   });
 
@@ -693,6 +697,7 @@ export async function autoCreateGatePassFromRef(
       entityType: "GatePass",
       entityId: gatePass.id,
       variables: { gatePassNumber: gatePass.gatePassNumber, category: params.category },
+      excludeIds: [params.createdById],
       timestamp: new Date(),
     });
   });

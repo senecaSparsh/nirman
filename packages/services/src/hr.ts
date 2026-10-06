@@ -2609,6 +2609,8 @@ export async function submitDPR(input: SubmitDprInput) {
       date: dpr.date.toISOString().slice(0, 10),
       progressPct: dpr.progressPct.toString(),
     },
+    // The submitter can't approve their own DPR — don't tell them to.
+    excludeIds: [input.userId],
     timestamp: new Date(),
   });
 
