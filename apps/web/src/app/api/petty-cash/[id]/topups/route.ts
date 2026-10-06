@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { topUpPettyCash, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -14,7 +14,7 @@ const topUpSchema = z.object({
 });
 
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.FINANCE_MANAGE);
+  const user = await requireEffectivePermission(PERM.FINANCE_MANAGE);
   const company = await getCompany();
   const { id } = await params;
   const body = await req.json();

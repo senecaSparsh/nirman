@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
 import { deleteRenovationCost, ServiceError } from "@nirman/services";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, requirePermission, getCompany, scopeWhere } from "@/lib/server";
+import { apiHandler, json, requireEffectivePermission, getCompany, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string; costId: string }> }) => {
-  const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requireEffectivePermission(PERM.ASSETS_MANAGE);
   const { costId } = await params;
 
   const company = await getCompany();

@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.FINANCE_MANAGE);
+  await requireEffectivePermission(PERM.FINANCE_MANAGE);
   const company = await getCompany();
   const { id } = await params;
   // deleteMany swallows misses — a foreign or nonexistent id used to return

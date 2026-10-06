@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { createRateAnalysis, getRateAnalysis } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -29,7 +29,7 @@ const createSchema = z.object({
 
 // GET /api/rate-analysis?boqItemId=xxx
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requireEffectivePermission(PERM.ASSETS_VIEW);
   const company = await getCompany();
   const boqItemId = req.nextUrl.searchParams.get("boqItemId");
   if (!boqItemId) return json({ error: "boqItemId is required" }, { status: 400 });
@@ -45,7 +45,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
 // POST /api/rate-analysis — create a new rate analysis
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requireEffectivePermission(PERM.ASSETS_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = createSchema.safeParse(body);

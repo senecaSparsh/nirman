@@ -6,7 +6,7 @@ import {
   getCompanyGroupIds,
   json,
   toNum,
-  requirePermission,
+  requireEffectivePermission,
   requireUser,
   scopeWhere,
 } from "@/lib/server";
@@ -70,7 +70,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
 
   switch (type) {
     case "procurement": {
-      await requirePermission(PERM.PROCUREMENT_VIEW);
+      await requireEffectivePermission(PERM.PROCUREMENT_VIEW);
       const pos = await prisma.purchaseOrder.findMany({
         where: {
           companyId: { in: groupCompanyIds },
@@ -118,7 +118,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
     }
 
     case "dprs": {
-      await requirePermission(PERM.DPR_VIEW);
+      await requireEffectivePermission(PERM.DPR_VIEW);
       // DPRs are ordered by date (not createdAt), so we need a date-based cursor
       let dprCursorDate: Date | null = null;
       let dprCursorId: string | null = null;
@@ -172,7 +172,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
     }
 
     case "transfers": {
-      await requirePermission(PERM.INVENTORY_VIEW);
+      await requireEffectivePermission(PERM.INVENTORY_VIEW);
       const transfers = await prisma.stockTransfer.findMany({
         where: {
           OR: [
@@ -220,7 +220,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
     }
 
     case "sales": {
-      await requirePermission(PERM.SALES_VIEW);
+      await requireEffectivePermission(PERM.SALES_VIEW);
       const sales = await prisma.materialSale.findMany({
         where: { companyId: { in: groupCompanyIds }, ...cursorFilter, ...msScope },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -267,7 +267,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
     }
 
     case "requisitions": {
-      await requirePermission(PERM.PROCUREMENT_VIEW);
+      await requireEffectivePermission(PERM.PROCUREMENT_VIEW);
       const reqs = await prisma.materialRequisition.findMany({
         where: {
           OR: [
@@ -313,7 +313,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
     }
 
     case "suppliers": {
-      await requirePermission(PERM.PROCUREMENT_VIEW);
+      await requireEffectivePermission(PERM.PROCUREMENT_VIEW);
       const suppliers = await prisma.supplier.findMany({
         where: {
           companyId: { in: groupCompanyIds },
@@ -349,7 +349,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
     }
 
     case "expenses": {
-      await requirePermission(PERM.FINANCE_VIEW);
+      await requireEffectivePermission(PERM.FINANCE_VIEW);
       const expenses = await prisma.expense.findMany({
         where: {
           companyId: { in: groupCompanyIds },
@@ -386,7 +386,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
     }
 
     case "expense-claims": {
-      await requirePermission(PERM.FINANCE_VIEW);
+      await requireEffectivePermission(PERM.FINANCE_VIEW);
       const claims = await prisma.expenseClaim.findMany({
         where: {
           companyId: { in: groupCompanyIds },
@@ -419,7 +419,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
     }
 
     case "customers": {
-      await requirePermission(PERM.SALES_VIEW);
+      await requireEffectivePermission(PERM.SALES_VIEW);
       const customers = await prisma.customer.findMany({
         where: {
           companyId: { in: groupCompanyIds },
@@ -477,7 +477,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
     }
 
     case "leads": {
-      await requirePermission(PERM.SALES_VIEW);
+      await requireEffectivePermission(PERM.SALES_VIEW);
       const leads = await prisma.lead.findMany({
         where: {
           companyId: { in: groupCompanyIds },
@@ -526,7 +526,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
     }
 
     case "material-issues": {
-      await requirePermission(PERM.INVENTORY_VIEW);
+      await requireEffectivePermission(PERM.INVENTORY_VIEW);
       const issues = await prisma.materialIssue.findMany({
         where: {
           fromLocation: { companyId: { in: groupCompanyIds }, deletedAt: null },
@@ -564,7 +564,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
     }
 
     case "gate-passes": {
-      await requirePermission(PERM.INVENTORY_VIEW);
+      await requireEffectivePermission(PERM.INVENTORY_VIEW);
       const passes = await prisma.gatePass.findMany({
         where: {
           companyId: { in: groupCompanyIds },
@@ -613,7 +613,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
     }
 
     case "supplier-payments": {
-      await requirePermission(PERM.FINANCE_VIEW);
+      await requireEffectivePermission(PERM.FINANCE_VIEW);
       const payments = await prisma.supplierPayment.findMany({
         where: {
           companyId: { in: groupCompanyIds },

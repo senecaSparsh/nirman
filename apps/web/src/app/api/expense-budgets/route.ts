@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { setExpenseBudget, getExpenseBudgetVariance, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, requirePermission, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -52,7 +52,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.FINANCE_MANAGE);
+  const user = await requireEffectivePermission(PERM.FINANCE_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = budgetSchema.safeParse(body);

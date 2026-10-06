@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { createLegalDoc, listLegalDocs, listAllLegalDocs, countAllLegalDocs } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, scopeWhere, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -12,7 +12,7 @@ import { PERM } from "@/lib/roles";
  * overview page), with optional filters. Includes project/land names.
  */
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requireEffectivePermission(PERM.ASSETS_VIEW);
   const company = await getCompany();
   const sp = req.nextUrl.searchParams;
   const all = sp.get("all") === "true";
@@ -109,7 +109,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
  * Create a new legal document (permission, license, NOC, certificate, ATS).
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.LEGAL_MANAGE);
+  const user = await requireEffectivePermission(PERM.LEGAL_MANAGE);
   const company = await getCompany();
   const body = await req.json();
 

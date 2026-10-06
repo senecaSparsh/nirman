@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { generatePaymentSchedule } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -17,7 +17,7 @@ const schema = z.object({
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.SALE_CREATE);
+  const user = await requireEffectivePermission(PERM.SALE_CREATE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = schema.safeParse(body);
@@ -52,7 +52,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
 });
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.SALES_VIEW);
+  await requireEffectivePermission(PERM.SALES_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const assetSaleId = searchParams.get("assetSaleId");

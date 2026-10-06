@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { getProjectMaterialReconciliation } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.PROJECT_CONTROL_VIEW);
+  await requireEffectivePermission(PERM.PROJECT_CONTROL_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");

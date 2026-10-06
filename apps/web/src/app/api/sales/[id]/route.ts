@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { cancelSale, completeSale, markRegistryDone, recordDeposit, recordPayment, sendNotification, updateSale } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, paymentSchema, depositSchema, completeSaleSchema, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, paymentSchema, depositSchema, completeSaleSchema, requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 
@@ -10,7 +10,7 @@ import { formatCurrency } from "@/lib/utils";
  * GET /api/sales/[id] — sale detail with payments, land parcel, built unit.
  */
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.SALES_VIEW);
+  await requireEffectivePermission(PERM.SALES_VIEW);
   const company = await getCompany();
   const { id } = await params;
   const s = await prisma.assetSale.findFirst({
@@ -185,7 +185,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
  *   body: { action: "cancel" }
  */
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.SALES_MANAGE);
+  const user = await requireEffectivePermission(PERM.SALES_MANAGE);
   const { id } = await params;
   const company = await getCompany();
   const existing = await prisma.assetSale.findFirst({ where: { id, companyId: company.id, ...await scopeWhere("AssetSale", {}) }, select: { id: true } });
@@ -230,7 +230,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
  *   body: { action: "deposit" | "complete" | "payment", ...payload }
  */
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.SALES_MANAGE);
+  const user = await requireEffectivePermission(PERM.SALES_MANAGE);
   const company = await getCompany();
   const { id } = await params;
   const saleExists = await prisma.assetSale.findFirst({ where: { id, companyId: company.id, ...await scopeWhere("AssetSale", {}) }, select: { id: true } });

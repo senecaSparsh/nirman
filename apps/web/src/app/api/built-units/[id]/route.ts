@@ -2,11 +2,11 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { softDelete, updateUnitStatus, updateUnitValuation, updateBuiltUnit } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum, builtUnitStatusSchema, builtUnitValuationSchema, builtUnitEditSchema, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, toNum, builtUnitStatusSchema, builtUnitValuationSchema, builtUnitEditSchema, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requireEffectivePermission(PERM.ASSETS_VIEW);
   const company = await getCompany();
   const { id } = await params;
   const unit = await prisma.builtUnit.findFirst({
@@ -45,7 +45,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requireEffectivePermission(PERM.ASSETS_MANAGE);
   const company = await getCompany();
   const { id } = await params;
   const existing = await prisma.builtUnit.findFirst({ where: { id, project: { companyId: company.id }, deletedAt: null, ...await scopeWhere("BuiltUnit", {}) }, select: { id: true } });
@@ -152,7 +152,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.ASSETS_MANAGE);
+  await requireEffectivePermission(PERM.ASSETS_MANAGE);
   const company = await getCompany();
   const { id } = await params;
   // Verify company ownership before soft-deleting

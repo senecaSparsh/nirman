@@ -1,11 +1,11 @@
 import { type NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission, getUserPermissions, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, getUserPermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { recordPettyCashSpend } from "@nirman/services";
 
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.EXPENSE_CREATE);
+  const user = await requireEffectivePermission(PERM.EXPENSE_CREATE);
   const company = await getCompany();
   const { id: floatId } = await params;
   const body = await req.json();

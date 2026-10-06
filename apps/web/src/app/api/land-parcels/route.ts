@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { LandParcelStatus } from "@nirman/db";
 import { partitionLandParcel, unpartitionLandParcel, setParcelStatus, updateParcelValuation, updateParcelDetails } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -12,7 +12,7 @@ import { PERM } from "@/lib/roles";
  * Includes children for tree rendering.
  */
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requireEffectivePermission(PERM.ASSETS_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const landPurchaseId = searchParams.get("landPurchaseId");
@@ -93,7 +93,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   if (action === "partition") {
-    const user = await requirePermission(PERM.LAND_PARTITION);
+    const user = await requireEffectivePermission(PERM.LAND_PARTITION);
     const { partitionSchema } = await import("@/lib/server");
     const parsed = partitionSchema.safeParse(body);
     if (!parsed.success) {
@@ -136,7 +136,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
   if (action === "unpartition") {
     // Unpartition (undo subdivision) — OWNER/ADMIN only
-    const user = await requirePermission(PERM.LAND_PARTITION);
+    const user = await requireEffectivePermission(PERM.LAND_PARTITION);
     const parentParcelId = body?.parentParcelId as string;
     if (!parentParcelId) {
       return json({ error: "parentParcelId is required" }, { status: 400 });
@@ -158,7 +158,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   if (action === "status") {
-    const user = await requirePermission(PERM.ASSETS_MANAGE);
+    const user = await requireEffectivePermission(PERM.ASSETS_MANAGE);
     const parcelId = body?.parcelId as string;
     const status = body?.status as "AVAILABLE" | "HOLD";
     if (!parcelId || !status) {
@@ -181,7 +181,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   if (action === "valuation") {
-    const user = await requirePermission(PERM.ASSETS_MANAGE);
+    const user = await requireEffectivePermission(PERM.ASSETS_MANAGE);
     const { parcelValuationSchema } = await import("@/lib/server");
     const parcelId = body?.parcelId as string;
     if (!parcelId) return json({ error: "parcelId is required" }, { status: 400 });
@@ -213,7 +213,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   if (action === "edit") {
-    const user = await requirePermission(PERM.ASSETS_MANAGE);
+    const user = await requireEffectivePermission(PERM.ASSETS_MANAGE);
     const parcelId = body?.parcelId as string;
     if (!parcelId) return json({ error: "parcelId is required" }, { status: 400 });
     try {

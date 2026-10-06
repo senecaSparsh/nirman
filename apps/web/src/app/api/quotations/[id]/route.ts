@@ -9,7 +9,7 @@ import {
   getCompanyGroupIds,
   getUserPermissions,
   json,
-  requirePermission,
+  requireEffectivePermission,
   scopeWhere,
 } from "@/lib/server";
 
@@ -20,7 +20,7 @@ import {
  */
 export const GET = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const user = await requirePermission(PERM.QUOTATION_VIEW);
+  const user = await requireEffectivePermission(PERM.QUOTATION_VIEW);
   const company = await getCompany();
   const groupCompanyIds = await getCompanyGroupIds(company);
   const __effPerms = await getUserPermissions();
@@ -62,7 +62,7 @@ export const GET = apiHandler(async (req: NextRequest, { params }: { params: Pro
  */
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
-  const user = await requirePermission(PERM.QUOTATION_MANAGE);
+  const user = await requireEffectivePermission(PERM.QUOTATION_MANAGE);
   const body = await req.json();
 
   if (body?.action !== "cancel") {

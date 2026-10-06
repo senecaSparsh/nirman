@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, projectPhaseSchema, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, projectPhaseSchema, requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const PATCH = apiHandler(
   async (req: NextRequest, ctx: { params: Promise<{ id: string; phaseId: string }> }) => {
-    await requirePermission(PERM.PROJECTS_MANAGE);
+    await requireEffectivePermission(PERM.PROJECTS_MANAGE);
     const company = await getCompany();
     const { id, phaseId } = await ctx.params;
     const body = await req.json();
@@ -41,7 +41,7 @@ export const PATCH = apiHandler(
 
 export const DELETE = apiHandler(
   async (_req: NextRequest, ctx: { params: Promise<{ id: string; phaseId: string }> }) => {
-    await requirePermission(PERM.PROJECTS_MANAGE);
+    await requireEffectivePermission(PERM.PROJECTS_MANAGE);
     const company = await getCompany();
     const { id, phaseId } = await ctx.params;
     const phase = await prisma.projectPhase.findFirst({
