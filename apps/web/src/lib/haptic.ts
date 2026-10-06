@@ -40,6 +40,9 @@ function vibrate(pattern: number | number[] = 10): void {
     return;
   }
   if (typeof navigator === "undefined" || !("vibrate" in navigator)) return;
+  // Chrome rejects vibrate() before the first user gesture and logs a console
+  // error — mount-time effects (e.g. GPS auto-select) hit this on load.
+  if ("userActivation" in navigator && !navigator.userActivation.hasBeenActive) return;
   try {
     navigator.vibrate(pattern);
   } catch {
