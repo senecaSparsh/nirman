@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum, getUserScope, getUserPermissions, getEmployeeAccessScope, getCurrentUser, canManageSpecificEmployee, employeeVisibilityWhere, scopeWhere } from "@/lib/server";
+import { getCompany, getUserRole, toNum, getUserScope, getUserPermissions, getEffectivePermissions, getEmployeeAccessScope, getCurrentUser, canManageSpecificEmployee, employeeVisibilityWhere, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
@@ -33,7 +33,10 @@ async function MobileOnboardingDetailContent({
   await connection();
   const company = await getCompany();
   const role = await getUserRole();
-  const __effPerms = await getUserPermissions();
+  // View = effective (scoped PM sees an in-scope worker's checklist);
+  // manage stays global — employees/[id] PATCH requires org hr.manage.
+  const __effPerms = await getEffectivePermissions();
+  const __globalPerms = await getUserPermissions();
 
   if (!__effPerms.includes(PERM.HR_VIEW)) {
     return (
@@ -43,10 +46,10 @@ async function MobileOnboardingDetailContent({
     );
   }
 
-  const canManage = __effPerms.includes(PERM.HR_MANAGE);
-  const canManagePayroll = __effPerms.includes(PERM.PAYROLL_MANAGE);
+  const canManage = __globalPerms.includes(PERM.HR_MANAGE);
+  const canManagePayroll = __globalPerms.includes(PERM.PAYROLL_MANAGE);
   const __empScope = await getEmployeeAccessScope();
-  const canManageAccess = __effPerms.includes(PERM.USERS_MANAGE);
+  const canManageAccess = __globalPerms.includes(PERM.USERS_MANAGE);
   // Field-visibility policy (matches getEmployeeAccessScope +
   // lib/employee-visibility.ts tier groups):
   //   canSeeComp  — wages, employment terms, salary components, benefits
