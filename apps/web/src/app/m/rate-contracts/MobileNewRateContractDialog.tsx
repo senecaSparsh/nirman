@@ -130,6 +130,7 @@ export function MobileNewRateContractForm({
       {/* Details */}
       <SectionCard title="Details">
         <MobileSelectWithCreate
+            createEntity="supplier"
           label="Supplier"
           required
           value={form.supplierId}
@@ -151,6 +152,7 @@ export function MobileNewRateContractForm({
         />
 
         <MobileSelectWithCreate
+            createEntity="material"
           label="Material"
           required
           value={form.materialId}

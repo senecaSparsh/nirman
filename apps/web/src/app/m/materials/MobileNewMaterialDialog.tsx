@@ -321,6 +321,7 @@ export function MobileNewMaterialForm({
         {/* Category + Unit (side by side) */}
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <MobileSelectWithCreate
+            createEntity="category"
             label="Category"
             required
             value={categoryId}

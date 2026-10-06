@@ -79,6 +79,9 @@ export function MobileStockOutClient({
   onClose,
   modeDowngraded,
   modeExplicit,
+  canCreateProject,
+  canCreateMaterial,
+  canCreateLocation,
 }: {
   canTransfer: boolean;
   canIssue: boolean;
@@ -92,6 +95,11 @@ export function MobileStockOutClient({
   /** True when the URL carried an explicit ?mode= — it beats a restored
    *  draft's mode (the user navigated to a specific flow on purpose). */
   modeExplicit?: boolean;
+  /** Inline-create affordances — gated on the GLOBAL perms the POSTs enforce
+   *  (projects/locations are org topology; materials is inventory.manage). */
+  canCreateProject?: boolean;
+  canCreateMaterial?: boolean;
+  canCreateLocation?: boolean;
 }) {
   const router = useRouter();
   const { online, enqueue } = useOfflineQueue();
@@ -1267,9 +1275,10 @@ export function MobileStockOutClient({
             "Select Material"
           }
           createLabel={
-            modal.type === "to-project" ? "project" :
-            modal.type === "material" ? "material" :
-            modal.type === "lot" ? undefined : "location"
+            modal.type === "to-project" && canCreateProject ? "project" :
+            modal.type === "material" && canCreateMaterial ? "material" :
+            modal.type === "lot" ? undefined :
+            modal.type === "from" || modal.type === "to-location" ? (canCreateLocation ? "location" : undefined) : undefined
           }
           items={
             modal.type === "from"
@@ -1323,14 +1332,10 @@ export function MobileStockOutClient({
           }}
           onClose={() => setModal(null)}
           onCreate={
-            modal.type === "lot" ? undefined : () => {
-              if (modal) {
-                setShowCreateDialog(
-                  modal.type === "to-project" ? "project" :
-                  modal.type === "material" ? "material" : "location",
-                );
-              }
-            }
+            modal.type === "lot" ? undefined :
+            modal.type === "to-project" ? (canCreateProject ? () => setShowCreateDialog("project") : undefined) :
+            modal.type === "material" ? (canCreateMaterial ? () => setShowCreateDialog("material") : undefined) :
+            canCreateLocation ? () => setShowCreateDialog("location") : undefined
           }
         />
       ) : null}

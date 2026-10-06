@@ -461,6 +461,7 @@ export function MobileNewSaleForm({
             {assetType === "PROJECT" ? (
               <FormFieldSm label="Project" required>
                 <MobileSelectWithCreate
+                  createEntity="project"
                   label=""
                   required
                   value={projectId}
@@ -500,6 +501,7 @@ export function MobileNewSaleForm({
 
             {/* Customer */}
             <MobileSelectWithCreate
+              createEntity="customer"
               label="Customer"
               required
               value={customerId}
@@ -633,6 +635,7 @@ export function MobileNewSaleForm({
               <>
                 <FormFieldSm label="Select from Broker Master">
                   <MobileSelectWithCreate
+                    createEntity="broker"
                     label=""
                     value={brokerId}
                     onChange={(id) => {

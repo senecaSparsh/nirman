@@ -2334,25 +2334,28 @@ export async function getActionPermissions() {
   const scope = await getUserScope();
   // Effective = global ∪ scoped-role perms — a Site One PM hat grants
   // create-FABs inside its own scope. Org-scoped flags (canCreateProject,
-  // canCreateCompany, canCreateStockLocation) still check scopeType
-  // === "COMPANY" so they stay closed for scoped users.
+  // canCreateCompany, canCreateStockLocation, canCreateEmployee) check
+  // GLOBAL perms + scopeType === "COMPANY" — their POSTs stay on
+  // requirePermission, so the button must hide whenever the POST would 403.
   const perms = await getEffectivePermissions();
+  const globalPerms = await getUserPermissions();
   const hasPerm = (p: string) => perms.includes(p);
+  const hasGlobalPerm = (p: string) => globalPerms.includes(p);
 
   // ── Create permissions (FABs) ──
   // A viewer can create if they have the permission AND their scope
   // allows it. COMPANY scope = unrestricted. DEPARTMENT/PROJECT scope
   // = can create, but the form must restrict the target to their scope.
-  const canCreateEmployee = hasPerm("hr.manage");
+  const canCreateEmployee = hasGlobalPerm("hr.manage");
   const canRecordLeave = hasPerm("hr.manage");
   const canCreateMaterial = hasPerm("inventory.manage");
   const canCreateWorkOrder = hasPerm("sales.manage") || hasPerm("projects.manage");
-  const canCreateProject = hasPerm("projects.manage") && scope.scopeType === "COMPANY";
-  const canCreateCompany = hasPerm("company.manage") && scope.scopeType === "COMPANY";
-  const canCreateDepartment = hasPerm("company.manage");
+  const canCreateProject = hasGlobalPerm("projects.manage") && scope.scopeType === "COMPANY";
+  const canCreateCompany = hasGlobalPerm("company.manage") && scope.scopeType === "COMPANY";
+  const canCreateDepartment = hasGlobalPerm("company.manage");
   const canCreateCustomer = hasPerm("sales.manage");
   const canCreateLead = hasPerm("sales.manage");
-  const canCreateSupplier = hasPerm("inventory.manage");
+  const canCreateSupplier = hasPerm("procurement.manage");
   const canCreateEquipment = hasPerm("inventory.manage");
   const canCreateMaterialSale = hasPerm("inventory.manage");
   const canCreateRental = hasPerm("inventory.manage");
@@ -2364,12 +2367,12 @@ export async function getActionPermissions() {
   const canCreateLand = hasPerm("projects.manage");
   const canCreatePortalListing = hasPerm("sales.manage");
   const canCreatePayroll = hasPerm("payroll.manage") || hasPerm("hr.manage");
-  const canCreateTeamMember = hasPerm("company.manage");
+  const canCreateTeamMember = hasGlobalPerm("company.manage");
   const canCreateBuiltUnit = hasPerm("projects.manage");
   const canCreateSms = hasPerm("inventory.manage") || hasPerm("hr.manage");
   // ── Additional action flags for complete FAB gating ──
   const canCreateVehicle = hasPerm("inventory.manage");
-  const canCreateStockLocation = hasPerm("inventory.manage") && scope.scopeType === "COMPANY";
+  const canCreateStockLocation = hasGlobalPerm("inventory.manage") && scope.scopeType === "COMPANY";
   const canCreateStandardConsumption = hasPerm("inventory.manage");
   const canCreateRateContract = hasPerm("inventory.manage");
   const canCreateSubcontractor = hasPerm("projects.manage");
@@ -3132,6 +3135,8 @@ export interface NavBootstrap {
     /** Permissions from project-scoped role hats — nav consults them only
      *  for routes marked scopeAware. */
     scopedPermissions: string[];
+    /** Membership scope — topology create-flags gate on this. */
+    scopeType: "COMPANY" | "DEPARTMENT" | "PROJECT" | "NONE";
     /** Multi-role: all hats the member holds (primary + secondary). */
     roles: string[];
     /** Multi-role: the hat currently worn (equals `role` when no switch). */
@@ -3173,11 +3178,12 @@ export async function getNavBootstrap(): Promise<NavBootstrap | null> {
       const user = await getCurrentUser();
       if (!user) return null;
 
-      const [company, permissions, scopedPermissions, ownRole] = await Promise.all([
+      const [company, permissions, scopedPermissions, ownRole, scope] = await Promise.all([
         getCompany(),
         getUserPermissions(),
         getScopedRolePermissions(),
         getOwnRole(),
+        getUserScope(),
       ]);
       const held = await getHeldRoles(user.id, company.id);
       // Multi-role: display labels for every held hat (custom roles resolve
@@ -3222,6 +3228,7 @@ export async function getNavBootstrap(): Promise<NavBootstrap | null> {
           ownRole,
           permissions,
           scopedPermissions,
+          scopeType: scope.scopeType,
           roles: held?.heldRoles ?? [user.role],
           activeRole: held?.activeRole ?? user.role,
           roleLabels,

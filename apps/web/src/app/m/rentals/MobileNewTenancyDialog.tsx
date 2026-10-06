@@ -329,6 +329,7 @@ export function MobileNewTenancyDialog({
             <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Linkages</p>
           {/* Project (optional, shows for both asset types) */}
           <MobileSelectWithCreate
+            createEntity="project"
             label="Link to Project (optional)"
             value={form.projectId}
             onChange={(v) => set("projectId", v)}
@@ -352,6 +353,7 @@ export function MobileNewTenancyDialog({
           {/* Customer (optional) */}
           {customers.length > 0 && (
             <MobileSelectWithCreate
+            createEntity="customer"
               label="Link to Customer (optional)"
               value={form.customerId}
               onChange={(v) => set("customerId", v)}

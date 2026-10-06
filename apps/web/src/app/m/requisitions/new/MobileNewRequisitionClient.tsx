@@ -337,6 +337,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <div>
               <MobileSelectWithCreate
+            createEntity="project"
                 label="Project"
                 required
                 placeholder="— Select project —"
@@ -395,6 +396,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
                   <div className="flex items-start gap-2">
                     <div className="min-w-0 flex-1">
                       <MobileSelectWithCreate
+            createEntity="material"
                         label=""
                         createLabel="material"
                         required
@@ -454,6 +456,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
                   <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                     <div>
                       <MobileSelectWithCreate
+            createEntity="supplier"
                         label="Preferred Supplier"
                         value={line.preferredSupplierId}
                         onChange={(val) => updateLine(idx, "preferredSupplierId", val)}

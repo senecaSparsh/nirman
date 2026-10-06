@@ -251,6 +251,7 @@ export function MobileNewBoqItemDialog({
                 {/* Material link (optional) */}
                 {materials.length > 0 && (
                   <MobileSelectWithCreate
+            createEntity="material"
                     label="Link to Material (optional)"
                     required={false}
                     value={form.materialId}

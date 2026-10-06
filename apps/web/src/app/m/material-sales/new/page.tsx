@@ -1,3 +1,4 @@
+import { getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import MobileNewMaterialSaleClient from "./MobileNewMaterialSaleClient";
@@ -9,7 +10,17 @@ import MobileNewMaterialSaleClient from "./MobileNewMaterialSaleClient";
 export default function MobileNewMaterialSalePage() {
   return (
     <MobileNewEntityPage perm={PERM.SALE_CREATE} what="create sales" permission="sale.create">
-      {() => <MobileNewMaterialSaleClient />}
+      {async () => {
+        const actionPerms = await getActionPermissions();
+        return (
+          <MobileNewMaterialSaleClient
+            canCreateCustomer={actionPerms.canCreateCustomer}
+            canCreateMaterial={actionPerms.canCreateMaterial}
+            canCreateProject={actionPerms.canCreateProject}
+            canCreateLocation={actionPerms.canCreateStockLocation}
+          />
+        );
+      }}
     </MobileNewEntityPage>
   );
 }

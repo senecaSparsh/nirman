@@ -127,6 +127,7 @@ export function MobileNewStandardConsumptionForm({
           enterKeyHint="next"
         />
         <MobileSelectWithCreate
+            createEntity="material"
           label="Material"
           required
           value={form.materialId}

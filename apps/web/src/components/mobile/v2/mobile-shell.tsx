@@ -24,6 +24,7 @@ import { usePullToRefresh } from "@/components/mobile/use-pull-to-refresh";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
 import { setActiveCompanyResolver, setActiveUserResolver } from "@/lib/offline/queue";
 import { NavSheet } from "@/components/mobile/v2/nav-sheet";
+import { MobilePermsProvider } from "@/components/mobile/mobile-perms";
 import { TabSwitcher } from "@/components/mobile/v2/tab-switcher";
 import { VoiceAgentButton } from "@/components/mobile/v2/voice-agent-button";
 import { MobileGlobalSearch } from "@/components/mobile/v2/mobile-global-search";
@@ -80,6 +81,8 @@ interface CompanyInfo {
   permissions: string[];
   /** Perms from project-scoped role hats — used only for scopeAware routes. */
   scopedPermissions?: string[];
+  /** Membership scope — COMPANY/DEPARTMENT/PROJECT. Gates topology creates. */
+  scopeType?: "COMPANY" | "DEPARTMENT" | "PROJECT" | "NONE";
   /** Current user's display name — shown in the NavSheet profile section. */
   userName: string;
   /** Multi-role: all hats the member holds (primary + secondary). */
@@ -130,6 +133,7 @@ export function MobileShellV2({
           parentCompanyId: initial.company.parentCompanyId,
           permissions: initial.me.permissions,
           scopedPermissions: initial.me.scopedPermissions ?? [],
+          scopeType: initial.me.scopeType ?? "COMPANY",
           userName: initial.me.name ?? "User",
           roles: initial.me.roles ?? [initial.me.role],
           activeRole: initial.me.activeRole ?? initial.me.role,
@@ -206,7 +210,7 @@ export function MobileShellV2({
   // ── Resolve company name + role via /api/me + /api/company ──
   // Skipped when `initial` is provided — the /m layout already resolved
   // the same data server-side, so refetching would just double the work.
-  const meQ = useFetch<{ role?: string; ownRole?: string; name?: string; permissions?: string[]; scopedPermissions?: string[]; roles?: string[]; activeRole?: string; roleLabels?: Record<string, string> } | null>("/api/me", { skip: !!initial });
+  const meQ = useFetch<{ role?: string; ownRole?: string; name?: string; permissions?: string[]; scopedPermissions?: string[]; scopeType?: "COMPANY" | "DEPARTMENT" | "PROJECT" | "NONE"; roles?: string[]; activeRole?: string; roleLabels?: Record<string, string> } | null>("/api/me", { skip: !!initial });
   const companyQ = useFetch<{ name?: string; parentCompanyId?: string | null; companies?: CompanyOption[] } | null>("/api/company", { skip: !!initial });
   useEffect(() => {
     const me = meQ.data;
@@ -223,6 +227,7 @@ export function MobileShellV2({
           ? me.permissions
           : prev.permissions,
         scopedPermissions: Array.isArray(me?.scopedPermissions) ? me.scopedPermissions : prev.scopedPermissions,
+        scopeType: me?.scopeType ?? prev.scopeType,
         userName: me?.name ?? prev.userName,
         roles: Array.isArray(me?.roles) && me.roles.length > 0 ? me.roles : prev.roles,
         activeRole: me?.activeRole ?? prev.activeRole,
@@ -457,28 +462,34 @@ export function MobileShellV2({
   const personaTabs = manifestTabsFor({ permissions: companyInfo.permissions, scopedPermissions: companyInfo.scopedPermissions, persona });
 
   return (
-    <MobileShellInner
-      companyInfo={companyInfo}
-      companies={companies}
-      canSwitchCompany={canSwitchCompany}
-      companySwitcherOpen={companySwitcherOpen}
-      switchingCompanyId={switchingCompanyId}
-      isCompanySwitching={isCompanySwitching}
-      onToggleCompanySwitcher={() => setCompanySwitcherOpen((o) => !o)}
-      onSwitchCompany={switchCompany}
-      switchingRole={switchingRole}
-      onSwitchRole={switchRole}
-      badgeCounts={badgeCounts}
-      pathname={pathname}
-      router={router}
-      personaTabs={personaTabs}
-      persona={persona}
-      searchOpen={searchOpen}
-      onSearchOpenChange={setSearchOpen}
-      tourEnabled={!!initial}
+    <MobilePermsProvider
+      globalPermissions={companyInfo.permissions}
+      scopedPermissions={companyInfo.scopedPermissions ?? []}
+      scopeType={companyInfo.scopeType ?? "COMPANY"}
     >
-      {children}
-    </MobileShellInner>
+      <MobileShellInner
+        companyInfo={companyInfo}
+        companies={companies}
+        canSwitchCompany={canSwitchCompany}
+        companySwitcherOpen={companySwitcherOpen}
+        switchingCompanyId={switchingCompanyId}
+        isCompanySwitching={isCompanySwitching}
+        onToggleCompanySwitcher={() => setCompanySwitcherOpen((o) => !o)}
+        onSwitchCompany={switchCompany}
+        switchingRole={switchingRole}
+        onSwitchRole={switchRole}
+        badgeCounts={badgeCounts}
+        pathname={pathname}
+        router={router}
+        personaTabs={personaTabs}
+        persona={persona}
+        searchOpen={searchOpen}
+        onSearchOpenChange={setSearchOpen}
+        tourEnabled={!!initial}
+      >
+        {children}
+      </MobileShellInner>
+    </MobilePermsProvider>
   );
 }
 

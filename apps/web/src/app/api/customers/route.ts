@@ -31,7 +31,7 @@ export const GET = apiHandler(async () => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.SALES_MANAGE);
+  const user = await requireEffectivePermission(PERM.SALES_MANAGE);
   const body = await req.json();
   const parsed = customerSchema.safeParse(body);
   if (!parsed.success) {

@@ -95,9 +95,17 @@ interface SaleDraft {
 export default function MobileNewMaterialSaleClient({
   onClose,
   onCreated,
+  canCreateCustomer,
+  canCreateMaterial,
+  canCreateProject,
+  canCreateLocation,
 }: {
   onClose?: () => void;
   onCreated?: () => void;
+  canCreateCustomer?: boolean;
+  canCreateMaterial?: boolean;
+  canCreateProject?: boolean;
+  canCreateLocation?: boolean;
 } = {}) {
   const router = useRouter();
   const { online, enqueue } = useOfflineQueue();
@@ -760,6 +768,10 @@ export default function MobileNewMaterialSaleClient({
         total={total}
         selectedCustomer={selectedCustomer}
         selectedProject={selectedProject}
+        canCreateCustomer={canCreateCustomer}
+        canCreateMaterial={canCreateMaterial}
+        canCreateProject={canCreateProject}
+        canCreateLocation={canCreateLocation}
       />
     </>
   );
@@ -801,6 +813,10 @@ function SaleForm({
   total,
   selectedCustomer,
   selectedProject,
+  canCreateCustomer,
+  canCreateMaterial,
+  canCreateProject,
+  canCreateLocation,
 }: {
   customers: CustomerItem[];
   locations: LocationItem[];
@@ -834,6 +850,10 @@ function SaleForm({
   total: number;
   selectedCustomer?: CustomerItem;
   selectedProject?: ProjectItem;
+  canCreateCustomer?: boolean;
+  canCreateMaterial?: boolean;
+  canCreateProject?: boolean;
+  canCreateLocation?: boolean;
 }) {
   // Selector modal state
   const [modal, setModal] = useState<{
@@ -1539,32 +1559,32 @@ function SaleForm({
           onSelect={handleSelect}
           onClose={closeModal}
           onCreate={
-            modal.type === "customer"
+            modal.type === "customer" && canCreateCustomer
               ? () => {
                   setShowNewCustomerDialog(true);
                 }
-              : modal.type === "material"
+              : modal.type === "material" && canCreateMaterial
                 ? () => {
                     setShowNewMaterialDialog(true);
                   }
-                : modal.type === "project"
+                : modal.type === "project" && canCreateProject
                   ? () => {
                       setShowNewProjectDialog(true);
                     }
-                  : modal.type === "location"
+                  : modal.type === "location" && canCreateLocation
                     ? () => {
                         setShowNewLocationDialog(true);
                       }
                     : undefined
           }
           createLabel={
-            modal.type === "customer"
+            modal.type === "customer" && canCreateCustomer
               ? "Create new customer"
-              : modal.type === "material"
+              : modal.type === "material" && canCreateMaterial
                 ? "Create new material"
-                : modal.type === "project"
+                : modal.type === "project" && canCreateProject
                   ? "Create new project"
-                  : modal.type === "location"
+                  : modal.type === "location" && canCreateLocation
                     ? "Create new location"
                     : undefined
           }

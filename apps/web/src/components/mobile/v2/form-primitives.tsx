@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, type ComponentType, type CSSProperties } 
 import { createPortal } from "react-dom";
 import { ChevronRight, Search, X, CheckCircle2, Plus } from "lucide-react";
 import { haptic } from "@/lib/haptic";
+import { useCanCreate, type CreateEntity } from "@/components/mobile/mobile-perms";
 
 /**
  * ═══════════════════════════════════════════════════════════════════
@@ -483,6 +484,7 @@ export function SelectorModal({
   onClose,
   onCreate,
   createLabel,
+  createEntity,
   emptyHint,
 }: {
   title: string;
@@ -492,11 +494,17 @@ export function SelectorModal({
   onClose: () => void;
   onCreate?: () => void;
   createLabel?: string;
+  /** When set, the create row only renders if the user could complete the
+   *  create POST (perm + scope check via MobilePermsProvider). Omit = show. */
+  createEntity?: CreateEntity;
   /** Shown when the list is empty *before* any search — explains why and
    *  what to do (e.g. "No projects assigned — ask your admin…"). */
   emptyHint?: string;
 }) {
   const [query, setQuery] = useState("");
+  // Display-gate the create row — the POST still enforces; this just avoids
+  // offering a dialog that would 403 on submit.
+  const createAllowed = useCanCreate(createEntity);
   // Portal to document.body so the sheet escapes any parent modal's
   // `transform` / `backdrop-filter` stacking context. Without this, a
   // SelectorModal opened inside a MobileFabModal gets caught in the
@@ -610,7 +618,7 @@ export function SelectorModal({
         </div>
 
         {/* Create new button */}
-        {onCreate ? (
+        {onCreate && createAllowed ? (
           <div className="border-t p-2" style={{ borderColor: "var(--color-line)" }}>
             <button
               type="button"

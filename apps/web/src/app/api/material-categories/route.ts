@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { logAction, lookupGstByHsn } from "@nirman/services";
-import { apiHandler, getCompany, json, materialCategorySchema, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, materialCategorySchema, requirePermission, requireEffectivePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 import Decimal from "decimal.js";
@@ -19,7 +19,7 @@ export const GET = apiHandler(async () => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.INVENTORY_MANAGE);
+  const user = await requireEffectivePermission(PERM.INVENTORY_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = materialCategorySchema.safeParse(body);

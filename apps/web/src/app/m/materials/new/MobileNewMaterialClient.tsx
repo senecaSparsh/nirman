@@ -332,6 +332,7 @@ export default function MobileNewMaterialClient({
       <div className="grid grid-cols-2 gap-2">
         <div>
           <MobileSelectWithCreate
+            createEntity="category"
             label="Category"
             required
             value={categoryId}

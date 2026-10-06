@@ -1,3 +1,4 @@
+import { getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import MobileNewStockCountClient from "./MobileNewStockCountClient";
@@ -9,7 +10,11 @@ import MobileNewStockCountClient from "./MobileNewStockCountClient";
 export default function MobileNewStockCountPage() {
   return (
     <MobileNewEntityPage perm={PERM.INVENTORY_MANAGE} what="create stock inventories" permission="inventory.manage">
-      {() => <MobileNewStockCountClient />}
+      {async () => (
+          <MobileNewStockCountClient
+            canCreateLocation={(await getActionPermissions()).canCreateStockLocation}
+          />
+        )}
     </MobileNewEntityPage>
   );
 }

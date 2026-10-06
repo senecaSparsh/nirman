@@ -23,6 +23,8 @@ export function MobileNewExpenseClient({
   initialAmount,
   initialPayee,
   initialCategory,
+  canCreateProject,
+  canCreateSupplier,
 }: {
   projects: Project[];
   categories: Category[];
@@ -32,6 +34,8 @@ export function MobileNewExpenseClient({
   initialProjectId?: string | null;
   initialAmount?: string | null;
   initialPayee?: string | null;
+  canCreateProject?: boolean;
+  canCreateSupplier?: boolean;
   initialCategory?: string | null;
 }) {
   const router = useRouter();
@@ -331,8 +335,8 @@ export function MobileNewExpenseClient({
           items={[...projects, ...extraProjects].filter((p, i, arr) => arr.findIndex((x) => x.id === p.id) === i).map((p) => ({ id: p.id, label: p.name }))}
           onSelect={(id) => { setProjectId(id); setModal(null); }}
           onClose={() => setModal(null)}
-          onCreate={() => { setShowCreateDialog("project"); }}
-          createLabel="Create new project"
+          onCreate={canCreateProject ? () => { setShowCreateDialog("project"); } : undefined}
+          createLabel={canCreateProject ? "Create new project" : undefined}
         />
       )}
       {modal === "category" && (
@@ -356,8 +360,8 @@ export function MobileNewExpenseClient({
           items={[...suppliers, ...extraSuppliers].filter((s, i, arr) => arr.findIndex((x) => x.id === s.id) === i).map((s) => ({ id: s.id, label: s.name }))}
           onSelect={(id) => { setSupplierId(id); setModal(null); }}
           onClose={() => setModal(null)}
-          onCreate={() => { setShowCreateDialog("supplier"); }}
-          createLabel="Create new supplier"
+          onCreate={canCreateSupplier ? () => { setShowCreateDialog("supplier"); } : undefined}
+          createLabel={canCreateSupplier ? "Create new supplier" : undefined}
         />
       )}
 

@@ -437,6 +437,7 @@ export function MobileAttendanceForm({
             <div className="flex gap-1.5 items-center">
               <div className="flex-1">
                 <MobileSelectWithCreate
+            createEntity="project"
                   label="Project"
                   value={fProject}
                   onChange={setFProject}

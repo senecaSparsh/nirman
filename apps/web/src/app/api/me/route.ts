@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getActingDelegations, getActingRole, getCompany, getCustomRoleLabels, getHeldRoles, getOwnRole, getScopedRolePermissions, getSession, getUserPermissions, json, roleDisplayLabel } from "@/lib/server";
+import { apiHandler, getActingDelegations, getActingRole, getCompany, getCustomRoleLabels, getHeldRoles, getOwnRole, getScopedRolePermissions, getSession, getUserPermissions, getUserScope, json, roleDisplayLabel } from "@/lib/server";
 
 /**
  * GET /api/me — the current user's identity + EFFECTIVE permissions.
@@ -27,7 +27,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   // rather than the session because Better-Auth's session user may not always
   // include additional fields reliably (e.g. after a session is created via
   // the custom phone-password flow). The DB is the source of truth.
-  const [dbUser, permissions, scopedPermissions, actingRole, ownRole, actingDelegations, company] = await Promise.all([
+  const [dbUser, permissions, scopedPermissions, actingRole, ownRole, actingDelegations, company, userScope] = await Promise.all([
     prisma.user.findUnique({
       where: { id: sessionUser.id },
       select: {
@@ -50,6 +50,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     getOwnRole().catch(() => null),
     getActingDelegations().catch(() => []),
     getCompany().catch(() => null),
+    getUserScope().catch(() => null),
   ]);
   // Human label for the stored role — CUSTOM_* keys resolve to the custom
   // role's label in the active company so clients never show a raw key or
@@ -96,6 +97,10 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     // classification should use this, not the raw `role` string.
     ownRole: ownRole ?? dbUser?.role ?? null,
     actingFor: actingDelegations.map((d) => ({ name: d.name, endsAt: d.endsAt.toISOString() })),
+    // Scope type drives create-affordance gates — topology creates
+    // (project/location/company) require COMPANY scope + GLOBAL perms, so
+    // clients must see scopeType to hide buttons that would 403.
+    scopeType: userScope?.scopeType ?? "COMPANY",
   });
   // User role/name changes rarely — cache for 60s, revalidate in background.
   res.headers.set("Cache-Control", "private, max-age=60, stale-while-revalidate=300");

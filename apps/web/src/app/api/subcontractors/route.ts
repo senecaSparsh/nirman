@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, requirePermission, subcontractorSchema } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requireEffectivePermission, subcontractorSchema } from "@/lib/server";
 import { withSerializableTransaction } from "@nirman/services";
 
 export const GET = apiHandler(async () => {
@@ -28,7 +28,7 @@ export const GET = apiHandler(async () => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+  const user = await requireEffectivePermission(PERM.PROCUREMENT_MANAGE);
   const body = await req.json();
   const parsed = subcontractorSchema.safeParse(body);
   if (!parsed.success) {

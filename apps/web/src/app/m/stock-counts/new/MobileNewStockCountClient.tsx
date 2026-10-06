@@ -50,7 +50,7 @@ interface StockCountDraft {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-export default function MobileNewStockCountClient({ onClose, onCreated }: { onClose?: () => void; onCreated?: (id: string) => void } = {}) {
+export default function MobileNewStockCountClient({ onClose, onCreated, canCreateLocation }: { onClose?: () => void; onCreated?: (id: string) => void; canCreateLocation?: boolean } = {}) {
   const router = useRouter();
   const { online, enqueue } = useOfflineQueue();
   const submitLongPress = useLongPressNav("/m/stock?tab=counts", "Stock counts list");
@@ -589,8 +589,8 @@ export default function MobileNewStockCountClient({ onClose, onCreated }: { onCl
             setShowLocationModal(false);
           }}
           onClose={() => setShowLocationModal(false)}
-          onCreate={() => setShowNewLocationDialog(true)}
-          createLabel="Create new location"
+          onCreate={canCreateLocation ? () => setShowNewLocationDialog(true) : undefined}
+          createLabel={canCreateLocation ? "Create new location" : undefined}
         />
       ) : null}
 

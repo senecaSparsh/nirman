@@ -43,7 +43,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+  const user = await requireEffectivePermission(PERM.PROCUREMENT_MANAGE);
   const body = await req.json();
   const parsed = supplierSchema.safeParse(body);
   if (!parsed.success) {

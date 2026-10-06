@@ -50,6 +50,7 @@ export function MobileNewExpenseClaimClient({
   projects,
   categories,
   currentUserId,
+  canCreateProject,
   onCreated,
   onClose: _onClose,
 }: {
@@ -57,6 +58,7 @@ export function MobileNewExpenseClaimClient({
   projects: Project[];
   categories: Category[];
   currentUserId: string | null;
+  canCreateProject?: boolean;
   onClose?: () => void;
   onCreated?: (id: string) => void;
 }) {
@@ -601,8 +603,8 @@ export function MobileNewExpenseClaimClient({
           selectedId={projectId}
           onSelect={handleSelect}
           onClose={() => setModal(null)}
-          onCreate={() => setShowCreateProject(true)}
-          createLabel="Create new project"
+          onCreate={canCreateProject ? () => setShowCreateProject(true) : undefined}
+          createLabel={canCreateProject ? "Create new project" : undefined}
           emptyHint="No projects are assigned to you yet — ask your admin to add you under Settings → Project Assignments."
         />
       ) : null}

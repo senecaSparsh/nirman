@@ -21,12 +21,16 @@ export function MobileNewPettyCashClient({
   employees,
   currentUserId,
   onCreated,
+  canCreateProject,
+  canCreateEmployee,
 }: {
   projects: Project[];
   employees: Employee[];
   currentUserId?: string | null;
   onClose?: () => void;
   onCreated?: () => void;
+  canCreateProject?: boolean;
+  canCreateEmployee?: boolean;
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
@@ -229,8 +233,8 @@ export function MobileNewPettyCashClient({
           selectedId={projectId}
           onSelect={handleSelect}
           onClose={() => setModal(null)}
-          onCreate={() => setShowCreateProject(true)}
-          createLabel="Create new project"
+          onCreate={canCreateProject ? () => setShowCreateProject(true) : undefined}
+          createLabel={canCreateProject ? "Create new project" : undefined}
         />
       ) : null}
 
@@ -244,8 +248,8 @@ export function MobileNewPettyCashClient({
           selectedId={custodianId}
           onSelect={handleSelect}
           onClose={() => setModal(null)}
-          onCreate={() => setShowCreateEmployee(true)}
-          createLabel="Create new employee"
+          onCreate={canCreateEmployee ? () => setShowCreateEmployee(true) : undefined}
+          createLabel={canCreateEmployee ? "Create new employee" : undefined}
         />
       ) : null}
 

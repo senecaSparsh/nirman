@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { getCompany, getCurrentUser, projectScopeFilter, getUserPermissions } from "@/lib/server";
+import { getCompany, getCurrentUser, projectScopeFilter, getUserPermissions, getUserScope } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import { MobileNewExpenseClaimClient } from "./MobileNewExpenseClaimClient";
@@ -48,6 +48,13 @@ export default function MobileNewExpenseClaimPage() {
             projects={projects.map((p) => ({ id: p.id, name: p.name }))}
             categories={categories.map((c) => ({ id: c.id, name: c.name, isActive: c.isActive }))}
             currentUserId={currentUser?.id ?? null}
+            canCreateProject={
+              // POST /api/projects is a global-perm (projects.manage) +
+              // company-scope write — mirror that, not effective perms, or a
+              // scoped hat would see a create dialog that always 403s.
+              __effPerms.includes(PERM.PROJECTS_MANAGE) &&
+              (await getUserScope()).scopeType === "COMPANY"
+            }
           />
         );
       }}

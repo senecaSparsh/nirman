@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2, Loader2, Check, Search, X, Package, MapPin, Warehouse, Building2, HardHat, CheckCircle2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
+import { useCanCreate } from "@/components/mobile/mobile-perms";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
@@ -46,6 +47,7 @@ export function MobileNewQuotationClient({
   onCreated?: (id: string) => void;
 }) {
   const router = useRouter();
+  const canCreateMaterial = useCanCreate("material");
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState<{ id: string; requestNumber: string } | null>(null);
   const [title, setTitle] = useState("");
@@ -233,6 +235,7 @@ export function MobileNewQuotationClient({
             </div>
             <div>
               <MobileSelectWithCreate
+                createEntity="project"
                 label="Project"
                 value={projectId}
                 onChange={setProjectId}
@@ -582,6 +585,7 @@ export function MobileNewQuotationClient({
           </div>
 
           {/* Create new material button */}
+          {canCreateMaterial ? (
           <div
             className="border-t p-3"
             style={{ borderColor: "var(--color-line)" }}
@@ -596,6 +600,7 @@ export function MobileNewQuotationClient({
               Create new material
             </button>
           </div>
+          ) : null}
         </div>
       ) : null}
 

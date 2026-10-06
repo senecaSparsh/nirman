@@ -1,4 +1,5 @@
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
+import { getActionPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
@@ -57,6 +58,9 @@ export default function StockOutPage({
           <MobileStockOutClient
             canTransfer={canTransfer}
             canIssue={canIssue}
+            canCreateProject={(await getActionPermissions()).canCreateProject}
+            canCreateMaterial={(await getActionPermissions()).canCreateMaterial}
+            canCreateLocation={(await getActionPermissions()).canCreateStockLocation}
             initialMode={initialMode}
             modeExplicit={modeExplicit}
             initialProjectId={params.project ?? ""}

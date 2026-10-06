@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { scopeWhere, getCompany, getCurrentUser } from "@/lib/server";
+import {getActionPermissions, scopeWhere, getCompany, getCurrentUser} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import { MobileNewPettyCashClient } from "./MobileNewPettyCashClient";
@@ -34,6 +34,8 @@ export default function MobileNewPettyCashPage() {
             projects={projects.map((p) => ({ id: p.id, name: p.name }))}
             employees={employees.map((e) => ({ id: e.id, name: e.name }))}
             currentUserId={currentUser?.id ?? null}
+            canCreateProject={(await getActionPermissions()).canCreateProject}
+            canCreateEmployee={(await getActionPermissions()).canCreateEmployee}
           />
         );
       }}

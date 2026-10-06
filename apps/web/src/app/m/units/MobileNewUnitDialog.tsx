@@ -276,6 +276,7 @@ export function MobileNewUnitForm({
       <SectionCard title="Details">
         {/* Project */}
         <MobileSelectWithCreate
+            createEntity="project"
           label="Project"
           required
           value={form.projectId}

@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { getCompany, getCurrentUser, scopeWhere } from "@/lib/server";
+import { getActionPermissions, getCompany, getCurrentUser, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileNewEntityPage } from "@/components/mobile/v2/new-entity-page";
 import { MobileNewExpenseClient } from "./MobileNewExpenseClient";
@@ -23,6 +23,7 @@ export default function MobileNewExpensePage({
           category: initialCategory,
         } = await searchParams;
 
+        const actionPerms = await getActionPermissions();
         const [projects, categories, suppliers] = await Promise.all([
           prisma.project.findMany({
             where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
@@ -54,6 +55,8 @@ export default function MobileNewExpensePage({
             initialAmount={initialAmount ?? null}
             initialPayee={initialPayee ?? null}
             initialCategory={initialCategory ?? null}
+            canCreateProject={actionPerms.canCreateProject}
+            canCreateSupplier={actionPerms.canCreateSupplier}
           />
         );
       }}

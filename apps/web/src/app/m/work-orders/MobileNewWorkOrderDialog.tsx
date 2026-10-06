@@ -249,6 +249,7 @@ export function MobileNewWorkOrderForm({
           {/* Details */}
           <SectionCard title="Details">
             <MobileSelectWithCreate
+            createEntity="project"
               label="Project"
               required
               value={form.projectId}
@@ -265,6 +266,7 @@ export function MobileNewWorkOrderForm({
             />
             <div>
               <MobileSelectWithCreate
+            createEntity="subcontractor"
                 label="Subcontractor"
                 required
                 value={form.subcontractorId}

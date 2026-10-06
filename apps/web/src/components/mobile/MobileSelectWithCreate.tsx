@@ -3,6 +3,7 @@
 import { useState, useEffect, type ReactNode, type ComponentType, type CSSProperties } from "react";
 import { haptic } from "@/lib/haptic";
 import { SelectorCard, SelectorRow, SelectorModal } from "@/components/mobile/v2/form-primitives";
+import { useCanCreate, type CreateEntity } from "@/components/mobile/mobile-perms";
 
 /**
  * MobileSelectWithCreate — a unified entity selector that uses the same
@@ -49,6 +50,7 @@ export function MobileSelectWithCreate({
   placeholder,
   renderDialog,
   createLabel,
+  createEntity,
   icon,
   subvalue,
   compact,
@@ -75,6 +77,10 @@ export function MobileSelectWithCreate({
   renderDialog?: (props: { open: boolean; onClose: () => void; onCreated: (value: string, label: string) => void; originRect: DOMRect | null }) => ReactNode;
   /** Label for the create button's text. Falls back to `label`, then "item". */
   createLabel?: string;
+  /** When set, the "+ Create new" button only renders if the user could
+   *  actually complete the create POST (global/scoped perms + scopeType via
+   *  MobilePermsProvider). Omit = current behavior (always show). */
+  createEntity?: CreateEntity;
   /** Optional icon for the selector trigger (lucide component). */
   icon?: ComponentType<{ className?: string; style?: CSSProperties }>;
   /** Optional subvalue shown next to the value in the trigger. */
@@ -100,6 +106,7 @@ export function MobileSelectWithCreate({
   const [showPicker, setShowPicker] = useState(false);
   const [showDialog, setShowDialog] = useState(false);
   const [extraOptions, setExtraOptions] = useState<{ value: string; label: string; sub?: string }[]>([]);
+  const createAllowed = useCanCreate(createEntity);
 
   // Deduplicate by value — the parent component may also add a newly created
   // item to its own `options` list (e.g. MobileNewMaterialDialog adds a new
@@ -163,7 +170,7 @@ export function MobileSelectWithCreate({
           selectedId={value}
           onSelect={(id) => { onChange(id); setShowPicker(false); }}
           onClose={() => setShowPicker(false)}
-          onCreate={renderDialog ? handleOpenCreate : undefined}
+          onCreate={renderDialog && createAllowed ? handleOpenCreate : undefined}
           createLabel={`Create new ${createLabel || label || "item"}`}
           emptyHint={emptyHint}
         />
