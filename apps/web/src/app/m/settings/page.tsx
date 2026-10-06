@@ -11,6 +11,7 @@ import {
   Calendar,
   Building2,
   Shield,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 import { prisma } from "@nirman/db";
@@ -261,6 +262,13 @@ export default function SettingsPage() {
                     title="Legal documents"
                     subtitle="NOCs, permissions, certificates across projects & land"
                     meta="View"
+                  />
+                  <MobileRow
+                    href="/m/settings/project-assignments"
+                    icon={ShieldCheck}
+                    title="Who sees what"
+                    subtitle="Scope a person to a site — they only see their own work"
+                    meta="Access"
                   />
                   <MobileRow
                     href="/m/settings/export"
