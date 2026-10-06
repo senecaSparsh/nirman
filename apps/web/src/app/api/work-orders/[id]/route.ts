@@ -2,12 +2,12 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { issueWorkOrder, completeWorkOrder, payAdvance, releaseRetention, ServiceError } from "@nirman/services";
-import { apiHandler, ForbiddenError, getActingRole, getActingRoleForProject, getCompany, getUserPermissions, json, requirePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
+import { apiHandler, ForbiddenError, getActingRole, getActingRoleForProject, getCompany, getUserPermissions, json, requireEffectivePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
 import { hasPermission } from "@/lib/roles";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requireEffectivePermission(PERM.ASSETS_VIEW);
   const company = await getCompany();
   const { id } = await params;
   const wo = await prisma.subcontractorWorkOrder.findFirst({
@@ -109,7 +109,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
 /** DELETE /api/work-orders/[id] — hard-delete a work order (only DRAFT) */
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.WO_MANAGE);
+  await requireEffectivePermission(PERM.WO_MANAGE);
   const company = await getCompany();
   const { id } = await params;
 

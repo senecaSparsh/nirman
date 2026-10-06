@@ -348,7 +348,9 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
         userId: user.id,
       });
       // Send WhatsApp payment confirmation to the customer
-      await sendPaymentConfirmation(company.id, id, "final", parsed.data.finalPaymentAmount ?? 0, parsed.data.reference ?? undefined);
+      if (result.finalPaymentId) {
+        await sendPaymentConfirmation(company.id, id, "final", result.finalPaymentAmount, parsed.data.reference ?? undefined);
+      }
       revalidatePath("/sales");
       revalidatePath("/m/sales");
       revalidatePath(`/sales/${id}`);

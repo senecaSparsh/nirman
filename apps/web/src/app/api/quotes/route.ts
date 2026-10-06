@@ -98,6 +98,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     cheapestQuoteId: statement.cheapestQuoteId,
     selectedQuoteId: statement.selectedQuoteId,
     nonRejectedCount: statement.nonRejectedCount,
+    quoteCount: statement.quoteCount,
     gateSatisfied: statement.gateSatisfied,
     lastRateByMaterial: statement.lastRateByMaterial ?? {},
   });

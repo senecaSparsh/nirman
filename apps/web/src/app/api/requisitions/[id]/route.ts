@@ -39,7 +39,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       rejectedBy: { select: { id: true, name: true } },
       lines: {
         include: {
-          material: { select: { id: true, code: true, name: true, unit: true } },
+          material: { select: { id: true, code: true, name: true, unit: true, gstRate: true } },
           preferredSupplier: { select: { id: true, name: true, phone: true } },
         },
         orderBy: { material: { name: "asc" } },
@@ -54,6 +54,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     materialCode: l.material.code,
     materialName: l.material.name,
     unit: l.material.unit,
+    gstRate: toNum(l.material.gstRate),
     qtyRequested: toNum(l.qtyRequested),
     notes: l.notes,
     currentStock: l.currentStock != null ? toNum(l.currentStock) : null,
@@ -102,11 +103,11 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     lines,
     // Comparative Quote Engine summary
     quotes: {
-      count: nonRejectedQuotes.length,
+      count: selectedQuote && req.quotesLockedAt ? quotes.length : nonRejectedQuotes.length,
       minRequired: req.minQuotesRequired,
       waived: req.quotesWaived,
       waivedReason: req.quotesWaivedReason,
-      gateSatisfied: req.quotesWaived || toNum(nonRejectedQuotes.length) >= toNum(req.minQuotesRequired),
+      gateSatisfied: !!selectedQuote || req.quotesWaived || new Set(nonRejectedQuotes.map(q => q.supplierId)).size >= req.minQuotesRequired,
       cheapest: cheapestQuote
         ? { id: cheapestQuote.id, supplierName: cheapestQuote.supplier.name, landedTotal: toNum(cheapestQuote.landedTotal) }
         : null,

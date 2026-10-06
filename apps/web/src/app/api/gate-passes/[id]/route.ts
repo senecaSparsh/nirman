@@ -9,7 +9,7 @@ import {
   cancelGatePass,
   canAutoApprove,
 } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, requireUser, toNum, scopeWhere, getActingRole, getActingRoleForProject, getUserPermissions, ForbiddenError,} from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, requireUser, toNum, scopeWhere, getActingRole, getActingRoleForProject, getUserPermissions, ForbiddenError,} from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { prisma } from "@nirman/db";
 
@@ -18,7 +18,7 @@ import { prisma } from "@nirman/db";
  * Get a single gate pass with full details.
  */
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.GATE_PASS_VIEW);
+  await requireEffectivePermission(PERM.GATE_PASS_VIEW);
   const company = await getCompany();
   const { id } = await params;
 
@@ -65,7 +65,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   if (!existing) return json({ error: "Gate pass not found" }, { status: 404 });
 
   if (action === "submit") {
-    const user = await requirePermission(PERM.GATE_PASS_CREATE);
+    const user = await requireEffectivePermission(PERM.GATE_PASS_CREATE);
     await submitGatePass(id, user.id);
     // Tier-1 creators (OWNER/ADMIN) auto-approve — the gate-pass checkpoint is
     // a control against unauthorized material removal; an owner asserting it
@@ -99,16 +99,16 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
     await rejectGatePass(id, user.id, body.reason.trim());
   } else if (action === "resubmit") {
-    const user = await requirePermission(PERM.GATE_PASS_CREATE);
+    const user = await requireEffectivePermission(PERM.GATE_PASS_CREATE);
     await resubmitGatePass(id, user.id, body?.notes);
   } else if (action === "confirmExit") {
-    const user = await requirePermission(PERM.GATE_PASS_EXIT);
+    const user = await requireEffectivePermission(PERM.GATE_PASS_EXIT);
     await confirmExit(id, user.id, {
       exitNotes: body?.exitNotes,
       exitPhotos: body?.exitPhotos,
     });
   } else if (action === "cancel") {
-    const user = await requirePermission(PERM.GATE_PASS_MANAGE);
+    const user = await requireEffectivePermission(PERM.GATE_PASS_MANAGE);
     await cancelGatePass(id, user.id);
   } else {
     return json({ error: "Unknown action" }, { status: 400 });
@@ -124,7 +124,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
  * Hard-delete a gate pass. Only allowed when status is DRAFT.
  */
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.GATE_PASS_MANAGE);
+  await requireEffectivePermission(PERM.GATE_PASS_MANAGE);
   const company = await getCompany();
   const { id } = await params;
 

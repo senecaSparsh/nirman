@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere, assertCanManageEmployee } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, scopeWhere, assertCanManageEmployee } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { assertAttendancePeriodOpen, logAction } from "@nirman/services";
 
@@ -16,7 +16,7 @@ import { assertAttendancePeriodOpen, logAction } from "@nirman/services";
  * Guards: hr.manage + assertCanManageEmployee (scope, H1 wall, held-set).
  */
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.HR_MANAGE);
+  const user = await requireEffectivePermission(PERM.HR_MANAGE);
   const company = await getCompany();
   const { id } = await ctx.params;
 

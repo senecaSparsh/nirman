@@ -1,4 +1,4 @@
-import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { prisma } from "@nirman/db";
 import { PERM } from "@/lib/roles";
 
@@ -14,7 +14,7 @@ import { PERM } from "@/lib/roles";
  * scope (dept/project-scoped HR reviews their own people).
  */
 export const GET = apiHandler(async () => {
-  await requirePermission(PERM.HR_MANAGE);
+  await requireEffectivePermission(PERM.HR_MANAGE);
   const company = await getCompany();
   const rows = await prisma.workerAttendance.findMany({
     where: {

@@ -161,7 +161,7 @@ export default function MobileProjectDetailPage({
         status={project.status}
         action={
           <div className="flex items-center gap-2">
-            <MobileCheckMilestonesButton projectId={project.id} />
+            {perms.includes(PERM.SALES_VIEW) ? <MobileCheckMilestonesButton projectId={project.id} /> : null}
             {canManage && (
               <>
                 <MobileEditProjectButton

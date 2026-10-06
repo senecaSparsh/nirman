@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, requirePermission, toNum, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, requireEffectivePermission, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrencyDetailed } from "@/lib/utils";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.DPR_VIEW);
+  await requireEffectivePermission(PERM.DPR_VIEW);
   const company = await getCompany();
   const { id } = await params;
 

@@ -2,13 +2,13 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { verifyMbEntry, approveMbEntry, rejectMbEntry, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, requireUser, scopeWhere, getActingRole,} from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, requireUser, scopeWhere, getActingRole,} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
 /** GET /api/mb-entries/[id] — fetch a single measurement book entry by ID */
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.MB_VIEW);
+  await requireEffectivePermission(PERM.MB_VIEW);
   const company = await getCompany();
   const { id } = await params;
   const entry = await prisma.measurementBookEntry.findFirst({
@@ -47,7 +47,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   try {
     if (action === "verify") {
-      const user = await requirePermission(PERM.MB_VERIFY);
+      const user = await requireEffectivePermission(PERM.MB_VERIFY);
       const entry = await verifyMbEntry(id, user.id, user.role, company.id);
       revalidatePath("/boq");
     revalidatePath("/m/boq");
@@ -56,7 +56,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       return json(entry);
     }
     if (action === "approve") {
-      const user = await requirePermission(PERM.MB_APPROVE);
+      const user = await requireEffectivePermission(PERM.MB_APPROVE);
       const entry = await approveMbEntry(id, user.id, await getActingRole(), company.id);
       revalidatePath("/boq");
     revalidatePath("/m/boq");
@@ -65,7 +65,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       return json(entry);
     }
     if (action === "reject") {
-      const user = await requirePermission(PERM.MB_VERIFY);
+      const user = await requireEffectivePermission(PERM.MB_VERIFY);
       const schema = z.object({ reason: z.string().min(1) });
       const parsed = schema.safeParse({ reason: body.reason });
       if (!parsed.success) return json({ error: "Rejection reason is required" }, { status: 400 });
@@ -84,7 +84,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
 /** DELETE /api/mb-entries/[id] — hard-delete a measurement book entry (only DRAFT) */
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.MB_APPROVE);
+  await requireEffectivePermission(PERM.MB_APPROVE);
   const company = await getCompany();
   const { id } = await params;
 

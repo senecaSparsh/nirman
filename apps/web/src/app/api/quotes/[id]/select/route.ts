@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { selectWinningQuote, notifyQuoteApproval, convertRequisitionToPo, getCachedRoutingScope } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, assertScopeAllows, getCompany, json, requireEffectivePermission} from "@/lib/server";
+import { apiHandler, assertScopeAllows, getCompany, json, requireEffectivePermission, getActingRole, getActingRoleForProject} from "@/lib/server";
 import { z } from "zod";
 
 const selectSchema = z.object({
@@ -94,7 +94,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   // request — those have their own auto-convert in approveQuotationRequest).
   // Best-effort: if auto-conversion fails (e.g. no destination location
   // found), the quote is still selected — the user can manually convert.
-  let autoPo: { poId: string; poNumber: string } | null = null;
+  let autoPo: { poId: string; poNumber: string; status: string } | null = null;
   if (existing.requisitionId && existing.requisition?.status === "APPROVED") {
     try {
       const req = existing.requisition;
@@ -143,8 +143,9 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
           userId: user.id,
           autoOrder: true,
           approverId: user.id,
+          approverRole: (await getActingRoleForProject(req.projectId)) ?? await getActingRole(),
         });
-        autoPo = { poId: po.id, poNumber: po.poNumber ?? po.id };
+        autoPo = { poId: po.id, poNumber: po.poNumber ?? po.id, status: po.status };
       }
     } catch (err) {
       // Best-effort — the quote is selected even if auto-conversion fails.

@@ -2,12 +2,12 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { cancelMaterialIssue, executeMaterialIssue, recordVehicleTrip, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, scopeWhere, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /** GET /api/issue-materials/[id] — fetch a single material issue by ID */
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.INVENTORY_VIEW);
+  await requireEffectivePermission(PERM.INVENTORY_VIEW);
   const company = await getCompany();
   const { id } = await params;
   const issue = await prisma.materialIssue.findFirst({
@@ -47,7 +47,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
  * Reverses stock (ADJUSTMENT_IN), GL entries, and project cost reallocation.
  */
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.STOCK_ISSUE);
+  const user = await requireEffectivePermission(PERM.STOCK_ISSUE);
   const company = await getCompany();
   const { id } = await params;
   const existing = await prisma.materialIssue.findFirst({

@@ -1,14 +1,14 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { cancelMaterialSale } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { prisma } from "@nirman/db";
 
 // PATCH for action-based operations (cancel). Consistent with all other
 // action endpoints (PO, requisition, DPR, etc.) which use PATCH + action body.
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.SALES_MANAGE);
+  const user = await requireEffectivePermission(PERM.SALES_MANAGE);
   const company = await getCompany();
   const { id } = await params;
 
