@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createSalePaymentSchedule, autoGenerateScheduleItems } from "@nirman/services";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, paymentScheduleSchema, requirePermission, getCompany, scopeWhere } from "@/lib/server";
+import { apiHandler, json, paymentScheduleSchema, requireEffectivePermission, getCompany, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -21,7 +21,7 @@ const autoGenSchema = z.object({
  * Or: { autoGenerate: true, advanceAmount, dealMaturityMonths } to auto-generate.
  */
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.SALE_CREATE);
+  const user = await requireEffectivePermission(PERM.SALE_CREATE);
   const { id } = await params;
 
   const company = await getCompany();

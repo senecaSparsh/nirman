@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission, toNum, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -11,7 +11,7 @@ import { PERM } from "@/lib/roles";
  * client-side instead of requiring a server component page.
  */
 export const GET = apiHandler(async () => {
-  await requirePermission(PERM.SALE_CREATE);
+  await requireEffectivePermission(PERM.SALE_CREATE);
   const company = await getCompany();
 
   const [units, parcels, customers, projects, allProjectsForSale, brokers] = await Promise.all([

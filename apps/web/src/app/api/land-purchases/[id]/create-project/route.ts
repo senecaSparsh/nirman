@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma, type ProjectType } from "@nirman/db";
 import { z } from "zod";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { logAction, reallocateProjectCosts, withSerializableTransaction } from "@nirman/services";
 
@@ -16,7 +16,7 @@ import { logAction, reallocateProjectCosts, withSerializableTransaction } from "
  * This is the "Create project from land" button on the land detail page.
  */
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.PROJECTS_MANAGE);
+  const user = await requireEffectivePermission(PERM.PROJECTS_MANAGE);
   const company = await getCompany();
   const { id } = await params;
 

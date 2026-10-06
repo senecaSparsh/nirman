@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { Prisma, prisma } from "@nirman/db";
-import { apiHandler, getCompany, getUserScope, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, getCompany, getUserScope, json, requireEffectivePermission, toNum } from "@/lib/server";
 import { istDateRange } from "@/lib/utils";
 import { PERM } from "@/lib/roles";
 
@@ -36,7 +36,7 @@ const IN_TYPES = ["PURCHASE_RECEIPT", "ADJUSTMENT_IN"];
 const OUT_TYPES = ["ISSUE_TO_PROJECT", "ISSUE_TO_DEPARTMENT", "ADJUSTMENT_OUT", "RETURN", "SALE"];
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.INVENTORY_VIEW);
+  await requireEffectivePermission(PERM.INVENTORY_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from");

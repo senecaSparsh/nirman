@@ -3,11 +3,11 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { cancelSupplierReturn, completeSupplierReturn, submitSupplierReturn } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, scopeWhere } from "@/lib/server";
 
 /** GET /api/supplier-returns/[id] — fetch a single supplier return by ID */
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.PROCUREMENT_VIEW);
+  await requireEffectivePermission(PERM.PROCUREMENT_VIEW);
   const company = await getCompany();
   const { id } = await params;
   const supplierReturn = await prisma.supplierReturn.findFirst({
@@ -26,7 +26,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+  const user = await requireEffectivePermission(PERM.PROCUREMENT_MANAGE);
   const company = await getCompany();
   const { id } = await params;
   const body = await req.json();
@@ -71,7 +71,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
 /** DELETE /api/supplier-returns/[id] — hard-delete a supplier return (only DRAFT) */
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.PROCUREMENT_MANAGE);
+  await requireEffectivePermission(PERM.PROCUREMENT_MANAGE);
   const company = await getCompany();
   const { id } = await params;
 

@@ -6,7 +6,7 @@ import {
   getComparativeStatement,
 } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, requirePermission, toNum, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, toNum, scopeWhere } from "@/lib/server";
 import { z } from "zod";
 
 /**
@@ -14,7 +14,7 @@ import { z } from "zod";
  * Returns the full comparative statement for a requisition.
  */
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.PROCUREMENT_VIEW);
+  await requireEffectivePermission(PERM.PROCUREMENT_VIEW);
   const requisitionId = req.nextUrl.searchParams.get("requisitionId");
   if (!requisitionId) return json({ error: "requisitionId is required" }, { status: 400 });
 
@@ -142,7 +142,7 @@ const createQuoteSchema = z.object({
  * Upload a vendor quote (metadata + lines + fileUrl from a prior /api/uploads call).
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+  const user = await requireEffectivePermission(PERM.PROCUREMENT_MANAGE);
   const body = await req.json();
   const parsed = createQuoteSchema.safeParse(body);
   if (!parsed.success) {

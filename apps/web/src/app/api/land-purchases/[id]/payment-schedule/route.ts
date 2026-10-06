@@ -2,14 +2,14 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createLandPaymentSchedule, getLandPaymentSchedule } from "@nirman/services";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, requirePermission, getCompany, scopeWhere } from "@/lib/server";
+import { apiHandler, json, requireEffectivePermission, getCompany, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
  * GET /api/land-purchases/[id]/payment-schedule — fetch the payment schedule.
  */
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requireEffectivePermission(PERM.ASSETS_VIEW);
   const { id } = await ctx.params;
 
   const company = await getCompany();
@@ -25,7 +25,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
  * Body: { items: [{ installmentNo, description, percentage, dueDate? }] }
  */
 export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requireEffectivePermission(PERM.ASSETS_MANAGE);
   const { id } = await ctx.params;
 
   const company = await getCompany();

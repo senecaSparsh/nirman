@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { notifyPaymentDue } from "@nirman/services";
 import { emitNotificationEvent, NotificationEventType } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -17,7 +17,7 @@ import { PERM } from "@/lib/roles";
  *  - daysAhead: number (default: 7) — include payments due within N days
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.FINANCE_MANAGE);
+  await requireEffectivePermission(PERM.FINANCE_MANAGE);
   const company = await getCompany();
 
   let body: Record<string, unknown>;

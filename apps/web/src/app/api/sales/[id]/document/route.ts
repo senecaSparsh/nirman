@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { uploadSaleDocument } from "@nirman/services";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, requirePermission, getCompany, scopeWhere } from "@/lib/server";
+import { apiHandler, json, requireEffectivePermission, getCompany, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -10,7 +10,7 @@ import { PERM } from "@/lib/roles";
  * Body: { documentType: "ATS" | "BBA" | "REGISTRY" | "ALLOTMENT", documentUrl, documentName }
  */
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.SALES_MANAGE);
+  const user = await requireEffectivePermission(PERM.SALES_MANAGE);
   const { id } = await params;
 
   const company = await getCompany();
