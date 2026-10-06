@@ -1367,23 +1367,6 @@ export function MobileTransferDetailClient({
                     )}
                     Cancel
                   </button>
-                  <button
-                    onClick={() => setShowComplete(true)}
-                    disabled={acting !== null}
-                    className="flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] border-2 font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50 px-3"
-                    style={{
-                      borderColor: "var(--color-go)",
-                      color: "var(--color-go)",
-                      backgroundColor: "transparent",
-                    }}
-                  >
-                    {acting === "complete" ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <Check className="size-4" />
-                    )}
-                    Complete
-                  </button>
                   {transfer.gatePass &&
                   transfer.gatePass.status !== "APPROVED" &&
                   transfer.gatePass.status !== "EXITED" ? (

@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { formatCurrency, formatDate, toNum} from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
+import { quoteEntryTotals } from "@/lib/quote-pricing";
+import { usePrompt } from "@/lib/use-prompt";
 import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDialog";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import type { ComparativeStatement, VendorQuoteRow } from "@/lib/types";
@@ -31,6 +33,7 @@ type RequisitionLine = {
   materialName: string;
   unit: string;
   qtyRequested: number;
+  gstRate?: number;
 };
 
 /**
@@ -70,6 +73,7 @@ export function MobileQuotePanel({
   const [selectingId, setSelectingId] = useState<string | null>(null);
   const [editingQuote, setEditingQuote] = useState<VendorQuoteRow | null>(null);
   const [confirm, confirmDialog] = useConfirm();
+  const [prompt, promptDialog] = usePrompt();
 
   const fetchStatement = useCallback(async () => {
     try {
@@ -93,6 +97,19 @@ export function MobileQuotePanel({
     // consequence (supplier gets a PO) that can't be undone from this
     // screen. Deleting a quote gets a confirm; creating a PO needs one too.
     const quote = statement?.quotes.find((q) => q.id === quoteId);
+    const cheapest = statement?.quotes.find((q) => q.id === statement.cheapestQuoteId);
+    let selectionReason: string | undefined;
+    if (quote && cheapest && quote.landedTotal > cheapest.landedTotal) {
+      const reason = await prompt({
+        title: "Choose a higher-priced quote",
+        description: `${quote.supplierName} costs ${formatCurrency(quote.landedTotal - cheapest.landedTotal)} more than ${cheapest.supplierName}. Explain the business reason.`,
+        label: "Selection reason",
+        multiline: true,
+        confirmLabel: "Continue",
+      });
+      if (reason === null) return;
+      selectionReason = reason;
+    }
     const ok = await confirm({
       title: `Select ${quote?.supplierName ?? "this supplier"}?`,
       description:
@@ -106,13 +123,15 @@ export function MobileQuotePanel({
       const res = await fetch(`/api/quotes/${quoteId}/select`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ selectionReason }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       if (data.autoConvertedPo) {
         toast.success(`PO ${data.autoConvertedPo.poNumber} auto-created`, {
-          description: "The purchase order was created and ordered from the supplier automatically.",
+          description: data.autoConvertedPo.status === "ORDERED"
+            ? "The purchase order was created and ordered from the supplier automatically."
+            : "Saved as a draft — an eligible independent approver must review the purchase order.",
         });
       } else {
         toast.success("Winning quote selected", {
@@ -120,7 +139,9 @@ export function MobileQuotePanel({
         });
       }
       await fetchStatement();
+      router.refresh();
       onWinnerSelected?.();
+      if (data.autoConvertedPo) router.push(`/m/procurement/${data.autoConvertedPo.poId}`);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {
@@ -175,7 +196,7 @@ export function MobileQuotePanel({
   }
 
   const activeQuotes = useMemo(
-    () => statement?.quotes.filter((q) => q.status !== "REJECTED") ?? [],
+    () => statement?.quotes.filter((q) => q.status !== "REJECTED" || !!statement.selectedQuoteId) ?? [],
     [statement],
   );
   const sortedQuotes = useMemo(
@@ -211,7 +232,8 @@ export function MobileQuotePanel({
     statement;
   const minRequired = statement.requisition.minQuotesRequired;
   const waived = statement.requisition.quotesWaived;
-  const locked = statement.requisition.quotesLockedAt !== null;
+  const locked = statement.requisition.quotesLockedAt !== null || statement.requisition.status === "CONVERTED";
+  const displayCount = selectedQuoteId ? statement.quoteCount ?? statement.quotes.length : nonRejectedCount;
 
   return (
     <div className="mb-5">
@@ -234,7 +256,7 @@ export function MobileQuotePanel({
               }}
             >
               <CheckCircle2 className="size-2.5" />
-              {waived ? "Waived" : `${nonRejectedCount}/${minRequired}`}
+              {waived ? "Waived" : `${displayCount}/${minRequired}`}
             </span>
           ) : (
             <span
@@ -246,7 +268,7 @@ export function MobileQuotePanel({
               }}
             >
               <AlertTriangle className="size-2.5" />
-              {nonRejectedCount}/{minRequired}
+              {displayCount}/{minRequired}
             </span>
           )}
           {selectedQuoteId ? (
@@ -327,7 +349,7 @@ export function MobileQuotePanel({
             .map((q) => q.lines.find((l) => l.materialId === mid))
             .filter((l): l is NonNullable<typeof l> => l != null);
           if (quotesForMaterial.length === 0) return false;
-          return quotesForMaterial.every((l) => toNum(l.unitLandedCost) > toNum(lr.unitCost) * 1.15);
+          return quotesForMaterial.every((l) => toNum(l.unitPrice) > toNum(lr.unitCost) * 1.15);
         });
         if (flagged.length === 0) return null;
         return (
@@ -559,7 +581,7 @@ export function MobileQuotePanel({
                     <button
                       type="button"
                       onClick={() => selectWinner(quote.id)}
-                      disabled={isSelecting}
+                      disabled={isSelecting || !gateSatisfied}
                       className="flex items-center gap-1 text-m-caption font-bold px-2 py-1 rounded text-m-body press disabled:opacity-50"
                       style={{
                         backgroundColor: "var(--color-go)",
@@ -629,7 +651,7 @@ export function MobileQuotePanel({
             <Plus className="size-3.5" /> Add Quote
           </button>
         ) : null}
-        {canApprove && !gateSatisfied && !waived ? (
+        {canApprove && !gateSatisfied && !waived && !locked ? (
           <button
             type="button"
             onClick={() => setWaiveOpen(true)}
@@ -684,6 +706,7 @@ export function MobileQuotePanel({
         />
       ) : null}
       {confirmDialog}
+      {promptDialog}
     </div>
   );
 }
@@ -726,13 +749,20 @@ function MobileQuoteUploadDialog({
   const [warranty, setWarranty] = useState("");
   const [notes, setNotes] = useState("");
   const [linePrices, setLinePrices] = useState<Record<string, string>>({});
+  const [lineGstRates, setLineGstRates] = useState<Record<string, string>>({});
+  const [lineFreight, setLineFreight] = useState<Record<string, string>>({});
 
   const isDocumentSource = quoteSource === "DOCUMENT" || quoteSource === "EMAIL" || quoteSource === "LETTER" || quoteSource === "EXCEL";
 
-  const computedTotal = requisitionLines.reduce((sum, l) => {
-    const price = Number(linePrices[l.materialId] ?? 0);
-    return sum + l.qtyRequested * price;
-  }, 0);
+  const pricingLines = requisitionLines.map(l => ({
+    qty: l.qtyRequested,
+    unitPrice: Number(linePrices[l.materialId]) || 0,
+    gstRate: Number(lineGstRates[l.materialId] ?? l.gstRate ?? 0) || 0,
+    freightPerUnit: Number(lineFreight[l.materialId]) || 0,
+  }));
+  const totals = quoteEntryTotals(pricingLines);
+  const computedTotal = totals.subtotal;
+  const computedLandedTotal = totals.landed;
 
   const filteredSuppliers = useMemo(() => {
     if (!supplierSearch.trim()) return localSuppliers;
@@ -782,27 +812,39 @@ function MobileQuoteUploadDialog({
     if (!landedTotal && computedTotal === 0)
       return toast.error("Enter the landed total or line prices");
 
-    const total = landedTotal ? Number(landedTotal) : computedTotal;
-    if (total <= 0) return toast.error("Landed total must be > 0");
+    const invalidLine = requisitionLines.some(l => {
+      const price = Number(linePrices[l.materialId]);
+      const gst = Number(lineGstRates[l.materialId] ?? l.gstRate ?? 0);
+      const freight = Number(lineFreight[l.materialId] ?? 0);
+      return !linePrices[l.materialId]?.trim() || !Number.isFinite(price) || price < 0 || !Number.isFinite(gst) || gst < 0 || gst > 100 || !Number.isFinite(freight) || freight < 0;
+    });
+    if (invalidLine) return toast.error("Enter valid unit prices, GST rates and freight for every material");
+    const total = landedTotal ? Number(landedTotal) : computedLandedTotal;
+    if (!Number.isFinite(total) || total <= 0) return toast.error("Landed total must be > 0");
     // Guard against swapped entries: if both line prices and a landed total
     // were entered and they disagree by >10%, the user likely typed the
     // total into a per-unit field (or vice-versa). Block and say why —
     // the landed total drives winner selection and the PO value.
-    if (landedTotal && computedTotal > 0) {
-      const divergence = Math.abs(total - computedTotal) / computedTotal;
+    if (landedTotal && computedLandedTotal > 0) {
+      const divergence = Math.abs(total - computedLandedTotal) / computedLandedTotal;
       if (divergence > 0.10) {
         return toast.error(
-          `Landed total ${formatCurrency(total)} doesn't match line math ${formatCurrency(computedTotal)}. Check whether you entered a per-unit price into the total field.`,
+          `Landed total ${formatCurrency(total)} doesn't match line math ${formatCurrency(computedLandedTotal)}. Check whether you entered a per-unit price into the total field.`,
         );
       }
     }
 
+    if (total.toFixed(2) !== computedLandedTotal.toFixed(2)) {
+      return toast.error("Enter the quoted GST and freight in the material lines so the landed total matches the PO");
+    }
     setSaving(true);
     try {
       const lines = requisitionLines.map((l) => ({
         materialId: l.materialId,
         qty: l.qtyRequested,
         unitPrice: Number(linePrices[l.materialId] ?? 0),
+        gstRate: Number(lineGstRates[l.materialId] ?? l.gstRate ?? 0),
+        freightPerUnit: Number(lineFreight[l.materialId] ?? 0),
       }));
       const res = await fetch("/api/quotes", {
         method: "POST",
@@ -1061,14 +1103,14 @@ function MobileQuoteUploadDialog({
                 {requisitionLines.map((l, i) => (
                   <div
                     key={l.materialId}
-                    className="flex items-center gap-2 px-2.5 py-2"
+                    className="flex flex-wrap items-center gap-2 px-2.5 py-2"
                     style={
                       i > 0
                         ? { borderTop: "1px solid var(--color-line)" }
                         : undefined
                     }
                   >
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 basis-full">
                       <p
                         className="text-m-label font-bold truncate"
                         style={{ color: "var(--color-ink-950)" }}
@@ -1088,6 +1130,7 @@ function MobileQuoteUploadDialog({
                       step="any"
                       min="0"
                       placeholder="0"
+                      aria-label={`Unit price for ${l.materialName}`}
                       value={linePrices[l.materialId] ?? ""}
                       onChange={(e) =>
                         setLinePrices((p) => ({
@@ -1098,6 +1141,22 @@ function MobileQuoteUploadDialog({
                       className="w-24 text-right h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
                       style={inputStyle}
                     />
+                    <label className="flex-1 min-w-0 text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                      GST %
+                      <input type="number" min="0" max="100" step="0.01" required
+                        aria-label={`GST rate for ${l.materialName}`}
+                        value={lineGstRates[l.materialId] ?? String(l.gstRate ?? 0)}
+                        onChange={e => setLineGstRates(p => ({ ...p, [l.materialId]: e.target.value }))}
+                        className={inputClass} style={inputStyle} />
+                    </label>
+                    <label className="flex-1 min-w-0 text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                      Freight / unit
+                      <input type="number" min="0" step="0.01" placeholder="0"
+                        aria-label={`Freight per unit for ${l.materialName}`}
+                        value={lineFreight[l.materialId] ?? ""}
+                        onChange={e => setLineFreight(p => ({ ...p, [l.materialId]: e.target.value }))}
+                        className={inputClass} style={inputStyle} />
+                    </label>
                   </div>
                 ))}
               </div>
@@ -1115,6 +1174,9 @@ function MobileQuoteUploadDialog({
                   {formatCurrency(computedTotal)}
                 </span>
               </div>
+              <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-500)" }}>
+                GST {formatCurrency(totals.gst)} · Freight {formatCurrency(totals.freight)} · Delivered {formatCurrency(computedLandedTotal)}
+              </p>
             </div>
 
             {/* Landed total + Valid until */}
@@ -1131,7 +1193,8 @@ function MobileQuoteUploadDialog({
                   inputMode="decimal"
                   step="any"
                   min="0"
-                  placeholder={computedTotal > 0 ? String(computedTotal) : "0.00"}
+                  aria-label="Landed total"
+                  placeholder={computedLandedTotal > 0 ? String(computedLandedTotal) : "0.00"}
                   value={landedTotal}
                   onChange={(e) => setLandedTotal(e.target.value)}
                   className={inputClass}
