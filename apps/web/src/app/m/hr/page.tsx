@@ -42,6 +42,16 @@ export default function HrHomePage() {
       {async ({ company, perms }) => {
         const currentUser = await getCurrentUser();
         const canManageTeam = perms.includes(PERM.USERS_VIEW);
+        // DPR approvals are two-staged — count only what THIS user can action,
+        // scoped to their projects and excluding their own submissions. The
+        // raw company-wide count made the banner lie for scoped users.
+        const canApproveSubAdmin = perms.includes(PERM.DPR_APPROVE_SUB_ADMIN);
+        const canApproveAdmin = perms.includes(PERM.DPR_APPROVE_ADMIN);
+        const dprScope = await scopeWhere("DailyProgressReport");
+        const approvableStatuses = [
+          ...(canApproveSubAdmin ? ["SUBMITTED" as const] : []),
+          ...(canApproveAdmin ? ["SUB_ADMIN_APPROVED" as const] : []),
+        ];
         // Comp visibility = shared flag (payroll.view|payroll.manage|hr.manage).
         const { canSeePayroll: canSeeComp } = await getEmployeeAccessScope();
 
@@ -66,7 +76,7 @@ export default function HrHomePage() {
         ] = await Promise.all([
           prisma.dailyProgressReport
             .findMany({
-              where: { project: { companyId: company.id } },
+              where: { ...dprScope },
               orderBy: { createdAt: "desc" },
               take: 5,
               include: { project: { select: { name: true } } }})
@@ -95,12 +105,15 @@ export default function HrHomePage() {
                 date: todayDateOnly,
                 status: "ABSENT"}})
             .catch(() => 0),
-          prisma.dailyProgressReport
-            .count({
-              where: {
-                project: { companyId: company.id },
-                approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] }}})
-            .catch(() => 0),
+          approvableStatuses.length
+            ? prisma.dailyProgressReport
+                .count({
+                  where: {
+                    ...dprScope,
+                    approvalStatus: { in: approvableStatuses },
+                    submittedById: { not: currentUser?.id }}})
+                .catch(() => 0)
+            : Promise.resolve(0),
           prisma.leaveRequest
             .count({
               where: { companyId: company.id, status: "PENDING" }})
@@ -194,11 +207,12 @@ export default function HrHomePage() {
             category: "Attendance"});
         }
 
-        // Individual pending DPRs (most recent first)
+        // Individual pending DPRs the user can actually approve — not their
+        // own submissions, and not a stage above their authority.
         for (const dpr of recentDprs.filter(
           (d) =>
-            d.approvalStatus === "SUBMITTED" ||
-            d.approvalStatus === "SUB_ADMIN_APPROVED",
+            (approvableStatuses as string[]).includes(d.approvalStatus) &&
+            d.submittedById !== currentUser?.id,
         )) {
           attentionBanners.push({
             id: dpr.id,
