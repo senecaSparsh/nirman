@@ -1275,10 +1275,10 @@ export function MobileStockOutClient({
             "Select Material"
           }
           createLabel={
-            modal.type === "to-project" && canCreateProject ? "project" :
-            modal.type === "material" && canCreateMaterial ? "material" :
+            modal.type === "to-project" && canCreateProject ? "Create new project" :
+            modal.type === "material" && canCreateMaterial ? "Create new material" :
             modal.type === "lot" ? undefined :
-            modal.type === "from" || modal.type === "to-location" ? (canCreateLocation ? "location" : undefined) : undefined
+            modal.type === "from" || modal.type === "to-location" ? (canCreateLocation ? "Create new location" : undefined) : undefined
           }
           items={
             modal.type === "from"
