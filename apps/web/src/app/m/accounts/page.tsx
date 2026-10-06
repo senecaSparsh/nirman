@@ -11,8 +11,8 @@ import {
   ArrowDownLeft,
   Users} from "lucide-react";
 import { prisma } from "@nirman/db";
-import { getTallySyncStats, getSupplierOutstanding, getExpenseBudgetVariance } from "@nirman/services";
-import { getCompany, getCurrentUser, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { getTallySyncStats, getSupplierOutstanding, getExpenseBudgetVariance, canAutoApprove } from "@nirman/services";
+import { getCompany, getCurrentUser, toNum, scopeWhere, getUserPermissions, getActingRole, getScopedRolePermissions } from "@/lib/server";
 import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 import { PERM } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
@@ -241,15 +241,26 @@ async function AccountsOverviewContent() {
           project: { select: { name: true } }}})
       .catch(() => []),
     loadQuickActionContext("accounts"),
-    // Finance-category approvals — same statuses the approvals queue surfaces
-    // (expense PENDING · expense claim SUBMITTED · RA bill SUBMITTED).
-    Promise.all([
-      prisma.expense.count({ where: { companyId: company.id, status: "PENDING", ...await scopeWhere("Expense") } }),
-      prisma.expenseClaim.count({ where: { companyId: company.id, status: "SUBMITTED", ...await scopeWhere("ExpenseClaim") } }),
-      prisma.raBill.count({ where: { companyId: company.id, status: "SUBMITTED", ...await scopeWhere("RaBill") } }),
-    ])
-      .then(([e, c, b]) => e + c + b)
-      .catch(() => 0),
+    // Finance-category approvals — count only what this user can action:
+    // expense.approve gates expenses + claims, ra.approve gates RA bills,
+    // and tier-2 approvers can't approve their own submissions.
+    (async () => {
+      const user = await getCurrentUser();
+      const selfOk = canAutoApprove(await getActingRole());
+      const notOwn = selfOk ? {} : { not: user?.id };
+      const effPerms = [
+        ...(await getUserPermissions()),
+        ...(await getScopedRolePermissions()),
+      ];
+      const canApproveExpense = effPerms.includes(PERM.EXPENSE_APPROVE);
+      const canApproveRa = effPerms.includes(PERM.RA_APPROVE);
+      const [e, c, b] = await Promise.all([
+        canApproveExpense ? prisma.expense.count({ where: { companyId: company.id, status: "PENDING", submittedById: notOwn, ...await scopeWhere("Expense") } }) : 0,
+        canApproveExpense ? prisma.expenseClaim.count({ where: { companyId: company.id, status: "SUBMITTED", claimantId: notOwn, ...await scopeWhere("ExpenseClaim") } }) : 0,
+        canApproveRa ? prisma.raBill.count({ where: { companyId: company.id, status: "SUBMITTED", submittedById: notOwn, ...await scopeWhere("RaBill") } }) : 0,
+      ]);
+      return e + c + b;
+    })().catch(() => 0),
   ]);
 
   // Only suppliers with outstanding balance > 0 are "payable"

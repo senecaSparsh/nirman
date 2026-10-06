@@ -1,6 +1,7 @@
 import { prisma } from "@nirman/db";
 import { Suspense } from "react";
-import {   getCompanyGroupIds, toNum, scopeWhere } from "@/lib/server";
+import {   getCompanyGroupIds, toNum, scopeWhere, getCurrentUser, getActingRole } from "@/lib/server";
+import { canAutoApprove } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
@@ -33,15 +34,25 @@ import {
 export default function InventoryHomePage() {
   return (
     <MobileHubPage perm={PERM.INVENTORY_VIEW} scopeAware what="inventory" permission="inventory.view">
-      {async ({ company }) => {
+      {async ({ company, perms }) => {
+        const currentUser = await getCurrentUser();
+        // The approvals banner links to the queue — count only what this user
+        // can actually approve there (perm + not their own submission).
+        const canApprovePo = perms.includes(PERM.PO_APPROVE);
+        const canApproveReq = perms.includes(PERM.REQUISITION_APPROVE);
+        const notOwn = canAutoApprove(await getActingRole()) ? {} : { not: currentUser?.id };
         const [draftPOs, pendingReqs, recentRequisitions, materials, inventoryTree, qaCtx] =
     await Promise.all([
-      prisma.purchaseOrder.count({
-        where: { companyId: company.id, status: "DRAFT", ...await scopeWhere("PurchaseOrder") },
-      }),
-      prisma.materialRequisition.count({
-        where: { project: { companyId: company.id }, status: "SUBMITTED", ...await scopeWhere("MaterialRequisition") },
-      }),
+      canApprovePo
+        ? prisma.purchaseOrder.count({
+            where: { companyId: company.id, status: "DRAFT", createdById: notOwn, ...await scopeWhere("PurchaseOrder") },
+          })
+        : Promise.resolve(0),
+      canApproveReq
+        ? prisma.materialRequisition.count({
+            where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: notOwn, ...await scopeWhere("MaterialRequisition") },
+          })
+        : Promise.resolve(0),
       prisma.materialRequisition.findMany({
         where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED" },
         orderBy: { createdAt: "desc" },
