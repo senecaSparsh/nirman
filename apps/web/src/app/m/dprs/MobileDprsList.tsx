@@ -242,7 +242,7 @@ function MobileDprsListInner({
         <MobileNoResults
           title="No progress reports found"
           query={query || undefined}
-          hint="Daily Progress Reports track work done on site. Tap + to create one."
+          hint={canSubmit ? "Daily Progress Reports track work done on site. Tap + to create one." : "Daily Progress Reports track work done on site."}
         />
       ) : (
         <div className="flex flex-col gap-4">

@@ -159,7 +159,7 @@ export function MobileLandList({
         <MobileEmptyState
           icon={MapPin}
           title="No land purchases yet"
-          hint={canManage ? "Tap + to record your first land purchase" : "Land purchases will appear here once recorded."}
+          hint={(actions?.canCreateLand ?? canManage) ? "Tap + to record your first land purchase" : "Land purchases will appear here once recorded."}
         />
         {(actions?.canCreateLand ?? canManage) ? (
           <>
@@ -301,7 +301,7 @@ export function MobileLandList({
       {filtered.length === 0 ? (
         <MobileNoResults
           title={query ? "No matching land" : "No land purchases"}
-          hint={query ? "Try a different search" : canManage ? "Tap + to record your first land acquisition" : "Land acquisitions will appear here"}
+          hint={query ? "Try a different search" : (actions?.canCreateLand ?? canManage) ? "Tap + to record your first land acquisition" : "Land acquisitions will appear here"}
         />
       ) : (
         <div>

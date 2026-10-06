@@ -87,15 +87,16 @@ export function MobileDepartmentsList({
     { label: "Stock Rooms", value: String(withStockRoom) },
   ];
 
+  const canCreate = actions?.canCreateDepartment ?? canManage;
   if (items.length === 0) {
     return (
       <>
         <MobileEmptyState
           icon={Building2}
           title="No departments yet"
-          hint={canManage ? "Tap + to create your first department" : "Departments will appear here once created."}
+          hint={canCreate ? "Tap + to create your first department" : "Departments will appear here once created."}
         />
-        {(actions?.canCreateDepartment ?? canManage) ? (
+        {canCreate ? (
           <>
             <MobileFab onClick={fab.toggle} label="Add department" isOpen={fab.isOpen} />
             <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="Add Department">
@@ -155,7 +156,7 @@ export function MobileDepartmentsList({
           title={query || statusFilter !== "ALL" ? "No matching departments" : "No departments"}
           hint={query || statusFilter !== "ALL"
             ? "Try a different search or filter"
-            : canManage
+            : canCreate
               ? "Tap + to add your first department"
               : "Departments will appear here once added"}
         />
@@ -167,7 +168,7 @@ export function MobileDepartmentsList({
         </MobileCardGrid>
       )}
 
-      {(actions?.canCreateDepartment ?? canManage) ? (
+      {canCreate ? (
         <>
           <MobileFab onClick={fab.toggle} label="Add department" isOpen={fab.isOpen} />
           <MobileFabModal open={fab.isOpen} onClose={fab.close} originRect={fab.originRect} title="Add Department">
