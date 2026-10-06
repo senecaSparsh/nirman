@@ -16,6 +16,7 @@ export function MobileEditProjectButton({ project }: { project: ProjectEditData 
     <>
       <button
         onClick={() => setOpen(true)}
+        aria-label="Edit project"
         className="grid place-items-center h-7 w-7 rounded-[0.5rem] border-2 press"
         style={{
           borderColor: "var(--color-line)",

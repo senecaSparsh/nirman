@@ -39,6 +39,7 @@ export function MobileCheckMilestonesButton({ projectId }: { projectId: string }
 
   return (
     <button
+      aria-label="Check milestones"
       onClick={checkMilestones}
       disabled={busy}
       className="grid place-items-center h-7 w-7 rounded-[0.5rem] border-2 press"
