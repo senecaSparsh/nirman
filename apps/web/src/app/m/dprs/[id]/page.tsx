@@ -382,19 +382,9 @@ export default function MobileDprDetailPage({
               canRun={canResubmit || canApproveSubAdmin || canApproveAdmin}
             />
 
-            {/* ── Variance analysis (if present) ── */}
+            {/* ── Variance analysis — per-material expected vs actual ── */}
             {dpr.varianceAnalysis ? (
-              <div className="mb-4">
-                <DetailAlertBanner
-                  tone="warning"
-                  title="Variance Analysis"
-                  description={
-                    typeof dpr.varianceAnalysis === "string"
-                      ? dpr.varianceAnalysis
-                      : "Over-consumption detected — see details"
-                  }
-                />
-              </div>
+              <DprVarianceBreakdown raw={dpr.varianceAnalysis} />
             ) : null}
 
             {/* ── Approval trail — horizontal stepper ── */}
@@ -535,5 +525,48 @@ function ProgressRingLarge({ pct, color }: { pct: number; color: string }) {
         {Math.round(pct)}%
       </text>
     </svg>
+  );
+}
+
+/** Per-material variance breakdown — parsed from the DPR's varianceAnalysis
+ * JSON. Shows expected vs actual + the delta, so a reviewer sees WHICH
+ * material over-ran instead of a bare "see details". */
+function DprVarianceBreakdown({ raw }: { raw: unknown }) {
+  let rows: { materialName: string; materialCode: string; unit: string; actualQty: string; standardQty: string; variance: string; variancePct: string; isOverConsumption: boolean }[] = [];
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (Array.isArray(parsed)) rows = parsed;
+  } catch { /* fall through to banner-only below */ }
+  const hasOver = rows.some((r) => r.isOverConsumption);
+  return (
+    <div className="mb-4">
+      <DetailAlertBanner
+        tone={hasOver ? "warning" : "success"}
+        title="Variance Analysis"
+        description={hasOver ? `${rows.filter((r) => r.isOverConsumption).length} material(s) over-consumed` : "Within standard consumption"}
+      />
+      {rows.length > 0 ? (
+        <div className="mt-2 rounded-[0.5rem] border overflow-hidden" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+          {rows.map((r, i) => {
+            const over = r.isOverConsumption;
+            const vPct = Number(r.variancePct);
+            return (
+              <div key={i} className="flex items-center gap-2 px-3 py-2 border-b last:border-0 text-m-body" style={{ borderColor: "var(--color-line)" }}>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold truncate" style={{ color: "var(--color-ink-950)" }}>{r.materialName}</p>
+                  <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>{r.materialCode}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-mono text-m-caption" style={{ color: "var(--color-ink-600)" }}>{formatNumber(Number(r.actualQty))} / {formatNumber(Number(r.standardQty))} {r.unit}</p>
+                  <p className="text-m-caption font-bold" style={{ color: over ? "var(--color-stop)" : "var(--color-go)" }}>
+                    {over ? "+" : ""}{formatNumber(Number(r.variance))} {r.unit} ({vPct > 0 ? "+" : ""}{vPct.toFixed(1)}%)
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
   );
 }
