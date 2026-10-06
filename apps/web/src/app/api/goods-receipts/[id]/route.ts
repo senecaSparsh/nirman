@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -19,7 +19,7 @@ import { PERM } from "@/lib/roles";
  * is company-owned.
  */
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.QC_MANAGE);
+  const user = await requireEffectivePermission(PERM.QC_MANAGE);
   const company = await getCompany();
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
