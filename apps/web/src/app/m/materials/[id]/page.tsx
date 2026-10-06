@@ -246,7 +246,7 @@ export default function MobileMaterialDetailPage({
                       >
                         <div className="h-0.5 -mx-2 -mt-2 mb-1.5" style={{ backgroundColor: moveTone }} />
                         <p className="text-m-caption font-bold leading-tight truncate mb-0.5" style={{ color: "var(--color-ink-950)" }}>
-                          {m.fromLocation?.name ?? "—"} → {m.toLocation?.name ?? "—"}
+                          {isIn ? `→ ${m.toLocation?.name}` : isOut ? `${m.fromLocation?.name} →` : `${m.fromLocation?.name ?? "—"} → ${m.toLocation?.name ?? "—"}`}
                         </p>
                         <p className="text-m-caption mb-1" style={{ color: "var(--color-ink-500)" }}>
                           {formatDate(m.timestamp)}

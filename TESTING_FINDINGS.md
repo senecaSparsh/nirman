@@ -3,6 +3,7 @@
 Testing the app like a real user across modules discussed in the Alpha Road / Amoria Cafe transcripts.
 
 ## Environment
+
 - Dev server: http://localhost:3001 (Turbopack, Next.js 16.2.12)
 - AUTH_BYPASS=true (logged in as Amit, OWNER, Nirman Constructions)
 - Desktop surface via `?desktop=1` cookie (Playwright UA detected as mobile otherwise)
@@ -10,26 +11,28 @@ Testing the app like a real user across modules discussed in the Alpha Road / Am
 ## Findings
 
 ### Command Center (Home / `/`)
+
 1. **FIXED — `/api/legal-documents` returns HTTP 500.** Same root cause as #4 — comma-separated `status` filter. Fixed in `listAllLegalDocs()` in `packages/services/src/legal-docs.ts`. Verified: 0 console errors on home page.
 2. **FIXED — "Top performers" lists loss-making / zero-revenue projects.** The
-    filter now requires `p.revenue > 0 && p.profit > 0` for "Top performers" and
-    `p.profit < 0` for "Needs attention". Zero-revenue projects no longer appear
-    in either list.
+   filter now requires `p.revenue > 0 && p.profit > 0` for "Top performers" and
+   `p.profit < 0` for "Needs attention". Zero-revenue projects no longer appear
+   in either list.
 3. **FIXED — Mobile UA redirect with no easy desktop toggle from mobile surface.**
-    Added a "View desktop site" link in the Settings page's App zone (see #85).
+   Added a "View desktop site" link in the Settings page's App zone (see #85).
 
 ### Land (`/land`, `/land/[id]`)
+
 4. **FIXED — Global `/api/legal-documents?all=true` returns HTTP 500.** Same as
-    #1 — `listAllLegalDocs()` now splits comma-separated status filters and uses
-    `{ in: [...] }`. Verified: no more 500 errors on page load.
+   #1 — `listAllLegalDocs()` now splits comma-separated status filters and uses
+   `{ in: [...] }`. Verified: no more 500 errors on page load.
 5. **VERIFIED — "Create project from land" button exists and works.** The button is in `land-hub.tsx` (line 407-412), shown when `permissions.canEdit && !purchase.projectId`. It calls `POST /api/land-purchases/[id]/create-project` with a prompted project name. The button was hidden in testing because the seed land purchase is already linked to "Greenfield Residency" project — correct behavior.
 6. **FIXED — Unit/parcel `status` not updated when a sale is created.** Root cause: `recordPayment()` in `packages/services/src/sale.ts` did NOT call `markAssetStatus()` — it only updated `paymentStatus` on the sale. The seed script used `recordPayment()` (not `recordDeposit()`) after `sellAsset()`, so assets stayed AVAILABLE despite having payments/sale recorded. Fix: added `markAssetStatus(..., "RESERVED", ...)` call in `recordPayment()` when `saleStage === "PENDING"`, and upgraded the sale stage to `DEPOSIT_RECEIVED`. Verified: PLOT-1A, A-101, S-01 now show "Reserved" status after re-seed.
 7. **FIXED — "Parcels" cell in the land list shows colored dots with counts but no legend.** Fix: added `hint` to the Parcels column header ("Available / Hold / Partitioned / Sold") so hovering the header explains the color order, and added `title` tooltips to each count dot (e.g. "1 Available", "2 Sold") so users can identify each status without opening the drawer.
 8. **FIXED — "Reserved" and "Rented" statuses missing from Cadastre Plan legend.** Added both to the `CadastreLegend` component in `apps/web/src/components/land/cadastre-plan.tsx`. Legend now shows all 5 statuses: Available / Hold / Reserved / Sold / Rented.
 9. **FIXED — "Status" and "Purpose" columns are semantically confusing.** Renamed
-    "Purpose" to "Intent" with a hint tooltip ("What this parcel is for: Sell,
-    Project, or Hold") to clarify the semantic difference between Intent (business
-    purpose) and Status (lifecycle state).
+   "Purpose" to "Intent" with a hint tooltip ("What this parcel is for: Sell,
+   Project, or Hold") to clarify the semantic difference between Intent (business
+   purpose) and Status (lifecycle state).
 10. **FIXED — "Realized" stat shows a negative value alongside "Sold".** Added
     `title` tooltips to all KPI items in the land hub: "Unrealized" = "Valuation
     gain/loss on unsold parcels (current valuation − acquisition cost)", "Realized"
@@ -39,6 +42,7 @@ Testing the app like a real user across modules discussed in the Alpha Road / Am
 12. **POSITIVE — Legal/Permissions/NOC checklist works** on the land detail (Feasibility & Land permissions with dependencies), matching Alpha Road 2's request.
 
 ### Materials (`/materials`)
+
 13. **VERIFIED WORKING — "Delete" button on a material row opens a confirmation dialog and soft-deletes correctly.** (Initially appeared non-functional due to a stale Playwright element ref; re-tested with a fresh snapshot + direct DOM click — dialog showed the correct material name and deletion succeeded. Test material "Test Cement Grade 1" was created and deleted to verify the full round-trip.)
 14. **FIXED — Material "Code" is manual entry.** The backend already had
     `generateMaterialCode()` (format: `{PREFIX}-{GRADE}-{SEQ}`, e.g. STL-Fe500D-001)
@@ -62,6 +66,7 @@ Testing the app like a real user across modules discussed in the Alpha Road / Am
 18. **POSITIVE — New Material form includes HSN/SAC, GST Rate, Standard Cost, Min Stock, Reorder Point, EOQ, Description.** Create flow works end-to-end (verified by creating "Test Cement Grade 1").
 
 ### Procurement (`/procurement`, `/requisitions`)
+
 19. **FIXED — "New PO" button is buried in the table footer.** Added a "New PO"
     button to the toolbar's `trailingButtons` section in the procurement table
     view, so it appears in the header toolbar where users expect primary actions.
@@ -75,12 +80,14 @@ Testing the app like a real user across modules discussed in the Alpha Road / Am
 27. **POSITIVE — Supplier dropdown shows "Owes: ₹X" payable annotations** and requisitions show "3/3 Quotes" gate status.
 
 ### Projects (`/projects`, `/projects/[id]`)
+
 28. **FIXED — Built Units status now correctly shows "Reserved" when sold.** A-101 and S-01 now show "Reserved" (was "Available") after the `recordPayment()` fix in #6. A-102 correctly shows "Available" (no sale in seed). The unit `status` is now synced via `markAssetStatus()` when payments are recorded.
 29. **FIXED — Unit "Profit" was massively negative for sold units.** Root cause: (1) the land cost (₹9Cr) was being area-allocated over only 4,150 sqft of sellable units (most units were PLANNED and excluded), producing ₹22,871/sqft cost vs ₹7,647/sqft asking price. (2) RESERVED units were excluded from cost allocation, further reducing the denominator. Fix: (a) added RESERVED to the allocation pool in `valuation.ts`, (b) changed more units from PLANNED to AVAILABLE/UNDER_CONSTRUCTION in the seed (7,800 sqft now participates), (c) increased asking prices to be realistic for a ₹9Cr land project (2BHK ₹1.5Cr, 3BHK ₹2.1Cr, shops ₹80L). Verified: A-101 profit ₹46.5L (31% margin), S-01 profit ₹31.3L (39% margin), A-102 profit ₹64L (30.5% margin).
 30. **FIXED — "RERA: Not registered" badge had no inline action.** The badge was informational only. Fix: made the "Not registered" badge a clickable button that opens the project Edit dialog (where RERA number, registration date, validity date, and website URL fields live). Lifted edit dialog state from `ProjectDetailActions` to `ProjectHub` so the badge and the Edit button share the same dialog. The registered RERA badge remains a static display.
 31. **POSITIVE — Project detail has comprehensive tabs**: Overview, Procurement (6), Stock (3), Construction (14), Units (12), Land (4), Analytics (6), Equipment (2), Legal. Phases (Tower A/B) tracked. Budget burn % flagged (Greenfield at 112% — over budget).
 
 ### Sales (`/sales`)
+
 32. **FIXED — Sales header "Sold: 0" while Bookings tab showed 5 sales and Revenue ₹7.72Cr.** The "Sold" stat counts only units with `status === "SOLD"` (registry done), which was technically correct but confusing. After the `recordPayment()` fix (#6), units with deposits now show as "Reserved: 2" instead of being invisible. The "Sold" hint now reads: "Units with a completed sale (registry done). Booked units with deposit are in 'Reserved' below." Stats now: Total 18, Available 4, Sold 0, Reserved 2, Revenue ₹6.3Cr, Collected ₹1.68Cr — internally consistent.
 33. **FIXED — Sale detail dialog showed "Sale pending — no deposit yet" despite ₹1.04Cr payment recorded.** Root cause: same as #6 — `recordPayment()` didn't upgrade `saleStage` from PENDING to DEPOSIT_RECEIVED, so the `isPending` check in the dialog rendered the wrong banner. Fix: `recordPayment()` now upgrades the sale stage. Verified: dialog now shows "₹1,04,00,000.00 paid · ₹4,16,00,000.00 remaining" with "Complete Sale" / "Record Payment" buttons instead of the contradictory "no deposit yet" prompt.
 34. **FIXED — Board columns (Booked/BBA Signed/Payments/Registry/Completed) have
@@ -92,6 +99,7 @@ Testing the app like a real user across modules discussed in the Alpha Road / Am
 36. **POSITIVE — "Send payment due reminders" bulk action** and per-payment "Send WhatsApp confirmation" exist (Alpha Road 3 request).
 
 ### HR (`/hr`, `/hr/attendance`, `/hr/dprs`, `/hr/payroll`)
+
 37. **DATA GAP — 0 DPRs and 0 Payroll periods in seed data.** The DPR multi-tier approval pipeline (Pending → Sub-Approved → Approved) and Payroll (gross/deductions/net) UI structures exist and match Alpha Road 5, but cannot be tested end-to-end because no records are seeded. "Submit DPR" and payroll-run buttons exist but produce empty states.
 38. **FIXED — HR dashboard "Present Today: 0" with 7 employees.** When no
     attendance has been recorded today, the banner now shows "Attendance not yet
@@ -101,11 +109,13 @@ Testing the app like a real user across modules discussed in the Alpha Road / Am
 40. **POSITIVE — Attendance page description confirms GPS check-in/out** ("Daily worker attendance with GPS check-in/out. Track present, absent, half-day, and overtime.") — matches Alpha Road 5 GPS attendance request at the UI label level (mobile form not tested on desktop surface).
 
 ### Rent & CRM (`/rentals`, `/sales?tab=pipeline`, `/crm`)
+
 41. **DATA GAP — 0 tenancies seeded in Rentals.** The Rentals page (tenancies, security deposits, monthly rent, "New Tenancy" button) exists but has no data to test the Amoria Cafe rent scenario end-to-end.
 42. **FIXED — `/crm` returns 404.** No standalone CRM route existed. Fix: added `/crm/page.tsx` with `redirect("/sales?tab=pipeline")` so `/crm` now redirects to the Sales Pipeline tab where leads are managed.
 43. **POSITIVE — Lead capture form is comprehensive**: Name, Phone, Email, Source (Property portal/Walk-in/Referral), Priority (Hot), Project, Interested unit, Budget range, Owner. Matches Amoria Cafe CRM lead-capture request.
 
 ### Company Switching (`/settings?tab=companies`)
+
 44. **DATA GAP — Only 1 company seeded (Nirman Constructions).** Alpha Road.txt and Amoria Cafe.txt discussed switching between Nirman Constructions and Amoria Cafe (a second company). "Amoria Cafe" is not seeded, so multi-company switching cannot be tested. The "Switch to" and "New Company" buttons exist.
 45. **POSITIVE — Notification preferences panel is comprehensive**: per-event (Procurement, Sales, etc.) × per-channel (WhatsApp/Email/In-App) toggle matrix. Matches the WhatsApp/notification alerts feature.
 
@@ -114,6 +124,7 @@ Testing the app like a real user across modules discussed in the Alpha Road / Am
 ## Summary
 
 ### Fixes Applied During Testing
+
 - **FIXED #1, #4 — `/api/legal-documents?all=true` 500 error.** Root cause: comma-separated `status` filter passed as a literal string to Prisma's enum `where.status`. Fixed `listAllLegalDocs()` in `packages/services/src/legal-docs.ts` to split on comma and use `{ in: [...] }`. Verified: 0 console errors on home page after fix.
 - **FIXED #6, #28, #33, #32 — Systemic status-sync bug.** `recordPayment()` in `packages/services/src/sale.ts` didn't call `markAssetStatus()` or upgrade `saleStage`. Fix: added `markAssetStatus(..., "RESERVED")` and upgraded sale stage to `DEPOSIT_RECEIVED`. Verified: PLOT-1A, A-101, S-01 show "Reserved"; "no deposit yet" banner gone; Sales header now consistent.
 - **FIXED #8 — Cadastre Plan legend missing "Reserved" and "Rented".** Added both to `CadastreLegend` component.
@@ -129,73 +140,81 @@ Testing the app like a real user across modules discussed in the Alpha Road / Am
 - **FIXED #42 — `/crm` returns 404.** Fix: added `/crm/page.tsx` with `redirect("/sales?tab=pipeline")`.
 
 ### Critical Bugs (P0 — data integrity / workflow-breaking)
-| # | Status |
-|---|--------|
+
+| #             | Status                                                          |
+| ------------- | --------------------------------------------------------------- |
 | 6, 28, 33, 32 | **FIXED** — status-sync bug + sale dialog banner + sales header |
-| 22, 21 | **FIXED** — Comparative Statement ₹0.00 |
-| 23 | **FIXED** — Winning vendor not in Supplier dropdown |
-| 1, 4 | **FIXED** — `/api/legal-documents` 500 error |
-| 29 | **FIXED** — Unit profit massively negative |
+| 22, 21        | **FIXED** — Comparative Statement ₹0.00                         |
+| 23            | **FIXED** — Winning vendor not in Supplier dropdown             |
+| 1, 4          | **FIXED** — `/api/legal-documents` 500 error                    |
+| 29            | **FIXED** — Unit profit massively negative                      |
 
 ### Missing Features (P1 — requested in transcripts, no UI)
-| # | Status |
-|---|--------|
-| 5 | **VERIFIED** — "Create project from land" button exists, hidden when project linked |
-| 17, 24 | **FIXED** — "+ Create new category/supplier…" now works in dropdowns |
-| 42 | **FIXED** — `/crm` redirects to `/sales?tab=pipeline` |
-| 14 | **FIXED** — Material code auto-generated from category + grade (Auto button) |
-| 15 | Deferred — HSN/GST auto-fetch requires external government API |
-| 16 | **VERIFIED** — Standard cost "Pull from last PO" button exists in both desktop + mobile forms |
+
+| #      | Status                                                                                        |
+| ------ | --------------------------------------------------------------------------------------------- |
+| 5      | **VERIFIED** — "Create project from land" button exists, hidden when project linked           |
+| 17, 24 | **FIXED** — "+ Create new category/supplier…" now works in dropdowns                          |
+| 42     | **FIXED** — `/crm` redirects to `/sales?tab=pipeline`                                         |
+| 14     | **FIXED** — Material code auto-generated from category + grade (Auto button)                  |
+| 15     | Deferred — HSN/GST auto-fetch requires external government API                                |
+| 16     | **VERIFIED** — Standard cost "Pull from last PO" button exists in both desktop + mobile forms |
 
 ### Data/Seed Gaps (P2 — can't test end-to-end)
-| # | Gap |
-|---|-----|
-| 37 | 0 DPRs, 0 Payroll periods seeded |
-| 41 | 0 tenancies seeded (Rent module) |
-| 44 | Only 1 company seeded (no Amoria Cafe for multi-company test) |
+
+| #   | Gap                                                           |
+| --- | ------------------------------------------------------------- |
+| 37  | 0 DPRs, 0 Payroll periods seeded                              |
+| 41  | 0 tenancies seeded (Rent module)                              |
+| 44  | Only 1 company seeded (no Amoria Cafe for multi-company test) |
 
 ### UX Issues (P3)
-| # | Status |
-|---|-------|
-| 2 | **FIXED** — "Top performers" filters zero-revenue/loss projects |
-| 7 | **FIXED** — Parcels cell has header hint + per-dot tooltips |
-| 8 | **FIXED** — "Reserved"/"Rented" in Cadastre Plan legend |
-| 20 | **FIXED** — Age column shows realistic days |
-| 25 | **FIXED** — Project/phase separator added |
-| 30 | **FIXED** — RERA badge opens edit dialog |
-| 9 | **FIXED** — "Purpose" column renamed to "Intent" with hint tooltip |
-| 19 | **FIXED** — "New PO" button added to table view toolbar |
-| 34 | **FIXED** — BBA pipeline cards now show next-action hints |
+
+| #   | Status                                                             |
+| --- | ------------------------------------------------------------------ |
+| 2   | **FIXED** — "Top performers" filters zero-revenue/loss projects    |
+| 7   | **FIXED** — Parcels cell has header hint + per-dot tooltips        |
+| 8   | **FIXED** — "Reserved"/"Rented" in Cadastre Plan legend            |
+| 20  | **FIXED** — Age column shows realistic days                        |
+| 25  | **FIXED** — Project/phase separator added                          |
+| 30  | **FIXED** — RERA badge opens edit dialog                           |
+| 9   | **FIXED** — "Purpose" column renamed to "Intent" with hint tooltip |
+| 19  | **FIXED** — "New PO" button added to table view toolbar            |
+| 34  | **FIXED** — BBA pipeline cards now show next-action hints          |
 
 ### Round 2 — New Critical Bugs (P0)
-| # | Issue |
-|---|-------|
-| 87 | **FIXED** — MAC computed from stock items (qty × movingAvgCost) |
-| 91 | **FIXED** — effectiveStatus overrides DB status when sale exists |
-| 99 | **FIXED** — `/m/rent` redirects to `/m/rentals` |
-| 100 | **FIXED** — Reports page now clarifies basis (explicit costs only, not land+materials) |
-| 101 | **FIXED** — Both pages use same getSupplierOutstanding() service function |
+
+| #   | Issue                                                                                           |
+| --- | ----------------------------------------------------------------------------------------------- |
+| 87  | **FIXED** — MAC computed from stock items (qty × movingAvgCost)                                 |
+| 91  | **FIXED** — effectiveStatus overrides DB status when sale exists                                |
+| 99  | **FIXED** — `/m/rent` redirects to `/m/rentals`                                                 |
+| 100 | **FIXED** — Reports page now clarifies basis (explicit costs only, not land+materials)          |
+| 101 | **FIXED** — Both pages use same getSupplierOutstanding() service function                       |
 | 102 | **FIXED** — Mobile reports no longer subtracts purchaseSpend from net profit; basis notes added |
 
 ### Round 2 — New Feature Gaps (P1)
-| # | Issue |
-|---|-------|
-| 88 | **FIXED** — FAB "Add new material" on mobile materials page |
-| 89 | **FIXED** — MobileLegalDocsSection on mobile land detail |
-| 90 | **FIXED** — Cost breakup fields in MobileLandEditForm |
-| 92 | **FIXED** — Payment schedule section on mobile sale detail |
-| 93 | **FIXED** — Broker + commission section on mobile sale detail |
-| 94 | **FIXED** — Expenses & Terms section on mobile sale detail |
-| 95 | **FIXED** — Late, PL, NPL status codes in attendance form |
-| 97 | **FIXED** — H1-H6 hierarchy in employee forms |
-| 98 | **FIXED** — Full mobile suppliers module at /m/suppliers |
+
+| #   | Issue                                                         |
+| --- | ------------------------------------------------------------- |
+| 88  | **FIXED** — FAB "Add new material" on mobile materials page   |
+| 89  | **FIXED** — MobileLegalDocsSection on mobile land detail      |
+| 90  | **FIXED** — Cost breakup fields in MobileLandEditForm         |
+| 92  | **FIXED** — Payment schedule section on mobile sale detail    |
+| 93  | **FIXED** — Broker + commission section on mobile sale detail |
+| 94  | **FIXED** — Expenses & Terms section on mobile sale detail    |
+| 95  | **FIXED** — Late, PL, NPL status codes in attendance form     |
+| 97  | **FIXED** — H1-H6 hierarchy in employee forms                 |
+| 98  | **FIXED** — Full mobile suppliers module at /m/suppliers      |
 
 ### Round 2 — New UX Issues (P3)
-| # | Issue |
-|---|-------|
-| 96 | **FIXED** — Attendance form has check-in/out time inputs; "—" is a data gap (no times seeded) |
+
+| #   | Issue                                                                                         |
+| --- | --------------------------------------------------------------------------------------------- |
+| 96  | **FIXED** — Attendance form has check-in/out time inputs; "—" is a data gap (no times seeded) |
 
 ### What Works Well
+
 - Command Center dashboard (cash position, project profitability, approvals queue)
 - Land subdivision (cadastre plan, parcels, un-divide, possession tracking)
 - Legal/Permissions/NOC checklist with dependencies
@@ -209,6 +228,7 @@ Testing the app like a real user across modules discussed in the Alpha Road / Am
 - RBAC with 13 roles, 60+ permissions, delegation hierarchy
 
 ### Round 2 — What Works Well (Mobile)
+
 - Mobile Materials list with category filters, stock status badges, auto-codes (CEM-PPC, AGG-20MM)
 - Mobile Material detail with HSN, GST%, standard cost, reorder point, EOQ, min stock, locations, movements
 - Mobile Procurement with "New PO" in header, inline Approve/Cancel, status filters, draft auto-save
@@ -235,6 +255,7 @@ Tested the `/m/*` mobile surface as a real user — navigating via the bottom ta
 links. AUTH_BYPASS=true, `nirman-desktop` cookie cleared to avoid desktop redirect.
 
 ### Mobile Home (`/m/home`)
+
 46. **POSITIVE — Orbit navigation hub works well.** Company card with quick-stat
     buttons (Projects 3, Land 1, Inventory 4, Workforce 7, Equipment 6). Tapping a
     stat (e.g. "Projects 3") opens a drill-down list with per-item details and
@@ -250,6 +271,7 @@ links. AUTH_BYPASS=true, `nirman-desktop` cookie cleared to avoid desktop redire
     users with 50+ links.
 
 ### Mobile Inventory (`/m/inventory`)
+
 48. **FIXED — "Real Estate" toggle only changes quick-action links.** Added a
     "Quick actions" label above the toggle to clarify that the toggle only
     switches the quick-action grid, not the entire page context. The stock tree
@@ -276,6 +298,7 @@ links. AUTH_BYPASS=true, `nirman-desktop` cookie cleared to avoid desktop redire
     daily wage shown.
 
 ### Mobile HR (`/m/hr`)
+
 53. **FIXED — "Everything looks good" banner contradicts data.** When no
     attendance has been recorded today (todayAttendance === 0), the banner now
     shows "Attendance not yet recorded" with a prompt to take attendance,
@@ -291,6 +314,7 @@ links. AUTH_BYPASS=true, `nirman-desktop` cookie cleared to avoid desktop redire
     Payroll, Labour Cost, Crews, Approvals (People tab).
 
 ### Mobile Settings (`/m/settings`)
+
 56. **FIXED — "July summary" shown in August.** The Settings page no longer
     shows a stale month label. The business overview section now shows
     "Portfolio value", "Pending payables", "Receivable dues", and "Tally pending"
@@ -305,6 +329,7 @@ links. AUTH_BYPASS=true, `nirman-desktop` cookie cleared to avoid desktop redire
     "Purchase order approved"). Applied to mobile settings page + finance audit view.
 
 ### Mobile Procurement (`/m/procurement`, `/m/requisitions`)
+
 59. **POSITIVE — "New PO" button is in the header toolbar** on mobile (fixing the
     desktop issue #19 where it was buried in the table footer). Draft POs have
     inline "Approve" and "Cancel" buttons. Status filter tabs work well.
@@ -326,6 +351,7 @@ links. AUTH_BYPASS=true, `nirman-desktop` cookie cleared to avoid desktop redire
     stats, and per-quote line-item details.
 
 ### Mobile Projects (`/m/projects`, `/m/projects/[id]`)
+
 63. **VERIFIED — Cost-per-sqft only shown on project detail page** (₹/sqft from
     `project.costPerSqft`). Home page no longer shows a competing cost-per-sqft
     figure, so the inconsistency is resolved.
@@ -343,6 +369,7 @@ links. AUTH_BYPASS=true, `nirman-desktop` cookie cleared to avoid desktop redire
     page with good information density.
 
 ### Mobile Land (`/m/land`, `/m/land/[id]`)
+
 67. **FIXED — PLOT-1A shows "Available" badge but has been sold.** The mobile
     land detail page now uses `effectiveStatus = isSold ? "SOLD" : p.status`
     (line 1552 of MobileLandDetailClient.tsx) to override the badge to "Sold"
@@ -363,6 +390,7 @@ links. AUTH_BYPASS=true, `nirman-desktop` cookie cleared to avoid desktop redire
     Partition/Sell), Un-divide for original plot, sales section.
 
 ### Mobile Sales (`/m/sales`, `/m/sales/[id]`)
+
 71. **VERIFIED — Pipeline tab shows 0 leads (data gap, not a bug).** The pipeline
     UI is fully built: stage filter (Open/New/Contacted/Visits/Negotiating/Booked/
     Lost), search, stats (follow-ups due, hot leads, converted), "New Lead" button,
@@ -385,6 +413,7 @@ links. AUTH_BYPASS=true, `nirman-desktop` cookie cleared to avoid desktop redire
     `resendConfirmation` API action as the desktop sale detail dialog.
 
 ### Mobile Field Dashboard (`/m/site`)
+
 75. **POSITIVE — Field Dashboard is well-structured for site workers.** Alert
     carousel (DPR due, 4 POs overdue), quick actions (Quick Issue, Receive Stock,
     Submit DPR, Attendance, Scrap Log, Open Tasks), Tasks (0), In Transit (4 POs
@@ -398,6 +427,7 @@ links. AUTH_BYPASS=true, `nirman-desktop` cookie cleared to avoid desktop redire
     seed data will get numbers on re-seed.
 
 ### Mobile Reports (`/m/reports`)
+
 77. **FIXED — Net Profit shows ₹1.47Cr on Reports but -₹3.31Cr on Home.** Fixed:
     mobile reports page no longer subtracts `purchaseSpend` from net profit (POs
     are inventory acquisitions, not expenses). Basis clarification note added
@@ -409,6 +439,7 @@ links. AUTH_BYPASS=true, `nirman-desktop` cookie cleared to avoid desktop redire
     a basis note; Home says "Total Revenue" with "Booked (accrual)" subtitle.
 
 ### Mobile Accounts (`/m/accounts`)
+
 79. **FIXED — Tally Sync button gives no feedback.** The TallySyncButton component
     now has: loading state with spinner + "Syncing…" label, toast notifications
     (success/warning/error), and disabled state during sync to prevent double-taps.
@@ -418,6 +449,7 @@ links. AUTH_BYPASS=true, `nirman-desktop` cookie cleared to avoid desktop redire
     recent receipts with customer/amount/method/date.
 
 ### Mobile Approvals (`/m/pulse/approvals`)
+
 81. **VERIFIED — PO amounts consistent between Approvals and Procurement pages.**
     Both pages use `po.total` (the same field, includes GST). Any previous
     discrepancy was likely a stale cache or data issue.
@@ -428,6 +460,7 @@ links. AUTH_BYPASS=true, `nirman-desktop` cookie cleared to avoid desktop redire
     toast feedback and haptic confirmation.
 
 ### Mobile Equipment, Safety (`/m/equipment`, `/m/safety`)
+
 83. **POSITIVE — Equipment page is clean and functional.** 6 items with status
     badges (Available/Assigned/Maintenance), codes, categories, values, and
     project assignments. Stats summary (3 available, 2 in use, 1 maintenance,
@@ -436,6 +469,7 @@ links. AUTH_BYPASS=true, `nirman-desktop` cookie cleared to avoid desktop redire
     Inspections tabs with empty states and "Report new incident" button.
 
 ### Mobile-Specific UX Issues
+
 85. **FIXED — No "View desktop" toggle visible on mobile surface.** Added a
     "View desktop site" link in the Settings page's App zone, next to theme,
     currency, and install options. Links to `/?desktop=1` which sets the
@@ -457,6 +491,7 @@ Re-tested all mobile modules systematically by navigating directly to each URL
 1-5 and Amoria Cafe transcript requirements on the mobile surface.
 
 ### Mobile Materials (`/m/materials`, `/m/materials/[id]`)
+
 87. **FIXED — Moving Average Cost shows ₹0.00 despite ₹27,200 stock value.**
     See Round 3 fix (line 587): computed `aggregateMac` as weighted average of
     `stockItems` quantities × their `movingAvgCost`. Also fixed
@@ -467,6 +502,7 @@ Re-tested all mobile modules systematically by navigating directly to each URL
     page.
 
 ### Mobile Land (`/m/land/[id]`) — Round 2
+
 89. **VERIFIED — Document upload for permissions/NOC already exists on mobile
     land detail.** See Round 3 verification (line 658): the `MobileLegalDocsSection`
     component includes a full legal document form with file upload support.
@@ -476,10 +512,11 @@ Re-tested all mobile modules systematically by navigating directly to each URL
     cost. The land detail page shows the total cost with per-sqft calculation.
 91. **FIXED — PLOT-1A contradictory statuses on mobile land detail.** See Round 3
     fix (line 611): the status badge now uses `effectiveStatus = isSold ? "SOLD" :
-    p.status`, overriding the raw DB status when a sale exists. The "Hold" purpose
+p.status`, overriding the raw DB status when a sale exists. The "Hold" purpose
     label is hidden when sold.
 
 ### Mobile Sales (`/m/sales/[id]`) — Round 2
+
 92. **VERIFIED — Payment plan schedule already rendered on mobile sale detail.**
     See Round 3 verification (line 630): the `MobileSaleDetailClient` includes a
     "Payment Schedule" section. Seed data has no payment schedules — data gap,
@@ -495,6 +532,7 @@ Re-tested all mobile modules systematically by navigating directly to each URL
     for the customer-facing document).
 
 ### Mobile HR (`/m/hr`, `/m/site/attendance`) — Round 2
+
 95. **FIXED — Attendance types don't match Alpha Road 5 spec.** See Round 3 fix
     (line 599): added LATE, PAID_LEAVE, and NON_PAID_LEAVE to the mobile
     attendance form's `STATUS_CONFIG` and `ALL_STATUSES` array, with distinct
@@ -513,6 +551,7 @@ Re-tested all mobile modules systematically by navigating directly to each URL
     Execution → Field). Deferred as a future enhancement.
 
 ### Mobile Suppliers (`/m/suppliers`)
+
 98. **VERIFIED — "New Supplier" FAB exists on mobile suppliers page.** See
     Round 3 verification (line 622): the `MobileSuppliersList` component renders
     a `MobileFab` with `href="/m/suppliers/new"` for users with
@@ -521,11 +560,13 @@ Re-tested all mobile modules systematically by navigating directly to each URL
     the DOM.
 
 ### Mobile Rent (`/m/rentals`)
+
 99. **FIXED — `/m/rent` returns 404.** Added `/m/rent/page.tsx` with
     `redirect("/m/rentals")` (mirrors the desktop `/rent` → `/sales?tab=pipeline`
     redirect). Also added `/rent/page.tsx` for the desktop surface.
 
 ### Mobile Reports (`/m/reports`) — Round 2
+
 100. **FIXED — Project Costs show ₹58L (Reports) vs ₹9.49Cr (Project detail).**
      The Reports page now has a basis clarification note explaining that
      "Project Costs = explicit cost entries only (equipment, contractor,
@@ -534,11 +575,13 @@ Re-tested all mobile modules systematically by navigating directly to each URL
      directed to the Profit & Loss report.
 
 ### Mobile Settings (`/m/settings`) — Round 2
+
 101. **FIXED — Payables mismatch persists (amounts changed).** See Round 3 fix
      (line 656): both pages now use the same `getSupplierOutstanding()` service
      function and filter to `balanceOwed > 0` for consistent counts and amounts.
 
 ### Cross-Module Data Consistency Issues (Round 2 Summary)
+
 102. **FIXED — Profit/revenue/cost figures are inconsistent across 4
      pages.** The same business metrics showed different values depending
      on which page you viewed:
@@ -549,109 +592,117 @@ Re-tested all mobile modules systematically by navigating directly to each URL
      - **Payables**: ₹88.06L/18 vendors (Settings) vs ₹83.90L/5 vendors
        (Accounts)
      - **Cost/sqft**: ₹12,169 (Project detail) vs ₹22,871 (Home orbit)
-     Each page used a different calculation basis (cash vs accrual, total vs
-     explicit, all vendors vs due vendors) without labeling which basis was
-     used. **Fix**: Added clarifying labels/subtitles to the mobile Reports
-     page (`/m/reports`) headline metrics and cost breakdown rows (e.g.
-     "Revenue = cash received (not booked)", "Project Costs = explicit cost
-     entries only", "Land + material issues are tracked per-project on the
-     project detail page"). Added basis notes to the desktop
-     `OwnerFinancialDashboard` ("Booked (accrual)" under Total Revenue,
-     "Land + materials + explicit costs" under Total Cost). The numbers
-     remain different by design (different bases serve different purposes),
-     but now each is labeled so users can reconcile them.
+       Each page used a different calculation basis (cash vs accrual, total vs
+       explicit, all vendors vs due vendors) without labeling which basis was
+       used. **Fix**: Added clarifying labels/subtitles to the mobile Reports
+       page (`/m/reports`) headline metrics and cost breakdown rows (e.g.
+       "Revenue = cash received (not booked)", "Project Costs = explicit cost
+       entries only", "Land + material issues are tracked per-project on the
+       project detail page"). Added basis notes to the desktop
+       `OwnerFinancialDashboard` ("Booked (accrual)" under Total Revenue,
+       "Land + materials + explicit costs" under Total Cost). The numbers
+       remain different by design (different bases serve different purposes),
+       but now each is labeled so users can reconcile them.
 
 ---
 
 ## Round 3 — Mobile Module Verification & Fixes
 
 ### Routing
+
 99. **FIXED — `/m/rent` returns 404.** No mobile rent route existed. Fix:
-     added `/m/rent/page.tsx` with `redirect("/m/rentals")` (mirrors the
-     desktop `/rent` → `/sales?tab=pipeline` redirect). Also added
-     `/rent/page.tsx` for the desktop surface.
+    added `/m/rent/page.tsx` with `redirect("/m/rentals")` (mirrors the
+    desktop `/rent` → `/sales?tab=pipeline` redirect). Also added
+    `/rent/page.tsx` for the desktop surface.
 
 ### Materials (Mobile)
+
 87. **FIXED — Moving Average Cost shows ₹0.00 at material level on mobile
-     material detail.** The mobile material detail page displayed
-     `material.currentCost` which was ₹0.00 despite location-level MAC being
-     correct. Fix: computed an `aggregateMac` as a weighted average of
-     `stockItems` quantities × their `movingAvgCost`, and displayed that
-     instead. Same fix applied to the desktop `MaterialCockpit` component
-     (uses `totalValue / totalQty`). Also fixed
-     `refreshMaterialCurrentCost()` in `packages/services/src/stock-ledger.ts`
-     to use a weighted average (qty × MAC) instead of a simple average.
-     Additionally fixed the PATCH `/api/materials/[id]` endpoint which was
-     overwriting `currentCost` with `standardCost` on every edit — removed
-     that line so MAC is only managed by `refreshMaterialCurrentCost()`.
+    material detail.** The mobile material detail page displayed
+    `material.currentCost` which was ₹0.00 despite location-level MAC being
+    correct. Fix: computed an `aggregateMac` as a weighted average of
+    `stockItems` quantities × their `movingAvgCost`, and displayed that
+    instead. Same fix applied to the desktop `MaterialCockpit` component
+    (uses `totalValue / totalQty`). Also fixed
+    `refreshMaterialCurrentCost()` in `packages/services/src/stock-ledger.ts`
+    to use a weighted average (qty × MAC) instead of a simple average.
+    Additionally fixed the PATCH `/api/materials/[id]` endpoint which was
+    overwriting `currentCost` with `standardCost` on every edit — removed
+    that line so MAC is only managed by `refreshMaterialCurrentCost()`.
 
 88. **FIXED — No "Edit" button on mobile material detail.** The "New
-     Material" FAB already existed on the materials list page (as a
-     `MobileFab` with `fixed` positioning — invisible in Playwright
-     accessibility snapshots but present in the DOM). Added an "Edit
-     material" FAB to the mobile material detail page (`/m/materials/[id]`)
-     for users with `INVENTORY_MANAGE` permission. Created
-     `/m/materials/[id]/edit/page.tsx` which reuses the
-     `MobileNewMaterialClient` form in edit mode (PATCH to
-     `/api/materials/[id]`).
+    Material" FAB already existed on the materials list page (as a
+    `MobileFab` with `fixed` positioning — invisible in Playwright
+    accessibility snapshots but present in the DOM). Added an "Edit
+    material" FAB to the mobile material detail page (`/m/materials/[id]`)
+    for users with `INVENTORY_MANAGE` permission. Created
+    `/m/materials/[id]/edit/page.tsx` which reuses the
+    `MobileNewMaterialClient` form in edit mode (PATCH to
+    `/api/materials/[id]`).
 
 ### Land (Mobile)
+
 91. **FIXED — PLOT-1A contradictory statuses on mobile land detail.** The
-     mobile land detail page's status badge used the raw `p.status` field
-     ("AVAILABLE") even when the parcel was sold. Fix: updated the rendering
-     logic to display "SOLD" if the parcel has an active sale
-     (`p.sale != null && p.sale.status !== "CANCELLED"`), overriding
-     `p.status`. The "Hold" purpose label is now hidden when a parcel is
-     sold. Added "RESERVED" and "RENTED" to the `STATUS_META` object. The
-     land list page now correctly counts sold parcels and excludes them
-     from `unsoldValue` / `costBasis` calculations.
+    mobile land detail page's status badge used the raw `p.status` field
+    ("AVAILABLE") even when the parcel was sold. Fix: updated the rendering
+    logic to display "SOLD" if the parcel has an active sale
+    (`p.sale != null && p.sale.status !== "CANCELLED"`), overriding
+    `p.status`. The "Hold" purpose label is now hidden when a parcel is
+    sold. Added "RESERVED" and "RENTED" to the `STATUS_META` object. The
+    land list page now correctly counts sold parcels and excludes them
+    from `unsoldValue` / `costBasis` calculations.
 
 ### Attendance (Mobile)
+
 95. **FIXED — Attendance types missing Late, PL/NPL distinction.** The
-     `AttendanceStatus` Prisma enum already had `LATE`, `PAID_LEAVE`, and
-     `NON_PAID_LEAVE`, but the mobile attendance form
-     (`MobileAttendanceForm`) only offered 5 options (Present, Absent,
-     Half Day, Overtime, Leave). Fix: added all 3 new statuses to the form's
-     `STATUS_CONFIG` and `ALL_STATUSES` array, with distinct colors (Late =
-     signal/amber, PL = steel/blue, NPL = stop/red). Updated the summary
-     band to show counts for each status with single-letter labels
-     (P/L/A/H/OT/L/PL/NPL). Updated the "mark all present" toast to count
-     all non-present statuses. Added the new statuses to the attendance
-     list filter chips and the `MobileStatusBadge` tone map.
+    `AttendanceStatus` Prisma enum already had `LATE`, `PAID_LEAVE`, and
+    `NON_PAID_LEAVE`, but the mobile attendance form
+    (`MobileAttendanceForm`) only offered 5 options (Present, Absent,
+    Half Day, Overtime, Leave). Fix: added all 3 new statuses to the form's
+    `STATUS_CONFIG` and `ALL_STATUSES` array, with distinct colors (Late =
+    signal/amber, PL = steel/blue, NPL = stop/red). Updated the summary
+    band to show counts for each status with single-letter labels
+    (P/L/A/H/OT/L/PL/NPL). Updated the "mark all present" toast to count
+    all non-present statuses. Added the new statuses to the attendance
+    list filter chips and the `MobileStatusBadge` tone map.
 
 96. **FIXED — Attendance times show "—" in the list.** The mobile
-     attendance list page (`/m/attendance`) did not include `checkIn` /
-     `checkOut` in the serialized data passed to the client component. Fix:
-     added `checkIn` and `checkOut` (formatted as `HH:MM`) to the
-     serialized records, added them to the `AttendanceListItem` type, and
-     appended them to the row subtitle (e.g. "Greenfield Residency ·
-     12 Aug 2024 · 09:15–17:30").
+    attendance list page (`/m/attendance`) did not include `checkIn` /
+    `checkOut` in the serialized data passed to the client component. Fix:
+    added `checkIn` and `checkOut` (formatted as `HH:MM`) to the
+    serialized records, added them to the `AttendanceListItem` type, and
+    appended them to the row subtitle (e.g. "Greenfield Residency ·
+    12 Aug 2024 · 09:15–17:30").
 
 ### Suppliers (Mobile)
+
 98. **VERIFIED — "New Supplier" FAB exists on mobile suppliers page.**
-     The `MobileSuppliersList` component already renders a `MobileFab` with
-     `href="/m/suppliers/new"` for users with `PROCUREMENT_MANAGE`
-     permission. The FAB uses `fixed` positioning so it doesn't appear in
-     Playwright accessibility snapshots, but it is present in the DOM
-     (verified via `getBoundingClientRect()`).
+    The `MobileSuppliersList` component already renders a `MobileFab` with
+    `href="/m/suppliers/new"` for users with `PROCUREMENT_MANAGE`
+    permission. The FAB uses `fixed` positioning so it doesn't appear in
+    Playwright accessibility snapshots, but it is present in the DOM
+    (verified via `getBoundingClientRect()`).
 
 ### Sales (Mobile)
+
 92. **VERIFIED — Payment plan schedule already rendered on mobile sale
-     detail.** The `MobileSaleDetailClient` component already includes a
-     "Payment Schedule" section (rendered when `paymentSchedule.items.length
-     > 0`) showing each installment's number, description, percentage, and
-     amount. The seed data has no payment schedules, so the section is
-     empty — this is a data gap, not a code gap.
+    detail.** The `MobileSaleDetailClient` component already includes a
+    "Payment Schedule" section (rendered when `paymentSchedule.items.length
+
+    > 0`) showing each installment's number, description, percentage, and
+    > amount. The seed data has no payment schedules, so the section is
+    > empty — this is a data gap, not a code gap.
 
 93. **VERIFIED — Broker/commission fields already rendered on mobile sale
-     detail.** The `MobileSaleDetailClient` component already includes a
-     "Deal source + broker + terms" section that renders broker name,
-     phone, agency, commission amount, and commission status (Paid /
-     Accrued / Pending) when those fields are present. The seed data has
-     no broker-linked sales, so the section is empty — data gap, not code
-     gap.
+    detail.** The `MobileSaleDetailClient` component already includes a
+    "Deal source + broker + terms" section that renders broker name,
+    phone, agency, commission amount, and commission status (Paid /
+    Accrued / Pending) when those fields are present. The seed data has
+    no broker-linked sales, so the section is empty — data gap, not code
+    gap.
 
 ### Accounts & Settings (Mobile)
+
 101. **FIXED — Payables mismatch between Settings and Accounts.** The
      Settings page used `getSupplierOutstanding()` (all 18 suppliers,
      counting all as "vendors"), while the Accounts page used a direct
@@ -664,13 +715,92 @@ Re-tested all mobile modules systematically by navigating directly to each URL
      Settings page hint updated from "18 vendors" to "N vendors with dues".
 
 ### Land — Document Upload (Mobile)
-89. **VERIFIED — Document upload for permissions/NOC already exists on
-     mobile land detail.** The `MobileLegalDocsSection` component (rendered
-     on `/m/land/[id]`) includes a full legal document form with file
-     upload support (`<input type="file">` → POST `/api/uploads` → stores
-     `documentUrl` + `documentName`). The section shows a progress bar
-     ("0/4 required permissions obtained"), stage-grouped checklist
-     (Feasibility & Land, Sanction, Post-Completion), and an "Add" button
-     to create new legal documents. The seed data has no legal documents,
-     so the section appears empty — data gap, not code gap.
 
+89. **VERIFIED — Document upload for permissions/NOC already exists on
+    mobile land detail.** The `MobileLegalDocsSection` component (rendered
+    on `/m/land/[id]`) includes a full legal document form with file
+    upload support (`<input type="file">` → POST `/api/uploads` → stores
+    `documentUrl` + `documentName`). The section shows a progress bar
+    ("0/4 required permissions obtained"), stage-grouped checklist
+    (Feasibility & Land, Sanction, Post-Completion), and an "Add" button
+    to create new legal documents. The seed data has no legal documents,
+    so the section appears empty — data gap, not code gap.
+
+## 2026-10-06 — Real-session business-flow audit, first pass
+
+### Environment and boundaries
+
+- Tested `http://localhost:3000` after the owner confirmed its data was disposable.
+- Mobile: isolated 390×844 browser contexts, actual one-click dev sign-in and real sessions for Yash, Anurag, Raviraj, Vardaan, Manish, and Mani. Desktop: 1440×900 owner session with `?desktop=1`.
+- This is a first-pass audit, NOT certification of every page/button or production.
+- Browser interactions performed the business mutations; authenticated GET requests checked persisted records and accounting afterward.
+- GPS was simulated and uploaded receipt photos/signatures were synthetic QA evidence, not real deliveries or legally executed documents.
+- Did not invoke messaging, portal sync, Tally sync, payroll processing/payment, destructive resets, or sale completion. For the zero-payment completion case, intercepted the browser request before the server and returned an explicit QA error.
+- No application-code fixes were made as part of this audit. Existing findings marked FIXED above are historical, not evidence that current behavior passes.
+
+### Business rules used
+
+Read `DECISIONS.md`, the owner transcript distillation, `docs/SRG_REALCON_TEAM_WORKFLOWS.md`, the flow map, relevant schema models, and the service/API implementations. Interpret role, active/project-scoped hats, seniority, and data scope separately. Yash has a project-scoped PROJECT_MANAGER hat in addition to his SITE_ENGINEER role; manager actions within Site One are therefore not automatically permission bugs.
+
+### Verified connected journeys
+
+1. **Indent → quotes → ordered PO → two receipts → stock/GL.** Yash created `REQ-SRG-20261006-0002` (`cmuwq1rs4000mvl7bm52bcshl`), 7 bags of CEM-53 for Site One, with QA notes. Anurag approved it. Raviraj added three synthetic verbal quotes at ₹365, ₹350, and ₹380 per bag. The material master currently applies 28% GST; backend totals were ₹3,270.40, ₹3,136, and ₹3,404.80. The gate was false after one quote and true after three. Cheapest selection created `PO-SRG-20261006-0001` (`cmuwq5ol1002pvl7bam4ar9qv`) as ORDERED at ₹350/unit, subtotal ₹2,450, GST ₹686, total ₹3,136.
+2. **Partial and balance receipt.** Submitted 3 bags, then 4 bags, with QA photo, signature, simulated GPS, vehicle/challan details. PO states persisted as PARTIAL, then RECEIVED, with `qtyReceived=7`. Site One cement stock went 103 → 106 → 110 bags; MAC went ₹368.16 → ₹367.65 → ₹367.01 (stored two-decimal rounding). Missing delivery proof was blocked. Receipt IDs: `cmuwq8y2o004fvl7bmsrf97n7`, `cmuwqa9b8005vvl7bro4mpbcd`.
+3. **Receipt accounting.** Journal `JE-20261006-00002`: Dr inventory ₹1,050 + Dr input GST ₹294 = Cr payable ₹1,344. Journal `JE-20261006-00003`: Dr inventory ₹1,400 + Dr input GST ₹392 = Cr payable ₹1,792. Trial balance remained balanced. This verifies these postings, not all accounting semantics.
+4. **Attendance → DPR → approval tier.** Registered `QA-20261006 Day Worker` (`cmuwqcv750075vl7bc7rxospx`) through the day-worker UI at ₹800/day and saved attendance. Bulk save also included the existing Raju row. The existing one-per-project/day Site One DPR (`cmuw9pd680052vlfirjarzcff`) was edited with QA notes and its labour pulled from attendance. QA worker tier was YELLOW before approval, remained YELLOW after Anurag's sub-admin approval, then became GREEN after Vardaan's final approval. The approved DPR showed both approvers and 8 hours for the QA worker.
+5. **Attendance → draft payroll.** Manish generated October 2026 draft `cmuwqjn4j009mvl7btt32c0wm`. QA worker persisted at 1 day, ₹800 basic/gross/net. Total draft ₹1,700 includes Raju's ₹900 for two paid days. Left DRAFT: no payroll GL processing or disbursement.
+6. **Access controls.** Yash's global ledger, user-management, and integration GETs returned 403. Site Two project detail returned 404 under his Site One scope. These checks do not certify the full role, H1, delegation, or multi-company matrix.
+7. **Sales and desktop checks.** Viewed Mani's collections and standalone land-sale detail, opened create/completion forms, exercised registry/agreement validation and synthetic uploads. Opened the owner desktop dashboard and navigated its View GL link to the populated balanced trial balance. These are narrower checks than a full sales/desktop audit.
+
+### Findings — open, ranked
+
+**F1 — CRITICAL: explicit zero final payment becomes the remaining balance.**
+
+- Browser reproduction: on `SAL-SRG-20260930-0001` (`cmuofao6t008svlsw4ppuug4o`), open Complete Sale, upload synthetic registry and ATS files into the form, enter final payment `0`, then submit.
+- Captured request has `action: "complete"`, numeric `finalPaymentAmount: 0`, and both document URLs. The request was intercepted: no completion, payment, or title mutation executed. Subsequent GET still showed DEPOSIT_RECEIVED, ₹700,000 paid, and no persisted agreement/registry URLs.
+- Backend tracing: `completeSaleSchema` accepts zero; `/api/sales/[id]` forwards it unchanged; `packages/services/src/sale.ts` uses `input.finalPaymentAmount ? new Decimal(input.finalPaymentAmount) : remainingBalance`. Numeric zero is falsy, so this case chooses ₹1,700,000, then the next branch creates a payment for that amount. Desktop completion additionally omits non-positive amounts before sending.
+- Evidence level: real browser payload + twice-read service/API trace; the dangerous database mutation was deliberately NOT executed. Fix must distinguish omission from explicit zero and preserve unpaid receivables.
+
+**F2 — MAJOR: payroll month boundaries depend on server timezone.**
+
+- October draft GET persisted `startDate: "2026-09-30T00:00:00.000Z"`, `endDate: "2026-10-31T00:00:00.000Z"`.
+- `hr.ts::monthRange()` constructs local-time Dates, while PayrollPeriod stores `@db.Date`. Reproducing the same constructor with `TZ=Asia/Kolkata` yields start `2026-09-30T18:30:00.000Z`, whose stored date is September 30.
+- The current QA line amount was correct; adjacent-month attendance/payroll locking and other server timezones remain at risk. Use consistent date-only UTC boundaries and regression cases across timezones; assess already-created period dates separately.
+
+**F3 — MAJOR: valid GST-inclusive landed total rejected by mobile quote entry.**
+
+- For 7 bags × ₹350, ex-GST subtotal is ₹2,450. With the current master GST of 28%, correct landed total is ₹3,136.
+- Entering ₹3,136 displays: `Landed total ₹3.1K doesn't match line math ₹2.5K...` and sends no quote POST. Leaving landed total blank succeeds, and the backend stores ₹3,136.
+- `MobileQuotePanel.tsx` compares landed total to pre-GST `computedTotal` with a 10% hard-stop. The form does not expose GST/charge inputs even though the backend models them. The guard conflates legitimate tax/freight with swapped price/total fields.
+
+**F4 — MAJOR: successful winner selection leaves the original mobile indent screen stale.**
+
+- Persisted indent became CONVERTED and had a linked ORDERED PO, but the procurement browser remained on Approved / Select winning quote, without the new PO handoff. A separate owner navigation showed the converted state and working Open PO link.
+- `selectWinner()` refreshes only quote state and invokes optional `onWinnerSelected`; the server page does not supply that callback, and this success path does not call `router.refresh()` or navigate to the PO.
+- Distinguish this from receipt success: receipt screen correctly refreshed to PARTIAL after tapping Done.
+
+**F5 — MAJOR: false last-purchase-rate/cartel warning.**
+
+- After selecting ₹350/unit, the comparison claimed all quotes were >15% above the last ₹365/unit purchase price.
+- Benchmark compares tax-inclusive `unitLandedCost` (₹448 for the winner) against tax-exclusive last `unitCost` (₹365). Compare equivalent bases and do not interpret excluded losing quotes as absence of competition.
+
+**F6 — MAJOR, policy discrepancy: ATS/BBA mandatory for every sale, including standalone land.**
+
+- With only a synthetic registry document in the completion form, browser submission is blocked with `Upload at least one of ATS or BBA document to complete the sale`.
+- Both mobile `handleComplete()` and service `completeSale()` enforce this blanket rule. Owner transcript §3.5 explicitly permits direct registry and calls ATS/BBA optional; schema comments also describe them as optional.
+- Resolve applicable asset/project/legal conditions rather than removing agreement requirements universally: RERA-covered unit sales may require a registered agreement. No real registry or completion was performed.
+
+**F7 — MINOR: post-selection quote history/gate becomes misleading.**
+
+- Three genuine quote records were collected, but selecting the winner marks alternatives REJECTED; the mobile panel hides them, shows `1/3 Winner`, and detail API returns `gateSatisfied: false` for the already converted indent. It even exposes Waive after conversion.
+- This did not undo the created PO in the tested path. Preserve accessible comparison history and distinguish collection/approval eligibility from the post-award state.
+
+### Still unverified / next pass
+
+- Stock issues/transfers and their project cost allocations; over-delivery and retry/double-submit invariants; supplier invoice three-way match and payment.
+- Full new-sale lifecycle, real completion in a completely isolated fixture, cheque bounce/clear, overpayments, installment schedules, TDS/GST applicability and escrow.
+- Land cost accrual, subdivision/undo, project creation, legal expiry, rentals/escalation and tenant change.
+- BOQ → measurement book → RA bill → deductions → approval/payment.
+- Payroll late/half-day/month-end boundary fixtures, locked-period edits, settlement and H1 privacy.
+- Every role/company/scope/delegation combination, offline queues/reconnect, exports/printing, camera/device behavior, and full page/button coverage.
+- Desktop project profitability merits investigation: Site Two displayed ₹24L booked revenue, zero project cost, and 100% margin while its land-sale detail showed ₹53L cost basis and a ₹29L loss. Not yet classified as a defect: trace asset/project linkage and metric basis first.
