@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createRecurringExpense, generateDueRecurringExpenses, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, requirePermission, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -21,7 +21,7 @@ const recurringSchema = z.object({
 });
 
 export const GET = apiHandler(async (_req: NextRequest) => {
-  await requirePermission(PERM.FINANCE_VIEW);
+  await requireEffectivePermission(PERM.FINANCE_VIEW);
   const company = await getCompany();
   const items = await prisma.recurringExpense.findMany({
     where: { companyId: company.id, ...await scopeWhere("RecurringExpense", {}) },

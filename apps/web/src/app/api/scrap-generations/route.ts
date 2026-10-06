@@ -3,7 +3,7 @@ import { startOfDayIST, endOfDayIST } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createScrapGeneration, listScrapGenerations } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere, toNum, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, scopeWhere, toNum, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -12,7 +12,7 @@ import { z } from "zod";
  * List scrap / "create" material generations for the current company.
  */
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.INVENTORY_VIEW);
+  await requireEffectivePermission(PERM.INVENTORY_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from");
@@ -74,7 +74,7 @@ const createSchema = z.object({
  * Create a new scrap / "create" material generation.
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.INVENTORY_MANAGE);
+  const user = await requireEffectivePermission(PERM.INVENTORY_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = createSchema.safeParse(body);

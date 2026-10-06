@@ -2,11 +2,11 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma, type RenovationStatus } from "@nirman/db";
 import { createRenovation, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, renovationSchema, requirePermission, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, renovationSchema, toNum, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requireEffectivePermission(PERM.ASSETS_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
@@ -66,7 +66,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requireEffectivePermission(PERM.ASSETS_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = renovationSchema.safeParse(body);

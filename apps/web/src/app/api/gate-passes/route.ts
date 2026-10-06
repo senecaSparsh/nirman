@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createGatePass } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { prisma } from "@nirman/db";
 import { z } from "zod";
@@ -11,7 +11,7 @@ import { z } from "zod";
  * List gate passes for the current company, with optional filters.
  */
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.GATE_PASS_VIEW);
+  await requireEffectivePermission(PERM.GATE_PASS_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
@@ -85,7 +85,7 @@ const createSchema = z.object({
  * Create a new (typically MANUAL) gate pass.
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.GATE_PASS_CREATE);
+  const user = await requireEffectivePermission(PERM.GATE_PASS_CREATE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = createSchema.safeParse(body);

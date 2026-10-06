@@ -2,11 +2,11 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import type { EquipmentAssignmentStatus } from "@nirman/db";
 import { assignEquipment, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, equipmentAssignSchema, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, equipmentAssignSchema, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requireEffectivePermission(PERM.ASSETS_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") ?? "ACTIVE";
@@ -41,7 +41,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requireEffectivePermission(PERM.ASSETS_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = equipmentAssignSchema.safeParse(body);

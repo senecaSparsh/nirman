@@ -3,12 +3,12 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { SaleStatus } from "@nirman/db";
 import { sellAsset } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, sellAssetSchema, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, sellAssetSchema, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.SALES_VIEW);
+  await requireEffectivePermission(PERM.SALES_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
@@ -197,7 +197,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.SALE_CREATE);
+  const user = await requireEffectivePermission(PERM.SALE_CREATE);
   const body = await req.json();
   const parsed = sellAssetSchema.safeParse(body);
   if (!parsed.success) {

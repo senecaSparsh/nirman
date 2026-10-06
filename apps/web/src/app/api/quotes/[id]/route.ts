@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { updateVendorQuote, deleteVendorQuote } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, assertScopeAllows, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, assertScopeAllows, getCompany, json, toNum, requireEffectivePermission} from "@/lib/server";
 import { z } from "zod";
 
 /**
@@ -27,7 +27,7 @@ async function assertQuoteInScope(quote: {
  * Returns a single vendor quote with its lines.
  */
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.QUOTATION_VIEW);
+  await requireEffectivePermission(PERM.QUOTATION_VIEW);
   const company = await getCompany();
   const { id } = await params;
 
@@ -128,7 +128,7 @@ const updateQuoteSchema = z.object({
  * Update a quote (only if not yet selected as the winner).
  */
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.QUOTATION_MANAGE);
+  const user = await requireEffectivePermission(PERM.QUOTATION_MANAGE);
   const { id } = await params;
   const body = await req.json();
   const parsed = updateQuoteSchema.safeParse(body);
@@ -199,7 +199,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
  * Delete a quote (only if not the selected winner).
  */
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.QUOTATION_MANAGE);
+  const user = await requireEffectivePermission(PERM.QUOTATION_MANAGE);
   const company = await getCompany();
   const { id } = await params;
 

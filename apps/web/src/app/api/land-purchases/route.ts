@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { recordLandPurchase, recordLandPurchaseWithPlan, recordLandPurchaseOrder, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, landPurchaseSchema, landPurchasePlanSchema, requirePermission, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, landPurchaseSchema, landPurchasePlanSchema, toNum, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -31,7 +31,7 @@ const bookedSchema = z.object({
 });
 
 export const GET = apiHandler(async () => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requireEffectivePermission(PERM.ASSETS_VIEW);
   const company = await getCompany();
   const purchases = await prisma.landPurchase.findMany({
     where: { companyId: company.id, deletedAt: null, ...await scopeWhere("LandPurchase", {}) },
@@ -76,7 +76,7 @@ export const GET = apiHandler(async () => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requireEffectivePermission(PERM.ASSETS_MANAGE);
   const company = await getCompany();
   const body = await req.json();
 

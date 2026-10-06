@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createExpense, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, requirePermission, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
@@ -35,7 +35,7 @@ const expenseSchema = z.object({
 });
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.FINANCE_VIEW);
+  await requireEffectivePermission(PERM.FINANCE_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
@@ -117,7 +117,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.EXPENSE_CREATE);
+  const user = await requireEffectivePermission(PERM.EXPENSE_CREATE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = expenseSchema.safeParse(body);

@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
 import { updateWbsNode, deleteWbsNode } from "@nirman/services";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, requirePermission, assertScopeAllows, getCompany, scopeWhere } from "@/lib/server";
+import { apiHandler, json, assertScopeAllows, getCompany, scopeWhere, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.WBS_MANAGE);
+  const user = await requireEffectivePermission(PERM.WBS_MANAGE);
   const { id } = await params;
 
   const company = await getCompany();
@@ -36,7 +36,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.WBS_MANAGE);
+  const user = await requireEffectivePermission(PERM.WBS_MANAGE);
   const { id } = await params;
 
   const company = await getCompany();

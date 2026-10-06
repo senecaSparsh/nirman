@@ -2,14 +2,14 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { softDelete, logAction } from "@nirman/services";
-import { apiHandler, assertScopeAllows, getCompany, json, stockLocationSchema, scopeWhere } from "@/lib/server";
+import { apiHandler, assertScopeAllows, getCompany, json, stockLocationSchema, scopeWhere, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { requirePermission } from "@/lib/server";
 import { withSerializableTransaction } from "@nirman/services";
 
 /** GET /api/stock-locations/[id] — fetch a single stock location by ID */
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.INVENTORY_VIEW);
+  await requireEffectivePermission(PERM.INVENTORY_VIEW);
   const company = await getCompany();
   const { id } = await params;
   const location = await prisma.stockLocation.findFirst({
@@ -25,7 +25,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.INVENTORY_MANAGE);
+  const user = await requireEffectivePermission(PERM.INVENTORY_MANAGE);
   const company = await getCompany();
   const { id } = await params;
   // Verify the location belongs to the active company before updating
@@ -97,6 +97,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
+  // Deleting a location affects org topology — keep it company-level.
   await requirePermission(PERM.INVENTORY_MANAGE);
   const company = await getCompany();
   const { id } = await params;

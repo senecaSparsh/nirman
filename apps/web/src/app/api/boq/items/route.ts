@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createBoqItem, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -22,7 +22,7 @@ const createSchema = z.object({
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.BOQ_MANAGE);
+  const user = await requireEffectivePermission(PERM.BOQ_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = createSchema.safeParse(body);

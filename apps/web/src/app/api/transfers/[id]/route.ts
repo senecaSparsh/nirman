@@ -3,9 +3,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@nirman/db";
 import { completeTransfer, cancelTransfer, dispatchTransfer, returnTransferToSource, recordVehicleTrip } from "@nirman/services";
-import { apiHandler, getAssignedProjectIds, getUserScope, json, toNum, getCompany } from "@/lib/server";
+import { apiHandler, getAssignedProjectIds, getUserScope, json, toNum, getCompany, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { requirePermission, assertScopeAllows } from "@/lib/server";
+import {  assertScopeAllows } from "@/lib/server";
 
 /**
  * A transfer is visible to a scoped user when at least one endpoint location
@@ -86,7 +86,7 @@ const transferActionSchema = z.object({
 });
 
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.INVENTORY_VIEW);
+  await requireEffectivePermission(PERM.INVENTORY_VIEW);
   const company = await getCompany();
   const { id } = await ctx.params;
   const transfer = await prisma.stockTransfer.findUnique({
@@ -153,7 +153,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.STOCK_TRANSFER);
+  const user = await requireEffectivePermission(PERM.STOCK_TRANSFER);
   const company = await getCompany();
   const { id } = await ctx.params;
   const raw = await req.json();

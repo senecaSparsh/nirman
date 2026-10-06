@@ -4,10 +4,10 @@ import { prisma } from "@nirman/db";
 import type { SupplierReturnStatus } from "@nirman/db";
 import { createSupplierReturn, submitSupplierReturn, recordVehicleTrip, ServiceError } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, assertScopeAllows, getCompany, json, requirePermission, supplierReturnSchema, toNum } from "@/lib/server";
+import { apiHandler, assertScopeAllows, getCompany, json, supplierReturnSchema, toNum, requireEffectivePermission} from "@/lib/server";
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.PROCUREMENT_VIEW);
+  await requireEffectivePermission(PERM.PROCUREMENT_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
@@ -60,7 +60,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+  const user = await requireEffectivePermission(PERM.PROCUREMENT_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = supplierReturnSchema.safeParse(body);

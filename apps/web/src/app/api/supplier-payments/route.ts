@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createSupplierPayment, getSupplierPayments } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, assertScopeAllows, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, assertScopeAllows, getCompany, json, requirePermission, scopeWhere, requireEffectivePermission} from "@/lib/server";
 import { prisma } from "@nirman/db";
 
 const paymentSchema = z.object({
@@ -25,7 +25,7 @@ const paymentSchema = z.object({
  * Returns supplier payments for the current company, optionally filtered.
  */
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.FINANCE_VIEW);
+  await requireEffectivePermission(PERM.FINANCE_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const supplierId = searchParams.get("supplierId") ?? undefined;

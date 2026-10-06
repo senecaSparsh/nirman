@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createPettyCashFloat, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, requirePermission, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -14,7 +14,7 @@ const floatSchema = z.object({
 });
 
 export const GET = apiHandler(async (_req: NextRequest) => {
-  await requirePermission(PERM.FINANCE_VIEW);
+  await requireEffectivePermission(PERM.FINANCE_VIEW);
   const company = await getCompany();
   const floats = await prisma.pettyCashFloat.findMany({
     where: { companyId: company.id, ...await scopeWhere("PettyCashFloat", {}) },

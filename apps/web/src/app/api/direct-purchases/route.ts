@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createDirectPurchase, listDirectPurchases, recordVehicleTrip, ServiceError } from "@nirman/services";
 import { prisma } from "@nirman/db";
-import { apiHandler, assertScopeAllows, getCompany, json, requirePermission, scopeWhere, toNum } from "@/lib/server";
+import { apiHandler, assertScopeAllows, getCompany, json, scopeWhere, toNum, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 const directPurchaseLineSchema = z.object({
@@ -31,7 +31,7 @@ const directPurchaseSchema = z.object({
 });
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.PROCUREMENT_VIEW);
+  await requireEffectivePermission(PERM.PROCUREMENT_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const from = searchParams.get("from");
@@ -90,7 +90,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+  const user = await requireEffectivePermission(PERM.PROCUREMENT_MANAGE);
   const body = await req.json();
   const parsed = directPurchaseSchema.safeParse(body);
   if (!parsed.success) {

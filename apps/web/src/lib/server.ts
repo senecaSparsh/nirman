@@ -3289,6 +3289,23 @@ export async function requirePermission(permission: string): Promise<CurrentUser
 }
 
 /**
+ * Permission gate for SCOPE-AWARE routes — unions the user's global perms
+ * with their ProjectAssignment scopedRole perms. Use ONLY on routes whose
+ * every scoped read is scopeWhere-filtered and every write goes through
+ * assertScopeAllows on the target — the scoped perm opens the route, and the
+ * scope assertion still limits which records the call can touch. A scoped
+ * PM's hat must never reach an org-level surface through this gate.
+ */
+export async function requireEffectivePermission(permission: string): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user) throw new UnauthorizedError();
+  if (!user.active) throw new ForbiddenError("Your account is inactive.");
+  const perms = await getEffectivePermissions();
+  if (!perms.includes(permission)) throw new ForbiddenError();
+  return user;
+}
+
+/**
  * Throw ForbiddenError if the current user's role is not at least the
  * given role (OWNER > ADMIN > MANAGER > SUPERVISOR/SALES/ACCOUNTANT).
  * "At least" here means: the user's role is in the allowed set OR is
@@ -3327,6 +3344,17 @@ export async function requireAnyPermission(...permissions: string[]): Promise<Cu
   if (!user.active) throw new ForbiddenError("Your account is inactive.");
   const perms = await getUserPermissions();
   if (perms.includes("*")) return user; // OWNER/ADMIN superuser
+  if (!permissions.some((p) => perms.includes(p))) throw new ForbiddenError();
+  return user;
+}
+
+/** Any-of variant of requireEffectivePermission — scope-aware routes only. */
+export async function requireAnyEffectivePermission(...permissions: string[]): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user) throw new UnauthorizedError();
+  if (!user.active) throw new ForbiddenError("Your account is inactive.");
+  const perms = await getEffectivePermissions();
+  if (perms.includes("*")) return user;
   if (!permissions.some((p) => perms.includes(p))) throw new ForbiddenError();
   return user;
 }

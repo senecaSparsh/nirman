@@ -2,11 +2,11 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { submitDPR, deleteDpr, subAdminApproveDpr, adminApproveDpr, rejectDpr, resubmitDpr, sendNotification, markDprCostPosted, generateMaterialIssueFromDPR, canAutoApprove } from "@nirman/services";
-import { apiHandler, getCompany, json, dprSchema, requirePermission, requireUser, toNum, scopeWhere, assertScopeAllows, getActingRole, getActingRoleForProject, getUserPermissions, ForbiddenError,} from "@/lib/server";
+import { apiHandler, getCompany, json, dprSchema, requireUser, toNum, scopeWhere, assertScopeAllows, getActingRole, getActingRoleForProject, getUserPermissions, ForbiddenError, requireEffectivePermission} from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.DPR_VIEW);
+  await requireEffectivePermission(PERM.DPR_VIEW);
   const company = await getCompany();
   const { id } = await params;
   const dpr = await prisma.dailyProgressReport.findFirst({
@@ -193,7 +193,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
   }
   if (body.action === "resubmit") {
-    const user = await requirePermission(PERM.DPR_SUBMIT);
+    const user = await requireEffectivePermission(PERM.DPR_SUBMIT);
     try {
       await resubmitDpr(id, user.id);
       revalidatePath("/m/dprs");
@@ -204,7 +204,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
   }
   if (body.action === "markCostPosted") {
-    const user = await requirePermission(PERM.FINANCE_VIEW);
+    const user = await requireEffectivePermission(PERM.FINANCE_VIEW);
     try {
       await markDprCostPosted(id, user.id);
       revalidatePath("/m/dprs");
@@ -216,7 +216,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   }
 
   // ── Default: update the DPR content ──
-  const user = await requirePermission(PERM.DPR_SUBMIT);
+  const user = await requireEffectivePermission(PERM.DPR_SUBMIT);
   const parsed = dprSchema.safeParse(body);
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
@@ -275,7 +275,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.HR_MANAGE);
+  const user = await requireEffectivePermission(PERM.HR_MANAGE);
   const company = await getCompany();
   const { id } = await params;
   // Verify the DPR belongs to the user's company before deleting

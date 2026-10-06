@@ -14,11 +14,9 @@ import {
   getCompanyGroupIds,
   getCurrentUserMembership,
   json,
-  requirePermission,
   quotationRequestSchema,
   assertScopeAllows,
-  scopeWhere,
-} from "@/lib/server";
+  scopeWhere, requireEffectivePermission} from "@/lib/server";
 
 /**
  * GET /api/quotations
@@ -28,7 +26,7 @@ import {
  *   ?status=OPEN,QUOTES_COLLECTED — filter by status (comma-separated)
  */
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.QUOTATION_VIEW);
+  await requireEffectivePermission(PERM.QUOTATION_VIEW);
   const company = await getCompany();
   const groupCompanyIds = await getCompanyGroupIds(company);
   const url = new URL(req.url);
@@ -108,7 +106,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
  * The submitter's UserCompany membership is resolved automatically.
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.QUOTATION_MANAGE);
+  const user = await requireEffectivePermission(PERM.QUOTATION_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = quotationRequestSchema.safeParse(body);
@@ -173,7 +171,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
  * PUT /api/quotations — seed the HSN/GST master (admin utility).
  */
 export const PUT = apiHandler(async () => {
-  await requirePermission(PERM.PROCUREMENT_MANAGE);
+  await requireEffectivePermission(PERM.PROCUREMENT_MANAGE);
   const result = await seedHsnGstRates();
   return json({ seeded: result.created, message: "HSN/GST master seeded" });
 });

@@ -2,12 +2,12 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import type { Prisma } from "@nirman/db";
 import { recordAttendance, bulkRecordAttendance, combineTimeWithDate, computeAttendanceTier } from "@nirman/services";
-import { apiHandler, getCompany, json, attendanceSchema, bulkAttendanceSchema, requirePermission, requireAnyPermission, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, attendanceSchema, bulkAttendanceSchema, toNum, scopeWhere, assertScopeAllows, requireEffectivePermission, requireAnyEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.HR_VIEW);
+  await requireEffectivePermission(PERM.HR_VIEW);
   const company = await getCompany();
   const url = new URL(req.url);
   const date = url.searchParams.get("date");
@@ -138,7 +138,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requireAnyPermission(PERM.HR_MANAGE, PERM.ATTENDANCE_LOG);
+  const user = await requireAnyEffectivePermission(PERM.HR_MANAGE, PERM.ATTENDANCE_LOG);
   const company = await getCompany();
   const body = await req.json();
 

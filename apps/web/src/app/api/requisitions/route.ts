@@ -4,10 +4,10 @@ import { prisma } from "@nirman/db";
 import type { RequisitionStatus } from "@nirman/db";
 import { createRequisition, submitRequisition, approveRequisition, canAutoApprove, ServiceError } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, requirePermission, requireAnyPermission, requisitionSchema, toNum, scopeWhere, assertScopeAllows, getActingRole,} from "@/lib/server";
+import { apiHandler, getCompany, json, requisitionSchema, toNum, scopeWhere, assertScopeAllows, getActingRole, requireEffectivePermission, requireAnyEffectivePermission} from "@/lib/server";
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.PROCUREMENT_VIEW);
+  await requireEffectivePermission(PERM.PROCUREMENT_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const statusParam = searchParams.get("status");
@@ -58,7 +58,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   // PROCUREMENT_MANAGE (buyers) or REQUISITION_CREATE (field staff raising
   // indents) may create. assertScopeAllows below still confines field roles
   // to their assigned projects.
-  const user = await requireAnyPermission(PERM.PROCUREMENT_MANAGE, PERM.REQUISITION_CREATE);
+  const user = await requireAnyEffectivePermission(PERM.PROCUREMENT_MANAGE, PERM.REQUISITION_CREATE);
   const body = await req.json();
   const parsed = requisitionSchema.safeParse(body);
   if (!parsed.success) {

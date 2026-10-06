@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma, type ChangeOrderStatus } from "@nirman/db";
 import { createChangeOrder, submitChangeOrder, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -36,7 +36,7 @@ const createSchema = z.object({
 
 // GET /api/change-orders?projectId=xxx&status=xxx
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requireEffectivePermission(PERM.ASSETS_VIEW);
   const company = await getCompany();
   const projectId = req.nextUrl.searchParams.get("projectId");
   const status = req.nextUrl.searchParams.get("status") as ChangeOrderStatus | null;
@@ -62,7 +62,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
 // POST /api/change-orders
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.WO_MANAGE);
+  const user = await requireEffectivePermission(PERM.WO_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = createSchema.safeParse(body);

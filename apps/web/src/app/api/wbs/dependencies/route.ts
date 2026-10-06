@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { addWbsDependency, ServiceError } from "@nirman/services";
-import { apiHandler, assertScopeAllows, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, assertScopeAllows, getCompany, json, scopeWhere, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -17,7 +17,7 @@ const schema = z.object({
  * (both as predecessor and successor) for a given WBS node.
  */
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.WBS_VIEW);
+  await requireEffectivePermission(PERM.WBS_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const nodeId = searchParams.get("nodeId");
@@ -51,7 +51,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.WBS_MANAGE);
+  const user = await requireEffectivePermission(PERM.WBS_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = schema.safeParse(body);

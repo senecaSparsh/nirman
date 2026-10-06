@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { selectWinningQuote, notifyQuoteApproval, convertRequisitionToPo, getCachedRoutingScope } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, assertScopeAllows, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, assertScopeAllows, getCompany, json, requireEffectivePermission} from "@/lib/server";
 import { z } from "zod";
 
 const selectSchema = z.object({
@@ -23,7 +23,7 @@ const selectSchema = z.object({
  * the quotation request flow where quote selection IS the approval to buy.
  */
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.PO_APPROVE);
+  const user = await requireEffectivePermission(PERM.PO_APPROVE);
   const company = await getCompany();
   const { id } = await params;
 

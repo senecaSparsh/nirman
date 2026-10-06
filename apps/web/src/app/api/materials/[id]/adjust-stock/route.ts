@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@nirman/db";
 import { recordStockAdjustment, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -25,7 +25,7 @@ const adjustStockSchema = z.object({
 
 export const POST = apiHandler(
   async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-    const user = await requirePermission(PERM.INVENTORY_MANAGE);
+    const user = await requireEffectivePermission(PERM.INVENTORY_MANAGE);
     const company = await getCompany();
     const { id } = await params;
 

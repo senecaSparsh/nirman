@@ -2,9 +2,8 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { confirmStockCount, reconcileStockCount, deleteStockCount } from "@nirman/services";
-import { apiHandler, assertScopeAllows, json, toNum, getCompany } from "@/lib/server";
+import { apiHandler, assertScopeAllows, json, toNum, getCompany, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { requirePermission } from "@/lib/server";
 
 /**
  * Load a stock count only when its location belongs to `companyId`.
@@ -38,7 +37,7 @@ async function assertCountAccess(id: string, companyId: string) {
 }
 
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.INVENTORY_VIEW);
+  await requireEffectivePermission(PERM.INVENTORY_VIEW);
   const company = await getCompany();
   const { id } = await ctx.params;
   let count;
@@ -102,7 +101,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.INVENTORY_MANAGE);
+  const user = await requireEffectivePermission(PERM.INVENTORY_MANAGE);
   const company = await getCompany();
   const { id } = await ctx.params;
   const body = await req.json();
@@ -139,7 +138,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.INVENTORY_MANAGE);
+  const user = await requireEffectivePermission(PERM.INVENTORY_MANAGE);
   const company = await getCompany();
   const { id } = await ctx.params;
   // Verify the count belongs to the current company + caller's scope before deleting

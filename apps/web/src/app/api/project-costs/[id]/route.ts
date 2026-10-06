@@ -2,12 +2,12 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { deleteProjectCost, reverseJournalEntry, postProjectCost, reallocateProjectCosts, logAction, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, projectCostSchema, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, projectCostSchema, requirePermission, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.FINANCE_VIEW);
+  await requireEffectivePermission(PERM.FINANCE_VIEW);
   const company = await getCompany();
   const { id } = await params;
   const cost = await prisma.projectCost.findFirst({

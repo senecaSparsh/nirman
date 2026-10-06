@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma, type MbEntryStatus } from "@nirman/db";
 import { createMbEntry, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -18,7 +18,7 @@ const schema = z.object({
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.MB_VERIFY);
+  const user = await requireEffectivePermission(PERM.MB_VERIFY);
   const company = await getCompany();
   const body = await req.json();
   const parsed = schema.safeParse(body);
@@ -53,7 +53,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
 });
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.MB_VIEW);
+  await requireEffectivePermission(PERM.MB_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");

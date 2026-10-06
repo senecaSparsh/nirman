@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
 import { getCostOverrunForecast, ServiceError } from "@nirman/services";
-import { apiHandler, assertScopeAllows, getCompany, json, requirePermission } from "@/lib/server";
+import { apiHandler, assertScopeAllows, getCompany, json, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.PROJECT_CONTROL_VIEW);
+  await requireEffectivePermission(PERM.PROJECT_CONTROL_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");

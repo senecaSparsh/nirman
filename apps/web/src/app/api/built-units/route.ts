@@ -2,11 +2,11 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma, BuiltUnitStatus, BuiltUnitType } from "@nirman/db";
 import { createBuiltUnits } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum, builtUnitSchema, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, builtUnitSchema, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requireEffectivePermission(PERM.ASSETS_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
@@ -73,7 +73,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requireEffectivePermission(PERM.ASSETS_MANAGE);
   const body = await req.json();
   // Support both single-unit and batch creation
   const units = Array.isArray(body) ? body : [body];

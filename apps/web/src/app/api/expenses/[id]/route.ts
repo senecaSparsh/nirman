@@ -10,7 +10,7 @@ import {
   deleteExpense,
   ServiceError,
 } from "@nirman/services";
-import { apiHandler, ForbiddenError, getCompany, getUserPermissions, json, toNum, requirePermission, requireUser, scopeWhere, assertScopeAllows, getActingRole, getActingRoleForProject,} from "@/lib/server";
+import { apiHandler, ForbiddenError, getCompany, getUserPermissions, json, toNum, requirePermission, requireUser, scopeWhere, assertScopeAllows, getActingRole, getActingRoleForProject, requireEffectivePermission} from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { z } from "zod";
 
@@ -43,7 +43,7 @@ const expenseUpdateSchema = z.object({
 });
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.FINANCE_VIEW);
+  await requireEffectivePermission(PERM.FINANCE_VIEW);
   const company = await getCompany();
   const { id } = await params;
   const e = await prisma.expense.findFirst({
@@ -107,7 +107,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   // ── Workflow actions ──
   if (d.action === "submit") {
-    const user = await requirePermission(PERM.EXPENSE_CREATE);
+    const user = await requireEffectivePermission(PERM.EXPENSE_CREATE);
     const company = await getCompany();
     // Scoped pre-fetch
     const existing = await prisma.expense.findFirst({
@@ -189,7 +189,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   }
 
   // ── Field update (DRAFT / REJECTED only) ──
-  const user = await requirePermission(PERM.EXPENSE_CREATE);
+  const user = await requireEffectivePermission(PERM.EXPENSE_CREATE);
   const company = await getCompany();
 
   // Scoped pre-fetch for update

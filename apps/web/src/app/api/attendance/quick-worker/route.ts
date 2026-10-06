@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { apiHandler, getCompany, json, requireAnyPermission, assertScopeAllows, getAssignedProjectIds } from "@/lib/server";
+import { apiHandler, getCompany, json, assertScopeAllows, getAssignedProjectIds, requireAnyEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { createEmployee } from "@nirman/services";
 import { z } from "zod";
@@ -31,7 +31,7 @@ const quickWorkerSchema = z.object({
  * Body: { name, trade?, dailyRate?, crewId?, activeProjectId? }
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requireAnyPermission(PERM.HR_MANAGE, PERM.ATTENDANCE_LOG);
+  const user = await requireAnyEffectivePermission(PERM.HR_MANAGE, PERM.ATTENDANCE_LOG);
   const company = await getCompany();
 
   const parsed = quickWorkerSchema.safeParse(await req.json().catch(() => ({})));

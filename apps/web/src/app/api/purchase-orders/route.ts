@@ -4,11 +4,11 @@ import { prisma } from "@nirman/db";
 import type { PurchaseOrderStatus } from "@nirman/db";
 import { createPurchaseOrder, canAutoApprove, ServiceError } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, getCompanyGroupIds, json, purchaseOrderSchema, requirePermission, toNum, scopeWhere, assertScopeAllows, getActingRole,} from "@/lib/server";
+import { apiHandler, getCompany, getCompanyGroupIds, json, purchaseOrderSchema, toNum, scopeWhere, assertScopeAllows, getActingRole, requireEffectivePermission} from "@/lib/server";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.PROCUREMENT_VIEW);
+  await requireEffectivePermission(PERM.PROCUREMENT_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const statusParam = searchParams.get("status");
@@ -93,7 +93,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+  const user = await requireEffectivePermission(PERM.PROCUREMENT_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = purchaseOrderSchema.safeParse(body);

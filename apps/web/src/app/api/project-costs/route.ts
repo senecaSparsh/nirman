@@ -3,11 +3,11 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { ProjectCostType } from "@nirman/db";
 import { addProjectCost, deleteProjectCost } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, projectCostSchema, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, projectCostSchema, requirePermission, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.FINANCE_VIEW);
+  await requireEffectivePermission(PERM.FINANCE_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");

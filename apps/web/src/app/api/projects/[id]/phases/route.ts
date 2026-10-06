@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, projectPhaseSchema, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, projectPhaseSchema, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.PROJECTS_VIEW);
+  await requireEffectivePermission(PERM.PROJECTS_VIEW);
   const company = await getCompany();
   const { id } = await ctx.params;
   // Verify the project belongs to the user's company
@@ -23,7 +23,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
 });
 
 export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.PROJECTS_MANAGE);
+  await requireEffectivePermission(PERM.PROJECTS_MANAGE);
   const company = await getCompany();
   const { id } = await ctx.params;
   const project = await prisma.project.findFirst({ where: { id, companyId: company.id, deletedAt: null } });

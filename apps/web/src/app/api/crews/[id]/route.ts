@@ -2,11 +2,11 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { updateCrew, deleteCrew, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, crewSchema, requirePermission, toNum, scopeWhere, assertScopeAllows, getEmployeeAccessScope } from "@/lib/server";
+import { apiHandler, getCompany, json, crewSchema, toNum, scopeWhere, assertScopeAllows, getEmployeeAccessScope, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.HR_VIEW);
+  await requireEffectivePermission(PERM.HR_VIEW);
   const company = await getCompany();
   const { id } = await params;
   const crew = await prisma.crew.findFirst({
@@ -32,7 +32,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.HR_MANAGE);
+  const user = await requireEffectivePermission(PERM.HR_MANAGE);
   const company = await getCompany();
   const { id } = await params;
   const body = await req.json();
@@ -78,7 +78,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.HR_MANAGE);
+  const user = await requireEffectivePermission(PERM.HR_MANAGE);
   const company = await getCompany();
   const { id } = await params;
   // Same scope wall as PATCH — an out-of-scope crew is invisible.

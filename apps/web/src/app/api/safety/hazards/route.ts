@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma, type HazardStatus, type HazardRiskLevel } from "@nirman/db";
 import { createHazard, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, validateAttachments, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, validateAttachments, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -19,7 +19,7 @@ const createSchema = z.object({
 });
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.SAFETY_VIEW);
+  await requireEffectivePermission(PERM.SAFETY_VIEW);
   const company = await getCompany();
   const projectId = req.nextUrl.searchParams.get("projectId") ?? undefined;
   const status = req.nextUrl.searchParams.get("status") as HazardStatus | undefined;
@@ -35,7 +35,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.SAFETY_MANAGE);
+  const user = await requireEffectivePermission(PERM.SAFETY_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = createSchema.safeParse(body);

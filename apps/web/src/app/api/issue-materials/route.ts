@@ -2,11 +2,11 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { issueMaterialsToProject, issueMaterialsToDepartment, createMaterialIssueRequest, executeMaterialIssue, recordVehicleTrip, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, issueMaterialsSchema, toNum, requirePermission, assertScopeAllows, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, issueMaterialsSchema, toNum, assertScopeAllows, scopeWhere, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.STOCK_ISSUE);
+  const user = await requireEffectivePermission(PERM.STOCK_ISSUE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = issueMaterialsSchema.safeParse(body);
@@ -116,7 +116,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
  * Body: { action: "execute", issueId: "xxx" }
  */
 export const PATCH = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.STOCK_ISSUE);
+  const user = await requireEffectivePermission(PERM.STOCK_ISSUE);
   const company = await getCompany();
   const body = await req.json();
 

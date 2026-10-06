@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, getCompany, getCompanyDescendantIds, getCompanyGroupIds, json, requirePermission, requireAnyPermission, stockLocationSchema, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, getCompanyDescendantIds, getCompanyGroupIds, json, requirePermission, stockLocationSchema, toNum, scopeWhere, assertScopeAllows, requireAnyEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -12,7 +12,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   // holds any of those action perms must be able to read the list, or the
   // form opens with empty pickers (stock.issue alone couldn't select a
   // source). View perms still gate the full data; action perms gate writes.
-  await requireAnyPermission(
+  await requireAnyEffectivePermission(
     PERM.INVENTORY_VIEW, PERM.STOCK_ISSUE, PERM.STOCK_TRANSFER,
     PERM.REQUISITION_CREATE, PERM.GATE_PASS_CREATE, PERM.PROCUREMENT_VIEW,
     PERM.DPR_SUBMIT, PERM.DPR_VIEW, PERM.ATTENDANCE_LOG, PERM.SAFETY_VIEW,
@@ -62,6 +62,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
+  // Location topology (a new store/yard) is an org decision — scoped hats
+  // can PATCH their own locations but not create/delete them.
   const user = await requirePermission(PERM.INVENTORY_MANAGE);
   const company = await getCompany();
   const body = await req.json();

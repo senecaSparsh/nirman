@@ -13,11 +13,11 @@ import {
   ServiceError,
 } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, getCompanyGroupIds, json, requirePermission, requireUser, toNum, scopeWhere, getActingRole, getActingRoleForProject, assertScopeAllows, getUserPermissions, ForbiddenError,} from "@/lib/server";
+import { apiHandler, getCompany, getCompanyGroupIds, json, requireUser, toNum, scopeWhere, getActingRole, getActingRoleForProject, assertScopeAllows, getUserPermissions, ForbiddenError, requireEffectivePermission} from "@/lib/server";
 import { hasPermission } from "@nirman/rbac";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.PROCUREMENT_VIEW);
+  await requireEffectivePermission(PERM.PROCUREMENT_VIEW);
   const company = await getCompany();
   const { id } = await params;
   const groupCompanyIds = await getCompanyGroupIds(company);
@@ -210,7 +210,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       throw err;
     }
   } else if (action === "resubmit") {
-    const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+    const user = await requireEffectivePermission(PERM.PROCUREMENT_MANAGE);
     try {
       await resubmitPurchaseOrder(id, user.id);
     } catch (err) {
@@ -218,10 +218,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       throw err;
     }
   } else if (action === "order") {
-    const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+    const user = await requireEffectivePermission(PERM.PROCUREMENT_MANAGE);
     await orderPurchaseOrder(id, user.id);
   } else if (action === "addLine") {
-    const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+    const user = await requireEffectivePermission(PERM.PROCUREMENT_MANAGE);
     const { materialId, qtyOrdered, unitCost } = body;
     if (!materialId || !qtyOrdered || !unitCost) {
       return json({ error: "materialId, qtyOrdered, and unitCost are required" }, { status: 400 });
@@ -260,10 +260,10 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       );
     }
   } else if (action === "cancel") {
-    const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+    const user = await requireEffectivePermission(PERM.PROCUREMENT_MANAGE);
     await cancelPurchaseOrder(id, user.id);
   } else if (action === "shortClose") {
-    const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+    const user = await requireEffectivePermission(PERM.PROCUREMENT_MANAGE);
     try {
       const result = await shortClosePurchaseOrder({
         poId: id,

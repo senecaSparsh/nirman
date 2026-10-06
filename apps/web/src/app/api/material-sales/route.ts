@@ -3,11 +3,11 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { SaleStatus } from "@nirman/db";
 import { createMaterialSale, createMaterialSaleRequest, executeMaterialSale, recordVehicleTrip, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, materialSaleSchema, requirePermission, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, materialSaleSchema, toNum, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.SALES_VIEW);
+  await requireEffectivePermission(PERM.SALES_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
@@ -78,7 +78,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.SALE_CREATE);
+  const user = await requireEffectivePermission(PERM.SALE_CREATE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = materialSaleSchema.safeParse(body);
@@ -171,7 +171,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
  * Body: { action: "execute", saleId: "xxx" }
  */
 export const PATCH = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.SALE_CREATE);
+  const user = await requireEffectivePermission(PERM.SALE_CREATE);
   const company = await getCompany();
   const body = await req.json();
 

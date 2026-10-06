@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { getScrapGeneration, cancelScrapGeneration } from "@nirman/services";
-import { apiHandler, assertScopeAllows, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, assertScopeAllows, getCompany, json, toNum, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -10,7 +10,7 @@ import { PERM } from "@/lib/roles";
  * Get a single scrap generation with full details.
  */
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.INVENTORY_VIEW);
+  await requireEffectivePermission(PERM.INVENTORY_VIEW);
   const company = await getCompany();
   const id = new URL(req.url).pathname.split("/").pop()!;
 
@@ -38,7 +38,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
  * Cancel a scrap generation — reverses stock and GL entries.
  */
 export const PATCH = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.INVENTORY_MANAGE);
+  const user = await requireEffectivePermission(PERM.INVENTORY_MANAGE);
   const company = await getCompany();
   const id = new URL(req.url).pathname.split("/").pop()!;
   let body: Record<string, unknown>;
@@ -85,7 +85,7 @@ export const PATCH = apiHandler(async (req: NextRequest) => {
  * Stock movements and GL entries are immutable audit records and remain.
  */
 export const DELETE = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.INVENTORY_MANAGE);
+  await requireEffectivePermission(PERM.INVENTORY_MANAGE);
   const company = await getCompany();
   const id = new URL(req.url).pathname.split("/").pop()!;
 

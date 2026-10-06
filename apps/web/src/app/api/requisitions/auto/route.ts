@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { generateAutoRequisition, notifyLowStock } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, requirePermission, toNum, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 
 /**
  * POST /api/requisitions/auto
@@ -15,7 +15,7 @@ import { apiHandler, getCompany, json, requirePermission, toNum, assertScopeAllo
  * requisition stays in DRAFT — a human still reviews and submits it.
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.PROCUREMENT_MANAGE);
+  const user = await requireEffectivePermission(PERM.PROCUREMENT_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const projectId = body?.projectId as string | undefined;

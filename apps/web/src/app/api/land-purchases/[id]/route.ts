@@ -3,12 +3,12 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { softDelete, logAction, reallocateProjectCosts, postLandPurchase, reverseJournalEntry, refreshLandTotalCost, recomputeLandTotalCost, scheduledTotal, ServiceError } from "@nirman/services";
 import Decimal from "decimal.js";
-import { apiHandler, getCompany, json, requirePermission, toNum, landPurchaseEditSchema, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, landPurchaseEditSchema, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requireEffectivePermission(PERM.ASSETS_VIEW);
   const company = await getCompany();
   const { id } = await ctx.params;
   const lp = await prisma.landPurchase.findFirst({
@@ -137,7 +137,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requireEffectivePermission(PERM.ASSETS_MANAGE);
   const company = await getCompany();
   const { id } = await ctx.params;
   const body = await req.json();
@@ -323,7 +323,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.ASSETS_MANAGE);
+  await requireEffectivePermission(PERM.ASSETS_MANAGE);
   const company = await getCompany();
   const { id } = await ctx.params;
   const existing = await prisma.landPurchase.findFirst({ where: { id, companyId: company.id, deletedAt: null, ...await scopeWhere("LandPurchase", {}) }, select: { id: true } });

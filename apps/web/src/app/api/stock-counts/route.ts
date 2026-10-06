@@ -2,9 +2,8 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createStockCount } from "@nirman/services";
-import { apiHandler, assertScopeAllows, getAssignedProjectIds, getUserScope, json, stockCountSchema, toNum, getCompany } from "@/lib/server";
+import { apiHandler, assertScopeAllows, getAssignedProjectIds, getUserScope, json, stockCountSchema, toNum, getCompany, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { requirePermission } from "@/lib/server";
 
 /**
  * Scope filter for stock counts — StockCount has no projectId/departmentId of
@@ -25,7 +24,7 @@ async function stockCountScopeWhere(): Promise<Record<string, unknown>> {
 }
 
 export const GET = apiHandler(async () => {
-  await requirePermission(PERM.INVENTORY_VIEW);
+  await requireEffectivePermission(PERM.INVENTORY_VIEW);
   const company = await getCompany();
   const counts = await prisma.stockCount.findMany({
     take: 500,
@@ -77,7 +76,7 @@ export const GET = apiHandler(async () => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.INVENTORY_MANAGE);
+  const user = await requireEffectivePermission(PERM.INVENTORY_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = stockCountSchema.safeParse(body);

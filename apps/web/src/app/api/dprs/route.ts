@@ -2,12 +2,12 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { submitDPR, subAdminApproveDpr, adminApproveDpr, canAutoApprove } from "@nirman/services";
-import { apiHandler, getCompany, json, dprSchema, requirePermission, toNum, scopeWhere, assertScopeAllows, getActingRole,} from "@/lib/server";
+import { apiHandler, getCompany, json, dprSchema, toNum, scopeWhere, assertScopeAllows, getActingRole, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.DPR_VIEW);
+  await requireEffectivePermission(PERM.DPR_VIEW);
   const company = await getCompany();
   const url = new URL(req.url);
   const projectId = url.searchParams.get("projectId");
@@ -75,7 +75,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.DPR_SUBMIT);
+  const user = await requireEffectivePermission(PERM.DPR_SUBMIT);
   const company = await getCompany();
   const body = await req.json();
   const parsed = dprSchema.safeParse(body);

@@ -1,12 +1,12 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { assertAttendancePeriodOpen, deleteAttendance, logAction, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, attendanceSchema, requirePermission, requireAnyPermission, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, attendanceSchema, scopeWhere, assertScopeAllows, requireEffectivePermission, requireAnyEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requireAnyPermission(PERM.HR_MANAGE, PERM.ATTENDANCE_LOG);
+  const user = await requireAnyEffectivePermission(PERM.HR_MANAGE, PERM.ATTENDANCE_LOG);
   const company = await getCompany();
   const { id } = await params;
   const body = await req.json();
@@ -62,7 +62,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.HR_MANAGE);
+  const user = await requireEffectivePermission(PERM.HR_MANAGE);
   const company = await getCompany();
   const { id } = await params;
   const existing = await prisma.workerAttendance.findFirst({ where: { id, companyId: company.id, ...await scopeWhere("WorkerAttendance", {}) }, select: { id: true } });

@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@nirman/db";
 import { createLead } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, scopeWhere, assertScopeAllows, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 const createLeadSchema = z.object({
@@ -26,7 +26,7 @@ const createLeadSchema = z.object({
 });
 
 export const GET = apiHandler(async () => {
-  await requirePermission(PERM.SALES_VIEW);
+  await requireEffectivePermission(PERM.SALES_VIEW);
   const company = await getCompany();
   const leads = await prisma.lead.findMany({
     where: { companyId: company.id, deletedAt: null, ...await scopeWhere("Lead", {}) },
@@ -75,7 +75,7 @@ export const GET = apiHandler(async () => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.SALES_MANAGE);
+  const user = await requireEffectivePermission(PERM.SALES_MANAGE);
   const company = await getCompany();
   const parsed = createLeadSchema.safeParse(await req.json());
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });

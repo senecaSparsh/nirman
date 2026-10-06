@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { purchaseBuiltUnit } from "@nirman/services";
-import { apiHandler, assertScopeAllows, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { apiHandler, assertScopeAllows, getCompany, json, toNum, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 const purchaseUnitSchema = z.object({
@@ -27,7 +27,7 @@ const purchaseUnitSchema = z.object({
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requireEffectivePermission(PERM.ASSETS_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = purchaseUnitSchema.safeParse(body);

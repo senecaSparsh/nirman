@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createExpenseClaim, submitExpenseClaim, approveExpenseClaim, canAutoApprove, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, requireAnyPermission, scopeWhere, assertScopeAllows, getActingRole,} from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, scopeWhere, assertScopeAllows, getActingRole, requireAnyEffectivePermission} from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { z } from "zod";
 
@@ -28,7 +28,7 @@ const claimSchema = z.object({
 
 export const GET = apiHandler(async (_req: NextRequest) => {
   const company = await getCompany();
-  const user = await requireAnyPermission(PERM.FINANCE_VIEW, PERM.EXPENSE_CREATE, PERM.CLAIM_CREATE);
+  const user = await requireAnyEffectivePermission(PERM.FINANCE_VIEW, PERM.EXPENSE_CREATE, PERM.CLAIM_CREATE);
   const canSeeAll = hasPermission(await getActingRole(), PERM.FINANCE_VIEW);
   const claims = await prisma.expenseClaim.findMany({
     where: {
@@ -66,7 +66,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
 
 export const POST = apiHandler(async (req: NextRequest) => {
   const company = await getCompany();
-  const user = await requireAnyPermission(PERM.EXPENSE_CREATE, PERM.CLAIM_CREATE);
+  const user = await requireAnyEffectivePermission(PERM.EXPENSE_CREATE, PERM.CLAIM_CREATE);
   const body = await req.json();
   const parsed = claimSchema.safeParse(body);
   if (!parsed.success) {

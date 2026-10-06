@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createTransfer, ServiceError } from "@nirman/services";
-import { apiHandler, json, transferSchema, toNum, getAssignedProjectIds, getCompany, getCompanyGroupIds, getUserScope, requirePermission, assertScopeAllows } from "@/lib/server";
+import { apiHandler, json, transferSchema, toNum, getAssignedProjectIds, getCompany, getCompanyGroupIds, getUserScope, requireEffectivePermission, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -35,7 +35,7 @@ async function transferScopeWhere(): Promise<Record<string, unknown>> {
 }
 
 export const GET = apiHandler(async () => {
-  await requirePermission(PERM.INVENTORY_VIEW);
+  await requireEffectivePermission(PERM.INVENTORY_VIEW);
   const company = await getCompany();
   const transfers = await prisma.stockTransfer.findMany({
     // Both sides of an inter-company STO see it.
@@ -86,7 +86,9 @@ export const GET = apiHandler(async () => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.STOCK_TRANSFER);
+  // Scope-aware: a scoped PM hat can transfer stock FROM their site (the
+  // assertScopeAllows below still limits the source to their scope).
+  const user = await requireEffectivePermission(PERM.STOCK_TRANSFER);
   const body = await req.json();
   const parsed = transferSchema.safeParse(body);
   if (!parsed.success) {
