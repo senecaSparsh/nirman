@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -14,7 +14,7 @@ import { withSerializableTransaction } from "@nirman/services";
  * where both name AND phone are duplicate.
  */
 export const GET = apiHandler(async () => {
-  await requirePermission(PERM.SALES_VIEW);
+  await requireEffectivePermission(PERM.SALES_VIEW);
   const company = await getCompany();
 
   // Find all non-deleted leads, group by (name, phone)
@@ -76,7 +76,7 @@ export const GET = apiHandler(async () => {
  * Body: { keepId: string, deleteIds: string[] }
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  const _user = await requirePermission(PERM.SALES_MANAGE);
+  const _user = await requireEffectivePermission(PERM.SALES_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const keepId: string = body.keepId;

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, getCompany, getCompanyDescendantIds, getCompanyGroupIds, json, requirePermission, stockLocationSchema, toNum, scopeWhere, assertScopeAllows, requireAnyEffectivePermission} from "@/lib/server";
+import { apiHandler, getCompany, getCompanyDescendantIds, getCompanyGroupIds, json, requireEffectivePermission, stockLocationSchema, toNum, scopeWhere, assertScopeAllows, requireAnyEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -64,7 +64,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 export const POST = apiHandler(async (req: NextRequest) => {
   // Location topology (a new store/yard) is an org decision — scoped hats
   // can PATCH their own locations but not create/delete them.
-  const user = await requirePermission(PERM.INVENTORY_MANAGE);
+  const user = await requireEffectivePermission(PERM.INVENTORY_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = stockLocationSchema.safeParse(body);

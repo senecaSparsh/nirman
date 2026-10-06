@@ -4,7 +4,7 @@ import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { createSupplierInvoice } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, getCompanyGroupIds, json, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, getCompanyGroupIds, json, requireEffectivePermission, scopeWhere } from "@/lib/server";
 
 /**
  * POST /api/supplier-invoices/from-grn
@@ -26,7 +26,7 @@ import { apiHandler, getCompany, getCompanyGroupIds, json, requirePermission, sc
  * The three-way match runs automatically inside createSupplierInvoice.
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.FINANCE_MANAGE);
+  const user = await requireEffectivePermission(PERM.FINANCE_MANAGE);
   const company = await getCompany();
   const body = await req.json();
 

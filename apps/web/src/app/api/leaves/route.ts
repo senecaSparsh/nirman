@@ -2,11 +2,11 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import type { LeaveStatus } from "@nirman/db";
 import { createLeaveRequest, approveLeaveRequest, canAutoApprove } from "@nirman/services";
-import { apiHandler, getCompany, json, leaveRequestSchema, requirePermission, requireUser, toNum, scopeWhere, getActingRole,} from "@/lib/server";
-import { hasPermission, PERM } from "@/lib/roles";
+import { apiHandler, getCompany, json, leaveRequestSchema, requireEffectivePermission, requireUser, toNum, scopeWhere, getActingRole, getEffectivePermissions,} from "@/lib/server";
+import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.HR_VIEW);
+  await requireEffectivePermission(PERM.HR_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
@@ -53,7 +53,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requireUser();
   const company = await getCompany();
   const body = await req.json();
-  const canManage = hasPermission(await getActingRole(), PERM.HR_MANAGE);
+  const canManage = (await getEffectivePermissions()).includes(PERM.HR_MANAGE);
 
   // Self-service: a caller without HR_MANAGE can only request leave for
   // themselves — the employeeId is resolved from their own employee

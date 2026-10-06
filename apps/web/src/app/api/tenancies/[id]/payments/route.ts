@@ -2,11 +2,11 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { recordRentPayment, ServiceError } from "@nirman/services";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, rentPaymentSchema, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, rentPaymentSchema, requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.SALE_CREATE);
+  const user = await requireEffectivePermission(PERM.SALE_CREATE);
   const company = await getCompany();
   const { id } = await params;
   const body = await req.json();

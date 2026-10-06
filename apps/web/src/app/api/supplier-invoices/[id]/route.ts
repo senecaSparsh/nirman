@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { approveSupplierInvoice, getSupplierInvoice } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, ForbiddenError, getActingRole, getCompany, getUserPermissions, json, requirePermission, requireUser, scopeWhere, getActingRoleForProject } from "@/lib/server";
+import { apiHandler, ForbiddenError, getActingRole, getCompany, getUserPermissions, json, requireEffectivePermission, requireUser, scopeWhere, getActingRoleForProject } from "@/lib/server";
 import { hasPermission } from "@/lib/roles";
 
 /**
@@ -11,7 +11,7 @@ import { hasPermission } from "@/lib/roles";
  * Returns a single supplier invoice with three-way match details.
  */
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.FINANCE_VIEW);
+  await requireEffectivePermission(PERM.FINANCE_VIEW);
   const company = await getCompany();
   const { id } = await params;
 
@@ -102,7 +102,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   // Handle document upload separately (no approval workflow)
   if (body.action === "upload-document") {
-    await requirePermission(PERM.FINANCE_MANAGE);
+    await requireEffectivePermission(PERM.FINANCE_MANAGE);
     if (!body.invoiceDocumentUrl) {
       return json({ error: "invoiceDocumentUrl is required for upload-document" }, { status: 400 });
     }

@@ -3,11 +3,11 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { updateLandCostComponent, deleteLandCostComponent, scheduledTotal } from "@nirman/services";
 import Decimal from "decimal.js";
-import { apiHandler, getCompany, json, toNum, landCostComponentSchema, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, landCostComponentSchema, requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string; cid: string }> }) => {
-  await requirePermission(PERM.ASSETS_VIEW);
+  await requireEffectivePermission(PERM.ASSETS_VIEW);
   const company = await getCompany();
   const { id, cid } = await ctx.params;
 
@@ -33,7 +33,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string; cid: string }> }) => {
-  const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requireEffectivePermission(PERM.ASSETS_MANAGE);
   const company = await getCompany();
   const { id, cid } = await ctx.params;
 
@@ -88,7 +88,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
 });
 
 export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string; cid: string }> }) => {
-  const user = await requirePermission(PERM.ASSETS_MANAGE);
+  const user = await requireEffectivePermission(PERM.ASSETS_MANAGE);
   const company = await getCompany();
   const { id, cid } = await ctx.params;
 

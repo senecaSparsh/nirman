@@ -6,14 +6,14 @@ import {
   uploadRentAgreement, uploadDraft,
   ServiceError,
 } from "@nirman/services";
-import { apiHandler, getCompany, json, editTenancySchema, changeTenantSchema, rentScheduleSchema, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, editTenancySchema, changeTenantSchema, rentScheduleSchema, requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { prisma } from "@nirman/db";
 
 // POST /api/tenancies/[id] — action dispatcher for tenancy lifecycle
 //   body: { action: "activate" | "terminate" | "escalate" | "changeTenant" | "generateSchedule" | "uploadAgreement", ...payload }
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.SALES_MANAGE);
+  const user = await requireEffectivePermission(PERM.SALES_MANAGE);
   const company = await getCompany();
   const { id } = await params;
 
@@ -128,7 +128,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
 
 // PATCH /api/tenancies/[id] — edit a PENDING tenancy's details
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.SALE_CREATE);
+  const user = await requireEffectivePermission(PERM.SALE_CREATE);
   const company = await getCompany();
   const { id } = await params;
 

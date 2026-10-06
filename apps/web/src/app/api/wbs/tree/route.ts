@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { getWbsTree } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, scopeWhere, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 interface WbsTreeNode {
@@ -59,7 +59,7 @@ function serializeNode(node: WbsTreeNode): Record<string, unknown> {
 }
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.WBS_VIEW);
+  await requireEffectivePermission(PERM.WBS_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get("projectId");
