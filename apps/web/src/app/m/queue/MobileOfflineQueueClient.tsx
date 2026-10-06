@@ -96,9 +96,11 @@ export function MobileOfflineQueueClient() {
       <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
         {pending > 0
           ? `${pending} operation${pending > 1 ? "s" : ""} waiting to sync`
-          : online
-            ? "All caught up — no pending operations"
-            : "You're offline. Operations will sync when back online."}
+          : failedCount > 0
+            ? `${failedCount} failed operation${failedCount > 1 ? "s" : ""} need${failedCount > 1 ? "" : "s"} attention — review below`
+            : online
+              ? "All caught up — no pending operations"
+              : "You're offline. Operations will sync when back online."}
       </p>
 
       {/* Status bar */}
