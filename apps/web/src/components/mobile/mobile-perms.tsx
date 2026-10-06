@@ -99,3 +99,15 @@ export function useCanCreate(entity?: CreateEntity): boolean {
   const effective = ctx.globalPermissions.includes(rule.perm) || ctx.scopedPermissions.includes(rule.perm);
   return effective || ctx.globalPermissions.includes("*");
 }
+
+/** Generic permission check for non-create affordances (record payment,
+ *  mark paid, approve…). `perm` — an effective-perm check (global or
+ *  scoped hat counts); pass `global: true` when the server only accepts
+ *  the global perm. Outside the shell / no perm given → returns true so
+ *  a wrong guess never removes a real control. */
+export function usePerm(perm?: string, opts?: { global?: boolean }): boolean {
+  const ctx = useContext(MobilePermsContext);
+  if (!ctx || !perm) return true;
+  const perms = opts?.global ? ctx.globalPermissions : [...ctx.globalPermissions, ...ctx.scopedPermissions];
+  return perms.includes(perm) || ctx.globalPermissions.includes("*");
+}

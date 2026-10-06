@@ -15,6 +15,7 @@ import { DetailHeroCard, DetailKeyValueCard, DetailStatGrid } from "@/components
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { useConfirm } from "@/lib/use-confirm";
+import { usePerm } from "@/components/mobile/mobile-perms";
 type PoStatus = "DRAFT" | "APPROVED" | "REJECTED" | "ORDERED" | "PARTIAL" | "RECEIVED" | "SHORT_CLOSED" | "CANCELLED";
 
 type PoItem = {
@@ -94,6 +95,7 @@ export function MobileSupplierDetailClient({
   } | null;
   canManage?: boolean;
 }) {
+  const canPaySupplier = usePerm("finance.manage");
   const router = useRouter();
   const [confirm, confirmDialog] = useConfirm();
   const [tab, setTab] = useState<"pos" | "payments">("pos");
@@ -237,7 +239,7 @@ export function MobileSupplierDetailClient({
       {/* ── Pay dues shortcut — the supplier page shows "₹X owed" but
            previously had no path to actually pay; deep-link into the
            payment form with this supplier preselected. ── */}
-      {hasDues ? (
+      {hasDues && canPaySupplier ? (
         <Link
           href={`/m/supplier-payments/new?supplier=${supplierId}`}
           className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 mb-2 text-m-body font-bold press"

@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createSupplierPayment, getSupplierPayments } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, assertScopeAllows, getCompany, json, requirePermission, scopeWhere, requireEffectivePermission} from "@/lib/server";
+import { apiHandler, assertScopeAllows, getCompany, json, scopeWhere, requireEffectivePermission} from "@/lib/server";
 import { prisma } from "@nirman/db";
 
 const paymentSchema = z.object({
@@ -63,7 +63,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
  * Records a supplier payment, posts GL (Dr AP / Cr Cash / Cr TDS Payable), updates supplier balance.
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.FINANCE_MANAGE);
+  const user = await requireEffectivePermission(PERM.FINANCE_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = paymentSchema.safeParse(body);
