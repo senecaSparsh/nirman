@@ -21,7 +21,7 @@ export default function MobileMeasurementBookPage({
   searchParams: Promise<{ project?: string }>;
 }) {
   return (
-    <MobileProjectScopedPage searchParams={searchParams} skeletonRows={6}>
+    <MobileProjectScopedPage searchParams={searchParams} perm={PERM.MB_VIEW} what="measurement book" permission="mb.view" skeletonRows={6}>
       {async ({ company, projectId, perms }) => {
         const canCreateProject = perms.includes(PERM.PROJECTS_MANAGE);
 
