@@ -31,9 +31,44 @@ export default function MobileNotificationsPage() {
             link: true,
             isRead: true,
             createdAt: true,
+            metadata: true,
           },
         });
         const unreadCount = notifications.filter((n) => !n.isRead).length;
+        const urgent = notifications.filter((n) => {
+          const u = (n.metadata as { urgency?: string } | null)?.urgency;
+          return !n.isRead && u === "IMMEDIATE";
+        });
+        const rest = notifications.filter((n) => {
+          const u = (n.metadata as { urgency?: string } | null)?.urgency;
+          return n.isRead || u !== "IMMEDIATE";
+        });
+
+        const renderRow = (n: (typeof notifications)[number]) => {
+          const href = resolveLinkForSurface(n.link);
+          return (
+            <NotificationRow key={n.id} id={n.id} href={href}>
+              <div className="flex items-start gap-2.5">
+                {!n.isRead && (
+                  <span className="mt-1.5 size-1.5 rounded-full shrink-0" style={{ backgroundColor: "var(--color-brand)" }} />
+                )}
+                <div className={`min-w-0 flex-1 ${n.isRead ? "pl-4" : ""}`}>
+                  <p className={`text-m-body leading-snug ${n.isRead ? "font-medium" : "font-bold"}`} style={{ color: "var(--color-ink-950)" }}>
+                    {n.title}
+                  </p>
+                  {n.message && (
+                    <p className="text-m-caption mt-0.5 line-clamp-2" style={{ color: "var(--color-ink-500)" }}>
+                      {n.message}
+                    </p>
+                  )}
+                  <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-400)" }}>
+                    {formatRelativeTime(new Date(n.createdAt))}
+                  </p>
+                </div>
+              </div>
+            </NotificationRow>
+          );
+        };
 
         return (
           <div className="min-h-screen pb-20" style={{ backgroundColor: "var(--color-paper)" }}>
@@ -57,31 +92,22 @@ export default function MobileNotificationsPage() {
               />
             ) : (
               <div className="px-4 space-y-2">
-                {notifications.map((n) => {
-                  const href = resolveLinkForSurface(n.link);
-                  return (
-                    <NotificationRow key={n.id} id={n.id} href={href}>
-                      <div className="flex items-start gap-2.5">
-                        {!n.isRead && (
-                          <span className="mt-1.5 size-1.5 rounded-full shrink-0" style={{ backgroundColor: "var(--color-brand)" }} />
-                        )}
-                        <div className={`min-w-0 flex-1 ${n.isRead ? "pl-4" : ""}`}>
-                          <p className={`text-m-body leading-snug ${n.isRead ? "font-medium" : "font-bold"}`} style={{ color: "var(--color-ink-950)" }}>
-                            {n.title}
-                          </p>
-                          {n.message && (
-                            <p className="text-m-caption mt-0.5 line-clamp-2" style={{ color: "var(--color-ink-500)" }}>
-                              {n.message}
-                            </p>
-                          )}
-                          <p className="text-m-caption mt-1" style={{ color: "var(--color-ink-400)" }}>
-                            {formatRelativeTime(new Date(n.createdAt))}
-                          </p>
-                        </div>
-                      </div>
-                    </NotificationRow>
-                  );
-                })}
+                {urgent.length > 0 ? (
+                  <>
+                    <p className="text-m-label font-bold uppercase tracking-wider pt-1" style={{ color: "var(--color-stop)" }}>
+                      Needs attention ({urgent.length})
+                    </p>
+                    {urgent.map(renderRow)}
+                    {rest.length > 0 ? (
+                      <p className="text-m-label font-bold uppercase tracking-wider pt-3" style={{ color: "var(--color-ink-400)" }}>
+                        Activity ({rest.length})
+                      </p>
+                    ) : null}
+                    {rest.map(renderRow)}
+                  </>
+                ) : (
+                  notifications.map(renderRow)
+                )}
               </div>
             )}
           </div>
