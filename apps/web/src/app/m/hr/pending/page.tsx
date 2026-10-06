@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import Link from "next/link";
 import { prisma } from "@nirman/db";
-import { getCompany, getCurrentUser, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { getCompany, getCurrentUser, toNum, scopeWhere, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatDate, formatCurrencyCompact } from "@/lib/utils";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
@@ -35,10 +35,18 @@ export default function MobilePendingListPage() {
 
 async function MobilePendingListContent() {
   await connection();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   const company = await getCompany();
   const currentUser = await getCurrentUser();
   const userId = currentUser?.id ?? "";
+
+  // Per-section gates — an hr.view-only user must not see payroll totals,
+  // cross-scope POs, or approval queues they can't act on.
+  const canApproveDpr = __effPerms.includes(PERM.DPR_APPROVE_SUB_ADMIN) || __effPerms.includes(PERM.DPR_APPROVE_ADMIN);
+  const canManageLeave = __effPerms.includes(PERM.HR_MANAGE);
+  const canSeePayroll = __effPerms.includes(PERM.PAYROLL_VIEW) || __effPerms.includes(PERM.PAYROLL_MANAGE);
+  const canApprovePo = __effPerms.includes(PERM.PO_APPROVE);
+  const canApproveReq = __effPerms.includes(PERM.REQUISITION_APPROVE);
 
   if (!__effPerms.includes(PERM.HR_VIEW)) {
     return (
@@ -57,7 +65,7 @@ async function MobilePendingListContent() {
     overdueTasks,
     pendingTasks,
   ] = await Promise.all([
-    prisma.dailyProgressReport.findMany({
+    canApproveDpr ? prisma.dailyProgressReport.findMany({
       where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: "SUBMITTED", submittedById: { not: userId } },
       orderBy: { date: "desc" },
       take: 15,
@@ -65,29 +73,31 @@ async function MobilePendingListContent() {
         project: { select: { name: true } },
         submittedBy: { select: { name: true } },
       },
-    }),
-    prisma.leaveRequest.findMany({
-      where: {...await scopeWhere("LeaveRequest"),  companyId: company.id, status: "PENDING" },
+    }) : Promise.resolve([]),
+    // Self-excluded — own pending leave isn't an approval task for you.
+    canManageLeave ? prisma.leaveRequest.findMany({
+      where: {...await scopeWhere("LeaveRequest"),  companyId: company.id, status: "PENDING",
+        employee: { userId: { not: userId } } },
       orderBy: { createdAt: "desc" },
       take: 15,
       include: { employee: { select: { name: true } } },
-    }),
-    prisma.payrollPeriod.findMany({
+    }) : Promise.resolve([]),
+    canSeePayroll ? prisma.payrollPeriod.findMany({
       where: { companyId: company.id, status: "DRAFT" },
       orderBy: [{ year: "desc" }, { month: "desc" }],
       take: 5,
       include: { _count: { select: { lines: true } } },
-    }),
-    prisma.purchaseOrder.findMany({
-      where: { companyId: company.id, status: "DRAFT", createdById: { not: userId } },
+    }) : Promise.resolve([]),
+    canApprovePo ? prisma.purchaseOrder.findMany({
+      where: {...await scopeWhere("PurchaseOrder"),  companyId: company.id, status: "DRAFT", createdById: { not: userId } },
       orderBy: { createdAt: "desc" },
       take: 15,
       include: {
         supplier: { select: { name: true } },
         project: { select: { name: true } },
       },
-    }),
-    prisma.materialRequisition.findMany({
+    }) : Promise.resolve([]),
+    canApproveReq ? prisma.materialRequisition.findMany({
       where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED", requestedById: { not: userId } },
       orderBy: { createdAt: "desc" },
       take: 15,
@@ -95,7 +105,7 @@ async function MobilePendingListContent() {
         project: { select: { name: true } },
         requestedBy: { select: { name: true } },
       },
-    }),
+    }) : Promise.resolve([]),
     prisma.task.findMany({
       where: {...await scopeWhere("Task"), 
         assignedTo: { memberships: { some: { companyId: company.id } } },
