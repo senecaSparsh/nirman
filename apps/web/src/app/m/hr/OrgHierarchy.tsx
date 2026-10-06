@@ -1069,7 +1069,7 @@ function TreeRow({
       {/* ── Chevron (or spacer) ── */}
       <div className="shrink-0 w-4 flex items-center justify-center">
         {chevron ? (
-          <button type="button" onClick={onChevronClick} className="text-m-body press">
+          <button aria-label="Expand row" type="button" onClick={onChevronClick} className="text-m-body press">
             <ChevronRight
               className="size-3 transition-transform"
               style={{

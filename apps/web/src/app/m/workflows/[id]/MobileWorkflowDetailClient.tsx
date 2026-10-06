@@ -135,7 +135,7 @@ export function MobileWorkflowDetailClient({
         style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
       >
         <div className="flex items-center gap-2 mb-2">
-          <button onClick={goBack} className="text-m-body press p-1 -ml-1">
+          <button aria-label="Go back" onClick={goBack} className="text-m-body press p-1 -ml-1">
             <ChevronLeft className="size-5" style={{ color: "var(--color-ink-500)" }} />
           </button>
           <div className="flex-1 min-w-0">

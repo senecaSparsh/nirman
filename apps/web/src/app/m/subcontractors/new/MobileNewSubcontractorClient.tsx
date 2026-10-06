@@ -88,7 +88,7 @@ export function MobileNewSubcontractorClient({
       {/* Header — hidden in modal mode (MobileFabModal provides title) */}
       {onClose ? null : (
       <div className="flex items-center gap-1 mb-3">
-        <button
+        <button aria-label="Go back"
           onClick={goBack}
           className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] text-m-body press"
           style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}

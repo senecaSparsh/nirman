@@ -1021,7 +1021,7 @@ function SaleForm({
                     Item {idx + 1}
                   </span>
                   <div className="flex items-center gap-2">
-                    <button
+                    <button aria-label="Add line item"
                       type="button"
                       onClick={onAddLine}
                       className="flex items-center text-m-caption press"

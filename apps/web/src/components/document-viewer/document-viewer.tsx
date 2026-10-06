@@ -100,6 +100,7 @@ export function DocumentViewer({ url, title = "Document", onClose }: DocumentVie
           </div>
           <button
             onClick={handleClose}
+            aria-label="Close document"
             className="shrink-0 grid place-items-center size-8 rounded-full press"
             style={{ backgroundColor: "var(--color-concrete, #f3f4f6)" }}
           >
