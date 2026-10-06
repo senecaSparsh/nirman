@@ -138,7 +138,7 @@ export default function SitePage() {
           attentionBanners.push({
             id: "clear",
             title: "All caught up!",
-            subtitle: `${myTasks.length} open task${myTasks.length !== 1 ? "s" : ""} · ${inTransitPOs.length} in transit${canSubmitDpr ? ` · Daily Progress Report ${myDprToday ? "submitted" : "pending"}` : ""}`,
+            subtitle: `${myTasks.length} open task${myTasks.length !== 1 ? "s" : ""} · ${inTransitPOs.length} incoming${canSubmitDpr ? ` · Daily Progress Report ${myDprToday ? "submitted" : "pending"}` : ""}`,
             href: "/m/site",
             severity: "clear",
             qtyText: "✓",
@@ -214,7 +214,7 @@ export default function SitePage() {
                 ) : undefined
               }
             >
-              In transit {inTransitPOs.length > 0 ? `(${inTransitPOs.length})` : ""}
+              Incoming deliveries {inTransitPOs.length > 0 ? `(${inTransitPOs.length})` : ""}
             </MobileSectionTitle>
             {inTransitPOs.length === 0 ? (
               <MobileEmptyState size="compact" icon={Truck} title="Nothing in transit" />
