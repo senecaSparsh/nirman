@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { getJobCosting } from "@nirman/services";
 import {Calculator, Wallet, Building2} from "lucide-react";
-import { getCompany, getUserScope, getEffectivePermissions } from "@/lib/server";
+import { getCompany, getUserScope, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
@@ -39,7 +39,7 @@ async function MobileJobCostingContent({
   searchParams: Promise<{ project?: string }>;
 }) {
   await connection();
-  const __effPerms = await getEffectivePermissions();
+  const __effPerms = await getUserPermissions();
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
   const company = await getCompany();
   const scope = await getUserScope();

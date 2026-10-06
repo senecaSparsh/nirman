@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { getRealEstateInventory } from "@nirman/services";
 import {Building2, TrendingUp} from "lucide-react";
-import { getCompany, toNum, getEffectivePermissions } from "@/lib/server";
+import { getCompany, toNum, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
@@ -29,7 +29,7 @@ export default function MobileRealEstateInventoryPage() {
 
 async function MobileRealEstateInventoryContent() {
   await connection();
-  const __effPerms = await getEffectivePermissions();
+  const __effPerms = await getUserPermissions();
   if (!__effPerms.includes(PERM.ASSETS_VIEW)) notFound();
   const company = await getCompany();
 
