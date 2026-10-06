@@ -21,7 +21,7 @@ export default function MobileCustomerDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params}>
+    <MobileDetailPage params={params} scopeAware perm={PERM.SALES_VIEW} what="customers" permission="sales.view">
       {async ({ id, company, perms }) => {
         const canSell = perms.includes(PERM.SALE_CREATE);
         const canManage = perms.includes(PERM.SALES_MANAGE);

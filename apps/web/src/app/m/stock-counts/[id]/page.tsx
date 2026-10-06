@@ -18,7 +18,7 @@ export default function MobileStockCountDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} skeletonSections={6} scopeAware>
+    <MobileDetailPage params={params} perm={PERM.INVENTORY_VIEW} what="stock counts" permission="inventory.view" skeletonSections={6} scopeAware>
       {async ({ id, company, perms }) => {
         const count = await prisma.stockCount.findFirst({
           where: { id, location: { companyId: company.id, deletedAt: null }, ...await scopeWhere("StockCount") },

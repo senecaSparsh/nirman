@@ -20,7 +20,7 @@ import { DepartmentActivityFeed } from "@/components/department-activity-feed";
  */
 export default function MobileProjectsPage() {
   return (
-    <MobileListPage managePerm={PERM.PROJECTS_MANAGE} skeletonRows={8}>
+    <MobileListPage perm={PERM.PROJECTS_VIEW} what="projects" permission="projects.view" managePerm={PERM.PROJECTS_MANAGE} skeletonRows={8} scopeAware>
       {async ({ company, canManage }) => {
         const actions = await getActionPermissions();
         const canCreate = actions?.canCreateProject ?? canManage;

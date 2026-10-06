@@ -19,7 +19,7 @@ export default function MobilePortalListingDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} managePerm={PERM.SALES_MANAGE} skeletonSections={6}>
+    <MobileDetailPage params={params} scopeAware perm={PERM.SALES_VIEW} what="portal listings" permission="sales.view" managePerm={PERM.SALES_MANAGE} skeletonSections={6}>
       {async ({ id, company, canManage }) => {
         const listing = await prisma.portalListing.findFirst({
           where: { id, companyId: company.id },

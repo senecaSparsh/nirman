@@ -20,7 +20,7 @@ import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
  */
 export default function MobileRentalsPage() {
   return (
-    <MobileListPage managePerm={PERM.SALE_CREATE} scopeAware>
+    <MobileListPage perm={PERM.SALES_VIEW} what="rentals" permission="sales.view" managePerm={PERM.SALE_CREATE} scopeAware>
       {async ({ company, canManage }) => {
         const [tenancies, units, parcels, customers] = await Promise.all([
           prisma.tenancy.findMany({

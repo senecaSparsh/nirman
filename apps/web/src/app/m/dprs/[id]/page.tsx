@@ -23,7 +23,7 @@ export default function MobileDprDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} managePerm={PERM.HR_MANAGE} skeletonSections={6} scopeAware>
+    <MobileDetailPage params={params} perm={PERM.DPR_VIEW} what="DPRs" permission="dpr.view" managePerm={PERM.HR_MANAGE} skeletonSections={6} scopeAware>
       {async ({ id, company, role, canManage, actingRole, perms }) => {
         const overrides = await getUserPermissions();
 

@@ -25,7 +25,7 @@ export default function MobileMaterialsPage({
   searchParams: Promise<{ category?: string }>;
 }) {
   return (
-    <MobileListPage managePerm={PERM.INVENTORY_MANAGE} skeletonRows={8} scopeAware>
+    <MobileListPage perm={PERM.INVENTORY_VIEW} what="materials" permission="inventory.view" managePerm={PERM.INVENTORY_MANAGE} skeletonRows={8} scopeAware>
       {async ({ company, canManage }) => {
         const { category } = await searchParams;
         // Scope-aware action permissions (for FAB gating)

@@ -12,7 +12,7 @@ export default async function MobileChangeOrderDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} managePerm={PERM.WO_MANAGE} skeletonSections={6} scopeAware>
+    <MobileDetailPage params={params} perm={PERM.ASSETS_VIEW} what="change orders" permission="assets.view" managePerm={PERM.WO_MANAGE} skeletonSections={6} scopeAware>
       {async ({ id, company, canManage, actingRole }) => {
         const co = await prisma.changeOrder.findFirst({
           where: { id, companyId: company.id, ...await scopeWhere("ChangeOrder") },

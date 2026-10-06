@@ -18,7 +18,7 @@ export default function MobileEquipmentDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} managePerm={PERM.ASSETS_MANAGE} skeletonSections={6} scopeAware>
+    <MobileDetailPage params={params} perm={PERM.ASSETS_VIEW} what="equipment" permission="assets.view" managePerm={PERM.ASSETS_MANAGE} skeletonSections={6} scopeAware>
       {async ({ id, company, canManage }) => {
         const equipment = await prisma.equipment.findFirst({
           where: { id, companyId: company.id, deletedAt: null },

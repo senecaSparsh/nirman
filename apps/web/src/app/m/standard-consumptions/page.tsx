@@ -17,7 +17,7 @@ import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
  */
 export default function MobileStandardConsumptionsPage() {
   return (
-    <MobileListPage managePerm={PERM.INVENTORY_MANAGE} scopeAware>
+    <MobileListPage perm={PERM.INVENTORY_VIEW} what="consumption benchmarks" permission="inventory.view" managePerm={PERM.INVENTORY_MANAGE} scopeAware>
       {async ({ company, canManage }) => {
         const actions = await getActionPermissions();
         const canCreate = actions?.canCreateStandardConsumption ?? canManage;

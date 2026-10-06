@@ -12,7 +12,7 @@ export const metadata = { title: "Gate Pass · Nirman" };
 
 export default function MobileGatePassPage() {
   return (
-    <MobileListPage scopeAware>
+    <MobileListPage perm={PERM.GATE_PASS_VIEW} what="gate passes" permission="gate.view" scopeAware>
       {async ({ company, actingRole, perms }) => {
         const currentUser = await getCurrentUser();
         const canExit = perms.includes(PERM.GATE_PASS_EXIT);

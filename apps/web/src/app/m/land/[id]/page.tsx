@@ -15,7 +15,7 @@ import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
  */
 export default function MobileLandDetailPage({ params }: { params: Promise<{ id: string }> }) {
   return (
-    <MobileDetailPage params={params} managePerm={PERM.ASSETS_MANAGE} scopeAware>
+    <MobileDetailPage params={params} perm={PERM.ASSETS_VIEW} what="land records" permission="assets.view" managePerm={PERM.ASSETS_MANAGE} scopeAware>
       {async ({ id, company, canManage, perms }) => {
         const canPartition = perms.includes(PERM.LAND_PARTITION);
         const canSell = perms.includes(PERM.SALE_CREATE);

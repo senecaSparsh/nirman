@@ -16,7 +16,7 @@ export default function MobileExpenseDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} skeletonSections={4} scopeAware>
+    <MobileDetailPage params={params} perm={PERM.FINANCE_VIEW} what="expenses" permission="finance.view" skeletonSections={4} scopeAware>
       {async ({ id, company, actingRole, perms }) => {
         const expense = await prisma.expense.findFirst({
           where: { id, companyId: company.id, ...await scopeWhere("Expense", {}) },

@@ -18,10 +18,13 @@ export default function MobileExpenseClaimDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} skeletonSections={4} scopeAware>
+    <MobileDetailPage params={params} perm={[PERM.FINANCE_VIEW, PERM.EXPENSE_CREATE, PERM.CLAIM_CREATE]} what="expense claims" permission="expense.create" skeletonSections={4} scopeAware>
       {async ({ id, company, actingRole, perms }) => {
+        const currentUser = await getCurrentUser();
+        // Match the API gate — non-finance viewers see only their own claims.
         const claim = await prisma.expenseClaim.findFirst({
-          where: {...await scopeWhere("ExpenseClaim"),  id, companyId: company.id },
+          where: {...await scopeWhere("ExpenseClaim"),  id, companyId: company.id,
+            ...(perms.includes(PERM.FINANCE_VIEW) ? {} : { claimantId: currentUser?.id ?? "__none__" }) },
           include: {
             claimant: { select: { id: true, name: true } },
             project: { select: { id: true, name: true } },
@@ -32,7 +35,6 @@ export default function MobileExpenseClaimDetailPage({
               include: { categoryMaster: { select: { id: true, name: true } } },
               orderBy: { date: "desc" }}}});
 
-        const currentUser = await getCurrentUser();
         // Self-approval is blocked server-side for non-tier-1 — mirror that so
         // the claimant doesn't see an Approve button that will fail. Tier-1
         // approvers (OWNER/ADMIN) CAN approve their own claim — no higher reviewer.

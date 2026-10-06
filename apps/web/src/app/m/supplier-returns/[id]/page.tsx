@@ -31,7 +31,7 @@ export default function MobileSupplierReturnDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} managePerm={PERM.PROCUREMENT_MANAGE} skeletonSections={6} scopeAware>
+    <MobileDetailPage params={params} perm={PERM.PROCUREMENT_VIEW} what="supplier returns" permission="procurement.view" managePerm={PERM.PROCUREMENT_MANAGE} skeletonSections={6} scopeAware>
       {async ({ id, company, canManage }) => {
         const ret = await prisma.supplierReturn.findFirst({
           where: { id, companyId: company.id },

@@ -18,7 +18,7 @@ import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
  */
 export default function MobilePortalListingsPage() {
   return (
-    <MobileListPage managePerm={PERM.SALES_MANAGE}>
+    <MobileListPage perm={PERM.SALES_VIEW} what="portal listings" permission="sales.view" managePerm={PERM.SALES_MANAGE}>
       {async ({ company, canManage }) => {
         const actions = await getActionPermissions();
         const listings = await prisma.portalListing.findMany({

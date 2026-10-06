@@ -14,7 +14,7 @@ import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
  */
 export default function MobileEquipmentPage() {
   return (
-    <MobileListPage managePerm={PERM.ASSETS_MANAGE}>
+    <MobileListPage perm={PERM.ASSETS_VIEW} what="equipment" permission="assets.view" scopeAware managePerm={PERM.ASSETS_MANAGE}>
       {async ({ company, canManage }) => {
         // Scope-aware action permissions (for FAB gating)
         const actions = await getActionPermissions();

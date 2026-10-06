@@ -20,7 +20,7 @@ export default function MobileRentalDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params}>
+    <MobileDetailPage params={params} scopeAware perm={PERM.SALES_VIEW} what="rentals" permission="sales.view">
       {async ({ id, company, perms }) => {
         const canManage = perms.includes(PERM.SALES_MANAGE);
         const canSell = perms.includes(PERM.SALE_CREATE);

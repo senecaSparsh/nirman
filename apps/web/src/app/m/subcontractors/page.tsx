@@ -12,7 +12,7 @@ import { MobileSubcontractorsList, type SubcontractorListItem } from "./MobileSu
  */
 export default function MobileSubcontractorsPage() {
   return (
-    <MobileListPage managePerm={PERM.PROCUREMENT_MANAGE}>
+    <MobileListPage perm={PERM.PROCUREMENT_VIEW} what="subcontractors" permission="procurement.view" managePerm={PERM.PROCUREMENT_MANAGE} scopeAware>
       {async ({ company, canManage }) => {
         const actions = await getActionPermissions();
         const canCreate = actions?.canCreateSubcontractor ?? canManage;

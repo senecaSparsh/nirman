@@ -21,7 +21,7 @@ export default function MobileSubcontractorDetailPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <MobileDetailPage params={params} managePerm={PERM.PROCUREMENT_MANAGE}>
+    <MobileDetailPage params={params} scopeAware perm={PERM.PROCUREMENT_VIEW} what="subcontractors" permission="procurement.view" managePerm={PERM.PROCUREMENT_MANAGE}>
       {async ({ id, company, canManage }) => {
         const subcontractor = await prisma.subcontractor.findFirst({
           where: { id, companyId: company.id, deletedAt: null },

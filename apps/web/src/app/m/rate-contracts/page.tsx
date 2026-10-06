@@ -17,7 +17,7 @@ import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
  */
 export default function MobileRateContractsPage() {
   return (
-    <MobileListPage managePerm={PERM.PROCUREMENT_MANAGE}>
+    <MobileListPage perm={PERM.PROCUREMENT_VIEW} what="rate contracts" permission="procurement.view" managePerm={PERM.PROCUREMENT_MANAGE} scopeAware>
       {async ({ company, canManage }) => {
         const actions = await getActionPermissions();
         const canCreate = actions?.canCreateRateContract ?? canManage;

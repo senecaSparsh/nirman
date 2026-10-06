@@ -11,7 +11,7 @@ import { MobileBrokersList, type BrokerListItem } from "./MobileBrokersList";
  */
 export default function MobileBrokersPage() {
   return (
-    <MobileListPage managePerm={PERM.SALE_CREATE}>
+    <MobileListPage perm={PERM.SALES_VIEW} what="brokers" permission="sales.view" managePerm={PERM.SALE_CREATE}>
       {async ({ company, canManage }) => {
         const actions = await getActionPermissions();
         const canCreate = actions?.canCreateBroker ?? canManage;
