@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { projectPnl } from "@nirman/services";
 import {Building2, Gauge} from "lucide-react";
-import { getCompany, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { getCompany, toNum, scopeWhere, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
@@ -32,7 +32,7 @@ export default function MobileProjectProgressPage() {
 
 async function MobileProjectProgressContent() {
   await connection();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (
     !__effPerms.includes(PERM.FINANCE_VIEW) &&
     !__effPerms.includes(PERM.INVENTORY_VIEW) &&

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@nirman/db";
-import { getCurrentUser, getUserPermissions, scopeWhere } from "@/lib/server";
+import { getCurrentUser, getEffectivePermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
 import { formatDate } from "@/lib/utils";
@@ -24,7 +24,7 @@ export default function SitePage() {
     <MobileHubPage perm={PERM.TASKS_VIEW} scopeAware what="site" permission="tasks.view">
       {async ({ company }) => {
         const user = await getCurrentUser();
-        const perms = await getUserPermissions();
+        const perms = await getEffectivePermissions();
         const canSubmitDpr = perms.includes(PERM.DPR_SUBMIT);
 
         const today = new Date();

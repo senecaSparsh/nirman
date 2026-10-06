@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { notFound } from "next/navigation";
-import { scopeWhere, getCompany, getEffectivePermissions, getUserPermissions } from "@/lib/server";
+import { scopeWhere, getCompany, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
@@ -23,7 +23,7 @@ async function MobileHazardDetailContent({ id }: { id: string }) {
   // View = effective (matches list API); manage = global (matches the
   // detail PATCH which is org-level safety.manage).
   const __effPerms = await getEffectivePermissions();
-  const __globalPerms = await getUserPermissions();
+  const __globalPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.SAFETY_VIEW)) notFound();
   const canManage = __globalPerms.includes(PERM.SAFETY_MANAGE);
 

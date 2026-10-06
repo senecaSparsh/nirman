@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import {Building2, Package, PieChart} from "lucide-react";
-import { getCompany, toNum, getUserScope, scopeWhere, getUserPermissions } from "@/lib/server";
+import { getCompany, toNum, getUserScope, scopeWhere, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
@@ -32,7 +32,7 @@ export default function MobileDepartmentConsumptionPage() {
 
 async function MobileDepartmentConsumptionContent() {
   await connection();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.INVENTORY_VIEW)) notFound();
   const company = await getCompany();
 

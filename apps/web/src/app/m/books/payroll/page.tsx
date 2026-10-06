@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { CalendarCheck } from "lucide-react";
-import { getCompany, toNum, getActionPermissions, getUserPermissions } from "@/lib/server";
+import { getCompany, toNum, getActionPermissions, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatNumber } from "@/lib/utils";
 import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
@@ -23,7 +23,7 @@ export default function BooksPayrollPage() {
 
 async function BooksPayrollContent() {
   await connection();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.PAYROLL_VIEW)) notFound();
   const company = await getCompany();
   const canManage = __effPerms.includes(PERM.PAYROLL_MANAGE);

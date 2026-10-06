@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import {TrendingUp, Users} from "lucide-react";
-import { scopeWhere, getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { scopeWhere, getCompany, toNum, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
@@ -30,7 +30,7 @@ export default function MobilePurchaseTrendsPage() {
 
 async function MobilePurchaseTrendsContent() {
   await connection();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
   const company = await getCompany();
 

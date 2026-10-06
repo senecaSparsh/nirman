@@ -8,7 +8,7 @@ import {
   BookOpen,
   FileText,
   Package} from "lucide-react";
-import {   getCompany, toNum, scopeWhere, getActionPermissions, filterOptionsByScope, getUserPermissions } from "@/lib/server";
+import { getCompany, toNum, scopeWhere, getActionPermissions, filterOptionsByScope, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import {
@@ -182,7 +182,7 @@ async function ConstructionWorkOrdersTab() {
 /** Change Orders tab — mirrors /m/change-orders */
 async function ConstructionChangeOrdersTab() {
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   const canManage = __effPerms.includes(PERM.WO_MANAGE);
   const actions = await getActionPermissions();
 
@@ -250,7 +250,7 @@ async function ConstructionChangeOrdersTab() {
 /** Quality Control tab — mirrors /m/quality-control */
 async function ConstructionQualityTab() {
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   const canManage = __effPerms.includes(PERM.WO_MANAGE);
   const actions = await getActionPermissions();
 
@@ -345,7 +345,7 @@ async function ConstructionQualityTab() {
 /** Safety tab — mirrors /m/safety */
 async function ConstructionSafetyTab() {
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   const canManage = __effPerms.includes(PERM.WO_MANAGE);
 
   const [incidents, hazards, inspections, projects] = await Promise.all([
@@ -513,7 +513,7 @@ function BoqRowCard({ row }: { row: BoqRow }) {
 /** BOQ tab — mirrors /m/boq (project-scoped) */
 async function ConstructionBoqTab({ projectId }: { projectId?: string }) {
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.BOQ_VIEW)) {
     return <MobileEmptyState icon={ListTree} title="No access" hint="You don't have permission to view BOQ" />;
   }
@@ -588,7 +588,7 @@ async function ConstructionBoqTab({ projectId }: { projectId?: string }) {
 /** WBS tab — mirrors /m/wbs (project-scoped) */
 async function ConstructionWbsTab({ projectId }: { projectId?: string }) {
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   const canView = __effPerms.includes(PERM.WBS_VIEW);
   const canManage = __effPerms.includes(PERM.WBS_MANAGE);
   const actions = await getActionPermissions();
@@ -681,7 +681,7 @@ async function ConstructionWbsTab({ projectId }: { projectId?: string }) {
 /** Measurement Book tab — mirrors /m/measurement-book (project-scoped) */
 async function ConstructionMbTab({ projectId }: { projectId?: string }) {
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   const canCreate = __effPerms.includes(PERM.MB_VERIFY);
   const canCreateProject = __effPerms.includes(PERM.PROJECTS_MANAGE);
 

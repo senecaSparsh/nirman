@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum, getUserPermissions, scopeWhere } from "@/lib/server";
+import { toNum, getEffectivePermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobilePipelineStepper, type MobilePipelineStep } from "@/components/mobile/v2/primitives";
@@ -14,7 +14,7 @@ export default function MobileMaterialSaleDetailPage({
   return (
     <MobileDetailPage params={params} perm={PERM.SALES_VIEW} what="material sales" permission="sales.view" skeletonSections={6} scopeAware>
       {async ({ id, company, role, perms }) => {
-        const overrides = await getUserPermissions();
+        const overrides = await getEffectivePermissions();
 
         const sale = await prisma.materialSale.findFirst({
           where: {...await scopeWhere("MaterialSale"),  id, companyId: company.id },

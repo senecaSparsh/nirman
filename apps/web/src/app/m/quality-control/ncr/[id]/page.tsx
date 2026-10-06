@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { notFound } from "next/navigation";
-import { scopeWhere, getCompany, getUserPermissions } from "@/lib/server";
+import { scopeWhere, getCompany, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { MobileNcrDetailClient } from "./MobileNcrDetailClient";
@@ -24,7 +24,7 @@ export default async function MobileNcrDetailPage({
 async function MobileNcrDetailContent({ id }: { id: string }) {
   await connection();
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   const canManage = __effPerms.includes(PERM.QC_MANAGE);
 
   if (!__effPerms.includes(PERM.QC_VIEW)) {

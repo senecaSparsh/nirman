@@ -111,7 +111,7 @@ export default function MobileSaleDetailPage({
         const canManage = perms.includes(PERM.SALES_MANAGE);
         // Only count CLEARED payments — exclude PENDING and BOUNCED cheques
         const totalPaid = sale.payments
-          .filter((p) => p.status !== "BOUNCED" && p.chequeStatus !== "BOUNCED" && p.chequeStatus !== "PENDING")
+          .filter((p) => p.status !== "VOID" && p.status !== "BOUNCED" && p.chequeStatus !== "BOUNCED" && p.chequeStatus !== "PENDING")
           .reduce((sum, p) => sum + toNum(p.amount), 0);
 
         const asset = sale.assetType === "LAND"

@@ -4,7 +4,7 @@ import {
   ScanLine, Truck, Phone,
   Building2, IndianRupee, ClipboardList, Printer,
 } from "lucide-react";
-import { getCompanyGroupIds, getCurrentUser, getUserPermissions, toNum, scopeWhere } from "@/lib/server";
+import { getCompanyGroupIds, getCurrentUser, getEffectivePermissions, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
 import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate, formatDateTime } from "@/lib/utils";
@@ -45,7 +45,7 @@ export default function MobilePoDetailPage({
     <MobileDetailPage params={params} perm={PERM.PROCUREMENT_VIEW} managePerm={PERM.PROCUREMENT_MANAGE} skeletonSections={6} scopeAware>
       {async ({ id, company, role, canManage, actingRole, perms }) => {
         const groupCompanyIds = await getCompanyGroupIds(company);
-        const overrides = await getUserPermissions();
+        const overrides = await getEffectivePermissions();
 
         // Show POs from the entire company group — quotation-approved POs may
         // be created in a different company (parent/child) than the user's current.

@@ -8,7 +8,7 @@ import {
   CheckCircle2, ChevronRight, ArrowRight,
   TrendingDown, Building2, CalendarClock,
 } from "lucide-react";
-import { getActingRole, getCompany, getUserRole, getUserPermissions, getCurrentUser, toNum, scopeWhere  } from "@/lib/server";
+import { getActingRole, getCompany, getUserRole, getEffectivePermissions, getCurrentUser, toNum, scopeWhere } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 import { TallySyncButton } from "@/components/mobile/tally-sync-button";
@@ -49,7 +49,7 @@ async function AttentionContent() {
   const company = await getCompany();
   const role = await getUserRole();
   const actingRole = await getActingRole();
-  const overrides = await getUserPermissions();
+  const overrides = await getEffectivePermissions();
   const user = await getCurrentUser();
   const userId = user?.id ?? "";
   // Tier-1 approvers (OWNER/ADMIN) may approve their own creations — no higher

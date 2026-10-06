@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { getCashFlowForecast } from "@nirman/services";
 import { TrendingUp, TrendingDown, Wallet, Calendar } from "lucide-react";
-import {getCompany, getUserPermissions, getUserScope} from "@/lib/server";
+import { getCompany, getEffectivePermissions, getUserScope } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatDate } from "@/lib/utils";
 import {
@@ -39,7 +39,7 @@ async function MobileCashFlowContent({
   searchParams: Promise<{ project?: string }>;
 }) {
   await connection();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
   const company = await getCompany();
   const scope = await getUserScope();

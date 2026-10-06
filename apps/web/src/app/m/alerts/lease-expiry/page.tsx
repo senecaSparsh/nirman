@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { leaseExpiryAlerts } from "@nirman/services";
-import { getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { getCompany, toNum, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -23,7 +23,7 @@ export default function MobileLeaseExpiryPage() {
 
 async function LeaseExpiryContent() {
   await connection();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.ASSETS_VIEW)) {

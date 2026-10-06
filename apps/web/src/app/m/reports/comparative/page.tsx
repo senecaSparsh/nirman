@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { dprAnalysis, workforceProductivity, projectPnl } from "@nirman/services";
 import {BarChart3, Building2} from "lucide-react";
-import { scopeWhere, getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { scopeWhere, getCompany, toNum, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, formatEnumLabel } from "@/lib/utils";
 import {
@@ -31,7 +31,7 @@ export default function MobileComparativePage() {
 
 async function MobileComparativeContent() {
   await connection();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.FINANCE_VIEW) && !__effPerms.includes(PERM.HR_VIEW)) notFound();
   const company = await getCompany();
 

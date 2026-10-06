@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { Package, Truck, ShoppingCart, Building2, Wallet, ClipboardCheck, TrendingUp } from "lucide-react";
-import { getCompany, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { getCompany, toNum, scopeWhere, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
@@ -31,7 +31,7 @@ export default function MobileReportsPage() {
 
 async function MobileReportsContent() {
   await connection();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
   const company = await getCompany();
 

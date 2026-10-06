@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserPermissions } from "@/lib/server";
+import { getCompany, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
 import MobileNewMaterialClient from "../../new/MobileNewMaterialClient";
@@ -16,7 +16,7 @@ export default async function EditMaterialPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
 
   if (!__effPerms.includes(PERM.INVENTORY_MANAGE)) {
     return <MobileNoAccess what="edit materials" permission="inventory.manage" />;

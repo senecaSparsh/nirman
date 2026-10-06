@@ -3,7 +3,7 @@ import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import {Users} from "lucide-react";
-import { getCompany, getUserPermissions } from "@/lib/server";
+import { getCompany, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact, toNum} from "@/lib/utils";
 import { getPurchaserPerformance } from "@nirman/services";
@@ -35,7 +35,7 @@ async function MobilePurchaserPerformanceContent({
 }) {
   await connection();
   const { from: fromParam, to: toParam } = await searchParams;
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) notFound();
   const company = await getCompany();
 

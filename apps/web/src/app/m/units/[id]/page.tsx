@@ -1,7 +1,7 @@
 import { prisma } from "@nirman/db";
 import {
   Home, ShoppingCart, Building2, TrendingUp} from "lucide-react";
-import { toNum, getUserPermissions, scopeWhere } from "@/lib/server";
+import { toNum, getEffectivePermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatNumber, formatCurrency, formatDate } from "@/lib/utils";
 import {
@@ -39,7 +39,7 @@ export default function MobileUnitDetailPage({
   return (
     <MobileDetailPage params={params} perm={PERM.ASSETS_VIEW} what="built units" permission="assets.view" managePerm={PERM.ASSETS_MANAGE} skeletonSections={6} scopeAware>
       {async ({ id, company, role, canManage, perms }) => {
-        const overrides = await getUserPermissions();
+        const overrides = await getEffectivePermissions();
 
         const unit = await prisma.builtUnit.findFirst({
           where: {...await scopeWhere("BuiltUnit"),  id, deletedAt: null, project: { companyId: company.id } },

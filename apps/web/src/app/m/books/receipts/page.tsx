@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { Wallet } from "lucide-react";
-import { scopeWhere, getCompany, toNum, getUserPermissions } from "@/lib/server";
+import { scopeWhere, getCompany, toNum, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber } from "@/lib/utils";
 import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
@@ -22,7 +22,7 @@ export default function BooksReceiptsPage() {
 
 async function BooksReceiptsContent() {
   await connection();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
   const company = await getCompany();
 

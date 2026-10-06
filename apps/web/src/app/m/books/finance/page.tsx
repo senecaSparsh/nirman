@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import {Wallet, Building2} from "lucide-react";
-import { getCompany, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { getCompany, toNum, scopeWhere, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import {formatCurrencyCompact} from "@/lib/utils";
 import {MobileEmptyState, MobileStatCard} from "@/components/mobile/v2/primitives";
@@ -26,7 +26,7 @@ export default function MobileFinancePage() {
 
 async function MobileFinanceContent() {
   await connection();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
   const company = await getCompany();
   const canCreateExpense = __effPerms.includes(PERM.EXPENSE_CREATE);

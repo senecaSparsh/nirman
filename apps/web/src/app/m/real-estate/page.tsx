@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { getCompany, toNum, scopeWhere, getActionPermissions, getUserPermissions } from "@/lib/server";
+import { getCompany, toNum, scopeWhere, getActionPermissions, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
@@ -68,7 +68,7 @@ export default function MobileRealEstateHubPage({
 /** Projects tab — mirrors /m/projects */
 async function RealEstateProjectsTab() {
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   const canManage = __effPerms.includes(PERM.PROJECTS_MANAGE);
 
   const projects = await prisma.project.findMany({
@@ -110,7 +110,7 @@ async function RealEstateProjectsTab() {
 /** Units tab — mirrors /m/units */
 async function RealEstateUnitsTab() {
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.ASSETS_VIEW)) return <MobileNoAccess what="units" permission="assets.view" />;
   const canManage = __effPerms.includes(PERM.ASSETS_MANAGE);
 
@@ -160,7 +160,7 @@ async function RealEstateUnitsTab() {
 /** Land tab — mirrors /m/land */
 async function RealEstateLandTab() {
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.ASSETS_VIEW)) return <MobileNoAccess what="land records" permission="assets.view" />;
   const canManage = __effPerms.includes(PERM.ASSETS_MANAGE);
   const actions = await getActionPermissions();
@@ -276,7 +276,7 @@ async function RealEstateLandTab() {
 /** Customers tab — mirrors /m/customers */
 async function RealEstateCustomersTab() {
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.SALES_VIEW)) return <MobileNoAccess what="customers" permission="sales.view" />;
   const canCreate = __effPerms.includes(PERM.SALE_CREATE);
   const canEdit = __effPerms.includes(PERM.SALE_CREATE);
@@ -418,7 +418,7 @@ async function RealEstateCustomersTab() {
 /** Brokers tab — mirrors /m/brokers */
 async function RealEstateBrokersTab() {
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.SALES_VIEW)) return <MobileNoAccess what="brokers" permission="sales.view" />;
   const canCreate = __effPerms.includes(PERM.SALES_MANAGE);
   const canEdit = __effPerms.includes(PERM.SALES_MANAGE);
@@ -452,7 +452,7 @@ async function RealEstateBrokersTab() {
 /** Rentals tab — mirrors /m/rentals */
 async function RealEstateRentalsTab() {
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.SALES_VIEW)) return <MobileNoAccess what="rentals" permission="sales.view" />;
   const canManage = __effPerms.includes(PERM.ASSETS_MANAGE);
 

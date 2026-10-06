@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { listTdsSubcontractors } from "@nirman/services";
 import { FileText, Receipt, Users } from "lucide-react";
-import { getCompany, getUserPermissions } from "@/lib/server";
+import { getCompany, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import {
@@ -48,7 +48,7 @@ async function MobileTdsCertificatesContent({
 }) {
   await connection();
   const { fy: fyParam } = await searchParams;
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
   const company = await getCompany();
   const fy = fyParam ?? currentFY();

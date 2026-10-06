@@ -12,7 +12,7 @@ import {
   Users} from "lucide-react";
 import { prisma } from "@nirman/db";
 import { getTallySyncStats, getSupplierOutstanding, getExpenseBudgetVariance, canAutoApprove } from "@nirman/services";
-import { getCompany, getCurrentUser, toNum, scopeWhere, getUserPermissions, getActingRole, getScopedRolePermissions } from "@/lib/server";
+import { getCompany, getCurrentUser, toNum, scopeWhere, getEffectivePermissions, getActingRole, getScopedRolePermissions } from "@/lib/server";
 import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 import { PERM } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
@@ -249,7 +249,7 @@ async function AccountsOverviewContent() {
       const selfOk = canAutoApprove(await getActingRole());
       const notOwn = selfOk ? {} : { not: user?.id };
       const effPerms = [
-        ...(await getUserPermissions()),
+        ...(await getEffectivePermissions()),
         ...(await getScopedRolePermissions()),
       ];
       const canApproveExpense = effPerms.includes(PERM.EXPENSE_APPROVE);
@@ -491,7 +491,7 @@ async function AccountsOverviewContent() {
 /** Expenses tab — mirrors /m/expenses */
 async function AccountsExpensesTab() {
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
   const canCreate = __effPerms.includes(PERM.EXPENSE_CREATE);
   const canView = true; // already gated by FINANCE_VIEW above
@@ -559,7 +559,7 @@ async function AccountsExpensesTab() {
 /** Claims tab — mirrors /m/expense-claims */
 async function AccountsClaimsTab() {
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
   const canApprove = __effPerms.includes(PERM.EXPENSE_APPROVE);
   const canCreate = __effPerms.includes(PERM.EXPENSE_CREATE);
@@ -608,7 +608,7 @@ async function AccountsClaimsTab() {
 /** Petty Cash tab — mirrors /m/petty-cash */
 async function AccountsPettyCashTab() {
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
   const canManage = __effPerms.includes(PERM.FINANCE_MANAGE);
   const canSpend = __effPerms.includes(PERM.EXPENSE_CREATE);
@@ -653,7 +653,7 @@ async function AccountsPettyCashTab() {
 /** Supplier Payments tab — mirrors /m/supplier-payments */
 async function AccountsPaymentsTab() {
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
   const canManage = __effPerms.includes(PERM.FINANCE_MANAGE);
   const canViewProcurement = __effPerms.includes(PERM.PROCUREMENT_VIEW);
@@ -705,7 +705,7 @@ async function AccountsPaymentsTab() {
 /** Receipts tab — mirrors /m/books/receipts */
 async function AccountsReceiptsTab() {
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
 
   const [assetPayments, materialPayments] = await Promise.all([
@@ -767,7 +767,7 @@ async function AccountsReceiptsTab() {
 /** GL tab — mirrors /m/books/gl */
 async function AccountsGlTab() {
   const company = await getCompany();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
 
   const accounts = await prisma.glAccount.findMany({

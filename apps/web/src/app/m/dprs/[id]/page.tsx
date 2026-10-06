@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { prisma } from "@nirman/db";
 import { Cloud, Hammer, Users, CheckCircle2, XCircle } from "lucide-react";
-import { getUserPermissions, toNum, scopeWhere, getCurrentUser } from "@/lib/server";
+import { getEffectivePermissions, toNum, scopeWhere, getCurrentUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
 import { formatDate, formatNumber, formatCurrency, formatEnumLabel } from "@/lib/utils";
@@ -25,7 +25,7 @@ export default function MobileDprDetailPage({
   return (
     <MobileDetailPage params={params} perm={PERM.DPR_VIEW} what="DPRs" permission="dpr.view" managePerm={PERM.HR_MANAGE} skeletonSections={6} scopeAware>
       {async ({ id, company, role, canManage, actingRole, perms }) => {
-        const overrides = await getUserPermissions();
+        const overrides = await getEffectivePermissions();
 
         const dpr = await prisma.dailyProgressReport.findFirst({
           where: {...await scopeWhere("DailyProgressReport"),  id, project: { companyId: company.id } },

@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum, getUserPermissions, scopeWhere } from "@/lib/server";
+import { toNum, getEffectivePermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { notFound } from "next/navigation";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
@@ -24,7 +24,7 @@ export default function MobileTransferDetailPage({
   return (
     <MobileDetailPage params={params} perm={PERM.INVENTORY_VIEW} what="transfer" managePerm={PERM.STOCK_TRANSFER} skeletonSections={6} scopeAware>
       {async ({ id, company, role, canManage }) => {
-        const overrides = await getUserPermissions();
+        const overrides = await getEffectivePermissions();
 
         const transfer = await prisma.stockTransfer.findFirst({
           where: {

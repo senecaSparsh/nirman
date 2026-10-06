@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { getCompany, getUserRole, toNum, getUserScope, getUserPermissions, getEffectivePermissions, getEmployeeAccessScope, getCurrentUser, canManageSpecificEmployee, employeeVisibilityWhere, scopeWhere } from "@/lib/server";
+import { getCompany, getUserRole, toNum, getUserScope, getEffectivePermissions, getEmployeeAccessScope, getCurrentUser, canManageSpecificEmployee, employeeVisibilityWhere, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
@@ -36,7 +36,7 @@ async function MobileOnboardingDetailContent({
   // View = effective (scoped PM sees an in-scope worker's checklist);
   // manage stays global — employees/[id] PATCH requires org hr.manage.
   const __effPerms = await getEffectivePermissions();
-  const __globalPerms = await getUserPermissions();
+  const __globalPerms = await getEffectivePermissions();
 
   if (!__effPerms.includes(PERM.HR_VIEW)) {
     return (
