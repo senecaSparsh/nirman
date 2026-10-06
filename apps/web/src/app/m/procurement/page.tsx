@@ -56,7 +56,7 @@ export default function MobileProcurementPage() {
               project: { select: { name: true } },
               lines: { select: { qtyRequested: true, material: { select: { name: true, unit: true } } } },
               vendorQuotes: { select: { id: true } },
-              requestedBy: { select: { name: true } }}}),
+              requestedBy: { select: { id: true, name: true } }}}),
           // ── Quotations tab ──
           prisma.quotationRequest.findMany({
             where: { ...await scopeWhere("QuotationRequest"), companyId: { in: groupCompanyIds } },
@@ -178,7 +178,12 @@ export default function MobileProcurementPage() {
         // ── Indents serialization ──
         const reqHasMore = reqs.length > BATCH_SIZE;
         const reqBatch = reqHasMore ? reqs.slice(0, BATCH_SIZE) : reqs;
-        const reqSubmittedCount = reqBatch.filter((r) => r.status === "SUBMITTED").length;
+        // Only indents the viewer can approve — approve-perm + not their
+        // own request (matches the approve gating on the detail rows).
+        const selfApprove = canAutoApprove(actingRole);
+        const reqSubmittedCount = reqBatch.filter(
+          (r) => r.status === "SUBMITTED" && canApproveRequisition && (r.requestedBy?.id !== currentUser?.id || selfApprove),
+        ).length;
         const reqLastItem = reqBatch[reqBatch.length - 1];
         const reqNextCursor = reqHasMore && reqLastItem
           ? `${reqLastItem.createdAt.toISOString()}|${reqLastItem.id}`

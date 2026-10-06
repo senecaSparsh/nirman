@@ -16,6 +16,7 @@ export default function MobileDprsPage() {
         const canApproveAdmin = perms.includes(PERM.DPR_APPROVE_ADMIN);
         const currentUser = await getCurrentUser();
         const currentUserId = currentUser?.id ?? null;
+        const selfApprove = canAutoApprove(actingRole);
 
         const BATCH_SIZE = 40;
         const dprs = await prisma.dailyProgressReport.findMany({
@@ -28,7 +29,13 @@ export default function MobileDprsPage() {
 
         const hasMore = dprs.length > BATCH_SIZE;
         const batch = hasMore ? dprs.slice(0, BATCH_SIZE) : dprs;
-        const submittedCount = batch.filter((d) => d.approvalStatus === "SUBMITTED").length;
+        // Only DPRs the viewer can act on — stage perm + not their own
+        // submission (matching the row-level swipe gate below).
+        const submittedCount = batch.filter(
+          (d) =>
+            (d.approvalStatus === "SUBMITTED" && canApproveSubAdmin && (d.submittedBy?.id !== currentUserId || selfApprove)) ||
+            (d.approvalStatus === "SUB_ADMIN_APPROVED" && canApproveAdmin && (d.submittedBy?.id !== currentUserId || selfApprove)),
+        ).length;
         const lastItem = batch[batch.length - 1];
         const nextCursor = hasMore && lastItem
           ? `${lastItem.date.toISOString()}|${lastItem.id}`
