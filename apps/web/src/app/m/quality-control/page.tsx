@@ -12,6 +12,7 @@ import { FLOWS } from "@/lib/flow-map";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 import { ClipboardCheck, Plus } from "lucide-react";
 import { MobileNcrList } from "./MobileNcrList";
+import { formatDate } from "@/lib/utils";
 import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 import { MobileNcrFab } from "./MobileNcrFab";
 
@@ -112,6 +113,7 @@ export default function MobileQualityControlPage() {
                         </p>
                         <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                           {grn.purchaseOrder.supplier?.name ?? "Unknown"} · {grn._count.lines} line{grn._count.lines !== 1 ? "s" : ""}
+                          {" · "}{formatDate(grn.receiptDate)}{grn.challanNumber ? ` · Challan ${grn.challanNumber}` : ""}
                         </p>
                       </div>
                       <span className="text-m-caption font-bold shrink-0" style={{ color: "var(--color-signal)" }}>
