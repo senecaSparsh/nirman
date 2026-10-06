@@ -79,8 +79,17 @@ export const POST = apiHandler(async (req: NextRequest) => {
     }, { status: 409 });
   }
 
+  // QC gate — a GRN whose lines all failed inspection produces no invoice.
+  // Partial rejections invoice only the accepted qty (the rejected portion
+  // stays unpaid, which is what makes the supplier reship correctly).
+  const rejectedCount = grn.lines.filter((l) => l.inspectionStatus === "REJECTED").length;
+  if (rejectedCount === grn.lines.length) {
+    return json({ error: "All lines on this goods receipt failed quality inspection — nothing to invoice" }, { status: 422 });
+  }
+  const acceptedLines = grn.lines.filter((l) => l.inspectionStatus !== "REJECTED");
+
   // Build invoice lines from GRN lines, enriched with GST rate from PO lines
-  const invoiceLines = grn.lines.map((grl) => {
+  const invoiceLines = acceptedLines.map((grl) => {
     const poLine = po.lines.find((pl) => pl.materialId === grl.materialId);
     const gstRate = poLine?.gstRate ?? grl.material.gstRate ?? 0;
     return {

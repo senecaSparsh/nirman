@@ -300,6 +300,69 @@ describe("finance tenancy + workflow guards", () => {
       const count = await prisma.supplierPayment.count({ where: { companyId: company.id } });
       expect(count).toBe(1);
     });
+
+    it("createSupplierInvoice blocks a PO whose goods receipt failed QC", async () => {
+      const { company, project, user, stockLocation } = await createTestFixture();
+      await seedTestAccounts(company.id);
+      const supplier = await makeSupplier(company.id);
+      const category = await prisma.materialCategory.create({
+        data: { companyId: company.id, name: `Cat-${Date.now()}` },
+      });
+      const material = await prisma.material.create({
+        data: { companyId: company.id, code: `M-${Date.now()}`, name: "Reject Cement", unit: "bag", categoryId: category.id },
+      });
+      const po = await prisma.purchaseOrder.create({
+        data: {
+          company: { connect: { id: company.id } },
+          poNumber: `PO-REJ-${Date.now()}`,
+          supplier: { connect: { id: supplier.id } },
+          project: { connect: { id: project.id } },
+          destinationLocation: { connect: { id: stockLocation.id } },
+          procurementScope: "PROJECT",
+          status: "ORDERED",
+        },
+      });
+      const poLine = await prisma.purchaseOrderLine.create({
+        data: {
+          purchaseOrderId: po.id,
+          materialId: material.id,
+          qtyOrdered: new Decimal(10),
+          unitCost: new Decimal(100),
+        },
+      });
+      const gr = await prisma.goodsReceipt.create({
+        data: {
+          purchaseOrderId: po.id,
+          locationId: stockLocation.id,
+          receivedById: user.id,
+          lines: {
+            create: [{
+              purchaseOrderLineId: poLine.id,
+              materialId: material.id,
+              qtyReceived: new Decimal(10),
+              unitCost: new Decimal(100),
+              inspectionStatus: "REJECTED",
+              inspectionRemarks: "wet bags, unusable",
+            }],
+          },
+        },
+      });
+      expect(gr.id).toBeTruthy();
+
+      await expect(
+        createSupplierInvoice({
+          invoiceNumber: `INV-REJ-${Date.now()}`,
+          companyId: company.id,
+          supplierId: supplier.id,
+          purchaseOrderId: po.id,
+          invoiceDate: new Date("2026-10-01"),
+          subtotal: 1000,
+          gstAmount: 0,
+          totalAmount: 1000,
+          userId: user.id,
+        }),
+      ).rejects.toMatchObject({ status: 422 });
+    });
   });
 
   // ── Money validation ─────────────────────────────────────

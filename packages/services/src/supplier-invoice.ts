@@ -271,7 +271,7 @@ export async function createSupplierInvoice(input: {
           lines: { select: { materialId: true, qtyOrdered: true, unitCost: true } },
           goodsReceipts: {
             include: {
-              lines: { select: { materialId: true, qtyReceived: true } },
+              lines: { select: { materialId: true, qtyReceived: true, inspectionStatus: true } },
             },
           },
         },
@@ -282,6 +282,19 @@ export async function createSupplierInvoice(input: {
       }
       if (po.companyId !== input.companyId) {
         throw new ServiceError("Purchase order does not belong to this company");
+      }
+
+      // QC gate — an invoice for goods that failed inspection must not be
+      // booked. PENDING is allowed (QC can run after receipt); REJECTED is
+      // not — paying for rejected goods is the fraud vector this prevents.
+      const rejectedLines = po.goodsReceipts.flatMap((gr) =>
+        gr.lines.filter((gl) => gl.inspectionStatus === "REJECTED"),
+      );
+      if (rejectedLines.length > 0) {
+        throw new ServiceError(
+          `Cannot book an invoice for this PO — ${rejectedLines.length} received line(s) failed quality inspection. Reject the goods or re-inspect before invoicing.`,
+          422,
+        );
       }
 
       poLines = po.lines.map((l) => ({
