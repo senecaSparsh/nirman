@@ -37,12 +37,15 @@ export default function MobileBoqPage({
           Promise.resolve(perms.includes(PERM.PROJECTS_MANAGE)),
         ]);
 
-        const selectedProject = projectId
-          ? projects.find((p) => p.id === projectId)
+        // Single-project users (most field roles) skip the picker entirely —
+        // there's only one valid answer.
+        const effectiveProjectId = projectId ?? (projects.length === 1 ? projects[0]!.id : undefined);
+        const selectedProject = effectiveProjectId
+          ? projects.find((p) => p.id === effectiveProjectId)
           : undefined;
 
         // No project selected — show selector + empty state.
-        if (!projectId || !selectedProject) {
+        if (!selectedProject) {
           return (
             <div>
               <MobileBoqProjectSelector projects={projects} selectedId={projectId ?? undefined} canCreate={canCreateProject} />
@@ -59,7 +62,7 @@ export default function MobileBoqPage({
         const actions = await getActionPermissions();
         const canCreateBoq = actions?.canCreateBoq ?? perms.includes(PERM.BOQ_MANAGE);
         const [boqResult, materials] = await Promise.all([
-          getBoqTree(projectId),
+          getBoqTree(effectiveProjectId!),
           canCreateBoq
             ? prisma.material.findMany({
                 where: { companyId: company.id, deletedAt: null, stockItems: { some: { AND: [{ location: { companyId: company.id  } }, await scopeWhere("StockLocationItem")] } } },
@@ -125,7 +128,7 @@ export default function MobileBoqPage({
             {/* ── FAB for adding BOQ items ── */}
             {canCreateBoq && (
               <MobileBoqFab
-                projectId={projectId}
+                projectId={effectiveProjectId!}
                 parentItems={parentItems}
                 materials={materials.map((m) => ({ id: m.id, name: m.name, unit: m.unit }))}
               />

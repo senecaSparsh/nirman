@@ -31,8 +31,10 @@ export default function MobileBudgetVariancePage({
           orderBy: { name: "asc" },
           select: { id: true, name: true }});
 
-        const selectedProject = projectId
-          ? projects.find((p) => p.id === projectId) ?? null
+        // Single-project users skip the picker.
+        const effectiveProjectId = projectId ?? (projects.length === 1 ? projects[0]!.id : undefined);
+        const selectedProject = effectiveProjectId
+          ? projects.find((p) => p.id === effectiveProjectId) ?? null
           : null;
 
         // Fetch variance only when a valid project is selected

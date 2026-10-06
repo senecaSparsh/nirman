@@ -41,10 +41,11 @@ export default function MobileWbsPage({
           orderBy: { name: "asc" },
           select: { id: true, name: true }});
 
-        const selectedProject = projectId
+        const effectiveProjectId = projectId ?? (projects.length === 1 ? projects[0]!.id : undefined);
+        const selectedProject = effectiveProjectId
           ? await prisma.project.findFirst({
               where: { ...await scopeWhere("Project"),
-                id: projectId,
+                id: effectiveProjectId,
                 companyId: company.id,
                 deletedAt: null},
               select: { id: true, name: true }})

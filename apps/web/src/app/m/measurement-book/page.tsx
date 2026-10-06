@@ -22,13 +22,19 @@ export default function MobileMeasurementBookPage({
 }) {
   return (
     <MobileProjectScopedPage searchParams={searchParams} perm={PERM.MB_VIEW} what="measurement book" permission="mb.view" skeletonRows={6}>
-      {async ({ company, projectId, perms }) => {
+      {async ({ company, projectId: rawProjectId, perms }) => {
         const canCreateProject = perms.includes(PERM.PROJECTS_MANAGE);
 
+        let projectId: string | null = rawProjectId ?? null;
         const projects = await prisma.project.findMany({
           where: { companyId: company.id, deletedAt: null },
           orderBy: { name: "asc" },
           select: { id: true, name: true }});
+
+        // Single-project users skip the picker.
+
+        projectId = projectId ?? (projects.length === 1 ? projects[0]!.id : null);
+
 
         if (!projectId) {
           return (

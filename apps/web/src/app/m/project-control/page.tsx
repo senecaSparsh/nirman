@@ -22,14 +22,19 @@ export default function MobileProjectControlPage({
 }) {
   return (
     <MobileProjectScopedPage searchParams={searchParams} skeletonRows={6}>
-      {async ({ company, projectId, perms }) => {
+      {async ({ company, projectId: rawProjectId, perms }) => {
         perms.includes(PERM.FINANCE_VIEW);
         const canCreateProject = perms.includes(PERM.PROJECTS_MANAGE);
 
+        let projectId: string | null = rawProjectId ?? null;
         const projects = await prisma.project.findMany({
-          where: { ...await scopeWhere("Project"), ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
+          where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
           orderBy: { name: "asc" },
           select: { id: true, name: true }});
+
+        // Single-project users skip the picker.
+
+        projectId = projectId ?? (projects.length === 1 ? projects[0]!.id : null);
 
         if (!projectId) {
           return (
