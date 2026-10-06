@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@nirman/db";
-import { getCurrentUser, getEffectivePermissions, toNum, scopeWhere, getActionPermissions } from "@/lib/server";
+import { getCurrentUser, getUserPermissions, toNum, scopeWhere, getActionPermissions } from "@/lib/server";
 import { PERM, hasPermission } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
 import { formatNumber, formatDate, formatCurrency } from "@/lib/utils";
@@ -31,7 +31,7 @@ export default function MobileRequisitionDetailPage({
   return (
     <MobileDetailPage params={params} perm={PERM.PROCUREMENT_VIEW} what="requisitions" permission="procurement.view" managePerm={PERM.PROCUREMENT_MANAGE} skeletonSections={6} scopeAware>
       {async ({ id, company, role, canManage, actingRole, perms }) => {
-        const overrides = await getEffectivePermissions();
+        const overrides = await getUserPermissions();
         const actions = await getActionPermissions();
         const canCreatePo = actions?.canCreatePo ?? canManage;
 
@@ -57,7 +57,7 @@ export default function MobileRequisitionDetailPage({
             },
             lines: {
               include: {
-                material: { select: { id: true, code: true, name: true, unit: true, currentCost: true, gstRate: true } },
+                material: { select: { id: true, code: true, name: true, unit: true, currentCost: true } },
                 preferredSupplier: { select: { id: true, name: true } },
               },
               orderBy: { material: { name: "asc" } },
@@ -98,7 +98,6 @@ export default function MobileRequisitionDetailPage({
           materialName: l.material.name,
           materialCode: l.material.code,
           unit: l.material.unit,
-          gstRate: toNum(l.material.gstRate),
           qtyRequested: toNum(l.qtyRequested),
           notes: l.notes,
           currentStock: l.currentStock != null ? toNum(l.currentStock) : null,
@@ -390,11 +389,10 @@ export default function MobileRequisitionDetailPage({
                   materialCode: l.materialCode,
                   materialName: l.materialName,
                   unit: l.unit,
-                  gstRate: l.gstRate,
                   qtyRequested: l.qtyRequested,
                 }))}
                 suppliers={suppliers.map((s) => ({ id: s.id, name: s.name }))}
-                canApprove={perms.includes(PERM.PO_APPROVE)}
+                canApprove={canApprove}
                 canCreate={canCreatePo}
               />
               </div>
