@@ -20,11 +20,16 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const company = await getCompany();
   const url = new URL(req.url);
   const includeGroup = url.searchParams.get("group") === "true";
+  // For transfer destinations the caller needs every company location — the
+  // sender chooses where material goes out to; only the *source* location is
+  // scope-checked (in the mutation). A destination picker that hides other
+  // sites makes inter-site transfers impossible to initiate.
+  const forDestination = url.searchParams.get("purpose") === "destination";
 
   const companyIds = includeGroup ? await getCompanyGroupIds() : [company.id];
   const locations = await prisma.stockLocation.findMany({
     take: 500,
-    where: { companyId: { in: companyIds }, deletedAt: null, ...await scopeWhere("StockLocation") },
+    where: { companyId: { in: companyIds }, deletedAt: null, ...(forDestination ? {} : await scopeWhere("StockLocation")) },
     orderBy: [{ type: "asc" }, { name: "asc" }],
     include: {
       project: { select: { id: true, name: true } },

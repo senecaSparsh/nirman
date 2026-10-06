@@ -95,19 +95,21 @@ export const POST = apiHandler(async (req: NextRequest) => {
   try {
     const groupIds = await getCompanyGroupIds();
 
-    // Scope check on both ends — a scoped user may only move stock through
-    // locations inside their scope (shared warehouse/dept locations stay
-    // reachable since they carry no projectId).
+    // Scope check the SOURCE only — the sender controls their own stock and
+    // names the destination. The receiving location's scope is checked when
+    // the receiver CONFIRMS the transfer (the in-transit record is company-
+    // scoped so both ends see it). Locking the destination behind the sender's
+    // scope would make inter-site transfers impossible to initiate.
     const locs = await prisma.stockLocation.findMany({
       where: { id: { in: [parsed.data.fromLocationId, parsed.data.toLocationId] } },
       select: { id: true, projectId: true, departmentId: true },
     });
-    for (const loc of locs) {
-      try {
-        await assertScopeAllows({ projectId: loc.projectId ?? null, departmentId: loc.departmentId ?? null });
-      } catch (err) {
-        return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
-      }
+    const fromLoc = locs.find((l) => l.id === parsed.data.fromLocationId);
+    if (!fromLoc) return json({ error: "Source location not found" }, { status: 404 });
+    try {
+      await assertScopeAllows({ projectId: fromLoc.projectId ?? null, departmentId: fromLoc.departmentId ?? null });
+    } catch (err) {
+      return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
     }
 
     const transfer = await createTransfer({

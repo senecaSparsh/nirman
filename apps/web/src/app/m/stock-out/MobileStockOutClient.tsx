@@ -102,11 +102,17 @@ export function MobileStockOutClient({
 
   // ── Data ──
   // ── Options: locations + projects + materials (parallel, cached) ──
+  // `locations` is scope-filtered (what the user can send FROM). For
+  // transfers the destination is any company location — a Site One PM sends
+  // stock to Site Two without needing Site Two's scope. The /destination
+  // fetch skips scopeWhere on purpose.
   const locQ = useFetch<LocationItem[]>("/api/stock-locations?group=true");
+  const destLocQ = useFetch<LocationItem[]>("/api/stock-locations?group=true&purpose=destination");
   const projQ = useFetch<ProjectItem[]>("/api/projects");
   const matQ = useFetch<{ rows?: MaterialItem[] }>("/api/materials");
   const loading = locQ.loading || projQ.loading || matQ.loading;
   const [locations, setLocations] = useState<LocationItem[]>([]);
+  const [destLocations, setDestLocations] = useState<LocationItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [materials, setMaterials] = useState<MaterialItem[]>([]);
 
@@ -215,7 +221,10 @@ export function MobileStockOutClient({
       if (initialFromLocationId && locs.some((l) => l.id === initialFromLocationId)) {
         setFromLocationId(initialFromLocationId);
       } else if (locs.length > 0) setFromLocationId(locs[0]!.id);
-      if (locs.length > 1) setToLocationId(locs[1]!.id);
+      // Destination defaults to the first company location that ISN'T the
+      // source — a same-site "transfer" is meaningless.
+      const dests = destLocations.filter((l) => l.id !== (initialFromLocationId || locs[0]?.id));
+      if (dests.length > 0) setToLocationId(dests[0]!.id);
       if (initialProjectId && projs.some((p) => p.id === initialProjectId)) {
         setProjectId(initialProjectId);
       } else if (projs.length > 0) {
@@ -224,7 +233,13 @@ export function MobileStockOutClient({
       if (mats.length > 0) setLines([{ materialId: "", qty: "", lotNumber: "" }]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot prefill on data arrival
-  }, [locQ.loading, projQ.loading, matQ.loading]);
+  }, [locQ.loading, projQ.loading, matQ.loading, destLocQ.data]);
+
+  // Destination locations populate independently — a scoped user sees all
+  // company destinations for a transfer, even ones outside their scope.
+  useEffect(() => {
+    if (destLocQ.data) setDestLocations(destLocQ.data);
+  }, [destLocQ.data]);
 
   // ── Auto-save draft ──
   useEffect(() => {
@@ -651,7 +666,7 @@ export function MobileStockOutClient({
   }
 
   const fromLoc = locations.find((l) => l.id === fromLocationId);
-  const toLoc = locations.find((l) => l.id === toLocationId);
+  const toLoc = destLocations.find((l) => l.id === toLocationId) ?? locations.find((l) => l.id === toLocationId);
   const proj = projects.find((p) => p.id === projectId);
 
   // Route flow state: 0 = nothing selected, 1 = origin only, 2 = both endpoints
@@ -1257,8 +1272,10 @@ export function MobileStockOutClient({
             modal.type === "lot" ? undefined : "location"
           }
           items={
-            modal.type === "from" || modal.type === "to-location"
+            modal.type === "from"
               ? locations.map((l) => ({ id: l.id, label: l.name, sub: l.companyName ?? undefined }))
+              : modal.type === "to-location"
+                ? destLocations.map((l) => ({ id: l.id, label: l.name, sub: l.companyName ?? undefined }))
               : modal.type === "to-project"
                 ? projects.map((p) => ({ id: p.id, label: p.name }))
                 : modal.type === "lot"
