@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { cn, formatNumber, formatCurrency, formatDateTime, toNum} from "@/lib/utils";
 import { useOfflineQueue } from "@/lib/offline/use-offline-queue";
-import type { QueuedOperation } from "@/lib/offline/queue";
+import { retryOp, type QueuedOperation } from "@/lib/offline/queue";
 import { VehicleCapture, type VehicleData } from "@/components/mobile/vehicle-capture";
 import {
   PhotoCapture, WeighbridgeFields, SelectField,
@@ -48,7 +48,7 @@ interface ReceivablePo {
 
 export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: ReceivablePo[]; initialPoId?: string }) {
   const router = useRouter();
-  const { queue, pending, online, syncing, enqueue, sync } = useOfflineQueue();
+  const { queue, pending, online, syncing, enqueue, sync, refresh } = useOfflineQueue();
   const [selectedPoId, setSelectedPoId] = useState<string>(initialPoId ?? "");
   const [gateEntryNumber, setGateEntryNumber] = useState<string>("");
   const [challanNumber, setChallanNumber] = useState<string>("");
@@ -510,7 +510,7 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
 
       {/* Offline queue */}
       {queue.length > 0 && (
-        <QueuePanel queue={queue} />
+        <QueuePanel queue={queue} onRetry={async (id) => { await retryOp(id); await sync(); await refresh(); }} />
       )}
 
       {/* Cross-platform barcode scanner overlay */}
@@ -527,7 +527,7 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
   );
 }
 
-function QueuePanel({ queue }: { queue: QueuedOperation[] }) {
+function QueuePanel({ queue, onRetry }: { queue: QueuedOperation[]; onRetry: (id: string) => Promise<void> }) {
   const [open, setOpen] = useState(true);
   return (
     <div className="rounded-lg border bg-card">
@@ -553,6 +553,14 @@ function QueuePanel({ queue }: { queue: QueuedOperation[] }) {
                   {op.attempts > 0 && ` · ${op.attempts} attempt${op.attempts === 1 ? "" : "s"}`}
                 </div>
                 {op.error && <div className="mt-0.5 text-danger">{op.error}</div>}
+                {op.status === "FAILED" && (
+                  <button
+                    className="mt-1 inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-meta font-medium text-info hover:bg-info/10"
+                    onClick={() => void onRetry(op.id)}
+                  >
+                    <RefreshCw className="h-3 w-3" /> Retry sync
+                  </button>
+                )}
               </div>
               <StatusBadge status={op.status} />
             </div>
