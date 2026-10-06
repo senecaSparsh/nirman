@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { updateCapa, startCapa, completeCorrectiveAction, completePreventiveAction, verifyCapa, closeCapa, ServiceError } from "@nirman/services";
 import { prisma } from "@nirman/db";
-import { apiHandler, json, requirePermission, getCompany, scopeWhere } from "@/lib/server";
+import { apiHandler, json, requireEffectivePermission, getCompany, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -24,7 +24,7 @@ const actionSchema = z.object({
 
 // PATCH /api/quality-control/capa/[id]
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.QC_MANAGE);
+  const user = await requireEffectivePermission(PERM.QC_MANAGE);
   const { id } = await ctx.params;
 
   const company = await getCompany();

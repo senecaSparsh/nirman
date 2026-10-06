@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createCapa, getCapa, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -17,7 +17,7 @@ const createSchema = z.object({
 
 // GET /api/quality-control/capa?ncrId=xxx
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.QC_VIEW);
+  await requireEffectivePermission(PERM.QC_VIEW);
   const company = await getCompany();
   const ncrId = req.nextUrl.searchParams.get("ncrId");
   if (!ncrId) return json({ error: "ncrId is required" }, { status: 400 });
@@ -35,7 +35,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
 // POST /api/quality-control/capa
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requirePermission(PERM.QC_MANAGE);
+  const user = await requireEffectivePermission(PERM.QC_MANAGE);
   const company = await getCompany();
   const body = await req.json();
   const parsed = createSchema.safeParse(body);

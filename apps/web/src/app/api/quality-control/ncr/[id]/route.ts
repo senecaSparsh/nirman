@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { getNcr, updateNcr, reviewNcr, closeNcr, cancelNcr, deleteNcr, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, json, requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -28,7 +28,7 @@ const actionSchema = z.object({
 
 // GET /api/quality-control/ncr/[id]
 export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  await requirePermission(PERM.QC_VIEW);
+  await requireEffectivePermission(PERM.QC_VIEW);
   const company = await getCompany();
   const { id } = await ctx.params;
   const existing = await prisma.nonConformanceReport.findFirst({
@@ -42,7 +42,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
 
 // PATCH /api/quality-control/ncr/[id]
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.QC_MANAGE);
+  const user = await requireEffectivePermission(PERM.QC_MANAGE);
   const company = await getCompany();
   const { id } = await ctx.params;
   const body = await req.json();
@@ -109,7 +109,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
 
 // DELETE /api/quality-control/ncr/[id]
 export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
-  const user = await requirePermission(PERM.QC_MANAGE);
+  const user = await requireEffectivePermission(PERM.QC_MANAGE);
   const company = await getCompany();
   const { id } = await ctx.params;
   const existing = await prisma.nonConformanceReport.findFirst({
