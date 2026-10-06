@@ -540,7 +540,11 @@ function ActivityTab({ groups }: { groups: { label: string; items: DetailMovemen
                       {formatNumber(m.qty, 0)} {m.materialUnit} {m.materialName}
                     </p>
                     <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
-                      {m.fromLocationName ?? "—"} → {m.toLocationName ?? "—"}
+                      {IN_TYPES.includes(m.movementType)
+                          ? `→ ${m.toLocationName ?? "—"}`
+                          : OUT_TYPES.includes(m.movementType)
+                            ? `${m.fromLocationName ?? "—"} →`
+                            : `${m.fromLocationName ?? "—"} → ${m.toLocationName ?? "—"}`}
                     </p>
                   </div>
                   <div className="text-right shrink-0">
