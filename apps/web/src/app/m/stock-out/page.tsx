@@ -28,7 +28,7 @@ export default function StockOutPage({
   searchParams: Promise<{ mode?: string; project?: string; from?: string }>;
 }) {
   return (
-    <MobileHubPage skeleton={<MobileSkeletonDetail sections={4} />}>
+    <MobileHubPage skeleton={<MobileSkeletonDetail sections={4} />} scopeAware>
       {async ({ perms }) => {
         const canTransfer = perms.includes(PERM.STOCK_TRANSFER);
         const canIssue = perms.includes(PERM.STOCK_ISSUE);
