@@ -12,6 +12,7 @@ import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCrea
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
+import { useEffectivePerms } from "@/components/mobile/mobile-perms";
 import { localDateISO } from "@/lib/utils";
 
 interface ReportType {
@@ -21,24 +22,32 @@ interface ReportType {
   icon: typeof Package;
   hasDateRange: boolean;
   needsProject?: boolean;
+  /** Matches the API's per-report PERM_MAP — the picker hides reports
+      the viewer can't export instead of offering a guaranteed 403. */
+  perm: string;
 }
 
 const REPORTS: ReportType[] = [
-  { id: "inventory-value", label: "Inventory Valuation", description: "Stock value by location & material", icon: Package, hasDateRange: false },
-  { id: "purchase-trends", label: "Purchase Trends", description: "Procurement spend over time", icon: TrendingUp, hasDateRange: true },
-  { id: "sales-revenue", label: "Sales Revenue", description: "Revenue from material & asset sales", icon: Wallet, hasDateRange: true },
-  { id: "project-progress", label: "Project Progress", description: "Project costs, units, completion", icon: BarChart3, hasDateRange: false },
-  { id: "payroll-expense", label: "Payroll Expense", description: "Salary & wage expenses", icon: Receipt, hasDateRange: true },
-  { id: "pending-payments", label: "Pending Payments", description: "Outstanding payables & receivables", icon: Wallet, hasDateRange: false },
-  { id: "trial-balance", label: "Trial Balance", description: "GL account balances (debit/credit)", icon: Scale, hasDateRange: true },
-  { id: "stock-movements", label: "Stock Movements", description: "All IN/OUT/TRANSFER movements", icon: Package, hasDateRange: true },
-  { id: "purchaser-performance", label: "Purchaser Performance", description: "Quote selection rates & savings", icon: TrendingUp, hasDateRange: true },
-  { id: "stock-issue-summary", label: "Stock Issue Summary", description: "Material issues by project", icon: Package, hasDateRange: true },
-  { id: "issue-register", label: "Issue Register", description: "Detailed issue challan register", icon: FileText, hasDateRange: true },
-  { id: "purchase-register", label: "Purchase Register", description: "PO & goods receipt register", icon: FileText, hasDateRange: true },
+  { id: "inventory-value", perm: "inventory.view", label: "Inventory Valuation", description: "Stock value by location & material", icon: Package, hasDateRange: false },
+  { id: "purchase-trends", perm: "finance.view", label: "Purchase Trends", description: "Procurement spend over time", icon: TrendingUp, hasDateRange: true },
+  { id: "sales-revenue", perm: "finance.view", label: "Sales Revenue", description: "Revenue from material & asset sales", icon: Wallet, hasDateRange: true },
+  { id: "project-progress", perm: "finance.view", label: "Project Progress", description: "Project costs, units, completion", icon: BarChart3, hasDateRange: false },
+  { id: "payroll-expense", perm: "finance.view", label: "Payroll Expense", description: "Salary & wage expenses", icon: Receipt, hasDateRange: true },
+  { id: "pending-payments", perm: "finance.view", label: "Pending Payments", description: "Outstanding payables & receivables", icon: Wallet, hasDateRange: false },
+  { id: "trial-balance", perm: "finance.view", label: "Trial Balance", description: "GL account balances (debit/credit)", icon: Scale, hasDateRange: true },
+  { id: "stock-movements", perm: "inventory.view", label: "Stock Movements", description: "All IN/OUT/TRANSFER movements", icon: Package, hasDateRange: true },
+  { id: "purchaser-performance", perm: "procurement.view", label: "Purchaser Performance", description: "Quote selection rates & savings", icon: TrendingUp, hasDateRange: true },
+  { id: "stock-issue-summary", perm: "inventory.view", label: "Stock Issue Summary", description: "Material issues by project", icon: Package, hasDateRange: true },
+  { id: "issue-register", perm: "inventory.view", label: "Issue Register", description: "Detailed issue challan register", icon: FileText, hasDateRange: true },
+  { id: "purchase-register", perm: "procurement.view", label: "Purchase Register", description: "PO & goods receipt register", icon: FileText, hasDateRange: true },
 ];
 
 export default function MobileExportPage() {
+  const perms = useEffectivePerms();
+  const visibleReports = useMemo(
+    () => (perms === null || perms.includes("*") ? REPORTS : REPORTS.filter((r) => perms.includes(r.perm))),
+    [perms],
+  );
   const [selected, setSelected] = useState<string | null>(null);
   const [format, setFormat] = useState<"xlsx" | "csv">("xlsx");
   const [from, setFrom] = useState("");
@@ -124,7 +133,7 @@ export default function MobileExportPage() {
           Select Report
         </p>
         <div className="space-y-1.5">
-          {REPORTS.map((r) => {
+          {visibleReports.map((r) => {
             const isSelected = selected === r.id;
             const Icon = r.icon;
             return (

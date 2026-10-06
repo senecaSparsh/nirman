@@ -21,7 +21,7 @@ import {
   getProjectMaterialReconciliation,
   projectPnl} from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, toNum, requireUser, scopeWhere, projectScopeFilter, getUserPermissions } from "@/lib/server";
+import { apiHandler, getCompany, json, toNum, requireUser, scopeWhere, projectScopeFilter, getEffectivePermissions } from "@/lib/server";
 import { localDateISO, startOfDayIST, endOfDayIST } from "@/lib/utils";
 
 /**
@@ -39,7 +39,7 @@ import { localDateISO, startOfDayIST, endOfDayIST } from "@/lib/utils";
  */
 export const GET = apiHandler(async (req: NextRequest) => {
   const _user = await requireUser();
-  const __effPerms = await getUserPermissions();
+  const __effPerms = await getEffectivePermissions();
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
 

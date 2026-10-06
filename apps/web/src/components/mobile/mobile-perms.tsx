@@ -111,3 +111,15 @@ export function usePerm(perm?: string, opts?: { global?: boolean }): boolean {
   const perms = opts?.global ? ctx.globalPermissions : [...ctx.globalPermissions, ...ctx.scopedPermissions];
   return perms.includes(perm) || ctx.globalPermissions.includes("*");
 }
+
+/** The full effective permission union (global + scoped hats) — for
+ *  filtering LIST affordances (e.g. a report picker showing only the
+ *  reports the viewer can actually export). Returns `null` outside the
+ *  shell — callers should treat null as "no filtering". */
+export function useEffectivePerms(): string[] | null {
+  const ctx = useContext(MobilePermsContext);
+  if (!ctx) return null;
+  return ctx.globalPermissions.includes("*")
+    ? ["*"]
+    : [...ctx.globalPermissions, ...ctx.scopedPermissions];
+}
