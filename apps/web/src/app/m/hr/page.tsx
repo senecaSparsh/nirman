@@ -114,10 +114,19 @@ export default function HrHomePage() {
                     submittedById: { not: currentUser?.id }}})
                 .catch(() => 0)
             : Promise.resolve(0),
-          prisma.leaveRequest
-            .count({
-              where: { companyId: company.id, status: "PENDING" }})
-            .catch(() => 0),
+          // Scoped-leave count — the approve route lifts a scoped HR_MANAGER/
+          // PM hat per project, so count only in-scope leaves when the user's
+          // effective perms can actually approve them, excluding their own.
+          perms.includes(PERM.HR_MANAGE)
+            ? prisma.leaveRequest
+                .count({
+                  where: {
+                    companyId: company.id,
+                    status: "PENDING",
+                    ...await scopeWhere("LeaveRequest"),
+                    employee: { userId: { not: currentUser?.id }}}})
+                .catch(() => 0)
+            : Promise.resolve(0),
           prisma.payrollPeriod
             .findFirst({
               where: { companyId: company.id, status: "DRAFT" },
