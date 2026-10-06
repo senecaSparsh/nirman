@@ -67,6 +67,7 @@ const EVENT_LABELS: Record<string, string> = {
 export default function MobileNotificationsPage() {
   const [tab, setTab] = useState<"preferences" | "templates" | "log">("preferences");
   const [loading, setLoading] = useState(true);
+  const [canSeeAdmin, setCanSeeAdmin] = useState(false);
   const [preferences, setPreferences] = useState<Preference[]>([]);
   const [channels, setChannels] = useState<Record<string, boolean>>({ IN_APP: true, WHATSAPP: true, EMAIL: true });
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -78,10 +79,22 @@ export default function MobileNotificationsPage() {
   const loadData = async () => {
     setLoading((prev) => (prev ? prev : true));
     try {
+      // Admin tabs (templates + log) need FINANCE_VIEW — check before fetching
+      // so a non-finance user doesn't fire two guaranteed-403 requests and see
+      // dead tabs.
+      const meRes = await fetch("/api/me").then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      const globalPerms: string[] = Array.isArray(meRes?.permissions) ? meRes.permissions : [];
+      const adminAllowed = globalPerms.includes("finance.view") || globalPerms.includes("*");
+      setCanSeeAdmin(adminAllowed);
+
       const [prefsRes, tmplRes, logRes] = await Promise.all([
         fetch("/api/notifications/preferences").then((r) => (r.ok ? r.json() : [])),
-        fetch("/api/notifications/templates").then((r) => (r.ok ? r.json() : { templates: [], stats: null })),
-        fetch("/api/notifications/log?limit=20").then((r) => (r.ok ? r.json() : [])),
+        adminAllowed
+          ? fetch("/api/notifications/templates").then((r) => (r.ok ? r.json() : { templates: [], stats: null }))
+          : Promise.resolve({ templates: [], stats: null }),
+        adminAllowed
+          ? fetch("/api/notifications/log?limit=20").then((r) => (r.ok ? r.json() : []))
+          : Promise.resolve([]),
       ]);
 
       if (Array.isArray(prefsRes)) setPreferences(prefsRes);
@@ -227,7 +240,7 @@ export default function MobileNotificationsPage() {
         className="flex gap-1 rounded-[0.625rem] border p-1"
         style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
       >
-        {(["preferences", "templates", "log"] as const).map((t) => (
+        {(canSeeAdmin ? (["preferences", "templates", "log"] as const) : (["preferences"] as const)).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
