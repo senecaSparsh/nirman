@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobileSubcontractorDetailClient } from "./MobileSubcontractorDetailClient";
@@ -27,16 +27,19 @@ export default function MobileSubcontractorDetailPage({
           where: { id, companyId: company.id, deletedAt: null },
           include: {
             workOrders: {
+              where: await scopeWhere("WorkOrder"),
               orderBy: { createdAt: "desc" },
               take: 20,
               include: { project: { select: { id: true, name: true } } },
             },
             projectCosts: {
+              where: await scopeWhere("ProjectCost"),
               orderBy: { createdAt: "desc" },
               take: 20,
               include: { project: { select: { id: true, name: true } } },
             },
             materialIssues: {
+              where: await scopeWhere("MaterialIssue"),
               orderBy: { createdAt: "desc" },
               take: 10,
               include: { project: { select: { id: true, name: true } } },

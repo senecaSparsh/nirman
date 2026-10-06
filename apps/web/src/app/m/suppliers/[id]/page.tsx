@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { computeVendorRating } from "@nirman/services";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { Truck } from "lucide-react";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
@@ -21,7 +21,7 @@ export default function MobileSupplierDetailPage({
           where: { id, companyId: company.id, deletedAt: null },
           include: {
             purchaseOrders: {
-              where: { companyId: company.id },
+              where: { companyId: company.id, ...await scopeWhere("PurchaseOrder") },
               orderBy: { createdAt: "desc" },
               take: 20,
               select: {
@@ -30,7 +30,7 @@ export default function MobileSupplierDetailPage({
               },
             },
             supplierPayments: {
-              where: { companyId: company.id },
+              where: { companyId: company.id, ...await scopeWhere("SupplierPayment") },
               orderBy: { paymentDate: "desc" },
               take: 20,
               select: {

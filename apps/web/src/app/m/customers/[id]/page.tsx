@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { toNum } from "@/lib/server";
+import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobileCustomerDetailClient } from "./MobileCustomerDetailClient";
@@ -30,13 +30,13 @@ export default function MobileCustomerDetailPage({
           where: { id, companyId: company.id, deletedAt: null },
           include: {
             assetSales: {
-              where: { companyId: company.id, status: "ACTIVE" },
+              where: { companyId: company.id, status: "ACTIVE", ...await scopeWhere("AssetSale") },
               orderBy: { createdAt: "desc" },
               include: {
                 project: { select: { id: true, name: true } },
                 payments: { orderBy: { paymentDate: "asc" } }}},
             materialSales: {
-              where: { companyId: company.id, status: "ACTIVE" },
+              where: { companyId: company.id, status: "ACTIVE", ...await scopeWhere("MaterialSale") },
               orderBy: { createdAt: "desc" },
               include: {
                 project: { select: { id: true, name: true } },
