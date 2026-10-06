@@ -2349,33 +2349,33 @@ export async function getActionPermissions() {
   const canCreateEmployee = hasGlobalPerm("hr.manage");
   const canRecordLeave = hasPerm("hr.manage");
   const canCreateMaterial = hasPerm("inventory.manage");
-  const canCreateWorkOrder = hasPerm("sales.manage") || hasPerm("projects.manage");
+  const canCreateWorkOrder = hasPerm("assets.manage"); // POST: assets.manage
   const canCreateProject = hasGlobalPerm("projects.manage") && scope.scopeType === "COMPANY";
   const canCreateCompany = hasGlobalPerm("company.manage") && scope.scopeType === "COMPANY";
   const canCreateDepartment = hasGlobalPerm("company.manage");
   const canCreateCustomer = hasPerm("sales.manage");
   const canCreateLead = hasPerm("sales.manage");
   const canCreateSupplier = hasPerm("procurement.manage");
-  const canCreateEquipment = hasPerm("inventory.manage");
-  const canCreateMaterialSale = hasPerm("inventory.manage");
-  const canCreateRental = hasPerm("inventory.manage");
-  const canCreateGatePass = hasPerm("inventory.manage");
-  const canCreateChangeOrder = hasPerm("projects.manage");
+  const canCreateEquipment = hasPerm("assets.manage"); // POST: assets.manage
+  const canCreateMaterialSale = hasPerm("sale.create"); // POST: sale.create
+  const canCreateRental = hasPerm("sale.create"); // POST: sale.create (tenancies)
+  const canCreateGatePass = hasPerm("gate_pass.create"); // POST: gate_pass.create
+  const canCreateChangeOrder = hasPerm("wo.manage"); // POST: wo.manage
   const canCreateBoq = hasPerm("projects.manage");
   const canCreateWbs = hasPerm("projects.manage");
   const canCreateNcr = hasPerm("projects.manage") || hasPerm("inventory.manage");
-  const canCreateLand = hasPerm("projects.manage");
+  const canCreateLand = hasPerm("assets.manage");
   const canCreatePortalListing = hasPerm("sales.manage");
   const canCreatePayroll = hasPerm("payroll.manage") || hasPerm("hr.manage");
   const canCreateTeamMember = hasGlobalPerm("company.manage");
   const canCreateBuiltUnit = hasPerm("projects.manage");
-  const canCreateSms = hasPerm("inventory.manage") || hasPerm("hr.manage");
+  const canCreateSms = hasPerm("sale.create"); // POST: sale.create
   // ── Additional action flags for complete FAB gating ──
-  const canCreateVehicle = hasPerm("inventory.manage");
+  const canCreateVehicle = hasPerm("vehicle.manage"); // POST: vehicle.manage
   const canCreateStockLocation = hasGlobalPerm("inventory.manage") && scope.scopeType === "COMPANY";
   const canCreateStandardConsumption = hasPerm("inventory.manage");
-  const canCreateRateContract = hasPerm("inventory.manage");
-  const canCreateSubcontractor = hasPerm("projects.manage");
+  const canCreateRateContract = hasPerm("procurement.manage"); // POST: procurement.manage
+  const canCreateSubcontractor = hasPerm("procurement.manage"); // POST: procurement.manage
   const canCreateBroker = hasPerm("sales.manage");
   const canCreateTask = hasPerm("tasks.assign");
   const canCreateDpr = hasPerm("dpr.submit");
