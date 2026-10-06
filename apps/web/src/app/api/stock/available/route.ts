@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, json, toNum, getCompany, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { requireAnyPermission } from "@/lib/server";
+import {  requireAnyEffectivePermission } from "@/lib/server";
 
 /**
  * GET /api/stock/available?locationId=...
@@ -18,7 +18,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   // "What's in stock here / at each location" powers the material pickers in
   // issue, transfer, scrap, sale, adjust and requisition forms — an action-
   // perm holder must read availability or every line shows "No stock here".
-  await requireAnyPermission(
+  await requireAnyEffectivePermission(
     PERM.INVENTORY_VIEW, PERM.STOCK_ISSUE, PERM.STOCK_TRANSFER,
     PERM.REQUISITION_CREATE, PERM.PROCUREMENT_VIEW, PERM.SALES_VIEW,
   );

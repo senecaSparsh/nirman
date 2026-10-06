@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { requirePermission } from "@/lib/server";
+import { requireEffectivePermission } from "@/lib/server";
 
 /**
  * GET /api/stock — stock-by-location matrix.
@@ -12,7 +12,7 @@ import { requirePermission } from "@/lib/server";
  * plus zero-qty rows are omitted for clarity.
  */
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.INVENTORY_VIEW);
+  await requireEffectivePermission(PERM.INVENTORY_VIEW);
   const company = await getCompany();
   const { searchParams } = new URL(req.url);
   const locationId = searchParams.get("locationId");

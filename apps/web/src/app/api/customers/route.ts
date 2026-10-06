@@ -2,12 +2,12 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, getCompany, json, customerSchema, requirePermission } from "@/lib/server";
+import { apiHandler, getCompany, json, customerSchema, requirePermission, requireEffectivePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
 export const GET = apiHandler(async () => {
-  await requirePermission(PERM.SALES_VIEW);
+  await requireEffectivePermission(PERM.SALES_VIEW);
   const company = await getCompany();
   const customers = await prisma.customer.findMany({
     take: 200,

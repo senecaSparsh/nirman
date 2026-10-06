@@ -3,11 +3,11 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction, ServiceError } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, requirePermission, supplierSchema, toNum } from "@/lib/server";
+import { apiHandler, getCompany, json, requirePermission, requireEffectivePermission, supplierSchema, toNum } from "@/lib/server";
 import { withSerializableTransaction } from "@nirman/services";
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.PROCUREMENT_VIEW);
+  await requireEffectivePermission(PERM.PROCUREMENT_VIEW);
   const company = await getCompany();
   const url = new URL(req.url);
   const q = url.searchParams.get("q")?.trim() ?? "";

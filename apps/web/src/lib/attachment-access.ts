@@ -7,7 +7,7 @@
  * `soft` marks models that carry deletedAt; the rest hard-delete or lack it.
  */
 import { prisma } from "@nirman/db";
-import { requirePermission, scopeWhere } from "@/lib/server";
+import { requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const ATTACHMENT_ENTITY_ACCESS: Record<string, { perm: string; managePerm?: string; model: string; soft?: boolean; companyPath?: string | string[]; keepScope?: boolean }> = {
@@ -59,8 +59,10 @@ export async function assertAttachmentSubjectAccess(
   if (!rule) return { error: "Unsupported attachment target", status: 403 };
   // Write checks may substitute the entity's manage perm — a manager can
   // always see records they manage, and view perm is implied by manage in
-  // every built-in role anyway.
-  await requirePermission(opts?.perm ?? rule.perm);
+  // every built-in role anyway. Effective perms (global ∪ scopedRole) are
+  // correct here: the scopeWhere clause below still confines the scoped hat
+  // to in-scope records, so an org perm on a hat can't reach org rows.
+  await requireEffectivePermission(opts?.perm ?? rule.perm);
   const delegate = (prisma as unknown as Record<string, SubjectDelegate>)[
     rule.model.charAt(0).toLowerCase() + rule.model.slice(1)
   ];

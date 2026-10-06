@@ -2,12 +2,12 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createEmployee, generateOfferLetter, generateEmploymentAgreement, generateEmployeeIdCard, generateAppointmentLetter, setSalaryComponents, autoCompleteOnboarding } from "@nirman/services";
-import { apiHandler, getCompany, json, employeeSchema, requirePermission, toNum, assertScopeAllows, getCompanyDescendantIds, scopeWhere, getEmployeeAccessScope, isTopLevelViewer } from "@/lib/server";
+import { apiHandler, getCompany, json, employeeSchema, requirePermission, requireEffectivePermission, toNum, assertScopeAllows, getCompanyDescendantIds, scopeWhere, getEmployeeAccessScope, isTopLevelViewer } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 
 export const GET = apiHandler(async (req: NextRequest) => {
-  await requirePermission(PERM.HR_VIEW);
+  await requireEffectivePermission(PERM.HR_VIEW);
   const company = await getCompany();
   // Wage fields are compensation data — same field-visibility policy as the
   // employee pages (getEmployeeAccessScope): only payroll.manage|hr.manage
