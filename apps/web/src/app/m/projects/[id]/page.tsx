@@ -311,14 +311,14 @@ export default function MobileProjectDetailPage({
       {/* ── Quick actions ── */}
       <SectionHead title="Quick actions" />
       <div className="grid grid-cols-4 gap-1.5 mb-3">
-        <QuickActionTile href={`/m/site/dpr?project=${id}`} icon={FileText} label="New Daily Progress Report" />
-        <QuickActionTile href={`/m/requisitions/new?project=${id}`} icon={ClipboardList} label="New Indent" />
-        <QuickActionTile href={`/m/stock-out?mode=issue&project=${id}`} icon={PackageCheck} label="Issue" />
-        <QuickActionTile href={`/m/procurement/new?project=${id}`} icon={Truck} label="New Purchase Order" />
-        <QuickActionTile href={`/m/units?project=${id}`} icon={Home} label="Add Built Units" />
-        <QuickActionTile href={`/m/sales/new?project=${id}`} icon={TrendingUp} label="Record a Sale" />
-        <QuickActionTile href={`/m/expenses/new?project=${id}`} icon={Wallet} label="Add Project Cost" />
-        <QuickActionTile href="/m/equipment" icon={Wrench} label="Assign Equipment" />
+        <QuickActionTile href={`/m/site/dpr?project=${id}`} icon={FileText} label="New Daily Progress Report" allowed={perms.includes(PERM.DPR_SUBMIT)} />
+        <QuickActionTile href={`/m/requisitions/new?project=${id}`} icon={ClipboardList} label="New Indent" allowed={perms.includes(PERM.REQUISITION_CREATE)} />
+        <QuickActionTile href={`/m/stock-out?mode=issue&project=${id}`} icon={PackageCheck} label="Issue" allowed={perms.includes(PERM.STOCK_ISSUE)} />
+        <QuickActionTile href={`/m/procurement/new?project=${id}`} icon={Truck} label="New Purchase Order" allowed={perms.includes(PERM.PROCUREMENT_MANAGE)} />
+        <QuickActionTile href={`/m/units?project=${id}`} icon={Home} label="Add Built Units" allowed={perms.includes(PERM.ASSETS_MANAGE)} />
+        <QuickActionTile href={`/m/sales/new?project=${id}`} icon={TrendingUp} label="Record a Sale" allowed={perms.includes(PERM.SALE_CREATE)} />
+        <QuickActionTile href={`/m/expenses/new?project=${id}`} icon={Wallet} label="Add Project Cost" allowed={perms.includes(PERM.EXPENSE_CREATE)} />
+        <QuickActionTile href="/m/equipment" icon={Wrench} label="Assign Equipment" allowed={perms.includes(PERM.ASSETS_MANAGE)} />
       </div>
             </>
           ),
@@ -638,11 +638,14 @@ export default function MobileProjectDetailPage({
 function QuickActionTile({
   href,
   icon: Icon,
-  label}: {
+  label,
+  allowed = true}: {
   href: string;
   icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   label: string;
+  allowed?: boolean;
 }) {
+  if (!allowed) return null;
   return (
     <Link
       href={href}
