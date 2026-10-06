@@ -2,6 +2,7 @@ import { prisma } from "@nirman/db";
 import { getCompany, toNum, scopeWhere, getActionPermissions, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileHubPage } from "@/components/mobile/v2/hub-page";
+import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { MobileRealEstateHubTabs } from "../MobileRealEstateHubTabs";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
@@ -110,6 +111,7 @@ async function RealEstateProjectsTab() {
 async function RealEstateUnitsTab() {
   const company = await getCompany();
   const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.ASSETS_VIEW)) return <MobileNoAccess what="units" permission="assets.view" />;
   const canManage = __effPerms.includes(PERM.ASSETS_MANAGE);
 
   const [units, _projects] = await Promise.all([
@@ -159,6 +161,7 @@ async function RealEstateUnitsTab() {
 async function RealEstateLandTab() {
   const company = await getCompany();
   const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.ASSETS_VIEW)) return <MobileNoAccess what="land records" permission="assets.view" />;
   const canManage = __effPerms.includes(PERM.ASSETS_MANAGE);
   const actions = await getActionPermissions();
 
@@ -274,6 +277,7 @@ async function RealEstateLandTab() {
 async function RealEstateCustomersTab() {
   const company = await getCompany();
   const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.SALES_VIEW)) return <MobileNoAccess what="customers" permission="sales.view" />;
   const canCreate = __effPerms.includes(PERM.SALE_CREATE);
   const canEdit = __effPerms.includes(PERM.SALE_CREATE);
   const canDelete = __effPerms.includes(PERM.SALES_MANAGE);
@@ -342,10 +346,66 @@ async function RealEstateCustomersTab() {
       pipelineValue};
   })();
 
+  // Serialize to the plain shapes the shared list components expect —
+  // raw Prisma rows carry Decimal objects that cannot cross the
+  // server → client boundary.
+  const customerRows: ComponentProps<typeof MobileCustomersLeadsTabs>["customers"] =
+    customers.map((c) => {
+      const assetSales = c.assetSales;
+      const materialSales = c.materialSales;
+      const allSales = [...assetSales, ...materialSales];
+      const totalValue =
+        assetSales.reduce((s, a) => s + toNum(a.salePrice) + toNum(a.gstAmount), 0) +
+        materialSales.reduce((s, m) => s + toNum(m.totalAmount), 0);
+      const totalPaid =
+        assetSales.reduce((s, a) => s + a.payments.reduce((ps, p) => ps + toNum(p.amount), 0), 0) +
+        materialSales.reduce((s, m) => s + m.payments.reduce((ps, p) => ps + toNum(p.amount), 0), 0);
+      const outstanding = totalValue - totalPaid;
+      const dueCount = allSales.filter((x) => x.paymentStatus !== "PAID").length;
+      const paymentStatus =
+        allSales.some((x) => x.paymentStatus === "PARTIAL") ? "PARTIAL"
+        : allSales.some((x) => x.paymentStatus === "PENDING") ? "PENDING"
+        : allSales.length > 0 ? "PAID"
+        : "NONE";
+      return {
+        id: c.id,
+        name: c.name,
+        phone: c.phone ?? null,
+        email: c.email ?? null,
+        gstin: c.gstin ?? null,
+        activeCount: allSales.length,
+        totalValue,
+        totalPaid,
+        outstanding,
+        dueCount,
+        paymentStatus,
+      };
+    });
+  const leadRows: ComponentProps<typeof MobileCustomersLeadsTabs>["leads"] =
+    leads.map((l) => ({
+      id: l.id,
+      name: l.name,
+      phone: l.phone,
+      email: l.email ?? null,
+      source: l.source,
+      stage: l.stage,
+      priority: l.priority,
+      score: l.score,
+      projectName: l.project?.name ?? null,
+      assignedToName: l.assignedTo?.name ?? null,
+      nextFollowUpAt: l.nextFollowUpAt ? l.nextFollowUpAt.toISOString() : null,
+      lastContactAt: l.lastContactAt ? l.lastContactAt.toISOString() : null,
+      budgetMin: l.budgetMin ? toNum(l.budgetMin) : null,
+      budgetMax: l.budgetMax ? toNum(l.budgetMax) : null,
+      interestedUnitType: l.interestedUnitType,
+      convertedAt: l.convertedAt ? l.convertedAt.toISOString() : null,
+      createdAt: l.createdAt.toISOString(),
+    }));
+
   return (
     <MobileCustomersLeadsTabs
-      customers={customers as unknown as ComponentProps<typeof MobileCustomersLeadsTabs>["customers"]}
-      leads={leads as unknown as ComponentProps<typeof MobileCustomersLeadsTabs>["leads"]}
+      customers={customerRows}
+      leads={leadRows}
       canCreate={canCreate}
       canEdit={canEdit}
       canDelete={canDelete}
@@ -359,6 +419,7 @@ async function RealEstateCustomersTab() {
 async function RealEstateBrokersTab() {
   const company = await getCompany();
   const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.SALES_VIEW)) return <MobileNoAccess what="brokers" permission="sales.view" />;
   const canCreate = __effPerms.includes(PERM.SALES_MANAGE);
   const canEdit = __effPerms.includes(PERM.SALES_MANAGE);
   const canDelete = __effPerms.includes(PERM.SALES_MANAGE);
@@ -392,6 +453,7 @@ async function RealEstateBrokersTab() {
 async function RealEstateRentalsTab() {
   const company = await getCompany();
   const __effPerms = await getUserPermissions();
+  if (!__effPerms.includes(PERM.SALES_VIEW)) return <MobileNoAccess what="rentals" permission="sales.view" />;
   const canManage = __effPerms.includes(PERM.ASSETS_MANAGE);
 
   const [tenancies, unitAssets, parcelAssets, customers] = await Promise.all([
