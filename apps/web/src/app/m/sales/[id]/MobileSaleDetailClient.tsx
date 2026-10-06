@@ -20,7 +20,6 @@ import { MobileDialog } from "@/components/mobile/v2/dialog";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { DetailKeyValueCard } from "@/components/mobile/v2/detail-primitives";
 import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
-import { requiresSaleAgreement } from "@nirman/services/sale-policy";
 
 type AssetType = "LAND" | "BUILT_UNIT" | "PROJECT";
 type SaleStatus = "PENDING" | "ACTIVE" | "CANCELLED";
@@ -207,7 +206,6 @@ export function MobileSaleDetailClient({
 }) {
   const router = useRouter();
   const docViewer = useDocumentViewer();
-  const agreementRequired = requiresSaleAgreement(_assetType, project?.id);
   const [showPayment, setShowPayment] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
   const [voidPaymentId, setVoidPaymentId] = useState<string | null>(null);
@@ -388,7 +386,7 @@ export function MobileSaleDetailClient({
       return;
     }
     const hasAgreementDoc = !!(atsDocumentUrl || compAtsDocUrl || bbaDocumentUrl || compBbaDocUrl);
-    if (agreementRequired && !hasAgreementDoc) {
+    if (!hasAgreementDoc) {
       toast.error("Upload at least one of ATS or BBA document to complete the sale");
       return;
     }
@@ -654,7 +652,6 @@ export function MobileSaleDetailClient({
           Each step shows done/pending/current state + document upload status. */}
       {!isCancelled && (
         <SaleLifecycleTimeline
-          agreementRequired={agreementRequired}
           saleStage={saleStage}
           saleDate={saleDate}
           atsNo={atsNo}
@@ -1258,7 +1255,7 @@ export function MobileSaleDetailClient({
               </span>
               {atsDocumentUrl ? (
                 <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-go)" }}>Uploaded</span>
-              ) : bbaDocumentUrl || !agreementRequired ? (
+              ) : bbaDocumentUrl ? (
                 <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-400)" }}>Optional</span>
               ) : (
                 <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-signal)" }}>One required</span>
@@ -1288,7 +1285,7 @@ export function MobileSaleDetailClient({
               </span>
               {bbaDocumentUrl ? (
                 <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-go)" }}>Uploaded</span>
-              ) : atsDocumentUrl || !agreementRequired ? (
+              ) : atsDocumentUrl ? (
                 <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-400)" }}>Optional</span>
               ) : (
                 <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-signal)" }}>One required</span>
@@ -1799,7 +1796,7 @@ export function MobileSaleDetailClient({
               </p>
               <div>
                 <label className="text-m-caption font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
-                  Agreement to Sell (ATS) — {agreementRequired ? "one of ATS/BBA required *" : "optional for standalone land"}
+                  Agreement to Sell (ATS) — one of ATS/BBA required *
                 </label>
                 <MobileDocUploader
                   url={atsDocumentUrl || compAtsDocUrl}
@@ -1811,7 +1808,7 @@ export function MobileSaleDetailClient({
               </div>
               <div>
                 <label className="text-m-caption font-semibold uppercase block mb-0.5" style={{ color: "var(--color-ink-500)" }}>
-                  Builder-Buyer Agreement (BBA) — {agreementRequired ? "one of ATS/BBA required *" : "optional for standalone land"}
+                  Builder-Buyer Agreement (BBA) — one of ATS/BBA required *
                 </label>
                 <MobileDocUploader
                   url={bbaDocumentUrl || compBbaDocUrl}
@@ -2005,7 +2002,6 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
    Each step shows done/pending/current state + document upload status.
    Enforces the sequence: you can't complete without registry doc. */
 function SaleLifecycleTimeline({
-  agreementRequired,
   saleStage,
   saleDate,
   atsNo,
@@ -2020,7 +2016,6 @@ function SaleLifecycleTimeline({
   allotmentDate,
   allotmentDocumentUrl,
 }: {
-  agreementRequired: boolean;
   saleStage: string;
   saleDate: string;
   atsNo?: string | null;
@@ -2036,7 +2031,7 @@ function SaleLifecycleTimeline({
   allotmentDocumentUrl?: string | null;
 }) {
   const isCompleted = saleStage === "COMPLETED";
-  const hasDeposit = saleStage === "DEPOSIT_RECEIVED" || saleStage === "REGISTRY_PENDING" || isCompleted;
+  const hasDeposit = saleStage === "DEPOSIT_RECEIVED" || isCompleted;
 
   // Step states: "done" | "current" | "pending"
   const steps = [
@@ -2072,7 +2067,7 @@ function SaleLifecycleTimeline({
       docUrl: registryDocumentUrl,
       docDate: null,
     },
-  ].filter(step => step.label !== "ATS / BBA" || agreementRequired || atsNo || bbaNo || atsDocumentUrl || bbaDocumentUrl);
+  ];
 
   const stepColor = (state: "done" | "current" | "pending") =>
     state === "done"
