@@ -524,3 +524,13 @@ Assign (admin API) → lands in assignee's `/m/site/tasks` inbox grouped by stat
 **RA-bill math verified in DB:** gross ₹57,600 − retention ₹2,880 (5%) − TDS ₹576 (1%) = **net ₹54,144** ✓ — real retention/TDS deduction, not display math.
 
 **Create RA Bill** — measurement-billing dialog (period from/to + notes + unbilled-entry preview). Correctly blocks when fully billed: _"No unbilled MB entries found — approve measurement book entries first."_ RA bills bill against **approved MB entries** (measurement → certification → bill → pay chain is real). A transient "Failed to load preview" on first-open self-recovered on reopen — covered by the new useFetch retry affordance.
+
+### Fixed — CSP blocked the list-compute worker (Oct 7, prod)
+
+Production console showed a CSP violation: the `list-compute` web worker (offloads heavy list sort/filter off the main thread) is bundled as a `blob:` URL, but the CSP had no `worker-src` — it fell back to `script-src` which rejects `blob:`, so the worker was blocked and the app silently degraded to synchronous main-thread compute on large lists. Added `worker-src 'self' blob:` to the CSP in `next.config.ts`. Committed `6de28815`, pushed, deployed — the worker now loads clean (zero console errors on `nirman.life`).
+
+### Deployment log (Oct 7)
+
+- `f4abffe9` — full improvement set (9 fixes + ops docs) → prod healthy
+- `6de28815` — CSP worker-src fix → prod healthy
+- Both deploys: Coolify build+swap ~8min, graceful restart, post-deploy health 9/9.
