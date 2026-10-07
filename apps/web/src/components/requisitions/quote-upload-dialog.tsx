@@ -9,6 +9,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { SupplierFormDialog } from "@/components/procurement/supplier-form-dialog";
 import { formatCurrency } from "@/lib/utils";
+import { quoteEntryTotals } from "@/lib/quote-pricing";
 
 type MaterialOption = { id: string; code: string; name: string; unit: string };
 type SupplierOption = { id: string; name: string };
@@ -19,6 +20,7 @@ type RequisitionLine = {
   materialName: string;
   unit: string;
   qtyRequested: number;
+  gstRate?: number;
 };
 
 export function QuoteUploadDialog({
@@ -58,6 +60,7 @@ export function QuoteUploadDialog({
   const [notes, setNotes] = useState("");
   // Line amounts — prefilled from requisition lines, editable
   const [linePrices, setLinePrices] = useState<Record<string, string>>({});
+  const [lineGstRates, setLineGstRates] = useState<Record<string, string>>({});
   // Per-line landed-cost components (all per-unit, optional)
   const [lineFreight, setLineFreight] = useState<Record<string, string>>({});
   const [lineLoading, setLineLoading] = useState<Record<string, string>>({});
@@ -72,20 +75,19 @@ export function QuoteUploadDialog({
   const needsBuyerTransport = deliveryTermsType === "EX_WORKS" || deliveryTermsType === "FOR_STATION";
   const isDocumentSource = quoteSource === "DOCUMENT" || quoteSource === "EMAIL" || quoteSource === "LETTER" || quoteSource === "EXCEL";
 
-  const computedTotal = requisitionLines.reduce((sum, l) => {
-    const price = Number(linePrices[l.materialId] ?? 0);
-    const freight = Number(lineFreight[l.materialId] ?? 0);
-    const loading = Number(lineLoading[l.materialId] ?? 0);
-    const packing = Number(linePacking[l.materialId] ?? 0);
-    const insurance = Number(lineInsurance[l.materialId] ?? 0);
-    const discount = Number(lineDiscount[l.materialId] ?? 0);
-    const buyerTransport = Number(lineBuyerTransport[l.materialId] ?? 0);
-    // taxableValue = (price - discount + packing) per unit
-    const taxablePU = price - discount + packing;
-    // landed per unit = taxablePU + freight + buyerTransport + loading + insurance (GST computed server-side)
-    const landedPU = taxablePU + freight + buyerTransport + loading + insurance;
-    return sum + l.qtyRequested * landedPU;
-  }, 0);
+  const linePricing = requisitionLines.map((line) => ({
+    qty: line.qtyRequested,
+    unitPrice: Number(linePrices[line.materialId] ?? 0),
+    gstRate: Number(lineGstRates[line.materialId] ?? line.gstRate ?? 0),
+    freightPerUnit: Number(lineFreight[line.materialId] ?? 0),
+    loadingPerUnit: Number(lineLoading[line.materialId] ?? 0),
+    packingPerUnit: Number(linePacking[line.materialId] ?? 0),
+    insurancePerUnit: Number(lineInsurance[line.materialId] ?? 0),
+    discountPerUnit: Number(lineDiscount[line.materialId] ?? 0),
+    buyerTransportPerUnit: Number(lineBuyerTransport[line.materialId] ?? 0),
+  }));
+  const computedTotals = quoteEntryTotals(linePricing);
+  const computedTotal = computedTotals.landed;
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -122,22 +124,29 @@ export function QuoteUploadDialog({
     if (!paymentTerms.trim()) return toast.error("Payment terms are required (e.g. '30 days credit')");
     if (!leadTimeDays || Number(leadTimeDays) < 0) return toast.error("Lead time (days) is required");
     if (!landedTotal && computedTotal === 0) return toast.error("Enter the landed total or line prices");
+    if (linePricing.some((line) => !Number.isFinite(line.unitPrice) || !Number.isFinite(line.gstRate))) {
+      return toast.error("Enter a valid line price and GST rate for every material");
+    }
 
     const total = landedTotal ? Number(landedTotal) : computedTotal;
-    if (total <= 0) return toast.error("Landed total must be > 0");
+    if (!Number.isFinite(total) || total <= 0) return toast.error("Enter a valid landed total greater than zero");
+    if (Math.round(total * 100) !== Math.round(computedTotal * 100)) {
+      return toast.error(`Landed total must match the line prices and GST: ${formatCurrency(computedTotal)}`);
+    }
 
     setSaving(true);
     try {
-      const lines = requisitionLines.map((l) => ({
+      const lines = requisitionLines.map((l, index) => ({
         materialId: l.materialId,
-        qty: l.qtyRequested,
-        unitPrice: Number(linePrices[l.materialId] ?? 0),
-        freightPerUnit: Number(lineFreight[l.materialId] ?? 0) || undefined,
-        loadingPerUnit: Number(lineLoading[l.materialId] ?? 0) || undefined,
-        packingPerUnit: Number(linePacking[l.materialId] ?? 0) || undefined,
-        insurancePerUnit: Number(lineInsurance[l.materialId] ?? 0) || undefined,
-        discountPerUnit: Number(lineDiscount[l.materialId] ?? 0) || undefined,
-        buyerTransportPerUnit: Number(lineBuyerTransport[l.materialId] ?? 0) || undefined,
+        qty: linePricing[index]!.qty,
+        unitPrice: linePricing[index]!.unitPrice,
+        gstRate: linePricing[index]!.gstRate,
+        freightPerUnit: linePricing[index]!.freightPerUnit || undefined,
+        loadingPerUnit: linePricing[index]!.loadingPerUnit || undefined,
+        packingPerUnit: linePricing[index]!.packingPerUnit || undefined,
+        insurancePerUnit: linePricing[index]!.insurancePerUnit || undefined,
+        discountPerUnit: linePricing[index]!.discountPerUnit || undefined,
+        buyerTransportPerUnit: linePricing[index]!.buyerTransportPerUnit || undefined,
       }));
       const res = await fetch("/api/quotes", {
         method: "POST",
@@ -168,7 +177,7 @@ export function QuoteUploadDialog({
       });
       // Reset
       setSupplierId(""); clearFile(); setQuoteSource("DOCUMENT"); setSourceNote(""); setLandedTotal(""); setValidUntil(""); setPaymentTerms(""); setLeadTimeDays(""); setWarranty(""); setNotes("");
-      setLinePrices({}); setLineFreight({}); setLineLoading({}); setLinePacking({}); setLineInsurance({}); setLineDiscount({}); setLineBuyerTransport({});
+      setLinePrices({}); setLineGstRates({}); setLineFreight({}); setLineLoading({}); setLinePacking({}); setLineInsurance({}); setLineDiscount({}); setLineBuyerTransport({});
       setShowLandedCost(false); setDeliveryTermsType("DELIVERED_SITE"); setDeliveryTermsNote("");
       onUploaded?.();
       onOpenChange(false);
@@ -259,7 +268,7 @@ export function QuoteUploadDialog({
         {/* Per-line prices */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label>Line Prices (per unit)</Label>
+            <Label>Unit Prices (ex-GST) and supplier GST rates</Label>
             <button
               type="button"
               onClick={() => setShowLandedCost((v) => !v)}
@@ -271,6 +280,7 @@ export function QuoteUploadDialog({
           <div className="rounded-md border divide-y divide-border">
             {requisitionLines.map((l) => {
               const price = Number(linePrices[l.materialId] ?? 0);
+              const gstRate = Number(lineGstRates[l.materialId] ?? l.gstRate ?? 0);
               const freight = Number(lineFreight[l.materialId] ?? 0);
               const loading = Number(lineLoading[l.materialId] ?? 0);
               const packing = Number(linePacking[l.materialId] ?? 0);
@@ -278,7 +288,7 @@ export function QuoteUploadDialog({
               const discount = Number(lineDiscount[l.materialId] ?? 0);
               const buyerTransport = Number(lineBuyerTransport[l.materialId] ?? 0);
               const taxablePU = price - discount + packing;
-              const landedPU = taxablePU + freight + buyerTransport + loading + insurance;
+              const landedPU = taxablePU * (1 + gstRate / 100) + freight + buyerTransport + loading + insurance;
               return (
                 <div key={l.materialId} className="px-3 py-2 space-y-1.5">
                   <div className="flex items-center gap-2">
@@ -286,7 +296,9 @@ export function QuoteUploadDialog({
                       <div className="truncate text-body font-medium">{l.materialName}</div>
                       <div className="font-mono text-caption text-muted-foreground">{l.materialCode}</div>
                     </div>
-                    <span className="tnum text-caption text-muted-foreground shrink-0">{l.qtyRequested} {l.unit}</span>
+                    <span className="tnum text-caption text-muted-foreground shrink-0">
+                      {l.qtyRequested} {l.unit} · GST {gstRate}%
+                    </span>
                     <Input
                       type="number"
                       step="0.01"
@@ -295,6 +307,18 @@ export function QuoteUploadDialog({
                       value={linePrices[l.materialId] ?? ""}
                       onChange={(e) => setLinePrices((p) => ({ ...p, [l.materialId]: e.target.value }))}
                       className="w-28 text-right"
+                      aria-label={`Unit price before GST for ${l.materialName}`}
+                    />
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={lineGstRates[l.materialId] ?? String(l.gstRate ?? 0)}
+                      onChange={(e) => setLineGstRates((rates) => ({ ...rates, [l.materialId]: e.target.value }))}
+                      className="w-20 text-right"
+                      aria-label={`GST rate for ${l.materialName}`}
+                      required
                     />
                   </div>
                   {showLandedCost ? (
@@ -317,7 +341,7 @@ export function QuoteUploadDialog({
                   ) : null}
                   {showLandedCost ? (
                     <div className="flex items-center justify-between pl-1 text-caption">
-                      <span className="text-muted-foreground">Landed/unit (ex-GST):</span>
+                      <span className="text-muted-foreground">Landed/unit (incl. GST):</span>
                       <span className="tnum font-medium">{formatCurrency(landedPU)}</span>
                     </div>
                   ) : null}
@@ -326,7 +350,7 @@ export function QuoteUploadDialog({
             })}
           </div>
           <div className="flex items-center justify-between px-1">
-            <span className="text-caption text-muted-foreground">Computed total from lines (ex-GST)</span>
+            <span className="text-caption text-muted-foreground">Computed total from lines, GST, and itemized landed costs</span>
             <span className="tnum font-medium">{formatCurrency(computedTotal)}</span>
           </div>
         </div>
@@ -336,7 +360,11 @@ export function QuoteUploadDialog({
           <Label>Delivery Basis *</Label>
           <Select
             value={deliveryTermsType}
-            onChange={(e) => setDeliveryTermsType(e.target.value as "DELIVERED_SITE" | "EX_WORKS" | "FOR_STATION" | "CUSTOM")}
+            onChange={(e) => {
+              const next = e.target.value as "DELIVERED_SITE" | "EX_WORKS" | "FOR_STATION" | "CUSTOM";
+              setDeliveryTermsType(next);
+              if (next === "EX_WORKS" || next === "FOR_STATION") setShowLandedCost(true);
+            }}
           >
             <option value="DELIVERED_SITE">Delivered to site (supplier arranges freight)</option>
             <option value="EX_WORKS">Ex-works (we pick up — we bear transport)</option>
@@ -361,7 +389,7 @@ export function QuoteUploadDialog({
         {/* Landed total (override) + valid until */}
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <Label>Landed Total (delivered to site) *</Label>
+            <Label>Landed Total (including GST) *</Label>
             <Input
               type="number"
               step="0.01"
@@ -370,7 +398,7 @@ export function QuoteUploadDialog({
               value={landedTotal}
               onChange={(e) => setLandedTotal(e.target.value)}
             />
-            <p className="text-micro text-muted-foreground">Leave blank to use computed total from lines</p>
+            <p className="text-micro text-muted-foreground">Leave blank to use the computed total; any entered total must match the tax and landed-cost breakdown.</p>
           </div>
           <div className="space-y-1.5">
             <Label>Valid Until</Label>

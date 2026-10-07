@@ -78,6 +78,25 @@ the `coolify-proxy` container isn't on the app network. Fix:
   `capacitor://<platform>/<token>` endpoints — `sendPushToUser` routes them to
   APNs (needs `APNS_*` env vars; see `apps/mobile/README.md`).
 
+## Operational docs (read before the relevant task)
+
+The governance layer — the answers to "how does a big company run this":
+
+| Doc                               | Read when                                                                                          |
+| --------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `docs/README.md`                  | First — the index of every doc grouped by the question it answers                                  |
+| `docs/PRODUCTION-READINESS.md`    | Answering "is this enterprise-grade" — every launch-checklist question + the named-risk gap ledger |
+| `docs/SYSTEM-DESIGN-DEEP-DIVE.md` | Answering the hard questions — concurrency, idempotency, consistency, races, "design X"            |
+| `docs/RUNBOOK.md`                 | Something is broken in production (symptom → fix + postmortem template)                            |
+| `docs/SLO.md`                     | Promising a reliability/latency number (targets + error budget)                                    |
+| `docs/DISASTER-RECOVERY.md`       | Touching backups, migrations, or the quarterly restore drill                                       |
+| `docs/CAPACITY.md`                | Load/latency/scale questions (current sizing + ordered 10x path)                                   |
+| `docs/DEPENDENCIES.md`            | An integration fails or a new third party is added                                                 |
+| `docs/adr/`                       | Before revisiting an irreversible design decision                                                  |
+| `SECURITY.md`                     | Vulnerability reporting + the security-controls inventory                                          |
+| `CONTRIBUTING.md`                 | The workflow + PR checklist                                                                        |
+| `docs/ONBOARDING.md`              | Day-1 path for a new engineer                                                                      |
+
 ## Conventions
 
 - **Never `json()` a raw `Employee` row** — the model carries bank details, gov
@@ -1163,3 +1182,15 @@ feedback is routed to the DEVELOPER (god-mode) + OWNER + ADMIN accounts.
   2026-09-27): route-manifest (`/m/hr/payroll`, `/m/notifications` missing),
   scope-registry (`EquipmentUsageLog`), middleware desktop-UA `/m` redirects,
   `sales/[id]/print` page test.
+- **Service-test reset safety (2026-10-06)**: excluding `src/test/**` does NOT make
+  a broad service test run non-destructive. `src/integration-config.test.ts`
+  dynamically imports `resetDb()` and truncates the configured test database.
+  For audits, run explicitly reviewed pure/mocked files. Database-backed tests
+  require confirmation of their reset action even on disposable data. `resetDb()`
+  now rejects targets other than `nirman_inventory_test` in `NODE_ENV=test`, but
+  this target guard is not permission to reset that database.
+- **Payroll date-only boundaries**: payroll and attendance dates use `@db.Date`;
+  month boundaries and working-day iteration must use UTC constructors/accessors,
+  not server-local Dates. Covered by `packages/services/src/hr.test.ts` across
+  Asia/Kolkata, America/Los_Angeles, and UTC. Existing processed periods must not
+  be silently rewritten; draft regeneration refreshes the date boundaries.

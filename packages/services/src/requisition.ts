@@ -1,6 +1,6 @@
 import { prisma, type Prisma, type RequisitionStatus } from "@nirman/db";
 import Decimal from "decimal.js";
-import { createPurchaseOrderTx, orderPurchaseOrder } from "./procurement";
+import { createPurchaseOrderTx, approvePurchaseOrder } from "./procurement";
 import { logAction } from "./audit";
 import { evaluateRequisitionRouting, getCachedRoutingScope } from "./procurement-routing";
 import { isQuoteGateSatisfied } from "./quote-comparison";
@@ -450,6 +450,7 @@ interface ConvertRequisitionInput {
   autoOrder?: boolean;
   /** Explicit approver ID for auto-ordered POs. Must differ from userId. */
   approverId?: string;
+  approverRole?: string;
 }
 
 export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
@@ -486,14 +487,11 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
   // Enforce the min-quotes requirement before allowing conversion. The gate
   // is satisfied if there are ≥ minQuotesRequired non-rejected quotes OR the
   // requirement has been waived by an approver OR a winning quote is selected.
-  const quoteSummary = await prisma.vendorQuote.groupBy({
-    by: ["status"],
-    where: { requisitionId: input.requisitionId },
-    _count: true,
+  const quoteSummary = await prisma.vendorQuote.findMany({
+    where: { requisitionId: input.requisitionId, status: { not: "REJECTED" } },
+    select: { supplierId: true },
   });
-  const totalQuoteCount = quoteSummary
-    .filter((q) => q.status !== "REJECTED")
-    .reduce((s, q) => s + q._count, 0);
+  const totalQuoteCount = new Set(quoteSummary.map(q => q.supplierId)).size;
   const reqForGate = await prisma.materialRequisition.findUnique({
     where: { id: input.requisitionId },
     select: { minQuotesRequired: true, quotesWaived: true },
@@ -562,20 +560,8 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
 
     // Create the PO inside the SAME transaction — if this fails, the
     // requisition status update rolls back too (no stuck CONVERTED state).
-    // Carry over the winning quote's header charges as itemized PO charges.
+    // Carry over only charges not already represented by per-line components.
     const poCharges = winningQuote ? [
-      ...(winningQuote.freightTotal && winningQuote.freightTotal.gt(0)
-        ? [{ heading: "Freight / Transportation", amount: winningQuote.freightTotal }]
-        : []),
-      ...(winningQuote.loadingTotal && winningQuote.loadingTotal.gt(0)
-        ? [{ heading: "Loading / Unloading", amount: winningQuote.loadingTotal }]
-        : []),
-      ...(winningQuote.packingTotal && winningQuote.packingTotal.gt(0)
-        ? [{ heading: "Packing & Forwarding", amount: winningQuote.packingTotal }]
-        : []),
-      ...(winningQuote.insuranceTotal && winningQuote.insuranceTotal.gt(0)
-        ? [{ heading: "Transit Insurance", amount: winningQuote.insuranceTotal }]
-        : []),
       ...(winningQuote.handlingTotal && winningQuote.handlingTotal.gt(0)
         ? [{ heading: "Handling Charges", amount: winningQuote.handlingTotal }]
         : []),
@@ -591,17 +577,18 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
       destinationLocationId: input.destinationLocationId,
       expectedDate: input.expectedDate,
       notes: input.notes,
+      createdById: winningQuote?.submittedById ?? input.userId,
       lines: poLines,
       charges: poCharges,
-      // When autoOrder is requested, create the PO as APPROVED so we can
-      // immediately mark it ORDERED after the transaction commits.
+      // When autoOrder is requested, start with a DRAFT so the normal
+      // approval service can enforce authority after the transaction commits.
       // The approver is the user converting the requisition — this is safe
-      // ONLY if that user is different from the PO creator. Since the PO
-      // creator is also input.userId, we must NOT auto-approve if the
-      // converter is the same person. The guard in createPurchaseOrderTx
-      // will block self-approval, so autoOrder only works when a different
-      // user explicitly approved the requisition first.
-      ...(input.autoOrder ? { initialStatus: "APPROVED" as const, approvedById: input.approverId ?? input.userId } : {}),
+      // ONLY when their authority passes the normal PO approval checks.
+      // The purchaser remains the creator, including for an auto-created PO.
+      // The guard in approvePurchaseOrder prevents staff self-approval,
+      // and value-based routing keeps higher-value orders awaiting the
+      // required approver instead of silently authorizing them here.
+      initialStatus: "DRAFT",
     });
 
     // Link the PO to the winning quote (if any) + mark requisition CONVERTED
@@ -647,13 +634,13 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
   // Auto-order the PO if requested — the requisition was already approved and
   // the winning quote was already selected, so the two extra manual steps
   // (approve PO + mark as ordered) are redundant. This removes 2 clicks.
-  if (input.autoOrder) {
+  if (input.autoOrder && input.approverId && input.approverRole) {
     try {
-      const ordered = await orderPurchaseOrder(po.id, input.userId);
-      return ordered;
+      return await approvePurchaseOrder(po.id, input.approverRole, input.approverId, undefined, true);
     } catch (err) {
-      // If auto-ordering fails, return the APPROVED PO — user can manually order.
-      console.error("[requisition] Auto-order after convert failed:", err);
+      // If auto-approval fails, return the DRAFT PO — an eligible approver must review.
+      if (err instanceof ServiceError) console.warn("[requisition] Converted PO awaits approval:", err.message);
+      else console.error("[requisition] Auto-order after convert failed:", err);
     }
   }
 

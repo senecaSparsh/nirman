@@ -21,6 +21,20 @@ import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { autoSyncEntryToTally } from "./auto-sync";
+import { requiresSaleAgreement } from "./sale-policy";
+
+export function sumClearedAssetSalePayments(payments: {
+  amount: Decimal | string | number;
+  status: string;
+  chequeStatus?: string | null;
+}[]): Decimal {
+  return payments.reduce((sum, payment) => {
+    if (payment.status === "VOID" || payment.chequeStatus === "PENDING" || payment.chequeStatus === "BOUNCED") {
+      return sum;
+    }
+    return sum.plus(new Decimal(payment.amount));
+  }, new Decimal(0));
+}
 
 /**
  * Sale Service — sell land parcels or built units to customers.
@@ -87,12 +101,9 @@ export async function syncPaymentScheduleFromPayments(tx: Prisma.TransactionClie
   // Sum all realised payments (skip uncleared cheques + voided payments)
   const payments = await tx.assetSalePayment.findMany({
     where: { assetSaleId: saleId, status: { not: "VOID" } },
-    select: { amount: true, chequeStatus: true },
+    select: { amount: true, status: true, chequeStatus: true },
   });
-  const totalPaid = payments.reduce((sum, p) => {
-    if (p.chequeStatus === "PENDING" || p.chequeStatus === "BOUNCED") return sum;
-    return sum.plus(new Decimal(p.amount));
-  }, new Decimal(0));
+  const totalPaid = sumClearedAssetSalePayments(payments);
 
   // Distribute FIFO across schedule items
   let remaining = totalPaid;
@@ -980,7 +991,7 @@ export async function completeSale(input: CompleteSaleInput) {
     }
     const atsDocUrl = input.atsDocumentUrl ?? sale.atsDocumentUrl;
     const bbaDocUrl = input.bbaDocumentUrl ?? sale.bbaDocumentUrl;
-    if (!atsDocUrl && !bbaDocUrl) {
+    if (requiresSaleAgreement(sale.assetType, sale.projectId) && !atsDocUrl && !bbaDocUrl) {
       throw new ServiceError(
         "Sale cannot be completed without uploading at least one of ATS or BBA document. Please upload the ATS or BBA document first.",
       );
@@ -989,14 +1000,11 @@ export async function completeSale(input: CompleteSaleInput) {
     const salePrice = new Decimal(sale.salePrice);
     const gstAmount = new Decimal(sale.gstAmount);
     const costBasis = new Decimal(sale.costBasis);
-    const totalPaidSoFar = sale.payments.reduce(
-      (sum, p) => (p.status === "VOID" ? sum : sum.plus(new Decimal(p.amount))),
-      new Decimal(0),
-    );
+    const totalPaidSoFar = sumClearedAssetSalePayments(sale.payments);
 
     // Determine the final payment (remaining balance)
     const remainingBalance = salePrice.plus(gstAmount).minus(totalPaidSoFar);
-    const finalPayment = input.finalPaymentAmount
+    const finalPayment = input.finalPaymentAmount != null
       ? new Decimal(input.finalPaymentAmount)
       : remainingBalance;
     if (finalPayment.lt(0)) throw new ServiceError("Final payment cannot be negative");
@@ -1026,6 +1034,11 @@ export async function completeSale(input: CompleteSaleInput) {
     await markAssetStatus(tx, sale.assetType, sale.landParcelId, sale.builtUnitId, "SOLD", sale.projectId);
     await delistPortalListings(tx, sale.builtUnitId, sale.projectId);
 
+    const paymentStatus = computePaymentStatus(
+      totalPaidSoFar.plus(input.paymentMode === "CHEQUE" ? 0 : finalPayment),
+      salePrice.plus(gstAmount),
+    );
+
     // Update sale stage
     await tx.assetSale.update({
       where: { id: input.saleId },
@@ -1034,7 +1047,7 @@ export async function completeSale(input: CompleteSaleInput) {
         finalSaleDate: new Date(),
         // PAID only when the recorded payments cover the full price —
         // a partial final payment leaves the remainder as receivable.
-        paymentStatus: totalPaidSoFar.plus(finalPayment).gte(salePrice.plus(gstAmount)) ? "PAID" : "PARTIAL",
+        paymentStatus,
         ...(input.saleDeedNo ? { saleDeedNo: input.saleDeedNo } : {}),
         // ATS fields — either atsNo OR saleDeedNo is the registered document
         ...(input.atsNo ? { atsNo: input.atsNo } : {}),
@@ -1083,7 +1096,10 @@ export async function completeSale(input: CompleteSaleInput) {
     //    settle the receivable that was just created by postAssetSale.
     //    totalPaidSoFar includes all payments made before the final payment.
     //    The final payment (if any) is posted as Dr Cash / Cr AR in step 3.
-    const preCompletionPayments = totalPaidSoFar;
+    const preCompletionPayments = sale.payments.reduce(
+      (sum, payment) => payment.status === "VOID" ? sum : sum.plus(new Decimal(payment.amount)),
+      new Decimal(0),
+    );
     if (preCompletionPayments.gt(0)) {
       await postJournalEntry(tx, {
         companyId: sale.companyId,
@@ -1129,7 +1145,7 @@ export async function completeSale(input: CompleteSaleInput) {
       });
     }
 
-    return { saleStage: "COMPLETED" as const, paymentStatus: "PAID" as const, companyId: sale.companyId, finalPaymentId };
+    return { saleStage: "COMPLETED" as const, paymentStatus, companyId: sale.companyId, finalPaymentId, finalPaymentAmount: finalPayment.toNumber() };
   });
 
   // Auto-sync to Tally (best-effort, outside the transaction)
@@ -1267,16 +1283,17 @@ export async function recordPayment(input: RecordPaymentInput) {
     if (!amount.gt(0)) throw new ServiceError("Payment amount must be > 0");
 
     const totalCollectible = new Decimal(sale.salePrice).plus(new Decimal(sale.gstAmount));
-    const existingTotal = sale.payments.reduce(
-      (sum, p) => (p.status === "VOID" ? sum : sum.plus(new Decimal(p.amount))),
+    const cumulativeCommitted = sale.payments.reduce(
+      (sum, p) => p.status === "VOID" ? sum : sum.plus(new Decimal(p.amount)),
       new Decimal(0),
-    );
-    const cumulative = existingTotal.plus(amount);
-    if (cumulative.gt(totalCollectible)) {
+    ).plus(amount);
+    if (cumulativeCommitted.gt(totalCollectible)) {
       throw new ServiceError(
-        `Overpayment: cumulative ${cumulative} > total ${totalCollectible} (sale price + GST)`,
+        `Overpayment: cumulative ${cumulativeCommitted} > total ${totalCollectible} (sale price + GST)`,
       );
     }
+    const clearedAfterPayment = sumClearedAssetSalePayments(sale.payments)
+      .plus(input.mode === "CHEQUE" ? 0 : amount);
 
     const payment = await tx.assetSalePayment.create({
       data: {
@@ -1295,14 +1312,7 @@ export async function recordPayment(input: RecordPaymentInput) {
     await syncPaymentScheduleFromPayments(tx, input.assetSaleId);
 
     // Recompute payment status (against total collectible = salePrice + GST)
-    let paymentStatus: "PENDING" | "PARTIAL" | "PAID";
-    if (cumulative.isZero()) {
-      paymentStatus = "PENDING";
-    } else if (cumulative.lt(totalCollectible)) {
-      paymentStatus = "PARTIAL";
-    } else {
-      paymentStatus = "PAID";
-    }
+    const paymentStatus = computePaymentStatus(clearedAfterPayment, totalCollectible);
 
     await tx.assetSale.update({
       where: { id: input.assetSaleId },

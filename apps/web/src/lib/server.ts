@@ -310,7 +310,7 @@ export const materialSchema = z.object({
   isCorporateCommodity: z.boolean().optional().default(false),
   isLotTracked: z.boolean().optional().default(false),
   isScrap: z.boolean().optional().default(false),
-  baseUnit: z.string().max(20).optional(),
+  baseUnit: z.string().max(20).optional().nullable(),
   secondaryUnit: z.string().max(20).optional().nullable(),
   uomConversionFactor: z.coerce.number().min(0).optional().nullable(),
   description: z.string().max(500).optional().nullable(),
@@ -3425,6 +3425,13 @@ const AUTO_AUDIT_SKIP_PREFIXES = [
   "/api/dashboard-counts",
   "/api/persona-home",
   "/api/integrations",
+  // Pure helper endpoints — they don't create/modify resources but their POST
+  // would otherwise derive fake audit rows ("/api/materials/auto-code" POST →
+  // MATERIAL_CREATE, "/api/gl/preview" POST → GL_CREATE, "/api/tally/auto-sync"
+  // POST → TALLY_CREATE).
+  "/api/materials/auto-code",
+  "/api/gl/preview",
+  "/api/tally/auto-sync",
 ];
 
 /** Path segments that read as business actions, not resource ids —

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 /**
  * useFetch — a lightweight data-fetching hook with:
@@ -58,6 +58,27 @@ const MAX_CACHE_ENTRIES = 100;
 // ignored entirely (a save older than this can never flash stale data).
 const STALE_MS = 30_000;
 
+// Global invalidation version — bumped whenever a successful write clears
+// the cache. useFetch subscribes to it so a mutation re-runs every mounted
+// fetch, not just future mounts (which was the stale-after-mutation cause:
+// clearing the map alone didn't re-render already-mounted components).
+let cacheVersion = 0;
+const versionListeners = new Set<() => void>();
+function bumpCacheVersion() {
+  cacheVersion++;
+  for (const fn of versionListeners) fn();
+}
+function subscribeCacheVersion(fn: () => void): () => void {
+  versionListeners.add(fn);
+  return () => versionListeners.delete(fn);
+}
+function getCacheVersion() {
+  return cacheVersion;
+}
+function getServerCacheVersion() {
+  return 0; // stable on the server — hydration-safe for useSyncExternalStore
+}
+
 // The cache is keyed by URL only — not user/company — so a company switch
 // would briefly serve the previous tenant's data until revalidation.
 // Drop everything when the switch event fires. Sign-out needs no listener:
@@ -82,6 +103,7 @@ if (typeof window !== "undefined") {
         ).toUpperCase();
         if (method !== "GET" && method !== "HEAD" && res.ok) {
           memoryCache.clear();
+          bumpCacheVersion();
           // SWR holds its own client cache — revalidate every key so a
           // successful write can't leave a stale view behind.
           void import("swr").then(({ mutate }) => mutate(() => true, undefined, { revalidate: true })).catch(() => {});
@@ -113,6 +135,15 @@ export function useFetch<T = unknown>(
   const abortRef = useRef<AbortController | null>(null);
   const retryCountRef = useRef(0);
   const fetchDataRef = useRef<(() => Promise<void>) | null>(null);
+
+  // Subscribe to the global invalidation version — bumped on every successful
+  // write (the fetch wrapper clears the cache + bumps). A mutation then
+  // re-runs this effect → refetch, so lists update without a manual reload.
+  const version = useSyncExternalStore(
+    subscribeCacheVersion,
+    getCacheVersion,
+    getServerCacheVersion,
+  );
 
   const fetchData = useCallback(async () => {
     if (!url || skip) return;
@@ -199,7 +230,7 @@ export function useFetch<T = unknown>(
       abortRef.current?.abort();
       if (interval) clearInterval(interval);
     };
-  }, [fetchData, pollMs, skip, url]);
+  }, [fetchData, pollMs, skip, url, version]);
 
   const retry = useCallback(() => {
     retryCountRef.current = 0;

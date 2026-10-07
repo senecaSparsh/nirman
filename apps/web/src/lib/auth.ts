@@ -28,6 +28,20 @@ export const auth = betterAuth({
   // endpoints and wrong cookie attributes (no __Secure- prefix, no Secure
   // flag) in HTTPS production.
   baseURL: process.env.BETTER_AUTH_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+  // Dev servers fall back to alternate ports when 3000 is occupied (the dev
+  // wrapper prefers 3001). Better-Auth's origin check rejects POSTs whose
+  // Origin isn't the baseURL (or localhost:3000) → sign-in/sign-out 403
+  // INVALID_ORIGIN. Trust localhost origins on common dev ports so local
+  // QA/role-switching keeps working regardless of which port won.
+  // Production keeps the strict default (baseURL only).
+  trustedOrigins: process.env.NODE_ENV === "production" ? undefined : [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+    "http://localhost:3003",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+  ],
   // No dev fallback — env-validation.ts crashes the process in production if
   // BETTER_AUTH_SECRET is missing. In dev, generate a stable per-install secret
   // so sessions persist across restarts (derived from the app URL).

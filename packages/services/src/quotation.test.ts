@@ -74,15 +74,25 @@ describe("computeLineLandedCost", () => {
     expect(result.gstAmount.toNumber()).toBe(0);
   });
 
-  it("handles discount reducing taxable value below zero", () => {
-    const result = computeLineLandedCost({
+  it("rejects discount above the item's taxable price", () => {
+    expect(() => computeLineLandedCost({
       unitPrice: 100,
       gstRate: 18,
       qty: 10,
-      discountPerUnit: 150, // more than unit price
+      discountPerUnit: 150,
+    })).toThrow(/discount cannot exceed/i);
+  });
+
+  it("allows a discount to cover taxable packing exactly", () => {
+    const result = computeLineLandedCost({
+      unitPrice: 100,
+      gstRate: 18,
+      qty: 1,
+      discountPerUnit: 110,
+      packingPerUnit: 10,
     });
-    // taxableValuePerUnit = 100 - 150 = -50
-    expect(result.taxableValuePerUnit.toNumber()).toBe(-50);
+    expect(result.taxableValuePerUnit.toNumber()).toBe(0);
+    expect(result.lineTotal.toNumber()).toBe(0);
   });
 
   it("handles packing added to taxable value", () => {

@@ -804,3 +804,57 @@ Read `DECISIONS.md`, the owner transcript distillation, `docs/SRG_REALCON_TEAM_W
 - Payroll late/half-day/month-end boundary fixtures, locked-period edits, settlement and H1 privacy.
 - Every role/company/scope/delegation combination, offline queues/reconnect, exports/printing, camera/device behavior, and full page/button coverage.
 - Desktop project profitability merits investigation: Site Two displayed ₹24L booked revenue, zero project cost, and 100% margin while its land-sale detail showed ₹53L cost basis and a ₹29L loss. Not yet classified as a defect: trace asset/project linkage and metric basis first.
+
+## 2026-10-06 — Fixes and continued audit, second pass
+
+### Fix and verification status
+
+- **F1 fixed:** explicit zero is preserved in the completion service and desktop payload. The desktop field can now be cleared without restoring/appending the balance. Completion returns its actual persisted payment status, not an unconditional PAID. No final-payment confirmation is sent when no payment was created, and confirmations use the actual inferred/entered amount. Mocked service tests verify numeric/string/Decimal zero, omitted amount, partial amount, voided payments, overpayment rejection, deposit settlement, and no extra cash posting for zero. Desktop user-event regression verifies the zero payload. Full real-database sale completion was not executed.
+- **F2 fixed for generation:** month boundaries and working-day iteration use UTC. Draft regeneration refreshes its date boundaries; processed/paid historical periods are not rewritten. Browser-created November draft `cmuwsym120032vlyz91dmjd3t` persisted November 1–30 at UTC midnight. It has no salary lines and was left DRAFT. Timezone regressions cover Asia/Kolkata, America/Los_Angeles, UTC, weekends and leap-year February.
+- **F3 fixed:** mobile quotation entry exposes GST and freight per unit, computes the delivered total with Decimal arithmetic, and checks a supplied total against that same basis. It sends those components with the lines so the PO can carry the prices forward. Browser accepted a ₹1,374 bid for 3 × ₹350 + ₹294 GST + ₹30 freight; persisted subtotal/GST/freight/total all matched. Blank GST is not silently accepted as zero.
+- **F4 fixed:** awarding refreshes the parent and navigates to the created PO. Browser verified this on both an ordered PO and the independent-approval draft described below. A draft is described as awaiting approval, not already ordered.
+- **F5 fixed:** last-rate warnings compare base unit prices with historical base unit costs, not GST-inclusive prices. The benchmark excludes the converted PO itself and unplaced/cancelled drafts. The original comparison no longer displays its false rate/cartel warning.
+- **F6 refined policy, not a blanket exemption:** genuine standalone LAND (no project link) may use direct registry; units, whole projects and project-linked land retain agreement gating. Shared browser-safe rule in `@nirman/services/sale-policy` is used by service and both completion surfaces. Research distinguished Transfer of Property Act Section 54 conveyance from RERA Section 13's registered-agreement-before->10%-advance rule, which also covers plots. Missing RERA registration is not assumed to mean exemption. The first-pass sample sale is actually linked to Site Two, so it remains gated; calling it standalone in the initial notes was imprecise. The standalone exception and retained project gates are verified by pure/mocked tests, not a committed browser registry.
+- **F7 fixed:** comparison retains losing bids after award, historical cheapest/variance information, a satisfied awarded gate, and the complete collected count. Browser verified all three suppliers and 3/3 on the original awarded indent. Waive/add/edit/delete affordances are hidden on the locked awarded panel. Backend update/delete now also reject changes to losing bids after requisition award/conversion or terminal standalone quotation status; failing-before/passing-after tests cover those history protections.
+
+### Additional defects discovered and fixed
+
+**F8 — Completed gated issue document total remained zero.**
+
+- Browser created `SA-SRG-261006-0003` (`cmuwrs0p200bjvl7b1nceac64`) for 2 CEM-53 bags. Its gate pass is `GP-SRG-261006-0004` (`cmuwrs0u900bovl7buvhfecwn`).
+- Stock remained 110 bags while awaiting approval. Owner approval executed consumption: stock became 108 at unchanged ₹367.01 MAC; issue cost was ₹734.02. Confirming exit with synthetic QA photo returned 200 and did not deduct stock again. Journal `JE-20261006-00004` credits inventory ₹734.02 against this issue; project API reflected its added cost.
+- Persisted issue had `totalCost=734.02` but `totalAmount=0`. `executeMaterialIssue()` now writes actual total cost plus stored round-off, matching immediate issue creation. Regression fails on old implementation and passes for zero/positive/negative round-off and duplicate execution rejection.
+- The already-completed QA row was not silently backfilled. New-execution persistence still needs a fresh browser re-test after this fix; legacy completed totals need an explicit data-review/backfill decision.
+
+**F9 — Auto-conversion bypassed normal PO approval controls.**
+
+- Tracing revealed missing `createdById` on converted POs and direct creation in APPROVED, bypassing normal self-approval/value routing.
+- Conversion now attributes the PO to its quote submitter (fallback: converter), creates DRAFT first, and attempts approval/order through `approvePurchaseOrder()` with the server-resolved acting role. Missing authority or denied approval leaves a linked draft. Distinct-supplier counting also applies to manual conversion. The route returns the resulting status and mobile messaging reflects it.
+- Fresh browser regression: `REQ-SRG-20261006-0004` (`cmuwt4pkl003zvlyzpwxhdbx9`) was submitted by Raviraj, approved by Anurag, then sourced with three bids. Raviraj's award created `PO-SRG-20261006-0003` (`cmuwth4jh0004vlbva2trra3j`) as DRAFT at ₹448. His own approval returned 403. Anurag approved through the UI; GET persisted ORDERED with Anurag as approver and UI recorded Raviraj as creator.
+- Mocked conversion regressions verify creator attribution, normal approval delegation, draft fallback for self/value rejection and missing acting-role information. Historical unattributed POs and the separate standalone quotation-request approval path still require review; no historic approval audit was rewritten.
+
+**F10 — Landed charges and header GST could diverge from the selected quote.**
+
+- Conversion passed freight/loading/packing/insurance on the lines AND copied their totals into misc charges, doubling them in the PO grand total. It now carries only handling and own-transport charges through misc; the other components are represented once by line/header aggregation.
+- PO line total used taxable price `(unit cost − discount + packing)`, but header GST used undiscounted/unpacked price. Header tax now uses that same taxable price.
+- Regression exercises real `createPurchaseOrderTx()` with a mocked transaction, not a duplicated formula: ₹100 price − ₹10 discount + ₹5 packing gives ₹95 taxable, ₹17.10 GST at 18%, plus ₹30 freight gives ₹142.10 total. Conversion regression also confirms that freight/loading/packing/insurance do not appear again as misc charges. Both failed before the fix and pass afterward. A full browser receipt/invoice of a charge-bearing winning bid is still unverified.
+
+### Continued browser coverage
+
+- `REQ-SRG-20261006-0003` (`cmuws5b3a00egvl7byvx7o0mt`): actual GST/freight entry, three supplier bids, empty higher-price reason blocked, justified higher-price choice, persisted selected quote and navigation to PO. Before the subsequent F9 hardening it created `PO-SRG-20261006-0002` (`cmuwsmzoz001cvlyzkiwg3a8s`), total ₹1,401.60, for ACC Cement Dealer. This historic QA PO was not retroactively changed.
+- Original three-quote history and false benchmark warning were re-tested after fixes.
+- Gate-pass-gated material consumption, approval, synthetic exit proof, unchanged issue MAC, no duplicate deduction at exit, and persisted issue/project/ledger data were checked.
+- A new November payroll period verified corrected stored dates without regenerating/deleting the existing October draft's lines.
+- Slow development compilation repeatedly caused timeouts and pre-hydration/refresh interactions. The user approved a local server restart; switched the running command to webpack without DB reset, migrations or manual cache deletion. Wait for hydrated/settled data, not just visible SSR buttons, when testing cold dev pages. Did not treat these timing failures alone as production defects.
+
+### Verification and limits
+
+- Relevant service regressions were demonstrated failing before fixes, then passing. Final reviewed runs passed 168 service/pure/mocked tests plus 15 web pricing/component tests (183 total); web and services typechecks and web lint pass. Full production build and full workspace/e2e suite were not run against the shared dev setup.
+- Full completion/cheque semantics, supplier three-way match, stock transfers, rentals/escalation, land subdivision/legal lifecycle, BOQ/MB/RA billing, full H1/role/company/delegation matrix and offline/device flows remain unverified. Price/coverage alignment for multi-material supplier bids and authority on the standalone quotation-request path deserve explicit follow-up. Existing financial/reporting records were not mass-corrected.
+- No deployment, push or commit was performed. QA records were left identifiable in the disposable local application database.
+
+### Test-database reset incident and safeguards
+
+A broad service run excluding `src/test/**` still included `src/integration-config.test.ts`, which dynamically imports `resetDb()` and executed its truncate. The separate `nirman_inventory_test` contents were reset. This was reported immediately and the run stopped. Application owner/session, original PO/payroll/sale records were verified intact; no application reset occurred. No attempt was made to conceal or silently restore the lost test-database contents.
+
+Subsequent runs use explicitly reviewed non-destructive files. `resetDb()` now checks the URL/environment and the actual connected database name before its destructive SQL: only `nirman_inventory_test` in NODE_ENV=test is accepted. Pure guard tests perform no reset. This target restriction does not authorize future resets; database-backed destructive test runs still require explicit confirmation.

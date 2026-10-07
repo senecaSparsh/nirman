@@ -24,7 +24,7 @@ import type { RequisitionRow, RequisitionStatus } from "@/lib/types";
 
 type ProjectOption = { id: string; name: string; type: string; status: string };
 type PhaseOption = { id: string; name: string; projectId: string };
-type MaterialOption = { id: string; code: string; name: string; unit: string };
+type MaterialOption = { id: string; code: string; name: string; unit: string; gstRate?: number };
 type SupplierOption = { id: string; name: string };
 type LocationOption = { id: string; name: string; type: "CENTRAL_WAREHOUSE" | "COMPANY_WAREHOUSE" | "PROJECT_SITE" | "DEPARTMENT"; projectId: string | null };
 type CategoryOption = { id: string; name: string; unit: string };
@@ -975,7 +975,7 @@ function ConvertDialog({
 }) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [detail, setDetail] = useState<{ lines: { id: string; materialId: string; materialCode: string; materialName: string; unit: string; qtyRequested: number; notes: string | null }[] } | null>(null);
+  const [detail, setDetail] = useState<{ lines: { id: string; materialId: string; materialCode: string; materialName: string; unit: string; gstRate: number; qtyRequested: number; notes: string | null }[] } | null>(null);
   const [form, setForm] = useState({
     supplierId: "",
     procurementScope: "PROJECT" as "COMPANY" | "PROJECT",
@@ -1109,6 +1109,7 @@ function ConvertDialog({
                 materialCode: l.materialCode,
                 materialName: l.materialName,
                 unit: l.unit,
+                gstRate: l.gstRate,
                 qtyRequested: l.qtyRequested,
               }))}
               suppliers={suppliers}

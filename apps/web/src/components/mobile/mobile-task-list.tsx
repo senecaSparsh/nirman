@@ -45,6 +45,11 @@ const FILTER_CHIPS: { label: string; value: TaskStatusFilter }[] = [
 export function MobileTaskList({ tasks }: { tasks: TaskItem[] }) {
   const router = useRouter();
   const [taskStates, setTaskStates] = useState<Record<string, ActionState>>({});
+  // Optimistic status map — the status a task moved to, applied over the
+  // (stale-until-refresh) props so a Start/Block repositions the card instead
+  // of hiding it. Terminal statuses (COMPLETED/CANCELLED) fall out of every
+  // open bucket, so they disappear as intended.
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, string>>({});
   const [expanded, setExpanded] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>("ALL");
@@ -52,7 +57,9 @@ export function MobileTaskList({ tasks }: { tasks: TaskItem[] }) {
   const isFiltering = query.trim() !== "" || statusFilter !== "ALL";
 
   const filtered = useMemo(() => {
-    let result = tasks;
+    let result = tasks.map((t) =>
+      statusOverrides[t.id] ? { ...t, status: statusOverrides[t.id]! } : t,
+    );
     if (statusFilter !== "ALL") {
       result = result.filter((t) => t.status === statusFilter);
     }
@@ -61,13 +68,13 @@ export function MobileTaskList({ tasks }: { tasks: TaskItem[] }) {
       result = result.filter((t) => t.title.toLowerCase().includes(q));
     }
     return result;
-  }, [tasks, query, statusFilter]);
+  }, [tasks, query, statusFilter, statusOverrides]);
 
   const byStatus = (status: string) =>
     filtered.filter((t) => {
       const s = taskStates[t.id];
-      // Hide tasks that were just completed/cancelled
-      if (s === "done" && (t.status === "PENDING" || t.status === "IN_PROGRESS" || t.status === "BLOCKED")) return false;
+      // Hide a task mid-update; terminal overrides already remove it.
+      if (s === "updating" || s === "done") return false;
       return t.status === status;
     });
 
@@ -83,7 +90,8 @@ export function MobileTaskList({ tasks }: { tasks: TaskItem[] }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to update task");
       toast.success(label);
-      setTaskStates((s) => ({ ...s, [task.id]: "done" }));
+      setStatusOverrides((o) => ({ ...o, [task.id]: status }));
+      setTaskStates((s) => ({ ...s, [task.id]: "idle" }));
       router.refresh();
     } catch (err) {
       haptic([50, 20, 50]);

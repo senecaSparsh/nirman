@@ -7,6 +7,7 @@ vi.mock("sonner", () => ({
 }));
 
 import { SaleDetailDialog } from "./sale-detail-dialog";
+import { CompleteSaleDialog } from "./complete-sale-dialog";
 import { clearFetchCache } from "@/lib/use-fetch";
 import type { AssetSaleRow } from "@/lib/types";
 
@@ -209,5 +210,24 @@ describe("SaleDetailDialog", () => {
       // Deposit info shows the formatted amount
       expect(screen.getByText(/Deposit:/)).toBeInTheDocument();
     });
+  });
+});
+
+describe("CompleteSaleDialog payment payload", () => {
+  beforeEach(() => {
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+  });
+
+  it("sends an explicit zero without replacing it with the balance", async () => {
+    const { user } = render(<CompleteSaleDialog open onOpenChange={vi.fn()} sale={makeSale({
+      saleStage: "DEPOSIT_RECEIVED", totalPaid: 700000, registryDocumentUrl: "/api/uploads/qa-registry", atsDocumentUrl: "/api/uploads/qa-agreement",
+    })} />);
+    const amount = screen.getByLabelText("Final Payment Amount");
+    await user.clear(amount);
+    await user.type(amount, "0");
+    await user.click(screen.getByRole("button", { name: "Complete Sale" }));
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    const [, init] = vi.mocked(global.fetch).mock.calls.find(([url]) => url === "/api/sales/sale-1")!;
+    expect(JSON.parse(init!.body as string).finalPaymentAmount).toBe(0);
   });
 });

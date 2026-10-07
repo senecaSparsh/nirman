@@ -10,6 +10,7 @@ import { formatCurrency } from "@/lib/utils";
 import { ChequeFields, EMPTY_CHEQUE, type ChequeFormState } from "./cheque-fields";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import type { AssetSaleRow } from "@/lib/types";
+import { requiresSaleAgreement } from "@nirman/services/sale-policy";
 
 const PAYMENT_MODES = ["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"] as const;
 
@@ -63,9 +64,17 @@ export function CompleteSaleDialog({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (isCheque && !cheque.chequeNo.trim()) { toast.error("Cheque number is required for cheque payments"); return; }
+    if (amountNum > 0 && isCheque && !cheque.chequeNo.trim()) { toast.error("Cheque number is required for cheque payments"); return; }
     if (!registryDocUrl && !sale?.registryDocumentUrl) {
       toast.error("Registry document upload is required to complete the sale");
+      return;
+    }
+    if (requiresSaleAgreement(sale!.assetType, sale!.projectId) && !sale!.atsDocumentUrl && !sale!.bbaDocumentUrl) {
+      toast.error("Upload an ATS or BBA document on the sale before completing project-linked property");
+      return;
+    }
+    if (!Number.isFinite(amountNum) || amountNum < 0 || amountNum > remainingBalance) {
+      toast.error(`Final payment must be between 0 and ${formatCurrency(remainingBalance)}`);
       return;
     }
     setSaving(true);
@@ -75,7 +84,7 @@ export function CompleteSaleDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "complete",
-          finalPaymentAmount: amountNum > 0 ? amountNum : undefined,
+          finalPaymentAmount: amountNum,
           paymentMode: form.paymentMode,
           reference: form.reference.trim() || null,
           saleDeedNo: form.saleDeedNo.trim() || null,
@@ -156,7 +165,7 @@ export function CompleteSaleDialog({
             type="number"
             min="0"
             step="0.01"
-            value={form.finalPaymentAmount || String(remainingBalance)}
+            value={form.finalPaymentAmount}
             onChange={(e) => set("finalPaymentAmount", e.target.value)}
             placeholder={String(remainingBalance)}
           />

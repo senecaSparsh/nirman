@@ -22,7 +22,19 @@ import Decimal from "decimal.js";
  * Uses TRUNCATE ... CASCADE to handle foreign keys. Resets sequences
  * so auto-generated IDs start fresh.
  */
+export function assertTestDatabaseResetTarget(databaseUrl = process.env.DATABASE_URL, environment = process.env.NODE_ENV) {
+  let allowed = false;
+  try {
+    const url = new URL(databaseUrl ?? "");
+    allowed = environment === "test" && ["postgres:", "postgresql:"].includes(url.protocol) && url.pathname === "/nirman_inventory_test";
+  } catch {}
+  if (!allowed) throw new Error("Database reset is restricted to nirman_inventory_test in NODE_ENV=test");
+}
+
 export async function resetDb() {
+  assertTestDatabaseResetTarget();
+  const target = await prisma.$queryRaw<{ database: string }[]>`SELECT current_database() AS database`;
+  if (target[0]?.database !== "nirman_inventory_test") throw new Error("Refusing to reset a connection outside nirman_inventory_test");
   // Wait briefly for fire-and-forget operations (e.g. emitNotificationEvent)
   // from the previous test to complete, preventing deadlocks with TRUNCATE.
   await new Promise((resolve) => setTimeout(resolve, 50));

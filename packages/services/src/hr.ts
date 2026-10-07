@@ -354,12 +354,12 @@ export async function getAttendanceTierCounts(opts: {
 export function computeWorkingDays(startDate: Date, endDate: Date): number {
   let count = 0;
   const cur = new Date(startDate);
-  cur.setHours(0, 0, 0, 0);
+  cur.setUTCHours(0, 0, 0, 0);
   const end = new Date(endDate);
-  end.setHours(0, 0, 0, 0);
+  end.setUTCHours(0, 0, 0, 0);
   while (cur.getTime() <= end.getTime()) {
-    if (cur.getDay() !== 0) count++; // 0 = Sunday
-    cur.setDate(cur.getDate() + 1);
+    if (cur.getUTCDay() !== 0) count++; // 0 = Sunday
+    cur.setUTCDate(cur.getUTCDate() + 1);
   }
   return Math.max(count, 1);
 }
@@ -1581,6 +1581,11 @@ export async function generatePayroll(input: GeneratePayrollInput) {
           endDate,
           status: "DRAFT",
         },
+      });
+    } else {
+      period = await tx.payrollPeriod.update({
+        where: { id: period.id },
+        data: { startDate, endDate },
       });
     }
 
@@ -3078,9 +3083,9 @@ function endOfDay(d: Date): Date {
   return x;
 }
 
-function monthRange(year: number, month: number): { startDate: Date; endDate: Date } {
-  const startDate = new Date(year, month - 1, 1, 0, 0, 0, 0);
-  const endDate = new Date(year, month, 0, 23, 59, 59, 999); // day 0 of next month = last day of this month
+export function monthRange(year: number, month: number): { startDate: Date; endDate: Date } {
+  const startDate = new Date(Date.UTC(year, month - 1, 1));
+  const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999)); // day 0 of next month = last day of this month
   return { startDate, endDate };
 }
 

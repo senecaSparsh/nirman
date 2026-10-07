@@ -202,6 +202,26 @@ Adding a SUBMITTED step to POs would be a schema change with no business value.
 The self-approval guard (creator cannot approve their own PO) is enforced at
 the service layer regardless of whether there's a SUBMITTED step.
 
+### Direct registry and automatic PO approval (2026-10-06)
+
+- Standalone LAND sales may complete with a registry document without a separate
+  ATS/BBA. Units, whole projects, and project-linked land retain agreement gating.
+  `@nirman/services/sale-policy` is the shared browser-safe rule. A missing RERA
+  number is not treated as proof of exemption. This is a conservative application
+  default, not a legal applicability determination. RERA Section 13 covers plots
+  as well as apartments/buildings; the registered conveyance and an agreement to
+  sell are different documents under Transfer of Property Act Section 54.
+- Final payment omission means “record the remaining balance”; an explicit zero
+  means “no new payment”. Completion and payment settlement are separate states:
+  unpaid amounts remain receivables and the returned payment status must match
+  the persisted status. No payment confirmation is sent when no payment was made.
+- Selecting a requisition quote creates a DRAFT PO attributed to its purchaser.
+  Automatic approval/order must use the same `approvePurchaseOrder` service as
+  manual approval, including self-approval and value-based authority checks. A
+  denied auto-approval leaves a linked draft for the eligible reviewer; it must
+  not be described as ordered. Awarding requires approved indents, distinct
+  supplier bids or a recorded waiver, and a reason for a higher-priced winner.
+
 ---
 
 ## Source documents (for drill-down)
@@ -209,6 +229,18 @@ the service layer regardless of whether there's a SUBMITTED step.
 | Doc                                     | Path                                                  | When to read                                                                                                                                                                                                                 |
 | --------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Agent conventions                       | `AGENTS.md`                                           | Every session, first                                                                                                                                                                                                         |
+| Doc index                               | `docs/README.md`                                      | To find the right doc by the question you're asking                                                                                                                                                                          |
+| Production-readiness review             | `docs/PRODUCTION-READINESS.md`                        | To answer "is this enterprise-grade" — every launch question + the gap ledger                                                                                                                                                |
+| System-design deep dive                 | `docs/SYSTEM-DESIGN-DEEP-DIVE.md`                     | The hard questions — concurrency, idempotency, consistency, races — answered with code evidence                                                                                                                              |
+| Runbook                                 | `docs/RUNBOOK.md`                                     | When something's broken in prod                                                                                                                                                                                              |
+| SLOs / error budget                     | `docs/SLO.md`                                         | Before promising reliability numbers                                                                                                                                                                                         |
+| Disaster recovery                       | `docs/DISASTER-RECOVERY.md`                           | Before touching backups/migrations, and for the quarterly restore drill                                                                                                                                                      |
+| Capacity / scaling                      | `docs/CAPACITY.md`                                    | When load or latency questions come up                                                                                                                                                                                       |
+| Third-party dependencies                | `docs/DEPENDENCIES.md`                                | When an integration fails or a new one is added                                                                                                                                                                              |
+| Architecture decision records           | `docs/adr/`                                           | Before revisiting an irreversible design choice                                                                                                                                                                              |
+| Security policy                         | `SECURITY.md`                                         | For vuln reporting + the controls inventory                                                                                                                                                                                  |
+| Contributing / PR bar                   | `CONTRIBUTING.md`                                     | The workflow + review checklist                                                                                                                                                                                              |
+| New-dev onboarding                      | `docs/ONBOARDING.md`                                  | Day-1 path                                                                                                                                                                                                                   |
 | Owner transcript distillation           | `docs/source-material/USER_SESSION_BUSINESS_LOGIC.md` | Before scoping any module work                                                                                                                                                                                               |
 | Competitor gap analysis                 | `docs/competitor-map/14-gap-analysis-vs-nirman.md`    | When checking parity                                                                                                                                                                                                         |
 | Competitor deep map                     | `PLATFORM_RESEARCH.md`                                | When designing a specific module's flows                                                                                                                                                                                     |

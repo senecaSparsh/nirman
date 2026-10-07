@@ -916,14 +916,14 @@ function DprApprovalRow({ dpr }: { dpr: ApprovalDprRow }) {
         const d = await res.json().catch(() => ({}));
         throw new Error(d.error ?? `Failed to ${action} DPR`);
       }
-      if (action.includes("approve")) {
+      if (action === "reject") {
+        toast.success("DPR rejected");
+        setRejected(true);
+      } else {
         toast.success("DPR approved", {
           action: { label: "View DPRs", onClick: () => router.push("/hr/dprs") },
         });
         setDone(true);
-      } else {
-        toast.success("DPR rejected");
-        setRejected(true);
       }
       router.refresh();
     } catch (err: unknown) {

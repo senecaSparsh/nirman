@@ -49,6 +49,15 @@ export function SupplierPaymentFormDialog({
   const [localSuppliers, setLocalSuppliers] = useState<SupplierRow[]>(suppliers);
   useEffect(() => { setLocalSuppliers(suppliers); }, [suppliers]);
   const [amount, setAmount] = useState(defaultAmount ? String(defaultAmount) : "");
+  // The dialog component stays mounted while closed (its inner Dialog returns null),
+  // so the initial useState ran before the parent's async PO detail resolved. Re-sync
+  // the locked supplier + suggested amount from the live defaults each time it opens.
+  useEffect(() => {
+    if (open) {
+      setSupplierId(defaultSupplierId ?? "");
+      setAmount(defaultAmount != null ? String(Math.max(0, defaultAmount)) : "");
+    }
+  }, [open, defaultSupplierId, defaultAmount]);
   const [tdsAmount, setTdsAmount] = useState("");
   const [tdsSection, setTdsSection] = useState("");
   const [paymentDate, setPaymentDate] = useTodayDateState();

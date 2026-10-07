@@ -77,6 +77,12 @@ export function MobileFabModal({
 
   if (!mounted) return null;
 
+  // Auto-focus the dialog on mount so keyboard / screen-reader users land
+  // inside it rather than on the backdrop or behind the modal.
+  const dialogRef = (el: HTMLElement | null) => {
+    if (el && open) el.focus();
+  };
+
   // Compute transform-origin from the FAB's position.
   // The dialog grows outward from exactly where the FAB sits.
   let originX = "calc(100vw - 2rem)";
@@ -106,8 +112,13 @@ export function MobileFabModal({
       }}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-md max-h-[85vh] overflow-y-auto rounded-[1rem]"
+        className="relative w-full max-w-md max-h-[85vh] overflow-y-auto rounded-[1rem] outline-none"
         style={{
           backgroundColor: "var(--color-paper)",
           opacity: visible ? 1 : 0,
@@ -142,8 +153,13 @@ export function MobileFabModal({
       }}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-md max-h-[85vh] overflow-y-auto rounded-[1rem]"
+        className="relative w-full max-w-md max-h-[85vh] overflow-y-auto rounded-[1rem] outline-none"
         style={{
           backgroundColor: "var(--color-paper)",
           // Scale from the FAB's position — the dialog "grows" out of the button

@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./geometry": "./src/geometry.ts",
     "./gl-preview": "./src/gl-preview.ts",
-    "./safety": "./src/safety.ts"
+    "./safety": "./src/safety.ts",
+    "./sale-policy": "./src/sale-policy.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -388,6 +388,7 @@ export async function executeMaterialIssue(issueId: string, userId?: string) {
       data: {
         status: "COMPLETED",
         totalCost,
+        totalAmount: totalCost.plus(issue.roundOff ?? 0),
         lines: {
           update: lineResults.map((l, i) => ({
             where: { id: issue.lines[i]!.id },

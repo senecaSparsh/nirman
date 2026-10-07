@@ -95,6 +95,39 @@ export function winningLineCosts(
   return map;
 }
 
+export function validateQuoteLineCoverage(
+  quoteLines: { materialId: string; qty: Decimal | number | string }[],
+  requisitionLines: { materialId: string; qtyRequested: Decimal | number | string }[],
+): void {
+  const requested = new Map(requisitionLines.map((line) => [line.materialId, line.qtyRequested]));
+  const distinctQuoteMaterials = new Set(quoteLines.map((line) => line.materialId));
+  if (distinctQuoteMaterials.size !== quoteLines.length || distinctQuoteMaterials.size !== requested.size) {
+    throw new ServiceError("Quote lines must cover each material on the indent exactly once");
+  }
+  for (const line of quoteLines) {
+    const requestedQty = requested.get(line.materialId);
+    if (requestedQty === undefined || !new Decimal(line.qty).eq(requestedQty)) {
+      throw new ServiceError(`Quote quantity for ${line.materialId} must match the indent`);
+    }
+  }
+}
+
+export function validateQuoteLandedTotal(
+  enteredTotal: Decimal | number | string | undefined,
+  computedTotal: Decimal,
+): Decimal {
+  const computed = computedTotal.toDecimalPlaces(2);
+  if (enteredTotal === undefined) return computed;
+
+  const entered = new Decimal(enteredTotal).toDecimalPlaces(2);
+  if (!entered.equals(computed)) {
+    throw new ServiceError(
+      `Entered landed total ${entered.toFixed(2)} does not match the line prices, GST, and landed costs (${computed.toFixed(2)})`,
+    );
+  }
+  return computed;
+}
+
 // ── Service functions (transactional + audit-logged) ──
 
 export interface CreateVendorQuoteInput {
@@ -179,10 +212,12 @@ export async function createVendorQuote(input: CreateVendorQuoteInput) {
       where: { requisitionId: input.requisitionId },
       select: {
         materialId: true,
+        qtyRequested: true,
         material: { select: { hsnCode: true, gstRate: true } },
       },
     });
     const reqLineMap = new Map(reqLines.map((l) => [l.materialId, l]));
+    validateQuoteLineCoverage(input.lines, reqLines);
 
     // Compute landed cost per line using all components
     const computedLines = input.lines.map((l) => {
@@ -208,8 +243,7 @@ export async function createVendorQuote(input: CreateVendorQuoteInput) {
     });
 
     const totals = computeQuoteTotals(computedLines);
-    // Use provided landedTotal or the computed one
-    const landedTotal = input.landedTotal !== undefined ? new Decimal(input.landedTotal) : totals.landedTotal;
+    const landedTotal = validateQuoteLandedTotal(input.landedTotal, totals.landedTotal);
 
     const quote = await tx.vendorQuote.create({
       data: {
@@ -314,14 +348,27 @@ export interface UpdateVendorQuoteInput {
   userId?: string;
 }
 
+function quoteAwardIsLocked(quote: {
+  requisition?: { quotesLockedAt: Date | null; status: string } | null;
+  quotationRequest?: { status: string } | null;
+}) {
+  return !!quote.requisition?.quotesLockedAt || quote.requisition?.status === "CONVERTED" ||
+    !!(quote.quotationRequest && !["OPEN", "QUOTES_COLLECTED"].includes(quote.quotationRequest.status));
+}
+
 export async function updateVendorQuote(input: UpdateVendorQuoteInput) {
   return withSerializableTransaction(async (tx) => {
     const quote = await tx.vendorQuote.findUnique({
       where: { id: input.quoteId },
-      include: { lines: true },
+      include: {
+        lines: true,
+        requisition: { select: { status: true, quotesLockedAt: true } },
+        quotationRequest: { select: { status: true } },
+      },
     });
     if (!quote) throw new ServiceError("Quote not found", 404);
     if (quote.status === "SELECTED") throw new ServiceError("Cannot edit a selected (winning) quote");
+    if (quoteAwardIsLocked(quote)) throw new ServiceError("Quotes are locked after award — comparison history cannot be edited");
 
     const data: Record<string, unknown> = {};
     if (input.validUntil !== undefined) data.validUntil = input.validUntil;
@@ -329,19 +376,31 @@ export async function updateVendorQuote(input: UpdateVendorQuoteInput) {
 
     if (input.lines) {
       // Fetch requisition/quotation lines + materials for HSN/GST lookup
-      let reqLineMap = new Map<string, { material: { hsnCode: string | null; gstRate: Decimal } }>();
+      let reqLineMap = new Map<string, {
+        material: { hsnCode: string | null; gstRate: Decimal };
+        qtyRequested: Decimal;
+      }>();
       if (quote.requisitionId) {
         const reqLines = await tx.materialRequisitionLine.findMany({
           where: { requisitionId: quote.requisitionId },
-          select: { materialId: true, material: { select: { hsnCode: true, gstRate: true } } },
+          select: { materialId: true, qtyRequested: true, material: { select: { hsnCode: true, gstRate: true } } },
         });
+        validateQuoteLineCoverage(input.lines, reqLines);
         reqLineMap = new Map(reqLines.map((l) => [l.materialId, l]));
       } else if (quote.quotationRequestId) {
         const reqLines = await tx.quotationRequestLine.findMany({
           where: { quotationRequestId: quote.quotationRequestId },
-          select: { materialId: true, material: { select: { hsnCode: true, gstRate: true } } },
+          select: { materialId: true, qtyRequired: true, hsnCode: true, gstRate: true },
         });
-        reqLineMap = new Map(reqLines.map((l) => [l.materialId, l]));
+        const quoteRequestLines = reqLines.map((l) => ({
+          materialId: l.materialId,
+          qtyRequested: l.qtyRequired,
+        }));
+        validateQuoteLineCoverage(input.lines, quoteRequestLines);
+        reqLineMap = new Map(reqLines.map((l) => [
+          l.materialId,
+          { material: { hsnCode: l.hsnCode, gstRate: l.gstRate }, qtyRequested: l.qtyRequired },
+        ]));
       }
 
       // Compute landed cost per line
@@ -406,9 +465,9 @@ export async function updateVendorQuote(input: UpdateVendorQuoteInput) {
       data.loadingTotal = totals.loadingTotal;
       data.insuranceTotal = totals.insuranceTotal;
       data.buyerTransportTotal = totals.buyerTransportTotal;
-      data.landedTotal = input.landedTotal !== undefined ? new Decimal(input.landedTotal) : totals.landedTotal;
+      data.landedTotal = validateQuoteLandedTotal(input.landedTotal, totals.landedTotal);
     } else if (input.landedTotal !== undefined) {
-      data.landedTotal = new Decimal(input.landedTotal);
+      throw new ServiceError("Include all itemized quote lines to change the landed total");
     }
     if (input.deliveryTermsType !== undefined) data.deliveryTermsType = input.deliveryTermsType;
     if (input.deliveryTerms !== undefined) data.deliveryTerms = input.deliveryTerms;
@@ -444,9 +503,16 @@ export async function updateVendorQuote(input: UpdateVendorQuoteInput) {
 
 export async function deleteVendorQuote(quoteId: string, userId?: string) {
   return withSerializableTransaction(async (tx) => {
-    const quote = await tx.vendorQuote.findUnique({ where: { id: quoteId } });
+    const quote = await tx.vendorQuote.findUnique({
+      where: { id: quoteId },
+      include: {
+        requisition: { select: { status: true, quotesLockedAt: true } },
+        quotationRequest: { select: { status: true } },
+      },
+    });
     if (!quote) throw new ServiceError("Quote not found", 404);
     if (quote.status === "SELECTED") throw new ServiceError("Cannot delete the selected (winning) quote");
+    if (quoteAwardIsLocked(quote)) throw new ServiceError("Quotes are locked after award — comparison history cannot be deleted");
 
     await tx.vendorQuoteLine.deleteMany({ where: { vendorQuoteId: quoteId } });
     await tx.vendorQuote.delete({ where: { id: quoteId } });
@@ -490,6 +556,21 @@ export async function selectWinningQuote(input: SelectWinnerInput) {
     }
     if (quote.requisition.status === "CONVERTED") {
       throw new ServiceError("Cannot select a quote for an already-converted indent");
+    }
+    if (quote.requisition.status !== "APPROVED") throw new ServiceError("Indent must be approved before selecting a quote");
+    if (quote.requisition.quotesLockedAt) throw new ServiceError("Quotes are locked — a winner has already been selected");
+    if (quote.status === "REJECTED") throw new ServiceError("Cannot select a rejected quote");
+    const eligibleQuotes = await tx.vendorQuote.findMany({
+      where: { requisitionId: quote.requisitionId, status: { not: "REJECTED" } },
+      select: { id: true, supplierId: true, landedTotal: true, status: true },
+    });
+    const supplierCount = new Set(eligibleQuotes.map(q => q.supplierId)).size;
+    if (!isQuoteGateSatisfied(supplierCount, quote.requisition.minQuotesRequired, quote.requisition.quotesWaived)) {
+      throw new ServiceError(`Quote gate not satisfied: ${quote.requisition.minQuotesRequired} vendor quotes required`);
+    }
+    const cheapest = eligibleQuotes.find(q => q.id === cheapestQuoteId(eligibleQuotes));
+    if (cheapest && new Decimal(quote.landedTotal).gt(cheapest.landedTotal) && !input.selectionReason?.trim()) {
+      throw new ServiceError("A reason is required when selecting a quote that is not the cheapest");
     }
 
     // Mark all other quotes for this requisition as REJECTED (including any
@@ -589,6 +670,7 @@ export async function getComparativeStatement(requisitionId: string) {
       quotesWaived: true,
       quotesWaivedReason: true,
       quotesLockedAt: true,
+      convertedPoId: true,
       lines: { select: { materialId: true } },
     },
   });
@@ -613,7 +695,11 @@ export async function getComparativeStatement(requisitionId: string) {
   const lastRateMap = new Map<string, { unitCost: number; poNumber: string; poDate: string; supplierName: string; projectName: string | null }>();
   if (materialIds.length > 0) {
     const lastPoLines = await prisma.purchaseOrderLine.findMany({
-      where: { materialId: { in: materialIds } },
+      where: {
+        materialId: { in: materialIds },
+        ...(req.convertedPoId ? { purchaseOrderId: { not: req.convertedPoId } } : {}),
+        purchaseOrder: { status: { in: ["ORDERED", "PARTIAL", "RECEIVED", "SHORT_CLOSED"] } },
+      },
       include: {
         purchaseOrder: {
           select: {
@@ -641,16 +727,18 @@ export async function getComparativeStatement(requisitionId: string) {
     }
   }
 
+  const selectedQuote = quotes.find((q) => q.status === "SELECTED") ?? null;
+  const awarded = !!selectedQuote && !!req.quotesLockedAt;
   const totals: QuoteTotal[] = quotes.map((q) => ({
     id: q.id,
     landedTotal: new Decimal(q.landedTotal),
-    status: q.status,
+    status: awarded ? "PENDING" : q.status,
   }));
   const cheapestId = cheapestQuoteId(totals);
   const variances = quoteVariances(totals);
   const nonRejectedCount = quotes.filter((q) => q.status !== "REJECTED").length;
-  const gateSatisfied = isQuoteGateSatisfied(nonRejectedCount, req.minQuotesRequired, req.quotesWaived);
-  const selectedQuote = quotes.find((q) => q.status === "SELECTED") ?? null;
+  const supplierCount = new Set(quotes.filter(q => q.status !== "REJECTED").map(q => q.supplierId)).size;
+  const gateSatisfied = awarded || isQuoteGateSatisfied(supplierCount, req.minQuotesRequired, req.quotesWaived);
 
   return {
     requisition: req,
@@ -662,6 +750,7 @@ export async function getComparativeStatement(requisitionId: string) {
     cheapestQuoteId: cheapestId,
     selectedQuoteId: selectedQuote?.id ?? null,
     nonRejectedCount,
+    quoteCount: quotes.length,
     gateSatisfied,
     lastRateByMaterial: Object.fromEntries(lastRateMap),
   };

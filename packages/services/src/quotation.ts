@@ -87,6 +87,9 @@ export function computeLineLandedCost(input: LineLandedCostInput): LineLandedCos
   const buyerTransportPerUnit = new Decimal(input.buyerTransportPerUnit ?? 0);
 
   const taxableValuePerUnit = unitPrice.minus(discountPerUnit).plus(packingPerUnit);
+  if (taxableValuePerUnit.lt(0)) {
+    throw new ServiceError("Discount cannot exceed the unit price plus taxable packing");
+  }
   const gstPerUnit = taxableValuePerUnit.times(gstRate).div(100);
   const unitLandedCost = taxableValuePerUnit
     .plus(gstPerUnit)

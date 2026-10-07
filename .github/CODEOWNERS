@@ -1,0 +1,33 @@
+# CODEOWNERS — Nirman Inventory OS
+#
+# One owner today (single-maintainer project) — the file exists so that
+# when the team grows, ownership is already mapped to modules, not invented
+# under pressure. Every line routes review to the person who owns that area.
+#
+# Order: more specific patterns override earlier ones.
+
+# Default: everything
+*                          @sparshagarwal
+
+# Money / GL / ledger — the correctness-critical core
+packages/services/src/gl*           @sparshagarwal
+packages/services/src/stock-ledger* @sparshagarwal
+packages/services/src/sale*         @sparshagarwal
+packages/services/src/payroll*      @sparshagarwal
+packages/services/src/valuation*    @sparshagarwal
+packages/db/prisma/schema.prisma    @sparshagarwal
+packages/db/prisma/migrations/      @sparshagarwal
+
+# Auth / permissions / scope / PII — the security-critical core
+apps/web/src/lib/auth.ts            @sparshagarwal
+apps/web/src/lib/roles.ts           @sparshagarwal
+apps/web/src/lib/employee-visibility.ts @sparshagarwal
+packages/services/src/rbac*         @sparshagarwal
+apps/web/src/middleware.ts          @sparshagarwal
+
+# Infra / deploy / self-healing
+Dockerfile                          @sparshagarwal
+docker-compose*.yml                 @sparshagarwal
+scripts/                            @sparshagarwal
+apps/web/scripts/                   @sparshagarwal
+.github/workflows/                  @sparshagarwal

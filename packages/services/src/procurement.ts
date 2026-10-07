@@ -336,9 +336,9 @@ export async function createPurchaseOrderTx(tx: Prisma.TransactionClient, input:
       const insurancePU = new Decimal(l.insurancePerUnit ?? 0);
       const discountPU = new Decimal(l.discountPerUnit ?? 0);
       const lineSubtotal = qty.times(cost);
-      const lineGst = lineSubtotal.times(gstRate).div(100);
-      // Per-unit landed cost = (unitCost − discount + packing) × (1 + gst/100) + freight + loading + insurance
       const taxablePU = cost.minus(discountPU).plus(packingPU);
+      const lineGst = qty.times(taxablePU).times(gstRate).div(100);
+      // Per-unit landed cost = (unitCost − discount + packing) × (1 + gst/100) + freight + loading + insurance
       const unitLandedCost = taxablePU.times(new Decimal(1).plus(gstRate.div(100)))
         .plus(freightPU).plus(loadingPU).plus(insurancePU);
       const lineTotal = qty.times(unitLandedCost);

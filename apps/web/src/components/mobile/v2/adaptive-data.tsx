@@ -88,6 +88,8 @@ export function AdaptiveData<T>({
     loading: serverData === null && cached === null,
     error: null,
   });
+  // Bumping this re-triggers the client fetch — the user-facing retry.
+  const [retryTick, setRetryTick] = React.useState(0);
 
   // If server provided data, cache it AND sync it into state — on a company
   // switch router.refresh() delivers new serverData without remounting, so
@@ -131,7 +133,7 @@ export function AdaptiveData<T>({
       });
 
     return () => { cancelled = true; };
-  }, [tier, key, state.data, state.loading, clientFetcher]);
+  }, [tier, key, state.data, state.loading, clientFetcher, retryTick]);
 
   // Low/mid-tier: use server data directly (no client fetch)
   if (tier !== "high") {
@@ -147,8 +149,20 @@ export function AdaptiveData<T>({
   }
 
   if (state.error && state.data === null) {
-    // Fallback: try to refetch on next interaction
-    return <>{renderSkeleton ?? null}</>;
+    // Failed with nothing to show — a perpetual skeleton reads as broken.
+    // Offer a retry affordance that re-runs the client fetch.
+    return (
+      <div className="flex items-center justify-center gap-2 py-3 text-[0.72rem] text-muted-foreground">
+        <span>Couldn&apos;t load</span>
+        <button
+          type="button"
+          onClick={() => setRetryTick((t) => t + 1)}
+          className="rounded border border-border px-2 py-1 font-medium text-foreground"
+        >
+          Retry
+        </button>
+      </div>
+    );
   }
 
   if (state.data === null) {

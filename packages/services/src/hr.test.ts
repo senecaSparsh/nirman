@@ -18,6 +18,8 @@ import {
   computeStatusFromHours,
   countLateDays,
   computeLateHalfDayDeductions,
+  monthRange,
+  computeWorkingDays,
 } from "./hr";
 import Decimal from "decimal.js";
 
@@ -252,5 +254,26 @@ describe("computeLateHalfDayDeductions", () => {
     ];
     // 4 lates → 1 deduction
     expect(computeLateHalfDayDeductions(attendances)).toBe(1);
+  });
+});
+
+describe("payroll date boundaries", () => {
+  it.each(["Asia/Kolkata", "America/Los_Angeles", "UTC"])("keeps date-only month boundaries in %s", (timezone) => {
+    const previous = process.env.TZ;
+    process.env.TZ = timezone;
+    try {
+      const { startDate, endDate } = monthRange(2026, 10);
+      expect(startDate.toISOString()).toBe("2026-10-01T00:00:00.000Z");
+      expect(endDate.toISOString().slice(0, 10)).toBe("2026-10-31");
+      expect(computeWorkingDays(startDate, endDate)).toBe(27);
+      expect(computeWorkingDays(new Date("2026-10-03T00:00:00Z"), new Date("2026-10-04T00:00:00Z"))).toBe(1);
+    } finally {
+      if (previous === undefined) delete process.env.TZ;
+      else process.env.TZ = previous;
+    }
+  });
+
+  it("includes February 29 in a leap year", () => {
+    expect(monthRange(2024, 2).endDate.toISOString().slice(0, 10)).toBe("2024-02-29");
   });
 });

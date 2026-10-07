@@ -4,6 +4,10 @@
   "version": "0.1.0",
   "description": "Construction + Real Estate inventory management OS",
   "packageManager": "pnpm@11.18.0",
+  "engines": {
+    "node": ">=22 <23",
+    "pnpm": ">=11"
+  },
   "scripts": {
     "dev": "turbo dev",
     "dev:clean": "pnpm --filter web dev:clean",

@@ -34,7 +34,7 @@ export function NoAccess({
       </div>
       <div className="space-y-1">
         <p className="text-body font-semibold text-foreground">
-          {what.charAt(0).toUpperCase() + what.slice(1)} isn&apos;t part of your role
+          {`${what.charAt(0).toUpperCase() + what.slice(1)} isn't part of your role`}
         </p>
         <p className="mx-auto max-w-sm text-meta leading-relaxed text-muted-foreground">
           Your account doesn&apos;t include access to {what}. An owner or administrator can

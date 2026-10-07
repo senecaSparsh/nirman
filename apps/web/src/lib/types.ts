@@ -1194,6 +1194,7 @@ export type RequisitionDetail = RequisitionRow & {
     materialCode: string;
     materialName: string;
     unit: string;
+    gstRate: number;
     qtyRequested: number;
     notes: string | null;
     currentStock: number | null;
@@ -1291,6 +1292,7 @@ export type ComparativeStatement = {
   cheapestQuoteId: string | null;
   selectedQuoteId: string | null;
   nonRejectedCount: number;
+  quoteCount?: number;
   gateSatisfied: boolean;
   lastRateByMaterial: Record<string, {
     unitCost: number;
@@ -1490,5 +1492,4 @@ export type ApprovalRaBillRow = {
   waitingOn: string;
   urgency: string;
 };
-
 

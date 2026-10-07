@@ -119,7 +119,9 @@ export function ComparativeQuotePanel({
       if (!res.ok) throw new Error(data.error);
       if (data.autoConvertedPo) {
         toast.success(`PO ${data.autoConvertedPo.poNumber} auto-created`, {
-          description: "The purchase order was created and ordered from the supplier automatically.",
+          description: data.autoConvertedPo.status === "ORDERED"
+            ? "The purchase order was approved and ordered automatically."
+            : "Saved as a draft; an independent approver must approve and order it.",
         });
       } else {
         toast.success("Winning quote selected", {

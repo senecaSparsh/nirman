@@ -190,9 +190,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const existing = await prisma.material.findUnique({ where: { companyId_code: { companyId: company.id, code } } });
   if (existing && existing.deletedAt) {
     const restored = await withSerializableTransaction(async (tx) => {
+      const { categoryId, baseUnit, ...restoredScalars } = parsed.data;
       const mat = await tx.material.update({
         where: { id: existing.id },
-        data: { ...parsed.data, deletedAt: null },
+        data: { ...restoredScalars, ...(baseUnit ? { baseUnit } : {}), category: { connect: { id: categoryId } }, deletedAt: null },
       });
       await logAction(tx, {
         userId: user.id,
@@ -217,10 +218,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
       const category = await tx.materialCategory.findUnique({ where: { id: parsed.data.categoryId, companyId: company.id, deletedAt: null } });
       if (!category) throw new Error("Category not found");
 
+      const { categoryId, baseUnit, ...scalars } = parsed.data;
       const mat = await tx.material.create({
         data: {
-          ...parsed.data,
-          companyId: company.id,
+          ...scalars,
+          ...(baseUnit ? { baseUnit } : {}),
+          company: { connect: { id: company.id } },
+          category: { connect: { id: categoryId } },
           code,
           hsnCode,
           gstRate,
@@ -298,14 +302,15 @@ export const PUT = apiHandler(async (req: NextRequest) => {
     try {
       // Auto-fill HSN/GST from category / HSN master (same as single POST)
       const { hsnCode, gstRate } = await autoFillHsnGst(parsed.data, company.id);
-      const dataWithHsn = { ...parsed.data, hsnCode, gstRate };
+      const { categoryId, baseUnit, ...scalars } = parsed.data;
+      const dataWithHsn = { ...scalars, hsnCode, gstRate };
 
       await withSerializableTransaction(async (tx) => {
         if (existing && existing.deletedAt) {
           // Restore soft-deleted material
           await tx.material.update({
             where: { id: existing.id },
-            data: { ...dataWithHsn, deletedAt: null },
+            data: { ...dataWithHsn, ...(baseUnit ? { baseUnit } : {}), category: { connect: { id: categoryId } }, deletedAt: null },
           });
           await logAction(tx, {
             userId: user.id,
@@ -317,7 +322,12 @@ export const PUT = apiHandler(async (req: NextRequest) => {
           });
         } else {
           const mat = await tx.material.create({
-            data: { ...dataWithHsn, companyId: company.id, currentCost: parsed.data.standardCost },
+            data: {
+              ...dataWithHsn,
+              company: { connect: { id: company.id } },
+              category: { connect: { id: categoryId } },
+              currentCost: parsed.data.standardCost,
+            },
           });
           await logAction(tx, {
             userId: user.id,
