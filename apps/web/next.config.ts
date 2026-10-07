@@ -129,6 +129,10 @@ const nextConfig: NextConfig = {
             "img-src 'self' data: blob: https:",
             "font-src 'self' data:",
             "connect-src 'self' https: data: blob:",
+            // Web Workers (service workers, OCR/compute workers) — 'self' for
+            // sw.js, blob: for inline-constructed workers. Without this they
+            // fall back to script-src which rejects blob: URLs.
+            "worker-src 'self' blob:",
             "frame-ancestors 'self'",
             "base-uri 'self'",
             "form-action 'self'",
