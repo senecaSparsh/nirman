@@ -63,6 +63,9 @@ import PrintableSaleFormPage from "./page";
 describe("PrintableSaleFormPage", () => {
   beforeEach(() => {
     setSessionUser({ role: "OWNER" });
+    // The page's scope pre-check queries prisma.assetSale.findFirst — stub it
+    // in-scope, otherwise the test hits notFound() before the data fetch.
+    mockPrisma().assetSale!.findFirst.mockResolvedValue({ id: "s1" });
     vi.mocked(getPrintableSaleData).mockResolvedValue(mockSaleData as any);
   });
 

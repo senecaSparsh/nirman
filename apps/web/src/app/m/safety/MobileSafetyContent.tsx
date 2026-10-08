@@ -88,11 +88,13 @@ export function MobileSafetyContent({
       {tab === "hazards" && <MobileHazardList items={hazards} />}
       {tab === "inspections" && <MobileInspectionList items={inspections} />}
 
-      {/* FABs */}
+      {/* FABs — anyone who can see this page can report a hazard (the person
+          at the gate is the likeliest to spot one); incidents + inspections
+          stay safety.manage — regulated records, not observations. */}
+      {projects.length > 0 && tab === "hazards" && <MobileHazardFab projects={projects} />}
       {canManage && projects.length > 0 && (
         <>
           {tab === "incidents" && <MobileIncidentFab projects={projects} />}
-          {tab === "hazards" && <MobileHazardFab projects={projects} />}
           {tab === "inspections" && <MobileInspectionFab projects={projects} />}
         </>
       )}

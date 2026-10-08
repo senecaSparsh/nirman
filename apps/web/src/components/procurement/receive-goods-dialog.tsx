@@ -274,7 +274,9 @@ export function ReceiveGoodsDialog({
   }
 
   if (!po) return null;
-  const canReceive = po.status === "ORDERED" || po.status === "PARTIAL";
+  // APPROVED counts too — receiving an APPROVED PO auto-marks it ORDERED
+  // (the truck's arrival proves the order was communicated).
+  const canReceive = po.status === "ORDERED" || po.status === "PARTIAL" || po.status === "APPROVED";
   const receivableLines = po.lines.filter((l) => l.remaining > 0);
 
   return (
@@ -289,7 +291,7 @@ export function ReceiveGoodsDialog({
         <div className="space-y-3">
           <p className="text-body text-muted-foreground">
             This PO is in status <strong>{po.status}</strong>. Goods can only be received against POs
-            that are ORDERED or PARTIAL.
+            that are APPROVED, ORDERED or PARTIAL.
           </p>
           <div className="flex gap-2">
             <a href={`/procurement/${po.id}`} className="inline-flex">

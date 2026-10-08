@@ -171,7 +171,7 @@ export default function SitePage() {
               My tasks {myTasks.length > 0 ? `(${myTasks.length})` : ""}
             </MobileSectionTitle>
             {myTasks.length === 0 ? (
-              <MobileEmptyState size="compact" icon={ClipboardCheck} title="No open tasks" />
+              <MobileEmptyState size="compact" icon={ClipboardCheck} title="No open tasks" hint="Tasks assigned to you will appear here. If you expected work, check with your manager." />
             ) : (
               <div className="flex flex-col gap-1.5">
                 {myTasks.slice(0, 5).map((t) => {

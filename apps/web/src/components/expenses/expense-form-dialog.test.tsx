@@ -112,23 +112,23 @@ describe("ExpenseFormDialog", () => {
 
   it("shows category validation error on submit without category", async () => {
     const { toast } = await import("sonner");
-    const { container } = render(
+    render(
       <ExpenseFormDialog open onOpenChange={vi.fn()} projects={projects} categories={categories} suppliers={suppliers} />,
     );
-    fireEvent.submit(container.querySelector("form")!);
+    fireEvent.submit(document.querySelector("form")!);
     expect(toast.error).toHaveBeenCalledWith("Please fix the errors in the form");
   });
 
   it("shows amount validation error when amount is 0", async () => {
     const { toast } = await import("sonner");
-    const { container } = render(
+    render(
       <ExpenseFormDialog open onOpenChange={vi.fn()} projects={projects} categories={categories} suppliers={suppliers} />,
     );
     // Fill category name in the auto-filled input
     fireEvent.change(screen.getByPlaceholderText("Category name (auto-filled from master, editable)"), {
       target: { value: "Travel" },
     });
-    fireEvent.submit(container.querySelector("form")!);
+    fireEvent.submit(document.querySelector("form")!);
     expect(toast.error).toHaveBeenCalledWith("Please fix the errors in the form");
   });
 

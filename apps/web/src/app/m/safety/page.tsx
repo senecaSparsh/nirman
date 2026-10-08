@@ -45,13 +45,13 @@ export default async function MobileSafetyPage({
             take: 50,
             include: { project: { select: { id: true, name: true } } },
           }),
-          canManage
-            ? prisma.project.findMany({
-                where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
-                orderBy: { name: "asc" },
-                select: { id: true, name: true },
-              })
-            : [],
+          // Scope-filtered projects for the hazard-report picker — every
+          // safety.view holder can report a hazard at their assigned project.
+          prisma.project.findMany({
+            where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] } },
+            orderBy: { name: "asc" },
+            select: { id: true, name: true },
+          }),
         ]);
 
         const serializedIncidents = incidents.map((i) => ({

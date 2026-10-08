@@ -202,7 +202,8 @@ export function PurchaseOrderDetailPanel({
                 <RotateCcw className="h-4 w-4" /> Resubmit
               </Button>
             )}
-            {(detail.status === "ORDERED" || detail.status === "PARTIAL") && canReceiveGoods && (
+            {/* APPROVED is receivable — the receipt auto-marks it ORDERED. */}
+            {(detail.status === "APPROVED" || detail.status === "ORDERED" || detail.status === "PARTIAL") && canReceiveGoods && (
               <Button size="sm" onClick={() => setRecvOpen(true)}>
                 <Package className="h-4 w-4" /> Receive Goods
               </Button>

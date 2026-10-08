@@ -164,24 +164,28 @@ export function MobileStockOutClient({
   const [lotsCache, setLotsCache] = useState<Record<string, LotOption[]>>({});
 
   // ── Per-material availability at the chosen source location ──
-  // materialId → qty at fromLocationId. Fetched when the material picker opens
-  // so it can show "N avail" / "no stock" before the user commits a line.
+  // materialId → qty at fromLocationId. Fetched as soon as a source is
+  // picked (not only when the material picker opens) so line hints and the
+  // submit guard work for draft-restored lines too. `ready` gates the
+  // zero-stock disabling — a failed fetch stays fail-open and the server
+  // remains the authority.
   const [matAvail, setMatAvail] = useState<Record<string, number>>({});
-  const [matAvailLoading, setMatAvailLoading] = useState(false);
+  const [matAvailStatus, setMatAvailStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [availTick, setAvailTick] = useState(0);
   useEffect(() => {
-    if (modal?.type !== "material" || !fromLocationId) { setMatAvail({}); setMatAvailLoading(false); return; }
+    if (!fromLocationId) { setMatAvail({}); setMatAvailStatus("idle"); return; }
     let live = true;
-    setMatAvailLoading(true);
+    setMatAvailStatus("loading");
     fetch(`/api/stock/available?locationId=${encodeURIComponent(fromLocationId)}`)
-      .then((r) => (r.ok ? r.json() : []))
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((rows: { materialId: string; qty: number }[]) => {
         if (!live) return;
         setMatAvail(Object.fromEntries(rows.map((r) => [r.materialId, r.qty])));
+        setMatAvailStatus("ready");
       })
-      .catch(() => {})
-      .finally(() => { if (live) setMatAvailLoading(false); });
+      .catch(() => { if (live) setMatAvailStatus("error"); });
     return () => { live = false; };
-  }, [modal, fromLocationId]);
+  }, [fromLocationId, availTick]);
 
   // ── Success state ──
   const [success, setSuccess] = useState<{
@@ -420,6 +424,39 @@ export function MobileStockOutClient({
       return;
     }
 
+    // Availability guard — the API hard-rejects over-issue, so catch it here
+    // before the user invests in vehicle/driver fields. Only when the stock
+    // read succeeded; on fetch error we stay fail-open and let it enforce.
+    if (matAvailStatus === "ready") {
+      const requested = new Map<string, number>();
+      for (const l of validLines) {
+        requested.set(l.materialId, (requested.get(l.materialId) ?? 0) + Number(l.qty));
+      }
+      const short = [...requested].find(([mid, qty]) => (matAvail[mid] ?? 0) < qty);
+      if (short) {
+        const [mid, qty] = short;
+        const m = materials.find((mm) => mm.id === mid);
+        const avail = matAvail[mid] ?? 0;
+        toast.error(
+          avail <= 0
+            ? `No ${m?.name ?? "material"} stock at this location — receive it or raise an indent first`
+            : `Only ${avail} ${m?.unit ?? ""} of ${m?.name ?? "material"} here (you entered ${qty}) — reduce qty or raise an indent`,
+          { action: { label: "Raise indent", onClick: () => router.push("/m/requisitions/new") } },
+        );
+        return;
+      }
+      const overLot = validLines.find((l) => {
+        if (!l.lotNumber) return false;
+        const lot = lotsCache[l.materialId]?.find((x) => x.lotNumber === l.lotNumber);
+        return lot ? Number(l.qty) > lot.currentQty : false;
+      });
+      if (overLot) {
+        const lot = lotsCache[overLot.materialId]?.find((x) => x.lotNumber === overLot.lotNumber);
+        toast.error(`Lot ${overLot.lotNumber} has only ${lot?.currentQty ?? 0} — reduce qty`);
+        return;
+      }
+    }
+
     // Mode-specific validation before entering submitting state
     if (mode === "transfer") {
       if (!toLocationId) { toast.error("Select destination location"); return; }
@@ -482,6 +519,7 @@ export function MobileStockOutClient({
 
         haptic([10, 40, 80]);
         clearDraft();
+        setAvailTick((t) => t + 1);
         setSuccess({ id: data.id, number: "transfer" });
         toast.success("Transfer created", {
           description: "A gate pass has been auto-generated — it will auto-dispatch once approved.",
@@ -530,6 +568,7 @@ export function MobileStockOutClient({
         if (!res.ok) throw new Error(data.error || "Failed to issue materials");
 
         clearDraft();
+        setAvailTick((t) => t + 1);
         router.refresh();
         setSuccess({
           id: data.materialIssueId,
@@ -1114,7 +1153,7 @@ export function MobileStockOutClient({
                         </label>
                         <button
                           type="button"
-                          onClick={() => { haptic(10); setModal({ type: "material", lineIndex: idx }); }}
+                          onClick={() => { haptic(10); setAvailTick((t) => t + 1); setModal({ type: "material", lineIndex: idx }); }}
                           className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors text-left press truncate"
                           style={{
                             borderColor: "var(--color-line)",
@@ -1148,6 +1187,13 @@ export function MobileStockOutClient({
                         />
                       </div>
                     </div>
+
+                    {/* Over-stock hint — inline, before the API rejects the submit */}
+                    {mat && matAvailStatus === "ready" && Number(line.qty) > 0 && Number(line.qty) > (matAvail[mat.id] ?? 0) ? (
+                      <p className="text-m-caption font-semibold" style={{ color: "var(--color-stop)" }}>
+                        Only {matAvail[mat.id] ?? 0} {mat.unit} in stock here — reduce qty or raise an indent
+                      </p>
+                    ) : null}
 
                     {/* Lot — selector for lot-tracked materials, hidden otherwise */}
                     {lotTracked ? (
@@ -1296,14 +1342,21 @@ export function MobileStockOutClient({
                   : materials.map((m) => {
                       const avail = matAvail[m.id];
                       const base = `${m.code} · ${m.unit}`;
-                      const sub = fromLocationId
-                        ? matAvailLoading
-                          ? `Checking stock… · ${base}`
-                          : avail != null
-                            ? `${avail} ${m.unit} in stock · ${base}`
-                            : `No stock here · ${base}`
-                        : base;
-                      return { id: m.id, label: m.name, sub };
+                      let sub = base;
+                      if (fromLocationId && matAvailStatus === "ready") {
+                        sub = avail != null ? `${avail} ${m.unit} in stock · ${base}` : `No stock here · ${base}`;
+                      } else if (fromLocationId && matAvailStatus === "loading") {
+                        sub = `Checking stock… · ${base}`;
+                      }
+                      const out = matAvailStatus === "ready" && (avail == null || avail <= 0);
+                      return {
+                        id: m.id, label: m.name, sub,
+                        disabled: out,
+                        disabledHint: out
+                          ? `${m.name} isn't stocked here — receive it at this location or raise an indent first`
+                          : undefined,
+                        disabledAction: out ? { label: "Raise indent", href: "/m/requisitions/new" } : undefined,
+                      };
                     })
           }
           selectedId={

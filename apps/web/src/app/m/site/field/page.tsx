@@ -69,8 +69,11 @@ async function MobileFieldReceiveContent({
           ],
         }
       : {};
+  // APPROVED is receivable too — a truck at the gate proves the order was
+  // communicated; receiveGoods auto-flips APPROVED→ORDERED on receipt
+  // rather than stranding the field user on "no POs awaiting receipt".
   const pos = await prisma.purchaseOrder.findMany({
-    where: { ...await scopeWhere("PurchaseOrder"), companyId: { in: groupCompanyIds }, status: { in: ["ORDERED", "PARTIAL"] }, ...receiveScope },
+    where: { ...await scopeWhere("PurchaseOrder"), companyId: { in: groupCompanyIds }, status: { in: ["APPROVED", "ORDERED", "PARTIAL"] }, ...receiveScope },
     orderBy: { createdAt: "desc" },
     take: 50,
     include: {

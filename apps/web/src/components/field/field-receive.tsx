@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import {
   ScanLine, CheckCircle2, Clock, AlertCircle, Wifi, WifiOff,
-  RefreshCw, ChevronDown, ChevronRight, Truck, Scale,
+  RefreshCw, ChevronDown, ChevronRight, Truck, Scale, Camera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -57,6 +57,10 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
   const [scanning, setScanning] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [confirmLines, setConfirmLines] = useState<{ name: string; qty: number; unit: string; cost: number }[] | null>(null);
+  // Photo-first receipt: shoot the delivery challan the driver hands over →
+  // OCR reads the despatched lines → quantities prefill against the PO.
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const challanInputRef = useRef<HTMLInputElement>(null);
   // Double-submit lock — a fast double-tap on "Confirm" fires before React
   // re-renders a `submitting` state, so a ref (updates synchronously) is the
   // only reliable guard. Without it, two queued ops apply the receipt twice.
@@ -120,6 +124,87 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
     const remaining = line.qtyOrdered - line.qtyReceived;
     setQty(line.id, String(remaining));
     toast.success(`Scanned ${line.materialName} — enter ${remaining} ${line.unit}`);
+  }
+
+  // ── Challan OCR (photo-first receipt) ──
+  // The truck arrives with a paper delivery challan. Photo it → the OCR
+  // service reads the despatched lines → we prefill receive quantities by
+  // fuzzy-matching material names to this PO's lines. Everything OCR'd is
+  // advisory — the receiver verifies the physical goods, the over-qty guard
+  // still runs, and the server re-validates at POST.
+  async function onChallanPhoto(file: File) {
+    if (!selectedPo) {
+      toast.error("Select a purchase order first — the challan lines are matched to it.");
+      return;
+    }
+    setOcrLoading(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      const res = await fetch("/api/ocr/challan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ base64 }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        result?: { challanNumber?: string; vehicleNumber?: string; lines?: { materialName: string; quantity: number; unit: string }[] };
+      };
+      if (!res.ok) throw new Error(data.error ?? "Couldn't read the challan");
+      applyChallan(data.result);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Challan scan failed — enter quantities manually");
+    } finally {
+      setOcrLoading(false);
+      if (challanInputRef.current) challanInputRef.current.value = "";
+    }
+  }
+
+  function applyChallan(result?: {
+    challanNumber?: string;
+    vehicleNumber?: string;
+    lines?: { materialName: string; quantity: number; unit: string }[];
+  }) {
+    if (!selectedPo || !result?.lines?.length) {
+      toast.error("Couldn't read the challan — enter quantities manually");
+      return;
+    }
+    const tokensOf = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2);
+    let matched = 0;
+    const unmatched: string[] = [];
+    for (const line of result.lines) {
+      if (!(line.quantity > 0)) { unmatched.push(line.materialName); continue; }
+      const tokens = tokensOf(line.materialName);
+      let best: ReceivableLine | null = null;
+      let bestScore = 0;
+      for (const pl of selectedPo.lines) {
+        const nameTokens = new Set(tokensOf(`${pl.materialName} ${pl.materialCode}`));
+        const score = tokens.reduce((acc, t) => acc + (nameTokens.has(t) ? 1 : 0), 0);
+        if (score > bestScore) { bestScore = score; best = pl; }
+      }
+      if (best && bestScore > 0) {
+        matched++;
+        setQty(best.id, String(line.quantity));
+      } else {
+        unmatched.push(line.materialName);
+      }
+    }
+    if (result.challanNumber && !challanNumber.trim()) setChallanNumber(result.challanNumber);
+    if (result.vehicleNumber && !vehicle.vehicleNumber.trim()) {
+      setVehicle((v) => ({ ...v, vehicleNumber: result.vehicleNumber! }));
+    }
+    if (matched === 0) {
+      toast.error("Read the challan, but nothing matched this PO's lines — enter quantities manually");
+      return;
+    }
+    toast.success(
+      `Read ${matched} line${matched > 1 ? "s" : ""} from the challan — verify against the goods before confirming` +
+      (unmatched.length ? ` (couldn't match: ${unmatched.join(", ")})` : ""),
+    );
   }
 
   function prepareReceipt() {
@@ -279,6 +364,7 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
             {purchaseOrders.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.poNumber} · {p.supplierName} · {p.destinationLocationName}
+                {p.status === "APPROVED" ? " · not marked sent — receiving will mark it ordered" : ""}
               </option>
             ))}
           </select>
@@ -395,10 +481,33 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
                 {" · "}{selectedPo.destinationLocationName}
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={onScanBtn} disabled={scanning}>
-              <ScanLine className="mr-1.5 h-3.5 w-3.5" />
-              {scanning ? "Scanning…" : "Scan"}
-            </Button>
+            <div className="flex gap-2">
+              <input
+                ref={challanInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void onChallanPhoto(f);
+                }}
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => challanInputRef.current?.click()}
+                disabled={ocrLoading || !online}
+                title="Photo the supplier's delivery challan — lines prefill from it"
+              >
+                <Camera className="mr-1.5 h-3.5 w-3.5" />
+                {ocrLoading ? "Reading…" : "Challan"}
+              </Button>
+              <Button variant="outline" size="sm" onClick={onScanBtn} disabled={scanning}>
+                <ScanLine className="mr-1.5 h-3.5 w-3.5" />
+                {scanning ? "Scanning…" : "Scan"}
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-2">

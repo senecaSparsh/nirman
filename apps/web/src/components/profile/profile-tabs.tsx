@@ -107,7 +107,8 @@ export type QueueData = {
   cta: string;
   urgency: "blocking" | "soon";
   icon: string;
-  items: { label: string; sub: string }[];
+  /** `href` deep-links a row to its record; falls back to the queue's href. */
+  items: { label: string; sub: string; href?: string }[];
 };
 
 export type MembershipData = {
@@ -483,8 +484,10 @@ export function OverviewCharts(props: ProfileTabsProps) {
         </div>
       </div>
 
-      {/* KPI cards with trend indicators */}
-      <div className="grid gap-3 sm:grid-cols-3">
+      {/* KPI cards — numbers the queues don't already say. "Pending actions"
+          was dropped: the queue cards above already carry every count with a
+          CTA, and the chart below restates the same array. */}
+      <div className="grid gap-3 sm:grid-cols-2">
         {props.canSeeProcurement && (
           <KpiCard
             label="POs (6 mo)"
@@ -498,15 +501,9 @@ export function OverviewCharts(props: ProfileTabsProps) {
             label="Low stock items"
             value={formatNumber(props.lowStockCount, 0)}
             sub={`${formatNumber(props.stockHealth[0]?.value ?? 0, 0)} healthy`}
-            delta={props.lowStockCount > 0 ? -1 : 0}
             deltaLabel={props.lowStockCount > 0 ? "needs attention" : "all good"}
           />
         )}
-        <KpiCard
-          label="Pending actions"
-          value={formatNumber(props.pendingActions.reduce((s, a) => s + toNum(a.value), 0), 0)}
-          sub={`${props.pendingActions.length} categories`}
-        />
       </div>
 
       {/* Charts grid */}
@@ -723,11 +720,11 @@ export function QueueCard({ queue }: { queue: QueueData }) {
   const blocking = queue.urgency === "blocking";
   const QueueIcon = ICONS[queue.icon] ?? Activity;
   return (
-    <Link
-      href={queue.href}
-      className="group block overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-foreground/20"
-    >
-      <div className="flex items-start gap-3 px-4 pb-2.5 pt-3.5">
+    <div className="group overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-foreground/20">
+      <Link
+        href={queue.href}
+        className="flex items-start gap-3 px-4 pb-2.5 pt-3.5"
+      >
         <span
           className={cn(
             "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md",
@@ -756,25 +753,32 @@ export function QueueCard({ queue }: { queue: QueueData }) {
         <span className="mt-0.5 flex shrink-0 items-center gap-1 rounded-md bg-primary px-2.5 py-1 text-caption font-semibold text-primary-foreground transition-opacity group-hover:opacity-90">
           {queue.cta} <ArrowRight className="h-3 w-3" />
         </span>
-      </div>
+      </Link>
       <div className="divide-y divide-border/60 border-t border-border/60 bg-subtle/60">
         {queue.items.slice(0, 3).map((item, i) => (
-          <div key={i} className="flex items-center justify-between gap-3 px-4 py-1.5">
+          <Link
+            key={i}
+            href={item.href ?? queue.href}
+            className="flex items-center justify-between gap-3 px-4 py-1.5 transition-colors hover:bg-accent/70"
+          >
             <span className="min-w-0 truncate text-caption font-medium text-foreground">
               {item.label}
             </span>
             <span className="shrink-0 text-caption tnum text-muted-foreground">
               {item.sub}
             </span>
-          </div>
+          </Link>
         ))}
         {queue.items.length > 3 && (
-          <div className="px-4 py-1.5 text-micro text-muted-foreground">
+          <Link
+            href={queue.href}
+            className="block px-4 py-1.5 text-micro text-muted-foreground transition-colors hover:bg-accent/70"
+          >
             +{queue.count - 3} more
-          </div>
+          </Link>
         )}
       </div>
-    </Link>
+    </div>
   );
 }
 

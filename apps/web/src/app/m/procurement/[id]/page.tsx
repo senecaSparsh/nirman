@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@nirman/db";
 import {
-  ScanLine, Truck, Phone,
+  ScanLine, Truck,
   Building2, IndianRupee, ClipboardList, Printer,
 } from "lucide-react";
 import { getCompanyGroupIds, getCurrentUser, getEffectivePermissions, toNum, scopeWhere } from "@/lib/server";
@@ -29,6 +29,7 @@ import { RecordRecentItem } from "@/components/mobile/v2/record-recent-item";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { MobileReceiveDialog } from "./MobileReceiveDialog";
+import { TrackedCallButton } from "@/components/calls/TrackedCallButton";
 import { MobileGrnBillButton } from "./MobileGrnBillButton";
 import { MobileGrnInspectButton } from "./MobileGrnInspectButton";
 
@@ -52,7 +53,7 @@ export default function MobilePoDetailPage({
         const po = await prisma.purchaseOrder.findFirst({
           where: { ...await scopeWhere("PurchaseOrder"), id, companyId: { in: groupCompanyIds } },
           include: {
-            supplier: { select: { name: true, phone: true, gstin: true } },
+            supplier: { select: { id: true, name: true, phone: true, gstin: true } },
             project: { select: { id: true, name: true } },
             destinationLocation: { select: { id: true, name: true, type: true, lat: true, lng: true, geoRadius: true } },
             createdBy: { select: { name: true } },
@@ -103,7 +104,9 @@ export default function MobilePoDetailPage({
         const canManagePayments = perms.includes(PERM.FINANCE_MANAGE);
         const canInspect = perms.includes(PERM.QC_MANAGE);
         const canReceive = perms.includes(PERM.PROCUREMENT_VIEW);
-        const isReceivable = po.status === "ORDERED" || po.status === "PARTIAL";
+        // APPROVED is receivable — a truck at the gate proves the order was
+        // communicated; the receipt auto-marks the PO ORDERED + audits it.
+        const isReceivable = po.status === "APPROVED" || po.status === "ORDERED" || po.status === "PARTIAL";
 
         const lines = po.lines.map((l) => ({
           id: l.id,
@@ -484,16 +487,17 @@ export default function MobilePoDetailPage({
                   ) : null}
                   {po.orderDate ? <KpiRow label="Ordered" value={formatDate(po.orderDate)} /> : null}
                   {po.supplier.gstin ? <KpiRow label="GSTIN" value={po.supplier.gstin} /> : null}
-                  {/* The one thing a buyer does with a supplier's number is call it. */}
+                  {/* The one thing a buyer does with a supplier's number is call it —
+                      tracked so the chase attempt lands in the call log. */}
                   {po.supplier.phone ? (
-                    <a
-                      href={`tel:${po.supplier.phone.replace(/\s+/g, "")}`}
+                    <TrackedCallButton
+                      phone={po.supplier.phone}
+                      relatedSupplierId={po.supplier.id}
+                      relatedProjectId={po.project?.id}
+                      label="Call supplier"
                       className="mt-0.5 flex items-center justify-center gap-1.5 h-8 rounded-[0.5rem] border text-m-label font-bold press"
                       style={{ borderColor: "var(--color-line)", color: "var(--color-ink-950)" }}
-                    >
-                      <Phone className="size-3" />
-                      Call supplier
-                    </a>
+                    />
                   ) : null}
                 </div>
               </div>

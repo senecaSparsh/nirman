@@ -2,7 +2,9 @@
 
 import { useState, useMemo, useEffect, type ComponentType, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import { useRouter } from "next/navigation";
 import { ChevronRight, Search, X, CheckCircle2, Plus } from "lucide-react";
+import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { useCanCreate, type CreateEntity } from "@/components/mobile/mobile-perms";
 
@@ -488,7 +490,13 @@ export function SelectorModal({
   emptyHint,
 }: {
   title: string;
-  items: { id: string; label: string; sub?: string }[];
+  /** `disabled` keeps the row visible but unselectable (e.g. zero-stock
+   *  material at the chosen location) — the user learns the catalogue entry
+   *  exists but can't pick it. `disabledHint` is toasted on tap so the
+   *  reason + recovery path are spoken, not guessed. `disabledAction`
+   *  adds a tappable recovery button on that toast (e.g. "Raise indent" →
+   *  the indent form) so the recovery is one tap, not a dead-end message. */
+  items: { id: string; label: string; sub?: string; disabled?: boolean; disabledHint?: string; disabledAction?: { label: string; href: string } }[];
   selectedId: string;
   onSelect: (id: string) => void;
   onClose: () => void;
@@ -502,6 +510,7 @@ export function SelectorModal({
   emptyHint?: string;
 }) {
   const [query, setQuery] = useState("");
+  const router = useRouter();
   // Display-gate the create row — the POST still enforces; this just avoids
   // offering a dialog that would 403 on submit.
   const createAllowed = useCanCreate(createEntity);
@@ -583,12 +592,33 @@ export function SelectorModal({
               // not a real selection — never show it as selected.
               const isPlaceholder = item.id === "";
               const isSelected = !isPlaceholder && item.id === selectedId;
+              const isDisabled = item.disabled === true;
               return (
                 <button
                   key={item.id || i}
-                  onClick={() => { haptic(10); onSelect(item.id); }}
+                  aria-disabled={isDisabled}
+                  onClick={() => {
+                    if (isDisabled) {
+                      haptic(30);
+                      toast.error(item.disabledHint ?? "Not available right now", {
+                        action: item.disabledAction
+                          ? {
+                              label: item.disabledAction.label,
+                              onClick: () => {
+                                onClose();
+                                router.push(item.disabledAction!.href);
+                              },
+                            }
+                          : undefined,
+                      });
+                      return;
+                    }
+                    haptic(10);
+                    onSelect(item.id);
+                  }}
                   className="w-full flex items-center gap-1 px-3 py-2.5 text-m-body press text-left"
                   style={{
+                    opacity: isDisabled ? 0.45 : 1,
                     backgroundColor: isSelected ? "color-mix(in srgb, var(--color-ink-950) 5%, transparent)" : "transparent",
                     borderBottom: "1px solid var(--color-line)",
                   }}
@@ -599,7 +629,7 @@ export function SelectorModal({
                       style={{
                         color: isSelected
                           ? "var(--color-ink-950)"
-                          : isPlaceholder
+                          : isPlaceholder || isDisabled
                             ? "var(--color-ink-500)"
                             : "var(--color-ink-900)",
                       }}

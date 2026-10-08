@@ -146,6 +146,27 @@ export default function MobileNewMaterialSaleClient({
     { materialId: "", locationId: "", qty: "", unitPrice: "" },
   ]);
 
+  // Available qty for each line's picked material at its picked location,
+  // keyed by line index — drives the "in stock" hint + the submit guard.
+  const [lineAvail, setLineAvail] = useState<Record<number, number>>({});
+  // Refresh each line's available qty whenever its material or location changes.
+  useEffect(() => {
+    let live = true;
+    lines.forEach((l, idx) => {
+      if (!l.materialId || !l.locationId) return;
+      fetch(`/api/stock/available?materialId=${encodeURIComponent(l.materialId)}&byLocation=true`)
+        .then((r) => (r.ok ? r.json() : []))
+        .then((rows: { locationId: string; qty: number }[]) => {
+          if (!live) return;
+          const avail = rows.find((r) => r.locationId === l.locationId)?.qty ?? 0;
+          setLineAvail((prev) => (prev[idx] === avail ? prev : { ...prev, [idx]: avail }));
+        })
+        .catch(() => {});
+    });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lines.map((l) => `${l.materialId}:${l.locationId}`).join("|")]);
+
   const [success, setSuccess] = useState<{
     saleId?: string;
     saleNumber: string;
@@ -339,6 +360,22 @@ export default function MobileNewMaterialSaleClient({
     );
     if (validLines.length === 0) {
       toast.error("Add at least one line item with qty and price");
+      return;
+    }
+
+    // Over-stock guard — the API rejects it, so catch it before the user
+    // fills payments. `lineAvail` is keyed by line index; unset entries
+    // (fetch still in-flight) stay fail-open and the server enforces.
+    const overIdx = lines.findIndex(
+      (l, i) =>
+        l.materialId && l.locationId && Number(l.qty) > 0 &&
+        lineAvail[i] != null && Number(l.qty) > lineAvail[i]!,
+    );
+    if (overIdx >= 0) {
+      const m = materials.find((mm) => mm.id === lines[overIdx]!.materialId);
+      toast.error(
+        `Only ${lineAvail[overIdx]} in stock for ${m?.name ?? "that material"} at the chosen location — reduce qty or pick another location`,
+      );
       return;
     }
 
@@ -761,6 +798,7 @@ export default function MobileNewMaterialSaleClient({
         onAddLine={handleAddLine}
         onRemoveLine={handleRemoveLine}
         onLineChange={handleLineChange}
+        lineAvail={lineAvail}
         onSubmit={handleSubmit}
         submitting={submitting}
         subtotal={subtotal}
@@ -806,6 +844,7 @@ function SaleForm({
   onAddLine,
   onRemoveLine,
   onLineChange,
+  lineAvail,
   onSubmit,
   submitting,
   subtotal: _subtotal,
@@ -843,6 +882,7 @@ function SaleForm({
   onAddLine: () => void;
   onRemoveLine: (i: number) => void;
   onLineChange: (i: number, field: keyof SaleLine, val: string) => void;
+  lineAvail: Record<number, number>;
   onSubmit: (e: React.FormEvent) => void;
   submitting: boolean;
   subtotal: number;
@@ -868,19 +908,18 @@ function SaleForm({
   const [extraMaterials, setExtraMaterials] = useState<MaterialItem[]>([]);
   // Per-location availability of the material on the line whose location
   // picker is open — lets the picker show "N in stock" / dim empty locations.
-  const [locAvail, setLocAvail] = useState<Record<string, number>>({});
-  // Available qty for each line's picked material at its picked location,
-  // keyed by line index — drives the "in stock" hint + over-qty flag.
-  const [lineAvail, setLineAvail] = useState<Record<number, number>>({});
+  // null = unknown (loading/failed); a resolved map — even empty — is
+  // authoritative for disabling zero-stock options.
+  const [locAvail, setLocAvail] = useState<Record<string, number> | null>(null);
   const submitLongPress = useLongPressNav("/m/material-sales", "Sales list");
 
   useEffect(() => {
-    if (modal?.type !== "location" || modal.lineIndex === undefined) { setLocAvail({}); return; }
+    if (modal?.type !== "location" || modal.lineIndex === undefined) { setLocAvail(null); return; }
     const matId = lines[modal.lineIndex]?.materialId;
-    if (!matId) { setLocAvail({}); return; }
+    if (!matId) { setLocAvail(null); return; }
     let live = true;
     fetch(`/api/stock/available?materialId=${encodeURIComponent(matId)}&byLocation=true`)
-      .then((r) => (r.ok ? r.json() : []))
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((rows: { locationId: string; qty: number }[]) => {
         if (!live) return;
         setLocAvail(Object.fromEntries(rows.map((r) => [r.locationId, r.qty])));
@@ -888,24 +927,6 @@ function SaleForm({
       .catch(() => {});
     return () => { live = false; };
   }, [modal, lines]);
-
-  // Refresh each line's available qty whenever its material or location changes.
-  useEffect(() => {
-    let live = true;
-    lines.forEach((l, idx) => {
-      if (!l.materialId || !l.locationId) return;
-      fetch(`/api/stock/available?materialId=${encodeURIComponent(l.materialId)}&byLocation=true`)
-        .then((r) => (r.ok ? r.json() : []))
-        .then((rows: { locationId: string; qty: number }[]) => {
-          if (!live) return;
-          const avail = rows.find((r) => r.locationId === l.locationId)?.qty ?? 0;
-          setLineAvail((prev) => (prev[idx] === avail ? prev : { ...prev, [idx]: avail }));
-        })
-        .catch(() => {});
-    });
-    return () => { live = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lines.map((l) => `${l.materialId}:${l.locationId}`).join("|")]);
 
   const allCustomers = useMemo(
     () => [...customers, ...extraCustomers].filter((c, i, arr) => arr.findIndex((x) => x.id === c.id) === i),
@@ -1536,15 +1557,24 @@ function SaleForm({
                       sub: `${m.code} · ${m.unit} · ${m.gstRate}% GST`,
                     }))
                   : locations.map((l) => {
-                      const avail = locAvail[l.id];
+                      const avail = locAvail?.[l.id];
                       const base = l.type.replace(/_/g, " ").toLowerCase();
-                      const sub =
-                        modal.lineIndex !== undefined && lines[modal.lineIndex]?.materialId
-                          ? avail != null
-                            ? `${avail} in stock · ${base}`
-                            : `No stock here · ${base}`
-                          : base;
-                      return { id: l.id, label: l.name, sub };
+                      const matPicked = modal.lineIndex !== undefined && !!lines[modal.lineIndex]?.materialId;
+                      const out = matPicked && locAvail != null && (avail == null || avail <= 0);
+                      const sub = matPicked
+                        ? avail != null
+                          ? `${avail} in stock · ${base}`
+                          : locAvail != null
+                            ? `No stock here · ${base}`
+                            : base
+                        : base;
+                      return {
+                        id: l.id, label: l.name, sub,
+                        disabled: out,
+                        disabledHint: out
+                          ? `No stock of this material at ${l.name} — pick a stocked location`
+                          : undefined,
+                      };
                     })
           }
           selectedId={

@@ -110,18 +110,18 @@ describe("LandPurchaseFormDialog", () => {
 
   it("shows seller name validation error on submit without seller name", async () => {
     const { toast } = await import("sonner");
-    const { container } = render(<LandPurchaseFormDialog open onOpenChange={vi.fn()} projects={projects} />);
-    fireEvent.submit(container.querySelector("form")!);
+    render(<LandPurchaseFormDialog open onOpenChange={vi.fn()} projects={projects} />);
+    fireEvent.submit(document.querySelector("form")!); // dialog portals to document.body
     // The seller name check uses toast.error directly (no return value check needed)
     expect(toast.error).toHaveBeenCalledWith("Seller name is required");
   });
 
   it("shows form validation error when required fields are missing", async () => {
     const { toast } = await import("sonner");
-    const { container } = render(<LandPurchaseFormDialog open onOpenChange={vi.fn()} projects={projects} />);
+    render(<LandPurchaseFormDialog open onOpenChange={vi.fn()} projects={projects} />);
     // Fill seller name but leave area/cost/parcel empty
     fireEvent.change(screen.getByPlaceholderText("e.g. Suresh Patel"), { target: { value: "Test Seller" } });
-    fireEvent.submit(container.querySelector("form")!);
+    fireEvent.submit(document.querySelector("form")!);
     expect(toast.error).toHaveBeenCalledWith("Please fix the errors in the form");
   });
 });

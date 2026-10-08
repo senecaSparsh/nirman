@@ -75,9 +75,10 @@ describe("ProjectFormDialog", () => {
 
   it("shows name validation error on submit with empty name", async () => {
     const { toast } = await import("sonner");
-    const { container } = render(<ProjectFormDialog open onOpenChange={vi.fn()} />);
+    render(<ProjectFormDialog open onOpenChange={vi.fn()} />);
     // fireEvent.submit bypasses native required validation
-    fireEvent.submit(container.querySelector("form")!);
+    // (dialog portals to document.body — query document, not container)
+    fireEvent.submit(document.querySelector("form")!);
     expect(toast.error).toHaveBeenCalledWith("Please fix the errors in the form");
   });
 

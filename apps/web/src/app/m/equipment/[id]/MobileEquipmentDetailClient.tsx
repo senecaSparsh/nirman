@@ -553,8 +553,23 @@ export function MobileEquipmentDetailClient({
       ) : null}
 
       {/* ── Action buttons ── */}
-      {canManage && !isRetired && !isSold ? (
+      {!isRetired && !isSold ? (
         <div className="flex flex-wrap gap-2 mt-2">
+          {/* Log daily fuel / usage — the diesel-leakage capture. Open to any
+              assets.view holder on the project (the operator logs the meter,
+              not the asset manager); attribution + scope enforced server-side. */}
+          <button
+            onClick={() => setShowUsage(true)}
+            disabled={acting !== null}
+            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold border text-m-body press disabled:opacity-50"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          >
+            <Fuel className="size-4" />
+            <span>Log Fuel</span>
+          </button>
+
+          {canManage ? (
+            <>
           {/* Assign (only if available) */}
           {isAvailable ? (
             <button
@@ -567,17 +582,6 @@ export function MobileEquipmentDetailClient({
               <span>Assign to Project</span>
             </button>
           ) : null}
-
-          {/* Log daily fuel / usage — the diesel-leakage capture */}
-          <button
-            onClick={() => setShowUsage(true)}
-            disabled={acting !== null}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold border text-m-body press disabled:opacity-50"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
-          >
-            <Fuel className="size-4" />
-            <span>Log Fuel</span>
-          </button>
 
           {/* Record maintenance (if not already in maintenance) */}
           {!isMaintenance ? (
@@ -621,6 +625,8 @@ export function MobileEquipmentDetailClient({
             <Archive className="size-3.5" />
             <span>Retire Equipment</span>
           </button>
+            </>
+          ) : null}
         </div>
       ) : null}
 

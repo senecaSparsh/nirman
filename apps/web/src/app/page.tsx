@@ -73,6 +73,7 @@ async function CommandCenterContent() {
   const canSeeProcurement = __effPerms.includes(PERM.PROCUREMENT_VIEW);
   const canSeeSales = __effPerms.includes(PERM.SALES_VIEW);
   const canManageStock = __effPerms.includes(PERM.INVENTORY_MANAGE);
+  const canManageProcurement = __effPerms.includes(PERM.PROCUREMENT_MANAGE);
   const canManageCompany = __effPerms.includes(PERM.COMPANY_MANAGE);
 
   // ── Procurement trend window (last 6 months) ────────────────────
@@ -122,7 +123,7 @@ async function CommandCenterContent() {
       select: { id: true, name: true, unit: true, minStock: true,
         stockItems: { where: { AND: [{ location: { deletedAt: null, companyId: company.id } }, await scopeWhere("StockLocationItem")] }, select: { qty: true } } }}),
     prisma.purchaseOrder.findMany({
-      where: { companyId: company.id, status: "DRAFT", createdById: { not: userId } },
+      where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: "DRAFT", createdById: { not: userId } },
       orderBy: { createdAt: "desc" }, take: 5,
       include: { supplier: { select: { name: true } } }}),
     prisma.materialRequisition.findMany({
@@ -130,7 +131,7 @@ async function CommandCenterContent() {
       orderBy: { createdAt: "desc" }, take: 5,
       include: { project: { select: { name: true } }, lines: { select: { qtyRequested: true } } }}),
     prisma.purchaseOrder.findMany({
-      where: { companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() } },
+      where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() } },
       orderBy: { expectedDate: "asc" }, take: 5,
       include: { supplier: { select: { name: true } } }}),
     prisma.assetSale.findMany({
@@ -138,7 +139,13 @@ async function CommandCenterContent() {
       orderBy: { createdAt: "desc" }, take: 10,
       include: { customer: { select: { name: true } }, payments: { select: { amount: true } } }}),
     prisma.stockCount.findMany({
-      where: { location: { companyId: company.id }, status: { in: ["DRAFT", "COUNTED"] } },
+      where: {
+        AND: [
+          { location: { companyId: company.id } },
+          await scopeWhere("StockCount"),
+          { status: { in: ["DRAFT", "COUNTED"] } },
+        ],
+      },
       orderBy: { countDate: "desc" }, take: 5,
       include: { location: { select: { name: true } } }}),
     prisma.builtUnit.findMany({
@@ -302,12 +309,12 @@ async function CommandCenterContent() {
     key: "req", title: "Indents waiting for approval",
     consequence: "Site can't order material until you approve these",
     count: pendingRequisitions.length, href: "/approvals", cta: "Review", urgency: "blocking", icon: "clipboardList",
-    items: pendingRequisitions.map((r) => ({ label: r.project?.name ?? "N/A", sub: `${formatNumber(r.lines.reduce((s, l) => s + toNum(l.qtyRequested), 0), 0)} units requested` }))});
+    items: pendingRequisitions.map((r) => ({ label: r.project?.name ?? "N/A", sub: `${formatNumber(r.lines.reduce((s, l) => s + toNum(l.qtyRequested), 0), 0)} units requested`, href: `/requisitions?req=${r.id}` }))});
   if (canApprovePO && draftPOs.length > 0) queues.push({
     key: "po", title: "Purchase orders to approve",
     consequence: "Nothing is ordered from the supplier until these are signed off",
     count: draftPOs.length, href: "/approvals", cta: "Review", urgency: "blocking", icon: "clipboardCheck",
-    items: draftPOs.map((po) => ({ label: po.poNumber, sub: po.supplier.name }))});
+    items: draftPOs.map((po) => ({ label: po.poNumber, sub: po.supplier.name, href: `/procurement/${po.id}` }))});
   if (canApproveGatePass && pendingGatePasses.length > 0) queues.push({
     key: "gp", title: "Gate passes waiting for approval",
     consequence: "Material can't leave the site until these are signed off",
@@ -335,9 +342,17 @@ async function CommandCenterContent() {
     items: pendingRaBills.map((b) => ({ label: b.project?.name ?? "N/A", sub: b.workOrder?.workOrderNumber ?? "—" }))});
   if (canSeeProcurement && overduePOs.length > 0) queues.push({
     key: "overdue", title: "Deliveries past their date",
-    consequence: "Chase the supplier — site is expecting this material",
-    count: overduePOs.length, href: "/procurement", cta: "Chase", urgency: "blocking", icon: "truck",
-    items: overduePOs.map((po) => ({ label: po.poNumber, sub: `${po.supplier.name} · due ${po.expectedDate ? formatDate(po.expectedDate) : "—"}` }))});
+    // Chasing is procurement's job — a site user with view-only access should
+    // see the lateness and act on receipt, not be told to call the supplier.
+    consequence: canManageProcurement
+      ? "Call the supplier and update the delivery date — site is waiting on this material"
+      : canManageStock
+        ? "Site is waiting on this material — receive it when the truck arrives, or flag it to procurement"
+        : "Site is waiting on this material — flag it to procurement",
+    count: overduePOs.length, href: "/procurement",
+    cta: canManageProcurement ? "Chase" : canManageStock ? "Receive" : "View",
+    urgency: "blocking", icon: "truck",
+    items: overduePOs.map((po) => ({ label: po.poNumber, sub: `${po.supplier.name} · due ${po.expectedDate ? formatDate(po.expectedDate) : "—"}`, href: `/procurement/${po.id}` }))});
   if (canSeeStock && lowStock.length > 0) queues.push({
     key: "low", title: "Materials below their reorder point",
     consequence: "Raise an indent before site runs out",
@@ -347,12 +362,12 @@ async function CommandCenterContent() {
     key: "approved-req", title: "Approved indents ready to order",
     consequence: "Convert these to purchase orders so the supplier can be engaged",
     count: approvedReqs.length, href: "/requisitions", cta: "Convert", urgency: "soon", icon: "clipboardList",
-    items: approvedReqs.map((r) => ({ label: r.reqNumber ?? r.id.slice(0, 8), sub: r.project?.name ?? "N/A" }))});
+    items: approvedReqs.map((r) => ({ label: r.reqNumber ?? r.id.slice(0, 8), sub: r.project?.name ?? "N/A", href: `/requisitions?req=${r.id}` }))});
   if (canApprovePO && approvedPOs.length > 0) queues.push({
     key: "approved-po", title: "Approved POs ready to send",
     consequence: "Mark these as ordered so the supplier starts fulfilling",
     count: approvedPOs.length, href: "/procurement", cta: "Order", urgency: "soon", icon: "clipboardCheck",
-    items: approvedPOs.map((po) => ({ label: po.poNumber, sub: po.supplier.name }))});
+    items: approvedPOs.map((po) => ({ label: po.poNumber, sub: po.supplier.name, href: `/procurement/${po.id}` }))});
   const salesWithBalance = activeSales.filter((s) => s.paymentStatus === "PENDING" || s.paymentStatus === "PARTIAL");
   if (canSeeSales && salesWithBalance.length > 0) queues.push({
     key: "sales-balance", title: "Sales awaiting payment",

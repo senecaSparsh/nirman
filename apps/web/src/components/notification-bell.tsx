@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {Bell, Check, CheckCheck, ChevronRight} from "lucide-react";
-import { cn, formatRelativeTime, toNum} from "@/lib/utils";
+import { cn, formatRelativeTime } from "@/lib/utils";
 import { resolveLinkForSurface } from "@/components/surface-adapter";
 import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
@@ -44,9 +44,9 @@ const URGENCY_DOT: Record<BellAlertItem["urgency"], string> = {
  *     (task assignments, DPR approvals, payment confirmations), polled
  *     every 30s from /api/notifications/in-app.
  *
- * Two bells with identical icons used to sit side by side; merging them
- * removes the "which bell do I open" guess and gives the badge a single
- * meaning: things that need you (unread + attention counts combined).
+ * The badge consistently counts unread notifications on both surfaces.
+ * Action-queue counts stay separate in the dropdown so they aren't mixed
+ * with notification events or double-counted across navigation surfaces.
  */
 export function NotificationBell({ className, alertItems = [] }: { className?: string; alertItems?: BellAlertItem[] }) {
   const [open, setOpen] = useState(false);
@@ -135,8 +135,7 @@ export function NotificationBell({ className, alertItems = [] }: { className?: s
     }
   }
 
-  const alertTotal = alertItems.reduce((sum, i) => sum + toNum(i.count), 0);
-  const badgeCount = unreadCount + alertTotal;
+  const badgeCount = unreadCount;
   const hasBlocking = alertItems.some((i) => i.urgency === "blocking");
   const blocking = alertItems.filter((i) => i.urgency === "blocking");
   const soon = alertItems.filter((i) => i.urgency === "soon");
@@ -150,7 +149,7 @@ export function NotificationBell({ className, alertItems = [] }: { className?: s
           if (!open) fetchNotifications();
         }}
         className="relative flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        aria-label={`Notifications${badgeCount > 0 ? ` (${badgeCount} need attention)` : ""}`}
+        aria-label={`Notifications${badgeCount > 0 ? ` (${badgeCount} unread)` : ""}`}
       >
         <Bell className="h-4 w-4" />
         {badgeCount > 0 && (

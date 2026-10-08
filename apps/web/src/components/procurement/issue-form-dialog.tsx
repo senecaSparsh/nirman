@@ -73,6 +73,10 @@ export function IssueFormDialog({
     for (const item of stockData ?? []) map[item.materialId] = { qty: item.qty, mac: item.mac };
     return map;
   }, [stockData]);
+  // The availability read succeeded — a material absent from stockMap is
+  // genuinely zero-stock here (the API returns qty>0 rows only). While the
+  // fetch is in-flight or failed we stay fail-open; the server still rejects.
+  const stockReady = !!fromLocationId && stockData !== null;
 
   // Built units when a project is selected (for per-unit issue)
   const { data: builtUnitsData } = useFetch<{ id: string; unitNumber: string; unitType: string | null }[]>(
@@ -219,6 +223,13 @@ export function IssueFormDialog({
     }
 
     const validLines = lines.filter((l) => l.materialId && Number(l.qty) > 0);
+    if (stockReady) {
+      const over = validLines.find((l) => Number(l.qty) > (l.available ?? 0));
+      if (over) {
+        toast.error(`Only ${over.available ?? 0} ${over.unit} of ${over.materialName || "material"} in stock here — reduce qty or raise an indent`);
+        return;
+      }
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/issue-materials", {
@@ -419,10 +430,10 @@ export function IssueFormDialog({
             />
           </div>
           {errors.lines && <p className="text-caption text-danger" role="alert">{errors.lines}</p>}
-          {lines.some((l) => l.materialId && l.available !== null && Number(l.qty) > l.available) && (
+          {lines.some((l) => l.materialId && stockReady && Number(l.qty) > (l.available ?? 0)) && (
             <div className="flex items-center justify-between gap-2 text-caption text-warning" role="alert">
               <span className="flex items-center gap-1">
-                ⚠ Some lines exceed available stock — issuing will create negative stock.
+                ⚠ Some lines exceed available stock — the issue will be rejected.
               </span>
               {target === "PROJECT" && projectId && (
                 <a
@@ -444,7 +455,7 @@ export function IssueFormDialog({
               {negativeCount > 0 && (
                 <>
                   <span className="text-muted-foreground/40">·</span>
-                  <span className="font-medium text-warning">{negativeCount} go negative</span>
+                  <span className="font-medium text-warning">{negativeCount} exceed stock</span>
                 </>
               )}
             </div>

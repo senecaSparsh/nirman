@@ -14,10 +14,12 @@ import {
   AlertTriangle,
   Search,
   X,
+  OctagonPause,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
+import { usePrompt } from "@/lib/use-prompt";
 import { MobileEmptyState, MobileCta, MobileStatusBadge } from "@/components/mobile/v2/primitives";
 
 interface TaskItem {
@@ -44,6 +46,7 @@ const FILTER_CHIPS: { label: string; value: TaskStatusFilter }[] = [
 
 export function MobileTaskList({ tasks }: { tasks: TaskItem[] }) {
   const router = useRouter();
+  const [prompt, promptDialog] = usePrompt();
   const [taskStates, setTaskStates] = useState<Record<string, ActionState>>({});
   // Optimistic status map — the status a task moved to, applied over the
   // (stale-until-refresh) props so a Start/Block repositions the card instead
@@ -79,13 +82,27 @@ export function MobileTaskList({ tasks }: { tasks: TaskItem[] }) {
     });
 
   async function updateStatus(task: TaskItem, status: string, label: string) {
+    // Blocking a task needs a reason — "waiting on TMT" is what the assigner
+    // and the office actually act on. Cancelled prompt = don't block.
+    let note: string | undefined;
+    if (status === "BLOCKED") {
+      const r = await prompt({
+        title: "Block this task",
+        label: "What's holding it up?",
+        placeholder: "e.g. waiting on TMT delivery, rain, drawing revision",
+        confirmLabel: "Block",
+        required: false,
+      });
+      if (r === null) return;
+      note = r || undefined;
+    }
     haptic(status === "COMPLETED" ? 30 : 10);
     setTaskStates((s) => ({ ...s, [task.id]: "updating" }));
     try {
       const res = await fetch(`/api/tasks/${task.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, ...(note ? { note } : {}) }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to update task");
@@ -244,6 +261,8 @@ export function MobileTaskList({ tasks }: { tasks: TaskItem[] }) {
           hint="Try a different search or filter"
         />
       )}
+
+      {promptDialog}
     </div>
   );
 }
@@ -421,6 +440,18 @@ function TaskRow({
                 icon={Play}
                 label="Resume"
                 variant="primary"
+              />
+            )}
+            {/* Block — "waiting on material / weather / drawing" is a real
+                field state, not a cancel. Recorded with a reason so the
+                assigner sees what to chase. */}
+            {(task.status === "PENDING" || task.status === "IN_PROGRESS") && (
+              <ActionButton
+                onClick={() => updateStatus(task, "BLOCKED", "Task blocked")}
+                state={state}
+                icon={OctagonPause}
+                label="Block"
+                variant="outline"
               />
             )}
             {/* Cancel — available for pending/in-progress */}

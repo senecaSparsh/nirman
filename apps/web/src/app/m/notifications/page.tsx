@@ -95,7 +95,7 @@ export default function MobileNotificationsPage() {
                 {urgent.length > 0 ? (
                   <>
                     <p className="text-m-label font-bold uppercase tracking-wider pt-1" style={{ color: "var(--color-stop)" }}>
-                      Needs attention ({urgent.length})
+                      Priority updates ({urgent.length})
                     </p>
                     {urgent.map(renderRow)}
                     {rest.length > 0 ? (

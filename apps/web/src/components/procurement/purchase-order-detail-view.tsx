@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Check, X, Package, Printer, Link2, Plus, RotateCcw } from "lucide-react";
+import { Check, X, Package, Printer, Link2, Plus, RotateCcw, CalendarClock } from "lucide-react";
+import { TrackedCallButton } from "@/components/calls/TrackedCallButton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
@@ -48,11 +49,16 @@ export function PurchaseOrderDetailView({
   }, [po.id, po.poNumber, trackRecent]);
   const [approvalNotes, setApprovalNotes] = useState("");
   const [showApproveField, setShowApproveField] = useState(false);
+  const [etaOpen, setEtaOpen] = useState(false);
+  const [etaValue, setEtaValue] = useState("");
 
-  async function doAction(action: "approve" | "order" | "cancel" | "resubmit" | "shortClose") {
+  async function doAction(
+    action: "approve" | "order" | "cancel" | "resubmit" | "shortClose" | "updateEta",
+    extra?: Record<string, unknown>,
+  ) {
     setActing(true);
     try {
-      const payload: Record<string, unknown> = { action };
+      const payload: Record<string, unknown> = { action, ...extra };
       if (action === "approve") payload.approvalNotes = approvalNotes.trim() || undefined;
       const res = await fetch(`/api/purchase-orders/${detail.id}`, {
         method: "PATCH",
@@ -81,6 +87,13 @@ export function PurchaseOrderDetailView({
         toast.success(`PO ${detail.poNumber} short-closed`, {
           description: "The undelivered remainder is written off — re-order if the project still needs it.",
         });
+      } else if (action === "updateEta") {
+        toast.success("Delivery expectation updated", {
+          description: extra?.expectedDate
+            ? `Expected ${formatDate(String(extra.expectedDate))}`
+            : "ETA cleared — the supplier has not committed a date",
+        });
+        setEtaOpen(false);
       }
       setApprovalNotes("");
       setShowApproveField(false);
@@ -97,7 +110,17 @@ export function PurchaseOrderDetailView({
     }
   }
 
-  const isReceivable = detail.status === "ORDERED" || detail.status === "PARTIAL";
+  // APPROVED is receivable — receiving auto-marks it ORDERED (the truck's
+  // arrival proves the order was communicated). Add Line stays stricter
+  // (service only allows ORDERED/PARTIAL).
+  const isReceivable = detail.status === "APPROVED" || detail.status === "ORDERED" || detail.status === "PARTIAL";
+  const canAddLine = detail.status === "ORDERED" || detail.status === "PARTIAL";
+  // Render-time reference — Date.now() in a render expression trips
+  // react-hooks/purity; a lazy initializer computes it once per mount.
+  const [nowTs] = useState(() => Date.now());
+  const overdueDays = detail.expectedDate
+    ? Math.max(0, Math.floor((nowTs - new Date(detail.expectedDate).getTime()) / 86_400_000))
+    : 0;
 
   // Pipeline position: Indent → Quote → PO → GRN → Issue
   const pipelineSteps: PipelineStep[] = [
@@ -128,6 +151,11 @@ export function PurchaseOrderDetailView({
             Destination: {detail.destinationLocation.name}
           </span>
         )}
+        {detail.expectedDate && (
+          <span className={overdueDays > 0 ? "text-meta font-medium text-danger" : "text-meta text-muted-foreground"}>
+            Expected {formatDate(detail.expectedDate)}{overdueDays > 0 ? ` · ${overdueDays}d overdue` : ""}
+          </span>
+        )}
       </div>
 
       {/* Pipeline position */}
@@ -154,7 +182,19 @@ export function PurchaseOrderDetailView({
           </Link>
         )}
         {detail.supplier.phone && (
-          <span className="text-muted-foreground">Supplier phone: {detail.supplier.phone}</span>
+          <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+            Supplier phone: {detail.supplier.phone}
+            {canManage && (
+              <TrackedCallButton
+                phone={detail.supplier.phone}
+                relatedSupplierId={detail.supplier.id}
+                relatedProjectId={detail.projectId ?? undefined}
+                compact
+                className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border text-foreground transition-colors hover:bg-accent"
+                style={{}}
+              />
+            )}
+          </span>
         )}
         {detail.supplier.gstin && (
           <span className="text-muted-foreground">GSTIN: {detail.supplier.gstin}</span>
@@ -201,6 +241,11 @@ export function PurchaseOrderDetailView({
           </Button>
         )}
         {isReceivable && canManage && (
+          <Button size="sm" variant="outline" onClick={() => { setEtaValue(detail.expectedDate ? detail.expectedDate.slice(0, 10) : ""); setEtaOpen(true); }}>
+            <CalendarClock className="h-4 w-4" /> Update ETA
+          </Button>
+        )}
+        {canAddLine && canManage && (
           <Button size="sm" variant="outline" onClick={() => setAddLineOpen(true)}>
             <Plus className="h-4 w-4" /> Add Line
           </Button>
@@ -247,6 +292,31 @@ export function PurchaseOrderDetailView({
             <Button size="sm" variant="outline" onClick={() => { setShowApproveField(false); setApprovalNotes(""); }}>Cancel</Button>
             <Button size="sm" onClick={() => doAction("approve")} disabled={acting}>
               {acting ? "Approving…" : "Confirm Approve & Order"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Inline ETA update (appears when updating the delivery date) */}
+      {isReceivable && canManage && etaOpen && (
+        <div className="flex flex-col gap-2 rounded-lg border border-border/60 p-3">
+          <label className="text-meta text-muted-foreground">
+            New expected delivery date — the supplier&rsquo;s committed date after your call
+          </label>
+          <input
+            type="date"
+            className="w-full max-w-56 rounded-md border border-border bg-background px-3 py-2 text-body outline-none focus:ring-2 focus:ring-ring"
+            value={etaValue}
+            onChange={(e) => setEtaValue(e.target.value)}
+          />
+          <div className="flex justify-end gap-2">
+            <Button size="sm" variant="outline" onClick={() => setEtaOpen(false)}>Cancel</Button>
+            <Button
+              size="sm"
+              onClick={() => doAction("updateEta", { expectedDate: etaValue ? new Date(`${etaValue}T00:00:00`).toISOString() : null })}
+              disabled={acting}
+            >
+              {acting ? "Saving…" : "Save ETA"}
             </Button>
           </div>
         </div>

@@ -94,7 +94,7 @@ describe("MaterialFormDialog", () => {
 
   it("shows category validation error when no category selected", async () => {
     const { toast } = await import("sonner");
-    const { container } = render(
+    render(
       <MaterialFormDialog open onOpenChange={vi.fn()} categories={categories} material={null} />,
     );
     // Fill code/name/unit so those JS checks pass, but leave category empty.
@@ -102,7 +102,8 @@ describe("MaterialFormDialog", () => {
     fireEvent.change(screen.getByPlaceholderText("CEM-OPC53"), { target: { value: "TEST-001" } });
     fireEvent.change(screen.getByPlaceholderText("Cement OPC 53 Grade"), { target: { value: "Test Material" } });
     fireEvent.change(screen.getByPlaceholderText("BAG / KG / NOS / MTR"), { target: { value: "NOS" } });
-    fireEvent.submit(container.querySelector("form")!);
+    // Dialog portals to document.body — query document, not container.
+    fireEvent.submit(document.querySelector("form")!);
     expect(toast.error).toHaveBeenCalledWith("Please fix the errors in the form");
   });
 
