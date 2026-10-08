@@ -19,6 +19,7 @@ import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDial
 import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDialog";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { useSmartDefaults } from "@/lib/use-smart-defaults";
+import { useCanCreate } from "@/components/mobile/mobile-perms";
 import { SmartDefaultsBadge } from "@/components/mobile/v2/smart-defaults-badge";
 import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 
@@ -72,6 +73,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
   // ── Smart defaults — pre-fill project from last-used (if no draft) ──
   const { getDefault, recordDefaults } = useSmartDefaults("requisition");
   const [defaultsApplied, setDefaultsApplied] = useState(false);
+  const canCreateProject = useCanCreate("project");
 
   const [projectId, setProjectId] = useState("");
   const [neededByDate, setNeededByDate] = useState("");
@@ -230,16 +232,18 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
       <MobileEmptyState
         icon={ShoppingCart}
         title="No projects available"
-        description="Create a project first to raise material indents"
+        description={canCreateProject ? "Create a project first to raise material indents" : "No projects are assigned to you — ask your admin to add you to a site."}
         action={
-          <Link
-            href="/m/real-estate?tab=projects"
-            className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed px-6 py-2.5 text-m-body font-bold text-m-body press"
-            style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
-          >
-            <Plus className="size-3.5" />
-            Go to Projects
-          </Link>
+          canCreateProject ? (
+            <Link
+              href="/m/real-estate?tab=projects"
+              className="flex items-center justify-center gap-1.5 rounded-[0.5rem] border-2 border-dashed px-6 py-2.5 text-m-body font-bold text-m-body press"
+              style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
+            >
+              <Plus className="size-3.5" />
+              Go to Projects
+            </Link>
+          ) : undefined
         }
       />
     );
