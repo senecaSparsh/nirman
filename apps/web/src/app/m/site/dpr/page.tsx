@@ -4,7 +4,6 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, toNum, scopeWhere, getScopedFormOptions, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { ClipboardList } from "lucide-react";
 import { MobileDprForm } from "@/components/mobile/mobile-dpr-form";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 
@@ -13,20 +12,11 @@ export default function MobileDprPage({
 }: {
   searchParams: Promise<{ project?: string }>;
 }) {
+  // No in-page heading — the shell renders "New DPR" from the manifest; a
+  // "Submit Daily Progress Report" heading repeats it as the spelled-out
+  // acronym, which reads as duplicated text.
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3">
-        <p className="text-m-section font-bold flex-1" style={{ color: "var(--color-ink-950)" }}>
-          Submit Daily Progress Report
-        </p>
-        <span
-          className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
-          style={{ color: "var(--color-steel)", backgroundColor: "color-mix(in srgb, var(--color-steel) 12%, transparent)" }}
-        >
-          <ClipboardList className="size-2.5" />
-          Site
-        </span>
-      </div>
       <Suspense fallback={<MobileSkeletonForm />}>
         <MobileDprContent searchParams={searchParams} />
       </Suspense>

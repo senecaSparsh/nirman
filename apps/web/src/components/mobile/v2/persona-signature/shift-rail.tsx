@@ -80,9 +80,6 @@ export function ShiftRail({ data }: { data: ShiftData }) {
   const checkedOut = !!attendance?.checkOut;
   const openTasks = tasks.length;
   const canDpr = data.can?.dpr ?? true;
-  // Without crew-marking rights the check-in/out rows would link to a page
-  // the user can't open — self check-in lives in the widget above the rail.
-  const canMarkAttendance = data.can?.attendanceLog ?? true;
 
   // The day, in the order it actually happens. Deliveries and tasks sit
   // between the two attendance anchors because that is when they occur —
@@ -95,12 +92,14 @@ export function ShiftRail({ data }: { data: ShiftData }) {
     icon: LogIn,
     time: clock(attendance?.checkIn ?? null),
     title: checkedIn ? "Checked in" : "Check in",
+    // Self check-in is the widget directly above this rail — the row shows
+    // *my* state, it doesn't link (the old href went to the crew-marking
+    // page, which read as "tap to check myself in" but opened a form to
+    // mark other workers).
     sub: checkedIn
       ? (attendance?.location ?? site?.name ?? undefined)
-      : canMarkAttendance
-        ? "Tap to mark attendance"
-        : "Use the check-in card above",
-    href: canMarkAttendance ? "/m/site/attendance" : null,
+      : "Use the check-in card above",
+    href: null,
     done: checkedIn,
   });
 
@@ -158,10 +157,8 @@ export function ShiftRail({ data }: { data: ShiftData }) {
       ? attendance?.hoursWorked != null
         ? `${attendance.hoursWorked.toFixed(1)} h on site`
         : undefined
-      : canMarkAttendance
-        ? "End of shift"
-        : "Use the check-out card above",
-    href: canMarkAttendance ? "/m/site/attendance" : null,
+      : "Use the check-out card above",
+    href: null,
     done: checkedOut,
   });
 

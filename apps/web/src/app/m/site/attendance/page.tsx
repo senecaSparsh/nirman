@@ -4,25 +4,14 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, toNum, scopeWhere, getScopedFormOptions, getEffectivePermissions, getEmployeeAccessScope } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { Users } from "lucide-react";
 import { MobileAttendanceForm } from "@/components/mobile/mobile-attendance-form";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 
 export default function MobileAttendancePage() {
+  // No in-page heading — the mobile shell renders the manifest title
+  // ("Attendance"); a second heading reads as a duplicated label.
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3">
-        <p className="text-m-section font-bold flex-1" style={{ color: "var(--color-ink-950)" }}>
-          Attendance
-        </p>
-        <span
-          className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
-          style={{ color: "var(--color-steel)", backgroundColor: "color-mix(in srgb, var(--color-steel) 12%, transparent)" }}
-        >
-          <Users className="size-2.5" />
-          Site
-        </span>
-      </div>
       <Suspense fallback={<MobileSkeletonForm />}>
         <MobileAttendanceContent />
       </Suspense>
