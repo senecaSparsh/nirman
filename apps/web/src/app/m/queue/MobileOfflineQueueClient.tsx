@@ -92,16 +92,20 @@ export function MobileOfflineQueueClient() {
 
   return (
     <div className="space-y-4 p-4">
-      {/* Status caption — page title lives in the shell nav */}
-      <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
-        {pending > 0
-          ? `${pending} operation${pending > 1 ? "s" : ""} waiting to sync`
-          : failedCount > 0
-            ? `${failedCount} failed operation${failedCount > 1 ? "s" : ""} need${failedCount > 1 ? "" : "s"} attention — review below`
-            : online
-              ? "All caught up — no pending operations"
-              : "You're offline. Operations will sync when back online."}
-      </p>
+      {/* Status caption — page title lives in the shell nav. Suppressed
+          when the queue is entirely empty: the empty-state below says the
+          same thing, and stacking both read as duplicated copy. */}
+      {queue.length > 0 ? (
+        <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
+          {pending > 0
+            ? `${pending} operation${pending > 1 ? "s" : ""} waiting to sync`
+            : failedCount > 0
+              ? `${failedCount} failed operation${failedCount > 1 ? "s" : ""} need${failedCount > 1 ? "" : "s"} attention — review below`
+              : online
+                ? "All caught up — no pending operations"
+                : "You're offline. Operations will sync when back online."}
+        </p>
+      ) : null}
 
       {/* Status bar */}
       <div
