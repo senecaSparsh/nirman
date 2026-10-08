@@ -327,7 +327,7 @@ msg)` that returns 504 on timeout. Applied to `/api/cron/backup` (120s) and
     mount-loads use `useFetch` (SWR cache, retry, abort, tenant-safe) — not raw `fetch`+`useEffect`.
 - **Mobile navigation / adding a `/m` route**: `apps/web/src/lib/route-manifest.ts` is the SINGLE
   SOURCE OF TRUTH for mobile navigation. Creating `app/m/<path>/page.tsx` REQUIRES adding a matching
-  `RouteEntry` — `route-manifest.test.ts` (36 guards, runs in CI) fails the build if you do one
+  `RouteEntry` — `route-manifest.test.ts` (40 tests, runs in CI) fails the build if you do one
   without the other. It also enforces that `parent` is a real path ancestor or hub, that Home is the
   only root, that exactly one tab resolves active for every route a user can open, and that two
   routes rendering the same list component declare each other in `sharesListWith`. This exists
@@ -344,7 +344,7 @@ msg)` that returns 504 on timeout. Applied to `/api/cron/backup` (120s) and
   arbitrary per-user grants work with zero nav config: grant one store keeper `finance.view` and
   Books appears in their menu. Before this, the client only knew `role`, so an individually granted
   permission was enforced by the API but invisible in the UI — granting it was a silent no-op.
-  Guards G6-G9 are property-tested over 69 permission sets; G9 also asserts that only 4 allowlisted routes are ungated (an ungated route is open to EVERY user). When you add a page, set `perm` to
+  Route capability behaviour is tested over 69 permission sets. A separate allowlist guards seven intentionally ungated routes; an ungated route is open to every signed-in user. When you add a page, set `perm` to
   the SAME key the page/API enforces, and prefer the `*.view` key — a write/approve key as the gate
   hides the page from legitimate read-only users.
 - **Procurement scope**: every `PurchaseOrder` must set `procurementScope` (COMPANY or PROJECT).

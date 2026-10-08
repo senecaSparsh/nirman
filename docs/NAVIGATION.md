@@ -1,8 +1,7 @@
 # Mobile Navigation — Audit & Target Architecture
 
-> **Status**: **Phase 1 landed** (manifest + CI guards). Phases 2-5 awaiting go-ahead.
-> **Scope**: `/m/*` (176 routes). Desktop (`/`, 145 routes) is touched only in
-> Phase 5, and only to converge on the same source of truth.
+> **Status**: The mobile route manifest and capability gates are live; canonical URL cleanup and desktop convergence remain open. The phase table below is a historical rollout plan and needs a code-backed refresh.
+> **Scope**: `/m/*` (187 routes, including redirect stubs). Desktop still uses the separate `src/lib/nav.ts` world map; convergence is not landed.
 > **Companions**: `docs/MOBILE_UX_RESEARCH.md` (patterns + evidence),
 > `docs/MOBILE_UX_AUDIT.md` (2026-08 gap audit), `docs/MOBILE_FLOW_MAP.md`.
 
@@ -418,20 +417,19 @@ Two invariants now enforce it, property-tested over 69 permission sets
 
 ### 4.1 CI guards (`apps/web/src/lib/route-manifest.test.ts`)
 
-| #   | Assertion                                                                   | Status         |
-| --- | --------------------------------------------------------------------------- | -------------- |
-| G1  | Every `app/m/**/page.tsx` has a manifest entry, and every entry has a file  | ✅ 177/177     |
-| G2  | Every route is ≤3 hops from a tab root for ≥1 persona; no orphaned parents  | ✅             |
-| G3  | Exactly one tab resolves active for every route the user can open           | ✅             |
-| G4  | `parent` is a path ancestor or a hub; no cycles; never points at a redirect | ✅             |
-| G5  | Routes sharing a list component declare each other in `sharesListWith`      | ✅ 19 declared |
-| G6  | Nothing the nav surfaces can 403; every `perm` is a real permission key     | ✅             |
-| G7  | Every permission that gates a route surfaces ≥1 menu entry when held        | ✅             |
-| G8  | Exactly four valid tabs, ≤1 active, for any permission set                  | ✅             |
-| G9  | Only an allowlisted handful of routes are ungated (universal)               | ✅ 4 allowed   |
-| G10 | Next Step renders on ≥1 real detail page (dead-code canary)                 | Phase 2        |
+| #   | Assertion                                                                                 | Status         |
+| --- | ----------------------------------------------------------------------------------------- | -------------- |
+| G1  | Every `app/m/**/page.tsx` has a manifest entry, and every entry has a file                | ✅ 187/187     |
+| G2  | Every route is ≤3 hops from a tab root for ≥1 persona; no orphaned parents                | ✅             |
+| G3  | Exactly one tab resolves active for every route the user can open                         | ✅             |
+| G4  | `parent` is a path ancestor or a hub; no cycles; never points at a redirect               | ✅             |
+| G5  | Routes sharing a list component declare each other in `sharesListWith`                    | ✅ 19 declared |
+| G6  | Module assignment and route access gates are consistent; universal routes are allowlisted | ✅             |
+| G7  | Every permission that gates a route surfaces ≥1 menu entry when held                      | ✅             |
+| G8  | Exactly four valid tabs, ≤1 active, for any permission set                                | ✅             |
+| G10 | `DESKTOP_ROUTES` covers desktop pages and mobile desktop targets resolve                  | ✅             |
 
-36 assertions in `apps/web/src/lib/route-manifest.test.ts`, all passing.
+40 tests in `apps/web/src/lib/route-manifest.test.ts`; route-manifest and scope-registry verification passed on 2026-10-08.
 G6-G8 are property-based over 69 permission sets (7 personas + superuser +
 zero-permission + 60 seeded-random), because per-user `UserPermission` grants
 make the real access space `2^n`, not seven personas.
@@ -459,15 +457,14 @@ already surfaces it one tap away). The `TAB_EXEMPT` escape hatch from the earlie
 draft is deleted — the invariant now holds with no exceptions, which settles §7 Q2
 on evidence rather than taste.
 
-**And the leak G9 was written to catch.** A route with no `perm` anywhere up its
-parent chain is open to everyone, and no amount of self-consistency checking
-finds that — `canAccess` returns true _by definition_. The seed had left the
-Inventory, HR, Site, Pulse, Attendance and Expenses hubs ungated, because those
-particular page files reference no `PERM.*` directly (their child pages do). Net
-effect: a user with **zero** permissions saw Inventory and HR tabs and a 17-route
-menu. Twelve hubs are now gated explicitly and the universal set is an
-allowlist of four — `/m/home`, `/m/me`, `/m/queue`, `/m/settings`. Redirect stubs
-are exempt, since their target enforces the gate.
+A route with no `perm` anywhere up its parent chain is open to every signed-in
+user; `canAccess` returns true by definition. The universal allowlist is therefore
+explicit and currently contains seven routes: `/m/approvals` (the queue self-gates
+by action), `/m/home`, `/m/me`, `/m/notifications` (current user's own history),
+`/m/print/[type]/[id]` (the dispatcher delegates authorization to the print page),
+`/m/queue` (current user's offline queue), and `/m/settings` (settings contents
+are individually gated). Redirect stubs are exempt because their targets enforce
+the gate.
 
 Observed behaviour after the fix:
 

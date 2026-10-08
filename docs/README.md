@@ -5,11 +5,12 @@
 
 ## 🚀 Getting started
 
-| I want to…                | Read                               |
-| ------------------------- | ---------------------------------- |
-| Get the app running today | `docs/ONBOARDING.md` → `AGENTS.md` |
-| Contribute a change       | `CONTRIBUTING.md` (+ PR template)  |
-| Decide what to work on    | `DECISIONS.md` (ranked backlog)    |
+| I want to…                    | Read                               |
+| ----------------------------- | ---------------------------------- |
+| Get the app running today     | `docs/ONBOARDING.md` → `AGENTS.md` |
+| Contribute a change           | `CONTRIBUTING.md` (+ PR template)  |
+| Decide what to work on        | `DECISIONS.md` (ranked backlog)    |
+| Choose the product north star | `docs/PRODUCT-THESIS.md`           |
 
 ## 🏛️ Understand the system
 
