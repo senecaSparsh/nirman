@@ -272,7 +272,8 @@ export function VehicleCapture({
       {showPicker ? (
         <SelectorModal
           title="Select Vehicle"
-          items={loadingVehicles ? [{ id: "", label: "Loading…", sub: undefined }] : vehicleItems}
+          items={vehicleItems}
+          loading={loadingVehicles}
           selectedId={value.vehicleNumber}
           onSelect={(id) => {
             const v = vehicles.find((v) => v.vehicleNumber === id);

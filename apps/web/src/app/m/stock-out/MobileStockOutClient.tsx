@@ -1320,6 +1320,12 @@ export function MobileStockOutClient({
             modal.type === "lot" ? "Select Lot / Batch" :
             "Select Material"
           }
+          loading={
+            modal.type === "from" || modal.type === "to-location" ? locQ.loading || destLocQ.loading :
+            modal.type === "to-project" ? projQ.loading :
+            modal.type === "lot" ? false :
+            matQ.loading
+          }
           createLabel={
             modal.type === "to-project" && canCreateProject ? "Create new project" :
             modal.type === "material" && canCreateMaterial ? "Create new material" :

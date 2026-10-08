@@ -510,7 +510,9 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
             </div>
             <div className="px-3 pb-3">
               <div className="grid grid-cols-2 gap-x-3 gap-y-3">
-                <InfoField icon={<UserCircle className="size-3" />} label="Role" value={roleLabel} />
+                {roleLabel && roleLabel !== userDesignation && (
+                  <InfoField icon={<UserCircle className="size-3" />} label="Access" value={roleLabel} />
+                )}
                 <InfoField icon={<Building2 className="size-3" />} label="Company" value={companyName || null} />
                 {hierarchyLevel != null && (
                   <InfoField icon={<GitBranch className="size-3" />} label="Hierarchy" value={`H${hierarchyLevel}`} />

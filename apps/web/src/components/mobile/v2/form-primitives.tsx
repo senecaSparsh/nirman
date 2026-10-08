@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, type ComponentType, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Search, X, CheckCircle2, Plus } from "lucide-react";
+import { ChevronRight, Search, X, CheckCircle2, Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { useCanCreate, type CreateEntity } from "@/components/mobile/mobile-perms";
@@ -488,6 +488,7 @@ export function SelectorModal({
   createLabel,
   createEntity,
   emptyHint,
+  loading = false,
 }: {
   title: string;
   /** `disabled` keeps the row visible but unselectable (e.g. zero-stock
@@ -508,6 +509,10 @@ export function SelectorModal({
   /** Shown when the list is empty *before* any search — explains why and
    *  what to do (e.g. "No projects assigned — ask your admin…"). */
   emptyHint?: string;
+  /** Options still fetching — show a spinner, not the empty state. Without
+   *  this a picker opened mid-fetch flashes "empty" then options pop in,
+   *  which reads as "nothing exists" to a user who opened it too fast. */
+  loading?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const router = useRouter();
@@ -578,13 +583,34 @@ export function SelectorModal({
 
         {/* List */}
         <div className="flex-1 overflow-y-auto overscroll-contain">
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div className="flex items-center justify-center gap-2 py-8 text-m-caption" style={{ color: "var(--color-ink-400)" }}>
+              <Loader2 className="size-4 animate-spin" />
+              Loading…
+            </div>
+          ) : filtered.filter((i) => i.id !== "").length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 px-6 text-center">
               <Search className="size-5 mb-1.5" style={{ color: "var(--color-ink-300)" }} />
-              <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-500)" }}>No results</p>
-              {emptyHint && !query.trim() ? (
-                <p className="mt-1.5 text-m-caption" style={{ color: "var(--color-ink-400)" }}>{emptyHint}</p>
-              ) : null}
+              {items.filter((i) => i.id !== "").length === 0 && !query.trim() ? (
+                <>
+                  {/* Empty catalog — not a search miss. Say so plainly and point
+                      at the create action instead of implying "try another query". */}
+                  <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-500)" }}>Nothing here yet</p>
+                  <p className="mt-1.5 text-m-caption" style={{ color: "var(--color-ink-400)" }}>
+                    {emptyHint ??
+                      (createLabel
+                        ? `${createLabel.charAt(0).toUpperCase() + createLabel.slice(1)} below to add the first one.`
+                        : "Nothing has been added yet.")}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-500)" }}>No results</p>
+                  {emptyHint && !query.trim() ? (
+                    <p className="mt-1.5 text-m-caption" style={{ color: "var(--color-ink-400)" }}>{emptyHint}</p>
+                  ) : null}
+                </>
+              )}
             </div>
           ) : (
             filtered.map((item, i) => {

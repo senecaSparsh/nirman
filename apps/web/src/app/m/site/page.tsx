@@ -99,8 +99,8 @@ export default function SitePage() {
         } else if (canSubmitDpr && !myDprToday) {
           attentionBanners.push({
             id: "dpr",
-            title: "Today's Daily Progress Report not submitted",
-            subtitle: "Fill in your daily progress report",
+            title: "Today's report not submitted",
+            subtitle: "Fill in today's work",
             href: "/m/site/dpr",
             severity: "low",
             qtyText: "Due",

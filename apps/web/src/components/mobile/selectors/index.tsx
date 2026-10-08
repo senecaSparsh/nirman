@@ -38,6 +38,7 @@ export function MobileProjectSelect({ label = "Project", emptyHint = "No project
       {...props}
       label={label}
       emptyHint={emptyHint}
+      createEntity="project"
       renderDialog={({ open, onClose, onCreated, originRect }) => (
         <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Project" nested>
           <MobileNewProjectDialog
@@ -57,6 +58,7 @@ export function MobileSupplierSelect({ label = "Supplier", ...props }: BaseProps
     <MobileSelectWithCreate
       {...props}
       label={label}
+      createEntity="supplier"
       renderDialog={({ open, onClose, onCreated }) => (
         <MobileNewSupplierDialog
           open={open}
@@ -79,6 +81,7 @@ export function MobileMaterialSelect(
     <MobileSelectWithCreate
       {...props}
       label={label}
+      createEntity="material"
       renderDialog={({ open, onClose, onCreated }) => (
         <MobileNewMaterialDialog
           open={open}
@@ -98,6 +101,7 @@ export function MobileCategorySelect({ label = "Category", ...props }: BaseProps
     <MobileSelectWithCreate
       {...props}
       label={label}
+      createEntity="category"
       renderDialog={({ open, onClose, onCreated }) => (
         <MobileNewCategoryDialog
           open={open}
@@ -116,6 +120,7 @@ export function MobileCustomerSelect({ label = "Customer", ...props }: BaseProps
     <MobileSelectWithCreate
       {...props}
       label={label}
+      createEntity="customer"
       renderDialog={({ open, onClose, onCreated }) => (
         <MobileNewCustomerDialog
           open={open}
@@ -134,6 +139,7 @@ export function MobileSubcontractorSelect({ label = "Subcontractor", ...props }:
     <MobileSelectWithCreate
       {...props}
       label={label}
+      createEntity="subcontractor"
       renderDialog={({ open, onClose, onCreated }) => (
         <MobileNewSubcontractorDialog
           open={open}
@@ -152,6 +158,7 @@ export function MobileStockLocationSelect({ label = "Stock Location", ...props }
     <MobileSelectWithCreate
       {...props}
       label={label}
+      createEntity="location"
       renderDialog={({ open, onClose, onCreated }) => (
         <MobileNewStockLocationDialog
           open={open}
@@ -171,6 +178,7 @@ export function MobileDepartmentSelect({ label = "Department", emptyHint = "No d
       {...props}
       label={label}
       emptyHint={emptyHint}
+      createEntity="department"
       renderDialog={({ open, onClose, onCreated, originRect }) => (
         <MobileFabModal open={open} onClose={onClose} originRect={originRect} title="New Department" nested>
           <MobileNewDepartmentForm
@@ -195,6 +203,7 @@ export function MobileEmployeeSelect(
     <MobileSelectWithCreate
       {...props}
       label={label}
+      createEntity="employee"
       renderDialog={({ open, onClose, onCreated }) => (
         <MobileNewEmployeeDialog
           open={open}
