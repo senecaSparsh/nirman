@@ -1396,6 +1396,21 @@ export function MobileStockOutClient({
             modal.type === "material" ? (canCreateMaterial ? () => setShowCreateDialog("material") : undefined) :
             canCreateLocation ? () => setShowCreateDialog("location") : undefined
           }
+          emptyHint={
+            modal.type === "from" || modal.type === "to-location"
+              ? canCreateLocation
+                ? "No stock locations yet — create the first one below."
+                : "No stock locations in your scope — ask your admin to add one."
+              : modal.type === "to-project"
+                ? canCreateProject
+                  ? "No projects yet — create the first one below."
+                  : "No projects assigned to you — ask your admin to add you."
+              : modal.type === "lot"
+                ? "No lots for this material at this location."
+              : canCreateMaterial
+                ? "No materials yet — create the first one below."
+                : "No materials in the catalog — ask your admin to add one."
+          }
         />
       ) : null}
 
