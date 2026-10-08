@@ -131,7 +131,7 @@ export function MobileSupplierDetailClient({
     <div>
       {/* ── Header ── */}
       <DetailHeroCard
-        title={name}
+        // no title — shell shows the supplier name already
         action={canManage ? (
           <div className="flex items-center gap-1.5">
             <button

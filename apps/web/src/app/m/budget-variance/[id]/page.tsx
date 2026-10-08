@@ -93,7 +93,7 @@ export default function MobileBudgetVarianceDetailPage({
           <div className="flex flex-col gap-4 pb-6">
             {/* Header card */}
             <DetailHeroCard
-              title={project.name}
+              // no title — shell shows project.name already
               subtitle="Budget Variance Analysis"
             >
               {/* Variance headline */}

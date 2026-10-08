@@ -298,8 +298,7 @@ export default function MobileRequisitionDetailPage({
 
             {/* ── Hero card — req number + status + print + project link + needed-by ── */}
             <DetailHeroCard
-              title={req.reqNumber}
-              titleMono
+              // no title — shell shows req.reqNumber already
               status={req.status}
               action={<DetailPrintButton href={`/m/print/requisition/${req.id}`} />}
             >

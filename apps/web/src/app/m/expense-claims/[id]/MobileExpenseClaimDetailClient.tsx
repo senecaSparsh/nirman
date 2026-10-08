@@ -78,8 +78,8 @@ const STATUS_META: Record<string, { label: string; icon: typeof Clock; color: st
 export function MobileExpenseClaimDetailClient({
   notFound,
   id,
-  claimantName,
-  projectName,
+  claimantName: _claimantName,
+  projectName: _projectName,
   status,
   totalAmount,
   description,
@@ -312,8 +312,7 @@ export function MobileExpenseClaimDetailClient({
       {/* Header */}
       <DetailHeroCard
         icon={Receipt}
-        title={claimantName}
-        subtitle={projectName ?? undefined}
+        // no title/subtitle — shell shows claimant name + project already
         status={status}
       >
         <p className="mt-2 text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>

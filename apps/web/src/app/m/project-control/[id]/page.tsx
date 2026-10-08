@@ -110,7 +110,7 @@ export default function MobileProjectControlDetailPage({
             {/* Header card */}
             <DetailHeroCard
               icon={Gauge}
-              title={project.name}
+              // no title — shell shows project.name already
               subtitle="Earned Value Analysis"
             >
               <DetailProgress

@@ -136,7 +136,7 @@ export function MobileMaterialIssueDetailClient({
     <div className="flex flex-col gap-4 pb-8">
       {/* ── Header ── */}
       <DetailHeroCard
-        title={issue.issueNumber ?? "Material Issue"}
+        // no title — shell shows issue.issueNumber already
         subtitle={formatDate(issue.issueDate)}
         status={issue.status}
       >

@@ -51,7 +51,12 @@ export function DetailHeroCard({
   children,
 }: {
   icon?: LucideIcon;
-  title: string;
+  /** Omit when it would repeat the shell's page title — every detail page
+   *  also sets PageContextProvider label to the entity name, so a hero title
+   *  carrying the same string reads as duplicated text on screen. Keep it
+   *  only when it says something the shell doesn't (e.g. a work title vs the
+   *  WO number in the shell). */
+  title?: string;
   /** Use monospace for document numbers (PO-20250115-0001). */
   titleMono?: boolean;
   subtitle?: string;
@@ -69,35 +74,55 @@ export function DetailHeroCard({
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <div className="flex items-start gap-2.5">
-        {Icon && (
+        {Icon ? (
           <div
             className="grid place-items-center w-11 h-11 rounded-[0.625rem] shrink-0"
             style={{ backgroundColor: "var(--color-concrete)" }}
           >
             <Icon className="size-5" style={{ color: "var(--color-ink-700)" }} />
           </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <h1
-            className={`font-bold text-m-section leading-tight ${titleMono ? "font-mono" : ""}`}
-            style={{ color: "var(--color-ink-950)" }}
-          >
-            {title}
-          </h1>
-          {subtitle && subtitleHref ? (
-            <Link
-              href={subtitleHref}
-              className="text-m-body mt-0.5 underline underline-offset-2 text-m-body press block truncate"
-              style={{ color: "var(--color-ink-500)" }}
+        ) : null}
+        {title ? (
+          <div className="min-w-0 flex-1">
+            <h1
+              className={`font-bold text-m-section leading-tight ${titleMono ? "font-mono" : ""}`}
+              style={{ color: "var(--color-ink-950)" }}
             >
-              {subtitle}
-            </Link>
-          ) : subtitle ? (
-            <p className="text-m-body mt-0.5 truncate" style={{ color: "var(--color-ink-500)" }}>
-              {subtitle}
-            </p>
-          ) : null}
-        </div>
+              {title}
+            </h1>
+            {subtitle && subtitleHref ? (
+              <Link
+                href={subtitleHref}
+                className="text-m-body mt-0.5 underline underline-offset-2 text-m-body press block truncate"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                {subtitle}
+              </Link>
+            ) : subtitle ? (
+              <p className="text-m-body mt-0.5 truncate" style={{ color: "var(--color-ink-500)" }}>
+                {subtitle}
+              </p>
+            ) : null}
+          </div>
+        ) : subtitle ? (
+          <div className="min-w-0 flex-1">
+            {subtitle && subtitleHref ? (
+              <Link
+                href={subtitleHref}
+                className="text-m-body underline underline-offset-2 press block truncate"
+                style={{ color: "var(--color-ink-500)" }}
+              >
+                {subtitle}
+              </Link>
+            ) : (
+              <p className="text-m-body truncate" style={{ color: "var(--color-ink-500)" }}>
+                {subtitle}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="flex-1" />
+        )}
         {status && <MobileStatusBadge status={status} />}
         {action && <div className="ml-auto shrink-0">{action}</div>}
       </div>

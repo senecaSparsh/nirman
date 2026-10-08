@@ -128,8 +128,8 @@ export default function MobileMaterialDetailPage({
             {/* ── Hero card ── */}
             <DetailHeroCard
               icon={Package}
-              title={material.name}
-              subtitle={`${material.code} · ${material.category.name}`}
+              // no title — the shell title already shows material.name
+              subtitle={material.category.name}
               status={stockStatus}
             >
               <DetailProgress

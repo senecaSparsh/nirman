@@ -146,7 +146,7 @@ export function MobileExpenseDetailClient(props: Props) {
       {/* ── Hero ── */}
       <DetailHeroCard
         icon={Receipt}
-        title={formatEnumLabel(props.category)}
+        // no title — shell shows the expense category already
         status={props.status}
       />
 
