@@ -76,7 +76,7 @@ const PERSONA_LINKS: Record<Persona, { label: string; href: string; icon: Lucide
   // Field lives in /m/site; these are the off-site errands.
   field: [
     { label: "Gate Pass", href: "/m/gate-pass", icon: Package, perm: PERM.GATE_PASS_VIEW },
-    { label: "HR / Leaves", href: "/m/hr/leaves", icon: Users, perm: PERM.HR_VIEW },
+    { label: "Leaves", href: "/m/hr/leaves", icon: Users, perm: PERM.HR_VIEW },
     { label: "Procurement", href: "/m/procurement", icon: ShoppingCart, perm: PERM.PROCUREMENT_VIEW },
     // Field staff file reimbursement claims — company expense booking
     // (/m/expenses) needs finance.view and isn't their surface.
