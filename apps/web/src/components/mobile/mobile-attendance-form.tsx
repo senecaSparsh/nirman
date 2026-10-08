@@ -377,48 +377,51 @@ export function MobileAttendanceForm({
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div className="flex items-center gap-2 text-m-caption font-semibold overflow-x-auto scrollbar-hide">
-          <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-go)" }} title="Present">
+          {/* Full-word labels matching the per-row status chips below —
+              single letters were ambiguous (L meant both Late and Leave)
+              and `title` tooltips don't exist on touch. */}
+          <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-go)" }}>
             <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-go)" }} />
-            {stats.present} P
+            {stats.present} {STATUS_CONFIG.PRESENT.label}
           </span>
           {stats.late > 0 && (
-            <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-signal-dark)" }} title="Late">
+            <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-signal-dark)" }}>
               <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-signal)" }} />
-              {stats.late} L
+              {stats.late} {STATUS_CONFIG.LATE.label}
             </span>
           )}
-          <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-stop)" }} title="Absent">
+          <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-stop)" }}>
             <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-stop)" }} />
-            {stats.absent} A
+            {stats.absent} {STATUS_CONFIG.ABSENT.label}
           </span>
           {stats.halfDay > 0 && (
-            <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-signal-dark)" }} title="Half Day">
+            <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-signal-dark)" }}>
               <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-signal)" }} />
-              {stats.halfDay} H
+              {stats.halfDay} {STATUS_CONFIG.HALF_DAY.label}
             </span>
           )}
           {stats.overtime > 0 && (
-            <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-signal-dark)" }} title="Overtime">
+            <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-signal-dark)" }}>
               <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-signal)" }} />
-              {stats.overtime} OT
+              {stats.overtime} {STATUS_CONFIG.OVERTIME.label}
             </span>
           )}
           {stats.leave > 0 && (
-            <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-ink-500)" }} title="Leave">
+            <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-ink-500)" }}>
               <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-ink-400)" }} />
-              {stats.leave} L
+              {stats.leave} {STATUS_CONFIG.LEAVE.label}
             </span>
           )}
           {stats.paidLeave > 0 && (
-            <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-steel)" }} title="Paid Leave">
+            <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-steel)" }}>
               <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-steel)" }} />
-              {stats.paidLeave} PL
+              {stats.paidLeave} {STATUS_CONFIG.PAID_LEAVE.label}
             </span>
           )}
           {stats.nonPaidLeave > 0 && (
-            <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-stop)" }} title="Non-Paid Leave">
+            <span className="flex items-center gap-0.5 shrink-0" style={{ color: "var(--color-stop)" }}>
               <span className="size-1.5 rounded-full" style={{ backgroundColor: "var(--color-stop)" }} />
-              {stats.nonPaidLeave} NPL
+              {stats.nonPaidLeave} {STATUS_CONFIG.NON_PAID_LEAVE.label}
             </span>
           )}
         </div>
