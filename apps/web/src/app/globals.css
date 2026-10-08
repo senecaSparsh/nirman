@@ -639,33 +639,33 @@ input[type="number"] {
    Numbers are small — that's fine. Density over hierarchy on mobile.
    ═══════════════════════════════════════════════════════════════════ */
 @utility text-m-micro {
-  font-size: 8px;
+  font-size: 10px;
   line-height: 1.3;
   letter-spacing: 0;
 }
 @utility text-m-caption {
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.35;
   letter-spacing: 0;
 }
 @utility text-m-label {
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.35;
   letter-spacing: 0;
 }
 @utility text-m-body {
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.4;
   letter-spacing: -0.003em;
 }
 @utility text-m-strong {
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.4;
   letter-spacing: -0.003em;
   font-weight: 600;
 }
 @utility text-m-figure {
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.3;
   letter-spacing: -0.01em;
   font-weight: 550;
@@ -673,7 +673,7 @@ input[type="number"] {
   font-family: var(--font-mono);
 }
 @utility text-m-section {
-  font-size: 12px;
+  font-size: 15px;
   line-height: 1.3;
   letter-spacing: -0.006em;
   font-weight: 600;
