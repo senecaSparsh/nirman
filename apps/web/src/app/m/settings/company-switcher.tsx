@@ -9,7 +9,7 @@ import { toast } from "sonner";
 /* ═══════════════════════════════════════════════════════════════════════════
    COMPANY SWITCHER / HEADER (mobile settings page)
 
-   Renders as the company context header (avatar + name + currency/role).
+   Renders as the company context header (avatar + name + currency).
    When there are multiple companies, the header is tappable and opens a
    dropdown to switch. When there's only one company, it renders as a
    static header (no chevron, no dropdown).
@@ -23,7 +23,7 @@ export function CompanySwitcher({
   companies,
   currency,
   role,
-  roleLabel,
+  roleLabel: _roleLabel,
   parentCompanyId: _parentCompanyId,
 }: {
   currentCompanyId: string;
@@ -118,7 +118,9 @@ export function CompanySwitcher({
           className="text-m-caption mt-0.5"
           style={{ color: "var(--color-ink-500)" }}
         >
-          {currency} · {roleLabel ?? role}
+          {/* Role omitted — the PROFILE row just below already shows it; the
+              switcher's job is company context (name + currency), not identity. */}
+          {currency}
         </p>
       </div>
     </>
