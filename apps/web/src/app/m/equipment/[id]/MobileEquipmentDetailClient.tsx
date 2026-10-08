@@ -276,13 +276,10 @@ export function MobileEquipmentDetailClient({
 
   return (
     <div className="pb-20">
-      {/* ── Header ── */}
+      {/* ── Header — status badge + actions (the entity name is already
+          the shell's page title; repeating it read as duplicated text) ── */}
       <div className="flex items-center gap-2 mb-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
-            {equipment.name}
-          </p>
-        </div>
+        <div className="flex-1 min-w-0" />
         <span
           className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
           style={{ color: accentColor, backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)` }}
