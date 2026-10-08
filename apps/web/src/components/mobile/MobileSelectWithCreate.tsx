@@ -165,13 +165,13 @@ export function MobileSelectWithCreate({
 
       {showPicker ? (
         <SelectorModal
-          title={label}
+          title={(() => { const t = label || (placeholder ? placeholder.replace(/^Select\s+/i, "").replace(/[…\.\s]+$/, "") : ""); return t ? t.charAt(0).toUpperCase() + t.slice(1) : "Select"; })()}
           items={items}
           selectedId={value}
           onSelect={(id) => { onChange(id); setShowPicker(false); }}
           onClose={() => setShowPicker(false)}
           onCreate={renderDialog && createAllowed ? handleOpenCreate : undefined}
-          createLabel={`Create new ${createLabel || label || "item"}`}
+          createLabel={`Create new ${createLabel || label || (placeholder ? placeholder.replace(/^Select\s+|[…\.]+$/g, "").trim() : "") || "item"}`}
           emptyHint={emptyHint}
         />
       ) : null}

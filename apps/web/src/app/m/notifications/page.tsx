@@ -73,11 +73,10 @@ export default function MobileNotificationsPage() {
         return (
           <div className="min-h-screen pb-20" style={{ backgroundColor: "var(--color-paper)" }}>
             <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+              {/* No "Notifications" eyebrow — the shell header already titles
+                  this page; the count row is the useful content. */}
               <div>
-                <p className="text-m-label font-bold uppercase tracking-wider" style={{ color: "var(--color-ink-400)" }}>
-                  Notifications
-                </p>
-                <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+                <p className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>
                   {notifications.length} total{unreadCount > 0 ? ` · ${unreadCount} unread` : ""}
                 </p>
               </div>

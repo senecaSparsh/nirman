@@ -902,11 +902,8 @@ function WorldPanel({
           ))}
       </nav>
 
-      <div className="shrink-0 border-t border-border px-3 py-2.5">
-        <span className="flex items-center gap-1.5 text-caption text-faint">
-          <kbd className="kbd">⌘K</kbd> to search anything
-        </span>
-      </div>
+      {/* No ⌘K footer hint — the topbar already shows "Search or jump to… ⌘K"
+          as a full-width field; repeating the shortcut here is redundant. */}
     </div>
   );
 }
@@ -993,12 +990,6 @@ function SettingsPanel({
       <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-3 scrollbar-thin">
         <ul className="space-y-0.5">{links.map((item) => renderItem(item))}</ul>
       </nav>
-
-      <div className="shrink-0 border-t border-border px-3 py-2.5">
-        <span className="flex items-center gap-1.5 text-caption text-faint">
-          <kbd className="kbd">⌘K</kbd> to search anything
-        </span>
-      </div>
     </div>
   );
 }

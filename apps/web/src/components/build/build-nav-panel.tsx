@@ -203,9 +203,6 @@ export function BuildNavPanel({
         })}
       </nav>
 
-      <div className="border-t border-border px-3 py-2">
-        <span className="text-micro text-muted-foreground/60">⌘K to search anything</span>
-      </div>
     </div>
   );
 }
