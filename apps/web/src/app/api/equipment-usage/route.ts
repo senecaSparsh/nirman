@@ -48,7 +48,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requireEffectivePermission(PERM.ASSETS_MANAGE);
+  // Usage *logging* (meter reading + fuel) is a field observation — the person
+  // operating the mixer records it, not the asset manager. The record is
+  // attributed (loggedBy) and scope-checked; billing reconciliation happens
+  // downstream and stays manage-gated.
+  const user = await requireEffectivePermission(PERM.ASSETS_VIEW);
   const company = await getCompany();
   const body = await req.json();
   const parsed = usageSchema.safeParse(body);

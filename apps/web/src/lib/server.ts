@@ -1545,7 +1545,7 @@ export const taskSchema = z.object({
   subtasks: z.array(z.string().min(1).max(200)).max(100).optional(),
 });
 
-export const taskStatusSchema = z.enum(["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"]);
+export const taskStatusSchema = z.enum(["PENDING", "IN_PROGRESS", "BLOCKED", "COMPLETED", "CANCELLED"]);
 
 export const subTaskSchema = z.object({
   title: z.string().min(1, "Step title is required").max(200),

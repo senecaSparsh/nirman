@@ -7,9 +7,11 @@ import { PERM } from "@/lib/roles";
 
 /**
  * GET /api/goods-receipts/receivable
- * Returns Purchase Orders in ORDERED or PARTIAL status for the current company,
- * with their lines + remaining qty — the data the field receiving flow needs to
- * pick a PO and record a goods receipt against it.
+ * Returns Purchase Orders in APPROVED / ORDERED / PARTIAL status for the
+ * current company, with their lines + remaining qty — the data the field
+ * receiving flow needs to pick a PO and record a goods receipt against it.
+ * APPROVED is included because a truck at the gate proves the order was
+ * communicated — receiveGoods auto-flips it to ORDERED on first receipt.
  */
 export const GET = apiHandler(async (req: NextRequest) => {
   // Store keepers (INVENTORY_VIEW) need to load receivable POs too,
@@ -38,7 +40,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     take: 500,
     where: {
       companyId: company.id,
-      ...(receivableOnly ? { status: { in: ["ORDERED", "PARTIAL"] } } : {}),
+      ...(receivableOnly ? { status: { in: ["APPROVED", "ORDERED", "PARTIAL"] } } : {}),
       ...poScope,
     },
     orderBy: { createdAt: "desc" },

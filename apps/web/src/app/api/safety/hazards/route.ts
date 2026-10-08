@@ -35,7 +35,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
 });
 
 export const POST = apiHandler(async (req: NextRequest) => {
-  const user = await requireEffectivePermission(PERM.SAFETY_MANAGE);
+  // Hazard *reporting* is open to everyone who can see the safety surface —
+  // the person at the gate is the likeliest to spot an unguarded edge.
+  // (Incidents + inspections stay safety.manage — they're regulated records.)
+  // Scope + attachments are still asserted below; reporter = the caller.
+  const user = await requireEffectivePermission(PERM.SAFETY_VIEW);
   const company = await getCompany();
   const body = await req.json();
   const parsed = createSchema.safeParse(body);

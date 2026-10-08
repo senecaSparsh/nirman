@@ -69,7 +69,12 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     if (!statusParsed.success) {
       return json({ error: "Invalid status" }, { status: 400 });
     }
-    const updated = await updateTaskStatus({ taskId, status: statusParsed.data, userId: user.id });
+    const updated = await updateTaskStatus({
+      taskId,
+      status: statusParsed.data,
+      userId: user.id,
+      note: typeof body.note === "string" ? body.note.slice(0, 500) : undefined,
+    });
     revalidatePath("/my-tasks");
     revalidatePath("/m/site/tasks");
     return json({ ok: true, id: updated.id, status: updated.status });

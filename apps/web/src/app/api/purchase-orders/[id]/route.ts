@@ -8,6 +8,7 @@ import {
   cancelPurchaseOrder,
   shortClosePurchaseOrder,
   orderPurchaseOrder,
+  updatePurchaseOrderEta,
   addLineToPurchaseOrder,
   canAutoApprove,
   ServiceError,
@@ -145,12 +146,36 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const { id } = await params;
   const company = await getCompany();
   const groupCompanyIds = await getCompanyGroupIds(company);
-  const existing = await prisma.purchaseOrder.findFirst({ where: { id, companyId: { in: groupCompanyIds }, ...await scopeWhere("PurchaseOrder") }, select: { id: true } });
+  const existing = await prisma.purchaseOrder.findFirst({ where: { id, companyId: { in: groupCompanyIds }, ...await scopeWhere("PurchaseOrder") }, select: { id: true, projectId: true } });
   if (!existing) return json({ error: "Purchase order not found" }, { status: 404 });
   const body = await req.json();
   const action = body?.action as string | undefined;
-  if (!action || !["approve", "reject", "resubmit", "order", "cancel", "shortClose", "addLine"].includes(action)) {
-    return json({ error: "Invalid action. Use approve, reject, resubmit, order, cancel, shortClose, or addLine." }, { status: 400 });
+  if (!action || !["approve", "reject", "resubmit", "order", "cancel", "shortClose", "addLine", "updateEta"].includes(action)) {
+    return json({ error: "Invalid action. Use approve, reject, resubmit, order, cancel, shortClose, addLine, or updateEta." }, { status: 400 });
+  }
+  if (action === "updateEta") {
+    const user = await requireEffectivePermission(PERM.PROCUREMENT_MANAGE);
+    try {
+      await assertScopeAllows({ projectId: existing.projectId ?? null });
+    } catch (err) {
+      return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
+    }
+    const raw = body?.expectedDate;
+    const expectedDate = raw == null ? null : new Date(String(raw));
+    if (expectedDate !== null && Number.isNaN(expectedDate.getTime())) {
+      return json({ error: "expectedDate must be an ISO date string or null" }, { status: 400 });
+    }
+    try {
+      const updated = await updatePurchaseOrderEta(id, expectedDate, user.id);
+      revalidatePath("/");
+      revalidatePath("/procurement");
+      revalidatePath(`/procurement/${id}`);
+      revalidatePath(`/m/procurement/${id}`);
+      return json({ ok: true, expectedDate: updated.expectedDate?.toISOString() ?? null });
+    } catch (err) {
+      if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status });
+      throw err;
+    }
   }
   if (action === "approve") {
     const user = await requireUser();
