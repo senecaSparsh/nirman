@@ -71,11 +71,17 @@ const HREF_TO_META: Map<
 
 // ── All navigable routes for the "New Tab" picker ──
 // Skip dynamic routes ([id] segments) — they need an entity ID and can't be
-// used as a plain <Link href>. Only static pages go in the picker.
+// used as a plain <Link href>. Skip redirects — including the `redirectTo`
+// alias routes (e.g. /m/site/receive → /m/site/field, /m/pulse/approvals →
+// /m/approvals), which would otherwise show the same page twice under the
+// same label.
 const ALL_PAGES: { href: string; icon: LucideIcon; label: string }[] = (() => {
   const items: { href: string; icon: LucideIcon; label: string }[] = [];
+  const seen = new Set<string>();
   for (const route of ROUTES) {
-    if (route.kind === "redirect" || route.path.includes("[")) continue;
+    if (route.kind === "redirect" || route.redirectTo || route.path.includes("[")) continue;
+    if (seen.has(route.title)) continue; // same label → same page from the user's view
+    seen.add(route.title);
     items.push({ href: route.path, icon: route.icon, label: route.title });
   }
   return items;

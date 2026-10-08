@@ -107,6 +107,19 @@ import {
 /** Wayfinding group. Drives menu section, colour, and module resolution. */
 export type ModuleId = "home" | "inventory" | "hr" | "accounts" | "settings";
 
+/** Human label for a module id — menuGroups fall back to this when a
+ *  route's `parent` is missing or unknown (was: the raw id, so a group
+ *  titled "home" rendered lowercase in the NavSheet sitemap). Mirrors
+ *  `ALL_NAV_MODULES` labels — kept local because mobile-nav-v2 imports
+ *  this module, so the reverse import would be a cycle. */
+export const MODULE_LABELS: Record<ModuleId, string> = {
+  home: "Home & Dashboards",
+  inventory: "Inventory & Procurement",
+  hr: "HR & Field",
+  accounts: "Accounts & Finance",
+  settings: "Settings & Admin",
+};
+
 export type RouteKind =
   /** A landing page with sub-navigation of its own. */
   | "hub"
@@ -328,7 +341,7 @@ export const ROUTES: RouteEntry[] = [
   { path: "/m/settings", title: "More", parent: "/m/home", kind: "hub", module: "settings", icon: Settings, hint: "Company details, locations, cost centres, people and users (WhatsApp/email alert templates panel inside)", desktopPath: "/settings", keywords: ["config", "company", "preferences", "users", "locations", "settings", "notification", "whatsapp", "alert"] },
   { path: "/m/settings/company", title: "Company Details", parent: "/m/settings", kind: "list", module: "settings", perm: "company.manage", icon: Building2, hint: "Name, GSTIN, PAN, address, phone", personas: ["executive"] },
   { path: "/m/settings/export", title: "Bulk Export", parent: "/m/settings", kind: "list", module: "settings", perm: "company.manage", icon: FileSpreadsheet, hint: "CSV/PDF data export", personas: ["executive"] },
-  { path: "/m/settings/notifications", title: "Notifications", parent: "/m/settings", kind: "list", module: "settings", perm: "company.manage", icon: AlertTriangle, hint: "Alerts, templates, delivery", personas: ["executive"] },
+  { path: "/m/settings/notifications", title: "Notification Settings", parent: "/m/settings", kind: "list", module: "settings", perm: "company.manage", icon: AlertTriangle, hint: "Alerts, templates, delivery", personas: ["executive"] },
   { path: "/m/settings/project-assignments", title: "Project Assignments", parent: "/m/settings", kind: "list", module: "settings", perm: "users.view", icon: ShieldCheck, hint: "Scope user access to specific projects", desktopPath: "/settings/project-assignments", personas: ["executive"], keywords: ["access", "permission", "role", "assignment", "scope", "sub admin", "user access"] },
   { path: "/m/settings/team", title: "Employees & Access", parent: "/m/settings", kind: "redirect", redirectTo: "/m/hr/employees", module: "settings", perm: "users.view", icon: Users, hint: "Manage employees, roles, access control", personas: ["executive"] },
   { path: "/m/site", title: "Field Dashboard", shortTitle: "Field", parent: "/m/home", kind: "hub", module: "home", perm: "tasks.view", icon: MapPin, hint: "Field dashboard — tasks, DPR, in-transit stock, attendance", desktopPath: "/",  scopeAware: true,},
@@ -742,7 +755,7 @@ export function menuGroupsForPersona(persona: Persona): Record<string, MenuGroup
     }
     for (const [parentPath, rs] of byParent) {
       const parentEntry = ROUTE_BY_PATH.get(parentPath);
-      const title = parentEntry?.title ?? moduleId;
+      const title = parentEntry?.title ?? MODULE_LABELS[moduleId];
       const kindOrder: Record<string, number> = { hub: 0, list: 1, report: 2, tool: 3 };
       rs.sort((a, b) => (kindOrder[a.kind] ?? 9) - (kindOrder[b.kind] ?? 9));
       groups.push({ title, routes: rs });
@@ -774,7 +787,7 @@ export function menuGroupsFor(ctx: NavContext): Record<string, MenuGroup[]> {
     // For each parent group, use the parent's title as the group title
     for (const [parentPath, routes] of byParent) {
       const parentEntry = ROUTE_BY_PATH.get(parentPath);
-      const title = parentEntry?.title ?? section.module;
+      const title = parentEntry?.title ?? MODULE_LABELS[section.module];
       // Sort: hubs first, then lists, then reports, then tools.
       // Secondary key: persona prominence (routes whose `personas` include
       // the current persona rank higher). This ensures the first 7 routes
