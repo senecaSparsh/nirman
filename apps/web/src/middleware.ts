@@ -28,8 +28,9 @@ import { resolveTarget } from "@/lib/surface-map";
  *   · "/" + mobile UA            →  302 to "/m"  (one-time landing)
  *   · deep routes + mobile UA    →  302 to their /m/* equivalents
  *   · "/m" + mobile UA           →  stays (already mobile)
- *   · "/m*" + non-mobile UA      →  302 to desktop equivalent (symmetric
- *     reverse redirect — desktop users never see the mobile surface)
+ *   · "/m*" + non-mobile UA      →  stays — /m/* is a first-class surface;
+ *     shared links and owner previews render the mobile UI in a
+ *     phone-width column on wide screens (no reverse redirect).
  *   · No desktop escape hatch — a phone never sees the desktop surface,
  *     and the CSS surface gate means it can't paint even for one frame.
  *

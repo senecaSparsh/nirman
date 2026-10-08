@@ -8,7 +8,9 @@
  *   · Deep routes with desktop UA → no redirect
  *   · No desktop escape hatch — nirman-desktop cookie and ?desktop=1 are
  *     ignored; a phone always lands on the mobile surface
- *   · /m routes never reverse-redirected to desktop
+ *   · /m routes are a first-class surface — never reverse-redirected to
+ *     desktop (shared links / owner previews render the mobile UI in a
+ *     phone-width column on wide screens)
  *   · Public routes (/sign-in, /api/auth/*) never redirected
  *   · API routes never redirected
  *   · /print and /portal routes never redirected
@@ -140,31 +142,32 @@ describe("Middleware: deep route redirect (mobile UA)", () => {
   });
 });
 
-describe("Middleware: desktop UA reverse-redirected off /m", () => {
-  it("desktop UA on /m → redirects to /", () => {
+describe("Middleware: /m/* is a first-class surface (never reverse-redirected)", () => {
+  // Deliberate product decision: a mobile URL opened on a wide screen
+  // (owner previewing the field app, shared link, desktop bookmark) renders
+  // the mobile UI in a phone-width column — it must not bounce to desktop.
+  it("desktop UA on /m → NOT redirected", () => {
     const res = middleware(makeReq("/m", { ua: DESKTOP_UA }));
-    expect(res.status).toBe(307);
-    expect(getRedirectLocation(res)).toBe(`${BASE}/`);
+    expect(res.status).toBe(200);
+    expect(getRedirectLocation(res)).toBeNull();
   });
 
-  it("desktop UA on /m/home → redirects to /", () => {
+  it("desktop UA on /m/home → NOT redirected", () => {
     const res = middleware(makeReq("/m/home", { ua: DESKTOP_UA }));
-    expect(res.status).toBe(307);
-    expect(getRedirectLocation(res)).toBe(`${BASE}/`);
+    expect(res.status).toBe(200);
+    expect(getRedirectLocation(res)).toBeNull();
   });
 
-  it("desktop UA on /m/materials → redirects to /materials", () => {
+  it("desktop UA on /m/materials → NOT redirected", () => {
     const res = middleware(makeReq("/m/materials", { ua: DESKTOP_UA }));
-    expect(res.status).toBe(307);
-    expect(getRedirectLocation(res)).toBe(`${BASE}/materials`);
+    expect(res.status).toBe(200);
+    expect(getRedirectLocation(res)).toBeNull();
   });
 
-  it("desktop UA on a mobile-only /m route → lands on desktop home", () => {
+  it("desktop UA on a mobile-only /m route → NOT redirected", () => {
     const res = middleware(makeReq("/m/queue", { ua: DESKTOP_UA }));
-    expect(res.status).toBe(307);
-    const loc = getRedirectLocation(res);
-    expect(loc).toBeTruthy();
-    expect(loc).not.toContain("/m/");
+    expect(res.status).toBe(200);
+    expect(getRedirectLocation(res)).toBeNull();
   });
 
   it("mobile UA on /m/home → no redirect (already on mobile)", () => {
@@ -174,9 +177,7 @@ describe("Middleware: desktop UA reverse-redirected off /m", () => {
   });
 
   // The client adapter's router.replace issues RSC fetches (Sec-Fetch-Mode:
-  // cors) — bouncing those would strand a narrow desktop window on a hidden
-  // desktop page. Document navigations (Sec-Fetch-Mode: navigate or absent)
-  // still get the reverse redirect.
+  // cors) — those must pass through untouched.
   it("desktop UA RSC fetch on /m/* → NOT redirected (adapter must land)", () => {
     const res = middleware(makeReq("/m/hr", { ua: DESKTOP_UA, secFetchMode: "cors" }));
     expect(res.status).toBe(200);
@@ -189,10 +190,10 @@ describe("Middleware: desktop UA reverse-redirected off /m", () => {
     expect(getRedirectLocation(res)).toBeNull();
   });
 
-  it("desktop UA document nav on /m/* → still redirected", () => {
+  it("desktop UA document nav on /m/* → NOT redirected (mobile surface is first-class)", () => {
     const res = middleware(makeReq("/m/hr", { ua: DESKTOP_UA, secFetchMode: "navigate" }));
-    expect(res.status).toBe(307);
-    expect(getRedirectLocation(res)).toBe(`${BASE}/hr`);
+    expect(res.status).toBe(200);
+    expect(getRedirectLocation(res)).toBeNull();
   });
 
   // The adapter marks its own navigations with __surface=1 — that marker is

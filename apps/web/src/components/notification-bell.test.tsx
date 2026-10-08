@@ -91,10 +91,10 @@ describe("NotificationBell", () => {
     expect(screen.getByText("All clear — nothing needs you")).toBeInTheDocument();
   });
 
-  it("shows the Needs attention section when alert items are passed", async () => {
+  it("keeps actionable queue counts separate from unread notifications", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({
       ok: true,
-      json: async () => ({ notifications: [], unreadCount: 0 }),
+      json: async () => ({ notifications: [], unreadCount: 3 }),
     } as Response);
     const { user } = render(
       <NotificationBell
@@ -103,8 +103,9 @@ describe("NotificationBell", () => {
         ]}
       />,
     );
-    // Alert count is folded into the badge total.
-    await waitFor(() => expect(screen.getByText("2")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("3")).toBeInTheDocument());
+    expect(screen.queryByText("5")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Notifications (3 unread)" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Notifications/ }));
     expect(screen.getByText("Needs attention")).toBeInTheDocument();
     expect(screen.getByText(/2 approvals waiting/)).toBeInTheDocument();

@@ -20,6 +20,7 @@ import { join } from "node:path";
 const ROOT = join(__dirname, "../../../..");
 const schema = readFileSync(join(ROOT, "packages/db/prisma/schema.prisma"), "utf8");
 const server = readFileSync(join(__dirname, "server.ts"), "utf8");
+const homePage = readFileSync(join(__dirname, "../app/page.tsx"), "utf8");
 
 /** All model names carrying a tenant `companyId` field. */
 function tenantModels(): string[] {
@@ -113,5 +114,28 @@ describe("scope registry coverage", () => {
     const known = new Set(["Task", "Quotation", "PayrollLineComponent"]);
     const bogus = [...scopeableModels()].filter((m) => !allModels().has(m) && !known.has(m));
     expect(bogus, `SCOPE_FIELDS references unknown models: ${bogus.join(", ")}`).toEqual([]);
+  });
+
+  it("project-scopes operational queues on the desktop Today page", () => {
+    expect(homePage).toContain(
+      'where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: "DRAFT", createdById: { not: userId } },',
+    );
+    expect(homePage).toContain(
+      'where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() } },',
+    );
+    expect(homePage).toContain(
+      '{ location: { companyId: company.id } },\n          await scopeWhere("StockCount"),',
+    );
+  });
+
+  it("routes the overdue-delivery queue by role and deep-links each PO", () => {
+    // Chasing suppliers is a procurement.manage job — site users who can only
+    // view POs get a receive/flag prompt, never a "chase" instruction.
+    expect(homePage).toContain(
+      'cta: canManageProcurement ? "Chase" : canManageStock ? "Receive" : "View"',
+    );
+    // Each listed PO links to its own detail page — not the generic register —
+    // so the user lands on the record instead of hunting for it.
+    expect(homePage).toContain('href: `/procurement/${po.id}`');
   });
 });

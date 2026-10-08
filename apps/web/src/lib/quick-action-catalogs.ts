@@ -123,7 +123,8 @@ export const ACCOUNTS_QUICK_ACTIONS: QuickActionTab[] = [
     actions: [
       { key: "receipts", href: "/m/accounts?tab=receipts", icon: Wallet, label: "Receipts", personas: ["finance", "executive"] },
       { key: "payments", href: "/m/accounts?tab=payments", icon: IndianRupee, label: "Payments", personas: ["finance", "executive"] },
-      { key: "expenses", href: "/m/accounts?tab=expenses", icon: Receipt, label: "Expenses", personas: ["finance", "executive", "ops", "field"] },
+      { key: "expenses", href: "/m/accounts?tab=expenses", icon: Receipt, label: "Expenses", personas: ["finance", "executive", "ops"] },
+      { key: "claim", href: "/m/expense-claims", icon: FileText, label: "Claim", personas: ["field", "ops", "hr", "finance", "executive"] },
       { key: "payroll", href: "/m/books/payroll", icon: Wallet, label: "Payroll", personas: ["finance", "hr", "executive"] },
       { key: "dues", href: "/m/reports/pending-payments", icon: ClipboardCheck, label: "Dues", personas: ["finance", "executive"] },
       { key: "cash-flow", href: "/m/reports/cash-flow", icon: TrendingUp, label: "Cash Flow", personas: ["finance", "executive"] },

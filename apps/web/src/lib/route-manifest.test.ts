@@ -404,7 +404,7 @@ describe("G6 — navigation never shows a dead end", () => {
     // "/m/print/[type]/[id]" is a document viewer — the dispatcher renders
     // existing print page components, each of which enforces its own auth
     // server-side. Deliberately universal.
-    const UNIVERSAL = ["/m/approvals", "/m/home", "/m/me", "/m/print/[type]/[id]", "/m/queue", "/m/settings"];
+    const UNIVERSAL = ["/m/approvals", "/m/home", "/m/me", "/m/notifications", "/m/print/[type]/[id]", "/m/queue", "/m/settings"];
     // Redirect stubs need no gate of their own — whatever they redirect to
     // enforces one, and G4 already guarantees they are never an Up target.
     const ungated = ROUTES

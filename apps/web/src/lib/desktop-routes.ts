@@ -78,6 +78,7 @@ export const DESKTOP_ROUTES = new Set<string>([
   "/projects",
   "/projects/[id]",
   "/purchase-orders",
+  "/purchase-orders/[id]",
   "/quality-control",
   "/quality-control/ncr",
   "/quality-control/ncr/[id]",
