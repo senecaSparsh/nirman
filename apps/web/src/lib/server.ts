@@ -2387,7 +2387,7 @@ export async function getActionPermissions() {
   const canCreateClaim = hasPerm("claim.create");
   const canManagePettyCash = hasPerm("pettycash.manage");
   const canManageSupplierPayment = hasPerm("supplierpayment.manage");
-  const canCreateSafetyItem = hasPerm("safety.manage");
+  const canCreateSafetyItem = hasPerm("safety.view");
 
   // ── Form option restrictions ──
   // When scope is DEPARTMENT, the department dropdown in any create/edit
