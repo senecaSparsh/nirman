@@ -62,6 +62,7 @@ export {
   resubmitPurchaseOrder,
   orderPurchaseOrder,
   cancelPurchaseOrder,
+  updatePurchaseOrderEta,
   shortClosePurchaseOrder,
   addLineToPurchaseOrder,
   receiveGoods,
@@ -242,6 +243,8 @@ export {
   type DprOcrResult,
   type DprOcrMaterialLine,
   type DprOcrLaborLine,
+  type ChallanOcrResult,
+  type ChallanOcrLine,
   type OcrProvider,
 } from "./ocr";
 

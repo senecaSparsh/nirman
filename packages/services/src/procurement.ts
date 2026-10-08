@@ -589,6 +589,36 @@ export async function orderPurchaseOrder(poId: string, userId?: string) {
   return result.updated;
 }
 
+/**
+ * Update a PO's expected delivery date — the "chase the supplier" write path.
+ * Only meaningful while the PO is open (APPROVED/ORDERED/PARTIAL); a DRAFT
+ * edits the field via the edit form and terminal POs have nothing to schedule.
+ * `null` clears the ETA when the supplier won't commit to a date.
+ */
+export async function updatePurchaseOrderEta(poId: string, expectedDate: Date | null, userId?: string) {
+  return withSerializableTransaction(async (tx) => {
+    const po = await tx.purchaseOrder.findUnique({ where: { id: poId } });
+    if (!po) throw new ServiceError("PO not found", 404);
+    if (!["APPROVED", "ORDERED", "PARTIAL"].includes(po.status)) {
+      throw new ServiceError(`Cannot update the expected date of a ${po.status} PO`, 409);
+    }
+    const updated = await tx.purchaseOrder.update({
+      where: { id: poId },
+      data: { expectedDate },
+    });
+    await logAction(tx, {
+      userId,
+      companyId: po.companyId,
+      action: "PURCHASE_ORDER_UPDATE_ETA",
+      entityType: "PurchaseOrder",
+      entityId: poId,
+      before: { expectedDate: po.expectedDate?.toISOString() ?? null },
+      after: { expectedDate: expectedDate?.toISOString() ?? null },
+    });
+    return updated;
+  });
+}
+
 export async function rejectPurchaseOrder(
   poId: string,
   rejectorRole: string,
@@ -1021,8 +1051,30 @@ export async function receiveGoods(input: ReceiveGoodsInput) {
       include: { lines: true },
     });
     if (!po) throw new ServiceError("PO not found", 404);
-    if (po.status !== "ORDERED" && po.status !== "PARTIAL") {
+    // A truck at the gate is de-facto proof the order was communicated —
+    // an APPROVED-but-never-marked-ORDERED PO must not strand the receiver
+    // (material gets logged on paper/WhatsApp and the ledger drifts).
+    // Accept it and flip APPROVED→ORDERED with an honest audit trail.
+    // DRAFT stays excluded — approval is a real control, not hygiene.
+    if (po.status !== "ORDERED" && po.status !== "PARTIAL" && po.status !== "APPROVED") {
       throw new ServiceError(`Cannot receive goods against PO in status ${po.status}`);
+    }
+    if (po.status === "APPROVED") {
+      await tx.purchaseOrder.update({
+        where: { id: po.id },
+        data: { status: "ORDERED", orderDate: new Date() },
+      });
+      if (input.receivedById) {
+        await logAction(tx, {
+          userId: input.receivedById,
+          companyId: po.companyId,
+          action: "PURCHASE_ORDER_ORDER",
+          entityType: "PurchaseOrder",
+          entityId: po.id,
+          before: { status: "APPROVED" },
+          after: { status: "ORDERED", orderDate: new Date().toISOString(), auto: "ordered-on-first-receipt" },
+        });
+      }
     }
 
     // Duplicate prevention: if a GRN was created for this PO in the last 10 seconds,

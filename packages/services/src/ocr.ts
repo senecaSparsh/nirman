@@ -54,9 +54,32 @@ export interface DprOcrResult {
   rawText?: string;
 }
 
+export interface ChallanOcrLine {
+  materialName: string;
+  quantity: number;
+  unit: string;
+}
+
+export interface ChallanOcrResult {
+  /** Supplier's delivery-challan / DC / e-way-bill document number. */
+  challanNumber?: string;
+  supplierName?: string;
+  vehicleNumber?: string;
+  /** Despatched lines — matched to PO lines client-side, never trusted as-is. */
+  lines: ChallanOcrLine[];
+  confidence?: number;
+  rawText?: string;
+}
+
 export interface OcrProvider {
   /** Extract DPR data from a photo (base64-encoded or URL). */
   extractDpr(image: { base64?: string; url?: string }): Promise<DprOcrResult>;
+  /**
+   * Extract a supplier delivery challan (DC) from a photo — the paper the
+   * truck driver hands over at the gate. Extracted quantities are ADVISORY:
+   * the receiver still verifies physical goods before confirming the GRN.
+   */
+  extractChallan(image: { base64?: string; url?: string }): Promise<ChallanOcrResult>;
 }
 
 // ── Stub Provider ────────────────────────────────────────────
@@ -70,6 +93,10 @@ export class StubOcrProvider implements OcrProvider {
       confidence: 0,
       rawText: "",
     };
+  }
+  async extractChallan(_image: { base64?: string; url?: string }): Promise<ChallanOcrResult> {
+    console.log("[OCR Stub] Challan photo received — no provider configured, returning empty result");
+    return { lines: [], confidence: 0, rawText: "" };
   }
 }
 
@@ -97,7 +124,11 @@ export class OpenAiVisionOcrProvider implements OcrProvider {
     this.model = config.model || "gpt-4o";
   }
 
-  async extractDpr(image: { base64?: string; url?: string }): Promise<DprOcrResult> {
+  private async callVision(
+    systemPrompt: string,
+    task: string,
+    image: { base64?: string; url?: string },
+  ): Promise<string> {
     if (!image.base64 && !image.url) {
       throw new ServiceError("Either base64 or url must be provided", 400);
     }
@@ -115,14 +146,14 @@ export class OpenAiVisionOcrProvider implements OcrProvider {
         messages: [
           {
             role: "system",
-            content: DPR_OCR_SYSTEM_PROMPT,
+            content: systemPrompt,
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "Extract the DPR data from this photo. Return ONLY valid JSON matching the schema. If a field is not visible, omit it or use null.",
+                text: `${task} Return ONLY valid JSON matching the schema. If a field is not visible, omit it or use null.`,
               },
               { type: "image_url", image_url: { url: imageUrl } },
             ],
@@ -144,7 +175,19 @@ export class OpenAiVisionOcrProvider implements OcrProvider {
     const content = data.choices?.[0]?.message?.content;
     if (!content) throw new ServiceError("OpenAI returned empty response", 500);
 
-    return parseDprOcrJson(content);
+    return content;
+  }
+
+  async extractDpr(image: { base64?: string; url?: string }): Promise<DprOcrResult> {
+    return parseDprOcrJson(
+      await this.callVision(DPR_OCR_SYSTEM_PROMPT, "Extract the DPR data from this photo.", image),
+    );
+  }
+
+  async extractChallan(image: { base64?: string; url?: string }): Promise<ChallanOcrResult> {
+    return parseChallanOcrJson(
+      await this.callVision(CHALLAN_OCR_SYSTEM_PROMPT, "Extract the delivery challan data from this photo.", image),
+    );
   }
 }
 
@@ -165,7 +208,7 @@ export class GoogleVisionOcrProvider implements OcrProvider {
     this.apiKey = config.apiKey;
   }
 
-  async extractDpr(image: { base64?: string; url?: string }): Promise<DprOcrResult> {
+  private async readText(image: { base64?: string; url?: string }): Promise<string> {
     if (!image.base64) {
       throw new ServiceError("Google Vision requires base64-encoded image", 400);
     }
@@ -193,12 +236,23 @@ export class GoogleVisionOcrProvider implements OcrProvider {
     }
 
     const data = (await res.json()) as GoogleVisionResponse;
-    const fullText = data.responses?.[0]?.fullTextAnnotation?.text ?? "";
+    return data.responses?.[0]?.fullTextAnnotation?.text ?? "";
+  }
+
+  async extractDpr(image: { base64?: string; url?: string }): Promise<DprOcrResult> {
+    const fullText = await this.readText(image);
     if (!fullText) {
       return { materials: [], labor: [], confidence: 0, rawText: "" };
     }
-
     return parseDprFromRawText(fullText);
+  }
+
+  async extractChallan(image: { base64?: string; url?: string }): Promise<ChallanOcrResult> {
+    const fullText = await this.readText(image);
+    if (!fullText) {
+      return { lines: [], confidence: 0, rawText: "" };
+    }
+    return parseChallanFromRawText(fullText);
   }
 }
 
@@ -222,7 +276,7 @@ export class AzureDiOcrProvider implements OcrProvider {
     this.endpoint = (config.endpoint || "").replace(/\/$/, "");
   }
 
-  async extractDpr(image: { base64?: string; url?: string }): Promise<DprOcrResult> {
+  private async readText(image: { base64?: string; url?: string }): Promise<string> {
     if (!image.base64) {
       throw new ServiceError("Azure DI requires base64-encoded image", 400);
     }
@@ -264,12 +318,23 @@ export class AzureDiOcrProvider implements OcrProvider {
       throw new ServiceError(`Azure DI polling failed: ${resultRes.status}`, 500);
     }
     const result = (await resultRes.json()) as AzureDiResponse;
-    const fullText = result.analyzeResult?.content ?? "";
+    return result.analyzeResult?.content ?? "";
+  }
+
+  async extractDpr(image: { base64?: string; url?: string }): Promise<DprOcrResult> {
+    const fullText = await this.readText(image);
     if (!fullText) {
       return { materials: [], labor: [], confidence: 0, rawText: "" };
     }
-
     return parseDprFromRawText(fullText);
+  }
+
+  async extractChallan(image: { base64?: string; url?: string }): Promise<ChallanOcrResult> {
+    const fullText = await this.readText(image);
+    if (!fullText) {
+      return { lines: [], confidence: 0, rawText: "" };
+    }
+    return parseChallanFromRawText(fullText);
   }
 }
 
@@ -296,6 +361,99 @@ Rules:
 - Units should be standard: "bag", "kg", "ton", "cft", "sqft", "cum", "unit", "litre".
 - Labor count is the number of workers, not hours.
 - Return ONLY the JSON object, no markdown or explanation.`;
+
+// ── Challan (delivery note) OCR ─────────────────────────────────
+
+const CHALLAN_OCR_SYSTEM_PROMPT = `You are reading a delivery challan (delivery note / DC / packing list) from an Indian construction-material supplier.
+This is the paper the truck driver hands over at the site gate. Extract the following structured data and return it as JSON:
+
+{
+  "challanNumber": "string — the document number printed on the challan (may be labelled DC No, Challan No, Delivery Note No, DN, or e-way bill)",
+  "supplierName": "string — the dispatching company/firm name",
+  "vehicleNumber": "string — truck/vehicle registration number if printed (Indian format like MH12AB1234 or KA 01 AB 1234)",
+  "lines": [{ "materialName": "string", "quantity": number, "unit": "string" }]
+}
+
+Rules:
+- If a field is not visible or unclear, omit it (do not guess).
+- Material names should be in English (translate Hindi/regional terms if needed).
+- Quantities must be numbers (not strings).
+- Units should be standard: "bag", "kg", "ton", "cft", "sqft", "cum", "unit", "litre", "nos".
+- Each distinct material row is one line — do not merge rows or sum them.
+- Return ONLY the JSON object, no markdown or explanation.`;
+
+export function parseChallanOcrJson(content: string): ChallanOcrResult {
+  try {
+    const json = JSON.parse(content);
+    return {
+      challanNumber: json.challanNumber != null ? String(json.challanNumber) : undefined,
+      supplierName: json.supplierName != null ? String(json.supplierName) : undefined,
+      vehicleNumber: json.vehicleNumber != null ? String(json.vehicleNumber) : undefined,
+      lines: Array.isArray(json.lines)
+        ? json.lines
+            .map((l: Record<string, unknown>) => ({
+              materialName: String(l.materialName ?? ""),
+              quantity: Number(l.quantity ?? 0),
+              unit: String(l.unit ?? ""),
+            }))
+            .filter((l: ChallanOcrLine) => l.materialName && l.quantity > 0)
+        : [],
+      confidence: 0.8,
+      rawText: content,
+    };
+  } catch {
+    return parseChallanFromRawText(content);
+  }
+}
+
+/**
+ * Parse challan fields from raw OCR text (Google Vision / Azure DI fallback —
+ * they return plain text, not structured JSON). Heuristic only: look for a
+ * document-number label, a vehicle registration, and material/qty rows.
+ */
+export function parseChallanFromRawText(text: string): ChallanOcrResult {
+  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  const result: ChallanOcrResult = { lines: [], confidence: 0.5, rawText: text };
+
+  // Require a "No/Number/#" label or a ":" separator — a bare "DELIVERY
+  // CHALLAN" title must not capture the next word as the number.
+  const docNoMatch = text.match(
+    /(?:challan|d\.?c\.?|delivery\s*note|d\.?n\.?|e-?way\s*bill)[^\S\n]*(?:no\.?|number|#)[^\S\n]*[:\-]?[^\S\n]*([A-Za-z0-9][A-Za-z0-9\-/]{2,})/i,
+  ) ?? text.match(
+    /(?:challan|d\.?c\.?|delivery\s*note|d\.?n\.?)[^\S\n]*[:\-][^\S\n]*([A-Za-z0-9][A-Za-z0-9\-/]{2,})/i,
+  );
+  if (docNoMatch?.[1]) result.challanNumber = docNoMatch[1];
+
+  const vehicleMatch = text.match(
+    /(?:vehicle|truck|lorry|tempo)\s*(?:no\.?|number|registration)?\s*[:\-]?\s*([A-Z]{2}\s*-?\s*\d{1,2}\s*-?\s*[A-Z]{0,2}\s*-?\s*\d{1,4})/i,
+  );
+  if (vehicleMatch?.[1]) result.vehicleNumber = vehicleMatch[1].replace(/\s+/g, "").toUpperCase();
+
+  const materialKeywords = [
+    "cement", "steel", "tmt", "rebar", "sand", "aggregate", "bricks", "blocks",
+    "concrete", "paint", "putty", "tiles", "gravel", "wood", "plywood", "wire",
+    "cable", "pipe", "pvc", "bitumen", "asphalt", "binding", "scaffold",
+  ];
+
+  for (const line of lines) {
+    const lower = line.toLowerCase();
+    for (const kw of materialKeywords) {
+      if (lower.includes(kw)) {
+        const qtyMatch = line.match(/(\d+(?:\.\d+)?)\s*(bag|kg|ton|cft|sqft|cum|unit|litre|ltr|nos|no|kg\.?|mt)\b/i);
+        if (qtyMatch) {
+          result.lines.push({
+            materialName: kw.charAt(0).toUpperCase() + kw.slice(1),
+            quantity: Number(qtyMatch[1]),
+            unit: qtyMatch[2]?.toLowerCase() ?? "",
+          });
+        }
+        break;
+      }
+    }
+  }
+
+  return result;
+}
 
 // ── Parsing helpers ──────────────────────────────────────────
 

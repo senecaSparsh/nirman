@@ -185,9 +185,12 @@ export interface StatusChangeInput {
   taskId: string;
   status: string;
   userId?: string;
+  /** Optional reason (e.g. "waiting on TMT delivery") when marking BLOCKED —
+   * recorded in the task activity feed so the assigner sees *why*. */
+  note?: string;
 }
 
-export async function updateTaskStatus({ taskId, status, userId }: StatusChangeInput) {
+export async function updateTaskStatus({ taskId, status, userId, note }: StatusChangeInput) {
   return withSerializableTransaction(async (tx) => {
     const task = await tx.task.findUnique({
       where: { id: taskId },
@@ -224,17 +227,20 @@ export async function updateTaskStatus({ taskId, status, userId }: StatusChangeI
     });
 
     const actor = userId ? await tx.user.findUnique({ where: { id: userId }, select: { name: true } }) : null;
-    const kind = status === "COMPLETED" ? "COMPLETED" : status === "IN_PROGRESS" ? "STATUS_CHANGED" : "STATUS_CHANGED";
+    const kind = status === "COMPLETED" ? "COMPLETED" : "STATUS_CHANGED";
+    const trimmedNote = note?.trim();
     const message =
       status === "COMPLETED"
         ? `${userName(actor)} marked this task complete.`
         : status === "IN_PROGRESS"
           ? `${userName(actor)} started working on this task.`
-          : status === "CANCELLED"
-            ? `${userName(actor)} cancelled this task.`
-            : `${userName(actor)} set status to ${status.replace("_", " ").toLowerCase()}.`;
+          : status === "BLOCKED"
+            ? `${userName(actor)} marked this task blocked${trimmedNote ? ` — ${trimmedNote}` : ""}.`
+            : status === "CANCELLED"
+              ? `${userName(actor)} cancelled this task.`
+              : `${userName(actor)} set status to ${status.replace("_", " ").toLowerCase()}.`;
 
-    await logActivity(tx, taskId, userId, kind, message, { from: task.status, to: status });
+    await logActivity(tx, taskId, userId, kind, message, { from: task.status, to: status, ...(trimmedNote ? { note: trimmedNote } : {}) });
     await logAction(tx, {
       userId,
       action: "TASK_STATUS_CHANGE",
@@ -341,7 +347,7 @@ export async function deleteSubTask(subtaskId: string, userId?: string) {
 }
 
 /** Reorder subtasks by an explicit ordered list of ids. */
-export async function reorderSubTasks(taskId: string, orderedIds: string[], userId?: string) {
+export async function reorderSubTasks(taskId: string, orderedIds: string[], _userId?: string) {
   return withSerializableTransaction(async (tx) => {
     await Promise.all(
       orderedIds.map((id, i) => tx.subTask.update({ where: { id, taskId }, data: { order: i } })),
@@ -409,7 +415,7 @@ export async function addDependency(blockerId: string, blockedById: string, user
     if (existing) throw new TaskError("Dependency already exists", 409);
 
     const dep = await tx.taskDependency.create({ data: { blockerId, blockedById } });
-    const [blocker, blocked] = await Promise.all([
+    const [blocker] = await Promise.all([
       tx.task.findUnique({ where: { id: blockerId }, select: { title: true } }),
       tx.task.findUnique({ where: { id: blockedById }, select: { title: true } }),
     ]);

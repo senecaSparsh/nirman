@@ -7,7 +7,7 @@
  * No DB, no mocking — pure functions.
  */
 import { describe, it, expect } from "vitest";
-import { parseDprOcrJson, parseDprFromRawText } from "./ocr";
+import { parseDprOcrJson, parseDprFromRawText, parseChallanOcrJson, parseChallanFromRawText } from "./ocr";
 
 describe("parseDprOcrJson", () => {
   it("parses valid JSON with all fields", () => {
@@ -158,5 +158,71 @@ describe("parseDprFromRawText", () => {
     const text = "Cement: 100 kg\nSand: 5 cft\nPaint: 2 litre";
     const result = parseDprFromRawText(text);
     expect(result.materials.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("parseChallanOcrJson", () => {
+  it("parses a full challan JSON", () => {
+    const json = JSON.stringify({
+      challanNumber: "DC-4521",
+      supplierName: "UltraTech Traders",
+      vehicleNumber: "MH12AB1234",
+      lines: [
+        { materialName: "TMT Steel Bar 12mm", quantity: 200, unit: "kg" },
+        { materialName: "Cement 53 Grade", quantity: 50, unit: "bag" },
+      ],
+    });
+    const result = parseChallanOcrJson(json);
+    expect(result.challanNumber).toBe("DC-4521");
+    expect(result.supplierName).toBe("UltraTech Traders");
+    expect(result.vehicleNumber).toBe("MH12AB1234");
+    expect(result.lines).toHaveLength(2);
+    expect(result.lines[0]!.quantity).toBe(200);
+  });
+
+  it("drops lines with no quantity — never mints a phantom qty", () => {
+    const json = JSON.stringify({
+      lines: [
+        { materialName: "Cement", quantity: 0, unit: "bag" },
+        { materialName: "Steel" }, // missing quantity
+      ],
+    });
+    const result = parseChallanOcrJson(json);
+    expect(result.lines).toHaveLength(0);
+  });
+
+  it("handles missing fields and invalid JSON (raw-text fallback)", () => {
+    const empty = parseChallanOcrJson("{}");
+    expect(empty.lines).toEqual([]);
+    expect(empty.challanNumber).toBeUndefined();
+    // Invalid JSON → raw-text parse, not a throw
+    const fallback = parseChallanOcrJson("Challan No: DC-99\nCement: 10 bag");
+    expect(fallback.challanNumber).toBe("DC-99");
+  });
+});
+
+describe("parseChallanFromRawText", () => {
+  it("extracts a challan number from a labelled row", () => {
+    const result = parseChallanFromRawText("DELIVERY CHALLAN\nChallan No: DC/2026/0451\nCement: 50 bag");
+    expect(result.challanNumber).toBe("DC/2026/0451");
+  });
+
+  it("extracts an Indian vehicle registration", () => {
+    const result = parseChallanFromRawText("Vehicle No: MH 12 AB 1234\nSteel: 200 kg");
+    expect(result.vehicleNumber).toBe("MH12AB1234");
+  });
+
+  it("extracts material rows with qty + unit", () => {
+    const result = parseChallanFromRawText("Cement: 50 bag\nTMT Bar: 200 kg\nSand: 5 cft");
+    expect(result.lines.length).toBeGreaterThanOrEqual(2);
+    const cement = result.lines.find((l) => l.materialName === "Cement");
+    expect(cement?.quantity).toBe(50);
+    expect(cement?.unit).toBe("bag");
+  });
+
+  it("returns an empty result for unrelated text", () => {
+    const result = parseChallanFromRawText("Terms and conditions apply\nThank you");
+    expect(result.lines).toEqual([]);
+    expect(result.challanNumber).toBeUndefined();
   });
 });

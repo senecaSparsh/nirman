@@ -523,6 +523,23 @@ export async function convertRequisitionToPo(input: ConvertRequisitionInput) {
     const reqCompanyId = req.project?.companyId ?? req.department?.companyId;
     if (!reqCompanyId) throw new ServiceError("Indent has no project or department — cannot determine company", 400);
 
+    // A line can outlive its material — soft-deleted between approval and
+    // conversion. Don't mint a PO line pointing at a dead catalogue row;
+    // name the recovery instead.
+    const lineMaterialIds = req.lines.map((l) => l.materialId);
+    const liveMaterials = await tx.material.findMany({
+      where: { id: { in: lineMaterialIds }, companyId: reqCompanyId, deletedAt: null },
+      select: { id: true },
+    });
+    const liveIds = new Set(liveMaterials.map((m) => m.id));
+    const deadLines = req.lines.filter((l) => !liveIds.has(l.materialId));
+    if (deadLines.length > 0) {
+      throw new ServiceError(
+        `${deadLines.length} line${deadLines.length > 1 ? "s" : ""} reference${deadLines.length > 1 ? "" : "s"} a material deleted from the catalogue — restore the material or reject this indent and re-raise it.`,
+        409,
+      );
+    }
+
     // Build PO lines from requisition lines. If a winning quote exists, auto-fill
     // costs + all landed-cost components from it (overriding manual lineCosts).
     // Otherwise use manual lineCosts.

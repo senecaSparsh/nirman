@@ -266,11 +266,12 @@ export interface NotificationEvent {
  * Map an entity type to the app's MOBILE route path (`/m/...`).
  *
  * Notifications link straight to the mobile route — the dominant surface for
- * field staff. A desktop user who opens a `/m/...` link is redirected to the
- * desktop equivalent by the SurfaceAdapter; the reverse never happens (a
- * mobile user must never land on a desktop page). Emitting the mobile path
- * also makes the stored link safe for push notifications, which open a single
- * fixed URL on the user's phone.
+ * field staff. On desktop the notification bell resolves each link through
+ * `resolveLinkForSurface` at render time (`desktopPath` in the route
+ * manifest), so a desktop click lands on the desktop page. A `/m/...` URL
+ * opened directly on a wide screen still renders the mobile UI — the
+ * SurfaceAdapter never reverse-redirects — which keeps stored push links
+ * safe on every device.
  *
  * Entities without a mobile detail page point at their mobile LIST route and
  * appear in MOBILE_LIST_ONLY below (the ID is not appended).

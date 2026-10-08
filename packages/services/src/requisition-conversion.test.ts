@@ -27,6 +27,7 @@ const req = {
 };
 const tx = {
   materialRequisition: { findUnique: vi.fn(), update: vi.fn() },
+  material: { findMany: vi.fn() },
   purchaseOrder: { update: vi.fn() },
 };
 const input = {
@@ -39,6 +40,7 @@ beforeEach(() => {
   vi.restoreAllMocks();
   vi.clearAllMocks();
   tx.materialRequisition.findUnique.mockResolvedValue(req);
+  tx.material.findMany.mockResolvedValue([{ id: "qa-material" }]);
   vi.mocked(withSerializableTransaction).mockImplementation(async fn => fn(tx as unknown as Prisma.TransactionClient));
   vi.mocked(createPurchaseOrderTx).mockResolvedValue(draft as never);
   vi.mocked(orderPurchaseOrder).mockResolvedValue({ ...draft, status: "ORDERED" } as never);
@@ -110,5 +112,11 @@ describe("converted PO approval boundaries", () => {
     expect(po.status).toBe("DRAFT");
     expect(approvePurchaseOrder).not.toHaveBeenCalled();
     expect(orderPurchaseOrder).not.toHaveBeenCalled();
+  });
+
+  it("rejects conversion when a line's material was deleted from the catalogue", async () => {
+    tx.material.findMany.mockResolvedValue([]); // material soft-deleted after approval
+    await expect(convertRequisitionToPo({ ...input, autoOrder: false })).rejects.toThrow(/deleted from the catalogue/);
+    expect(createPurchaseOrderTx).not.toHaveBeenCalled();
   });
 });
