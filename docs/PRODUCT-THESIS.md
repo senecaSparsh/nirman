@@ -28,15 +28,13 @@ spends logging a receipt.
 
 ## The uncomfortable truth we found
 
-The platform is **architecturally production-grade and UX-wise built for the
-person who designed it.** Verified on-device:
+The platform is **architecturally production-grade.** The field surface is a
+deliberate **dense, data-first** design — compact type scale, tight tap
+targets — and that's kept on purpose. The adoption gap isn't the visual
+scale; it's the **entry path** for a non-English, non-technical worker:
 
-- The `/m/*` field surface ran **8–9px secondary / 11px primary text** — a
-  "density over hierarchy" choice that's correct for an admin dashboard and
-  adoption-killing for a worker in sunlight. _(fixed — floor raised to 10/11/13)_
-- Secondary tap targets were **36px** — under the 44px a rough hand needs.
 - The UI is **English-only.** The one input a non-English worker has — the
-  bilingual voice agent — is a small mic button, not the front door.
+  bilingual voice agent (hi-IN) — is a small header mic, not the front door.
 - The _correct instincts exist_ (photo-required GRN, GPS attendance,
   bilingual voice NLU, offline queue, direct/cash purchase) — but they're
   organized like enterprise software, not like the worker's day.
@@ -77,15 +75,15 @@ system" into "a mason uses it daily."
 
 ## Prioritized moves
 
-| #   | Move                                       | Why it matters              | Status   |
-| --- | ------------------------------------------ | --------------------------- | -------- |
-| 1   | Raise mobile text floor to field-readable  | can't read = can't use      | **done** |
-| 2   | Voice agent → primary home surface (hi-IN) | unlocks non-English users   | next     |
-| 3   | Photo-first entry for field records        | matches existing behavior   | next     |
-| 4   | Audit flows for informal-process bends     | bend vs enforce             | next     |
-| 5   | Vernacular UI labels (hi-IN toggle)        | reading surface for workers | design   |
-| 6   | Touch-target floor ≥44px on row actions    | rough hands / gloves        | partial  |
-| 7   | WhatsApp-shareable receipts/reports        | meet them where they are    | design   |
+| #   | Move                                       | Why it matters              | Status |
+| --- | ------------------------------------------ | --------------------------- | ------ |
+| 1   | Voice agent → primary home surface (hi-IN) | unlocks non-English users   | next   |
+| 2   | Photo-first entry for field records        | matches existing behavior   | next   |
+| 3   | Audit flows for informal-process bends     | bend vs enforce             | next   |
+| 4   | Vernacular UI labels (hi-IN toggle)        | reading surface for workers | design |
+| 5   | WhatsApp-shareable receipts/reports        | meet them where they are    | design |
+
+> **Deliberate design, kept:** the compact mobile type scale (dense, data-first).
 
 ## What we're NOT competing on
 
