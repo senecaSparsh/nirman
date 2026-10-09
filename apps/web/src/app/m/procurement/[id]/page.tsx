@@ -354,11 +354,10 @@ export default function MobilePoDetailPage({
               />
             ) : null}
 
-            {/* ── Hero card — identity + receive progress ── */}
+            {/* ── Hero card — shell shows the PO number; subtitle stays
+                because it's also the link into the supplier page ── */}
             <DetailHeroCard
               icon={Truck}
-              title={po.poNumber}
-              titleMono
               subtitle={po.supplier.name}
               subtitleHref={`/m/suppliers/${po.supplierId}`}
               status={po.status}

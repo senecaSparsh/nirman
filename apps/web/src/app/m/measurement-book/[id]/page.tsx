@@ -106,13 +106,12 @@ export default function MobileMbDetailPage({
             <DetailHeroCard
               icon={BookOpen}
               title={entry.boqItem.description}
-              subtitle={`BOQ ${entry.boqItem.serialNo} · ${entry.project.name}${entry.phase ? ` · ${entry.phase.name}` : ""}`}
+              // shell already shows mbNumber + project — subtitle keeps only
+              // the BOQ ref + phase, and the number isn't repeated in-card
+              subtitle={`BOQ ${entry.boqItem.serialNo}${entry.phase ? ` · ${entry.phase.name}` : ""}`}
               status={entry.status}
               action={<DetailPrintButton href={`/m/print/measurement-book/${entry.id}`} />}
             >
-              <p className="text-m-label font-bold tabular-nums mt-2" style={{ color: "var(--color-ink-500)" }}>
-                {entry.mbNumber}
-              </p>
               {entry.description && (
                 <p className="text-m-label leading-relaxed mt-1.5" style={{ color: "var(--color-ink-700)" }}>
                   {entry.description}
@@ -121,7 +120,7 @@ export default function MobileMbDetailPage({
               <DetailLinkRow
                 href={`/m/boq/${entry.boqItem.id}`}
                 icon={Package}
-                label={`BOQ Item · ${entry.boqItem.serialNo} · ${entry.boqItem.description}`}
+                label={`BOQ item ${entry.boqItem.serialNo}`}
               />
               <DetailLinkRow
                 href={`/m/projects/${entry.project.id}`}

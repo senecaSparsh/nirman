@@ -201,10 +201,9 @@ export function MobileNcrDetailClient({
       <DetailHeroCard
         icon={ShieldCheck}
         title={ncr.title}
-        subtitle={ncr.projectName}
+        // shell shows ncrNumber + project — no repeat
         status={ncr.status}
       >
-        <p className="text-m-label font-bold tabular-nums mt-2" style={{ color: "var(--color-ink-500)" }}>{ncr.ncrNumber}</p>
         <p className="text-m-label mt-1" style={{ color: sevColor, fontWeight: 600 }}>
           {ncr.severity} · {CATEGORY_LABELS[ncr.category] ?? ncr.category}
         </p>

@@ -192,7 +192,6 @@ async function AssetReceiptView({ id, companyId, companyName }: { id: string; co
       recordId: payment.id,
     }}>
     <DetailShell
-      receiptNo={receiptNo}
       kindLabel="Property Sale"
       amount={amount}
       printUrl={`/m/print/payment-receipt/${payment.id}`}
@@ -319,7 +318,6 @@ async function MaterialReceiptView({ id, companyId, companyName }: { id: string;
       recordId: payment.id,
     }}>
     <DetailShell
-      receiptNo={receiptNo}
       kindLabel="Material Sale"
       amount={amount}
       printUrl={`/m/print/material-sale-receipt/${payment.id}`}
@@ -403,7 +401,6 @@ async function MaterialReceiptView({ id, companyId, companyName }: { id: string;
 // ── Shared shell (hero + amount + actions + children) ───────────────────────
 
 function DetailShell({
-  receiptNo,
   kindLabel,
   amount,
   printUrl,
@@ -411,7 +408,6 @@ function DetailShell({
   shareText,
   children,
 }: {
-  receiptNo: string;
   kindLabel: string;
   amount: number;
   printUrl: string;
@@ -428,8 +424,7 @@ function DetailShell({
       {/* Hero — receipt no + amount */}
       <DetailHeroCard
         icon={Wallet}
-        title={receiptNo}
-        titleMono
+        // no title — shell shows the receipt number already
         status={kindLabel}
       >
         <div className="mt-3 flex items-baseline justify-between">

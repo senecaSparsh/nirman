@@ -115,12 +115,11 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
 
   return (
     <div className="space-y-4 pb-20">
-      {/* Header */}
-      <DetailHeroCard title={incident.title} subtitle={incident.incidentNumber} status={incident.status}>
+      {/* Header — shell shows incidentNumber + project; no repeat here */}
+      <DetailHeroCard title={incident.title} status={incident.status}>
         <p className="text-m-label mt-1" style={{ color: sevColor, fontWeight: 600 }}>
           {incident.severity.replace("_", " ")} · {TYPE_LABELS[incident.type] ?? incident.type}
         </p>
-        <p className="text-m-label mt-0.5" style={{ color: "var(--color-ink-500)" }}>{incident.projectName}</p>
       </DetailHeroCard>
 
       {/* Description */}

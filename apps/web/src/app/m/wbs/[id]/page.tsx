@@ -99,12 +99,10 @@ export default function MobileWbsDetailPage({
             <DetailHeroCard
               icon={ListTree}
               title={node.name}
-              subtitle={`${node.project.name}${node.phase ? ` · ${node.phase.name}` : ""}`}
+              // shell shows node.code + project — subtitle keeps phase only
+              subtitle={node.phase?.name}
               status={node.type.replace(/_/g, " ")}
             >
-              <p className="text-m-label font-bold tabular-nums mt-2" style={{ color: "var(--color-ink-500)" }}>
-                {node.code}
-              </p>
               {node.description && (
                 <p className="text-m-label leading-relaxed mt-1.5" style={{ color: "var(--color-ink-700)" }}>
                   {node.description}

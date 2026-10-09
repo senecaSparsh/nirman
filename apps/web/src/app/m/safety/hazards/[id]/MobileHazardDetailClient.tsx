@@ -106,17 +106,13 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
 
   return (
     <div className="space-y-4 pb-20">
-      {/* Header */}
+      {/* Header — the hazard title is the page's identity; the shell
+          already shows the number + project, so no subtitle/footnote dup */}
       <DetailHeroCard
         icon={AlertTriangle}
         title={hazard.title}
-        subtitle={hazard.projectName}
         status={hazard.status}
-      >
-        <p className="text-m-label font-bold tabular-nums mt-2" style={{ color: "var(--color-ink-500)" }}>
-          {hazard.hazardNumber}
-        </p>
-      </DetailHeroCard>
+      />
 
       {/* Risk assessment */}
       <div className="rounded-[0.625rem] border p-3" style={{ borderColor: "var(--color-line)", backgroundColor: riskBg }}>

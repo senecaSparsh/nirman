@@ -151,7 +151,7 @@ export default function MobileUnitDetailPage({
             {/* ── Hero card ── */}
             <DetailHeroCard
               icon={Home}
-              title={unit.unitNumber}
+              // no title — shell shows the unit number already
               subtitle={`${typeLabel} · ${formatNumber(toNum(unit.area), 0)} ${unit.areaUnit}`}
               status={unit.status}
             >

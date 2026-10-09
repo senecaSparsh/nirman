@@ -146,9 +146,7 @@ export default function MobileSupplierReturnDetailPage({
           <div className="pb-20">
             <DetailHeroCard
               icon={Undo2}
-              title={ret.returnNumber}
-              titleMono
-              subtitle={ret.supplier.name}
+              // no title/subtitle — shell shows returnNumber + supplier
               status={ret.status}
             />
 

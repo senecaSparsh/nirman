@@ -70,8 +70,7 @@ export default function MobileScrapDetailPage({
             {/* ── Hero card ── */}
             <DetailHeroCard
               icon={Recycle}
-              title={scrap.scrapNumber}
-              titleMono
+              // no title — shell shows the scrap number already
               status={isCancelled ? "CANCELLED" : undefined}
               action={
                 <div className="flex items-center gap-1.5">

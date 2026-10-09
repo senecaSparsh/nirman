@@ -190,7 +190,7 @@ export function MobileLeadDetailClient({
     <div className="flex flex-col gap-4 pb-8">
       {/* ── Header ── */}
       <DetailHeroCard
-        title={lead.name}
+        // no title — shell shows the lead's name already
         action={
           <div className="text-right">
             <p className="text-m-caption uppercase font-semibold" style={{ color: "var(--color-ink-500)" }}>

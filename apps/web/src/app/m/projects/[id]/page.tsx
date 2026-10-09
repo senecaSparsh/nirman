@@ -156,8 +156,7 @@ export default function MobileProjectDetailPage({
       {/* ── Hero card ── */}
       <DetailHeroCard
         icon={Building2}
-        title={project.name}
-        subtitle={typeLabel}
+        // no title/subtitle — shell shows the project name + type already
         status={project.status}
         action={
           <div className="flex items-center gap-2">

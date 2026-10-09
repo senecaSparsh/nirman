@@ -222,15 +222,11 @@ export function MobileChangeOrderDetailClient({
         subtitle={`${TYPE_LABELS[co.type] ?? co.type} · ${REASON_LABELS[co.reason] ?? co.reason}`}
         status={co.status}
       >
-        <p
-          className="text-m-label font-mono tabular-nums mt-2"
-          style={{ color: "var(--color-ink-500)" }}
-        >
-          {co.changeOrderNo}
-        </p>
-        <p className="text-m-label mt-0.5" style={{ color: "var(--color-ink-500)" }}>
-          {co.projectName}{co.phaseName ? ` · ${co.phaseName}` : ""}
-        </p>
+        {co.phaseName ? (
+          <p className="text-m-label mt-2" style={{ color: "var(--color-ink-500)" }}>
+            {co.phaseName}
+          </p>
+        ) : null}
       </DetailHeroCard>
 
       {/* Description */}

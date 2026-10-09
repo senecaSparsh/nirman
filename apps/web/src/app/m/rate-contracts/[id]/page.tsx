@@ -106,7 +106,9 @@ export default function MobileRateContractDetailPage({
             <DetailHeroCard
               icon={FileText}
               title={rc.material.name}
-              subtitle={`${rc.contractNumber} · ${rc.supplier.name}${rc.material.code ? ` · ${rc.material.code}` : ""}`}
+              // shell shows contractNumber + supplier — subtitle keeps only
+              // the material code
+              subtitle={rc.material.code ? `Code ${rc.material.code}` : undefined}
               status={statusLabel}
             >
               {rc.notes && (

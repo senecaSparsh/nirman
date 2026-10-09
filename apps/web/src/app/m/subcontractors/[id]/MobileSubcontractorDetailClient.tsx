@@ -99,8 +99,9 @@ export function MobileSubcontractorDetailClient({
     <div className="pb-6">
       {/* ── Header ── */}
       <DetailHeroCard
-        title={data.name}
-        subtitle={`${data.trade ? `${data.trade} · ` : ""}Added ${formatDate(data.createdAt)}`}
+        // no title — shell shows the name; subtitle drops the trade
+        // (shell subtitle) and keeps only the added date
+        subtitle={`Added ${formatDate(data.createdAt)}`}
         action={canManage ? (
           <button
             onClick={() => setShowEdit(true)}

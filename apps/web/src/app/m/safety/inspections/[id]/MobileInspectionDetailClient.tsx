@@ -53,14 +53,11 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
 
   return (
     <div className="pb-20">
-      {/* Header */}
+      {/* Header — shell shows inspectionNumber + project; no repeat here */}
       <DetailHeroCard
         title={inspection.title}
-        subtitle={inspection.projectName}
         status={inspection.status}
-      >
-        <p className="text-m-label font-bold tabular-nums mt-2" style={{ color: "var(--color-ink-500)" }}>{inspection.inspectionNumber}</p>
-      </DetailHeroCard>
+      />
 
       {/* Result banner */}
       {inspection.result && (

@@ -65,12 +65,9 @@ export default function MobileStandardConsumptionDetailPage({
             {/* Header card */}
             <DetailHeroCard
               icon={Beaker}
-              title={sc.material.name}
+              // no title — shell shows the material name + workType
               subtitle={sc.material.code ? `${sc.material.code} · ${sc.unitOfMeasure}` : sc.unitOfMeasure}
             >
-              <p className="text-m-label font-bold uppercase tracking-wide mt-2" style={{ color: "var(--color-ink-500)" }}>
-                {sc.workType}
-              </p>
               {sc.notes && (
                 <p className="text-m-label leading-relaxed mt-1.5" style={{ color: "var(--color-ink-700)" }}>
                   {sc.notes}

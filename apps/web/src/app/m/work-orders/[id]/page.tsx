@@ -110,12 +110,11 @@ export default function MobileWorkOrderDetailPage({
             <DetailHeroCard
               icon={Wrench}
               title={wo.workTitle}
-              subtitle={`${wo.subcontractor.name}${wo.subcontractor.trade ? ` · ${wo.subcontractor.trade}` : ""} · ${wo.project.name}`}
+              // shell shows the WO number + subcontractor — subtitle keeps
+              // trade + project only, and the number isn't repeated in-card
+              subtitle={`${wo.subcontractor.trade ? `${wo.subcontractor.trade} · ` : ""}${wo.project.name}`}
               status={wo.status}
             >
-              <p className="text-m-label font-bold tabular-nums mt-2" style={{ color: "var(--color-ink-500)" }}>
-                {wo.workOrderNumber}
-              </p>
               {wo.description && (
                 <p className="text-m-label leading-relaxed mt-1.5" style={{ color: "var(--color-ink-700)" }}>
                   {wo.description}
