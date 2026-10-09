@@ -485,3 +485,21 @@ genuine stale-cache defects.
 - Confirmed MAC design is correct: `currentCost` only needs refresh after IN movements (`newMAC = oldMAC` on OUT); every IN path refreshes except the auto-scrap path now fixed.
 
 **Full-session invariant-sweep result: 3 real bugs found + fixed** (WO signing advance GL, supplier-return credit→invoice, auto-scrap MAC rollup), every other cached aggregate/denormalized field verified consistent or self-healing.
+
+## 37. WO-completion integrity — stranded receivable + stranded measured work
+
+**Bug 4 (fixed)**: `completeWorkOrder` guarded pending RA bills but NOT an
+unrecovered advance or approved-but-unbilled MB entries — both strand forever
+once the WO closes (no RA bill can run after completion). Now:
+
+- **Unrecovered advance** blocks completion unless `forgiveAdvance{reason}` —
+  which posts `Dr Operating Expense / Cr Advance to Sub` + records
+  `advanceWrittenOff` (new field; outstanding = paid − recovered − writtenOff).
+  Mobile complete flow opens a write-off sheet when a balance remains.
+- **Approved-unbilled MB entries** block completion (verified work never
+  reaching a bill) — bill or reject them first.
+
+Verified live: WO-0002 (₹3,00,000 advance, ₹55,200 recovered) blocked on
+₹2,44,800 → wrote off → COMPLETED with JE `ADVANCE_WRITE_OFF`. Regression
+tests: 4 pass. Other transitions (PO partial→PARTIAL-not-RECEIVED, sale
+cancel guards, retention release, payroll lock) verified already correct.
