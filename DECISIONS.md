@@ -459,3 +459,21 @@ applied). 32 supplier tests green.
 (PAID→APPROVED) + balance restored; requisition correctly marks CONVERTED with
 `convertedPoId` link (terminal — can't re-convert); petty cash + employee
 advance post GL at every step.
+
+## 35. THIRD REAL BUG FIXED — auto-scrap never refreshed Material.currentCost
+
+**Bug (fixed)**: `standard-consumption.ts` records `SCRAP_GENERATED` IN movements
+(which update the location `movingAvgCost` inside `recordMovement`) but never
+rolled the new MAC up to `Material.currentCost` — while the manual scrap path
+(`scrap.ts:285`) does. A scrap material arriving only via DPR over-consumption
+kept a stale `currentCost`, mis-valuing it in lists/reports. Now refreshes per
+the manual path. (Verified the design is correct elsewhere: `currentCost` only
+needs a refresh after IN movements — OUT keeps `newMAC = oldMAC`; every other
+IN path refreshes.)
+
+**Invariant sweep — cached aggregates**: `supplier.balanceOwed` (GRN/payment/
+return/void all consistent), `wo.retentionBalance` (hold/release), petty cash
+(create/topup/spend), `Project.totalProjectCost` (every cost-write calls
+`reallocateProjectCosts`, plus a drift-detecting health check), AR (computed
+per-sale from GL, not cached — no drift possible). The 3 fixes were the only
+genuine stale-cache defects.
