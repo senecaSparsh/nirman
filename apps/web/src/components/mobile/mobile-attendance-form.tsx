@@ -623,7 +623,7 @@ export function MobileAttendanceForm({
                           key={s}
                           disabled={!!periodLocked}
                           onClick={() => setStatus(emp.id, s)}
-                          className="shrink-0 rounded-full border px-3 py-2 min-h-[40px] text-m-caption font-bold text-m-body press disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="shrink-0 rounded-full border px-2.5 py-1 text-m-caption font-bold text-m-body press disabled:opacity-50 disabled:cursor-not-allowed"
                           style={
                             active
                               ? { color: sCfg.color, backgroundColor: sCfg.bg, borderColor: sCfg.border }

@@ -778,7 +778,7 @@ export function MobileDprForm({
             type="button"
             onClick={requestGps}
             disabled={gpsLoading}
-            className="shrink-0 rounded-[0.375rem] border px-2.5 py-2 min-h-[40px] min-w-[40px] grid place-items-center text-m-caption font-bold text-m-body press disabled:opacity-50"
+            className="shrink-0 rounded-[0.375rem] border px-2 py-1 text-m-caption font-bold text-m-body press disabled:opacity-50"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
             title="Use my location to auto-select project"
           >
@@ -878,7 +878,7 @@ export function MobileDprForm({
               <button
                 type="button"
                 onClick={repeatYesterday}
-                className="flex items-center gap-1 rounded-[0.375rem] border px-2.5 py-2 min-h-[36px] items-center text-m-caption font-bold text-m-body press"
+                className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-m-caption font-bold text-m-body press"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
               >
                 <Repeat className="size-2.5" /> Repeat
@@ -887,7 +887,7 @@ export function MobileDprForm({
             <button
               type="button"
               onClick={addMaterialLine}
-              className="flex items-center gap-1 rounded-[0.375rem] border px-2.5 py-2 min-h-[36px] items-center text-m-caption font-bold text-m-body press"
+              className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-m-caption font-bold text-m-body press"
               style={{ borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               <Plus className="size-2.5" /> Add
@@ -910,7 +910,7 @@ export function MobileDprForm({
                 <button
                   key={m.materialId}
                   onClick={() => quickAddMaterial(m.materialId, m.qty, m.unitCost)}
-                  className="rounded-full border px-3 py-2 min-h-[40px] text-m-caption font-semibold text-m-body press"
+                  className="rounded-full border px-2.5 py-1 text-m-caption font-semibold text-m-body press"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)" }}
                 >
                   + {m.name} ({m.qty} {m.unit})
@@ -1001,7 +1001,7 @@ export function MobileDprForm({
                 type="button"
                 onClick={pullTodaysAttendance}
                 disabled={pullingAttendance}
-                className="flex items-center gap-1 rounded-[0.375rem] border px-2.5 py-2 min-h-[36px] items-center text-m-caption font-bold text-m-body press disabled:opacity-50"
+                className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-m-caption font-bold text-m-body press disabled:opacity-50"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
               >
                 {pullingAttendance ? <Loader2 className="size-2.5 animate-spin" /> : <CheckCircle2 className="size-2.5" />} Attendance
@@ -1010,7 +1010,7 @@ export function MobileDprForm({
             <button
               type="button"
               onClick={addLaborLine}
-              className="flex items-center gap-1 rounded-[0.375rem] border px-2.5 py-2 min-h-[36px] items-center text-m-caption font-bold text-m-body press"
+              className="flex items-center gap-1 rounded-[0.375rem] border px-2 py-1 text-m-caption font-bold text-m-body press"
               style={{ borderColor: "var(--color-ink-950)", backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
             >
               <Plus className="size-2.5" /> Add
