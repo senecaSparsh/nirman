@@ -95,9 +95,9 @@ export async function createExpense(input: CreateExpenseInput) {
     // trusting the explicit breakdown when present.
   }
 
+  const status = input.submitForApproval ? "PENDING" : "DRAFT";
   return withSerializableTransaction(async (tx) => {
     await assertExpenseRefs(tx, input.companyId, input);
-    const status = input.submitForApproval ? "PENDING" : "DRAFT";
     const expense = await tx.expense.create({
       data: {
         companyId: input.companyId,
@@ -136,6 +136,26 @@ export async function createExpense(input: CreateExpenseInput) {
       entityId: expense.id,
       after: { category: input.category, amount, status, categoryId: input.categoryId },
     });
+    return expense;
+  }).then((expense) => {
+    // Tell finance/PM when an expense lands pending approval — a DRAFT is
+    // not yet a cost decision, so only PENDING submissions ping. Role-routed
+    // (no recipientIds): every approver-queue holder should see it.
+    if (status === "PENDING") {
+      void emitNotificationEvent({
+        eventType: NotificationEventType.EXPENSE_CREATED,
+        companyId: input.companyId,
+        excludeIds: [input.userId],
+        entityType: "Expense",
+        entityId: expense.id,
+        variables: {
+          amount: amount.toString(),
+          category: input.category,
+          payeeName: input.payeeName ?? "",
+        },
+        timestamp: new Date(),
+      });
+    }
     return expense;
   });
 }

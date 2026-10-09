@@ -582,6 +582,25 @@ export async function syncListingToPortal(listingId: string, userId?: string) {
     });
   }
 
+  // A unit went live on the portal — sales/ops want the confirmation.
+  // Role-routed to SALES + top-level; the actor is excluded.
+  if (result.success) {
+    const { emitNotificationEvent, NotificationEventType } = await import("./notification-event-bus");
+    void emitNotificationEvent({
+      eventType: NotificationEventType.UNIT_LISTING_SYNCED,
+      companyId: listing.companyId,
+      excludeIds: [userId],
+      entityType: "BuiltUnit",
+      entityId: listing.builtUnitId ?? listingId,
+      variables: {
+        unitNumber: listing.builtUnit?.unitNumber ?? "",
+        listingTitle: listing.title,
+        portalName: listing.portalName,
+      },
+      timestamp: new Date(),
+    });
+  }
+
   return updated;
 }
 

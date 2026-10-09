@@ -5,6 +5,7 @@ import { logAction } from "./audit";
 import { postProjectCost, reverseJournalEntry } from "./gl-posting";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 
 /**
  * Project Cost Service — labour, overhead, equipment, contractor, permit costs.
@@ -86,6 +87,23 @@ export async function addProjectCost(input: AddProjectCostInput) {
       entityType: "ProjectCost",
       entityId: cost.id,
       after: { projectId: input.projectId, costType: input.costType, amount },
+    });
+    return { cost, project };
+  }).then(({ cost, project }) => {
+    // A new cost posting lands straight in WIP — PMs/finance should hear it.
+    // Role-routed (no recipientIds); the actor is excluded.
+    void emitNotificationEvent({
+      eventType: NotificationEventType.PROJECT_COST_ADDED,
+      companyId: input.companyId,
+      excludeIds: [input.userId],
+      entityType: "ProjectCost",
+      entityId: cost.id,
+      variables: {
+        projectId: input.projectId,
+        projectName: project.name,
+        amount: amount.toString(),
+      },
+      timestamp: new Date(),
     });
     return cost;
   });

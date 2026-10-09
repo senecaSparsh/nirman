@@ -811,7 +811,7 @@ export async function recordDeposit(input: RecordDepositInput) {
   const result = await withSerializableTransaction(async (tx) => {
     const sale = await tx.assetSale.findUnique({
       where: { id: input.saleId },
-      include: { payments: true },
+      include: { payments: true, customer: { select: { name: true } } },
     });
     if (!sale) throw new ServiceError("Sale not found", 404);
     if (sale.status === "CANCELLED") throw new ServiceError("Cannot record deposit on a cancelled sale");
@@ -900,7 +900,7 @@ export async function recordDeposit(input: RecordDepositInput) {
       });
     }
 
-    return { payment, saleStage: "DEPOSIT_RECEIVED" as const, paymentStatus, companyId: sale.companyId };
+    return { payment, saleStage: "DEPOSIT_RECEIVED" as const, paymentStatus, companyId: sale.companyId, customerName: sale.customer?.name ?? "" };
   });
 
   // Auto-sync the deposit GL entry to Tally (best-effort, outside the tx)
@@ -913,6 +913,20 @@ export async function recordDeposit(input: RecordDepositInput) {
       if (je) await autoSyncEntryToTally(result.companyId, je.id);
     } catch { /* best-effort */ }
   })();
+
+  // Deposit received — money in the bank; sales+finance should hear it.
+  void emitNotificationEvent({
+    eventType: NotificationEventType.CUSTOMER_DEPOSIT_RECEIVED,
+    companyId: result.companyId,
+    excludeIds: [input.userId],
+    entityType: "AssetSale",
+    entityId: input.saleId,
+    variables: {
+      amount: String(input.depositAmount),
+      customerName: result.customerName,
+    },
+    timestamp: new Date(),
+  });
 
   return result;
 }
