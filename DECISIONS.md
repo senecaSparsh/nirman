@@ -548,3 +548,18 @@ environment — `ssh nirman-vps` (port 22), `https://nirman.life`, and Coolify
 `82.41.67.34:8000` all time out. This is a network/access constraint, not a code
 gap. When a path to the VPS exists: `./scripts/deploy-prod.sh` ships all
 commits, `./scripts/prod-health-check.sh` verifies live.
+
+## 40. Interactive walkthrough — write-off sheet opened before earlier guards
+
+Live browser verification caught a real interaction-ordering bug the static
+audits missed: `MobileWorkOrderActions` opened the write-off sheet on
+`advanceBalance > 0` immediately on tap — so a WO with a pending RA bill
+asked the user to write off the advance, THEN errored on the bill. The user
+was being asked to write off an advance that wasn't the real blocker.
+
+Now `doAction("complete")` runs the API first and opens the sheet only on the
+actual `unrecovered` error — pending bills / unbilled MB entries error first,
+matching the service guard order and the desktop dialog. Verified live:
+pending-bill WO errors correctly, write-off sheet appears only on the real
+advance blocker. Created + exercised WO-261009-0003 end-to-end
+(BOQ→WO→advance→issue→MB→RA→approve→complete) to prove the flow.
