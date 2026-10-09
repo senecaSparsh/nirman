@@ -293,3 +293,13 @@ Supporting rules:
 - **Notifications carry the wall too**: `resolveRecipients` drops below-top recipients for events about H1 subjects (leave, claims, payroll, contract milestones).
 - **Employee rows are never returned raw** — `pickEmployeeRoster`/`redactEmployeeRow` or `select:`; enforced by `employee-serialization.test.ts`.
 - **`/api/cron/integrity`** runs daily — flags level↔tier divergence, stale hats, reportsTo drift/cycles, orphan links, dead-account phone assignments to tier-1 members.
+
+## 21. Demo-dataset seeding (non-destructive)
+
+The dev DB was nearly empty — surfaces rendered honest empty states but couldn't be demoed end-to-end. Seeded a coherent running-company dataset **non-destructively via the real APIs** (not the `pnpm --filter @nirman/services seed` script — `wipeTransactional()` does a global `deleteMany` that would destroy existing records).
+
+Seeded through live API calls (session = OWNER): 4 suppliers (cement/steel/aggregate/electrical), 2 stock locations (Central Store warehouse + Apex site store), 4 materials (+ the 2 existing), a full PO→approve→order→GRN chain (PO-20261009-0001), a stock issue to site (SA-261009-0001, ₹70,350 — MAC costing verified exact), 4 role-assigned tasks, 3 CRM leads, 4 vehicles, 2 subcontractors + issued work order WO-261009-0001, a BOQ line, and a completed+paid unit sale (SAL-20261009-0001).
+
+Verified live: inventory surface shows ₹1.96L stock across 2 locations + reorder alerts; GL postings land (9 entries); live activity feed reflects every mutation; Collections view renders the sale.
+
+**Note for re-seeding**: use `pnpm --filter @nirman/services seed` only for a fresh full-company reset — it wipes ALL transactional rows globally (no company filter).
