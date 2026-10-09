@@ -3,7 +3,7 @@ import type { Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
-import { recordMovement, withStockTransaction } from "./stock-ledger";
+import { recordMovement, refreshMaterialCurrentCost, withStockTransaction } from "./stock-ledger";
 import { postScrapGeneration } from "./gl-posting";
 import { nextSequenceNumber } from "./sequence";
 
@@ -451,6 +451,12 @@ export async function runDprVarianceAnalysis(
           userId: options.userId,
         });
       }
+
+      // Roll each scrap material's MAC up to Material.currentCost — the manual
+      // scrap-generation path refreshes this, and the auto path must too or a
+      // scrap material that only ever arrives via over-consumption shows a
+      // stale cost in lists and valuation.
+      await refreshMaterialCurrentCost(tx, overConsumptionLines.map((l) => l.materialId));
 
       // Now create the scrap generation lines (after movements, so the
       // stock ledger is already updated).
