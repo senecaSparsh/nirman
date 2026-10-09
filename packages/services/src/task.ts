@@ -210,17 +210,19 @@ export interface StatusChangeInput {
   /** Optional reason (e.g. "waiting on TMT delivery") when marking BLOCKED —
    * recorded in the task activity feed so the assigner sees *why*. */
   note?: string;
+  /** Needed to resolve notification prefs for the assigner ping. */
+  companyId?: string;
 }
 
-export async function updateTaskStatus({ taskId, status, userId, note }: StatusChangeInput) {
-  return withSerializableTransaction(async (tx) => {
+export async function updateTaskStatus({ taskId, status, userId, note, companyId }: StatusChangeInput) {
+  const { updated, task, actorName, trimmedNote } = await withSerializableTransaction(async (tx) => {
     const task = await tx.task.findUnique({
       where: { id: taskId },
       include: { blocking: { include: { blocker: { select: { id: true, title: true, status: true } } } } },
     });
     if (!task) throw new TaskError("Task not found", 404);
 
-    if (status === task.status) return task;
+    if (status === task.status) return { updated: task, task, actorName: "", trimmedNote: undefined };
 
     // State machine: COMPLETED and CANCELLED are terminal states
     if (task.status === "COMPLETED") {
@@ -272,8 +274,35 @@ export async function updateTaskStatus({ taskId, status, userId, note }: StatusC
       after: { status },
     });
 
-    return updated;
+    return { updated, task, actorName: userName(actor), trimmedNote };
   });
+
+  // Close the loop — the assigner hears when their task completes or stalls.
+  // recipientIds is a personal ping to the assigner; the actor is excluded.
+  const eventType =
+    status === "COMPLETED"
+      ? NotificationEventType.TASK_COMPLETED
+      : status === "BLOCKED"
+        ? NotificationEventType.TASK_BLOCKED
+        : null;
+  if (eventType && task.assignedById && companyId) {
+    void emitNotificationEvent({
+      eventType,
+      companyId,
+      recipientIds: [task.assignedById],
+      excludeIds: [userId],
+      entityType: "Task",
+      entityId: taskId,
+      variables: {
+        assigneeName: actorName,
+        title: task.title,
+        note: trimmedNote ?? "",
+      },
+      timestamp: new Date(),
+    });
+  }
+
+  return updated;
 }
 
 // ───────────────────────────────────────────────────────────
@@ -284,10 +313,12 @@ export interface ReassignInput {
   taskId: string;
   assignedToId: string;
   userId?: string;
+  /** Needed to resolve notification prefs for the new assignee's ping. */
+  companyId?: string;
 }
 
-export async function reassignTask({ taskId, assignedToId, userId }: ReassignInput) {
-  return withSerializableTransaction(async (tx) => {
+export async function reassignTask({ taskId, assignedToId, userId, companyId }: ReassignInput) {
+  const result = await withSerializableTransaction(async (tx) => {
     const task = await tx.task.findUnique({
       where: { id: taskId },
       include: { assignedTo: { select: { name: true } } },
@@ -314,8 +345,28 @@ export async function reassignTask({ taskId, assignedToId, userId }: ReassignInp
       after: { assignedToId },
     });
 
-    return updated;
+    return { updated, task, actorName: userName(actor) };
   });
+
+  // The NEW assignee gets the same ping as a fresh assignment.
+  if (companyId) {
+    void emitNotificationEvent({
+      eventType: NotificationEventType.TASK_ASSIGNED,
+      companyId,
+      recipientIds: [assignedToId],
+      excludeIds: [userId],
+      entityType: "Task",
+      entityId: taskId,
+      variables: {
+        assignerName: result.actorName,
+        title: result.task.title,
+        dueDate: result.task.dueDate ? result.task.dueDate.toISOString().slice(0, 10) : "",
+      },
+      timestamp: new Date(),
+    });
+  }
+
+  return result.updated;
 }
 
 // ───────────────────────────────────────────────────────────

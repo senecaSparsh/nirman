@@ -74,6 +74,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       status: statusParsed.data,
       userId: user.id,
       note: typeof body.note === "string" ? body.note.slice(0, 500) : undefined,
+      companyId: company.id,
     });
     revalidatePath("/my-tasks");
     revalidatePath("/m/site/tasks");
@@ -82,7 +83,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
 
   // Reassignment goes through the service (activity log).
   if (body.assignedToId !== undefined && isManager) {
-    const updated = await reassignTask({ taskId, assignedToId: body.assignedToId, userId: user.id });
+    const updated = await reassignTask({ taskId, assignedToId: body.assignedToId, userId: user.id, companyId: company.id });
     revalidatePath("/my-tasks");
     revalidatePath("/m/site/tasks");
     return json({ ok: true, id: updated.id, status: updated.status });

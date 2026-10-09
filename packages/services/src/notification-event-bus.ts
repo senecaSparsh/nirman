@@ -136,8 +136,10 @@ export enum NotificationEventType {
   // Legal / Compliance (1)
   LEGAL_DOC_EXPIRING = "LEGAL_DOC_EXPIRING",
 
-  // Tasks (1)
+  // Tasks (3)
   TASK_ASSIGNED = "TASK_ASSIGNED",
+  TASK_COMPLETED = "TASK_COMPLETED",
+  TASK_BLOCKED = "TASK_BLOCKED",
 }
 
 export const ALL_EVENT_TYPES = Object.values(NotificationEventType);
@@ -243,8 +245,11 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   [NotificationEventType.LEGAL_DOC_EXPIRING]: "IMMEDIATE",
 
   // Tasks — a personal assignment ping; the assignee should hear now, not
-  // in a digest (the work may be due today).
+  // in a digest (the work may be due today). Completion/blocked close the
+  // loop for the assigner — blocked especially needs unblocking now.
   [NotificationEventType.TASK_ASSIGNED]: "IMMEDIATE",
+  [NotificationEventType.TASK_COMPLETED]: "IMMEDIATE",
+  [NotificationEventType.TASK_BLOCKED]: "IMMEDIATE",
 };
 
 export interface NotificationEvent {
@@ -991,6 +996,10 @@ const EVENT_MESSAGES: Partial<
   // Tasks — the assignee hears who assigned what, plus the due date if set.
   [NotificationEventType.TASK_ASSIGNED]: ({ s }) =>
     `${s("assignerName") || "Your manager"} assigned you a task: ${s("title")}${s("dueDate") ? ` — due ${s("dueDate")}` : ""}.`,
+  [NotificationEventType.TASK_COMPLETED]: ({ s }) =>
+    `${s("assigneeName") || "Your assignee"} completed the task: ${s("title")}.`,
+  [NotificationEventType.TASK_BLOCKED]: ({ s }) =>
+    `${s("assigneeName") || "Your assignee"} marked a task blocked: ${s("title")}${s("note") ? ` — ${s("note")}` : ""}.`,
   [NotificationEventType.EMPLOYEE_DOC_EXPIRING]: ({ s }) =>
     `${s("employeeName") || "An employee"}'s ${s("docLabel") || "document"} expires in ${s("daysLeft") || "a few"} day(s) (${s("endDate")}). Collect a renewal.`,
 
