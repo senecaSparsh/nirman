@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mic, Loader2, Volume2, Check, X } from "lucide-react";
+import { Mic, Loader2, Volume2, Check, X, Send } from "lucide-react";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    VOICE AGENT BUTTON — header mic that listens + speaks, no chat sheet
@@ -97,6 +97,11 @@ export function VoiceAgentButton() {
   } | null>(null);
   const [executing, setExecuting] = useState(false);
   const [hasSpeechStarted, setHasSpeechStarted] = useState(false);
+  // Text fallback — shown when the browser has no SpeechRecognition (denied
+  // mic, old iOS webview). Same /api/assistant pipeline, typed not spoken.
+  const [textMode, setTextMode] = useState(false);
+  const [textQuery, setTextQuery] = useState("");
+  const [lastTextResponse, setLastTextResponse] = useState("");
 
   // ── Whether we should auto-listen after TTS (follow-up question) ──
   const shouldAutoListenRef = useRef(false);
@@ -263,6 +268,7 @@ export function VoiceAgentButton() {
         });
         const data = await res.json();
         const responseText = data.text || "Sorry, samajh nahi aaya.";
+        setLastTextResponse(responseText);
         const cards: ActionCard[] | undefined = data.cards;
         const needsInput: boolean = data.needsInput ?? false;
         const hasMoreSteps: boolean = data.hasMoreSteps ?? false;
@@ -546,6 +552,17 @@ export function VoiceAgentButton() {
       return;
     }
     if (phase === "thinking") return; // don't interrupt mid-request
+
+    // No SpeechRecognition → open the text fallback instead of dead-ending.
+    const SR =
+      (window as unknown as { SpeechRecognition?: new () => SpeechRecognitionInstance })
+        .SpeechRecognition ||
+      (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognitionInstance })
+        .webkitSpeechRecognition;
+    if (!SR) {
+      setTextMode((m) => !m);
+      return;
+    }
     startListening();
   }, [phase, startListening, sendToAssistant]);
 
@@ -637,6 +654,65 @@ export function VoiceAgentButton() {
             <Loader2 className="size-3 animate-spin" style={{ color: "var(--color-ink-500)" }} />
             <span className="flex-1">{transcript}</span>
           </div>
+        </div>
+      )}
+
+      {/* ── Text fallback sheet — browser has no SpeechRecognition ── */}
+      {textMode && (
+        <div
+          className="fixed left-1/2 -translate-x-1/2 top-14 z-40 w-[92%] max-w-sm rounded-2xl p-3 shadow-lg"
+          style={{
+            backgroundColor: "var(--color-paper)",
+            color: "var(--color-ink-900)",
+            border: "1px solid var(--color-line)",
+          }}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-m-label font-semibold" style={{ color: "var(--color-ink-500)" }}>
+              Ask (voice off — type instead)
+            </span>
+            <button
+              onClick={() => setTextMode(false)}
+              aria-label="Close"
+              className="press grid place-items-center size-6"
+              style={{ color: "var(--color-ink-500)" }}
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+          <div className="flex gap-1.5">
+            <input
+              value={textQuery}
+              onChange={(e) => setTextQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && textQuery.trim()) {
+                  sendToAssistant(textQuery);
+                  setTextQuery("");
+                }
+              }}
+              placeholder="Type your question…"
+              className="flex-1 rounded-[0.5rem] px-3 py-2 text-m-body outline-none"
+              style={{ backgroundColor: "var(--color-concrete)", border: "1px solid var(--color-line)", color: "var(--color-ink-900)" }}
+            />
+            <button
+              onClick={() => {
+                if (textQuery.trim()) {
+                  sendToAssistant(textQuery);
+                  setTextQuery("");
+                }
+              }}
+              aria-label="Send"
+              className="press grid place-items-center size-9 rounded-[0.5rem]"
+              style={{ backgroundColor: "var(--color-signal)", color: "var(--color-paper)" }}
+            >
+              <Send className="size-4" />
+            </button>
+          </div>
+          {lastTextResponse ? (
+            <p className="mt-2 text-m-body leading-relaxed whitespace-pre-wrap" style={{ color: "var(--color-ink-900)" }}>
+              {lastTextResponse}
+            </p>
+          ) : null}
         </div>
       )}
 
