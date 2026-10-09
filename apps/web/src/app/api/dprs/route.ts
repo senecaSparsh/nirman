@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { submitDPR, subAdminApproveDpr, adminApproveDpr, canAutoApprove } from "@nirman/services";
-import { apiHandler, getCompany, json, dprSchema, toNum, scopeWhere, assertScopeAllows, getActingRole, requireEffectivePermission} from "@/lib/server";
+import { apiHandler, getCompany, json, dprSchema, toNum, scopeWhere, assertScopeAllows, getActingRole, requireEffectivePermission, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
 
@@ -78,6 +78,16 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requireEffectivePermission(PERM.DPR_SUBMIT);
   const company = await getCompany();
   const body = await req.json();
+  // Back-dated filing into a payroll-locked period is a privileged action — only
+  // an admin approver (owner-tier) may supply an override reason. Field users
+  // still hit the lock.
+  const lockOverrideReason = typeof body.lockOverrideReason === "string" ? body.lockOverrideReason.trim() : "";
+  if (lockOverrideReason) {
+    const canOverride = (await getEffectivePermissions()).includes(PERM.DPR_APPROVE_ADMIN);
+    if (!canOverride) {
+      return json({ error: "Only an admin approver can file a DPR into a closed payroll period." }, { status: 403 });
+    }
+  }
   const parsed = dprSchema.safeParse(body);
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
@@ -119,6 +129,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         taskDescription: l.taskDescription,
       })),
       skipAttendanceCheck: parsed.data.skipAttendanceCheck ?? false,
+      lockOverrideReason: lockOverrideReason || undefined,
       userId: user.id,
     });
     // Tier-1 creators (OWNER/ADMIN) auto-complete both approval tiers — the

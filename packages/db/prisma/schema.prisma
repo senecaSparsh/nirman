@@ -1997,6 +1997,12 @@ model DailyProgressReport {
   // DPR-Finance Bridge: track when DPR costs were posted to the GL
   costPostedDate       DateTime? // null = not yet posted to finance
   costPostedAmount     Decimal?  @db.Decimal(14, 2) // total cost posted (material + labor)
+  // Back-dated filing: an authorized approver filed this DPR into a period whose
+  // payroll already ran. The DPR is a truthful record of work done, but its labour
+  // belongs to a closed month — it surfaces as a next-period adjustment, not a
+  // rewrite of the settled one. The reason is required for audit.
+  backDated            Boolean  @default(false)
+  lockOverrideReason   String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

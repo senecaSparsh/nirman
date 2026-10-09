@@ -2420,6 +2420,13 @@ export interface SubmitDprInput {
   userId?: string;
   /** Waiver: skip the attendance/labor check. Use for no-work days or material-only DPRs. */
   skipAttendanceCheck?: boolean;
+  /**
+   * Owner/manager override for filing into a locked (payroll-processed) period.
+   * Only honoured when supplied — the route gates it to DPR_APPROVE_ADMIN. The
+   * DPR is filed and flagged `backDated`; its labour surfaces as a next-period
+   * adjustment rather than rewriting the settled month. A reason is required.
+   */
+  lockOverrideReason?: string;
 }
 
 /**
@@ -2471,7 +2478,15 @@ export async function submitDPR(input: SubmitDprInput) {
     // PROCESSED/PAID payroll period lands cost in a closed month whose payroll
     // already ran, so the labour is never captured there but still hits the
     // project ledger. Correct it with an adjustment in the open period.
-    await assertAttendancePeriodOpen(input.companyId, dateOnly, tx);
+    const overrideReason = input.lockOverrideReason?.trim();
+    if (overrideReason) {
+      // Owner/manager back-dated filing: the period is locked, but the work was
+      // genuinely done. File the DPR flagged `backDated` — the labour surfaces
+      // as a next-period adjustment (manual payroll adjustment), not a rewrite
+      // of the settled month. The override is authorised upstream + audited.
+    } else {
+      await assertAttendancePeriodOpen(input.companyId, dateOnly, tx);
+    }
     const progressPct = input.progressPct != null ? new Decimal(input.progressPct) : new Decimal(0);
 
     const headerData = {
@@ -2486,6 +2501,7 @@ export async function submitDPR(input: SubmitDprInput) {
       notes: input.notes ?? null,
       photoUrls: input.photoUrls ?? [],
       submittedById: input.submittedById ?? null,
+      ...(overrideReason ? { backDated: true, lockOverrideReason: overrideReason } : {}),
     };
 
     const existing = await tx.dailyProgressReport.findUnique({
@@ -2587,7 +2603,7 @@ export async function submitDPR(input: SubmitDprInput) {
       action: existing ? "DPR_UPDATE" : "DPR_SUBMIT",
       entityType: "DailyProgressReport",
       entityId: dpr.id,
-      after: { projectId: input.projectId, date: dateOnly.toISOString().slice(0, 10), progressPct: progressPct.toString(), materialLines: input.materialLines?.length ?? 0, laborLines: input.laborLines?.length ?? 0 },
+      after: { projectId: input.projectId, date: dateOnly.toISOString().slice(0, 10), progressPct: progressPct.toString(), materialLines: input.materialLines?.length ?? 0, laborLines: input.laborLines?.length ?? 0, ...(overrideReason ? { backDated: true, lockOverrideReason: overrideReason } : {}) },
     });
     return dpr;
   });

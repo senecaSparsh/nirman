@@ -114,6 +114,7 @@ export function MobileDprForm({
   yesterdayDprsByProject,
   initialProjectId,
   lockedPeriods,
+  canOverrideLock,
   onClose,
   onCreated,
 }: {
@@ -129,6 +130,8 @@ export function MobileDprForm({
    *  into them (server returns 409). Surfaced up-front so the user doesn't
    *  fill the whole form before learning it's locked. */
   lockedPeriods?: { start: string; end: string; label: string }[];
+  /** Admin approver (owner-tier) — may file a back-dated DPR into a locked period. */
+  canOverrideLock?: boolean;
   /** Called when the form is dismissed (modal close). */
   onClose?: () => void;
   /** Called after a DPR is successfully submitted/updated. */
@@ -155,6 +158,7 @@ export function MobileDprForm({
   const [fPhotos, setFPhotos] = useState<{ url: string; fileName?: string }[]>([]);
   const [editingDprId, setEditingDprId] = useState<string | null>(null);
   const [draftRestored, setDraftRestored] = useState(false);
+  const [lockOverrideReason, setLockOverrideReason] = useState("");
 
   // The server rejects edits on approved DPRs (409) — surface it upfront so
   // the user doesn't type changes that can never save.
@@ -615,6 +619,7 @@ export function MobileDprForm({
               taskDescription: l.taskDescription,
             })),
           skipAttendanceCheck,
+          lockOverrideReason: payrollLock && canOverrideLock ? lockOverrideReason.trim() || undefined : undefined,
         }),
       });
       const data = await res.json();
@@ -723,6 +728,30 @@ export function MobileDprForm({
           </span>
         </div>
       )}
+
+      {/* Owner/manager override — authorized approvers may file a back-dated DPR
+          into a locked period with a reason (audited; labour → next-period adjustment). */}
+      {payrollLock && canOverrideLock ? (
+        <div
+          className="flex flex-col gap-2 rounded-[0.75rem] border p-3 -mx-1"
+          style={{ borderColor: "var(--color-stop)", backgroundColor: "color-mix(in srgb, var(--color-stop) 6%, transparent)" }}
+        >
+          <label className="text-m-label font-bold" style={{ color: "var(--color-ink-700)" }}>
+            Override reason (required to submit into a closed period)
+          </label>
+          <input
+            type="text"
+            value={lockOverrideReason}
+            onChange={(e) => setLockOverrideReason(e.target.value)}
+            placeholder="e.g. Site was closed, work done but not filed on time"
+            className="h-10 rounded-[0.5rem] border px-3 text-m-body"
+            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+          />
+          <p className="text-[11px]" style={{ color: "var(--color-ink-500)" }}>
+            Labour here posts as an adjustment in the next open period — payroll for {payrollLock.label} stays settled.
+          </p>
+        </div>
+      ) : null}
 
       {/* ── Draft restoration banner ─────────────────────────── */}
       {hasDraft && !editingDprId && !draftRestored && (
@@ -1104,7 +1133,7 @@ export function MobileDprForm({
           <button
             type="button"
             onClick={submit}
-            disabled={submitting || editingLocked || !!payrollLock}
+            disabled={submitting || editingLocked || (!!payrollLock && !(canOverrideLock && lockOverrideReason.trim()))}
             className="flex w-full items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
             style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
           >
@@ -1113,7 +1142,7 @@ export function MobileDprForm({
             ) : (
               <Send className="size-3.5" />
             )}
-            {submitting ? "Submitting…" : payrollLock ? "Locked — payroll processed" : editingDprId ? "Update DPR" : "Submit DPR"}
+            {submitting ? "Submitting…" : payrollLock ? (canOverrideLock ? "Submit with override" : "Locked — payroll processed") : editingDprId ? "Update DPR" : "Submit DPR"}
           </button>
         </div>
       </div>

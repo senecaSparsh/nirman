@@ -38,6 +38,10 @@ async function MobileDprContent({
     return <MobileNoAccess what="submit DPRs" permission="dpr.submit" />;
   }
 
+  // Only an admin approver (owner-tier) may file a DPR into a payroll-locked
+  // period — field users hit the lock, managers get an override field.
+  const canOverrideLock = __effPerms.includes(PERM.DPR_APPROVE_ADMIN);
+
   const today = new Date();
   // Normalize to a date-only range so the query matches DPR rows stored
   // at midnight, regardless of the user's local timezone. `date` is a
@@ -195,6 +199,7 @@ async function MobileDprContent({
       yesterdayDprsByProject={yesterdayDprsByProject}
       initialProjectId={initialProjectId ?? null}
       lockedPeriods={lockedPeriods}
+      canOverrideLock={canOverrideLock}
     />
   );
 }
