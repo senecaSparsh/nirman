@@ -18,7 +18,7 @@ export default function ApprovalsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Approvals"
-        description="Purchase orders and indents waiting for your sign-off — approve, reject, or batch-approve with budget context."
+        description="Purchase orders, indents, gate passes, DPRs, expenses, claims, and bills waiting for your sign-off — approve, reject, or batch-approve with budget context."
       />
       <Suspense fallback={<PageLoading label="Loading approval queue…" />}>
         <ApprovalsContent />
