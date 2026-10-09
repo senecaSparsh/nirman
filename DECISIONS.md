@@ -366,3 +366,7 @@ Exercised the concurrency/replay guards with real requests:
 - **E-invoice eligibility**: `POST /api/e-invoice/asset-sale/[id]` on a B2C sale correctly rejected `400 — both company and customer must have GSTIN (B2B only)` — IRN generation enforces the statutory rule.
 - **Equipment**: assign + maintenance scoped to project/location.
 - **Supplier return**: gate-pass enforced on outbound (same invariant as transfers), credit note + GL `SUPPLIER_RETURN ₹4,307` (GST reversed correctly).
+
+## 26b. Material sale + COGS posting verified
+
+Sold 20 cement bags @ ₹400 + 28% GST to a customer via `POST /api/material-sales` → MS-20261009-0001. Stock 338→318, revenue ₹10,240 posted AND `MATERIAL_SALE_COGS ₹7,300` (20×₹365 cost) — the ledger correctly recognizes revenue AND removes inventory at cost. Textbook double-entry for material sales (selling excess stock is a real construction-co revenue line).
