@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import {
   ScanLine, CheckCircle2, Clock, AlertCircle, Wifi, WifiOff,
-  RefreshCw, ChevronDown, ChevronRight, Truck, Scale, Camera,
+  RefreshCw, ChevronDown, ChevronRight, Truck, Scale, Camera, PackageOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -358,6 +359,13 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
             <p className="text-xs text-muted-foreground">
               Material arriving without an order? The office must raise a purchase order first — receipts are always matched to one.
             </p>
+            <Link
+              href="/m/site/receive/quick"
+              className="inline-flex items-center gap-1.5 mt-1 text-m-caption font-bold text-primary press"
+            >
+              <PackageOpen className="h-3.5 w-3.5" />
+              Site bought it — record a cash purchase
+            </Link>
           </div>
         ) : (
           <select

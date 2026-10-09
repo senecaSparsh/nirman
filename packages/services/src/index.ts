@@ -67,6 +67,7 @@ export {
   addLineToPurchaseOrder,
   receiveGoods,
   rejectDelivery,
+  recordSitePurchase,
 } from "./procurement";
 
 // Transfer — company→project stock movements (intra + inter-company STO)
