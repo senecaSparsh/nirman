@@ -337,3 +337,15 @@ Every financial loop now exercises live end-to-end with correct amounts posted t
 - **Estimate→billing→pay**: BOQ → WO → MB → RA → paid (SoD: submitter can't pay)
 - **Sales**: unit → book → deposits → registry/BBA → complete → PAID
 - **HR**: attendance → payroll (pro-rated by days worked) → paid
+
+## 25. Inventory control loops verified live
+
+Exercised the remaining inventory/financial operations on the seeded data:
+
+- **Expense**: create DRAFT → submit → auto-approve (owner tier-1) → re-approve correctly 409s → GL `EXPENSE ₹2,400` posted.
+- **Stock transfer**: Central Store → Apex site (200 agg + 150 sand). **Gate control enforced** — the transfer auto-created gate pass GP-261009-0001; dispatch returned `400 — items cannot leave the gate until approved` until the pass was approved, then dispatch→complete moved the stock. Ledger reconciles exactly.
+- **Stock count/reconciliation**: counted cement 348 vs book 350 → variance −2 detected → confirm → reconcile → ledger adjusted to 348 → GL `STOCK_ADJUSTMENT ₹730` (2×₹365 shrinkage written off).
+- **Payroll**: 7 employees, `salary/27 × daysWorked` pro-rating, DRAFT→PROCESSED→PAID, owner self-salary edit correctly 403s.
+- **Supplier AP**: GRN → three-way-match invoice (PO=GRN=invoice ₹3,03,550) → payment → PAID.
+
+Every inventory + money operation posts a correctly-classified journal entry. The demo is a complete running company.
