@@ -411,3 +411,10 @@ Two real procurement controls confirmed: competitive-bidding quote gate, and eve
 - **Change order**: ADDITION/client-request with schedule+cost impact.
 - **Delegation**: owner → PROJECT_DIRECTOR authority with expiry + note, verified active, revoked.
 - **Supplier return / equipment / material sale / scrap / stock count** — all post correct GL entries.
+
+## 31. DPR-finance reconciliation + remaining surfaces verified
+
+- `GET /api/dprs/finance-reconciliation` reconciles field-reported DPR cost vs GL-posted project cost per DPR (variance + isPosted). The field-cost-vs-finance control works.
+- No bank-statement reconciliation model exists — the app models cash/UPI/NEFT directly (field-first), so statement-import matching isn't a module; AP/AR flows reconcile via invoice↔payment matching instead.
+
+**Every module now exercised live with real data** — procurement, inventory (issue/transfer/count/return/scrap/sale), contracting (BOQ→WO→MB→RA→pay + advance/retention), sales (book→collect→complete), HR (attendance→payroll→leave), fleet, equipment, CRM, notifications, approvals, delegation, change orders, print, reports, e-invoice.
