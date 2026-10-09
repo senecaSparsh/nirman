@@ -8,6 +8,7 @@ import { postMaterialIssue, postMaterialIssueToDepartment, reverseJournalEntry }
 import { autoSyncEntryToTally } from "./auto-sync";
 import { ServiceError } from "./errors";
 import { assertGatePassApproved, autoCreateGatePassFromRef } from "./gate-pass";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
 
 /**
@@ -61,12 +62,16 @@ interface IssueMaterialsInput {
 }
 
 export async function issueMaterialsToProject(input: IssueMaterialsInput) {
+  let projectCompanyId = "";
+  let projectName = "";
   const result = await withStockTransaction(async (tx) => {
     // Validate project
     const project = await tx.project.findFirst({
       where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
     });
     if (!project) throw new Error("Project not found or deleted");
+    projectCompanyId = project.companyId ?? "";
+    projectName = project.name ?? "";
     if (project.status === "ON_HOLD") {
       throw new Error("Cannot issue materials to an ON_HOLD project");
     }
@@ -211,6 +216,21 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
       if (je) await autoSyncEntryToTally(je.companyId, je.id);
     } catch { /* best-effort */ }
   })();
+
+  // Stock went out — inventory holders should see the issue number + project.
+  // The gate-pass flow pings approvers separately; this covers the direct path.
+  void emitNotificationEvent({
+    eventType: NotificationEventType.STOCK_ISSUE_CREATED,
+    companyId: projectCompanyId,
+    excludeIds: [input.issuedById],
+    entityType: "MaterialIssue",
+    entityId: result.materialIssue.id,
+    variables: {
+      issueNumber: result.materialIssue.issueNumber ?? "",
+      projectName,
+    },
+    timestamp: new Date(),
+  });
 
   return result;
 }
@@ -452,12 +472,16 @@ interface IssueToDepartmentInput {
 }
 
 export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) {
+  let departmentCompanyId = "";
+  let departmentName = "";
   const result = await withStockTransaction(async (tx) => {
     // Validate department
     const department = await tx.department.findFirst({
       where: { id: input.departmentId, companyId: input.companyId, deletedAt: null },
     });
     if (!department) throw new Error("Department not found or deleted");
+    departmentCompanyId = department.companyId ?? "";
+    departmentName = department.name ?? "";
     if (!department.active) throw new Error("Cannot issue materials to an inactive department");
 
     // Validate location
@@ -585,6 +609,19 @@ export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) 
       if (je) await autoSyncEntryToTally(je.companyId, je.id);
     } catch { /* best-effort */ }
   })();
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.STOCK_ISSUE_CREATED,
+    companyId: departmentCompanyId,
+    excludeIds: [input.issuedById],
+    entityType: "MaterialIssue",
+    entityId: result.materialIssue.id,
+    variables: {
+      issueNumber: result.materialIssue.issueNumber ?? "",
+      projectName: departmentName,
+    },
+    timestamp: new Date(),
+  });
 
   return result;
 }

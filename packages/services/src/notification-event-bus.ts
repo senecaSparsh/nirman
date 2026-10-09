@@ -941,7 +941,7 @@ const EVENT_MESSAGES: Partial<
   [NotificationEventType.STOCK_TRANSFER_CREATED]: ({ s }) =>
     `Stock transfer ${s("transferNumber")} created${s("fromName") && s("toName") ? ` — ${s("fromName")} → ${s("toName")}` : ""}.`,
   [NotificationEventType.STOCK_ISSUE_CREATED]: ({ s }) =>
-    `Material issue ${s("issueNumber")} created — needs gate pass.`,
+    `Material issue ${s("issueNumber")}${s("projectName") ? ` to ${s("projectName")}` : ""} — stock went out.`,
   [NotificationEventType.STOCK_COUNT_DUE]: ({ s }) =>
     `Stock count due${s("locationName") ? ` at ${s("locationName")}` : ""}.`,
   [NotificationEventType.SCRAP_GENERATED]: ({ s }) =>
