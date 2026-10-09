@@ -97,6 +97,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     estimateMins: parsed.data.estimateMins ?? null,
     subtasks: parsed.data.subtasks?.filter((s) => s.trim().length > 0),
     userId: user.id,
+    companyId: company.id,
   });
 
   revalidatePath("/my-tasks");

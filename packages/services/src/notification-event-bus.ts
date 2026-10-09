@@ -135,6 +135,9 @@ export enum NotificationEventType {
 
   // Legal / Compliance (1)
   LEGAL_DOC_EXPIRING = "LEGAL_DOC_EXPIRING",
+
+  // Tasks (1)
+  TASK_ASSIGNED = "TASK_ASSIGNED",
 }
 
 export const ALL_EVENT_TYPES = Object.values(NotificationEventType);
@@ -238,6 +241,10 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
 
   // Legal / Compliance
   [NotificationEventType.LEGAL_DOC_EXPIRING]: "IMMEDIATE",
+
+  // Tasks — a personal assignment ping; the assignee should hear now, not
+  // in a digest (the work may be due today).
+  [NotificationEventType.TASK_ASSIGNED]: "IMMEDIATE",
 };
 
 export interface NotificationEvent {
@@ -315,6 +322,7 @@ const ENTITY_ROUTE_MAP: Record<string, string> = {
   PettyCashFloat: "/m/petty-cash",
   PettyCashTopUp: "/m/petty-cash",
   RenovationProject: "/m/projects",
+  Task: "/m/site/tasks",
 };
 
 /**
@@ -344,6 +352,8 @@ const LIST_ONLY_ENTITIES = new Set([
   // The equipment detail route is keyed on Equipment id, not
   // EquipmentAssignment id — linking an assignment id would 404.
   "EquipmentAssignment",
+  // Tasks are expandable cards inside /m/site/tasks — no detail route.
+  "Task",
 ]);
 
 function entityLink(entityType?: string, entityId?: string): string | null {
@@ -977,6 +987,10 @@ const EVENT_MESSAGES: Partial<
     `${s("employeeName") || "An employee"}'s contract ends in ${s("daysLeft") || "a few"} day(s) (${s("endDate")}). Renew or close out.`,
   [NotificationEventType.PROBATION_ENDING]: ({ s }) =>
     `${s("employeeName") || "An employee"}'s probation ends in ${s("daysLeft") || "a few"} day(s) (${s("endDate")}). Confirm or extend.`,
+
+  // Tasks — the assignee hears who assigned what, plus the due date if set.
+  [NotificationEventType.TASK_ASSIGNED]: ({ s }) =>
+    `${s("assignerName") || "Your manager"} assigned you a task: ${s("title")}${s("dueDate") ? ` — due ${s("dueDate")}` : ""}.`,
   [NotificationEventType.EMPLOYEE_DOC_EXPIRING]: ({ s }) =>
     `${s("employeeName") || "An employee"}'s ${s("docLabel") || "document"} expires in ${s("daysLeft") || "a few"} day(s) (${s("endDate")}). Collect a renewal.`,
 

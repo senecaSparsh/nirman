@@ -1,6 +1,7 @@
 import { prisma, type Prisma } from "@nirman/db";
 import { withSerializableTransaction } from "./transaction";
 import { logAction } from "./audit";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 
 /**
  * Status-bearing error for user-facing task failures (e.g. "blocked by…").
@@ -116,10 +117,12 @@ export interface CreateTaskInput {
   estimateMins?: number | null;
   subtasks?: string[];
   userId?: string;
+  /** Needed to resolve notification prefs for the assignee ping. */
+  companyId: string;
 }
 
 export async function createTask(input: CreateTaskInput) {
-  return withSerializableTransaction(async (tx) => {
+  const { task, assignerName } = await withSerializableTransaction(async (tx) => {
     const task = await tx.task.create({
       data: {
         title: input.title,
@@ -173,8 +176,27 @@ export async function createTask(input: CreateTaskInput) {
       after: { title: task.title, assignedToId: task.assignedToId, priority: task.priority },
     });
 
-    return task;
+    return { task, assignerName: userName(assigner) };
   });
+
+  // Tell the assignee — explicit recipientIds (a personal ping, not a role
+  // broadcast); the assigner is excluded since they just did the assigning.
+  void emitNotificationEvent({
+    eventType: NotificationEventType.TASK_ASSIGNED,
+    companyId: input.companyId,
+    recipientIds: [input.assignedToId],
+    excludeIds: [input.assignedById],
+    entityType: "Task",
+    entityId: task.id,
+    variables: {
+      assignerName,
+      title: task.title,
+      dueDate: task.dueDate ? task.dueDate.toISOString().slice(0, 10) : "",
+    },
+    timestamp: new Date(),
+  });
+
+  return task;
 }
 
 // ───────────────────────────────────────────────────────────
