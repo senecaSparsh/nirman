@@ -392,3 +392,10 @@ The demo is a complete running company with every module exercised and GL-posted
 `POST /api/requisitions` → REQ-20261009-0001 (auto-submit + auto-approve for owner) → `convert` blocked by a **3-quote gate** ("0/3 quotes uploaded — upload more or waive (requires approver)") → waived with a reason → convert created **PO-20261009-0002** linking back to the requisition.
 
 Two real procurement controls confirmed: competitive-bidding quote gate, and every PO line requires a real unit cost (a ₹0 line rejected — `lineCosts` keyed by materialId). The site→procurement→receive chain is now fully exercised.
+
+## 29. Change order + leave/payroll-lock verified
+
+- **Change order** CO-261009-0001: ADDITION/client-request for a 2nd-floor powder room, +4-day schedule delta, cost lines (~₹59,800). Variation management works.
+- **Payroll-lock integrity**: approving a leave after Oct payroll was PAID correctly refused — `400 — Attendance is locked — 10/2026 payroll is already paid. Correct it with an adjustment in the next period.` A settled payroll period can't be mutated retroactively; corrections go through the next period. Real payroll-integrity control surfaced by exercising it.
+
+**Requisition→PO** (`#28`) + leave-lock round out the request/approval surfaces.
