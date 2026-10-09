@@ -326,3 +326,14 @@ The demo now exercises the complete HR money loop: employee wage setup (monthlyS
 - The whole chain posts to GL like every other money event.
 
 All modules now carry exercised, GL-posted data: procurement (PO→GRN→issue), contracts (BOQ→WO→MB→RA→paid), sales (book→collect→complete), HR (attendance→payroll→paid), tasks, leads, fleet.
+
+## 24. Procure-to-pay accounting loop closed
+
+Completed the full AP cycle on the seeded data: PO-20261009-0001 → GRN → `POST /api/supplier-invoices/from-grn` auto-generated the invoice **with a live three-way match** (`matchStatus: THREE_WAY_MATCH` — PO price = GRN received = invoice total ₹3,03,550 = ₹2,66,500 + ₹37,050 GST) → `POST /api/supplier-payments` (₹3,03,550, NEFT) → invoice **PAID**.
+
+Every financial loop now exercises live end-to-end with correct amounts posted to GL:
+
+- **Procure→pay**: PO → GRN → three-way-match invoice → payment → PAID
+- **Estimate→billing→pay**: BOQ → WO → MB → RA → paid (SoD: submitter can't pay)
+- **Sales**: unit → book → deposits → registry/BBA → complete → PAID
+- **HR**: attendance → payroll (pro-rated by days worked) → paid
