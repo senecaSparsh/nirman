@@ -228,6 +228,12 @@ export function NotificationPreferences() {
           </tbody>
         </table>
       </div>
+
+      <p className="text-caption text-muted-foreground">
+        In-App always works. WhatsApp and Email only deliver if your company has
+        them connected in Settings → Integrations — the bell entry is still
+        recorded regardless.
+      </p>
     </Card>
   );
 }
