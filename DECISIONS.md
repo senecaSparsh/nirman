@@ -349,3 +349,10 @@ Exercised the remaining inventory/financial operations on the seeded data:
 - **Supplier AP**: GRN → three-way-match invoice (PO=GRN=invoice ₹3,03,550) → payment → PAID.
 
 Every inventory + money operation posts a correctly-classified journal entry. The demo is a complete running company.
+
+## 25b. Supplier return + equipment verified live
+
+- **Supplier return** RET-20261009-0001: created → auto-submitted → **gate-pass enforced** (`GP-261009-0002` blocked complete until approved — nothing leaves the site unapproved) → complete → cement 348→338, credit note CN-SCS-8821, GL `SUPPLIER_RETURN ₹4,307` (10×₹365×1.18 GST reversed correctly).
+- **Equipment**: mixer/vibrator/scaffold added (assetTag+name+cost), mixer assigned to Apex site store (project+location scoped), scheduled maintenance logged. Same gate-pass control as transfers — consistent.
+
+**Gate-pass is a uniform invariant**: any outbound material movement (issue-to-site transfer OR return-to-supplier) auto-creates a pass and blocks until approved. Correct site-security behavior.
