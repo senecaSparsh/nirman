@@ -135,12 +135,9 @@ async function MobilePendingListContent() {
 
   return (
     <div className="space-y-3 p-3">
-      {/* Header */}
+      {/* Header — shell shows "Pending"; keep just the count badge */}
       <div className="flex items-center gap-2 mb-1">
-        <ClipboardList className="size-4" style={{ color: "var(--color-ink-600)" }} />
-        <h1 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-          Pending List
-        </h1>
+        <div className="flex-1" />
         <span
           className="ml-auto rounded-full px-2 py-0.5 text-m-caption font-bold"
           style={{

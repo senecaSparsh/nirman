@@ -197,17 +197,10 @@ export default function MobileNotificationsPage() {
 
   return (
     <div className="space-y-4 pb-6">
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <div>
-          <h1 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-            Notifications
-          </h1>
-          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-            Alerts, templates & delivery
-          </p>
-        </div>
-      </div>
+      {/* Header — shell shows "Notification Settings"; keep the purpose caption */}
+      <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+        Alerts, templates & delivery
+      </p>
 
       {/* Push notification permission toggle */}
       <NotificationPermissionToggle />

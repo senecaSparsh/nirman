@@ -429,14 +429,9 @@ export function MobileEmployeeDetailClient({
             )}
           </div>
 
-          {/* Name + role + badges */}
+          {/* Role + badges — shell shows the employee name already */}
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <h1 className="text-m-section font-bold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>
-                {employee.name}
-              </h1>
-            </div>
-            <p className="text-m-caption mt-0.5 truncate" style={{ color: "var(--color-ink-500)" }}>
+            <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
               {employee.designation ?? employee.trade ?? "Employee"}
               {employee.hierarchyLevel != null && ` · H${employee.hierarchyLevel}`}
             </p>

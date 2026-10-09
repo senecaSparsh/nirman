@@ -318,12 +318,10 @@ export function MobileCallDetailClient({
             {call.direction === "INTERNAL" && <Phone className="size-5" style={{ color: iconColor }} />}
           </div>
 
-          {/* Title + meta */}
+          {/* Meta — shell already shows the call-type label; the direction
+              icon + badges carry the same info visually */}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-0.5">
-              <h1 className="text-m-section font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
-                {call.direction === "INBOUND" ? "Incoming" : call.direction === "OUTBOUND" ? "Outgoing" : "Internal"} Call
-              </h1>
               {legalHold && (
                 <ShieldAlert className="size-4 shrink-0" style={{ color: "var(--color-stop)" }} />
               )}

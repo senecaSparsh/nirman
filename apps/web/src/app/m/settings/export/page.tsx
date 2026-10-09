@@ -115,17 +115,10 @@ export default function MobileExportPage() {
 
   return (
     <div className="space-y-4 pb-6">
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <div>
-          <h1 className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-            Bulk Export
-          </h1>
-          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-            Download reports as Excel or CSV
-          </p>
-        </div>
-      </div>
+      {/* Header — shell shows "Bulk Export"; keep the purpose caption only */}
+      <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+        Download reports as Excel or CSV
+      </p>
 
       {/* Report selection */}
       <div>
