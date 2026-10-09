@@ -7,6 +7,7 @@ import { autoFillHsnGst } from "./material-service";
 import { postTransferShortage, postInterCompanyTransfer } from "./gl-posting";
 import { ServiceError } from "./errors";
 import { assertGatePassApproved, autoCreateGatePassFromRef } from "./gate-pass";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 
 /**
  * Transfer Service — move materials between stock locations.
@@ -292,7 +293,11 @@ export async function dispatchTransfer(
   return withStockTransaction(async (tx) => {
     const transfer = await tx.stockTransfer.findUnique({
       where: { id: transferId },
-      include: { lines: true, fromLocation: { select: { companyId: true } } },
+      include: {
+        lines: true,
+        fromLocation: { select: { companyId: true, name: true } },
+        toLocation: { select: { name: true } },
+      },
     });
     if (!transfer) throw new ServiceError("Transfer not found", 404);
     if (transfer.status !== "DRAFT") {
@@ -373,6 +378,24 @@ export async function dispatchTransfer(
       });
     }
 
+    return { updated, transfer };
+  }).then(({ updated, transfer }) => {
+    // The destination site hears stock is on the way — in-transit is the
+    // real "created" beat for a gate-pass-gated transfer (DRAFT create is
+    // premature). Role-routed to inventory holders; the actor is excluded.
+    void emitNotificationEvent({
+      eventType: NotificationEventType.STOCK_TRANSFER_CREATED,
+      companyId: transfer.fromLocation.companyId,
+      excludeIds: [userId],
+      entityType: "StockTransfer",
+      entityId: transferId,
+      variables: {
+        transferNumber: updated.challanNumber ?? updated.referenceNo ?? "",
+        fromName: transfer.fromLocation.name,
+        toName: transfer.toLocation.name,
+      },
+      timestamp: new Date(),
+    });
     return updated;
   });
 }
