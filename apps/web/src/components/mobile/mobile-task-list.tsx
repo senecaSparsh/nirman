@@ -372,7 +372,7 @@ function TaskRow({
             {task.title}
           </div>
           <div className="truncate text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-            {task.priority}
+            {task.priority ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1).toLowerCase() : task.priority}
             {task.dueDate && (
               <span style={{ color: isOverdue ? "var(--color-stop)" : undefined }}>
                 {" · due "}{formatDate(task.dueDate)}
