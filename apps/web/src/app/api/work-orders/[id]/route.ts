@@ -77,7 +77,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       return json(wo);
     }
     if (action === "complete") {
-      const wo = await completeWorkOrder(id, user.id);
+      const forgiveAdvance = body?.forgiveAdvanceReason ? { reason: body.forgiveAdvanceReason } : undefined;
+      const wo = await completeWorkOrder(id, user.id, forgiveAdvance);
       revalidatePath("/work-orders");
       revalidatePath("/m/work-orders");
     revalidatePath("/m/construction?tab=work-orders");

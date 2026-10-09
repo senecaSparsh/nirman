@@ -35,6 +35,8 @@ export function MobileWorkOrderActions({
   const [advanceRef, setAdvanceRef] = useState("");
   const [showRetention, setShowRetention] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [showCompleteSheet, setShowCompleteSheet] = useState(false);
+  const [forgiveReason, setForgiveReason] = useState("");
 
   async function doAction(action: string, extra?: Record<string, unknown>) {
     setActing(action);
@@ -55,6 +57,8 @@ export function MobileWorkOrderActions({
       );
       setShowAdvance(false);
       setShowRetention(false);
+      setShowCompleteSheet(false);
+      setForgiveReason("");
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
@@ -132,7 +136,7 @@ export function MobileWorkOrderActions({
 
         {showComplete ? (
           <button
-            onClick={() => doAction("complete")}
+            onClick={() => (advanceBalance > 0 ? setShowCompleteSheet(true) : doAction("complete"))}
             disabled={acting !== null}
             className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50"
             style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
@@ -229,6 +233,54 @@ export function MobileWorkOrderActions({
                   style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", opacity: acting !== null || !advanceAmount ? 0.5 : 1 }}
                 >
                   {acting === "pay-advance" ? <Loader2 className="size-3.5 animate-spin" /> : "Pay Advance"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Complete — unrecovered advance write-off confirmation */}
+      {showCompleteSheet ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end"
+          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+          onClick={() => setShowCompleteSheet(false)}
+        >
+          <div
+            className="w-full rounded-t-[1rem] mx-auto max-w-md"
+            style={{ backgroundColor: "var(--color-paper)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center pt-2 pb-1">
+              <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
+            </div>
+            <div className="flex items-center justify-between px-3 pb-2">
+              <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Advance unrecovered</p>
+              <button onClick={() => setShowCompleteSheet(false)} aria-label="Close" className="text-m-body press p-1">
+                <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
+              </button>
+            </div>
+            <div className="px-3 pb-4 flex flex-col gap-3">
+              <p className="text-m-body" style={{ color: "var(--color-ink-700)" }}>
+                {formatCurrency(advanceBalance)} advance is still unrecovered — no bill can run after completion, so it would be stranded. Run a final bill to recover it, or write it off as a loss.
+              </p>
+              <div>
+                <label className={labelClass} style={labelStyle}>Write-off reason *</label>
+                <input value={forgiveReason} onChange={(e) => setForgiveReason(e.target.value)} placeholder="e.g. Contractor abandoned mid-work" className={inputClass} style={inputStyle} />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => setShowCompleteSheet(false)} disabled={acting !== null} className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Back</button>
+                <button
+                  onClick={() => {
+                    if (!forgiveReason.trim()) { toast.error("Enter a write-off reason"); return; }
+                    doAction("complete", { forgiveAdvanceReason: forgiveReason.trim() });
+                  }}
+                  disabled={acting !== null || !forgiveReason.trim()}
+                  className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1"
+                  style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)", opacity: acting !== null || !forgiveReason.trim() ? 0.5 : 1 }}
+                >
+                  {acting === "complete" ? <Loader2 className="size-3.5 animate-spin" /> : "Write off & complete"}
                 </button>
               </div>
             </div>

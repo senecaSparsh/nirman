@@ -5900,6 +5900,7 @@ model SubcontractorWorkOrder {
   // Advance
   advanceAmount    Decimal          @default(0) @db.Decimal(14, 2)
   advanceRecoveryPct Decimal        @default(10) @db.Decimal(5, 2) // % recovered per bill
+  advanceWrittenOff Decimal         @default(0) @db.Decimal(14, 2) // advance forgiven (never recovered) — outstanding = advanceAmount − recovered − writtenOff
   // Dates
   issueDate        DateTime         @default(now())
   startDate        DateTime?

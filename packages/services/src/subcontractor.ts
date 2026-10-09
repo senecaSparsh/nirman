@@ -268,7 +268,11 @@ export async function payAdvance(
  * Mark a work order as COMPLETED — work is finished, retention pending release.
  * Validates that no RA bills are in a non-terminal state (DRAFT/SUBMITTED/APPROVED).
  */
-export async function completeWorkOrder(id: string, userId?: string) {
+export async function completeWorkOrder(
+  id: string,
+  userId?: string,
+  forgiveAdvance?: { reason: string },
+) {
   return withSerializableTransaction(async (tx) => {
     const wo = await tx.subcontractorWorkOrder.findUnique({ where: { id } });
     if (!wo) throw new ServiceError("Work order not found", 404);
@@ -282,6 +286,42 @@ export async function completeWorkOrder(id: string, userId?: string) {
     });
     if (pendingBills > 0) {
       throw new ServiceError(`Cannot complete: ${pendingBills} RA bill(s) still pending (DRAFT/SUBMITTED/APPROVED). Process or reject them first.`, 400);
+    }
+
+    // Outstanding advance = total advance paid − recovered via bills − already
+    // written off. No RA bill can run after completion, so an advance left
+    // unrecovered would strand the receivable with no recovery path. Block
+    // unless the caller explicitly forgives it (posts the write-off to GL).
+    const recovered = await tx.raBill.aggregate({
+      where: { workOrderId: id, status: { in: ["APPROVED", "PAID"] } },
+      _sum: { advanceRecovery: true },
+    });
+    const outstandingAdvance = new Decimal(wo.advanceAmount)
+      .minus(recovered._sum.advanceRecovery ?? 0)
+      .minus(wo.advanceWrittenOff);
+    if (outstandingAdvance.gt(0)) {
+      if (!forgiveAdvance?.reason?.trim()) {
+        throw new ServiceError(
+          `Cannot complete: ₹${outstandingAdvance.toFixed(2)} advance is still unrecovered — no RA bill can run after completion, so it would be stranded. Recover it via a final bill first, or pass forgiveAdvance with a reason to write it off.`,
+          400,
+        );
+      }
+      // Write the unrecovered advance off as an operating loss.
+      await postJournalEntry(tx, {
+        companyId: wo.companyId,
+        sourceType: "ADVANCE_WRITE_OFF",
+        sourceId: wo.id,
+        memo: `Subcontractor advance written off — ${wo.workOrderNumber} (${forgiveAdvance.reason.trim()})`,
+        postedById: userId,
+        lines: [
+          { accountCode: ACCT.OPERATING_EXPENSE, debit: outstandingAdvance, credit: 0, entityType: "SubcontractorWorkOrder", entityId: wo.id, memo: "Unrecovered advance written off" },
+          { accountCode: ACCT.ADVANCE_TO_SUB, debit: 0, credit: outstandingAdvance, entityType: "SubcontractorWorkOrder", entityId: wo.id, memo: "Clear advance receivable" },
+        ],
+      });
+      await tx.subcontractorWorkOrder.update({
+        where: { id },
+        data: { advanceWrittenOff: new Decimal(wo.advanceWrittenOff).plus(outstandingAdvance).toString() },
+      });
     }
 
     const updated = await tx.subcontractorWorkOrder.update({
@@ -469,7 +509,9 @@ export async function createRaBill(input: CreateRaBillInput) {
     // which are unrelated to advance recovery.)
     const advanceRecoveryPct = new Decimal(wo.advanceRecoveryPct);
     const totalAdvanceRecovered = new Decimal(prevBills._sum.advanceRecovery ?? 0);
-    const outstandingAdvance = new Decimal(wo.advanceAmount).minus(totalAdvanceRecovered);
+    const outstandingAdvance = new Decimal(wo.advanceAmount)
+      .minus(totalAdvanceRecovered)
+      .minus(wo.advanceWrittenOff);
     const advanceRecovery = wo.advanceAmount.gt(0) && outstandingAdvance.gt(0)
       ? Decimal.min(
           grossAmount.times(advanceRecoveryPct).div(100).toDecimalPlaces(2),
