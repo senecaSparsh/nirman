@@ -434,3 +434,11 @@ across all services after the WO-advance fix. **Everything else is consistent:**
 - **Offline queue**: IndexedDB-backed, ops stamped with companyId+userId (never replay cross-account), FIFO sync on online/focus, dead-letter for permanent failures, `/m/queue` management UI renders.
 
 **Net**: the WO-signing-advance gap was the sole defect in this class; the financial/stock/concurrency invariants are otherwise uniformly enforced.
+
+## 33. Petty cash + employee advance + full requisition→PO→receive verified
+
+- **Petty cash** (float ₹25,000): create → spend ₹450 (auto-creates an Expense) → top-up ₹10,000. Every step posts GL (`PETTY_CASH_CREATE/TOPUP/SPEND`). Current float ₹34,550.
+- **Employee advance**: ₹15,000 issued to Yash (₹5,000/mo recovery, ACTIVE) → `EMPLOYEE_ADVANCE` GL posted (Dr receivable / Cr cash). Deducts from payroll until settled.
+- **Requisition→PO→receive**: REQ → approve → 3-quote gate → convert → PO-20261009-0002 (DRAFT→approve→order→receive) → 15,000 bricks + 800kg rebar landed at site store. Full site→procure→stock chain.
+
+The demo now exercises every cash/asset workflow including advances, petty cash, and requisition-driven procurement.
