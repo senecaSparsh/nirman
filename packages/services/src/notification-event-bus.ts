@@ -328,6 +328,7 @@ const ENTITY_ROUTE_MAP: Record<string, string> = {
   PettyCashTopUp: "/m/petty-cash",
   RenovationProject: "/m/projects",
   Task: "/m/site/tasks",
+  StockCount: "/m/stock-counts",
 };
 
 /**

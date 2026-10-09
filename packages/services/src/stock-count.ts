@@ -285,3 +285,66 @@ export async function reconcileStockCount(countId: string, userId?: string) {
     return updated;
   });
 }
+
+// ───────────────────────────────────────────────────────────
+//  checkStaleStockCounts — cron sweep: stock counts left in
+//  DRAFT or COUNTED for more than `hoursOld` hours — a
+//  half-finished count blocks the location's stock truth.
+//  Emits STOCK_COUNT_DUE, deduped per count within 7 days.
+// ───────────────────────────────────────────────────────────
+
+export async function checkStaleStockCounts(hoursOld = 24): Promise<{
+  checked: number;
+  stale: number;
+  notified: number;
+}> {
+  const { emitNotificationEvent, NotificationEventType } = await import("./notification-event-bus");
+
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - hoursOld * 60 * 60 * 1000);
+  const dedupeSince = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const counts = await prisma.stockCount.findMany({
+    where: {
+      status: { in: ["DRAFT", "COUNTED"] },
+      createdAt: { lt: cutoff },
+    },
+    select: {
+      id: true,
+      status: true,
+      createdAt: true,
+      location: { select: { name: true, companyId: true } },
+    },
+  });
+
+  let notified = 0;
+  for (const count of counts) {
+    const recent = await prisma.inAppNotification.findFirst({
+      where: {
+        companyId: count.location.companyId,
+        eventType: NotificationEventType.STOCK_COUNT_DUE,
+        createdAt: { gte: dedupeSince },
+        metadata: { path: ["stockCountId"], equals: count.id },
+      },
+      select: { id: true },
+    });
+    if (recent) continue;
+
+    void emitNotificationEvent({
+      eventType: NotificationEventType.STOCK_COUNT_DUE,
+      companyId: count.location.companyId,
+      entityType: "StockCount",
+      entityId: count.id,
+      variables: {
+        stockCountId: count.id,
+        locationName: count.location.name,
+        status: count.status,
+        startedDate: count.createdAt.toLocaleDateString("en-IN"),
+      },
+      timestamp: new Date(),
+    });
+    notified++;
+  }
+
+  return { checked: counts.length, stale: counts.length, notified };
+}

@@ -273,6 +273,7 @@ export {
   confirmStockCount,
   reconcileStockCount,
   deleteStockCount,
+  checkStaleStockCounts,
 } from "./stock-count";
 
 // Manual Stock Adjustment — opening stock / corrections / write-offs
