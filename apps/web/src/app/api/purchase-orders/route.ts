@@ -62,6 +62,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
         destinationLocationCompanyName: po.destinationLocation.company?.name ?? null,
         isCrossCompany: po.destinationLocation.companyId !== company.id,
         status: po.status,
+        // A site-initiated purchase (goods received at the gate without a prior
+        // PO) is flagged via quotationWaiverReason — surfaced so the office can
+        // review off-process spend rather than it looking like a normal PO.
+        sitePurchase: !!po.quotationWaiverReason,
+        quotationWaiverReason: po.quotationWaiverReason,
         orderDate: po.orderDate.toISOString(),
         expectedDate: po.expectedDate?.toISOString() ?? null,
         subtotal: toNum(po.subtotal),
