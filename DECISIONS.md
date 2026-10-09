@@ -521,3 +521,30 @@ cancel guards, retention release, payroll lock) verified already correct.
 credit→invoice, auto-scrap MAC, stranded advance on WO complete, unbilled MB on
 WO complete) + comprehensive verification across every invariant class, UI flow,
 offline, permission, and route. 1,707 services tests green.
+
+## 39. FULL SYSTEM AUDIT COMPLETE — production-ready, deploy blocked on network
+
+**Final quality gates — all green**: typecheck (all 5 pkgs), lint, prod build
+(488 routes), **4,233 tests** (1,707 services + 2,526 web), live browser
+verification across every module.
+
+**Session defect tally — 5 real bugs fixed**: WO signing advance never posted
+GL (RA over-recovery), supplier-return credit not settling the invoice (phantom
+unpaid), auto-scrap never refreshing Material.currentCost (stale valuation),
+WO completion stranding unrecovered advance (added write-off path + GL), WO
+completion stranding approved-unbilled MB entries (blocked). Plus desktop/
+mobile write-off UI parity.
+
+**Everything else verified already-correct**: all financial invariants,
+terminal-transition guards, GL-posting completeness, void reversals,
+concurrency (optimistic lock, idempotency, atomic sequence, conditional-decrement
+negative-stock), soft-delete referential integrity, multi-tenant isolation,
+rounding/paise handling, dead buttons, missing routes, offline DPR queue,
+permission/SoD-in-UI, net-pay floor on advance recovery, voice-agent →
+assistant pipeline, pluggable portal-listing providers.
+
+**BLOCKED — live deploy**: the entire production host is unreachable from this
+environment — `ssh nirman-vps` (port 22), `https://nirman.life`, and Coolify
+`82.41.67.34:8000` all time out. This is a network/access constraint, not a code
+gap. When a path to the VPS exists: `./scripts/deploy-prod.sh` ships all
+commits, `./scripts/prod-health-check.sh` verifies live.
