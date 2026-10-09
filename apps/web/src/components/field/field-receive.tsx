@@ -351,9 +351,14 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
       <div className="rounded-lg border bg-card p-3 space-y-3">
         <Label>Purchase Order</Label>
         {purchaseOrders.length === 0 ? (
-          <p className="text-body text-muted-foreground py-4 text-center">
-            No purchase orders awaiting receipt.
-          </p>
+          <div className="py-4 text-center space-y-1.5">
+            <p className="text-body text-muted-foreground">
+              No purchase orders awaiting receipt.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Material arriving without an order? The office must raise a purchase order first — receipts are always matched to one.
+            </p>
+          </div>
         ) : (
           <select
             className="w-full rounded-md border bg-background px-3 py-2 text-body"
