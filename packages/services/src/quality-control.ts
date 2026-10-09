@@ -723,3 +723,65 @@ export async function closeCapa(id: string, userId: string, closureNotes: string
     return updated;
   });
 }
+
+// ───────────────────────────────────────────────────────────
+//  checkOverdueCapas — cron sweep: open CAPAs whose corrective
+//  or preventive due date has passed without the action being
+//  done. Emits CAPA_OVERDUE to QC/manager roles, deduped per
+//  CAPA within 7 days (the cron runs every 15 min).
+// ───────────────────────────────────────────────────────────
+
+export async function checkOverdueCapas(): Promise<{
+  checked: number;
+  overdue: number;
+  notified: number;
+}> {
+  const now = new Date();
+  const dedupeSince = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const capas = await prisma.capa.findMany({
+    where: {
+      status: { notIn: ["CLOSED", "VERIFIED"] },
+      OR: [
+        { correctiveDoneAt: null, correctiveDueDate: { lt: now } },
+        { preventiveDoneAt: null, preventiveDueDate: { lt: now } },
+      ],
+    },
+    select: {
+      id: true,
+      companyId: true,
+      capaNumber: true,
+      correctiveDueDate: true,
+      preventiveDueDate: true,
+    },
+  });
+
+  let notified = 0;
+  for (const capa of capas) {
+    const recent = await prisma.inAppNotification.findFirst({
+      where: {
+        companyId: capa.companyId,
+        eventType: NotificationEventType.CAPA_OVERDUE,
+        createdAt: { gte: dedupeSince },
+        metadata: { path: ["capaId"], equals: capa.id },
+      },
+      select: { id: true },
+    });
+    if (recent) continue;
+
+    void emitNotificationEvent({
+      eventType: NotificationEventType.CAPA_OVERDUE,
+      companyId: capa.companyId,
+      entityType: "Capa",
+      entityId: capa.id,
+      variables: {
+        capaId: capa.id,
+        capaNumber: capa.capaNumber,
+      },
+      timestamp: new Date(),
+    });
+    notified++;
+  }
+
+  return { checked: capas.length, overdue: capas.length, notified };
+}

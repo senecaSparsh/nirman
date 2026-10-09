@@ -648,3 +648,66 @@ export async function getSupplierInvoice(invoiceId: string, companyId: string) {
 
   return { ...invoice, matchDetails };
 }
+
+// ───────────────────────────────────────────────────────────
+//  checkDueSupplierInvoices — cron sweep: supplier bills whose
+//  dueDate has passed without being PAID. Emits
+//  SUPPLIER_PAYMENT_DUE to finance roles, deduped per invoice
+//  within 7 days (the cron runs every 15 min).
+// ───────────────────────────────────────────────────────────
+
+export async function checkDueSupplierInvoices(): Promise<{
+  checked: number;
+  due: number;
+  notified: number;
+}> {
+  const now = new Date();
+  const dedupeSince = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const invoices = await prisma.supplierInvoice.findMany({
+    where: {
+      dueDate: { lt: now },
+      status: { in: ["PENDING", "MATCHED", "DISPUTED", "APPROVED"] },
+    },
+    select: {
+      id: true,
+      companyId: true,
+      invoiceNumber: true,
+      dueDate: true,
+      totalAmount: true,
+      supplier: { select: { name: true } },
+    },
+  });
+
+  let notified = 0;
+  for (const inv of invoices) {
+    const recent = await prisma.inAppNotification.findFirst({
+      where: {
+        companyId: inv.companyId,
+        eventType: NotificationEventType.SUPPLIER_PAYMENT_DUE,
+        createdAt: { gte: dedupeSince },
+        metadata: { path: ["supplierInvoiceId"], equals: inv.id },
+      },
+      select: { id: true },
+    });
+    if (recent) continue;
+
+    void emitNotificationEvent({
+      eventType: NotificationEventType.SUPPLIER_PAYMENT_DUE,
+      companyId: inv.companyId,
+      entityType: "SupplierInvoice",
+      entityId: inv.id,
+      variables: {
+        supplierInvoiceId: inv.id,
+        supplierName: inv.supplier.name,
+        amount: inv.totalAmount.toString(),
+        invoiceNumber: inv.invoiceNumber,
+        dueDate: inv.dueDate!.toLocaleDateString("en-IN"),
+      },
+      timestamp: new Date(),
+    });
+    notified++;
+  }
+
+  return { checked: invoices.length, due: invoices.length, notified };
+}

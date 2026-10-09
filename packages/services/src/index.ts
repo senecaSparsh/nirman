@@ -264,6 +264,7 @@ export {
   type InvoiceLineInput,
   type MatchVariance,
   type ThreeWayMatchResult,
+  checkDueSupplierInvoices,
 } from "./supplier-invoice";
 
 // Stock Count — physical reconciliation
@@ -1053,6 +1054,7 @@ export {
   type ReviewNcrInput,
   type CreateCapaInput,
   type UpdateCapaInput,
+  checkOverdueCapas,
 } from "./quality-control";
 
 // Safety Management — Incidents, Hazards, Inspections
