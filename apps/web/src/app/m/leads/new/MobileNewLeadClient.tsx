@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, ContactRound, FolderOpen, CheckCircle2, Plus, Eye } from "lucide-react";
+import { FolderOpen, CheckCircle2, Plus, Eye } from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileProjectSelect } from "@/components/mobile/selectors";
@@ -198,28 +198,8 @@ export function MobileNewLeadClient({
 
   return (
     <div className="pb-32">
-      {/* Header */}
-      <div className="flex items-center gap-1 mb-3">
-        <button
-          onClick={() => (onClose ? onClose() : goBack())}
-          className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] text-m-body press"
-          style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}
-        >
-          <ArrowLeft className="size-3.5" />
-        </button>
-        <div className="flex-1 min-w-0">
-          <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>
-            New Lead
-          </p>
-        </div>
-        <span
-          className="flex items-center gap-1.5 text-m-section font-extrabold tracking-tight px-2 py-0.5 rounded-full shrink-0"
-          style={{ color: "var(--color-ink-500)", backgroundColor: "color-mix(in srgb, var(--color-steel) 12%, transparent)" }}
-        >
-          <ContactRound className="size-2.5" />
-          Pipeline
-        </span>
-      </div>
+      {/* No in-page header — the shell shows back + "New Lead" in page
+          mode, MobileFabModal provides its own chrome in modal mode. */}
 
       {hasDraft && !draftRestored && (
         <DraftBanner

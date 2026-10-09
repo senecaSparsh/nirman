@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMobileBack } from "@/components/mobile/v2/mobile-back-button";
+
 import {
   Workflow as WorkflowIcon,
   ChevronLeft,
@@ -50,7 +50,6 @@ type Step = "template" | "details" | "schedule";
 
 export function MobileNewWorkflowClient() {
   const router = useRouter();
-  const goBack = useMobileBack("/m/workflows");
   const [step, setStep] = useState<Step>("template");
   const [selectedTemplate, setSelectedTemplate] = useState<WorkflowTemplate | null>(null);
   const [name, setName] = useState("");
@@ -119,26 +118,24 @@ export function MobileNewWorkflowClient() {
 
   return (
     <div className="min-h-screen pb-20" style={{ backgroundColor: "var(--color-paper)" }}>
-      {/* Header */}
+      {/* Header — shell renders back + "New Workflow"; this keeps the
+          wizard state (step caption + progress bar) only. Step-back lives
+          inside the wizard flow, not the page chrome. */}
       <div
         className="sticky top-0 z-10 border-b px-4 py-3"
         style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
       >
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              if (step === "details") setStep("template");
-              else if (step === "schedule") setStep("details");
-              else goBack();
-            }}
-            className="text-m-body press p-1 -ml-1"
-          >
-            <ChevronLeft className="size-5" style={{ color: "var(--color-ink-500)" }} />
-          </button>
+          {step !== "template" ? (
+            <button
+              onClick={() => (step === "details" ? setStep("template") : setStep("details"))}
+              className="text-m-body press p-1 -ml-1"
+              aria-label="Previous step"
+            >
+              <ChevronLeft className="size-5" style={{ color: "var(--color-ink-500)" }} />
+            </button>
+          ) : null}
           <div className="flex-1">
-            <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-              New Workflow
-            </p>
             <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
               {step === "template" && "Step 1 of 3 · Choose a template"}
               {step === "details" && "Step 2 of 3 · Name & describe"}

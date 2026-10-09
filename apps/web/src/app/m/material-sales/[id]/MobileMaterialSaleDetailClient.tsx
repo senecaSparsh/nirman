@@ -315,13 +315,9 @@ export function MobileMaterialSaleDetailClient({
         </div>
       )}
 
-      {/* ── Header ── */}
+      {/* ── Header — shell shows the sale number; keep just the status ── */}
       <div className="flex items-center gap-2 mb-2">
-        <div className="flex-1 min-w-0">
-          <p className="text-m-section font-bold truncate font-mono" style={{ color: "var(--color-ink-950)" }}>
-            {saleNumber}
-          </p>
-        </div>
+        <div className="flex-1 min-w-0" />
         <span
           className="text-m-caption font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
           style={{

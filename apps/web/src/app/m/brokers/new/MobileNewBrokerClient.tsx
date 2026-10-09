@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, Plus, Eye } from "lucide-react";
+import { CheckCircle2, Plus, Eye } from "lucide-react";
 import { haptic } from "@/lib/haptic";
 import { SectionCard, UnderlineInput } from "@/components/mobile/v2/form-primitives";
 import { useMobileBack } from "@/components/mobile/v2/mobile-back-button";
@@ -91,29 +91,8 @@ export function MobileNewBrokerClient({
 
   return (
     <div className={onClose ? "" : "pb-32"}>
-      {/* Header — hidden in modal mode (MobileFabModal provides title) */}
-      {onClose ? null : (
-      <div className="flex items-center gap-1 mb-3">
-        <button aria-label="Go back"
-          onClick={goBack}
-          className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] text-m-body press"
-          style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-700)" }}
-        >
-          <ArrowLeft className="size-3.5" />
-        </button>
-        <div className="flex-1 min-w-0">
-          <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
-            New Broker
-          </p>
-        </div>
-        <span
-          className="flex items-center gap-1.5 text-m-section font-extrabold tracking-tight px-2 py-0.5 rounded-full shrink-0"
-          style={{ color: "var(--color-ink-500)", backgroundColor: "color-mix(in srgb, var(--color-steel) 12%, transparent)" }}
-        >
-          Master
-        </span>
-      </div>
-      )}
+      {/* No in-page header — the shell shows back + "New Broker" in page
+          mode, and MobileFabModal provides its own chrome in modal mode. */}
 
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         {/* Broker Details */}

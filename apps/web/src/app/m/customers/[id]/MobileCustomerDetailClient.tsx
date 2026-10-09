@@ -118,16 +118,11 @@ export function MobileCustomerDetailClient({
 
   return (
     <div className="pb-6">
-      {/* ── Header ── */}
+      {/* ── Header — shell shows the customer name; keep just the tenure ── */}
       <div className="flex items-center gap-2 mb-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
-            {data.name}
-          </p>
-          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-            Customer since {formatDate(data.createdAt)}
-          </p>
-        </div>
+        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+          Customer since {formatDate(data.createdAt)}
+        </p>
       </div>
 
       {/* ── Contact card — clickable actions ── */}

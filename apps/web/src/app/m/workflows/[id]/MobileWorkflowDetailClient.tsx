@@ -7,7 +7,6 @@ import {
   Trash2,
   Clock,
   Loader2,
-  ChevronLeft,
   CheckCircle,
   XCircle,
   AlertCircle,
@@ -16,7 +15,6 @@ import { toast } from "sonner";
 import {formatDate, formatRelativeTime, humanizeCron} from "@/lib/utils";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
-import { useMobileBack } from "@/components/mobile/v2/mobile-back-button";
 import { DetailKeyValueCard } from "@/components/mobile/v2/detail-primitives";
 
 export type WorkflowDetail = {
@@ -83,7 +81,7 @@ export function MobileWorkflowDetailClient({
   canManage?: boolean;
 }) {
   const router = useRouter();
-  const goBack = useMobileBack("/m/workflows");
+  // no in-page back button — the shell handles it
   const [running, setRunning] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -135,14 +133,8 @@ export function MobileWorkflowDetailClient({
         style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
       >
         <div className="flex items-center gap-2 mb-2">
-          <button aria-label="Go back" onClick={goBack} className="text-m-body press p-1 -ml-1">
-            <ChevronLeft className="size-5" style={{ color: "var(--color-ink-500)" }} />
-          </button>
-          <div className="flex-1 min-w-0">
-            <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
-              {workflow.name}
-            </p>
-          </div>
+          {/* shell already renders back + the workflow name */}
+          <div className="flex-1 min-w-0" />
           <span
             className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-[0.25rem] shrink-0"
             style={{ color: st.color, backgroundColor: st.bg }}
