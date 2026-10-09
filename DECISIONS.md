@@ -303,3 +303,13 @@ Seeded through live API calls (session = OWNER): 4 suppliers (cement/steel/aggre
 Verified live: inventory surface shows ₹1.96L stock across 2 locations + reorder alerts; GL postings land (9 entries); live activity feed reflects every mutation; Collections view renders the sale.
 
 **Note for re-seeding**: use `pnpm --filter @nirman/services seed` only for a fresh full-company reset — it wipes ALL transactional rows globally (no company filter).
+
+## 22. Contractor-billing chain verified live
+
+Exercised the full estimate→billing→payment loop with the seeded data: BOQ line → issued work order → MB entry (measure 4,000 cft → verify → approve) → RA bill (auto-submit → approve) → payment.
+
+**Statutory math verified exact** on RA-261009-0001: gross ₹4,72,000 (4,000×₹118) − retention 5% (₹23,600) − TDS 2% (₹9,440) = **₹4,38,960 net**.
+
+**Segregation of duties enforced**: the bill's creator got `403 — "You cannot pay an RA bill you created or submitted — ask another authorized user"`; a different authorized user (FINANCE_HEAD, holds `ra.pay`) paid successfully. The person who certifies measurement ≠ who releases money — correct anti-fraud control.
+
+Every seeded transaction posted a correctly-classified journal entry — the GL audit trail is complete end-to-end (RA approval ₹4,72,000, material issue ₹70,350, goods receipt ₹3,03,550, sale ₹57,75,000 + deposits/payments).
