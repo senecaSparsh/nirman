@@ -563,3 +563,26 @@ matching the service guard order and the desktop dialog. Verified live:
 pending-bill WO errors correctly, write-off sheet appears only on the real
 advance blocker. Created + exercised WO-261009-0003 end-to-end
 (BOQ→WO→advance→issue→MB→RA→approve→complete) to prove the flow.
+
+## 41. Three field-UX features from the owner walkthrough
+
+(a) **DPR back-dated override** — the payroll-lock blocked ALL DPR filing into a
+settled month, even when work was genuinely done but unfiled (site shut for
+rain). Now an admin approver (DPR_APPROVE_ADMIN) sees an override-reason field
+
+- "Submit with override" on a locked date; the DPR files flagged `backDated`,
+  audited, and its labour surfaces as a next-period adjustment rather than
+  rewriting the closed month. Field users still hit the lock.
+
+(b) **Record Wastage on Site Stock** — a field worker seeing damaged/spoiled/
+lost material (cement hardened by rain, cracked bricks) had to navigate to
+material-detail → adjust 3 taps deep. Now a "Record Wastage" quick-action opens
+a sheet: location → material → qty → damage reason → a GL-backed
+ADJUSTMENT_OUT via the existing adjust-stock service (same ledger, scope-gated,
+qty-validated against available).
+
+(c) **Orbit explorer on project detail** — the designer OrbitNavigator (only on
+home for the company) now opens from a project's hero button as a full-screen
+overlay rooted at the project — built units, WOs, materials, expenses, phases
+orbit as tappable chips. The orbit is already a generic entity explorer via
+/api/orbit?type=&id=, so it's reusable for customer/equipment/PO detail too.
