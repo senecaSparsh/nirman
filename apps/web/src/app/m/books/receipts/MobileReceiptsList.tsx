@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Wallet, Printer } from "lucide-react";
-import { formatCurrencyCompact, formatDate } from "@/lib/utils";
+import { formatCurrencyCompact, formatDate, formatPaymentMode } from "@/lib/utils";
 import { MobileSectionTitle, MobileRow } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileNoResults } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
@@ -81,7 +81,7 @@ export function MobileReceiptsList({
               href={`/m/books/receipts/${r.id}?kind=${r.kind}`}
               icon={r.kind === "MATERIAL" ? Printer : Wallet}
               title={r.customerName}
-              subtitle={`${formatDate(r.paymentDate)} · ${r.mode} · ${r.saleNumber}`}
+              subtitle={`${formatDate(r.paymentDate)} · ${formatPaymentMode(r.mode)} · ${r.saleNumber}`}
               meta={formatCurrencyCompact(r.amount)}
               metaSub={r.kind === "MATERIAL" ? "Material Sale" : "Property Sale"}
               tone="success"
