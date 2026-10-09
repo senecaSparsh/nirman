@@ -909,7 +909,7 @@ export function MobileStockOutClient({
               {/* ── TO ── */}
               <div className="flex flex-col flex-1 min-w-0">
                 <label className={labelClass} style={labelStyle}>
-                  {mode === "transfer" ? "To Loc" : "To Proj"} <span style={{ color: "var(--color-stop)" }}>*</span>
+                  {mode === "transfer" ? "To Location" : "To Project"} <span style={{ color: "var(--color-stop)" }}>*</span>
                 </label>
                 <button
                   type="button"

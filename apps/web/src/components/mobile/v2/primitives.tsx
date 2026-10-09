@@ -622,7 +622,10 @@ export function MobilePageHeader({
   right,
   stats,
 }: {
-  title: string;
+  /** The page's display title. Optional — when the mobile shell already
+   *  renders the route title (all /m/* pages), pass undefined to avoid
+   *  showing the same words twice. */
+  title?: string;
   subtitle?: string;
   right?: React.ReactNode;
   stats?: { label: string; value: string; tone?: "default" | "warning" | "danger" | "success" }[];
@@ -634,14 +637,16 @@ export function MobilePageHeader({
     >
       <div className="flex items-start justify-between gap-3 px-4 py-3">
         <div className="min-w-0">
-          <h1
-            className="truncate text-m-section font-bold leading-tight tracking-[-0.02em]"
-            style={{ color: "var(--color-ink-950)" }}
-          >
-            {title}
-          </h1>
+          {title && (
+            <h1
+              className="truncate text-m-section font-bold leading-tight tracking-[-0.02em]"
+              style={{ color: "var(--color-ink-950)" }}
+            >
+              {title}
+            </h1>
+          )}
           {subtitle && (
-            <p className="mt-1 text-m-caption leading-snug" style={{ color: "var(--color-ink-500)" }}>{subtitle}</p>
+            <p className={`${title ? "mt-1 " : ""}text-m-caption leading-snug`} style={{ color: "var(--color-ink-500)" }}>{subtitle}</p>
           )}
         </div>
         {right && <div className="shrink-0">{right}</div>}

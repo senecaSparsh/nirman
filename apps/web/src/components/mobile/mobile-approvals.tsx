@@ -17,7 +17,7 @@ import { MobileApprovalsQueue } from "@/components/mobile/mobile-approvals-queue
  *
  * Self-created items are excluded — a user cannot approve their own submission.
  */
-export async function MobileApprovals({ title }: { title: string }) {
+export async function MobileApprovals() {
   await connection();
   const role = await getUserRole();
   const actingRole = await getActingRole();
@@ -51,7 +51,8 @@ export async function MobileApprovals({ title }: { title: string }) {
   if (!canApprovePo && !canApproveReq && !canApproveGatePass && !canApproveDprSubAdmin && !canApproveDprAdmin && !canApproveExpense && !canApproveRaBill && !canManageHr) {
     return (
       <div>
-        <MobilePageHeader title={title} subtitle="No access" right={<MobileRefreshButton />} />
+        {/* shell renders "Approvals" — the header carries the access state */}
+        <MobilePageHeader subtitle="No access" right={<MobileRefreshButton />} />
         <div className="px-4 py-10 text-center text-m-body" style={{ color: "var(--color-ink-500)" }}>
           You do not have permission to approve any items (POs, requisitions, gate passes, DPRs, expenses, RA bills, or leave requests).
         </div>
@@ -321,7 +322,8 @@ export async function MobileApprovals({ title }: { title: string }) {
 
   return (
     <div>
-      <MobilePageHeader title={title} subtitle={`${poRows.length + reqRows.length + gatePassRows.length + dprRows.length + expenseRows.length + raBillRows.length + claimRows.length + leaveRows.length + offsiteCount} awaiting approval`} right={<MobileRefreshButton />} />
+      {/* shell renders "Approvals" — the header carries the queue count */}
+      <MobilePageHeader subtitle={`${poRows.length + reqRows.length + gatePassRows.length + dprRows.length + expenseRows.length + raBillRows.length + claimRows.length + leaveRows.length + offsiteCount} awaiting approval`} right={<MobileRefreshButton />} />
       <MobileApprovalsQueue purchaseOrders={poRows} requisitions={reqRows} gatePasses={gatePassRows} dprs={dprRows} expenses={expenseRows} raBills={raBillRows} expenseClaims={claimRows} leaves={leaveRows} offsiteCount={offsiteCount} offsiteNames={offsiteNames} />
     </div>
   );
