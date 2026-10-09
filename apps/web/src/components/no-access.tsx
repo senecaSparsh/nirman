@@ -38,7 +38,7 @@ export function NoAccess({
         </p>
         <p className="mx-auto max-w-sm text-meta leading-relaxed text-muted-foreground">
           Your account doesn&apos;t include access to {what}. An owner or administrator can
-          grant it from Setup → Who Sees What
+          grant it from Settings → Users
           {permission ? (
             <>
               {" "}

@@ -490,7 +490,7 @@ export function MobileNoAccess({
       </p>
       <p className="text-m-caption mt-1.5 max-w-[18rem]" style={{ color: "var(--color-ink-500)" }}>
         Your account doesn&apos;t include access to {what}. An owner or administrator can
-        grant it from Setup &rarr; Who Sees What
+        grant it from Settings → Company details → team
         {permission ? (
           <>
             {" "}
