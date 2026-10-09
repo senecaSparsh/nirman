@@ -61,7 +61,15 @@ export function MobileWorkOrderActions({
       setForgiveReason("");
       router.refresh();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed");
+      const msg = err instanceof Error ? err.message : "Failed";
+      // Only open the write-off sheet when the unrecovered advance is the real
+      // blocker — pending bills / unbilled MB entries error first, so the user
+      // isn't asked to write off an advance that isn't the actual problem.
+      if (action === "complete" && /unrecovered/i.test(msg)) {
+        setShowCompleteSheet(true);
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setActing(null);
     }
@@ -136,7 +144,7 @@ export function MobileWorkOrderActions({
 
         {showComplete ? (
           <button
-            onClick={() => (advanceBalance > 0 ? setShowCompleteSheet(true) : doAction("complete"))}
+            onClick={() => doAction("complete")}
             disabled={acting !== null}
             className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50"
             style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
