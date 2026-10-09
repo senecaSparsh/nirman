@@ -137,4 +137,69 @@ describe("POST /api/work-orders", () => {
     );
     expect(res.status).toBe(201);
   });
+
+  it("posts an advance GL entry when a signing advance is recorded", async () => {
+    // A create-time advanceAmount is a mobilization advance already disbursed —
+    // it must post Dr ADVANCE_TO_SUB / Cr CASH so the recoverable balance is
+    // backed by a real outflow. Without this the balance inflates with no cash
+    // leaving and RA bills over-recover.
+    mockPrisma().glAccount!.findMany.mockResolvedValue([
+      { id: "acc-1600", code: "1600" },
+      { id: "acc-1000", code: "1000" },
+    ]);
+    mockPrisma().subcontractorWorkOrder!.create.mockResolvedValue({
+      id: "wo-1",
+      workOrderNumber: "WO-240901-0001",
+      companyId: "company-1",
+      advanceAmount: "150000",
+      lines: [],
+    });
+    const res = await POST(
+      makeRequest("/api/work-orders", {
+        method: "POST",
+        body: {
+          projectId: "proj-1",
+          subcontractorId: "sub-1",
+          workTitle: "Electrification",
+          advanceAmount: 150000,
+          lines: [{ boqItemId: "boq-1", agreedRate: 100 }],
+        },
+      }),
+      {},
+    );
+    expect(res.status).toBe(201);
+    expect(mockPrisma().journalEntry!.create).toHaveBeenCalledTimes(1);
+    const lines = mockPrisma().journalEntry!.create.mock.calls[0]![0].data.lines.create;
+    expect(lines).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ accountId: "acc-1600", memo: "Advance to subcontractor" }),
+        expect.objectContaining({ accountId: "acc-1000", memo: "Advance disbursed at signing" }),
+      ]),
+    );
+  });
+
+  it("does not post a journal entry when no signing advance is set", async () => {
+    mockPrisma().journalEntry!.create.mockClear();
+    mockPrisma().subcontractorWorkOrder!.create.mockResolvedValue({
+      id: "wo-1",
+      workOrderNumber: "WO-240901-0001",
+      companyId: "company-1",
+      advanceAmount: "0",
+      lines: [],
+    });
+    const res = await POST(
+      makeRequest("/api/work-orders", {
+        method: "POST",
+        body: {
+          projectId: "proj-1",
+          subcontractorId: "sub-1",
+          workTitle: "Plumbing",
+          lines: [{ boqItemId: "boq-1", agreedRate: 100 }],
+        },
+      }),
+      {},
+    );
+    expect(res.status).toBe(201);
+    expect(mockPrisma().journalEntry!.create).not.toHaveBeenCalled();
+  });
 });

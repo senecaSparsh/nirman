@@ -141,6 +141,25 @@ export async function createWorkOrder(input: CreateWorkOrderInput) {
       include: { lines: true },
     });
 
+    // A create-time advanceAmount is a mobilization advance already disbursed at
+    // contract signing — it seeds the recoverable balance, so it MUST post the
+    // same cash-outflow GL entry that payAdvance does. Otherwise the recoverable
+    // balance exceeds cash actually given and RA bills over-recover.
+    const createAdvance = new Decimal(input.advanceAmount ?? 0);
+    if (createAdvance.gt(0)) {
+      await postJournalEntry(tx, {
+        companyId: wo.companyId,
+        sourceType: "ADVANCE_PAYMENT",
+        sourceId: wo.id,
+        memo: `Advance payment — ${wo.workOrderNumber}`,
+        postedById: input.userId,
+        lines: [
+          { accountCode: ACCT.ADVANCE_TO_SUB, debit: createAdvance, credit: 0, entityType: "SubcontractorWorkOrder", entityId: wo.id, memo: "Advance to subcontractor" },
+          { accountCode: ACCT.CASH, debit: 0, credit: createAdvance, entityType: "SubcontractorWorkOrder", entityId: wo.id, memo: "Advance disbursed at signing" },
+        ],
+      });
+    }
+
     if (input.userId) {
       await logAction(tx, {
         userId: input.userId,
