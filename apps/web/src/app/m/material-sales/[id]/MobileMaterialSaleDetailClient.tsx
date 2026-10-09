@@ -7,7 +7,7 @@ import {
   Phone, Printer, XCircle, Banknote,
   Loader2, IndianRupee, ShieldCheck,
 } from "lucide-react";
-import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber, formatPaymentMode, toNum} from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate, formatEnumLabel, formatNumber, formatPaymentMode, toNum} from "@/lib/utils";
 import { toast } from "sonner";
 import { MobileChequeFields, EMPTY_MOBILE_CHEQUE, type MobileChequeState } from "../../sales/MobileChequeFields";
 import { NextActionCardView } from "@/components/mobile/v2/guidance";
@@ -307,7 +307,7 @@ export function MobileMaterialSaleDetailClient({
             {gatePass.status === "PENDING" ? "awaiting approval. Sale will activate once approved." :
              gatePass.status === "APPROVED" ? "approved — sale activating." :
              gatePass.status === "REJECTED" ? "rejected — resubmit or cancel." :
-             `${gatePass.status}`}
+             formatEnumLabel(gatePass.status)}
           </span>
           <Link href="/m/gate-pass" className="text-m-caption font-semibold shrink-0" style={{ color: "var(--color-brand)" }}>
             View →

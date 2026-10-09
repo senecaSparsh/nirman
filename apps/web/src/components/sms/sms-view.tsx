@@ -7,7 +7,7 @@ import { MessageSquare, Plus, Link2, Check, X, AlertCircle, Loader2 } from "luci
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, formatEnumLabel } from "@/lib/utils";
 import { EmptyState } from "@/components/empty-state";
 
 export type SmsRow = {
@@ -207,7 +207,7 @@ function IngestDialog({
           description: r.matchReason,
         });
       } else {
-        toast.info(`SMS ingested (${r?.status})`);
+        toast.info(`SMS ingested (${formatEnumLabel(r?.status)})`);
       }
       setSender("");
       setMessage("");

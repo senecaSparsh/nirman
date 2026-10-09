@@ -18,7 +18,7 @@ import {
   MobileFab,
   type SummaryStat,
 } from "@/components/mobile/v2/scaffold";
-import {formatRelativeTime, humanizeCron} from "@/lib/utils";
+import {formatEnumLabel, formatRelativeTime, humanizeCron} from "@/lib/utils";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
 
 export type WorkflowListItem = {
@@ -99,7 +99,7 @@ export function MobileWorkflowsList({
       if (!res.ok) {
         toast.error(data.error ?? "Failed to run");
       } else {
-        toast.success(`Workflow run: ${data.status}`);
+        toast.success(`Workflow run: ${formatEnumLabel(data.status)}`);
         router.refresh();
       }
     } catch {

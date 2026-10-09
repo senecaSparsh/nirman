@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, } from "@/components/ui/input";
 import { useConfirm } from "@/lib/use-confirm";
+import { formatEnumLabel } from "@/lib/utils";
 import {
   PhoneIncoming,
   PhoneOutgoing,
@@ -293,7 +294,7 @@ export function CallDetailView({
           <div className="space-y-2 text-caption">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Status</span>
-              <span className="font-medium text-foreground">{call.status}</span>
+              <span className="font-medium text-foreground">{formatEnumLabel(call.status)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Ring time</span>

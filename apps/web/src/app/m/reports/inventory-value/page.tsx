@@ -6,7 +6,7 @@ import { prisma } from "@nirman/db";
 import { Package, Layers, MapPin } from "lucide-react";
 import { scopeWhere, getCompany, toNum, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatEnumLabel } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -164,7 +164,7 @@ async function MobileInventoryValueContent({
             key={l.id}
             icon={MapPin}
             title={l.name}
-            subtitle={`${l.qty.toFixed(2)} units · ${l.type}`}
+            subtitle={`${l.qty.toFixed(2)} units · ${formatEnumLabel(l.type)}`}
             meta={formatCurrencyCompact(l.value)}
             tone="default"
           />

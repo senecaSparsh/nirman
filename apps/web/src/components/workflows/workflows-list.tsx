@@ -9,7 +9,7 @@ import { StatusPill } from "@/components/page";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/empty-state";
 import { Dialog } from "@/components/ui/dialog";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatEnumLabel } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 
@@ -53,7 +53,7 @@ export function WorkflowsList({ workflows }: { workflows: WorkflowRow[] }) {
       if (!res.ok) {
         toast.error(data.error ?? "Failed to run");
       } else {
-        toast.success(`Workflow run: ${data.status}`);
+        toast.success(`Workflow run: ${formatEnumLabel(data.status)}`);
         router.refresh();
       }
     } catch {

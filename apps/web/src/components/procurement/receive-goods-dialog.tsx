@@ -8,7 +8,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea, Select } from "@/components/ui/input";
 import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatEnumLabel, formatNumber } from "@/lib/utils";
 import type { PurchaseOrderDetail } from "@/lib/types";
 
 type RecvLine = {
@@ -290,8 +290,8 @@ export function ReceiveGoodsDialog({
       {!canReceive ? (
         <div className="space-y-3">
           <p className="text-body text-muted-foreground">
-            This PO is in status <strong>{po.status}</strong>. Goods can only be received against POs
-            that are APPROVED, ORDERED or PARTIAL.
+            This PO is in status <strong>{formatEnumLabel(po.status)}</strong>. Goods can only be
+            received against POs that are Approved, Ordered or Partial.
           </p>
           <div className="flex gap-2">
             <a href={`/procurement/${po.id}`} className="inline-flex">

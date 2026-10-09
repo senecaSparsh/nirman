@@ -4,7 +4,7 @@ import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
 import { toNum, getCompany, scopeWhere, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import {formatCurrency, formatNumber} from "@/lib/utils";
+import {formatCurrency, formatEnumLabel, formatNumber} from "@/lib/utils";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -147,7 +147,7 @@ export default async function MeasurementBookPrintPage({ params }: { params: Pro
         {/* Status + approval info */}
         <div className="mt-3 text-sm">
           <span className="font-semibold">Status: </span>
-          <span>{entry.status}</span>
+          <span>{formatEnumLabel(entry.status)}</span>
           {entry.rejectReason && (
             <div className="mt-1 text-xs text-red-700">
               <span className="font-semibold">Rejection Reason: </span>

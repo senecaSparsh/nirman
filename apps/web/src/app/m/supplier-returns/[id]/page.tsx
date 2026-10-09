@@ -4,7 +4,7 @@ import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import Link from "next/link";
 import { Undo2 } from "lucide-react";
-import { formatCurrency, formatCurrencyCompact, formatDate, formatNumber } from "@/lib/utils";
+import { formatCurrency, formatCurrencyCompact, formatDate, formatEnumLabel, formatNumber } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileEmptyState,
@@ -133,7 +133,7 @@ export default function MobileSupplierReturnDetailPage({
                 ? "rejected — resubmit or cancel the gate pass."
                 : gatePass?.status === "CANCELLED"
                   ? "cancelled — issue a new gate pass before completing."
-                  : `${gatePass?.status}`;
+                  : formatEnumLabel(gatePass?.status);
 
         return (
           <PageContextProvider value={{

@@ -4,7 +4,7 @@ import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
 import { scopeWhere,  toNum, getCompany, getUserPermissions, assertScopeAllows } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { formatNumber, formatDate } from "@/lib/utils";
+import { formatNumber, formatDate, formatEnumLabel } from "@/lib/utils";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -78,7 +78,7 @@ export default async function StockCountPrintPage({ params }: { params: Promise<
           </div>
           <div className="rounded-md border border-gray-300 p-2.5">
             <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Status</div>
-            <div className="font-semibold">{count.status}</div>
+            <div className="font-semibold">{formatEnumLabel(count.status)}</div>
             <div className="text-xs text-gray-500">{formatDate(count.countDate)}</div>
           </div>
         </div>

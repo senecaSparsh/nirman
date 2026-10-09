@@ -199,7 +199,7 @@ function printCertificate(detail: RaBillDetailData, raBillNumber: string) {
     <div><span class="label">Project:</span> <span>${detail.project.name}</span></div>
     <div><span class="label">Bill Date:</span> <span>${formatDate(detail.billDate)}</span></div>
     <div><span class="label">Billing Period:</span> <span>${formatDate(detail.periodFrom)} → ${formatDate(detail.periodTo)}</span></div>
-    <div><span class="label">Status:</span> <span>${detail.status}</span></div>
+    <div><span class="label">Status:</span> <span>${formatEnumLabel(detail.status)}</span></div>
   </div>
 
   <h2>Bill Lines</h2>

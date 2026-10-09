@@ -32,7 +32,7 @@ import {
 import { MobileStatusBadge, ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { DetailHeroCard, DetailAlertBanner, DetailPrintButton } from "@/components/mobile/v2/detail-primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
-import { formatDate, formatNumber, formatCurrency, toNum} from "@/lib/utils";
+import { formatDate, formatEnumLabel, formatNumber, formatCurrency, toNum} from "@/lib/utils";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import {
@@ -1329,7 +1329,7 @@ export function MobileTransferDetailClient({
                   ? "items have exited."
                   : transfer.gatePass.status === "REJECTED"
                     ? "rejected — resubmit or cancel the gate pass."
-                    : `${transfer.gatePass.status}`}
+                    : formatEnumLabel(transfer.gatePass.status)}
           </span>
           <a
             href="/m/gate-pass"
@@ -1372,7 +1372,7 @@ export function MobileTransferDetailClient({
                   transfer.gatePass.status !== "EXITED" ? (
                     <button
                       disabled
-                      title={`Gate pass ${transfer.gatePass.gatePassNumber} is ${transfer.gatePass.status} — dispatch is blocked until it's approved`}
+                      title={`Gate pass ${transfer.gatePass.gatePassNumber} is ${formatEnumLabel(transfer.gatePass.status)} — dispatch is blocked until it's approved`}
                       className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] font-bold text-m-section opacity-60 cursor-not-allowed"
                       style={{ backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)" }}
                     >

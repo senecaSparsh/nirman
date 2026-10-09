@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Loader2, X } from "lucide-react";
-import { formatCurrencyCompact } from "@/lib/utils";
+import { formatCurrencyCompact, formatEnumLabel } from "@/lib/utils";
 
 /**
  * Mobile SMS ingest — a bottom-sheet style dialog for pasting
@@ -42,7 +42,7 @@ export function MobileSmsIngest() {
       } else if (r?.status === "UNMATCHED") {
         toast.warning("No matching payment found", { description: r.matchReason });
       } else {
-        toast.info(`SMS ingested (${r?.status})`);
+        toast.info(`SMS ingested (${formatEnumLabel(r?.status)})`);
       }
       setSender("");
       setMessage("");

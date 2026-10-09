@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
 import { Loader2, Camera, X, Send, CheckCircle2, Eye, Plus } from "lucide-react";
-import { formatCurrency, formatCurrencyDetailed } from "@/lib/utils";
+import { formatCurrency, formatCurrencyDetailed, formatEnumLabel } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { useTodayDateState } from "@/lib/use-today-date";
 import { useLongPressNav } from "@/lib/use-long-press-nav";
@@ -455,7 +455,7 @@ export function MobileNewSupplierPaymentClient({
             ...supplierPos.map((p) => ({
               id: p.id,
               label: p.poNumber,
-              sub: `${formatCurrency(Number(p.total))} · ${p.status}`,
+              sub: `${formatCurrency(Number(p.total))} · ${formatEnumLabel(p.status)}`,
             })),
           ]}
           selectedId={purchaseOrderId}
@@ -472,7 +472,7 @@ export function MobileNewSupplierPaymentClient({
             ...supplierInvoices.map((i) => ({
               id: i.id,
               label: i.invoiceNumber,
-              sub: `${formatCurrency(Number(i.totalAmount))} · ${i.status}`,
+              sub: `${formatCurrency(Number(i.totalAmount))} · ${formatEnumLabel(i.status)}`,
             })),
           ]}
           selectedId={invoiceId}

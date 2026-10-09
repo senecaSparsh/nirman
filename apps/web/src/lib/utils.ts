@@ -267,6 +267,18 @@ export function formatEnumLabel(value: string | null | undefined): string {
 }
 export const formatPaymentMode = formatEnumLabel;
 
+/** BuiltUnit.unitType → "2 BHK" — BHK_N needs the number first, which
+ *  formatEnumLabel can't express. Shared copy of the map that was
+ *  duplicated across MobileNewUnitDialog + portal-listings-view + project-hub. */
+const BUILT_UNIT_TYPE_LABELS: Record<string, string> = {
+  BHK_1: "1 BHK", BHK_2: "2 BHK", BHK_3: "3 BHK", BHK_4: "4 BHK",
+  SHOP: "Shop", OFFICE: "Office", WAREHOUSE_UNIT: "Warehouse Unit", VILLA: "Villa", OTHER: "Other",
+};
+export function formatUnitTypeLabel(value: string | null | undefined): string {
+  if (!value) return "—";
+  return BUILT_UNIT_TYPE_LABELS[value] ?? formatEnumLabel(value);
+}
+
 /** "0 9 * * *" → "Daily at 9:00 AM"; falls back to the raw expr for exotic schedules. */
 export function humanizeCron(cron: string): string {
   const parts = cron.trim().split(/\s+/);

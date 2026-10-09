@@ -3,7 +3,7 @@ import { toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
 import { Globe, IndianRupee, Home, Calendar, ExternalLink, AlertTriangle, CheckCircle2 } from "lucide-react";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, formatEnumLabel, formatUnitTypeLabel } from "@/lib/utils";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -53,7 +53,7 @@ export default function MobilePortalListingDetailPage({
             <MobileSectionTitle>Details</MobileSectionTitle>
             <div className="flex flex-col gap-2.5">
               <MobileRow icon={Globe} title="Portal" meta={listing.portalName} />
-              <MobileRow icon={CheckCircle2} title="Status" meta={listing.status} />
+              <MobileRow icon={CheckCircle2} title="Status" meta={formatEnumLabel(listing.status)} />
               <MobileRow icon={Calendar} title="Created" meta={formatDate(listing.createdAt)} />
               {listing.listingUrl && (
                 <MobileRow icon={ExternalLink} title="Listing URL" meta={listing.listingUrl} />
@@ -85,7 +85,7 @@ export default function MobilePortalListingDetailPage({
                 <MobileSectionTitle>Unit Details</MobileSectionTitle>
                 <div className="flex flex-col gap-2.5">
                   <MobileRow icon={Home} title="Unit Number" meta={listing.builtUnit.unitNumber} />
-                  <MobileRow icon={Home} title="Type" meta={listing.builtUnit.unitType} />
+                  <MobileRow icon={Home} title="Type" meta={formatUnitTypeLabel(listing.builtUnit.unitType)} />
                 </div>
               </>
             )}
