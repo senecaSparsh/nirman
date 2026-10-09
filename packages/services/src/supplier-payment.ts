@@ -26,11 +26,11 @@ async function reconcileSupplierInvoiceStatuses(
       status: { in: ["APPROVED", "MATCHED", "PAID"] },
     },
     orderBy: [{ invoiceDate: "asc" }, { createdAt: "asc" }],
-    select: { id: true, status: true, totalAmount: true },
+    select: { id: true, status: true, totalAmount: true, purchaseOrderId: true },
   });
   if (invoices.length === 0) return;
 
-  const [linkedGroups, unlinkedSum] = await Promise.all([
+  const [linkedGroups, unlinkedSum, returnRows] = await Promise.all([
     tx.supplierPayment.groupBy({
       by: ["invoiceId"],
       where: { supplierId, companyId, invoiceId: { not: null }, status: { not: "VOID" } },
@@ -40,16 +40,41 @@ async function reconcileSupplierInvoiceStatuses(
       where: { supplierId, companyId, invoiceId: null, status: { not: "VOID" } },
       _sum: { amount: true },
     }),
+    // A completed return against a PO is a credit note applied to that PO's
+    // invoice — it reduces what's owed on the bill, so the invoice can reach
+    // PAID once payments + credits cover it (not gross payments alone).
+    tx.supplierReturn.findMany({
+      where: { supplierId, companyId, status: "COMPLETED", purchaseOrderId: { not: null } },
+      select: {
+        purchaseOrderId: true,
+        lines: { select: { qty: true, unitCost: true, material: { select: { gstRate: true } } } },
+      },
+    }),
   ]);
   const linkedByInvoice = new Map(
     linkedGroups.map((g) => [g.invoiceId as string, new Decimal(g._sum.amount ?? 0)]),
   );
+  const creditByPo = new Map<string, Decimal>();
+  for (const r of returnRows) {
+    const total = r.lines.reduce(
+      (s, l) =>
+        s.plus(
+          new Decimal(l.qty).times(l.unitCost).times(new Decimal(1).plus(new Decimal(l.material.gstRate).div(100))),
+        ),
+      new Decimal(0),
+    );
+    const po = r.purchaseOrderId!;
+    creditByPo.set(po, (creditByPo.get(po) ?? new Decimal(0)).plus(total));
+  }
   let unlinkedAvailable = new Decimal(unlinkedSum._sum.amount ?? 0);
 
   const toMarkPaid: string[] = [];
   const toReopen: string[] = [];
   for (const inv of invoices) {
-    const need = new Decimal(inv.totalAmount).minus(linkedByInvoice.get(inv.id) ?? new Decimal(0));
+    const credit = inv.purchaseOrderId ? (creditByPo.get(inv.purchaseOrderId) ?? new Decimal(0)) : new Decimal(0);
+    const need = new Decimal(inv.totalAmount)
+      .minus(linkedByInvoice.get(inv.id) ?? new Decimal(0))
+      .minus(credit);
     const covered = need.lte(0) || unlinkedAvailable.gte(need);
     if (covered) {
       if (need.gt(0)) unlinkedAvailable = unlinkedAvailable.minus(need);

@@ -156,4 +156,70 @@ describe("Supplier payment → invoice reconciliation", () => {
     expect(oldAfter?.status).toBe("PAID");
     expect(newAfter?.status).toBe("APPROVED");
   });
+
+  it("a completed return on the PO counts as credit toward its invoice", async () => {
+    const { company, user, project, stockLocation, supplier } = await setup("10000");
+    const po = await prisma.purchaseOrder.create({
+      data: {
+        companyId: company.id,
+        supplierId: supplier.id,
+        projectId: project.id,
+        destinationLocationId: stockLocation.id,
+        poNumber: `PO-${Math.random().toString(36).slice(2, 8)}`,
+        procurementScope: "COMPANY",
+        status: "RECEIVED",
+      },
+    });
+    const inv = await prisma.supplierInvoice.create({
+      data: {
+        companyId: company.id,
+        supplierId: supplier.id,
+        purchaseOrderId: po.id,
+        invoiceNumber: `INV-${Math.random().toString(36).slice(2, 8)}`,
+        invoiceDate: new Date("2026-09-01"),
+        subtotal: new Decimal("10000"),
+        gstAmount: new Decimal(0),
+        totalAmount: new Decimal("10000"),
+        status: "APPROVED",
+      },
+    });
+    const category = await prisma.materialCategory.create({
+      data: { companyId: company.id, name: `Cat-${Math.random().toString(36).slice(2, 8)}` },
+    });
+    const material = await prisma.material.create({
+      data: {
+        companyId: company.id,
+        categoryId: category.id,
+        code: `MAT-${Math.random().toString(36).slice(2, 8)}`,
+        name: "Test Brick",
+        unit: "nos",
+        gstRate: new Decimal(18),
+      },
+    });
+    await prisma.supplierReturn.create({
+      data: {
+        returnNumber: `RET-${Math.random().toString(36).slice(2, 8)}`,
+        companyId: company.id,
+        supplierId: supplier.id,
+        purchaseOrderId: po.id,
+        locationId: stockLocation.id,
+        status: "COMPLETED",
+        lines: { create: [{ materialId: material.id, qty: new Decimal(100), unitCost: new Decimal(10) }] },
+      },
+    });
+    // Return credit = 100 × ₹10 × 1.18 = ₹1,180. Paying ₹8,820 leaves ₹1,180
+    // uncovered by cash — the return credit must settle it for the invoice to
+    // reach PAID. Before the fix it stayed APPROVED with a phantom shortfall.
+    await createSupplierPayment({
+      supplierId: supplier.id,
+      companyId: company.id,
+      invoiceId: inv.id,
+      amount: "8820",
+      paymentMode: "BANK_TRANSFER",
+      userId: user.id,
+    });
+
+    const after = await prisma.supplierInvoice.findUnique({ where: { id: inv.id } });
+    expect(after?.status).toBe("PAID");
+  });
 });
