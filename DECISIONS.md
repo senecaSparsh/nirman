@@ -503,3 +503,21 @@ Verified live: WO-0002 (₹3,00,000 advance, ₹55,200 recovered) blocked on
 ₹2,44,800 → wrote off → COMPLETED with JE `ADVANCE_WRITE_OFF`. Regression
 tests: 4 pass. Other transitions (PO partial→PARTIAL-not-RECEIVED, sale
 cancel guards, retention release, payroll lock) verified already correct.
+
+## 38. Cross-surface parity + dead-button/route sweep — clean
+
+- **Desktop WO complete** now opens an advance write-off dialog on unrecovered
+  balance (mirrors the mobile sheet + retention-override pattern). Both
+  surfaces handle the write-off consistently.
+- **Dead buttons**: none — every rendered action wires to a real handler.
+- **Missing routes**: none — every `/m/*` and desktop link resolves to a page.
+- **Offline DPR**: the field's most-used screen queues the submission on
+  no-signal and syncs later — correct field behavior.
+- **Permission gating**: buttons render only for roles with the permission AND
+  the right status; SoD is mirrored in visibility (creator never sees the pay
+  button) — no click→403 dead ends.
+
+**Session total: 5 real defects found + fixed** (WO advance GL, supplier-return
+credit→invoice, auto-scrap MAC, stranded advance on WO complete, unbilled MB on
+WO complete) + comprehensive verification across every invariant class, UI flow,
+offline, permission, and route. 1,707 services tests green.
