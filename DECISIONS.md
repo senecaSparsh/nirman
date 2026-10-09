@@ -418,3 +418,19 @@ Two real procurement controls confirmed: competitive-bidding quote gate, and eve
 - No bank-statement reconciliation model exists — the app models cash/UPI/NEFT directly (field-first), so statement-import matching isn't a module; AP/AR flows reconcile via invoice↔payment matching instead.
 
 **Every module now exercised live with real data** — procurement, inventory (issue/transfer/count/return/scrap/sale), contracting (BOQ→WO→MB→RA→pay + advance/retention), sales (book→collect→complete), HR (attendance→payroll→leave), fleet, equipment, CRM, notifications, approvals, delegation, change orders, print, reports, e-invoice.
+
+## 32. Invariant sweep — financial, stock, concurrency, offline
+
+Audited the "balance/amount field set without a backing journal" defect class
+across all services after the WO-advance fix. **Everything else is consistent:**
+
+- **Employee advances**: `issueEmployeeAdvance` posts `Dr ADVANCE_TO_EMP / Cr CASH` at issuance — the exact pattern the WO fix mirrors.
+- **Petty cash**: create/top-up/spend each post `Dr PETTY_CASH / Cr CASH` (or expense).
+- **Supplier balance**: `balanceOwed` increments on GRN (mirrors Cr AP), decrements on payment; payment void reverses the JE.
+- **Retention release**: guarded (COMPLETED + defect-liability period elapsed or explicit override) + posts `Dr Retention Payable / Cr Cash`.
+- **Double-entry controls**: RA bill `status !== "APPROVED"` blocks re-pay; supplier payment has a 15s identical-payment double-submit guard + over-payment caps vs PO/invoice totals; `raBillLineId:null` prevents double-billing an MB entry.
+- **Stock**: issue guards negative stock; transfers record transit shortage as `ADJUSTMENT_OUT` at source (no phantom destination stock).
+- **Concurrency**: optimistic lock (`409 CONCURRENT_EDIT` on stale version), `X-Idempotency-Key` dedupes retries, `NumberSequence` atomic upsert+increment in Serializable tx (per-company-per-day prefix).
+- **Offline queue**: IndexedDB-backed, ops stamped with companyId+userId (never replay cross-account), FIFO sync on online/focus, dead-letter for permanent failures, `/m/queue` management UI renders.
+
+**Net**: the WO-signing-advance gap was the sole defect in this class; the financial/stock/concurrency invariants are otherwise uniformly enforced.
