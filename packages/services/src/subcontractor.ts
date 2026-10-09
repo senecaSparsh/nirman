@@ -324,6 +324,24 @@ export async function completeWorkOrder(
       });
     }
 
+    // Approved-but-unbilled MB entries are measured work the contractor was
+    // never paid for — after completion no RA bill can claim them, so they
+    // would be stranded (verified work that never reaches a bill). Bill them
+    // first, or reject the measurement, but don't leave them limbo.
+    const woBoqItems = (await tx.subcontractorWorkOrderLine.findMany({
+      where: { workOrderId: id },
+      select: { boqItemId: true },
+    })).map((l) => l.boqItemId);
+    const unbilledMb = await tx.measurementBookEntry.count({
+      where: { boqItemId: { in: woBoqItems }, status: "APPROVED", raBillLineId: null },
+    });
+    if (unbilledMb > 0) {
+      throw new ServiceError(
+        `Cannot complete: ${unbilledMb} approved MB entr${unbilledMb === 1 ? "y is" : "ies are"} measured but never billed — no RA bill can claim them after completion. Bill them first, or reject the measurement.`,
+        400,
+      );
+    }
+
     const updated = await tx.subcontractorWorkOrder.update({
       where: { id },
       data: { status: "COMPLETED", endDate: wo.endDate ?? new Date() },

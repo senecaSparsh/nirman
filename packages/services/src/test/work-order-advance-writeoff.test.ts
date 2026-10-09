@@ -84,4 +84,33 @@ describe("completeWorkOrder — unrecovered advance guard", () => {
     expect(completed.status).toBe("COMPLETED");
     expect(new Decimal(completed.advanceWrittenOff).toString()).toBe("0");
   });
+
+  it("blocks completion while an approved MB entry is unbilled", async () => {
+    const wo = await createWoWithAdvance(company.id, project.id, 0);
+    const boqItem = await prisma.boqItem.create({
+      data: { projectId: project.id, serialNo: "1", description: "Conduit laying" },
+    });
+    await prisma.subcontractorWorkOrderLine.create({
+      data: {
+        workOrderId: wo.id,
+        boqItemId: boqItem.id,
+        agreedRate: new Decimal(100),
+      },
+    });
+    await prisma.measurementBookEntry.create({
+      data: {
+        projectId: project.id,
+        boqItemId: boqItem.id,
+        mbNumber: `MB-${Math.random().toString(36).slice(2, 10)}`,
+        measuredQty: new Decimal(10),
+        cumulativeQty: new Decimal(10),
+        description: "Measured run",
+        status: "APPROVED",
+        raBillLineId: null,
+      },
+    });
+    await expect(completeWorkOrder(wo.id, user.id)).rejects.toThrow(/never billed/);
+    const after = await prisma.subcontractorWorkOrder.findUnique({ where: { id: wo.id } });
+    expect(after?.status).toBe("ACTIVE");
+  });
 });
