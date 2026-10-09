@@ -378,3 +378,11 @@ Sold 20 cement bags @ ₹400 + 28% GST to a customer via `POST /api/material-sal
 - **Material sale** MS-20261009-0001: sold 20 bags @ ₹400+28% GST → revenue ₹10,240 + COGS ₹7,300 posted — correct double-entry.
 - **Supplier return** RET-20261009-0001: gate-pass enforced, credit note + ₹4,307 GL.
 - **Data-integrity**: optimistic lock (409 CONCURRENT_EDIT on stale write), idempotent POST (same X-Idempotency-Key → same record), e-invoice B2B guard.
+
+## 27. Notification delivery + full-module coverage confirmed
+
+- `NotificationLog` shows real delivery — `EQUIPMENT_ASSIGNED` and `GATE_PASS_APPROVED` fired to the right recipients (multi-user). Owner's own feed is correctly empty (he's the actor, not the recipient).
+- **Full inventory lifecycle verified**: procure (PO→GRN→3-way-match invoice→payment→PAID) → issue to site → transfer (gate-pass) → count/reconcile (variance → GL adjust) → return to supplier (gate-pass, credit note, GST reversal) → sell excess (revenue + COGS) → scrap generation.
+- Approvals queue honestly empty after processing — "Nothing to approve" renders correctly.
+
+The demo is a complete running company with every module exercised and GL-posted.
