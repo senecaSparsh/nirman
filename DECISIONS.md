@@ -442,3 +442,20 @@ across all services after the WO-advance fix. **Everything else is consistent:**
 - **Requisition→PO→receive**: REQ → approve → 3-quote gate → convert → PO-20261009-0002 (DRAFT→approve→order→receive) → 15,000 bricks + 800kg rebar landed at site store. Full site→procure→stock chain.
 
 The demo now exercises every cash/asset workflow including advances, petty cash, and requisition-driven procurement.
+
+## 34. SECOND REAL BUG FIXED — supplier-return credit never settled the invoice
+
+**Bug (fixed)**: A completed `SupplierReturn` reduced `supplier.balanceOwed` (the
+aggregate) but `reconcileSupplierInvoiceStatuses` only counted payments against
+`totalAmount`. An invoice with an associated return stayed APPROVED with a
+phantom residual even though the supplier was net-settled — a field user saw
+"₹4,307 unpaid" on a discharged bill. **Fix**: reconciliation now counts
+COMPLETED return credits (grouped by `purchaseOrderId`) toward coverage, so
+payments + credits ≥ total → PAID (`supplier-payment.ts`). Regression test added.
+Verified live: invoice reached PAID after paying the net ₹2,99,243 (₹4,307 credit
+applied). 32 supplier tests green.
+
+**Also verified**: supplier-payment **void** → JE reversal + invoice re-opens
+(PAID→APPROVED) + balance restored; requisition correctly marks CONVERTED with
+`convertedPoId` link (terminal — can't re-convert); petty cash + employee
+advance post GL at every step.
