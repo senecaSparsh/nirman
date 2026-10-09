@@ -586,3 +586,18 @@ home for the company) now opens from a project's hero button as a full-screen
 overlay rooted at the project — built units, WOs, materials, expenses, phases
 orbit as tappable chips. The orbit is already a generic entity explorer via
 /api/orbit?type=&id=, so it's reusable for customer/equipment/PO detail too.
+
+## 42. Site purchase — receiving material that arrived without a PO
+
+Verified live that receiving hard-requires an APPROVED PO — a real gap: urgent/
+cash buys at a gate can't be logged until the office raises one, so goods arrive
+
+- get used + never enter stock. But the PO-approval is a deliberate control
+  (storekeeper can't self-approve → phantom stock prevention). The fix isn't a
+  bypass — it's post-hoc review: `recordSitePurchase` lets a storekeeper
+  (INVENTORY_MANAGE) record the delivery, auto-creating a flagged PO
+  (quotationWaiverReason = "Site purchase — office review pending") behind the
+  receipt. Stock enters correctly; procurement sees the spend flagged. Vendor can
+  be picked or free-typed (unregistered local vendors auto-created). Route
+  POST /api/goods-receipts/quick, page /m/site/receive/quick, linked from the
+  receive empty-state ("Site bought it — record a cash purchase").
