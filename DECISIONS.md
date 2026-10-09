@@ -386,3 +386,9 @@ Sold 20 cement bags @ ₹400 + 28% GST to a customer via `POST /api/material-sal
 - Approvals queue honestly empty after processing — "Nothing to approve" renders correctly.
 
 The demo is a complete running company with every module exercised and GL-posted.
+
+## 28. Requisition→PO chain verified (site→procurement link)
+
+`POST /api/requisitions` → REQ-20261009-0001 (auto-submit + auto-approve for owner) → `convert` blocked by a **3-quote gate** ("0/3 quotes uploaded — upload more or waive (requires approver)") → waived with a reason → convert created **PO-20261009-0002** linking back to the requisition.
+
+Two real procurement controls confirmed: competitive-bidding quote gate, and every PO line requires a real unit cost (a ₹0 line rejected — `lineCosts` keyed by materialId). The site→procurement→receive chain is now fully exercised.
