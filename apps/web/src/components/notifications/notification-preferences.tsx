@@ -48,6 +48,10 @@ const EVENT_TYPES = [
   { value: "PROJECT_COST_ADDED", label: "Project Cost Added", group: "Finance" },
   { value: "SUPPLIER_INVOICE_SUBMITTED", label: "Supplier Invoice Submitted", group: "Finance" },
   { value: "GL_ENTRY_POSTED", label: "GL Entry Posted", group: "Finance" },
+
+  { value: "TASK_ASSIGNED", label: "Task Assigned", group: "Tasks" },
+  { value: "TASK_COMPLETED", label: "Task Completed", group: "Tasks" },
+  { value: "TASK_BLOCKED", label: "Task Blocked", group: "Tasks" },
 ];
 
 const CHANNELS = [
