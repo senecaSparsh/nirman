@@ -313,3 +313,16 @@ Exercised the full estimate→billing→payment loop with the seeded data: BOQ l
 **Segregation of duties enforced**: the bill's creator got `403 — "You cannot pay an RA bill you created or submitted — ask another authorized user"`; a different authorized user (FINANCE_HEAD, holds `ra.pay`) paid successfully. The person who certifies measurement ≠ who releases money — correct anti-fraud control.
 
 Every seeded transaction posted a correctly-classified journal entry — the GL audit trail is complete end-to-end (RA approval ₹4,72,000, material issue ₹70,350, goods receipt ₹3,03,550, sale ₹57,75,000 + deposits/payments).
+
+## 23. Payroll verified live end-to-end
+
+The demo now exercises the complete HR money loop: employee wage setup (monthlySalary per role) → `POST /api/payroll` generates a DRAFT period → each line pro-rates `monthlySalary/27 × daysWorked` (attendance-driven) → `process` → `pay` → GL posts.
+
+**Findings:**
+
+- **Data gap fixed**: employees had `monthlySalary: null` → payroll generated all-₹0 lines. Set realistic per-role salaries; regenerated with `confirm:true` (the draft-overwrite guard correctly required it).
+- **SoD on self-edit**: the OWNER's own salary PATCH correctly returned 403 — can't self-modify a tier-1 record. A co-owner/admin sets owner pay.
+- **Pay math verified**: e.g. ₹85,000/mo → ₹3,148.15 for 1 attendance day (÷27). Net total ₹14,074 for the month-to-date.
+- The whole chain posts to GL like every other money event.
+
+All modules now carry exercised, GL-posted data: procurement (PO→GRN→issue), contracts (BOQ→WO→MB→RA→paid), sales (book→collect→complete), HR (attendance→payroll→paid), tasks, leads, fleet.
