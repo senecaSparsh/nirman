@@ -266,6 +266,8 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
   const [actionLoading, setActionLoading] = useState(false);
   const [retentionRelease, setRetentionRelease] = useState<{ woId: string; error: string } | null>(null);
   const [overrideReason, setOverrideReason] = useState("");
+  const [advanceWriteOff, setAdvanceWriteOff] = useState<{ woId: string; error: string } | null>(null);
+  const [writeOffReason, setWriteOffReason] = useState("");
   // Local copy so freshly created projects appear in the dropdown without
   // waiting for router.refresh.
   const [localProjects, setLocalProjects] = useState<Project[]>(projects);
@@ -324,6 +326,11 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
           setRetentionRelease({ woId: id, error: data.error });
           setOverrideReason("");
         }
+        // If complete fails due to an unrecovered advance, open the write-off dialog
+        if (action === "complete" && data.error?.includes("unrecovered")) {
+          setAdvanceWriteOff({ woId: id, error: data.error });
+          setWriteOffReason("");
+        }
         throw new Error(data.error ?? "Failed");
       }
       toast.success(`Work order ${action === "issue" ? "issued" : action === "complete" ? "marked complete" : action === "release-retention" ? "retention released" : action === "pay-advance" ? "advance paid" : "updated"}`);
@@ -333,6 +340,7 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
     } catch (err: unknown) {
       // Don't double-toast if we already opened the override dialog
       if (action === "release-retention" && retentionRelease) return;
+      if (action === "complete" && advanceWriteOff) return;
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {
       setActionLoading(false);
@@ -343,6 +351,12 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
     if (!retentionRelease || !overrideReason.trim()) return;
     setRetentionRelease(null);
     await onAction(retentionRelease.woId, "release-retention", { overrideReason: overrideReason.trim() });
+  }
+
+  async function onAdvanceWriteOff() {
+    if (!advanceWriteOff || !writeOffReason.trim()) return;
+    setAdvanceWriteOff(null);
+    await onAction(advanceWriteOff.woId, "complete", { forgiveAdvanceReason: writeOffReason.trim() });
   }
 
   if (projects.length === 0) {
@@ -562,6 +576,41 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
               onClick={onRetentionOverride}
             >
               <Lock className="mr-1 h-3.5 w-3.5" /> Override & Release
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* ── Unrecovered advance write-off dialog ── */}
+      <Dialog
+        open={!!advanceWriteOff}
+        onOpenChange={(open) => { if (!open) setAdvanceWriteOff(null); }}
+        title="Advance Still Unrecovered"
+        description="Write off the unrecovered advance as a loss to complete"
+        className="max-w-md"
+      >
+        <div className="space-y-3">
+          <div className="rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3 text-xs text-amber-800 dark:text-amber-200">
+            {advanceWriteOff?.error}
+          </div>
+          <Field label="Write-off reason" required>
+            <Textarea
+              value={writeOffReason}
+              onChange={(e) => setWriteOffReason(e.target.value)}
+              placeholder="e.g. Contractor terminated mid-work, final settlement agreed…"
+              rows={3}
+              autoFocus
+            />
+          </Field>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => setAdvanceWriteOff(null)}>Cancel</Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={!writeOffReason.trim() || actionLoading}
+              onClick={onAdvanceWriteOff}
+            >
+              Write off & Complete
             </Button>
           </div>
         </div>
