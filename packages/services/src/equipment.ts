@@ -684,3 +684,78 @@ export async function getLatestMeter(equipmentId: string): Promise<number | null
   });
   return log?.closingMeter != null ? Number(log.closingMeter) : null;
 }
+
+// ───────────────────────────────────────────────────────────
+//  checkEquipmentMaintenanceDue — cron sweep: machines whose
+//  run-hours since last service crossed their serviceInterval
+//  (computeServiceStatus). Emits EQUIPMENT_MAINTENANCE_DUE,
+//  deduped per equipment per 7 days — fires once per due
+//  window, not every cron tick.
+// ───────────────────────────────────────────────────────────
+
+export async function checkEquipmentMaintenanceDue(): Promise<{
+  checked: number;
+  due: number;
+  notified: number;
+}> {
+  const { emitNotificationEvent, NotificationEventType } = await import("./notification-event-bus");
+
+  const now = new Date();
+  const dedupeSince = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const equipment = await prisma.equipment.findMany({
+    where: {
+      serviceIntervalHours: { not: null, gt: 0 },
+      deletedAt: null,
+      status: { notIn: ["RETIRED", "SOLD"] },
+    },
+    select: {
+      id: true,
+      name: true,
+      companyId: true,
+      serviceIntervalHours: true,
+      lastServiceMeter: true,
+    },
+  });
+
+  let due = 0;
+  let notified = 0;
+  for (const eq of equipment) {
+    const latestMeter = await getLatestMeter(eq.id);
+    const status = computeServiceStatus(
+      latestMeter,
+      eq.lastServiceMeter != null ? Number(eq.lastServiceMeter) : null,
+      eq.serviceIntervalHours != null ? Number(eq.serviceIntervalHours) : null,
+    );
+    if (!status?.dueNow) continue;
+    due++;
+
+    const recent = await prisma.inAppNotification.findFirst({
+      where: {
+        companyId: eq.companyId,
+        eventType: NotificationEventType.EQUIPMENT_MAINTENANCE_DUE,
+        createdAt: { gte: dedupeSince },
+        metadata: { path: ["equipmentId"], equals: eq.id },
+      },
+      select: { id: true },
+    });
+    if (recent) continue;
+
+    void emitNotificationEvent({
+      eventType: NotificationEventType.EQUIPMENT_MAINTENANCE_DUE,
+      companyId: eq.companyId,
+      entityType: "Equipment",
+      entityId: eq.id,
+      variables: {
+        equipmentId: eq.id,
+        equipmentName: eq.name,
+        hoursToService: status.hoursToService != null ? String(status.hoursToService) : "",
+        latestMeter: status.latestMeter != null ? String(status.latestMeter) : "",
+      },
+      timestamp: new Date(),
+    });
+    notified++;
+  }
+
+  return { checked: equipment.length, due, notified };
+}

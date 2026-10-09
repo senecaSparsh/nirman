@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { toNum } from "@/lib/utils";
 import { prisma } from "@nirman/db";
-import { sendRentDueReminders, sendPaymentDueReminders, processDueEscalations, checkMilestonePayments, processPendingNotifications, generateDueRentSchedules, generateDueRecurringExpenses, checkExpiringLegalDocs, checkExpiringEmploymentTerms, checkExpiringEmployeeDocs, checkDueSupplierInvoices, checkOverdueCapas, checkStaleStockCounts } from "@nirman/services";
+import { sendRentDueReminders, sendPaymentDueReminders, processDueEscalations, checkMilestonePayments, processPendingNotifications, generateDueRentSchedules, generateDueRecurringExpenses, checkExpiringLegalDocs, checkExpiringEmploymentTerms, checkExpiringEmployeeDocs, checkDueSupplierInvoices, checkOverdueCapas, checkStaleStockCounts, checkEquipmentMaintenanceDue } from "@nirman/services";
 import { apiHandler, json } from "@/lib/server";
 
 /**
@@ -47,7 +47,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   // 2-6. Run remaining sweeps in parallel
-  const [escalations, rentSchedule, rentReminders, saleReminders, notifications, recurringExpenses, legalDocs, employmentTerms, employeeDocs, supplierInvoices, overdueCapas, staleStockCounts] = await Promise.all([
+  const [escalations, rentSchedule, rentReminders, saleReminders, notifications, recurringExpenses, legalDocs, employmentTerms, employeeDocs, supplierInvoices, overdueCapas, staleStockCounts, equipmentMaintenance] = await Promise.all([
     processDueEscalations().catch(() => ({ checked: 0, escalated: 0 })),
     generateDueRentSchedules().catch(() => ({ checked: 0, created: 0 })),
     sendRentDueReminders().catch(() => ({ checked: 0, sent: 0 })),
@@ -72,6 +72,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
     checkOverdueCapas().catch(() => ({ checked: 0, overdue: 0, notified: 0 })),
     // Stock counts left in DRAFT/COUNTED >24h — a half-finished count blocks stock truth
     checkStaleStockCounts().catch(() => ({ checked: 0, stale: 0, notified: 0 })),
+    // Machines whose run-hours crossed their service interval — maintenance before breakdown
+    checkEquipmentMaintenanceDue().catch(() => ({ checked: 0, due: 0, notified: 0 })),
   ]);
 
   return json({
@@ -90,5 +92,6 @@ export const POST = apiHandler(async (req: NextRequest) => {
     supplierInvoices,
     overdueCapas,
     staleStockCounts,
+    equipmentMaintenance,
   });
 }, { skipSession: true, rateLimit: false });
