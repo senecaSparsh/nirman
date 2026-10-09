@@ -399,3 +399,15 @@ Two real procurement controls confirmed: competitive-bidding quote gate, and eve
 - **Payroll-lock integrity**: approving a leave after Oct payroll was PAID correctly refused — `400 — Attendance is locked — 10/2026 payroll is already paid. Correct it with an adjustment in the next period.` A settled payroll period can't be mutated retroactively; corrections go through the next period. Real payroll-integrity control surfaced by exercising it.
 
 **Requisition→PO** (`#28`) + leave-lock round out the request/approval surfaces.
+
+## 30. REAL BUG FIXED — WO signing advance over-recovery + more flows verified
+
+**Bug (fixed)**: `createWorkOrder` seeded `advanceAmount` (the recoverable balance — "total advance paid" per the RA-recovery comment) from input **without posting the disbursement**. `payAdvance` adds to the balance AND posts `Dr ADVANCE_TO_SUB / Cr CASH`, but create-time advance never left the ledger. A WO created with a ₹1.5L signing advance showed it recoverable with no cash recorded → RA bills over-recovered ₹1.5L from the subcontractor. **Fix**: create posts the same advance GL entry when `advanceAmount > 0` (`subcontractor.ts`). Regression test added (`work-orders/route.test.ts`).
+
+**Flows exercised live:**
+
+- **Requisition→PO**: REQ→(3-quote gate)→waive→convert→PO — site→procurement link.
+- **Leave**: approves on unlocked periods (Dec); correctly BLOCKED on a paid payroll period (Oct) — "correct with an adjustment in the next period."
+- **Change order**: ADDITION/client-request with schedule+cost impact.
+- **Delegation**: owner → PROJECT_DIRECTOR authority with expiry + note, verified active, revoked.
+- **Supplier return / equipment / material sale / scrap / stock count** — all post correct GL entries.
