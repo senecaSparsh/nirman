@@ -356,3 +356,13 @@ Every inventory + money operation posts a correctly-classified journal entry. Th
 - **Equipment**: mixer/vibrator/scaffold added (assetTag+name+cost), mixer assigned to Apex site store (project+location scoped), scheduled maintenance logged. Same gate-pass control as transfers — consistent.
 
 **Gate-pass is a uniform invariant**: any outbound material movement (issue-to-site transfer OR return-to-supplier) auto-creates a pass and blocks until approved. Correct site-security behavior.
+
+## 26. Data-integrity controls verified live
+
+Exercised the concurrency/replay guards with real requests:
+
+- **Optimistic locking** (Material.version): write v=2 → 200 (bumps to 3), retry same v=2 → `409 CONCURRENT_EDIT` — "expected version 2, but current version is 3. Please reload and try again." Stale writes can't silently clobber newer data.
+- **Idempotent mutations** (`X-Idempotency-Key`): two identical POST /api/tasks with the same key → both returned the same task id, no duplicate. The offline-replay safety a field user needs — a retried submit on flaky signal doesn't double-create.
+- **E-invoice eligibility**: `POST /api/e-invoice/asset-sale/[id]` on a B2C sale correctly rejected `400 — both company and customer must have GSTIN (B2B only)` — IRN generation enforces the statutory rule.
+- **Equipment**: assign + maintenance scoped to project/location.
+- **Supplier return**: gate-pass enforced on outbound (same invariant as transfers), credit note + GL `SUPPLIER_RETURN ₹4,307` (GST reversed correctly).
