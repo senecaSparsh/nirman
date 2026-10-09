@@ -8,6 +8,7 @@ import {
 import { MobileProjectPossession } from "./MobileProjectPossession";
 import { MobileProjectTabs } from "./MobileProjectTabs";
 import { MobileCheckMilestonesButton } from "./MobileCheckMilestonesButton";
+import { MobileProjectOrbitButton } from "./MobileProjectOrbitButton";
 import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatNumber, formatCurrencyCompact, formatDate } from "@/lib/utils";
@@ -160,6 +161,7 @@ export default function MobileProjectDetailPage({
         status={project.status}
         action={
           <div className="flex items-center gap-2">
+            <MobileProjectOrbitButton projectId={project.id} projectName={project.name} subtitle={typeLabel} />
             {perms.includes(PERM.SALES_VIEW) ? <MobileCheckMilestonesButton projectId={project.id} /> : null}
             {canManage && (
               <>
