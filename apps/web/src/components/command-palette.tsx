@@ -50,6 +50,7 @@ const ACTIONS: ActionItem[] = [
   { label: "Partition land parcel", hint: "CAD canvas", icon: LandPlot, href: "/land", keywords: ["partition", "split", "subdivide", "plot", "land", "canvas"] },
   { label: "Sell unit or plot", hint: "Asset sale", icon: ShoppingCart, href: "/sales", keywords: ["sell", "sale", "customer", "booking", "unit", "plot"] },
   { label: "Record expense", hint: "Operating expense", icon: Wallet, href: "/finance", keywords: ["expense", "spend", "operating"] },
+  { label: "Expense claims", hint: "Inside Finance", icon: Wallet, href: "/finance?tab=claims", keywords: ["claim", "claims", "reimbursement", "reimburse", "kharcha", "settlement"] },
   { label: "Add project cost", hint: "Capitalise into WIP", icon: TrendingUp, href: "/finance", keywords: ["project cost", "wip", "capitalise", "labour"] },
   { label: "View trial balance", hint: "General Ledger", icon: BookOpen, href: "/gl", keywords: ["trial balance", "ledger", "gl", "books", "accounting", "gst"] },
   { label: "Transfer stock", hint: "Between locations", icon: ScrollText, href: "/stock?tab=transfers", keywords: ["transfer", "move", "stock transfer", "sto"] },
