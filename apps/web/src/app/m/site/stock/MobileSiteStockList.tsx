@@ -5,9 +5,10 @@ import Link from "next/link";
 import {
   Package,
   ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight,
-  ArrowRight, Truck,
+  ArrowRight, Truck, PackageMinus,
   type LucideIcon,
 } from "lucide-react";
+import { MobileWastageSheet } from "./MobileWastageSheet";
 import { formatNumber } from "@/lib/utils";
 import { MobileSearchHeader, MobileNoResults, MobileSummaryStrip, MobileCardGrid } from "@/components/mobile/v2/scaffold";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
@@ -113,6 +114,7 @@ export function MobileSiteStockList({
   exportSummary?: string;
 }) {
   const [query, setQuery] = useState("");
+  const [showWastage, setShowWastage] = useState(false);
 
   const filteredLocations = useMemo(() => {
     if (!query.trim()) return locations;
@@ -147,7 +149,7 @@ export function MobileSiteStockList({
       />
 
       {/* ── Quick actions ── */}
-      <div className="grid grid-cols-2 gap-2 mb-3">
+      <div className="grid grid-cols-3 gap-2 mb-3">
         <Link
           href="/m/stock-out?mode=issue"
           className="flex items-center gap-2 rounded-[0.5rem] border px-3 py-2 text-m-body press"
@@ -188,6 +190,27 @@ export function MobileSiteStockList({
             </p>
           </div>
         </Link>
+        <button
+          type="button"
+          onClick={() => setShowWastage(true)}
+          className="flex items-center gap-2 rounded-[0.5rem] border px-3 py-2 text-m-body press text-left"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+        >
+          <span
+            className="grid place-items-center size-7 rounded-[0.375rem] shrink-0"
+            style={{ backgroundColor: "var(--color-concrete)" }}
+          >
+            <PackageMinus className="size-3.5" style={{ color: "var(--color-stop)" }} />
+          </span>
+          <div className="min-w-0">
+            <p className="text-m-body font-bold leading-tight" style={{ color: "var(--color-ink-950)" }}>
+              Record Wastage
+            </p>
+            <p className="text-m-caption leading-tight" style={{ color: "var(--color-ink-500)" }}>
+              Damaged / lost
+            </p>
+          </div>
+        </button>
       </div>
 
       {/* ── Sticky search header ── */}
@@ -302,6 +325,11 @@ export function MobileSiteStockList({
           </div>
         </div>
       ) : null}
+      <MobileWastageSheet
+        open={showWastage}
+        onClose={() => setShowWastage(false)}
+        locations={locations}
+      />
     </div>
   );
 }
