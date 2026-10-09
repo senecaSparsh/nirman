@@ -269,11 +269,13 @@ export async function postJournalEntry(
   }
 
   // Defensive: ensure all account codes exist in GlAccount before creating lines.
-  // If the database was reset (db:push) without re-seeding, the GlAccount table
-  // would be empty and the FK constraint on JournalLine.accountId would fail
-  // with a cryptic error. Give a clear error message instead.
-  // Also resolve accountCode → accountId (GlAccount PK changed from code to id
-  // for multi-tenant support — each company has its own chart of accounts).
+  // If the database was reset (db:push) without re-seeding, or a company was
+  // seeded before an account was added to the chart, the posting would fail
+  // the FK constraint on JournalLine.accountId. Self-heal known system
+  // accounts via ensureGlAccount (idempotent upsert); a code that isn't in
+  // CHART_OF_ACCOUNTS at all is a caller bug — still throw for that.
+  // Also resolves accountCode → accountId (GlAccount PK changed from code to
+  // id for multi-tenant support — each company has its own chart).
   const accountCodes = [...new Set(lines.map((l) => l.accountCode))];
   const glAccounts = await tx.glAccount.findMany({
     where: { companyId: input.companyId, code: { in: accountCodes } },
@@ -282,9 +284,22 @@ export async function postJournalEntry(
   if (glAccounts.length < accountCodes.length) {
     const found = new Set(glAccounts.map((g) => g.code));
     const missing = accountCodes.filter((c) => !found.has(c));
-    throw new ServiceError(
-      `Chart of accounts is not seeded — account codes [${missing.join(", ")}] are missing from GlAccount for this company. Run \`pnpm --filter @nirman/db seed\` or call seedChartOfAccounts(companyId) to fix this.`,
-    );
+    const unknown = missing.filter((c) => !CHART_OF_ACCOUNTS.some((a) => a.code === c));
+    if (unknown.length > 0) {
+      throw new ServiceError(
+        `Unknown GL account code(s) [${unknown.join(", ")}] — not in the chart of accounts. Add a CHART_OF_ACCOUNTS entry or fix the caller.`,
+      );
+    }
+    // Seed the missing system accounts into this company's chart, then re-read.
+    for (const code of missing) {
+      await ensureGlAccount(tx, input.companyId, code);
+    }
+    const healed = await tx.glAccount.findMany({
+      where: { companyId: input.companyId, code: { in: accountCodes } },
+      select: { id: true, code: true },
+    });
+    glAccounts.length = 0;
+    glAccounts.push(...healed);
   }
   const codeToId = new Map(glAccounts.map((g) => [g.code, g.id]));
 
