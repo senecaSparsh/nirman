@@ -214,7 +214,7 @@ export function MobilePayrollList({
                                 {formatCurrency(l.netPay)}
                               </p>
                               <button
-                                onClick={(e) => { e.stopPropagation(); window.open(`/print/payslip/${l.id}`, "_blank"); }}
+                                onClick={(e) => { e.stopPropagation(); window.open(`/m/print/payslip/${l.id}`, "_blank"); }}
                                 aria-label={`Payslip for ${l.employeeName}`}
                                 title="View payslip"
                                 className="shrink-0 p-1 press"

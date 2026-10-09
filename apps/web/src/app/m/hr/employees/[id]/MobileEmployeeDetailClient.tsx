@@ -1977,7 +1977,7 @@ function PayrollHistoryRow({ p, canManagePayroll, _employeeId }: { p: PayrollIte
           </a>
         )}
         <a
-          href={`/print/payslip/${p.id}`}
+          href={`/m/print/payslip/${p.id}`}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-1 text-m-label font-bold px-1.5 py-0.5 rounded-full press"

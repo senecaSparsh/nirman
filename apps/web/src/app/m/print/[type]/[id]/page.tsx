@@ -26,6 +26,7 @@ const PAGES: Record<string, () => Promise<{ default: PrintPage }>> = {
   "measurement-book": () => import("@/app/print/measurement-book/[id]/page"),
   "offer-letter": () => import("@/app/print/offer-letter/[id]/page"),
   "payment-receipt": () => import("@/app/print/payment-receipt/[id]/page"),
+  "payslip": () => import("@/app/print/payslip/[id]/page"),
   "purchase-order": () => import("@/app/print/purchase-order/[id]/page"),
   "requisition": () => import("@/app/print/requisition/[id]/page"),
   "sale-draft": () => import("@/app/print/sale-draft/[id]/page"),

@@ -631,7 +631,7 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
                   {/* Printable payslip — same data, formatted for handing to
                       a bank / saving as PDF. Opens the /print document. */}
                   <a
-                    href={`/print/payslip/${initial.hr.payslip.id}`}
+                    href={`/m/print/payslip/${initial.hr.payslip.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="mt-2.5 flex items-center justify-center gap-1.5 rounded-lg py-2 text-m-caption font-bold"
