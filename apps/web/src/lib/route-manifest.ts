@@ -582,6 +582,10 @@ export function canAccess(route: RouteEntry, permissions: string[], scopedPermis
 const TAB_BACKFILL: string[] = [
   "/m/home", "/m/inventory", "/m/hr", "/m/accounts", "/m/stock",
   "/m/procurement", "/m/sales", "/m/site", "/m/reports",
+  // Gate pass ranks ahead of the utility screens: a security guard's field
+  // tabs (/m/dprs, /m/stock) fail his permission set, and without this his
+  // only job surface — verifying passes at the gate — is 4 taps deep.
+  "/m/gate-pass",
   "/m/settings", "/m/me", "/m/queue",
   // Deliberately universal — last resort for the executive's fifth slot.
   "/m/approvals",
