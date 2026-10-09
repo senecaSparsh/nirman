@@ -477,3 +477,11 @@ return/void all consistent), `wo.retentionBalance` (hold/release), petty cash
 `reallocateProjectCosts`, plus a drift-detecting health check), AR (computed
 per-sale from GL, not cached — no drift possible). The 3 fixes were the only
 genuine stale-cache defects.
+
+## 36. Cached-aggregate sweep COMPLETE — 3 genuine defects, everything else self-healing
+
+- `PaymentScheduleItem.paidAmount` recomputes via `syncPaymentScheduleFromPayments` on every change (derived, not a drifting increment) — no stale-cache gap.
+- `AssetSale` paid state derives from non-VOID `AssetSalePayment` rows — a void naturally un-counts.
+- Confirmed MAC design is correct: `currentCost` only needs refresh after IN movements (`newMAC = oldMAC` on OUT); every IN path refreshes except the auto-scrap path now fixed.
+
+**Full-session invariant-sweep result: 3 real bugs found + fixed** (WO signing advance GL, supplier-return credit→invoice, auto-scrap MAC rollup), every other cached aggregate/denormalized field verified consistent or self-healing.
