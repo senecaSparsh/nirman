@@ -370,3 +370,11 @@ Exercised the concurrency/replay guards with real requests:
 ## 26b. Material sale + COGS posting verified
 
 Sold 20 cement bags @ ₹400 + 28% GST to a customer via `POST /api/material-sales` → MS-20261009-0001. Stock 338→318, revenue ₹10,240 posted AND `MATERIAL_SALE_COGS ₹7,300` (20×₹365 cost) — the ledger correctly recognizes revenue AND removes inventory at cost. Textbook double-entry for material sales (selling excess stock is a real construction-co revenue line).
+
+## 26c. Scrap + equipment + material-sale verified
+
+- **Scrap generation** SG-261009-0001: produced 45kg steel offcuts into the site store (rebar-cutting waste → `isScrap` material). Site waste → trackable scrap.
+- **Equipment**: mixer/vibrator/scaffold with asset tags; mixer assigned to site store; scheduled maintenance logged.
+- **Material sale** MS-20261009-0001: sold 20 bags @ ₹400+28% GST → revenue ₹10,240 + COGS ₹7,300 posted — correct double-entry.
+- **Supplier return** RET-20261009-0001: gate-pass enforced, credit note + ₹4,307 GL.
+- **Data-integrity**: optimistic lock (409 CONCURRENT_EDIT on stale write), idempotent POST (same X-Idempotency-Key → same record), e-invoice B2B guard.
