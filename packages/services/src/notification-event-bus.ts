@@ -954,13 +954,13 @@ const EVENT_MESSAGES: Partial<
   [NotificationEventType.LEAVE_REJECTED]: ({ s }) =>
     `Your ${s("leaveType") ? s("leaveType").toLowerCase() : ""} leave request was rejected${s("reason") ? `: ${s("reason")}` : ""}.`,
   [NotificationEventType.CLAIM_SUBMITTED]: ({ s, money }) =>
-    `Expense claim ${s("claimNumber") || ""} submitted by ${s("claimantName") || "an employee"}${money("total") ? ` — ${money("total")}` : ""} — needs approval.`,
+    `Expense claim submitted by ${s("claimantName") || "an employee"}${money("total") ? ` — ${money("total")}` : ""} — needs approval.`,
   [NotificationEventType.CLAIM_APPROVED]: ({ s, money }) =>
-    `Your expense claim ${s("claimNumber") || ""}${money("total") ? ` of ${money("total")}` : ""} was approved${s("approverName") ? ` by ${s("approverName")}` : ""}.`,
+    `Your expense claim${money("total") ? ` of ${money("total")}` : ""} was approved${s("approverName") ? ` by ${s("approverName")}` : ""}.`,
   [NotificationEventType.CLAIM_REJECTED]: ({ s }) =>
-    `Your expense claim ${s("claimNumber") || ""} was rejected${s("reason") ? `: ${s("reason")}` : ""}.`,
+    `Your expense claim was rejected${s("reason") ? `: ${s("reason")}` : ""}.`,
   [NotificationEventType.CLAIM_PAID]: ({ s, money }) =>
-    `Expense claim ${s("claimNumber") || ""} paid${money("total") ? ` — ${money("total")}` : ""}${s("paymentMode") ? ` via ${s("paymentMode")}` : ""}.`,
+    `Expense claim paid${money("total") ? ` — ${money("total")}` : ""}${s("paymentMode") ? ` via ${s("paymentMode")}` : ""}.`,
   [NotificationEventType.EXPENSE_APPROVED]: ({ s, money }) =>
     `Your expense${money("amount") ? ` of ${money("amount")}` : ""}${s("category") ? ` (${s("category")})` : ""} was approved${s("approverName") ? ` by ${s("approverName")}` : ""}.`,
   [NotificationEventType.EXPENSE_REJECTED]: ({ s, money }) =>

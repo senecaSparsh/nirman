@@ -254,7 +254,7 @@ export async function submitExpenseClaim(claimId: string, companyId: string, use
     excludeIds: [userId],
     entityType: "ExpenseClaim",
     entityId: claimId,
-    variables: { claimNumber: claimId, claimantName, total: claimTotal },
+    variables: { claimantName, total: claimTotal },
     timestamp: new Date(),
   });
   return updated;
@@ -364,7 +364,6 @@ export async function approveExpenseClaim(claimId: string, companyId: string, us
     entityType: "ExpenseClaim",
     entityId: claimId,
     variables: {
-      claimNumber: claimId,
       total: updated?.totalAmount?.toString() ?? "",
       approverName,
     },
@@ -404,7 +403,7 @@ export async function rejectExpenseClaim(claimId: string, companyId: string, rea
     excludeIds: [userId],
     entityType: "ExpenseClaim",
     entityId: claimId,
-    variables: { claimNumber: claimId, reason },
+    variables: { reason },
     timestamp: new Date(),
   });
   return updated;
@@ -474,7 +473,6 @@ export async function payExpenseClaim(
     entityType: "ExpenseClaim",
     entityId: claimId,
     variables: {
-      claimNumber: claimId,
       total: updated?.totalAmount?.toString() ?? "",
       paymentMode: payment.paymentMode,
     },
