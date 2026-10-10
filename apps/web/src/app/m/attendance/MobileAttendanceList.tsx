@@ -153,6 +153,7 @@ export function MobileAttendanceList({
       <div className="flex gap-2 mb-4">
         <input
           type="date"
+          aria-label="Filter by date"
           value={dateFilter}
           onChange={(e) => setDateFilter(e.target.value)}
           className="flex-1 rounded-[0.5rem] border px-2.5 py-1.5 text-m-body font-medium outline-none"
