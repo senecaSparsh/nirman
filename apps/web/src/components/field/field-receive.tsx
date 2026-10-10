@@ -357,15 +357,8 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
               No purchase orders awaiting receipt.
             </p>
             <p className="text-xs text-muted-foreground">
-              Material arriving without an order? The office must raise a purchase order first — receipts are always matched to one.
+              Ordered POs appear here for receipt. Material bought on-site without an order? Use the cash-purchase link below.
             </p>
-            <Link
-              href="/m/site/receive/quick"
-              className="inline-flex items-center gap-1.5 mt-1 text-m-caption font-bold text-primary press"
-            >
-              <PackageOpen className="h-3.5 w-3.5" />
-              Site bought it — record a cash purchase
-            </Link>
           </div>
         ) : (
           <select
@@ -481,6 +474,16 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
           </>
         )}
       </div>
+
+      {/* Site purchase — a surprise/cash delivery can arrive while regular POs
+         are also pending, so this stays available regardless of the list. */}
+      <Link
+        href="/m/site/receive/quick"
+        className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-2.5 text-m-caption font-bold text-muted-foreground press"
+      >
+        <PackageOpen className="h-3.5 w-3.5" />
+        Site bought it without an order? Record a cash purchase
+      </Link>
 
       {/* Lines */}
       {selectedPo && (
