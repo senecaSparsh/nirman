@@ -155,8 +155,8 @@ export function NotificationBell({ className, alertItems = [] }: { className?: s
         {badgeCount > 0 && (
           <span
             className={cn(
-              "absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-micro font-semibold text-white",
-              hasBlocking ? "bg-danger" : "bg-info",
+              "absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-micro font-semibold",
+              hasBlocking ? "bg-danger text-white" : "bg-info text-[var(--color-paper-2)]",
             )}
             aria-hidden
           >

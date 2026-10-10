@@ -337,9 +337,9 @@ input[type="number"] {
   --color-ink-950: #f5f1e8; /* headings — warm near-white          */
   --color-ink-900: #e8e3d8; /* body text                            */
   --color-ink-700: #b8b0a0; /* secondary text                       */
-  --color-ink-600: #9a9285; /* unselected chips                     */
-  --color-ink-500: #807868; /* captions                             */
-  --color-ink-400: #645e52; /* meta / placeholders                  */
+  --color-ink-600: #a39a8b; /* unselected chips                     */
+  --color-ink-500: #96907f; /* captions — ≥4.5:1 on paper-2 (WCAG AA) */
+  --color-ink-400: #8d8577; /* meta / placeholders — ≥4.5:1 on paper-2 */
   --color-ink-300: #4a443a; /* disabled                             */
 
   --color-paper: #1f1c16; /* cards — lighter than page bg         */
