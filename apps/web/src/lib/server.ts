@@ -1643,6 +1643,10 @@ async function getDevBypassUser() {
     if (testUser) {
       throw new Error(`[dev-bypass] x-test-user "${testUser}" matched no user — refusing to fall back to a privileged account`);
     }
+    // Same for x-test-role: a role that resolves to no user must fail loudly,
+    // not silently escalate to the first OWNER. A permission test that can't
+    // resolve its role running as superuser gives false confidence.
+    throw new Error(`[dev-bypass] x-test-role "${testRole}" matched no user — refusing to fall back to a privileged account`);
   }
 
   if (_devUser) return _devUser;

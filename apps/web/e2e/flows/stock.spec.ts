@@ -105,16 +105,26 @@ test.describe("@flow Stock: transfer / issue / count / scrap", () => {
     const material = data.materials.find((m: any) => m.id === AGGREGATE_10MM) ?? data.material;
     const project = data.projects.find((p: any) => p.id === HILLVIEW_PROJECT) ?? data.project;
 
+    // Pick a (material, location) pair that actually has stock — the seeded
+    // IDs above may not exist after a reseed, and an arbitrary first-record
+    // pair can have zero qty (which 400s). Query the live stock feed.
+    const stockResp = await ctx.get("/api/stock");
+    const stockRows: any[] = await stockResp.json();
+    const stocked = stockRows.find((s: any) => Number(s.qty) >= 3);
+    const issueLoc = stocked?.locationId ?? fromLoc.id;
+    const issueMat = stocked?.materialId ?? material.id;
+
     const issueQty = 3;
     const r = await ctx.post("/api/issue-materials", {
       data: {
         projectId: project.id,
-        fromLocationId: fromLoc.id,
+        fromLocationId: issueLoc,
         notes: `${TEST_PREFIX} issue to project`,
-        lines: [{ materialId: material.id, qty: issueQty }],
+        lines: [{ materialId: issueMat, qty: issueQty }],
       },
     });
-    expect(r.status(), "issue stock").toBeLessThan(300);
+    const issueBody = await r.json().catch(() => ({}));
+    expect(r.status(), `issue stock: ${issueBody.error ?? ""}`).toBeLessThan(300);
     const issue = await r.json();
     expect(issue.materialIssueId ?? issue.id).toBeTruthy();
 
