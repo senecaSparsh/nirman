@@ -1,9 +1,18 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@/test/render";
 
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
+}));
+
+const putPendingPhoto = vi.fn(async () => ({ id: "p1" }));
+const getPendingPhoto = vi.fn(async () => null);
+const deletePendingPhoto = vi.fn(async () => {});
+vi.mock("@/lib/offline/photo-store", () => ({
+  putPendingPhoto: (...args: unknown[]) => putPendingPhoto(...(args as [string, Blob, string?])),
+  getPendingPhoto: (...args: unknown[]) => getPendingPhoto(...(args as [string])),
+  deletePendingPhoto: (...args: unknown[]) => deletePendingPhoto(...(args as [string])),
 }));
 
 import { PhotoUploader } from "./photo-uploader";
@@ -62,5 +71,51 @@ describe("PhotoUploader", () => {
     const photos = [{ url: "https://example.com/1.jpg" }];
     render(<PhotoUploader photos={photos} onChange={vi.fn()} />);
     expect(screen.getByAltText("Photo 1")).toBeInTheDocument();
+  });
+
+  describe("offline photo retention", () => {
+    let fetchSpy: ReturnType<typeof vi.spyOn>;
+    beforeEach(() => {
+      fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Network error"));
+      Object.defineProperty(navigator, "onLine", { value: false, configurable: true });
+      vi.stubGlobal("URL", { ...URL, createObjectURL: vi.fn(() => "blob:mock-url") });
+    });
+    afterEach(() => {
+      fetchSpy.mockRestore();
+      Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
+      vi.unstubAllGlobals();
+      vi.clearAllMocks();
+    });
+
+    it("retains the photo as a pending preview when the upload fails offline", async () => {
+      const onChange = vi.fn();
+      const { container } = render(<PhotoUploader photos={[]} onChange={onChange} />);
+      const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+      const file = new File(["x".repeat(100)], "site.jpg", { type: "image/jpeg" });
+      // Fire the change event directly (userEvent upload goes through the same path).
+      const evt = new Event("change", { bubbles: true });
+      Object.defineProperty(input, "files", { value: [file], configurable: true });
+      input.dispatchEvent(evt);
+      await vi.waitFor(() => expect(putPendingPhoto).toHaveBeenCalled());
+      // onChange gets a photo whose url is the local blob preview + a pendingId ref.
+      const added = onChange.mock.calls.flat().flat()[0] as { url: string; pendingId?: string };
+      expect(added.url).toBe("blob:mock-url");
+      expect(added.pendingId).toBeTruthy();
+    });
+
+    it("does NOT retain when online (the error just toasts)", async () => {
+      Object.defineProperty(navigator, "onLine", { value: true, configurable: true });
+      const onChange = vi.fn();
+      const { container } = render(<PhotoUploader photos={[]} onChange={onChange} />);
+      const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+      const file = new File(["x"], "site.jpg", { type: "image/jpeg" });
+      const evt = new Event("change", { bubbles: true });
+      Object.defineProperty(input, "files", { value: [file], configurable: true });
+      input.dispatchEvent(evt);
+      await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalled());
+      await new Promise((r) => setTimeout(r, 0));
+      expect(putPendingPhoto).not.toHaveBeenCalled();
+      expect(onChange).not.toHaveBeenCalled();
+    });
   });
 });
