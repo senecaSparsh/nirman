@@ -38,7 +38,9 @@ export function MobileBackButton({
     <button
       onClick={goBack}
       aria-label="Go back"
-      className={`flex items-center press active:scale-95 ${className ?? ""}`}
+      // 44px tap target around the chevron — the header packs the icon tight,
+      // but a field user needs a larger hit area to reliably go back.
+      className={`flex items-center justify-center min-h-11 min-w-11 -ml-2 press active:scale-95 ${className ?? ""}`}
       style={style}
     >
       <ChevronLeft className={size} />

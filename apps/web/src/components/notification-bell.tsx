@@ -148,7 +148,7 @@ export function NotificationBell({ className, alertItems = [] }: { className?: s
           setOpen((v) => !v);
           if (!open) fetchNotifications();
         }}
-        className="relative flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        className="relative flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         aria-label={`Notifications${badgeCount > 0 ? ` (${badgeCount} unread)` : ""}`}
       >
         <Bell className="h-4 w-4" />

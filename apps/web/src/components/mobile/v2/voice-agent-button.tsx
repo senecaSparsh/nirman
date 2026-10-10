@@ -586,7 +586,7 @@ export function VoiceAgentButton() {
               ? "Stop speaking"
               : "Start voice command"
         }
-        className="press relative grid place-items-center size-9 rounded-[0.375rem] transition-colors"
+        className="press relative grid place-items-center size-11 rounded-[0.375rem] transition-colors"
         style={{ color, backgroundColor: bgColor }}
       >
         {phase === "thinking" ? (

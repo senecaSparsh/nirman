@@ -806,7 +806,7 @@ function MobileShellInner({
               <button
                 onClick={goBack}
                 aria-label="Go back"
-                className="press grid place-items-center size-8 rounded-[0.375rem] text-m-body"
+                className="press grid place-items-center size-11 -ml-2 rounded-[0.375rem] text-m-body"
                 style={{ color: "var(--color-ink-700)" }}
               >
                 <ChevronLeft className="size-5" />
@@ -816,7 +816,7 @@ function MobileShellInner({
               onClick={() => setNavSheetOpen(true)}
               aria-label="Open menu"
               data-tour="menu"
-              className="press grid place-items-center size-8 rounded-[0.375rem]"
+              className="press grid place-items-center size-11 -mr-1 rounded-[0.375rem]"
               style={{ color: "var(--color-ink-500)" }}
             >
               <MoreVertical className="size-5" />
@@ -968,7 +968,7 @@ function MobileShellInner({
               onClick={() => onSearchOpenChange(true)}
               aria-label="Open search"
               data-tour="search"
-              className="press grid place-items-center size-9 rounded-[0.375rem]"
+              className="press grid place-items-center size-11 rounded-[0.375rem]"
               style={{ color: "var(--color-ink-500)" }}
             >
               <Search className="size-4" />
