@@ -6,13 +6,13 @@ vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
 }));
 
-const putPendingPhoto = vi.fn(async () => ({ id: "p1" }));
-const getPendingPhoto = vi.fn(async () => null);
-const deletePendingPhoto = vi.fn(async () => {});
+const putPendingPhoto = vi.fn(async (_id: string, _blob: Blob, _fileName?: string) => ({ id: _id }));
+const getPendingPhoto = vi.fn(async (_id: string) => null as { id: string; blob: Blob; fileName?: string } | null);
+const deletePendingPhoto = vi.fn(async (_id: string) => {});
 vi.mock("@/lib/offline/photo-store", () => ({
-  putPendingPhoto: (...args: unknown[]) => putPendingPhoto(...(args as [string, Blob, string?])),
-  getPendingPhoto: (...args: unknown[]) => getPendingPhoto(...(args as [string])),
-  deletePendingPhoto: (...args: unknown[]) => deletePendingPhoto(...(args as [string])),
+  putPendingPhoto: (id: string, blob: Blob, fileName?: string) => putPendingPhoto(id, blob, fileName),
+  getPendingPhoto: (id: string) => getPendingPhoto(id),
+  deletePendingPhoto: (id: string) => deletePendingPhoto(id),
 }));
 
 import { PhotoUploader } from "./photo-uploader";
@@ -74,9 +74,9 @@ describe("PhotoUploader", () => {
   });
 
   describe("offline photo retention", () => {
-    let fetchSpy: ReturnType<typeof vi.spyOn>;
+    let fetchSpy: { mockRestore: () => void; mock: { calls: unknown[][] } };
     beforeEach(() => {
-      fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Network error"));
+      fetchSpy = vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("Network error")) as never;
       Object.defineProperty(navigator, "onLine", { value: false, configurable: true });
       vi.stubGlobal("URL", { ...URL, createObjectURL: vi.fn(() => "blob:mock-url") });
     });

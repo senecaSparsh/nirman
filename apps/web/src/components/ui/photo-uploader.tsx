@@ -130,8 +130,24 @@ export function PhotoUploader({
     let cancelled = false;
     async function resolvePending() {
       const pending = photos.filter((p) => p.pendingId);
-      if (pending.length === 0 || !navigator.onLine) return;
+      if (pending.length === 0) return;
       let next = photos;
+      // Restore dead previews first — a blob: URL doesn't survive a page
+      // reload, but the blob still lives in the pending store. Regenerate a
+      // fresh preview from it even while still offline so the draft's photo
+      // doesn't render broken.
+      for (const photo of pending) {
+        if (!photo.url.startsWith("blob:")) continue;
+        const stored = await getPendingPhoto(photo.pendingId!).catch(() => null);
+        if (stored) {
+          next = next.map((p) =>
+            p.pendingId === photo.pendingId ? { ...p, url: URL.createObjectURL(stored.blob) } : p,
+          );
+        }
+      }
+      if (!cancelled && next !== photos) onChange(next);
+      if (!navigator.onLine) return;
+      // Upload each retained blob -> swap the local preview for the real URL.
       for (const photo of pending) {
         try {
           // Peek (not take) — only drop the stored blob after the upload
