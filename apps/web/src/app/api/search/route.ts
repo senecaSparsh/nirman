@@ -32,7 +32,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const contains = { contains: q, mode: "insensitive" as const };
   // Location-scope filters for project/department-scoped users — search must
   // not become a side-channel that reveals records outside their scope.
-  const [scopeProject, scopePO, scopeReq, scopeUnit, scopeLand, scopeDPR, scopeEmployee, scopeSale, scopeLead] =
+  const [scopeProject, scopePO, scopeReq, scopeUnit, scopeLand, scopeDPR, scopeEmployee, scopeSale, scopeLead, scopeDP] =
     await Promise.all([
       scopeWhere("Project"),
       scopeWhere("PurchaseOrder"),
@@ -43,6 +43,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       scopeWhere("Employee"),
       scopeWhere("MaterialSale"),
       scopeWhere("Lead"),
+      scopeWhere("DirectPurchase"),
     ]);
 
   // Transfers aren't in SCOPE_FIELDS — the same endpoint-location rule the
@@ -87,6 +88,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
     sale: (id: string) => (desktop ? `/material-sales` : `/m/material-sales/${id}`),
     transfer: (id: string) => (desktop ? `/transfers` : `/m/transfers/${id}`),
     lead: (id: string) => (desktop ? `/leads` : `/m/leads/${id}`),
+    // No detail page for direct purchases — link to the list the record lives in.
+    directPurchase: (_id: string) => (desktop ? `/direct-purchases` : `/m/procurement?tab=cash-purchases`),
   };
 
   const [
@@ -104,6 +107,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
     materialSales,
     transfers,
     leads,
+    directPurchases,
   ] = await Promise.all([
     // Material is company-scoped (Material.companyId). Filter directly.
     // inventory.view gate — the catalogue page requires it; search must not
@@ -210,6 +214,18 @@ export const GET = apiHandler(async (req: NextRequest) => {
       take: 5,
       select: { id: true, name: true, phone: true, stage: true, project: { select: { name: true } } },
     }),
+    // Direct purchases (site/cash purchases) — findable by bill number or the
+    // vendor name the storekeeper typed. Procurement-view gated; scoped via
+    // the receiving location's project/department.
+    !has(PERM.PROCUREMENT_VIEW) ? [] : prisma.directPurchase.findMany({
+      where: {
+        companyId,
+        OR: [{ billNumber: contains }, { supplierName: contains }],
+        ...scopeDP,
+      },
+      take: 5,
+      select: { id: true, billNumber: true, supplierName: true, status: true },
+    }),
   ]);
 
   const results = [
@@ -272,6 +288,11 @@ export const GET = apiHandler(async (req: NextRequest) => {
       type: "lead", id: l.id, label: l.name,
       sublabel: [l.phone, l.project?.name, l.stage].filter(Boolean).join(" · "),
       href: HREF.lead(l.id),
+    })),
+    ...directPurchases.map((d) => ({
+      type: "direct_purchase", id: d.id, label: d.billNumber,
+      sublabel: [d.supplierName, d.status].filter(Boolean).join(" · "),
+      href: HREF.directPurchase(d.id),
     })),
   ];
 
