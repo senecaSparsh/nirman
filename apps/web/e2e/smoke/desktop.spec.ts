@@ -34,15 +34,18 @@ test.describe("Desktop smoke — all pages load (OWNER)", () => {
 test.describe("Desktop smoke — permission gating (SALES_MANAGER)", () => {
   // SALES_MANAGER lacks: INVENTORY_VIEW, PROCUREMENT_VIEW, HR_VIEW, finance perms.
   // (They DO have ASSETS_VIEW → equipment, GATE_PASS_VIEW → gate-passes, PROJECTS_VIEW.)
+  // `what` must match the text each page's <NoAccess what="…"> renders
+  // (the permission-area name, not the sidebar label). Redirect pages land on
+  // their target's NoAccess — /requisitions → /procurement, /expenses → /finance.
   const restrictedPages = [
-    { path: "/materials", what: "material catalogue" },
+    { path: "/materials", what: "material" },
     { path: "/stock", what: "stock" },
-    { path: "/requisitions", what: "material indents" },
+    { path: "/requisitions", what: "purchase orders" },
     { path: "/procurement", what: "purchase orders" },
-    { path: "/suppliers", what: "suppliers" },
-    { path: "/hr", what: "people" },
-    { path: "/finance", what: "books" },
-    { path: "/expenses", what: "expenses" },
+    { path: "/suppliers", what: "supplier" },
+    { path: "/hr", what: "HR module" },
+    { path: "/finance", what: "finance" },
+    { path: "/expenses", what: "finance" },
   ];
   for (const { path, what } of restrictedPages) {
     test(`${path} shows NoAccess for SALES_MANAGER`, async ({ rolePage }) => {

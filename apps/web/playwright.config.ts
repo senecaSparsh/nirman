@@ -45,7 +45,10 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "PORT=3100 pnpm dev:raw",
+    // Force AUTH_BYPASS for e2e — the role-switch fixtures (x-test-role) only
+    // work in bypass mode. Don't depend on the local .env's current value,
+    // which may be false when someone is testing real sign-in flows.
+    command: "AUTH_BYPASS=true NEXT_PUBLIC_AUTH_BYPASS=true PORT=3100 pnpm dev:raw",
     url: baseURL,
     timeout: 120_000,
     reuseExistingServer: !process.env.CI,
