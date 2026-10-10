@@ -594,10 +594,56 @@ cash buys at a gate can't be logged until the office raises one, so goods arrive
 
 - get used + never enter stock. But the PO-approval is a deliberate control
   (storekeeper can't self-approve → phantom stock prevention). The fix isn't a
-  bypass — it's post-hoc review: `recordSitePurchase` lets a storekeeper
-  (INVENTORY_MANAGE) record the delivery, auto-creating a flagged PO
-  (quotationWaiverReason = "Site purchase — office review pending") behind the
-  receipt. Stock enters correctly; procurement sees the spend flagged. Vendor can
-  be picked or free-typed (unregistered local vendors auto-created). Route
-  POST /api/goods-receipts/quick, page /m/site/receive/quick, linked from the
-  receive empty-state ("Site bought it — record a cash purchase").
+  bypass — it's post-hoc review via the **existing `direct-purchases` primitive**
+  (`createDirectPurchase`): a storekeeper (INVENTORY_MANAGE) records the delivery,
+  which creates a real DirectPurchase bill (free-text vendor name, no fabricated
+  PO) + a PURCHASE_RECEIPT stock movement. Stock enters correctly; procurement
+  sees the spend under the POs tab's "Cash purchases" section. (An earlier draft
+  auto-created a flagged PO — corrected: that duplicated the existing
+  `direct-purchases` subsystem.) Route POST /api/goods-receipts/quick (wraps
+  `createDirectPurchase` — field-facing wrapper, PROCUREMENT perms map to it),
+  page /m/site/receive/quick, a persistent "Site bought it — record a cash
+  purchase" link on the receive screen (always visible, not just empty-state).
+  Verified live: bill P-000001 landed in Cash purchases + stock posted to the
+  site store.
+
+## 43. Offline photos are retained + uploaded, not silently dropped
+
+A photo taken while offline failed `/api/uploads` and was dropped — every
+field-photo path (DPR site photos, proof-capture, receipts, inspections) lost
+the evidence silently. Knowledge-graph scoping (21 `PhotoUploader` callers)
+placed the fix in the shared uploader + offline queue, not per-form:
+
+- `lib/offline/photo-store.ts` (IndexedDB `nirman-photos`) retains the File blob
+  on offline upload-fail; the form shows a local `blob:` preview marked
+  "offline" (CloudOff badge).
+- `PhotoUploader` re-uploads pending photos on reconnect — peeks + deletes the
+  blob only on a successful upload (a failed retry keeps it).
+- The offline queue resolves `pendingPhotoIds` → real URLs before replaying an
+  op (`resolvePendingPhotos` in `queue.ts`), so a DPR submitted offline posts
+  working links, not dead `blob:` refs. DPR enqueue carries `pendingPhotoIds` +
+  filters blob URLs out of `photoUrls`.
+
+## 44. WCAG AA accessibility pass — contrast + labels fixed globally
+
+Ran axe-core across the mobile field surfaces (the accessibility-auditor
+persona's methodology) — fixed 19 violations, all surfaces now clean:
+
+- **Contrast** (18 on one screen): muted-ink tokens `--color-ink-400 #645e52` /
+  `--color-ink-500 #807868` sat at 2.4–3.9:1 on the dark surfaces (#16140f /
+  #1f1c16) — below the 4.5:1 AA floor on real readable text (tab labels, filter
+  chips, PO numbers, nav). Raised both to ≥4.5:1 on paper-2 (ink-400 ~5.5:1,
+  ink-500 ~5.8:1, ink-600 lightened to match); flipped the unread badge to dark
+  text on the light-blue info background. Propagates app-wide.
+- **Labels** (3 critical): floating-`<label>` form primitives didn't associate
+  with their controls. `FormField` (DPR/customer/sale) now injects
+  `aria-label=<label>` into input/select/textarea children; the shared
+  `UnderlineInput` + `SelectorModal` search inputs got `aria-label`.
+
+**Security + perf verified** (security-architect persona): `/api/uploads` is
+hardened (auth, company-scope, magic-byte verification, MIME allowlist, filename
+sanitize + UUID, off-public storage, auth-gated serving, rate-limit, size cap);
+IDOR prevented (every entity query is `companyId`+`scopeWhere`); no
+`dangerouslySetInnerHTML` on user content; better-auth secure cookies. Mobile
+pages are server-rendered (`Promise.all` data on the server, no client-fetch
+waterfall) — the field hub loads its data SSR-side.
