@@ -647,3 +647,23 @@ IDOR prevented (every entity query is `companyId`+`scopeWhere`); no
 `dangerouslySetInnerHTML` on user content; better-auth secure cookies. Mobile
 pages are server-rendered (`Promise.all` data on the server, no client-fetch
 waterfall) — the field hub loads its data SSR-side.
+
+## 45. UX workflow-check — 6 personas converged, 1 real fix
+
+Ran the ux-workflow-check skill's multi-persona first-person walkthrough until
+convergence (2 consecutive zero-gap rounds). Personas: first-timer-rushed storekeeper
+(site purchase), returning-offline engineer (queue), skeptical desktop admin
+(direct-purchase ledger), interrupted-mid-form (DPR draft), return-after-failure
+(queue retry), crew-supervisor "don't miss anyone" (bulk attendance).
+
+**One real fix**: a pending offline photo's `blob:` preview dies on reload —
+the draft restored `pendingId` but showed a broken img even though the blob
+was still in IndexedDB. `PhotoUploader.resolvePending` now regenerates a fresh
+preview URL from the stored blob on mount (even offline) before uploading on
+reconnect.
+
+**Verified solid for its persona**: site-purchase copy/validation; offline
+queue pending/failed/completed badges + "Synced N items" toast + failed→reason+
+retry+redo guidance + completed ops persist; DPR draft auto-save/restore/banner;
+attendance mark-all + per-worker flips + inline day-worker ("theke-wala") add +
+GPS + payroll-lock; direct purchases durable in the Cash-purchases ledger.
