@@ -287,6 +287,7 @@ export function UnderlineInput({
       </label>
       <input
         type={type}
+        aria-label={label}
         inputMode={inputMode}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -572,6 +573,7 @@ export function SelectorModal({
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
+                aria-label="Search"
                 placeholder="Search…"
                 autoFocus
                 className="w-full h-7 pl-8 pr-2 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
