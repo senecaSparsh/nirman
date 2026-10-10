@@ -15,8 +15,8 @@ interface Line { materialId: string; qty: string; unitCost: string }
 
 /**
  * Site purchase — the site bought material that arrived without a prior PO
- * (urgent/cash buy). Records the receipt + a flagged PO for office review, so
- * stock counts correctly and procurement sees the spend.
+ * (urgent/cash buy). Books a DirectPurchase (a bill under Cash purchases) +
+ * posts the goods into stock, so the office sees the spend correctly.
  */
 export function MobileSitePurchaseClient({
   suppliers,
@@ -73,7 +73,7 @@ export function MobileSitePurchaseClient({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Failed to record site purchase");
       haptic([10, 40, 80]);
-      toast.success(`Site purchase recorded — PO ${data.poNumber} flagged for office review`);
+      toast.success(`Site purchase recorded — bill ${data.billNumber} posted; the office sees it under Cash purchases`);
       router.push("/m/site/stock");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed");
@@ -88,7 +88,7 @@ export function MobileSitePurchaseClient({
   return (
     <div className="flex flex-col gap-4 px-1 pb-6">
       <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-        Material bought on site that arrived without a PO. Records the goods into stock + a flagged PO the office reviews — so the books stay honest.
+        Material bought on-site that arrived without a PO. Records the goods into stock + a bill the office sees under Cash purchases — so the books stay honest.
       </p>
 
       {/* Supplier — pick existing OR type a local vendor name */}
