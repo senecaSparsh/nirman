@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Children, isValidElement, cloneElement } from "react";
 import { useRouter } from "next/navigation";
 import { mutate } from "swr";
 import { Plus, X, CheckCircle2, AlertCircle, Repeat, Zap, Loader2, Send, MapPin, ScanLine, FolderOpen } from "lucide-react";
@@ -63,6 +63,16 @@ function FormField({
   required?: boolean;
   children: React.ReactNode;
 }) {
+  // The visual <label> isn't programmatically associated with the control
+  // (children are opaque React nodes), so give the control an aria-label of
+  // the same text — a screen-reader user hears "Date" not bare "edit text".
+  const labeled = Children.map(children, (child) =>
+    isValidElement(child) &&
+    (child.type === "input" || child.type === "select" || child.type === "textarea") &&
+    (child.props as Record<string, unknown>)["aria-label"] == null
+      ? cloneElement(child as React.ReactElement<Record<string, unknown>>, { "aria-label": label })
+      : child,
+  );
   return (
     <div>
       <label
@@ -72,7 +82,7 @@ function FormField({
         {label}
         {required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
       </label>
-      {children}
+      {labeled}
     </div>
   );
 }

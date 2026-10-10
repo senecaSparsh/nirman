@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, Children, isValidElement, cloneElement } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ShoppingCart, IndianRupee, Building2, MapPin, ShieldCheck, Plus, Trash2, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
@@ -83,6 +83,15 @@ function FormFieldSm({
   required?: boolean;
   children: React.ReactNode;
 }) {
+  // The visual <label> isn't associated with the control — give it an
+  // aria-label of the same text so screen readers announce the field name.
+  const labeled = Children.map(children, (child) =>
+    isValidElement(child) &&
+    (child.type === "input" || child.type === "select" || child.type === "textarea") &&
+    (child.props as Record<string, unknown>)["aria-label"] == null
+      ? cloneElement(child as React.ReactElement<Record<string, unknown>>, { "aria-label": label })
+      : child,
+  );
   return (
     <div>
       <label
@@ -92,7 +101,7 @@ function FormFieldSm({
         {label}
         {required ? <span style={{ color: "var(--color-stop)" }}> *</span> : null}
       </label>
-      {children}
+      {labeled}
     </div>
   );
 }
