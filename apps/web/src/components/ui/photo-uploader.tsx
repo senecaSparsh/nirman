@@ -1,13 +1,19 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import {Camera, X, Loader2, FileText} from "lucide-react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import {Camera, X, Loader2, FileText, CloudOff} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { putPendingPhoto, getPendingPhoto, deletePendingPhoto } from "@/lib/offline/photo-store";
 
-type Photo = {
+export type Photo = {
   url: string;
   fileName?: string;
+  /** Set when the upload failed offline — the File blob lives in the
+   * pending-photo store under this id and `url` is a local blob: preview.
+   * Re-uploaded on reconnect; forms submit pendingId refs so sync can resolve
+   * the real URL. */
+  pendingId?: string;
 };
 
 function isImageFile(photo: Photo): boolean {
@@ -56,6 +62,20 @@ export function PhotoUploader({
       if (!res.ok) throw new Error(data.error ?? "Upload failed");
       return { url: data.url, fileName: data.fileName };
     } catch (err) {
+      // Offline: keep the File — a photo taken at the point of capture (a
+      // challan, a cracked beam) is evidence that can't be retaken later.
+      // Retain the blob + show a local preview marked pending; it uploads on
+      // reconnect and the offline queue resolves the real URL before replay.
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        const id = crypto.randomUUID();
+        try {
+          await putPendingPhoto(id, file, file.name);
+          toast.success("Saved offline — photo will upload when you're back online");
+          return { url: URL.createObjectURL(file), fileName: file.name, pendingId: id };
+        } catch {
+          // IDB write failed — fall through to the generic error.
+        }
+      }
       toast.error(err instanceof Error ? err.message : "Upload failed");
       return null;
     }
@@ -95,10 +115,55 @@ export function PhotoUploader({
 
   const removePhoto = useCallback(
     (index: number) => {
+      const removed = photos[index];
+      if (removed?.pendingId) void deletePendingPhoto(removed.pendingId).catch(() => {});
       onChange(photos.filter((_, i) => i !== index));
     },
     [photos, onChange],
   );
+
+  // Reconnect: upload any photo retained offline — swap its local blob:
+  // preview for the real URL once connectivity returns so the submitted form
+  // carries a working link. Runs on mount (queued items may already be
+  // pending) and whenever the network comes back.
+  useEffect(() => {
+    let cancelled = false;
+    async function resolvePending() {
+      const pending = photos.filter((p) => p.pendingId);
+      if (pending.length === 0 || !navigator.onLine) return;
+      let next = photos;
+      for (const photo of pending) {
+        try {
+          // Peek (not take) — only drop the stored blob after the upload
+          // succeeds, so a failed retry doesn't lose the photo.
+          const stored = await getPendingPhoto(photo.pendingId!);
+          if (!stored) continue;
+          const formData = new FormData();
+          formData.append("file", stored.blob, stored.fileName ?? "photo.jpg");
+          const res = await fetch("/api/uploads", { method: "POST", body: formData });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error ?? "Upload failed");
+          if (cancelled) return;
+          await deletePendingPhoto(photo.pendingId!).catch(() => {});
+          next = next.map((p) =>
+            p.pendingId === photo.pendingId ? { url: data.url, fileName: data.fileName } : p,
+          );
+          toast.success(`Offline photo "${stored.fileName ?? "photo"}" uploaded`);
+        } catch {
+          // Still offline or the upload failed — leave it pending; the next
+          // reconnect retries. The blob stays in the store.
+        }
+      }
+      if (!cancelled && next !== photos) onChange(next);
+    }
+    resolvePending();
+    window.addEventListener("online", resolvePending);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("online", resolvePending);
+    };
+     
+  }, [photos, onChange]);
 
   const canAddMore = photos.length < maxPhotos;
 
@@ -132,6 +197,14 @@ export function PhotoUploader({
                     {photo.fileName?.split("/").pop() ?? "Document"}
                   </span>
                 </a>
+              )}
+              {photo.pendingId && (
+                <span
+                  className="absolute bottom-0 left-0 right-0 flex items-center justify-center gap-0.5 bg-warning/90 py-0.5 text-[8px] font-bold text-white"
+                  title="Saved offline — uploads when you're back online"
+                >
+                  <CloudOff className="h-2.5 w-2.5" /> offline
+                </span>
               )}
               <button
                 type="button"

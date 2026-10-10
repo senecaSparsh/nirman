@@ -379,6 +379,12 @@ async function syncQueueInner(
 
     const endpoint = ENDPOINTS[op.kind];
     try {
+      // Resolve pending photos captured offline: the op carries blob refs
+      // (pendingPhotoIds) whose real URLs don't exist yet — a blob: preview
+      // can't be posted. Upload each stored blob now, substitute the real
+      // URLs into photoUrls, then replay. A failed upload re-throws → the op
+      // stays PENDING and the next reconnect retries.
+      const payload = await resolvePendingPhotos(op.payload, fetchImpl);
       const res = await fetchImpl(endpoint, {
         method: "POST",
         headers: {
@@ -387,7 +393,7 @@ async function syncQueueInner(
           // retried POST replays the stored response instead of double-applying.
           "X-Idempotency-Key": op.id,
         },
-        body: JSON.stringify(op.payload),
+        body: JSON.stringify(payload),
         credentials: "include",
       });
       if (res.ok) {
@@ -420,4 +426,51 @@ async function syncQueueInner(
 /** True when the browser is online. */
 export function isOnline(): boolean {
   return typeof navigator !== "undefined" ? navigator.onLine : true;
+}
+
+// ── Pending photos ──────────────────────────────────────────────
+
+/**
+ * Resolve a queued op's offline-captured photos to real URLs.
+ *
+ * Forms that capture photos submit `pendingPhotoIds` (blob refs in the
+ * pending-photo store) alongside `photoUrls` (already-uploaded URLs). At sync
+ * we upload each stored blob, merge the real URLs into photoUrls, and drop
+ * the dead blob: previews — the posted payload then carries working links.
+ * A failed upload re-throws so the op stays PENDING for the next reconnect.
+ */
+async function resolvePendingPhotos(
+  payload: unknown,
+  fetchImpl: typeof fetch,
+): Promise<unknown> {
+  if (
+    typeof payload !== "object" ||
+    payload === null ||
+    !Array.isArray((payload as { pendingPhotoIds?: unknown }).pendingPhotoIds)
+  ) {
+    return payload;
+  }
+  const { pendingPhotoIds, ...rest } = payload as {
+    pendingPhotoIds: string[];
+    photoUrls?: string[];
+  };
+  if (pendingPhotoIds.length === 0) return rest;
+  const { getPendingPhoto, deletePendingPhoto } = await import("./photo-store");
+  const resolvedUrls: string[] = [];
+  for (const id of pendingPhotoIds) {
+    const stored = await getPendingPhoto(id).catch(() => null);
+    if (!stored) continue; // already resolved or cleared
+    const formData = new FormData();
+    formData.append("file", stored.blob, stored.fileName ?? "photo.jpg");
+    const res = await fetchImpl("/api/uploads", { method: "POST", body: formData, credentials: "include" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error ?? "Offline photo upload failed");
+    await deletePendingPhoto(id).catch(() => {});
+    if (data.url) resolvedUrls.push(data.url);
+  }
+  const photoUrls = [
+    ...(rest.photoUrls ?? []).filter((u) => !u.startsWith("blob:")),
+    ...resolvedUrls,
+  ];
+  return { ...rest, photoUrls };
 }

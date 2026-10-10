@@ -7,7 +7,7 @@ import { Plus, X, CheckCircle2, AlertCircle, Repeat, Zap, Loader2, Send, MapPin,
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { SearchableMaterialPicker } from "@/components/mobile/searchable-material-picker";
-import { PhotoUploader } from "@/components/ui/photo-uploader";
+import { PhotoUploader, type Photo } from "@/components/ui/photo-uploader";
 import { useDrafts } from "@/lib/offline/use-drafts";
 import { enqueue } from "@/lib/offline/queue";
 import { DraftBanner } from "@/components/mobile/draft-banner";
@@ -155,7 +155,7 @@ export function MobileDprForm({
   const [fBlockers, setFBlockers] = useState("");
   const [fTomorrow, setFTomorrow] = useState("");
   const [fNotes, setFNotes] = useState("");
-  const [fPhotos, setFPhotos] = useState<{ url: string; fileName?: string }[]>([]);
+  const [fPhotos, setFPhotos] = useState<Photo[]>([]);
   const [editingDprId, setEditingDprId] = useState<string | null>(null);
   const [draftRestored, setDraftRestored] = useState(false);
   const [lockOverrideReason, setLockOverrideReason] = useState("");
@@ -188,7 +188,7 @@ export function MobileDprForm({
     fBlockers: string;
     fTomorrow: string;
     fNotes: string;
-    fPhotos: { url: string; fileName?: string }[];
+    fPhotos: Photo[];
     materialLines: MaterialLine[];
     laborLines: LaborLine[];
   };
@@ -602,7 +602,7 @@ export function MobileDprForm({
           blockers: fBlockers || null,
           tomorrowPlan: fTomorrow || null,
           notes: fNotes || null,
-          photoUrls: fPhotos.map((p) => p.url),
+          photoUrls: fPhotos.filter((p) => !p.url.startsWith("blob:")).map((p) => p.url),
           materialLines: materialLines
             .filter((l) => l.materialId && Number(l.qty) > 0)
             .map((l) => ({
@@ -657,7 +657,11 @@ export function MobileDprForm({
             blockers: fBlockers || null,
             tomorrowPlan: fTomorrow || null,
             notes: fNotes || null,
-            photoUrls: fPhotos.map((p) => p.url),
+            // Photos retained offline carry blob: previews (useless server-
+            // side) — send their blob refs in pendingPhotoIds so sync uploads
+            // them first and substitutes the real URLs before replay.
+            photoUrls: fPhotos.filter((p) => !p.pendingId).map((p) => p.url),
+            pendingPhotoIds: fPhotos.filter((p) => p.pendingId).map((p) => p.pendingId!),
             materialLines: materialLines
               .filter((l) => l.materialId && Number(l.qty) > 0)
               .map((l) => ({ materialId: l.materialId, qty: Number(l.qty), unitCost: Number(l.unitCost) || 0 })),
