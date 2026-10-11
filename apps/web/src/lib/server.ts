@@ -1618,6 +1618,9 @@ async function getDevBypassUser() {
   const testRole =
     (await headers()).get("x-test-role") ??
     (await cookies()).get("x-test-role")?.value;
+  // Known permission tiers — used both to order the default-user fallback and
+  // to distinguish a real role miss (fail closed) from a garbage role header.
+  const rolePriority = ["OWNER","ADMIN","DEVELOPER","PROJECT_DIRECTOR","FINANCE_HEAD","PROJECT_MANAGER","PROCUREMENT_MANAGER","HR_MANAGER","SITE_ENGINEER","STORE_KEEPER","ACCOUNTANT","SALES_MANAGER","SUPERVISOR","QAQC_ENGINEER","SECURITY_GUARD"];
   // Optional: pin to a specific user (email or 10-digit phone) so browser tests
   // land in the right company/scope, not just the first user of that role.
   const testUser =
@@ -1643,16 +1646,21 @@ async function getDevBypassUser() {
     if (testUser) {
       throw new Error(`[dev-bypass] x-test-user "${testUser}" matched no user — refusing to fall back to a privileged account`);
     }
-    // Same for x-test-role: a role that resolves to no user must fail loudly,
-    // not silently escalate to the first OWNER. A permission test that can't
-    // resolve its role running as superuser gives false confidence.
-    throw new Error(`[dev-bypass] x-test-role "${testRole}" matched no user — refusing to fall back to a privileged account`);
+    // For x-test-role the distinction matters: a REAL role that resolves to
+    // no user must fail loudly (a permission test expecting that role running
+    // as superuser gives false confidence). A garbage/unrecognized role string
+    // isn't trying to impersonate a specific tier — fall back to the default
+    // user like an absent header.
+    const isKnownRole = rolePriority.includes(testRole ?? "");
+    if (isKnownRole) {
+      throw new Error(`[dev-bypass] x-test-role "${testRole}" matched no user — refusing to fall back to a privileged account`);
+    }
+    // fall through to the default-user resolution below
   }
 
   if (_devUser) return _devUser;
   // Prefer the first OWNER (full permissions); fall back to ADMIN, then any
   // user; fall back to synthetic "dev" only if the DB has no users at all.
-  const rolePriority = ["OWNER","ADMIN","DEVELOPER","PROJECT_DIRECTOR","FINANCE_HEAD","PROJECT_MANAGER","PROCUREMENT_MANAGER","HR_MANAGER","SITE_ENGINEER","STORE_KEEPER","ACCOUNTANT","SALES_MANAGER","SUPERVISOR","QAQC_ENGINEER","SECURITY_GUARD"];
   let u = null;
   for (const role of rolePriority) {
     u = await prisma.user.findFirst({

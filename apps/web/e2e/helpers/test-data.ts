@@ -10,20 +10,6 @@ import { request } from "@playwright/test";
 
 const BASE = "http://localhost:3100";
 
-async function fetchFirst(endpoint: string) {
-  const ctx = await request.newContext({ baseURL: BASE });
-  try {
-    const r = await ctx.get(endpoint);
-    if (!r.ok()) return null;
-    const data = await r.json();
-    return Array.isArray(data) ? data[0] : data;
-  } catch {
-    return null;
-  } finally {
-    await ctx.dispose();
-  }
-}
-
 async function fetchAll(endpoint: string): Promise<any[]> {
   const ctx = await request.newContext({ baseURL: BASE });
   try {
@@ -48,12 +34,13 @@ let _cache: Record<string, any> | null = null;
 
 export async function testData() {
   if (_cache) return _cache;
-  const [projects, suppliers, materials, stockLocations, customers] = await Promise.all([
+  const [projects, suppliers, materials, stockLocations, customers, employees] = await Promise.all([
     fetchAll("/api/projects"),
     fetchAll("/api/suppliers"),
     fetchAll("/api/materials"),
     fetchAll("/api/stock-locations"),
     fetchAll("/api/customers"),
+    fetchAll("/api/employees"),
   ]);
 
   const companyWarehouse = stockLocations.find((l: any) => l.type === "COMPANY_WAREHOUSE");
@@ -71,6 +58,8 @@ export async function testData() {
     stockLocations,
     customer: customers[0],
     customers,
+    employee: employees[0],
+    employees,
   };
   return _cache;
 }

@@ -107,6 +107,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
     revalidatePath("/m/hr");
     return json({ ok: true, id: period?.id }, { status: 201 });
   } catch (err: unknown) {
-    return json({ error: (err instanceof Error ? err.message : "Failed to generate payroll") }, { status: 400 });
+    // HrError carries the right status — a state conflict like "already PAID"
+    // is 409, not a malformed-request 400. Preserve it so clients can tell
+    // "already generated" apart from "bad input".
+    const status = (err as { status?: number })?.status ?? 400;
+    return json({ error: (err instanceof Error ? err.message : "Failed to generate payroll") }, { status });
   }
 });

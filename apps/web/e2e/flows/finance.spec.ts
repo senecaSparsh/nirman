@@ -32,17 +32,19 @@ test.describe("@flow Finance: expenses → GL → reports", () => {
     const expense = await r.json();
     expect(expense.id).toBeTruthy();
 
-    // ── 2. Verify the expense appears in the expenses UI ────────────
-    await page.goto("/expenses", { waitUntil: "domcontentloaded" });
-    await expectNoCrash(page);
-
-    // ── 3. Verify the GL page renders ───────────────────────────────
-    await page.goto("/gl", { waitUntil: "domcontentloaded" });
-    await expectNoCrash(page);
-
-    // ── 4. Verify the finance page renders ──────────────────────────
-    await page.goto("/finance", { waitUntil: "domcontentloaded" });
-    await expectNoCrash(page);
+    // ── 2–4. Verify the finance pages render. First-hit Turbopack compile
+    // can abort a navigation mid-flight (ERR_ABORTED) — retry once per page.
+    for (const path of ["/expenses", "/gl", "/finance"]) {
+      for (let nav = 0; nav < 2; nav++) {
+        try {
+          await page.goto(path, { waitUntil: "domcontentloaded" });
+          break;
+        } catch (err) {
+          if (nav === 1) throw err; // real failure on the retry
+        }
+      }
+      await expectNoCrash(page);
+    }
 
     await ctx.dispose();
   });

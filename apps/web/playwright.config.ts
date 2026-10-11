@@ -26,9 +26,17 @@ export default defineConfig({
   // mobile pages + 100+ desktop pages, 6 workers overwhelm the dev server
   // causing ERR_ABORTED / timeout failures that are NOT real bugs. 2 workers
   // keeps the server responsive while still parallelizing.
-  workers: process.env.CI ? 2 : 2,
+  // 1 worker: the flow tests write through withSerializableTransaction at
+  // Serializable isolation — parallel workers hit cross-test write conflicts
+  // (409 "concurrent transaction") that are environmental, not real bugs.
+  // Serial execution eliminates them; CI can override with more workers.
+  workers: process.env.CI ? 2 : 1,
   reporter: process.env.CI ? [["github"], ["list"]] : [["list"]],
-  timeout: 60_000,
+  // Multi-step flow tests hit several endpoints that each cold-compile under
+  // Turbopack dev (~30-60s each on first hit). 60s was too short for a flow
+  // touching 5+ cold routes — the cumulative compile time blew the budget.
+  // In CI (production build or warm cache) this is comfortably fast.
+  timeout: 180_000,
   expect: { timeout: 7_000 },
   use: {
     baseURL,
@@ -49,7 +57,10 @@ export default defineConfig({
     // work in bypass mode. Don't depend on the local .env's current value,
     // which may be false when someone is testing real sign-in flows.
     command: "AUTH_BYPASS=true NEXT_PUBLIC_AUTH_BYPASS=true PORT=3100 pnpm dev:raw",
-    url: baseURL,
+    // Poll /api/health, not "/" — the root page cold-compiles the whole app
+    // (heavy, >120s on Turbopack), so the health check would time out before
+    // a single test ran. The health route compiles alone + fast.
+    url: `${baseURL}/api/health`,
     timeout: 120_000,
     reuseExistingServer: !process.env.CI,
     stdout: "pipe",
