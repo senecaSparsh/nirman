@@ -1,7 +1,7 @@
 /**
  * Unit tests for Twilio service pure helpers.
  *
- *   normalizeTwilioNumber  — strip + and non-digits
+ *   normalizePhone  — strip + and non-digits
  *   isTwilioNumber         — check if a number belongs to the Twilio account
  *   mapTwilioCallStatus    — map Twilio status to our CallLog status
  *   mapTwilioDirection     — map Twilio direction to INBOUND/OUTBOUND/INTERNAL
@@ -10,8 +10,8 @@
 import { describe, it, expect } from "vitest";
 import { createHmac } from "crypto";
 import type { NextRequest } from "next/server";
+import { normalizePhone } from "@/lib/phone-otp";
 import {
-  normalizeTwilioNumber,
   isTwilioNumber,
   mapTwilioCallStatus,
   mapTwilioDirection,
@@ -19,25 +19,25 @@ import {
   verifyTwilioSignature,
 } from "./twilio-service";
 
-describe("normalizeTwilioNumber", () => {
+describe("normalizePhone", () => {
   it("strips leading + and non-digits", () => {
-    expect(normalizeTwilioNumber("+919876543210")).toBe("919876543210");
+    expect(normalizePhone("+919876543210")).toBe("919876543210");
   });
 
   it("strips spaces and dashes", () => {
-    expect(normalizeTwilioNumber("+91 98765-43210")).toBe("919876543210");
+    expect(normalizePhone("+91 98765-43210")).toBe("919876543210");
   });
 
   it("handles number without +", () => {
-    expect(normalizeTwilioNumber("919876543210")).toBe("919876543210");
+    expect(normalizePhone("919876543210")).toBe("919876543210");
   });
 
   it("handles empty string", () => {
-    expect(normalizeTwilioNumber("")).toBe("");
+    expect(normalizePhone("")).toBe("");
   });
 
   it("strips parentheses", () => {
-    expect(normalizeTwilioNumber("(91) 9876543210")).toBe("919876543210");
+    expect(normalizePhone("(91) 9876543210")).toBe("919876543210");
   });
 });
 

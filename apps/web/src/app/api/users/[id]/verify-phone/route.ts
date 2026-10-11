@@ -5,7 +5,7 @@ import { apiHandler, canManageRole, getActingRole, getCompany, json, requirePerm
 import { PERM } from "@/lib/roles";
 import { normalizePhone, generateOtpCode, OTP_CONFIG } from "@/lib/phone-otp";
 import { sendOtpSms } from "@/lib/otp-sms";
-import { isTwilioConfigured, normalizeTwilioNumber } from "@/lib/twilio-service";
+import { isTwilioConfigured } from "@/lib/twilio-service";
 
 /**
  * Phone verification + Twilio/call-tracking sync for a user.
@@ -179,7 +179,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     // Attempt Twilio sync — check if this phone matches any CompanyPhone
     let syncedWithTwilio = false;
     if (isTwilioConfigured()) {
-      const normalizedForTwilio = normalizeTwilioNumber(target.phone);
+      const normalizedForTwilio = normalizePhone(target.phone);
       const matchingCompanyPhone = await prisma.companyPhone.findFirst({
         where: {
           companyId: company.id,
@@ -225,7 +225,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       return json({ error: "Twilio is not configured. Add your Twilio numbers in Settings → Telephony first." }, { status: 400 });
     }
 
-    const normalizedForTwilio = normalizeTwilioNumber(target.phone);
+    const normalizedForTwilio = normalizePhone(target.phone);
 
     // Check if the phone exists as a CompanyPhone (synced from Twilio)
     const companyPhone = await prisma.companyPhone.findFirst({
@@ -312,7 +312,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
   let companyPhoneStatus: string | null = null;
 
   if (user.phoneNormalized && user.phone) {
-    const normalizedForTwilio = normalizeTwilioNumber(user.phone);
+    const normalizedForTwilio = normalizePhone(user.phone);
     const companyPhone = await prisma.companyPhone.findFirst({
       where: {
         companyId: company.id,

@@ -3,11 +3,8 @@ import { prisma } from "@nirman/db";
 import { apiHandler, getActingRole, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { logAction } from "@nirman/services";
-import {
-  isTwilioConfigured,
-  normalizeTwilioNumber,
-  purchaseTwilioNumber,
-} from "@/lib/twilio-service";
+import {isTwilioConfigured,purchaseTwilioNumber} from "@/lib/twilio-service";
+import { normalizePhone } from "@/lib/phone-otp";
 
 /**
  * POST /api/telephony/twilio/purchase — buy a number on the platform's
@@ -39,7 +36,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: "phoneNumber is required" }, { status: 400 });
   }
 
-  const normalized = normalizeTwilioNumber(phoneNumber);
+  const normalized = normalizePhone(phoneNumber);
 
   // Guard against double-provisioning: the number must not already be a
   // CompanyPhone for ANY company (providerNumberId is globally unique).
@@ -77,7 +74,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     data: {
       companyId: company.id,
       phoneNumber: purchased.phoneNumber,
-      phoneNormalized: normalizeTwilioNumber(purchased.phoneNumber),
+      phoneNormalized: normalizePhone(purchased.phoneNumber),
       numberType: "VIRTUAL",
       provider: "TWILIO",
       providerNumberId: purchased.sid,

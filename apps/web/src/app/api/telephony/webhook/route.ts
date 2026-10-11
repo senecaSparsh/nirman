@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { json } from "@/lib/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { normalizePhone } from "@/lib/phone-otp";
 import {
-  normalizeTwilioNumber,
   isSafeRecordingUrl,
   shouldRecordCall,
   parseTwilioPrice,
@@ -118,8 +118,8 @@ export const POST = async (req: NextRequest) => {
     }
 
     // ── Auto-match parties by phone number ──
-    const fromNorm = normalizeTwilioNumber(parsed.fromNumber);
-    const toNorm = normalizeTwilioNumber(parsed.toNumber);
+    const fromNorm = normalizePhone(parsed.fromNumber);
+    const toNorm = normalizePhone(parsed.toNumber);
 
     // Match the company phone number
     const companyPhone = await prisma.companyPhone.findFirst({

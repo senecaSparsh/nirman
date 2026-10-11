@@ -3,7 +3,8 @@ import { prisma } from "@nirman/db";
 import { getActingRole, apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { logAction } from "@nirman/services";
-import { fetchTwilioNumbers, normalizeTwilioNumber, configureNumberWebhook } from "@/lib/twilio-service";
+import {fetchTwilioNumbers,configureNumberWebhook} from "@/lib/twilio-service";
+import { normalizePhone } from "@/lib/phone-otp";
 
 /**
  * POST /api/telephony/twilio/sync-numbers — sync Twilio numbers into
@@ -42,7 +43,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const results: { sid: string; phoneNumber: string; action: "created" | "updated" | "unchanged" }[] = [];
 
   for (const twilioNum of twilioNumbers) {
-    const normalized = normalizeTwilioNumber(twilioNum.phoneNumber);
+    const normalized = normalizePhone(twilioNum.phoneNumber);
 
     // Check if this number already exists in ANY company (Twilio SIDs are globally unique).
     // A Twilio number can only belong to one company — if another company already

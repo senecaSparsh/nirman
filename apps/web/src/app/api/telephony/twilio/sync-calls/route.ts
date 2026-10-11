@@ -3,10 +3,10 @@ import { prisma } from "@nirman/db";
 import { getActingRole, apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { logAction } from "@nirman/services";
+import { normalizePhone } from "@/lib/phone-otp";
 import {
   fetchRecentCalls,
   fetchCallRecordings,
-  normalizeTwilioNumber,
   mapTwilioCallStatus,
   mapTwilioDirection,
   parseTwilioPrice,
@@ -61,8 +61,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const recordingMode = companyData?.recordingMode ?? "ALL";
 
   for (const call of twilioCalls) {
-    const fromNorm = normalizeTwilioNumber(call.from);
-    const toNorm = normalizeTwilioNumber(call.to);
+    const fromNorm = normalizePhone(call.from);
+    const toNorm = normalizePhone(call.to);
 
     // Check if either number belongs to this company
     const companyPhone = companyNumberMap.get(fromNorm) ?? companyNumberMap.get(toNorm);

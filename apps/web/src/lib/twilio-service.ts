@@ -1,5 +1,6 @@
 import TwilioSDK from "twilio";
 import type { NextRequest } from "next/server";
+import { normalizePhone } from "@/lib/phone-otp";
 
 type TwilioClient = TwilioSDK.Twilio;
 
@@ -474,14 +475,6 @@ export async function originateBridgedCall(opts: {
 // ── Helpers ──
 
 /**
- * Normalize a Twilio phone number (E.164) to our normalized format
- * (digits only, no leading +).
- */
-export function normalizeTwilioNumber(number: string): string {
-  return number.replace(/^\+/, "").replace(/\D/g, "");
-}
-
-/**
  * Check if a phone number belongs to the Twilio account (is a company
  * number, not an external number).
  */
@@ -489,8 +482,8 @@ export function isTwilioNumber(
   number: string,
   twilioNumbers: TwilioPhoneNumber[],
 ): boolean {
-  const normalized = normalizeTwilioNumber(number);
-  return twilioNumbers.some((n) => normalizeTwilioNumber(n.phoneNumber) === normalized);
+  const normalized = normalizePhone(number);
+  return twilioNumbers.some((n) => normalizePhone(n.phoneNumber) === normalized);
 }
 
 /**

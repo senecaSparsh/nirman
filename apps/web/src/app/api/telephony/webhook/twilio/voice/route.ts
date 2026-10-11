@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { json } from "@/lib/server";
-import { verifyTwilioSignature, normalizeTwilioNumber } from "@/lib/twilio-service";
+import { verifyTwilioSignature } from "@/lib/twilio-service";
+import { normalizePhone } from "@/lib/phone-otp";
 
 /**
  * POST /api/telephony/webhook/twilio/voice — Twilio voice webhook.
@@ -61,7 +62,7 @@ export const POST = async (req: NextRequest) => {
     // Look up the company + the dialed Twilio number to find the
     // assigned staff member. The `To` field is the Twilio number that
     // was dialed — match it to a CompanyPhone by normalized number.
-    const toNorm = normalizeTwilioNumber(toNumber);
+    const toNorm = normalizePhone(toNumber);
     const companyPhone = await prisma.companyPhone.findFirst({
       where: {
         companyId,

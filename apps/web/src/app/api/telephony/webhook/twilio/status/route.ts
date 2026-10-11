@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { json } from "@/lib/server";
+import { normalizePhone } from "@/lib/phone-otp";
 import {
-  normalizeTwilioNumber,
   mapTwilioCallStatus,
   mapTwilioDirection,
   parseTwilioPrice,
@@ -78,8 +78,8 @@ export const POST = async (req: NextRequest) => {
       return json({ error: "CallSid is required" }, { status: 400 });
     }
 
-    const fromNorm = normalizeTwilioNumber(fromNumber);
-    const toNorm = normalizeTwilioNumber(toNumber);
+    const fromNorm = normalizePhone(fromNumber);
+    const toNorm = normalizePhone(toNumber);
     const mappedStatus = mapTwilioCallStatus(callStatus);
     const mappedDirection = mapTwilioDirection(direction);
 
