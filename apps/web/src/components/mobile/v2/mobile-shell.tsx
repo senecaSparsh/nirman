@@ -52,6 +52,57 @@ import { roleToPersona, type Persona } from "@/lib/mobile-nav-v2";
 import { smartBack } from "@/lib/mobile-nav";
 import type { NavBootstrap } from "@/lib/server";
 
+/**
+ * Thin top progress bar for mobile navigation. App Router has no
+ * router.events, so we light the bar the instant a user taps any
+ * internal link (capture-phase listener) and clear it when the pathname
+ * actually changes — covering the silent window between tap and commit
+ * that made taps feel dead on slow loads.
+ */
+function NavProgressBar() {
+  const pathname = usePathname();
+  const [pending, setPending] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const onTap = (e: Event) => {
+      const el = e.target as HTMLElement;
+      const a = el?.closest?.('a[href^="/m/"], a[href="/"]') as HTMLAnchorElement | null;
+      if (!a || a.target === "_blank" || a.hasAttribute("download")) return;
+      if (timer.current) clearTimeout(timer.current);
+      setPending(true);
+      // Safety clear — a nav that never commits mustn't stick the bar.
+      timer.current = setTimeout(() => setPending(false), 12_000);
+    };
+    document.addEventListener("click", onTap, true);
+    return () => {
+      document.removeEventListener("click", onTap, true);
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, []);
+
+  // Navigation committed → the new pathname rendered → hide.
+  useEffect(() => {
+    setPending(false);
+    if (timer.current) clearTimeout(timer.current);
+  }, [pathname]);
+
+  if (!pending) return null;
+  return (
+    <div
+      aria-hidden
+      className="fixed inset-x-0 top-0 z-[200] h-0.5 overflow-hidden"
+      style={{ background: "var(--color-line)" }}
+    >
+      <div
+        className="h-full w-1/3 animate-[navProgress_0.9s_ease-in-out_infinite]"
+        style={{ background: "var(--color-signal)" }}
+      />
+      <style>{`@keyframes navProgress{0%{transform:translateX(-100%)}100%{transform:translateX(400%)}}`}</style>
+    </div>
+  );
+}
+
 // The assistant is a heavy client-only island (voice, chat thread) —
 // mount it lazily, same as the desktop AppShell does.
 const AssistantChat = dynamic(
@@ -789,6 +840,8 @@ function MobileShellInner({
           )}
         </div>
       )}
+
+      <NavProgressBar />
 
       {/* ══ HEADER — minimal, matches Nirman OS ══ */}
       {/* z-50 (not z-30): the header hosts overlays (notifications, company
