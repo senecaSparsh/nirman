@@ -1194,3 +1194,19 @@ feedback is routed to the DEVELOPER (god-mode) + OWNER + ADMIN accounts.
   not server-local Dates. Covered by `packages/services/src/hr.test.ts` across
   Asia/Kolkata, America/Los_Angeles, and UTC. Existing processed periods must not
   be silently rewritten; draft regeneration refreshes the date boundaries.
+
+## Audit Notes (2026-10-10)
+
+- **ErrorLog telemetry** — `ErrorLog` rows are readable via psql for triage:
+  `SELECT url, LEFT(message,60), stack FROM "ErrorLog" ORDER BY "createdAt" DESC`.
+  So far all captured errors are the documented Turbopack dev-cache desync class
+  (`React is not defined`, `Failed to fetch RSC payload`, `measure on Performance`)
+  that ChunkErrorRecovery auto-heals — not product bugs. A NEW recurring message
+  = a real bug worth triaging.
+- **Idempotency** — mutations accept `X-Idempotency-Key` (handled centrally in
+  `apiHandler`, `src/lib/server.ts`): body-hash rejects wrong-payload reuse with
+  422; successful responses are stored + replayed with `X-Idempotent-Replay`. The
+  offline queue sends each op's UUID as the key — retried syncs are safe.
+- **Phone OTP** — `sendOtpSms` (`src/lib/otp-sms.ts`) is the single SMS sender
+  (MSG91 → Twilio fallback). Staff `verify-phone` and the portal OTP both use it.
+  Both enforce `OTP_CONFIG.MAX_ATTEMPTS` on the `PhoneOtp.attempts` column.
