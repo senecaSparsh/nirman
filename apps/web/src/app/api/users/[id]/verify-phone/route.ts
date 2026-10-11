@@ -25,10 +25,20 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   // Load the target user
   const target = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, phone: true, phoneNormalized: true, phoneVerified: true, role: true, active: true },
+    select: { id: true, companyId: true, phone: true, phoneNormalized: true, phoneVerified: true, role: true, active: true },
   });
 
   if (!target) {
+    return json({ error: "User not found" }, { status: 404 });
+  }
+
+  // Verify the target user is a member of the actor's current company
+  // (prevents cross-tenant phone verification/sync — same check as /users/[id]).
+  const targetMembership = await prisma.userCompany.findFirst({
+    where: { userId, companyId: company.id },
+    select: { id: true },
+  });
+  if (!targetMembership && target.companyId !== company.id) {
     return json({ error: "User not found" }, { status: 404 });
   }
 
@@ -134,10 +144,16 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     }
 
     if (otpRecord.code !== code) {
-      await prisma.phoneOtp.update({
-        where: { id: otpRecord.id },
+      // Conditional increment — atomic check+update so concurrent wrong
+      // guesses can't both pass the attempts check (TOCTOU). count 0 means
+      // a parallel request exhausted the last attempt.
+      const bumped = await prisma.phoneOtp.updateMany({
+        where: { id: otpRecord.id, attempts: { lt: OTP_CONFIG.MAX_ATTEMPTS } },
         data: { attempts: { increment: 1 } },
       });
+      if (bumped.count === 0) {
+        return json({ error: "Too many attempts. Please request a new code." }, { status: 429 });
+      }
       const remaining = OTP_CONFIG.MAX_ATTEMPTS - (otpRecord.attempts + 1);
       return json(
         { error: `Incorrect code. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.` },
@@ -273,10 +289,20 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { phone: true, phoneNormalized: true, phoneVerified: true, phoneVerifiedAt: true, phoneSyncedAt: true },
+    select: { companyId: true, phone: true, phoneNormalized: true, phoneVerified: true, phoneVerifiedAt: true, phoneSyncedAt: true },
   });
 
   if (!user) {
+    return json({ error: "User not found" }, { status: 404 });
+  }
+
+  // Same membership check as POST — the phone/verification status is private
+  // to the user's company.
+  const userMembership = await prisma.userCompany.findFirst({
+    where: { userId, companyId: company.id },
+    select: { id: true },
+  });
+  if (!userMembership && user.companyId !== company.id) {
     return json({ error: "User not found" }, { status: 404 });
   }
 
