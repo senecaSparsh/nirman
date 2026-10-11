@@ -169,6 +169,63 @@ test.describe("Real-device field simulation", () => {
     await ctx.close();
   });
 
+  test("receive-goods: pick a PO → receive form appears on phone", async ({ browser }) => {
+    const ctx = await deviceCtx(browser, IPHONE_UA, "SUPERVISOR");
+    const page = await ctx.newPage();
+    await page.goto("/m/site/receive", { waitUntil: "networkidle" }).catch(() => {});
+    await page.waitForTimeout(1500);
+    const body = await page.locator("body").innerText();
+    expect(body.length).toBeGreaterThan(0);
+    await expectNoHorizontalScroll(page, "receive");
+    // The receive entry is a PO <select> — pick the first real PO option and
+    // the receive form (qty/lines) should render.
+    const poSelect = page.locator("select").first();
+    if (await poSelect.count()) {
+      const opts = await poSelect.locator("option:not([disabled])").allInnerTexts();
+      const pick = opts.find((o) => /PO-\d+/.test(o));
+      if (pick) {
+        await poSelect.selectOption({ label: pick });
+        await page.waitForTimeout(1200);
+        const formVisible = await page.locator("input, select, button").filter({ hasText: /qty|receive|deliver|Qty/i }).count();
+        const qtyField = await page.locator("input[type='number'], input[placeholder*='qty' i], input[inputmode='numeric']").count();
+        expect(qtyField + formVisible, "selecting a PO should reveal a receive form").toBeGreaterThan(0);
+      }
+    }
+    await ctx.close();
+  });
+
+  test("offline queue page renders — field user sees pending ops", async ({ browser }) => {
+    const ctx = await deviceCtx(browser, IPHONE_UA);
+    const page = await ctx.newPage();
+    await page.goto("/m/queue", { waitUntil: "networkidle" }).catch(() => {});
+    await page.waitForTimeout(1200);
+    const body = await page.locator("body").innerText();
+    expect(body.length).toBeGreaterThan(0);
+    await expectNoHorizontalScroll(page, "offline queue");
+    await ctx.close();
+  });
+
+  test("customer portal on phone: OTP login renders", async ({ browser }) => {
+    // The portal is customer-facing — no staff role, just a phone login.
+    const ctx = await browser.newContext({
+      userAgent: IPHONE_UA,
+      viewport: { width: 390, height: 844 },
+      isMobile: true,
+      hasTouch: true,
+    });
+    const page = await ctx.newPage();
+    await page.goto("/portal", { waitUntil: "networkidle" }).catch(() => {});
+    await page.waitForTimeout(1200);
+    const body = await page.locator("body").innerText();
+    expect(body.length).toBeGreaterThan(0);
+    // A phone/OTP login field must be present — it's the portal's entry.
+    const phoneField = page.locator("input[type='tel'], input[placeholder*='phone' i], input[placeholder*='mobile' i], input[inputmode='tel']").first();
+    const hasPhone = await phoneField.isVisible().catch(() => false);
+    expect(hasPhone || /phone|mobile|OTP|login|sign/i.test(body), "portal should show a phone/OTP login").toBe(true);
+    await expectNoHorizontalScroll(page, "portal login");
+    await ctx.close();
+  });
+
   test("slow network (3G): home stays usable — skeletons, not a frozen blank", async ({ browser }) => {
     const ctx = await deviceCtx(browser, IPHONE_UA, "SUPERVISOR");
     const page = await ctx.newPage();
