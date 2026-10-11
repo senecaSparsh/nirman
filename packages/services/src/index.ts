@@ -43,6 +43,7 @@ export {
   projectTotalCost,
   projectRevenue,
   projectPnl,
+  projectPnlBatch,
   reallocateProjectCosts,
   getCompanyPortfolioSummary,
   getRealEstateInventory,

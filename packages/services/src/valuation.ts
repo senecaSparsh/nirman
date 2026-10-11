@@ -1,6 +1,5 @@
-import { prisma, type Prisma } from "@nirman/db";
+import { prisma, Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
-import { ServiceError } from "./errors";
 import { logAction } from "./audit";
 
 /**
@@ -66,21 +65,18 @@ export function computeCostAllocation(input: {
  * Value = Σ StockLocationItem.qty × StockLocationItem.movingAvgCost
  */
 export async function materialInventoryValue(companyId: string): Promise<Decimal> {
-  const items = await prisma.stockLocationItem.findMany({
-    where: {
-      location: {
-        deletedAt: null,
-        companyId,
-      },
-      material: { deletedAt: null },
-    },
-    select: { qty: true, movingAvgCost: true },
-  });
-
-  return items.reduce(
-    (sum, item) => sum.plus(new Decimal(item.qty).times(new Decimal(item.movingAvgCost))),
-    new Decimal(0),
-  );
+  // DB-side SUM(qty × movingAvgCost) — avoids hydrating every StockLocationItem
+  // row (material × location grows with catalogue size) just to sum them.
+  const [row] = await prisma.$queryRaw<{ total: number }[]>(Prisma.sql`
+    SELECT COALESCE(SUM(sli.qty * sli."movingAvgCost"), 0)::float8 AS total
+    FROM "StockLocationItem" sli
+    JOIN "StockLocation" l ON l.id = sli."locationId"
+    JOIN "Material" m ON m.id = sli."materialId"
+    WHERE l."companyId" = ${companyId}
+      AND l."deletedAt" IS NULL
+      AND m."deletedAt" IS NULL
+  `);
+  return new Decimal(row?.total ?? 0);
 }
 
 /**
@@ -167,39 +163,27 @@ export async function projectTotalCost(projectId: string): Promise<{
   costRecovery: Decimal;
   total: Decimal;
 }> {
-  const [lines, projectCosts, landPurchases] = await Promise.all([
-    // Materials: Σ (qty × unitCost) per line — Prisma can't multiply in aggregate,
-    // so fetch lines and compute. For large datasets this could be a raw SQL query.
-    prisma.materialIssueLine.findMany({
-      where: { materialIssue: { projectId } },
-      select: { qty: true, unitCost: true },
-    }),
-    // ProjectCost doesn't have a single "amount" aggregate easily since costType varies;
-    // sum all amounts
-    prisma.projectCost.findMany({
-      where: { projectId },
-      select: { amount: true },
-    }),
-    prisma.landPurchase.findMany({
-      where: { projectId, deletedAt: null },
-      select: { totalCost: true },
-    }),
-  ]);
-
-  const materials = lines.reduce(
-    (sum, l) => sum.plus(new Decimal(l.qty).times(new Decimal(l.unitCost))),
-    new Decimal(0),
-  );
-
-  const labour = projectCosts.reduce(
-    (sum, c) => sum.plus(new Decimal(c.amount)),
-    new Decimal(0),
-  );
-
-  const land = landPurchases.reduce(
-    (sum, p) => sum.plus(new Decimal(p.totalCost)),
-    new Decimal(0),
-  );
+  // DB-side aggregation — a single round trip returning 4 column sums instead
+  // of hydrating every issue/cost/land/scrap line to reduce in JS (a mature
+  // project has thousands of lines). Σ(qty × unitCost) can't be expressed in
+  // a Prisma aggregate, so raw SQL it is (same pattern as stock-movement-summary).
+  const [row] = await prisma.$queryRaw<{
+    materials: number; labour: number; land: number; costRecovery: number;
+  }[]>(Prisma.sql`
+    SELECT
+      COALESCE((SELECT SUM(mil.qty * mil."unitCost")
+        FROM "MaterialIssueLine" mil
+        JOIN "MaterialIssue" mi ON mi.id = mil."materialIssueId"
+        WHERE mi."projectId" = ${projectId}), 0)::float8 AS materials,
+      COALESCE((SELECT SUM(amount) FROM "ProjectCost"
+        WHERE "projectId" = ${projectId}), 0)::float8 AS labour,
+      COALESCE((SELECT SUM("totalCost") FROM "LandPurchase"
+        WHERE "projectId" = ${projectId} AND "deletedAt" IS NULL), 0)::float8 AS land,
+      COALESCE((SELECT SUM(sgl.qty * sgl."unitCost")
+        FROM "ScrapGenerationLine" sgl
+        JOIN "ScrapGeneration" sg ON sg.id = sgl."scrapGenerationId"
+        WHERE sg."projectId" = ${projectId}), 0)::float8 AS "costRecovery"
+  `);
 
   // Scrap generation value linked to this project — the scrap value was
   // already recovered from WIP at generation time (Dr Inventory / Cr WIP via
@@ -211,15 +195,10 @@ export async function projectTotalCost(projectId: string): Promise<{
   // but that double-counted with the WIP credit at generation. The scrap sale
   // revenue is now recognized separately in the GL via COST_RECOVERY (4100) at
   // sale time, and does NOT reduce the project cost in the costing layer.
-  const scrapGenerations = await prisma.scrapGenerationLine.findMany({
-    where: { scrapGeneration: { projectId } },
-    select: { qty: true, unitCost: true },
-  });
-  const costRecovery = scrapGenerations.reduce(
-    (sum, l) => sum.plus(new Decimal(l.qty).times(new Decimal(l.unitCost))),
-    new Decimal(0),
-  );
-
+  const materials = new Decimal(row?.materials ?? 0);
+  const labour = new Decimal(row?.labour ?? 0);
+  const land = new Decimal(row?.land ?? 0);
+  const costRecovery = new Decimal(row?.costRecovery ?? 0);
   const grossCost = materials.plus(labour).plus(land);
   const netCost = grossCost.minus(costRecovery);
 
@@ -230,11 +209,11 @@ export async function projectTotalCost(projectId: string): Promise<{
  * Computes project revenue from all asset sales linked to the project.
  */
 export async function projectRevenue(projectId: string): Promise<Decimal> {
-  const sales = await prisma.assetSale.findMany({
-    where: { projectId },
-    select: { salePrice: true },
-  });
-  return sales.reduce((sum, s) => sum.plus(new Decimal(s.salePrice)), new Decimal(0));
+  const [row] = await prisma.$queryRaw<{ revenue: number }[]>(Prisma.sql`
+    SELECT COALESCE(SUM("salePrice"), 0)::float8 AS revenue
+    FROM "AssetSale" WHERE "projectId" = ${projectId}
+  `);
+  return new Decimal(row?.revenue ?? 0);
 }
 
 /**
@@ -247,6 +226,79 @@ export async function projectPnl(projectId: string) {
   const margin = revenue.gt(0) ? profit.div(revenue).times(100) : new Decimal(0);
 
   return { ...cost, revenue, profit, margin };
+}
+
+/**
+ * Batched projectPnl — computes the same {materials, labour, land,
+ * costRecovery, total, revenue, profit, margin} for MANY projects in 5
+ * DB-side GROUP BY queries instead of 5 queries per project. The dashboard
+ * renders P&L for up to 10 projects — the per-project version fanned out to
+ * ~50 queries hydrating every line; this returns ~10 aggregated rows total.
+ */
+export async function projectPnlBatch(projectIds: string[]) {
+  const out = new Map<string, {
+    materials: Decimal; labour: Decimal; land: Decimal; costRecovery: Decimal;
+    total: Decimal; revenue: Decimal; profit: Decimal; margin: Decimal;
+  }>();
+  if (projectIds.length === 0) return out;
+
+  const ids = Prisma.join(projectIds);
+  const [materials, labour, land, costRecovery, revenue] = await Promise.all([
+    prisma.$queryRaw<{ projectId: string; total: number }[]>(Prisma.sql`
+      SELECT mi."projectId" AS "projectId",
+             COALESCE(SUM(mil.qty * mil."unitCost"), 0)::float8 AS total
+      FROM "MaterialIssueLine" mil
+      JOIN "MaterialIssue" mi ON mi.id = mil."materialIssueId"
+      WHERE mi."projectId" IN (${ids})
+      GROUP BY mi."projectId"
+    `),
+    prisma.$queryRaw<{ projectId: string; total: number }[]>(Prisma.sql`
+      SELECT "projectId", COALESCE(SUM(amount), 0)::float8 AS total
+      FROM "ProjectCost" WHERE "projectId" IN (${ids})
+      GROUP BY "projectId"
+    `),
+    prisma.$queryRaw<{ projectId: string; total: number }[]>(Prisma.sql`
+      SELECT "projectId", COALESCE(SUM("totalCost"), 0)::float8 AS total
+      FROM "LandPurchase" WHERE "projectId" IN (${ids}) AND "deletedAt" IS NULL
+      GROUP BY "projectId"
+    `),
+    prisma.$queryRaw<{ projectId: string; total: number }[]>(Prisma.sql`
+      SELECT sg."projectId" AS "projectId",
+             COALESCE(SUM(sgl.qty * sgl."unitCost"), 0)::float8 AS total
+      FROM "ScrapGenerationLine" sgl
+      JOIN "ScrapGeneration" sg ON sg.id = sgl."scrapGenerationId"
+      WHERE sg."projectId" IN (${ids})
+      GROUP BY sg."projectId"
+    `),
+    prisma.$queryRaw<{ projectId: string; total: number }[]>(Prisma.sql`
+      SELECT "projectId", COALESCE(SUM("salePrice"), 0)::float8 AS total
+      FROM "AssetSale" WHERE "projectId" IN (${ids})
+      GROUP BY "projectId"
+    `),
+  ]);
+
+  const toMap = (rows: { projectId: string; total: number }[]) =>
+    new Map(rows.map((r) => [r.projectId, new Decimal(r.total)]));
+  const mMap = toMap(materials);
+  const lMap = toMap(labour);
+  const ldMap = toMap(land);
+  const crMap = toMap(costRecovery);
+  const rvMap = toMap(revenue);
+
+  for (const id of projectIds) {
+    const a = {
+      materials: mMap.get(id) ?? new Decimal(0),
+      labour: lMap.get(id) ?? new Decimal(0),
+      land: ldMap.get(id) ?? new Decimal(0),
+      costRecovery: crMap.get(id) ?? new Decimal(0),
+      revenue: rvMap.get(id) ?? new Decimal(0),
+    };
+    const total = a.materials.plus(a.labour).plus(a.land).minus(a.costRecovery);
+    const profit = a.revenue.minus(total);
+    const margin = a.revenue.gt(0) ? profit.div(a.revenue).times(100) : new Decimal(0);
+    out.set(id, { ...a, total, profit, margin });
+  }
+  return out;
 }
 
 /**

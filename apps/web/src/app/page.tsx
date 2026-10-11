@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { prisma, type DprApprovalStatus } from "@nirman/db";
-import { trialBalance, projectPnl, materialInventoryValue } from "@nirman/services";
+import { trialBalance, projectPnlBatch, materialInventoryValue } from "@nirman/services";
 import { formatCurrency, formatNumber, formatDate } from "@/lib/utils";
 import {   getCompany, toNum, getUserRole, getCurrentUser, scopeWhere, getUserPermissions, getCustomRoleLabels, roleDisplayLabel } from "@/lib/server";
 import {
@@ -235,21 +235,21 @@ async function CommandCenterContent() {
       apBalance: findBalance("2000"),
       inventoryValue: toNum(invVal)};
 
-    // Compute P&L per project (limit to 10 for performance)
-    const pnlResults = await Promise.all(
-      projects.slice(0, 10).map(async (p) => {
-        const pnl = await projectPnl(p.id);
-        return {
-          id: p.id,
-          name: p.name,
-          status: p.status,
-          revenue: toNum(pnl.revenue),
-          cost: toNum(pnl.total),
-          profit: toNum(pnl.profit),
-          margin: toNum(pnl.margin)} satisfies ProjectProfitRow;
-      }),
-    );
-    projectProfitRows = pnlResults;
+    // Compute P&L per project (limit to 10 for performance) — batched into 5
+    // grouped queries instead of 5 per project (was ~50 queries per load).
+    const top10 = projects.slice(0, 10);
+    const pnlMap = await projectPnlBatch(top10.map((p) => p.id));
+    projectProfitRows = top10.map((p) => {
+      const pnl = pnlMap.get(p.id);
+      return {
+        id: p.id,
+        name: p.name,
+        status: p.status,
+        revenue: toNum(pnl?.revenue),
+        cost: toNum(pnl?.total),
+        profit: toNum(pnl?.profit),
+        margin: toNum(pnl?.margin)} satisfies ProjectProfitRow;
+    });
   }
 
   // ── Low stock computation ────────────────────────────────────────
