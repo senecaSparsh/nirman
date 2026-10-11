@@ -113,11 +113,12 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
 
     const normalized = normalizePhone(target.phone);
 
-    // Find the most recent unused code for this phone
+    // Find the most recent unused code for this phone — the portal's model:
+    // look up the record first (not code-matched) so wrong guesses can
+    // increment an attempt counter that locks the code after MAX_ATTEMPTS.
     const otpRecord = await prisma.phoneOtp.findFirst({
       where: {
         phone: normalized,
-        code,
         usedAt: null,
         expiresAt: { gte: new Date() },
       },
@@ -126,6 +127,22 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
 
     if (!otpRecord) {
       return json({ error: "Invalid or expired verification code." }, { status: 400 });
+    }
+
+    if (otpRecord.attempts >= OTP_CONFIG.MAX_ATTEMPTS) {
+      return json({ error: "Too many attempts. Please request a new code." }, { status: 429 });
+    }
+
+    if (otpRecord.code !== code) {
+      await prisma.phoneOtp.update({
+        where: { id: otpRecord.id },
+        data: { attempts: { increment: 1 } },
+      });
+      const remaining = OTP_CONFIG.MAX_ATTEMPTS - (otpRecord.attempts + 1);
+      return json(
+        { error: `Incorrect code. ${remaining} attempt${remaining === 1 ? "" : "s"} remaining.` },
+        { status: 400 },
+      );
     }
 
     // Mark the code as used
