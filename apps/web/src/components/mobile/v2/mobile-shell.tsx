@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFetch } from "@/lib/use-fetch";
@@ -50,6 +51,13 @@ import { ProductTour } from "@/components/mobile/v2/product-tour";
 import { roleToPersona, type Persona } from "@/lib/mobile-nav-v2";
 import { smartBack } from "@/lib/mobile-nav";
 import type { NavBootstrap } from "@/lib/server";
+
+// The assistant is a heavy client-only island (voice, chat thread) —
+// mount it lazily, same as the desktop AppShell does.
+const AssistantChat = dynamic(
+  () => import("@/components/mobile/assistant/assistant-chat").then((m) => m.AssistantChat),
+  { ssr: false },
+);
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MOBILE SHELL V2 — "site-grade" minimal layout
@@ -1162,6 +1170,12 @@ function MobileShellInner({
         canSwitchCompany={canSwitchCompany}
         enabled={tourEnabled}
       />
+
+      {/* ══ OWNER ASSISTANT — floating chat with voice (Hindi/English).
+          Mounts on every /m page — it was previously only inside the
+          desktop AppShell, which mobile routes bypass, so field users
+          never saw it. ══ */}
+      <AssistantChat />
     </div>
   );
 }
