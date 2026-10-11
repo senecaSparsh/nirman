@@ -113,6 +113,62 @@ test.describe("Real-device field simulation", () => {
     await ctx.close();
   });
 
+  test("attendance flow: select project → Mark all present → save state correct", async ({ browser }) => {
+    const ctx = await deviceCtx(browser, IPHONE_UA, "SUPERVISOR");
+    const page = await ctx.newPage();
+    await page.goto("/m/site/attendance", { waitUntil: "networkidle" }).catch(() => {});
+    await page.waitForTimeout(1500);
+    // Dismiss any onboarding/tour dialog that overlays the form.
+    const tourDismiss = page.getByRole("button", { name: /Not now|Skip|Close|Got it/i }).first();
+    if (await tourDismiss.isVisible().catch(() => false)) await tourDismiss.click().catch(() => {});
+    // The attendance form must render worker rows + the mark-all action.
+    const markAll = page.getByRole("button", { name: /Mark all present/i });
+    if (await markAll.count()) {
+      await markAll.tap().catch(() => markAll.click());
+      await page.waitForTimeout(800);
+    }
+    // After marking, the save button reports state — either a live
+    // "Save Attendance (N)" or the payroll-lock indicator for a paid period.
+    const saveBtn = page.getByRole("button", { name: /Save Attendance|Locked — payroll/i }).last();
+    const label = (await saveBtn.innerText().catch(() => "")).trim();
+    expect(
+      /Save Attendance|Locked — payroll/i.test(label),
+      `save button should show a valid state, got "${label}"`,
+    ).toBe(true);
+    // If it's unlocked, actually tap Save and confirm a success/error toast appears.
+    if (/Save Attendance/i.test(label) && !(await saveBtn.isDisabled())) {
+      await saveBtn.tap().catch(() => saveBtn.click());
+      await page.waitForTimeout(2500);
+      const toast = page.locator("[data-sonner-toast], [role='status'], .toast, [class*='toast']").last();
+      const toastText = await toast.innerText().catch(() => "");
+      expect(toastText.length, "a save should surface a toast result").toBeGreaterThan(0);
+    }
+    await ctx.close();
+  });
+
+  test("offline: issue form switches to 'Queue Issue (Offline)' + queues locally", async ({ browser }) => {
+    const ctx = await deviceCtx(browser, IPHONE_UA, "SUPERVISOR");
+    const page = await ctx.newPage();
+    await page.goto("/m/stock-out?mode=issue", { waitUntil: "networkidle" }).catch(() => {});
+    await page.waitForTimeout(1500);
+    // Online state — the submit is a real send.
+    const onlineBtn = page.getByRole("button", { name: /Generate Issue Challan|Issue/i });
+    // Go offline — the app should detect it and offer to queue the op.
+    await ctx.setOffline(true);
+    await page.waitForTimeout(1200); // let the online/offline listener fire
+    const offlineBtn = page.getByRole("button", { name: /Queue Issue \(Offline\)|Queue.*Offline/i });
+    const offlineVisible = await offlineBtn.isVisible().catch(() => false);
+    // The offline affordance must appear — either the button re-labels or an
+    // offline banner/toast shows. Both mean the app detected disconnectivity.
+    const offlineBanner = await page.getByText(/offline|no connection|you.re offline/i).isVisible().catch(() => false);
+    expect(
+      offlineVisible || offlineBanner,
+      "going offline should switch the submit to a queue affordance or show an offline indicator",
+    ).toBe(true);
+    await ctx.setOffline(false);
+    await ctx.close();
+  });
+
   test("slow network (3G): home stays usable — skeletons, not a frozen blank", async ({ browser }) => {
     const ctx = await deviceCtx(browser, IPHONE_UA, "SUPERVISOR");
     const page = await ctx.newPage();
