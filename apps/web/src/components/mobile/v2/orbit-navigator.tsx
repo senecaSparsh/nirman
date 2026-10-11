@@ -702,7 +702,7 @@ function CenterCard({
         <Link
           href={node.href}
           prefetch
-          className="mt-2 inline-flex items-center gap-1 text-m-caption font-semibold underline"
+          className="mt-2 inline-flex items-center gap-1 text-m-label font-semibold underline"
           style={{ color: "var(--color-steel)" }}
         >
           <ExternalLink className="size-2.5" />

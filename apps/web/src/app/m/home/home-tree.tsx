@@ -581,11 +581,15 @@ function TreeRow({
       </span>
 
       {/* ── Name ── */}
+      {/* The name link/button is the row's tap target — stretch it to fill
+          the row's full height so a field user taps anywhere in the row,
+          not just the ~12px text. flex-1 + self-stretch makes the hit area
+          the whole middle of the row. */}
       {nameHref ? (
         <Link
           href={nameHref}
           onClick={nameOnClick}
-          className={`min-w-0 truncate press ml-1.5 ${nameBold ? "text-m-label font-bold" : "text-m-caption font-semibold"}`}
+          className={`min-w-0 flex-1 self-stretch flex items-center truncate press ml-1.5 ${nameBold ? "text-m-label font-bold" : "text-m-label font-semibold"}`}
           style={{ color: "var(--color-ink-950)" }}
         >
           <span className="truncate">{name}</span>
@@ -594,7 +598,7 @@ function TreeRow({
         <button
           type="button"
           onClick={nameOnClick}
-          className={`min-w-0 truncate text-left press ml-1.5 ${nameBold ? "text-m-label font-bold" : "text-m-caption font-semibold"}`}
+          className={`min-w-0 flex-1 self-stretch flex items-center truncate text-left press ml-1.5 ${nameBold ? "text-m-label font-bold" : "text-m-label font-semibold"}`}
           style={{ color: "var(--color-ink-950)" }}
         >
           <span className="truncate">{name}</span>
