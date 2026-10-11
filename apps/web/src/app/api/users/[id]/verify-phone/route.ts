@@ -4,6 +4,7 @@ import { prisma } from "@nirman/db";
 import { apiHandler, canManageRole, getActingRole, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { normalizePhone, generateOtpCode, OTP_CONFIG } from "@/lib/phone-otp";
+import { sendOtpSms } from "@/lib/otp-sms";
 import { isTwilioConfigured, normalizeTwilioNumber } from "@/lib/twilio-service";
 
 /**
@@ -87,19 +88,19 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       },
     });
 
-    // In production, send via SMS. In dev, log to console.
+    // In production, send via the configured SMS provider (MSG91/Twilio —
+    // same sender as the portal OTP). A silent success here traps the user on
+    // a code-entry screen for a code that never arrives — surface the failure.
     if (process.env.NODE_ENV === "production") {
-      // SMS via Twilio is not yet wired — return an error instead of
-      // pretending the code was sent. The OTP is stored in the DB so
-      // when SMS is wired, the verify step will work. For now, the
-      // admin must use the dev environment or wire up Twilio SMS.
-      // TODO: send SMS via Twilio when SMS provider is wired
-      console.warn(`[phone-verify] OTP for ${normalized}: ${code} (SMS not yet wired — returning error to client)`);
-      return json({ error: "SMS verification is not yet configured. Contact your administrator." }, { status: 501 });
-    } else {
-      console.log(`[phone-verify] OTP for ${normalized}: ${code}`);
+      const sent = await sendOtpSms(normalized, code);
+      if (!sent.sent) {
+        console.error(`[phone-verify] SMS send failed for ${normalized}: ${sent.error}`);
+        return json({ error: "SMS verification is not yet configured. Contact your administrator." }, { status: 501 });
+      }
+      return json({ ok: true, message: "Verification code sent." });
     }
 
+    console.log(`[phone-verify] OTP for ${normalized}: ${code}`);
     return json({ ok: true, message: "Verification code sent.", devCode: code });
   }
 
