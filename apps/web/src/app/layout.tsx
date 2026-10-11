@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import "@/components/arc/foundation.css";
 import { AppShell } from "@/components/app-shell";
 import { EmployeeNavListener } from "@/components/employee-nav-listener";
 import { AuthGate } from "@/components/auth-gate";

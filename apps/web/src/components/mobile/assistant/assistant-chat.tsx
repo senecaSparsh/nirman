@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import {Mic, MicOff, Send, X, Sparkles, Loader2, MessageCircle, Volume2, VolumeX} from "lucide-react";
+import {Mic, MicOff, Send, X, Sparkles, MessageCircle, Volume2, VolumeX} from "lucide-react";
+import { ThinkingLoader } from "@/components/ui/ThinkingLoader";
 import { SUGGESTION_CHIPS } from "@/lib/assistant/nlu";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -490,10 +491,10 @@ export function AssistantChat({
               <MessageBubble key={msg.id} message={msg} onCardClick={executeCard} />
             ))}
             {loading && (
-              <div className="flex items-center gap-2" style={{ color: "var(--color-ink-500)" }}>
-                <Loader2 className="size-3.5 animate-spin" />
-                <span className="text-xs">Soch raha hoon...</span>
-              </div>
+              <ThinkingLoader
+                phases={["Soch raha hoon...", "Data dekh raha hoon...", "Jawaab likh raha hoon..."]}
+                interval={1800}
+              />
             )}
 
             {/* ── Suggestion chips (only on first few messages) ── */}

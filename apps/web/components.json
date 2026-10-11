@@ -16,5 +16,10 @@
     "lib": "@/lib",
     "hooks": "@/lib"
   },
-  "iconLibrary": "lucide"
+  "iconLibrary": "lucide",
+  "registries": {
+    "@uiarc": "https://uiarc.dev/r/{name}.json",
+    "@space": "https://spaceui.one/r/{name}.json",
+    "@useplanes": "https://useplanes.com/r/{name}.json"
+  }
 }
