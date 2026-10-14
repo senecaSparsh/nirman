@@ -1127,7 +1127,10 @@ export function worldForPath(pathname: string): World {
   // First check the world's own entry href (e.g. /build, /hr) — this
   // handles the world overview page which isn't a nav item.
   for (const w of WORLDS) {
-    if (w.href === pathname || (w.href !== "/" && pathname.startsWith(w.href))) {
+    if (
+      w.href === pathname ||
+      (w.href !== "/" && pathname.startsWith(w.href + "/"))
+    ) {
       if (!best || toNum(w.href.length) > toNum(best.len)) {
         best = { world: w, len: w.href.length };
       }
@@ -1136,7 +1139,10 @@ export function worldForPath(pathname: string): World {
   for (const w of WORLDS) {
     for (const s of w.sections) {
       for (const i of s.items) {
-        const matches = i.href === "/" ? pathname === "/" : pathname.startsWith(i.href);
+        const matches =
+          i.href === "/"
+            ? pathname === "/"
+            : pathname === i.href || pathname.startsWith(i.href + "/");
         if (matches && (!best || toNum(i.href.length) > toNum(best.len))) {
           best = { world: w, len: i.href.length };
         }
@@ -1158,13 +1164,20 @@ export function worldForPath(pathname: string): World {
 
 /** True if this path belongs to the settings gear, not any world. */
 export function isSettingsPath(pathname: string): boolean {
-  return SETTINGS_LINKS.some((l) => pathname.startsWith(l.href));
+  // "/me" must not swallow "/measurement-book" — match exact or a "/"
+  // boundary only (query-string hrefs like "/calls?tab=telephony" never
+  // match a bare pathname, unchanged behaviour).
+  return SETTINGS_LINKS.some(
+    (l) => pathname === l.href || pathname.startsWith(l.href + "/"),
+  );
 }
 
 /** The exact link matching a path, if any. Used for page titles. */
 export function linkForPath(pathname: string): (NavLink & { world: WorldKey }) | undefined {
   return ALL_LINKS.filter((l) =>
-    l.href === "/" ? pathname === "/" : pathname.startsWith(l.href),
+    l.href === "/"
+      ? pathname === "/"
+      : pathname === l.href || pathname.startsWith(l.href + "/"),
   ).sort((a, b) => b.href.length - a.href.length)[0];
 }
 

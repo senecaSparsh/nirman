@@ -275,6 +275,12 @@ describe("isSettingsPath", () => {
   it("returns false for /", () => {
     expect(isSettingsPath("/")).toBe(false);
   });
+
+  it("does not treat /me as a prefix of /measurement-book", () => {
+    expect(isSettingsPath("/measurement-book")).toBe(false);
+    expect(isSettingsPath("/me")).toBe(true);
+    expect(isSettingsPath("/me/security")).toBe(true);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────
