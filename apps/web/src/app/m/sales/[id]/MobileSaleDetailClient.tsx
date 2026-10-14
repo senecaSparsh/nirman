@@ -23,7 +23,7 @@ import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/
 import { requiresSaleAgreement } from "@nirman/services/sale-policy";
 
 type AssetType = "LAND" | "BUILT_UNIT" | "PROJECT";
-type SaleStatus = "PENDING" | "ACTIVE" | "CANCELLED";
+type SaleStatus = "PENDING" | "ACTIVE" | "PARTIALLY_RETURNED" | "RETURNED" | "CANCELLED";
 type PaymentStatus = "PENDING" | "PARTIAL" | "PAID";
 
 type AssetInfo =

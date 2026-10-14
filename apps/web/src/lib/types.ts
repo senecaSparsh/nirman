@@ -778,7 +778,7 @@ export type LeadDetail = LeadRow & {
 //  Sales module
 // ───────────────────────────────────────────────────────────
 
-export type SaleStatus = "PENDING" | "ACTIVE" | "CANCELLED";
+export type SaleStatus = "PENDING" | "ACTIVE" | "PARTIALLY_RETURNED" | "RETURNED" | "CANCELLED";
 export type PaymentStatus = "PENDING" | "PARTIAL" | "PAID";
 export type AssetType = "LAND" | "BUILT_UNIT" | "PROJECT";
 

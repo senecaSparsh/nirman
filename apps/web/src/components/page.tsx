@@ -381,6 +381,7 @@ const STATUS_MEANING: Record<string, StatusMeaning> = {
   MEASURED: "active",
   SUPERSEDED: "neutral",
   RETURNED: "good",
+  PARTIALLY_RETURNED: "waiting",
   // stock-count + reconciliation
   COUNTED: "active",
   RECONCILED: "good",

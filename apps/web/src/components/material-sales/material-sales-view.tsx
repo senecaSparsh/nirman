@@ -606,7 +606,7 @@ export function MaterialSalesView({
             <ShieldCheck className="h-3 w-3" /> Gate Pass
           </a>
         )}
-        {s.status === "ACTIVE" && (
+        {(s.status === "ACTIVE" || s.status === "PARTIALLY_RETURNED") && (
           <a
             href={`/print/material-sale/${s.id}`}
             target="_blank"
@@ -618,7 +618,7 @@ export function MaterialSalesView({
             <Printer className="h-3.5 w-3.5" />
           </a>
         )}
-        {canRecordPayment && s.status === "ACTIVE" && s.paymentStatus !== "PAID" && (
+        {canRecordPayment && (s.status === "ACTIVE" || s.status === "PARTIALLY_RETURNED") && s.paymentStatus !== "PAID" && (
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); setPaymentDialogSale(s); }} title="Record payment">
             <CreditCard className="h-3.5 w-3.5" />
           </Button>
@@ -1043,7 +1043,7 @@ function MaterialSaleDetailDialog({
         </div>
 
         {/* Actions */}
-        {sale.status === "ACTIVE" && (canRecordPayment || canCancel || canCreateReturn) && (
+        {(sale.status === "ACTIVE" || sale.status === "PARTIALLY_RETURNED") && (canRecordPayment || canCancel || canCreateReturn) && (
           <div className="flex justify-end gap-2 border-t border-border pt-3">
             {canRecordPayment && sale.paymentStatus !== "PAID" && (
               <Button size="sm" variant="outline" onClick={onRecordPayment} disabled={submitting}>
@@ -1055,7 +1055,7 @@ function MaterialSaleDetailDialog({
                 <RotateCcw className="h-3.5 w-3.5" /> Create Credit Note
               </Button>
             )}
-            {canCancel && (
+            {canCancel && sale.status === "ACTIVE" && (
               <Button size="sm" variant="outline" className="text-danger" onClick={onCancel} disabled={submitting}>
                 <Trash2 className="h-3.5 w-3.5" /> Cancel Sale
               </Button>

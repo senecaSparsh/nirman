@@ -4088,6 +4088,8 @@ enum DealSource {
 enum SaleStatus {
   PENDING     // material sale awaiting gate pass approval before stock movement
   ACTIVE
+  PARTIALLY_RETURNED  // some units returned via credit note — kept portion still receivable
+  RETURNED   // every line fully returned — economically void
   CANCELLED
 }
 

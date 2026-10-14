@@ -13,11 +13,12 @@
  */
 import { prisma } from "@nirman/db";
 import { postOpeningStock } from "@nirman/services";
+import type { StockMovementType } from "@nirman/db";
 import Decimal from "decimal.js";
 
 const COMPANY_ID = process.argv[2] ?? "cmtv3x4t50000vlp0b23vdtxe";
-const IN_TYPES = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "SCRAP_GENERATED", "OPENING_BALANCE"];
-const OUT_TYPES = ["TRANSFER_OUT", "ISSUE_TO_PROJECT", "ISSUE_TO_DEPARTMENT", "ADJUSTMENT_OUT", "RETURN", "SALE"];
+const IN_TYPES: StockMovementType[] = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "SCRAP_GENERATED", "OPENING_BALANCE"];
+const OUT_TYPES: StockMovementType[] = ["TRANSFER_OUT", "ISSUE_TO_PROJECT", "ISSUE_TO_DEPARTMENT", "ADJUSTMENT_OUT", "RETURN", "SALE"];
 
 async function main() {
   const items = await prisma.stockLocationItem.findMany({
@@ -34,8 +35,8 @@ async function main() {
     where: { fromLocationId: { not: null }, movementType: { in: OUT_TYPES } },
     _sum: { qty: true },
   });
-  const inMap = new Map(inGrouped.map((g) => [`${g.toLocationId}:${g.materialId}`, Number(g._sum.qty ?? 0)]));
-  const outMap = new Map(outGrouped.map((g) => [`${g.fromLocationId}:${g.materialId}`, Number(g._sum.qty ?? 0)]));
+  const inMap = new Map(inGrouped.map((g) => [`${g.toLocationId}:${g.materialId}`, Number(g._sum?.qty ?? 0)]));
+  const outMap = new Map(outGrouped.map((g) => [`${g.fromLocationId}:${g.materialId}`, Number(g._sum?.qty ?? 0)]));
 
   for (const item of items) {
     const replayed = (inMap.get(`${item.locationId}:${item.materialId}`) ?? 0) - (outMap.get(`${item.locationId}:${item.materialId}`) ?? 0);

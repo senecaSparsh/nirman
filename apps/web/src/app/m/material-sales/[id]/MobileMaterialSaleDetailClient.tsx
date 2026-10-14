@@ -18,7 +18,7 @@ import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { DetailStatGrid } from "@/components/mobile/v2/detail-primitives";
 import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 
-type SaleStatus = "PENDING" | "ACTIVE" | "CANCELLED";
+type SaleStatus = "PENDING" | "ACTIVE" | "PARTIALLY_RETURNED" | "RETURNED" | "CANCELLED";
 type PaymentStatus = "PENDING" | "PARTIAL" | "PAID";
 
 type LineItem = {

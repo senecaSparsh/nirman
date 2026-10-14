@@ -14,7 +14,6 @@ async function main() {
     where: {
       sourceType: { in: ["MATERIAL_SALE_REVERSAL", "MATERIAL_SALE_COGS_REVERSAL"] },
       memo: { startsWith: "Reversal for sales return" },
-      materialSale: undefined,
     },
     select: { id: true, sourceType: true, sourceId: true, memo: true },
   });

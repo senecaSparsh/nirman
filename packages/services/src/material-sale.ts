@@ -593,6 +593,20 @@ export async function cancelMaterialSale(id: string, companyId: string, userId?:
     });
     if (!sale) throw new ServiceError("Material sale not found", 404);
     if (sale.status === "CANCELLED") throw new ServiceError("Sale is already cancelled");
+    // A sale with completed returns can't be cancelled — the cancel path
+    // restores the FULL line qty and reverses the FULL journals, which would
+    // double-count the units and legs the return already reversed. Fully
+    // returned sales are economically void already; partially returned ones
+    // should be returned for the remainder instead.
+    const completedReturns = await tx.materialSaleReturn.count({
+      where: { materialSaleId: sale.id, status: "COMPLETED" },
+    });
+    if (completedReturns > 0) {
+      throw new ServiceError(
+        "Cannot cancel a sale with returns — the returned stock and journal reversals would double-count. Process a return for the remaining quantity instead.",
+        409,
+      );
+    }
     // A generated e-invoice (IRN) lives on the GST portal — cancelling the sale
     // here while the IRN stays live leaves a valid tax document pointing at a
     // voided transaction. Cancel the e-invoice on the portal first.
@@ -737,7 +751,9 @@ export async function createMaterialSaleReturn(
       include: { lines: true, returns: { where: { status: "COMPLETED" }, include: { lines: true } } },
     });
     if (!sale) throw new ServiceError("Material sale not found", 404);
-    if (sale.status !== "ACTIVE") throw new ServiceError("Can only return items from an active sale");
+    if (sale.status !== "ACTIVE" && sale.status !== "PARTIALLY_RETURNED") {
+      throw new ServiceError("Can only return items from an active sale");
+    }
 
     // Validate return lines and compute already-returned quantities
     // Use Decimal to preserve full precision for fractional quantities
@@ -860,6 +876,24 @@ export async function createMaterialSaleReturn(
       totalCost: returnedCost,
       scrapSubtotal: returnedScrapSubtotal,
       postedById: input.userId,
+    });
+
+    // Track returned-ness on the sale itself — a fully-returned sale must not
+    // keep showing "ACTIVE" (implies a live receivable + open actions), and a
+    // partially-returned one needs distinguishing so follow-up returns and
+    // payments against the kept portion still work.
+    const thisReturnByLine = new Map<string, Decimal>();
+    for (const rl of returnLines) {
+      thisReturnByLine.set(rl.saleLine.id, (thisReturnByLine.get(rl.saleLine.id) ?? new Decimal(0)).plus(rl.qty));
+    }
+    const fullyReturned = sale.lines.every((l) =>
+      (returnedQtyByLine.get(l.id) ?? new Decimal(0))
+        .plus(thisReturnByLine.get(l.id) ?? new Decimal(0))
+        .gte(new Decimal(l.qty)),
+    );
+    await tx.materialSale.update({
+      where: { id: sale.id },
+      data: { status: fullyReturned ? "RETURNED" : "PARTIALLY_RETURNED" },
     });
 
     // Re-run project cost reallocation if the sale was linked to a project
