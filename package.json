@@ -22,6 +22,8 @@
     "db:studio": "pnpm --filter @nirman/db studio",
     "db:reset:srg": "node apps/web/scripts/local-reset-srg.mjs",
     "hsn:auto-sync": "node scripts/auto-sync-hsn-master.mjs",
+    "verify:workflows": "BASE=http://localhost:3000 ./scripts/verify-workflows-full.sh",
+    "verify:workflows:live": "BASE=http://localhost:3000 ./scripts/verify-workflows-live.sh",
     "postinstall": "pnpm --filter @nirman/db generate",
     "prepare": "husky"
   },
