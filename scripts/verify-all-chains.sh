@@ -38,6 +38,7 @@ gst:verify-gst-reports-chain.sh
 ra:verify-ra-bill-chain.sh
 landbuy:verify-land-purchase-chain.sh
 claim:verify-expense-claim-chain.sh
+pettycash:verify-petty-cash-chain.sh
 asset:verify-asset-sale-chain.sh
 hr:verify-hr-chain.sh
 payrollgl:verify-payroll-gl-chain.sh"
