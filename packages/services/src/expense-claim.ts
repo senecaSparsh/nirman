@@ -284,6 +284,10 @@ export async function approveExpenseClaim(claimId: string, companyId: string, us
         data: {
           companyId,
           projectId: claim.projectId,
+          // Link back to the claim — expenseClaimId exists on the model but
+          // was never populated, so approved expenses couldn't be traced to
+          // the claim that produced them.
+          expenseClaimId: claimId,
           categoryId: line.categoryId,
           category: line.category,
           amount: line.amount as Decimal,
