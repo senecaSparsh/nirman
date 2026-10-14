@@ -34,6 +34,7 @@ sales:verify-sales-chain.sh
 salereturn:verify-material-sale-return-chain.sh
 scrap:verify-scrap-chain.sh
 wip:verify-wip-capitalization.sh
+gst:verify-gst-reports-chain.sh
 ra:verify-ra-bill-chain.sh
 asset:verify-asset-sale-chain.sh
 hr:verify-hr-chain.sh
