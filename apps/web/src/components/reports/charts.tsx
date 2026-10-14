@@ -87,17 +87,19 @@ export function BarSeries({
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} layout={horizontal ? "vertical" : "horizontal"} margin={{ top: 8, right: 16, left: 8, bottom: 8 }}>
         <CartesianGrid strokeDasharray={GRID_STYLE.strokeDasharray} stroke={GRID_STYLE.stroke} />
-        {horizontal ? (
-          <>
-            <XAxis type="number" tick={AXIS_STYLE} tickFormatter={fmt} />
-            <YAxis type="category" dataKey="label" tick={AXIS_STYLE} width={120} />
-          </>
-        ) : (
-          <>
-            <XAxis dataKey="label" tick={AXIS_STYLE} />
-            <YAxis tick={AXIS_STYLE} tickFormatter={fmt} width={currency ? 80 : 50} />
-          </>
-        )}
+        <XAxis
+          type={horizontal ? "number" : "category"}
+          dataKey={horizontal ? undefined : "label"}
+          tick={AXIS_STYLE}
+          tickFormatter={horizontal ? fmt : undefined}
+        />
+        <YAxis
+          type={horizontal ? "category" : "number"}
+          dataKey={horizontal ? "label" : undefined}
+          tick={AXIS_STYLE}
+          tickFormatter={horizontal ? undefined : fmt}
+          width={horizontal ? 120 : currency ? 80 : 50}
+        />
         <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [fmt(v), name ?? ""]} />
         <Bar dataKey={dataKey} name={name} fill={color} radius={[4, 4, 0, 0]} maxBarSize={48} />
       </BarChart>

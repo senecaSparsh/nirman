@@ -255,7 +255,7 @@ function poColumnsFor(now: Date | null): Column<PurchaseOrderRow>[] {
     sortable: true,
     sortValue: (po) => new Date(po.createdAt),
     render: (po) => {
-      const daysOpen = now ? Math.floor((now.getTime() - new Date(po.orderDate).getTime()) / 86400000) : 0;
+      const daysOpen = Math.max(0, now ? Math.floor((now.getTime() - new Date(po.orderDate).getTime()) / 86400000) : 0);
       const isOverdue =
         po.expectedDate &&
         now !== null &&
@@ -640,7 +640,7 @@ function PurchaseOrdersTab({
             searchable
             searchPlaceholder="Search POs by number, supplier, project…"
             showTotals
-            sumColumns={["totalValue"]}
+            sumColumns={["total"]}
             totalFormat={(_k, sum) => formatCurrency(sum)}
             hideable
             pageSize={50}
@@ -972,7 +972,7 @@ function DirectPurchasesTab({
               searchable
               searchPlaceholder="Search by bill no, supplier, location…"
               showTotals
-              sumColumns={["amount"]}
+              sumColumns={["billAmount"]}
               totalFormat={(_k, sum) => formatCurrency(sum)}
               hideable
               pageSize={50}

@@ -439,25 +439,7 @@ export function OrbitNavigator({
                     const y = CENTER_Y + radiusPercent * W_TO_H * Math.sin(angle);
                     const isActive = activeChip === chip.id;
                     const isEmpty = chip.count === 0;
-                    // Labels point away from the center card: chips in the
-                    // upper half get their label above the node, lower half
-                    // below. Stops upper-diagonal labels from slipping under
-                    // the center card's edge.
-                    const labelAbove = Math.sin(angle) < -0.15;
-                    // Rim nodes (|cos|≈1) place the label *beside* the node —
-                    // radially outward — instead of above/below it. Centred
-                    // labels there collide with the centre card's edge and
-                    // neighbours' count badges ("Workforce" → "orkforce").
-                    const cosA = Math.cos(angle);
-                    const rimRight = cosA > 0.55;
-                    const rimLeft = cosA < -0.55;
-                    const labelPos = rimRight
-                      ? "left-full ml-1.5 top-1/2 -translate-y-1/2 text-left"
-                      : rimLeft
-                        ? "right-full mr-1.5 top-1/2 -translate-y-1/2 text-right"
-                        : labelAbove
-                          ? "left-1/2 bottom-full mb-1 -translate-x-1/2 text-center"
-                          : `left-1/2 top-full ${belowLabelRow[i] === 1 ? "mt-6" : "mt-1"} -translate-x-1/2 text-center`;
+                    // Labels render in a second pass above all chips (below).
 
                     return (
                       <button
@@ -516,25 +498,48 @@ export function OrbitNavigator({
                               {chip.count > 99 ? "99" : chip.count}
                             </span>
                           </div>
-                          {/* Label — radially outward, never moves the anchor.
-                              A paper-backed pill keeps the text legible where
-                              the label crosses the orbit track or slides under
-                              a neighbouring node on crowded rings (12+ chips). */}
-                          <span
-                            className={`absolute w-auto max-w-24 whitespace-nowrap text-m-caption font-semibold leading-tight truncate ${labelPos}`}
-                            style={{
-                              color: isEmpty
-                                ? "var(--color-ink-300)"
-                                : "var(--color-ink-950)",
-                              backgroundColor: "color-mix(in srgb, var(--color-paper) 88%, transparent)",
-                              borderRadius: "0.25rem",
-                              padding: "0 0.125rem",
-                            }}
-                          >
-                            {chip.label}
-                          </span>
                         </div>
                       </button>
+                    );
+                  })}
+
+                  {/* Labels — a second pass at z-40 so every label paints above
+                      every chip. Inside-button labels got covered by the next
+                      chip down the ring ("Workforce" → "orce"); this layer is
+                      click-through (pointer-events-none) so taps reach the chips. */}
+                  {orbitChips.map((chip, i) => {
+                    const angle =
+                      (chipCount === 1 ? -90 : -90 + (360 / chipCount) * i) *
+                      (Math.PI / 180);
+                    const x = 50 + radiusPercent * Math.cos(angle);
+                    const y = CENTER_Y + radiusPercent * W_TO_H * Math.sin(angle);
+                    // Upper-half chips get their label above the node, lower
+                    // half below — pointing away from the center card's edge.
+                    const labelAbove = Math.sin(angle) < -0.15;
+                    return (
+                      <span
+                        key={`${chip.id}-label`}
+                        aria-hidden
+                        className="pointer-events-none absolute z-40 w-auto max-w-24 whitespace-nowrap text-m-caption font-semibold leading-tight truncate text-center transition-opacity duration-300"
+                        style={{
+                          left: `${x}%`,
+                          top: `${y}%`,
+                          transform: labelAbove
+                            ? "translate(-50%, calc(-100% - 1.6rem))"
+                            : `translate(-50%, ${belowLabelRow[i] === 1 ? "2.6rem" : "1.4rem"})`,
+                          opacity: cardExpanded ? 0 : 1,
+                          color:
+                            chip.count === 0
+                              ? "var(--color-ink-300)"
+                              : "var(--color-ink-950)",
+                          backgroundColor:
+                            "color-mix(in srgb, var(--color-paper) 88%, transparent)",
+                          borderRadius: "0.25rem",
+                          padding: "0 0.125rem",
+                        }}
+                      >
+                        {chip.label}
+                      </span>
                     );
                   })}
                 </>

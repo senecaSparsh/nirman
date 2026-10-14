@@ -190,7 +190,7 @@ function CatalogTab({
         code: m.code,
         name: m.name,
         categoryId: m.categoryId,
-        unit: m.unit,
+        unit: m.unit.trim().toLowerCase(),
         hsnCode: m.hsnCode ?? null,
         gstRate: m.gstRate ?? 0,
         standardCost: m.standardCost ?? 0,

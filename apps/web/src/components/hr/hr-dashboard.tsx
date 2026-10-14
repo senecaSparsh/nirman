@@ -115,7 +115,7 @@ function AttendanceTrend({ days }: { days: AttendanceDay[] }) {
               <div className="w-full bg-danger/40" style={{ height: `${absentH}%` }} title={`Absent: ${d.absent}`} />
               <div className="w-full rounded-b-sm bg-success/60" style={{ height: `${presentH}%` }} title={`Present: ${d.present}`} />
             </div>
-            <span className="text-micro text-muted-foreground">{dayLabel[0]}</span>
+            <span className="text-micro text-muted-foreground">{dayLabel}</span>
           </div>
         );
       })}
