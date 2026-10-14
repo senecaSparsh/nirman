@@ -165,6 +165,7 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
       let subtotal = new Decimal(0);
       let gstTotal = new Decimal(0);
       const lineData: { materialId: string; qty: Decimal; unitCost: Decimal; gstRate: Decimal; lineTotal: Decimal }[] = [];
+      const movementIds: string[] = [];
 
       for (const line of input.lines!) {
         const qty = new Decimal(line.qty);
@@ -181,8 +182,10 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
         // Pass companyId explicitly (avoids an extra StockLocation lookup in
         // recordMovement) and forward lot metadata so lot-tracked materials
         // either receive into the specified lot or auto-create one with full
-        // batch/expiry/manufacturing/supplier details.
-        await recordMovement(tx, {
+        // batch/expiry/manufacturing/supplier details. Movement ids are
+        // collected so they can be linked to the purchase row once it exists —
+        // without refId the ledger loses which bill produced each receipt.
+        const movement = await recordMovement(tx, {
           materialId: line.materialId,
           movementType: "PURCHASE_RECEIPT",
           toLocationId: input.locationId,
@@ -197,7 +200,7 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
           lotManufacturingDate: line.manufacturingDate,
           lotSupplierId: input.supplierId,
         });
-
+        movementIds.push(movement.movement.id);
         lineData.push({ materialId: line.materialId, qty, unitCost, gstRate, lineTotal });
       }
 
@@ -237,6 +240,13 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
         include: { lines: true },
       });
 
+      if (movementIds.length > 0) {
+        await tx.stockMovement.updateMany({
+          where: { id: { in: movementIds } },
+          data: { refId: purchase.id },
+        });
+      }
+
       // Post to the General Ledger: capitalise inventory + recognise input GST + credit AP.
       await postDirectPurchase(tx, {
         companyId: input.companyId,
@@ -244,6 +254,19 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
         postedById: input.createdById,
         lines: lineData.map((l) => ({ qty: l.qty, unitCost: l.unitCost, gstRate: l.gstRate })),
       });
+      // Keep Supplier.balanceOwed in sync with the AP credit — the GRN path
+      // does the same (procurement.ts). Without it, a supplier bought from
+      // directly shows payable on the books but a zero running balance, and
+      // the unlinked overpay guard refuses to pay them at all.
+      if (input.supplierId) {
+        const supplier = await tx.supplier.findFirst({ where: { id: input.supplierId } });
+        if (supplier) {
+          await tx.supplier.update({
+            where: { id: supplier.id },
+            data: { balanceOwed: new Decimal(supplier.balanceOwed).plus(billAmount) },
+          });
+        }
+      }
 
       // Log the inbound vehicle trip — auto-builds the Vehicle master from usage.
       if (input.vehicleNumber) {
@@ -394,6 +417,18 @@ export async function cancelDirectPurchase(id: string, userId?: string) {
     });
     for (const je of journalEntries) {
       await reverseJournalEntry(tx, je.id, { postedById: userId, memo: `Reversal of ${je.memo}` });
+    }
+    // Mirror the balanceOwed increment from createDirectPurchase — the AP
+    // reversal undoes the payable, so the supplier's running balance must
+    // give the billed amount back too.
+    if (dp.supplierId) {
+      const supplier = await tx.supplier.findFirst({ where: { id: dp.supplierId } });
+      if (supplier) {
+        await tx.supplier.update({
+          where: { id: supplier.id },
+          data: { balanceOwed: new Decimal(supplier.balanceOwed).minus(dp.billAmount) },
+        });
+      }
     }
 
     const updated = await tx.directPurchase.update({
