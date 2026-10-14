@@ -47,7 +47,7 @@ async function PendingListContent() {
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.HR_VIEW)) {
-    return <NoAccess what="the pending list" />;
+    return <NoAccess what="the pending list" permission={PERM.HR_VIEW} />;
   }
 
   const _canApproveDpr = __effPerms.includes(PERM.DPR_APPROVE_SUB_ADMIN) || __effPerms.includes(PERM.DPR_APPROVE_ADMIN);

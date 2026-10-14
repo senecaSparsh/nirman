@@ -2,7 +2,7 @@ import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
-import { canAutoApprove } from "./rbac";
+import { canAutoApprove, canWaiveSelfApproval } from "./rbac";
 import { postJournalEntry, ACCT } from "./gl-posting";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { withSerializableTransaction } from "./transaction";
@@ -269,8 +269,8 @@ export async function approveExpenseClaim(claimId: string, companyId: string, us
     if (!claim) throw new ServiceError("Claim not found", 404);
     if (claim.status !== "SUBMITTED") throw new ServiceError(`Only SUBMITTED claims can be approved (current: ${claim.status})`, 409);
     // Prevent self-approval: the claimant cannot approve their own claim —
-    // unless a tier-1 role (OWNER/ADMIN), where no higher approver exists.
-    if (userId && claim.claimantId === userId && !canAutoApprove(actorRole)) {
+    // unless the OWNER, where no higher approver exists.
+    if (userId && claim.claimantId === userId && !canWaiveSelfApproval(actorRole)) {
       throw new ServiceError("You cannot approve your own claim — ask another approver", 403);
     }
 

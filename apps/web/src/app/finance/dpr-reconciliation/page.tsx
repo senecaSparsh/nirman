@@ -22,7 +22,7 @@ async function DprReconciliationContent() {
   const __effPerms = await getUserPermissions();
 
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) {
-    return <NoAccess what="the DPR-Finance reconciliation" />;
+    return <NoAccess what="the DPR-Finance reconciliation" permission={PERM.FINANCE_VIEW} />;
   }
 
   return (

@@ -132,7 +132,7 @@ export function IncidentDetailClient({ incident, canManage }: { incident: Incide
             <Button size="sm" variant="default" onClick={() => setShowClose(true)}><Check className="mr-1 h-4 w-4" /> Close</Button>
           )}
           {incident.status === "REPORTED" && (
-            <Button size="sm" variant="ghost" onClick={() => doAction("cancel")} disabled={acting === "cancel"}>{acting === "cancel" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Ban className="mr-1 h-4 w-4" />} Cancel</Button>
+            <Button size="sm" variant="ghost" onClick={async () => { if (await confirm({ title: "Cancel incident?", description: "The reported incident is discarded. This cannot be undone.", confirmLabel: "Cancel incident" })) doAction("cancel"); }} disabled={acting === "cancel"}>{acting === "cancel" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Ban className="mr-1 h-4 w-4" />} Cancel</Button>
           )}
           {(incident.status === "REPORTED" || incident.status === "CANCELLED") && (
             <Button size="sm" variant="ghost" className="text-destructive" onClick={async () => { if (await confirm({ title: "Delete incident?", description: "This action cannot be undone.", confirmLabel: "Delete" })) { await doAction("delete"); router.push("/safety"); } }}>{acting === "delete" ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />} Delete</Button>

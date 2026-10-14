@@ -145,7 +145,7 @@ export function MobileNewSupplierClient({
   }
 
   if (!canCreate) {
-    return <MobileNoAccess what="create suppliers" />;
+    return <MobileNoAccess what="create suppliers" permission="procurement.manage" />;
   }
 
   const inputStyle = {

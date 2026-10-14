@@ -32,7 +32,7 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
 
   if (!__effPerms.includes(PERM.SALES_VIEW)) {
     return (
-      <NoAccess what="sales" />
+      <NoAccess what="sales" permission={PERM.SALES_VIEW} />
     );
   }
 

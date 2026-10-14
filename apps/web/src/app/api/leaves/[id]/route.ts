@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import { approveLeaveRequest, cancelLeaveRequest } from "@nirman/services";
-import { apiHandler, ForbiddenError, getActingRole, getActingRoleForProject, getCompany, getUserPermissions, json, leaveActionSchema, requireUser, scopeWhere } from "@/lib/server";
-import { hasPermission } from "@/lib/roles";
+import { apiHandler, ForbiddenError, getActingRole, getActingRoleForProject, getCompany, getPermissionsForProject, getUserPermissions, json, leaveActionSchema, requireUser, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { prisma } from "@nirman/db";
 
@@ -27,8 +26,8 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   // grants leave-approval authority locally without global hr.manage.
   const actingRole =
     (await getActingRoleForProject(existing.employee.activeProjectId)) ?? (await getActingRole());
-  const perms = await getUserPermissions();
-  if (!perms.includes(PERM.HR_MANAGE) && !hasPermission(actingRole, PERM.HR_MANAGE)) {
+  const perms = await getPermissionsForProject(existing.employee.activeProjectId);
+  if (!perms.includes(PERM.HR_MANAGE)) {
     throw new ForbiddenError("You need leave approval rights on this project");
   }
   try {
@@ -55,7 +54,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const company = await getCompany();
   const { id } = await params;
 
-  const canManage = hasPermission(await getActingRole(), PERM.HR_MANAGE);
+  const canManage = (await getUserPermissions()).includes(PERM.HR_MANAGE);
   const existing = await prisma.leaveRequest.findFirst({
     where: {
       id,

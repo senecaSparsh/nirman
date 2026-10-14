@@ -139,7 +139,7 @@ export function InspectionDetailClient({ inspection, canManage }: { inspection: 
             </Button>
           )}
           {!isTerminal && (
-            <Button variant="outline" onClick={() => doAction("cancel")} disabled={acting !== null}>
+            <Button variant="outline" onClick={async () => { if (await confirm({ title: "Cancel inspection?", description: "The scheduled inspection is discarded. This cannot be undone.", confirmLabel: "Cancel inspection" })) doAction("cancel"); }} disabled={acting !== null}>
               <XCircle className="h-4 w-4" /> Cancel
             </Button>
           )}

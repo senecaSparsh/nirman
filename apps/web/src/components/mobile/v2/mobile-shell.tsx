@@ -803,7 +803,7 @@ function MobileShellInner({
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden" data-surface="mobile" style={{ backgroundColor: "var(--color-paper-2)" }}>
-      <CommandPalette userRole={companyInfo.role as string} />
+      <CommandPalette userRole={companyInfo.activeRole} permissions={companyInfo.permissions} />
 
       {/* ── Offline banner — subtle indicator, not an alarm ── */}
       {isOffline && (

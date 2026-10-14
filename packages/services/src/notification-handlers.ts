@@ -67,10 +67,23 @@ export async function processPendingNotifications(): Promise<{
   const users = userIds.length > 0
     ? await prisma.user.findMany({
         where: { id: { in: userIds } },
-        select: { id: true, phone: true, email: true, name: true },
+        select: { id: true, phone: true, email: true, name: true, active: true },
       })
     : [];
   const userMap = new Map(users.map((u) => [u.id, u]));
+
+  // Live memberships per (recipient, company) — a notification queued just
+  // before a termination or member removal must not flush to a departed
+  // member's phone or inbox. Membership absence counts as dead too (the
+  // member-removal path deletes the row outright).
+  const logCompanyIds = [...new Set(pending.map((l) => l.companyId).filter((c): c is string => !!c))];
+  const liveMemberships = userIds.length > 0 && logCompanyIds.length > 0
+    ? await prisma.userCompany.findMany({
+        where: { userId: { in: userIds }, companyId: { in: logCompanyIds }, active: true, company: { deletedAt: null } },
+        select: { userId: true, companyId: true },
+      })
+    : [];
+  const liveMember = new Set(liveMemberships.map((m) => `${m.userId}|${m.companyId}`));
 
   for (const log of pending) {
     try {
@@ -85,6 +98,21 @@ export async function processPendingNotifications(): Promise<{
 
       // Resolve userId → contact info for WhatsApp/EMAIL channels
       const user = userMap.get(log.recipient);
+
+      // A deactivated account or a dead/absent membership in the log's
+      // company means the recipient is gone — fail the row, don't send.
+      const recipientDead =
+        user?.active === false ||
+        (!!log.companyId && !liveMember.has(`${log.recipient}|${log.companyId}`));
+      if (recipientDead) {
+        await prisma.notificationLog.update({
+          where: { id: log.id },
+          data: { status: "FAILED", errorMessage: "Recipient account or membership is deactivated", error: "Recipient deactivated" },
+        }).catch(() => {});
+        failed++;
+        continue;
+      }
+
       if (!user && channels.some((c) => c !== "IN_APP")) {
         // Cannot resolve recipient — mark as failed to avoid reprocessing
         await prisma.notificationLog.update({

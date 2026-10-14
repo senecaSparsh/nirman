@@ -13,7 +13,7 @@ export async function DepartmentsContent() {
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.INVENTORY_VIEW)) {
-    return <NoAccess what="departments" />;
+    return <NoAccess what="departments" permission={PERM.INVENTORY_VIEW} />;
   }
 
   const departments = await prisma.department.findMany({

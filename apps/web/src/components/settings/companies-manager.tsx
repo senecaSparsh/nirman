@@ -9,6 +9,8 @@ import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
+import { MemberScopeFields } from "@/components/settings/member-scope-fields";
+import { draftForRole, scopePayload, type MemberScopeDraft } from "@/lib/member-scope";
 import { ROLE_LIST, assignableRoles, canAssignRole, type Role } from "@/lib/roles";
 import { displayEmail } from "@/lib/utils";
 import { usePermissions } from "@/lib/permissions";
@@ -90,6 +92,9 @@ export function CompaniesManager({
   // Default to the first role the actor can assign (hierarchy-aware).
   const [addMemberRole, setAddMemberRole] = useState<Role>(assignable[0] ?? "PROJECT_MANAGER");
   const [addingMember, setAddingMember] = useState(false);
+  const [addMemberScope, setAddMemberScope] = useState<MemberScopeDraft>({ scopeType: null, entries: [] });
+  const addScope = draftForRole(addMemberRole, addMemberScope);
+  const [scopeOptions, setScopeOptions] = useState<Record<string, { projects: { id: string; name: string }[]; departments: { id: string; code: string; name: string; active: boolean }[] }>>({});
 
   async function createCompany(e: React.FormEvent) {
     e.preventDefault();
@@ -128,9 +133,14 @@ export function CompaniesManager({
   async function loadMembers(companyId: string) {
     setLoadingMembers(companyId);
     try {
-      const res = await fetch(`/api/companies/${companyId}/members`);
+      const [res, optionsRes] = await Promise.all([
+        fetch(`/api/companies/${companyId}/members`),
+        fetch(`/api/companies/${companyId}/scope-options`),
+      ]);
       const data = await res.json();
       if (res.ok) setMembers((m) => ({ ...m, [companyId]: data }));
+      const options = optionsRes.ok ? await optionsRes.json() : null;
+      if (options) setScopeOptions((o) => ({ ...o, [companyId]: options }));
     } finally {
       setLoadingMembers(null);
     }
@@ -147,17 +157,20 @@ export function CompaniesManager({
 
   async function addMember(companyId: string) {
     if (!addMemberEmail.trim()) return toast.error("Email is required");
+    const payload = scopePayload(addScope);
+    if (!payload) return toast.error("Choose the access scope first");
     setAddingMember(true);
     try {
       const res = await fetch(`/api/companies/${companyId}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: addMemberEmail.trim(), role: addMemberRole }),
+        body: JSON.stringify({ email: addMemberEmail.trim(), role: addMemberRole, ...payload }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to add member");
-      toast.success("Member added");
+      toast.success(data.updated ? "Already a member — role updated, scope unchanged" : "Member added");
       setAddMemberEmail("");
+      setAddMemberScope({ scopeType: null, entries: [] });
       await loadMembers(companyId);
       router.refresh();
     } catch (err: unknown) {
@@ -397,7 +410,16 @@ export function CompaniesManager({
                         )}
                       </Select>
                     </div>
-                    <Button size="sm" onClick={() => addMember(c.id)} disabled={addingMember || assignable.length === 0}>
+                    <div className="basis-full">
+                      <MemberScopeFields
+                        scopeRole={addMemberRole}
+                        value={addScope}
+                        onChange={setAddMemberScope}
+                        projects={scopeOptions[c.id]?.projects ?? []}
+                        departments={scopeOptions[c.id]?.departments ?? []}
+                      />
+                    </div>
+                    <Button size="sm" onClick={() => addMember(c.id)} disabled={addingMember || assignable.length === 0 || !scopePayload(addScope)}>
                       <UserPlus className="h-3.5 w-3.5" /> Add member
                     </Button>
                   </div>

@@ -1204,7 +1204,7 @@ export function MobileSaleDetailClient({
                 {canManage && p.status !== "VOID" && p.chequeStatus === "PENDING" ? (
                   <div className="flex gap-1 shrink-0">
                     <button
-                      onClick={(e) => { e.preventDefault(); handleChequeAction(p.id, "clear"); }}
+                      onClick={(e) => { e.preventDefault(); if (window.confirm("Mark this cheque as cleared? Confirm the funds have settled — this cannot be undone.")) handleChequeAction(p.id, "clear"); }}
                       disabled={submitting}
                       className="rounded-[0.25rem] px-1.5 py-1 text-m-caption font-bold text-m-body press disabled:opacity-50"
                       style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
@@ -1212,7 +1212,7 @@ export function MobileSaleDetailClient({
                       Clear
                     </button>
                     <button
-                      onClick={(e) => { e.preventDefault(); handleChequeAction(p.id, "bounce"); }}
+                      onClick={(e) => { e.preventDefault(); if (window.confirm("Mark this cheque as bounced? The payment is reversed and the balance reopens.")) handleChequeAction(p.id, "bounce"); }}
                       disabled={submitting}
                       className="rounded-[0.25rem] px-1.5 py-1 text-m-caption font-bold text-m-body press disabled:opacity-50"
                       style={{ backgroundColor: "var(--color-stop)", color: "var(--color-paper)" }}

@@ -38,7 +38,7 @@ async function RenovationsContent() {
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.PROJECTS_VIEW)) {
-    return <NoAccess what="renovations" />;
+    return <NoAccess what="renovations" permission={PERM.PROJECTS_VIEW} />;
   }
 
   // NOTE: RenovationProject has no `deletedAt` column (unlike Project) —

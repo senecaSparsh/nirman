@@ -248,7 +248,7 @@ export function ChangeOrderDetailClient({
             <span className="text-caption text-muted-foreground italic">Auto-implementing…</span>
           )}
           {(co.status === "DRAFT" || co.status === "REJECTED") && (
-            <Button variant="outline" onClick={() => doAction("cancel")} disabled={acting === "cancel"}>
+            <Button variant="outline" onClick={async () => { if (await confirm({ title: "Cancel change order?", description: "The change request is discarded. This cannot be undone.", confirmLabel: "Cancel change order" })) doAction("cancel"); }} disabled={acting === "cancel"}>
               <Ban className="mr-1 h-4 w-4" /> Cancel
             </Button>
           )}

@@ -2623,6 +2623,11 @@ enum ScrapGenerationStatus {
 
 model StockTransfer {
   id             String              @id @default(cuid())
+  // Human-readable doc number TRF-YYMMDD-NNNN (per-company sequence) — every
+  // other outbound document (GP-, SA-, PO-) has one; the printed transfer
+  // note and audit trail need it. Nullable: rows created before numbering
+  // existed keep no number.
+  transferNumber String?             @unique
   fromLocationId String
   toLocationId   String
   transferDate   DateTime            @default(now())

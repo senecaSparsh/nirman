@@ -15,7 +15,7 @@ export async function GatePassesContent() {
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.GATE_PASS_VIEW)) {
-    return <NoAccess what="gate passes" />;
+    return <NoAccess what="gate passes" permission={PERM.GATE_PASS_VIEW} />;
   }
 
   const perms = {

@@ -71,6 +71,21 @@ the `coolify-proxy` container isn't on the app network. Fix:
 - `pnpm db:push` — push schema to DB (dev). `pnpm db:migrate` for migrations.
 - `pnpm db:studio` — Prisma Studio.
 - `pnpm --filter @nirman/services test` — run service unit tests (vitest).
+- `BASE=http://localhost:3000 ./scripts/verify-workflows-full.sh` — **live workflow
+  verification**. Seeds entities into start states via SQL, then drives every core
+  state machine through HTTP transitions, asserting status flips + side-effect rows
+  - audit entries + negative guards (**70 checks / 29 groups**: DPR chain, MB verify/
+    reject, tenancy activate→schedule→escalate→terminate + changeTenant handover,
+    advances, issue→gate-pass execution, transfer cancel/dispatch + in-transit guard,
+    change-orders, hazards, incidents, NCR→CAPA full lifecycle, safety inspections,
+    PO mutations (addLine/eta/short-close/reject/resubmit), work-orders, sale cancel/
+    update, equipment sell/maintenance, payroll process guard, material-sale-return,
+    cheque clear/bounce, task timer, leave approve/reject + overlap guard, dev-only
+    error-log guard, cross-entity probes). Self-restocking and collision-free —
+    randomized dates/ids for unique-constrained seeds. Requires a session cookie jar
+    (sign in via `/api/auth/demo-login` first) and local Postgres. Mutates the DB —
+    dev/staging only. `scripts/verify-workflows-live.sh` is the lighter seed-reuse
+    variant for the seed-data workflows.
 - `pnpm --filter mobile sync|open:ios|open:android` — Capacitor native shell in
   `apps/mobile` (loads `https://nirman.life` in the WebView; middleware routes
   the mobile UA to `/m/*`). `CAP_SERVER_URL=http://<lan-ip>:3000` for local dev.
@@ -464,10 +479,14 @@ msg)` that returns 504 on timeout. Applied to `/api/cron/backup` (120s) and
     PUT/DELETE targeting another membership) — delegation does not re-delegate.
   - _Approval aging_: `/api/cron/approval-aging` (daily via
     `apps/web/scripts/scheduler.sh` sidecar, CRON_SECRET) digests approvals waiting >48h to
-    OWNER/ADMIN/PROJECT_DIRECTOR + active delegates (deduped 24h).
+    each approver, counting only what they can act on: their scope and projects
+    (`approval-digest-load.ts`), their permissions incl. hats and delegation, the
+    self-approval rule and the PO value tiers (`requiredPoApprover` / `poRankClears`
+    in services). Pure rules live in `apps/web/src/lib/approval-digest.ts` (deduped 24h).
     `/m/pulse` shows `oldest Nd` on the approvals CTA. Leave approval
     ≥2 days for an approval-holding member also nudges them to delegate
     (`delegation.suggest` notification in `approveLeaveRequest`).
+  - _Approval counts_: the nav badge (`/api/approvals?countOnly=1`), the approvals list, and the assistant's attention, dashboard and approve-all answers all read `apps/web/src/lib/approval-actionable.ts`, so they agree with each other and with the approve endpoints. Add new approval surfaces there rather than building their own filter.
 - **General Ledger (GL) + GST**: `postJournalEntry()` and the domain helpers
   (`postPurchaseReceipt`, `postMaterialIssue`, `postAssetSale`,
   `postPaymentReceived`, `postProjectCost`, `postExpense`, `postSupplierReturn`,
@@ -661,35 +680,45 @@ action=sync|delist`. UI at `/portal-listings` (grouped by portal,
   hierarchy, scope entries match scope type, entries belong to the company,
   reportsTo is same-company + cycle-free; atomically replaces scope entries
   - logs AuditLog), `getReportingChain()` / `getDirectReports()` (org chart).
-    Pure helpers (`defaultScopeType`, `resolveScopeType`, `validateScopeEntries`,
-    `wouldCreateCycle`, `_svcCanAssignRole`) are unit-tested (24 tests). API:
-    `PATCH /api/companies/[id]/members/[memberId]` accepts `scopeType` +
-    `reportsToUserCompanyId` + `scopeEntries` (routes through
-    `assignScopedMembership`); a simple `{ role }` body still works (backwards
-    compatible). `GET …/[memberId]?reports=1` → direct reports; otherwise →
-    upward reporting chain. The members list GET now returns `scopeType` +
-    `scopes[]` + `reportsToUserCompanyId`. UI: the Settings → Companies members
-    table shows a Scope column (Company-wide / Depts (n) / Sites (n) with the
-    detail list + "reports to X"). **Scope-filtered queries**: list pages call
-    `getUserScope()` from `@/lib/server` and filter — PROJECT scope filters
-    projects/DPRs/attendance/approvals to `projectId IN scope.projectIds`;
-    DEPARTMENT scope filters the cost-centre consumption report to
-    `departmentId IN scope.departmentIds`. `getAssignedProjectIds()` prefers
-    the hierarchical UserScope and falls back to the legacy ProjectAssignment
-    table. OWNER/ADMIN are always COMPANY-scoped (cannot be scoped down).
-    **Account creation hierarchy**: `canAssignRole(actorRole, targetRole)` in
-    `@/lib/roles` enforces that a role can only create/assign roles STRICTLY
-    below its tier, OR at the same tier but a different role (OWNER↔ADMIN
-    cross-assignment). Tier 3 (SUPERVISOR/SALES/ACCOUNTANT) cannot create any
-    accounts. `assignableRoles(actorRole)` returns the filtered list for UI
-    dropdowns. Enforced at: `POST /api/companies/[id]/members` (add member),
-    `PATCH /api/companies/[id]/members/[memberId]` (change role + scope),
-    `PATCH /api/users/[id]` (change role/active), and `assignScopedMembership()`
-    in the service. The UI filters the "Add member" + inline role dropdowns to
-    only show assignable roles, and hides the active-toggle / role-select for
-    members at or above the actor's tier. The settings page gate is now
-    `PERM.COMPANY_MANAGE` (which MANAGER has) instead of OWNER/ADMIN-only, so
-    Sub-Admins can access the members management UI.
+- **Access scope on add (H1)**: a new membership must be given an explicit scope,
+  never the role default. Company-wide is allowed only for OWNER/ADMIN (fixed) and
+  PROJECT_DIRECTOR/FINANCE_HEAD/ACCOUNTANT (explicit choice); a custom role follows
+  its base role, and a scratch role never gets company-wide. Every held hat must
+  allow the scope (`allowedScopeTypes()` in `@nirman/rbac`, `assertScopeAllowedForRoles()`).
+  Entries must belong to the company, and the actor's ceiling resolves through the
+  parent company for group members (`resolveActorScope`). Re-adding an existing
+  member keeps their scope. Bulk CSV import and add-to-company land non-executive
+  memberships fail-closed (PROJECT, no projects) until scoped in the app. Shared
+  picker: `components/settings/member-scope-fields.tsx` + `lib/member-scope.ts`.
+  Pure helpers (`defaultScopeType`, `resolveScopeType`, `validateScopeEntries`,
+  `wouldCreateCycle`, `_svcCanAssignRole`) are unit-tested (24 tests). API:
+  `PATCH /api/companies/[id]/members/[memberId]` accepts `scopeType` +
+  `reportsToUserCompanyId` + `scopeEntries` (routes through
+  `assignScopedMembership`); a simple `{ role }` body still works (backwards
+  compatible). `GET …/[memberId]?reports=1` → direct reports; otherwise →
+  upward reporting chain. The members list GET now returns `scopeType` +
+  `scopes[]` + `reportsToUserCompanyId`. UI: the Settings → Companies members
+  table shows a Scope column (Company-wide / Depts (n) / Sites (n) with the
+  detail list + "reports to X"). **Scope-filtered queries**: list pages call
+  `getUserScope()` from `@/lib/server` and filter — PROJECT scope filters
+  projects/DPRs/attendance/approvals to `projectId IN scope.projectIds`;
+  DEPARTMENT scope filters the cost-centre consumption report to
+  `departmentId IN scope.departmentIds`. `getAssignedProjectIds()` prefers
+  the hierarchical UserScope and falls back to the legacy ProjectAssignment
+  table. OWNER/ADMIN are always COMPANY-scoped (cannot be scoped down).
+  **Account creation hierarchy**: `canAssignRole(actorRole, targetRole)` in
+  `@/lib/roles` enforces that a role can only create/assign roles STRICTLY
+  below its tier, OR at the same tier but a different role (OWNER↔ADMIN
+  cross-assignment). Tier 3 (SUPERVISOR/SALES/ACCOUNTANT) cannot create any
+  accounts. `assignableRoles(actorRole)` returns the filtered list for UI
+  dropdowns. Enforced at: `POST /api/companies/[id]/members` (add member),
+  `PATCH /api/companies/[id]/members/[memberId]` (change role + scope),
+  `PATCH /api/users/[id]` (change role/active), and `assignScopedMembership()`
+  in the service. The UI filters the "Add member" + inline role dropdowns to
+  only show assignable roles, and hides the active-toggle / role-select for
+  members at or above the actor's tier. The settings page gate is now
+  `PERM.COMPANY_MANAGE` (which MANAGER has) instead of OWNER/ADMIN-only, so
+  Sub-Admins can access the members management UI.
 - **PWA / Field receiving**: `/field` page + `FieldReceive` client component
   with BarcodeDetector camera scanning + offline mutation queue
   (`@/lib/offline/queue`). Service worker at `public/sw.js`, registered by
@@ -912,7 +941,8 @@ that the desktop is crammed onto a phone. So:
 
 The map says admin → sub-admin → sub-sub-admin: the owner thinks in **delegation depth**,
 which maps to **scope** (company → project → site), not to six unrelated job titles. Same UI
-everywhere; scope decides what's in it. Gate UI with `hasPermission()` server-side and pass a
+everywhere; scope decides what's in it. Gate UI with `holdsPermission()` (a custom role holds
+only its own permission list, never the matrix of the tier it normalizes to) and pass a
 `permissions` prop down — never render a control the user can't use.
 
 ## Construction Execution Layer (H1–H8)

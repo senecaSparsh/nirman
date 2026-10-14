@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, getActingRole, getCompany, getOwnRole, json, requireUser } from "@/lib/server";
-import { roleTier } from "@/lib/roles";
+import { canManageDelegationOf, roleTier } from "@/lib/roles";
 
 /**
  * /api/delegation — authority delegation ("out of office").
@@ -165,9 +165,9 @@ export const PUT = apiHandler(async (req: NextRequest) => {
   if (Number.isNaN(endsAt.getTime())) {
     return json({ error: "endsAt must be a valid date" }, { status: 400 });
   }
-  const maxEnd = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+  const maxEnd = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
   if (endsAt <= new Date() || endsAt > maxEnd) {
-    return json({ error: "endsAt must be in the future, within 90 days" }, { status: 400 });
+    return json({ error: "endsAt must be in the future, within 14 days" }, { status: 400 });
   }
 
   // Own worn hat, not acting — delegating on someone else's behalf is
@@ -218,10 +218,18 @@ export const PUT = apiHandler(async (req: NextRequest) => {
 
   const delegator = await prisma.userCompany.findUnique({
     where: { id: membershipId },
-    select: { userId: true, companyId: true },
+    select: { userId: true, companyId: true, role: true, active: true },
   });
   if (!delegator || delegator.companyId !== company.id) {
     return json({ error: "Membership not found in this company" }, { status: 404 });
+  }
+  // A terminated membership can't hold a live delegation — the pointer is
+  // inert while dead but would silently re-arm on restore.
+  if (delegator.active === false) {
+    return json({ error: "This membership is deactivated — restore the member first." }, { status: 400 });
+  }
+  if (membershipId !== mine?.id && !canManageDelegationOf(ownRole, delegator.role)) {
+    return json({ error: "Only the owner can manage delegation on the owner's membership" }, { status: 403 });
   }
   if (delegate.userId === delegator.userId) {
     return json({ error: "You cannot delegate to yourself" }, { status: 400 });
@@ -289,10 +297,13 @@ export const DELETE = apiHandler(async (req: NextRequest) => {
   // by guessing its id (PUT already enforces this via the delegator lookup).
   const target = await prisma.userCompany.findUnique({
     where: { id: membershipId },
-    select: { companyId: true },
+    select: { companyId: true, role: true },
   });
   if (!target || target.companyId !== company.id) {
     return json({ error: "Membership not found in this company" }, { status: 404 });
+  }
+  if (membershipId !== mine?.id && !canManageDelegationOf(ownRole, target.role)) {
+    return json({ error: "Only the owner can clear delegation on the owner's membership" }, { status: 403 });
   }
 
   await prisma.userCompany.update({

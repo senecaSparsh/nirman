@@ -25,7 +25,7 @@ async function CoContent() {
   const scope = await getUserScope();
 
   if (!__effPerms.includes(PERM.ASSETS_VIEW)) {
-    return <NoAccess what="change orders" />;
+    return <NoAccess what="change orders" permission={PERM.ASSETS_VIEW} />;
   }
 
   const projectScopeFilter =

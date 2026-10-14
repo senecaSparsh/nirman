@@ -371,7 +371,7 @@ export function MobileChangeOrderDetailClient({
           )}
           {(co.status === "DRAFT" || co.status === "REJECTED") && (
             <ActionButton
-              onClick={() => doAction("cancel")}
+              onClick={async () => { if (await confirm({ title: "Cancel change order?", description: "This cannot be undone.", confirmLabel: "Cancel", variant: "destructive" })) doAction("cancel"); }}
               loading={acting === "cancel"}
               icon={Ban}
               label="Cancel"

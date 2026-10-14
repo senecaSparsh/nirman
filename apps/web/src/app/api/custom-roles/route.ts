@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, getActingRole, getCompany, getUserPermissions, json, requirePermission } from "@/lib/server";
-import { PERM, ALL_ROLES, ROLES, roleTier, ALL_PERMISSIONS, normalizeRole, canAssignRole } from "@/lib/roles";
+import { apiHandler, getActingRole, getCompany, getOwnRole, getUserPermissions, json, requirePermission } from "@/lib/server";
+import { PERM, ALL_ROLES, ROLES, roleTier, ALL_PERMISSIONS, normalizeRole, canAssignRole, canManageOwnerLevelRole, effectivePermissions } from "@/lib/roles";
 import { z } from "zod";
 
 /**
@@ -132,6 +132,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
         { status: 403 },
       );
     }
+  }
+
+  // Only the owner may create a role that carries owner-level permissions.
+  const grantedPerms = normalizedBase ? effectivePermissions(normalizedBase, permissions) : permissions;
+  if (!canManageOwnerLevelRole(await getOwnRole(), grantedPerms)) {
+    return json({ error: "Only the owner can create a role with company, payroll, user-management or land permissions." }, { status: 403 });
   }
 
   // Auto-prefix with CUSTOM_ if not already

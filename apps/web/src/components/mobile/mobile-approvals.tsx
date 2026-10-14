@@ -1,8 +1,8 @@
 import { connection } from "next/server";
 import { prisma, type DprApprovalStatus } from "@nirman/db";
 import { getActingRole, getCompany, getUserRole, getUserPermissions, getCurrentUser, toNum, scopeWhere, getScopedRolePermissions  } from "@/lib/server";
-import { canAutoApprove } from "@nirman/services";
-import { PERM, hasPermission } from "@/lib/roles";
+import { canAutoApprove, canSelfApprovePurchaseOrder, canWaiveSelfApproval } from "@nirman/services";
+import { PERM, holdsPermission } from "@/lib/roles";
 import { MobilePageHeader } from "@/components/mobile/v2/primitives";
 import { MobileRefreshButton } from "@/components/mobile/v2/scaffold";
 import { MobileApprovalsQueue } from "@/components/mobile/mobile-approvals-queue";
@@ -37,15 +37,17 @@ export async function MobileApprovals() {
   // approver exists — so their own pending items still appear in the queue.
   // Everyone else's own items are hidden (they can't self-approve anyway).
   const hideSelf = !canAutoApprove(actingRole);
+  const hideSelfPo = !canSelfApprovePurchaseOrder(actingRole);
+  const hideSelfWaiver = !canWaiveSelfApproval(actingRole);
 
-  const canApprovePo = hasPermission(role, PERM.PO_APPROVE, overrides) || hasScopedOrGlobal(PERM.PO_APPROVE);
-  const canApproveReq = hasPermission(role, PERM.REQUISITION_APPROVE, overrides) || hasScopedOrGlobal(PERM.REQUISITION_APPROVE);
-  const canApproveGatePass = hasPermission(role, PERM.GATE_PASS_APPROVE, overrides) || hasScopedOrGlobal(PERM.GATE_PASS_APPROVE);
-  const canApproveDprSubAdmin = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN, overrides) || hasScopedOrGlobal(PERM.DPR_APPROVE_SUB_ADMIN);
-  const canApproveDprAdmin = hasPermission(role, PERM.DPR_APPROVE_ADMIN, overrides) || hasScopedOrGlobal(PERM.DPR_APPROVE_ADMIN);
- const canApproveExpense = hasPermission(role, PERM.EXPENSE_APPROVE, overrides) || hasScopedOrGlobal(PERM.EXPENSE_APPROVE);
-  const canApproveRaBill = hasPermission(role, PERM.RA_APPROVE, overrides) || hasScopedOrGlobal(PERM.RA_APPROVE);
-  const canManageHr = hasPermission(role, PERM.HR_MANAGE, overrides) || hasScopedOrGlobal(PERM.HR_MANAGE);
+  const canApprovePo = holdsPermission(role, PERM.PO_APPROVE, overrides) || hasScopedOrGlobal(PERM.PO_APPROVE);
+  const canApproveReq = holdsPermission(role, PERM.REQUISITION_APPROVE, overrides) || hasScopedOrGlobal(PERM.REQUISITION_APPROVE);
+  const canApproveGatePass = holdsPermission(role, PERM.GATE_PASS_APPROVE, overrides) || hasScopedOrGlobal(PERM.GATE_PASS_APPROVE);
+  const canApproveDprSubAdmin = holdsPermission(role, PERM.DPR_APPROVE_SUB_ADMIN, overrides) || hasScopedOrGlobal(PERM.DPR_APPROVE_SUB_ADMIN);
+  const canApproveDprAdmin = holdsPermission(role, PERM.DPR_APPROVE_ADMIN, overrides) || hasScopedOrGlobal(PERM.DPR_APPROVE_ADMIN);
+ const canApproveExpense = holdsPermission(role, PERM.EXPENSE_APPROVE, overrides) || hasScopedOrGlobal(PERM.EXPENSE_APPROVE);
+  const canApproveRaBill = holdsPermission(role, PERM.RA_APPROVE, overrides) || hasScopedOrGlobal(PERM.RA_APPROVE);
+  const canManageHr = holdsPermission(role, PERM.HR_MANAGE, overrides) || hasScopedOrGlobal(PERM.HR_MANAGE);
 
   // If the user can't approve anything, don't surface the queue.
   if (!canApprovePo && !canApproveReq && !canApproveGatePass && !canApproveDprSubAdmin && !canApproveDprAdmin && !canApproveExpense && !canApproveRaBill && !canManageHr) {
@@ -68,7 +70,7 @@ export async function MobileApprovals() {
   const [draftPOs, pendingReqs, pendingGatePasses, pendingDprs, pendingExpenses, pendingRaBills, pendingClaims, pendingLeaves, pendingOffsite] = await Promise.all([
     canApprovePo
       ? prisma.purchaseOrder.findMany({
-          where: { companyId: company.id, status: "DRAFT", createdById: hideSelf ? { not: userId } : undefined, ...await scopeWhere("PurchaseOrder") },
+          where: { companyId: company.id, status: "DRAFT", createdById: hideSelfPo ? { not: userId } : undefined, ...await scopeWhere("PurchaseOrder") },
           orderBy: { createdAt: "desc" },
           take: 20,
           include: {
@@ -87,7 +89,7 @@ export async function MobileApprovals() {
       : [],
     canApproveReq
       ? prisma.materialRequisition.findMany({
-          where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: hideSelf ? { not: userId } : undefined, ...await scopeWhere("MaterialRequisition") },
+          where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: hideSelfWaiver ? { not: userId } : undefined, ...await scopeWhere("MaterialRequisition") },
           orderBy: { createdAt: "desc" },
           take: 20,
           include: {
@@ -117,7 +119,7 @@ export async function MobileApprovals() {
       : [],
     dprApprovalStatuses.length > 0
       ? prisma.dailyProgressReport.findMany({
-          where: { companyId: company.id, approvalStatus: { in: dprApprovalStatuses }, submittedById: hideSelf ? { not: userId } : undefined, ...await scopeWhere("DailyProgressReport") },
+          where: { companyId: company.id, approvalStatus: { in: dprApprovalStatuses }, submittedById: hideSelfWaiver ? { not: userId } : undefined, ...await scopeWhere("DailyProgressReport") },
           orderBy: { createdAt: "desc" },
           take: 20,
           include: {
@@ -128,7 +130,7 @@ export async function MobileApprovals() {
       : [],
     canApproveExpense
       ? prisma.expense.findMany({
-          where: { companyId: company.id, status: "PENDING", submittedById: hideSelf ? { not: userId } : undefined, ...await scopeWhere("Expense") },
+          where: { companyId: company.id, status: "PENDING", submittedById: hideSelfWaiver ? { not: userId } : undefined, ...await scopeWhere("Expense") },
           orderBy: { createdAt: "desc" },
           take: 20,
           include: {
@@ -139,7 +141,7 @@ export async function MobileApprovals() {
       : [],
     canApproveRaBill
       ? prisma.raBill.findMany({
-          where: { companyId: company.id, status: "SUBMITTED", createdById: hideSelf ? { not: userId } : undefined, submittedById: hideSelf ? { not: userId } : undefined, ...await scopeWhere("RaBill") },
+          where: { companyId: company.id, status: "SUBMITTED", createdById: hideSelfWaiver ? { not: userId } : undefined, submittedById: hideSelfWaiver ? { not: userId } : undefined, ...await scopeWhere("RaBill") },
           orderBy: { createdAt: "desc" },
           take: 20,
           include: {
@@ -151,7 +153,7 @@ export async function MobileApprovals() {
       : [],
     canApproveExpense
       ? prisma.expenseClaim.findMany({
-          where: { companyId: company.id, status: "SUBMITTED", claimantId: hideSelf ? { not: userId } : undefined, ...await scopeWhere("ExpenseClaim", {}) },
+          where: { companyId: company.id, status: "SUBMITTED", claimantId: hideSelfWaiver ? { not: userId } : undefined, ...await scopeWhere("ExpenseClaim", {}) },
           orderBy: { createdAt: "desc" },
           take: 20,
           include: {

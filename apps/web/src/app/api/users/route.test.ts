@@ -77,6 +77,7 @@ describe("POST /api/users", () => {
     mockPrisma().user!.create.mockResolvedValue({ id: "u-new", name: "New User", email: "new@test.com", role: "SITE_ENGINEER" });
     mockPrisma().userCompany!.create.mockResolvedValue({ id: "uc-1" });
     mockPrisma().account!.create.mockResolvedValue({ id: "acc-1" });
+    mockPrisma().project!.count.mockResolvedValue(1);
   });
 
   it("returns 400 when name is missing", async () => {
@@ -110,7 +111,7 @@ describe("POST /api/users", () => {
     const res = await POST(
       makeRequest("/api/users", {
         method: "POST",
-        body: { name: "New User", email: "new@test.com", role: "SITE_ENGINEER", password: "mypassword" },
+        body: { name: "New User", email: "new@test.com", role: "SITE_ENGINEER", password: "mypassword", scopeType: "PROJECT", scopeEntries: [{ projectId: "p-1" }] },
       }),
       {},
     );
@@ -136,6 +137,50 @@ describe("POST /api/users", () => {
       {},
     );
     expect(res.status).toBe(409);
+  });
+
+  it("returns 400 when a new member is added without a scope, and creates nothing", async () => {
+    mockPrisma().user!.create.mockClear();
+    const res = await POST(
+      makeRequest("/api/users", {
+        method: "POST",
+        body: { name: "New User", email: "new@test.com", role: "SITE_ENGINEER", password: "mypassword" },
+      }),
+      {},
+    );
+    expect(res.status).toBe(400);
+    expect(mockPrisma().user!.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses company-wide scope for a site engineer", async () => {
+    const res = await POST(
+      makeRequest("/api/users", {
+        method: "POST",
+        body: { name: "New User", email: "new@test.com", role: "SITE_ENGINEER", password: "mypassword", scopeType: "COMPANY" },
+      }),
+      {},
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("stores the chosen project scope on the new membership", async () => {
+    mockPrisma().userCompany!.create.mockClear();
+    const res = await POST(
+      makeRequest("/api/users", {
+        method: "POST",
+        body: { name: "New User", email: "new@test.com", role: "SITE_ENGINEER", password: "mypassword", scopeType: "PROJECT", scopeEntries: [{ projectId: "p-1" }] },
+      }),
+      {},
+    );
+    expect(res.status).toBe(201);
+    expect(mockPrisma().userCompany!.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          scopeType: "PROJECT",
+          scopes: { create: [{ scopeKind: "PROJECT", projectId: "p-1" }] },
+        }),
+      }),
+    );
   });
 
   it("returns 403 when the user lacks USERS_MANAGE", async () => {

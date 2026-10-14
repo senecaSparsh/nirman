@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Truck, ArrowRight, Building2, Check, X, Printer, ChevronDown, Send, Undo, Loader2 } from "lucide-react";
@@ -43,7 +44,14 @@ export function TransfersTab({ transfers, locations, projects, canTransfer }: { 
       label: "Date",
       sortable: true,
       sortValue: (t) => new Date(t.transferDate),
-      render: (t) => <span className="tnum text-muted-foreground">{formatDate(t.transferDate)}</span>,
+      render: (t) => (
+        <div className="flex flex-col gap-0.5">
+          {t.transferNumber && (
+            <span className="font-mono text-micro text-muted-foreground">{t.transferNumber}</span>
+          )}
+          <span className="tnum text-muted-foreground">{formatDate(t.transferDate)}</span>
+        </div>
+      ),
     },
     {
       key: "route",
@@ -158,7 +166,7 @@ export function TransfersTab({ transfers, locations, projects, canTransfer }: { 
         <Dialog
           open={!!selected}
           onOpenChange={(o) => { if (!o) setSelected(null); }}
-          title="Transfer Details"
+          title={selected.transferNumber ? `Transfer ${selected.transferNumber}` : "Transfer Details"}
           description={formatDate(selected.transferDate)}
           size="lg"
         >
@@ -252,12 +260,9 @@ function TransferDetailPanel({ transfer }: { transfer: TransferRow }) {
 
   return (
     <div className="space-y-4 p-4">
-      {/* Header */}
+      {/* Status — title + date already render in the dialog chrome */}
       <div className="flex items-center justify-between gap-2">
-        <div>
-          <h3 className="text-section text-foreground">Transfer Details</h3>
-          <p className="text-caption text-muted-foreground tnum">{formatDate(transfer.transferDate)}</p>
-        </div>
+        <span className="text-label text-muted-foreground">Status</span>
         <StatusPill status={transfer.status} />
       </div>
 
@@ -408,20 +413,39 @@ function TransferDetailPanel({ transfer }: { transfer: TransferRow }) {
 
       <AttachmentList entityType="StockTransfer" entityId={transfer.id} />
 
-      {/* Actions for DRAFT transfers */}
-      {transfer.status === "DRAFT" && (
-        <div className="flex gap-2 border-t border-border pt-3">
-          <Button variant="default" size="sm" onClick={() => setShowDispatch(true)} disabled={acting}>
-            <Send className="h-4 w-4" /> Dispatch
-          </Button>
-          <Button variant="default" size="sm" onClick={() => setShowComplete(true)} disabled={acting}>
-            <Check className="h-4 w-4" /> Complete Transfer
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => doAction("cancel")} disabled={acting} className="text-muted-foreground hover:text-danger">
-            <X className="h-4 w-4" /> Cancel
-          </Button>
-        </div>
-      )}
+      {/* Actions for DRAFT transfers — when the auto-created gate pass is
+          still pending, Dispatch/Complete will 400 ("items cannot leave the
+          gate until approved"), so show the real blocker instead of dead
+          buttons that discard the entered vehicle details. */}
+      {transfer.status === "DRAFT" && (() => {
+        const gp = transfer.gatePass;
+        const gpBlocks = gp && gp.status !== "APPROVED" && gp.status !== "EXITED";
+        return (
+          <div className="space-y-2 border-t border-border pt-3">
+            {gpBlocks && (
+              <div className="rounded-md border border-signal/40 bg-signal/10 p-2.5 text-caption text-foreground">
+                Gate pass <Link href="/gate-passes" className="font-medium underline underline-offset-2">{gp.gatePassNumber}</Link> is
+                awaiting approval — items can&apos;t leave the gate until it&apos;s approved.
+              </div>
+            )}
+            <div className="flex gap-2">
+              {!gpBlocks && (
+                <>
+                  <Button variant="default" size="sm" onClick={() => setShowDispatch(true)} disabled={acting}>
+                    <Send className="h-4 w-4" /> Dispatch
+                  </Button>
+                  <Button variant="default" size="sm" onClick={() => setShowComplete(true)} disabled={acting}>
+                    <Check className="h-4 w-4" /> Complete Transfer
+                  </Button>
+                </>
+              )}
+              <Button variant="outline" size="sm" onClick={() => doAction("cancel")} disabled={acting} className="text-muted-foreground hover:text-danger">
+                <X className="h-4 w-4" /> Cancel
+              </Button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Actions for IN_TRANSIT transfers */}
       {transfer.status === "IN_TRANSIT" && (

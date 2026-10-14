@@ -14,7 +14,7 @@ export async function VendorsContent() {
 
   if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) {
     return (
-      <NoAccess what="vendors" />
+      <NoAccess what="vendors" permission={PERM.PROCUREMENT_VIEW} />
     );
   }
 

@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, getActingRole, getCompany, getUserPermissions, json, requirePermission } from "@/lib/server";
-import { PERM, ALL_PERMISSIONS, ALL_ROLES, ROLES, roleTier, canAssignRole } from "@/lib/roles";
+import { apiHandler, getActingRole, getCompany, getOwnRole, getUserPermissions, json, requirePermission } from "@/lib/server";
+import { PERM, ALL_PERMISSIONS, ALL_ROLES, ROLES, roleTier, canAssignRole, canManageOwnerLevelRole, customRoleGrantedPermissions } from "@/lib/roles";
 import { z } from "zod";
 
 /**
@@ -169,6 +169,16 @@ export const PUT = apiHandler(async (req: NextRequest, { params }: { params: Pro
         );
       }
     }
+  }
+
+  // Only the owner may change a role that carries owner-level permissions, now or after the edit.
+  const currentPerms = customRoleGrantedPermissions(role);
+  const nextBase = parsed.data.baseRole !== undefined ? parsed.data.baseRole : role.baseRole;
+  const nextPerms = parsed.data.permissions ?? role.permissions;
+  const nextEffective = customRoleGrantedPermissions({ baseRole: nextBase ?? null, permissions: nextPerms });
+  const ownRole = await getOwnRole();
+  if (!canManageOwnerLevelRole(ownRole, currentPerms) || !canManageOwnerLevelRole(ownRole, nextEffective)) {
+    return json({ error: "Only the owner can change a role that holds company, payroll, user-management or land permissions." }, { status: 403 });
   }
 
   const updated = await prisma.customRole.update({

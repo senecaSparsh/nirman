@@ -30,7 +30,7 @@ async function LandContent() {
 
   if (!__effPerms.includes(PERM.ASSETS_VIEW)) {
     return (
-      <NoAccess what="land parcels" />
+      <NoAccess what="land parcels" permission={PERM.ASSETS_VIEW} />
     );
   }
 

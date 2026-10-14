@@ -19,14 +19,21 @@ describe("NoAccess", () => {
     expect(screen.getByText(/Your account doesn't include access to this page/i)).toBeInTheDocument();
   });
 
-  it("renders permission when provided", () => {
-    render(<NoAccess what="reports" permission="VIEW_REPORTS" />);
-    expect(screen.getByText("VIEW_REPORTS")).toBeInTheDocument();
+  it("names the permission in plain words when provided", () => {
+    render(<NoAccess what="reports" permission="finance.view" />);
+    expect(screen.getByText("Finance View")).toBeInTheDocument();
+    expect(screen.queryByText("finance.view")).not.toBeInTheDocument();
   });
 
-  it("does not render permission when not provided", () => {
+  it("does not name a permission when not provided", () => {
     render(<NoAccess what="reports" />);
-    expect(screen.queryByText("VIEW_REPORTS")).not.toBeInTheDocument();
+    expect(screen.queryByText("Finance View")).not.toBeInTheDocument();
+  });
+
+  it("replaces the grant sentence with a note when access cannot be granted", () => {
+    render(<NoAccess what="the audit trail" note="Only the owner can open this." />);
+    expect(screen.getByText(/Only the owner can open this\./)).toBeInTheDocument();
+    expect(screen.queryByText(/An owner or administrator can grant it/)).not.toBeInTheDocument();
   });
 
   it("renders a Back to Today link", () => {

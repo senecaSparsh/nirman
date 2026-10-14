@@ -18,11 +18,13 @@ import {
   getCompanyPortfolioSummary,
   generateGstr3b,
   trialBalance} from "@nirman/services";
-import { apiHandler, json, requireUser, getActingRole, getCompany, toNum, scopeWhere } from "@/lib/server";
+import { apiHandler, getCompany, getCustomRoleLabels, getUserPermissions, getUserRole, json, requireUser, toNum, scopeWhere } from "@/lib/server";
+import { assistantCaps, type AssistantCaps } from "@/lib/assistant-access";
 import { parseIntent, type Intent } from "@/lib/assistant/nlu";
 import { processConversation, type ConversationContext } from "@/lib/assistant/conversation";
-import { hasPermission, PERM, ROLES, type Role } from "@/lib/roles";
+import { PERM, type Role } from "@/lib/roles";
 import { formatCurrency, formatNumber } from "@/lib/utils";
+import { actionableApprovals } from "@/lib/approval-actionable";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // RESPONSE TYPES
@@ -71,12 +73,18 @@ interface ParsedEntities {
 // MAIN HANDLER
 // ═══════════════════════════════════════════════════════════════════════════
 
+async function assistantCapsFor(companyId: string): Promise<AssistantCaps> {
+  const [rawRole, permissions] = await Promise.all([getUserRole(), getUserPermissions()]);
+  const label = rawRole.startsWith("CUSTOM_")
+    ? (await getCustomRoleLabels([companyId])).get(`${companyId}:${rawRole}`)
+    : undefined;
+  return assistantCaps({ rawRole, label, permissions });
+}
+
 export const POST = apiHandler(async (req: NextRequest) => {
   await requireUser();
   const company = await getCompany();
-  // Acting role — a delegate asking "what's pending" should see the
-  // delegator's scope, not their own narrower one.
-  const role = (await getActingRole()) ?? "PROJECT_MANAGER";
+  const caps = await assistantCapsFor(company.id);
 
   const body = await req.json();
   const text: string = (body?.text ?? "").trim();
@@ -113,7 +121,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   // ── Execute the intent with resolved entities ──
-  const response = await executeIntent(conv.intent, conv.entities, company.id, text, role);
+  const response = await executeIntent(conv.intent, conv.entities, company.id, text, caps);
 
   // Add conversation context to the response
   const updatedHistory = [
@@ -142,13 +150,13 @@ async function executeIntent(
   entities: ParsedEntities,
   companyId: string,
   rawText: string,
-  role: Role,
+  caps: AssistantCaps,
 ): Promise<AssistantResponse> {
   // ── Permission gate: check if the user's role can access this intent ──
-  const permCheck = checkIntentPermission(intent, role);
+  const permCheck = checkIntentPermission(intent, caps);
   if (!permCheck.allowed) {
     return {
-      text: `Aapke role (${roleLabel(role)}) ke liye ye action allowed nahi hai.\n\n${permCheck.reason ?? ""}`,
+      text: `Aapke role (${caps.label}) ke liye ye action allowed nahi hai.\n\n${permCheck.reason ?? ""}`,
       intent,
       confidence: 0.9,
       cards: [{ type: "link", label: "Dashboard", href: "/m/home" }]};
@@ -156,11 +164,11 @@ async function executeIntent(
 
   switch (intent) {
     case "GREETING":
-      return greetingResponse(role);
+      return greetingResponse(caps);
     case "HELP":
-      return helpResponse(role);
+      return helpResponse(caps);
     case "DASHBOARD":
-      return dashboardResponse(companyId, role);
+      return dashboardResponse(companyId, caps);
     case "STOCK_QUERY":
       return stockQueryResponse(companyId, entities);
     case "LOW_STOCK":
@@ -298,7 +306,7 @@ async function executeIntent(
 // ═══════════════════════════════════════════════════════════════════════════
 
 /** Map an intent to the permission required to execute it. */
-function checkIntentPermission(intent: Intent, role: Role): { allowed: boolean; reason?: string } {
+function checkIntentPermission(intent: Intent, caps: AssistantCaps): { allowed: boolean; reason?: string } {
   // Read-only intents — allowed for any authenticated user with the relevant .view perm
   const READ_PERMS: Partial<Record<Intent, string>> = {
     STOCK_QUERY: PERM.INVENTORY_VIEW,
@@ -381,24 +389,20 @@ function checkIntentPermission(intent: Intent, role: Role): { allowed: boolean; 
     return { allowed: true };
   }
 
-  if (hasPermission(role, requiredPerm)) {
+  if (caps.can(requiredPerm)) {
     return { allowed: true };
   }
 
   return {
     allowed: false,
-    reason: `Ye feature "${requiredPerm}" permission chahiye. Aapke role (${roleLabel(role)}) mein ye nahi hai.`};
-}
-
-function roleLabel(role: Role): string {
-  return ROLES[role]?.label ?? role;
+    reason: `Ye feature "${requiredPerm}" permission chahiye. Aapke role (${caps.label}) mein ye nahi hai.`};
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // RESPONSE BUILDERS
 // ═══════════════════════════════════════════════════════════════════════════
 
-function greetingResponse(role: Role): AssistantResponse {
+function greetingResponse(caps: AssistantCaps): AssistantResponse {
   const greetings: Partial<Record<Role, string[]>> = {
     OWNER: [
       "Namaste! Main Sahayak hoon. Aapka poora business ready hai. Bataiye, kya dekhna hai?",
@@ -424,62 +428,62 @@ function greetingResponse(role: Role): AssistantResponse {
       "Namaste! Accountant mode. Finance, expenses, GL, payroll — sab ready. Bolo?",
       "Hello! Books ready hain. Trial balance, expenses, payments — kya dekhna hai?",
     ]};
-  const opts = greetings[role] ?? greetings.PROJECT_MANAGER ?? ["Namaste! Main Sahayak hoon. Kya help karu?"];
+  const opts = greetings[caps.role] ?? greetings.PROJECT_MANAGER ?? ["Namaste! Main Sahayak hoon. Kya help karu?"];
   return {
     text: opts[Math.floor(Math.random() * opts.length)] ?? opts[0]!,
     intent: "GREETING",
     confidence: 1,
-    cards: roleAwareQuickLinks(role)};
+    cards: roleAwareQuickLinks(caps)};
 }
 
-function roleAwareQuickLinks(role: Role): ActionCard[] {
+function roleAwareQuickLinks(caps: AssistantCaps): ActionCard[] {
   const cards: ActionCard[] = [];
-  if (hasPermission(role, PERM.INVENTORY_VIEW)) {
+  if (caps.can(PERM.INVENTORY_VIEW)) {
     cards.push({ type: "link", label: "Stock dekho", href: "/m/materials" });
   }
-  if (hasPermission(role, PERM.PO_APPROVE) || hasPermission(role, PERM.REQUISITION_APPROVE)) {
+  if (caps.can(PERM.PO_APPROVE) || caps.can(PERM.REQUISITION_APPROVE)) {
     cards.push({ type: "link", label: "Approvals", href: "/m/approvals" });
   }
-  if (hasPermission(role, PERM.SALES_VIEW)) {
+  if (caps.can(PERM.SALES_VIEW)) {
     cards.push({ type: "link", label: "Sales", href: "/m/material-sales" });
   }
-  if (hasPermission(role, PERM.FINANCE_VIEW)) {
+  if (caps.can(PERM.FINANCE_VIEW)) {
     cards.push({ type: "link", label: "Finance", href: "/m/books/gl" });
   }
   return cards.slice(0, 3);
 }
 
-function helpResponse(role: Role): AssistantResponse {
+function helpResponse(caps: AssistantCaps): AssistantResponse {
   // Role-specific help text — only show commands the user can actually use
   const sections: string[] = [];
 
-  if (hasPermission(role, PERM.INVENTORY_VIEW)) {
+  if (caps.can(PERM.INVENTORY_VIEW)) {
     sections.push(`**Stock & Inventory**
 • "Stock kya hai?" — current stock
 • "Low stock kya hai?" — kya khatam ho raha
 • "Cement kitna hai?" — specific material
 • "Scrap status" — scrap inventory`);
   }
-  if (hasPermission(role, PERM.PO_APPROVE) || hasPermission(role, PERM.REQUISITION_APPROVE)) {
+  if (caps.can(PERM.PO_APPROVE) || caps.can(PERM.REQUISITION_APPROVE)) {
     sections.push(`**Approvals**
 • "Approvals pending?" — pending list
 • "PO-0011 approve kar" — specific PO
 • "Sab approve kar" — approve all`);
   }
-  if (hasPermission(role, PERM.SALES_VIEW)) {
+  if (caps.can(PERM.SALES_VIEW)) {
     sections.push(`**Sales & Payment**
 • "Aaj ki sales" — recent sales
 • "Payment kitni baki?" — pending payments
 • "Customers dikhao" — customer list`);
   }
-  if (hasPermission(role, PERM.PROJECTS_VIEW)) {
+  if (caps.can(PERM.PROJECTS_VIEW)) {
     sections.push(`**Projects & Reports**
 • "Project status" — all projects
 • "DPR pending" — daily reports
 • "Budget variance" — budget vs actual
 • "BOQ dikhao" — bill of quantities`);
   }
-  if (hasPermission(role, PERM.FINANCE_VIEW)) {
+  if (caps.can(PERM.FINANCE_VIEW)) {
     sections.push(`**Finance**
 • "Cash position" — cash & bank
 • "Trial balance" — GL summary
@@ -487,13 +491,13 @@ function helpResponse(role: Role): AssistantResponse {
 • "Supplier ko kitna dena?" — payables
 • "Tally status" — sync status`);
   }
-  if (hasPermission(role, PERM.HR_VIEW)) {
+  if (caps.can(PERM.HR_VIEW)) {
     sections.push(`**Site & Workers**
 • "Aaj kitne worker aaye?" — attendance
 • "Payroll status" — salary info
 • "Workers dikhao" — employee list`);
   }
-  if (hasPermission(role, PERM.ASSETS_VIEW)) {
+  if (caps.can(PERM.ASSETS_VIEW)) {
     sections.push(`**Real Estate & Property**
 • "Portfolio overview" — poora business summary
 • "Kitne flat available?" — unit status by type
@@ -502,32 +506,32 @@ function helpResponse(role: Role): AssistantResponse {
 • "Land dikhao" — land parcels
 • "Portal listings" — 99acres/MagicBricks status`);
   }
-  if (hasPermission(role, PERM.SALES_VIEW)) {
+  if (caps.can(PERM.SALES_VIEW)) {
     sections.push(`**Sales Pipeline**
 • "Sales pipeline" — booking/deposit/completion
 • "Installment kitna baki?" — payment schedule
 • "Kitne flat book huye?" — booking status`);
   }
-  if (hasPermission(role, PERM.PROJECTS_VIEW)) {
+  if (caps.can(PERM.PROJECTS_VIEW)) {
     sections.push(`**Construction**
 • "Construction progress" — kitna ban gaya
 • "Cost per sqft" — project cost analysis
 • "Budget variance" — budget vs actual
 • "Project profit margin" — profitability per project`);
   }
-  if (hasPermission(role, PERM.EXPENSE_CREATE)) {
+  if (caps.can(PERM.EXPENSE_CREATE)) {
     sections.push(`**Add Cost to Project**
 • "Green Valley project me 50000 ka labour cost add kar"
 • "Project me contractor bill 2 lakh add kar"
 • "Project me overhead 25000 add kar"`);
   }
-  if (hasPermission(role, PERM.ASSETS_MANAGE)) {
+  if (caps.can(PERM.ASSETS_MANAGE)) {
     sections.push(`**Add Unit to Project**
 • "Green Valley project me 2BHK flat add kar A-101 850 sqft"
 • "Project me shop add kar G-1 500 sqft"
 • "Project me 3BHK add kar B-201 1200 sqft 50 lakh"`);
   }
-  if (hasPermission(role, PERM.STOCK_ISSUE) || hasPermission(role, PERM.PROCUREMENT_MANAGE)) {
+  if (caps.can(PERM.STOCK_ISSUE) || caps.can(PERM.PROCUREMENT_MANAGE)) {
     sections.push(`**Add Material/PO to Project**
 • "Project me material add kar" — issue saman to site
 • "Project me PO banao" — purchase order
@@ -646,18 +650,7 @@ async function lowStockResponse(companyId: string): Promise<AssistantResponse> {
 }
 
 async function approvalsListResponse(companyId: string): Promise<AssistantResponse> {
-  const [draftPOs, pendingReqs] = await Promise.all([
-    prisma.purchaseOrder.findMany({
-      where: { ...await scopeWhere("PurchaseOrder"), companyId, status: "DRAFT" },
-      include: { supplier: true, _count: { select: { lines: true } } },
-      orderBy: { createdAt: "desc" },
-      take: 10}),
-    prisma.materialRequisition.findMany({
-      where: { AND: [await scopeWhere("MaterialRequisition"), { OR: [{ project: { companyId } }, { department: { companyId } }] }], status: "SUBMITTED" },
-      include: { project: true, _count: { select: { lines: true } } },
-      orderBy: { createdAt: "desc" },
-      take: 10}),
-  ]);
+  const { pos: draftPOs, reqs: pendingReqs } = await actionableApprovals(companyId);
 
   let text = `📋 **Pending Approvals:**\n\n`;
 
@@ -692,12 +685,7 @@ async function approvalsListResponse(companyId: string): Promise<AssistantRespon
 
 async function approvePoResponse(companyId: string, entities: ParsedEntities): Promise<AssistantResponse> {
   if (!entities.poNumber) {
-    const draftPOs = await prisma.purchaseOrder.findMany({
-      where: { companyId,
-      ...await scopeWhere("PurchaseOrder"), status: "DRAFT" },
-      include: { supplier: true },
-      orderBy: { createdAt: "desc" },
-      take: 10});
+    const { pos: draftPOs } = await actionableApprovals(companyId);
 
     if (draftPOs.length === 0) {
       return { text: "Koi draft PO nahi hai approve karne ke liye.", intent: "APPROVE_PO", confidence: 0.8 };
@@ -726,6 +714,11 @@ async function approvePoResponse(companyId: string, entities: ParsedEntities): P
 
   if (po.status !== "DRAFT") {
     return { text: `${po.poNumber} already ${po.status} hai. Approve nahi kar sakte.`, intent: "APPROVE_PO", confidence: 0.7 };
+  }
+
+  const { pos: actionable } = await actionableApprovals(companyId);
+  if (!actionable.some((p) => p.id === po.id)) {
+    return { text: `${po.poNumber} abhi aap approve nahi kar sakte (scope, approval limit, ya aapka banaya hua PO).`, intent: "APPROVE_PO", confidence: 0.8 };
   }
 
   return {
@@ -1627,14 +1620,15 @@ function unknownResponse(rawText: string): AssistantResponse {
 
 async function attentionResponse(companyId: string): Promise<AssistantResponse> {
   const dprScope = await scopeWhere("DailyProgressReport", {});
-  const [draftPOs, pendingReqs, overduePOs, lowStock, pendingDPRs] = await Promise.all([
-    prisma.purchaseOrder.count({ where: { companyId, status: "DRAFT" } }),
-    prisma.materialRequisition.count({ where: { AND: [await scopeWhere("MaterialRequisition"), { OR: [{ project: { companyId } }, { department: { companyId } }] }], status: "SUBMITTED" } }),
+  const [approvals, overduePOs, lowStock, pendingDPRs] = await Promise.all([
+    actionableApprovals(companyId),
     prisma.purchaseOrder.count({
-      where: { companyId, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() } }}),
+      where: { ...await scopeWhere("PurchaseOrder"), companyId, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: new Date() } }}),
     lowStockAlerts(companyId).catch(() => []),
     prisma.dailyProgressReport.count({ where: { companyId, approvalStatus: "SUBMITTED", ...dprScope } }),
   ]);
+  const draftPOs = approvals.pos.length;
+  const pendingReqs = approvals.reqs.length;
 
   const items: string[] = [];
   if (draftPOs > 0) items.push(`📋 ${draftPOs} PO approve karne pending`);
@@ -1825,18 +1819,7 @@ async function spendAnalysisResponse(companyId: string, entities: ParsedEntities
 }
 
 async function approveAllResponse(companyId: string): Promise<AssistantResponse> {
-  const draftPOs = await prisma.purchaseOrder.findMany({
-    where: { companyId,
-      ...await scopeWhere("PurchaseOrder"), status: "DRAFT" },
-    include: { supplier: true },
-    orderBy: { createdAt: "desc" },
-    take: 20});
-
-  const pendingReqs = await prisma.materialRequisition.findMany({
-    where: { AND: [await scopeWhere("MaterialRequisition"), { OR: [{ project: { companyId } }, { department: { companyId } }] }], status: "SUBMITTED" },
-    include: { project: true },
-    orderBy: { createdAt: "desc" },
-    take: 20});
+  const { pos: draftPOs, reqs: pendingReqs } = await actionableApprovals(companyId);
 
   if (draftPOs.length === 0 && pendingReqs.length === 0) {
     return { text: "✅ Koi pending approval nahi hai!", intent: "APPROVE_ALL", confidence: 0.9 };
@@ -1897,25 +1880,24 @@ async function supplierPaymentResponse(companyId: string): Promise<AssistantResp
 // Budget Variance, Portal, Scrap, Tally, Transfer, Issue
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function dashboardResponse(companyId: string, role: Role): Promise<AssistantResponse> {
+async function dashboardResponse(companyId: string, caps: AssistantCaps): Promise<AssistantResponse> {
   const items: string[] = [];
   const cards: ActionCard[] = [];
 
   // Role-aware dashboard — show what's relevant to the user's permissions
-  if (hasPermission(role, PERM.PROCUREMENT_VIEW)) {
-    const [draftPOs, pendingReqs] = await Promise.all([
-      prisma.purchaseOrder.count({ where: { companyId, status: "DRAFT" } }),
-      prisma.materialRequisition.count({ where: { AND: [await scopeWhere("MaterialRequisition"), { OR: [{ project: { companyId } }, { department: { companyId } }] }], status: "SUBMITTED" } }),
-    ]);
+  if (caps.can(PERM.PROCUREMENT_VIEW)) {
+    const approvals = await actionableApprovals(companyId);
+    const draftPOs = approvals.pos.length;
+    const pendingReqs = approvals.reqs.length;
     if (draftPOs > 0 || pendingReqs > 0) {
       items.push(`Approvals: ${draftPOs} POs + ${pendingReqs} requisitions pending`);
-      if (hasPermission(role, PERM.PO_APPROVE)) {
+      if (caps.can(PERM.PO_APPROVE)) {
         cards.push({ type: "link", label: "Approvals kholo", href: "/m/approvals" });
       }
     }
   }
 
-  if (hasPermission(role, PERM.INVENTORY_VIEW)) {
+  if (caps.can(PERM.INVENTORY_VIEW)) {
     const lowStock = await lowStockAlerts(companyId).catch(() => []);
     if (lowStock.length > 0) {
       items.push(`Low stock: ${lowStock.length} materials`);
@@ -1923,7 +1905,7 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
     }
   }
 
-  if (hasPermission(role, PERM.SALES_VIEW)) {
+  if (caps.can(PERM.SALES_VIEW)) {
     const todayStart = startOfDayIST();
     const [todayMatSales, todayAssetSales] = await Promise.all([
       prisma.materialSale.count({ where: { companyId, createdAt: { gte: todayStart } } }),
@@ -1936,7 +1918,7 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
     }
   }
 
-  if (hasPermission(role, PERM.FINANCE_VIEW)) {
+  if (caps.can(PERM.FINANCE_VIEW)) {
     const suppliers = await prisma.supplier.findMany({
       where: { companyId, deletedAt: null, balanceOwed: { gt: 0 } },
       select: { balanceOwed: true }});
@@ -1946,7 +1928,7 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
     }
   }
 
-  if (hasPermission(role, PERM.HR_VIEW)) {
+  if (caps.can(PERM.HR_VIEW)) {
     const todayStart = startOfDayIST();
     const attendanceToday = await prisma.workerAttendance.count({
       where: { companyId, date: { gte: todayStart }, ...await scopeWhere("WorkerAttendance") }});
@@ -1956,7 +1938,7 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
   }
 
   // ── Real estate owner metrics ──
-  if (hasPermission(role, PERM.ASSETS_VIEW)) {
+  if (caps.can(PERM.ASSETS_VIEW)) {
     const [availableUnits, reservedUnits, depositSales] = await Promise.all([
       prisma.builtUnit.count({
         where: { AND: [{ project: { companyId, deletedAt: null } }, await scopeWhere("BuiltUnit")], status: "AVAILABLE", deletedAt: null }}),
@@ -1974,7 +1956,7 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
     }
   }
 
-  if (hasPermission(role, PERM.PROJECTS_VIEW)) {
+  if (caps.can(PERM.PROJECTS_VIEW)) {
     const activeProjects = await prisma.project.count({
       where: { companyId, deletedAt: null, status: "ACTIVE" }});
     if (activeProjects > 0) {
@@ -1987,7 +1969,7 @@ async function dashboardResponse(companyId: string, role: Role): Promise<Assista
       text: `Sab smooth hai! Koi urgent item nahi hai. Kya specific dekhna hai?`,
       intent: "DASHBOARD",
       confidence: 0.9,
-      cards: roleAwareQuickLinks(role)};
+      cards: roleAwareQuickLinks(caps)};
   }
 
   let text = `**Aapka Dashboard:**\n\n`;

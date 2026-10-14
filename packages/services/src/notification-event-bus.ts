@@ -574,7 +574,10 @@ export async function emitNotificationEvent(event: NotificationEvent): Promise<v
  */
 async function resolveRecipients(event: NotificationEvent): Promise<string[]> {
   const memberships = await prisma.userCompany.findMany({
-    where: { companyId: event.companyId },
+    // Live members only — a terminated membership (or a soft-deleted
+    // company) must not keep receiving this company's events on a device
+    // that still works.
+    where: { companyId: event.companyId, active: true, company: { deletedAt: null } },
     include: { user: { select: { id: true, active: true } }, scopes: true },
   });
 

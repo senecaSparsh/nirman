@@ -51,7 +51,7 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
 
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) {
     return (
-      <NoAccess what="finance" />
+      <NoAccess what="finance" permission={PERM.FINANCE_VIEW} />
     );
   }
 

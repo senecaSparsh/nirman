@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { permissionLabel } from "@/lib/utils";
 
 /**
  * NO ACCESS — what a role-gated page shows instead of its content.
@@ -23,9 +24,11 @@ export function NoAccess({
   what = "this page",
   /** Optional: the specific thing to ask an admin for. */
   permission,
+  note,
 }: {
   what?: string;
   permission?: string;
+  note?: string;
 }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border bg-card px-6 py-16 text-center">
@@ -37,15 +40,22 @@ export function NoAccess({
           {`${what.charAt(0).toUpperCase() + what.slice(1)} isn't part of your role`}
         </p>
         <p className="mx-auto max-w-sm text-meta leading-relaxed text-muted-foreground">
-          Your account doesn&apos;t include access to {what}. An owner or administrator can
-          grant it from Settings → Users
-          {permission ? (
+          Your account doesn&apos;t include access to {what}.
+          {note ? (
+            <> {note}</>
+          ) : (
             <>
               {" "}
-              (<span className="font-mono text-caption">{permission}</span>)
+              An owner or administrator can grant it from Settings → Users
+              {permission ? (
+                <>
+                  {" "}
+                  (<span className="font-medium text-foreground">{permissionLabel(permission)}</span>)
+                </>
+              ) : null}
+              .
             </>
-          ) : null}
-          .
+          )}
         </p>
       </div>
       <Button asChild variant="outline" size="sm" className="mt-1">

@@ -11,6 +11,11 @@ import {
   roleTier,
   canAssignRole,
   canAssignCustomRole,
+  delegableApprovalPermissions,
+  poApprovalRoleFor,
+  permissionsWithScopedRole,
+  customPoApprovalRole,
+  canManageOwnerLevelRole,
   ALL_ROLES,
   ALL_PERMISSIONS,
   APPROVER_ROLES,
@@ -283,6 +288,21 @@ export function toNum(v: unknown): number {
 // keep importing them from @/lib/server unchanged.
 export * from "./schemas";
 
+/**
+ * Tenancy guard — the [id] path param must resolve to the caller's active
+ * company or a company inside their manageable tree (their memberships +
+ * descendants — the same set GET /api/companies lists). Without it any
+ * COMPANY_MANAGE holder could read/alter another tenant's roster by id.
+ * Returns null when access is allowed, or a 404 Response to return.
+ */
+export async function assertCompanyAccess(user: CurrentUser, id: string): Promise<Response | null> {
+  const current = await getCompany();
+  if (id === current.id) return null;
+  const manageable = await getManageableCompanyIds(user.id);
+  if (!manageable.includes(id)) return json({ error: "Company not found" }, { status: 404 });
+  return null;
+}
+
 export function json(body: unknown, init?: ResponseInit) {
   return Response.json(body, {
     ...init,
@@ -501,7 +521,10 @@ export async function getUserRole(): Promise<string> {
   // no membership → the stored user role, exactly as before.
   const company = await getCompany().catch(() => null);
   const held = company ? await getHeldRoles(user.id, company.id) : null;
-  return held?.activeRole ?? user.role;
+  // A deactivated account (e.g. terminated everywhere) keeps its stored
+  // User.role, which would resurrect their old authority on any path where
+  // getCompany() didn't gate first — collapse it to least-privileged.
+  return held?.activeRole ?? (user.active === false ? "SUPERVISOR" : user.role);
 }
 
 /**
@@ -585,8 +608,19 @@ export async function getUserScope() {
   if (!user) {
     return { scopeType: "COMPANY" as const, departmentIds: [], projectIds: [] };
   }
+  // A deactivated account sees nothing — an empty PROJECT scope filters
+  // every list to zero rows and every write check throws (fail closed).
+  if (user.active === false) {
+    return { scopeType: "PROJECT" as const, departmentIds: [], projectIds: [] };
+  }
   const scope = await resolveUserScope(user.id, company.id);
   if (!scope) {
+    // resolveUserScope also returns null for a DEACTIVATED membership — a
+    // terminated member mid-request, not a dev-bypass guest. Widening them
+    // to COMPANY would hand back full-company reads for the request tail.
+    if (await membershipDeactivated(user.id, company.id)) {
+      return { scopeType: "PROJECT" as const, departmentIds: [], projectIds: [] };
+    }
     return { scopeType: "COMPANY" as const, departmentIds: [], projectIds: [] };
   }
   return scope;
@@ -962,19 +996,17 @@ export async function getEmployeeAccessScope() {
   const employeeFilter = await scopeWhere("Employee", {});
 
   // ── Field visibility: which fields can the viewer see? ──
-  // Bank details, payroll, salary → only PAYROLL_MANAGE or HR_MANAGE
-  const canSeeBankDetails = hasPerm("payroll.manage") || hasPerm("hr.manage");
+  // Bank details, Aadhaar/PAN and address → only the hr.sensitive permission
+  const canSeeBankDetails = hasPerm("hr.sensitive");
   // payroll.view is the read-only comp tier by design — its holders (finance,
   // accountants, payroll auditors) already read actual per-employee net pay
   // via /api/payroll lines, so wage fields must not sit behind a stricter gate.
   const canSeePayroll = hasPerm("payroll.view") || hasPerm("payroll.manage") || hasPerm("hr.manage");
-  const canSeePersonalDocs = hasPerm("hr.manage") || hasPerm("payroll.manage");
-  // Signing tokens are deliberately NARROWER than the docs tier: they are
-  // bearer credentials for the public /accept/* endpoints — holding one lets
-  // anyone sign the document as the employee without any session. Only the
-  // role that actually issues/reissues the links (hr.manage) may read them;
-  // payroll.manage gets the docs tier for reconciliation, not the links.
-  const canSeeSigningTokens = hasPerm("hr.manage");
+  const canSeePersonalDocs = hasPerm("hr.sensitive");
+  // Signing tokens are narrower still: they are bearer credentials for the public
+  // /accept/* endpoints, so holding one lets anyone sign as the employee. Only
+  // hr.signing (HR Manager) may read them.
+  const canSeeSigningTokens = hasPerm("hr.signing");
   // Access info (role, phone verification) → only USERS_MANAGE or HR_MANAGE
   const canSeeAccessInfo = hasPerm("users.manage") || hasPerm("hr.manage");
 
@@ -1425,9 +1457,11 @@ export async function canManageRole(
   if (isCustomRole(targetRole)) {
     const customRole = await prisma.customRole.findFirst({
       where: { companyId, key: targetRole },
-      select: { tier: true },
+      select: { tier: true, baseRole: true, permissions: true },
     }).catch(() => null);
-    return customRole ? canAssignCustomRole(actorRole, customRole.tier) : false;
+    if (!customRole) return false;
+    const granted = customRole.baseRole ? effectivePermissions(customRole.baseRole, customRole.permissions) : customRole.permissions;
+    return canAssignCustomRole(actorRole, customRole.tier) && canManageOwnerLevelRole(actorRole, granted);
   }
   if (!(ALL_ROLES as string[]).includes(targetRole)) return false;
   return canAssignRole(actorRole, targetRole);
@@ -1515,10 +1549,12 @@ export async function getHeldRoles(
   const m = await prisma.userCompany
     .findUnique({
       where: { userId_companyId: { userId, companyId } },
-      select: { role: true, activeRole: true, secondaryRoles: true },
+      select: { role: true, activeRole: true, secondaryRoles: true, active: true },
     })
     .catch(() => null);
-  if (!m) return null;
+  // A deactivated membership (terminated member, pre-rehire) holds no hats —
+  // report it exactly like a missing membership so callers fall back safely.
+  if (!m || m.active === false) return null;
   const heldRoles = [...new Set([m.role, ...(m.secondaryRoles ?? [])])];
   const activeRole = m.activeRole && heldRoles.includes(m.activeRole) ? m.activeRole : m.role;
   return { primaryRole: m.role, activeRole, heldRoles };
@@ -1660,7 +1696,9 @@ export async function getOwnRole(): Promise<Role> {
     // held set) is the user's own role for authority purposes; NULL/stale
     // falls back to the primary membership role.
     const held = company ? await getHeldRoles(user.id, company.id) : null;
-    const rawRole = held?.activeRole ?? user.role;
+    // Same deactivation guard as getUserRole — a dormant global role must not
+    // re-grant authority after every membership has been switched off.
+    const rawRole = held?.activeRole ?? (user.active === false ? "SUPERVISOR" : user.role);
     if (isCustomRole(rawRole) && company) {
       const resolved = await resolveCustomAuthorityRole(company.id, rawRole);
       if (resolved) return resolved;
@@ -1675,18 +1713,44 @@ export async function getActingRole(): Promise<Role> {
   // The user's own authority comes from their membership role — which may be
   // a custom role (CUSTOM_*). Custom roles act with their baseRole's
   // authority for tier-based checks (approvals, role management).
-  let best = await getOwnRole();
+  // A delegation never changes this: permissions come from getUserPermissions,
+  // which adds only the delegated approval permissions.
+  return getOwnRole();
+}
+
+/**
+ * Approval rank for purchase orders. An owner's delegate approves at ADMIN
+ * rank, below the owner threshold. Rank only: never a permission source.
+ */
+export async function getPoApprovalRole(projectId: string | null): Promise<Role> {
+  const user = await getCurrentUser();
   const company = await getCompany().catch(() => null);
-  for (const d of await getActingDelegations()) {
-    // A delegator's custom role delegates authority at its declared tier.
-    let dr: Role = normalizeRole(d.role);
-    if (isCustomRole(d.role) && company) {
-      const resolved = await resolveCustomAuthorityRole(company.id, d.role);
-      if (resolved) dr = resolved;
-    }
-    if (roleTier(dr) < roleTier(best)) best = dr;
-  }
-  return best;
+  const raw = await getUserRole();
+  let own: Role = isCustomRole(raw) && company
+    ? customPoApprovalRole(await resolveRolePermissions(raw, company.id, []))
+    : await getActingRole();
+  // A project hat only counts while the wearer holds a live membership in the
+  // hat's own company — a leftover assignment row (or a deactivated account)
+  // must not keep raising their approval rank.
+  const assignment = user && projectId && user.active !== false
+    ? await prisma.projectAssignment
+        .findFirst({
+          where: { userId: user.id, projectId },
+          select: { scopedRole: true, project: { select: { companyId: true } } },
+        })
+        .catch(() => null)
+    : null;
+  if (
+    assignment?.scopedRole &&
+    !(await membershipDeactivated(user!.id, assignment.project?.companyId)) &&
+    roleTier(normalizeRole(assignment.scopedRole)) < roleTier(own)
+  ) own = normalizeRole(assignment.scopedRole);
+  const delegatorRoles = await Promise.all(
+    (await getActingDelegations()).map(async (d) =>
+      isCustomRole(d.role) && company ? customPoApprovalRole(await resolveRolePermissions(d.role, company.id, [])) : d.role,
+    ),
+  );
+  return poApprovalRoleFor(own, delegatorRoles);
 }
 
 /**
@@ -1704,9 +1768,12 @@ export async function getActingRole(): Promise<Role> {
  */
 export async function getScopedRolePermissions(): Promise<string[]> {
   const user = await getCurrentUser();
-  if (!user) return [];
+  if (!user || user.active === false) return [];
+  const company = await getCompany().catch(() => null);
+  if (!company) return [];
+  if (await membershipDeactivated(user.id, company.id)) return [];
   const assignments = await prisma.projectAssignment
-    .findMany({ where: { userId: user.id }, select: { scopedRole: true } })
+    .findMany({ where: { userId: user.id, project: { companyId: company.id } }, select: { scopedRole: true } })
     .catch(() => [] as { scopedRole: string }[]);
   if (assignments.length === 0) return [];
   const perms = new Set<string>();
@@ -1716,14 +1783,46 @@ export async function getScopedRolePermissions(): Promise<string[]> {
   return [...perms];
 }
 
-export async function getActingRoleForProject(projectId: string | null): Promise<Role | null> {
-  if (!projectId) return null;
+async function membershipDeactivated(userId: string, companyId: string | undefined): Promise<boolean> {
+  if (!companyId) return false;
+  const membership = await prisma.userCompany.findUnique({
+    where: { userId_companyId: { userId, companyId } },
+    select: { active: true },
+  });
+  return membership?.active === false;
+}
+
+/**
+ * Permissions the user holds on one project: their global list plus the
+ * built-in role of their project assignment there. A scoped hat never goes
+ * through the tier stand-in, so a custom role gets nothing from one.
+ */
+export async function getPermissionsForProject(projectId: string | null): Promise<string[]> {
+  const globalPerms = await getUserPermissions();
   const user = await getCurrentUser();
-  if (!user) return null;
+  if (!projectId || !user || user.active === false) return globalPerms;
+  const company = await getCompany();
+  if (await membershipDeactivated(user.id, company.id)) return [];
   const assignment = await prisma.projectAssignment
     .findFirst({ where: { userId: user.id, projectId }, select: { scopedRole: true } })
     .catch(() => null);
+  return permissionsWithScopedRole(globalPerms, assignment?.scopedRole);
+}
+
+export async function getActingRoleForProject(projectId: string | null): Promise<Role | null> {
+  if (!projectId) return null;
+  const user = await getCurrentUser();
+  if (!user || user.active === false) return null;
+  const assignment = await prisma.projectAssignment
+    .findFirst({
+      where: { userId: user.id, projectId },
+      select: { scopedRole: true, project: { select: { companyId: true } } },
+    })
+    .catch(() => null);
   if (!assignment?.scopedRole) return null;
+  // The hat dies with the membership in the hat's company — a leftover
+  // assignment must not keep conferring the role on a terminated member.
+  if (await membershipDeactivated(user.id, assignment.project?.companyId)) return null;
   const scoped = normalizeRole(assignment.scopedRole);
   const base = await getActingRole();
   return roleTier(scoped) < roleTier(base) ? scoped : base;
@@ -1750,7 +1849,7 @@ const TIER_TO_AUTHORITY_ROLE: Record<number, Role> = {
  * tier overrides return the canonical built-in at the declared tier, since
  * the tier — not the base — is what downstream checks consume.
  */
-async function resolveCustomAuthorityRole(companyId: string, rawRole: string): Promise<Role | null> {
+export async function resolveCustomAuthorityRole(companyId: string, rawRole: string): Promise<Role | null> {
   const customRole = await prisma.customRole
     .findFirst({ where: { companyId, key: rawRole }, select: { baseRole: true, tier: true } })
     .catch(() => null);
@@ -1779,6 +1878,9 @@ export async function getUserPermissions(): Promise<string[]> {
   return memoizeInRequest("permissions", async () => {
   const user = await getCurrentUser();
   if (!user) return [];
+  // A deactivated account holds no permissions even where memberships remain
+  // marked active (suspend path) — never let the role matrix re-arm it.
+  if (user.active === false) return [];
   const company = await getCompany();
 
   const userMembership = await prisma.userCompany
@@ -1788,6 +1890,7 @@ export async function getUserPermissions(): Promise<string[]> {
     })
     .catch(() => null);
   const userOverrides = userMembership?.userPermissions.map((p) => p.permission) ?? [];
+  if (userMembership?.active === false) return [];
 
   // Resolve via the membership's ACTIVE role (raw, per-company) — NOT
   // user.role, which getCurrentUser() normalizes to a built-in role,
@@ -1801,14 +1904,11 @@ export async function getUserPermissions(): Promise<string[]> {
       : userMembership?.role;
   const ownPerms = await resolveRolePermissions(wornHat ?? user.role, company.id, userOverrides);
 
-  // ── Delegation union: while an active delegation targets this user,
-  // they also hold each delegator's role permissions. ──
+  // ── Delegation: while an active delegation targets this user, they gain the
+  // delegator's APPROVAL permissions only — never administration or payroll. ──
   const delegations = await getActingDelegations();
   if (delegations.length === 0) return ownPerms;
-  const delegatedPermSets = await Promise.all(
-    delegations.map((d) => resolveRolePermissions(d.role, company.id, [])),
-  );
-  return [...new Set([...ownPerms, ...delegatedPermSets.flat()])];
+  return [...new Set([...ownPerms, ...delegableApprovalPermissions()])];
   });
 }
 

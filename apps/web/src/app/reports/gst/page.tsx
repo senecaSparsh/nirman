@@ -35,7 +35,7 @@ async function GstReportContent({
 
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) {
     return (
-      <NoAccess what="the GST report" />
+      <NoAccess what="the GST report" permission={PERM.FINANCE_VIEW} />
     );
   }
 

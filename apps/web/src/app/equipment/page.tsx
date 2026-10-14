@@ -29,7 +29,7 @@ async function EquipmentContent() {
 
   if (!__effPerms.includes(PERM.ASSETS_VIEW)) {
     return (
-      <NoAccess what="equipment" />
+      <NoAccess what="equipment" permission={PERM.ASSETS_VIEW} />
     );
   }
 

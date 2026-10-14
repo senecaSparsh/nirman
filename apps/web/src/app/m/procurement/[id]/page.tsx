@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { getCompanyGroupIds, getCurrentUser, getEffectivePermissions, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { canAutoApprove } from "@nirman/services";
+import { canSelfApprovePurchaseOrder } from "@nirman/services";
 import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate, formatDateTime } from "@/lib/utils";
 import {
   MobileEmptyState,
@@ -100,7 +100,7 @@ export default function MobilePoDetailPage({
         // approver exists above them. Everyone else is blocked from self-
         // approval, so the button stays hidden for a staff-created PO.
         const canApprove = perms.includes(PERM.PO_APPROVE) &&
-          (po.createdById !== currentUserId || canAutoApprove(actingRole));
+          (po.createdById !== currentUserId || canSelfApprovePurchaseOrder(actingRole));
         const canManagePayments = perms.includes(PERM.FINANCE_MANAGE);
         const canInspect = perms.includes(PERM.QC_MANAGE);
         const canReceive = perms.includes(PERM.PROCUREMENT_VIEW);
@@ -318,7 +318,7 @@ export default function MobilePoDetailPage({
         // For a self-created DRAFT, suppress the "Approve & order" card unless
         // the viewer is tier-1 (OWNER/ADMIN) — they CAN self-approve, so the
         // card is the correct next action for them.
-        if (isSelfCreated && po.status === "DRAFT" && nextAction?.perm === PERM.PO_APPROVE && !canAutoApprove(actingRole)) {
+        if (isSelfCreated && po.status === "DRAFT" && nextAction?.perm === PERM.PO_APPROVE && !canSelfApprovePurchaseOrder(actingRole)) {
           nextAction = undefined;
         }
 
@@ -736,7 +736,7 @@ export default function MobilePoDetailPage({
               canManage={canManage}
               canManagePayments={canManagePayments}
               currentUserId={currentUserId}
-              canSelfApprove={canAutoApprove(actingRole)}
+              canSelfApprove={canSelfApprovePurchaseOrder(actingRole)}
               supplierId={po.supplierId}
               supplierName={po.supplier.name}
               balanceRemaining={Math.max(0, poPayload.total - totalPaid)}

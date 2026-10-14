@@ -30,7 +30,7 @@ async function ComparativeContent() {
 
   if (!__effPerms.includes(PERM.FINANCE_VIEW) && !__effPerms.includes(PERM.HR_VIEW)) {
     return (
-      <NoAccess what="the comparative analysis report" />
+      <NoAccess what="the comparative analysis report" permission={`${PERM.FINANCE_VIEW} or ${PERM.HR_VIEW}`} />
     );
   }
 

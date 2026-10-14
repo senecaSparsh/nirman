@@ -27,7 +27,7 @@ async function AuditTrailContent() {
 
   const isSuperuser = role === "OWNER" || role === "ADMIN";
   if (!isSuperuser) {
-    return <NoAccess what="the audit trail" />;
+    return <NoAccess what="the audit trail" note="Only the owner and the system administrator can open this." />;
   }
 
   // Fetch users for the filter dropdown

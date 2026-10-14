@@ -5,7 +5,7 @@ import { withSerializableTransaction } from "./transaction";
 import { logAction } from "./audit";
 import { postPurchaseReceipt } from "./gl-posting";
 import { getApprovalRouting } from "./procurement-advanced";
-import { canAutoApprove } from "./rbac";
+import { canSelfApprovePurchaseOrder } from "./rbac";
 import { ServiceError } from "./errors";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { autoSyncEntryToTally } from "./auto-sync";
@@ -45,11 +45,15 @@ const ROLE_RANK: Record<string, number> = {
   // Tier 2 — Senior Mgmt
   PROJECT_DIRECTOR: 2,
   FINANCE_HEAD: 2,
-  // Tier 1 — Executive (always pass — superusers)
+  // Tier 1 — Executive: ADMIN clears the admin tier; only the OWNER clears the owner tier
   ADMIN: 3,
-  OWNER: 3,
-  DEVELOPER: 3,
+  OWNER: 4,
+  DEVELOPER: 4,
 };
+
+export function poRankClears(approverRole: string, requiredRole: string): boolean {
+  return (ROLE_RANK[approverRole] ?? 0) >= (ROLE_RANK[requiredRole] ?? 0);
+}
 
 /**
  * Procurement Service — Purchase Order lifecycle.
@@ -385,10 +389,9 @@ export async function createPurchaseOrderTx(tx: Prisma.TransactionClient, input:
     const initialStatus = input.initialStatus ?? "DRAFT";
     // Prevent auto-self-approval: if a PO is created directly in APPROVED status,
     // the approver must be explicitly provided and must differ from the creator —
-    // UNLESS the creator is a tier-1 role (OWNER/ADMIN/DEVELOPER). At the top of
-    // the hierarchy no higher approver exists, so a tier-1 creator's own
-    // authority auto-approves (this is what lets an owner's PO skip the queue).
-    if (initialStatus === "APPROVED" && input.approvedById && input.createdById && input.approvedById === input.createdById && !canAutoApprove(input.creatorRole)) {
+    // UNLESS the creator is the OWNER, who sits above every approver. ADMIN's own
+    // POs still need another approver.
+    if (initialStatus === "APPROVED" && input.approvedById && input.createdById && input.approvedById === input.createdById && !canSelfApprovePurchaseOrder(input.creatorRole)) {
       throw new ServiceError(
         "Cannot create and approve a purchase order in one step — ask another approver to review it.",
         403,
@@ -469,11 +472,8 @@ export async function approvePurchaseOrder(
     if (po.status !== "DRAFT") throw new ServiceError(`Cannot approve PO in status ${po.status}`);
 
     // Prevent self-approval — the creator cannot approve their own PO — unless
-    // the approver is a tier-1 role (OWNER/ADMIN/DEVELOPER). The separation-of-
-    // duties check exists to stop a staff member approving their own request;
-    // at the top of the hierarchy there is no superior to defer to, so a
-    // tier-1 approver may approve their own PO.
-    if (approvedById && po.createdById && approvedById === po.createdById && !canAutoApprove(approverRole)) {
+    // the approver is the OWNER, who sits above every approver. ADMIN is not exempt.
+    if (approvedById && po.createdById && approvedById === po.createdById && !canSelfApprovePurchaseOrder(approverRole)) {
       throw new ServiceError(
         "You cannot approve a purchase order you created. Ask another approver to review it.",
         403,
@@ -481,19 +481,15 @@ export async function approvePurchaseOrder(
     }
 
     // Enforce value-based approval routing: check the approver's role is
-    // sufficient for the PO's total value. OWNER/ADMIN always pass (superusers).
-    // approverRole is REQUIRED — callers must always pass it so the routing
-    // check cannot be bypassed by omitting the parameter.
-    if (approverRole !== "OWNER" && approverRole !== "ADMIN") {
-      const routing = await getApprovalRouting(po.total, po.companyId);
-      const approverRank = ROLE_RANK[approverRole] ?? 0;
-      const requiredRank = ROLE_RANK[routing.requiredRole] ?? 0;
-      if (approverRank < requiredRank) {
-        throw new ServiceError(
-          `This PO (${new Decimal(po.total).toFixed(0)}) requires ${routing.requiredRole} approval. ${routing.reason}`,
-          403,
-        );
-      }
+    // sufficient for the PO's total value. ADMIN clears the admin tier; only the
+    // OWNER clears the owner tier. approverRole is REQUIRED — callers must always
+    // pass it so the routing check cannot be bypassed by omitting the parameter.
+    const routing = await getApprovalRouting(po.total, po.companyId);
+    if (!poRankClears(approverRole, routing.requiredRole)) {
+      throw new ServiceError(
+        `This PO (${new Decimal(po.total).toFixed(0)}) requires ${routing.requiredRole} approval. ${routing.reason}`,
+        403,
+      );
     }
 
     let updated = await tx.purchaseOrder.update({
@@ -643,16 +639,14 @@ export async function rejectPurchaseOrder(
 
     // Enforce the same value-based approval routing as approvePurchaseOrder —
     // rejecting is an approval decision, so the rejector must be authorized.
-    if (rejectorRole !== "OWNER" && rejectorRole !== "ADMIN") {
-      const routing = await getApprovalRouting(po.total, po.companyId);
-      const rejectorRank = ROLE_RANK[rejectorRole] ?? 0;
-      const requiredRank = ROLE_RANK[routing.requiredRole] ?? 0;
-      if (rejectorRank < requiredRank) {
-        throw new ServiceError(
-          `Rejecting this PO (${new Decimal(po.total).toFixed(0)}) requires ${routing.requiredRole} authority. ${routing.reason}`,
-          403,
-        );
-      }
+    const routing = await getApprovalRouting(po.total, po.companyId);
+    const rejectorRank = ROLE_RANK[rejectorRole] ?? 0;
+    const requiredRank = ROLE_RANK[routing.requiredRole] ?? 0;
+    if (rejectorRank < requiredRank) {
+      throw new ServiceError(
+        `Rejecting this PO (${new Decimal(po.total).toFixed(0)}) requires ${routing.requiredRole} authority. ${routing.reason}`,
+        403,
+      );
     }
 
     const updated = await tx.purchaseOrder.update({

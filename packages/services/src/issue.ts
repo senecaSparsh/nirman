@@ -103,8 +103,11 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
       if (!new Decimal(line.qty).gt(0)) throw new Error("Issue qty must be > 0");
     }
 
-    // Process each line: record movement + capture cost
+    // Process each line: record movement + capture cost. Movement ids are
+    // collected so they can be linked to the issue row once it exists —
+    // without refId the ledger loses which issue produced each movement.
     const lineResults: { materialId: string; qty: Decimal; unitCost: Decimal; lineCost: Decimal }[] = [];
+    const movementIds: string[] = [];
     let totalCost = new Decimal(0);
 
     for (const line of input.lines) {
@@ -118,6 +121,7 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
         lotNumber: line.lotNumber ?? undefined,
         companyId: project.companyId,
       });
+      movementIds.push(result.movement.id);
 
       const lineCost = new Decimal(line.qty).times(result.newMAC);
       totalCost = totalCost.plus(lineCost);
@@ -179,6 +183,13 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
       },
       include: { lines: true },
     });
+
+    if (movementIds.length > 0) {
+      await tx.stockMovement.updateMany({
+        where: { id: { in: movementIds } },
+        data: { refId: materialIssue.id },
+      });
+    }
 
     // Trigger cost reallocation (materials consumed → project cost changes → costPerSqft changes)
     await reallocateProjectCosts(tx, input.projectId);
@@ -503,8 +514,11 @@ export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) 
       if (!new Decimal(line.qty).gt(0)) throw new Error("Issue qty must be > 0");
     }
 
-    // Process each line: record movement + capture cost
+    // Process each line: record movement + capture cost. Movement ids are
+    // collected so they can be linked to the issue row once it exists —
+    // without refId the ledger loses which issue produced each movement.
     const lineResults: { materialId: string; qty: Decimal; unitCost: Decimal; lineCost: Decimal }[] = [];
+    const movementIds: string[] = [];
     let totalCost = new Decimal(0);
 
     for (const line of input.lines) {
@@ -518,6 +532,7 @@ export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) 
         lotNumber: line.lotNumber ?? undefined,
         companyId: department.companyId,
       });
+      movementIds.push(result.movement.id);
 
       const lineCost = new Decimal(line.qty).times(result.newMAC);
       totalCost = totalCost.plus(lineCost);
@@ -575,6 +590,13 @@ export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) 
       },
       include: { lines: true },
     });
+
+    if (movementIds.length > 0) {
+      await tx.stockMovement.updateMany({
+        where: { id: { in: movementIds } },
+        data: { refId: materialIssue.id },
+      });
+    }
 
     // Post to the General Ledger: expense the consumption (no WIP for departments).
     await postMaterialIssueToDepartment(tx, {

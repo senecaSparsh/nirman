@@ -31,7 +31,7 @@ async function CoDetailContent({ id }: { id: string }) {
   const currentUser = await getCurrentUser();
 
   if (!__effPerms.includes(PERM.ASSETS_VIEW)) {
-    return <NoAccess what="change order" />;
+    return <NoAccess what="change order" permission={PERM.ASSETS_VIEW} />;
   }
 
   const co = await prisma.changeOrder.findFirst({

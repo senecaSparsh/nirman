@@ -24,7 +24,7 @@ async function CallAnalyticsContent() {
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.CALL_ANALYTICS)) {
-    return <NoAccess what="call analytics" />;
+    return <NoAccess what="call analytics" permission={PERM.CALL_ANALYTICS} />;
   }
 
   // Default to last 30 days

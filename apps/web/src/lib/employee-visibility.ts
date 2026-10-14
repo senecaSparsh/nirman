@@ -174,3 +174,7 @@ export function redactEmployeeRow<T extends Record<string, unknown>>(
   }
   return out as T;
 }
+
+export function sensitiveWriteKeys(body: Record<string, unknown>): string[] {
+  return EMPLOYEE_DOCS_FIELDS.filter((key) => key in body);
+}

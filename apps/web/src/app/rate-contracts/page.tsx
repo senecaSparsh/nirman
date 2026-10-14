@@ -23,7 +23,7 @@ async function RcContent() {
   const __effPerms = await getUserPermissions();
 
   if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) {
-    return <NoAccess what="rate contracts" />;
+    return <NoAccess what="rate contracts" permission={PERM.PROCUREMENT_VIEW} />;
   }
 
   const canCreate = __effPerms.includes(PERM.PROCUREMENT_MANAGE);

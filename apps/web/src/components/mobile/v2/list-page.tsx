@@ -1,7 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 import { connection } from "next/server";
 import { getActingRole, getOwnRole, getCompany, getUserRole, getUserPermissions, getScopedRolePermissions } from "@/lib/server";
-import { hasPermission, type Permission } from "@/lib/roles";
+import { holdsPermission, type Permission } from "@/lib/roles";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { MobileSkeletonList } from "@/components/mobile/mobile-skeleton";
 
@@ -103,11 +103,11 @@ export async function MobileListPage({
       ? [...(await getUserPermissions()), ...(await getScopedRolePermissions())]
       : await getUserPermissions();
 
-    if (perm && !hasPermission(role, perm, overrides)) {
+    if (perm && !holdsPermission(role, perm, overrides)) {
       return <MobileNoAccess what={what ?? "this page"} permission={permission} />;
     }
 
-    const canManage = managePerm ? hasPermission(role, managePerm, overrides) : true;
+    const canManage = managePerm ? holdsPermission(role, managePerm, overrides) : true;
 
     return children({ company, role, actingRole, ownRole, perms: overrides, canManage });
   };

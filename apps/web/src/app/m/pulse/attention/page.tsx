@@ -9,7 +9,7 @@ import {
   TrendingDown, Building2, CalendarClock,
 } from "lucide-react";
 import { getActingRole, getCompany, getUserRole, getEffectivePermissions, getCurrentUser, toNum, scopeWhere } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { PERM, holdsPermission } from "@/lib/roles";
 import { formatCurrencyCompact, formatNumber, formatDate } from "@/lib/utils";
 import { TallySyncButton } from "@/components/mobile/tally-sync-button";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
@@ -61,17 +61,17 @@ async function AttentionContent() {
   // a site engineer shouldn't see pending-expense counts or project cost
   // overruns. Approval counts exclude self-created items (matching the
   // approvals queue — you can't approve your own submissions).
-  const canApprovePo = hasPermission(role, PERM.PO_APPROVE, overrides);
-  const canApproveReq = hasPermission(role, PERM.REQUISITION_APPROVE, overrides);
-  const canApproveGatePass = hasPermission(role, PERM.GATE_PASS_APPROVE, overrides);
-  const canApproveDpr = hasPermission(role, PERM.DPR_APPROVE_SUB_ADMIN, overrides) || hasPermission(role, PERM.DPR_APPROVE_ADMIN, overrides);
-  const canApproveExpense = hasPermission(role, PERM.EXPENSE_APPROVE, overrides);
-  const canApproveRa = hasPermission(role, PERM.RA_APPROVE, overrides);
-  const canViewProcurement = hasPermission(role, PERM.PROCUREMENT_VIEW, overrides);
-  const canViewInventory = hasPermission(role, PERM.INVENTORY_VIEW, overrides);
-  const canViewProjectControl = hasPermission(role, PERM.PROJECT_CONTROL_VIEW, overrides);
-  const canViewFinance = hasPermission(role, PERM.FINANCE_VIEW, overrides);
-  const canViewAssets = hasPermission(role, PERM.ASSETS_VIEW, overrides);
+  const canApprovePo = holdsPermission(role, PERM.PO_APPROVE, overrides);
+  const canApproveReq = holdsPermission(role, PERM.REQUISITION_APPROVE, overrides);
+  const canApproveGatePass = holdsPermission(role, PERM.GATE_PASS_APPROVE, overrides);
+  const canApproveDpr = holdsPermission(role, PERM.DPR_APPROVE_SUB_ADMIN, overrides) || holdsPermission(role, PERM.DPR_APPROVE_ADMIN, overrides);
+  const canApproveExpense = holdsPermission(role, PERM.EXPENSE_APPROVE, overrides);
+  const canApproveRa = holdsPermission(role, PERM.RA_APPROVE, overrides);
+  const canViewProcurement = holdsPermission(role, PERM.PROCUREMENT_VIEW, overrides);
+  const canViewInventory = holdsPermission(role, PERM.INVENTORY_VIEW, overrides);
+  const canViewProjectControl = holdsPermission(role, PERM.PROJECT_CONTROL_VIEW, overrides);
+  const canViewFinance = holdsPermission(role, PERM.FINANCE_VIEW, overrides);
+  const canViewAssets = holdsPermission(role, PERM.ASSETS_VIEW, overrides);
 
   const [
     draftPOs,

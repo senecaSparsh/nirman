@@ -26,6 +26,7 @@ import {
   type World,
   type NavLink,
 } from "@/lib/nav";
+import { isCustomRole } from "@/lib/roles";
 import { badgeCountUrl, badgeCountFrom } from "@/lib/nav-badges";
 import { cn, toNum} from "@/lib/utils";
 import dynamic from "next/dynamic";
@@ -146,10 +147,10 @@ export function AppShell({
   // Badges: one stable key per role (NOT dependent on pathname). The fetcher
   // hits every badge endpoint for the role and returns a {href: count} map.
   const { data: badgeData } = useSWR(
-    isShellRoute && (meData?.activeRole ?? meData?.role) ? ["badges", meData!.activeRole ?? meData!.role] : null,
+    isShellRoute && (meData?.activeRole ?? meData?.role) ? ["badges", meData!.activeRole ?? meData!.role, meData!.permissions ?? []] : null,
     async () => {
       const role = meData!.activeRole ?? meData!.role;
-      const items = badgeLinksFor(role);
+      const items = badgeLinksFor(role, meData!.permissions ?? []);
       const results = await Promise.all(
         items.map((item) =>
           fetch(badgeCountUrl(item.badge!.endpoint))
@@ -173,6 +174,8 @@ export function AppShell({
   // is the server-resolved activeRole (custom hats collapse to their
   // baseRole for persona classification). Falls back to the primary role.
   const userRole: string = meData?.ownRole ?? meData?.activeRole ?? meData?.role ?? "PROJECT_MANAGER";
+  const navRole: string = isCustomRole(meData?.activeRole) ? meData.activeRole : userRole;
+  const navPermissions: string[] = meData?.permissions ?? [];
   const userName: string = meData?.name ?? "";
 
   // Tell the offline queue which company is active — ops are stamped with it
@@ -371,7 +374,7 @@ export function AppShell({
     );
   }
 
-  const worlds = worldsFor(userRole);
+  const worlds = worldsFor(navRole, navPermissions);
   const onSettings = isSettingsPath(pathname);
   // Use the role-filtered version of the active world so the panel never
   // shows links the role can't access. worldForPath returns the raw
@@ -383,7 +386,7 @@ export function AppShell({
     ? (worlds[0] ?? rawWorld)
     : (worlds.find((w) => w.key === rawWorld.key) ?? worlds[0] ?? rawWorld);
   const activeLink = linkForPath(pathname);
-  const settingsLinks = settingsLinksFor(userRole);
+  const settingsLinks = settingsLinksFor(navRole, navPermissions);
 
   // A world shows a dot on the rail if anything inside it needs attention.
   const worldBadge = (w: World) =>
@@ -393,7 +396,7 @@ export function AppShell({
 
   // ── Build alert items for the notification bell's "Needs attention" ──
   // Map each badge link to an urgency level based on its href.
-  const alertItems = badgeLinksFor(userRole)
+  const alertItems = badgeLinksFor(navRole, navPermissions)
     .filter((link) => (badgeCounts[link.href] ?? 0) > 0)
     .map((link) => {
       const href = link.href;
@@ -617,7 +620,7 @@ export function AppShell({
         </main>
       </div>
 
-      <CommandPalette userRole={userRole} />
+      <CommandPalette userRole={navRole} permissions={navPermissions} />
 
       {/* ── Owner Assistant — floating chat with voice (Hindi/English) ── */}
       <AssistantChat />

@@ -395,6 +395,27 @@ describe("approveExpense — status guard + self-approval prevention", () => {
     await expect(approveExpense("exp-1", "c1", "user-1")).rejects.toThrow("You cannot approve an expense you submitted");
   });
 
+  it("blocks ADMIN approving an expense it submitted (owner only)", async () => {
+    const tx = makeMockTx();
+    tx.expense.findFirst.mockResolvedValue({
+      id: "exp-1",
+      status: "PENDING",
+      companyId: "c1",
+      submittedById: "user-1",
+      amount: new Decimal(100),
+      subtotal: new Decimal(100),
+      cgst: new Decimal(0),
+      sgst: new Decimal(0),
+      igst: new Decimal(0),
+      tdsAmount: new Decimal(0),
+      categoryId: null,
+    });
+    runWithTx(tx);
+    await expect(
+      approveExpense("exp-1", "c1", "user-1", { actorRole: "ADMIN" }),
+    ).rejects.toThrow("You cannot approve an expense you submitted");
+  });
+
   it("allows approval when approver differs from submitter", async () => {
     const tx = makeMockTx();
     tx.expense.findFirst.mockResolvedValue({

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@nirman/db";
 import { getCurrentUser, getUserPermissions, toNum, scopeWhere, getActionPermissions } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
-import { canAutoApprove } from "@nirman/services";
+import { PERM, holdsPermission } from "@/lib/roles";
+import { canWaiveSelfApproval } from "@nirman/services";
 import { formatNumber, formatDate, formatCurrency } from "@/lib/utils";
 import { FileText } from "lucide-react";
 import { MobileEmptyState, MobilePipelineStepper, type MobilePipelineStep, ActionBar } from "@/components/mobile/v2/primitives";
@@ -77,7 +77,7 @@ export default function MobileRequisitionDetailPage({
 
         // Tier-1 creators (OWNER/ADMIN) may approve their own indent — no higher approver.
         const currentUserId2 = (await getCurrentUser())?.id;
-        const canApprove = perms.includes(PERM.REQUISITION_APPROVE) && (req.requestedById !== currentUserId2 || canAutoApprove(actingRole));
+        const canApprove = perms.includes(PERM.REQUISITION_APPROVE) && (req.requestedById !== currentUserId2 || canWaiveSelfApproval(actingRole));
 
         const [suppliers, locations] = await Promise.all([
           prisma.supplier.findMany({
@@ -179,13 +179,13 @@ export default function MobileRequisitionDetailPage({
         let nextAction = resolveNextAction("requisition", req.status, role, overrides);
         // For a self-created SUBMITTED indent, suppress the approve card unless
         // the viewer is tier-1 (OWNER/ADMIN) — they CAN self-approve.
-        if (isSelfCreated && req.status === "SUBMITTED" && nextAction?.perm === PERM.REQUISITION_APPROVE && !canAutoApprove(actingRole)) {
+        if (isSelfCreated && req.status === "SUBMITTED" && nextAction?.perm === PERM.REQUISITION_APPROVE && !canWaiveSelfApproval(actingRole)) {
           nextAction = undefined;
         }
 
         // A field creator (requisition.create) can submit/resubmit their own
         // draft — the API enforces own-indent-only for non-manage users.
-        const canSubmit = canManage || (isSelfCreated && hasPermission(role, PERM.REQUISITION_CREATE, overrides));
+        const canSubmit = canManage || (isSelfCreated && holdsPermission(role, PERM.REQUISITION_CREATE, overrides));
 
         // Permissions to announce to the NavSheet's Next Step resolver
         const canActions: string[] = [];

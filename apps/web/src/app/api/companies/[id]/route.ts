@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, getCompanyDescendantIds, getManageableCompanyIds, json, requirePermission } from "@/lib/server";
-import { PERM } from "@/lib/roles";
+import { apiHandler, getCompany, getCompanyDescendantIds, getManageableCompanyIds, getOwnRole, json, requirePermission } from "@/lib/server";
+import { PERM, canDoOwnerOnly } from "@/lib/roles";
 import { z } from "zod";
 
 /** GET /api/companies/[id] — fetch a single company by ID */
@@ -137,6 +137,9 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     }
   }
 
+  if (["poApprovalThresholdManager", "poApprovalThresholdAdmin", "gstin", "pan"].some((f) => data[f as keyof typeof data] !== undefined) && !canDoOwnerOnly(await getOwnRole())) {
+    return json({ error: "Only the owner can change approval thresholds and tax identity." }, { status: 403 });
+  }
   if (data.code) data.code = data.code.toUpperCase();
 
   try {
@@ -155,7 +158,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
 });
 
 /**
- * DELETE /api/companies/[id] — soft-delete a company. OWNER/ADMIN only.
+ * DELETE /api/companies/[id] — soft-delete a company. Owner-only.
  * Refuses if the company still has children (must re-parent or delete
  * children first) so the hierarchy never has dangling references.
  *
@@ -163,6 +166,9 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
  */
 export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   await requirePermission(PERM.COMPANY_MANAGE);
+  if (!canDoOwnerOnly(await getOwnRole())) {
+    return json({ error: "Only the owner can delete a company." }, { status: 403 });
+  }
   const currentCompany = await getCompany();
   const { id } = await ctx.params;
 

@@ -50,7 +50,7 @@ async function StockContent() {
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.INVENTORY_VIEW)) {
-    return <NoAccess what="stock operations" />;
+    return <NoAccess what="stock operations" permission={PERM.INVENTORY_VIEW} />;
   }
 
   const perms = {
@@ -357,8 +357,21 @@ async function StockContent() {
   }));
 
   // ── Transfer rows ──
+  // Linked gate passes — auto-created at transfer create; the detail panel
+  // needs their status to explain why Dispatch is (un)available.
+  const transferIds = transfers.map((t) => t.id);
+  const transferGps = transferIds.length
+    ? await prisma.gatePass.findMany({
+        where: { refType: "StockTransfer", refId: { in: transferIds } },
+        select: { refId: true, id: true, gatePassNumber: true, status: true },
+        orderBy: { createdAt: "desc" },
+      })
+    : [];
+  const gpByTransfer = new Map(transferGps.map((g) => [g.refId, g]));
+
   const transferRows: TransferRow[] = transfers.map((t) => ({
     id: t.id,
+    transferNumber: t.transferNumber ?? null,
     fromLocationId: t.fromLocationId,
     fromLocationName: t.fromLocation.name,
     fromLocationType: t.fromLocation.type,
@@ -388,6 +401,7 @@ async function StockContent() {
     dispatchedByName: t.dispatchedBy?.name ?? null,
     receivedAt: t.receivedAt ? t.receivedAt.toISOString() : null,
     receivedByName: t.receivedBy?.name ?? null,
+    gatePass: gpByTransfer.get(t.id) ?? null,
   }));
 
   // ── Issue rows ──

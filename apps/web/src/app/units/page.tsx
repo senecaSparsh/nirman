@@ -26,7 +26,7 @@ async function BuiltUnitsContent() {
 
   if (!__effPerms.includes(PERM.ASSETS_VIEW)) {
     return (
-      <NoAccess what="built units" />
+      <NoAccess what="built units" permission={PERM.ASSETS_VIEW} />
     );
   }
 

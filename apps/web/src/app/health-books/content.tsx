@@ -11,7 +11,7 @@ export async function BooksHealthContent() {
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) {
-    return <NoAccess what="the books health report" />;
+    return <NoAccess what="the books health report" permission={PERM.FINANCE_VIEW} />;
   }
 
   const report = await runBookReconciliation(company.id);

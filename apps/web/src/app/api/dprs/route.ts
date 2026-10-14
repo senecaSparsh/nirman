@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { submitDPR, subAdminApproveDpr, adminApproveDpr, canAutoApprove } from "@nirman/services";
+import { submitDPR, subAdminApproveDpr, adminApproveDpr, canWaiveSelfApproval } from "@nirman/services";
 import { apiHandler, getCompany, json, dprSchema, toNum, scopeWhere, assertScopeAllows, getActingRole, requireEffectivePermission, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
@@ -135,7 +135,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     // Tier-1 creators (OWNER/ADMIN) auto-complete both approval tiers — the
     // 2-tier DPR review exists to check a supervisor's report, but an owner's
     // own submission has no higher reviewer to defer to.
-    if (canAutoApprove(await getActingRole())) {
+    if (canWaiveSelfApproval(await getActingRole())) {
       try {
         await subAdminApproveDpr(dpr.id, user.id, undefined, await getActingRole());
         await adminApproveDpr(dpr.id, user.id, undefined, await getActingRole());

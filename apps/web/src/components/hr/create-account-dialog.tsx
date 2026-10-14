@@ -27,6 +27,7 @@ import {
   PERMISSION_MODULES,
   type Role,
 } from "@/lib/roles";
+import { allowedScopeTypes, suggestedScopeType, type ScopeChoice } from "@/lib/roles";
 
 type ProjectOption = { id: string; name: string };
 
@@ -131,7 +132,9 @@ export function CreateAccountDialog({
   const [selectedModules, setSelectedModules] = useState<Set<string>>(new Set());
 
   // ── Scope ──
-  const [scopeType, setScopeType] = useState<"COMPANY" | "PROJECT" | "DEPARTMENT">("COMPANY");
+  // Pre-selected by role; company-wide roles choose it explicitly.
+  const [scopeChoice, setScopeChoice] = useState<ScopeChoice | null>(null);
+  const scopeType = scopeChoice && allowedScopeTypes(role).includes(scopeChoice) ? scopeChoice : suggestedScopeType(role);
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
 
   // ── Phone assignment ──
@@ -223,6 +226,10 @@ export function CreateAccountDialog({
     }
     if (phoneSource === "new" && phoneCheck && !phoneCheck.available) {
       toast.error(phoneCheck.reason ?? "This phone number is not available");
+      return;
+    }
+    if (!scopeType) {
+      toast.error("Choose the access scope for this login");
       return;
     }
     if (scopeType === "PROJECT" && selectedProjects.size === 0) {
@@ -682,11 +689,11 @@ export function CreateAccountDialog({
               <Network className="h-3.5 w-3.5" /> Access Scope
             </h3>
             <div className="flex gap-2">
-              {(["COMPANY", "PROJECT", "DEPARTMENT"] as const).map((st) => (
+              {allowedScopeTypes(role).map((st) => (
                 <button
                   key={st}
                   type="button"
-                  onClick={() => setScopeType(st)}
+                  onClick={() => setScopeChoice(st)}
                   className={`flex-1 rounded-md border px-3 py-2 text-body font-medium transition-colors ${
                     scopeType === st ? "border-primary bg-primary/5 text-foreground" : "border-border text-muted-foreground"
                   }`}

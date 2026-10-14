@@ -25,7 +25,7 @@ async function WbsContent() {
   const scope = await getUserScope();
 
   if (!__effPerms.includes(PERM.WBS_VIEW)) {
-    return <NoAccess what="WBS" />;
+    return <NoAccess what="WBS" permission={PERM.WBS_VIEW} />;
   }
 
   const projectScopeFilter =

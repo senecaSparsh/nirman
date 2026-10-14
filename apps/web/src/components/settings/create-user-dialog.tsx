@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { ROLE_LIST, ROLES, assignableRoles } from "@/lib/roles";
+import { MemberScopeFields } from "@/components/settings/member-scope-fields";
+import { draftForRole, scopePayload, type MemberScopeDraft } from "@/lib/member-scope";
+import { ROLE_LIST, ROLES, assignableRoles, isCustomRole } from "@/lib/roles";
 import type { DepartmentRow } from "@/lib/types";
 import { useTodayDateState } from "@/lib/use-today-date";
 
@@ -55,9 +57,8 @@ export function CreateUserDialog({
   const [department, setDepartment] = useState("");
   const [joiningDate, setJoiningDate] = useTodayDateState();
 
-  // Step 2: Scope
-  const [scopeType, setScopeType] = useState<"COMPANY" | "DEPARTMENT" | "PROJECT">("COMPANY");
-  const [scopeEntries, setScopeEntries] = useState<{ departmentId?: string; projectId?: string }[]>([]);
+  // Step 2: Scope — pre-selected by role; company-wide roles choose it explicitly
+  const [scopeDraft, setScopeDraft] = useState<MemberScopeDraft>({ scopeType: null, entries: [] });
   const [reportsTo, setReportsTo] = useState<string>(""); // membershipId of the manager
 
   // Step 3: Permissions (optional — skip if empty)
@@ -76,38 +77,16 @@ export function CreateUserDialog({
   // gap is explainable instead of silently absent. DEVELOPER is excluded
   // entirely — reserved internal hat, not a real option.
   const lockedBuiltin = ROLE_LIST.filter((rl) => rl.key !== "DEVELOPER" && !allAssignable.some((a) => a.key === rl.key));
-  const availableDepartments = departments.filter((d) => d.active);
-
-  function handleScopeTypeChange(newType: "COMPANY" | "DEPARTMENT" | "PROJECT") {
-    setScopeType(newType);
-    if (newType === "COMPANY") {
-      setScopeEntries([]);
-    } else if (scopeEntries.length === 0) {
-      setScopeEntries([newType === "DEPARTMENT" ? { departmentId: "" } : { projectId: "" }]);
-    }
-  }
-
-  function addScopeEntry() {
-    if (scopeType === "DEPARTMENT") {
-      setScopeEntries((e) => [...e, { departmentId: "" }]);
-    } else if (scopeType === "PROJECT") {
-      setScopeEntries((e) => [...e, { projectId: "" }]);
-    }
-  }
-
-  function updateScopeEntry(idx: number, field: "departmentId" | "projectId", value: string) {
-    setScopeEntries((e) => e.map((entry, i) => (i === idx ? { ...entry, [field]: value || undefined } : entry)));
-  }
-
-  function removeScopeEntry(idx: number) {
-    setScopeEntries((e) => e.filter((_, i) => i !== idx));
-  }
+  // The scope the person is added with: pre-selected by role, changed in step 2.
+  const scopeRole = isCustomRole(role) ? (customRoles?.find((cr) => cr.key === role)?.baseRole ?? null) : role;
+  const scope = draftForRole(scopeRole, scopeDraft);
+  const payload = scopePayload(scope);
 
   const canProceedStep1 = name.trim() && (email.trim() || phone.trim()) && role;
-  const canProceedStep2 = scopeType === "COMPANY" || scopeEntries.some((e) => e.departmentId || e.projectId);
+  const canProceedStep2 = payload !== null;
 
   async function handleCreate() {
-    if (!canProceedStep1) return;
+    if (!canProceedStep1 || !payload) return;
     setSaving(true);
     try {
       // Step 1: Create the user
@@ -124,6 +103,8 @@ export function CreateUserDialog({
           department: department.trim() || undefined,
           joiningDate: joiningDate || undefined,
           mustChangePassword: true,
+          scopeType: payload.scopeType,
+          scopeEntries: payload.scopeEntries,
         }),
       });
       const createData = await createRes.json();
@@ -131,37 +112,28 @@ export function CreateUserDialog({
       const userId = createData.id ?? createData.user?.id;
       if (!userId) throw new Error("User created but ID not returned");
 
-      // Step 2: Set scope (if not COMPANY default) and/or reportsTo
-      if (scopeType !== "COMPANY" || reportsTo) {
-        const cleanEntries = scopeType === "DEPARTMENT" || scopeType === "PROJECT"
-          ? scopeEntries
-              .filter((e) => scopeType === "DEPARTMENT" ? !!e.departmentId : !!e.projectId)
-              .map((e) =>
-                scopeType === "DEPARTMENT"
-                  ? { departmentId: e.departmentId! }
-                  : { projectId: e.projectId! },
-              )
-          : [];
-        const scopeRes = await fetch(`/api/users/${userId}/scope`, {
+      // The scope came with the create; the reporting line is a second call.
+      if (reportsTo) {
+        const reportsRes = await fetch(`/api/users/${userId}/scope`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             role,
-            scopeType,
-            scopeEntries: cleanEntries,
-            reportsToUserCompanyId: reportsTo || null,
+            scopeType: payload.scopeType,
+            scopeEntries: payload.scopeEntries,
+            reportsToUserCompanyId: reportsTo,
           }),
         });
-        if (!scopeRes.ok) {
-          const scopeData = await scopeRes.json();
-          toast.warning("User created, but scope/reports-to setup failed", {
-            description: scopeData.error ?? "Set manually later.",
+        if (!reportsRes.ok) {
+          const reportsData = await reportsRes.json();
+          toast.warning("User created, but the reporting line failed", {
+            description: reportsData.error ?? "Set manually later.",
           });
         }
       }
 
       toast.success("User created successfully", {
-        description: `${name.trim()} added as ${role}${scopeType !== "COMPANY" ? ` (${scopeType}-scoped)` : ""}.` + (createData.tempPassword ? ` Temporary password: ${createData.tempPassword} — they will be asked to change it on first login.` : " They will be asked to change their password on first login."),
+        description: `${name.trim()} added as ${role}${payload.scopeType !== "COMPANY" ? ` (${payload.scopeType}-scoped)` : ""}.` + (createData.tempPassword ? ` Temporary password: ${createData.tempPassword} — they will be asked to change it on first login.` : " They will be asked to change their password on first login."),
       });
       router.refresh();
       onClose();
@@ -276,93 +248,7 @@ export function CreateUserDialog({
       {/* Step 2: Scope */}
       {step === 2 && (
         <div className="space-y-3">
-          <div className="space-y-2">
-            <Label>Access Scope</Label>
-            <div className="grid grid-cols-3 gap-2">
-              {([
-                { value: "COMPANY", label: "Company-wide", desc: "Sees everything" },
-                { value: "DEPARTMENT", label: "Departments", desc: "Specific cost centres" },
-                { value: "PROJECT", label: "Projects", desc: "Specific project sites" },
-              ] as const).map((opt) => {
-                const active = scopeType === opt.value;
-                const disabled = opt.value === "DEPARTMENT" ? availableDepartments.length === 0 : opt.value === "PROJECT" ? projects.length === 0 : false;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => handleScopeTypeChange(opt.value)}
-                    className={`flex flex-col items-center gap-1 rounded-lg border p-3 text-center transition-colors ${
-                      active ? "border-primary bg-primary/5" : "border-input bg-card hover:border-border-strong"
-                    } ${disabled ? "opacity-40 cursor-not-allowed" : ""}`}
-                  >
-                    <span className="text-caption font-medium">{opt.label}</span>
-                    <span className="text-[10px] text-muted-foreground">{opt.desc}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {scopeType === "DEPARTMENT" && (
-            <div className="space-y-2">
-              <Label>Departments</Label>
-              {availableDepartments.length === 0 ? (
-                <p className="text-caption text-muted-foreground">No active departments. Create cost centres first.</p>
-              ) : (
-                <>
-                  {scopeEntries.map((entry, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <Select value={entry.departmentId ?? ""} onChange={(e) => updateScopeEntry(idx, "departmentId", e.target.value)}>
-                        <option value="">Select department…</option>
-                        {availableDepartments
-                          .filter((d) => d.id === entry.departmentId || !scopeEntries.some((e, i) => i !== idx && e.departmentId === d.id))
-                          .map((d) => <option key={d.id} value={d.id}>{d.code} · {d.name}</option>)}
-                      </Select>
-                      {scopeEntries.length > 1 && (
-                        <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeScopeEntry(idx)}>
-                          <ChevronLeft className="size-3.5 rotate-45" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  <Button type="button" variant="outline" size="sm" onClick={addScopeEntry} disabled={scopeEntries.length >= availableDepartments.length}>
-                    Add Department
-                  </Button>
-                </>
-              )}
-            </div>
-          )}
-
-          {scopeType === "PROJECT" && (
-            <div className="space-y-2">
-              <Label>Projects</Label>
-              {projects.length === 0 ? (
-                <p className="text-caption text-muted-foreground">No projects available.</p>
-              ) : (
-                <>
-                  {scopeEntries.map((entry, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <Select value={entry.projectId ?? ""} onChange={(e) => updateScopeEntry(idx, "projectId", e.target.value)}>
-                        <option value="">Select project…</option>
-                        {projects
-                          .filter((p) => p.id === entry.projectId || !scopeEntries.some((e, i) => i !== idx && e.projectId === p.id))
-                          .map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </Select>
-                      {scopeEntries.length > 1 && (
-                        <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeScopeEntry(idx)}>
-                          <ChevronLeft className="size-3.5 rotate-45" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  <Button type="button" variant="outline" size="sm" onClick={addScopeEntry} disabled={scopeEntries.length >= projects.length}>
-                    Add Project
-                  </Button>
-                </>
-              )}
-            </div>
-          )}
+          <MemberScopeFields scopeRole={scopeRole} value={scope} onChange={setScopeDraft} projects={projects} departments={departments} />
 
           {/* Reports To selector */}
           {managers.length > 0 && (
@@ -415,9 +301,9 @@ export function CreateUserDialog({
               <span className="font-medium text-foreground">Access Scope</span>
             </div>
             <p className="text-caption text-muted-foreground">
-              {scopeType === "COMPANY" ? "Company-wide (sees everything)" :
-                scopeType === "DEPARTMENT" ? `${scopeEntries.filter((e) => e.departmentId).length} department(s)` :
-                `${scopeEntries.filter((e) => e.projectId).length} project(s)`}
+              {payload?.scopeType === "COMPANY" ? "Company-wide (sees everything)" :
+                payload?.scopeType === "DEPARTMENT" ? `${payload.scopeEntries.length} department(s)` :
+                `${payload?.scopeEntries.length ?? 0} project(s)`}
             </p>
             {reportsTo && (
               <p className="text-caption text-muted-foreground flex items-center gap-1">

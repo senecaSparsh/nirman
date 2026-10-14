@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function BrokersPage() {
   const __effPerms = await getUserPermissions();
-  if (!__effPerms.includes(PERM.SALES_VIEW)) return <NoAccess />;
+  if (!__effPerms.includes(PERM.SALES_VIEW)) return <NoAccess permission={PERM.SALES_VIEW} />;
 
   const company = await getCompany();
 

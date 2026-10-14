@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { prisma, type DprApprovalStatus } from "@nirman/db";
 import { getCompany, getUserPermissions, getCurrentUser, getScopedRolePermissions, toNum, scopeWhere } from "@/lib/server";
-import { canAutoApprove } from "@nirman/services";
+import { canAutoApprove, canSelfApprovePurchaseOrder, canWaiveSelfApproval } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
@@ -50,6 +50,8 @@ async function ApprovalsContent() {
   // approver exists — so their own pending items still appear in the queue.
   // Everyone else's own items are hidden (they can't self-approve anyway).
   const hideSelf = !canAutoApprove(user?.role);
+  const hideSelfPo = !canSelfApprovePurchaseOrder(user?.role);
+  const hideSelfWaiver = !canWaiveSelfApproval(user?.role);
 
   // DPRs pending sub-admin approval (SUBMITTED) or admin approval (SUB_ADMIN_APPROVED)
   const dprApprovalStatuses: DprApprovalStatus[] = [];
@@ -59,7 +61,7 @@ async function ApprovalsContent() {
   const [purchaseOrders, requisitions, gatePasses, dprs, expenses, pendingClaims, claimCategories, raBills] = await Promise.all([
     canApprovePo
       ? prisma.purchaseOrder.findMany({
-          where: { companyId: company.id, status: "DRAFT", createdById: hideSelf ? { not: userId } : undefined, ...await scopeWhere("PurchaseOrder") },
+          where: { companyId: company.id, status: "DRAFT", createdById: hideSelfPo ? { not: userId } : undefined, ...await scopeWhere("PurchaseOrder") },
           orderBy: { createdAt: "desc" },
           take: 100,
           include: {
@@ -72,7 +74,7 @@ async function ApprovalsContent() {
       : [],
     canApproveReq
       ? prisma.materialRequisition.findMany({
-          where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED", requestedById: hideSelf ? { not: userId } : undefined },
+          where: {...await scopeWhere("MaterialRequisition"),  project: { companyId: company.id }, status: "SUBMITTED", requestedById: hideSelfWaiver ? { not: userId } : undefined },
           orderBy: { createdAt: "desc" },
           take: 100,
           include: {
@@ -101,7 +103,7 @@ async function ApprovalsContent() {
       : [],
     dprApprovalStatuses.length > 0
       ? prisma.dailyProgressReport.findMany({
-          where: { companyId: company.id, approvalStatus: { in: dprApprovalStatuses }, submittedById: hideSelf ? { not: userId } : undefined, ...await scopeWhere("DailyProgressReport") },
+          where: { companyId: company.id, approvalStatus: { in: dprApprovalStatuses }, submittedById: hideSelfWaiver ? { not: userId } : undefined, ...await scopeWhere("DailyProgressReport") },
           orderBy: { createdAt: "desc" },
           take: 50,
           include: {
@@ -112,7 +114,7 @@ async function ApprovalsContent() {
       : [],
     canApproveExpense
       ? prisma.expense.findMany({
-          where: { companyId: company.id, status: "PENDING", submittedById: hideSelf ? { not: userId } : undefined, ...await scopeWhere("Expense") },
+          where: { companyId: company.id, status: "PENDING", submittedById: hideSelfWaiver ? { not: userId } : undefined, ...await scopeWhere("Expense") },
           orderBy: { createdAt: "desc" },
           take: 50,
           include: {
@@ -123,7 +125,7 @@ async function ApprovalsContent() {
       : [],
     canApproveExpense
       ? prisma.expenseClaim.findMany({
-          where: { companyId: company.id, status: "SUBMITTED", claimantId: hideSelf ? { not: userId } : undefined, ...await scopeWhere("ExpenseClaim") },
+          where: { companyId: company.id, status: "SUBMITTED", claimantId: hideSelfWaiver ? { not: userId } : undefined, ...await scopeWhere("ExpenseClaim") },
           orderBy: { createdAt: "desc" },
           take: 50,
           include: {
@@ -142,7 +144,7 @@ async function ApprovalsContent() {
       : [],
     canApproveRaBill
       ? prisma.raBill.findMany({
-          where: { companyId: company.id, status: "SUBMITTED", createdById: hideSelf ? { not: userId } : undefined, submittedById: hideSelf ? { not: userId } : undefined, ...await scopeWhere("RaBill") },
+          where: { companyId: company.id, status: "SUBMITTED", createdById: hideSelfWaiver ? { not: userId } : undefined, submittedById: hideSelfWaiver ? { not: userId } : undefined, ...await scopeWhere("RaBill") },
           orderBy: { createdAt: "desc" },
           take: 50,
           include: {
@@ -339,7 +341,7 @@ async function ApprovalsContent() {
     description: c.description,
     submittedAt: c.submittedAt?.toISOString() ?? null,
     // Tier-1 approvers may approve their own claim — no higher reviewer exists.
-    canApprove: c.claimantId !== userId || canAutoApprove(user?.role),
+    canApprove: c.claimantId !== userId || canWaiveSelfApproval(user?.role),
   }));
 
   const claimCategoryRows: ExpenseCategoryRow[] = claimCategories.map((cat) => ({

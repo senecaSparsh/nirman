@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createTask } from "@nirman/services";
-import { apiHandler, getActingRole, getCompany, json, requirePermission, requireUser, taskSchema } from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { apiHandler, getCompany, getUserPermissions, json, requirePermission, requireUser, taskSchema } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { formatDate } from "@/lib/utils";
 
 /**
@@ -13,7 +13,6 @@ import { formatDate } from "@/lib/utils";
  */
 export const GET = apiHandler(async (req: NextRequest) => {
   const user = await requireUser();
-  const role = await getActingRole();
   const company = await getCompany();
 
   const url = new URL(req.url);
@@ -25,7 +24,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   if (assigneeId) where.assignedToId = assigneeId;
 
   // Non-managers only see their own tasks
-  if (!hasPermission(role, PERM.TASKS_ASSIGN)) {
+  if (!(await getUserPermissions()).includes(PERM.TASKS_ASSIGN)) {
     where.assignedToId = user.id;
   } else {
     // Managers see tasks for users in their company only (tenant isolation)

@@ -209,7 +209,7 @@ export function PurchaseOrderDetailPanel({
               </Button>
             )}
             {(detail.status === "DRAFT" || detail.status === "ORDERED") && canManage && (
-              <Button size="sm" variant="outline" onClick={() => doAction("cancel")} disabled={acting} className="text-muted-foreground hover:text-danger">
+              <Button size="sm" variant="outline" onClick={() => { if (window.confirm("Cancel this purchase order? This cannot be undone.")) doAction("cancel"); }} disabled={acting} className="text-muted-foreground hover:text-danger">
                 <X className="h-4 w-4" /> Cancel PO
               </Button>
             )}

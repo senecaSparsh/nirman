@@ -1,7 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 import { connection } from "next/server";
 import { getActingRole, getOwnRole, getCompany, getUserRole, getUserPermissions, getScopedRolePermissions } from "@/lib/server";
-import { hasPermission, type Permission } from "@/lib/roles";
+import { holdsPermission, type Permission } from "@/lib/roles";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { MobileSkeletonHome } from "@/components/mobile/mobile-skeleton";
 
@@ -93,7 +93,7 @@ export async function MobileHubPage({
       ? [...(await getUserPermissions()), ...(await getScopedRolePermissions())]
       : await getUserPermissions();
 
-    if (perm && !hasPermission(role, perm, overrides)) {
+    if (perm && !holdsPermission(role, perm, overrides)) {
       return <MobileNoAccess what={what ?? "this page"} permission={permission} />;
     }
 

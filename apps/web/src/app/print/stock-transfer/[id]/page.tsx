@@ -84,7 +84,7 @@ export default async function StockTransferNotePage({
         <PrintHeader
           company={company}
           title="Stock Transfer Note"
-          docNumber={`STN-${transfer.id.slice(-8).toUpperCase()}`}
+          docNumber={transfer.transferNumber ?? `STN-${transfer.id.slice(-8).toUpperCase()}`}
           date={transfer.transferDate}
           extra={<div className="text-xs font-semibold uppercase text-gray-600">{transfer.status}</div>}
         />

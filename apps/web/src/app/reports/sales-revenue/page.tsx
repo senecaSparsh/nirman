@@ -26,7 +26,7 @@ async function SalesRevenueContent() {
 
   if (!__effPerms.includes(PERM.FINANCE_VIEW) && !__effPerms.includes(PERM.SALES_VIEW)) {
     return (
-      <NoAccess what="the sales & revenue report" />
+      <NoAccess what="the sales & revenue report" permission={`${PERM.FINANCE_VIEW} or ${PERM.SALES_VIEW}`} />
     );
   }
 

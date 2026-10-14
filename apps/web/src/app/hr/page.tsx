@@ -29,7 +29,7 @@ async function HrDashboardContent() {
   const currentUser = await getCurrentUser();
 
   if (!__effPerms.includes(PERM.HR_VIEW)) {
-    return <NoAccess what="the HR module" />;
+    return <NoAccess what="the HR module" permission={PERM.HR_VIEW} />;
   }
   // Comp visibility = getEmployeeAccessScope.canSeePayroll (payroll.view |
   // payroll.manage | hr.manage) — use the shared flag so the tier can't drift.

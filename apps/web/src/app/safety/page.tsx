@@ -25,7 +25,7 @@ async function SafetyContent() {
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.SAFETY_VIEW)) {
-    return <NoAccess what="safety management" />;
+    return <NoAccess what="safety management" permission={PERM.SAFETY_VIEW} />;
   }
 
   const [projects, incidents, hazards, inspections] = await Promise.all([

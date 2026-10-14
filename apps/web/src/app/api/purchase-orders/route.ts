@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { PurchaseOrderStatus } from "@nirman/db";
-import { createPurchaseOrder, canAutoApprove, ServiceError } from "@nirman/services";
+import { createPurchaseOrder, canSelfApprovePurchaseOrder, ServiceError } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, getCompanyGroupIds, json, purchaseOrderSchema, toNum, scopeWhere, assertScopeAllows, getActingRole, requireEffectivePermission} from "@/lib/server";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
@@ -118,11 +118,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
   }
   try {
-    // Tier-1 creators (OWNER/ADMIN) auto-approve — there is no higher approver
-    // above them, so routing their own PO through a second review is pure
-    // friction (and a deadlock when the owner is the only admin). Everyone
-    // else's PO stays DRAFT and waits for an approver who isn't the creator.
-    const selfApprove = canAutoApprove(await getActingRole());
+    // The OWNER's own PO auto-approves: no higher approver exists above the owner.
+    // Every other creator's PO (ADMIN included) stays DRAFT and waits for an
+    // approver who isn't the creator.
+    const selfApprove = canSelfApprovePurchaseOrder(await getActingRole());
     const po = await createPurchaseOrder({
       ...rest,
       companyId: company.id,

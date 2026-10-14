@@ -12,7 +12,7 @@ export async function ProjectAssignmentsContent() {
 
   if (!__effPerms.includes(PERM.USERS_VIEW)) {
     return (
-      <NoAccess what="project assignments" />
+      <NoAccess what="project assignments" permission={PERM.USERS_VIEW} />
     );
   }
 

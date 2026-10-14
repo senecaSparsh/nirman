@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { Suspense } from "react";
-import {   getCompanyGroupIds, toNum, scopeWhere, getCurrentUser, getActingRole } from "@/lib/server";
+import {   getCompanyGroupIds, toNum, scopeWhere, getCurrentUser, getUserRole } from "@/lib/server";
 import { canAutoApprove } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
@@ -40,7 +40,7 @@ export default function InventoryHomePage() {
         // can actually approve there (perm + not their own submission).
         const canApprovePo = perms.includes(PERM.PO_APPROVE);
         const canApproveReq = perms.includes(PERM.REQUISITION_APPROVE);
-        const notOwn = canAutoApprove(await getActingRole()) ? {} : { not: currentUser?.id };
+        const notOwn = canAutoApprove(await getUserRole()) ? {} : { not: currentUser?.id };
         const [draftPOs, pendingReqs, recentRequisitions, materials, inventoryTree, qaCtx] =
     await Promise.all([
       canApprovePo

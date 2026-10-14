@@ -3,8 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { approveSupplierInvoice, getSupplierInvoice } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, ForbiddenError, getActingRole, getCompany, getUserPermissions, json, requireEffectivePermission, requireUser, scopeWhere, getActingRoleForProject } from "@/lib/server";
-import { hasPermission } from "@/lib/roles";
+import { apiHandler, ForbiddenError, getActingRole, getCompany, getPermissionsForProject, json, requireEffectivePermission, requireUser, scopeWhere, getActingRoleForProject } from "@/lib/server";
 
 /**
  * GET /api/supplier-invoices/[id]
@@ -140,8 +139,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   });
   if (!scopeCheck) return json({ error: "Supplier invoice not found" }, { status: 404 });
   const actingRole = (await getActingRoleForProject(scopeCheck.purchaseOrder?.projectId ?? null)) ?? (await getActingRole());
-  const perms = await getUserPermissions();
-  if (!perms.includes(PERM.FINANCE_MANAGE) && !hasPermission(actingRole, PERM.FINANCE_MANAGE)) {
+  const perms = await getPermissionsForProject(scopeCheck.purchaseOrder?.projectId ?? null);
+  if (!perms.includes(PERM.FINANCE_MANAGE)) {
     throw new ForbiddenError("You need finance approval rights on this project");
   }
 

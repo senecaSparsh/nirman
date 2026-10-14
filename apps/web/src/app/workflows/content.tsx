@@ -9,7 +9,7 @@ export async function WorkflowsContent() {
   await connection();
   const __effPerms = await getUserPermissions();
   if (!__effPerms.includes(PERM.CANVAS_VIEW)) {
-    return <NoAccess />;
+    return <NoAccess permission={PERM.CANVAS_VIEW} />;
   }
   const company = await getCompany();
   const workflows = await prisma.workflow.findMany({

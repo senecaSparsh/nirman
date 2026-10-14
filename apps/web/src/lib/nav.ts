@@ -1,4 +1,5 @@
 import { toNum } from "@/lib/utils";
+import { holdsPermission, isCustomRole, PERM } from "@/lib/roles";
 import {
   Package,
   Truck,
@@ -114,6 +115,81 @@ const REPORTS = [...BOOKS, "SUPERVISOR", "QAQC_ENGINEER", "SALES_MANAGER", "SITE
 const SAFETY_ROLES = ["OWNER", "ADMIN", "DEVELOPER", "PROJECT_DIRECTOR", "PROJECT_MANAGER", "SITE_ENGINEER", "SUPERVISOR", "QAQC_ENGINEER"];
 /** Roles with QC_VIEW — must match the permission grants in roles.ts. */
 const QC_ROLES = ["OWNER", "ADMIN", "DEVELOPER", "PROJECT_DIRECTOR", "PROJECT_MANAGER", "SITE_ENGINEER", "QAQC_ENGINEER"];
+export const NAV_PERMISSION: Record<string, string | string[]> = {
+  "/my-tasks?tab=team": PERM.TASKS_ASSIGN,
+  "/calls": PERM.CALL_VIEW,
+  "/reports": [PERM.FINANCE_VIEW, PERM.PROCUREMENT_VIEW, PERM.INVENTORY_VIEW, PERM.PROJECTS_VIEW, PERM.SALES_VIEW, PERM.PAYROLL_VIEW, PERM.CALL_VIEW],
+  "/reports/calls": PERM.CALL_VIEW,
+  "/land": PERM.ASSETS_VIEW,
+  "/suppliers": PERM.PROCUREMENT_VIEW,
+  "/rate-contracts": PERM.PROCUREMENT_VIEW,
+  "/procurement": PERM.PROCUREMENT_VIEW,
+  "/field": PERM.REQUISITION_CREATE,
+  "/reports/purchase-register": PERM.PROCUREMENT_VIEW,
+  "/reports/purchase-trends": PERM.PROCUREMENT_VIEW,
+  "/reports/purchaser-performance": PERM.PROCUREMENT_VIEW,
+  "/stock": PERM.INVENTORY_VIEW,
+  "/stock?tab=movements": PERM.INVENTORY_VIEW,
+  "/materials": PERM.INVENTORY_VIEW,
+  "/equipment": PERM.ASSETS_VIEW,
+  "/gate-passes": PERM.GATE_PASS_VIEW,
+  "/standard-consumptions": PERM.INVENTORY_VIEW,
+  "/material-reconciliation": PERM.INVENTORY_VIEW,
+  "/departments": PERM.INVENTORY_VIEW,
+  "/vehicles": PERM.VEHICLE_VIEW,
+  "/reports/inventory-value": PERM.INVENTORY_VIEW,
+  "/reports/stock-movement-summary": PERM.INVENTORY_VIEW,
+  "/reports/issue-register": PERM.INVENTORY_VIEW,
+  "/reports/department-consumption": PERM.INVENTORY_VIEW,
+  "/projects": PERM.PROJECTS_VIEW,
+  "/permissions": PERM.USERS_VIEW,
+  "/boq": PERM.BOQ_VIEW,
+  "/wbs": PERM.WBS_VIEW,
+  "/measurement-book": PERM.MB_VIEW,
+  "/work-orders": PERM.WO_MANAGE,
+  "/subcontractors": PERM.WO_MANAGE,
+  "/change-orders": PERM.PROJECTS_VIEW,
+  "/workflows": PERM.WORKFLOWS_VIEW,
+  "/quality-control": PERM.QC_VIEW,
+  "/safety": PERM.SAFETY_VIEW,
+  "/reports/project-progress": PERM.PROJECTS_VIEW,
+  "/cost-control": PERM.PROJECT_CONTROL_VIEW,
+  "/units": PERM.ASSETS_VIEW,
+  "/sales": PERM.SALES_VIEW,
+  "/brokers": PERM.SALES_VIEW,
+  "/rentals": PERM.RENTALS_VIEW,
+  "/material-sales": PERM.SALES_VIEW,
+  "/sales?tab=bank-sms": PERM.FINANCE_VIEW,
+  "/quotations": PERM.QUOTATION_VIEW,
+  "/reports/real-estate-inventory": PERM.ASSETS_VIEW,
+  "/reports/sales-revenue": PERM.SALES_VIEW,
+  "/hr": PERM.HR_VIEW,
+  "/hr/employees": PERM.HR_VIEW,
+  "/hr/attendance": PERM.HR_VIEW,
+  "/hr/dprs": PERM.DPR_VIEW,
+  "/hr/pending": PERM.HR_VIEW,
+  "/hr/payroll": PERM.PAYROLL_VIEW,
+  "/reports/payroll-expense": PERM.PAYROLL_VIEW,
+  "/finance": PERM.FINANCE_VIEW,
+  "/reports/pending-payments": PERM.FINANCE_VIEW,
+  "/reports/cash-flow": PERM.FINANCE_VIEW,
+  "/reports/job-costing": PERM.FINANCE_VIEW,
+  "/reports/expenses": PERM.FINANCE_VIEW,
+  "/gl": PERM.FINANCE_VIEW,
+  "/finance/dpr-reconciliation": PERM.FINANCE_VIEW,
+  "/health-books": PERM.FINANCE_VIEW,
+  "/finance/audit": PERM.AUDIT_VIEW,
+  "/reports/gst": PERM.FINANCE_VIEW,
+  "/reports/tds-certificates": PERM.FINANCE_VIEW,
+  "/reports/balance-sheet": PERM.FINANCE_VIEW,
+  "/reports/profit": PERM.FINANCE_VIEW,
+  "/reports/comparative": PERM.FINANCE_VIEW,
+  "/settings": PERM.COMPANY_MANAGE,
+  "/settings/project-assignments": PERM.PROJECTS_MANAGE,
+  "/settings/backup": PERM.COMPANY_MANAGE,
+  "/calls?tab=telephony": PERM.TELEPHONY_VIEW,
+  "/feedback": PERM.COMPANY_MANAGE,
+};
 
 export type NavLink = {
   label: string;
@@ -1009,25 +1085,32 @@ function roleAllowed(roles: string[] | undefined, role: string): boolean {
   return !roles || roles.includes(role);
 }
 
+function linkAllowed(link: NavLink, role: string, permissions: string[]): boolean {
+  if (!isCustomRole(role)) return roleAllowed(link.roles, role);
+  const gate = NAV_PERMISSION[link.href];
+  if (!gate) return !link.roles || link.roles === EVERYONE;
+  return (Array.isArray(gate) ? gate : [gate]).some((p) => holdsPermission(role, p, permissions));
+}
+
 /** Worlds this role may enter, with sections/items already filtered. */
-export function worldsFor(role: string): World[] {
+export function worldsFor(role: string, permissions: string[] = []): World[] {
   return WORLDS.map((w) => ({
     ...w,
     sections: w.sections
-      .map((s) => ({ ...s, items: s.items.filter((i) => roleAllowed(i.roles, role)) }))
+      .map((s) => ({ ...s, items: s.items.filter((i) => linkAllowed(i, role, permissions)) }))
       .filter((s) => s.items.length > 0),
-  })).filter((w) => roleAllowed(w.roles, role) && w.sections.length > 0);
+  })).filter((w) => (isCustomRole(role) || roleAllowed(w.roles, role)) && w.sections.length > 0);
 }
 
 /** Settings links this role may see. */
-export function settingsLinksFor(role: string): NavLink[] {
-  return SETTINGS_LINKS.filter((l) => roleAllowed(l.roles, role));
+export function settingsLinksFor(role: string, permissions: string[] = []): NavLink[] {
+  return SETTINGS_LINKS.filter((l) => linkAllowed(l, role, permissions));
 }
 
 /** Links this role may see, flat. Used by the command palette. */
-export function linksFor(role: string): (NavLink & { world: WorldKey })[] {
-  const allowed = new Set(worldsFor(role).map((w) => w.key));
-  return ALL_LINKS.filter((l) => allowed.has(l.world) && roleAllowed(l.roles, role));
+export function linksFor(role: string, permissions: string[] = []): (NavLink & { world: WorldKey })[] {
+  const allowed = new Set(worldsFor(role, permissions).map((w) => w.key));
+  return ALL_LINKS.filter((l) => allowed.has(l.world) && linkAllowed(l, role, permissions));
 }
 
 /**
@@ -1121,8 +1204,8 @@ export function homeWorldFor(role: string): World {
 }
 
 /** Every badge endpoint a role can see — fetched once by the shell. */
-export function badgeLinksFor(role: string): NavLink[] {
-  return linksFor(role).filter((l) => l.badge);
+export function badgeLinksFor(role: string, permissions: string[] = []): NavLink[] {
+  return linksFor(role, permissions).filter((l) => l.badge);
 }
 
 // ── Back-compat shims ─────────────────────────────────────────────

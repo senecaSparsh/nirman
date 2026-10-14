@@ -35,7 +35,7 @@ async function ExpensesReportContent({
 
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) {
     return (
-      <NoAccess what="the expenses report" />
+      <NoAccess what="the expenses report" permission={PERM.FINANCE_VIEW} />
     );
   }
 

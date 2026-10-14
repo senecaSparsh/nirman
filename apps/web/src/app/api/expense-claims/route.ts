@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { createExpenseClaim, submitExpenseClaim, approveExpenseClaim, canAutoApprove, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, scopeWhere, assertScopeAllows, getActingRole, requireAnyEffectivePermission} from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { createExpenseClaim, submitExpenseClaim, approveExpenseClaim, canWaiveSelfApproval, ServiceError } from "@nirman/services";
+import { apiHandler, getCompany, json, toNum, scopeWhere, assertScopeAllows, getActingRole, getUserPermissions, requireAnyEffectivePermission} from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
 const claimLineSchema = z.object({
@@ -29,7 +29,7 @@ const claimSchema = z.object({
 export const GET = apiHandler(async (_req: NextRequest) => {
   const company = await getCompany();
   const user = await requireAnyEffectivePermission(PERM.FINANCE_VIEW, PERM.EXPENSE_CREATE, PERM.CLAIM_CREATE);
-  const canSeeAll = hasPermission(await getActingRole(), PERM.FINANCE_VIEW);
+  const canSeeAll = (await getUserPermissions()).includes(PERM.FINANCE_VIEW);
   const claims = await prisma.expenseClaim.findMany({
     where: {
       companyId: company.id,
@@ -74,7 +74,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
   // Self-service claimants can only file for themselves; expense.create
   // holders (finance/admin) may file on behalf of another employee.
-  const claimantId = hasPermission(await getActingRole(), PERM.EXPENSE_CREATE)
+  const claimantId = (await getUserPermissions()).includes(PERM.EXPENSE_CREATE)
     ? parsed.data.claimantId
     : user.id;
   try {
@@ -111,7 +111,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       await submitExpenseClaim(claim.id, company.id, user.id);
       // Same rule as PATCH submit: tier-1 creators (OWNER/ADMIN) auto-approve —
       // no higher approver exists above them.
-      if (canAutoApprove(await getActingRole())) {
+      if (canWaiveSelfApproval(await getActingRole())) {
         await approveExpenseClaim(claim.id, company.id, user.id, await getActingRole());
       }
     }

@@ -11,7 +11,7 @@ export async function CallDetailContent({ id }: { id: string }) {
   const user = await requireUser();
 
   if (!__effPerms.includes(PERM.CALL_VIEW)) {
-    return <NoAccess what="call details" />;
+    return <NoAccess what="call details" permission={PERM.CALL_VIEW} />;
   }
 
   const canViewAll = __effPerms.includes(PERM.CALL_VIEW_ALL);

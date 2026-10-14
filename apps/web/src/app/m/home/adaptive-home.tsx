@@ -33,6 +33,9 @@ export interface HomeData {
     checkOut: string | null;  // ISO string
     hoursWorked: number | null;
   } | null;
+  /** Set when today falls inside a processed/paid payroll period —
+   *  self check-in would 409, so the widget shows a locked state. */
+  periodLocked?: string | null;
 }
 
 /**
@@ -82,6 +85,7 @@ function HomeContent({ data }: { data: HomeData }) {
             hasCheckedOut={!!data.myAttendance?.checkOut}
             checkOutTime={checkOutDate?.toTimeString().slice(0, 5) ?? null}
             hoursWorked={data.myAttendance?.hoursWorked ?? null}
+            periodLocked={data.periodLocked ?? null}
           />
         </div>
       )}

@@ -13,7 +13,7 @@ export async function WoContent() {
   const scope = await getUserScope();
 
   if (!__effPerms.includes(PERM.ASSETS_VIEW)) {
-    return <NoAccess what="work orders" />;
+    return <NoAccess what="work orders" permission={PERM.ASSETS_VIEW} />;
   }
 
   const projectScopeFilter =

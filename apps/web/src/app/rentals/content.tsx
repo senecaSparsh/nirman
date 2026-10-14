@@ -14,7 +14,7 @@ export async function RentalsContent() {
 
   if (!__effPerms.includes(PERM.SALES_VIEW)) {
     return (
-      <NoAccess what="rentals" />
+      <NoAccess what="rentals" permission={PERM.SALES_VIEW} />
     );
   }
 

@@ -6,7 +6,7 @@ import { validateGovIds, saneDob } from "./employee-dossier";
 import { postPayroll, postPayrollPayment } from "./gl-posting";
 import { runDprVarianceAnalysis } from "./standard-consumption";
 import { ServiceError } from "./errors";
-import { canAutoApprove } from "./rbac";
+import { canWaiveSelfApproval } from "./rbac";
 import { reallocateProjectCosts } from "./valuation";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { recordMovement, withStockTransaction } from "./stock-ledger";
@@ -2711,8 +2711,8 @@ export async function subAdminApproveDpr(dprId: string, approverId: string, note
       throw new HrError(`DPR must be in SUBMITTED status to approve (current: ${dpr.approvalStatus})`, 409);
     }
     // Prevent self-approval — the submitter cannot approve their own DPR,
-    // unless a tier-1 role (OWNER/ADMIN) where no higher approver exists.
-    if (dpr.submittedById === approverId && !canAutoApprove(actorRole)) {
+    // unless the OWNER, where no higher approver exists.
+    if (dpr.submittedById === approverId && !canWaiveSelfApproval(actorRole)) {
       throw new HrError("You cannot approve your own DPR. Ask another approver to review it.", 403);
     }
     const updated = await tx.dailyProgressReport.update({
@@ -2756,8 +2756,8 @@ export async function adminApproveDpr(dprId: string, approverId: string, notes?:
       throw new HrError(`DPR must be Sub-Admin approved first (current: ${dpr.approvalStatus})`, 409);
     }
     // Prevent self-approval — the submitter cannot approve their own DPR,
-    // unless a tier-1 role (OWNER/ADMIN) where no higher approver exists.
-    if (dpr.submittedById === approverId && !canAutoApprove(actorRole)) {
+    // unless the OWNER, where no higher approver exists.
+    if (dpr.submittedById === approverId && !canWaiveSelfApproval(actorRole)) {
       throw new HrError("You cannot approve your own DPR. Ask another admin to review it.", 403);
     }
     const updated = await tx.dailyProgressReport.update({

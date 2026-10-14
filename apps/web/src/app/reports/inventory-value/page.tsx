@@ -43,7 +43,7 @@ async function InventoryValueContent({
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.INVENTORY_VIEW)) {
-    return <NoAccess what="the inventory value report" />;
+    return <NoAccess what="the inventory value report" permission={PERM.INVENTORY_VIEW} />;
   }
 
   const asOnDate = asOnParam ? new Date(asOnParam) : null;

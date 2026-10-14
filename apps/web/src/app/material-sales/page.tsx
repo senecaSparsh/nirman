@@ -30,7 +30,7 @@ async function MaterialSalesContent() {
 
   if (!__effPerms.includes(PERM.SALES_VIEW)) {
     return (
-      <NoAccess what="material sales" />
+      <NoAccess what="material sales" permission={PERM.SALES_VIEW} />
     );
   }
 

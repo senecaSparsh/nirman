@@ -1,0 +1,317 @@
+{
+  "/boq": {
+    "HR_MANAGER": "permOnly",
+    "PROCUREMENT_MANAGER": "permOnly",
+    "QAQC_ENGINEER": "permOnly",
+    "SITE_ENGINEER": "permOnly",
+    "STORE_KEEPER": "permOnly",
+    "SUPERVISOR": "permOnly"
+  },
+  "/brokers": {
+    "ACCOUNTANT": "permOnly",
+    "FINANCE_HEAD": "permOnly",
+    "PROJECT_DIRECTOR": "listOnly"
+  },
+  "/calls": {
+    "ACCOUNTANT": "listOnly"
+  },
+  "/calls?tab=telephony": {
+    "PROJECT_DIRECTOR": "permOnly"
+  },
+  "/change-orders": {
+    "HR_MANAGER": "permOnly",
+    "PROCUREMENT_MANAGER": "permOnly",
+    "QAQC_ENGINEER": "permOnly",
+    "SALES_MANAGER": "permOnly",
+    "SECURITY_GUARD": "permOnly",
+    "SITE_ENGINEER": "permOnly",
+    "STORE_KEEPER": "permOnly",
+    "SUPERVISOR": "permOnly"
+  },
+  "/cost-control": {
+    "HR_MANAGER": "permOnly",
+    "PROCUREMENT_MANAGER": "permOnly",
+    "QAQC_ENGINEER": "permOnly",
+    "SITE_ENGINEER": "permOnly",
+    "STORE_KEEPER": "permOnly",
+    "SUPERVISOR": "permOnly"
+  },
+  "/departments": {
+    "ACCOUNTANT": "listOnly",
+    "HR_MANAGER": "permOnly"
+  },
+  "/equipment": {
+    "ACCOUNTANT": "permOnly",
+    "FINANCE_HEAD": "permOnly",
+    "SALES_MANAGER": "permOnly",
+    "STORE_KEEPER": "listOnly"
+  },
+  "/finance": {
+    "PROCUREMENT_MANAGER": "permOnly"
+  },
+  "/finance/audit": {
+    "PROJECT_DIRECTOR": "permOnly"
+  },
+  "/finance/dpr-reconciliation": {
+    "PROCUREMENT_MANAGER": "permOnly"
+  },
+  "/gate-passes": {
+    "ACCOUNTANT": "permOnly",
+    "FINANCE_HEAD": "permOnly",
+    "HR_MANAGER": "permOnly",
+    "SALES_MANAGER": "permOnly"
+  },
+  "/gl": {
+    "PROCUREMENT_MANAGER": "permOnly"
+  },
+  "/health-books": {
+    "PROCUREMENT_MANAGER": "permOnly"
+  },
+  "/hr": {
+    "PROCUREMENT_MANAGER": "listOnly",
+    "STORE_KEEPER": "listOnly"
+  },
+  "/hr/attendance": {
+    "PROCUREMENT_MANAGER": "listOnly",
+    "STORE_KEEPER": "listOnly"
+  },
+  "/hr/dprs": {
+    "ACCOUNTANT": "permOnly",
+    "PROCUREMENT_MANAGER": "listOnly",
+    "STORE_KEEPER": "listOnly"
+  },
+  "/hr/employees": {
+    "PROCUREMENT_MANAGER": "listOnly",
+    "STORE_KEEPER": "listOnly"
+  },
+  "/hr/payroll": {
+    "PROJECT_DIRECTOR": "listOnly",
+    "PROJECT_MANAGER": "listOnly"
+  },
+  "/hr/pending": {
+    "PROCUREMENT_MANAGER": "listOnly",
+    "STORE_KEEPER": "listOnly"
+  },
+  "/land": {
+    "ACCOUNTANT": "permOnly",
+    "FINANCE_HEAD": "permOnly",
+    "PROCUREMENT_MANAGER": "permOnly",
+    "PROJECT_MANAGER": "permOnly",
+    "QAQC_ENGINEER": "permOnly",
+    "SITE_ENGINEER": "permOnly",
+    "SUPERVISOR": "permOnly"
+  },
+  "/material-reconciliation": {
+    "HR_MANAGER": "permOnly"
+  },
+  "/material-sales": {
+    "ACCOUNTANT": "permOnly",
+    "FINANCE_HEAD": "permOnly",
+    "PROJECT_DIRECTOR": "listOnly"
+  },
+  "/materials": {
+    "HR_MANAGER": "permOnly"
+  },
+  "/measurement-book": {
+    "ACCOUNTANT": "permOnly",
+    "FINANCE_HEAD": "permOnly",
+    "HR_MANAGER": "permOnly"
+  },
+  "/my-tasks?tab=team": {
+    "FINANCE_HEAD": "listOnly"
+  },
+  "/permissions": {
+    "ACCOUNTANT": "listOnly",
+    "FINANCE_HEAD": "permOnly",
+    "HR_MANAGER": "permOnly",
+    "PROCUREMENT_MANAGER": "listOnly",
+    "PROJECT_MANAGER": "listOnly",
+    "QAQC_ENGINEER": "listOnly",
+    "SALES_MANAGER": "listOnly",
+    "SITE_ENGINEER": "listOnly",
+    "STORE_KEEPER": "listOnly",
+    "SUPERVISOR": "listOnly"
+  },
+  "/quotations": {
+    "ACCOUNTANT": "permOnly",
+    "FINANCE_HEAD": "permOnly"
+  },
+  "/rate-contracts": {
+    "PROCUREMENT_MANAGER": "permOnly",
+    "QAQC_ENGINEER": "permOnly",
+    "SITE_ENGINEER": "permOnly",
+    "STORE_KEEPER": "permOnly",
+    "SUPERVISOR": "permOnly"
+  },
+  "/rentals": {
+    "FINANCE_HEAD": "permOnly",
+    "PROCUREMENT_MANAGER": "permOnly",
+    "PROJECT_MANAGER": "permOnly",
+    "QAQC_ENGINEER": "permOnly",
+    "SITE_ENGINEER": "permOnly",
+    "SUPERVISOR": "permOnly"
+  },
+  "/reports": {
+    "SECURITY_GUARD": "permOnly"
+  },
+  "/reports/balance-sheet": {
+    "PROCUREMENT_MANAGER": "permOnly"
+  },
+  "/reports/calls": {
+    "ACCOUNTANT": "listOnly",
+    "HR_MANAGER": "permOnly",
+    "PROCUREMENT_MANAGER": "permOnly",
+    "QAQC_ENGINEER": "permOnly",
+    "SECURITY_GUARD": "permOnly",
+    "SITE_ENGINEER": "permOnly",
+    "STORE_KEEPER": "permOnly",
+    "SUPERVISOR": "permOnly"
+  },
+  "/reports/cash-flow": {
+    "PROCUREMENT_MANAGER": "permOnly"
+  },
+  "/reports/comparative": {
+    "PROCUREMENT_MANAGER": "permOnly"
+  },
+  "/reports/department-consumption": {
+    "HR_MANAGER": "permOnly"
+  },
+  "/reports/expenses": {
+    "PROCUREMENT_MANAGER": "permOnly"
+  },
+  "/reports/gst": {
+    "PROCUREMENT_MANAGER": "permOnly"
+  },
+  "/reports/inventory-value": {
+    "HR_MANAGER": "permOnly"
+  },
+  "/reports/issue-register": {
+    "ACCOUNTANT": "listOnly",
+    "HR_MANAGER": "permOnly"
+  },
+  "/reports/job-costing": {
+    "PROCUREMENT_MANAGER": "permOnly"
+  },
+  "/reports/payroll-expense": {
+    "HR_MANAGER": "permOnly",
+    "PROJECT_DIRECTOR": "listOnly",
+    "PROJECT_MANAGER": "listOnly"
+  },
+  "/reports/pending-payments": {
+    "PROCUREMENT_MANAGER": "permOnly"
+  },
+  "/reports/profit": {
+    "PROCUREMENT_MANAGER": "permOnly"
+  },
+  "/reports/project-progress": {
+    "HR_MANAGER": "permOnly",
+    "PROCUREMENT_MANAGER": "permOnly",
+    "QAQC_ENGINEER": "permOnly",
+    "SECURITY_GUARD": "permOnly",
+    "SITE_ENGINEER": "permOnly",
+    "STORE_KEEPER": "permOnly"
+  },
+  "/reports/purchase-register": {
+    "PROCUREMENT_MANAGER": "permOnly",
+    "QAQC_ENGINEER": "permOnly",
+    "SITE_ENGINEER": "permOnly",
+    "STORE_KEEPER": "permOnly"
+  },
+  "/reports/purchase-trends": {
+    "PROCUREMENT_MANAGER": "permOnly",
+    "QAQC_ENGINEER": "permOnly",
+    "SITE_ENGINEER": "permOnly",
+    "STORE_KEEPER": "permOnly",
+    "SUPERVISOR": "permOnly"
+  },
+  "/reports/purchaser-performance": {
+    "PROCUREMENT_MANAGER": "permOnly",
+    "QAQC_ENGINEER": "permOnly",
+    "SITE_ENGINEER": "permOnly",
+    "STORE_KEEPER": "permOnly",
+    "SUPERVISOR": "permOnly"
+  },
+  "/reports/real-estate-inventory": {
+    "PROCUREMENT_MANAGER": "permOnly",
+    "QAQC_ENGINEER": "permOnly",
+    "SITE_ENGINEER": "permOnly"
+  },
+  "/reports/sales-revenue": {
+    "PROJECT_DIRECTOR": "listOnly",
+    "PROJECT_MANAGER": "listOnly"
+  },
+  "/reports/stock-movement-summary": {
+    "HR_MANAGER": "permOnly"
+  },
+  "/reports/tds-certificates": {
+    "PROCUREMENT_MANAGER": "permOnly"
+  },
+  "/safety": {
+    "SECURITY_GUARD": "permOnly"
+  },
+  "/sales": {
+    "FINANCE_HEAD": "permOnly",
+    "PROJECT_DIRECTOR": "listOnly"
+  },
+  "/sales?tab=bank-sms": {
+    "ACCOUNTANT": "permOnly",
+    "FINANCE_HEAD": "permOnly",
+    "PROCUREMENT_MANAGER": "permOnly",
+    "PROJECT_MANAGER": "permOnly",
+    "SALES_MANAGER": "listOnly"
+  },
+  "/settings/project-assignments": {
+    "PROJECT_DIRECTOR": "permOnly",
+    "PROJECT_MANAGER": "permOnly"
+  },
+  "/standard-consumptions": {
+    "ACCOUNTANT": "listOnly",
+    "HR_MANAGER": "permOnly"
+  },
+  "/stock": {
+    "ACCOUNTANT": "listOnly",
+    "HR_MANAGER": "permOnly"
+  },
+  "/stock?tab=movements": {
+    "ACCOUNTANT": "listOnly",
+    "HR_MANAGER": "permOnly"
+  },
+  "/subcontractors": {
+    "ACCOUNTANT": "listOnly",
+    "PROCUREMENT_MANAGER": "listOnly",
+    "QAQC_ENGINEER": "listOnly",
+    "SITE_ENGINEER": "listOnly",
+    "STORE_KEEPER": "listOnly",
+    "SUPERVISOR": "listOnly"
+  },
+  "/units": {
+    "FINANCE_HEAD": "permOnly",
+    "PROCUREMENT_MANAGER": "permOnly",
+    "PROJECT_MANAGER": "permOnly",
+    "QAQC_ENGINEER": "permOnly",
+    "SITE_ENGINEER": "permOnly",
+    "SUPERVISOR": "permOnly"
+  },
+  "/vehicles": {
+    "ACCOUNTANT": "permOnly",
+    "FINANCE_HEAD": "permOnly",
+    "QAQC_ENGINEER": "listOnly",
+    "SUPERVISOR": "listOnly"
+  },
+  "/wbs": {
+    "HR_MANAGER": "permOnly",
+    "PROCUREMENT_MANAGER": "permOnly",
+    "QAQC_ENGINEER": "permOnly",
+    "SITE_ENGINEER": "permOnly",
+    "STORE_KEEPER": "permOnly",
+    "SUPERVISOR": "permOnly"
+  },
+  "/work-orders": {
+    "ACCOUNTANT": "listOnly",
+    "FINANCE_HEAD": "listOnly"
+  },
+  "/workflows": {
+    "ACCOUNTANT": "listOnly",
+    "FINANCE_HEAD": "listOnly"
+  }
+}

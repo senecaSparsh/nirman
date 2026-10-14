@@ -172,6 +172,23 @@ export async function reconcileStockCount(countId: string, userId?: string) {
     if (!count) throw new ServiceError("Stock count not found", 404);
     if (count.status !== "COUNTED") throw new ServiceError(`Cannot reconcile count in status ${count.status}`);
 
+    // A count is evidence at a point in time — its variance was measured
+    // against the system level at snapshot. Any stock movement at this
+    // location after the count makes that variance stale: applying it now
+    // would post an old delta onto a changed level. Force a recount.
+    const intervening = await tx.stockMovement.count({
+      where: {
+        OR: [{ fromLocationId: count.locationId }, { toLocationId: count.locationId }],
+        timestamp: { gt: count.createdAt },
+      },
+    });
+    if (intervening > 0) {
+      throw new ServiceError(
+        `${intervening} stock movement(s) occurred at this location after the count — the count is stale. Recount before reconciling.`,
+        409,
+      );
+    }
+
     for (const line of count.lines) {
       const variance = new Decimal(line.variance);
       if (variance.isZero()) continue; // no adjustment needed

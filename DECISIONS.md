@@ -150,10 +150,10 @@ If you catch yourself planning to "build the rent module" or "add the sale lifec
      what". `onBehalfOfId` records delegated actions.
    - _Authority handoff_: `UserCompany.approvalsDelegatedTo*` — members
      delegate their authority until a date (settings + /me + /m/me card);
-     delegates inherit the delegator's permissions (getUserPermissions union)
-     and acting role (getActingRole) across all approval routes. Daily
+     delegates act with their own role, plus only the delegated approval permissions (getUserPermissions union)
+     and their acting role stays their own (Slice 6a): delegation never lifts a role. Daily
      `/api/cron/approval-aging` (scheduled via scheduler.sh)
-     digests stalled approvals to execs + active delegates — threshold is
+     digests each approver only the stalled items they can act on (their scope, their permissions incl. hats and delegation, the self-approval rule and PO value tiers) — threshold is
      `Company.approvalAgingHours` (default 48h, editable in company
      settings desktop + mobile). The run also prunes resolved ErrorLogs
      > 30d. Leave approval nudges approvers to delegate before going away.

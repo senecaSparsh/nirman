@@ -187,7 +187,7 @@ export async function partitionLandParcel(input: PartitionInput) {
           isInfrastructure: isInfra,
           ...(child.marketValue != null ? { marketValue: new Decimal(child.marketValue) } : {}),
           ...(child.weightFactor != null ? { weightFactor: new Decimal(child.weightFactor) } : {}),
-          ...(child.geometry ? { geometry: child.geometry as any } : {}),
+          ...(child.geometry ? { geometry: child.geometry as Prisma.InputJsonValue } : {}),
         },
       });
       childParcels.push(parcel);
@@ -265,7 +265,7 @@ export async function partitionLandParcel(input: PartitionInput) {
  * - No child may have built units (must remove units first)
  * - No child may have active sales
  *
- * Only OWNER/ADMIN should be allowed to call this (enforced at the API layer).
+ * Owner-only: the API layer checks that the caller's own role is OWNER.
  */
 export async function unpartitionLandParcel(parentParcelId: string, userId?: string) {
   return withSerializableTransaction(async (tx) => {

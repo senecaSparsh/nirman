@@ -29,7 +29,7 @@ async function NcrDetailContent({ id }: { id: string }) {
   const canManage = __effPerms.includes(PERM.QC_MANAGE);
 
   if (!__effPerms.includes(PERM.QC_VIEW)) {
-    return <NoAccess what="NCR" />;
+    return <NoAccess what="NCR" permission={PERM.QC_VIEW} />;
   }
 
   const ncr = await prisma.nonConformanceReport.findFirst({

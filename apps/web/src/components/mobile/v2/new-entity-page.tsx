@@ -1,7 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 import { connection } from "next/server";
 import { getUserRole, getUserPermissions, getScopedRolePermissions } from "@/lib/server";
-import { hasPermission, type Permission } from "@/lib/roles";
+import { holdsPermission, type Permission } from "@/lib/roles";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { MobileSkeletonForm } from "@/components/mobile/mobile-skeleton";
 
@@ -120,7 +120,7 @@ export async function MobileNewEntityPage({
     const overrides = scopeAware
       ? [...(await getUserPermissions()), ...(await getScopedRolePermissions())]
       : await getUserPermissions();
-    const canManage = perm ? hasPermission(role, perm, overrides) : true;
+    const canManage = perm ? holdsPermission(role, perm, overrides) : true;
 
     if (!soft && perm && !canManage) {
       return <MobileNoAccess what={what ?? "this page"} permission={permission} />;

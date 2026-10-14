@@ -947,7 +947,7 @@ export function SaleDetailDialog({
                               {p.chequeStatus === "PENDING" && (
                                 <>
                                   <button
-                                    onClick={() => handleChequeAction(p.id, "clear")}
+                                    onClick={() => { if (window.confirm(`Mark this cheque as cleared? Confirm the funds have settled — this cannot be undone.`)) handleChequeAction(p.id, "clear"); }}
                                     disabled={chequeActionLoading}
                                     className="inline-flex items-center gap-1 text-micro font-medium text-green-600 hover:text-green-700 disabled:opacity-50"
                                     title="Mark cheque as cleared"
@@ -955,7 +955,7 @@ export function SaleDetailDialog({
                                     <CheckCircle2 className="h-3 w-3" /> Clear
                                   </button>
                                   <button
-                                    onClick={() => handleChequeAction(p.id, "bounce")}
+                                    onClick={() => { if (window.confirm(`Mark this cheque as bounced? The payment is reversed in the ledger and the balance reopens.`)) handleChequeAction(p.id, "bounce"); }}
                                     disabled={chequeActionLoading}
                                     className="inline-flex items-center gap-1 text-micro font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
                                     title="Mark cheque as bounced"

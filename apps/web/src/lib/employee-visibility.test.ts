@@ -8,8 +8,22 @@ import {
   EMPLOYEE_TOKEN_FIELDS,
   pickEmployeeRoster,
   redactEmployeeRow,
+  sensitiveWriteKeys,
   type EmployeeFieldScope,
 } from "./employee-visibility";
+
+describe("sensitive write keys", () => {
+  it("reports bank, ID and address keys in a write body", () => {
+    expect(sensitiveWriteKeys({ name: "x", bankAccountNumber: "1", panNumber: "P" })).toEqual([
+      "bankAccountNumber",
+      "panNumber",
+    ]);
+  });
+
+  it("ignores roster and compensation keys", () => {
+    expect(sensitiveWriteKeys({ name: "x", trade: "Mason", dailyRate: 500 })).toEqual([]);
+  });
+});
 
 /**
  * Field-visibility invariants for the Employee model.

@@ -8,6 +8,9 @@
  *     be taken) and their auto-written future PAID_LEAVE rows are removed
  *   - delegations pointing AT the terminated membership are cleared so the
  *     delegator's approvals resume flowing
+ *   - project roles, individual grants and scope rows on the terminated
+ *     membership are deleted (a rehire must not resurrect them) and the
+ *     removal is recorded on the termination audit entry
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import { prisma } from "@nirman/db";
@@ -79,6 +82,33 @@ describe("terminateEmployee side-effects", () => {
       data: { approvalsDelegatedToId: mgrMembership.id, delegationEndsAt: new Date(Date.UTC(2030, 0, 1)) },
     });
 
+    // The manager holds a project hat + an individual grant + a scope row.
+    await prisma.projectAssignment.create({
+      data: { userId: manager.id, projectId: project.id, scopedRole: "PROJECT_MANAGER" },
+    });
+    await prisma.userPermission.create({
+      data: { userCompanyId: mgrMembership.id, permission: "po.approve" },
+    });
+    await prisma.userScope.create({
+      data: { userCompanyId: mgrMembership.id, scopeKind: "PROJECT", projectId: project.id },
+    });
+    // The manager had also delegated THEIR approvals upward — an outbound
+    // delegation pointer on their own membership must not survive termination
+    // (it would silently resume if the member is ever rehired).
+    await prisma.userCompany.update({
+      where: { id: mgrMembership.id },
+      data: { approvalsDelegatedToId: gmMembership.id, delegationEndsAt: new Date(Date.UTC(2030, 0, 1)) },
+    });
+    // A live session for the manager — revocation is part of disabling them.
+    await prisma.session.create({
+      data: { userId: manager.id, token: "mgr-session", expiresAt: new Date(Date.UTC(2030, 0, 1)) },
+    });
+    // A push subscription in THIS company — the device must stop receiving
+    // company pushes the moment the member is terminated.
+    await prisma.pushSubscription.create({
+      data: { companyId: company.id, userId: manager.id, endpoint: `https://push.example/${mgrMembership.id}`, isActive: true },
+    });
+
     const { terminateEmployee } = await import("../employee-account");
     await terminateEmployee({ employeeId: mgrEmp.id, companyId: company.id, actorUserId: user.id });
 
@@ -104,6 +134,48 @@ describe("terminateEmployee side-effects", () => {
     const subMem2 = await prisma.userCompany.findUniqueOrThrow({ where: { id: subMembership.id } });
     expect(subMem2.approvalsDelegatedToId).toBeNull();
     expect(subMem2.delegationEndsAt).toBeNull();
+
+    // 5. Access rows on the terminated membership are gone — rehire starts clean.
+    expect(
+      await prisma.projectAssignment.count({
+        where: { userId: manager.id, project: { companyId: company.id } },
+      }),
+    ).toBe(0);
+    expect(await prisma.userPermission.count({ where: { userCompanyId: mgrMembership.id } })).toBe(0);
+    expect(await prisma.userScope.count({ where: { userCompanyId: mgrMembership.id } })).toBe(0);
+
+    // 6. The termination audit entry records what access was removed.
+    const audit = await prisma.auditLog.findFirstOrThrow({
+      where: { action: "EMPLOYEE_TERMINATE", entityId: mgrEmp.id },
+    });
+    const after = audit.after as {
+      removedAccess?: { projectRoles: unknown[]; grants: unknown[]; scopes: unknown[]; delegatedTo?: unknown };
+    };
+    expect(after.removedAccess?.projectRoles).toEqual([
+      { projectId: project.id, scopedRole: "PROJECT_MANAGER" },
+    ]);
+    expect(after.removedAccess?.grants).toEqual([{ permission: "po.approve" }]);
+    expect(after.removedAccess?.scopes).toEqual([
+      { scopeKind: "PROJECT", departmentId: null, projectId: project.id },
+    ]);
+    expect(after.removedAccess?.delegatedTo).toBe(gmMembership.id);
+
+    // 7. The leaver's own outbound delegation is cleared — no silent revival.
+    const mgrMemAfter = await prisma.userCompany.findUniqueOrThrow({ where: { id: mgrMembership.id } });
+    expect(mgrMemAfter.active).toBe(false);
+    expect(mgrMemAfter.approvalsDelegatedToId).toBeNull();
+    expect(mgrMemAfter.delegationEndsAt).toBeNull();
+
+    // 8. No remaining memberships → account disabled + sessions revoked.
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: manager.id } })).active).toBe(false);
+    expect(await prisma.session.count({ where: { userId: manager.id } })).toBe(0);
+
+    // 9. The company's push subscriptions are dead on the device too.
+    expect(
+      await prisma.pushSubscription.count({
+        where: { userId: manager.id, companyId: company.id, isActive: true },
+      }),
+    ).toBe(0);
   });
 
   it("restore fully resets the agreement lifecycle + termination-stamped end date", async () => {

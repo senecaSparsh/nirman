@@ -23,7 +23,7 @@ async function EmployeesContent() {
 
   if (!__effPerms.includes(PERM.HR_VIEW)) {
     return (
-      <NoAccess what="employees" />
+      <NoAccess what="employees" permission={PERM.HR_VIEW} />
     );
   }
 

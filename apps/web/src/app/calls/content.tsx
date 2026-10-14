@@ -18,7 +18,7 @@ export async function CallsContent({
   const user = await requireUser();
 
   if (!__effPerms.includes(PERM.CALL_VIEW)) {
-    return <NoAccess what="call log" />;
+    return <NoAccess what="call log" permission={PERM.CALL_VIEW} />;
   }
 
   const canViewAll = __effPerms.includes(PERM.CALL_VIEW_ALL);
@@ -153,7 +153,7 @@ export async function CallsContent({
             canListenRecording={canListenRecording}
           />
         }
-        telephony={telephonyView ?? (canViewTelephony ? <PageLoading label="Loading telephony…" variant="list" /> : <NoAccess what="telephony settings" />)}
+        telephony={telephonyView ?? (canViewTelephony ? <PageLoading label="Loading telephony…" variant="list" /> : <NoAccess what="telephony settings" permission={PERM.TELEPHONY_VIEW} />)}
         canViewTelephony={canViewTelephony}
       />
     </>

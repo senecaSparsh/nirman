@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { addDependency, removeDependency } from "@nirman/services";
-import { apiHandler, getCompany, json, requireUser, getActingRole,} from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { apiHandler, getCompany, json, requireUser, getUserPermissions,} from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
 const depSchema = z.object({
@@ -23,7 +23,7 @@ async function verifyTaskInCompany(taskId: string, companyId: string) {
  */
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requireUser();
-  if (!hasPermission(await getActingRole(), PERM.TASKS_ASSIGN)) return json({ error: "Forbidden — managers only" }, { status: 403 });
+  if (!(await getUserPermissions()).includes(PERM.TASKS_ASSIGN)) return json({ error: "Forbidden — managers only" }, { status: 403 });
   const company = await getCompany();
   const { id: blockedById } = await params;
 
@@ -44,7 +44,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
  */
 export const DELETE = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requireUser();
-  if (!hasPermission(await getActingRole(), PERM.TASKS_ASSIGN)) return json({ error: "Forbidden — managers only" }, { status: 403 });
+  if (!(await getUserPermissions()).includes(PERM.TASKS_ASSIGN)) return json({ error: "Forbidden — managers only" }, { status: 403 });
   const company = await getCompany();
   const { id: blockedById } = await params;
 

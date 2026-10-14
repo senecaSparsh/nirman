@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { TrendingDown, TrendingUp, AlertTriangle, Home, Building2, Layers, Maximize2, ArrowRight, Hammer, Pause, CircleDollarSign } from "lucide-react";
+import { TrendingDown, TrendingUp, AlertTriangle, Home, Building2, Layers, Maximize2, ArrowRight, Hammer, Pause, CircleDollarSign, Trash2 } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -26,14 +26,18 @@ const UNIT_TYPE_LABELS: Record<BuiltUnitType, string> = {
   SHOP: "Shop", OFFICE: "Office", WAREHOUSE_UNIT: "Warehouse", VILLA: "Villa", OTHER: "Other",
 };
 
+// Keep in sync with the server table in packages/services/src/built-unit.ts
+// (updateUnitStatus). RESERVED and SOLD are driven by the sales flow —
+// a deposit reserves the unit and completing the sale sells it — so they're
+// never offered as manual transitions here.
 const VALID_TRANSITIONS: Record<BuiltUnitStatus, BuiltUnitStatus[]> = {
   PLANNED: ["UNDER_CONSTRUCTION"],
   UNDER_CONSTRUCTION: ["AVAILABLE", "PLANNED"],
-  AVAILABLE: ["RESERVED", "HOLD", "UNDER_CONSTRUCTION"],
-  RESERVED: ["AVAILABLE", "SOLD"],
+  AVAILABLE: ["HOLD", "UNDER_CONSTRUCTION"],
+  RESERVED: [],
   HOLD: ["AVAILABLE"],
   SOLD: [],
-  RENTED: ["AVAILABLE"],
+  RENTED: [],
 };
 
 const TRANSITION_BUTTON_CONFIG: Record<BuiltUnitStatus, { icon: typeof Hammer; title: string }> = {
@@ -66,6 +70,8 @@ export function UnitValuationDialog({
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [changingStatus, setChangingStatus] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [askingPrice, setAskingPrice] = useState("");
   const [currentValuation, setCurrentValuation] = useState("");
 
@@ -73,6 +79,7 @@ export function UnitValuationDialog({
     if (open && unit) {
       setAskingPrice(unit.askingPrice ? String(unit.askingPrice) : "");
       setCurrentValuation(String(unit.currentValuation));
+      setConfirmDelete(false);
     }
   }, [open, unit]);
 
@@ -163,6 +170,24 @@ export function UnitValuationDialog({
     }
   }
 
+  async function deleteUnit() {
+    if (!unit) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/built-units/${unit.id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to delete");
+      toast.success(`Unit ${unit.unitNumber} deleted`);
+      onOpenChange(false);
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setDeleting(false);
+      setConfirmDelete(false);
+    }
+  }
+
   if (!unit) return null;
 
   const existingMargin = unit.askingPrice != null ? unit.askingPrice - unit.productionCost : null;
@@ -177,6 +202,8 @@ export function UnitValuationDialog({
     : null;
   const transitions = VALID_TRANSITIONS[unit.status] ?? [];
   const isSold = unit.status === "SOLD";
+  const isReserved = unit.status === "RESERVED";
+  const isRented = unit.status === "RENTED";
 
   return (
     <Dialog
@@ -244,6 +271,24 @@ export function UnitValuationDialog({
               View sale <ArrowRight className="ml-1 h-3 w-3" />
             </Button>
           )}
+        </div>
+      )}
+      {isReserved && (
+        <div className="mt-3 flex items-center justify-between rounded-lg border border-border bg-muted/20 px-3 py-2">
+          <span className="text-caption text-muted-foreground">Reserved — a sale is in progress; manage or cancel it via Sales</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { window.location.href = `/sales`; }}
+            title="View sales"
+          >
+            View sales <ArrowRight className="ml-1 h-3 w-3" />
+          </Button>
+        </div>
+      )}
+      {isRented && (
+        <div className="mt-3 rounded-lg border border-border bg-muted/20 px-3 py-2">
+          <span className="text-caption text-muted-foreground">Rented — managed via lease/rental records</span>
         </div>
       )}
 
@@ -336,13 +381,39 @@ export function UnitValuationDialog({
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-1">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? "Saving…" : "Update Valuation"}
-            </Button>
+          <div className="flex items-center justify-between gap-2 pt-1">
+            {unit.status === "PLANNED" ? (
+              confirmDelete ? (
+                <span className="flex items-center gap-2 text-caption">
+                  <span className="text-danger font-medium">Delete this unit?</span>
+                  <Button type="button" variant="destructive" size="sm" disabled={deleting} onClick={deleteUnit}>
+                    {deleting ? "Deleting…" : "Delete"}
+                  </Button>
+                  <Button type="button" variant="ghost" size="sm" disabled={deleting} onClick={() => setConfirmDelete(false)}>
+                    Keep
+                  </Button>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="flex items-center gap-1 text-caption text-muted-foreground hover:text-danger transition-colors"
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Delete unit…
+                </button>
+              )
+            ) : (
+              <span />
+            )}
+            <span className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? "Saving…" : "Update Valuation"}
+              </Button>
+            </span>
           </div>
         </form>
       )}

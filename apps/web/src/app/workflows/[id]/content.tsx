@@ -12,7 +12,7 @@ export async function WorkflowLoader({ params }: { params: Promise<{ id: string 
   await connection();
   const __effPerms = await getUserPermissions();
   if (!__effPerms.includes(PERM.CANVAS_VIEW)) {
-    return <NoAccess />;
+    return <NoAccess permission={PERM.CANVAS_VIEW} />;
   }
   const company = await getCompany();
   const workflow = await prisma.workflow.findFirst({

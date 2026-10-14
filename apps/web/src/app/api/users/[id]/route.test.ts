@@ -159,6 +159,11 @@ describe("PATCH /api/users/[id]", () => {
     expect(res.status).toBe(200);
     expect(mockPrisma().session!.deleteMany).toHaveBeenCalled();
     expect(mockPrisma().task!.updateMany).toHaveBeenCalled();
+    // The user's devices must stop receiving pushes too — a deactivated
+    // account's subscriptions are revoked, not just its sessions.
+    expect(mockPrisma().pushSubscription!.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: "u-target" }, data: { isActive: false } }),
+    );
   });
 
   it("returns 404 when target user is not in the actor's company (cross-tenant denial)", async () => {

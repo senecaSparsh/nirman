@@ -26,7 +26,7 @@ async function BalanceSheetContent() {
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) {
-    return <NoAccess what="the balance sheet" />;
+    return <NoAccess what="the balance sheet" permission={PERM.FINANCE_VIEW} />;
   }
 
   const asOf = new Date();

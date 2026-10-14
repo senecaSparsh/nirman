@@ -26,7 +26,7 @@ async function ProfitReportContent() {
 
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) {
     return (
-      <NoAccess what="the profit & loss report" />
+      <NoAccess what="the profit & loss report" permission={PERM.FINANCE_VIEW} />
     );
   }
 

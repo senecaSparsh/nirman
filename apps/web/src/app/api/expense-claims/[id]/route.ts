@@ -6,11 +6,11 @@ import {
   approveExpenseClaim,
   rejectExpenseClaim,
   payExpenseClaim,
-  canAutoApprove,
+  canWaiveSelfApproval,
   ServiceError,
 } from "@nirman/services";
-import { apiHandler, getCompany, json, toNum, requireEffectivePermission, requireAnyPermission, requireUser, scopeWhere, getActingRole, getActingRoleForProject, getUserPermissions, ForbiddenError,} from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { apiHandler, getCompany, json, toNum, requireEffectivePermission, requireAnyPermission, requireUser, scopeWhere, getActingRole, getActingRoleForProject, getPermissionsForProject, getUserPermissions, ForbiddenError,} from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
 const actionSchema = z.object({
@@ -31,7 +31,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       companyId: company.id,
       ...await scopeWhere("ExpenseClaim", {}),
       // Self-service claimants can read only their own claims.
-      ...(hasPermission(await getActingRole(), PERM.FINANCE_VIEW) ? {} : { claimantId: user.id }),
+      ...((await getUserPermissions()).includes(PERM.FINANCE_VIEW) ? {} : { claimantId: user.id }),
     },
     include: {
       claimant: { select: { id: true, name: true } },
@@ -95,15 +95,15 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       const user = await requireAnyPermission(PERM.EXPENSE_CREATE, PERM.CLAIM_CREATE);
       // Self-service claimants can submit only their own claims; the scoped
       // role on the claim's project counts toward EXPENSE_CREATE too.
-      const submitRole = (await getActingRoleForProject((existing as { projectId?: string | null }).projectId ?? null)) ?? (await getActingRole());
-      if (!hasPermission(submitRole, PERM.EXPENSE_CREATE) && existing.claimantId !== user.id) {
+      const submitPerms = await getPermissionsForProject((existing as { projectId?: string | null }).projectId ?? null);
+      if (!submitPerms.includes(PERM.EXPENSE_CREATE) && existing.claimantId !== user.id) {
         return json({ error: "You can only submit your own claims" }, { status: 403 });
       }
       await submitExpenseClaim(id, company.id, user.id);
       // Tier-1 creators (OWNER/ADMIN) auto-approve — no higher approver exists
       // above them, so submitting their own claim completes it. Everyone else's
       // claim stays SUBMITTED for another approver.
-      if (canAutoApprove(await getActingRole())) {
+      if (canWaiveSelfApproval(await getActingRole())) {
         await approveExpenseClaim(id, company.id, user.id, await getActingRole());
       }
     } else if (d.action === "approve") {
@@ -112,8 +112,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       // that project grants EXPENSE_APPROVE locally even without the global perm.
       const claimProj = await prisma.expenseClaim.findFirst({ where: { id, companyId: company.id }, select: { projectId: true } });
       const actingRole = (await getActingRoleForProject(claimProj?.projectId ?? null)) ?? (await getActingRole());
-      const perms = await getUserPermissions();
-      if (!perms.includes(PERM.EXPENSE_APPROVE) && !hasPermission(actingRole, PERM.EXPENSE_APPROVE)) {
+      const perms = await getPermissionsForProject(claimProj?.projectId ?? null);
+      if (!perms.includes(PERM.EXPENSE_APPROVE)) {
         throw new ForbiddenError("You need expense approval rights on this project");
       }
       await approveExpenseClaim(id, company.id, user.id, actingRole);
@@ -122,8 +122,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       if (!d.rejectionReason?.trim() && !d.reason?.trim()) return json({ error: "A rejection reason is required" }, { status: 400 });
       const claimProj = await prisma.expenseClaim.findFirst({ where: { id, companyId: company.id }, select: { projectId: true } });
       const actingRole = (await getActingRoleForProject(claimProj?.projectId ?? null)) ?? (await getActingRole());
-      const perms = await getUserPermissions();
-      if (!perms.includes(PERM.EXPENSE_APPROVE) && !hasPermission(actingRole, PERM.EXPENSE_APPROVE)) {
+      const perms = await getPermissionsForProject(claimProj?.projectId ?? null);
+      if (!perms.includes(PERM.EXPENSE_APPROVE)) {
         throw new ForbiddenError("You need expense approval rights on this project");
       }
       await rejectExpenseClaim(id, company.id, (d.rejectionReason ?? d.reason ?? "").trim(), user.id, actingRole);
@@ -171,7 +171,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     return json({ error: "Only draft claims can be deleted" }, { status: 409 });
   }
   // Self-service claimants can delete only their own drafts.
-  if (!hasPermission(await getActingRole(), PERM.EXPENSE_CREATE) && existing.claimantId !== user.id) {
+  if (!(await getUserPermissions()).includes(PERM.EXPENSE_CREATE) && existing.claimantId !== user.id) {
     return json({ error: "You can only delete your own claims" }, { status: 403 });
   }
 

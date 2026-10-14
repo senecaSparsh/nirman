@@ -101,7 +101,7 @@ export function prettifyRoleKey(key: string): string {
  * Can the actor create/assign a membership with the target role?
  * Rules:
  *   - The actor must be at a HIGHER tier (lower number) than the target.
- *   - Same-tier cross-assignment is allowed ONLY for tier 1 (OWNER↔ADMIN).
+ *   - Same-tier cross-assignment is allowed ONLY for the OWNER assigning ADMIN.
  *   - Tier 5 roles cannot create any accounts.
  *   - Nobody can assign their own exact role (no self-cloning).
  */
@@ -120,8 +120,8 @@ export function canAssignRole(actorRole: string | undefined | null, targetRole: 
   if (actor === target) return false;
   // Strictly below → always allowed.
   if (actorTier < targetTier) return true;
-  // Same tier, different role → allowed only for tier 1 (OWNER↔ADMIN↔DEVELOPER).
-  if (actorTier === 1 && actorTier === targetTier && actor !== target) return true;
+  // Same tier, different role → only the OWNER may assign another tier-1 role (ADMIN).
+  if (actor === "OWNER" && targetTier === 1) return true;
   // Same tier for tiers 2-4 → not allowed (peers can't create peers).
   // Higher tier → never allowed.
   return false;
@@ -244,6 +244,8 @@ export const PERM = {
   HR_VIEW: "hr.view",
   ATTENDANCE_LOG: "attendance.log",
   HR_MANAGE: "hr.manage",
+  HR_SENSITIVE: "hr.sensitive",
+  HR_SIGNING: "hr.signing",
   PAYROLL_VIEW: "payroll.view",
   PAYROLL_MANAGE: "payroll.manage",
   DPR_SUBMIT: "dpr.submit",
@@ -316,7 +318,7 @@ export const PERMISSION_MODULES: {
     key: "procurement",
     label: "Procurement",
     icon: "ShoppingCart",
-    permissions: [PERM.PROCUREMENT_VIEW, PERM.PROCUREMENT_MANAGE, PERM.PO_APPROVE, PERM.REQUISITION_APPROVE, PERM.QUOTATION_VIEW, PERM.QUOTATION_MANAGE],
+    permissions: [PERM.PROCUREMENT_VIEW, PERM.PROCUREMENT_MANAGE, PERM.PO_APPROVE, PERM.REQUISITION_CREATE, PERM.REQUISITION_APPROVE, PERM.QUOTATION_VIEW, PERM.QUOTATION_MANAGE],
   },
   {
     key: "assets",
@@ -340,7 +342,7 @@ export const PERMISSION_MODULES: {
     key: "hr",
     label: "People & HR",
     icon: "Users",
-    permissions: [PERM.HR_VIEW, PERM.HR_MANAGE, PERM.PAYROLL_VIEW, PERM.PAYROLL_MANAGE, PERM.DPR_SUBMIT, PERM.DPR_VIEW, PERM.DPR_APPROVE_SUB_ADMIN, PERM.DPR_APPROVE_ADMIN],
+    permissions: [PERM.HR_VIEW, PERM.ATTENDANCE_LOG, PERM.HR_MANAGE, PERM.HR_SENSITIVE, PERM.HR_SIGNING, PERM.PAYROLL_VIEW, PERM.PAYROLL_MANAGE, PERM.DPR_SUBMIT, PERM.DPR_VIEW, PERM.DPR_APPROVE_SUB_ADMIN, PERM.DPR_APPROVE_ADMIN],
   },
   {
     key: "subcontractor",
@@ -453,7 +455,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.GATE_PASS_VIEW, PERM.GATE_PASS_CREATE, PERM.GATE_PASS_APPROVE, PERM.GATE_PASS_MANAGE,
       PERM.LEGAL_MANAGE,
       PERM.CALL_VIEW, PERM.CALL_VIEW_ALL, PERM.CALL_VIEW_CHILD, PERM.CALL_VIEW_FULL_NUMBER,
-      PERM.CALL_CREATE, PERM.CALL_EDIT, PERM.CALL_RECORDING_LISTEN, PERM.CALL_ANALYTICS,
+      PERM.CALL_CREATE, PERM.CALL_EDIT, PERM.CALL_ANALYTICS,
       PERM.TELEPHONY_VIEW,
       PERM.SAFETY_VIEW, PERM.SAFETY_MANAGE,
       PERM.QC_VIEW, PERM.QC_MANAGE,
@@ -477,7 +479,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.SALES_VIEW,
       PERM.ASSETS_VIEW, PERM.RENTALS_VIEW,
       PERM.BOQ_VIEW, PERM.WBS_VIEW, PERM.MB_VIEW, PERM.PROJECT_CONTROL_VIEW,
-      PERM.HR_VIEW, PERM.PAYROLL_VIEW, PERM.PAYROLL_MANAGE, PERM.DPR_VIEW,
+      PERM.HR_VIEW, PERM.HR_SENSITIVE, PERM.PAYROLL_VIEW, PERM.PAYROLL_MANAGE, PERM.DPR_VIEW,
       PERM.RA_APPROVE, PERM.RA_PAY,
       PERM.VEHICLE_VIEW,
       PERM.USERS_VIEW,
@@ -515,7 +517,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.GATE_PASS_VIEW, PERM.GATE_PASS_CREATE, PERM.GATE_PASS_APPROVE, PERM.GATE_PASS_MANAGE,
       PERM.LEGAL_MANAGE,
       PERM.CALL_VIEW, PERM.CALL_VIEW_ALL, PERM.CALL_VIEW_FULL_NUMBER,
-      PERM.CALL_CREATE, PERM.CALL_EDIT, PERM.CALL_RECORDING_LISTEN, PERM.CALL_ANALYTICS,
+      PERM.CALL_CREATE, PERM.CALL_EDIT, PERM.CALL_ANALYTICS,
       PERM.SAFETY_VIEW, PERM.SAFETY_MANAGE,
       PERM.QC_VIEW, PERM.QC_MANAGE,
     ],
@@ -553,7 +555,7 @@ export const ROLES: Record<Role, RoleDef> = {
     label: "HR Manager",
     description: "Manages workforce — employees, attendance, payroll, DPRs.",
     permissions: [
-      PERM.HR_VIEW, PERM.HR_MANAGE, PERM.CLAIM_CREATE,
+      PERM.HR_VIEW, PERM.HR_MANAGE, PERM.HR_SENSITIVE, PERM.HR_SIGNING, PERM.CLAIM_CREATE,
       PERM.PAYROLL_VIEW, PERM.PAYROLL_MANAGE,
       PERM.DPR_VIEW, PERM.DPR_SUBMIT, PERM.DPR_APPROVE_SUB_ADMIN,
       PERM.PROJECTS_VIEW,
@@ -587,7 +589,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.TASKS_VIEW, PERM.CLAIM_CREATE,
       PERM.VEHICLE_VIEW,
       PERM.GATE_PASS_VIEW, PERM.GATE_PASS_CREATE, PERM.GATE_PASS_MANAGE,
-      PERM.CALL_VIEW, PERM.CALL_CREATE, PERM.CALL_EDIT, PERM.CALL_RECORDING_LISTEN,
+      PERM.CALL_VIEW, PERM.CALL_CREATE, PERM.CALL_EDIT,
       PERM.SAFETY_VIEW, PERM.SAFETY_MANAGE,
       PERM.QC_VIEW,
     ],
@@ -679,7 +681,7 @@ export const ROLES: Record<Role, RoleDef> = {
       PERM.HR_VIEW, PERM.ATTENDANCE_LOG, PERM.DPR_VIEW, PERM.DPR_SUBMIT,
       PERM.CLAIM_CREATE,
       PERM.GATE_PASS_VIEW, PERM.GATE_PASS_CREATE, PERM.GATE_PASS_EXIT,
-      PERM.CALL_VIEW, PERM.CALL_CREATE, PERM.CALL_EDIT, PERM.CALL_RECORDING_LISTEN,
+      PERM.CALL_VIEW, PERM.CALL_CREATE, PERM.CALL_EDIT,
       PERM.SAFETY_VIEW, PERM.SAFETY_MANAGE,
     ],
     canManageUsers: false,
@@ -783,6 +785,15 @@ export function hasPermission(
   return false;
 }
 
+export function holdsPermission(
+  role: string | undefined | null,
+  permission: string,
+  overrides?: string[],
+): boolean {
+  if (isCustomRole(role)) return !!overrides?.includes(permission);
+  return hasPermission(role, permission, overrides);
+}
+
 /** Check if a role is at least a manager-level role (tier 3 or above). */
 export function isManagerOrAbove(role: string | undefined | null): boolean {
   const r = normalizeRole(role);
@@ -828,6 +839,113 @@ export const APPROVER_ROLES: Role[] = ["OWNER", "ADMIN", "PROJECT_DIRECTOR", "PR
 /** Can a role approve procurement (POs + requisitions)? */
 export function canApproveProcurement(role: string | undefined | null): boolean {
   return hasPermission(role, PERM.PO_APPROVE) || hasPermission(role, PERM.REQUISITION_APPROVE);
+}
+
+export function canDoOwnerOnly(ownRole: string | undefined | null): boolean {
+  return ownRole === "OWNER";
+}
+
+export function canManageDelegationOf(
+  actorOwnRole: string | undefined | null,
+  targetRole: string | undefined | null,
+): boolean {
+  if (targetRole === "OWNER") return actorOwnRole === "OWNER";
+  return actorOwnRole === "OWNER" || actorOwnRole === "ADMIN";
+}
+
+export function delegatedAuthorityRole(role: string | undefined | null): string {
+  if (role === "OWNER" || role === "DEVELOPER") return "ADMIN";
+  return role ?? "SUPERVISOR";
+}
+
+/**
+ * Approval rank for purchase orders: an owner's delegate approves at ADMIN
+ * rank, otherwise the highest rank of the own role and each delegator's role.
+ * A rank input only, never a permission source: ADMIN holds every permission,
+ * so it must not stand in for a delegate's own role.
+ */
+export function poApprovalRoleFor(ownRole: string | undefined | null, delegatorRoles: string[]): Role {
+  let best = normalizeRole(ownRole);
+  for (const d of delegatorRoles) {
+    const dr = normalizeRole(delegatedAuthorityRole(d));
+    if (roleTier(dr) < roleTier(best)) best = dr;
+  }
+  return best;
+}
+
+const DELEGABLE_PERMISSIONS: string[] = [
+  PERM.PO_APPROVE,
+  PERM.REQUISITION_APPROVE,
+  PERM.EXPENSE_APPROVE,
+  PERM.DPR_APPROVE_SUB_ADMIN,
+  PERM.DPR_APPROVE_ADMIN,
+  PERM.RA_APPROVE,
+  PERM.MB_APPROVE,
+  PERM.GATE_PASS_APPROVE,
+  PERM.PROCUREMENT_VIEW,
+  PERM.QUOTATION_VIEW,
+  PERM.PROJECTS_VIEW,
+  PERM.FINANCE_VIEW,
+  PERM.DPR_VIEW,
+  PERM.MB_VIEW,
+  PERM.GATE_PASS_VIEW,
+];
+
+export function delegableApprovalPermissions(): string[] {
+  return [...DELEGABLE_PERMISSIONS];
+}
+
+/**
+ * Permissions on one project: the global list plus the built-in role of a
+ * project assignment there. Never a stand-in for a custom role.
+ */
+export function permissionsWithScopedRole(globalPerms: string[], scopedRole: string | null | undefined): string[] {
+  if (!scopedRole) return [...globalPerms];
+  return [...new Set([...globalPerms, ...effectivePermissions(normalizeRole(scopedRole))])];
+}
+
+/** Permissions only the OWNER may put on a role: company settings, payroll, user management and land subdivision. */
+export const OWNER_LEVEL_PERMISSIONS: string[] = [PERM.COMPANY_MANAGE, PERM.PAYROLL_MANAGE, PERM.USERS_MANAGE, PERM.LAND_PARTITION];
+
+export function grantsOwnerLevel(permissions: string[]): boolean {
+  return permissions.some((p) => OWNER_LEVEL_PERMISSIONS.includes(p));
+}
+
+export function canManageOwnerLevelRole(ownRole: string | undefined | null, permissions: string[]): boolean {
+  return ownRole === "OWNER" || !grantsOwnerLevel(permissions);
+}
+
+/** Approval rank for a custom role's purchase orders: the manager limit if it holds PO approval, else none. */
+export function customPoApprovalRole(permissions: string[]): Role {
+  return permissions.includes(PERM.PO_APPROVE) ? "PROJECT_MANAGER" : "SUPERVISOR";
+}
+
+/** Everything a custom role grants: its base role's matrix plus its own list (scratch roles: the list alone). */
+export function customRoleGrantedPermissions(role: { baseRole: string | null; permissions: string[] }): string[] {
+  return role.baseRole ? effectivePermissions(role.baseRole, role.permissions) : role.permissions;
+}
+
+export type ScopeChoice = "COMPANY" | "DEPARTMENT" | "PROJECT";
+
+/** Built-in roles that may hold company-wide access by explicit choice. Owner and admin are always company-wide. */
+export const COMPANY_SCOPE_ROLES: string[] = ["PROJECT_DIRECTOR", "FINANCE_HEAD", "ACCOUNTANT"];
+
+/**
+ * Scope types a membership may hold. `scopeRole` is the built-in role, or a
+ * custom role's base role (null for a scratch role, which never gets
+ * company-wide access).
+ */
+export function allowedScopeTypes(scopeRole: string | null | undefined): ScopeChoice[] {
+  if (scopeRole === "OWNER" || scopeRole === "ADMIN") return ["COMPANY"];
+  if (scopeRole && COMPANY_SCOPE_ROLES.includes(scopeRole)) return ["COMPANY", "PROJECT", "DEPARTMENT"];
+  return ["PROJECT", "DEPARTMENT"];
+}
+
+/** Scope pre-selected in the add-member form. Null means the person chooses, which is how company-wide stays explicit. */
+export function suggestedScopeType(scopeRole: string | null | undefined): ScopeChoice | null {
+  if (scopeRole === "OWNER" || scopeRole === "ADMIN") return "COMPANY";
+  if (scopeRole && COMPANY_SCOPE_ROLES.includes(scopeRole)) return null;
+  return "PROJECT";
 }
 
 /** Map legacy roles to new roles for backward compatibility. */

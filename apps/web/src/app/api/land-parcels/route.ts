@@ -3,8 +3,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { LandParcelStatus } from "@nirman/db";
 import { partitionLandParcel, unpartitionLandParcel, setParcelStatus, updateParcelValuation, updateParcelDetails } from "@nirman/services";
-import { apiHandler, getCompany, json, requireEffectivePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
-import { PERM } from "@/lib/roles";
+import { apiHandler, getCompany, getOwnRole, json, requireEffectivePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
+import { PERM, canDoOwnerOnly } from "@/lib/roles";
 
 /**
  * GET /api/land-parcels?landPurchaseId=...
@@ -135,8 +135,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   if (action === "unpartition") {
-    // Unpartition (undo subdivision) — OWNER/ADMIN only
+    // Unpartition (undo subdivision) — owner-only: the OWNER account itself, not ADMIN
     const user = await requireEffectivePermission(PERM.LAND_PARTITION);
+    if (!canDoOwnerOnly(await getOwnRole())) {
+      return json({ error: "Only the owner can undo a subdivision." }, { status: 403 });
+    }
     const parentParcelId = body?.parentParcelId as string;
     if (!parentParcelId) {
       return json({ error: "parentParcelId is required" }, { status: 400 });

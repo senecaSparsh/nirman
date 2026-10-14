@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function SubcontractorsPage() {
   const __effPerms = await getUserPermissions();
-  if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) return <NoAccess />;
+  if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) return <NoAccess permission={PERM.PROCUREMENT_VIEW} />;
 
   const company = await getCompany();
 

@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { updateEmployee, updateEmployeeDossier, terminateEmployee, type EmployeeDossierInput, logAction, autoCompleteOnboarding, setSalaryComponents, assignScopedMembership } from "@nirman/services";
 import { apiHandler, getCompany, json, employeeSchema, requirePermission, assertScopeAllows, canManageSpecificEmployee, assertCanManageEmployee, getCurrentUser, scopeWhere, getEmployeeAccessScope, isTopLevelViewer } from "@/lib/server";
-import { pickEmployeeRoster, redactEmployeeRow } from "@/lib/employee-visibility";
+import { pickEmployeeRoster, redactEmployeeRow, sensitiveWriteKeys } from "@/lib/employee-visibility";
 import { PERM } from "@/lib/roles";
 
 /** GET /api/employees/[id] — fetch a single employee by ID */
@@ -93,6 +93,9 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     ].some((k) => k in body);
   if (!hasUpdatableField) {
     return json({ error: "No updatable fields in request — check field names" }, { status: 400 });
+  }
+  if (sensitiveWriteKeys(body).length > 0 && !(await getEmployeeAccessScope()).canSeeBankDetails) {
+    return json({ error: "Only the HR Manager or Finance Head can change bank, ID or address details." }, { status: 403 });
   }
 
   // H1 wall on writes: only top-level viewers may set hierarchyLevel 1 —

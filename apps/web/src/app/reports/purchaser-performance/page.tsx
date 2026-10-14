@@ -34,7 +34,7 @@ async function PurchaserPerformanceContent({
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) {
-    return <NoAccess what="the purchaser performance report" />;
+    return <NoAccess what="the purchaser performance report" permission={PERM.PROCUREMENT_VIEW} />;
   }
 
   // Default to current financial year (Apr 1 → Mar 31)

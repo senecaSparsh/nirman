@@ -292,7 +292,9 @@ async function deliverToSubs(
  */
 export async function sendPushToUser(userId: string, payload: PushPayload): Promise<number> {
   const subs = await prisma.pushSubscription.findMany({
-    where: { userId, isActive: true },
+    // Deactivated accounts get nothing — a suspended/terminated user's
+    // devices must not keep receiving company content.
+    where: { userId, isActive: true, user: { active: true } },
   });
   if (subs.length === 0) return 0;
   return deliverToSubs(subs, payload);
@@ -338,7 +340,7 @@ function roleHasPermission(
 async function usersWithPermission(companyId: string, permission: string): Promise<string[]> {
   const [memberships, roleGrantRows, customRoles] = await Promise.all([
     prisma.userCompany.findMany({
-      where: { companyId, active: true, user: { active: true } },
+      where: { companyId, active: true, user: { active: true }, company: { deletedAt: null } },
       include: { userPermissions: { where: { permission }, select: { permission: true } } },
     }),
     prisma.rolePermission.findMany({ where: { permission }, select: { role: true } }),

@@ -29,7 +29,7 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
   const { id } = await params;
   const __effPerms = await getUserPermissions();
   if (!__effPerms.includes(PERM.PROJECTS_VIEW)) {
-    return <NoAccess what="this project" />;
+    return <NoAccess what="this project" permission={PERM.PROJECTS_VIEW} />;
   }
   const company = await getCompany();
 
@@ -282,9 +282,19 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
     };
   });
 
-  // Map transfers to rows
+  // Map transfers to rows — include the linked gate pass so the detail panel
+  // can surface "awaiting gate-pass approval" instead of dead Dispatch buttons.
+  const projTransferGps = transfers.length
+    ? await prisma.gatePass.findMany({
+        where: { refType: "StockTransfer", refId: { in: transfers.map((t) => t.id) } },
+        select: { refId: true, id: true, gatePassNumber: true, status: true },
+        orderBy: { createdAt: "desc" },
+      })
+    : [];
+  const gpByTransfer = new Map(projTransferGps.map((g) => [g.refId, g]));
   const transferRows: TransferRow[] = transfers.map((t) => ({
     id: t.id,
+    transferNumber: t.transferNumber ?? null,
     fromLocationId: t.fromLocation.id,
     fromLocationName: t.fromLocation.name,
     fromLocationType: t.fromLocation.type,
@@ -314,6 +324,7 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
     dispatchedByName: t.dispatchedBy?.name ?? null,
     receivedAt: t.receivedAt ? t.receivedAt.toISOString() : null,
     receivedByName: t.receivedBy?.name ?? null,
+    gatePass: gpByTransfer.get(t.id) ?? null,
   }));
 
   // Map built units (with sale info from the active sale relation)

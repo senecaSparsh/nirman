@@ -1,8 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { apiHandler, canManageRole, getActingRole, getCompany, getCompanyDescendantIds, json, requirePermission, scopeWhere, assertCanManageEmployee } from "@/lib/server";
-import { defaultScopeType } from "@nirman/services";
+import { apiHandler, canManageRole, getActingRole, getCompany, getCompanyDescendantIds, getEmployeeAccessScope, json, requirePermission, scopeWhere, assertCanManageEmployee } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -27,6 +26,9 @@ import { PERM } from "@/lib/roles";
  */
 export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.HR_MANAGE);
+  if (!(await getEmployeeAccessScope()).canSeeBankDetails) {
+    return json({ error: "Only the HR Manager or Finance Head can copy bank and identity details." }, { status: 403 });
+  }
   const company = await getCompany();
   const { id: employeeId } = await ctx.params;
 
@@ -168,9 +170,9 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
           userId: sourceEmployee.userId,
           companyId: targetCompanyId,
           role: targetRole,
-          scopeType: defaultScopeType(
-            targetRole.startsWith("CUSTOM_") ? "SUPERVISOR" : targetRole,
-          ),
+          // Fail-closed: the copied membership sees nothing until it is scoped in
+          // the app. Company-wide is never inherited from the role default.
+          scopeType: targetRole === "OWNER" || targetRole === "ADMIN" ? "COMPANY" : "PROJECT",
         },
       });
     }

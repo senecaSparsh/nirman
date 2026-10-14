@@ -26,7 +26,7 @@ async function PendingPaymentsContent() {
 
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) {
     return (
-      <NoAccess what="the money owed report" />
+      <NoAccess what="the money owed report" permission={PERM.FINANCE_VIEW} />
     );
   }
 

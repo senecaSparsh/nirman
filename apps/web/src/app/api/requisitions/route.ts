@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import type { RequisitionStatus } from "@nirman/db";
-import { createRequisition, submitRequisition, approveRequisition, canAutoApprove, ServiceError } from "@nirman/services";
+import { createRequisition, submitRequisition, approveRequisition, canWaiveSelfApproval, ServiceError } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, requisitionSchema, toNum, scopeWhere, assertScopeAllows, getActingRole, requireEffectivePermission, requireAnyEffectivePermission} from "@/lib/server";
 
@@ -107,7 +107,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         // Tier-1 creators (OWNER/ADMIN) auto-approve — no higher approver exists
         // above them, so the indent completes immediately instead of waiting
         // for a second approver who may not exist.
-        if (canAutoApprove(await getActingRole())) {
+        if (canWaiveSelfApproval(await getActingRole())) {
           await approveRequisition(req.id, user.id, undefined, await getActingRole());
           autoApproved = true;
         }

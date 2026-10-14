@@ -25,7 +25,7 @@ async function CashFlowContent() {
   const scope = await getUserScope();
 
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) {
-    return <NoAccess what="the cash flow forecast" />;
+    return <NoAccess what="the cash flow forecast" permission={PERM.FINANCE_VIEW} />;
   }
 
   const projectScopeFilter =

@@ -25,7 +25,7 @@ async function PermissionsContent() {
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.ASSETS_VIEW)) {
-    return <NoAccess what="permissions & legal documents" />;
+    return <NoAccess what="permissions & legal documents" permission={PERM.ASSETS_VIEW} />;
   }
 
   const canManage = __effPerms.includes(PERM.LEGAL_MANAGE);

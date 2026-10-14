@@ -22,7 +22,7 @@ async function RealEstateInventoryContent() {
   const __effPerms = await getUserPermissions();
 
   if (!__effPerms.includes(PERM.ASSETS_VIEW)) {
-    return <NoAccess what="the real estate inventory dashboard" />;
+    return <NoAccess what="the real estate inventory dashboard" permission={PERM.ASSETS_VIEW} />;
   }
 
   return (

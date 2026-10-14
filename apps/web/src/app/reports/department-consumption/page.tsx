@@ -35,7 +35,7 @@ async function ReportContent({
 
   if (!__effPerms.includes(PERM.INVENTORY_VIEW)) {
     return (
-      <NoAccess what="the cost centres report" />
+      <NoAccess what="the cost centres report" permission={PERM.INVENTORY_VIEW} />
     );
   }
 

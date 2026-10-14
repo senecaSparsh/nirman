@@ -25,11 +25,24 @@ import {
   canManageWorkflows,
   canApproveProcurement,
   migrateRole,
+  canDoOwnerOnly,
+  canManageDelegationOf,
+  delegatedAuthorityRole,
+  delegableApprovalPermissions,
+  poApprovalRoleFor,
+  permissionsWithScopedRole,
+  grantsOwnerLevel,
+  canManageOwnerLevelRole,
+  customPoApprovalRole,
+  allowedScopeTypes,
+  suggestedScopeType,
   ALL_ROLES,
   ALL_PERMISSIONS,
   APPROVER_ROLES,
   PERM,
+  PERMISSION_MODULES,
   ROLES,
+  holdsPermission,
 } from "./roles";
 
 describe("roleTier", () => {
@@ -87,8 +100,8 @@ describe("canAssignRole", () => {
     expect(canAssignRole("OWNER", "SUPERVISOR")).toBe(true);
   });
 
-  it("ADMIN can assign OWNER (same tier 1, different role)", () => {
-    expect(canAssignRole("ADMIN", "OWNER")).toBe(true);
+  it("ADMIN cannot assign OWNER (only the OWNER account can make an owner)", () => {
+    expect(canAssignRole("ADMIN", "OWNER")).toBe(false);
   });
 
   it("cannot assign own exact role (no self-cloning)", () => {
@@ -165,6 +178,209 @@ describe("assignableRoles", () => {
     // undefined → SUPERVISOR (tier 5) → can't assign anyone
     const roles = assignableRoles(undefined);
     expect(roles).toHaveLength(0);
+  });
+
+  it("ADMIN is never offered OWNER in the picker", () => {
+    expect(assignableRoles("ADMIN")).not.toContain("OWNER");
+  });
+});
+
+describe("owner-only actions", () => {
+  it("only the OWNER account passes the owner-only check", () => {
+    expect(canDoOwnerOnly("OWNER")).toBe(true);
+    expect(canDoOwnerOnly("ADMIN")).toBe(false);
+    expect(canDoOwnerOnly("DEVELOPER")).toBe(false);
+    expect(canDoOwnerOnly("PROJECT_DIRECTOR")).toBe(false);
+    expect(canDoOwnerOnly(undefined)).toBe(false);
+  });
+});
+
+describe("delegation", () => {
+  it("an owner's delegation is capped at ADMIN, never OWNER", () => {
+    expect(delegatedAuthorityRole("OWNER")).toBe("ADMIN");
+    expect(delegatedAuthorityRole("DEVELOPER")).toBe("ADMIN");
+    expect(delegatedAuthorityRole("ADMIN")).toBe("ADMIN");
+    expect(delegatedAuthorityRole("PROJECT_MANAGER")).toBe("PROJECT_MANAGER");
+  });
+
+  it("only the OWNER can manage a delegation on the OWNER's membership", () => {
+    expect(canManageDelegationOf("OWNER", "OWNER")).toBe(true);
+    expect(canManageDelegationOf("ADMIN", "OWNER")).toBe(false);
+  });
+
+  it("OWNER and ADMIN can manage delegations on other members; others cannot", () => {
+    expect(canManageDelegationOf("ADMIN", "PROJECT_MANAGER")).toBe(true);
+    expect(canManageDelegationOf("OWNER", "SUPERVISOR")).toBe(true);
+    expect(canManageDelegationOf("PROJECT_MANAGER", "SUPERVISOR")).toBe(false);
+  });
+
+  it("a delegation grants approval rights only, never administration or payroll", () => {
+    const granted = new Set(delegableApprovalPermissions());
+    expect(granted.has(PERM.PO_APPROVE)).toBe(true);
+    expect(granted.has(PERM.REQUISITION_APPROVE)).toBe(true);
+    for (const forbidden of [
+      PERM.USERS_MANAGE,
+      PERM.COMPANY_MANAGE,
+      PERM.PAYROLL_MANAGE,
+      PERM.HR_MANAGE,
+      PERM.HR_SENSITIVE,
+      PERM.LAND_PARTITION,
+      PERM.FINANCE_MANAGE,
+      PERM.AUDIT_VIEW,
+    ]) {
+      expect(granted.has(forbidden)).toBe(false);
+    }
+    expect(granted.has("*")).toBe(false);
+  });
+});
+
+describe("purchase-order approval rank for delegates", () => {
+  it("an owner's delegate approves POs at ADMIN rank, below the owner threshold", () => {
+    expect(poApprovalRoleFor("SUPERVISOR", ["OWNER"])).toBe("ADMIN");
+    expect(poApprovalRoleFor("PROJECT_MANAGER", ["OWNER"])).toBe("ADMIN");
+  });
+
+  it("a delegate keeps their own rank when it is higher than the delegator's", () => {
+    expect(poApprovalRoleFor("PROJECT_DIRECTOR", ["PROJECT_MANAGER"])).toBe("PROJECT_DIRECTOR");
+  });
+
+  it("a delegate of a manager approves at the manager's rank", () => {
+    expect(poApprovalRoleFor("SUPERVISOR", ["PROJECT_MANAGER"])).toBe("PROJECT_MANAGER");
+  });
+
+  it("no delegation leaves the own rank unchanged", () => {
+    expect(poApprovalRoleFor("SITE_ENGINEER", [])).toBe("SITE_ENGINEER");
+  });
+});
+
+describe("permissions on a project", () => {
+  it("adds the permissions of a scoped hat on that project", () => {
+    const perms = permissionsWithScopedRole(["inventory.view"], "PROJECT_MANAGER");
+    expect(perms).toContain("po.approve");
+    expect(perms).toContain("inventory.view");
+  });
+
+  it("keeps the global list when there is no scoped hat", () => {
+    expect(permissionsWithScopedRole(["inventory.view"], null)).toEqual(["inventory.view"]);
+  });
+
+  it("never adds permissions the scoped hat does not have", () => {
+    const perms = permissionsWithScopedRole(["inventory.view"], "SUPERVISOR");
+    expect(perms).toContain("inventory.manage");
+    expect(perms).not.toContain("po.approve");
+  });
+});
+
+describe("owner-level permissions on custom roles", () => {
+  it("company, payroll, user-management and land permissions are owner-level", () => {
+    expect(grantsOwnerLevel([PERM.COMPANY_MANAGE])).toBe(true);
+    expect(grantsOwnerLevel([PERM.PAYROLL_MANAGE])).toBe(true);
+    expect(grantsOwnerLevel([PERM.USERS_MANAGE])).toBe(true);
+    expect(grantsOwnerLevel([PERM.LAND_PARTITION])).toBe(true);
+    expect(grantsOwnerLevel(["inventory.view", "po.approve"])).toBe(false);
+  });
+
+  it("an inherited role carries its base's owner-level permissions", () => {
+    expect(grantsOwnerLevel(effectivePermissions("FINANCE_HEAD", []))).toBe(true);
+  });
+
+  it("only the owner may create or edit a role that holds owner-level permissions", () => {
+    expect(canManageOwnerLevelRole("OWNER", [PERM.PAYROLL_MANAGE])).toBe(true);
+    expect(canManageOwnerLevelRole("ADMIN", [PERM.PAYROLL_MANAGE])).toBe(false);
+    expect(canManageOwnerLevelRole("ADMIN", ["inventory.view"])).toBe(true);
+  });
+});
+
+describe("purchase-order rank for custom roles", () => {
+  it("a custom role with PO approval approves up to the manager limit", () => {
+    expect(customPoApprovalRole(["po.approve", "inventory.view"])).toBe("PROJECT_MANAGER");
+  });
+
+  it("a custom role without PO approval has no PO rank", () => {
+    expect(customPoApprovalRole(["inventory.view"])).toBe("SUPERVISOR");
+  });
+});
+
+describe("permission picker and custom-role gating", () => {
+  const supervisorPerm = (ROLES.SUPERVISOR.permissions as string[])[0]!;
+
+  it("offers a toggle for every permission in the catalog", () => {
+    const pickable = new Set(PERMISSION_MODULES.flatMap((m) => m.permissions));
+    expect(ALL_PERMISSIONS.filter((p) => !pickable.has(p))).toEqual([]);
+  });
+
+  it("holds a custom role's own list, not the built-in matrix of the tier it normalizes to", () => {
+    expect(hasPermission("CUSTOM_QC_LEAD", supervisorPerm, [])).toBe(true);
+    expect(holdsPermission("CUSTOM_QC_LEAD", supervisorPerm, [])).toBe(false);
+    expect(holdsPermission("CUSTOM_QC_LEAD", PERM.INVENTORY_MANAGE, [PERM.INVENTORY_MANAGE])).toBe(true);
+  });
+
+  it("keeps the role matrix for built-in roles", () => {
+    expect(holdsPermission("SUPERVISOR", supervisorPerm, [])).toBe(true);
+    const pmPerm = effectivePermissions("PROJECT_MANAGER")[0]!;
+    expect(holdsPermission("PROJECT_MANAGER", pmPerm, [])).toBe(true);
+  });
+});
+
+describe("member access scope", () => {
+  it("offers company-wide only to owner, admin, project director, finance head and accountant", () => {
+    expect(allowedScopeTypes("FINANCE_HEAD")).toEqual(["COMPANY", "PROJECT", "DEPARTMENT"]);
+    expect(allowedScopeTypes("ACCOUNTANT")).toEqual(["COMPANY", "PROJECT", "DEPARTMENT"]);
+    expect(allowedScopeTypes("PROJECT_DIRECTOR")).toEqual(["COMPANY", "PROJECT", "DEPARTMENT"]);
+    expect(allowedScopeTypes("PROJECT_MANAGER")).toEqual(["PROJECT", "DEPARTMENT"]);
+    expect(allowedScopeTypes("SITE_ENGINEER")).not.toContain("COMPANY");
+    expect(allowedScopeTypes("SECURITY_GUARD")).not.toContain("COMPANY");
+  });
+
+  it("keeps owner and admin company-wide", () => {
+    expect(allowedScopeTypes("OWNER")).toEqual(["COMPANY"]);
+    expect(allowedScopeTypes("ADMIN")).toEqual(["COMPANY"]);
+  });
+
+  it("gives a scratch custom role, which has no base role, project or department only", () => {
+    expect(allowedScopeTypes(null)).toEqual(["PROJECT", "DEPARTMENT"]);
+  });
+
+  it("pre-selects a scope for field and manager roles and leaves executive company-wide to an explicit choice", () => {
+    expect(suggestedScopeType("SITE_ENGINEER")).toBe("PROJECT");
+    expect(suggestedScopeType("PROJECT_MANAGER")).toBe("PROJECT");
+    expect(suggestedScopeType("FINANCE_HEAD")).toBeNull();
+    expect(suggestedScopeType("ACCOUNTANT")).toBeNull();
+    expect(suggestedScopeType("OWNER")).toBe("COMPANY");
+    expect(suggestedScopeType(null)).toBe("PROJECT");
+  });
+});
+
+describe("sensitive HR fields", () => {
+  it("bank, ID and address fields need hr.sensitive: HR Manager and Finance Head have it", () => {
+    expect(hasPermission("HR_MANAGER", PERM.HR_SENSITIVE)).toBe(true);
+    expect(hasPermission("FINANCE_HEAD", PERM.HR_SENSITIVE)).toBe(true);
+  });
+
+  it("Project Manager and site roles do not have hr.sensitive", () => {
+    expect(hasPermission("PROJECT_MANAGER", PERM.HR_SENSITIVE)).toBe(false);
+    expect(hasPermission("SITE_ENGINEER", PERM.HR_SENSITIVE)).toBe(false);
+  });
+
+  it("signing links need hr.signing, which only the HR Manager has", () => {
+    expect(hasPermission("HR_MANAGER", PERM.HR_SIGNING)).toBe(true);
+    expect(hasPermission("FINANCE_HEAD", PERM.HR_SIGNING)).toBe(false);
+    expect(hasPermission("PROJECT_MANAGER", PERM.HR_SIGNING)).toBe(false);
+  });
+
+  it("Project Manager keeps roster management", () => {
+    expect(hasPermission("PROJECT_MANAGER", PERM.HR_MANAGE)).toBe(true);
+  });
+});
+
+describe("call recording listen", () => {
+  it("only Owner, Admin and Sales Manager can listen to recordings", () => {
+    expect(hasPermission("OWNER", PERM.CALL_RECORDING_LISTEN)).toBe(true);
+    expect(hasPermission("ADMIN", PERM.CALL_RECORDING_LISTEN)).toBe(true);
+    expect(hasPermission("SALES_MANAGER", PERM.CALL_RECORDING_LISTEN)).toBe(true);
+    for (const role of ["PROJECT_DIRECTOR", "PROJECT_MANAGER", "SITE_ENGINEER", "SUPERVISOR"] as const) {
+      expect(hasPermission(role, PERM.CALL_RECORDING_LISTEN)).toBe(false);
+    }
   });
 });
 

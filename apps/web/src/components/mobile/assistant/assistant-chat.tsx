@@ -396,7 +396,11 @@ export function AssistantChat({
       {!open && !isControlled && (
         <button
           onClick={() => setInternalOpen(true)}
-          className="fixed right-4 bottom-20 z-40 flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-transform active:scale-95"
+          // Mobile: sit above the page FAB zone — MobileFab occupies
+          // right-4 bottom ≈ 68–124px, so resting at bottom-20 (80px) made
+          // this bubble swallow taps meant for the page's primary action
+          // (e.g. "New gate pass" was unclickable). Desktop keeps bottom-20.
+          className="fixed right-4 bottom-[calc(3.5rem+max(env(safe-area-inset-bottom),0px)+5.75rem)] lg:bottom-20 z-40 flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-transform active:scale-95"
           style={{
             backgroundColor: "var(--color-signal)",
             color: "var(--color-ink-950)",

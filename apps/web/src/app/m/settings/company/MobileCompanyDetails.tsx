@@ -11,11 +11,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
-import { canAssignRole, roleTier, ROLE_META, ROLE_LIST, ROLES, effectivePermissions, PERMISSION_MODULES, ALL_PERMISSIONS, type Role } from "@/lib/roles";
+import { PERM, allowedScopeTypes, canAssignRole, isCustomRole, roleTier, ROLE_META, ROLE_LIST, ROLES, effectivePermissions, PERMISSION_MODULES, ALL_PERMISSIONS, type Role, type ScopeChoice } from "@/lib/roles";
+import { draftForRole, scopePayload, type MemberScopeDraft, type ScopeEntry } from "@/lib/member-scope";
 import { formatCurrency, formatDate, formatDateTime, displayEmail, formatEnumLabel } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import type { CompanyProfileData } from "@/components/companies/company-profile-client";
-import { SectionCard, UnderlineInput, EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { SectionCard, UnderlineInput, EnumSelect, TypeCard } from "@/components/mobile/v2/form-primitives";
 import { AddressSearchField } from "@/components/address-search-field";
 import { Badge, MobileNoAccess, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
@@ -84,7 +85,7 @@ export function MobileCompanyDetails({
   customRoles: CustomRoleRow[];
 }) {
   if (!permissions.canManage) {
-    return <MobileNoAccess what="company details" />;
+    return <MobileNoAccess what="company details" permission={PERM.COMPANY_MANAGE} />;
   }
 
   return (
@@ -677,6 +678,110 @@ function DetailRow({ icon: Icon, label, value }: { icon: LucideIcon; label: stri
 }
 
 // ───────────────────────────────────────────────────────────────
+//  Access scope picker for a member being added
+// ───────────────────────────────────────────────────────────────
+
+const SCOPE_LABEL: Record<ScopeChoice, string> = { COMPANY: "Company-wide", PROJECT: "Projects", DEPARTMENT: "Departments" };
+
+/** The phone version of the desktop scope picker: same rules (lib/member-scope), mobile primitives. */
+function MobileMemberScope({
+  scopeRole,
+  value,
+  onChange,
+  projects,
+  departments,
+}: {
+  scopeRole: string | null | undefined;
+  value: MemberScopeDraft;
+  onChange: (next: MemberScopeDraft) => void;
+  projects: { id: string; name: string }[];
+  departments: { id: string; code: string; name: string; active: boolean }[];
+}) {
+  const allowed = allowedScopeTypes(scopeRole);
+  const byDepartment = value.scopeType === "DEPARTMENT";
+  const isEntryScope = value.scopeType === "PROJECT" || byDepartment;
+  const key = byDepartment ? "departmentId" : "projectId";
+  const options = byDepartment
+    ? departments.filter((d) => d.active).map((d) => ({ value: d.id, label: `${d.code} · ${d.name}` }))
+    : projects.map((p) => ({ value: p.id, label: p.name }));
+  const chosen = new Set(value.entries.map((e) => e[key]).filter(Boolean));
+
+  function choose(type: ScopeChoice) {
+    if (type !== value.scopeType) onChange({ scopeType: type, entries: type === "COMPANY" ? [] : [{}] });
+  }
+
+  function setEntry(idx: number, id: string) {
+    const entry: ScopeEntry = byDepartment ? { departmentId: id || undefined } : { projectId: id || undefined };
+    onChange({ ...value, entries: value.entries.map((e, i) => (i === idx ? entry : e)) });
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-700)" }}>Access scope</span>
+      {allowed.length > 1 ? (
+        <div className="flex gap-2">
+          {allowed.map((type) => (
+            <div key={type} className="flex-1">
+              <TypeCard label={SCOPE_LABEL[type]} active={value.scopeType === type} onClick={() => choose(type)} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>Owners and admins always see the whole company.</p>
+      )}
+      {value.scopeType === null && (
+        <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>Choose the whole company, or the projects or departments this person can see.</p>
+      )}
+      {isEntryScope && (
+        <>
+          {value.entries.map((entry, idx) => (
+            <div key={idx} className="flex items-end gap-2">
+              <div className="flex-1 min-w-0">
+                <EnumSelect
+                  label={byDepartment ? "Department" : "Project"}
+                  value={entry[key] ?? ""}
+                  onChange={(v) => setEntry(idx, v)}
+                  options={[
+                    { value: "", label: byDepartment ? "Choose a department" : "Choose a project" },
+                    ...options.filter((o) => o.value === entry[key] || !chosen.has(o.value)),
+                  ]}
+                />
+              </div>
+              {value.entries.length > 1 && (
+                <button
+                  type="button"
+                  aria-label="Remove"
+                  onClick={() => onChange({ ...value, entries: value.entries.filter((_, i) => i !== idx) })}
+                  className="press flex items-center justify-center size-11 shrink-0 rounded-[0.5rem] border"
+                  style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              )}
+            </div>
+          ))}
+          {options.length === 0 ? (
+            <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
+              {byDepartment ? "No active departments yet — create one first." : "No projects yet — create one first."}
+            </p>
+          ) : (
+            <button
+              type="button"
+              disabled={value.entries.length >= options.length}
+              onClick={() => onChange({ ...value, entries: [...value.entries, {}] })}
+              className="press self-start rounded-[0.5rem] border px-3 py-2.5 text-m-body font-semibold disabled:opacity-50"
+              style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
+            >
+              {byDepartment ? "Add department" : "Add project"}
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────
 //  Members section
 // ───────────────────────────────────────────────────────────────
 
@@ -695,6 +800,9 @@ function MembersSection({
   const [addOpen, setAddOpen] = React.useState(false);
   const [addEmail, setAddEmail] = React.useState("");
   const [addRole, setAddRole] = React.useState<Role>(assignable[0] ?? "PROJECT_MANAGER");
+  const [addScope, setAddScope] = React.useState<MemberScopeDraft>({ scopeType: null, entries: [] });
+  const addScopeRole = isCustomRole(addRole) ? (customRoles.find((cr) => cr.key === addRole)?.baseRole ?? null) : addRole;
+  const addDraft = draftForRole(addScopeRole, addScope);
 
   // Mirror the server-side canManageRole check — a CUSTOM_* member resolves
   // to their stored tier; canAssignRole() would normalize the key to
@@ -729,20 +837,23 @@ function MembersSection({
 
   async function addMember() {
     if (!addEmail.trim()) { toast.error("Email is required"); return; }
+    const payload = scopePayload(addDraft);
+    if (!payload) { toast.error("Choose the access scope first"); return; }
     setAdding(true);
     try {
       const res = await fetch(`/api/companies/${data.id}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: addEmail.trim(), role: addRole }),
+        body: JSON.stringify({ email: addEmail.trim(), role: addRole, ...payload }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed to add member");
       // The endpoint upserts — "Add" on an existing member silently rewrites
       // their role. Say which happened so the actor isn't misled.
-      toast.success(json.updated ? "Already a member — role updated" : "Member added");
+      toast.success(json.updated ? "Already a member — role updated, scope unchanged" : "Member added");
       setAddOpen(false);
       setAddEmail("");
+      setAddScope({ scopeType: null, entries: [] });
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
@@ -829,9 +940,16 @@ function MembersSection({
                 onChange={(v) => setAddRole(v as Role)}
                 options={assignableOptions}
               />
+              <MobileMemberScope
+                scopeRole={addScopeRole}
+                value={addDraft}
+                onChange={setAddScope}
+                projects={data.projects}
+                departments={data.departments}
+              />
               <button
                 onClick={addMember}
-                disabled={adding}
+                disabled={adding || !scopePayload(addDraft)}
                 className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold text-m-body press disabled:opacity-50"
                 style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
               >

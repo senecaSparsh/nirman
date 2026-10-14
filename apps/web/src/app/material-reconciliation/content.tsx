@@ -13,7 +13,7 @@ export async function ReconContent() {
   const scope = await getUserScope();
 
   if (!__effPerms.includes(PERM.PROJECT_CONTROL_VIEW)) {
-    return <NoAccess what="material reconciliation" />;
+    return <NoAccess what="material reconciliation" permission={PERM.PROJECT_CONTROL_VIEW} />;
   }
 
   const projectScopeFilter =

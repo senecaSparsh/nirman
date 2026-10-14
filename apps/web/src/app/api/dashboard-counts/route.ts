@@ -75,9 +75,14 @@ export const GET = apiHandler(async (_req: NextRequest) => {
     pendingClaims,
     pendingRaBills,
   ] = await Promise.all([
+    // Materials with a reorder point — the same definition of "low stock"
+    // lowStockAlerts() uses (and /build, /api/briefing, auto-requisition
+    // all agree on). Using minStock here silently dropped materials that
+    // only set a reorderPoint, so this card disagreed with every other
+    // surface.
     prisma.material.findMany({
-      where: { companyId: company.id, deletedAt: null, minStock: { not: null } },
-      select: { id: true, minStock: true },
+      where: { companyId: company.id, deletedAt: null, reorderPoint: { not: null } },
+      select: { id: true, reorderPoint: true },
     }),
     // DB-side per-material stock totals — replaces hydrating every
     // StockLocationItem per material just to compute two counts, and
@@ -132,9 +137,10 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   );
   const lowStockFull = lowStockItems.map((m) => {
     const totalQty = qtyByMaterial.get(m.id) ?? 0;
-    return { totalQty, minStock: toNum(m.minStock) };
+    return { totalQty, reorderPoint: toNum(m.reorderPoint) };
   });
-  const lowStockCount = lowStockFull.filter((m) => toNum(m.totalQty) < toNum(m.minStock)).length;
+  // lowStockAlerts() uses <= (at the point = time to reorder) — match it.
+  const lowStockCount = lowStockFull.filter((m) => toNum(m.totalQty) <= toNum(m.reorderPoint)).length;
   const healthyStockCount = lowStockFull.length - lowStockCount;
 
   // ── Procurement trend (6 months) ──

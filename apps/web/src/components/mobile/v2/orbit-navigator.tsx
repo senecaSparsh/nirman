@@ -305,10 +305,32 @@ export function OrbitNavigator({
   const chipCount = orbitChips.length;
   // Ring geometry: radius as % of box width; the box is slightly taller
   // than wide (aspect 1/1.06) so bottom-row labels get a margin.
-  const radiusPercent = 39;
+  // 35% (was 39) — at 39% the outermost nodes' 80px labels overflowed the
+  // content box: a node at x≈89% centers its w-20 label at the 89% mark, so
+  // ~15px of the label clipped off the right edge ("Customers" → "ustomers").
+  const radiusPercent = 35;
   const CENTER_Y = 46;
   const W_TO_H = 100 / 108;
   const chipSize = chipCount > 14 ? "2rem" : chipCount > 10 ? "2.25rem" : "2.5rem";
+
+  // Bottom-arc label staggering: nodes near the bottom of the ring sit
+  // ~40px apart horizontally but labels are 80px wide, so a neighbour's
+  // paper-backed pill hides the middle of the adjacent label ("Customers"
+  // showed as "ustomers"). Alternating two rows keeps every label readable.
+  const belowLabelRow: Record<number, number> = {};
+  {
+    // (plain object — `Map` here is the lucide icon import, not the global)
+    const below = orbitChips
+      .map((_, idx) => {
+        const a =
+          (chipCount === 1 ? -90 : -90 + (360 / chipCount) * idx) *
+          (Math.PI / 180);
+        return { idx, x: Math.cos(a), below: Math.sin(a) >= -0.15 };
+      })
+      .filter((c) => c.below)
+      .sort((a, b) => a.x - b.x);
+    below.forEach((c, order) => (belowLabelRow[c.idx] = order % 2));
+  }
 
   const content = (
     <>
@@ -422,6 +444,20 @@ export function OrbitNavigator({
                     // below. Stops upper-diagonal labels from slipping under
                     // the center card's edge.
                     const labelAbove = Math.sin(angle) < -0.15;
+                    // Rim nodes (|cos|≈1) place the label *beside* the node —
+                    // radially outward — instead of above/below it. Centred
+                    // labels there collide with the centre card's edge and
+                    // neighbours' count badges ("Workforce" → "orkforce").
+                    const cosA = Math.cos(angle);
+                    const rimRight = cosA > 0.55;
+                    const rimLeft = cosA < -0.55;
+                    const labelPos = rimRight
+                      ? "left-full ml-1.5 top-1/2 -translate-y-1/2 text-left"
+                      : rimLeft
+                        ? "right-full mr-1.5 top-1/2 -translate-y-1/2 text-right"
+                        : labelAbove
+                          ? "left-1/2 bottom-full mb-1 -translate-x-1/2 text-center"
+                          : `left-1/2 top-full ${belowLabelRow[i] === 1 ? "mt-6" : "mt-1"} -translate-x-1/2 text-center`;
 
                     return (
                       <button
@@ -485,7 +521,7 @@ export function OrbitNavigator({
                               the label crosses the orbit track or slides under
                               a neighbouring node on crowded rings (12+ chips). */}
                           <span
-                            className={`absolute left-1/2 -translate-x-1/2 w-20 text-center text-m-caption font-semibold leading-tight line-clamp-2 ${labelAbove ? "bottom-full mb-1" : "top-full mt-1"}`}
+                            className={`absolute w-auto max-w-24 whitespace-nowrap text-m-caption font-semibold leading-tight truncate ${labelPos}`}
                             style={{
                               color: isEmpty
                                 ? "var(--color-ink-300)"

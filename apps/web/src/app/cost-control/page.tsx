@@ -38,7 +38,7 @@ async function CostControlContent({ searchParams }: { searchParams: Promise<{ ta
   const canSeeFinance = __effPerms.includes(PERM.FINANCE_VIEW);
   const canSeeProjectControl = __effPerms.includes(PERM.PROJECT_CONTROL_VIEW);
   if (!canSeeFinance && !canSeeProjectControl) {
-    return <NoAccess what="cost control" />;
+    return <NoAccess what="cost control" permission={`${PERM.FINANCE_VIEW} or ${PERM.PROJECT_CONTROL_VIEW}`} />;
   }
 
   const projectScopeFilter =
@@ -61,9 +61,9 @@ async function CostControlContent({ searchParams }: { searchParams: Promise<{ ta
         stats={[{ label: "Projects", value: projects.length, hint: "Projects available for cost analysis." }]}
       />
       <CostControlTabs
-        projectControl={canSeeProjectControl ? <ProjectControlView projects={projects} /> : <NoAccess what="project control" />}
-        budgetVariance={canSeeFinance ? <BudgetVarianceView projects={projects} /> : <NoAccess what="budget variance" />}
-        profitCenter={canSeeFinance ? <ProfitCenterView projects={projects} /> : <NoAccess what="profit center" />}
+        projectControl={canSeeProjectControl ? <ProjectControlView projects={projects} /> : <NoAccess what="project control" permission={PERM.PROJECT_CONTROL_VIEW} />}
+        budgetVariance={canSeeFinance ? <BudgetVarianceView projects={projects} /> : <NoAccess what="budget variance" permission={PERM.FINANCE_VIEW} />}
+        profitCenter={canSeeFinance ? <ProfitCenterView projects={projects} /> : <NoAccess what="profit center" permission={PERM.FINANCE_VIEW} />}
       />
     </>
   );

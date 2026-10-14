@@ -3,8 +3,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@nirman/db";
 import { recordAttendance } from "@nirman/services";
-import { apiHandler, getCompany, json, requireUser, getActingRole, assertScopeAllows, scopeWhere } from "@/lib/server";
-import { hasPermission, PERM } from "@/lib/roles";
+import { apiHandler, getCompany, json, requireUser, getUserPermissions, assertScopeAllows, scopeWhere } from "@/lib/server";
+import { PERM } from "@/lib/roles";
 
 /**
  * POST /api/attendance/self-check-in
@@ -62,7 +62,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
   // Verify the user is linked to this employee (or is a manager/admin)
   const isSelf = employee.userId === user.id;
-  const isManager = hasPermission(await getActingRole(), PERM.HR_MANAGE);
+  const isManager = (await getUserPermissions()).includes(PERM.HR_MANAGE);
   if (!isSelf && !isManager) {
     return json({ error: "You can only check in your own attendance" }, { status: 403 });
   }

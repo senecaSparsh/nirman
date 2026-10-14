@@ -5,6 +5,7 @@ import { createEmployee, generateOfferLetter, generateEmploymentAgreement, gener
 import { apiHandler, getCompany, json, employeeSchema, requirePermission, requireEffectivePermission, toNum, assertScopeAllows, getCompanyDescendantIds, scopeWhere, getEmployeeAccessScope, isTopLevelViewer } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
+import { sensitiveWriteKeys } from "@/lib/employee-visibility";
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requireEffectivePermission(PERM.HR_VIEW);
@@ -69,6 +70,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.HR_MANAGE);
   const company = await getCompany();
   const body = await req.json();
+  if (sensitiveWriteKeys(body).length > 0 && !(await getEmployeeAccessScope()).canSeeBankDetails) {
+    return json({ error: "Only the HR Manager or Finance Head can set bank, ID or address details." }, { status: 403 });
+  }
   const parsed = employeeSchema.safeParse(body);
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });

@@ -164,6 +164,20 @@ async function HomeContent() {
       })
     : null;
 
+  // Same rule as assertAttendancePeriodOpen — surface it up front so the
+  // field worker sees "locked" instead of a doomed Check In button.
+  const lockedPeriod = myEmployee
+    ? await prisma.payrollPeriod.findFirst({
+        where: {
+          companyId: company.id,
+          status: { in: ["PROCESSED", "PAID"] },
+          startDate: { lte: startOfToday },
+          endDate: { gte: startOfToday },
+        },
+        select: { month: true, year: true, status: true },
+      })
+    : null;
+
   const homeData: HomeData = {
     currentCompany: {
       id: company.id,
@@ -184,6 +198,9 @@ async function HomeContent() {
           checkOut: myAttendance.checkOut?.toISOString() ?? null,
           hoursWorked: myAttendance.hoursWorked ? Number(myAttendance.hoursWorked) : null,
         }
+      : null,
+    periodLocked: lockedPeriod
+      ? `${lockedPeriod.month}/${lockedPeriod.year} payroll is already ${lockedPeriod.status.toLowerCase()}`
       : null,
   };
 

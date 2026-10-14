@@ -332,7 +332,6 @@ describe("tenant isolation + custom-role RBAC", () => {
         userId: a.user.id,
         companyId: company.id,
         role: "PROJECT_MANAGER",
-        scopeType: "COMPANY",
         reportsToUserCompanyId: b.membership.id,
       });
 
@@ -344,7 +343,6 @@ describe("tenant isolation + custom-role RBAC", () => {
           userId: b.user.id,
           companyId: company.id,
           role: "PROJECT_MANAGER",
-          scopeType: "COMPANY",
           reportsToUserCompanyId: a.membership.id,
         }),
       ).rejects.toMatchObject({ status: 400, message: expect.stringContaining("cycle") });
@@ -363,7 +361,6 @@ describe("tenant isolation + custom-role RBAC", () => {
           userId: a.user.id,
           companyId: company.id,
           role: "PROJECT_MANAGER",
-          scopeType: "COMPANY",
           reportsToUserCompanyId: a.membership.id,
         }),
       ).rejects.toMatchObject({ status: 400 });
@@ -380,12 +377,12 @@ describe("tenant isolation + custom-role RBAC", () => {
       // A reports to B; B reports to owner — a normal chain, no loop.
       await assignScopedMembership({
         actorUserId: user.id, userId: a.user.id, companyId: company.id,
-        role: "PROJECT_MANAGER", scopeType: "COMPANY",
+        role: "PROJECT_MANAGER",
         reportsToUserCompanyId: b.membership.id,
       });
       const result = await assignScopedMembership({
         actorUserId: user.id, userId: b.user.id, companyId: company.id,
-        role: "PROJECT_MANAGER", scopeType: "COMPANY",
+        role: "PROJECT_MANAGER",
         reportsToUserCompanyId: owner.id,
       });
       expect(result?.reportsToUserCompanyId).toBe(owner.id);
@@ -435,7 +432,8 @@ describe("tenant isolation + custom-role RBAC", () => {
 
       await assignScopedMembership({
         actorUserId: user.id, userId: target.user.id, companyId: company.id,
-        role: "SUPERVISOR", scopeType: "COMPANY",
+        role: "SUPERVISOR", scopeType: "PROJECT",
+        scopeEntries: [{ projectId: project.id }],
         reportsToUserCompanyId: mgr.membership.id,
       });
 
@@ -457,7 +455,7 @@ describe("tenant isolation + custom-role RBAC", () => {
       // member's employee row — a scope save silently wiped the on-site
       // manager. The mirror must only write when the manager resolves to a
       // real Employee.
-      const { company, user } = await createTestFixture();
+      const { company, project, user } = await createTestFixture();
       const member = await createUser("mir1", "Member", company.id, "SUPERVISOR");
       const mgrNoEmployee = await createUser("mir2", "User-Only Manager", company.id, "PROJECT_MANAGER");
 
@@ -472,7 +470,8 @@ describe("tenant isolation + custom-role RBAC", () => {
 
       await assignScopedMembership({
         actorUserId: user.id, userId: member.user.id, companyId: company.id,
-        role: "SUPERVISOR", scopeType: "COMPANY",
+        role: "SUPERVISOR", scopeType: "PROJECT",
+        scopeEntries: [{ projectId: project.id }],
         reportsToUserCompanyId: mgrNoEmployee.membership.id,
       });
 
@@ -481,7 +480,7 @@ describe("tenant isolation + custom-role RBAC", () => {
     });
 
     it("a membership manager WITH an Employee row mirrors onto the org chart", async () => {
-      const { company, user } = await createTestFixture();
+      const { company, project, user } = await createTestFixture();
       const member = await createUser("mir3", "Member", company.id, "SUPERVISOR");
       const mgr = await createUser("mir4", "Manager", company.id, "PROJECT_MANAGER");
       const mgrEmp = await prisma.employee.create({
@@ -493,7 +492,8 @@ describe("tenant isolation + custom-role RBAC", () => {
 
       await assignScopedMembership({
         actorUserId: user.id, userId: member.user.id, companyId: company.id,
-        role: "SUPERVISOR", scopeType: "COMPANY",
+        role: "SUPERVISOR", scopeType: "PROJECT",
+        scopeEntries: [{ projectId: project.id }],
         reportsToUserCompanyId: mgr.membership.id,
       });
 
@@ -502,13 +502,14 @@ describe("tenant isolation + custom-role RBAC", () => {
     });
 
     it("an explicit null reportsTo still clears the manager", async () => {
-      const { company, user } = await createTestFixture();
+      const { company, project, user } = await createTestFixture();
       const target = await createUser("pres5", "Member", company.id, "SUPERVISOR");
       const mgr = await createUser("pres6", "Manager", company.id, "PROJECT_MANAGER");
 
       await assignScopedMembership({
         actorUserId: user.id, userId: target.user.id, companyId: company.id,
-        role: "SUPERVISOR", scopeType: "COMPANY",
+        role: "SUPERVISOR", scopeType: "PROJECT",
+        scopeEntries: [{ projectId: project.id }],
         reportsToUserCompanyId: mgr.membership.id,
       });
       await assignScopedMembership({
@@ -543,7 +544,7 @@ describe("tenant isolation + custom-role RBAC", () => {
       await expect(
         assignScopedMembership({
           actorUserId: actor.user.id, userId: target.user.id, companyId: company.id,
-          role: "SUPERVISOR", scopeType: "COMPANY",
+          role: "ACCOUNTANT", scopeType: "COMPANY",
         }),
       ).rejects.toMatchObject({ status: 403 });
     });

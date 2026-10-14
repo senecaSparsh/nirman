@@ -217,6 +217,7 @@ export type PurchaseOrderDetail = {
 
 export type TransferRow = {
   id: string;
+  transferNumber: string | null;
   fromLocationId: string;
   fromLocationName: string;
   fromLocationType: string;
@@ -251,6 +252,9 @@ export type TransferRow = {
   dispatchedByName: string | null;
   receivedAt: string | null;
   receivedByName: string | null;
+  // Auto-created gate pass gating the dispatch — null only for transfers
+  // created before the gate-pass workflow existed.
+  gatePass: { id: string; gatePassNumber: string; status: string } | null;
 };
 
 export type StockMovementRow = {

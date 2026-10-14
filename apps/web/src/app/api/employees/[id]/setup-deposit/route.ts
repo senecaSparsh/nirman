@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { setupAutoDeposit, disableAutoDeposit, autoCompleteOnboarding, HrError } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, assertCanManageEmployee } from "@/lib/server";
+import { apiHandler, getCompany, getEmployeeAccessScope, json, requirePermission, assertCanManageEmployee } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -53,6 +53,9 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   }
 
   // Setup mode
+  if (!(await getEmployeeAccessScope()).canSeeBankDetails) {
+    return json({ error: "Only the HR Manager or Finance Head can set up bank details." }, { status: 403 });
+  }
   const {
     bankAccountHolder,
     bankAccountNumber,

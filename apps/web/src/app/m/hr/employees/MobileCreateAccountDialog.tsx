@@ -22,6 +22,7 @@ import {
   PERMISSION_MODULES,
   type Role,
 } from "@/lib/roles";
+import { allowedScopeTypes, suggestedScopeType, type ScopeChoice } from "@/lib/roles";
 import { haptic } from "@/lib/haptic";
 import { formatCurrency } from "@/lib/utils";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
@@ -202,9 +203,9 @@ export function MobileCreateAccountDialog({
   );
 
   // ── Scope ──
-  const [scopeType, setScopeType] = useState<
-    "COMPANY" | "PROJECT" | "DEPARTMENT"
-  >("COMPANY");
+  // Pre-selected by role; company-wide roles choose it explicitly.
+  const [scopeChoice, setScopeChoice] = useState<ScopeChoice | null>(null);
+  const scopeType = scopeChoice && allowedScopeTypes(role).includes(scopeChoice) ? scopeChoice : suggestedScopeType(role);
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(
     new Set(),
   );
@@ -304,6 +305,10 @@ export function MobileCreateAccountDialog({
     }
     if (phoneSource === "new" && phoneCheck && !phoneCheck.available) {
       toast.error(phoneCheck.reason ?? "This phone number is not available");
+      return;
+    }
+    if (!scopeType) {
+      toast.error("Choose the access scope for this login");
       return;
     }
     if (scopeType === "PROJECT" && selectedProjects.size === 0) {
@@ -822,11 +827,11 @@ export function MobileCreateAccountDialog({
             {/* ── Access Scope ── */}
             <SectionCard title="Access Scope">
               <div className="grid grid-cols-3 gap-1.5">
-                {(["COMPANY", "PROJECT", "DEPARTMENT"] as const).map((st) => (
+                {allowedScopeTypes(role).map((st) => (
                   <SegToggle
                     key={st}
                     active={scopeType === st}
-                    onClick={() => setScopeType(st)}
+                    onClick={() => setScopeChoice(st)}
                     icon={Network}
                     label={
                       st === "COMPANY"

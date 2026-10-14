@@ -9,9 +9,18 @@ import {
   cancelGatePass,
   canAutoApprove,
 } from "@nirman/services";
-import { apiHandler, getCompany, json, requireEffectivePermission, requireUser, toNum, scopeWhere, getActingRole, getActingRoleForProject, getUserPermissions, ForbiddenError,} from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { apiHandler, getCompany, json, requireEffectivePermission, requireUser, toNum, scopeWhere, getActingRole, getActingRoleForProject, getPermissionsForProject, ForbiddenError,} from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { prisma } from "@nirman/db";
+import { z } from "zod";
+
+const patchSchema = z.object({
+  action: z.enum(["submit", "approve", "reject", "resubmit", "confirmExit", "cancel"]),
+  reason: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  exitNotes: z.string().optional().nullable(),
+  exitPhotos: z.array(z.any()).optional().nullable(),
+});
 
 /**
  * GET /api/gate-passes/[id]
@@ -52,8 +61,12 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requireUser();
   const { id } = await params;
-  const body = await req.json();
-  const action = body?.action;
+  const parsed = patchSchema.safeParse(await req.json());
+  if (!parsed.success) {
+    return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+  }
+  const body = parsed.data;
+  const action = body.action;
   let execWarning: string | null = null;
 
   // Verify company membership for all actions
@@ -78,11 +91,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     // Scoped-role lift — a scoped assignment on this pass's project can carry
     // GATE_PASS_APPROVE locally (e.g. site PM releasing their own gate pass).
     const actingRole = (await getActingRoleForProject(existing.projectId)) ?? (await getActingRole());
-    const perms = await getUserPermissions();
-    if (!perms.includes(PERM.GATE_PASS_APPROVE) && !hasPermission(actingRole, PERM.GATE_PASS_APPROVE)) {
+    const perms = await getPermissionsForProject(existing.projectId);
+    if (!perms.includes(PERM.GATE_PASS_APPROVE)) {
       throw new ForbiddenError("You need gate-pass approval rights on this project");
     }
-    const approved = await approveGatePass(id, user.id, body?.notes, actingRole);
+    const approved = await approveGatePass(id, user.id, body.notes ?? undefined, actingRole);
     // Surface auto-execution failure (e.g. insufficient stock) — the pass is
     // approved but the linked transaction couldn't run, which the approver
     // needs to see rather than discover later at the gate.
@@ -92,20 +105,19 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   } else if (action === "reject") {
     const user = await requireUser();
     if (!body?.reason?.trim()) return json({ error: "Rejection reason is required" }, { status: 400 });
-    const actingRole = (await getActingRoleForProject(existing.projectId)) ?? (await getActingRole());
-    const perms = await getUserPermissions();
-    if (!perms.includes(PERM.GATE_PASS_APPROVE) && !hasPermission(actingRole, PERM.GATE_PASS_APPROVE)) {
+    const perms = await getPermissionsForProject(existing.projectId);
+    if (!perms.includes(PERM.GATE_PASS_APPROVE)) {
       throw new ForbiddenError("You need gate-pass approval rights on this project");
     }
     await rejectGatePass(id, user.id, body.reason.trim());
   } else if (action === "resubmit") {
     const user = await requireEffectivePermission(PERM.GATE_PASS_CREATE);
-    await resubmitGatePass(id, user.id, body?.notes);
+    await resubmitGatePass(id, user.id, body.notes ?? undefined);
   } else if (action === "confirmExit") {
     const user = await requireEffectivePermission(PERM.GATE_PASS_EXIT);
     await confirmExit(id, user.id, {
-      exitNotes: body?.exitNotes,
-      exitPhotos: body?.exitPhotos,
+      exitNotes: body.exitNotes ?? undefined,
+      exitPhotos: body.exitPhotos ?? undefined,
     });
   } else if (action === "cancel") {
     const user = await requireEffectivePermission(PERM.GATE_PASS_MANAGE);

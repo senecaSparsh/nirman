@@ -10,13 +10,25 @@ import {
   orderPurchaseOrder,
   updatePurchaseOrderEta,
   addLineToPurchaseOrder,
-  canAutoApprove,
+  canSelfApprovePurchaseOrder,
   ServiceError,
 } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, getCompanyGroupIds, json, requireUser, toNum, scopeWhere, getActingRole, getActingRoleForProject, assertScopeAllows, getUserPermissions, ForbiddenError, requireEffectivePermission} from "@/lib/server";
-import { hasPermission } from "@nirman/rbac";
+import { apiHandler, getCompany, getCompanyGroupIds, json, requireUser, toNum, scopeWhere, getActingRole, getActingRoleForProject, getPoApprovalRole, getPermissionsForProject, assertScopeAllows, ForbiddenError, requireEffectivePermission} from "@/lib/server";
+import { z } from "zod";
 
+const patchSchema = z.object({
+  action: z.enum(["approve", "reject", "resubmit", "order", "cancel", "shortClose", "addLine", "updateEta"]),
+  approvalNotes: z.string().optional().nullable(),
+  rejectionReason: z.string().optional().nullable(),
+  reason: z.string().optional().nullable(),
+  autoOrder: z.boolean().optional(),
+  // Semantic checks below own these fields (Decimal-safe strings, date parsing).
+  expectedDate: z.union([z.string(), z.number(), z.null()]).optional(),
+  materialId: z.string().min(1).optional(),
+  qtyOrdered: z.union([z.number(), z.string()]).optional(),
+  unitCost: z.union([z.number(), z.string()]).optional(),
+});
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requireEffectivePermission(PERM.PROCUREMENT_VIEW);
   const company = await getCompany();
@@ -148,11 +160,12 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const groupCompanyIds = await getCompanyGroupIds(company);
   const existing = await prisma.purchaseOrder.findFirst({ where: { id, companyId: { in: groupCompanyIds }, ...await scopeWhere("PurchaseOrder") }, select: { id: true, projectId: true } });
   if (!existing) return json({ error: "Purchase order not found" }, { status: 404 });
-  const body = await req.json();
-  const action = body?.action as string | undefined;
-  if (!action || !["approve", "reject", "resubmit", "order", "cancel", "shortClose", "addLine", "updateEta"].includes(action)) {
-    return json({ error: "Invalid action. Use approve, reject, resubmit, order, cancel, shortClose, addLine, or updateEta." }, { status: 400 });
+  const parsed = patchSchema.safeParse(await req.json());
+  if (!parsed.success) {
+    return json({ error: "Invalid action or field type. Use approve, reject, resubmit, order, cancel, shortClose, addLine, or updateEta." }, { status: 400 });
   }
+  const body = parsed.data;
+  const action = body.action;
   if (action === "updateEta") {
     const user = await requireEffectivePermission(PERM.PROCUREMENT_MANAGE);
     try {
@@ -197,16 +210,16 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     const actingRole = (await getActingRoleForProject(po.projectId)) ?? (await getActingRole());
     // Either the global perm or the scoped role's grant counts — the scope
     // check above already bounds which projects the lift applies to.
-    const perms = await getUserPermissions();
-    if (!perms.includes(PERM.PO_APPROVE) && !hasPermission(actingRole, PERM.PO_APPROVE)) {
+    const perms = await getPermissionsForProject(po.projectId);
+    if (!perms.includes(PERM.PO_APPROVE)) {
       throw new ForbiddenError("You need purchase-order approval rights on this project");
     }
     // Prevent self-approval — the creator cannot approve their own PO, unless
     // they're a tier-1 role (OWNER/ADMIN) where no higher approver exists.
-    if (po?.createdById === user.id && !canAutoApprove(actingRole)) {
+    if (po?.createdById === user.id && !canSelfApprovePurchaseOrder(actingRole)) {
       return json({ error: "You cannot approve your own purchase order. Ask another approver to review it." }, { status: 403 });
     }
-    await approvePurchaseOrder(id, actingRole, user.id, body?.approvalNotes, body?.autoOrder ?? true);
+    await approvePurchaseOrder(id, await getPoApprovalRole(po.projectId), user.id, body.approvalNotes ?? undefined, body.autoOrder ?? true);
   } else if (action === "reject") {
     const user = await requireUser();
     // Prevent self-rejection — the creator cannot reject their own PO.
@@ -220,16 +233,15 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     } catch (err) {
       return json({ error: err instanceof Error ? err.message : "Scope violation" }, { status: 403 });
     }
-    const actingRole = (await getActingRoleForProject(po.projectId)) ?? (await getActingRole());
-    const rejectPerms = await getUserPermissions();
-    if (!rejectPerms.includes(PERM.PO_APPROVE) && !hasPermission(actingRole, PERM.PO_APPROVE)) {
+    const rejectPerms = await getPermissionsForProject(po.projectId);
+    if (!rejectPerms.includes(PERM.PO_APPROVE)) {
       throw new ForbiddenError("You need purchase-order approval rights on this project");
     }
     if (po?.createdById === user.id) {
       return json({ error: "You cannot reject your own purchase order. Ask another approver to review it." }, { status: 403 });
     }
     try {
-      await rejectPurchaseOrder(id, actingRole, user.id, body?.rejectionReason);
+      await rejectPurchaseOrder(id, await getPoApprovalRole(po.projectId), user.id, body.rejectionReason ?? undefined);
     } catch (err) {
       if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status });
       throw err;
@@ -294,7 +306,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
         poId: id,
         companyId: company.id,
         userId: user.id,
-        reason: body?.reason,
+        reason: body.reason ?? undefined,
       });
       revalidatePath(`/procurement/${id}`);
       revalidatePath(`/m/procurement/${id}`);

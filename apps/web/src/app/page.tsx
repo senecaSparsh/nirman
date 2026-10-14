@@ -117,10 +117,13 @@ async function CommandCenterContent() {
       where: {...await scopeWhere("ProjectAssignment"),  userId },
       include: { project: { select: { id: true, name: true, status: true } } },
       orderBy: { assignedAt: "desc" }}),
+    // Reorder point = the low-stock trigger — same definition as
+    // lowStockAlerts(), /api/briefing, /api/dashboard-counts and
+    // auto-requisition. minStock is the critical floor, not "low".
     prisma.material.findMany({
       take: 200,
-      where: { companyId: company.id, deletedAt: null, minStock: { not: null } },
-      select: { id: true, name: true, unit: true, minStock: true,
+      where: { companyId: company.id, deletedAt: null, reorderPoint: { not: null } },
+      select: { id: true, name: true, unit: true, reorderPoint: true,
         stockItems: { where: { AND: [{ location: { deletedAt: null, companyId: company.id } }, await scopeWhere("StockLocationItem")] }, select: { qty: true } } }}),
     prisma.purchaseOrder.findMany({
       where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: "DRAFT", createdById: { not: userId } },
@@ -252,23 +255,23 @@ async function CommandCenterContent() {
     });
   }
 
-  // ── Low stock computation ────────────────────────────────────────
+  // ── Low stock computation (reorder point, matching lowStockAlerts) ─
   const lowStock = lowStockItems
     .map((m) => {
       const totalQty = m.stockItems.reduce((s, i) => s + toNum(i.qty), 0);
-      const minStock = toNum(m.minStock);
-      return { name: m.name, unit: m.unit, totalQty, minStock, shortfall: minStock - totalQty };
+      const reorderPoint = toNum(m.reorderPoint);
+      return { name: m.name, unit: m.unit, totalQty, reorderPoint, shortfall: reorderPoint - totalQty };
     })
-    .filter((m) => toNum(m.totalQty) < toNum(m.minStock))
+    .filter((m) => toNum(m.totalQty) <= toNum(m.reorderPoint))
     .sort((a, b) => b.shortfall - a.shortfall)
     .slice(0, 5);
 
   // ── Stock health (full counts, not sliced) ───────────────────────
   const lowStockFull = lowStockItems.map((m) => {
     const totalQty = m.stockItems.reduce((s, i) => s + toNum(i.qty), 0);
-    return { totalQty, minStock: toNum(m.minStock) };
+    return { totalQty, reorderPoint: toNum(m.reorderPoint) };
   });
-  const lowStockCount = lowStockFull.filter((m) => toNum(m.totalQty) < toNum(m.minStock)).length;
+  const lowStockCount = lowStockFull.filter((m) => toNum(m.totalQty) <= toNum(m.reorderPoint)).length;
   const healthyStockCount = lowStockFull.length - lowStockCount;
   const stockHealth = healthyStockCount > 0 || lowStockCount > 0
     ? [
@@ -357,7 +360,7 @@ async function CommandCenterContent() {
     key: "low", title: "Materials below their reorder point",
     consequence: "Raise an indent before site runs out",
     count: lowStock.length, href: "/materials", cta: __effPerms.includes(PERM.PROCUREMENT_MANAGE) || canApproveReq ? "Reorder" : "View", urgency: "soon", icon: "package",
-    items: lowStock.map((m) => ({ label: m.name, sub: `${formatNumber(m.totalQty, 0)} ${m.unit} left · need ${formatNumber(m.minStock, 0)}` }))});
+    items: lowStock.map((m) => ({ label: m.name, sub: `${formatNumber(m.totalQty, 0)} ${m.unit} left · need ${formatNumber(m.reorderPoint, 0)}` }))});
   if (canApproveReq && approvedReqs.length > 0) queues.push({
     key: "approved-req", title: "Approved indents ready to order",
     consequence: "Convert these to purchase orders so the supplier can be engaged",

@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { approvePurchaseOrder, approveGatePass, approveRequisition, canAutoApprove } from "@nirman/services";
-import { apiHandler, getCompany, getUserPermissions, json, requireUser, scopeWhere, getActingRole, getActingRoleForProject,} from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { approvePurchaseOrder, approveGatePass, approveRequisition, canAutoApprove, canSelfApprovePurchaseOrder, canWaiveSelfApproval } from "@nirman/services";
+import { apiHandler, getCompany, getPermissionsForProject, json, requireUser, scopeWhere, getActingRole, getActingRoleForProject, getPoApprovalRole,} from "@/lib/server";
+import { PERM } from "@/lib/roles";
+import { companyRequisitionFilter, notCreatedBy, notSubmittedBy } from "@/lib/approval-queue";
 import { z } from "zod";
 
 /**
@@ -28,7 +29,6 @@ const batchSchema = z.object({
 
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requireUser();
-  const perms = await getUserPermissions();
   const company = await getCompany();
 
   const body = await req.json();
@@ -37,13 +37,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const canApprovePo = perms.includes(PERM.PO_APPROVE);
-  const canApproveReq = perms.includes(PERM.REQUISITION_APPROVE);
-  const canApproveGp = perms.includes(PERM.GATE_PASS_APPROVE);
-
-  // Tier-1 roles (OWNER/ADMIN) may approve their own submissions — mirror
-  // the service-layer exemption so batch approve doesn't silently skip them.
-  const selfFilter = canAutoApprove(await getActingRole()) ? {} : { not: user.id };
+  // Each type mirrors its service-layer self-approval rule (POs and indents: owner only).
+  const selfActing = await getActingRole();
+  const poSelf = canSelfApprovePurchaseOrder(selfActing) ? {} : notCreatedBy(user.id);
+  const reqSelf = canWaiveSelfApproval(selfActing) ? {} : notSubmittedBy(user.id);
+  const gpSelf = canAutoApprove(selfActing) ? {} : notCreatedBy(user.id);
 
   // ── Partition items by type ───────────────────────────────────────
   const poIds: string[] = [];
@@ -64,19 +62,19 @@ export const POST = apiHandler(async (req: NextRequest) => {
     // the item's project may grant authority that the global check misses.
     poIds.length > 0
       ? prisma.purchaseOrder.findMany({
-          where: { id: { in: poIds }, companyId: company.id, status: "DRAFT", createdById: selfFilter, ...poScope },
+          where: { id: { in: poIds }, companyId: company.id, status: "DRAFT", ...poSelf, ...poScope },
           select: { id: true, projectId: true },
         })
       : Promise.resolve([]),
     reqIds.length > 0
       ? prisma.materialRequisition.findMany({
-          where: { id: { in: reqIds }, project: { companyId: company.id }, status: "SUBMITTED", requestedById: selfFilter, ...reqScope },
+          where: { id: { in: reqIds }, ...companyRequisitionFilter(company.id), status: "SUBMITTED", ...reqSelf, ...reqScope },
           select: { id: true, projectId: true },
         })
       : Promise.resolve([]),
     gpIds.length > 0
       ? prisma.gatePass.findMany({
-          where: { id: { in: gpIds }, companyId: company.id, status: "PENDING", createdById: selfFilter, ...gpScope },
+          where: { id: { in: gpIds }, companyId: company.id, status: "PENDING", ...gpSelf, ...gpScope },
           select: { id: true, projectId: true },
         })
       : Promise.resolve([]),
@@ -100,8 +98,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
         const poProjectId = validPoIds.get(item.id);
         // A scoped-PM on this PO's project carries PO_APPROVE locally — global
         // perm alone would hide the scoped hat.
-        const poRole = (await getActingRoleForProject(poProjectId ?? null)) ?? (await getActingRole());
-        const poAllowed = canApprovePo || hasPermission(poRole, PERM.PO_APPROVE);
+        const poAllowed = (await getPermissionsForProject(poProjectId ?? null)).includes(PERM.PO_APPROVE);
         if (!poAllowed) {
           results.push({ type: item.type, id: item.id, success: false, error: "No permission to approve POs" });
           continue;
@@ -110,12 +107,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
           results.push({ type: item.type, id: item.id, success: false, error: "PO not found, not in DRAFT status, or you cannot approve your own PO" });
           continue;
         }
-        await approvePurchaseOrder(item.id, poRole, user.id);
+        await approvePurchaseOrder(item.id, await getPoApprovalRole(poProjectId ?? null), user.id);
         results.push({ type: item.type, id: item.id, success: true });
       } else if (item.type === "requisition") {
         const reqProjectId = validReqIds.get(item.id);
         const reqRole = (await getActingRoleForProject(reqProjectId ?? null)) ?? (await getActingRole());
-        const reqAllowed = canApproveReq || hasPermission(reqRole, PERM.REQUISITION_APPROVE);
+        const reqAllowed = (await getPermissionsForProject(reqProjectId ?? null)).includes(PERM.REQUISITION_APPROVE);
         if (!reqAllowed) {
           results.push({ type: item.type, id: item.id, success: false, error: "No permission to approve indents" });
           continue;
@@ -129,7 +126,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       } else if (item.type === "gatePass") {
         const gpProjectId = validGpIds.get(item.id);
         const gpRole = (await getActingRoleForProject(gpProjectId ?? null)) ?? (await getActingRole());
-        const gpAllowed = canApproveGp || hasPermission(gpRole, PERM.GATE_PASS_APPROVE);
+        const gpAllowed = (await getPermissionsForProject(gpProjectId ?? null)).includes(PERM.GATE_PASS_APPROVE);
         if (!gpAllowed) {
           results.push({ type: item.type, id: item.id, success: false, error: "No permission to approve gate passes" });
           continue;

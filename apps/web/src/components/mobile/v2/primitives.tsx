@@ -2,7 +2,7 @@ import * as React from "react";
 import Link from "next/link";
 import { ChevronRight, Lock, type LucideIcon } from "lucide-react";
 import { statusMeaning } from "@/components/page";
-import { formatEnumLabel } from "@/lib/utils";
+import { formatEnumLabel, permissionLabel } from "@/lib/utils";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MOBILE V2 PRIMITIVES — "site-grade" warm palette
@@ -494,7 +494,7 @@ export function MobileNoAccess({
         {permission ? (
           <>
             {" "}
-            (<span className="font-mono text-m-label">{permission}</span>)
+            (<span className="font-medium text-m-label" style={{ color: "var(--color-ink-950)" }}>{permissionLabel(permission)}</span>)
           </>
         ) : null}
         .

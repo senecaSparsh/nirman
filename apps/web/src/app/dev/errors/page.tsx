@@ -19,7 +19,7 @@ export default async function DevErrorsPage() {
   await connection();
   const role = await getUserRole();
   if (role !== "DEVELOPER") {
-    return <NoAccess what="the error console" />;
+    return <NoAccess what="the error console" note="Only the platform developer can open this." />;
   }
   return (
     <Suspense fallback={<PageLoading label="Loading error console…" variant="list" />}>

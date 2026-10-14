@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import {Input, Label, Textarea} from "@/components/ui/input";
+import {Input, Label, Select, Textarea} from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
@@ -16,6 +16,7 @@ import { required, nonNegativeNumber, numberInRange } from "@/lib/validate";
 import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 import type { AvailableStockRow, ProjectOption, StockLocationRow } from "@/lib/types";
 import { useFetch } from "@/lib/use-fetch";
+import { VEHICLE_TYPE_OPTIONS } from "@/components/vehicle-capture-section";
 
 type Line = { key: string; materialId: string; materialName: string; availableQty: number; unit: string; qty: string };
 
@@ -45,6 +46,14 @@ export function TransferFormDialog({
   const [freight, setFreight] = useState("");
   const [handlingFee, setHandlingFee] = useState("");
   const [markupPct, setMarkupPct] = useState("");
+  // Transport details — carried onto the auto-created gate pass so the gate
+  // guard sees which truck is leaving (and approval writes them back onto
+  // the dispatch). Optional: a site runner can hand-carry without a vehicle.
+  const [vehicleNumber, setVehicleNumber] = useState("");
+  const [vehicleType, setVehicleType] = useState("");
+  const [driverName, setDriverName] = useState("");
+  const [driverPhone, setDriverPhone] = useState("");
+  const [transporterName, setTransporterName] = useState("");
   const [lines, setLines] = useState<Line[]>([newLine()]);
   const [saving, setSaving] = useState(false);
 
@@ -199,6 +208,11 @@ export function TransferFormDialog({
           freight: freight.trim() === "" ? undefined : Number(freight),
           handlingFee: handlingFee.trim() === "" ? undefined : Number(handlingFee),
           markupPct: markupPct.trim() === "" ? undefined : Number(markupPct),
+          vehicleNumber: vehicleNumber.trim() || undefined,
+          vehicleType: vehicleType || undefined,
+          driverName: driverName.trim() || undefined,
+          driverPhone: driverPhone.trim() || undefined,
+          transporterName: transporterName.trim() || undefined,
           lines: validLines.map((l) => ({ materialId: l.materialId, qty: Number(l.qty) })),
         }),
       });
@@ -208,7 +222,9 @@ export function TransferFormDialog({
         description: "Gate pass generated — auto-dispatches once approved.",
       });
       onOpenChange(false);
-      setFromLocationId(""); setToLocationId(""); setNotes(""); setFreight(""); setHandlingFee(""); setMarkupPct(""); setLines([newLine()]);
+      setFromLocationId(""); setToLocationId(""); setNotes(""); setFreight(""); setHandlingFee(""); setMarkupPct("");
+      setVehicleNumber(""); setVehicleType(""); setDriverName(""); setDriverPhone(""); setTransporterName("");
+      setLines([newLine()]);
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Unknown error");
@@ -279,6 +295,36 @@ export function TransferFormDialog({
             </Field>
             <Field label="Markup (%)" error={errors.markupPct}>
               <Input type="number" step="0.01" min="0" max="100" value={markupPct} onChange={(e) => { setMarkupPct(e.target.value); clearError("markupPct"); }} onBlur={() => onBlur("markupPct", formValues)} aria-invalid={!!errors.markupPct} placeholder="0" disabled={!isInterCompany} />
+            </Field>
+          </div>
+        </div>
+
+        {/* Transport — written onto the auto-created gate pass so the guard
+            knows which truck to expect. Optional (hand-carry is valid). */}
+        <div className="rounded-md border border-dashed border-border/60 p-3">
+          <p className="text-meta text-muted-foreground mb-2">
+            Transport details (optional — carried onto the gate pass)
+          </p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="Vehicle Number">
+              <Input value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="UP32 AB 1234" />
+            </Field>
+            <Field label="Vehicle Type">
+              <Select value={vehicleType} onChange={(e) => setVehicleType(e.target.value)}>
+                <option value="">—</option>
+                {VEHICLE_TYPE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Transporter">
+              <Input value={transporterName} onChange={(e) => setTransporterName(e.target.value)} placeholder="Optional" />
+            </Field>
+            <Field label="Driver Name">
+              <Input value={driverName} onChange={(e) => setDriverName(e.target.value)} placeholder="Optional" />
+            </Field>
+            <Field label="Driver Phone">
+              <Input type="tel" value={driverPhone} onChange={(e) => setDriverPhone(e.target.value)} placeholder="Optional" />
             </Field>
           </div>
         </div>

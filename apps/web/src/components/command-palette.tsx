@@ -188,8 +188,8 @@ function fuzzyScore(query: string, target: string): number {
  * Settings links are included too — "users", "workflows", "company"
  * all find their settings pages even though settings isn't a world.
  */
-function searchNavItems(query: string, role: string): { item: PageLink; score: number }[] {
-  const worldLinks = linksFor(role).map((item) => {
+function searchNavItems(query: string, role: string, permissions?: string[]): { item: PageLink; score: number }[] {
+  const worldLinks = linksFor(role, permissions).map((item) => {
     const world = WORLD_BY_KEY[item.world].label;
     const score = Math.max(
       fuzzyScore(query, item.label),
@@ -201,7 +201,7 @@ function searchNavItems(query: string, role: string): { item: PageLink; score: n
   });
 
   // Settings links — tagged with a synthetic "today" world so they render.
-  const settingsLinks = settingsLinksFor(role).map((item) => {
+  const settingsLinks = settingsLinksFor(role, permissions).map((item) => {
     const score = Math.max(
       fuzzyScore(query, item.label),
       fuzzyScore(query, "Settings") / 2,
@@ -229,7 +229,7 @@ function searchActions(query: string): { action: ActionItem; score: number }[] {
 
 // ── Component ───────────────────────────────────────────────────
 
-export function CommandPalette({ userRole = "PROJECT_MANAGER" }: { userRole?: string }) {
+export function CommandPalette({ userRole = "PROJECT_MANAGER", permissions }: { userRole?: string; permissions?: string[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -317,14 +317,14 @@ export function CommandPalette({ userRole = "PROJECT_MANAGER" }: { userRole?: st
       // No query — lead with recently viewed, then things to *do*, then places to go.
       recentItems.slice(0, 5).forEach((item) => all.push({ kind: "recent", item }));
       ACTIONS.slice(0, 6).forEach((action) => all.push({ kind: "action", action }));
-      linksFor(userRole)
+      linksFor(userRole, permissions)
         .slice(0, 6)
         .forEach((item) => all.push({ kind: "page", item }));
       return all;
     }
 
     // Pages
-    const pages = searchNavItems(query, userRole).slice(0, 4);
+    const pages = searchNavItems(query, userRole, permissions).slice(0, 4);
     pages.forEach((r) => all.push({ kind: "page", item: r.item }));
 
     // Actions
@@ -341,7 +341,7 @@ export function CommandPalette({ userRole = "PROJECT_MANAGER" }: { userRole?: st
     entities.forEach((entity) => all.push({ kind: "entity", entity }));
 
     return all;
-  }, [query, entities, userRole, recentItems]);
+  }, [query, entities, userRole, permissions, recentItems]);
 
   // Reset selection when results change
   useEffect(() => {

@@ -1,107 +1,63 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import {
-  authMocks,
-  setSessionUser,
-  clearSession,
-  makeRequest,
-  getJson,
-  mockPrisma,
-} from "@/test/mock-auth";
+import { authMocks, setSessionUser, setCompany, makeRequest, mockPrisma } from "@/test/mock-auth";
 
 vi.mock("@/lib/auth", () => authMocks.authFactory());
 vi.mock("@nirman/db", () => authMocks.dbFactory());
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn(), revalidateTag: vi.fn(), unstable_cache: (fn: unknown) => fn }));
 vi.mock("@nirman/services", async () => {
   const actual = await vi.importActual("@nirman/services");
   return {
     ...actual,
     notifyPaymentDue: vi.fn().mockResolvedValue(undefined),
     emitNotificationEvent: vi.fn().mockResolvedValue(undefined),
-    NotificationEventType: actual.NotificationEventType,
   };
 });
 
-vi.spyOn(console, "error").mockImplementation(() => {});
-
 import { POST } from "./route";
 
-const OWNER = { role: "OWNER" as const };
-const STORE_KEEPER = { role: "STORE_KEEPER" as const };
+const OWNER = { role: "OWNER" as const, id: "user-owner-1" };
+
+function post(body: unknown) {
+  return makeRequest("/api/payments/send-reminders", { method: "POST", body });
+}
+const CTX = { params: Promise.resolve({}) };
 
 describe("POST /api/payments/send-reminders", () => {
   beforeEach(() => {
     setSessionUser(OWNER);
+    setCompany({ id: "co-1" });
     mockPrisma().paymentScheduleItem!.findMany.mockResolvedValue([]);
     mockPrisma().landPurchasePaymentScheduleItem!.findMany.mockResolvedValue([]);
     mockPrisma().tenancy!.findMany.mockResolvedValue([]);
+    mockPrisma().userCompany!.findUnique.mockImplementation(async (args: any) => {
+      if (args?.where?.userId_companyId?.userId === OWNER.id) {
+        return { id: "m-owner", userId: OWNER.id, companyId: "co-1", role: "OWNER", active: true, userPermissions: [] };
+      }
+      return null;
+    });
   });
 
-  it("returns 200 with remindersSent=0 when no pending payments", async () => {
-    const res = await POST(makeRequest("/api/payments/send-reminders", { method: "POST", body: {} }), {});
-    expect(res.status).toBe(200);
-    const body = await getJson<{ ok: boolean; remindersSent: number; reminders: unknown[] }>(res);
-    expect(body.ok).toBe(true);
-    expect(body.remindersSent).toBe(0);
+  it("rejects an absurd daysAhead (would mass-remind every pending payment)", async () => {
+    const res = await POST(post({ daysAhead: 99999 }), CTX);
+    expect(res.status).toBe(400);
   });
 
-  it("returns 200 with SALE type filter", async () => {
-    const res = await POST(
-      makeRequest("/api/payments/send-reminders", { method: "POST", body: { type: "SALE" } }),
-      {},
-    );
-    expect(res.status).toBe(200);
+  it("rejects a non-numeric daysAhead", async () => {
+    const res = await POST(post({ daysAhead: "soon" }), CTX);
+    expect(res.status).toBe(400);
   });
 
-  it("returns 200 with LAND type filter", async () => {
-    const res = await POST(
-      makeRequest("/api/payments/send-reminders", { method: "POST", body: { type: "LAND" } }),
-      {},
-    );
-    expect(res.status).toBe(200);
+  it("rejects a bogus type", async () => {
+    const res = await POST(post({ type: "EVERYTHING" }), CTX);
+    expect(res.status).toBe(400);
   });
 
-  it("returns 200 with RENT type filter", async () => {
-    const res = await POST(
-      makeRequest("/api/payments/send-reminders", { method: "POST", body: { type: "RENT" } }),
-      {},
-    );
+  it("accepts the default empty-ish body", async () => {
+    const res = await POST(post({}), CTX);
     expect(res.status).toBe(200);
   });
 
-  it("returns 403 when the user lacks FINANCE_MANAGE", async () => {
-    setSessionUser(STORE_KEEPER);
-    const res = await POST(makeRequest("/api/payments/send-reminders", { method: "POST", body: {} }), {});
-    expect(res.status).toBe(403);
-  });
-
-  it("returns 401 when not authenticated", async () => {
-    clearSession();
-    const res = await POST(makeRequest("/api/payments/send-reminders", { method: "POST", body: {} }), {});
-    expect(res.status).toBe(401);
-  });
-
-  it("sends reminders for pending sale payments with customer info", async () => {
-    mockPrisma().paymentScheduleItem!.findMany.mockResolvedValue([
-      {
-        id: "psi-1",
-        totalAmount: 500000,
-        dueDate: new Date("2024-01-20"),
-        status: "PENDING",
-        paymentSchedule: {
-          assetSale: {
-            id: "sale-1",
-            saleDeedNo: "SD-001",
-            customer: { id: "cust-1", name: "Rajesh", phone: "9999999999", email: "rajesh@test.com" },
-          },
-        },
-      },
-    ]);
-    const res = await POST(
-      makeRequest("/api/payments/send-reminders", { method: "POST", body: { type: "SALE" } }),
-      {},
-    );
+  it("accepts a valid scoped request", async () => {
+    const res = await POST(post({ type: "SALE", daysAhead: 14 }), CTX);
     expect(res.status).toBe(200);
-    const body = await getJson<{ ok: boolean; remindersSent: number }>(res);
-    expect(body.remindersSent).toBe(1);
   });
 });

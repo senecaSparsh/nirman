@@ -68,6 +68,7 @@ export {
   addLineToPurchaseOrder,
   receiveGoods,
   rejectDelivery,
+  poRankClears,
 } from "./procurement";
 
 // Transfer — company→project stock movements (intra + inter-company STO)
@@ -959,17 +960,21 @@ export {
   requiresScopeEntries,
   validateScopeEntries,
   assertScopeWithinActor,
+  assertMemberScopeGrant,
   wouldCreateCycle,
   resolveUserScope,
   getReportingChain,
   assignScopedMembership,
   getDirectReports,
   canAutoApprove,
+  canSelfApprovePurchaseOrder,
+  canWaiveSelfApproval,
   holdsApprovalAuthority,
   type ScopeType,
   type ScopeKind,
   type ResolvedScope,
   type AssignScopeInput,
+  type MemberScopeGrantInput,
 } from "./rbac";
 
 // BOQ + WBS + Measurement Book + EVM — construction execution backbone
@@ -1109,6 +1114,7 @@ export {
   getRateContracts,
   cancelRateContract,
   getApprovalRouting,
+  requiredPoApprover,
   getProjectCommitments,
   type VendorRating,
   type CreateRateContractInput,

@@ -24,7 +24,7 @@ async function VehiclesContent() {
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.INVENTORY_VIEW)) {
-    return <NoAccess what="vehicles" />;
+    return <NoAccess what="vehicles" permission={PERM.INVENTORY_VIEW} />;
   }
 
   const canManage = __effPerms.includes(PERM.VEHICLE_MANAGE);

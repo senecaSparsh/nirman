@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { prisma } from "@nirman/db";
 import { getActingRole, getCompany, getCurrentUser, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { canAutoApprove } from "@nirman/services";
+import { canSelfApprovePurchaseOrder } from "@nirman/services";
 import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
@@ -43,7 +43,7 @@ async function PoDetailContent({
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) {
-    return <NoAccess what="purchase orders" />;
+    return <NoAccess what="purchase orders" permission={PERM.PROCUREMENT_VIEW} />;
   }
 
   const currentUser = await getCurrentUser();
@@ -68,7 +68,7 @@ async function PoDetailContent({
   if (!po) notFound();
 
   // Tier-1 creators (OWNER/ADMIN) may approve their own PO — no higher approver.
-  const canApprove = __effPerms.includes(PERM.PO_APPROVE) && (po.createdById !== currentUser?.id || canAutoApprove(actingRole));
+  const canApprove = __effPerms.includes(PERM.PO_APPROVE) && (po.createdById !== currentUser?.id || canSelfApprovePurchaseOrder(actingRole));
   const canManage = __effPerms.includes(PERM.PROCUREMENT_MANAGE);
   const canReceiveGoods = __effPerms.includes(PERM.PROCUREMENT_MANAGE) || __effPerms.includes(PERM.INVENTORY_MANAGE);
 

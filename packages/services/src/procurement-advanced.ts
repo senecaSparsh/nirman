@@ -378,16 +378,17 @@ export async function getApprovalRouting(
   const ccy = company?.currency ?? "INR";
   const sym = ccy === "INR" ? "₹" : ccy === "USD" ? "$" : ccy === "EUR" ? "€" : ccy === "GBP" ? "£" : `${ccy} `;
 
-  if (amount.lt(managerThreshold)) {
+  const requiredRole = requiredPoApprover(amount, managerThreshold, adminThreshold);
+  if (requiredRole === "PROJECT_MANAGER") {
     return {
-      requiredRole: "PROJECT_MANAGER",
+      requiredRole,
       threshold: managerThreshold,
       reason: `PO value ${sym}${amount.toFixed(0)} is below the manager threshold (${sym}${managerThreshold.toFixed(0)})`,
     };
   }
-  if (amount.lt(adminThreshold)) {
+  if (requiredRole === "ADMIN") {
     return {
-      requiredRole: "ADMIN",
+      requiredRole,
       threshold: adminThreshold,
       reason: `PO value ${sym}${amount.toFixed(0)} requires admin approval (threshold ${sym}${adminThreshold.toFixed(0)})`,
     };
@@ -397,6 +398,17 @@ export async function getApprovalRouting(
     threshold: adminThreshold,
     reason: `PO value ${sym}${amount.toFixed(0)} requires owner approval (threshold ${sym}${adminThreshold.toFixed(0)})`,
   };
+}
+
+export function requiredPoApprover(
+  totalAmount: Decimal | number | string,
+  managerThreshold: Decimal | number | string,
+  adminThreshold: Decimal | number | string,
+): "PROJECT_MANAGER" | "ADMIN" | "OWNER" {
+  const amount = new Decimal(totalAmount);
+  if (amount.lt(managerThreshold)) return "PROJECT_MANAGER";
+  if (amount.lt(adminThreshold)) return "ADMIN";
+  return "OWNER";
 }
 
 // ── 4. Commitment Tracking ─────────────────────────────────

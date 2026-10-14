@@ -11,7 +11,7 @@ export async function MaterialDetailContent({ params }: { params: Promise<{ id: 
   await connection();
   const __effPerms = await getUserPermissions();
   if (!__effPerms.includes(PERM.INVENTORY_VIEW)) {
-    return <NoAccess what="this material" />;
+    return <NoAccess what="this material" permission={PERM.INVENTORY_VIEW} />;
   }
   const company = await getCompany();
   const { id } = await params;

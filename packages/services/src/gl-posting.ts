@@ -897,6 +897,72 @@ export async function postMaterialSale(
 }
 
 /**
+ * Material Sale Return (credit note): reverses ONLY the returned portion —
+ * revenue, output GST, and COGS are credited back proportionally. The kept
+ * portion of the sale stays on the books untouched.
+ *
+ *   Dr Sales Revenue                  (returned regular subtotal)
+ *   Dr Cost Recovery                  (returned scrap subtotal)
+ *   Dr Output GST                     (returned gst)
+ *   Cr Accounts Receivable            (returned total)
+ *
+ *   Dr Inventory                      (returned cost at sale-time MAC)
+ *   Cr Cost of Goods Sold             (returned cost)
+ */
+export async function postMaterialSaleReturn(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    saleReturnId: string;
+    materialSaleId: string;
+    subtotal: Decimal;
+    gstTotal: Decimal;
+    totalCost: Decimal;
+    scrapSubtotal?: Decimal;
+    postedById?: string;
+  },
+) {
+  const gst = new Decimal(opts.gstTotal);
+  const receivable = new Decimal(opts.subtotal).plus(gst);
+  const scrapSubtotal = new Decimal(opts.scrapSubtotal ?? 0);
+  const regularSubtotal = new Decimal(opts.subtotal).minus(scrapSubtotal);
+
+  const revenueLines: JournalLineInput[] = [
+    { accountCode: ACCT.AR, debit: 0, credit: receivable, entityType: "MaterialSaleReturn", entityId: opts.saleReturnId, memo: "Credit note — receivable reversed" },
+  ];
+  if (regularSubtotal.gt(0)) {
+    revenueLines.push({ accountCode: ACCT.SALES_REVENUE, debit: regularSubtotal, credit: 0, entityType: "MaterialSaleReturn", entityId: opts.saleReturnId, memo: "Revenue reversed on return" });
+  }
+  if (scrapSubtotal.gt(0)) {
+    revenueLines.push({ accountCode: ACCT.COST_RECOVERY, debit: scrapSubtotal, credit: 0, entityType: "MaterialSaleReturn", entityId: opts.saleReturnId, memo: "Scrap cost-recovery reversed on return" });
+  }
+  if (gst.gt(0)) {
+    revenueLines.push({ accountCode: ACCT.OUTPUT_GST, debit: gst, credit: 0, entityType: "MaterialSaleReturn", entityId: opts.saleReturnId, memo: "Output GST reversed on return" });
+  }
+  await postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "MATERIAL_SALE_RETURN",
+    sourceId: opts.saleReturnId,
+    memo: `Credit note for material sale return`,
+    postedById: opts.postedById,
+    lines: revenueLines,
+  });
+  if (new Decimal(opts.totalCost).gt(0)) {
+    await postJournalEntry(tx, {
+      companyId: opts.companyId,
+      sourceType: "MATERIAL_SALE_RETURN_COGS",
+      sourceId: opts.saleReturnId,
+      memo: "COGS reversal on material sale return",
+      postedById: opts.postedById,
+      lines: [
+        { accountCode: ACCT.INVENTORY, debit: opts.totalCost, credit: 0, entityType: "MaterialSaleReturn", entityId: opts.saleReturnId },
+        { accountCode: ACCT.COGS, debit: 0, credit: opts.totalCost, entityType: "MaterialSaleReturn", entityId: opts.saleReturnId },
+      ],
+    });
+  }
+}
+
+/**
  * Project Cost (labour/overhead/etc.): capitalise into WIP, credit cash.
  *
  *   Dr WIP - Project Costs   (amount)
@@ -1813,20 +1879,53 @@ export async function postEquipmentRetirement(
 }
 
 /**
- * Equipment Sale: sell a piece of equipment to a third party.
- * Relieves the fixed asset at its current (depreciated) value,
- * recognises the sale revenue, and books gain/loss on disposal.
+ * Equipment Sale: sell a fixed asset to a third party.
+ * Disposal accounting — NOT the inventory pattern (no COGS / sales revenue;
+ * the difference between proceeds and book value is gain/loss on disposal):
  *
  *   Dr Cash / Bank                    (salePrice + gst)
- *   Cr Sales Revenue                  (salePrice)
- *   Cr Output GST                     (gst if > 0)
- *
- *   Dr Cost of Goods Sold             (currentValue)
  *   Cr Equipment & Fixtures           (currentValue)
- *
- * If salePrice ≠ currentValue, the difference is gain/loss on disposal:
- *   Dr Loss on Asset Disposal (loss) or Cr Gain on Asset Disposal (gain)
+ *   Cr Output GST                     (gst if > 0)
+ *   Cr Gain on Asset Disposal         (salePrice − currentValue, if positive)
+ *   Dr Loss on Asset Disposal         (currentValue − salePrice, if positive)
  */
+/**
+ * Journal lines for a fixed-asset disposal. NOT the inventory-sale pattern —
+ * there is no COGS or sales revenue; proceeds are cash in, the asset is
+ * relieved at book value, and the difference is gain/loss on disposal.
+ * Exported so the line set is unit-testable: debits must equal credits for
+ * every (salePrice, currentValue) pair, else postJournalEntry rejects.
+ */
+export function buildEquipmentSaleLines(input: {
+  equipmentId: string;
+  salePrice: Decimal;
+  currentValue: Decimal;
+  gst: Decimal;
+}): JournalLineInput[] {
+  const { equipmentId, salePrice, currentValue, gst } = input;
+  const lines: JournalLineInput[] = [];
+
+  // Cash leg — total consideration received (price + GST)
+  lines.push({ accountCode: ACCT.CASH, debit: salePrice.plus(gst), credit: 0, entityType: "Equipment", entityId: equipmentId, memo: "Equipment sale proceeds" });
+  if (gst.gt(0)) {
+    lines.push({ accountCode: ACCT.OUTPUT_GST, debit: 0, credit: gst, entityType: "Equipment", entityId: equipmentId, memo: "Output GST on equipment sale" });
+  }
+
+  // Asset relief — remove the fixed asset at book value
+  if (currentValue.gt(0)) {
+    lines.push({ accountCode: ACCT.EQUIPMENT_ASSET, debit: 0, credit: currentValue, entityType: "Equipment", entityId: equipmentId, memo: "Equipment relieved on sale" });
+  }
+
+  // Gain or loss on disposal
+  const gain = salePrice.minus(currentValue);
+  if (gain.gt(0)) {
+    lines.push({ accountCode: ACCT.GAIN_ON_DISPOSAL, debit: 0, credit: gain, entityType: "Equipment", entityId: equipmentId, memo: "Gain on equipment sale" });
+  } else if (gain.lt(0)) {
+    lines.push({ accountCode: ACCT.LOSS_ON_DISPOSAL, debit: gain.abs(), credit: 0, entityType: "Equipment", entityId: equipmentId, memo: "Loss on equipment sale" });
+  }
+  return lines;
+}
+
 export async function postEquipmentSale(
   tx: Prisma.TransactionClient,
   opts: {
@@ -1843,30 +1942,7 @@ export async function postEquipmentSale(
   const gst = new Decimal(opts.gstAmount ?? 0);
   if (salePrice.isZero() && currentValue.isZero()) return null;
 
-  const lines: JournalLineInput[] = [];
-
-  // Revenue leg
-  lines.push({ accountCode: ACCT.CASH, debit: salePrice.plus(gst), credit: 0, entityType: "Equipment", entityId: opts.equipmentId, memo: "Equipment sale proceeds" });
-  if (salePrice.gt(0)) {
-    lines.push({ accountCode: ACCT.SALES_REVENUE, debit: 0, credit: salePrice, entityType: "Equipment", entityId: opts.equipmentId, memo: "Equipment sale revenue" });
-  }
-  if (gst.gt(0)) {
-    lines.push({ accountCode: ACCT.OUTPUT_GST, debit: 0, credit: gst, entityType: "Equipment", entityId: opts.equipmentId, memo: "Output GST on equipment sale" });
-  }
-
-  // COGS leg — relieve the fixed asset at its current value
-  if (currentValue.gt(0)) {
-    lines.push({ accountCode: ACCT.COGS, debit: currentValue, credit: 0, entityType: "Equipment", entityId: opts.equipmentId, memo: "Equipment cost on sale" });
-    lines.push({ accountCode: ACCT.EQUIPMENT_ASSET, debit: 0, credit: currentValue, entityType: "Equipment", entityId: opts.equipmentId, memo: "Equipment relieved on sale" });
-  }
-
-  // Gain or loss on disposal
-  const gain = salePrice.minus(currentValue);
-  if (gain.gt(0)) {
-    lines.push({ accountCode: ACCT.GAIN_ON_DISPOSAL, debit: 0, credit: gain, entityType: "Equipment", entityId: opts.equipmentId, memo: "Gain on equipment sale" });
-  } else if (gain.lt(0)) {
-    lines.push({ accountCode: ACCT.LOSS_ON_DISPOSAL, debit: gain.abs(), credit: 0, entityType: "Equipment", entityId: opts.equipmentId, memo: "Loss on equipment sale" });
-  }
+  const lines = buildEquipmentSaleLines({ equipmentId: opts.equipmentId, salePrice, currentValue, gst });
 
   return postJournalEntry(tx, {
     companyId: opts.companyId,

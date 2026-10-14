@@ -4,8 +4,8 @@ import { randomBytes } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@nirman/db";
 import { apiHandler, getActingRole, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
-import { PERM, ALL_ROLES, canAssignRole, isCustomRole, canAssignCustomRole, type Role } from "@/lib/roles";
-import { assertEmployeeCodeAvailable, assertScopeWithinActor, defaultScopeType, withSerializableTransaction } from "@nirman/services";
+import { PERM, ALL_ROLES, canAssignRole, isCustomRole, canAssignCustomRole, canManageOwnerLevelRole, customRoleGrantedPermissions, type Role } from "@/lib/roles";
+import { assertEmployeeCodeAvailable, assertMemberScopeGrant, withSerializableTransaction } from "@nirman/services";
 import { normalizePhone } from "@/lib/phone-otp";
 
 /**
@@ -65,7 +65,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const actorRole = await getActingRole();
 
   const body = await req.json();
-  const { name, email, role, secondaryRoles, phone, password, employeeCode, designation, department, joiningDate, employmentEndDate, mustChangePassword, employeeId } = body as {
+  const { name, email, role, secondaryRoles, phone, password, employeeCode, designation, department, joiningDate, employmentEndDate, mustChangePassword, employeeId, scopeType, scopeEntries } = body as {
     name?: string;
     email?: string;
     role?: string;
@@ -79,6 +79,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
     employmentEndDate?: string;
     mustChangePassword?: boolean;
     employeeId?: string;
+    scopeType?: "COMPANY" | "DEPARTMENT" | "PROJECT";
+    scopeEntries?: { departmentId?: string; projectId?: string }[];
   };
 
   // ── Validate inputs ──
@@ -108,12 +110,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
     // Look up the custom role's tier
     const customRole = await prisma.customRole.findFirst({
       where: { companyId: company.id, key: role },
-      select: { tier: true },
+      select: { tier: true, baseRole: true, permissions: true },
     }).catch(() => null);
     if (!customRole) {
       return json({ error: "Custom role not found in this company" }, { status: 400 });
     }
-    if (!canAssignCustomRole(actorRole, customRole.tier)) {
+    if (!canAssignCustomRole(actorRole, customRole.tier) || !canManageOwnerLevelRole(actorRole, customRoleGrantedPermissions(customRole))) {
       return json(
         { error: `You cannot assign the ${role} role — it is at or above your tier.` },
         { status: 403 },
@@ -133,12 +135,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
     if (isCustomRole(sr)) {
       const customRole = await prisma.customRole.findFirst({
         where: { companyId: company.id, key: sr },
-        select: { tier: true },
+        select: { tier: true, baseRole: true, permissions: true },
       }).catch(() => null);
       if (!customRole) {
         return json({ error: `Custom role ${sr} not found in this company` }, { status: 400 });
       }
-      if (!canAssignCustomRole(actorRole, customRole.tier)) {
+      if (!canAssignCustomRole(actorRole, customRole.tier) || !canManageOwnerLevelRole(actorRole, customRoleGrantedPermissions(customRole))) {
         return json(
           { error: `You cannot assign the ${sr} role — it is at or above your tier.` },
           { status: 403 },
@@ -192,41 +194,47 @@ export const POST = apiHandler(async (req: NextRequest) => {
     return json({ error: "A user with these credentials already exists." }, { status: 409 });
   }
 
-  // Resolved once for both membership paths — custom roles derive scope
-  // via baseRole (null base → narrowest scoped default).
-  const scopeBase = roleIsCustom
-    ? (await prisma.customRole.findFirst({
-        where: { companyId: company.id, key: role },
-        select: { baseRole: true },
-      }))?.baseRole ?? "SUPERVISOR"
-    : role;
-  const resolvedScopeType = defaultScopeType(scopeBase);
-  // Scope ceiling — a scoped actor can't mint wider visibility via a
-  // company-defaulted role (e.g. dept-scoped HR granting HR_MANAGER).
-  await assertScopeWithinActor(actor.id, company.id, resolvedScopeType, []);
+  // A person already in this company keeps their scope. Anyone new needs an
+  // explicit access scope — nothing defaults silently to company-wide.
+  const existingMembership = existing
+    ? await prisma.userCompany.findFirst({
+        where: { userId: existing.id, companyId: company.id },
+        select: { id: true },
+      })
+    : null;
+  if (existingMembership) {
+    return json({ error: `${existing?.name} is already a member of this company.` }, { status: 409 });
+  }
+  if (!scopeType) {
+    return json({ error: "Choose an access scope for this user — the whole company, projects or departments." }, { status: 400 });
+  }
+  if (!["COMPANY", "DEPARTMENT", "PROJECT"].includes(scopeType)) {
+    return json({ error: "Access scope must be company, department or project." }, { status: 400 });
+  }
+  let scope: Awaited<ReturnType<typeof assertMemberScopeGrant>>;
+  try {
+    scope = await assertMemberScopeGrant({
+      actorUserId: actor.id,
+      companyId: company.id,
+      role,
+      secondaryRoles: extraRoles,
+      scopeType,
+      entries: scopeEntries ?? [],
+    });
+  } catch (err: unknown) {
+    return json({ error: err instanceof Error ? err.message : "Invalid access scope" }, { status: (err as { status?: number }).status ?? 400 });
+  }
 
   if (existing) {
-    // Check if already a member of this company
-    const existingMembership = await prisma.userCompany.findFirst({
-      where: { userId: existing.id, companyId: company.id },
-      select: { id: true, role: true },
-    });
-    if (existingMembership) {
-      return json(
-        { error: `${existing.name} is already a member of this company.` },
-        { status: 409 },
-      );
-    }
-    // Add as a member (don't recreate user/account). Explicit scopeType —
-    // a null scopeType falls back to the role default only on resolution,
-    // and storing it keeps every membership's shape consistent.
+    // Add as a member (don't recreate user/account).
     await prisma.userCompany.create({
       data: {
         userId: existing.id,
         companyId: company.id,
         role: role as Role,
         secondaryRoles: extraRoles,
-        scopeType: resolvedScopeType,
+        scopeType,
+        scopes: { create: scope },
       },
     });
     return json({
@@ -274,8 +282,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
         companyId: company.id,
         role: role as Role,
         secondaryRoles: extraRoles,
-        // Same explicit-scope contract as the existing-member path above.
-        scopeType: resolvedScopeType,
+        scopeType,
+        scopes: { create: scope },
       },
     });
 

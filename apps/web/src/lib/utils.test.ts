@@ -11,6 +11,7 @@ import {
   humanizeAuditAction,
   formatEnumLabel,
   humanizeCron,
+  permissionLabel,
   setGlobalCurrencyMode,
   getGlobalCurrencyMode,
   toNum,
@@ -208,6 +209,16 @@ describe("formatEnumLabel", () => {
   it("handles null/empty", () => {
     expect(formatEnumLabel(null)).toBe("—");
     expect(formatEnumLabel("")).toBe("—");
+  });
+});
+
+describe("permissionLabel", () => {
+  it("turns a permission key into plain words", () => {
+    expect(permissionLabel("finance.view")).toBe("Finance View");
+    expect(permissionLabel("po.approve")).toBe("PO Approve");
+  });
+  it("joins alternatives with 'or'", () => {
+    expect(permissionLabel("procurement.view or inventory.view")).toBe("Procurement View or Inventory View");
   });
 });
 

@@ -9,6 +9,7 @@ vi.mock("@nirman/services", async () => {
   return { ...actual, logAction: vi.fn().mockResolvedValue(undefined) };
 });
 
+import { logAction } from "@nirman/services";
 import { DELETE, PATCH } from "./route";
 
 const OWNER = { role: "OWNER" as const, id: "user-owner-1" };
@@ -45,6 +46,36 @@ describe("DELETE /api/companies/[id]/members/[memberId]", () => {
       makeCtx("co-1", "m-target"),
     );
     expect(res.status).toBe(200);
+  });
+
+  it("removes the leaver's project hats in this company too — they must not revive on re-add", async () => {
+    const res = await DELETE(
+      makeRequest("/api/companies/co-1/members/m-target", { method: "DELETE" }),
+      makeCtx("co-1", "m-target"),
+    );
+    expect(res.status).toBe(200);
+    expect(mockPrisma().projectAssignment!.deleteMany).toHaveBeenCalledWith({
+      where: { userId: "u-target", project: { companyId: "co-1" } },
+    });
+  });
+
+  it("does not count a deactivated owner membership as a surviving owner", async () => {
+    // Target holds a tier-1 hat; the only other tier-1 membership is deactivated.
+    mockPrisma().userCompany!.findUnique.mockImplementation(async (args: any) => {
+      const memId = args?.where?.id;
+      const uid = args?.where?.userId_companyId?.userId;
+      if (memId === "m-target") return { id: "m-target", userId: "u-target", companyId: "co-1", role: "ADMIN", secondaryRoles: [], userPermissions: [] };
+      if (uid === "user-owner-1") return { id: "m-owner", userId: uid, role: "OWNER", secondaryRoles: [], userPermissions: [] };
+      return null;
+    });
+    // Simulate the DB: zero ACTIVE tier-1 memberships remain once the target is gone.
+    mockPrisma().userCompany!.count.mockImplementation(async ({ where }: any) => (where?.active === true ? 0 : 1));
+    const res = await DELETE(
+      makeRequest("/api/companies/co-1/members/m-target", { method: "DELETE" }),
+      makeCtx("co-1", "m-target"),
+    );
+    expect(res.status).toBe(400);
+    expect(mockPrisma().userCompany!.delete).not.toHaveBeenCalled();
   });
 
   it("404s when the membership belongs to another company (was a 500)", async () => {
@@ -91,6 +122,42 @@ describe("DELETE /api/companies/[id]/members/[memberId]", () => {
     expect(res.status).toBe(403);
     expect(mockPrisma().userCompany!.delete).not.toHaveBeenCalled();
   });
+
+  it("audits the removal with the access that was stripped", async () => {
+    mockPrisma().projectAssignment!.findMany.mockResolvedValue([
+      { projectId: "p-1", scopedRole: "SITE_ENGINEER" },
+    ]);
+    const res = await DELETE(
+      makeRequest("/api/companies/co-1/members/m-target", { method: "DELETE" }),
+      makeCtx("co-1", "m-target"),
+    );
+    expect(res.status).toBe(200);
+    expect(logAction).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        action: "MEMBERSHIP_REMOVE",
+        companyId: "co-1",
+        entityType: "UserCompany",
+        entityId: "m-target",
+        before: expect.objectContaining({
+          userId: "u-target",
+          role: "SITE_ENGINEER",
+          projectRoles: [{ projectId: "p-1", scopedRole: "SITE_ENGINEER" }],
+        }),
+      }),
+    );
+  });
+
+  it("deactivates the removed member's push subscriptions for this company", async () => {
+    const res = await DELETE(
+      makeRequest("/api/companies/co-1/members/m-target", { method: "DELETE" }),
+      makeCtx("co-1", "m-target"),
+    );
+    expect(res.status).toBe(200);
+    expect(mockPrisma().pushSubscription!.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: "u-target", companyId: "co-1" }, data: { isActive: false } }),
+    );
+  });
 });
 
 describe("PATCH /api/companies/[id]/members/[memberId]", () => {
@@ -131,6 +198,22 @@ describe("PATCH /api/companies/[id]/members/[memberId]", () => {
       makeCtx("co-1", "m-target"),
     );
     expect(res.status).toBe(400);
+    expect(mockPrisma().userCompany!.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects edits to a deactivated membership — restore the member first", async () => {
+    mockPrisma().userCompany!.findUnique.mockImplementation(async (args: any) => {
+      const memId = args?.where?.id;
+      const uid = args?.where?.userId_companyId?.userId;
+      if (memId === "m-target") return { id: "m-target", userId: "u-target", companyId: "co-1", role: "SITE_ENGINEER", secondaryRoles: [], active: false, userPermissions: [] };
+      if (uid === "user-owner-1") return { id: "m-owner", userId: uid, role: "OWNER", secondaryRoles: [], userPermissions: [] };
+      return null;
+    });
+    const res = await PATCH(
+      makeRequest("/api/companies/co-1/members/m-target", { method: "PATCH", body: { role: "STORE_KEEPER" } }),
+      makeCtx("co-1", "m-target"),
+    );
+    expect(res.status).toBe(409);
     expect(mockPrisma().userCompany!.update).not.toHaveBeenCalled();
   });
 });

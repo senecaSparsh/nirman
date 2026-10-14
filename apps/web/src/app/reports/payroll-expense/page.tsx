@@ -26,7 +26,7 @@ async function PayrollExpenseContent() {
 
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) {
     return (
-      <NoAccess what="the labour cost report" />
+      <NoAccess what="the labour cost report" permission={PERM.FINANCE_VIEW} />
     );
   }
 

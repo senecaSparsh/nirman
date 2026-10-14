@@ -35,7 +35,7 @@ async function QuotationsContent() {
   const membership = await getCurrentUserMembership();
 
   if (!__effPerms.includes(PERM.QUOTATION_VIEW)) {
-    return <NoAccess what="quotations" />;
+    return <NoAccess what="quotations" permission={PERM.QUOTATION_VIEW} />;
   }
 
   const [quotationRequests, directReports] = await Promise.all([

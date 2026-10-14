@@ -27,7 +27,7 @@ async function ProjectProgressContent() {
 
   if (!__effPerms.includes(PERM.FINANCE_VIEW) && !__effPerms.includes(PERM.INVENTORY_VIEW) && !__effPerms.includes(PERM.SALES_VIEW)) {
     return (
-      <NoAccess what="the project progress report" />
+      <NoAccess what="the project progress report" permission={`${PERM.FINANCE_VIEW} or ${PERM.INVENTORY_VIEW} or ${PERM.SALES_VIEW}`} />
     );
   }
 

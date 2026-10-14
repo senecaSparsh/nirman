@@ -4,7 +4,7 @@ import { logAction } from "./audit";
 import { postRaBillApproval, postJournalEntry, ACCT } from "./gl-posting";
 import { reallocateProjectCosts } from "./valuation";
 import { ServiceError } from "./errors";
-import { canAutoApprove } from "./rbac";
+import { canWaiveSelfApproval } from "./rbac";
 import { withSerializableTransaction } from "./transaction";
 import { nextSequenceNumber, companyScopedPrefix } from "./sequence";
 
@@ -627,8 +627,8 @@ export async function approveRaBill(id: string, approvedById: string, actorRole?
       throw new ServiceError(`Cannot approve RA bill in status ${bill.status} (must be SUBMITTED)`, 400);
     }
     // Prevent self-approval — the creator/submitter cannot approve their own RA
-    // bill, unless a tier-1 role (OWNER/ADMIN) where no higher approver exists.
-    if (!canAutoApprove(actorRole)) {
+    // bill, unless the OWNER, where no higher approver exists.
+    if (!canWaiveSelfApproval(actorRole)) {
       if (bill.createdById && bill.createdById === approvedById) {
         throw new ServiceError("You cannot approve an RA bill you created. Ask another approver to review it.", 403);
       }

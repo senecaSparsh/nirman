@@ -132,7 +132,7 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
             <ActionButton onClick={() => setShowComplete(true)} loading={false} icon={Check} label="Complete" variant="go" />
           )}
           {inspection.status !== "COMPLETED" && inspection.status !== "CANCELLED" && (
-            <ActionButton onClick={() => doAction("cancel")} loading={acting === "cancel"} icon={Ban} label="Cancel" variant="secondary" />
+            <ActionButton onClick={async () => { if (await confirm({ title: "Cancel inspection?", description: "This cannot be undone.", confirmLabel: "Cancel", variant: "destructive" })) doAction("cancel"); }} loading={acting === "cancel"} icon={Ban} label="Cancel" variant="secondary" />
           )}
           {(inspection.status === "SCHEDULED" || inspection.status === "CANCELLED") && (
             <ActionButton onClick={async () => { const ok = await confirm({ title: "Delete?", description: "Delete this inspection?", confirmLabel: "Delete", variant: "destructive" }); if (!ok) return; await doAction("delete"); router.push("/m/construction?tab=safety"); }} loading={acting === "delete"} icon={Trash2} label="Delete" variant="danger" />

@@ -2,7 +2,7 @@ import { prisma, type Prisma } from "@nirman/db";
 import { withSerializableTransaction } from "./transaction";
 import Decimal from "decimal.js";
 import { recordMovement, refreshMaterialCurrentCost, withStockTransaction } from "./stock-ledger";
-import { postMaterialSale, reverseJournalEntry } from "./gl-posting";
+import { postMaterialSale, postMaterialSaleReturn, reverseJournalEntry } from "./gl-posting";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
@@ -838,16 +838,29 @@ export async function createMaterialSaleReturn(
       await refreshMaterialCurrentCost(tx, returnedMaterials);
     }
 
-    // Reverse the GL entries for the returned portion
-    const journalEntries = await tx.journalEntry.findMany({
-      where: { sourceId: sale.id, sourceType: { in: ["MATERIAL_SALE", "MATERIAL_SALE_COGS"] } },
+    // Reverse ONLY the returned portion — a full-sale reversal would wipe the
+    // GL for units that remain sold. Revenue/GST/COGS go back proportionally;
+    // scrap-material returns credit back to Cost Recovery, matching the sale.
+    const returnedMaterialIds = returnLines.map((l) => l.saleLine.materialId);
+    const scrapFlags = await tx.material.findMany({
+      where: { id: { in: returnedMaterialIds } },
+      select: { id: true, isScrap: true },
     });
-    for (const je of journalEntries) {
-      await reverseJournalEntry(tx, je.id, {
-        postedById: input.userId,
-        memo: `Reversal for sales return ${returnNumber}`,
-      });
-    }
+    const scrapById = new Map(scrapFlags.map((m) => [m.id, m.isScrap]));
+    const returnedCost = returnLines.reduce((s, l) => s.plus(l.qty.times(l.unitCost)), new Decimal(0));
+    const returnedScrapSubtotal = returnLines
+      .filter((l) => scrapById.get(l.saleLine.materialId))
+      .reduce((s, l) => s.plus(l.qty.times(l.unitPrice)), new Decimal(0));
+    await postMaterialSaleReturn(tx, {
+      companyId: sale.companyId,
+      saleReturnId: saleReturn.id,
+      materialSaleId: sale.id,
+      subtotal,
+      gstTotal,
+      totalCost: returnedCost,
+      scrapSubtotal: returnedScrapSubtotal,
+      postedById: input.userId,
+    });
 
     // Re-run project cost reallocation if the sale was linked to a project
     if (sale.projectId) {
@@ -872,7 +885,7 @@ export async function createMaterialSaleReturn(
   void (async () => {
     try {
       const entries = await prisma.journalEntry.findMany({
-        where: { sourceId: result.saleId, sourceType: { in: ["MATERIAL_SALE_REVERSAL", "MATERIAL_SALE_COGS_REVERSAL"] } },
+        where: { sourceId: result.saleReturn.id, sourceType: { in: ["MATERIAL_SALE_RETURN", "MATERIAL_SALE_RETURN_COGS"] } },
         select: { id: true },
       });
       for (const je of entries) await autoSyncEntryToTally(result.companyId, je.id);

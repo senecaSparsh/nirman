@@ -26,7 +26,7 @@ async function DprsContent() {
 
   if (!__effPerms.includes(PERM.DPR_VIEW)) {
     return (
-      <NoAccess what="DPRs" />
+      <NoAccess what="DPRs" permission={PERM.DPR_VIEW} />
     );
   }
 

@@ -13,7 +13,7 @@ export async function MbContent() {
   const scope = await getUserScope();
 
   if (!__effPerms.includes(PERM.MB_VIEW)) {
-    return <NoAccess what="measurement book" />;
+    return <NoAccess what="measurement book" permission={PERM.MB_VIEW} />;
   }
 
   const projectScopeFilter =

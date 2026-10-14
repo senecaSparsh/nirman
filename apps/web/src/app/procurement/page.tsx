@@ -33,7 +33,7 @@ async function ProcurementContent() {
 
   if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) {
     return (
-      <NoAccess what="purchase orders" />
+      <NoAccess what="purchase orders" permission={PERM.PROCUREMENT_VIEW} />
     );
   }
 

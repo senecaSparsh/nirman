@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@nirman/db";
 import { apiHandler, canManageRole, getActingRole, getCompany, json, requirePermission } from "@/lib/server";
-import { assertEmployeeCodeAvailable, assertScopeWithinActor, defaultScopeType } from "@nirman/services";
+import { assertEmployeeCodeAvailable, assertScopeWithinActor } from "@nirman/services";
 import { PERM, ALL_ROLES, type Role } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 
@@ -44,21 +44,13 @@ export const POST = apiHandler(async (req: NextRequest) => {
   );
 
   /**
-   * Resolve the membership's scopeType the same way assignScopedMembership
-   * does — custom roles resolve via their baseRole (scratch → SUPERVISOR →
-   * PROJECT). Bulk rows carry no scope entries beyond an optional
-   * department name, so scoped roles land fail-closed (see nothing until an
-   * admin assigns scope explicitly).
+   * A CSV row has no scope column, so a row never inherits company-wide access:
+   * only the owner and admin roles are company-wide by definition. Every other
+   * row lands fail-closed (PROJECT, no projects) until an admin assigns scope in
+   * the app — the same explicit-scope rule as Add member.
    */
   async function bulkScopeType(role: string): Promise<"COMPANY" | "DEPARTMENT" | "PROJECT"> {
-    let r = role;
-    if (r.startsWith("CUSTOM_")) {
-      const cr = await prisma.customRole
-        .findFirst({ where: { companyId: company.id, key: r }, select: { baseRole: true } })
-        .catch(() => null);
-      r = cr?.baseRole ?? "SUPERVISOR";
-    }
-    return defaultScopeType(r);
+    return role === "OWNER" || role === "ADMIN" ? "COMPANY" : "PROJECT";
   }
 
   /** Persist membership + optional auto-derived department scope row. */

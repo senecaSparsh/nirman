@@ -70,6 +70,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
     include: { user: { select: { id: true } } },
   });
   if (!targetMembership) return json({ error: "User is not a member of this company" }, { status: 404 });
+  // A hat written onto a terminated membership stays dormant but springs back
+  // live on rehire — reject it so restore never resurrects an un-audited grant.
+  if (targetMembership.active === false) {
+    return json({ error: "Member is deactivated — restore them before assigning projects" }, { status: 409 });
+  }
 
   try {
     const assignment = await prisma.projectAssignment.upsert({

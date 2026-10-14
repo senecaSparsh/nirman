@@ -23,6 +23,7 @@ export function MobileSelfCheckIn({
   hasCheckedOut: initialCheckedOut,
   checkOutTime: initialCheckOutTime,
   hoursWorked: initialHoursWorked,
+  periodLocked,
 }: {
   employeeId: string;
   employeeName: string;
@@ -31,6 +32,9 @@ export function MobileSelfCheckIn({
   hasCheckedOut?: boolean;
   checkOutTime?: string | null;
   hoursWorked?: number | null;
+  /** Today sits inside a processed/paid payroll period — check-in will
+   *  409, so show the lock instead of a doomed button. */
+  periodLocked?: string | null;
 }) {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -244,6 +248,25 @@ export function MobileSelfCheckIn({
             {error}
           </p>
         )}
+      </div>
+    );
+  }
+
+  // ── Locked period — check-in will 409, explain instead of offering it ──
+  if (periodLocked && !checkedIn) {
+    return (
+      <div
+        className="rounded-xl p-3 flex items-center gap-3"
+        style={{
+          backgroundColor: "color-mix(in srgb, var(--color-signal) 8%, transparent)",
+          border: "1px solid color-mix(in srgb, var(--color-signal) 20%, transparent)",
+        }}
+      >
+        <AlertTriangle className="size-5 shrink-0" style={{ color: "var(--color-signal-dark)" }} />
+        <p className="text-m-body" style={{ color: "var(--color-ink-700)" }}>
+          Attendance is locked — {periodLocked}. Your supervisor can add an
+          adjustment in the next period.
+        </p>
       </div>
     );
   }

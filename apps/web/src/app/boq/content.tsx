@@ -13,7 +13,7 @@ export async function BoqContent() {
   const scope = await getUserScope();
 
   if (!__effPerms.includes(PERM.BOQ_VIEW)) {
-    return <NoAccess what="BOQ" />;
+    return <NoAccess what="BOQ" permission={PERM.BOQ_VIEW} />;
   }
 
   const projectScopeFilter =

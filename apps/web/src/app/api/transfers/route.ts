@@ -54,9 +54,22 @@ export const GET = apiHandler(async () => {
       lines: { include: { material: { select: { name: true } } } },
     },
   });
+  // Linked gate passes — auto-created at transfer create; the detail panel
+  // needs their status to explain why Dispatch is (un)available. Latest wins
+  // when a pass was rejected + resubmitted.
+  const ids = transfers.map((t) => t.id);
+  const gatePasses = ids.length
+    ? await prisma.gatePass.findMany({
+        where: { refType: "StockTransfer", refId: { in: ids } },
+        select: { refId: true, id: true, gatePassNumber: true, status: true },
+        orderBy: { createdAt: "desc" },
+      })
+    : [];
+  const gpByRef = new Map(gatePasses.map((g) => [g.refId, g]));
   return json(
     transfers.map((t) => ({
       id: t.id,
+      transferNumber: t.transferNumber,
       fromLocationId: t.fromLocationId,
       fromLocationName: t.fromLocation.name,
       fromLocationType: t.fromLocation.type,
@@ -81,6 +94,9 @@ export const GET = apiHandler(async () => {
       driverPhone: t.driverPhone,
       transporterName: t.transporterName,
       challanNumber: t.challanNumber,
+      gatePass: gpByRef.get(t.id)
+        ? { id: gpByRef.get(t.id)!.id, gatePassNumber: gpByRef.get(t.id)!.gatePassNumber, status: gpByRef.get(t.id)!.status }
+        : null,
     })),
   );
 });

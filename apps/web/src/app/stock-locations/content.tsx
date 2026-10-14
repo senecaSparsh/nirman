@@ -14,7 +14,7 @@ export async function StockLocationsContent() {
 
   if (!__effPerms.includes(PERM.INVENTORY_VIEW)) {
     return (
-      <NoAccess what="stock locations" />
+      <NoAccess what="stock locations" permission={PERM.INVENTORY_VIEW} />
     );
   }
 

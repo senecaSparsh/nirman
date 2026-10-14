@@ -25,7 +25,7 @@ async function QcContent() {
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.QC_VIEW)) {
-    return <NoAccess what="quality control" />;
+    return <NoAccess what="quality control" permission={PERM.QC_VIEW} />;
   }
 
   const [projects, ncrs, subcontractors] = await Promise.all([

@@ -42,7 +42,7 @@ async function StockMovementSummaryContent({
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.INVENTORY_VIEW)) {
-    return <NoAccess what="the stock movement summary" />;
+    return <NoAccess what="the stock movement summary" permission={PERM.INVENTORY_VIEW} />;
   }
 
   // Default to current financial year (Apr 1 → Mar 31) if no range given

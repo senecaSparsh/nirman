@@ -1,4 +1,5 @@
 import { prisma } from "@nirman/db";
+import { allowedScopeTypes } from "@nirman/rbac";
 import { logAction } from "./audit";
 import { withSerializableTransaction } from "./transaction";
 
@@ -170,7 +171,9 @@ export async function resolveUserScope(
     where: { userId_companyId: { userId, companyId } },
     include: { scopes: true },
   });
-  if (!membership) return null;
+  // A deactivated membership resolves no scope — a stored COMPANY scopeType
+  // would otherwise read as unbounded access for a terminated member.
+  if (!membership || membership.active === false) return null;
 
   // Custom roles derive their default scope type from their baseRole — a
   // CUSTOM_* role based on SITE_ENGINEER gets PROJECT scope like a real
@@ -254,7 +257,7 @@ export interface AssignScopeInput {
 
 // ── Role hierarchy (mirrors roles.ts in the web app) ──
 // 5-tier delegation hierarchy. A role can only assign roles STRICTLY below
-// its own tier (with the T1 OWNER↔ADMIN exception for same-tier cross-assign).
+// its own tier (with an OWNER-only exception: the OWNER may assign ADMIN).
 const SVC_ROLE_TIER: Record<string, number> = {
   OWNER: 1,
   ADMIN: 1,
@@ -303,6 +306,14 @@ export function canAutoApprove(role: string | null | undefined): boolean {
   return role === "OWNER" || role === "ADMIN" || role === "DEVELOPER";
 }
 
+export function canSelfApprovePurchaseOrder(role: string | null | undefined): boolean {
+  return role === "OWNER";
+}
+
+export function canWaiveSelfApproval(role: string | null | undefined): boolean {
+  return role === "OWNER";
+}
+
 /** Exported for unit testing — mirrors canAssignRole in the web app's roles.ts. */
 export function _svcCanAssignRole(actorRole: string, targetRole: string): boolean {
   return svcCanAssignRole(actorRole, targetRole);
@@ -319,8 +330,8 @@ function svcTierAllows(actorTier: number, actorRole: string, targetTier: number,
   if (actorTier >= 5) return false; // Tier 5 can't assign anyone
   if (actorRole === targetRole) return false; // no self-cloning
   if (actorTier < targetTier) return true; // strictly below
-  // Same tier, different role → allowed only for tier 1 (OWNER↔ADMIN)
-  if (actorTier === 1 && actorTier === targetTier && actorRole !== targetRole) return true;
+  // Same tier, different role → only the OWNER may assign another tier-1 role (ADMIN)
+  if (actorRole === "OWNER" && targetTier === 1) return true;
   return false;
 }
 
@@ -387,8 +398,9 @@ export async function assertScopeWithinActor(
   scopeType: ScopeType,
   entries: { departmentId?: string | null; projectId?: string | null }[],
 ): Promise<void> {
-  const actorScope = await resolveUserScope(actorUserId, companyId);
-  if (!actorScope || actorScope.scopeType === "COMPANY") return;
+  const actorScope = await resolveActorScope(actorUserId, companyId);
+  if (!actorScope) throw new RbacError("You are not a member of this company or its parent group", 403);
+  if (actorScope.scopeType === "COMPANY") return;
 
   if (scopeType === "COMPANY") {
     throw new RbacError("You can't grant company-wide scope — your own access is narrower.", 403);
@@ -424,12 +436,107 @@ export async function assertScopeWithinActor(
   }
 }
 
+const COMPANY_SCOPE_RESTRICTED =
+  "Company-wide access is limited to the owner, admin, project director, finance head and accountant roles.";
+
+/** The built-in role a held role's scope rules follow — a custom role's base role (null for a scratch role). */
+async function scopeRoleFor(role: string, companyId: string): Promise<string | null> {
+  if (!role.startsWith("CUSTOM_")) return role;
+  const cr = await prisma.customRole.findFirst({ where: { companyId, key: role }, select: { baseRole: true } }).catch(() => null);
+  return cr?.baseRole ?? null;
+}
+
+/** Every hat a membership holds must allow the scope it is given. */
+export async function assertScopeAllowedForRoles(companyId: string, roles: string[], scopeType: ScopeType): Promise<void> {
+  for (const role of new Set(roles)) {
+    if (!allowedScopeTypes(await scopeRoleFor(role, companyId)).includes(scopeType)) {
+      throw new RbacError(
+        scopeType === "COMPANY" ? COMPANY_SCOPE_RESTRICTED : "Owner and admin roles are always company-wide.",
+        400,
+      );
+    }
+  }
+}
+
+/** Every project or department a scope entry names must be live and belong to this company. */
+async function assertScopeEntriesInCompany(
+  db: { department: typeof prisma.department; project: typeof prisma.project },
+  companyId: string,
+  scopeType: ScopeType,
+  entries: { departmentId?: string | null; projectId?: string | null }[],
+): Promise<void> {
+  if (scopeType === "DEPARTMENT") {
+    const deptIds = [...new Set(entries.map((e) => e.departmentId!).filter(Boolean))];
+    if (deptIds.length) {
+      const valid = await db.department.count({ where: { id: { in: deptIds }, companyId, deletedAt: null } });
+      if (valid !== deptIds.length) throw new RbacError("One or more departments not found in this company", 404);
+    }
+  }
+  if (scopeType === "PROJECT") {
+    const projIds = [...new Set(entries.map((e) => e.projectId!).filter(Boolean))];
+    if (projIds.length) {
+      const valid = await db.project.count({ where: { id: { in: projIds }, companyId, deletedAt: null } });
+      if (valid !== projIds.length) throw new RbacError("One or more projects not found in this company", 404);
+    }
+  }
+}
+
+/**
+ * The actor's scope in this company, or in the nearest parent company they hold
+ * a membership in — a group member is managed through the parent's access, so a
+ * narrow parent scope binds grants made into the child company.
+ */
+async function resolveActorScope(actorUserId: string, companyId: string): Promise<ResolvedScope | null> {
+  const seen = new Set<string>();
+  let current: string | null = companyId;
+  while (current && !seen.has(current)) {
+    seen.add(current);
+    const scope = await resolveUserScope(actorUserId, current);
+    if (scope) return scope;
+    current = (await prisma.company.findUnique({ where: { id: current }, select: { parentCompanyId: true } }))?.parentCompanyId ?? null;
+  }
+  return null;
+}
+
+export interface MemberScopeGrantInput {
+  actorUserId: string;
+  companyId: string;
+  /** The role the member is added with, and any additional hats — each must allow the scope. */
+  role: string;
+  secondaryRoles?: string[];
+  scopeType: ScopeType;
+  entries: { projectId?: string | null; departmentId?: string | null }[];
+}
+
+/**
+ * Validate the access scope a NEW membership is created with and return the
+ * scope rows to store. Company-wide is limited to the roles that hold it,
+ * entries must be live projects or departments of this company, and the actor
+ * can't grant more than their own access.
+ */
+export async function assertMemberScopeGrant(input: MemberScopeGrantInput): Promise<{ scopeKind: ScopeKind; projectId?: string; departmentId?: string }[]> {
+  await assertScopeAllowedForRoles(input.companyId, [input.role, ...(input.secondaryRoles ?? [])], input.scopeType);
+  validateScopeEntries(input.scopeType, input.entries);
+  if (input.scopeType === "COMPANY") {
+    await assertScopeWithinActor(input.actorUserId, input.companyId, "COMPANY", []);
+    return [];
+  }
+  await assertScopeEntriesInCompany(prisma, input.companyId, input.scopeType, input.entries);
+  await assertScopeWithinActor(input.actorUserId, input.companyId, input.scopeType, input.entries);
+  const ids = [...new Set(input.entries.map((e) => (input.scopeType === "PROJECT" ? e.projectId : e.departmentId)).filter((id): id is string => !!id))];
+  return ids.map((id): { scopeKind: ScopeKind; projectId?: string; departmentId?: string } =>
+    input.scopeType === "PROJECT" ? { scopeKind: "PROJECT", projectId: id } : { scopeKind: "DEPARTMENT", departmentId: id },
+  );
+}
+
 export async function assignScopedMembership(input: AssignScopeInput) {
   // Actor authorization: must have a membership in this company.
   const actorMembership = await prisma.userCompany.findUnique({
     where: { userId_companyId: { userId: input.actorUserId, companyId: input.companyId } },
   });
-  if (!actorMembership) {
+  // A deactivated membership confers no authority — the actor must hold a
+  // live one, not merely a historical row.
+  if (!actorMembership || actorMembership.active === false) {
     throw new RbacError("You are not a member of this company", 403);
   }
 
@@ -490,14 +597,22 @@ export async function assignScopedMembership(input: AssignScopeInput) {
   // scope and wipes every scope entry — data loss that looks like a save.
   const priorMembership = await prisma.userCompany.findUnique({
     where: { userId_companyId: { userId: input.userId, companyId: input.companyId } },
-    select: { scopeType: true },
+    select: { scopeType: true, secondaryRoles: true, active: true },
   });
+  // Editing a deactivated membership is a silent no-op (the update path never
+  // reactivates it) — fail loudly so the caller restores the member first.
+  if (priorMembership?.active === false) {
+    throw new RbacError("This membership is deactivated — restore the member before editing it", 409);
+  }
   const roleDefaultScope = defaultScopeType(await svcResolveBaseRole(input.role, input.companyId));
   const priorScope = (priorMembership?.scopeType ?? null) as ScopeType | null;
   const scopeType = input.scopeType !== undefined
     ? (input.scopeType ?? roleDefaultScope)
     : (priorScope ?? roleDefaultScope);
   const entries = input.scopeEntries ?? [];
+  if (input.scopeType !== undefined) {
+    await assertScopeAllowedForRoles(input.companyId, [input.role, ...(secondaryRoles ?? priorMembership?.secondaryRoles ?? [])], scopeType);
+  }
   // Entries only need validation when the caller actually sent them (or
   // the scope type itself is being (re)set — stale entries of the wrong
   // kind would linger otherwise).
@@ -593,29 +708,7 @@ export async function assignScopedMembership(input: AssignScopeInput) {
       }
     }
 
-    // Validate scope entries belong to this company.
-    if (scopeType === "DEPARTMENT") {
-      const deptIds = entries.map((e) => e.departmentId!).filter(Boolean);
-      if (deptIds.length) {
-        const valid = await tx.department.count({
-          where: { id: { in: deptIds }, companyId: input.companyId, deletedAt: null },
-        });
-        if (valid !== deptIds.length) {
-          throw new RbacError("One or more departments not found in this company", 404);
-        }
-      }
-    }
-    if (scopeType === "PROJECT") {
-      const projIds = entries.map((e) => e.projectId!).filter(Boolean);
-      if (projIds.length) {
-        const valid = await tx.project.count({
-          where: { id: { in: projIds }, companyId: input.companyId, deletedAt: null },
-        });
-        if (valid !== projIds.length) {
-          throw new RbacError("One or more projects not found in this company", 404);
-        }
-      }
-    }
+    await assertScopeEntriesInCompany(tx, input.companyId, scopeType, entries);
 
     // Multi-role: the new held set is { role } ∪ secondaryRoles (or the
     // existing extras when secondaryRoles is omitted). If the target's

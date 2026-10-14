@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import { apiHandler, json, getCurrentUser, getCompany, getUserPermissions, getUserRole, getOwnRole } from "@/lib/server";
-import { PERM, hasPermission, roleTier } from "@/lib/roles";
+import { PERM, roleTier } from "@/lib/roles";
 import { roleToPersona, type Persona } from "@/lib/mobile-nav-v2";
 
 /**
@@ -25,7 +25,7 @@ export const GET = apiHandler(async () => {
   ]);
 
   const canCreateCompany =
-    hasPermission(role, PERM.COMPANY_MANAGE) && !company.parentCompanyId;
+    permissions.includes(PERM.COMPANY_MANAGE) && !company.parentCompanyId;
   const isDevBypass = process.env.AUTH_BYPASS === "true" && process.env.NODE_ENV !== "production";
 
   let memberships;
@@ -129,6 +129,21 @@ export const GET = apiHandler(async () => {
       })
     : null;
 
+  // Same rule as assertAttendancePeriodOpen — if today's date sits inside a
+  // processed/paid payroll period, self check-in will 409. Tell the widget
+  // up front so it can show "locked" instead of a doomed Check In button.
+  const lockedPeriod = myEmployee
+    ? await prisma.payrollPeriod.findFirst({
+        where: {
+          companyId: company.id,
+          status: { in: ["PROCESSED", "PAID"] },
+          startDate: { lte: startOfToday },
+          endDate: { gte: startOfToday },
+        },
+        select: { month: true, year: true, status: true },
+      })
+    : null;
+
   return json({
     currentCompany: {
       id: company.id,
@@ -154,6 +169,9 @@ export const GET = apiHandler(async () => {
           hoursWorked: myAttendance.hoursWorked ? Number(myAttendance.hoursWorked) : null,
           status: myAttendance.status,
         }
+      : null,
+    periodLocked: lockedPeriod
+      ? `${lockedPeriod.month}/${lockedPeriod.year} payroll is already ${lockedPeriod.status.toLowerCase()}`
       : null,
   });
 });

@@ -23,6 +23,8 @@ import { IntegrationsTab } from "@/components/settings/integrations-tab";
 import { formatCurrency, formatDate, formatDateTime, displayEmail, cn } from "@/lib/utils";
 import { useTabParam } from "@/lib/use-tab-param";
 import { useConfirm } from "@/lib/use-confirm";
+import { MemberScopeFields } from "@/components/settings/member-scope-fields";
+import { draftForRole, scopePayload, type MemberScopeDraft } from "@/lib/member-scope";
 import { canAssignRole, roleTier, type Role } from "@/lib/roles";
 
 // ───────────────────────────────────────────────────────────────
@@ -485,6 +487,8 @@ function MembersTab({
   const [addOpen, setAddOpen] = useState(false);
   const [addEmail, setAddEmail] = useState("");
   const [addRole, setAddRole] = useState<Role>(assignable[0] ?? "PROJECT_MANAGER");
+  const [addScope, setAddScope] = useState<MemberScopeDraft>({ scopeType: null, entries: [] });
+  const addDraft = draftForRole(addRole, addScope);
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<string | null>(null);
 
@@ -504,16 +508,18 @@ function MembersTab({
   async function addMember(e: React.FormEvent) {
     e.preventDefault();
     if (!addEmail.trim()) return toast.error("Email is required");
+    const payload = scopePayload(addDraft);
+    if (!payload) return toast.error("Choose the access scope first");
     setAdding(true);
     try {
       const res = await fetch(`/api/companies/${data.id}/members`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: addEmail.trim(), role: addRole }),
+        body: JSON.stringify({ email: addEmail.trim(), role: addRole, ...payload }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed to add member");
-      toast.success("Member added");
-      setAddOpen(false); setAddEmail("");
+      toast.success(json.updated ? "Already a member — role updated, scope unchanged" : "Member added");
+      setAddOpen(false); setAddEmail(""); setAddScope({ scopeType: null, entries: [] });
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
@@ -584,7 +590,16 @@ function MembersTab({
                 })}
               </Select>
             </div>
-            <Button size="sm" type="submit" disabled={adding}>{adding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} Add</Button>
+            <div className="basis-full">
+              <MemberScopeFields
+                scopeRole={addRole}
+                value={addDraft}
+                onChange={setAddScope}
+                projects={data.projects}
+                departments={data.departments}
+              />
+            </div>
+            <Button size="sm" type="submit" disabled={adding || !scopePayload(addDraft)}>{adding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} Add</Button>
           </form>
         )}
 

@@ -5,7 +5,7 @@ import { emitNotificationEvent, NotificationEventType } from "./notification-eve
 import { postExpense, reverseJournalEntry } from "./gl-posting";
 import { checkExpenseBudget } from "./expense-budget";
 import { ServiceError } from "./errors";
-import { canAutoApprove } from "./rbac";
+import { canWaiveSelfApproval } from "./rbac";
 import { withSerializableTransaction } from "./transaction";
 
 /**
@@ -297,8 +297,8 @@ export async function approveExpense(
       throw new ServiceError(`Only PENDING expenses can be approved (current: ${existing.status})`, 409);
     }
     // Prevent self-approval: the submitter cannot approve their own expense —
-    // unless a tier-1 role (OWNER/ADMIN), where no higher approver exists.
-    if (userId && existing.submittedById && userId === existing.submittedById && !canAutoApprove(options?.actorRole)) {
+    // unless the OWNER, where no higher approver exists.
+    if (userId && existing.submittedById && userId === existing.submittedById && !canWaiveSelfApproval(options?.actorRole)) {
       throw new ServiceError("You cannot approve an expense you submitted — ask another approver", 403);
     }
 

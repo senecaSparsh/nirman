@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { apiHandler, canManageRole, canManageRoleSet, getActingRole, getCompany, getManageableCompanyIds, getOwnRole, json, requirePermission, userRoleSchema, type CurrentUser } from "@/lib/server";
 import { PERM, isCustomRole } from "@/lib/roles";
-import { assignScopedMembership, getDirectReports, getReportingChain } from "@nirman/services";
+import { assignScopedMembership, getDirectReports, getReportingChain, logAction } from "@nirman/services";
 import { z } from "zod";
 
 /**
@@ -77,9 +77,14 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   // Resolve the target membership → userId for assignScopedMembership.
   const membership = await prisma.userCompany.findUnique({
     where: { id: memberId, companyId: id },
-    select: { userId: true, role: true, secondaryRoles: true, activeRole: true },
+    select: { userId: true, role: true, secondaryRoles: true, activeRole: true, active: true },
   });
   if (!membership) return json({ error: "Member not found" }, { status: 404 });
+  // Editing a deactivated membership is a silent no-op — the member stays
+  // terminated. Fail loudly; the restore flow owns reactivation.
+  if (membership.active === false) {
+    return json({ error: "This membership is deactivated — restore the member first." }, { status: 409 });
+  }
 
   // Every role key in the request — primary + secondary — must be a
   // built-in or CUSTOM_* key, and every CUSTOM_* must exist in this company.
@@ -329,6 +334,10 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
       where: {
         companyId: id,
         id: { not: memberId },
+        // Only a LIVE membership protects the company from orphaning — a
+        // deactivated owner row cannot act and must not count.
+        active: true,
+        user: { active: true },
         OR: [
           { role: { in: ["OWNER", "ADMIN"] } },
           { secondaryRoles: { hasSome: ["OWNER", "ADMIN"] } },
@@ -344,6 +353,33 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   // (UserPreference has no FK to UserCompany, so orphans would otherwise remain).
   await prisma.userPreference.deleteMany({
     where: { userId: membership.userId, companyId: membership.companyId },
+  }).catch(() => {});
+
+  // Remove the member's project hats in this company — ProjectAssignment has
+  // no FK to UserCompany, so rows would otherwise survive removal and silently
+  // re-arm scoped roles if the person is ever re-added. Snapshot them first
+  // for the audit row.
+  const removedProjectRoles = await prisma.projectAssignment.findMany({
+    where: { userId: membership.userId, project: { companyId: id } },
+    select: { projectId: true, scopedRole: true },
+  }).catch(() => [] as { projectId: string; scopedRole: string }[]);
+  await prisma.projectAssignment.deleteMany({
+    where: { userId: membership.userId, project: { companyId: id } },
+  }).catch(() => {});
+
+  // Kill this company's push subscriptions on their devices — direct
+  // per-user sends don't re-check membership, so a removed member's phone
+  // would keep receiving this company's notifications otherwise.
+  await prisma.pushSubscription.updateMany({
+    where: { userId: membership.userId, companyId: id },
+    data: { isActive: false },
+  }).catch(() => {});
+
+  // Stop any open task timers — a removed member must not show as
+  // "on the clock" forever in timesheets.
+  await prisma.taskTimeLog.updateMany({
+    where: { userId: membership.userId, endedAt: null },
+    data: { endedAt: new Date(), note: "Auto-stopped — member removed from company" },
   }).catch(() => {});
 
   // Return their company phone to the pool — a removed member must not keep
@@ -365,5 +401,21 @@ export const DELETE = apiHandler(async (_req: NextRequest, ctx: { params: Promis
   }
 
   await prisma.userCompany.delete({ where: { id: memberId, companyId: id } });
+
+  // Removal is an access-revocation event — audit what the member held and
+  // what was stripped, same convention as EMPLOYEE_TERMINATE.
+  await logAction(prisma, {
+    userId: session.id,
+    companyId: id,
+    action: "MEMBERSHIP_REMOVE",
+    entityType: "UserCompany",
+    entityId: memberId,
+    before: {
+      userId: membership.userId,
+      role: membership.role,
+      secondaryRoles: membership.secondaryRoles ?? [],
+      projectRoles: removedProjectRoles,
+    },
+  });
   return json({ ok: true });
 });

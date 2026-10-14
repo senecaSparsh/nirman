@@ -25,7 +25,7 @@ async function JobCostingContent() {
   const scope = await getUserScope();
 
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) {
-    return <NoAccess what="the job costing report" />;
+    return <NoAccess what="the job costing report" permission={PERM.FINANCE_VIEW} />;
   }
 
   const projectScopeFilter =

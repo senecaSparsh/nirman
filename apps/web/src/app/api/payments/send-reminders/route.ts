@@ -4,6 +4,14 @@ import { notifyPaymentDue } from "@nirman/services";
 import { emitNotificationEvent, NotificationEventType } from "@nirman/services";
 import { apiHandler, getCompany, json, requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { z } from "zod";
+
+const sendSchema = z.object({
+  type: z.enum(["SALE", "LAND", "RENT", "ALL"]).optional(),
+  // Uncapped daysAhead turns a 7-day nudge into a mass send to every
+  // pending payment on the books — keep the horizon bounded.
+  daysAhead: z.number().int().min(0).max(90).optional(),
+});
 
 /**
  * POST /api/payments/send-reminders
@@ -20,14 +28,12 @@ export const POST = apiHandler(async (req: NextRequest) => {
   await requireEffectivePermission(PERM.FINANCE_MANAGE);
   const company = await getCompany();
 
-  let body: Record<string, unknown>;
-  try {
-    body = await req.json();
-  } catch {
-    return json({ error: "Invalid JSON body" }, { status: 400 });
+  const parsed = sendSchema.safeParse(await req.json().catch(() => ({})));
+  if (!parsed.success) {
+    return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
-  const type = (body.type as string) ?? "ALL";
-  const daysAhead = (body.daysAhead as number) ?? 7;
+  const type = parsed.data.type ?? "ALL";
+  const daysAhead = parsed.data.daysAhead ?? 7;
 
   const now = new Date();
   const cutoff = new Date(now);

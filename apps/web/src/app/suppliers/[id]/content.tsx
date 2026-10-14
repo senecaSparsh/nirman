@@ -11,7 +11,7 @@ export async function SupplierDetailContent({ params }: { params: Promise<{ id: 
   await connection();
   const __effPerms = await getUserPermissions();
   if (!__effPerms.includes(PERM.PROCUREMENT_VIEW)) {
-    return <NoAccess what="this supplier" />;
+    return <NoAccess what="this supplier" permission={PERM.PROCUREMENT_VIEW} />;
   }
   const company = await getCompany();
   const { id } = await params;

@@ -2,7 +2,7 @@
 
 import useSWR from "swr";
 import { swrFetcher } from "@/lib/swr";
-import { hasPermission, isManagerOrAbove, normalizeRole, type Role } from "@/lib/roles";
+import { holdsPermission, isManagerOrAbove, normalizeRole, type Role } from "@/lib/roles";
 
 interface MeResponse {
   id?: string | null;
@@ -72,6 +72,7 @@ export function usePermissions() {
   const activeRole: string | null = data?.activeRole ?? null;
   const roleLabels: Record<string, string> = data?.roleLabels ?? {};
   const loading = isLoading;
+  const rawRole = data?.activeRole ?? data?.role ?? null;
 
   return {
     role,
@@ -83,14 +84,14 @@ export function usePermissions() {
     userId,
     permissions,
     loading,
-    can: (perm: string) => hasPermission(role, perm, permissions),
+    can: (perm: string) => holdsPermission(rawRole, perm, permissions),
     isManagerOrAbove: () => isManagerOrAbove(actingRole),
     isOwnerOrAdmin: () => actingRole === "OWNER" || actingRole === "ADMIN" || actingRole === "DEVELOPER",
     canManageUsers: () => actingRole === "OWNER" || actingRole === "ADMIN" || actingRole === "DEVELOPER",
     canAssignTasks: () => isManagerOrAbove(actingRole),
     canManageWorkflows: () => isManagerOrAbove(actingRole),
     canApproveProcurement: () =>
-      hasPermission(role, "po.approve", permissions) ||
-      hasPermission(role, "requisition.approve", permissions),
+      holdsPermission(rawRole, "po.approve", permissions) ||
+      holdsPermission(rawRole, "requisition.approve", permissions),
   };
 }

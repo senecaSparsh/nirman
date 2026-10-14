@@ -142,6 +142,7 @@ export function AttendanceView({
   currentUserId,
   canSelfApprove,
   offsiteReviews,
+  lockedPeriods,
 }: {
   employees: { id: string; name: string; trade: string | null }[];
   projects: { id: string; name: string }[];
@@ -153,6 +154,10 @@ export function AttendanceView({
   leaveRows?: LeaveRow[];
   leaveEmployees?: { id: string; name: string; trade: string | null; designation: string | null }[];
   offsiteReviews?: OffsiteReviewRow[];
+  /** Payroll periods already processed/paid — attendance can't be posted
+   *  into them (server 409s). Surfaced up front so the user doesn't mark
+   *  the whole grid before learning the period is locked. */
+  lockedPeriods?: { start: string; end: string; label: string }[];
 }) {
   const router = useRouter();
   const canEdit = permissions?.canEdit ?? false;
@@ -196,6 +201,12 @@ export function AttendanceView({
   // discloses so the rate isn't mistaken for logged attendance.
   const isMarked = (empId: string) =>
     statuses[empId] !== undefined || todayRecords.some((r) => r.employeeId === empId);
+
+  // The selected date falls inside a processed/paid payroll period → the
+  // save will 409. Lock the grid instead of letting the user mark rows.
+  const activeLock = (lockedPeriods ?? []).find((p) => date >= p.start && date <= p.end);
+  const isPeriodLocked = (isoDate: string) =>
+    (lockedPeriods ?? []).some((p) => isoDate.slice(0, 10) >= p.start && isoDate.slice(0, 10) <= p.end);
 
   const handleSave = async () => {
     setSaving(true);
@@ -416,7 +427,9 @@ export function AttendanceView({
   ];
 
   function historyRowActions(r: AttendanceRow) {
-    if (!canEdit) return null;
+    // Editing/deleting a record inside a processed/paid period 409s too —
+    // hide the actions rather than offer a guaranteed-failure path.
+    if (!canEdit || isPeriodLocked(r.date)) return null;
     return (
       <>
         <button
@@ -536,6 +549,15 @@ export function AttendanceView({
 
           {tab === "log" ? (
             <>
+              {/* Payroll-locked period notice — mirrors the mobile site
+                  attendance lock so the 409 isn't a save-time surprise. */}
+              {activeLock && (
+                <div className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/5 p-3 text-body text-warning">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  Attendance is locked — {activeLock.label}. Correct it with an adjustment in the next period.
+                </div>
+              )}
+
               {/* Summary stats bar */}
               {employees.length > 0 && (
                 <AttendanceStatsBar employees={employees} getStatus={getStatus} isMarked={isMarked} />
@@ -572,11 +594,11 @@ export function AttendanceView({
                         employees.forEach((e) => { all[e.id] = "PRESENT"; });
                         setStatuses(all);
                       }}
-                      disabled={employees.length === 0}
+                      disabled={employees.length === 0 || !!activeLock}
                     >
                       Mark All Present
                     </Button>
-                    <Button size="sm" onClick={handleSave} disabled={saving || employees.length === 0}>
+                    <Button size="sm" onClick={handleSave} disabled={saving || employees.length === 0 || !!activeLock}>
                       <Save className="mr-1 h-3.5 w-3.5" /> {saving ? "Saving…" : "Save Attendance"}
                     </Button>
                   </div>
@@ -626,7 +648,7 @@ export function AttendanceView({
                                     <button
                                       key={s}
                                       onClick={() => setStatus(e.id, s)}
-                                      disabled={!canEdit}
+                                      disabled={!canEdit || !!activeLock}
                                       className={cn(
                                         "rounded border px-2 py-0.5 text-caption font-medium transition-all",
                                         isActive

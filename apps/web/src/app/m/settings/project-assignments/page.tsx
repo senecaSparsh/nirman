@@ -31,7 +31,7 @@ async function MobileProjectAssignmentsContent() {
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.USERS_VIEW)) {
-    return <MobileNoAccess what="project assignments" />;
+    return <MobileNoAccess what="project assignments" permission={PERM.USERS_VIEW} />;
   }
 
   const canManage = __effPerms.includes(PERM.USERS_MANAGE);

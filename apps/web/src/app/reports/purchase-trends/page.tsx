@@ -26,7 +26,7 @@ async function PurchaseTrendsContent() {
 
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) {
     return (
-      <NoAccess what="the purchase trends report" />
+      <NoAccess what="the purchase trends report" permission={PERM.FINANCE_VIEW} />
     );
   }
 

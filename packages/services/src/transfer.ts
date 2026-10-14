@@ -1,4 +1,4 @@
-import { prisma } from "@nirman/db";
+import { prisma, type Prisma } from "@nirman/db";
 import { withSerializableTransaction } from "./transaction";
 import Decimal from "decimal.js";
 import { recordMovement, recordTransfer, withStockTransaction, refreshMaterialCurrentCost } from "./stock-ledger";
@@ -7,6 +7,15 @@ import { autoFillHsnGst } from "./material-service";
 import { postTransferShortage, postInterCompanyTransfer } from "./gl-posting";
 import { ServiceError } from "./errors";
 import { assertGatePassApproved, autoCreateGatePassFromRef } from "./gate-pass";
+import { companyScopedPrefix, nextSequenceNumber } from "./sequence";
+
+/** Generate a unique transfer number: TRF-YYMMDD-NNNN */
+async function generateTransferNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
+  const d = new Date();
+  const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+  const prefix = await companyScopedPrefix(tx, companyId, `TRF-${ymd}-`);
+  return nextSequenceNumber(tx, prefix, 4);
+}
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 
 /**
@@ -204,6 +213,7 @@ export async function createTransfer(input: CreateTransferInput) {
   return withSerializableTransaction(async (tx) => {
     const transfer = await tx.stockTransfer.create({
       data: {
+        transferNumber: await generateTransferNumber(tx, fromLoc.companyId),
         fromLocationId: input.fromLocationId,
         toLocationId: input.toLocationId,
         notes: input.notes,

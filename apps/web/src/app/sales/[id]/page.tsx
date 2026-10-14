@@ -44,7 +44,7 @@ async function SaleDetailContent({
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.SALES_VIEW)) {
-    return <NoAccess what="sales" />;
+    return <NoAccess what="sales" permission={PERM.SALES_VIEW} />;
   }
 
   const { id } = await params;

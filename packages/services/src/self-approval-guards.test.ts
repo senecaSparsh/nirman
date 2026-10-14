@@ -44,6 +44,8 @@ import { verifyMbEntry, approveMbEntry, rejectMbEntry } from "./boq";
 import { approveGatePass, rejectGatePass } from "./gate-pass";
 import { rejectExpense } from "./expense";
 import { rejectExpenseClaim } from "./expense-claim";
+import { canWaiveSelfApproval } from "./rbac";
+import { approveRaBill } from "./subcontractor";
 
 // ── Helpers ────────────────────────────────────────────────
 
@@ -141,11 +143,11 @@ describe("approveRequisition — self-approval guard", () => {
   });
 
   // ── Tier-1 self-approval exception ──
-  // A tier-1 role (OWNER/ADMIN) may approve their own submission — there is no
-  // higher approver above them, so routing through a second reviewer is pure
-  // friction (and a deadlock when the owner is the only admin). Passing the
-  // actor's role as `actorRole` opts into this; without it the guard stays strict.
-  it.each(["OWNER", "ADMIN"] as const)(
+  // The OWNER may approve their own submission — there is no higher approver
+  // above them, so routing through a second reviewer is pure friction (and a
+  // deadlock when the owner is the only admin). Passing the actor's role as
+  // `actorRole` opts into this; without it the guard stays strict. ADMIN is not exempt.
+  it.each(["OWNER"] as const)(
     "allows self-approval for tier-1 role %s",
     async (role) => {
       const tx = makeMockTx({
@@ -165,6 +167,24 @@ describe("approveRequisition — self-approval guard", () => {
       ).resolves.toBeDefined();
     },
   );
+
+  it("blocks ADMIN self-approval on indents (owner only)", async () => {
+    const tx = makeMockTx({
+      materialRequisition: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "req-1",
+          status: "SUBMITTED",
+          requestedById: "user-1",
+          project: { companyId: "c1" },
+          department: null,
+        }),
+      },
+    });
+    runWithTx(tx);
+    await expect(
+      approveRequisition("req-1", "user-1", undefined, "ADMIN"),
+    ).rejects.toThrow("You cannot approve your own indent");
+  });
 
   it.each(["PROJECT_MANAGER", "SUPERVISOR", "SITE_ENGINEER"] as const)(
     "still blocks self-approval for non-tier-1 role %s",
@@ -186,6 +206,16 @@ describe("approveRequisition — self-approval guard", () => {
       ).rejects.toThrow("You cannot approve your own indent");
     },
   );
+});
+
+describe("canWaiveSelfApproval — owner-only self-approval waiver", () => {
+  it("only the OWNER waives the second-approver rule", () => {
+    expect(canWaiveSelfApproval("OWNER")).toBe(true);
+    expect(canWaiveSelfApproval("ADMIN")).toBe(false);
+    expect(canWaiveSelfApproval("DEVELOPER")).toBe(false);
+    expect(canWaiveSelfApproval("PROJECT_MANAGER")).toBe(false);
+    expect(canWaiveSelfApproval(undefined)).toBe(false);
+  });
 });
 
 describe("rejectRequisition — self-rejection guard", () => {
@@ -299,6 +329,63 @@ describe("adminApproveDpr — self-approval guard", () => {
     await expect(
       adminApproveDpr("dpr-1", "user-1"),
     ).resolves.toBeDefined();
+  });
+});
+
+describe("sub-admin and admin DPR approval — ADMIN is not exempt", () => {
+  it("blocks ADMIN approving a DPR it submitted (sub-admin tier)", async () => {
+    const tx = makeMockTx({
+      dailyProgressReport: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "dpr-1",
+          approvalStatus: "SUBMITTED",
+          submittedById: "user-1",
+          companyId: "c1",
+        }),
+      },
+    });
+    runWithTx(tx);
+    await expect(
+      subAdminApproveDpr("dpr-1", "user-1", undefined, "ADMIN"),
+    ).rejects.toThrow("You cannot approve your own DPR");
+  });
+
+  it("blocks ADMIN approving a DPR it submitted (admin tier)", async () => {
+    const tx = makeMockTx({
+      dailyProgressReport: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "dpr-1",
+          approvalStatus: "SUB_ADMIN_APPROVED",
+          submittedById: "user-1",
+          companyId: "c1",
+        }),
+      },
+    });
+    runWithTx(tx);
+    await expect(
+      adminApproveDpr("dpr-1", "user-1", undefined, "ADMIN"),
+    ).rejects.toThrow("You cannot approve your own DPR");
+  });
+});
+
+describe("approveRaBill — ADMIN is not exempt", () => {
+  it("blocks ADMIN approving an RA bill it created", async () => {
+    const tx = makeMockTx({
+      raBill: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "ra-1",
+          status: "SUBMITTED",
+          createdById: "user-1",
+          submittedById: null,
+          workOrder: {},
+          lines: [],
+        }),
+      },
+    });
+    runWithTx(tx);
+    await expect(
+      approveRaBill("ra-1", "user-1", "ADMIN"),
+    ).rejects.toThrow("You cannot approve an RA bill you created");
   });
 });
 

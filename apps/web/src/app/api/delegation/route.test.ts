@@ -94,6 +94,26 @@ describe("PUT /api/delegation", () => {
     expect((await getJson<{ error: string }>(res)).error).toMatch(/loop/i);
   });
 
+  it("rejects managing delegation on a deactivated membership", async () => {
+    // OWNER managing someone else's (terminated) membership — writing a
+    // delegation pointer onto a dead row is dead data at best, and would
+    // silently re-arm if the member is restored later.
+    mockPrisma().userCompany!.findUnique.mockImplementation(async (args: any) => {
+      if (args?.where?.userId_companyId) {
+        return { id: "uc-me", role: "OWNER", approvalsDelegatedToId: null, delegationStartedAt: null, delegationEndsAt: null, delegationNote: null, approvalsDelegatedTo: null };
+      }
+      if (args?.where?.id === "uc-gone") return { userId: "u-gone", companyId: "company-1", role: "ADMIN", active: false };
+      return null;
+    });
+    mockPrisma().userCompany!.findFirst.mockResolvedValueOnce({ id: "uc-bob", userId: "bob", role: "PROJECT_MANAGER", secondaryRoles: [] });
+    const res = await PUT(makeRequest("/api/delegation", {
+      method: "PUT",
+      body: { delegateMembershipId: "uc-bob", endsAt: future(), membershipId: "uc-gone" },
+    }), EMPTY_CTX);
+    expect(res.status).toBe(400);
+    expect(mockPrisma().userCompany!.update).not.toHaveBeenCalled();
+  });
+
   it("delegates my authority on the happy path", async () => {
     mockPrisma().userCompany!.findFirst
       .mockResolvedValueOnce({ id: "uc-bob", userId: "bob", role: "PROJECT_MANAGER", secondaryRoles: [] })

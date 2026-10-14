@@ -1,7 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 import { connection } from "next/server";
 import { getActingRole, getOwnRole, getCompany, getUserRole, getUserPermissions, getScopedRolePermissions } from "@/lib/server";
-import { hasPermission, type Permission } from "@/lib/roles";
+import { holdsPermission, type Permission } from "@/lib/roles";
 import { MobileNoAccess } from "@/components/mobile/v2/primitives";
 import { MobileSkeletonDetail } from "@/components/mobile/mobile-skeleton";
 
@@ -117,14 +117,14 @@ export async function MobileDetailPage({
 
     if (perm) {
       const allowed = Array.isArray(perm)
-        ? perm.some((p) => hasPermission(role, p, overrides))
-        : hasPermission(role, perm, overrides);
+        ? perm.some((p) => holdsPermission(role, p, overrides))
+        : holdsPermission(role, perm, overrides);
       if (!allowed) {
         return <MobileNoAccess what={what ?? "this page"} permission={permission} />;
       }
     }
 
-    const canManage = managePerm ? hasPermission(role, managePerm, overrides) : true;
+    const canManage = managePerm ? holdsPermission(role, managePerm, overrides) : true;
 
     return children({ id, company, role, actingRole, ownRole, perms: overrides, canManage });
   };

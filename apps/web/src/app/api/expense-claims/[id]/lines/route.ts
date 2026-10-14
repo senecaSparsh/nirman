@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { addClaimLine, removeClaimLine, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requireAnyPermission, scopeWhere, getActingRole,} from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { apiHandler, getCompany, json, requireAnyPermission, scopeWhere, getUserPermissions,} from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
 const lineSchema = z.object({
@@ -18,7 +18,7 @@ const lineSchema = z.object({
 
 /** Self-service claimants (claim.create only) may only touch their own claims. */
 async function assertClaimantAccess(claimId: string, companyId: string, user: { id: string; role: string | null }) {
-  if (hasPermission(await getActingRole(), PERM.EXPENSE_CREATE)) return null;
+  if ((await getUserPermissions()).includes(PERM.EXPENSE_CREATE)) return null;
   const claim = await prisma.expenseClaim.findFirst({
     where: { id: claimId, companyId, ...await scopeWhere("ExpenseClaim") },
     select: { claimantId: true },

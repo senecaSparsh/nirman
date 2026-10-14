@@ -34,7 +34,7 @@ async function GeneralLedgerContent() {
 
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) {
     return (
-      <NoAccess what="the general ledger" />
+      <NoAccess what="the general ledger" permission={PERM.FINANCE_VIEW} />
     );
   }
 

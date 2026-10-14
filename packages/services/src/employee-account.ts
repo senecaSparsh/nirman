@@ -3,7 +3,7 @@ import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { withSerializableTransaction } from "./transaction";
 import { assertEmployeeCodeAvailable } from "./sequence";
-import { assertScopeWithinActor, validateScopeEntries } from "./rbac";
+import { assertScopeAllowedForRoles, assertScopeWithinActor, validateScopeEntries } from "./rbac";
 import { HrError } from "./hr";
 
 // ───────────────────────────────────────────────────────────────
@@ -359,9 +359,17 @@ export async function createEmployeeAccount(input: CreateEmployeeAccountInput) {
     }
 
     // ── Persist scope type + create UserScope rows ──
-    // scopeType must be stored even for COMPANY — a null scopeType falls back
-    // to the role default (PROJECT for field roles), which silently empties
-    // every project-scoped list for the new account.
+    // An explicit scope is required — a null scope falls back to the role
+    // default, which is company-wide for managers. Company-wide is limited to
+    // the roles that hold it, the same rule as the add-member flow.
+    if (!input.scopeType) {
+      throw new HrError("Choose an access scope for this login — the whole company, projects or departments.", 400);
+    }
+    await assertScopeAllowedForRoles(input.companyId, [input.role, ...(input.secondaryRoles ?? [])], input.scopeType).catch(
+      (err: Error & { status?: number }) => {
+        throw new HrError(err.message, err.status ?? 400);
+      },
+    );
     if (input.scopeType) {
       // Same guards as assignScopedMembership: entries must match the scope
       // type, and the actor can't grant visibility beyond their own scope.
@@ -732,14 +740,60 @@ export async function terminateEmployee(input: TerminateEmployeeInput) {
     //    The User account stays active as long as the employee has at least
     //    one active membership in another company (multi-company support).
     let recycledPhoneId: string | null = null;
+    let removedAccess: { projectRoles: unknown[]; grants: unknown[]; scopes: unknown[]; delegatedTo: string | null } | null = null;
     if (employee.userId) {
+      // Snapshot the access being removed BEFORE deactivation clears it —
+      // the audit entry records what the member held (and delegated).
+      const access = await tx.userCompany.findUnique({
+        where: { userId_companyId: { userId: employee.userId, companyId: input.companyId } },
+        select: {
+          id: true,
+          approvalsDelegatedToId: true,
+          userPermissions: { select: { permission: true } },
+          scopes: { select: { scopeKind: true, departmentId: true, projectId: true } },
+        },
+      });
+      // Deactivating also clears the member's own outbound delegation — a
+      // stored delegation pointer would silently resume the delegate's
+      // authority if this member is ever rehired.
       await tx.userCompany.updateMany({
         where: { userId: employee.userId, companyId: input.companyId },
-        data: { active: false },
+        data: { active: false, approvalsDelegatedToId: null, delegationEndsAt: null },
       });
+      // Stop open task timers — a terminated employee must not keep accruing
+      // time on timesheets.
+      await tx.taskTimeLog.updateMany({
+        where: { userId: employee.userId, endedAt: null },
+        data: { endedAt: now, note: "Auto-stopped — employment terminated" },
+      });
+      const projectRoles = await tx.projectAssignment.findMany({
+        where: { userId: employee.userId, project: { companyId: input.companyId } },
+        select: { projectId: true, scopedRole: true },
+      });
+      await tx.projectAssignment.deleteMany({
+        where: { userId: employee.userId, project: { companyId: input.companyId } },
+      });
+      if (access) {
+        await tx.userPermission.deleteMany({ where: { userCompanyId: access.id } });
+        await tx.userScope.deleteMany({ where: { userCompanyId: access.id } });
+      }
+      // Kill this company's push subscriptions — the device must stop
+      // receiving company content even if a direct send still targets them.
+      await tx.pushSubscription.updateMany({
+        where: { userId: employee.userId, companyId: input.companyId },
+        data: { isActive: false },
+      });
+      removedAccess = {
+        projectRoles,
+        grants: access?.userPermissions ?? [],
+        scopes: access?.scopes ?? [],
+        delegatedTo: access?.approvalsDelegatedToId ?? null,
+      };
 
       // 2b. Check if the user has any remaining active memberships.
-      //    If not, disable the User account entirely.
+      //    If not, disable the User account entirely and revoke its sessions —
+      //    a fully-terminated account must stop acting immediately, not when
+      //    its session cookie happens to expire.
       const activeMemberships = await tx.userCompany.count({
         where: { userId: employee.userId, active: true },
       });
@@ -748,6 +802,7 @@ export async function terminateEmployee(input: TerminateEmployeeInput) {
           where: { id: employee.userId },
           data: { active: false, employmentEndDate: now },
         });
+        await tx.session.deleteMany({ where: { userId: employee.userId } });
       }
 
       // 3. Recycle the assigned phone (if any)
@@ -787,6 +842,7 @@ export async function terminateEmployee(input: TerminateEmployeeInput) {
         employmentEndDate: input.employmentEndDate,
         recycledPhoneId,
         autoDepositWasEnabled: employee.autoDepositEnabled === true,
+        removedAccess,
       },
     });
 

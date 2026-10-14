@@ -5,13 +5,13 @@ import {
   updateExpense,
   submitExpense,
   approveExpense,
-  canAutoApprove,
+  canWaiveSelfApproval,
   rejectExpense,
   deleteExpense,
   ServiceError,
 } from "@nirman/services";
-import { apiHandler, ForbiddenError, getCompany, getUserPermissions, json, toNum, requireUser, scopeWhere, assertScopeAllows, getActingRole, getActingRoleForProject, requireEffectivePermission} from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { apiHandler, ForbiddenError, getCompany, getPermissionsForProject, json, toNum, requireUser, scopeWhere, assertScopeAllows, getActingRole, getActingRoleForProject, requireEffectivePermission} from "@/lib/server";
+import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
 const expenseUpdateSchema = z.object({
@@ -118,7 +118,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     try {
       await submitExpense(id, company.id, user.id);
       // Tier-1 creators (OWNER/ADMIN) auto-approve — no higher approver exists.
-      if (canAutoApprove(await getActingRole())) {
+      if (canWaiveSelfApproval(await getActingRole())) {
         await approveExpense(id, company.id, user.id, { actorRole: await getActingRole() });
         autoApproved = true;
       }
@@ -140,12 +140,12 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     // Scoped-role lift — a scoped PM/ACCOUNTANT hat on this expense's project
     // grants EXPENSE_APPROVE locally without the global perm.
     const actingRole = (await getActingRoleForProject(existing.projectId ?? null)) ?? (await getActingRole());
-    const perms = await getUserPermissions();
-    if (!perms.includes(PERM.EXPENSE_APPROVE) && !hasPermission(actingRole, PERM.EXPENSE_APPROVE)) {
+    const perms = await getPermissionsForProject(existing.projectId ?? null);
+    if (!perms.includes(PERM.EXPENSE_APPROVE)) {
       throw new ForbiddenError("You need expense approval rights on this project");
     }
-    // Tier-1 roles (OWNER/ADMIN) may approve their own expense — no higher approver exists.
-    if ((existing.createdById === user.id || existing.submittedById === user.id) && !canAutoApprove(actingRole)) {
+    // The OWNER may approve their own expense — no higher approver exists.
+    if ((existing.createdById === user.id || existing.submittedById === user.id) && !canWaiveSelfApproval(actingRole)) {
       return json({ error: "You cannot approve your own expense" }, { status: 403 });
     }
     try {
@@ -167,9 +167,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     const company = await getCompany();
     const existing = await prisma.expense.findFirst({ where: { id, companyId: company.id, ...await scopeWhere("Expense") } });
     if (!existing) return json({ error: "Expense not found or out of scope" }, { status: 404 });
-    const actingRole = (await getActingRoleForProject(existing.projectId ?? null)) ?? (await getActingRole());
-    const perms = await getUserPermissions();
-    if (!perms.includes(PERM.EXPENSE_APPROVE) && !hasPermission(actingRole, PERM.EXPENSE_APPROVE)) {
+    const perms = await getPermissionsForProject(existing.projectId ?? null);
+    if (!perms.includes(PERM.EXPENSE_APPROVE)) {
       throw new ForbiddenError("You need expense approval rights on this project");
     }
     if (!d.rejectionReason?.trim() && !d.reason?.trim()) {

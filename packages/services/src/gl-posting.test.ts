@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import Decimal from "decimal.js";
-import { CHART_OF_ACCOUNTS, ACCT } from "./gl-posting";
+import { CHART_OF_ACCOUNTS, ACCT, buildEquipmentSaleLines } from "./gl-posting";
 
 /**
  * Unit tests for the General Ledger posting layer.
@@ -99,5 +99,33 @@ describe("General Ledger — posting invariants (pure checks)", () => {
         { debit: new Decimal(0), credit: new Decimal(99) },
       ]),
     ).toBe(false);
+  });
+});
+
+describe("buildEquipmentSaleLines — fixed-asset disposal journal", () => {
+  const balanced = (lines: { debit: Decimal | number | string; credit: Decimal | number | string }[]) => {
+    const d = lines.reduce((s, l) => s.plus(l.debit), new Decimal(0));
+    const c = lines.reduce((s, l) => s.plus(l.credit), new Decimal(0));
+    return { d: d.toFixed(2), c: c.toFixed(2), ok: d.equals(c) };
+  };
+
+  it("sale below book value (loss) balances", () => {
+    const r = balanced(buildEquipmentSaleLines({ equipmentId: "eq1", salePrice: new Decimal(50000), currentValue: new Decimal(18500), gst: new Decimal(0) }));
+    expect(r.ok, `debits ${r.d} ≠ credits ${r.c}`).toBe(true);
+  });
+
+  it("sale above book value (gain) balances", () => {
+    const r = balanced(buildEquipmentSaleLines({ equipmentId: "eq1", salePrice: new Decimal(80000), currentValue: new Decimal(18500), gst: new Decimal(9000) }));
+    expect(r.ok, `debits ${r.d} ≠ credits ${r.c}`).toBe(true);
+  });
+
+  it("sale at book value balances", () => {
+    const r = balanced(buildEquipmentSaleLines({ equipmentId: "eq1", salePrice: new Decimal(18500), currentValue: new Decimal(18500), gst: new Decimal(0) }));
+    expect(r.ok, `debits ${r.d} ≠ credits ${r.c}`).toBe(true);
+  });
+
+  it("fully-depreciated asset (currentValue 0) balances", () => {
+    const r = balanced(buildEquipmentSaleLines({ equipmentId: "eq1", salePrice: new Decimal(5000), currentValue: new Decimal(0), gst: new Decimal(0) }));
+    expect(r.ok, `debits ${r.d} ≠ credits ${r.c}`).toBe(true);
   });
 });

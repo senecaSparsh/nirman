@@ -11,8 +11,8 @@ import {
   ArrowDownLeft,
   Users} from "lucide-react";
 import { prisma } from "@nirman/db";
-import { getTallySyncStats, getSupplierOutstanding, getExpenseBudgetVariance, canAutoApprove } from "@nirman/services";
-import { getCompany, getCurrentUser, toNum, scopeWhere, getEffectivePermissions, getActingRole, getScopedRolePermissions } from "@/lib/server";
+import { getTallySyncStats, getSupplierOutstanding, getExpenseBudgetVariance, canWaiveSelfApproval } from "@nirman/services";
+import { getCompany, getCurrentUser, toNum, scopeWhere, getEffectivePermissions, getUserRole, getScopedRolePermissions } from "@/lib/server";
 import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 import { PERM } from "@/lib/roles";
 import { loadQuickActionContext } from "@/lib/quick-action-server";
@@ -246,7 +246,7 @@ async function AccountsOverviewContent() {
     // and tier-2 approvers can't approve their own submissions.
     (async () => {
       const user = await getCurrentUser();
-      const selfOk = canAutoApprove(await getActingRole());
+      const selfOk = canWaiveSelfApproval(await getUserRole());
       const notOwn = selfOk ? {} : { not: user?.id };
       const effPerms = [
         ...(await getEffectivePermissions()),

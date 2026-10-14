@@ -15,7 +15,7 @@ export async function MaterialsContent() {
 
   if (!__effPerms.includes(PERM.INVENTORY_VIEW)) {
     return (
-      <NoAccess what="the material catalogue" />
+      <NoAccess what="the material catalogue" permission={PERM.INVENTORY_VIEW} />
     );
   }
 

@@ -23,7 +23,7 @@ async function PayrollContent() {
 
   if (!__effPerms.includes(PERM.PAYROLL_VIEW)) {
     return (
-      <NoAccess what="payroll" />
+      <NoAccess what="payroll" permission={PERM.PAYROLL_VIEW} />
     );
   }
 

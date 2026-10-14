@@ -20,7 +20,7 @@ export async function SettingsContent() {
   // OWNER/ADMIN (Admin tier) see everything; MANAGER (Sub-Admin) can access
   // to manage members below them in the hierarchy.
   if (!__effPerms.includes(PERM.COMPANY_MANAGE)) {
-    return <NoAccess what="company settings" />;
+    return <NoAccess what="company settings" permission={PERM.COMPANY_MANAGE} />;
   }
 
   const company = await getCompany();
@@ -30,7 +30,7 @@ export async function SettingsContent() {
   const [users, locations, projects, subcontractors, employees, companies, departments, memberships, customRoles] = await Promise.all([
     prisma.user.findMany({
       take: 200,
-      where: { memberships: { some: { companyId: company.id } } },
+      where: { memberships: { some: { companyId: company.id, active: true } } },
       orderBy: { name: "asc" },
       select: { id: true, email: true, name: true, role: true, active: true, phone: true, designation: true, department: true, employeeCode: true, joiningDate: true, lockedUntil: true, failedLoginAttempts: true },
     }),
@@ -68,7 +68,7 @@ export async function SettingsContent() {
         deletedAt: null,
         ...(isSuperuser || isDevBypass
           ? {}
-          : { userMemberships: { some: { userId: user?.id ?? "" } } }),
+          : { userMemberships: { some: { userId: user?.id ?? "", active: true } } }),
       },
       orderBy: { name: "asc" },
       include: {

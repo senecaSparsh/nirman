@@ -27,7 +27,7 @@
  * the primitives read from here.
  */
 
-import { hasPermission, PERM } from "@/lib/roles";
+import { holdsPermission, PERM } from "@/lib/roles";
 
 /**
  * A permission VALUE from PERM (e.g. "po.approve"), not the key name
@@ -610,7 +610,7 @@ export function resolveNextAction(
   role: string,
   overrides?: string[],
 ): NextAction | undefined {
-  return nextActionFor(flowId, status, (perm) => hasPermission(role, perm, overrides));
+  return nextActionFor(flowId, status, (perm) => holdsPermission(role, perm, overrides));
 }
 
 /**

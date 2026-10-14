@@ -4,7 +4,7 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { getCompany, getUserRole, toNum, getCurrentUser, getEmployeeAccessScope, canManageSpecificEmployee, getCompanyDescendantIds, getScopedFormOptions, scopeWhere, getUserPermissions } from "@/lib/server";
-import { PERM, ROLES, canAssignRole, canAssignCustomRole, type Role } from "@/lib/roles";
+import { PERM, ROLES, canAssignRole, canAssignCustomRole, canManageOwnerLevelRole, customRoleGrantedPermissions, type Role } from "@/lib/roles";
 import { MobileEmployeeDetailClient } from "./MobileEmployeeDetailClient";
 import { PageContextProvider } from "@/components/mobile/v2/page-context";
 import type { OnboardingEmployeeData } from "./MobileOnboardingTab";
@@ -626,7 +626,7 @@ async function MobileEmployeeDetailContent({
       .filter((r) => canAssignRole(role, r))
       .map((r) => ({ key: r, label: ROLES[r].label })),
     ...customRoles
-      .filter((cr) => canAssignCustomRole(role, cr.tier))
+      .filter((cr) => canAssignCustomRole(role, cr.tier) && canManageOwnerLevelRole(role, customRoleGrantedPermissions(cr)))
       .map((cr) => ({
         key: cr.key, // cr.key is already "CUSTOM_..." (API auto-prefixes)
         label: cr.label,

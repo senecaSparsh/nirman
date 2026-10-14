@@ -23,7 +23,7 @@ async function IncidentDetailContent({ id }: { id: string }) {
   const company = await getCompany();
   const __effPerms = await getUserPermissions();
 
-  if (!__effPerms.includes(PERM.SAFETY_VIEW)) return <NoAccess what="incident" />;
+  if (!__effPerms.includes(PERM.SAFETY_VIEW)) return <NoAccess what="incident" permission={PERM.SAFETY_VIEW} />;
   const canManage = __effPerms.includes(PERM.SAFETY_MANAGE);
 
   const incident = await prisma.safetyIncident.findFirst({

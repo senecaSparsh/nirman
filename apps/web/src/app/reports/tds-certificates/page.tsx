@@ -22,7 +22,7 @@ async function TdsContent() {
   const __effPerms = await getUserPermissions();
 
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) {
-    return <NoAccess what="TDS certificates" />;
+    return <NoAccess what="TDS certificates" permission={PERM.FINANCE_VIEW} />;
   }
 
   return (

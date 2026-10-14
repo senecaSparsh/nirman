@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { submitRaBill, approveRaBill, rejectRaBill, payRaBill, canAutoApprove, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, requireEffectivePermission, requirePermission, requireUser, toNum, scopeWhere, getActingRole, getActingRoleForProject, getUserPermissions, ForbiddenError,} from "@/lib/server";
-import { PERM, hasPermission } from "@/lib/roles";
+import { submitRaBill, approveRaBill, rejectRaBill, payRaBill, canWaiveSelfApproval, ServiceError } from "@nirman/services";
+import { apiHandler, getCompany, json, requireEffectivePermission, requirePermission, requireUser, toNum, scopeWhere, getActingRole, getActingRoleForProject, getPermissionsForProject, ForbiddenError,} from "@/lib/server";
+import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requireEffectivePermission(PERM.ASSETS_VIEW);
@@ -79,7 +79,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     if (action === "submit") {
       const bill = await submitRaBill(id, user.id);
       // Tier-1 creators (OWNER/ADMIN) auto-approve — no higher approver exists.
-      if (canAutoApprove(await getActingRole())) {
+      if (canWaiveSelfApproval(await getActingRole())) {
         const approved = await approveRaBill(id, user.id, await getActingRole());
         revalidatePath("/finance");
         revalidatePath("/m/accounts");
@@ -94,8 +94,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       // assignment scopedRole on it grants the authority locally.
       const raProject = await prisma.raBill.findFirst({ where: { id }, select: { projectId: true } });
       const actingRole = (await getActingRoleForProject(raProject?.projectId ?? null)) ?? (await getActingRole());
-      const perms = await getUserPermissions();
-      if (!perms.includes(PERM.RA_APPROVE) && !hasPermission(actingRole, PERM.RA_APPROVE)) {
+      const perms = await getPermissionsForProject(raProject?.projectId ?? null);
+      if (!perms.includes(PERM.RA_APPROVE)) {
         throw new ForbiddenError("You need RA bill approval rights on this project");
       }
       const bill = await approveRaBill(id, user.id, actingRole);
@@ -106,9 +106,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     if (action === "reject") {
       const schema = { reason: body.reason };
       if (!schema.reason) return json({ error: "Rejection reason is required" }, { status: 400 });
-      const actingRole = (await getActingRoleForProject(existing.projectId)) ?? (await getActingRole());
-      const perms = await getUserPermissions();
-      if (!perms.includes(PERM.RA_APPROVE) && !hasPermission(actingRole, PERM.RA_APPROVE)) {
+      const perms = await getPermissionsForProject(existing.projectId);
+      if (!perms.includes(PERM.RA_APPROVE)) {
         throw new ForbiddenError("You need RA bill approval rights on this project");
       }
       const bill = await rejectRaBill(id, body.reason, user.id);

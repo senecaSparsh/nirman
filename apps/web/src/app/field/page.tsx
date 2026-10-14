@@ -44,7 +44,7 @@ async function ReceivableOrders({
   const { po: preselectPoId } = await searchParams;
   const __effPerms = await getUserPermissions();
   if (!__effPerms.includes(PERM.PROCUREMENT_VIEW) && !__effPerms.includes(PERM.INVENTORY_VIEW)) {
-    return <NoAccess what="field receiving" />;
+    return <NoAccess what="field receiving" permission={`${PERM.PROCUREMENT_VIEW} or ${PERM.INVENTORY_VIEW}`} />;
   }
   const company = await getCompany();
   const pos = await prisma.purchaseOrder.findMany({

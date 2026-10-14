@@ -8,10 +8,10 @@ import {
   submitRequisition,
   waiveQuoteRequirement,
   logAction,
-  canAutoApprove,
+  canWaiveSelfApproval,
 } from "@nirman/services";
-import { PERM, hasPermission } from "@/lib/roles";
-import { apiHandler, ForbiddenError, getCompany, getUserPermissions, json, requireEffectivePermission, requireAnyPermission, requireUser, toNum, UnauthorizedError, scopeWhere, getActingRole, getActingRoleForProject,} from "@/lib/server";
+import { PERM } from "@/lib/roles";
+import { apiHandler, ForbiddenError, getCompany, getUserPermissions, getPermissionsForProject, json, requireEffectivePermission, requireAnyPermission, requireUser, toNum, UnauthorizedError, scopeWhere, getActingRole, getActingRoleForProject,} from "@/lib/server";
 import { z } from "zod";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -155,7 +155,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       // A tier-1 creator (OWNER/ADMIN) is the top of the approval hierarchy —
       // no higher approver exists, so submitting auto-approves their indent.
       // Lower tiers leave it SUBMITTED for another approver to review.
-      if (canAutoApprove(await getActingRole())) {
+      if (canWaiveSelfApproval(await getActingRole())) {
         await approveRequisition(id, user.id, undefined, await getActingRole());
       }
       revalidatePath("/requisitions");
@@ -165,7 +165,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     if (action === "approve") {
       const user = await requireUser();
       // Prevent self-approval — the requester cannot approve their own indent,
-      // unless they're a tier-1 role (OWNER/ADMIN) where no higher approver exists.
+      // unless they're the OWNER, where no higher approver exists.
       const req = await prisma.materialRequisition.findFirst({
         where: { id, ...companyAnchor(company.id), ...await scopeWhere("MaterialRequisition") },
         select: { requestedById: true, projectId: true },
@@ -173,11 +173,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       // Scoped-role lift — a SITE_ENGINEER scoped as PROJECT_MANAGER on this
       // project can approve its indents even without global req.approve.
       const actingRole = (await getActingRoleForProject(req?.projectId ?? null)) ?? (await getActingRole());
-      const perms = await getUserPermissions();
-      if (!perms.includes(PERM.REQUISITION_APPROVE) && !hasPermission(actingRole, PERM.REQUISITION_APPROVE)) {
+      const perms = await getPermissionsForProject(req?.projectId ?? null);
+      if (!perms.includes(PERM.REQUISITION_APPROVE)) {
         throw new ForbiddenError("You need requisition approval rights on this project");
       }
-      if (req?.requestedById === user.id && !canAutoApprove(actingRole)) {
+      if (req?.requestedById === user.id && !canWaiveSelfApproval(actingRole)) {
         return json({ error: "You cannot approve your own indent. Ask another approver to review it." }, { status: 403 });
       }
       await approveRequisition(id, user.id, undefined, actingRole);
@@ -192,9 +192,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
         where: { id, ...companyAnchor(company.id), ...await scopeWhere("MaterialRequisition") },
         select: { requestedById: true, projectId: true },
       });
-      const actingRole = (await getActingRoleForProject(req?.projectId ?? null)) ?? (await getActingRole());
-      const perms = await getUserPermissions();
-      if (!perms.includes(PERM.REQUISITION_APPROVE) && !hasPermission(actingRole, PERM.REQUISITION_APPROVE)) {
+      const perms = await getPermissionsForProject(req?.projectId ?? null);
+      if (!perms.includes(PERM.REQUISITION_APPROVE)) {
         throw new ForbiddenError("You need requisition approval rights on this project");
       }
       if (req?.requestedById === user.id) {

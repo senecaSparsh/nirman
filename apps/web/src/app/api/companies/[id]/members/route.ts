@@ -1,25 +1,10 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { resolveScopeType } from "@nirman/services";
-import { apiHandler, canManageRole, canManageRoleSet, getActingRole, getCompany, getManageableCompanyIds, json, requirePermission, userRoleSchema, type CurrentUser } from "@/lib/server";
+import { assertMemberScopeGrant, logAction, resolveScopeType, withSerializableTransaction } from "@nirman/services";
+import { apiHandler, assertCompanyAccess, canManageRole, canManageRoleSet, getActingRole, json, requirePermission, userRoleSchema } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 import { isCustomRole } from "@/lib/roles";
-
-/**
- * Tenancy guard — the [id] path param must resolve to the caller's active
- * company or a company inside their manageable tree (their memberships +
- * descendants — the same set GET /api/companies lists). Without it any
- * COMPANY_MANAGE holder could read/alter another tenant's roster by id.
- * Returns null when access is allowed, or a 404 Response to return.
- */
-async function assertCompanyAccess(user: CurrentUser, id: string): Promise<Response | null> {
-  const current = await getCompany();
-  if (id === current.id) return null;
-  const manageable = await getManageableCompanyIds(user.id);
-  if (!manageable.includes(id)) return json({ error: "Company not found" }, { status: 404 });
-  return null;
-}
 
 /**
  * GET /api/companies/[id]/members — list the users that are members of
@@ -63,7 +48,10 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
       reportsToUserCompanyId: m.reportsToUserCompanyId,
       name: m.user.name,
       email: m.user.email,
-      active: m.user.active,
+      // "Can this member act here" — both the account AND this company's
+      // membership must be live; a terminated member whose account stays
+      // active in another company must not list as active here.
+      active: m.user.active && m.active,
       scopes: m.scopes.map((s) => ({
         scopeKind: s.scopeKind,
         departmentId: s.departmentId,
@@ -81,6 +69,9 @@ const addMemberSchema = z.object({
   role: z.string().optional(),
   // Multi-role: additional hats the member can switch into.
   secondaryRoles: z.array(z.string()).max(8).optional(),
+  // Required when the person is new to this company. Existing members keep their scope.
+  scopeType: z.enum(["COMPANY", "DEPARTMENT", "PROJECT"]).optional(),
+  scopeEntries: z.array(z.object({ projectId: z.string().min(1).optional(), departmentId: z.string().min(1).optional() })).max(100).optional(),
 });
 
 /**
@@ -153,8 +144,50 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
     }
   }
 
-  // Find or create the user by email.
+  // Find or create the user by email. A person new to this company must be
+  // given an access scope; a member already here keeps theirs.
   let user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+  const existingMembership = user
+    ? await prisma.userCompany.findUnique({
+        where: { userId_companyId: { userId: user.id, companyId: id } },
+        select: { id: true, role: true, secondaryRoles: true, active: true },
+      })
+    : null;
+  // A terminated member's row is dormant, not resurrectable by a role upsert —
+  // updating it silently would report ok while the member stays deactivated.
+  // Reactivation goes through the restore flow, which audits the rehire.
+  if (existingMembership?.active === false) {
+    return json(
+      { error: "This membership is deactivated — restore the member through the employee flow instead of re-adding them." },
+      { status: 409 },
+    );
+  }
+  // An existing member: the actor must be above EVERY hat they hold — a dormant
+  // senior hat still protects them from a peer/superior reassignment.
+  if (existingMembership && !(await canManageRoleSet(actorRole, [existingMembership.role, ...existingMembership.secondaryRoles], id))) {
+    return json(
+      { error: `This user is already a ${existingMembership.role} — you cannot reassign a role at or above your tier.` },
+      { status: 403 },
+    );
+  }
+  let scope: Awaited<ReturnType<typeof assertMemberScopeGrant>> = [];
+  if (!existingMembership) {
+    if (!parsed.data.scopeType) {
+      return json({ error: "Choose an access scope for this member — the whole company, projects or departments." }, { status: 400 });
+    }
+    try {
+      scope = await assertMemberScopeGrant({
+        actorUserId: actorUser.id,
+        companyId: id,
+        role,
+        secondaryRoles,
+        scopeType: parsed.data.scopeType,
+        entries: parsed.data.scopeEntries ?? [],
+      });
+    } catch (err: unknown) {
+      return json({ error: err instanceof Error ? err.message : "Invalid access scope" }, { status: (err as { status?: number }).status ?? 400 });
+    }
+  }
   if (!user) {
     user = await prisma.user.create({
       data: {
@@ -164,45 +197,35 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
         emailVerified: false,
       },
     });
-  } else {
-    // Existing user: if they already have a membership, the actor must be
-    // above EVERY hat they hold — a dormant senior hat still protects them
-    // from a peer/superior reassignment.
-    const existingMembership = await prisma.userCompany.findUnique({
-      where: { userId_companyId: { userId: user.id, companyId: id } },
-      select: { role: true, secondaryRoles: true },
-    });
-    if (existingMembership && !(await canManageRoleSet(actorRole, [existingMembership.role, ...existingMembership.secondaryRoles], id))) {
-      return json(
-        { error: `This user is already a ${existingMembership.role} — you cannot reassign a role at or above your tier.` },
-        { status: 403 },
-      );
-    }
   }
 
   // Idempotent membership upsert. A stale worn hat (not in the new held
   // set) resets to the primary role on next resolution — and is cleared
   // here so reads stay consistent. The User.role mirror follows the
   // membership's primary role — list views and the held-set union read it.
-  // `wasMember` distinguishes "added" from "role silently overwritten" —
-  // the UI should say which happened, since an Add verb mutating an
-  // existing member's role is otherwise invisible to the actor.
-  const wasMember = await prisma.userCompany.findUnique({
-    where: { userId_companyId: { userId: user.id, companyId: id } },
-    select: { id: true },
-  });
+  // `existingMembership` distinguishes "added" from "role silently overwritten" —
+  // the UI should say which happened, since an Add verb mutating an existing
+  // member's role is otherwise invisible to the actor. The access scope is
+  // written once, when the person joins; a re-add only moves the role.
   const newHeldSet = new Set([role, ...secondaryRoles]);
-  const membership = await prisma.userCompany.upsert({
-    where: { userId_companyId: { userId: user.id, companyId: id } },
-    // On update keep the existing scope — a role change shouldn't silently
-    // wipe an admin's deliberate scoping. On CREATE, default scopeType to
-    // COMPANY: the add-member form has no scope picker, so a role that
-    // defaults to PROJECT (supervisor, site engineer, scratch custom roles)
-    // would otherwise land scoped with zero entries — sees nothing. COMPANY
-    // = unscoped = working membership; narrowing happens via Set access scope.
-    update: { role, secondaryRoles },
-    create: { userId: user.id, companyId: id, role, secondaryRoles, scopeType: "COMPANY" },
-    select: { id: true, userId: true, role: true, secondaryRoles: true },
+  const membership = await withSerializableTransaction(async (tx) => {
+    const saved = await tx.userCompany.upsert({
+      where: { userId_companyId: { userId: user.id, companyId: id } },
+      update: { role, secondaryRoles },
+      create: { userId: user.id, companyId: id, role, secondaryRoles, scopeType: parsed.data.scopeType ?? null, scopes: { create: scope } },
+      select: { id: true, userId: true, role: true, secondaryRoles: true },
+    });
+    if (!existingMembership) {
+      await logAction(tx, {
+        userId: actorUser.id,
+        companyId: id,
+        action: "MEMBERSHIP_ADD",
+        entityType: "UserCompany",
+        entityId: saved.id,
+        after: { role, secondaryRoles, scopeType: parsed.data.scopeType, scopes: scope },
+      });
+    }
+    return saved;
   });
   if (user.role !== role) {
     await prisma.user.update({ where: { id: user.id }, data: { role } });
@@ -212,5 +235,5 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
     data: { activeRole: null },
   });
 
-  return json({ ok: true, membership, updated: !!wasMember }, { status: 201 });
+  return json({ ok: true, membership, updated: !!existingMembership, scopeKept: !!existingMembership }, { status: 201 });
 });

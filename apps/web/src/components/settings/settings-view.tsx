@@ -32,6 +32,7 @@ import { CreateUserDialog } from "@/components/settings/create-user-dialog";
 import { ResetPasswordDialog } from "@/components/settings/reset-password-dialog";
 import { MemberHatsDialog } from "@/components/settings/member-hats-dialog";
 import { RolePermissionsDialog } from "@/components/settings/role-permissions-dialog";
+import { WhoCanDialog } from "@/components/settings/who-can-dialog";
 import { UserActivityDialog } from "@/components/settings/user-activity-dialog";
 import { BulkImportDialog } from "@/components/settings/bulk-import-dialog";
 import type { StockLocationRow, DepartmentRow } from "@/lib/types";
@@ -874,6 +875,7 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [showRolePerms, setShowRolePerms] = useState(false);
+  const [showWhoCan, setShowWhoCan] = useState(false);
   const [activityUser, setActivityUser] = useState<UserRow | null>(null);
   const [userSearch, setUserSearch] = useState("");
   const [confirmDeactivate, setConfirmDeactivate] = useState<UserRow | null>(null);
@@ -1034,6 +1036,9 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
                 <Shield className="h-3.5 w-3.5" /> Role Permissions
               </Button>
             )}
+            <Button size="sm" variant="outline" onClick={() => setShowWhoCan(true)}>
+              <Search className="h-3.5 w-3.5" /> Who can do this
+            </Button>
             <Button size="sm" variant="outline" onClick={() => setShowCreateRole(true)}>
               <ShieldPlus className="h-3.5 w-3.5" /> Custom Role
             </Button>
@@ -1388,6 +1393,10 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
           onClose={() => setShowRolePerms(false)}
           onSaved={() => { setShowRolePerms(false); router.refresh(); }}
         />
+      )}
+
+      {showWhoCan && (
+        <WhoCanDialog onClose={() => setShowWhoCan(false)} />
       )}
 
       {/* User activity dialog */}

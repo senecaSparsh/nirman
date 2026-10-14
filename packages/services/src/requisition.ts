@@ -5,7 +5,7 @@ import { logAction } from "./audit";
 import { evaluateRequisitionRouting, getCachedRoutingScope } from "./procurement-routing";
 import { isQuoteGateSatisfied } from "./quote-comparison";
 import { ServiceError } from "./errors";
-import { canAutoApprove } from "./rbac";
+import { canWaiveSelfApproval } from "./rbac";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { createQuotationRequest } from "./quotation";
 import { withSerializableTransaction } from "./transaction";
@@ -259,7 +259,7 @@ export async function approveRequisition(reqId: string, approvedById?: string, a
     // Prevent self-approval — the requester or submitter cannot approve their
     // own requisition, unless they're a tier-1 role (OWNER/ADMIN) where no
     // higher approver exists.
-    if (approvedById && !canAutoApprove(actorRole)) {
+    if (approvedById && !canWaiveSelfApproval(actorRole)) {
       if (req.requestedById === approvedById) {
         throw new ServiceError("You cannot approve your own indent. Ask another approver to review it.", 403);
       }

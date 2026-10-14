@@ -12,7 +12,7 @@ export async function StandardConsumptionsContent() {
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.INVENTORY_VIEW)) {
-    return <NoAccess what="consumption benchmarks" />;
+    return <NoAccess what="consumption benchmarks" permission={PERM.INVENTORY_VIEW} />;
   }
 
   const canManage = __effPerms.includes(PERM.INVENTORY_MANAGE);

@@ -293,6 +293,11 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       where: { userId, deletedAt: null, active: true },
       data: { active: false },
     });
+    // Stop open task timers — a deactivated user must not keep accruing time.
+    await prisma.taskTimeLog.updateMany({
+      where: { userId, endedAt: null },
+      data: { endedAt: new Date(), note: "Auto-stopped — user deactivated" },
+    });
   }
   // ── Cascade: reactivating a User also reactivates their linked Employee
   //    (if the employee wasn't independently soft-deleted). ──
@@ -346,6 +351,16 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     });
     if (deletedSessions.count > 0) {
       deactivationSideEffects.sessionsRevoked = deletedSessions.count;
+    }
+
+    // 1b. Deactivate push subscriptions — a deactivated account's devices
+    // must stop receiving notifications, not just lose the ability to log in.
+    const revokedPushSubs = await prisma.pushSubscription.updateMany({
+      where: { userId },
+      data: { isActive: false },
+    });
+    if (revokedPushSubs.count > 0) {
+      deactivationSideEffects.pushSubscriptionsRevoked = revokedPushSubs.count;
     }
 
     // 2. Null out pending PO approvals where this user is the approver

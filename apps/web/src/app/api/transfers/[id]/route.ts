@@ -114,6 +114,7 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
   }
   return json({
     id: transfer.id,
+    transferNumber: transfer.transferNumber,
     fromLocationId: transfer.fromLocationId,
     fromLocationName: transfer.fromLocation.name,
     fromCompanyName: transfer.fromLocation.company?.name ?? null,

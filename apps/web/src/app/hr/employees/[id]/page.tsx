@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { scopeWhere,  getCompany, toNum, getUserRole, getEmployeeAccessScope, canManageSpecificEmployee, getCurrentUser, getCompanyDescendantIds, getScopedFormOptions, getUserPermissions } from "@/lib/server";
-import { PERM, ROLES, canAssignRole, canAssignCustomRole, type Role } from "@/lib/roles";
+import { PERM, ROLES, canAssignRole, canAssignCustomRole, canManageOwnerLevelRole, customRoleGrantedPermissions, type Role } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
 import { EmployeeProfileClient, type EmployeeProfileData } from "@/components/hr/employee-profile-client";
@@ -32,7 +32,7 @@ async function EmployeeProfileContent({
   const company = await getCompany();
 
   if (!__effPerms.includes(PERM.HR_VIEW)) {
-    return <NoAccess what="employee profile" />;
+    return <NoAccess what="employee profile" permission={PERM.HR_VIEW} />;
   }
 
   const canManage = __effPerms.includes(PERM.HR_MANAGE);
@@ -124,7 +124,7 @@ async function EmployeeProfileContent({
   // ── Load custom roles for this company (for role picker + label display) ──
   const customRoles = await prisma.customRole.findMany({
     where: { companyId: company.id },
-    select: { key: true, label: true, baseRole: true, tier: true },
+    select: { key: true, label: true, baseRole: true, permissions: true, tier: true },
     orderBy: { createdAt: "asc" },
   }).catch(() => []);
 
@@ -530,7 +530,7 @@ async function EmployeeProfileContent({
       .filter((r) => canAssignRole(role, r))
       .map((r) => ({ key: r, label: ROLES[r].label })),
     ...customRoles
-      .filter((cr) => canAssignCustomRole(role, cr.tier))
+      .filter((cr) => canAssignCustomRole(role, cr.tier) && canManageOwnerLevelRole(role, customRoleGrantedPermissions(cr)))
       .map((cr) => ({ key: cr.key, label: cr.label })),
   ];
 

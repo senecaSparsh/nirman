@@ -267,6 +267,10 @@ export function formatEnumLabel(value: string | null | undefined): string {
 }
 export const formatPaymentMode = formatEnumLabel;
 
+export function permissionLabel(permission: string): string {
+  return permission.split(" or ").map((p) => formatEnumLabel(p.replace(/\./g, "_"))).join(" or ");
+}
+
 /** BuiltUnit.unitType → "2 BHK" — BHK_N needs the number first, which
  *  formatEnumLabel can't express. Shared copy of the map that was
  *  duplicated across MobileNewUnitDialog + portal-listings-view + project-hub. */

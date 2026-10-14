@@ -1,8 +1,10 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, getUserPermissions, json, requireUser, toNum, scopeWhere, getActingRole, getScopedRolePermissions,} from "@/lib/server";
-import { canAutoApprove } from "@nirman/services";
+import { apiHandler, getCompany, getUserPermissions, json, requireUser, toNum, scopeWhere, getActingRole, getScopedRolePermissions } from "@/lib/server";
+import { canAutoApprove, canSelfApprovePurchaseOrder, canWaiveSelfApproval } from "@nirman/services";
 import { PERM } from "@/lib/roles";
+import { canApproveIndentRow, canApprovePoRow, companyRequisitionFilter, notCreatedBy, notSubmittedBy } from "@/lib/approval-queue";
+import { actionableApprovals, gatesFor, poThresholds } from "@/lib/approval-actionable";
 
 /**
  * GET /api/approvals — the procurement approval queue.
@@ -43,10 +45,12 @@ export const GET = apiHandler(async (req: NextRequest) => {
   }
   const company = await getCompany();
 
-  // Tier-1 roles (OWNER/ADMIN) may approve their own submissions — the
-  // service layer allows it, so the queue must show them. Everyone else
-  // only sees items created by other users.
-  const selfFilter = canAutoApprove(await getActingRole()) ? {} : { not: user.id };
+  // Each type mirrors its service-layer self-approval rule: POs and indents
+  // owner only, gate passes tier-1. Everyone else only sees items created by others.
+  const selfActing = await getActingRole();
+  const poSelf = canSelfApprovePurchaseOrder(selfActing) ? {} : notCreatedBy(user.id);
+  const reqSelf = canWaiveSelfApproval(selfActing) ? {} : notSubmittedBy(user.id);
+  const gpSelf = canAutoApprove(selfActing) ? {} : notCreatedBy(user.id);
 
   // Pre-compute scope filters for scoped models
   const reqScope = await scopeWhere("MaterialRequisition", {});
@@ -56,56 +60,47 @@ export const GET = apiHandler(async (req: NextRequest) => {
   if (countOnly) {
     // Count only what THIS user can approve — a req-only approver must not
     // get a badge inflated by POs they have no permission to touch.
-    const [poCount, reqCount, gpCount] = await Promise.all([
-      canApprovePo
-        ? prisma.purchaseOrder.count({
-            where: { ...poScope, companyId: company.id, status: "DRAFT", createdById: selfFilter },
-          })
-        : Promise.resolve(0),
-      canApproveReq
-        ? prisma.materialRequisition.count({
-            where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: selfFilter, ...reqScope },
-          })
-        : Promise.resolve(0),
-      canApproveGatePass
-        ? prisma.gatePass.count({
-            where: { companyId: company.id, status: "PENDING", createdById: selfFilter, ...gpScope },
-          })
-        : Promise.resolve(0),
-    ]);
-    return json({ count: poCount + reqCount + gpCount });
+    const { pos, reqs } = await actionableApprovals(company.id);
+    const gpCount = canApproveGatePass
+      ? await prisma.gatePass.count({ where: { companyId: company.id, status: "PENDING", ...gpSelf, ...gpScope } })
+      : 0;
+    return json({ count: pos.length + reqs.length + gpCount });
   }
 
   const [purchaseOrders, requisitions, gatePasses] = await Promise.all([
-    prisma.purchaseOrder.findMany({
-      where: { ...poScope, companyId: company.id, status: "DRAFT", createdById: selfFilter },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-      include: {
-        supplier: { select: { id: true, name: true } },
-        project: { select: { id: true, name: true, totalBudget: true } },
-        lines: { select: { qtyOrdered: true, unitCost: true, materialId: true } },
-        createdBy: { select: { id: true, name: true } },
-      },
-    }),
-    prisma.materialRequisition.findMany({
-      where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: selfFilter, ...reqScope },
-      orderBy: { createdAt: "desc" },
-      take: 100,
-      include: {
-        project: { select: { id: true, name: true, totalBudget: true } },
-        phase: { select: { id: true, name: true } },
-        lines: {
+    canApprovePo
+      ? prisma.purchaseOrder.findMany({
+          where: { ...poScope, companyId: company.id, status: "DRAFT", ...poSelf },
+          orderBy: { createdAt: "desc" },
+          take: 100,
           include: {
-            material: { select: { id: true, name: true, code: true, unit: true } },
+            supplier: { select: { id: true, name: true } },
+            project: { select: { id: true, name: true, totalBudget: true } },
+            lines: { select: { qtyOrdered: true, unitCost: true, materialId: true } },
+            createdBy: { select: { id: true, name: true } },
           },
-        },
-        requestedBy: { select: { id: true, name: true } },
-      },
-    }),
+        })
+      : [],
+    canApproveReq
+      ? prisma.materialRequisition.findMany({
+          where: { ...companyRequisitionFilter(company.id), status: "SUBMITTED", ...reqSelf, ...reqScope },
+          orderBy: { createdAt: "desc" },
+          take: 100,
+          include: {
+            project: { select: { id: true, name: true, totalBudget: true } },
+            phase: { select: { id: true, name: true } },
+            lines: {
+              include: {
+                material: { select: { id: true, name: true, code: true, unit: true } },
+              },
+            },
+            requestedBy: { select: { id: true, name: true } },
+          },
+        })
+      : [],
     canApproveGatePass
       ? prisma.gatePass.findMany({
-          where: { companyId: company.id, status: "PENDING", createdById: selfFilter, ...gpScope },
+          where: { companyId: company.id, status: "PENDING", ...gpSelf, ...gpScope },
           orderBy: { createdAt: "desc" },
           take: 100,
           include: {
@@ -181,6 +176,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
     return ageDays >= 3 ? "due_this_week" : "normal";
   }
 
+  const thresholds = await poThresholds(company.id);
+  const gates = await gatesFor([...purchaseOrders, ...requisitions].map((r) => r.projectId));
+
   // ── Build PO responses with budget context ──
   const poResponses = await Promise.all(
     purchaseOrders.map(async (po) => {
@@ -200,7 +198,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         createdByName: po.createdBy?.name ?? null,
         createdAt: po.createdAt.toISOString(),
         expectedDate: po.expectedDate?.toISOString() ?? null,
-        canApprove: canApprovePo,
+        canApprove: canApprovePoRow(gates.get(po.projectId ?? ""), po.total.toString(), thresholds),
         ...ctx,
         urgency: computeUrgency(po.expectedDate, po.createdAt),
       };
@@ -228,7 +226,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         requestedByName: r.requestedBy?.name ?? null,
         neededByDate: r.neededByDate?.toISOString() ?? null,
         createdAt: r.createdAt.toISOString(),
-        canApprove: canApproveReq,
+        canApprove: canApproveIndentRow(gates.get(r.projectId ?? "")),
         ...ctx,
         urgency: computeUrgency(r.neededByDate, r.createdAt),
         lineDetails: r.lines.map((l) => ({
