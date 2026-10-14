@@ -3,8 +3,10 @@
 #   attendance mix → generate → per-line math → advance recovery → regenerate
 #   idempotency → process → pay → advance balance credit → payroll lock.
 #
-# Uses Aug-2025 (a past month with no seeded attendance and no existing
-# PayrollPeriod). Creates three synthetic employees:
+# Rolls forward to the first month with no PayrollPeriod (PAID periods
+# lock the month, so a hardcoded month runs only once; the roll is capped
+# at the current month because attendance refuses future dates). Creates
+# three synthetic employees:
 #   E1 DAILY ₹500/day: 10 PRESENT + 1 OVERTIME(11h) + 2 HALF_DAY + 4 LATE + 2 ABSENT
 #     → daysWorked 16, late-deduction −0.5d, OT 3h × ₹62.5 × 1.5 = ₹281.25
 #     → advance recovery ₹5,000 (of ₹20,000 outstanding)
@@ -37,11 +39,16 @@ expect_num() { # label sql want — numeric compare within ₹0.01
 }
 uid() { echo "hrc$(date +%s)$RANDOM"; }
 
-MON=8; YR=2025
-echo "════════ setup: employees + advance ════════"
+# Roll forward to the first free month (no PayrollPeriod), capped at the
+# current month — attendance refuses present-type marks on future dates,
+# and a PAID period locks the month entirely.
+MO=$(P "SELECT to_char(m,'YYYY-MM') FROM generate_series('2025-10-01'::date,'2030-12-01'::date,'1 month') m WHERE m <= date_trunc('month',now()) AND NOT EXISTS (SELECT 1 FROM \"PayrollPeriod\" pp WHERE pp.\"companyId\"='$C' AND date_trunc('month',pp.\"startDate\")=date_trunc('month',m)) ORDER BY m LIMIT 1")
+if [ -z "$MO" ]; then echo "no free payroll month ≤ current — all are PAID-locked"; exit 2; fi
+MON=$((10#${MO#*-})); YR=${MO%%-*}
+echo "════════ setup: employees + advance (payroll month $MO) ════════"
 E1=$(uid); E2=$(uid); E3=$(uid); ADV=$(uid)
 for E in $E1 $E2 $E3; do
-  P "INSERT INTO \"Employee\" (id,name,\"companyId\",\"wageType\",\"dailyRate\",\"joinDate\",active,\"updatedAt\") VALUES ('$E','hrchain-$E','$C','DAILY',500,'2025-08-01',true,now())"
+  P "INSERT INTO \"Employee\" (id,name,\"companyId\",\"wageType\",\"dailyRate\",\"joinDate\",active,\"updatedAt\") VALUES ('$E','hrchain-$E','$C','DAILY',500,'$MO-01',true,now())"
 done
 P "INSERT INTO \"EmployeeAdvance\" (id,\"companyId\",\"employeeId\",amount,\"monthlyRecovery\",status,\"issueDate\",\"updatedAt\",\"createdAt\") VALUES ('$ADV','$C','$E1',20000,5000,'ACTIVE','2025-07-01',now(),now())"
 P "INSERT INTO \"EmployeeAdvance\" (id,\"companyId\",\"employeeId\",amount,\"monthlyRecovery\",status,\"issueDate\",\"updatedAt\",\"createdAt\") VALUES ('$(uid)','$C','$E2',20000,5000,'ACTIVE','2025-07-01',now(),now())"
@@ -60,17 +67,17 @@ post_day() { # date json-records
 rec() { echo "{\"employeeId\":\"$1\",\"status\":\"$2\"${3:+,\"hoursWorked\":$3}}"; }
 
 # E1: 10 PRESENT(8h) + 1 OVERTIME(11h) + 2 HALF_DAY + 4 LATE + 2 ABSENT
-for d in 04 05 06 07 08 11 12 13 14 18; do post_day "2025-08-$d" "$(rec $E1 PRESENT 8)"; done
-post_day "2025-08-15" "$(rec $E1 OVERTIME 11)"
-for d in 19 20; do post_day "2025-08-$d" "$(rec $E1 HALF_DAY 4)"; done
-for d in 21 22 25 26; do post_day "2025-08-$d" "$(rec $E1 LATE 8)"; done
-for d in 27 28; do post_day "2025-08-$d" "$(rec $E1 ABSENT)"; done
+for d in 04 05 06 07 08 11 12 13 14 18; do post_day "$MO-$d" "$(rec $E1 PRESENT 8)"; done
+post_day "$MO-15" "$(rec $E1 OVERTIME 11)"
+for d in 19 20; do post_day "$MO-$d" "$(rec $E1 HALF_DAY 4)"; done
+for d in 21 22 25 26; do post_day "$MO-$d" "$(rec $E1 LATE 8)"; done
+for d in 27 28; do post_day "$MO-$d" "$(rec $E1 ABSENT)"; done
 # E2: 1 PRESENT — gross ₹500 vs ₹5000/mo recovery → net-floor cap path
-post_day "2025-08-04" "$(rec $E2 PRESENT 8)"
+post_day "$MO-04" "$(rec $E2 PRESENT 8)"
 # E3: 3 PRESENT — deactivated before generate → final-settlement inclusion
-for d in 04 05 06; do post_day "2025-08-$d" "$(rec $E3 PRESENT 8)"; done
+for d in 04 05 06; do post_day "$MO-$d" "$(rec $E3 PRESENT 8)"; done
 
-n=$(P "SELECT count(*) FROM \"WorkerAttendance\" WHERE \"employeeId\" IN ('$E1','$E2','$E3') AND date >= '2025-08-01' AND date <= '2025-08-31'")
+n=$(P "SELECT count(*) FROM \"WorkerAttendance\" WHERE \"employeeId\" IN ('$E1','$E2','$E3') AND date >= '$MO-01' AND date < ('$MO-01'::date + interval '1 month')")
 [ "${n:-0}" -ge 22 ] && { PASS=$((PASS+1)); echo "  PASS attendance rows ($n)"; } || { FAIL=$((FAIL+1)); echo "  FAIL attendance rows ($n)"; }
 
 echo "════════ 2. E3 terminated mid-month — still owed worked days ════════"
@@ -110,7 +117,7 @@ expect_num "e1 net after regen" "SELECT \"netPay\" FROM \"PayrollLine\" WHERE id
 
 echo "════════ 5. process → pay → advance credit ════════"
 # Keep blast-radius to the three test employees — real employees' synthetic
-# Aug-2025 lines would post crores of journals on pay.
+# lines for this month would post crores of journals on pay.
 P "DELETE FROM \"PayrollLine\" WHERE \"payrollPeriodId\"='$PP' AND \"employeeId\" NOT IN ('$E1','$E2','$E3')"
 r=$(req PATCH "payroll/$PP" '{"action":"process"}')
 [ "$(P "SELECT status FROM \"PayrollPeriod\" WHERE id='$PP'")" != "PROCESSED" ] && echo "  · process resp: ${r:0:120}"
@@ -122,7 +129,7 @@ expect_num "advance recovered" "SELECT \"recoveredAmount\" FROM \"EmployeeAdvanc
 expect "advance still ACTIVE (15k left)" EmployeeAdvance "$ADV" '"status"' ACTIVE
 
 echo "════════ 6. payroll lock — attendance write into PAID period ════════"
-r=$(req POST "attendance" "{\"date\":\"2025-08-27\",\"projectId\":\"$PROJ\",\"records\":[{\"employeeId\":\"$E1\",\"status\":\"PRESENT\",\"hoursWorked\":8}]}")
+r=$(req POST "attendance" "{\"date\":\"$MO-27\",\"projectId\":\"$PROJ\",\"records\":[{\"employeeId\":\"$E1\",\"status\":\"PRESENT\",\"hoursWorked\":8}]}")
 echo "$r" | grep -qiE "lock|paid|processed|error" && { PASS=$((PASS+1)); echo "  PASS paid-period write blocked"; } || { FAIL=$((FAIL+1)); echo "  FAIL paid period accepted write: ${r:0:160}"; }
 
 echo "════════ 7. generate on locked period → 409 ════════"
