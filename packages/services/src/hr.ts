@@ -2196,19 +2196,27 @@ export async function processPayroll(input: { payrollPeriodId: string; userId?: 
     const totalProfessionTax = period.lines.reduce((sum, l) => sum.plus(new Decimal(l.professionTax)), new Decimal(0));
     const totalTDS = period.lines.reduce((sum, l) => sum.plus(new Decimal(l.tax)), new Decimal(0));
 
+    // Recompute headline totals from the lines that exist NOW — the period's
+    // stored totalGross/totalNet/totalDeductions are a generate-time snapshot
+    // and go stale the moment a draft line is edited or deleted. Posting GL
+    // from the snapshot would book expense + payables for lines that aren't
+    // being processed.
+    const totalGross = period.lines.reduce((sum, l) => sum.plus(new Decimal(l.grossPay)), new Decimal(0));
+    const totalDeductions = period.lines.reduce((sum, l) => sum.plus(new Decimal(l.totalDeductions)), new Decimal(0));
+    const totalNet = period.lines.reduce((sum, l) => sum.plus(new Decimal(l.netPay)), new Decimal(0));
     // Post the GL entry inside the same transaction — GROSS expense + employer PF
     // with PF, ESI, profession tax, and TDS as separate statutory payables.
     await postPayroll(tx, {
       companyId: period.companyId,
       payrollPeriodId: period.id,
-      totalGross: period.totalGross,
-      totalNet: period.totalNet,
+      totalGross,
+      totalNet,
       totalPF,
       totalEmployerPf,
       totalESI,
       totalProfessionTax,
       totalTDS,
-      totalDeductions: period.totalDeductions,
+      totalDeductions,
       postedById: input.userId,
     });
 
@@ -2287,6 +2295,9 @@ export async function processPayroll(input: { payrollPeriodId: string; userId?: 
         status: "PROCESSED",
         processedById: input.userId ?? null,
         processedAt: new Date(),
+        totalGross,
+        totalDeductions,
+        totalNet,
       },
     });
 
@@ -2296,7 +2307,7 @@ export async function processPayroll(input: { payrollPeriodId: string; userId?: 
       entityType: "PayrollPeriod",
       entityId: input.payrollPeriodId,
       before: { status: "DRAFT" },
-      after: { status: "PROCESSED", totalNet: period.totalNet.toString(), lines: period.lines.length, projectsAllocated: projectLabour.size },
+      after: { status: "PROCESSED", totalNet: totalNet.toString(), lines: period.lines.length, projectsAllocated: projectLabour.size },
     });
     return updated;
   });
