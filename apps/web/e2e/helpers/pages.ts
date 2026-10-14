@@ -158,7 +158,6 @@ export const DESKTOP_PAGES: PageEntry[] = [
 export const MOBILE_PAGES: PageEntry[] = [
   { path: "/m" },
   { path: "/m/home" },
-  { path: "/m/page" },
   { path: "/m/me" },
   { path: "/m/accounts" },
   { path: "/m/alerts/lease-expiry" },
