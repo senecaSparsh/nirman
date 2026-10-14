@@ -507,8 +507,10 @@ export async function createRaBill(input: CreateRaBillInput) {
     }
 
     // Compute cumulative gross (all previous RA bills + this one)
+    // Live bills (incl. DRAFT/SUBMITTED) count: their MB entries are already claimed, and
+    // their advance recovery must be reserved, or two bills in review recover the same advance.
     const prevBills = await tx.raBill.aggregate({
-      where: { workOrderId: input.workOrderId, status: { in: ["APPROVED", "PAID"] } },
+      where: { workOrderId: input.workOrderId, status: { in: ["DRAFT", "SUBMITTED", "APPROVED", "PAID"] } },
       _sum: { grossAmount: true, advanceRecovery: true },
     });
     const cumulativeGross = new Decimal(prevBills._sum.grossAmount ?? 0).plus(grossAmount);
