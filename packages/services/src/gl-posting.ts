@@ -1156,12 +1156,20 @@ export async function postExpense(
 }
 
 /**
- * Supplier Return (completed): relieve the payable, return stock to inventory
- * (at the cost it was received at), and reverse the input GST.
+ * Supplier Return (completed): relieve the payable at the billed price,
+ * relieve inventory at moving-average cost (what physically left the
+ * ledger), reverse the input GST on the billed amount, and plug the
+ * price-vs-MAC basis difference to Purchase Price Variance.
  *
- *   Dr Accounts Payable        (total = subtotal + gst)
- *   Cr Inventory - Materials   (subtotal)
- *   Cr Input GST / ITC          (gst)
+ *   Dr Accounts Payable        (total = billed subtotal + gst)
+ *   Dr Purchase Price Variance (qty × (MAC − PO price))   — when MAC > PO
+ *   Cr Inventory - Materials   (qty × MAC)
+ *   Cr Input GST / ITC          (gst on billed price)
+ *   Cr Purchase Price Variance (qty × (PO − MAC))          — when PO > MAC
+ *
+ * Without the PPV leg, returning stock bought at a price different from
+ * today's MAC leaves GL inventory permanently different from the stock
+ * ledger — the reconciliation flags it as unexplained drift.
  */
 export async function postSupplierReturn(
   tx: Prisma.TransactionClient,
@@ -1169,18 +1177,32 @@ export async function postSupplierReturn(
     companyId: string;
     supplierReturnId: string;
     postedById?: string;
-    lines: { qty: Decimal; unitCost: Decimal; gstRate: Decimal }[];
+    lines: { qty: Decimal; unitCost: Decimal; gstRate: Decimal; mac?: Decimal }[];
   },
 ) {
-  let subtotal = new Decimal(0);
+  let billedSubtotal = new Decimal(0);
+  let inventoryValue = new Decimal(0);
   let gst = new Decimal(0);
   for (const l of opts.lines) {
     const lineSubtotal = new Decimal(l.qty).times(new Decimal(l.unitCost));
     const lineGst = lineSubtotal.times(new Decimal(l.gstRate)).div(100).toDecimalPlaces(2);
-    subtotal = subtotal.plus(lineSubtotal);
+    billedSubtotal = billedSubtotal.plus(lineSubtotal);
+    inventoryValue = inventoryValue.plus(new Decimal(l.qty).times(new Decimal(l.mac ?? l.unitCost)));
     gst = gst.plus(lineGst);
   }
-  const total = subtotal.plus(gst);
+  const total = billedSubtotal.plus(gst);
+  const ppv = inventoryValue.minus(billedSubtotal);
+
+  const lines: JournalLineInput[] = [
+    { accountCode: ACCT.AP, debit: total, credit: 0, entityType: "SupplierReturn", entityId: opts.supplierReturnId },
+    { accountCode: ACCT.INVENTORY, debit: 0, credit: inventoryValue, entityType: "SupplierReturn", entityId: opts.supplierReturnId, memo: "Stock returned at moving-average cost" },
+    { accountCode: ACCT.INPUT_GST, debit: 0, credit: gst, memo: "Reverse input GST" },
+  ];
+  if (ppv.gt(0)) {
+    lines.push({ accountCode: ACCT.PPV, debit: ppv, credit: 0, entityType: "SupplierReturn", entityId: opts.supplierReturnId, memo: "Returned stock cost more than billed price" });
+  } else if (ppv.lt(0)) {
+    lines.push({ accountCode: ACCT.PPV, debit: 0, credit: ppv.abs(), entityType: "SupplierReturn", entityId: opts.supplierReturnId, memo: "Returned stock cost less than billed price" });
+  }
 
   return postJournalEntry(tx, {
     companyId: opts.companyId,
@@ -1188,11 +1210,7 @@ export async function postSupplierReturn(
     sourceId: opts.supplierReturnId,
     memo: "Return to supplier — credit note",
     postedById: opts.postedById,
-    lines: [
-      { accountCode: ACCT.AP, debit: total, credit: 0, entityType: "SupplierReturn", entityId: opts.supplierReturnId },
-      { accountCode: ACCT.INVENTORY, debit: 0, credit: subtotal, entityType: "SupplierReturn", entityId: opts.supplierReturnId },
-      { accountCode: ACCT.INPUT_GST, debit: 0, credit: gst, memo: "Reverse input GST" },
-    ],
+    lines,
   });
 }
 

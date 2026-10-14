@@ -262,8 +262,9 @@ export async function completeSupplierReturn(input: CompleteSupplierReturnInput)
     }
 
     // Record RETURN movements (stock leaves the location back to supplier)
+    const macByMaterial = new Map<string, Decimal>();
     for (const line of ret.lines) {
-      await recordMovement(tx, {
+      const result = await recordMovement(tx, {
         materialId: line.materialId,
         movementType: "RETURN",
         fromLocationId: ret.locationId,
@@ -274,6 +275,7 @@ export async function completeSupplierReturn(input: CompleteSupplierReturnInput)
         userId: input.userId,
         companyId: ret.companyId, // required for FIFO lot selection on lot-tracked materials
       });
+      macByMaterial.set(line.materialId, result.newMAC);
     }
 
     // Refresh currentCost for affected materials
@@ -294,6 +296,7 @@ export async function completeSupplierReturn(input: CompleteSupplierReturnInput)
         qty: new Decimal(l.qty),
         unitCost: new Decimal(l.unitCost),
         gstRate: gstByMaterial.get(l.materialId) ?? new Decimal(0),
+        mac: macByMaterial.get(l.materialId),
       })),
     });
 
