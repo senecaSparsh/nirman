@@ -453,6 +453,14 @@ export async function completeTransfer(transferId: string, userId?: string, proo
     if (transfer.status === "DRAFT") {
       await assertGatePassApproved("StockTransfer", transferId);
     }
+    // An explicitly empty receipt sheet would read as "0 received on every
+    // line" — a silent total write-off. Refuse it; a genuine total loss must
+    // send per-line qtyReceived: 0, and omitting lineReceipts means full receipt.
+    if (proof?.lineReceipts && proof.lineReceipts.length === 0 && transfer.lines.length > 0) {
+      throw new ServiceError(
+        "lineReceipts was provided but empty — omit it for full receipt, or send per-line qtyReceived (0 records a total loss)",
+      );
+    }
 
     const wasDispatched = transfer.status === "IN_TRANSIT";
 
@@ -558,24 +566,14 @@ export async function completeTransfer(transferId: string, userId?: string, proo
             companyId: transfer.toLocation.companyId,
           });
         }
-        // Record shortage (lost in transit) as ADJUSTMENT_OUT at SOURCE —
-        // the stock left source during dispatch but never arrived at destination.
-        // Recording at destination would create negative stock (it was never there).
+        // Shortage (lost in transit): the full dispatched qty already left the
+        // source via TRANSFER_OUT (at dispatch, or just above for the legacy
+        // atomic path) — deducting it here would write it off twice. The loss
+        // is booked in the GL only (postTransferShortage below); the per-line
+        // qty vs qtyReceived records it on the transfer itself.
         const shortage = fullQty.minus(recvQty);
         if (shortage.gt(0)) {
           shortageLines.push({ materialId: line.materialId, shortageQty: shortage, unitCost: tpLine.unitCostAtSource });
-          await recordMovement(tx, {
-            materialId: line.materialId,
-            movementType: "ADJUSTMENT_OUT",
-            fromLocationId: transfer.fromLocationId,
-            qty: shortage,
-            unitCost: tpLine.unitCostAtSource,
-            refType: "STOCK_TRANSFER_SHORTAGE",
-            refId: transferId,
-            userId,
-            lotNumber: line.lotNumber ?? undefined,
-            companyId: transfer.fromLocation.companyId,
-          });
         }
         await tx.stockTransferLine.update({
           where: { id: line.id },
@@ -606,7 +604,11 @@ export async function completeTransfer(transferId: string, userId?: string, proo
         postedById: userId,
         lines: transfer.lines.map((l, i) => ({
           materialId: l.materialId,
-          qty: new Decimal(l.qty),
+          // Bill on what actually arrived — the destination's GL inventory
+          // debit must equal the stock it received, and the source only sells
+          // the received qty (in-transit loss is written off on the source via
+          // postTransferShortage, which supplies the rest of Cr INVENTORY).
+          qty: getReceivedQty(l.id, new Decimal(l.qty)),
           sourceUnitCost: tp.lines[i]!.unitCostAtSource,
           transferUnitPrice: tp.lines[i]!.unitTransferPrice,
         })),
@@ -663,6 +665,7 @@ export async function completeTransfer(transferId: string, userId?: string, proo
     }
 
     // Intra-company: destination inherits the source MAC.
+    const shortageLines: { materialId: string; shortageQty: Decimal; unitCost: Decimal }[] = [];
     if (!wasDispatched) {
       // Legacy path: do both OUT + IN atomically
       for (const line of transfer.lines) {
@@ -709,6 +712,7 @@ export async function completeTransfer(transferId: string, userId?: string, proo
             lotNumber: line.lotNumber ?? undefined,
             companyId: transfer.fromLocation.companyId,
           });
+          shortageLines.push({ materialId: line.materialId, shortageQty: shortage, unitCost: sourceMac });
         }
         await tx.stockTransferLine.update({
           where: { id: line.id },
@@ -748,29 +752,31 @@ export async function completeTransfer(transferId: string, userId?: string, proo
             companyId: transfer.toLocation.companyId,
           });
         }
-        // Record shortage (lost in transit) as ADJUSTMENT_OUT at SOURCE —
-        // stock was moved OUT of source during dispatch but never arrived.
-        // Recording at destination would create negative stock (it was never there).
+        // Shortage (lost in transit): dispatch already moved the FULL qty out
+        // of the source, so recording another ADJUSTMENT_OUT here would deduct
+        // it twice (source ledger would drop below physical). The loss is
+        // booked in the GL only (postTransferShortage below); the line's
+        // qty vs qtyReceived records it on the transfer itself.
         const shortage = fullQty.minus(recvQty);
         if (shortage.gt(0)) {
-          await recordMovement(tx, {
-            materialId: line.materialId,
-            movementType: "ADJUSTMENT_OUT",
-            fromLocationId: transfer.fromLocationId,
-            qty: shortage,
-            unitCost: sourceMac,
-            refType: "STOCK_TRANSFER_SHORTAGE",
-            refId: transferId,
-            userId,
-            lotNumber: line.lotNumber ?? undefined,
-            companyId: transfer.fromLocation.companyId,
-          });
+          shortageLines.push({ materialId: line.materialId, shortageQty: shortage, unitCost: sourceMac });
         }
         await tx.stockTransferLine.update({
           where: { id: line.id },
           data: { qtyReceived: recvQty },
         });
       }
+    }
+    // Book the transit loss: Dr Inventory Shrinkage / Cr Inventory. Applies to
+    // both intra paths — the legacy path physically wrote the shortage off at
+    // source, the dispatched path left it in "transit" (already out of source).
+    if (shortageLines.length > 0) {
+      await postTransferShortage(tx, {
+        companyId: transfer.fromLocation.companyId,
+        transferId,
+        postedById: userId,
+        lines: shortageLines,
+      });
     }
 
     await refreshMaterialCurrentCost(tx, transfer.lines.map((l) => l.materialId));
