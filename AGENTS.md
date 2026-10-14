@@ -85,7 +85,16 @@ the `coolify-proxy` container isn't on the app network. Fix:
     randomized dates/ids for unique-constrained seeds. Requires a session cookie jar
     (sign in via `/api/auth/demo-login` first) and local Postgres. Mutates the DB —
     dev/staging only. `scripts/verify-workflows-live.sh` is the lighter seed-reuse
-    variant for the seed-data workflows.
+    variant for the seed-data workflows. Also exposed as `pnpm verify:workflows`
+    / `verify:workflows:live`.
+- `pnpm --filter web e2e` — Playwright suite (`apps/web/e2e/`): smoke walks every
+  desktop+mobile page (~300 routes), `@flow` specs drive real workflows with
+  multi-role contexts (self-approval guards, finance/stock chains). It spawns
+  its **own** dev server on :3100 with `AUTH_BYPASS=true` — **stop any running
+  `pnpm dev` first**; the `.next` single-instance lock makes two dev servers
+  conflict. On cold Turbopack cache, first-hit mobile pages compile slowly —
+  per-page timeouts on the first run are environmental; rerun or warm the route.
+  `pnpm --filter web e2e:smoke` / `e2e:flows` run the subsets.
 - `pnpm --filter mobile sync|open:ios|open:android` — Capacitor native shell in
   `apps/mobile` (loads `https://nirman.life` in the WebView; middleware routes
   the mobile UA to `/m/*`). `CAP_SERVER_URL=http://<lan-ip>:3000` for local dev.
