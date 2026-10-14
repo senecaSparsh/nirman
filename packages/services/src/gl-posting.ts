@@ -71,6 +71,7 @@ export const CHART_OF_ACCOUNTS = [
   { code: "4300", name: "Round-Off Income/Expense", type: "REVENUE" as const },
   { code: "4400", name: "Gain on Asset Disposal", type: "REVENUE" as const },
   { code: "5000", name: "Cost of Goods Sold", type: "EXPENSE" as const },
+  { code: "5100", name: "Purchase Price Variance", type: "EXPENSE" as const },
   { code: "5500", name: "Inventory Shrinkage Expense", type: "EXPENSE" as const },
   { code: "6000", name: "Operating Expenses", type: "EXPENSE" as const },
   { code: "6100", name: "Salaries & Wages Expense", type: "EXPENSE" as const },
@@ -115,6 +116,7 @@ export const ACCT = {
   ROUND_OFF: "4300",
   GAIN_ON_DISPOSAL: "4400",
   COGS: "5000",
+  PPV: "5100",
   INVENTORY_SHRINKAGE: "5500",
   OPERATING_EXPENSE: "6000",
   SALARIES_EXPENSE: "6100",
@@ -1244,8 +1246,8 @@ export async function postSupplierPayment(
  *
  * For goods invoices where a GRN already booked Dr Inventory / Cr AP, only the
  * variance (invoice total − GRN total) is posted to avoid double-counting AP.
- * A positive variance posts Dr Inventory / Dr Input GST / Cr AP; a negative
- * variance posts the reverse.
+ * A positive variance posts Dr Purchase Price Variance / Dr Input GST / Cr AP;
+ * a negative variance posts the reverse.
  */
 export async function postSupplierInvoice(
   tx: Prisma.TransactionClient,
@@ -1280,8 +1282,11 @@ export async function postSupplierInvoice(
     const varGst = opts.varianceGst ?? new Decimal(0);
 
     if (variance.gt(0)) {
-      // Invoice > GRN: additional cost
-      lines.push({ accountCode: ACCT.INVENTORY, debit: varSub, credit: 0, entityType: "SupplierInvoice", entityId: opts.supplierInvoiceId, memo: "Invoice price variance" });
+      // Invoice > GRN: additional cost. Expensed as Purchase Price Variance —
+      // invoices carry no per-line material split, so repricing on-hand MAC
+      // would need an invented allocation; a visible P&L line is honest and
+      // keeps the GL↔stock-ledger invariant exact.
+      lines.push({ accountCode: ACCT.PPV, debit: varSub, credit: 0, entityType: "SupplierInvoice", entityId: opts.supplierInvoiceId, memo: "Invoice price variance" });
       if (varGst.gt(0)) {
         lines.push({ accountCode: ACCT.INPUT_GST, debit: varGst, credit: 0, memo: "Input GST variance" });
       }
@@ -1292,7 +1297,7 @@ export async function postSupplierInvoice(
       const absSub = varSub.abs();
       const absGst = varGst.abs();
       lines.push({ accountCode: ACCT.AP, debit: absVar, credit: 0, entityType: "SupplierInvoice", entityId: opts.supplierInvoiceId, memo: "Reverse excess AP" });
-      lines.push({ accountCode: ACCT.INVENTORY, debit: 0, credit: absSub, entityType: "SupplierInvoice", entityId: opts.supplierInvoiceId, memo: "Reverse excess inventory" });
+      lines.push({ accountCode: ACCT.PPV, debit: 0, credit: absSub, entityType: "SupplierInvoice", entityId: opts.supplierInvoiceId, memo: "Invoice price variance (favourable)" });
       if (absGst.gt(0)) {
         lines.push({ accountCode: ACCT.INPUT_GST, debit: 0, credit: absGst, memo: "Reverse excess GST" });
       }
