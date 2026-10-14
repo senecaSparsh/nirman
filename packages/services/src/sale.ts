@@ -1048,8 +1048,14 @@ export async function completeSale(input: CompleteSaleInput) {
     await markAssetStatus(tx, sale.assetType, sale.landParcelId, sale.builtUnitId, "SOLD", sale.projectId);
     await delistPortalListings(tx, sale.builtUnitId, sale.projectId);
 
+    // Section 194-IA: the buyer deducts 1% and remits it to the government. That
+    // deduction is a receivable (Form 26AS credit), not an open customer balance.
+    const tdsDeducted = computePropertyTds(sale.salePrice, input.tdsAmount);
+    const tdsReceivable = tdsDeducted && tdsDeducted.gt(0) && remainingBalance.minus(finalPayment).eq(tdsDeducted)
+      ? tdsDeducted
+      : new Decimal(0);
     const paymentStatus = computePaymentStatus(
-      totalPaidSoFar.plus(input.paymentMode === "CHEQUE" ? 0 : finalPayment),
+      totalPaidSoFar.plus(input.paymentMode === "CHEQUE" ? 0 : finalPayment).plus(tdsReceivable),
       salePrice.plus(gstAmount),
     );
 
@@ -1147,6 +1153,19 @@ export async function completeSale(input: CompleteSaleInput) {
       }
     }
 
+    if (tdsReceivable.gt(0)) {
+      await postJournalEntry(tx, {
+        companyId: sale.companyId,
+        sourceType: "ASSET_SALE_TDS",
+        sourceId: input.saleId,
+        memo: "194-IA TDS deducted by buyer — receivable from buyer",
+        postedById: input.userId,
+        lines: [
+          { accountCode: ACCT.TDS_RECEIVABLE, debit: tdsReceivable, credit: 0, entityType: "AssetSale", entityId: input.saleId, memo: "194-IA TDS deducted by buyer" },
+          { accountCode: ACCT.AR, debit: 0, credit: tdsReceivable, entityType: "AssetSale", entityId: input.saleId, memo: "Settle receivable by buyer TDS" },
+        ],
+      });
+    }
     if (input.userId) {
       await logAction(tx, {
         userId: input.userId,
@@ -1732,13 +1751,11 @@ export async function cancelSale(saleId: string, userId?: string) {
     // Pre-completion payments (deposits + schedule installments) were all
     // posted as Dr Cash / Cr Customer_Deposit (liability). On cancellation,
     // reverse them all: Dr Customer_Deposit / Cr Cash.
-    // Only count CLEARED payments — uncleared cheques haven't settled yet
-    // and their reversal would create a phantom cash credit.
+    // Uncleared cheques were posted at booking too, so they must be reversed;
+    // bounced cheques were already reversed when they bounced.
     const totalPreCompletionPayments = sale.payments.reduce(
       (sum, p) => {
-        // Skip uncleared cheques — they haven't been realised yet —
-        // and voided payments (reversed already).
-        if (p.status === "VOID" || p.chequeStatus === "PENDING" || p.chequeStatus === "BOUNCED") return sum;
+        if (p.status === "VOID" || p.chequeStatus === "BOUNCED") return sum;
         return sum.plus(new Decimal(p.amount));
       },
       new Decimal(0),
@@ -2255,6 +2272,9 @@ export async function clearCheque(paymentId: string, userId?: string) {
     if (payment.chequeStatus !== "PENDING") {
       throw new ServiceError(`Cheque is already ${payment.chequeStatus?.toLowerCase() ?? "not pending"}`);
     }
+    if (payment.assetSale.status === "CANCELLED") {
+      throw new ServiceError("Cannot clear a cheque on a cancelled sale — the buyer's money must be returned instead");
+    }
 
     // Mark cheque as cleared
     await tx.assetSalePayment.update({
@@ -2335,7 +2355,8 @@ export async function clearCheque(paymentId: string, userId?: string) {
       });
     }
 
-    return { ok: true, saleStage: "COMPLETED" as const };
+    const { saleStage } = await tx.assetSale.findUniqueOrThrow({ where: { id: sale.id }, select: { saleStage: true } });
+    return { ok: true, saleStage };
   });
 }
 
@@ -2356,6 +2377,9 @@ export async function bounceCheque(paymentId: string, userId?: string, bounceRea
     }
 
     const sale = payment.assetSale;
+    if (sale.status === "CANCELLED") {
+      throw new ServiceError("Cannot bounce a cheque on a cancelled sale — its deposit was already reversed on cancellation");
+    }
 
     // Mark cheque as bounced
     await tx.assetSalePayment.update({
