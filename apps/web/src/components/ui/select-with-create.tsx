@@ -100,7 +100,7 @@ export function SelectWithCreate({
 
   return (
     <>
-      <div className="relative w-full">
+      <div className={cn("relative", className ?? "w-full")}>
         <select
           id={id}
           value={value}

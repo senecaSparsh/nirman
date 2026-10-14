@@ -9,7 +9,7 @@ import { Field } from "@/components/field";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import {formatDate} from "@/lib/utils";
-import { statusBadgeVariant } from "@/components/page";
+import { statusBadgeVariant, humanStatus } from "@/components/page";
 import {Plus, ClipboardCheck, Search, Loader2} from "lucide-react";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { EmptyState } from "@/components/empty-state";
@@ -141,7 +141,19 @@ export function QualityControlView({
               <div className="text-xs text-muted-foreground self-center truncate">{n.projectName}</div>
               <div className="text-xs self-center">{CATEGORY_LABELS[n.category] ?? n.category}</div>
               <div className="self-center"><Badge variant={SEVERITY_VARIANTS[n.severity] ?? "default"}>{n.severity}</Badge></div>
-              <div className="self-center"><Badge variant={statusBadgeVariant(n.status)}>{n.status}</Badge></div>
+              {/* When the NCR is waiting on CAPA closure but that CAPA is
+                  already verified/closed, the row is actually ready for NCR
+                  sign-off — show that instead of a red CAPA_REQUIRED that
+                  contradicts the green "CAPA CLOSED" sub-line. */}
+              {(() => {
+                const capaDone = n.status === "CAPA_REQUIRED" && (n.capaStatus === "VERIFIED" || n.capaStatus === "CLOSED");
+                const effective = capaDone ? "READY_TO_CLOSE" : n.status;
+                return (
+                  <div className="self-center">
+                    <Badge variant={statusBadgeVariant(effective)}>{humanStatus(effective)}</Badge>
+                  </div>
+                );
+              })()}
               <div className="text-right text-xs text-muted-foreground self-center tabular-nums">{formatDate(n.raisedAt)}</div>
             </button>
           ))}

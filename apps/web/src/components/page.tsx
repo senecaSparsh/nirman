@@ -437,6 +437,7 @@ const STATUS_MEANING: Record<string, StatusMeaning> = {
   OPEN: "active",
   UNDER_REVIEW: "active",
   CAPA_REQUIRED: "alert",
+  READY_TO_CLOSE: "waiting",
   ACCEPTED: "good",
   // quality control — severity
   MAJOR: "alert",

@@ -60,7 +60,11 @@ export const Select = React.forwardRef<
   HTMLSelectElement,
   React.SelectHTMLAttributes<HTMLSelectElement>
 >(({ className, children, ...props }, ref) => (
-  <div className="relative w-full">
+  // className goes on the wrapper so width/flex classes (w-[140px],
+  // flex-1) size the whole control — previously they landed on the
+  // inner <select> while the w-full wrapper still took the full row,
+  // stacking selects vertically in flex toolbars.
+  <div className={cn("relative", className ?? "w-full")}>
     <select
       ref={ref}
       className={cn(
@@ -82,7 +86,7 @@ export const InputWithIcon = React.forwardRef<
   HTMLInputElement,
   React.InputHTMLAttributes<HTMLInputElement> & { icon: React.ReactNode }
 >(({ className, icon, ...props }, ref) => (
-  <div className="relative w-full">
+  <div className={cn("relative", className ?? "w-full")}>
     <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-faint [&_svg]:size-3.5">
       {icon}
     </span>
