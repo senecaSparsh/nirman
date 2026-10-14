@@ -358,7 +358,13 @@ export function QuickActionsBar({
     }
   }
 
-  const gridCols = activeTab.columns === 3 ? "grid-cols-3" : "grid-cols-4";
+  // 3 columns when the row count divides evenly by 3 but leaves a straggler
+  // row in 4 (e.g. 6 items → 3+3 instead of 4+2; 9 → 3+3+3 vs 4+4+1).
+  const gridCols =
+    activeTab.columns === 3 ||
+    (orderedActions.length % 3 === 0 && orderedActions.length % 4 !== 0)
+      ? "grid-cols-3"
+      : "grid-cols-4";
 
   return (
     // data-tour="quick-actions": the product tour's step 1 spotlights this
