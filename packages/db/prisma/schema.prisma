@@ -2411,6 +2411,7 @@ enum StockMovementType {
   RETURN
   SALE
   SCRAP_GENERATED // internally generated scrap/created material added to stock at scrap valuation
+  OPENING_BALANCE // day-1/onboarding stock load — paired with Dr Inventory / Cr Opening Balance Equity
 }
 
 model StockMovement {

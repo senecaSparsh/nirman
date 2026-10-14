@@ -180,6 +180,7 @@ const IN_MOVEMENT_TYPES = [
   "TRANSFER_IN",
   "ADJUSTMENT_IN",
   "SCRAP_GENERATED",
+  "OPENING_BALANCE",
 ] as const;
 
 // StockMovement types that REMOVE stock from a location (fromLocationId is set).

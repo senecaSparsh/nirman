@@ -108,7 +108,7 @@ async function InventoryValueContent({
     // ── Historical mode: replay movement ledger ──
     // For each (material, location), find the last movement up to as-on-date
     // and read its balanceAfter (qty) and balanceValueAfter (value).
-    const IN_TYPES: StockMovementType[] = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN"];
+    const IN_TYPES: StockMovementType[] = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "OPENING_BALANCE"];
     const OUT_TYPES: StockMovementType[] = ["TRANSFER_OUT", "ISSUE_TO_PROJECT", "ISSUE_TO_DEPARTMENT", "ADJUSTMENT_OUT", "RETURN", "SALE"];
 
     const [inMovements, outMovements, locations, materials] = await Promise.all([

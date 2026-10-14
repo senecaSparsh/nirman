@@ -52,7 +52,7 @@ async function StockMovementSummaryContent({
   const toDate = toParam ? new Date(toParam) : now;
   toDate.setHours(23, 59, 59, 999);
 
-  const IN_TYPES: StockMovementType[] = ["PURCHASE_RECEIPT", "ADJUSTMENT_IN"];
+  const IN_TYPES: StockMovementType[] = ["PURCHASE_RECEIPT", "ADJUSTMENT_IN", "OPENING_BALANCE"];
   const OUT_TYPES: StockMovementType[] = ["ISSUE_TO_PROJECT", "ISSUE_TO_DEPARTMENT", "ADJUSTMENT_OUT", "RETURN", "SALE"];
 
   const [inBefore, outBefore, inPeriod, outPeriod, locationItems] = await Promise.all([

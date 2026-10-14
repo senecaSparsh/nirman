@@ -32,6 +32,7 @@ const MOVEMENT_LABELS: Record<string, string> = {
   RETURN: "Return",
   SALE: "Sale",
   SCRAP_GENERATED: "Scrap Generated",
+  OPENING_BALANCE: "Opening Stock",
 };
 
 export default function StockPage() {

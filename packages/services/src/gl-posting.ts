@@ -64,6 +64,7 @@ export const CHART_OF_ACCOUNTS = [
   { code: "2700", name: "Broker Commission Payable", type: "LIABILITY" as const },
   { code: "2800", name: "Reimbursements Payable", type: "LIABILITY" as const },
   { code: "3000", name: "Retained Earnings", type: "EQUITY" as const },
+  { code: "3100", name: "Opening Balance Equity", type: "EQUITY" as const },
   { code: "4000", name: "Sales Revenue", type: "REVENUE" as const },
   { code: "4100", name: "Cost Recovery - Scrap Sales", type: "CONTRA_EXPENSE" as const },
   { code: "4200", name: "Inter-Company Sales Revenue", type: "REVENUE" as const },
@@ -108,6 +109,7 @@ export const ACCT = {
   BROKER_PAYABLE: "2700",
   REIMBURSEMENTS_PAYABLE: "2800",
   RETAINED_EARNINGS: "3000",
+  OPENING_EQUITY: "3100",
   SALES_REVENUE: "4000",
   COST_RECOVERY: "4100",
   ROUND_OFF: "4300",
@@ -1730,6 +1732,39 @@ export async function postTransferShortage(
   });
 }
 
+/**
+ * Post opening-balance stock — the GL leg of a day-1/onboarding stock load.
+ *
+ *   Dr Inventory - Materials   (qty × unitCost)
+ *   Cr Opening Balance Equity  (qty × unitCost)
+ *
+ * The stock leg is an OPENING_BALANCE movement recorded by the caller — this
+ * function posts only the journal so both halves always stay paired.
+ */
+export async function postOpeningStock(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    materialId: string;
+    qty: Decimal;
+    unitCost: Decimal;
+    postedById?: string;
+  },
+) {
+  const value = new Decimal(opts.qty).times(new Decimal(opts.unitCost));
+  if (value.lte(0)) return null;
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "OPENING",
+    sourceId: opts.materialId,
+    memo: "Opening stock balance",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.INVENTORY, debit: value, credit: 0, entityType: "Material", entityId: opts.materialId, memo: "Opening stock" },
+      { accountCode: ACCT.OPENING_EQUITY, debit: 0, credit: value, entityType: "Material", entityId: opts.materialId, memo: "Opening stock offset" },
+    ],
+  });
+}
 export async function postEquipmentAcquisition(
   tx: Prisma.TransactionClient,
   opts: {

@@ -379,14 +379,26 @@ async function main() {
     { matIdx: 3, qty: 400 }, // aggregate cft
     { matIdx: 4, qty: 5000 }, // bricks
   ];
+  // Opening stock goes through recordOpeningStock — an OPENING_BALANCE
+  // movement + Dr Inventory / Cr Opening Balance Equity — so the movement
+  // ledger, on-hand cache, and GL all agree from day one (direct
+  // stockLocationItem writes fail the nightly stock-ledger reconciliation).
+  const { recordOpeningStock } = await import("@nirman/services");
   for (const loc of [siteStore, warehouse]) {
     for (const s of stockSeed) {
-      await prisma.stockLocationItem.create({
-        data: { locationId: loc.id, materialId: mats[s.matIdx].id, qty: s.qty, movingAvgCost: matDefs[s.matIdx].cost },
-      });
+      await prisma.$transaction((tx) =>
+        recordOpeningStock(tx, {
+          materialId: mats[s.matIdx].id,
+          locationId: loc.id,
+          qty: s.qty,
+          unitCost: matDefs[s.matIdx].cost,
+          companyId,
+          reason: "Seed opening balance",
+        }),
+      );
     }
   }
-  console.log(`  Stock: ${stockSeed.length} items at 2 locations`);
+  console.log(`  Stock: ${stockSeed.length} items at 2 locations (movement + GL)`);
 
   // Field workers (employees without user accounts — for DPR labour lines
   // and attendance marking).

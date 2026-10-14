@@ -94,7 +94,7 @@ export type MaterialCockpitData = {
 const MOVEMENT_VARIANT: Record<string, "default" | "success" | "warning" | "muted" | "danger"> = {
   PURCHASE_RECEIPT: "success", TRANSFER_IN: "default", TRANSFER_OUT: "warning",
   ISSUE_TO_PROJECT: "warning", ADJUSTMENT_IN: "success", ADJUSTMENT_OUT: "danger",
-  RETURN: "muted", SALE: "default", SCRAP_GENERATED: "default",
+  RETURN: "muted", SALE: "default", SCRAP_GENERATED: "default", OPENING_BALANCE: "default",
   SUPPLIER_RETURN: "danger",
 };
 
@@ -102,7 +102,7 @@ const MOVEMENT_LABELS: Record<string, string> = {
   PURCHASE_RECEIPT: "Receipt", TRANSFER_IN: "Transfer In", TRANSFER_OUT: "Transfer Out",
   ISSUE_TO_PROJECT: "Issue", RETURN: "Return", ADJUSTMENT_IN: "Adjustment +",
   ADJUSTMENT_OUT: "Adjustment −", SUPPLIER_RETURN: "Supplier Return", SALE: "Sale",
-  SCRAP_GENERATED: "Scrap Gen.",
+  SCRAP_GENERATED: "Scrap Gen.", OPENING_BALANCE: "Opening Stock",
 };
 
 // ───────────────────────────────────────────────────────────
@@ -305,7 +305,7 @@ function OverviewTab({ data }: { data: MaterialCockpitData; totalQty: number; to
           ) : (
             <div className="divide-y divide-border rounded-lg border border-border">
               {data.movements.slice(0, 8).map((m) => {
-                const isIn = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "RETURN", "SCRAP_GENERATED"].includes(m.movementType);
+                const isIn = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "RETURN", "SCRAP_GENERATED", "OPENING_BALANCE"].includes(m.movementType);
                 return (
                   <div key={m.id} className="flex items-center gap-3 px-4 py-2.5 text-body">
                     <Badge variant={MOVEMENT_VARIANT[m.movementType] ?? "muted"}>{MOVEMENT_LABELS[m.movementType] ?? m.movementType}</Badge>
@@ -433,7 +433,7 @@ function MovementsTab({ data }: { data: MaterialCockpitData }) {
       ) : (
         <div className="divide-y divide-border rounded-lg border border-border">
           {data.movements.map((m) => {
-            const isIn = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "RETURN", "SCRAP_GENERATED"].includes(m.movementType);
+            const isIn = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "RETURN", "SCRAP_GENERATED", "OPENING_BALANCE"].includes(m.movementType);
             return (
               <div key={m.id} className="flex items-center gap-3 px-4 py-3 text-body">
                 <Badge variant={MOVEMENT_VARIANT[m.movementType] ?? "muted"}>{MOVEMENT_LABELS[m.movementType] ?? m.movementType}</Badge>

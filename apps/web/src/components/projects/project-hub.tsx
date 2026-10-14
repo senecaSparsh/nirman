@@ -173,7 +173,7 @@ export type ProjectHubData = {
 const MOVEMENT_VARIANT: Record<string, "default" | "success" | "warning" | "muted" | "danger"> = {
   PURCHASE_RECEIPT: "success", TRANSFER_IN: "default", TRANSFER_OUT: "warning",
   ISSUE_TO_PROJECT: "warning", ADJUSTMENT_IN: "success", ADJUSTMENT_OUT: "danger",
-  RETURN: "muted", SALE: "default",
+  RETURN: "muted", SALE: "default", OPENING_BALANCE: "default",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -463,7 +463,7 @@ function OverviewTab({ data }: { data: ProjectHubData }) {
               <div className="absolute left-[7px] top-2 bottom-2 w-px bg-border" />
               <div className="space-y-0.5">
                 {data.stockMovements.slice(0, 10).map((m) => {
-                  const isIn = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "RETURN"].includes(m.movementType);
+                  const isIn = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "RETURN", "OPENING_BALANCE"].includes(m.movementType);
                   const dotColor =
                     m.movementType === "PURCHASE_RECEIPT" || m.movementType === "ADJUSTMENT_IN" ? "bg-success" :
                     m.movementType === "ADJUSTMENT_OUT" ? "bg-danger" :
@@ -886,7 +886,7 @@ function StockTab({ data }: { data: ProjectHubData }) {
                 align: "right",
                 sortable: true,
                 render: (m) => {
-                  const isIn = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "RETURN"].includes(m.movementType);
+                  const isIn = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "RETURN", "OPENING_BALANCE"].includes(m.movementType);
                   const isOut = ["TRANSFER_OUT", "ISSUE_TO_PROJECT", "ADJUSTMENT_OUT", "SALE"].includes(m.movementType);
                   return (
                     <span className={`tnum font-medium ${isIn ? "text-success" : isOut ? "text-foreground" : "text-muted-foreground"}`}>

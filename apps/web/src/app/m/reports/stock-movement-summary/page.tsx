@@ -41,7 +41,7 @@ async function MobileStockMovementSummaryContent() {
   const toDate = new Date(now);
   toDate.setHours(23, 59, 59, 999);
 
-  const IN_TYPES: StockMovementType[] = ["PURCHASE_RECEIPT", "ADJUSTMENT_IN", "TRANSFER_IN", "SCRAP_GENERATED"];
+  const IN_TYPES: StockMovementType[] = ["PURCHASE_RECEIPT", "ADJUSTMENT_IN", "TRANSFER_IN", "SCRAP_GENERATED", "OPENING_BALANCE"];
   const OUT_TYPES: StockMovementType[] = [
     "ISSUE_TO_PROJECT",
     "ISSUE_TO_DEPARTMENT",

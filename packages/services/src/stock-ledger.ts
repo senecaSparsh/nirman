@@ -7,6 +7,7 @@ import {
 } from "./moving-average-cost";
 import { toBaseUnit } from "./uom-conversion";
 import { ServiceError } from "./errors";
+import { postOpeningStock } from "./gl-posting";
 
 /**
  * Stock Ledger Service — the single entry point for all material quantity changes.
@@ -495,6 +496,54 @@ export async function recordTransfer(
   return { out: outResult, in: inResult };
 }
 
+/**
+ * Records opening/day-1 stock: an OPENING_BALANCE movement (updates
+ * StockLocationItem + appends the immutable ledger row) paired with the GL
+ * entry (Dr Inventory / Cr Opening Balance Equity) in the same transaction.
+ *
+ * This is the ONLY way stock should enter the books without a supplier receipt
+ * or transfer — direct stockLocationItem writes leave the movement log and the
+ * GL out of sync, which the nightly reconciliation then (correctly) flags as
+ * ledger corruption.
+ */
+export async function recordOpeningStock(
+  tx: Prisma.TransactionClient,
+  opts: {
+    materialId: MaterialId;
+    locationId: LocationId;
+    qty: Decimal | number | string;
+    unitCost: Decimal | number | string;
+    companyId: string;
+    userId?: string;
+    reason?: string;
+  },
+) {
+  const qty = new Decimal(opts.qty);
+  if (!qty.gt(0)) {
+    throw new ServiceError(`Opening stock quantity must be > 0 (got ${qty})`);
+  }
+  const unitCost = new Decimal(opts.unitCost);
+  const result = await recordMovement(tx, {
+    materialId: opts.materialId,
+    movementType: "OPENING_BALANCE",
+    toLocationId: opts.locationId,
+    qty,
+    unitCost,
+    reason: opts.reason ?? "Opening balance",
+    refType: "OPENING_BALANCE",
+    refId: opts.materialId,
+    userId: opts.userId,
+    companyId: opts.companyId,
+  });
+  await postOpeningStock(tx, {
+    companyId: opts.companyId,
+    materialId: opts.materialId,
+    qty,
+    unitCost,
+    postedById: opts.userId,
+  });
+  return result;
+}
 /**
  * Convenience wrapper: runs the callback inside a Prisma transaction and
  * passes the transaction client to it. Use this to wrap multi-step stock operations.

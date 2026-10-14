@@ -130,7 +130,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
           materialUnit: item.material.unit, categoryId: item.material.category.id, categoryName: item.material.category.name,
           qty: toNum(item.qty), value: toNum(item.qty) * toNum(item.movingAvgCost)}));
       } else {
-        const IN_TYPES: StockMovementType[] = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN"];
+        const IN_TYPES: StockMovementType[] = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "OPENING_BALANCE"];
         const OUT_TYPES: StockMovementType[] = ["TRANSFER_OUT", "ISSUE_TO_PROJECT", "ISSUE_TO_DEPARTMENT", "ADJUSTMENT_OUT", "RETURN", "SALE"];
         const [inMovements, outMovements, locations, materials] = await Promise.all([
           prisma.stockMovement.findMany({
@@ -372,7 +372,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
       const MOVEMENT_LABELS: Record<string, string> = {
         PURCHASE_RECEIPT: "Receipt", TRANSFER_IN: "Transfer In", TRANSFER_OUT: "Transfer Out",
         ISSUE_TO_PROJECT: "Issue to Project", ISSUE_TO_DEPARTMENT: "Issue to Dept",
-        ADJUSTMENT_IN: "Adjustment (+)", ADJUSTMENT_OUT: "Adjustment (−)", RETURN: "Return", SALE: "Sale"};
+        ADJUSTMENT_IN: "Adjustment (+)", ADJUSTMENT_OUT: "Adjustment (−)", RETURN: "Return", SALE: "Sale",
+        OPENING_BALANCE: "Opening Stock"};
       const companyLocationIds = new Set((await prisma.stockLocation.findMany({ where: { companyId: company.id }, select: { id: true } })).map((l) => l.id));
       const movements = await prisma.stockMovement.findMany({
         where: { timestamp: { gte: fromDate, lte: toDate }, ...smScope },
@@ -453,7 +454,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
     case "stock-movement-summary": {
       title = `SALABLE STOCK REPORT OF ${fromDate.toISOString().slice(0, 10)} TO ${toDate.toISOString().slice(0, 10)}`;
-      const IN_TYPES: StockMovementType[] = ["PURCHASE_RECEIPT", "ADJUSTMENT_IN"];
+      const IN_TYPES: StockMovementType[] = ["PURCHASE_RECEIPT", "ADJUSTMENT_IN", "OPENING_BALANCE"];
       const OUT_TYPES: StockMovementType[] = ["ISSUE_TO_PROJECT", "ISSUE_TO_DEPARTMENT", "ADJUSTMENT_OUT", "RETURN", "SALE"];
       const [_inBefore, _outBefore, inPeriod, outPeriod, locationItems] = await Promise.all([
         prisma.stockMovement.findMany({

@@ -72,6 +72,7 @@ export function movementDirection(
     case "TRANSFER_IN":
     case "ADJUSTMENT_IN":
     case "SCRAP_GENERATED":
+    case "OPENING_BALANCE":
       return "IN";
     case "TRANSFER_OUT":
     case "ISSUE_TO_PROJECT":

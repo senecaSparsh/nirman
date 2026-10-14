@@ -64,7 +64,7 @@ const typeLabel = (type: string): string => TYPE_LABELS[type] ?? type.replace(/_
 const typeColor = (type: string): string => TYPE_COLORS[type] ?? "var(--color-steel)";
 
 /* ── Movement direction helpers ── */
-const IN_TYPES = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "RETURN", "SCRAP_GENERATED"];
+const IN_TYPES = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "RETURN", "SCRAP_GENERATED", "OPENING_BALANCE"];
 const OUT_TYPES = ["ISSUE_TO_PROJECT", "ISSUE_TO_DEPARTMENT", "ADJUSTMENT_OUT", "SALE"];
 
 const MOVEMENT_LABELS: Record<string, string> = {
@@ -78,6 +78,7 @@ const MOVEMENT_LABELS: Record<string, string> = {
   RETURN: "Return",
   SALE: "Sale",
   SCRAP_GENERATED: "Scrap Gen",
+  OPENING_BALANCE: "Opening",
 };
 
 const movementLabel = (type: string): string =>

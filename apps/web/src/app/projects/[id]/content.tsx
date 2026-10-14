@@ -23,6 +23,7 @@ const MOVEMENT_LABELS: Record<string, string> = {
   ADJUSTMENT_OUT: "Adjustment −",
   SUPPLIER_RETURN: "Supplier Return",
   SALE: "Sale",
+  OPENING_BALANCE: "Opening Stock",
 };
 export async function ProjectDetailContent({ params }: { params: Promise<{ id: string }> }) {
   await connection();

@@ -21,6 +21,7 @@ const MOVEMENT_VARIANT: Record<string, "default" | "success" | "warning" | "mute
   ADJUSTMENT_OUT: "danger",
   RETURN: "muted",
   SALE: "default",
+  OPENING_BALANCE: "default",
 };
 
 export function StockMovementsView({
@@ -70,6 +71,7 @@ export function StockMovementsView({
         <option value="ADJUSTMENT_OUT">Adjustment (−)</option>
         <option value="RETURN">Return</option>
         <option value="SALE">Sale</option>
+        <option value="OPENING_BALANCE">Opening Stock</option>
       </select>
       <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
     </div>
@@ -242,7 +244,7 @@ const movementColumns: Column<StockMovementRow>[] = [
     align: "right",
     sortable: true,
     render: (m) => {
-      const isIn = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "RETURN"].includes(m.movementType);
+      const isIn = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "RETURN", "OPENING_BALANCE"].includes(m.movementType);
       const isOut = ["TRANSFER_OUT", "ISSUE_TO_PROJECT", "ISSUE_TO_DEPARTMENT", "ADJUSTMENT_OUT", "SALE"].includes(m.movementType);
       return (
         <span className={`tnum font-semibold ${isIn ? "text-success" : isOut ? "text-foreground" : "text-muted-foreground"}`}>
@@ -270,7 +272,7 @@ const movementColumns: Column<StockMovementRow>[] = [
 
 /** Inline detail panel for a single stock movement. */
 function MovementDetailPanel({ movement }: { movement: StockMovementRow }) {
-  const isIn = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "RETURN"].includes(movement.movementType);
+  const isIn = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "RETURN", "OPENING_BALANCE"].includes(movement.movementType);
   const isOut = ["TRANSFER_OUT", "ISSUE_TO_PROJECT", "ISSUE_TO_DEPARTMENT", "ADJUSTMENT_OUT", "SALE"].includes(movement.movementType);
 
   return (

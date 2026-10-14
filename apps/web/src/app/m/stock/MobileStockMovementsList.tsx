@@ -51,7 +51,7 @@ export type MaterialStockItem = {
 };
 
 /* ── Movement type helpers ── */
-const IN_TYPES = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "RETURN", "SCRAP_GENERATED"];
+const IN_TYPES = ["PURCHASE_RECEIPT", "TRANSFER_IN", "ADJUSTMENT_IN", "RETURN", "SCRAP_GENERATED", "OPENING_BALANCE"];
 const OUT_TYPES = ["ISSUE_TO_PROJECT", "ISSUE_TO_DEPARTMENT", "ADJUSTMENT_OUT", "SALE"];
 
 const MOVEMENT_LABELS: Record<string, string> = {
@@ -65,6 +65,7 @@ const MOVEMENT_LABELS: Record<string, string> = {
   RETURN: "Return",
   SALE: "Sale",
   SCRAP_GENERATED: "Scrap Gen",
+  OPENING_BALANCE: "Opening",
 };
 
 const movementLabel = (type: string): string =>
@@ -78,7 +79,7 @@ const movementColor = (type: string): string =>
 
 type MovementFilter =
   | "ALL" | "RECEIPT" | "TRANSFER" | "ISSUE"
-  | "SCRAP" | "ADJUSTMENT" | "SALE" | "RETURN";
+  | "SCRAP" | "ADJUSTMENT" | "SALE" | "RETURN" | "OPENING";
 
 const FILTER_CHIPS: { label: string; value: MovementFilter }[] = [
   { label: "All", value: "ALL" },
@@ -89,6 +90,7 @@ const FILTER_CHIPS: { label: string; value: MovementFilter }[] = [
   { label: "Adjustment", value: "ADJUSTMENT" },
   { label: "Sale", value: "SALE" },
   { label: "Return", value: "RETURN" },
+  { label: "Opening", value: "OPENING" },
 ];
 
 const TYPE_TO_FILTER: Record<string, MovementFilter> = {
@@ -96,6 +98,7 @@ const TYPE_TO_FILTER: Record<string, MovementFilter> = {
   TRANSFER_IN: "TRANSFER", TRANSFER_OUT: "TRANSFER",
   ISSUE_TO_PROJECT: "ISSUE", ISSUE_TO_DEPARTMENT: "ISSUE",
   SCRAP_GENERATED: "SCRAP",
+  OPENING_BALANCE: "OPENING",
   ADJUSTMENT_IN: "ADJUSTMENT", ADJUSTMENT_OUT: "ADJUSTMENT",
   SALE: "SALE", RETURN: "RETURN",
 };

@@ -16,6 +16,7 @@ export {
 export {
   recordMovement,
   recordTransfer,
+  recordOpeningStock,
   withStockTransaction,
   refreshMaterialCurrentCost,
   getLotHistory,
@@ -660,6 +661,7 @@ export {
   postDirectPurchase,
   postStockAdjustment,
   postTransferShortage,
+  postOpeningStock,
   postInterCompanyTransfer,
   postEquipmentAcquisition,
   postEquipmentMaintenance,
