@@ -182,12 +182,12 @@ export function PettyCashView({
             const lowBalance = toNum(f.floatAmount) < toNum(f.topUpTotal) * 0.2;
             return (
               <div key={f.id} className="rounded-lg border border-border overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => toggle(f.id)}
-                  className="flex w-full items-center justify-between gap-4 p-4 hover:bg-muted/20"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
+                <div className="flex w-full items-center justify-between gap-4 hover:bg-muted/20">
+                  <button
+                    type="button"
+                    onClick={() => toggle(f.id)}
+                    className="flex flex-1 items-center gap-3 min-w-0 p-4 text-left"
+                  >
                     {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                     <div className="min-w-0 text-left">
                       <div className="flex items-center gap-2">
@@ -200,8 +200,8 @@ export function PettyCashView({
                         {` · ${f.topUps.length} top-up${f.topUps.length === 1 ? "" : "s"}`}
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-4">
+                  </button>
+                  <div className="flex items-center gap-4 p-4 pl-0">
                     <div className="text-right">
                       <div className="tnum font-semibold text-foreground">{formatCurrency(f.floatAmount)}</div>
                       <div className="text-caption text-muted-foreground">balance</div>
@@ -211,21 +211,21 @@ export function PettyCashView({
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={(e) => { e.stopPropagation(); setSpendFor(f); setSpendForm({ category: "", categoryId: "", amount: "", notes: "" }); }}
+                          onClick={() => { setSpendFor(f); setSpendForm({ category: "", categoryId: "", amount: "", notes: "" }); }}
                         >
                           <Receipt className="h-3.5 w-3.5" /> Spend
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={(e) => { e.stopPropagation(); setTopUpFor(f); setTopUpForm({ amount: "", paymentMode: "NEFT", referenceNo: "", notes: "" }); }}
+                          onClick={() => { setTopUpFor(f); setTopUpForm({ amount: "", paymentMode: "NEFT", referenceNo: "", notes: "" }); }}
                         >
                           <Plus className="h-3.5 w-3.5" /> Top Up
                         </Button>
                       </div>
                     )}
                   </div>
-                </button>
+                </div>
                 {isOpen && (
                   <div className="border-t border-border bg-muted/10 p-4">
                     <div className="grid grid-cols-3 gap-4 mb-3">
