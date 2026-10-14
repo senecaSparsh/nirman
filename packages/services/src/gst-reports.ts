@@ -168,7 +168,17 @@ export async function generateGstr1(
         select: { journalEntryId: true, credit: true },
       })
     : [];
-  const revenueByJeId = new Map(revenueLines.map((rl) => [rl.journalEntryId, rl]));
+  // Sum revenue credits per entry — a sale can post multiple revenue legs
+  // (e.g. 4000 Sales Revenue + 4100 Cost Recovery on a mixed scrap sale).
+  // A plain Map keyed on journalEntryId would keep only the last leg and
+  // understate taxable value (and skew the derived GST rate).
+  const revenueByJeId = new Map<string, Decimal>();
+  for (const rl of revenueLines) {
+    revenueByJeId.set(
+      rl.journalEntryId,
+      (revenueByJeId.get(rl.journalEntryId) ?? new Decimal(0)).plus(rl.credit),
+    );
+  }
 
   const assetSaleIds = gstLines
     .map((gl) => gl.journalEntry)
@@ -197,9 +207,9 @@ export async function generateGstr1(
 
   for (const gl of gstLines) {
     const gstAmount = new Decimal(gl.credit);
-    // The taxable value is the sales revenue line (4000) in the same journal entry
-    const revenueLine = revenueByJeId.get(gl.journalEntryId);
-    const taxableValue = revenueLine ? new Decimal(revenueLine.credit) : new Decimal(0);
+    // The taxable value is the sum of revenue credits (4000/4100/4200) in
+    // the same journal entry — covers mixed sales that post several legs.
+    const taxableValue = revenueByJeId.get(gl.journalEntryId) ?? new Decimal(0);
     // Derive GST rate from the amounts (gst / taxable * 100)
     const gstRate = taxableValue.gt(0)
       ? gstAmount.div(taxableValue).times(100)
