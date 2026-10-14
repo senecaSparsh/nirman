@@ -20,7 +20,9 @@
     "e2e:flows": "playwright test --grep @flow",
     "e2e:report": "playwright show-report",
     "seed:prod": "tsx scripts/seed-prod.ts",
-    "seed:hsn": "tsx scripts/seed-hsn-gst.ts"
+    "seed:hsn": "tsx scripts/seed-hsn-gst.ts",
+    "sweep": "node scripts/ui-sweep.mjs",
+    "sweep:mobile": "node scripts/ui-sweep.mjs --mobile"
   },
   "dependencies": {
     "@better-auth/passkey": "^1.7.3",
