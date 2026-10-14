@@ -624,7 +624,7 @@ export function BuiltUnitsView({
                 sortValue: (u) => u.saleProfit ?? 0,
                 render: (u) =>
                   u.saleProfit != null ? (
-                    <MoneyCell value={u.saleProfit} formatted={`${u.saleProfit >= 0 ? "+" : ""}${formatCurrency(u.saleProfit)}`} showSign />
+                    <MoneyCell value={u.saleProfit} formatted={formatCurrency(u.saleProfit)} showSign />
                   ) : (
                     <span className="text-faint">—</span>
                   ),
