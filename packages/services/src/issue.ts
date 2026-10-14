@@ -88,6 +88,13 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
         where: { id: input.builtUnitId, projectId: input.projectId },
       });
       if (!unit) throw new Error("Built unit not found or does not belong to this project");
+      // A SOLD unit's cost basis is frozen at sale and it never rejoins the
+      // allocatable pool — direct material cost issued to it posts WIP that
+      // can never capitalize onto any asset. Refuse; PLANNED is fine (cost
+      // waits in WIP until the unit becomes sellable).
+      if (unit.status === "SOLD") {
+        throw new Error("Cannot issue materials to a SOLD unit — its cost basis is frozen at sale");
+      }
     }
 
     // Validate lines
