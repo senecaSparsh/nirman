@@ -680,3 +680,33 @@ GPS + payroll-lock; direct purchases durable in the Cash-purchases ledger.
   unverified against the real IRP; validate only when the business needs it.
 - **Accounting-period lock** — not enforced. JEs can backdate into closed
   months; small-firm flexibility wins over Tally-style date locks for now.
+
+## 46. Money-path hardening sweep (Oct 2026) — converged
+
+The multi-session audit of every debit/credit path closed these real defects
+(each verified against live HTTP + Postgres, all pushed to main):
+
+| Defect                                                                                    | Fix                                                                                                                                                                |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Customer over-collection (paid + returned) had no settle path except cash-out             | `applySaleCredit` moves credit between a customer's sales — paired `CREDIT_APPLIED` rows, symmetric void + reversal                                                |
+| Material-sale cheque bounced = still "paid" in the books                                  | PENDING→CLEARED/BOUNCED lifecycle, bounce posts reversal + reopens the receivable; BOUNCED excluded from all paid sums (incl. the NULL-chequeStatus semantics bug) |
+| Supplier payments had no failed-inspection signal                                         | `failedInspectionLines` on supplier GET + warn-not-block on the payment dialog                                                                                     |
+| Depreciation was write-only (`postDepreciation` never called)                             | `annualDepreciationRate` + monthly `runDepreciation` cron + form field                                                                                             |
+| Statutory payables (PF/ESI/TDS/GST) accumulated forever                                   | `StatutoryPayment` + ITC-offset GST leg + TDS-refund kind + void path                                                                                              |
+| Customer delete guard missed unpaid material sales                                        | guard covers PENDING/ACTIVE/PARTIALLY_RETURNED + unpaid receivables                                                                                                |
+| Supplier-invoice void didn't exist                                                        | `voidSupplierInvoice` — reverses JE, unwinds balanceOwed, refuses once payments reference it                                                                       |
+| Requisition was decorative — no qty cap, request path dropped the link entirely           | `qtyIssued` ceiling per line, consumed at request/issue, released on cancel, backfilled from history                                                               |
+| Second invoice on a PO compared against the whole GRN → variance 0 → silent double-settle | variance baseline is the un-invoiced GRN remainder; duplicates land on PPV                                                                                         |
+| GSTR-1 blind to zero-GST sales and returns                                                | outward = revenue-credit ∪ 2100-credit JEs; CNs key off the return JE                                                                                              |
+| Negative stock guarded only at service layer                                              | `CHECK (qty >= 0)` on StockLocationItem — DB-level backstop                                                                                                        |
+| Statutory void was unreachable                                                            | `/api/statutory-payments/[id]/void` + UI action                                                                                                                    |
+
+**Verification state**: 390 live-chain assertions · 1,751 unit tests ·
+7/8 book checks PASS + `account-signs` WARN listing dev-DB litter only
+(verifier seeds bypassed issuance postings — documented, not production
+data). A fresh prod DB reads zero.
+
+**Deliberately not built** (business calls, not bugs): intercompany
+settlement between two companies' books; inspection payment-hold (warn
+only); period locks; multi-bank accounts (single Cash/Bank is the
+simplification); e-invoice IRN until the ₹5cr line.
