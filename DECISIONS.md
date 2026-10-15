@@ -710,3 +710,19 @@ data). A fresh prod DB reads zero.
 settlement between two companies' books; inspection payment-hold (warn
 only); period locks; multi-bank accounts (single Cash/Bank is the
 simplification); e-invoice IRN until the ₹5cr line.
+
+## 47. UI-sweep hardening (Oct 2026) — the wiring gaps
+
+Browser-driven sweep surfaced the last invisible-link class:
+
+| Finding                                                                   | Fix                                                                                                                                                                                             |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `requisitionId` accepted by API but no issue dialog offered the link      | Requisition selector in BOTH issue dialogs (IssueFormDialog + IssueMaterialsDialog), filtered to the selected project/department, posts `requisitionId` so the qtyIssued ceiling actually binds |
+| Indent detail showed requested qty but hid consumption                    | Issued column in requisition detail (warning while partial, success when fully drawn)                                                                                                           |
+| Payroll accepted year 2079 — no year bound                                | `generatePayroll` refuses year <2000 or >current+1                                                                                                                                              |
+| `/api/requisitions` omitted `departmentId` so dept issues couldn't filter | added to the GET serializer                                                                                                                                                                     |
+
+Verified live in the browser: selector lists `REQ-CAP-AA — 50 units
+approved`, indent detail shows `Issued: 49`, statutory void + supplier
+invoice void buttons act, failed-inspection warning renders on supplier
+payment, P&L/GL/customers/land/employees/approvals all render real data.
