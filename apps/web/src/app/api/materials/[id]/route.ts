@@ -99,6 +99,18 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   if (!existing) {
     return json({ error: "Material not found" }, { status: 404 });
   }
+  // Live stock guard — deleting a material that still sits on shelves orphans
+  // its StockLocationItem rows: the qty vanishes from every picker while the
+  // inventory value stays in the GL. Adjust the stock out first.
+  const liveStock = await prisma.stockLocationItem.count({
+    where: { materialId: id, qty: { gt: 0 } },
+  });
+  if (liveStock > 0) {
+    return json(
+      { error: `Cannot delete: ${liveStock} location(s) still hold stock of this material — issue/adjust it to zero first` },
+      { status: 409 },
+    );
+  }
   await softDelete("Material", id);
   await withSerializableTransaction(async (tx) => {
     await logAction(tx, {

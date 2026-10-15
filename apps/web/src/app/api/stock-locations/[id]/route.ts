@@ -106,6 +106,17 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     select: { id: true },
   });
   if (!existing) return json({ error: "Stock location not found" }, { status: 404 });
+  // Live stock guard — deleting a location that still holds stock orphans the
+  // quantities: invisible on pickers, still valued in the inventory GL.
+  const liveStock = await prisma.stockLocationItem.count({
+    where: { locationId: id, qty: { gt: 0 } },
+  });
+  if (liveStock > 0) {
+    return json(
+      { error: `Cannot delete: this location still holds ${liveStock} stocked item(s) — transfer or adjust them out first` },
+      { status: 409 },
+    );
+  }
   await softDelete("StockLocation", id);
   revalidatePath("/stock-locations");
   revalidatePath("/m/stock-locations");
