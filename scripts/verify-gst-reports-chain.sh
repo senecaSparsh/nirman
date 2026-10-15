@@ -59,23 +59,38 @@ TT=$(echo "$G1" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['
 ok=$(python3 -c "t,og,c,s='$TT'.split(); print(abs(float(t)-float(og))<0.01 and abs(float(c))<0.01 and abs(float(s))<0.01)")
 [ "$ok" = "True" ] && { PASS=$((PASS+1)); echo "  PASS all output GST → IGST ($TT)"; } || { FAIL=$((FAIL+1)); echo "  FAIL split: igst/cgst/sgst/out = $TT"; }
 
-echo "════════ 3. return's credit-note reversal NOT in outward supply ════════"
+echo "════════ 3. return lands in creditNotes, not outward supply ════════"
 SL=$(P "SELECT id FROM \"MaterialSaleLine\" WHERE \"materialSaleId\"='$SALE' AND \"materialId\"='$MAT'")
 r=$(req POST "material-sales/$SALE/returns" "{\"lines\":[{\"materialSaleLineId\":\"$SL\",\"qty\":1,\"reason\":\"verifier\"}]}")
-echo "$r" | grep -q '"id"' && { PASS=$((PASS+1)); echo "  return posted"; } || { FAIL=$((FAIL+1)); echo "  FAIL return: ${r:0:120}"; }
+RET=$(echo "$r" | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
+[ -n "$RET" ] && { PASS=$((PASS+1)); echo "  return posted $RET"; } || { FAIL=$((FAIL+1)); echo "  FAIL return: ${r:0:120}"; }
 G1B=$(get "gst-reports?type=gstr1&from=$TODAY&to=$TODAY")
-# the return's reversal JE carries a 2100 DEBIT — it must not create an entry
-RJID=$(P "SELECT je.id FROM \"JournalEntry\" je WHERE je.\"sourceId\" IN (SELECT id FROM \"MaterialSaleReturn\" WHERE \"materialSaleId\"='$SALE') AND je.\"sourceType\" LIKE '%REVERSAL%'")
-CNT=$(echo "$G1B" | python3 -c "import json,sys; d=json.load(sys.stdin); ids={'$RJID'}; print(sum(1 for e in d.get('entries',[]) if e['journalEntryId'] in ids))")
-[ "$CNT" = "0" ] && { PASS=$((PASS+1)); echo "  PASS reversal not an outward entry"; } || { FAIL=$((FAIL+1)); echo "  FAIL reversal appeared as outward ($CNT)"; }
+# the CN JE (sourceType MATERIAL_SALE_RETURN, sourceId = return id) must
+# appear in creditNotes — 1 unit @150 +18% → taxable 150, gst 27 — and
+# must NOT appear as an outward entry.
+CJE=$(P "SELECT id FROM \"JournalEntry\" WHERE \"sourceType\"='MATERIAL_SALE_RETURN' AND \"sourceId\"='$RET'")
+CNT=$(echo "$G1B" | python3 -c "import json,sys; d=json.load(sys.stdin); print(sum(1 for e in d.get('entries',[]) if e['journalEntryId']=='$CJE'))")
+[ "$CNT" = "0" ] && { PASS=$((PASS+1)); echo "  PASS CN not an outward entry"; } || { FAIL=$((FAIL+1)); echo "  FAIL CN appeared as outward ($CNT)"; }
+CNROW=$(echo "$G1B" | python3 -c "import json,sys; d=json.load(sys.stdin); cs=[c for c in d.get('creditNotes',[]) if c['journalEntryId']=='$CJE']; print(json.dumps(cs[0]) if cs else '{}')")
+[ "$CNROW" != "{}" ] && { PASS=$((PASS+1)); echo "  CN row present"; } || { FAIL=$((FAIL+1)); echo "  FAIL no creditNotes row for $CJE"; }
+CNV=$(echo "$CNROW" | python3 -c "import json,sys; c=json.load(sys.stdin); print(c.get('taxableValue',-1),c.get('gstAmount',-1))")
+ok=$(python3 -c "t,g='$CNV'.split(); print(abs(float(t)-150)<0.03 and abs(float(g)-27)<0.03)")
+[ "$ok" = "True" ] && { PASS=$((PASS+1)); echo "  PASS CN = 150 taxable + 27 GST → $CNV"; } || { FAIL=$((FAIL+1)); echo "  FAIL CN amounts: $CNV"; }
+# net fields: netTaxableValue = gross − Σ today's CN taxable (other verifier
+# runs post CNs too — derive the expected CN total from the GL window)
+CN_EXP=$(P "SELECT COALESCE(SUM(jl.debit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"companyId\"='$C' AND je.\"sourceType\"='MATERIAL_SALE_RETURN' AND je.\"entryDate\" BETWEEN '$TODAY 18:30:00'::timestamp - interval '1 day' AND '$TODAY 18:29:59'::timestamp AND a.code IN ('4000','4100','4200')")
+CN_GST=$(P "SELECT COALESCE(SUM(jl.debit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"companyId\"='$C' AND je.\"sourceType\"='MATERIAL_SALE_RETURN' AND je.\"entryDate\" BETWEEN '$TODAY 18:30:00'::timestamp - interval '1 day' AND '$TODAY 18:29:59'::timestamp AND a.code='2100'")
+NT=$(echo "$G1B" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['totalTaxableValue']-d['netTaxableValue'], d['totalOutputGst']-d['netOutputGst'])")
+ok=$(python3 -c "t,g='$NT'.split(); print(abs(float(t)-float('$CN_EXP'))<0.03 and abs(float(g)-float('$CN_GST'))<0.03)")
+[ "$ok" = "True" ] && { PASS=$((PASS+1)); echo "  PASS net = gross − ΣCNs ($NT = $CN_EXP/$CN_GST)"; } || { FAIL=$((FAIL+1)); echo "  FAIL net gap: $NT vs $CN_EXP/$CN_GST"; }
 
 echo "════════ 4. GSTR-3B ties to GL ════════"
 G3=$(get "gst-reports?type=gstr3b&from=$TODAY&to=$TODAY")
-# outward taxable = Σ all revenue-account credits today
-SQL_TAX=$(P "SELECT COALESCE(SUM(jl.credit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"companyId\"='$C' AND je.\"entryDate\" BETWEEN '$TODAY 18:30:00'::timestamp - interval '1 day' AND '$TODAY 18:29:59'::timestamp AND a.code IN ('4000','4100','4200')")
-expect_json "3b outward taxable = Σ revenue credits" "" "$G3" "['outwardTaxableValue']" "$SQL_TAX"
-SQL_OUT=$(P "SELECT COALESCE(SUM(jl.credit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"companyId\"='$C' AND je.\"entryDate\" BETWEEN '$TODAY 18:30:00'::timestamp - interval '1 day' AND '$TODAY 18:29:59'::timestamp AND a.code='2100'")
-expect_json "3b output GST = Σ 2100 credits" "" "$G3" "['outwardOutputGst']" "$SQL_OUT"
+# outward taxable/output are NET of credit-note debits (3.1(a) semantics)
+SQL_TAX=$(P "SELECT COALESCE(SUM(jl.credit)-SUM(jl.debit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"companyId\"='$C' AND je.\"entryDate\" BETWEEN '$TODAY 18:30:00'::timestamp - interval '1 day' AND '$TODAY 18:29:59'::timestamp AND a.code IN ('4000','4100','4200')")
+expect_json "3b outward taxable = net revenue" "" "$G3" "['outwardTaxableValue']" "$SQL_TAX"
+SQL_OUT=$(P "SELECT COALESCE(SUM(jl.credit)-SUM(jl.debit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"companyId\"='$C' AND je.\"entryDate\" BETWEEN '$TODAY 18:30:00'::timestamp - interval '1 day' AND '$TODAY 18:29:59'::timestamp AND a.code='2100'")
+expect_json "3b output GST = net 2100" "" "$G3" "['outwardOutputGst']" "$SQL_OUT"
 SQL_IN=$(P "SELECT COALESCE(SUM(jl.debit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"companyId\"='$C' AND je.\"entryDate\" BETWEEN '$TODAY 18:30:00'::timestamp - interval '1 day' AND '$TODAY 18:29:59'::timestamp AND a.code='1400'")
 expect_json "3b inward GST = Σ 1400 debits" "" "$G3" "['inwardInputGst']" "$SQL_IN"
 SQL_REV=$(P "SELECT COALESCE(SUM(jl.credit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"companyId\"='$C' AND je.\"entryDate\" BETWEEN '$TODAY 18:30:00'::timestamp - interval '1 day' AND '$TODAY 18:29:59'::timestamp AND a.code='1400'")

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import Decimal from "decimal.js";
 import { istDateRange } from "@/lib/utils";
 import { generateGstr1, generateGstr3b } from "@nirman/services";
 import { PERM } from "@/lib/roles";
@@ -36,6 +37,12 @@ export const GET = apiHandler(async (req: NextRequest) => {
       totalSgst: report.totalSgst.toNumber(),
       totalIgst: report.totalIgst.toNumber(),
       totalInvoiceCount: report.totalInvoiceCount,
+      netTaxableValue: report.netTaxableValue.toNumber(),
+      netOutputGst: report.netOutputGst.toNumber(),
+      totalCreditNoteCount: report.creditNotes.length,
+      totalCreditNoteGst: report.creditNotes
+        .reduce((s, c) => s.plus(c.gstAmount), new Decimal(0))
+        .toNumber(),
       entries: report.entries.map((e) => ({
         journalEntryId: e.journalEntryId,
         date: e.date.toISOString(),
@@ -44,6 +51,18 @@ export const GET = apiHandler(async (req: NextRequest) => {
         taxableValue: e.taxableValue.toNumber(),
         gstAmount: e.gstAmount.toNumber(),
         gstRate: e.gstRate.toNumber(),
+      })),
+      creditNotes: report.creditNotes.map((c) => ({
+        journalEntryId: c.journalEntryId,
+        date: c.date.toISOString(),
+        returnNumber: c.returnNumber,
+        materialSaleId: c.materialSaleId,
+        customerGstin: c.customerGstin,
+        taxableValue: c.taxableValue.toNumber(),
+        gstAmount: c.gstAmount.toNumber(),
+        cgst: c.cgst.toNumber(),
+        sgst: c.sgst.toNumber(),
+        igst: c.igst.toNumber(),
       })),
     });
   }

@@ -79,6 +79,24 @@ export interface Gstr1Report {
     sgst: Decimal;
     igst: Decimal;
   }[];
+  // Credit notes (material-sale returns) — reported separately in GSTR-1 and
+  // reduce output tax. A company filing without these over-declares its GST.
+  creditNotes: {
+    journalEntryId: string;
+    date: Date;
+    returnNumber: string;
+    materialSaleId: string;
+    customerGstin: string | null;
+    taxableValue: Decimal;
+    gstAmount: Decimal;
+    cgst: Decimal;
+    sgst: Decimal;
+    igst: Decimal;
+  }[];
+  /** taxableValue of invoices − taxableValue of credit notes */
+  netTaxableValue: Decimal;
+  /** totalOutputGst − credit-note GST */
+  netOutputGst: Decimal;
 }
 
 export interface Gstr3bReport {
@@ -249,6 +267,80 @@ export async function generateGstr1(
     });
   }
 
+  // ── Credit notes: material-sale-return entries DEBIT Output GST (2100) ──
+  // They reverse outward tax and must be reported (GSTR-1 CDN/CDNUR), else
+  // the filed return over-declares output tax by the returned GST.
+  const cnGstLines = outputGstAccountId
+    ? await prisma.journalLine.findMany({
+        where: {
+          accountId: outputGstAccountId,
+          debit: { gt: 0 },
+          journalEntry: {
+            companyId,
+            sourceType: "MATERIAL_SALE_RETURN",
+            entryDate: { gte: fromDate, lte: toDate },
+          },
+        },
+        include: {
+          journalEntry: { select: { id: true, entryDate: true, sourceType: true, sourceId: true } },
+        },
+        orderBy: { journalEntry: { entryDate: "asc" } },
+      })
+    : [];
+
+  const cnJeIds = cnGstLines.map((l) => l.journalEntryId);
+  const cnRevenueDebits = cnJeIds.length > 0 && revenueAccountIds.length > 0
+    ? await prisma.journalLine.findMany({
+        where: {
+          journalEntryId: { in: cnJeIds },
+          accountId: { in: revenueAccountIds },
+          debit: { gt: 0 },
+        },
+        select: { journalEntryId: true, debit: true },
+      })
+    : [];
+  const cnTaxableByJeId = new Map<string, Decimal>();
+  for (const rl of cnRevenueDebits) {
+    cnTaxableByJeId.set(
+      rl.journalEntryId,
+      (cnTaxableByJeId.get(rl.journalEntryId) ?? new Decimal(0)).plus(rl.debit),
+    );
+  }
+
+  const cnReturnIds = cnGstLines.map((l) => l.journalEntry.sourceId).filter((id): id is string => !!id);
+  const cnReturns = cnReturnIds.length > 0
+    ? await prisma.materialSaleReturn.findMany({
+        where: { id: { in: cnReturnIds } },
+        select: { id: true, returnNumber: true, materialSaleId: true, customer: { select: { gstin: true } } },
+      })
+    : [];
+  const cnReturnById = new Map(cnReturns.map((r) => [r.id, r]));
+
+  const creditNotes: Gstr1Report["creditNotes"] = [];
+  let cnTaxableTotal = new Decimal(0);
+  let cnGstTotal = new Decimal(0);
+
+  for (const gl of cnGstLines) {
+    const ret = gl.journalEntry.sourceId ? cnReturnById.get(gl.journalEntry.sourceId) : undefined;
+    const gstAmount = new Decimal(gl.debit);
+    const taxableValue = cnTaxableByJeId.get(gl.journalEntryId) ?? new Decimal(0);
+    const split = splitGst(gstAmount, companyGstin, ret?.customer?.gstin ?? null);
+    cnTaxableTotal = cnTaxableTotal.plus(taxableValue);
+    cnGstTotal = cnGstTotal.plus(gstAmount);
+    creditNotes.push({
+      journalEntryId: gl.journalEntryId,
+      date: gl.journalEntry.entryDate,
+      returnNumber: ret?.returnNumber ?? "",
+      materialSaleId: ret?.materialSaleId ?? "",
+      customerGstin: ret?.customer?.gstin ?? null,
+      taxableValue,
+      gstAmount,
+      cgst: split.cgst,
+      sgst: split.sgst,
+      igst: split.igst,
+    });
+  }
+
   return {
     fromDate,
     toDate,
@@ -260,6 +352,9 @@ export async function generateGstr1(
     totalIgst,
     totalInvoiceCount: entries.length,
     entries,
+    creditNotes,
+    netTaxableValue: totalTaxableValue.minus(cnTaxableTotal),
+    netOutputGst: totalOutputGst.minus(cnGstTotal),
   };
 }
 
@@ -292,11 +387,14 @@ export async function generateGstr3b(
   const inventoryId3b = codeToId3b.get("1300");
 
   // ── Outward supplies: compute per-entry to get CGST/SGST/IGST split ──
+  // Net basis: credit-note debits (MATERIAL_SALE_RETURN) reduce output tax —
+  // real GSTR-3B 3.1(a) is net outward supplies. Counting only credits would
+  // overstate the liability by every returned rupee of GST.
   const outputGstLines = outputGstId3b
     ? await prisma.journalLine.findMany({
         where: {
           accountId: outputGstId3b,
-          credit: { gt: 0 },
+          OR: [{ credit: { gt: 0 } }, { debit: { gt: 0 } }],
           journalEntry: {
             companyId,
             entryDate: { gte: fromDate, lte: toDate },
@@ -322,6 +420,10 @@ export async function generateGstr3b(
     .map((gl) => gl.journalEntry)
     .filter((je) => je.sourceId && je.sourceType === "MATERIAL_SALE")
     .map((je) => je.sourceId!) as string[];
+  const outReturnIds = outputGstLines
+    .map((gl) => gl.journalEntry)
+    .filter((je) => je.sourceId && je.sourceType === "MATERIAL_SALE_RETURN")
+    .map((je) => je.sourceId!) as string[];
 
   const outAssetSales = outAssetSaleIds.length > 0
     ? await prisma.assetSale.findMany({
@@ -339,8 +441,17 @@ export async function generateGstr3b(
     : [];
   const outMaterialSaleGstinById = new Map(outMaterialSales.map((s) => [s.id, s.customer?.gstin ?? null]));
 
+  const outReturns = outReturnIds.length > 0
+    ? await prisma.materialSaleReturn.findMany({
+        where: { id: { in: outReturnIds } },
+        select: { id: true, customer: { select: { gstin: true } } },
+      })
+    : [];
+  const outReturnGstinById = new Map(outReturns.map((r) => [r.id, r.customer?.gstin ?? null]));
+
   for (const gl of outputGstLines) {
-    const gstAmount = new Decimal(gl.credit);
+    const gstAmount = new Decimal(gl.credit).minus(gl.debit); // CNs net against output tax
+    if (gstAmount.isZero()) continue;
     outwardOutputGst = outwardOutputGst.plus(gstAmount);
 
     let partyGstin: string | null = null;
@@ -349,6 +460,8 @@ export async function generateGstr3b(
         partyGstin = outAssetSaleGstinById.get(gl.journalEntry.sourceId) ?? null;
       } else if (gl.journalEntry.sourceType === "MATERIAL_SALE") {
         partyGstin = outMaterialSaleGstinById.get(gl.journalEntry.sourceId) ?? null;
+      } else if (gl.journalEntry.sourceType === "MATERIAL_SALE_RETURN") {
+        partyGstin = outReturnGstinById.get(gl.journalEntry.sourceId) ?? null;
       }
     }
 
@@ -358,19 +471,19 @@ export async function generateGstr3b(
     outwardIgst = outwardIgst.plus(split.igst);
   }
 
-  // Sales revenue (taxable value)
+  // Sales revenue (taxable value) — net of credit-note revenue reversals.
   const revenueLines = await prisma.journalLine.aggregate({
     where: {
       accountId: { in: revenueAccountIds3b },
-      credit: { gt: 0 },
       journalEntry: {
         companyId,
         entryDate: { gte: fromDate, lte: toDate },
       },
     },
-    _sum: { credit: true },
+    _sum: { credit: true, debit: true },
   });
-  const outwardTaxableValue = new Decimal(revenueLines._sum?.credit ?? 0);
+  const outwardTaxableValue = new Decimal(revenueLines._sum?.credit ?? 0)
+    .minus(new Decimal(revenueLines._sum?.debit ?? 0));
 
   // ── Inward supplies: compute per-entry to get CGST/SGST/IGST split ──
   const inputGstLineRecords = inputGstId3b
