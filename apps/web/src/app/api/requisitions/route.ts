@@ -33,13 +33,16 @@ export const GET = apiHandler(async (req: NextRequest) => {
     include: {
       project: { select: { id: true, name: true } },
       phase: { select: { id: true, name: true } },
-      lines: { select: { qtyRequested: true } },
+      lines: { select: { qtyRequested: true, qtyIssued: true } },
     },
   });
 
   return json(
     reqs.map((r) => {
       const totalQty = r.lines.reduce((s, l) => s + toNum(l.qtyRequested), 0);
+      // Issued-so-far — issue dialogs hide a fully-consumed indent instead of
+      // letting a user pick it and fail at submit.
+      const totalIssued = r.lines.reduce((s, l) => s + toNum(l.qtyIssued), 0);
       return {
         id: r.id,
         reqNumber: r.reqNumber,
@@ -55,6 +58,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
         convertedPoId: r.convertedPoId,
         lineCount: r.lines.length,
         totalQty,
+        totalIssued,
+        qtyRemaining: totalQty - totalIssued,
         createdAt: r.createdAt.toISOString(),
       };
     }),

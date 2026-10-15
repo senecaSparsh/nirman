@@ -92,11 +92,14 @@ export function IssueFormDialog({
 
   // Approved requisitions for the selected target — linking the issue makes
   // the authorization ceiling (qtyIssued vs qtyRequested) enforceable.
-  const { data: reqData } = useFetch<{ id: string; reqNumber: string; projectId: string | null; departmentId: string | null; lineCount: number; totalQty: number }[]>(
+  const { data: reqData } = useFetch<{ id: string; reqNumber: string; projectId: string | null; departmentId: string | null; lineCount: number; totalQty: number; qtyRemaining?: number }[]>(
     open ? "/api/requisitions?status=APPROVED" : null,
   );
+  // Offer only indents that still have authorization headroom — a fully
+  // consumed req would fail at submit; don't let the user pick it.
   const requisitions = (reqData ?? []).filter((r) =>
-    target === "PROJECT" ? r.projectId === projectId : r.departmentId === departmentId,
+    (target === "PROJECT" ? r.projectId === projectId : r.departmentId === departmentId)
+    && (r.qtyRemaining == null || r.qtyRemaining > 0),
   );
   useEffect(() => { setRequisitionId(""); }, [target, projectId, departmentId]);
   const [errors, setErrors] = useState<ValidationErrors<IssueFormValues>>({});
@@ -404,7 +407,9 @@ export function IssueFormDialog({
             <Select value={requisitionId} onChange={(e) => setRequisitionId(e.target.value)}>
               <option value="">Ad-hoc issue (no authorization)</option>
               {requisitions.map((r) => (
-                <option key={r.id} value={r.id}>{r.reqNumber} — {r.lineCount} items ({r.totalQty} units approved)</option>
+                <option key={r.id} value={r.id}>
+                  {r.reqNumber} — {r.lineCount} items ({r.qtyRemaining != null ? `${r.qtyRemaining} of ${r.totalQty} left` : `${r.totalQty} units approved`})
+                </option>
               ))}
             </Select>
             <p className="text-caption text-muted-foreground">
