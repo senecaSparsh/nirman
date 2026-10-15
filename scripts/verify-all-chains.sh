@@ -70,7 +70,14 @@ for name in $WANT; do
   echo "▶ $name ($script)"
   echo "────────────────────────────────────────"
   out=$(BASE="$BASE" bash "$DIR/$script" 2>&1)
+  rc=$?
   echo "$out"
+  # Exit 2 = deliberate skip (e.g. payroll chains when every month ≤ today
+  # already carries a PayrollPeriod — the lock is working correctly).
+  if [ $rc -eq 2 ] || echo "$out" | grep -qE "^SKIP"; then
+    echo "  ── skipped"
+    continue
+  fi
   line=$(echo "$out" | grep -oE "[0-9]+ passed, [0-9]+ failed" | tail -1)
   if [ -z "$line" ]; then
     echo "  ⚠ no summary line — script may have died mid-run"

@@ -45,9 +45,15 @@ expect_cnt() { # label sql want — exact integer count
 }
 uid() { echo "glc$(date +%s)$RANDOM"; }
 
-# Roll forward to the first month with NO PayrollPeriod — a PAID period
-# locks attendance + payroll writes, so a hardcoded month runs only once.
-MO=$(P "SELECT to_char(m,'YYYY-MM') FROM generate_series('2025-10-01'::date,'2030-12-01'::date,'1 month') m WHERE NOT EXISTS (SELECT 1 FROM \"PayrollPeriod\" pp WHERE pp.\"companyId\"='$C' AND date_trunc('month',pp.\"startDate\")=date_trunc('month',m)) ORDER BY m LIMIT 1")
+# Roll forward to the first month ≤ today with NO PayrollPeriod — a PAID
+# period locks attendance + payroll writes (reruns need fresh months), and
+# attendance refuses future dates, so the roll is capped at this month.
+MO=$(P "SELECT to_char(m,'YYYY-MM') FROM generate_series('2025-10-01'::date,date_trunc('month',now())::date,'1 month') m WHERE NOT EXISTS (SELECT 1 FROM \"PayrollPeriod\" pp WHERE pp.\"companyId\"='$C' AND date_trunc('month',pp.\"startDate\")=date_trunc('month',m)) ORDER BY m LIMIT 1")
+if [ -z "$MO" ]; then
+  echo "SKIP payroll-gl: every month through $(date +%Y-%m) already has a PayrollPeriod on this company."
+  echo "  (verifier months are consumed per run — rerun next calendar month or on a fresh company)"
+  exit 2
+fi
 MON=$((10#${MO#*-})); YR=${MO%%-*}
 EG="glce$(date +%s)"
 RUN="$(date +%s)"
