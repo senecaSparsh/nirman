@@ -54,6 +54,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         status: e.status,
         acquisitionCost: toNum(e.acquisitionCost),
         currentValue: toNum(e.currentValue),
+        annualDepreciationRate: e.annualDepreciationRate != null ? toNum(e.annualDepreciationRate) : null,
         purchaseDate: e.purchaseDate?.toISOString() ?? null,
         createdAt: e.createdAt.toISOString(),
         notes: e.notes,
@@ -98,6 +99,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       companyId: company.id,
       acquisitionCost: parsed.data.acquisitionCost,
       purchaseDate: parsed.data.purchaseDate ? new Date(parsed.data.purchaseDate) : undefined,
+      annualDepreciationRate: parsed.data.annualDepreciationRate ?? null,
       notes: parsed.data.notes ?? undefined,
       userId: user.id,
     });

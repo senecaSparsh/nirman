@@ -20,6 +20,7 @@ type FormState = {
   category: string;
   acquisitionCost: string;
   purchaseDate: string;
+  depreciationRate: string; // % per year, straight-line — empty = no depreciation
   notes: string;
 };
 
@@ -42,6 +43,7 @@ export function EquipmentFormDialog({
     category: "",
     acquisitionCost: "",
     purchaseDate: "",
+    depreciationRate: "",
     notes: "",
   });
 
@@ -78,6 +80,7 @@ export function EquipmentFormDialog({
         category: form.category || null,
         acquisitionCost: cost,
         purchaseDate: form.purchaseDate || null,
+        annualDepreciationRate: form.depreciationRate ? Number(form.depreciationRate) / 100 : null,
         notes: form.notes.trim() || null,
       };
       const res = await fetch("/api/equipment", {
@@ -101,7 +104,7 @@ export function EquipmentFormDialog({
       onOpenChange(false);
       setForm({
         assetTag: "", name: "", model: "", serialNumber: "", category: "",
-        acquisitionCost: "", purchaseDate: "", notes: "",
+        acquisitionCost: "", purchaseDate: "", depreciationRate: "", notes: "",
       });
       clearAll();
       if (onCreated) {
@@ -199,14 +202,30 @@ export function EquipmentFormDialog({
             {errors.acquisitionCost && <p className="text-caption text-danger" role="alert">{errors.acquisitionCost}</p>}
           </div>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="eq-purchaseDate">Purchase Date</Label>
-          <Input
-            id="eq-purchaseDate"
-            type="date"
-            value={form.purchaseDate}
-            onChange={(e) => set("purchaseDate", e.target.value)}
-          />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="eq-purchaseDate">Purchase Date</Label>
+            <Input
+              id="eq-purchaseDate"
+              type="date"
+              value={form.purchaseDate}
+              onChange={(e) => set("purchaseDate", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="eq-dep">Depreciation %/yr</Label>
+            <Input
+              id="eq-dep"
+              type="number"
+              min="0"
+              max="100"
+              step="0.5"
+              value={form.depreciationRate}
+              onChange={(e) => set("depreciationRate", e.target.value)}
+              placeholder="e.g. 15"
+            />
+            <p className="text-micro text-muted-foreground">Straight-line, monthly. Empty = none.</p>
+          </div>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="eq-notes">Notes</Label>

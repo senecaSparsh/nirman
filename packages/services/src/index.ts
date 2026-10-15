@@ -511,6 +511,7 @@ export {
   computeServiceStatus,
   getLatestMeter,
   checkEquipmentMaintenanceDue,
+  runDepreciation,
 } from "./equipment";
 export type { LogEquipmentUsageInput, EquipmentUsageSummary, ServiceStatus } from "./equipment";
 

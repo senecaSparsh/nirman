@@ -3328,6 +3328,8 @@ model Equipment {
   status          EquipmentStatus @default(AVAILABLE)
   acquisitionCost Decimal         @default(0) @db.Decimal(14, 2)
   currentValue    Decimal         @default(0) @db.Decimal(14, 2) // after depreciation
+  /** Straight-line rate per year (0.15 = 15%). Null/0 → not depreciated. */
+  annualDepreciationRate Decimal? @db.Decimal(6, 4)
   purchaseDate    DateTime?
   notes           String?
   // Preventive maintenance off actual run-hours (from usageLogs), not

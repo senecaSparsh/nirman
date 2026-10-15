@@ -943,6 +943,8 @@ export const equipmentSchema = z.object({
   category: z.string().optional().nullable(),
   acquisitionCost: z.union([z.string(), z.number()]).transform((v) => String(v)).default("0"),
   purchaseDate: z.string().optional().nullable().refine((v) => !v || !isNaN(new Date(v).getTime()), "Invalid date"),
+  // Straight-line rate as a fraction (0.15 = 15%/yr). Null/0 → not depreciated.
+  annualDepreciationRate: z.number().min(0).max(1).optional().nullable(),
   notes: z.string().optional().nullable(),
 });
 

@@ -1,7 +1,7 @@
 import { prisma, type EquipmentStatus, type MaintenanceType } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
-import { postEquipmentAcquisition, postEquipmentMaintenance, postEquipmentRetirement, postEquipmentSale } from "./gl-posting";
+import { postEquipmentAcquisition, postEquipmentMaintenance, postEquipmentRetirement, postEquipmentSale, postDepreciation, ACCT } from "./gl-posting";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
@@ -28,6 +28,8 @@ interface CreateEquipmentInput {
   companyId: string;
   acquisitionCost: Decimal | number | string;
   purchaseDate?: Date;
+  /** Straight-line fraction per year (0.15 = 15%). Null/undefined → no depreciation. */
+  annualDepreciationRate?: Decimal | number | string | null;
   notes?: string;
   userId?: string;
 }
@@ -51,6 +53,7 @@ export async function createEquipment(input: CreateEquipmentInput) {
         companyId: input.companyId,
         acquisitionCost: cost,
         currentValue: cost, // initial value = acquisition cost (depreciation applied later)
+        annualDepreciationRate: input.annualDepreciationRate != null ? new Decimal(input.annualDepreciationRate) : null,
         purchaseDate: input.purchaseDate,
         notes: input.notes,
         status: "AVAILABLE",
@@ -758,4 +761,105 @@ export async function checkEquipmentMaintenanceDue(): Promise<{
   }
 
   return { checked: equipment.length, due, notified };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+//  DEPRECIATION RUN — monthly straight-line posting
+//
+//  postDepreciation exists but nothing ever calls it: without a scheduled
+//  run, equipment sits at acquisition cost forever and the balance sheet
+//  silently overstates fixed assets. This runs once per calendar month
+//  (YYYY-MM) per company: monthly charge = acquisitionCost × annualRate / 12,
+//  capped at the asset's remaining book value (never depreciates below 0).
+//
+//  Idempotent per period — an EQUIPMENT_DEPRECIATION JE already posted for
+//  this asset+period skips it, so the cron can safely fire daily.
+//  RETIRED/SOLD assets stop depreciating (a sale relieves the asset at its
+//  current book value — depreciation beyond that double-counts the loss).
+// ─────────────────────────────────────────────────────────────────────────
+
+export async function runDepreciation(input: {
+  companyId?: string;
+  /** Period "YYYY-MM" — defaults to the current month. */
+  period?: string;
+  userId?: string;
+}) {
+  const period = input.period ?? new Date().toISOString().slice(0, 7);
+  const periodStart = new Date(`${period}-01T00:00:00.000Z`);
+  const periodEnd = new Date(Date.UTC(periodStart.getUTCFullYear(), periodStart.getUTCMonth() + 1, 1));
+
+  const assets = await prisma.equipment.findMany({
+    where: {
+      companyId: input.companyId ?? undefined,
+      deletedAt: null,
+      status: { notIn: ["RETIRED", "SOLD"] },
+      annualDepreciationRate: { gt: 0 },
+      purchaseDate: { lt: periodEnd },
+    },
+    select: {
+      id: true, companyId: true, assetTag: true, name: true,
+      acquisitionCost: true, currentValue: true, annualDepreciationRate: true,
+    },
+  });
+
+  let posted = 0;
+  let skipped = 0;
+  const errors: { equipmentId: string; error: string }[] = [];
+
+  for (const eq of assets) {
+    try {
+      const didPost = await withSerializableTransaction(async (tx) => {
+        // Already depreciated this period? (sourceId + period in memo)
+        const existing = await tx.journalEntry.findFirst({
+          where: {
+            sourceType: "EQUIPMENT_DEPRECIATION",
+            sourceId: eq.id,
+            memo: `Depreciation for period ${period}`,
+            status: "POSTED",
+          },
+          select: { id: true },
+        });
+        if (existing) return false;
+
+        // Remaining depreciable value = acquisitionCost − Σ posted dep.
+        const accum = await tx.journalLine.aggregate({
+          where: {
+            entityType: "Equipment",
+            entityId: eq.id,
+            account: { code: ACCT.ACCUM_DEPRECIATION },
+            journalEntry: { status: "POSTED" },
+          },
+          _sum: { credit: true, debit: true },
+        });
+        const accumDep = new Decimal(accum._sum.credit ?? 0).minus(new Decimal(accum._sum.debit ?? 0));
+        const bookValue = new Decimal(eq.acquisitionCost).minus(accumDep);
+        if (bookValue.lte(0)) return false;
+
+        const monthly = new Decimal(eq.acquisitionCost)
+          .times(eq.annualDepreciationRate!)
+          .div(12)
+          .toDecimalPlaces(2);
+        const amount = Decimal.min(monthly, bookValue);
+        if (amount.lte(0)) return false;
+
+        await postDepreciation(tx, {
+          companyId: eq.companyId,
+          equipmentId: eq.id,
+          depreciationAmount: amount,
+          period,
+          postedById: input.userId,
+        });
+        await tx.equipment.update({
+          where: { id: eq.id },
+          data: { currentValue: bookValue.minus(amount) },
+        });
+        return true;
+      });
+      if (didPost) posted++; else skipped++;
+    } catch (err) {
+      errors.push({ equipmentId: eq.id, error: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  return { period, evaluated: assets.length, posted, skipped, errors };
 }
