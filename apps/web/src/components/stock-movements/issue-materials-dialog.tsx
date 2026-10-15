@@ -42,6 +42,7 @@ export function IssueMaterialsDialog({
   const [projectId, setProjectId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [builtUnitId, setBuiltUnitId] = useState("");
+  const [requisitionId, setRequisitionId] = useState("");
 
   const [fromLocationId, setFromLocationId] = useState("");
   const [receiverName, setReceiverName] = useState("");
@@ -73,6 +74,16 @@ export function IssueMaterialsDialog({
   useEffect(() => {
     if (target !== "PROJECT" || !projectId) setBuiltUnitId("");
   }, [target, projectId]);
+
+  // Approved requisitions for the selected target — linking the issue makes
+  // the authorization ceiling enforceable; without it the link is invisible.
+  const { data: reqData } = useFetch<{ id: string; reqNumber: string; projectId: string | null; departmentId: string | null; lineCount: number; totalQty: number }[]>(
+    open ? "/api/requisitions?status=APPROVED" : null,
+  );
+  const requisitions = (reqData ?? []).filter((r) =>
+    target === "PROJECT" ? r.projectId === projectId : r.departmentId === departmentId,
+  );
+  useEffect(() => { setRequisitionId(""); }, [target, projectId, departmentId]);
 
   function updateLine(key: string, patch: Partial<Line>) {
     setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
@@ -116,6 +127,7 @@ export function IssueMaterialsDialog({
           projectId: target === "PROJECT" ? projectId : null,
           departmentId: target === "DEPARTMENT" ? departmentId : null,
           builtUnitId: target === "PROJECT" && builtUnitId ? builtUnitId : null,
+          requisitionId: requisitionId || null,
           fromLocationId,
           notes: notes.trim() || null,
           receiverName: receiverName.trim() || null,
@@ -234,6 +246,16 @@ export function IssueMaterialsDialog({
               )}
             />
           </Field>
+          {requisitions.length > 0 && (
+            <Field label="Requisition" className="sm:col-span-2">
+              <Select value={requisitionId} onChange={(e) => setRequisitionId(e.target.value)}>
+                <option value="">Ad-hoc issue (no authorization)</option>
+                {requisitions.map((r) => (
+                  <option key={r.id} value={r.id}>{r.reqNumber} — {r.lineCount} items ({r.totalQty} units approved)</option>
+                ))}
+              </Select>
+            </Field>
+          )}
         </div>
 
         {/* Receiver accountability — who physically picked up the stock */}

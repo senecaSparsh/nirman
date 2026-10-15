@@ -57,6 +57,7 @@ export function IssueFormDialog({
   const [departmentId, setDepartmentId] = useState("");
   const [fromLocationId, setFromLocationId] = useState("");
   const [builtUnitId, setBuiltUnitId] = useState("");
+  const [requisitionId, setRequisitionId] = useState("");
 
   const [receiverName, setReceiverName] = useState("");
   const [receiverMobile, setReceiverMobile] = useState("");
@@ -88,6 +89,16 @@ export function IssueFormDialog({
   useEffect(() => {
     if (target !== "PROJECT" || !projectId) setBuiltUnitId("");
   }, [target, projectId]);
+
+  // Approved requisitions for the selected target — linking the issue makes
+  // the authorization ceiling (qtyIssued vs qtyRequested) enforceable.
+  const { data: reqData } = useFetch<{ id: string; reqNumber: string; projectId: string | null; departmentId: string | null; lineCount: number; totalQty: number }[]>(
+    open ? "/api/requisitions?status=APPROVED" : null,
+  );
+  const requisitions = (reqData ?? []).filter((r) =>
+    target === "PROJECT" ? r.projectId === projectId : r.departmentId === departmentId,
+  );
+  useEffect(() => { setRequisitionId(""); }, [target, projectId, departmentId]);
   const [errors, setErrors] = useState<ValidationErrors<IssueFormValues>>({});
   // Local copies so freshly created masters appear in their dropdowns without
   // waiting for router.refresh.
@@ -239,6 +250,7 @@ export function IssueFormDialog({
           projectId: target === "PROJECT" ? projectId : null,
           departmentId: target === "DEPARTMENT" ? departmentId : null,
           builtUnitId: target === "PROJECT" ? (builtUnitId || null) : null,
+          requisitionId: requisitionId || null,
           fromLocationId,
           notes: notes.trim() || null,
           receiverName: receiverName.trim() || null,
@@ -382,6 +394,21 @@ export function IssueFormDialog({
             </Select>
             <p className="text-caption text-muted-foreground">
               Selecting a unit sends the cost directly to that unit&apos;s production cost instead of area-allocating across all units.
+            </p>
+          </div>
+        )}
+
+        {requisitions.length > 0 && (
+          <div className="space-y-1.5">
+            <Label>Requisition (optional)</Label>
+            <Select value={requisitionId} onChange={(e) => setRequisitionId(e.target.value)}>
+              <option value="">Ad-hoc issue (no authorization)</option>
+              {requisitions.map((r) => (
+                <option key={r.id} value={r.id}>{r.reqNumber} — {r.lineCount} items ({r.totalQty} units approved)</option>
+              ))}
+            </Select>
+            <p className="text-caption text-muted-foreground">
+              Linking an approved indent caps the issue at its authorized quantity.
             </p>
           </div>
         )}

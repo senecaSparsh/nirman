@@ -44,6 +44,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         id: r.id,
         reqNumber: r.reqNumber,
         projectId: r.projectId,
+        departmentId: r.departmentId,
         projectName: r.project?.name ?? null,
         phaseId: r.phaseId,
         phaseName: r.phase?.name ?? null,
