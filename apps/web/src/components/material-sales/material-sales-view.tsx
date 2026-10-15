@@ -76,7 +76,7 @@ const saleLineColumns: Column<MaterialSaleRow["lines"][number]>[] = [
 ];
 
 /** Column definitions for the material sale payment history DataTable. */
-const paymentColumns: Column<MaterialSalePaymentRow>[] = [
+const paymentColumnsFor = (onChequeAction?: (p: MaterialSalePaymentRow, action: "clear" | "bounce") => void): Column<MaterialSalePaymentRow>[] => [
   {
     key: "amount",
     label: "Amount",
@@ -126,6 +126,24 @@ const paymentColumns: Column<MaterialSalePaymentRow>[] = [
     label: "By",
     render: (p) => p.createdByName ? <span className="text-muted-foreground">{p.createdByName}</span> : <span className="text-faint">—</span>,
   },
+  ...(onChequeAction ? [{
+    key: "chequeStatus",
+    label: "Cheque",
+    render: (p: MaterialSalePaymentRow) => {
+      if (p.paymentMode !== "CHEQUE") return <span className="text-faint">—</span>;
+      if (p.chequeStatus === "CLEARED") return <Badge variant="success">Cleared</Badge>;
+      if (p.chequeStatus === "BOUNCED") return <Badge variant="danger">Bounced</Badge>;
+      if (p.chequeStatus === "PENDING" && p.status !== "VOID") {
+        return (
+          <div className="flex gap-1">
+            <Button size="xs" variant="outline" className="h-6 px-2 text-micro" onClick={(e) => { e.stopPropagation(); onChequeAction(p, "clear"); }}>Clear</Button>
+            <Button size="xs" variant="outline" className="h-6 px-2 text-micro text-danger" onClick={(e) => { e.stopPropagation(); onChequeAction(p, "bounce"); }}>Bounce</Button>
+          </div>
+        );
+      }
+      return <Badge variant="muted">{p.chequeStatus ?? "—"}</Badge>;
+    },
+  } satisfies Column<MaterialSalePaymentRow>] : []),
 ];
 
 export type MaterialSaleRow = {
@@ -188,6 +206,7 @@ export type MaterialSalePaymentRow = {
   direction?: string; // "IN" | "OUT" — refunds pay money back to the customer
   status?: string; // RECEIVED | VOID
   createdByName: string | null;
+  chequeStatus?: string | null;
   chequeNo: string | null;
   chequeBank: string | null;
   chequePhotoUrl: string | null;
@@ -291,7 +310,7 @@ export function MaterialSalesView({
   function totalPaid(sale: MaterialSaleRow): number {
     const payments = paymentsBySale[sale.id] ?? sale.payments ?? [];
     return payments
-      .filter((p) => (p.direction ?? "IN") === "IN" && p.status !== "VOID")
+      .filter((p) => (p.direction ?? "IN") === "IN" && p.status !== "VOID" && p.chequeStatus !== "BOUNCED")
       .reduce((sum, p) => sum + toNum(p.amount), 0);
   }
 
@@ -732,6 +751,23 @@ export function MaterialSalesView({
           canRecordPayment={canRecordPayment}
           canCreateReturn={canCancel}
           submitting={submitting}
+          onChequeAction={canRecordPayment ? async (p, action) => {
+            try {
+              const res = await fetch(`/api/material-sales/payments/${p.id}/cheque`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action }),
+              });
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(data.error ?? "Cheque action failed");
+              toast.success(action === "clear" ? "Cheque cleared" : "Cheque bounced — receivable re-opened");
+              setPaymentsBySale((prev) => { const n = { ...prev }; delete n[detailTarget.id]; return n; });
+              await loadPayments(detailTarget);
+              router.refresh();
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : "Cheque action failed");
+            }
+          } : undefined}
         />
       )}
 
@@ -925,6 +961,7 @@ function MaterialSaleDetailDialog({
   canRecordPayment,
   canCreateReturn,
   submitting,
+  onChequeAction,
 }: {
   sale: MaterialSaleRow;
   payments: MaterialSalePaymentRow[];
@@ -941,6 +978,7 @@ function MaterialSaleDetailDialog({
   canRecordPayment: boolean;
   canCreateReturn: boolean;
   submitting: boolean;
+  onChequeAction?: (p: MaterialSalePaymentRow, action: "clear" | "bounce") => void;
 }) {
   return (
     <Dialog
@@ -1076,7 +1114,7 @@ function MaterialSaleDetailDialog({
             <div className="text-meta text-muted-foreground">Loading payments…</div>
           ) : payments.length > 0 ? (
             <div className="rounded-lg border border-border overflow-hidden">
-              <DataTable data={payments} columns={paymentColumns} getRowId={(p) => p.id} hideToolbar />
+              <DataTable data={payments} columns={paymentColumnsFor(onChequeAction)} getRowId={(p) => p.id} hideToolbar />
             </div>
           ) : (
             <div className="text-meta text-muted-foreground">No payments recorded yet.</div>

@@ -98,9 +98,10 @@ export async function createMaterialSalePayment(input: {
     }
 
     // 2. Calculate total paid so far (IN payments only — OUT refunds are
-    // money back to the customer, never collection credit)
+    // money back to the customer, never collection credit; BOUNCED cheques
+    // were never real money either)
     const existingPayments = await tx.materialSalePayment.findMany({
-      where: { saleId: input.saleId, status: { not: "VOID" }, direction: "IN" },
+      where: { saleId: input.saleId, status: { not: "VOID" }, direction: "IN", chequeStatus: { not: "BOUNCED" } },
       select: { amount: true },
     });
     const previouslyPaid = existingPayments.reduce(
@@ -222,8 +223,9 @@ export async function voidMaterialSalePayment(input: {
     });
 
     // Recompute paymentStatus from the remaining non-void IN payments
+    // (bounced cheques never counted — they weren't real money)
     const remaining = await tx.materialSalePayment.aggregate({
-      where: { saleId: payment.saleId, status: { not: "VOID" }, direction: "IN" },
+      where: { saleId: payment.saleId, status: { not: "VOID" }, direction: "IN", chequeStatus: { not: "BOUNCED" } },
       _sum: { amount: true },
     });
     const totalPaid = new Decimal(remaining._sum.amount ?? 0);
@@ -337,7 +339,7 @@ export async function recordMaterialSaleRefund(input: {
 
     const agg = await tx.materialSalePayment.groupBy({
       by: ["direction"],
-      where: { saleId: input.saleId, status: { not: "VOID" } },
+      where: { saleId: input.saleId, status: { not: "VOID" }, chequeStatus: { not: "BOUNCED" } },
       _sum: { amount: true },
     });
     const sumOf = (dir: string) => new Decimal(agg.find((a) => a.direction === dir)?._sum.amount ?? 0);
@@ -400,7 +402,7 @@ export async function recordMaterialSaleRefund(input: {
 async function refundableCreditFor(tx: Prisma.TransactionClient, sale: { id: string; totalAmount: Decimal | number | string }): Promise<Decimal> {
   const agg = await tx.materialSalePayment.groupBy({
     by: ["direction"],
-    where: { saleId: sale.id, status: { not: "VOID" } },
+    where: { saleId: sale.id, status: { not: "VOID" }, chequeStatus: { not: "BOUNCED" } },
     _sum: { amount: true },
   });
   const sumOf = (dir: string) => new Decimal(agg.find((a) => a.direction === dir)?._sum.amount ?? 0);
@@ -479,7 +481,7 @@ export async function applySaleCredit(input: {
     if (targetNet.lte(0)) throw new ServiceError("Target sale is fully returned — nothing outstanding", 400);
     const targetPaid = new Decimal(
       (await tx.materialSalePayment.aggregate({
-        where: { saleId: target.id, status: { not: "VOID" }, direction: "IN" },
+        where: { saleId: target.id, status: { not: "VOID" }, direction: "IN", chequeStatus: { not: "BOUNCED" } },
         _sum: { amount: true },
       }))._sum.amount ?? 0,
     );
@@ -539,6 +541,94 @@ export async function applySaleCredit(input: {
       after: { sourceSaleId: source.id, targetSaleId: target.id, amount: amount.toString(), paymentStatus },
     });
     return { inRow, outRow, paymentStatus };
+  });
+}
+
+/**
+ * Cheque lifecycle for material-sale payments — the model carried the full
+ * machinery (PENDING/CLEARED/BOUNCED + cheque no/date/bank/photo) but had no
+ * transitions: a bounced customer cheque stayed "paid" in the books forever.
+ *
+ * GL posts at record time (Dr Cash / Cr AR) — clearance just confirms it;
+ * a bounce reverses the JE, marks the cheque BOUNCED, and recomputes the
+ * sale's paymentStatus from the remaining valid payments. Paid-sums and
+ * credit math exclude BOUNCED everywhere (see the filters above).
+ */
+export async function clearMaterialSaleCheque(input: { paymentId: string; companyId: string; userId?: string }) {
+  return withSerializableTransaction(async (tx) => {
+    const payment = await tx.materialSalePayment.findFirst({
+      where: { id: input.paymentId, sale: { companyId: input.companyId } },
+    });
+    if (!payment) throw new ServiceError("Payment not found", 404);
+    if (payment.paymentMode !== "CHEQUE") throw new ServiceError("Only cheque payments can be cleared", 400);
+    if (payment.status === "VOID") throw new ServiceError("Payment is voided", 400);
+    if (payment.chequeStatus !== "PENDING") {
+      throw new ServiceError(`Cheque is already ${payment.chequeStatus?.toLowerCase() ?? "not pending"}`, 400);
+    }
+    const updated = await tx.materialSalePayment.update({
+      where: { id: payment.id },
+      data: { chequeStatus: "CLEARED", chequeClearDate: new Date() },
+    });
+    await logAction(tx, {
+      userId: input.userId,
+      action: "MATERIAL_SALE_CHEQUE_CLEARED",
+      entityType: "MaterialSalePayment",
+      entityId: payment.id,
+      after: { chequeStatus: "CLEARED" },
+    });
+    return updated;
+  });
+}
+
+export async function bounceMaterialSaleCheque(input: { paymentId: string; companyId: string; userId?: string; bounceReason?: string }) {
+  return withSerializableTransaction(async (tx) => {
+    const payment = await tx.materialSalePayment.findFirst({
+      where: { id: input.paymentId, sale: { companyId: input.companyId } },
+      include: { sale: { select: { id: true, status: true, totalAmount: true } } },
+    });
+    if (!payment) throw new ServiceError("Payment not found", 404);
+    if (payment.paymentMode !== "CHEQUE") throw new ServiceError("Only cheque payments can bounce", 400);
+    if (payment.status === "VOID") throw new ServiceError("Payment is voided", 400);
+    if (payment.chequeStatus !== "PENDING") {
+      throw new ServiceError(`Cheque is already ${payment.chequeStatus?.toLowerCase() ?? "not pending"}`, 400);
+    }
+
+    await tx.materialSalePayment.update({
+      where: { id: payment.id },
+      data: { chequeStatus: "BOUNCED", chequeBounceReason: input.bounceReason ?? null },
+    });
+
+    // The Dr Cash / Cr AR posted at record time was never real money —
+    // reverse it so cash and AR return to the truth.
+    const je = await tx.journalEntry.findFirst({
+      where: { sourceType: "MATERIAL_SALE_PAYMENT", sourceId: payment.id, status: "POSTED" },
+      select: { id: true },
+    });
+    if (je) {
+      await reverseJournalEntry(tx, je.id, {
+        postedById: input.userId,
+        memo: `Cheque bounced${input.bounceReason ? `: ${input.bounceReason}` : ""}`,
+      });
+    }
+
+    // Recompute paymentStatus from remaining valid IN payments.
+    const remaining = await tx.materialSalePayment.aggregate({
+      where: { saleId: payment.saleId, status: { not: "VOID" }, direction: "IN", chequeStatus: { not: "BOUNCED" } },
+      _sum: { amount: true },
+    });
+    const totalPaid = new Decimal(remaining._sum.amount ?? 0);
+    const netReceivable = await netReceivableFor(tx, payment.saleId, new Decimal(payment.sale.totalAmount));
+    const paymentStatus = totalPaid.lte(0) ? "PENDING" : totalPaid.gte(netReceivable) ? "PAID" : "PARTIAL";
+    await tx.materialSale.update({ where: { id: payment.saleId }, data: { paymentStatus } });
+
+    await logAction(tx, {
+      userId: input.userId,
+      action: "MATERIAL_SALE_CHEQUE_BOUNCED",
+      entityType: "MaterialSalePayment",
+      entityId: payment.id,
+      after: { chequeStatus: "BOUNCED", bounceReason: input.bounceReason ?? null, paymentStatus },
+    });
+    return { paymentStatus };
   });
 }
 
