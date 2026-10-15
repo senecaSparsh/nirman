@@ -46,6 +46,11 @@ export async function addProjectCost(input: AddProjectCostInput) {
       where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
     });
     if (!project) throw new ServiceError("Project not found in this company", 404);
+    // A completed/halted project's cost pool is frozen — a cost entering it
+    // posts WIP that can never capitalize onto anything real.
+    if (project.status === "ON_HOLD" || project.status === "COMPLETED") {
+      throw new ServiceError(`Cannot post cost to a ${project.status} project`, 400);
+    }
 
     if (input.subcontractorId) {
       const sub = await tx.subcontractor.findFirst({

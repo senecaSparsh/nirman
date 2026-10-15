@@ -72,9 +72,14 @@ export async function createExpenseClaim(input: CreateClaimInput) {
     if (input.projectId) {
       const project = await tx.project.findFirst({
         where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
-        select: { id: true },
+        select: { id: true, status: true },
       });
       if (!project) throw new ServiceError("Project not found in this company", 404);
+      // A completed/halted project's cost pool is frozen — claims attaching
+      // to it post WIP that can never capitalize onto anything real.
+      if (project.status === "ON_HOLD" || project.status === "COMPLETED") {
+        throw new ServiceError(`Cannot charge expenses to a ${project.status} project`, 400);
+      }
     }
 
     // Validate + pre-compute every line's GST so the running total is exact.

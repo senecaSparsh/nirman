@@ -103,6 +103,11 @@ export async function recordLandPurchase(input: RecordLandPurchaseInput) {
         where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
       });
       if (!project) throw new ServiceError("Project not found, deleted, or doesn't belong to this company", 404);
+      // Land bought for a completed/halted project posts WIP against a pool
+      // that can never capitalize — refuse.
+      if (project.status === "ON_HOLD" || project.status === "COMPLETED") {
+        throw new ServiceError(`Cannot purchase land for a ${project.status} project`, 400);
+      }
     }
 
     // Validate seller if set — must belong to this company, otherwise a
@@ -454,6 +459,10 @@ export async function recordLandPurchaseWithPlan(input: RecordLandPurchaseWithPl
             where: { id: section.projectId, companyId: input.companyId, deletedAt: null },
           });
           if (!project) throw new ServiceError("Project not found, deleted, or doesn't belong to this company", 404);
+          // Frozen cost pool — a completed/halted project can't take new land.
+          if (project.status === "ON_HOLD" || project.status === "COMPLETED") {
+            throw new ServiceError(`Cannot assign land to a ${project.status} project`, 400);
+          }
           parcelProjectId = section.projectId;
         } else if (section.projectCreate) {
           // Create project inline
@@ -733,6 +742,10 @@ export async function recordLandPurchaseOrder(input: LandPurchaseOrderInput) {
         where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
       });
       if (!project) throw new ServiceError("Project not found, deleted, or doesn't belong to this company", 404);
+      // Frozen cost pool — a completed/halted project can't take new land.
+      if (project.status === "ON_HOLD" || project.status === "COMPLETED") {
+        throw new ServiceError(`Cannot purchase land for a ${project.status} project`, 400);
+      }
     }
 
     if (input.sellerId) {

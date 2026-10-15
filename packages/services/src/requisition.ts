@@ -93,13 +93,18 @@ export async function createRequisition(input: CreateRequisitionInput) {
   }
 
   // Validate project (if provided)
-  let project: { id: string; companyId: string } | null = null;
+  let project: { id: string; companyId: string; status: string } | null = null;
   if (input.projectId) {
     project = await prisma.project.findFirst({
       where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
-      select: { id: true, companyId: true },
+      select: { id: true, companyId: true, status: true },
     });
     if (!project) throw new ServiceError("Project not found or deleted", 404);
+    // An indent for a halted/completed project authorizes consumption on a
+    // frozen cost pool — refuse at intent time, not issue time.
+    if (project.status === "ON_HOLD" || project.status === "COMPLETED") {
+      throw new ServiceError(`Cannot raise an indent for a ${project.status} project`, 400);
+    }
   }
 
   // Validate department (if provided)

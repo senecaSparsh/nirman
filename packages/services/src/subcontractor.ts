@@ -78,6 +78,11 @@ export async function createWorkOrder(input: CreateWorkOrderInput) {
       where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
     });
     if (!project) throw new ServiceError("Project not found in this company", 404);
+    // A completed/halted project takes no new contracted scope — a WO here
+    // would let RA bills keep accruing cost into a frozen pool.
+    if (project.status === "ON_HOLD" || project.status === "COMPLETED") {
+      throw new ServiceError(`Cannot create a work order on a ${project.status} project`, 400);
+    }
 
     const sub = await tx.subcontractor.findFirst({
       where: { id: input.subcontractorId, companyId: input.companyId, deletedAt: null },
