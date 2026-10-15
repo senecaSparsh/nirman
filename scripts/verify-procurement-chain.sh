@@ -70,7 +70,10 @@ INV=$(echo "$r" | grep -oE '"id":"[^"]+"' | head -1 | cut -d'"' -f4)
 expect "3-way match" SupplierInvoice "$INV" '"matchStatus"' THREE_WAY_MATCH
 
 echo "════════ 6. mismatched invoice flags variance ════════"
-r=$(reqRetry POST "supplier-invoices" "{\"invoiceNumber\":\"INV-CH2-$RANDOM\",\"supplierId\":\"$SUP\",\"purchaseOrderId\":\"$PO\",\"invoiceDate\":\"2025-10-02\",\"subtotal\":1150,\"gstAmount\":0,\"totalAmount\":1150,\"lines\":[{\"materialId\":\"$MAT\",\"quantity\":11,\"unitPrice\":100}]}")
+# Invoice qty 11 vs GRN-received 10 → three-way match must flag UNMATCHED.
+# Arithmetic stays consistent (subtotal = 11 × 100 = 1100) since invoice
+# totals are now validated — the mismatch is qty-over-receipt, not bad math.
+r=$(reqRetry POST "supplier-invoices" "{\"invoiceNumber\":\"INV-CH2-$RANDOM\",\"supplierId\":\"$SUP\",\"purchaseOrderId\":\"$PO\",\"invoiceDate\":\"2025-10-02\",\"subtotal\":1100,\"gstAmount\":0,\"totalAmount\":1100,\"lines\":[{\"materialId\":\"$MAT\",\"quantity\":11,\"unitPrice\":100}]}")
 INV2=$(echo "$r" | grep -oE '"id":"[^"]+"' | head -1 | cut -d'"' -f4)
 expect "mismatch flagged" SupplierInvoice "$INV2" '"matchStatus"' UNMATCHED
 n=$(P "SELECT count(*) FROM \"SupplierInvoice\" WHERE id='$INV2' AND \"matchNotes\" IS NOT NULL")
