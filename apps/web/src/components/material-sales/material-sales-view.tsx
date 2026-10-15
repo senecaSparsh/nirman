@@ -83,8 +83,9 @@ const paymentColumnsFor = (onChequeAction?: (p: MaterialSalePaymentRow, action: 
     align: "right",
     sortable: true,
     render: (p) => (
-      <span className={`tnum font-medium ${p.direction === "OUT" ? "text-warning" : "text-foreground"}`}>
+      <span className={`tnum font-medium ${p.status === "VOID" ? "line-through text-faint" : p.direction === "OUT" ? "text-warning" : "text-foreground"}`}>
         {p.direction === "OUT" ? "−" : ""}{formatCurrency(p.amount)}
+        {p.status === "VOID" && <span className="ml-1 text-micro no-underline text-danger">void</span>}
       </span>
     ),
   },

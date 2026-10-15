@@ -152,6 +152,7 @@ async function MaterialSalesContent() {
       createdByName: p.createdBy?.name ?? null,
       chequeNo: p.chequeNo,
       chequeBank: p.chequeBank,
+      chequeStatus: p.chequeStatus,
       chequePhotoUrl: p.chequePhotoUrl,
     })),
     lines: s.lines.map((l) => ({
