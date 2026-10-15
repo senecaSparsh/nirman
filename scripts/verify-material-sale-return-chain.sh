@@ -110,6 +110,28 @@ r=$(req POST "material-sales/payments/$RF/void" '{"reason":"verifier"}')
 expect_cnt "void refund accepted" "SELECT CASE WHEN status='VOID' THEN 1 ELSE 0 END FROM \"MaterialSalePayment\" WHERE id='$RF'" 1
 expect_num "credit restored after void" "SELECT COALESCE(SUM(jl.debit)-SUM(jl.credit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE a.code='1200' AND je.\"sourceId\" IN ('$SALE','$RET','$RET2','$PAY','$RF') AND je.status='POSTED'" -1239
 
+echo "════════ 9. credit-apply — settle credit toward the customer's next sale ════════"
+# Sale A still carries the ₹1,239 credit (refund voided). Create a second sale
+# for the same customer and apply the credit — no cash should move.
+SALE2=$(req POST material-sales "{\"customerId\":\"$CUST\",\"lines\":[{\"materialId\":\"$MAT\",\"locationId\":\"$LOC\",\"qty\":2,\"unitPrice\":100,\"gstRate\":0}]}" | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))")
+[ -n "$SALE2" ] && { PASS=$((PASS+1)); echo "  sale2 $SALE2 (₹200)"; } || { FAIL=$((FAIL+1)); echo "  FAIL sale2 create"; }
+CREDS=$(curl -s -b "$JAR" "$BASE/api/material-sales/$SALE2/apply-credit")
+echo "$CREDS" | python3 -c "import json,sys; c=[x for x in json.load(sys.stdin)['credits'] if x['saleId']=='$SALE']; assert c and float(c[0]['refundable'])>=200, c" 2>/dev/null && { PASS=$((PASS+1)); echo "  credit listed on sale2"; } || { FAIL=$((FAIL+1)); echo "  FAIL credit list"; }
+r=$(req POST "material-sales/$SALE2/apply-credit" "{\"sourceSaleId\":\"$SALE\",\"amount\":9999}")
+expect_refused "over-apply refused" "$r"
+r=$(req POST "material-sales/$SALE2/apply-credit" "{\"sourceSaleId\":\"$SALE\",\"amount\":200}")
+expect_cnt "target PAID by credit" "SELECT CASE WHEN \"paymentStatus\"='PAID' THEN 1 ELSE 0 END FROM \"MaterialSale\" WHERE id='$SALE2'" 1
+expect_num "IN row on target" "SELECT COUNT(*) FROM \"MaterialSalePayment\" WHERE \"saleId\"='$SALE2' AND \"paymentMode\"='CREDIT_APPLIED' AND direction='IN' AND amount=200 AND status='RECEIVED'" 1
+expect_num "OUT row on source" "SELECT COUNT(*) FROM \"MaterialSalePayment\" WHERE \"saleId\"='$SALE' AND \"paymentMode\"='CREDIT_APPLIED' AND direction='OUT' AND amount=200 AND status='RECEIVED'" 1
+CAP=$(P "SELECT id FROM \"MaterialSalePayment\" WHERE \"saleId\"='$SALE2' AND \"paymentMode\"='CREDIT_APPLIED' LIMIT 1")
+expect_num "apply JE Dr AR 200" "SELECT COALESCE(SUM(jl.debit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceType\"='MATERIAL_SALE_CREDIT_APPLY' AND je.\"sourceId\"='$CAP' AND a.code='1200'" 200
+expect_num "pair linked" "SELECT COUNT(*) FROM \"MaterialSalePayment\" a JOIN \"MaterialSalePayment\" b ON a.\"linkedPaymentId\"=b.id WHERE a.\"saleId\"='$SALE2' AND b.\"saleId\"='$SALE'" 1
+# voiding the IN row voids the pair — target re-opens, source credit restored
+r=$(req POST "material-sales/payments/$CAP/void" '{"reason":"verifier"}')
+expect_num "pair voided" "SELECT COUNT(*) FROM \"MaterialSalePayment\" WHERE \"paymentMode\"='CREDIT_APPLIED' AND status='VOID' AND (\"saleId\"='$SALE' OR \"saleId\"='$SALE2')" 2
+expect_cnt "target re-opened" "SELECT CASE WHEN \"paymentStatus\"='PENDING' THEN 1 ELSE 0 END FROM \"MaterialSale\" WHERE id='$SALE2'" 1
+expect_num "apply JE reversed" "SELECT COUNT(*) FROM \"JournalEntry\" WHERE \"sourceType\"='MATERIAL_SALE_CREDIT_APPLY_REVERSAL' AND \"sourceId\"='$CAP'" 1
+
 echo "════════════════════════════════════════"
 echo "material-sale-return chain: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

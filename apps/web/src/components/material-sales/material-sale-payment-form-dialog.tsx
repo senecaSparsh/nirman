@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { IndianRupee } from "lucide-react";
+import { IndianRupee, Wallet } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
@@ -48,6 +48,44 @@ export function MaterialSalePaymentFormDialog({
 
   const parsedAmount = Number(amount) || 0;
   const isCheque = paymentMode === "CHEQUE";
+
+  // Customer credits from their other sales — apply them here instead of
+  // refunding. Fetched when the dialog opens.
+  const [credits, setCredits] = useState<{ saleId: string; saleNumber: string; refundable: number }[]>([]);
+  const [applyingSale, setApplyingSale] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open) { setCredits([]); return; }
+    let live = true;
+    fetch(`/api/material-sales/${saleId}/apply-credit`)
+      .then((r) => (r.ok ? r.json() : { credits: [] }))
+      .then((d) => {
+        if (!live) return;
+        setCredits((d.credits ?? []).map((c: { saleId: string; saleNumber: string; refundable: string }) => ({ ...c, refundable: Number(c.refundable) })));
+      })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [open, saleId]);
+
+  async function applyCredit(sourceSaleId: string, refundable: number) {
+    const applyAmount = Math.min(refundable, outstandingBalance);
+    setApplyingSale(sourceSaleId);
+    try {
+      const res = await fetch(`/api/material-sales/${saleId}/apply-credit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceSaleId, amount: applyAmount }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to apply credit");
+      toast.success(`Credit applied — ${formatCurrency(applyAmount)}`);
+      router.refresh();
+      onOpenChange(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to apply credit");
+    } finally {
+      setApplyingSale(null);
+    }
+  }
 
   // ── Inline validation ──────────────────────────────────────────
   // Validates on blur and shows red error text under the field instantly.
@@ -180,6 +218,31 @@ export function MaterialSalePaymentFormDialog({
             <span className="ml-2 text-success">→ After payment: {formatCurrency(outstandingBalance - parsedAmount)}</span>
           )}
         </div>
+
+        {credits.length > 0 && (
+          <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 space-y-1.5">
+            <p className="text-caption font-medium text-foreground flex items-center gap-1.5">
+              <Wallet className="h-3.5 w-3.5 text-warning" />
+              Customer credit available — settle with credit instead of cash
+            </p>
+            {credits.map((c) => (
+              <div key={c.saleId} className="flex items-center justify-between text-caption">
+                <span className="text-muted-foreground">
+                  {c.saleNumber} — <span className="tnum font-medium text-foreground">{formatCurrency(c.refundable)}</span> credit
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={applyingSale === c.saleId || outstandingBalance <= 0}
+                  onClick={() => applyCredit(c.saleId, c.refundable)}
+                >
+                  {applyingSale === c.saleId ? "Applying…" : `Apply ${formatCurrency(Math.min(c.refundable, outstandingBalance))}`}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

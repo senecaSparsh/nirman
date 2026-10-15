@@ -92,6 +92,20 @@ export function SupplierPaymentFormDialog({
   const parsedTds = Number(tdsAmount) || 0;
   const _netPaid = parsedAmount - parsedTds;
 
+  // Failed-inspection warn — the supplier can be paid even with rejected
+  // material on the gate (warn-not-block); the flag keeps the risk visible.
+  const [failedInspectionLines, setFailedInspectionLines] = useState(0);
+  useEffect(() => {
+    setFailedInspectionLines(0);
+    if (!supplierId) return;
+    let live = true;
+    fetch(`/api/suppliers/${supplierId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (live && d?.failedInspectionLines) setFailedInspectionLines(d.failedInspectionLines); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [supplierId]);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const newErrors: ValidationErrors<PaymentFormValues> = {};
@@ -323,6 +337,12 @@ export function SupplierPaymentFormDialog({
             rows={2}
           />
         </Field>
+
+        {failedInspectionLines > 0 && (
+          <div className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-caption text-warning">
+            ⚠ {failedInspectionLines} receipt line{failedInspectionLines === 1 ? "" : "s"} from this supplier failed inspection and may still need a return — check before paying.
+          </div>
+        )}
 
         {selectedSupplier && selectedSupplier.balanceOwed > 0 && (
           <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-caption text-muted-foreground">

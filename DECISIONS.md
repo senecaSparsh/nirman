@@ -667,3 +667,16 @@ queue pending/failed/completed badges + "Synced N items" toast + failed→reason
 retry+redo guidance + completed ops persist; DPR draft auto-save/restore/banner;
 attendance mark-all + per-worker flips + inline day-worker ("theke-wala") add +
 GPS + payroll-lock; direct purchases durable in the Cash-purchases ledger.
+
+## Deferred decisions (Oct 2026 batch)
+
+- **Intercompany settlement** — documentation-only for now. IC transfers post
+  Dr 1950 / Cr 2050 in each company's books and the balances stay visible;
+  the actual cash movement reconciles in bank statements like most SME
+  groups do. Revisit a paired settle-doc across both ledgers only if IC
+  volume gets heavy.
+- **e-Invoice / IRN** — dormant until turnover crosses the ₹5cr mandatory
+  line. The route exists (`/api/e-invoice/material-sale/[id]`) but is
+  unverified against the real IRP; validate only when the business needs it.
+- **Accounting-period lock** — not enforced. JEs can backdate into closed
+  months; small-firm flexibility wins over Tally-style date locks for now.

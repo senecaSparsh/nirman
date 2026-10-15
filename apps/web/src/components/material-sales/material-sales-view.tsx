@@ -92,9 +92,11 @@ const paymentColumns: Column<MaterialSalePaymentRow>[] = [
     key: "paymentMode",
     label: "Mode",
     sortable: true,
-    render: (p) => p.direction === "OUT"
-      ? <Badge variant="warning">Refund</Badge>
-      : <Badge variant="outline">{p.paymentMode}</Badge>,
+    render: (p) => p.paymentMode === "CREDIT_APPLIED"
+      ? <Badge variant="info">Credit {p.direction === "OUT" ? "spent" : "applied"}</Badge>
+      : p.direction === "OUT"
+        ? <Badge variant="warning">Refund</Badge>
+        : <Badge variant="outline">{p.paymentMode}</Badge>,
   },
   {
     key: "paymentDate",

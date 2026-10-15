@@ -24,7 +24,17 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
     },
   });
   if (!supplier) return json({ error: "Supplier not found" }, { status: 404 });
-  return json(supplier);
+  // Rejected receipt lines — surfaced in the payment dialog so a supplier
+  // can't collect while material they delivered sits failed on the gate.
+  const failedInspectionLines = await prisma.goodsReceiptLine.count({
+    where: {
+      inspectionStatus: { in: ["FAILED", "REJECTED"] },
+      goodsReceipt: {
+        purchaseOrder: { companyId: company.id, supplierId: id },
+      },
+    },
+  });
+  return json({ ...supplier, failedInspectionLines });
 });
 
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
