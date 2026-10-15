@@ -77,6 +77,17 @@ const columns: Column<StatutoryPaymentRow>[] = [
   },
 ];
 
+const columnsWithVoid = (onVoid: (r: StatutoryPaymentRow) => void, canManage: boolean): Column<StatutoryPaymentRow>[] => [
+  ...columns,
+  ...(canManage ? [{
+    key: "actions",
+    label: "",
+    render: (r: StatutoryPaymentRow) => r.status === "VOID" ? null : (
+      <Button size="xs" variant="outline" className="text-danger" onClick={() => onVoid(r)}>Void</Button>
+    ),
+  } satisfies Column<StatutoryPaymentRow>] : []),
+];
+
 export function StatutoryPaymentsView({
   outstanding,
   payments,
@@ -97,6 +108,24 @@ export function StatutoryPaymentsView({
 
   const selected = outstanding.find((o) => o.kind === kind);
   const parsedAmount = Number(amount) || 0;
+
+  async function onVoid(r: StatutoryPaymentRow) {
+    const reason = window.prompt(`Void ${KIND_LABEL[r.kind] ?? r.kind} payment of ${formatCurrency(r.amount)}? The payable re-opens. Reason:`);
+    if (reason === null) return;
+    try {
+      const res = await fetch(`/api/statutory-payments/${r.id}/void`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: reason || undefined }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Void failed");
+      toast.success("Remittance voided — payable re-opened");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Void failed");
+    }
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -155,7 +184,7 @@ export function StatutoryPaymentsView({
       </div>
 
       <DataTable
-        columns={columns}
+        columns={columnsWithVoid(onVoid, canManage)}
         data={payments}
         emptyState={
           <EmptyState
