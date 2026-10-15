@@ -454,10 +454,26 @@ export async function approveSupplierInvoice(input: {
             (sum, l) => sum.plus(new Decimal(l.qtyReceived).times(new Decimal(l.unitCost))),
             new Decimal(0),
           );
+          // Baseline is the UN-INVOICED remainder of the GRN, not the whole
+          // GRN — prior approved invoices already consumed their share. A
+          // second invoice covering the same receipt would otherwise compute
+          // variance = 0, post nothing to AP, and still settle its full
+          // totalAmount in cash: a silent double-payment. With the residual
+          // baseline, a duplicate/over-scope invoice lands its excess on PPV
+          // where the books show it.
+          const priorBilled = await tx.supplierInvoice.aggregate({
+            where: {
+              purchaseOrderId: po.id,
+              id: { not: existing.id },
+              status: { in: ["APPROVED", "PAID", "MATCHED"] },
+            },
+            _sum: { subtotal: true },
+          });
+          const uninvoicedGrn = grnSubtotal.minus(priorBilled._sum.subtotal ?? 0);
           const invoiceSubtotal = new Decimal(existing.subtotal);
           const invoiceGst = new Decimal(existing.gstAmount);
-          // Variance = invoice subtotal − grnSubtotal for subtotal variance
-          varianceSubtotal = invoiceSubtotal.minus(grnSubtotal);
+          // Variance = invoice subtotal − un-invoiced GRN remainder
+          varianceSubtotal = invoiceSubtotal.minus(uninvoicedGrn);
           // GST variance: use invoice GST as the GST variance if subtotal variance > 0
           varianceGst = varianceSubtotal.gt(0) ? invoiceGst : new Decimal(0);
           varianceTotal = varianceSubtotal.plus(varianceGst);
@@ -757,7 +773,9 @@ export async function voidSupplierInvoice(input: {
     });
 
     if (wasApproved) {
-      // Recompute the signed AP impact exactly the way approve computed it.
+      // Recompute the signed AP impact exactly the way approve computed it —
+      // including the un-invoiced-remainder baseline (this invoice is VOID at
+      // this point, so the prior-invoice aggregate naturally excludes it).
       let isServicesInvoice = true;
       let varianceTotal = new Decimal(0);
       if (inv.purchaseOrderId) {
@@ -771,7 +789,16 @@ export async function voidSupplierInvoice(input: {
             (sum, l) => sum.plus(new Decimal(l.qtyReceived).times(new Decimal(l.unitCost))),
             new Decimal(0),
           );
-          const varianceSubtotal = new Decimal(inv.subtotal).minus(grnSubtotal);
+          const priorBilled = await tx.supplierInvoice.aggregate({
+            where: {
+              purchaseOrderId: inv.purchaseOrderId,
+              id: { not: inv.id },
+              status: { in: ["APPROVED", "PAID", "MATCHED"] },
+            },
+            _sum: { subtotal: true },
+          });
+          const uninvoicedGrn = grnSubtotal.minus(priorBilled._sum.subtotal ?? 0);
+          const varianceSubtotal = new Decimal(inv.subtotal).minus(uninvoicedGrn);
           const varianceGst = varianceSubtotal.gt(0) ? new Decimal(inv.gstAmount) : new Decimal(0);
           varianceTotal = varianceSubtotal.plus(varianceGst);
         }
