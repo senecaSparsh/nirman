@@ -152,11 +152,13 @@ export async function recordLandPurchase(input: RecordLandPurchaseInput) {
       await reallocateProjectCosts(tx, input.projectId);
     }
 
-    // Post to the General Ledger: capitalise the land as an unsold asset, credit cash.
+    // Post to the General Ledger: project-linked land capitalises into WIP
+    // (unit costing counts it there); unlinked land stays a held Land Asset.
     await postLandPurchase(tx, {
       companyId: input.companyId,
       landPurchaseId: landPurchase.id,
       totalCost,
+      projectId: input.projectId ?? null,
       postedById: input.createdById,
     });
 
@@ -557,11 +559,13 @@ export async function recordLandPurchaseWithPlan(input: RecordLandPurchaseWithPl
       });
     }
 
-    // 7. GL posting — capitalise the land
+    // 7. GL posting — capitalise the land (WIP when the purchase is
+    //    project-linked, held Land Asset otherwise)
     await postLandPurchase(tx, {
       companyId: input.companyId,
       landPurchaseId: landPurchase.id,
       totalCost,
+      projectId: purchaseProjectId,
       postedById: input.createdById,
     });
 
@@ -798,6 +802,7 @@ export async function recordLandPurchaseOrder(input: LandPurchaseOrderInput) {
       landPurchaseId: landPurchase.id,
       totalCost,
       cashPaid: cashPaidForGl,
+      projectId: input.projectId ?? null,
       postedById: input.createdById,
     });
 

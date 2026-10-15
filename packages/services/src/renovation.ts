@@ -294,13 +294,18 @@ export async function completeRenovation(
       ? new Decimal(opts.newValuation)
       : originalValuation.plus(capitalisedCost);
 
-    // Update the asset's cost basis + valuation
+    // Update the asset's cost basis + valuation. For built units the
+    // capitalised cost accrues to `capitalizedAmount` — the amount already
+    // moved from WIP into the unit asset — NOT productionCost. productionCost
+    // is the construction-cost formula (materials + labour + land − scrap)
+    // that reallocateProjectCosts() recomputes; folding reno into it both
+    // gets overwritten by the next realloc AND makes capitalizeBuiltUnitWip's
+    // delta credit WIP a second time for the same cost (double-relief).
     if (renovation.builtUnitId && renovation.builtUnit) {
-      const newProductionCost = new Decimal(renovation.builtUnit.productionCost).plus(capitalisedCost);
       await tx.builtUnit.update({
         where: { id: renovation.builtUnitId },
         data: {
-          productionCost: newProductionCost,
+          capitalizedAmount: new Decimal(renovation.builtUnit.capitalizedAmount ?? 0).plus(capitalisedCost),
           currentValuation: newValuation,
         },
       });

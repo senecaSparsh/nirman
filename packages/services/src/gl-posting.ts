@@ -1355,14 +1355,22 @@ export async function postLandPurchase(
     landPurchaseId: string;
     totalCost: Decimal;
     cashPaid?: Decimal;
+    /** When set, the land feeds a project — its cost belongs in WIP so unit
+     *  costing (which counts LandPurchase.totalCost) and the GL agree.
+     *  Unlinked land stays a held Land Asset (1700). */
+    projectId?: string | null;
     postedById?: string;
   },
 ) {
   const cashPaid = opts.cashPaid ?? opts.totalCost;
   const payable = new Decimal(opts.totalCost).minus(new Decimal(cashPaid));
+  const landAccount = opts.projectId ? ACCT.WIP : ACCT.LAND_ASSET;
+  const landMemo = opts.projectId
+    ? "Land acquisition capitalised into project WIP"
+    : "Land acquisition capitalised";
 
   const lines: JournalLineInput[] = [
-    { accountCode: ACCT.LAND_ASSET, debit: new Decimal(opts.totalCost), credit: 0, entityType: "LandPurchase", entityId: opts.landPurchaseId, memo: "Land acquisition capitalised" },
+    { accountCode: landAccount, debit: new Decimal(opts.totalCost), credit: 0, entityType: "LandPurchase", entityId: opts.landPurchaseId, memo: landMemo },
     { accountCode: ACCT.CASH, debit: 0, credit: new Decimal(cashPaid), entityType: "LandPurchase", entityId: opts.landPurchaseId, memo: "Cash paid for land" },
   ];
   if (payable.gt(0)) {
@@ -1425,7 +1433,8 @@ export async function postLandCostComponent(
  * employee's gross), so it's debited as extra salary expense and credited
  * to PF Payable alongside the employee portion.
  *
- *   Dr Salaries & Wages Expense   (totalGross + employerPf)
+ *   Dr WIP - Project Costs         (project-tagged labour, per project)
+ *   Dr Salaries & Wages Expense   (totalGross + employerPf − project labour)
  *   Cr Salaries Payable            (totalNet)
  *   Cr PF Payable                  (totalPF + employerPf)  — employee + employer PF
  *   Cr ESI Payable                 (totalESI)              — if totalESI > 0
@@ -1450,6 +1459,11 @@ export async function postPayroll(
     totalProfessionTax?: Decimal | number | string;
     totalTDS?: Decimal | number | string;
     totalDeductions?: Decimal | number | string;
+    /** Gross-pay shares allocated to projects via attendance day-weights.
+     *  These debit WIP (capitalised into the project) instead of Salaries
+     *  Expense — the matching ProjectCost(LABOUR) rows carry the same amounts,
+     *  so WIP GL and unit costing stay in lock-step. */
+    projectLabour?: Map<string, Decimal>;
     postedById?: string;
   },
 ) {
@@ -1475,10 +1489,21 @@ export async function postPayroll(
   // Total PF payable = employee portion + employer portion
   const totalPfPayable = totalPF.plus(totalEmployerPf);
 
-  const lines: JournalLineInput[] = [
-    { accountCode: ACCT.SALARIES_EXPENSE, debit: totalExpense, credit: 0, entityType: "PayrollPeriod", entityId: opts.payrollPeriodId, memo: "Gross salary expense + employer PF" },
-    { accountCode: ACCT.SALARIES_PAYABLE, debit: 0, credit: totalNet, entityType: "PayrollPeriod", entityId: opts.payrollPeriodId, memo: "Net pay payable to employees" },
-  ];
+  // Project-tagged labour capitalises into WIP per project; only the
+  // unallocated remainder (plus employer PF) stays as P&L salary expense.
+  const labourToWip = [...(opts.projectLabour?.entries() ?? [])]
+    .filter(([, amt]) => amt.gt(0));
+  const wipTotal = labourToWip.reduce((s, [, amt]) => s.plus(amt), new Decimal(0));
+  const expensePortion = totalExpense.minus(wipTotal);
+
+  const lines: JournalLineInput[] = [];
+  for (const [projectId, amt] of labourToWip) {
+    lines.push({ accountCode: ACCT.WIP, debit: amt, credit: 0, entityType: "Project", entityId: projectId, memo: "Site labour capitalised to project" });
+  }
+  if (expensePortion.gt(0)) {
+    lines.push({ accountCode: ACCT.SALARIES_EXPENSE, debit: expensePortion, credit: 0, entityType: "PayrollPeriod", entityId: opts.payrollPeriodId, memo: "Salary expense + employer PF (non-project)" });
+  }
+  lines.push({ accountCode: ACCT.SALARIES_PAYABLE, debit: 0, credit: totalNet, entityType: "PayrollPeriod", entityId: opts.payrollPeriodId, memo: "Net pay payable to employees" });
   if (totalPfPayable.gt(0)) {
     lines.push({ accountCode: ACCT.PF_PAYABLE, debit: 0, credit: totalPfPayable, entityType: "PayrollPeriod", entityId: opts.payrollPeriodId, memo: "PF payable to EPFO (employee + employer)" });
   }

@@ -2204,29 +2204,14 @@ export async function processPayroll(input: { payrollPeriodId: string; userId?: 
     const totalGross = period.lines.reduce((sum, l) => sum.plus(new Decimal(l.grossPay)), new Decimal(0));
     const totalDeductions = period.lines.reduce((sum, l) => sum.plus(new Decimal(l.totalDeductions)), new Decimal(0));
     const totalNet = period.lines.reduce((sum, l) => sum.plus(new Decimal(l.netPay)), new Decimal(0));
-    // Post the GL entry inside the same transaction — GROSS expense + employer PF
-    // with PF, ESI, profession tax, and TDS as separate statutory payables.
-    await postPayroll(tx, {
-      companyId: period.companyId,
-      payrollPeriodId: period.id,
-      totalGross,
-      totalNet,
-      totalPF,
-      totalEmployerPf,
-      totalESI,
-      totalProfessionTax,
-      totalTDS,
-      totalDeductions,
-      postedById: input.userId,
-    });
 
     // Allocate labor costs to projects — group payroll lines by the employee's
     // activeProjectId and create a ProjectCost(LABOUR) record for each project.
     // This connects the HR payroll flow to the asset-value pipeline: the
     // ProjectCost records are picked up by reallocateProjectCosts() which
     // updates BuiltUnit.productionCost. We create the ProjectCost records
-    // directly (without calling addProjectCost) to avoid double GL posting —
-    // the payroll GL entry already records the salary expense + payable.
+    // directly (without calling addProjectCost) — the payroll GL entry carries
+    // the matching Dr WIP legs, so a separate PROJECT_COST JE would double-post.
     const projectLabour = new Map<string, Decimal>();
     // Split each line's gross across the projects the employee actually worked
     // on — a theke-wala on Site A Mon–Tue + Site B Wed–Fri must cost those days
@@ -2274,6 +2259,25 @@ export async function processPayroll(input: { payrollPeriodId: string; userId?: 
         projectLabour.set(line.employee.activeProjectId, (projectLabour.get(line.employee.activeProjectId) ?? new Decimal(0)).plus(grossPay));
       }
     }
+
+    // Post the GL entry inside the same transaction — project-tagged gross
+    // debits WIP per project (matching the ProjectCost(LABOUR) rows below);
+    // the unallocated remainder + employer PF debits Salaries Expense.
+    // Statutory payables stay as separate credit legs.
+    await postPayroll(tx, {
+      companyId: period.companyId,
+      payrollPeriodId: period.id,
+      totalGross,
+      totalNet,
+      totalPF,
+      totalEmployerPf,
+      totalESI,
+      totalProfessionTax,
+      totalTDS,
+      totalDeductions,
+      projectLabour,
+      postedById: input.userId,
+    });
 
     for (const [projectId, amount] of projectLabour) {
       await tx.projectCost.create({

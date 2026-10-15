@@ -318,9 +318,12 @@ export async function updateUnitStatus(unitId: string, status: BuiltUnitStatus, 
             costBasis: delta,
             postedById: userId,
           });
+          // Additive — capitalizedAmount may already include capitalised
+          // renovation cost moved by postRenovationCapitalization; assigning
+          // productionCost would erase it.
           await tx.builtUnit.update({
             where: { id: unitId },
-            data: { capitalizedAmount: productionCost },
+            data: { capitalizedAmount: alreadyCapitalized.plus(delta) },
           });
         }
       }

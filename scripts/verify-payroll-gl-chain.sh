@@ -50,12 +50,13 @@ uid() { echo "glc$(date +%s)$RANDOM"; }
 MO=$(P "SELECT to_char(m,'YYYY-MM') FROM generate_series('2025-10-01'::date,'2030-12-01'::date,'1 month') m WHERE NOT EXISTS (SELECT 1 FROM \"PayrollPeriod\" pp WHERE pp.\"companyId\"='$C' AND date_trunc('month',pp.\"startDate\")=date_trunc('month',m)) ORDER BY m LIMIT 1")
 MON=$((10#${MO#*-})); YR=${MO%%-*}
 EG="glce$(date +%s)"
-PROJ2="glcp$(date +%s)"                            # synthetic second project
+RUN="$(date +%s)"
+PROJ2="glcp$RUN"                                   # synthetic second project
 ADV="$(uid)"
 
 echo "════════ setup: project + employee + components + advance + attendance ════════"
 echo "  payroll month: $MO"
-P "INSERT INTO \"Project\" (id,name,\"companyId\",\"updatedAt\") VALUES ('$PROJ2','glc-site-two','$C',now())"
+P "INSERT INTO \"Project\" (id,name,\"companyId\",\"updatedAt\") VALUES ('$PROJ2','glc-site-$RUN','$C',now())"
 P "INSERT INTO \"Employee\" (id,name,\"companyId\",\"wageType\",\"monthlySalary\",\"joinDate\",active,\"activeProjectId\",\"updatedAt\") VALUES ('$EG','glc-fixed','$C','FIXED',26000,'$MO-01',true,'$PROJ1',now())"
 P "INSERT INTO \"SalaryComponent\" (id,\"employeeId\",type,amount,\"isDeduction\",\"updatedAt\") VALUES
     ('$(uid)','$EG','EMPLOYEE_PF',1800,true,now()),
@@ -89,7 +90,11 @@ r=$(req PATCH "payroll/$PP" '{"action":"process"}')
 echo "$r" | grep -q '"ok":true' && PASS=$((PASS+1)) || FAIL=$((FAIL+1)); echo "  process → ${r:0:120}"
 JE=$(P "SELECT id FROM \"JournalEntry\" WHERE \"sourceType\"='PAYROLL' AND \"sourceId\"='$PP'")
 [ -n "$JE" ] && PASS=$((PASS+1)) || { FAIL=$((FAIL+1)); echo "  FAIL no PAYROLL journal"; }
-expect_num "PAYROLL Dr 6100 = 27800" "SELECT COALESCE(SUM(jl.debit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceType\"='PAYROLL' AND je.\"sourceId\"='$PP' AND a.code='6100'" 27800
+# project-tagged gross capitalises into WIP per project (PROJ1 19500 / PROJ2 6500);
+# only employer PF stays in salary expense.
+expect_num "PAYROLL Dr 1500 PROJ1 = 19500" "SELECT COALESCE(SUM(jl.debit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceType\"='PAYROLL' AND je.\"sourceId\"='$PP' AND a.code='1500' AND jl.\"entityType\"='Project' AND jl.\"entityId\"='$PROJ1'" 19500
+expect_num "PAYROLL Dr 1500 PROJ2 = 6500" "SELECT COALESCE(SUM(jl.debit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceType\"='PAYROLL' AND je.\"sourceId\"='$PP' AND a.code='1500' AND jl.\"entityType\"='Project' AND jl.\"entityId\"='$PROJ2'" 6500
+expect_num "PAYROLL Dr 6100 = 1800 (employer PF only)" "SELECT COALESCE(SUM(jl.debit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceType\"='PAYROLL' AND je.\"sourceId\"='$PP' AND a.code='6100'" 1800
 expect_num "PAYROLL Cr 2200 = 24000 (net + deductions)" "SELECT COALESCE(SUM(jl.credit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceType\"='PAYROLL' AND je.\"sourceId\"='$PP' AND a.code='2200'" 24000
 expect_num "PAYROLL Cr 2250 = 3600 (EE+ER PF)" "SELECT COALESCE(SUM(jl.credit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceType\"='PAYROLL' AND je.\"sourceId\"='$PP' AND a.code='2250'" 3600
 expect_num "PAYROLL Cr 2450 = 200 (PT)" "SELECT COALESCE(SUM(jl.credit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceType\"='PAYROLL' AND je.\"sourceId\"='$PP' AND a.code='2450'" 200

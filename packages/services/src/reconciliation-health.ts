@@ -420,6 +420,152 @@ export async function reconcileInventoryGl(
 }
 
 /**
+ * Check 2b: Supplier subledger vs balanceOwed.
+ *
+ * AP (2000) journal lines carry entityType/entityId back to their source
+ * document (PurchaseOrder, SupplierInvoice, SupplierPayment, SupplierReturn,
+ * DirectPurchase) — each of which knows its supplier. That gives a per-
+ * supplier slice of the AP subledger: Σ(credit − debit). balanceOwed is a
+ * denormalised cache of exactly this number, and history shows the class of
+ * bug it hides — a posting path that credits AP but forgets to move
+ * balanceOwed (direct purchases), or decrements GL AP without decrementing
+ * the card (negative invoice variance), or floors at 0 and loses an advance.
+ * Here we just compare the two; a mismatch means one of the mutation sites
+ * drifted from the GL truth.
+ *
+ * AP slices that belong to LandPurchases (LandSeller) and RaBills
+ * (Subcontractor) are different subledgers — excluded. AP posted against a
+ * DirectPurchase with no supplierId is reported as an orphan: the GL knows
+ * the payable but no supplier card carries it.
+ */
+export async function reconcileSupplierAp(
+  companyId: string,
+  tolerance: string = MONEY_TOL,
+): Promise<ReconciliationCheck> {
+  const apAccount = await prisma.glAccount.findUnique({
+    where: { companyId_code: { companyId, code: ACCT.AP } },
+    select: { id: true },
+  });
+
+  const lines = apAccount
+    ? await prisma.journalLine.findMany({
+        where: {
+          accountId: apAccount.id,
+          journalEntry: { companyId, status: "POSTED" },
+        },
+        select: { debit: true, credit: true, entityType: true, entityId: true },
+      })
+    : [];
+
+  // Resolve each AP line's owner. Only entity types that map to a Supplier
+  // participate; RaBill (subcontractor) and LandPurchase (seller) slices are
+  // tracked by their own subledgers.
+  const idsByType = new Map<string, Set<string>>();
+  for (const l of lines) {
+    if (!l.entityType || !l.entityId) continue;
+    if (!idsByType.has(l.entityType)) idsByType.set(l.entityType, new Set());
+    idsByType.get(l.entityType)!.add(l.entityId);
+  }
+
+  const supplierOf = new Map<string, string | null>(); // "type:id" → supplierId
+  async function load(table: "purchaseOrder" | "supplierInvoice" | "supplierPayment" | "supplierReturn" | "directPurchase", entityType: string) {
+    const ids = [...(idsByType.get(entityType) ?? [])];
+    if (ids.length === 0) return;
+    const rows = await (prisma[table] as { findMany: (a: unknown) => Promise<{ id: string; supplierId: string | null }[]> })
+      .findMany({ where: { id: { in: ids } }, select: { id: true, supplierId: true } });
+    for (const r of rows) supplierOf.set(`${entityType}:${r.id}`, r.supplierId);
+  }
+  await load("purchaseOrder", "PurchaseOrder");
+  await load("supplierInvoice", "SupplierInvoice");
+  await load("supplierPayment", "SupplierPayment");
+  await load("supplierReturn", "SupplierReturn");
+  await load("directPurchase", "DirectPurchase");
+
+  // Net (credit − debit) per supplier; unresolved supplier lines → orphan.
+  const netBySupplier = new Map<string, Decimal>();
+  let orphanNet = new Decimal(0);
+  for (const l of lines) {
+    const net = new Decimal(l.credit).minus(l.debit);
+    if (!l.entityType || !l.entityId) continue; // un-tagged — other subledger
+    const key = `${l.entityType}:${l.entityId}`;
+    if (!supplierOf.has(key)) continue; // LandPurchase / RaBill / unresolvable
+    const supplierId = supplierOf.get(key);
+    if (supplierId) {
+      netBySupplier.set(supplierId, (netBySupplier.get(supplierId) ?? new Decimal(0)).plus(net));
+    } else {
+      orphanNet = orphanNet.plus(net);
+    }
+  }
+
+  const suppliers = await prisma.supplier.findMany({
+    where: { companyId, deletedAt: null },
+    select: { id: true, name: true, balanceOwed: true },
+  });
+
+  const details: ReconciliationDetail[] = [];
+  let totalExpected = new Decimal(0);
+  let totalActual = new Decimal(0);
+
+  for (const s of suppliers) {
+    const expected = netBySupplier.get(s.id) ?? new Decimal(0);
+    const actual = new Decimal(s.balanceOwed);
+    const delta = actual.minus(expected);
+    totalExpected = totalExpected.plus(expected);
+    totalActual = totalActual.plus(actual);
+    if (delta.abs().gt(new Decimal(tolerance))) {
+      details.push({
+        id: s.id,
+        label: s.name,
+        expected: expected.toString(),
+        actual: actual.toString(),
+        delta: delta.toString(),
+      });
+    }
+  }
+
+  // A supplier with AP lines but a deleted/unknown supplier row can't
+  // reconcile — surface the bucket so it isn't silently dropped.
+  for (const [sid, net] of netBySupplier) {
+    if (!suppliers.some((s) => s.id === sid) && net.abs().gt(new Decimal(tolerance))) {
+      details.push({
+        id: sid,
+        label: "Deleted supplier — AP still carries their entries",
+        expected: net.toString(),
+        actual: "0",
+        delta: net.negated().toString(),
+      });
+      totalExpected = totalExpected.plus(net);
+    }
+  }
+
+  if (orphanNet.abs().gt(new Decimal(tolerance))) {
+    details.push({
+      id: "orphan-ap",
+      label: "AP posted with no supplier (e.g. supplier-less direct purchase)",
+      expected: "0",
+      actual: orphanNet.toString(),
+      delta: orphanNet.toString(),
+    });
+  }
+
+  return buildCheck({
+    id: "supplier-ap",
+    name: "Supplier AP vs Owed Balances",
+    description:
+      "Recomputes each supplier's AP slice from GL journal lines (resolved via entityType/entityId to PurchaseOrder / SupplierInvoice / SupplierPayment / SupplierReturn / DirectPurchase) and compares to Supplier.balanceOwed. A negative balance is a supplier advance — allowed and reconciled. Divergence means a posting path moved AP without updating the supplier card.",
+    expected: totalExpected,
+    actual: totalActual,
+    tolerance,
+    warnAt: "1",
+    details: details.slice(0, 50),
+    message:
+      details.length > 0
+        ? `${details.length} supplier(s) have a balanceOwed that disagrees with their GL AP slice — or AP exists with no supplier to owe it to. A posting path moved AP without moving balanceOwed (or vice-versa).`
+        : undefined,
+  });
+}
+
+/**
  * Check 3: Land cost breakup integrity.
  *
  * For each LandPurchase, verifies that totalCost equals the sum of the
@@ -487,6 +633,169 @@ export async function reconcileLandCosts(
     message:
       details.length > 0
         ? `${details.length} land purchase(s) have a stale totalCost. Open each land detail page to trigger the lazy recompute, or run recomputeLandTotalCost manually.`
+        : undefined,
+  });
+}
+
+/**
+ * Check 3b: WIP (1500) GL vs the project cost pool.
+ *
+ * Every project cost must pass through WIP before it can be capitalised into
+ * a unit — otherwise capitalizeBuiltUnitWip credits 1500 for money that was
+ * never debited, and WIP goes silently negative (the dev DB carried −₹17.2L
+ * of exactly that: payroll labour posted to Salaries Expense and project
+ * land posted to Land Asset while productionCost counted both).
+ *
+ * Per project, the expected WIP-resident balance is:
+ *   + materials issued to the project (qty × MAC at issue)
+ *   + Σ ProjectCost rows (labour, contractor, transfer-duty, manual — every
+ *     type now debits WIP at source)
+ *   + project-linked land purchases (totalCost — posted to WIP at booking)
+ *   + capitalisable renovation costs (non-REPAIR types)
+ *   − scrap value recovered from the project
+ *   − Σ BuiltUnit.capitalizedAmount (moved 1500 → 1800, incl. unit renos)
+ *   − completed parcel-renovation actualCost (moved 1500 → 1700)
+ *
+ * The GL side resolves each WIP line's entityType to a project: "Project"
+ * carries projectId directly; RaBill / RenovationProject / LandPurchase
+ * resolve through their rows. Untagged WIP would surface as an orphan delta.
+ */
+export async function reconcileWipGl(
+  companyId: string,
+  tolerance: string = MONEY_TOL,
+): Promise<ReconciliationCheck> {
+  const wipAccount = await prisma.glAccount.findUnique({
+    where: { companyId_code: { companyId, code: ACCT.WIP } },
+    select: { id: true },
+  });
+
+  const lines = wipAccount
+    ? await prisma.journalLine.findMany({
+        where: {
+          accountId: wipAccount.id,
+          journalEntry: { companyId, status: "POSTED" },
+        },
+        select: { debit: true, credit: true, entityType: true, entityId: true },
+      })
+    : [];
+
+  // Resolve non-Project entity types to their projectId.
+  const idsOf = (t: string) => [...new Set(lines.filter((l) => l.entityType === t && l.entityId).map((l) => l.entityId!))];
+  const raProject = new Map<string, string>();
+  for (const r of await prisma.raBill.findMany({ where: { id: { in: idsOf("RaBill") } }, select: { id: true, projectId: true } })) raProject.set(r.id, r.projectId);
+  const rpProject = new Map<string, string>();
+  for (const r of await prisma.renovationProject.findMany({ where: { id: { in: idsOf("RenovationProject") } }, select: { id: true, projectId: true } })) rpProject.set(r.id, r.projectId);
+  const lpProject = new Map<string, string>();
+  for (const r of await prisma.landPurchase.findMany({ where: { id: { in: idsOf("LandPurchase") } }, select: { id: true, projectId: true } })) for (const x of [r] as { id: string; projectId: string | null }[]) if (x.projectId) lpProject.set(x.id, x.projectId);
+
+  const glByProject = new Map<string, Decimal>();
+  let orphanNet = new Decimal(0);
+  for (const l of lines) {
+    const net = new Decimal(l.debit).minus(l.credit);
+    const pid =
+      l.entityType === "Project" ? l.entityId
+      : l.entityType === "RaBill" ? raProject.get(l.entityId ?? "")
+      : l.entityType === "RenovationProject" ? rpProject.get(l.entityId ?? "")
+      : l.entityType === "LandPurchase" ? lpProject.get(l.entityId ?? "")
+      : undefined;
+    if (pid) glByProject.set(pid, (glByProject.get(pid) ?? new Decimal(0)).plus(net));
+    else orphanNet = orphanNet.plus(net);
+  }
+
+  // Doc-side expected per project.
+  const projects = await prisma.project.findMany({
+    where: { companyId, deletedAt: null },
+    select: { id: true, name: true },
+  });
+
+  const details: ReconciliationDetail[] = [];
+  let totalExpected = new Decimal(0);
+  let totalActual = new Decimal(0);
+
+  for (const project of projects) {
+    const [issueLines, projectCosts, projectLand, renoCosts, scrapLines, units, parcelRenos] = await Promise.all([
+      prisma.materialIssueLine.findMany({
+        where: { materialIssue: { projectId: project.id, status: "COMPLETED" } },
+        select: { qty: true, unitCost: true },
+      }),
+      prisma.projectCost.findMany({
+        where: { projectId: project.id },
+        select: { amount: true },
+      }),
+      prisma.landPurchase.findMany({
+        where: { projectId: project.id, deletedAt: null },
+        select: { totalCost: true },
+      }),
+      prisma.renovationCost.findMany({
+        where: { renovationProject: { projectId: project.id, type: { not: "REPAIR" }, status: { not: "CANCELLED" } } },
+        select: { amount: true },
+      }),
+      prisma.scrapGenerationLine.findMany({
+        where: { scrapGeneration: { projectId: project.id, status: "COMPLETED" } },
+        select: { qty: true, unitCost: true },
+      }),
+      // Only CREATED units' capitalizedAmount is a WIP relief — PURCHASED
+      // units store their acquisitionCost there without ever touching WIP.
+      // deletedAt intentionally NOT filtered: a unit's WIP_CAPITALIZATION
+      // journal stands even if the row is later soft-deleted.
+      prisma.builtUnit.findMany({
+        where: { projectId: project.id, originType: "CREATED" },
+        select: { capitalizedAmount: true },
+      }),
+      prisma.renovationProject.findMany({
+        where: { projectId: project.id, type: { not: "REPAIR" }, status: "COMPLETED", landParcelId: { not: null } },
+        select: { actualCost: true },
+      }),
+    ]);
+
+    const sum = <T extends Decimal.Value>(arr: T[]) => arr.reduce((s, v) => s.plus(new Decimal(v)), new Decimal(0));
+    const expected = sum(issueLines.map((l) => new Decimal(l.qty).times(l.unitCost)))
+      .plus(sum(projectCosts.map((c) => c.amount)))
+      .plus(sum(projectLand.map((p) => p.totalCost)))
+      .plus(sum(renoCosts.map((c) => c.amount)))
+      .minus(sum(scrapLines.map((l) => new Decimal(l.qty).times(l.unitCost))))
+      .minus(sum(units.map((u) => u.capitalizedAmount)))
+      .minus(sum(parcelRenos.map((r) => r.actualCost)));
+
+    const actual = glByProject.get(project.id) ?? new Decimal(0);
+    const delta = actual.minus(expected);
+    totalExpected = totalExpected.plus(expected);
+    totalActual = totalActual.plus(actual);
+    if (delta.abs().gt(new Decimal(tolerance))) {
+      details.push({
+        id: project.id,
+        label: project.name,
+        expected: expected.toString(),
+        actual: actual.toString(),
+        delta: delta.toString(),
+      });
+    }
+  }
+
+  if (orphanNet.abs().gt(new Decimal(tolerance))) {
+    details.push({
+      id: "orphan-wip",
+      label: "WIP posted with no project linkage",
+      expected: "0",
+      actual: orphanNet.toString(),
+      delta: orphanNet.toString(),
+    });
+    totalActual = totalActual.plus(orphanNet);
+  }
+
+  return buildCheck({
+    id: "wip-gl",
+    name: "WIP GL vs Project Cost Pool",
+    description:
+      "Per project, compares the GL WIP (1500) slice to the doc-derived un-capitalised cost pool: materials + project costs + project land + capitalisable renos − scrap recovery − capitalised amounts. Divergence means a cost never entered WIP, or capitalisation relieved more than WIP held (double-counted unit cost).",
+    expected: totalExpected,
+    actual: totalActual,
+    tolerance,
+    warnAt: "1",
+    details: details.slice(0, 50),
+    message:
+      details.length > 0
+        ? `${details.length} project(s) have a WIP GL balance that disagrees with their un-capitalised cost pool. A project cost bypassed WIP (labour/land/expense posted elsewhere), or capitalisation relieved cost WIP never held.`
         : undefined,
   });
 }
@@ -656,6 +965,8 @@ export async function runBookReconciliation(
   const checks = await Promise.all([
     reconcileStockLedger(companyId),
     reconcileInventoryGl(companyId),
+    reconcileSupplierAp(companyId),
+    reconcileWipGl(companyId),
     reconcileLandCosts(companyId),
     reconcileUnitCosts(companyId),
     reconcileTrialBalance(companyId),

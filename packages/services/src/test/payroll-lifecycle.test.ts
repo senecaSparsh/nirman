@@ -241,16 +241,17 @@ describe("Payroll lifecycle — generate → process → pay", () => {
     expect(result.status).toBe("PROCESSED");
     expect(result.processedAt).not.toBeNull();
 
-    // GL: Dr Salaries Expense 50K / Cr Salaries Payable 50K
+    // GL: the employee is project-tagged → Dr WIP 50K (capitalised) / Cr Salaries Payable 50K
     const entries = await getPayrollEntries(period.id);
     expect(entries.length).toBeGreaterThanOrEqual(1);
 
     const processEntry = entries.find((e) => e.sourceType === "PAYROLL");
     expect(processEntry).toBeDefined();
 
-    const expenseLine = processEntry!.lines.find((l) => l.account.code === ACCT.SALARIES_EXPENSE);
+    const wipLine = processEntry!.lines.find((l) => l.account.code === ACCT.WIP);
     const payableLine = processEntry!.lines.find((l) => l.account.code === ACCT.SALARIES_PAYABLE);
-    expect(expenseLine!.debit.toNumber()).toBe(50000);
+    expect(wipLine!.debit.toNumber()).toBe(50000);
+    expect(wipLine!.entityId).toBe(project.id);
     expect(payableLine!.credit.toNumber()).toBe(50000);
   });
 
@@ -426,9 +427,10 @@ describe("Payroll lifecycle — generate → process → pay", () => {
     const processEntry = entries.find((e) => e.sourceType === "PAYROLL");
     expect(processEntry).toBeDefined();
 
-    // Dr Salaries Expense 60K
-    const expense = processEntry!.lines.find((l) => l.account.code === ACCT.SALARIES_EXPENSE);
-    expect(expense!.debit.toNumber()).toBe(60000);
+    // Dr WIP 60K — the employee is project-tagged, so gross capitalises
+    const wip = processEntry!.lines.find((l) => l.account.code === ACCT.WIP);
+    expect(wip!.debit.toNumber()).toBe(60000);
+    expect(wip!.entityId).toBe(project.id);
 
     // Cr PF Payable 6K
     const pfPayable = processEntry!.lines.find((l) => l.account.code === ACCT.PF_PAYABLE);
