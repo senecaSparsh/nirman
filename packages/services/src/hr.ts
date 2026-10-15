@@ -1093,9 +1093,14 @@ export async function recordAttendance(input: LogAttendanceInput) {
     // ── Auto-compute hoursWorked from check-in/check-out if not provided ──
     let hoursWorked = input.hoursWorked;
     let status = input.status;
-    if (input.checkIn && input.checkOut && hoursWorked == null) {
+    if (input.checkIn && input.checkOut) {
       const diffMs = input.checkOut.getTime() - input.checkIn.getTime();
-      if (diffMs > 0) {
+      // A check-out before check-in is a data-entry bug — silently storing a
+      // zero-hour day pays nothing and never alerts anyone. Refuse it.
+      if (diffMs <= 0) {
+        throw new HrError("Check-out cannot be at or before check-in", 400);
+      }
+      if (hoursWorked == null) {
         hoursWorked = new Decimal(diffMs).div(1000 * 60 * 60); // ms → hours
       }
     }
