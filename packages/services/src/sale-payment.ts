@@ -1,4 +1,4 @@
-import { prisma } from "@nirman/db";
+import { prisma, Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { postMaterialSalePayment, reverseJournalEntry } from "./gl-posting";
@@ -37,8 +37,24 @@ export function validateSalePayment(
       `Payment ${amount} exceeds outstanding balance. Outstanding: ${saleTotal.minus(previouslyPaid)}`,
     );
   }
-  const paymentStatus = totalAfterPayment.equals(saleTotal) ? "PAID" : "PARTIAL";
+  const paymentStatus = totalAfterPayment.gte(saleTotal) ? "PAID" : "PARTIAL";
   return { totalAfterPayment, paymentStatus };
+}
+
+// What the customer still owes after credit notes: a sale's receivable is its
+// totalAmount minus all COMPLETED returns, not the original invoice total.
+// Capping payments at the original total would let collections exceed what is
+// owed on partially/fully returned sales (negative AR).
+async function netReceivableFor(
+  tx: Prisma.TransactionClient,
+  saleId: string,
+  saleTotal: Decimal,
+): Promise<Decimal> {
+  const returned = await tx.materialSaleReturn.aggregate({
+    where: { materialSaleId: saleId, status: "COMPLETED" },
+    _sum: { totalAmount: true },
+  });
+  return saleTotal.minus(new Decimal(returned._sum.totalAmount ?? 0));
 }
 
 export async function createMaterialSalePayment(input: {
@@ -93,11 +109,14 @@ export async function createMaterialSalePayment(input: {
 
     const totalAfterPayment = previouslyPaid.plus(amount);
     const saleTotal = new Decimal(sale.totalAmount);
-
-    // Don't allow overpayment beyond the sale total
-    if (totalAfterPayment.gt(saleTotal)) {
+    const netReceivable = await netReceivableFor(tx, input.saleId, saleTotal);
+    if (netReceivable.lte(0)) {
+      throw new ServiceError("Sale is fully returned — nothing is outstanding on it.");
+    }
+    // Don't allow overpayment beyond the post-return receivable
+    if (totalAfterPayment.gt(netReceivable)) {
       throw new ServiceError(
-        `Payment ${amount} exceeds outstanding balance. Outstanding: ${saleTotal.minus(previouslyPaid)}`,
+        `Payment ${amount} exceeds outstanding balance. Outstanding after returns: ${netReceivable.minus(previouslyPaid)}`,
       );
     }
 
@@ -121,7 +140,7 @@ export async function createMaterialSalePayment(input: {
     });
 
     // 4. Update sale's paymentStatus (PENDING → PARTIAL → PAID)
-    const paymentStatus = totalAfterPayment.equals(saleTotal) ? "PAID" : "PARTIAL";
+    const paymentStatus = totalAfterPayment.gte(netReceivable) ? "PAID" : "PARTIAL";
     await tx.materialSale.update({
       where: { id: input.saleId },
       data: { paymentStatus },
@@ -208,7 +227,8 @@ export async function voidMaterialSalePayment(input: {
     });
     const totalPaid = new Decimal(remaining._sum.amount ?? 0);
     const saleTotal = new Decimal(payment.sale.totalAmount);
-    const paymentStatus = totalPaid.lte(0) ? "PENDING" : totalPaid.gte(saleTotal) ? "PAID" : "PARTIAL";
+    const netReceivable = await netReceivableFor(tx, payment.saleId, saleTotal);
+    const paymentStatus = totalPaid.lte(0) ? "PENDING" : totalPaid.gte(netReceivable) ? "PAID" : "PARTIAL";
     await tx.materialSale.update({
       where: { id: payment.saleId },
       data: { paymentStatus },

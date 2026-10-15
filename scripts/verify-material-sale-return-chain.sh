@@ -63,6 +63,13 @@ expect_num "COGS-rev Cr COGS 3×MAC" "SELECT COALESCE(SUM(jl.credit),0) FROM \"J
 # the fd400362 bug signature: NO full-sale _REVERSAL entries on this ACTIVE sale
 expect_cnt "no full-sale reversal on ACTIVE sale" "SELECT count(*) FROM \"JournalEntry\" je WHERE je.\"sourceId\"='$SALE' AND je.\"sourceType\" LIKE '%_REVERSAL' AND je.status='POSTED'" 0
 expect_cnt "status PARTIALLY_RETURNED" "SELECT CASE WHEN status='PARTIALLY_RETURNED' THEN 1 ELSE 0 END FROM \"MaterialSale\" WHERE id='$SALE'" 1
+# payments cap at the post-return receivable (1770 − 531 = 1239), not the original total
+r=$(req POST "material-sales/$SALE/payments" '{"amount":1770,"paymentMode":"CASH"}')
+expect_refused "payment above post-return receivable" "$r"
+r=$(req POST "material-sales/$SALE/payments" '{"amount":1239,"paymentMode":"CASH"}')
+PAY=$(echo "$r" | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
+[ -n "$PAY" ] && { PASS=$((PASS+1)); echo "  exact net payment $PAY"; } || { FAIL=$((FAIL+1)); echo "  FAIL net payment: ${r:0:140}"; }
+expect_cnt "paymentStatus PAID at net receivable" "SELECT CASE WHEN \"paymentStatus\"='PAID' THEN 1 ELSE 0 END FROM \"MaterialSale\" WHERE id='$SALE'" 1
 # cancel after returns would double-restore stock + double-reverse journals
 r=$(req PATCH "material-sales/$SALE" '{"action":"cancel"}')
 expect_refused "cancel a partially-returned sale" "$r"
@@ -80,6 +87,9 @@ expect_num "total revenue reversed = 1500" "SELECT COALESCE(SUM(jl.debit),0) FRO
 expect_num "total COGS reversed = full" "SELECT COALESCE(SUM(jl.debit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceType\"='MATERIAL_SALE_RETURN_COGS' AND je.\"sourceId\" IN ('$RET','$RET2') AND a.code='1300'" "$COGS"
 # AR net for this sale should now be zero
 expect_num "net AR for sale = 0" "SELECT COALESCE(SUM(jl.debit)-SUM(jl.credit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceId\" IN ('$SALE','$RET','$RET2') AND a.code='1200' AND je.status='POSTED'" 0
+# nothing left to collect after a full return — any payment must refuse
+r=$(req POST "material-sales/$SALE/payments" '{"amount":1,"paymentMode":"CASH"}')
+expect_refused "payment on fully-returned sale" "$r"
 
 echo "════════════════════════════════════════"
 echo "material-sale-return chain: $PASS passed, $FAIL failed"
