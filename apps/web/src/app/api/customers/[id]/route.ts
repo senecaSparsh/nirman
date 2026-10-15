@@ -68,27 +68,6 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
   const { id } = await params;
   const existing = await prisma.customer.findFirst({ where: { id, companyId: company.id, deletedAt: null } });
   if (!existing) return json({ error: "Customer not found" }, { status: 404 });
-  // A customer with live receivables can't just vanish — their sales stay
-  // ACTIVE with payments to record and returns/refunds to process. Close
-  // or fully settle the sales first; completed/cancelled history is fine.
-  const [openSales, openBookings] = await Promise.all([
-    prisma.materialSale.count({
-      where: {
-        customerId: id,
-        status: { in: ["ACTIVE", "PARTIALLY_RETURNED"] },
-        paymentStatus: { not: "PAID" },
-      },
-    }),
-    prisma.assetSale.count({
-      where: { customerId: id, status: "ACTIVE", paymentStatus: { not: "PAID" } },
-    }),
-  ]);
-  if (openSales + openBookings > 0) {
-    return json(
-      { error: `Cannot delete — ${openSales + openBookings} sale(s) still have unpaid receivables. Settle or cancel them first.` },
-      { status: 409 },
-    );
-  }
   await softDelete("Customer", id);
   revalidatePath("/m/customers");
     revalidatePath("/m/real-estate?tab=customers");

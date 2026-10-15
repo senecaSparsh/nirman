@@ -171,7 +171,7 @@ async function guardDelete(entityType: EntityType, entityId: string): Promise<vo
     case "Customer": {
       const [activeSales, activeMaterialSales, activeTenancies] = await Promise.all([
         prisma.assetSale.count({ where: { customerId: entityId, status: { in: ["ACTIVE", "PENDING"] } } }),
-        prisma.materialSale.count({ where: { customerId: entityId, status: "ACTIVE" } }),
+        prisma.materialSale.count({ where: { customerId: entityId, status: { in: ["PENDING", "ACTIVE", "PARTIALLY_RETURNED"] } } }),
         prisma.tenancy.count({ where: { customerId: entityId, status: { in: ["PENDING", "ACTIVE"] } } }),
       ]);
       if (activeSales > 0) throw new ServiceError("Cannot delete customer with active or pending asset sales.");
@@ -180,10 +180,17 @@ async function guardDelete(entityType: EntityType, entityId: string): Promise<vo
       // A customer who still owes you money can't be deleted — a COMPLETED sale
       // with a PENDING/PARTIAL payment status isn't caught by the active-sale
       // check above, so deleting the row hides a receivable that was never
-      // collected. Chase the payment or write it off first.
-      const unpaidSales = await prisma.assetSale.count({
-        where: { customerId: entityId, status: { not: "CANCELLED" }, paymentStatus: { in: ["PENDING", "PARTIAL"] } },
-      });
+      // collected. Chase the payment or write it off first. (Covers both
+      // sale kinds — material and asset.)
+      const [unpaidAsset, unpaidMaterial] = await Promise.all([
+        prisma.assetSale.count({
+          where: { customerId: entityId, status: { not: "CANCELLED" }, paymentStatus: { in: ["PENDING", "PARTIAL"] } },
+        }),
+        prisma.materialSale.count({
+          where: { customerId: entityId, status: { notIn: ["CANCELLED", "RETURNED"] }, paymentStatus: { in: ["PENDING", "PARTIAL"] } },
+        }),
+      ]);
+      const unpaidSales = unpaidAsset + unpaidMaterial;
       if (unpaidSales > 0) throw new ServiceError(
         `Cannot delete a customer with ${unpaidSales} unpaid or partially-paid sale(s) — a receivable you haven't collected. Collect or write off the balance first.`,
       );
