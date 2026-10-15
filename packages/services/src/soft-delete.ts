@@ -135,6 +135,20 @@ async function guardDelete(entityType: EntityType, entityId: string): Promise<vo
       if (project.status === "ACTIVE") {
         throw new ServiceError("Cannot delete an ACTIVE project. Complete or put on hold first.");
       }
+      // Even non-ACTIVE, a project carrying costs/issues/parcels is part of
+      // the ledger — deleting it detaches every ProjectCost, material issue,
+      // WIP slice, and land parcel from its name.
+      const [costs, issues, parcels, dprs] = await Promise.all([
+        prisma.projectCost.count({ where: { projectId: entityId } }),
+        prisma.materialIssue.count({ where: { projectId: entityId } }),
+        prisma.landParcel.count({ where: { projectId: entityId, deletedAt: null } }),
+        prisma.dailyProgressReport.count({ where: { projectId: entityId } }),
+      ]);
+      if (costs + issues + parcels + dprs > 0) {
+        throw new ServiceError(
+          "Cannot delete a project that has costs, material issues, land parcels, or progress reports — it stays for ledger history. Use ON_HOLD/ARCHIVED instead.",
+        );
+      }
       break;
     }
 
@@ -267,6 +281,19 @@ async function guardDelete(entityType: EntityType, entityId: string): Promise<vo
       if (!employee) throw new ServiceError("Employee not found", 404);
       if (employee.active) {
         throw new ServiceError("Cannot delete an active employee. Mark them inactive first.");
+      }
+      // An inactive employee with payroll/attendance/advance history is part
+      // of the ledger — deleting them detaches payslips, attendance rows, and
+      // outstanding advances from a name.
+      const [payrollLines, attendance, advances] = await Promise.all([
+        prisma.payrollLine.count({ where: { employeeId: entityId } }),
+        prisma.workerAttendance.count({ where: { employeeId: entityId } }),
+        prisma.employeeAdvance.count({ where: { employeeId: entityId } }),
+      ]);
+      if (payrollLines + attendance + advances > 0) {
+        throw new ServiceError(
+          "Cannot delete an employee with payroll, attendance, or advance history — it stays for ledger truth. Keep them inactive instead.",
+        );
       }
       break;
     }
