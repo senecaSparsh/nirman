@@ -96,6 +96,28 @@ export async function createMaterialSalePayment(input: {
         );
       }
     }
+    // Cheque-number guard — the form captures chequeNo separately from
+    // referenceNo, and referenceNo is optional on cheques. The same physical
+    // cheque (no. + bank + date) cannot settle two different sales.
+    if (input.paymentMode === "CHEQUE" && input.chequeNo) {
+      // Same cheque number within the company = same physical cheque almost
+      // always. VOID rows and bounced cheques don't count — a bounced cheque
+      // CAN legitimately be re-deposited, and voided rows never happened.
+      const dupe = await tx.materialSalePayment.findFirst({
+        where: {
+          chequeNo: input.chequeNo,
+          status: { not: "VOID" },
+          chequeStatus: { not: "BOUNCED" },
+          sale: { companyId: input.companyId },
+        },
+        select: { id: true, saleId: true },
+      });
+      if (dupe) {
+        throw new ServiceError(
+          `Cheque ${input.chequeNo} is already recorded on sale ${dupe.saleId} — the same physical cheque cannot pay two sales.`,
+        );
+      }
+    }
 
     // 2. Calculate total paid so far (IN payments only — OUT refunds are
     // money back to the customer, never collection credit; BOUNCED cheques

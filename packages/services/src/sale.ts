@@ -834,6 +834,25 @@ export async function recordDeposit(input: RecordDepositInput) {
         );
       }
     }
+    // Cheque-number guard — the form captures chequeNo separately from the
+    // reference field; the same physical cheque cannot settle two sales.
+    // Voided and bounced rows don't count (a bounced cheque can re-present).
+    if ((input.paymentMode === "CHEQUE") && input.chequeNo) {
+      const dupe = await tx.assetSalePayment.findFirst({
+        where: {
+          chequeNo: input.chequeNo,
+          status: { not: "VOID" },
+          chequeStatus: { not: "BOUNCED" },
+          assetSale: { companyId: sale.companyId },
+        },
+        select: { id: true, assetSaleId: true },
+      });
+      if (dupe) {
+        throw new ServiceError(
+          `Cheque ${input.chequeNo} is already recorded on sale ${dupe.assetSaleId} — the same physical cheque cannot pay two sales.`,
+        );
+      }
+    }
 
     const depositAmount = new Decimal(input.depositAmount);
     if (!depositAmount.gt(0)) throw new ServiceError("Deposit amount must be > 0");
@@ -1308,6 +1327,24 @@ export async function recordPayment(input: RecordPaymentInput) {
       if (dupe) {
         throw new ServiceError(
           `Reference ${input.reference} is already recorded on another payment (sale ${dupe.assetSaleId}). Check the UTR/cheque number — the same bank transaction cannot pay two sales.`,
+        );
+      }
+    }
+    // Same-cheque guard — the physical instrument can't settle two sales even
+    // if the reference field was left blank.
+    if (input.mode === "CHEQUE" && input.chequeNo) {
+      const dupeCheque = await tx.assetSalePayment.findFirst({
+        where: {
+          chequeNo: input.chequeNo,
+          status: { not: "VOID" },
+          chequeStatus: { not: "BOUNCED" },
+          assetSale: { companyId: sale.companyId },
+        },
+        select: { id: true, assetSaleId: true },
+      });
+      if (dupeCheque) {
+        throw new ServiceError(
+          `Cheque ${input.chequeNo} is already recorded on sale ${dupeCheque.assetSaleId} — the same physical cheque cannot pay two sales.`,
         );
       }
     }
