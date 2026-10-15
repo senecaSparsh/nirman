@@ -101,7 +101,7 @@ export async function createMaterialSalePayment(input: {
     // money back to the customer, never collection credit; BOUNCED cheques
     // were never real money either)
     const existingPayments = await tx.materialSalePayment.findMany({
-      where: { saleId: input.saleId, status: { not: "VOID" }, direction: "IN", chequeStatus: { not: "BOUNCED" } },
+      where: { saleId: input.saleId, status: { not: "VOID" }, direction: "IN", OR: [{ chequeStatus: null }, { chequeStatus: { not: "BOUNCED" } }] },
       select: { amount: true },
     });
     const previouslyPaid = existingPayments.reduce(
@@ -225,7 +225,7 @@ export async function voidMaterialSalePayment(input: {
     // Recompute paymentStatus from the remaining non-void IN payments
     // (bounced cheques never counted — they weren't real money)
     const remaining = await tx.materialSalePayment.aggregate({
-      where: { saleId: payment.saleId, status: { not: "VOID" }, direction: "IN", chequeStatus: { not: "BOUNCED" } },
+      where: { saleId: payment.saleId, status: { not: "VOID" }, direction: "IN", OR: [{ chequeStatus: null }, { chequeStatus: { not: "BOUNCED" } }] },
       _sum: { amount: true },
     });
     const totalPaid = new Decimal(remaining._sum.amount ?? 0);
@@ -339,7 +339,7 @@ export async function recordMaterialSaleRefund(input: {
 
     const agg = await tx.materialSalePayment.groupBy({
       by: ["direction"],
-      where: { saleId: input.saleId, status: { not: "VOID" }, chequeStatus: { not: "BOUNCED" } },
+      where: { saleId: input.saleId, status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: { not: "BOUNCED" } }] },
       _sum: { amount: true },
     });
     const sumOf = (dir: string) => new Decimal(agg.find((a) => a.direction === dir)?._sum.amount ?? 0);
@@ -402,7 +402,7 @@ export async function recordMaterialSaleRefund(input: {
 async function refundableCreditFor(tx: Prisma.TransactionClient, sale: { id: string; totalAmount: Decimal | number | string }): Promise<Decimal> {
   const agg = await tx.materialSalePayment.groupBy({
     by: ["direction"],
-    where: { saleId: sale.id, status: { not: "VOID" }, chequeStatus: { not: "BOUNCED" } },
+    where: { saleId: sale.id, status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: { not: "BOUNCED" } }] },
     _sum: { amount: true },
   });
   const sumOf = (dir: string) => new Decimal(agg.find((a) => a.direction === dir)?._sum.amount ?? 0);
@@ -481,7 +481,7 @@ export async function applySaleCredit(input: {
     if (targetNet.lte(0)) throw new ServiceError("Target sale is fully returned — nothing outstanding", 400);
     const targetPaid = new Decimal(
       (await tx.materialSalePayment.aggregate({
-        where: { saleId: target.id, status: { not: "VOID" }, direction: "IN", chequeStatus: { not: "BOUNCED" } },
+        where: { saleId: target.id, status: { not: "VOID" }, direction: "IN", OR: [{ chequeStatus: null }, { chequeStatus: { not: "BOUNCED" } }] },
         _sum: { amount: true },
       }))._sum.amount ?? 0,
     );
@@ -613,7 +613,7 @@ export async function bounceMaterialSaleCheque(input: { paymentId: string; compa
 
     // Recompute paymentStatus from remaining valid IN payments.
     const remaining = await tx.materialSalePayment.aggregate({
-      where: { saleId: payment.saleId, status: { not: "VOID" }, direction: "IN", chequeStatus: { not: "BOUNCED" } },
+      where: { saleId: payment.saleId, status: { not: "VOID" }, direction: "IN", OR: [{ chequeStatus: null }, { chequeStatus: { not: "BOUNCED" } }] },
       _sum: { amount: true },
     });
     const totalPaid = new Decimal(remaining._sum.amount ?? 0);
