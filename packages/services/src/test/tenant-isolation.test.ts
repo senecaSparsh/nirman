@@ -770,6 +770,10 @@ describe("tenant isolation + custom-role RBAC", () => {
         data: { reqNumber: `REQ-OK-${crypto.randomUUID().slice(0, 8)}`, projectId: project.id, requestedById: user.id, status: "APPROVED" },
       });
       const mat = await makeStock(company.id, stockLocation.id);
+      // The requisition authorizes this material — the qty ceiling consumed here.
+      await prisma.materialRequisitionLine.create({
+        data: { requisitionId: req.id, materialId: mat.id, qtyRequested: "10" },
+      });
 
       const { materialIssue } = await issueMaterialsToProject({
         projectId: project.id,

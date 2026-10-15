@@ -1554,6 +1554,13 @@ export interface GeneratePayrollInput {
  */
 export async function generatePayroll(input: GeneratePayrollInput) {
   if (input.month < 1 || input.month > 12) throw new HrError("Month must be 1-12", 400);
+  // Horizon guard — payroll for year 2079 pays nobody's attendance; a
+  // far-future period is a typo or a test gone wrong. One year ahead is the
+  // furthest a real company ever prepares payroll.
+  const yearNow = new Date().getFullYear();
+  if (input.year < 2000 || input.year > yearNow + 1) {
+    throw new HrError(`Payroll year must be between 2000 and ${yearNow + 1}`, 400);
+  }
 
   const { startDate, endDate } = monthRange(input.year, input.month);
   const workingDays = computeWorkingDays(startDate, endDate);
