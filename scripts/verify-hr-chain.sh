@@ -50,8 +50,11 @@ E1=$(uid); E2=$(uid); E3=$(uid); ADV=$(uid)
 for E in $E1 $E2 $E3; do
   P "INSERT INTO \"Employee\" (id,name,\"companyId\",\"wageType\",\"dailyRate\",\"joinDate\",active,\"updatedAt\") VALUES ('$E','hrchain-$E','$C','DAILY',500,'$MO-01',true,now())"
 done
-P "INSERT INTO \"EmployeeAdvance\" (id,\"companyId\",\"employeeId\",amount,\"monthlyRecovery\",status,\"issueDate\",\"updatedAt\",\"createdAt\") VALUES ('$ADV','$C','$E1',20000,5000,'ACTIVE','2025-07-01',now(),now())"
-P "INSERT INTO \"EmployeeAdvance\" (id,\"companyId\",\"employeeId\",amount,\"monthlyRecovery\",status,\"issueDate\",\"updatedAt\",\"createdAt\") VALUES ('$(uid)','$C','$E2',20000,5000,'ACTIVE','2025-07-01',now(),now())"
+# Via the API so the issue JE posts — SQL seeds skip Dr 1650 while the
+# service's settle/write-off credits it, leaving phantom net-credit drift.
+ADV=$(req POST "employees/$E1/advances" '{"amount":20000,"monthlyRecovery":5000,"notes":"verifier"}' | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
+[ -n "$ADV" ] && echo "  advance $ADV issued" || echo "  WARN advance issue failed"
+req POST "employees/$E2/advances" '{"amount":20000,"monthlyRecovery":5000,"notes":"verifier"}' >/dev/null
 
 echo "════════ 1. attendance mix via POST /api/attendance (one call per date) ════════"
 # The bulk API is single-date — one POST per day carries that day's records.

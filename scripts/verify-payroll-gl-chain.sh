@@ -68,7 +68,11 @@ P "INSERT INTO \"SalaryComponent\" (id,\"employeeId\",type,amount,\"isDeduction\
     ('$(uid)','$EG','EMPLOYEE_PF',1800,true,now()),
     ('$(uid)','$EG','EMPLOYER_PF',1800,false,now()),
     ('$(uid)','$EG','PROFESSION_TAX',200,true,now())"
-P "INSERT INTO \"EmployeeAdvance\" (id,\"companyId\",\"employeeId\",amount,\"monthlyRecovery\",status,\"issueDate\",\"updatedAt\",\"createdAt\") VALUES ('$ADV','$C','$EG',20000,5000,'ACTIVE','2025-08-01',now(),now())"
+# Advances must go through the API — SQL inserts skip issueAdvance's GL leg
+# (Dr 1650) while later settle/write-off via the service credits it, leaving
+# phantom net-credit drift on the advances account.
+ADV=$(req POST "employees/$EG/advances" '{"amount":20000,"monthlyRecovery":5000,"notes":"verifier"}' | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
+[ -n "$ADV" ] && echo "  advance $ADV issued via API" || { echo "  FAIL advance issue"; FAIL=$((FAIL+1)); }
 # 4 PRESENT days: 3 on PROJ1, 1 on PROJ2 → gross splits 3:1
 for d in 02 03 04; do
   req POST "attendance" "{\"date\":\"$MO-$d\",\"projectId\":\"$PROJ1\",\"records\":[{\"employeeId\":\"$EG\",\"status\":\"PRESENT\"}]}" >/dev/null

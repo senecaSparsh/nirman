@@ -43,7 +43,10 @@ WO=$(uid); L=$(uid); MB1=$(uid); MB2=$(uid); MB3=$(uid); BOQ=$(uid)
 # Own BOQ line: completion blocks on ANY approved-unbilled MB entry for the WO's BOQ
 # items, so sharing a seeded line lets other test data strand this scenario.
 P "INSERT INTO \"BoqItem\" (id,\"projectId\",type,\"serialNo\",description,unit,\"estimatedQty\",rate,\"sortOrder\",\"updatedAt\") VALUES ('$BOQ','$PROJ','LINE_ITEM','RA-VFY-$RANDOM','ra chain verify line','cum',1000,100,0,now())"
-P "INSERT INTO \"SubcontractorWorkOrder\" (id,\"workOrderNumber\",\"projectId\",\"subcontractorId\",\"companyId\",\"workTitle\",status,\"advanceAmount\",\"advanceRecoveryPct\",\"retentionPct\",\"tdsPct\",\"tdsCategory\",\"updatedAt\",\"createdAt\") VALUES ('$WO','WO-RA-$RANDOM','$PROJ','$SUB','$C','ra chain verify','ACTIVE',1000,10,5,2,'COMPANY',now(),now())"
+P "INSERT INTO \"SubcontractorWorkOrder\" (id,\"workOrderNumber\",\"projectId\",\"subcontractorId\",\"companyId\",\"workTitle\",status,\"advanceAmount\",\"advanceRecoveryPct\",\"retentionPct\",\"tdsPct\",\"tdsCategory\",\"updatedAt\",\"createdAt\") VALUES ('$WO','WO-RA-$RANDOM','$PROJ','$SUB','$C','ra chain verify','ACTIVE',0,10,5,2,'COMPANY',now(),now())"
+# Pay the advance via the API — SQL-seeding advanceAmount skips payAdvance's
+# Dr-1600 leg while recoveries/write-offs credit it, drifting the account.
+req POST "work-orders/$WO" '{"action":"payAdvance","amount":1000,"paymentMode":"CASH"}' >/dev/null
 P "INSERT INTO \"SubcontractorWorkOrderLine\" (id,\"workOrderId\",\"boqItemId\",\"agreedRate\",\"cumulativeQty\",\"cumulativeAmount\") VALUES ('$L','$WO','$BOQ',100,0,0)"
 for pair in "$MB1:50" "$MB2:90" "$MB3:10"; do
   id=${pair%%:*}; q=${pair##*:}

@@ -64,7 +64,9 @@ req POST "tenancies/$TEN" '{"action":"terminate"}' >/dev/null
 expect "tenancy terminate" Tenancy "$TEN" status TERMINATED
 
 echo "════════ 4. Employee advance (ACTIVE→PAUSED→CANCELLED) ════════"
-ADV=$(uid); P "INSERT INTO \"EmployeeAdvance\" (id,\"companyId\",\"employeeId\",amount,\"monthlyRecovery\",status,\"issueDate\",\"updatedAt\",\"createdAt\") VALUES ('$ADV','$C','$EMP',20000,2000,'ACTIVE',now(),now(),now())"
+# Issue via API so the Dr-1650 leg posts; a raw INSERT skips it and the
+# CANCELLED write-off below then credits an un-debited receivable.
+ADV=$(req POST "employees/$EMP/advances" '{"amount":20000,"monthlyRecovery":2000,"notes":"wf verify"}' | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
 req PATCH "advances/$ADV" '{"status":"PAUSED","note":"wf verify"}' >/dev/null
 expect "advance pause" EmployeeAdvance "$ADV" status PAUSED
 req PATCH "advances/$ADV" '{"status":"CANCELLED","note":"wf verify"}' >/dev/null

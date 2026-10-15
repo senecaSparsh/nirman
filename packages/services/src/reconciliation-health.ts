@@ -420,6 +420,80 @@ export async function reconcileInventoryGl(
 }
 
 /**
+ * Check 6: Balance-sheet account signs.
+ *
+ * Every balance-sheet account has a normal side: assets carry a debit
+ * balance, liabilities a credit one. A debit-normal account holding a
+ * credit balance means something was relieved that was never recorded —
+ * an advance written off after a bypassed issuance, an AR account pushed
+ * negative by a return with no refund, stock issued from nothing.
+ *
+ * WARN rather than FAIL: a negative balance can be legitimate for a while
+ * (supplier advance = negative AP slice, customer credit = negative AR) —
+ * the point is that it must be *visible and settleable*, not silently
+ * accumulating. Any negative balance is a to-do: refund it, recover it,
+ * or investigate why.
+ */
+export async function reconcileAccountSigns(
+  companyId: string,
+  _tolerance: string = MONEY_TOL,
+): Promise<ReconciliationCheck> {
+  // asset codes → debit-normal; liability/contra codes → credit-normal.
+  // Equity + P&L legitimately carry either sign — excluded.
+  const DEBIT_NORMAL = ["1000", "1050", "1200", "1300", "1400", "1500", "1600", "1650", "1660", "1700", "1800", "1900", "1950", "1960"];
+  const CREDIT_NORMAL = ["1910", "2000", "2050", "2100", "2200", "2250", "2300", "2350", "2400", "2450", "2500", "2600", "2700", "2800"];
+
+  const accounts = await prisma.glAccount.findMany({
+    where: { companyId, code: { in: [...DEBIT_NORMAL, ...CREDIT_NORMAL] } },
+    select: { id: true, code: true, name: true },
+  });
+  const sums = await prisma.journalLine.groupBy({
+    by: ["accountId"],
+    where: {
+      accountId: { in: accounts.map((a) => a.id) },
+      journalEntry: { companyId, status: "POSTED" },
+    },
+    _sum: { debit: true, credit: true },
+  });
+  const balByAccount = new Map(
+    sums.map((s) => [s.accountId, new Decimal(s._sum.debit ?? 0).minus(s._sum.credit ?? 0)]),
+  );
+
+  const details: ReconciliationDetail[] = [];
+  for (const a of accounts) {
+    const bal = balByAccount.get(a.id) ?? new Decimal(0);
+    const debitNormal = DEBIT_NORMAL.includes(a.code);
+    // wrongSign = debit-normal account holding a credit balance (bal < 0),
+    // or credit-normal holding a debit balance (bal > 0).
+    const wrongSide = debitNormal ? bal : bal.neg();
+    if (wrongSide.lt(-0.01)) {
+      details.push({
+        id: `sign-${a.code}`,
+        label: `${a.code} ${a.name} — ${debitNormal ? "credit" : "debit"} balance of ₹${wrongSide.abs().toFixed(2)} (settle or investigate)`,
+        expected: "≥0",
+        actual: bal.toFixed(2),
+        delta: wrongSide.toFixed(2),
+      });
+    }
+  }
+
+  const bad = details.length;
+  return buildCheck({
+    id: "account-signs",
+    name: "Account Normal-Side Signs",
+    description:
+      "Every balance-sheet account should hold its normal-side balance. A debit-normal account with a credit balance (or vice-versa) means a receivable was over-relieved or a payable over-drained — supplier advances and customer credits are legal while outstanding, but they must settle.",
+    expected: new Decimal(0),
+    actual: new Decimal(bad),
+    tolerance: "0",
+    warnAt: "999999999", // sign anomalies WARN, never FAIL — a legit advance/customer-credit is valid state, it just must be visible
+    details,
+    message:
+      "Some accounts carry balances on the wrong side — over-recovered advances, unsettled customer credits, or postings that relieved what was never recorded.",
+  });
+}
+
+/**
  * Check 2b: Supplier subledger vs balanceOwed.
  *
  * AP (2000) journal lines carry entityType/entityId back to their source
@@ -980,6 +1054,7 @@ export async function runBookReconciliation(
     reconcileLandCosts(companyId),
     reconcileUnitCosts(companyId),
     reconcileTrialBalance(companyId),
+    reconcileAccountSigns(companyId),
   ]);
 
   const summary = summarizeChecks(checks);
