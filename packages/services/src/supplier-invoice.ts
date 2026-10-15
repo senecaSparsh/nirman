@@ -225,6 +225,28 @@ export async function createSupplierInvoice(input: {
   if (subtotal.lt(0)) throw new ServiceError("Subtotal cannot be negative");
   if (totalAmount.lt(0)) throw new ServiceError("Total amount cannot be negative");
 
+  // Arithmetic invariants — the GL posts off totalAmount while the three-way
+  // match checks the lines; a mismatch means the books and the bill disagree.
+  // ₹1 tolerance for rounding.
+  if (totalAmount.minus(subtotal).minus(gstAmount).abs().gt(1)) {
+    throw new ServiceError(
+      `Invoice arithmetic doesn't add up: total ₹${totalAmount} ≠ subtotal ₹${subtotal} + GST ₹${gstAmount}`,
+      400,
+    );
+  }
+  if (input.lines && input.lines.length > 0) {
+    const linesSum = input.lines.reduce(
+      (s, l) => s.plus(new Decimal(l.quantity).times(new Decimal(l.unitPrice))),
+      new Decimal(0),
+    );
+    if (linesSum.minus(subtotal).abs().gt(1)) {
+      throw new ServiceError(
+        `Line items total ₹${linesSum} but the invoice subtotal says ₹${subtotal} — fix the lines or the subtotal`,
+        400,
+      );
+    }
+  }
+
   // M2: Material invoices (with line items) must be linked to a Purchase Order
   // so the three-way match can run. Services invoices (no lines) may skip the PO.
   if (input.lines && input.lines.length > 0 && !input.purchaseOrderId) {
