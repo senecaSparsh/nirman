@@ -247,10 +247,13 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
         });
       }
 
-      // Post to the General Ledger: capitalise inventory + recognise input GST + credit AP.
+      // Post to the General Ledger: capitalise inventory + recognise input
+      // GST. Credit AP only when a supplier record exists — a supplier-less
+      // purchase is a cash spot buy (no payment path exists for it).
       await postDirectPurchase(tx, {
         companyId: input.companyId,
         directPurchaseId: purchase.id,
+        supplierId: input.supplierId ?? null,
         postedById: input.createdById,
         lines: lineData.map((l) => ({ qty: l.qty, unitCost: l.unitCost, gstRate: l.gstRate })),
       });

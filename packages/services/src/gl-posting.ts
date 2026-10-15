@@ -1576,6 +1576,11 @@ export async function postDirectPurchase(
     companyId: string;
     directPurchaseId: string;
     postedById?: string;
+    /** Credit AP when a supplier record exists (payable can be settled via
+     *  SupplierPayment). A supplier-less purchase is a cash-market spot buy —
+     *  there is no payment path for it, so crediting AP would leave an
+     *  unpayable orphan on the payables ledger. */
+    supplierId?: string | null;
     lines: { qty: Decimal; unitCost: Decimal; gstRate: Decimal }[];
   },
 ) {
@@ -1590,6 +1595,10 @@ export async function postDirectPurchase(
   const total = subtotal.plus(gst);
   if (total.isZero()) return null;
 
+  const settleLeg = opts.supplierId
+    ? { accountCode: ACCT.AP, debit: new Decimal(0), credit: total, entityType: "DirectPurchase", entityId: opts.directPurchaseId, memo: "Payable to supplier" }
+    : { accountCode: ACCT.CASH, debit: new Decimal(0), credit: total, entityType: "DirectPurchase", entityId: opts.directPurchaseId, memo: "Paid in cash (spot purchase, no supplier)" };
+
   return postJournalEntry(tx, {
     companyId: opts.companyId,
     sourceType: "DIRECT_PURCHASE",
@@ -1599,7 +1608,7 @@ export async function postDirectPurchase(
     lines: [
       { accountCode: ACCT.INVENTORY, debit: subtotal, credit: 0, entityType: "DirectPurchase", entityId: opts.directPurchaseId, memo: "Materials received (direct purchase)" },
       { accountCode: ACCT.INPUT_GST, debit: gst, credit: 0, memo: "Input GST (ITC)" },
-      { accountCode: ACCT.AP, debit: 0, credit: total, entityType: "DirectPurchase", entityId: opts.directPurchaseId, memo: "Payable to supplier" },
+      settleLeg,
     ],
   });
 }

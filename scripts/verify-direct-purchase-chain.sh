@@ -50,6 +50,19 @@ expect_num "AP net for purchase = 0" "SELECT abs(SUM(jl.debit)-SUM(jl.credit)) F
 r=$(req PATCH "direct-purchases/$DP" '{"action":"cancel"}')
 expect_refused "double cancel" "$r"
 
+echo "════════ 3. supplier-less spot buy → cash leg, no AP ════════"
+# No supplierId → cash-market purchase: Cr Cash (never AP — there is no
+# payment path for an unnamed vendor, so AP would sit unpayable forever).
+r=$(req POST "direct-purchases" "{\"supplierName\":\"Roadside Aggregate\",\"locationId\":\"$LOC\",\"lines\":[{\"materialId\":\"$MAT\",\"qty\":1,\"unitCost\":100,\"gstRate\":18}]}")
+DP2=$(echo "$r" | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
+[ -n "$DP2" ] && { PASS=$((PASS+1)); echo "  spot buy $DP2"; } || { FAIL=$((FAIL+1)); echo "  FAIL spot buy: ${r:0:140}"; }
+expect_num "spot buy Dr 1300 = 100" "SELECT COALESCE(SUM(jl.debit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceType\"='DIRECT_PURCHASE' AND je.\"sourceId\"='$DP2' AND a.code='1300'" 100
+expect_num "spot buy Cr 1000 cash = 118" "SELECT COALESCE(SUM(jl.credit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceType\"='DIRECT_PURCHASE' AND je.\"sourceId\"='$DP2' AND a.code='1000'" 118
+expect_num "spot buy touches NO AP" "SELECT COALESCE(SUM(jl.credit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceType\"='DIRECT_PURCHASE' AND je.\"sourceId\"='$DP2' AND a.code='2000'" 0
+r=$(req PATCH "direct-purchases/$DP2" '{"action":"cancel"}')
+echo "$r" | grep -q '"ok":true\|CANCELLED' && PASS=$((PASS+1)) || FAIL=$((FAIL+1)); echo "  spot cancel → ${r:0:90}"
+expect_num "spot cancel net cash = 0" "SELECT abs(SUM(jl.debit)-SUM(jl.credit)) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceId\"='$DP2' AND a.code='1000' AND je.status='POSTED'" 0
+
 echo "════════════════════════════════════════"
 echo "direct-purchase chain: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]
