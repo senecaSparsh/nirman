@@ -106,6 +106,19 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
     select: { id: true },
   });
   if (!existing) return json({ error: "Stock location not found" }, { status: 404 });
+  // Deleting a location that still holds stock orphans it: the GL carries
+  // the value but the doc side loses the location, and nothing can issue or
+  // transfer it out. Move the stock out first.
+  const held = await prisma.stockLocationItem.aggregate({
+    where: { locationId: id, qty: { gt: 0 } },
+    _sum: { qty: true },
+  });
+  if ((held._sum.qty?.toNumber() ?? 0) > 0) {
+    return json(
+      { error: `Cannot delete — the location still holds ${held._sum.qty} units of stock. Transfer the stock out first; a deleted location keeps its value on the books but loses every way to move it.` },
+      { status: 409 },
+    );
+  }
   await softDelete("StockLocation", id);
   revalidatePath("/stock-locations");
   revalidatePath("/m/stock-locations");
