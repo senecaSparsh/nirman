@@ -9,5 +9,6 @@ DROP INDEX IF EXISTS "HsnGstRate_hsnCode_trgm_idx";
 -- AlterTable
 ALTER TABLE "StockTransfer" ADD COLUMN "transferNumber" TEXT;
 
--- CreateIndex
+-- nirman:accept-risk column is brand-new → every existing row is NULL, and
+-- Postgres treats NULLs as distinct — the unique index cannot collide.
 CREATE UNIQUE INDEX "StockTransfer_transferNumber_key" ON "StockTransfer"("transferNumber");
