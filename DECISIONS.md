@@ -726,3 +726,16 @@ Verified live in the browser: selector lists `REQ-CAP-AA — 50 units
 approved`, indent detail shows `Issued: 49`, statutory void + supplier
 invoice void buttons act, failed-inspection warning renders on supplier
 payment, P&L/GL/customers/land/employees/approvals all render real data.
+
+## 48. Frozen cost pools on halted/completed projects (Oct 2026)
+
+`issueMaterialsToProject` refused ON_HOLD projects — but every other
+cost entry point didn't: expense claims, manual project costs, work
+orders, requisitions, and all three land-purchase entry functions could
+attach cost to a project whose pool can never capitalize.
+
+Now refused at intent time across `createExpenseClaim`,
+`addProjectCost`, `createWorkOrder`, `createRequisition`,
+`recordLandPurchase`, `recordLandPurchaseWithPlan` (per-section),
+`recordLandPurchaseOrder`. Payroll labour still posts — attendance was
+genuinely spent on that project; labour is a fact, not an intent.
