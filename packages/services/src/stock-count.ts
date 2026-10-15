@@ -80,6 +80,9 @@ export async function createStockCount(input: CreateStockCountInput) {
         lines: {
           create: input.lines.map((l) => {
             const counted = new Decimal(l.countedQty);
+            // A negative physical count can't exist — refuse before a
+            // reconciled variance books it as phantom negative stock.
+            if (counted.lt(0)) throw new ServiceError(`Counted qty cannot be negative (material ${l.materialId})`, 400);
             const system = systemQtyMap.get(l.materialId) ?? new Decimal(0);
             return {
               materialId: l.materialId,
