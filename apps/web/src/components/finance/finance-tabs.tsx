@@ -16,6 +16,7 @@ export function FinanceTabs({
   recurring,
   budgets,
   supplierPayments,
+  statutory,
 }: {
   overview: React.ReactNode;
   invoices: React.ReactNode;
@@ -25,9 +26,10 @@ export function FinanceTabs({
   recurring?: React.ReactNode;
   budgets?: React.ReactNode;
   supplierPayments?: React.ReactNode;
+  statutory?: React.ReactNode;
 }) {
   const [tab, setTab] = useTabParam(
-    ["overview", "invoices", "expenses", "claims", "petty-cash", "recurring", "budgets", "supplier-payments"] as const,
+    ["overview", "invoices", "expenses", "claims", "petty-cash", "recurring", "budgets", "supplier-payments", "statutory"] as const,
     "overview",
   );
   return (
@@ -41,6 +43,7 @@ export function FinanceTabs({
         {recurring ? <TabsTrigger value="recurring">Recurring</TabsTrigger> : null}
         {budgets ? <TabsTrigger value="budgets">Budgets</TabsTrigger> : null}
         {supplierPayments ? <TabsTrigger value="supplier-payments">Supplier Payments</TabsTrigger> : null}
+        {statutory ? <TabsTrigger value="statutory">Statutory</TabsTrigger> : null}
       </TabsList>
       <TabsContent value="overview">{overview}</TabsContent>
       <TabsContent value="invoices">{invoices}</TabsContent>
@@ -50,6 +53,7 @@ export function FinanceTabs({
       {recurring ? <TabsContent value="recurring">{recurring}</TabsContent> : null}
       {budgets ? <TabsContent value="budgets">{budgets}</TabsContent> : null}
       {supplierPayments ? <TabsContent value="supplier-payments">{supplierPayments}</TabsContent> : null}
+      {statutory ? <TabsContent value="statutory">{statutory}</TabsContent> : null}
     </Tabs>
   );
 }

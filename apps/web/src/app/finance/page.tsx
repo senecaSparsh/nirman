@@ -7,6 +7,8 @@ import {
   projectPnl,
   seedChartOfAccounts,
   getExpenseBudgetVariance,
+  statutoryOutstanding,
+  STATUTORY_KINDS,
   type ExpenseBudgetVariance} from "@nirman/services";
 import { getActingRole, getCompany, toNum, scopeWhere, getCurrentUser, getUserPermissions, getUserScope } from "@/lib/server";
 import { canAutoApprove } from "@nirman/services";
@@ -21,6 +23,7 @@ import { PettyCashView } from "@/components/expenses/petty-cash-view";
 import { RecurringExpensesView } from "@/components/expenses/recurring-expenses-view";
 import { ExpenseBudgetsView } from "@/components/expenses/expense-budgets-view";
 import { SupplierPaymentsView } from "@/components/finance/supplier-payments-view";
+import { StatutoryPaymentsView } from "@/components/finance/statutory-payments-view";
 import { PageLoading } from "@/components/page-loading";
 import { FinanceTabs } from "@/components/finance/finance-tabs";
 import { OutstandingActionCard } from "@/components/finance/outstanding-action-card";
@@ -182,6 +185,7 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
   const needRecurring = activeTab === "recurring";
   const needBudgets = activeTab === "budgets";
   const needSupplierPayments = activeTab === "supplier-payments";
+  const needStatutory = activeTab === "statutory";
 
   // Shared lookups for expense tabs
   const [expenseCategories, glAccounts, users] = await Promise.all([
@@ -247,6 +251,16 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
   const supplierPaymentsData = needSupplierPayments ? await prisma.supplierPayment.findMany({
     take: 200, where: { ...await scopeWhere("SupplierPayment"), companyId: company.id }, orderBy: { paymentDate: "desc" },
     include: { supplier: { select: { id: true, name: true } }, purchaseOrder: { select: { poNumber: true } }, invoice: { select: { invoiceNumber: true } }, createdBy: { select: { name: true } } }}) : [];
+
+  // Statutory tab: per-kind outstanding (live from GL) + remittance history.
+  const statutoryOutstandingRows = needStatutory
+    ? await Promise.all(STATUTORY_KINDS.map(async (k) => {
+        const o = await statutoryOutstanding(company.id, k);
+        return { kind: k, outstanding: Number(o.outstanding), itcAvailable: o.itcAvailable ? Number(o.itcAvailable) : undefined, outputGst: o.outputGst ? Number(o.outputGst) : undefined };
+      }))
+    : [];
+  const statutoryPaymentsData = needStatutory ? await prisma.statutoryPayment.findMany({
+    take: 200, where: { ...await scopeWhere("StatutoryPayment"), companyId: company.id }, orderBy: { paymentDate: "desc" } }) : [];
 
   return (
     <>
@@ -359,6 +373,16 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
             projects={projectOptions}
             categories={categoryRows}
             permissions={{ canManage: __effPerms.includes(PERM.FINANCE_MANAGE) }}
+          />
+        }
+        statutory={
+          <StatutoryPaymentsView
+            outstanding={statutoryOutstandingRows}
+            payments={statutoryPaymentsData.map((r) => ({
+              id: r.id, kind: r.kind, amount: toNum(r.amount), itcUtilized: toNum(r.itcUtilized),
+              period: r.period, paymentDate: r.paymentDate.toISOString(), referenceNo: r.referenceNo,
+              notes: r.notes, status: r.status }))}
+            canManage={__effPerms.includes(PERM.FINANCE_MANAGE)}
           />
         }
         supplierPayments={
