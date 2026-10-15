@@ -315,11 +315,15 @@ export async function createSupplierPayment(input: {
       include: { supplier: true, purchaseOrder: true, invoice: true },
     });
 
-    // 5. Update Supplier.balanceOwed (decrement by amount, floor at 0)
+    // 5. Update Supplier.balanceOwed (decrement by amount). A linked payment
+    //    may exceed the owed balance — the excess is an advance on the PO, and
+    //    balanceOwed goes negative to show it. Flooring at 0 would lose the
+    //    advance and let a later receipt re-create the full payable, enabling
+    //    a double payment.
     const newBalance = new Decimal(supplier.balanceOwed).minus(amount);
     await tx.supplier.update({
       where: { id: input.supplierId },
-      data: { balanceOwed: newBalance.lt(0) ? new Decimal(0) : newBalance },
+      data: { balanceOwed: newBalance },
     });
 
     // 6. Post GL entry: Dr AP (full), Cr Cash (net), Cr TDS Payable (tds)

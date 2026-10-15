@@ -495,9 +495,13 @@ export async function approveSupplierInvoice(input: {
           postedById: input.userId,
         });
 
-        // Increment Supplier.balanceOwed by the AP credit amount
-        const apIncrement = isServicesInvoice ? new Decimal(existing.totalAmount) : (varianceTotal.gt(0) ? varianceTotal : new Decimal(0));
-        if (apIncrement.gt(0)) {
+        // Move Supplier.balanceOwed by the signed AP impact. Goods invoices
+        // only post the variance leg — a negative variance DEBITS AP (the
+        // supplier billed less than the GRN), so it must decrement the owed
+        // balance too, or the card keeps showing the pre-invoice amount and
+        // invites overpayment.
+        const apIncrement = isServicesInvoice ? new Decimal(existing.totalAmount) : varianceTotal;
+        if (!apIncrement.isZero()) {
           const newBalance = new Decimal(updated.supplier.balanceOwed).plus(apIncrement);
           await tx.supplier.update({
             where: { id: existing.supplierId },

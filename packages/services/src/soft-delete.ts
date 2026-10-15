@@ -154,9 +154,15 @@ async function guardDelete(entityType: EntityType, entityId: string): Promise<vo
         where: { id: entityId },
         select: { balanceOwed: true },
       });
-      if (supplier && new Decimal(supplier.balanceOwed).gt(0)) {
+      const supplierBalance = supplier ? new Decimal(supplier.balanceOwed) : new Decimal(0);
+      if (supplier && supplierBalance.gt(0)) {
         throw new ServiceError(
-          `Cannot delete a supplier with an outstanding balance (₹${new Decimal(supplier.balanceOwed)} owed). Settle or write it off first — deleting them hides a payable you still owe.`,
+          `Cannot delete a supplier with an outstanding balance (₹${supplierBalance} owed). Settle or write it off first — deleting them hides a payable you still owe.`,
+        );
+      }
+      if (supplier && supplierBalance.lt(0)) {
+        throw new ServiceError(
+          `Cannot delete a supplier with an unrecovered advance (₹${supplierBalance.abs()} paid ahead of billing). Recover or settle it first — deleting them hides a receivable you are owed.`,
         );
       }
       break;
