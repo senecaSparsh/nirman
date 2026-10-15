@@ -56,6 +56,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     unit: l.material.unit,
     gstRate: toNum(l.material.gstRate),
     qtyRequested: toNum(l.qtyRequested),
+    qtyIssued: toNum(l.qtyIssued),
     notes: l.notes,
     currentStock: l.currentStock != null ? toNum(l.currentStock) : null,
     lastRate: l.lastRate != null ? toNum(l.lastRate) : null,

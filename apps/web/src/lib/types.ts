@@ -1200,6 +1200,7 @@ export type RequisitionDetail = RequisitionRow & {
     unit: string;
     gstRate: number;
     qtyRequested: number;
+    qtyIssued: number;
     notes: string | null;
     currentStock: number | null;
     lastRate: number | null;

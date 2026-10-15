@@ -260,6 +260,7 @@ export function RequisitionDetailDialog({
                   <TR className="hover:bg-transparent">
                     <TH>Material</TH>
                     <TH className="text-right">Qty Requested</TH>
+                    <TH className="text-right">Issued</TH>
                     <TH className="text-right">Stock</TH>
                     <TH className="text-right">Last Rate</TH>
                     <TH>Preferred Supplier</TH>
@@ -274,6 +275,11 @@ export function RequisitionDetailDialog({
                         <div className="font-mono text-caption text-muted-foreground">{l.materialCode}</div>
                       </TD>
                       <TD className="tnum text-right">{formatNumber(l.qtyRequested, 3)} {l.unit}</TD>
+                      <TD className="tnum text-right">
+                        <span className={l.qtyIssued > 0 ? (l.qtyIssued >= l.qtyRequested ? "text-success" : "text-warning") : "text-faint"}>
+                          {formatNumber(l.qtyIssued ?? 0, 3)}
+                        </span>
+                      </TD>
                       <TD className="tnum text-right">
                         {l.currentStock != null ? (
                           <span className={l.currentStock > 0 ? "" : "text-danger"}>{formatNumber(l.currentStock, 3)} {l.unit}</span>
