@@ -1259,3 +1259,12 @@ export {
   type ReconciliationSummary,
   type ReconciliationReport,
 } from "./reconciliation-health";
+
+// Statutory Payments — remit PF/ESI/TDS/GST liabilities (drain the payables)
+export {
+  recordStatutoryPayment,
+  voidStatutoryPayment,
+  statutoryOutstanding,
+  STATUTORY_KINDS,
+  type StatutoryKind,
+} from "./statutory-payment";

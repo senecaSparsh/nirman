@@ -7355,3 +7355,32 @@ model IdempotencyKey {
   @@unique([key, userId])
   @@index([createdAt])
 }
+
+
+// ───────────────────────────────────────────────────────────
+//  STATUTORY PAYMENT — a remittance of a statutory liability to
+//  the government/EPFO/ESIC (PF, ESI, TDS, GST). Without this,
+//  PF/ESI/TDS payables and net GST accumulate as liabilities
+//  forever with no settlement path.
+// ───────────────────────────────────────────────────────────
+model StatutoryPayment {
+  id            String   @id @default(cuid())
+  companyId     String
+  kind          String   // PF | ESI | TDS | GST
+  /** Cash actually paid out (for GST, excludes the ITC-utilized portion). */
+  amount        Decimal  @db.Decimal(14, 2)
+  /** GST only — ITC balance utilized to offset output tax (no cash leg). */
+  itcUtilized   Decimal  @default(0) @db.Decimal(14, 2)
+  /** Challan period, "YYYY-MM". Informational — GL posts at paymentDate. */
+  period        String?
+  paymentDate   DateTime @default(now())
+  referenceNo   String?  // challan/UTR no
+  notes         String?
+  status        String   @default("POSTED") // POSTED | VOID
+  createdById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([companyId, kind])
+  @@index([companyId, status])
+}
