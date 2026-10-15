@@ -3509,6 +3509,9 @@ model MaterialRequisitionLine {
   requisitionId   String
   materialId      String
   qtyRequested    Decimal @db.Decimal(14, 3)
+  // Cumulative qty issued against this line — the approval ceiling. An issue
+  // linked to the requisition may consume up to qtyRequested − qtyIssued.
+  qtyIssued       Decimal @default(0) @db.Decimal(14, 3)
   notes           String?
   // Demand-slip enrichment — snapshots taken at creation time so the
   // approver sees what the requester saw, even if stock changes later.

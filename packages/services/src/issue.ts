@@ -61,6 +61,58 @@ interface IssueMaterialsInput {
   }[];
 }
 
+/**
+ * Consume requisition allocation for an issue — the approval ceiling.
+ *
+ * A requisition approved for 50 units authorizes at most 50 units to leave
+ * the store: each linked issue increments `qtyIssued` per line (aggregating
+ * duplicate materials), and any line without a matching requisition line —
+ * or exceeding the remaining authorization — refuses. Consumption happens
+ * inside the issue's serializable transaction, so two issues racing the same
+ * requisition can't both pass; `cancelMaterialIssue` releases the allocation.
+ */
+async function consumeRequisitionAllocation(
+  tx: Prisma.TransactionClient,
+  requisitionId: string,
+  lines: { materialId: string; qty: Decimal | number | string }[],
+) {
+  const wanted = new Map<string, Decimal>();
+  for (const l of lines) {
+    wanted.set(l.materialId, (wanted.get(l.materialId) ?? new Decimal(0)).plus(l.qty));
+  }
+  const reqLines = await tx.materialRequisitionLine.findMany({
+    where: { requisitionId, materialId: { in: [...wanted.keys()] } },
+  });
+  for (const [materialId, qty] of wanted) {
+    const rl = reqLines.filter((r) => r.materialId === materialId);
+    if (rl.length === 0) {
+      throw new ServiceError("This material is not on the linked requisition — issue not authorized", 400);
+    }
+    const requested = rl.reduce((s, r) => s.plus(r.qtyRequested), new Decimal(0));
+    const issued = rl.reduce((s, r) => s.plus(r.qtyIssued), new Decimal(0));
+    const remaining = requested.minus(issued);
+    if (qty.gt(remaining)) {
+      throw new ServiceError(
+        `Issue exceeds the requisition's authorization: requested ${qty}, ${remaining} remaining of ${requested} approved`,
+        400,
+      );
+    }
+    // Distribute the consumption across the requisition's lines for this
+    // material (oldest first) so per-line qtyIssued stays ≤ qtyRequested.
+    let left = qty;
+    for (const r of rl) {
+      if (left.lte(0)) break;
+      const take = Decimal.min(left, new Decimal(r.qtyRequested).minus(r.qtyIssued));
+      if (take.lte(0)) continue;
+      await tx.materialRequisitionLine.update({
+        where: { id: r.id },
+        data: { qtyIssued: new Decimal(r.qtyIssued).plus(take).toString() },
+      });
+      left = left.minus(take);
+    }
+  }
+}
+
 export async function issueMaterialsToProject(input: IssueMaterialsInput) {
   let projectCompanyId = "";
   let projectName = "";
@@ -156,6 +208,8 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
       if (req.projectId !== input.projectId || req.project?.companyId !== project.companyId) {
         throw new Error("Requisition does not belong to this project");
       }
+      // Consume the authorization — qty caps at what the requisition approved.
+      await consumeRequisitionAllocation(tx, req.id, input.lines);
     }
 
     // Create MaterialIssue + lines (audit record)
@@ -313,6 +367,25 @@ export async function createMaterialIssueRequest(input: IssueMaterialsInput) {
   }
 
   return withSerializableTransaction(async (tx) => {
+    // Requisition link — same APPROVED + ownership rule as the direct-issue
+    // path, and the allocation is consumed at request time so the ceiling
+    // holds even before the gate pass executes it. Cancelling the request
+    // releases the allocation.
+    if (input.requisitionId) {
+      const req = await tx.materialRequisition.findUnique({
+        where: { id: input.requisitionId },
+        select: { id: true, status: true, projectId: true, project: { select: { companyId: true } } },
+      });
+      if (!req) throw new ServiceError("Requisition not found", 404);
+      if (req.status !== "APPROVED") {
+        throw new ServiceError(`Cannot issue against a requisition with status ${req.status} — requisition must be APPROVED first`, 400);
+      }
+      if (req.projectId !== input.projectId || req.project?.companyId !== project.companyId) {
+        throw new ServiceError("Requisition does not belong to this project", 400);
+      }
+      await consumeRequisitionAllocation(tx, req.id, input.lines);
+    }
+
     // Create MaterialIssue in PENDING state (no stock movements yet)
     const materialIssue = await tx.materialIssue.create({
       data: {
@@ -323,6 +396,7 @@ export async function createMaterialIssueRequest(input: IssueMaterialsInput) {
         notes: input.notes,
         status: "PENDING",
         builtUnitId: input.builtUnitId ?? null,
+        requisitionId: input.requisitionId ?? null,
         receiverName: input.receiverName,
         receiverMobile: input.receiverMobile,
         vehicleNumber: input.vehicleNumber,
@@ -566,6 +640,7 @@ export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) 
       if (req.departmentId !== input.departmentId || req.department?.companyId !== department.companyId) {
         throw new Error("Requisition does not belong to this department");
       }
+      await consumeRequisitionAllocation(tx, req.id, input.lines);
     }
 
     // Create MaterialIssue + lines (audit record) — department target
@@ -688,6 +763,33 @@ export async function cancelMaterialIssue(id: string, userId?: string) {
     const restoredMaterials = issue.lines.map((l) => l.materialId);
     if (restoredMaterials.length > 0) {
       await refreshMaterialCurrentCost(tx, restoredMaterials);
+    }
+
+    // Release requisition allocation the cancelled issue was holding —
+    // without this, a cancelled issue permanently eats the approval ceiling.
+    if (issue.requisitionId) {
+      const wanted = new Map<string, Decimal>();
+      for (const l of issue.lines) {
+        wanted.set(l.materialId, (wanted.get(l.materialId) ?? new Decimal(0)).plus(l.qty));
+      }
+      const reqLines = await tx.materialRequisitionLine.findMany({
+        where: { requisitionId: issue.requisitionId, materialId: { in: [...wanted.keys()] }, qtyIssued: { gt: 0 } },
+        orderBy: { id: "asc" },
+      });
+      for (const [materialId, qty] of wanted) {
+        // Give back newest-consumed first (mirror of consume order).
+        const rl = reqLines.filter((r) => r.materialId === materialId).reverse();
+        let left = qty;
+        for (const r of rl) {
+          if (left.lte(0)) break;
+          const give = Decimal.min(left, new Decimal(r.qtyIssued));
+          await tx.materialRequisitionLine.update({
+            where: { id: r.id },
+            data: { qtyIssued: new Decimal(r.qtyIssued).minus(give).toString() },
+          });
+          left = left.minus(give);
+        }
+      }
     }
 
     // Reverse GL entries

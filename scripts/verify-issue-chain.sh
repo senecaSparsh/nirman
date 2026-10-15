@@ -48,6 +48,9 @@ P "INSERT INTO \"Department\" (id,\"companyId\",code,name,\"updatedAt\") VALUES 
 P "INSERT INTO \"Project\" (id,name,\"companyId\",status,\"updatedAt\") VALUES ('$OHPROJ','is-onhold','$C','ON_HOLD',now())"
 P "INSERT INTO \"MaterialRequisition\" (id,\"reqNumber\",\"projectId\",status,\"updatedAt\",\"createdAt\") VALUES ('$REQ_SUB','ISR-S-$REQ_SUB','$PROJ','SUBMITTED',now(),now())"
 P "INSERT INTO \"MaterialRequisition\" (id,\"reqNumber\",\"projectId\",status,\"updatedAt\",\"createdAt\") VALUES ('$REQ_APP','ISR-A-$REQ_APP','$PROJ','APPROVED',now(),now())"
+# The line authorizes issue qty — an approved requisition caps cumulative
+# issue at qtyRequested per material.
+P "INSERT INTO \"MaterialRequisitionLine\" (id,\"requisitionId\",\"materialId\",\"qtyRequested\") VALUES ('line-$REQ_APP','$REQ_APP','$MAT',10)"
 
 Q0=$(qty_at "$LOC" "$MAT"); MAC0=$(P "SELECT \"movingAvgCost\" FROM \"StockLocationItem\" WHERE \"locationId\"='$LOC' AND \"materialId\"='$MAT'")
 WIP0=$(glbal 1500); INV0=$(glbal 1300); OPEX0=$(glbal 6000)
@@ -105,6 +108,10 @@ r=$(req POST "issue-materials" "{\"projectId\":\"$PROJ\",\"fromLocationId\":\"$L
 echo "$r" | grep -q '"ok":true' && PASS=$((PASS+1)) || FAIL=$((FAIL+1)); echo "  issue vs APPROVED req → ${r:0:100}"
 r=$(req POST "issue-materials" "{\"projectId\":\"$OHPROJ\",\"fromLocationId\":\"$LOC\",\"requisitionId\":\"$REQ_APP\",\"lines\":[{\"materialId\":\"$MAT\",\"qty\":1}]}")
 expect_refused "req.projectId mismatch refused" "$r"
+r=$(req POST "issue-materials" "{\"projectId\":\"$PROJ\",\"fromLocationId\":\"$LOC\",\"requisitionId\":\"$REQ_APP\",\"lines\":[{\"materialId\":\"$MAT\",\"qty\":11}]}")
+expect_refused "issue above approved qty refused" "$r"
+r=$(req POST "issue-materials" "{\"projectId\":\"$PROJ\",\"fromLocationId\":\"$LOC\",\"requisitionId\":\"$REQ_APP\",\"lines\":[{\"materialId\":\"mat-noauth-$RANDOM\",\"qty\":1}]}")
+expect_refused "material not on requisition refused" "$r"
 
 echo "════════ 5. negative guards ════════"
 r=$(req POST "issue-materials" "{\"projectId\":\"$OHPROJ\",\"fromLocationId\":\"$LOC\",\"lines\":[{\"materialId\":\"$MAT\",\"qty\":1}]}")
