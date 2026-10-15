@@ -97,8 +97,12 @@ SQL_REV=$(P "SELECT COALESCE(SUM(jl.credit),0) FROM \"JournalLine\" jl JOIN \"Jo
 expect_json "3b itcReversed = Σ 1400 credits" "" "$G3" "['itcReversed']" "$SQL_REV"
 NET_ITC=$(psql -h localhost -d nirman_inventory -tAc "SELECT $SQL_IN::numeric - $SQL_REV::numeric")
 expect_json "3b itcAvailable = debits − credits" "" "$G3" "['itcAvailable']" "$NET_ITC"
-NET_PAY=$(psql -h localhost -d nirman_inventory -tAc "SELECT $SQL_OUT::numeric - ($SQL_IN::numeric - $SQL_REV::numeric)")
-expect_json "3b netGstPayable = output − itcAvailable" "" "$G3" "['netGstPayable']" "$NET_PAY"
+# Payable can never be negative — excess ITC carries forward, it isn't a
+# "negative payment". Assert both halves of the clamp.
+NET_PAY=$(psql -h localhost -d nirman_inventory -tAc "SELECT GREATEST(0, $SQL_OUT::numeric - ($SQL_IN::numeric - $SQL_REV::numeric))")
+CARRY=$(psql -h localhost -d nirman_inventory -tAc "SELECT GREATEST(0, ($SQL_IN::numeric - $SQL_REV::numeric) - $SQL_OUT::numeric)")
+expect_json "3b netGstPayable = max(0, output − itcAvailable)" "" "$G3" "['netGstPayable']" "$NET_PAY"
+expect_json "3b itcCarriedForward = max(0, itc − output)" "" "$G3" "['itcCarriedForward']" "$CARRY"
 
 echo "════════════════════════════════════════"
 echo "gst-reports chain: $PASS passed, $FAIL failed"

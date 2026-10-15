@@ -149,23 +149,51 @@ export async function generateGstr1(
   const outputGstAccountId = codeToId.get("2100");
   const revenueAccountIds = ["4000", "4100", "4200"].map((c) => codeToId.get(c)).filter((id): id is string => !!id);
 
-  // Find all journal lines crediting Output GST (2100) in the date range
-  const gstLines = outputGstAccountId
-    ? await prisma.journalLine.findMany({
-        where: {
-          accountId: outputGstAccountId,
-          credit: { gt: 0 },
-          journalEntry: {
-            companyId,
-            entryDate: { gte: fromDate, lte: toDate },
+  // Outward supply = every JE in the window carrying a revenue credit — not
+  // just JEs with a 2100 leg. A zero-GST/exempt sale has no 2100 leg, yet its
+  // turnover still belongs in GSTR-1 (exempt/nil-rated tables) — and a sale
+  // that should have carried GST but posted without one is exactly what the
+  // report exists to surface. Union with 2100-credit JEs for completeness.
+  const [gstLines, revLines] = await Promise.all([
+    outputGstAccountId
+      ? prisma.journalLine.findMany({
+          where: {
+            accountId: outputGstAccountId,
+            credit: { gt: 0 },
+            journalEntry: {
+              companyId,
+              entryDate: { gte: fromDate, lte: toDate },
+            },
           },
-        },
-        include: {
-          journalEntry: { select: { id: true, entryDate: true, sourceType: true, sourceId: true, memo: true } },
-        },
-        orderBy: { journalEntry: { entryDate: "asc" } },
-      })
-    : [];
+          include: {
+            journalEntry: { select: { id: true, entryDate: true, sourceType: true, sourceId: true, memo: true } },
+          },
+        })
+      : Promise.resolve([]),
+    revenueAccountIds.length > 0
+      ? prisma.journalLine.findMany({
+          where: {
+            accountId: { in: revenueAccountIds },
+            credit: { gt: 0 },
+            journalEntry: {
+              companyId,
+              sourceType: { in: ["MATERIAL_SALE", "ASSET_SALE"] },
+              entryDate: { gte: fromDate, lte: toDate },
+            },
+          },
+          include: {
+            journalEntry: { select: { id: true, entryDate: true, sourceType: true, sourceId: true, memo: true } },
+          },
+        })
+      : Promise.resolve([]),
+  ]);
+  // Deduped JE set keyed by id — GST leg says how much tax, revenue legs say
+  // the taxable value. The journalEntry shapes are identical.
+  const outwardJes = new Map<string, (typeof gstLines)[number]["journalEntry"]>();
+  for (const gl of gstLines) outwardJes.set(gl.journalEntryId, gl.journalEntry);
+  for (const rl of revLines) {
+    if (!outwardJes.has(rl.journalEntryId)) outwardJes.set(rl.journalEntryId, rl.journalEntry);
+  }
 
   const entries: Gstr1Report["entries"] = [];
   let totalTaxableValue = new Decimal(0);
@@ -175,7 +203,7 @@ export async function generateGstr1(
   let totalIgst = new Decimal(0);
 
   // Batch-fetch revenue lines and counterparty sales to avoid N+1 queries.
-  const journalEntryIds = gstLines.map((gl) => gl.journalEntryId);
+  const journalEntryIds = [...outwardJes.keys()];
   const revenueLines = journalEntryIds.length > 0 && revenueAccountIds.length > 0
     ? await prisma.journalLine.findMany({
         where: {
@@ -198,12 +226,10 @@ export async function generateGstr1(
     );
   }
 
-  const assetSaleIds = gstLines
-    .map((gl) => gl.journalEntry)
+  const assetSaleIds = [...outwardJes.values()]
     .filter((je) => je.sourceId && je.sourceType === "ASSET_SALE")
     .map((je) => je.sourceId!) as string[];
-  const materialSaleIds = gstLines
-    .map((gl) => gl.journalEntry)
+  const materialSaleIds = [...outwardJes.values()]
     .filter((je) => je.sourceId && je.sourceType === "MATERIAL_SALE")
     .map((je) => je.sourceId!) as string[];
 
@@ -223,11 +249,20 @@ export async function generateGstr1(
     : [];
   const materialSaleGstinById = new Map(materialSales.map((s) => [s.id, s.customer?.gstin ?? null]));
 
+  const gstByJeId = new Map<string, Decimal>();
   for (const gl of gstLines) {
-    const gstAmount = new Decimal(gl.credit);
+    gstByJeId.set(
+      gl.journalEntryId,
+      (gstByJeId.get(gl.journalEntryId) ?? new Decimal(0)).plus(gl.credit),
+    );
+  }
+
+  const sortedJes = [...outwardJes.entries()].sort((a, b) => a[1].entryDate.getTime() - b[1].entryDate.getTime());
+  for (const [jeId, je] of sortedJes) {
+    const gstAmount = gstByJeId.get(jeId) ?? new Decimal(0);
     // The taxable value is the sum of revenue credits (4000/4100/4200) in
     // the same journal entry — covers mixed sales that post several legs.
-    const taxableValue = revenueByJeId.get(gl.journalEntryId) ?? new Decimal(0);
+    const taxableValue = revenueByJeId.get(jeId) ?? new Decimal(0);
     // Derive GST rate from the amounts (gst / taxable * 100)
     const gstRate = taxableValue.gt(0)
       ? gstAmount.div(taxableValue).times(100)
@@ -235,7 +270,6 @@ export async function generateGstr1(
 
     // Determine the counterparty's GSTIN for CGST/SGST/IGST split
     let partyGstin: string | null = null;
-    const je = gl.journalEntry;
     if (je.sourceId) {
       // Trace back to the sale → customer → GSTIN
       if (je.sourceType === "ASSET_SALE") {
@@ -254,10 +288,10 @@ export async function generateGstr1(
     totalOutputGst = totalOutputGst.plus(gstAmount);
 
     entries.push({
-      journalEntryId: gl.journalEntryId,
-      date: gl.journalEntry.entryDate,
-      sourceType: gl.journalEntry.sourceType,
-      memo: gl.journalEntry.memo ?? "",
+      journalEntryId: jeId,
+      date: je.entryDate,
+      sourceType: je.sourceType,
+      memo: je.memo ?? "",
       taxableValue,
       gstAmount,
       gstRate,
@@ -267,13 +301,16 @@ export async function generateGstr1(
     });
   }
 
-  // ── Credit notes: material-sale-return entries DEBIT Output GST (2100) ──
+  // ── Credit notes: every MATERIAL_SALE_RETURN JE in the window ──
   // They reverse outward tax and must be reported (GSTR-1 CDN/CDNUR), else
-  // the filed return over-declares output tax by the returned GST.
-  const cnGstLines = outputGstAccountId
+  // the filed return over-declares output tax by the returned value. The CN
+  // set keys off the JE itself — a zero-GST return has no 2100 debit leg and
+  // would otherwise vanish from creditNotes while still overstating outward
+  // supply (a gstRate-0 return is still a credit note).
+  const cnRevenueLines = revenueAccountIds.length > 0
     ? await prisma.journalLine.findMany({
         where: {
-          accountId: outputGstAccountId,
+          accountId: { in: revenueAccountIds },
           debit: { gt: 0 },
           journalEntry: {
             companyId,
@@ -288,26 +325,36 @@ export async function generateGstr1(
       })
     : [];
 
-  const cnJeIds = cnGstLines.map((l) => l.journalEntryId);
-  const cnRevenueDebits = cnJeIds.length > 0 && revenueAccountIds.length > 0
-    ? await prisma.journalLine.findMany({
-        where: {
-          journalEntryId: { in: cnJeIds },
-          accountId: { in: revenueAccountIds },
-          debit: { gt: 0 },
-        },
-        select: { journalEntryId: true, debit: true },
-      })
-    : [];
   const cnTaxableByJeId = new Map<string, Decimal>();
-  for (const rl of cnRevenueDebits) {
+  const cnJeSet = new Map<string, (typeof cnRevenueLines)[number]["journalEntry"]>();
+  for (const rl of cnRevenueLines) {
     cnTaxableByJeId.set(
       rl.journalEntryId,
       (cnTaxableByJeId.get(rl.journalEntryId) ?? new Decimal(0)).plus(rl.debit),
     );
+    cnJeSet.set(rl.journalEntryId, rl.journalEntry);
+  }
+  const cnJeIds = [...cnJeSet.keys()];
+
+  const cnGstByJeId = new Map<string, Decimal>();
+  if (outputGstAccountId && cnJeIds.length > 0) {
+    const gstLegs = await prisma.journalLine.findMany({
+      where: {
+        accountId: outputGstAccountId,
+        debit: { gt: 0 },
+        journalEntryId: { in: cnJeIds },
+      },
+      select: { journalEntryId: true, debit: true },
+    });
+    for (const gl of gstLegs) {
+      cnGstByJeId.set(
+        gl.journalEntryId,
+        (cnGstByJeId.get(gl.journalEntryId) ?? new Decimal(0)).plus(gl.debit),
+      );
+    }
   }
 
-  const cnReturnIds = cnGstLines.map((l) => l.journalEntry.sourceId).filter((id): id is string => !!id);
+  const cnReturnIds = cnJeIds.map((id) => cnJeSet.get(id)!.sourceId).filter((id): id is string => !!id);
   const cnReturns = cnReturnIds.length > 0
     ? await prisma.materialSaleReturn.findMany({
         where: { id: { in: cnReturnIds } },
@@ -320,16 +367,16 @@ export async function generateGstr1(
   let cnTaxableTotal = new Decimal(0);
   let cnGstTotal = new Decimal(0);
 
-  for (const gl of cnGstLines) {
-    const ret = gl.journalEntry.sourceId ? cnReturnById.get(gl.journalEntry.sourceId) : undefined;
-    const gstAmount = new Decimal(gl.debit);
-    const taxableValue = cnTaxableByJeId.get(gl.journalEntryId) ?? new Decimal(0);
+  for (const [jeId, je] of cnJeSet) {
+    const ret = je.sourceId ? cnReturnById.get(je.sourceId) : undefined;
+    const gstAmount = cnGstByJeId.get(jeId) ?? new Decimal(0);
+    const taxableValue = cnTaxableByJeId.get(jeId) ?? new Decimal(0);
     const split = splitGst(gstAmount, companyGstin, ret?.customer?.gstin ?? null);
     cnTaxableTotal = cnTaxableTotal.plus(taxableValue);
     cnGstTotal = cnGstTotal.plus(gstAmount);
     creditNotes.push({
-      journalEntryId: gl.journalEntryId,
-      date: gl.journalEntry.entryDate,
+      journalEntryId: jeId,
+      date: je.entryDate,
       returnNumber: ret?.returnNumber ?? "",
       materialSaleId: ret?.materialSaleId ?? "",
       customerGstin: ret?.customer?.gstin ?? null,
