@@ -211,9 +211,8 @@ export function computeAttendanceTier(input: {
 // ───────────────────────────────────────────────────────────
 //  Traffic-light rollup — queries DPR approval status for each
 //  attendance record's project+date and computes the tier.
-//  This is the "genuine new build" — the pure function above
-//  exists, but nothing in the UI calls it because there was no
-//  DB query that joined attendance → DPR approval.
+//  Consumed by /hr/attendance + /m/attendance via
+//  getAttendanceWithTiers below.
 // ───────────────────────────────────────────────────────────
 
 export type AttendanceWithTier = {
