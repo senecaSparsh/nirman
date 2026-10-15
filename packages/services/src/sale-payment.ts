@@ -1,7 +1,7 @@
 import { prisma, Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
-import { postMaterialSalePayment, reverseJournalEntry } from "./gl-posting";
+import { postMaterialSalePayment, postJournalEntry, reverseJournalEntry, ACCT } from "./gl-posting";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
 import { autoSyncEntryToTally } from "./auto-sync";
@@ -97,9 +97,10 @@ export async function createMaterialSalePayment(input: {
       }
     }
 
-    // 2. Calculate total paid so far (existing payments)
+    // 2. Calculate total paid so far (IN payments only — OUT refunds are
+    // money back to the customer, never collection credit)
     const existingPayments = await tx.materialSalePayment.findMany({
-      where: { saleId: input.saleId, status: { not: "VOID" } },
+      where: { saleId: input.saleId, status: { not: "VOID" }, direction: "IN" },
       select: { amount: true },
     });
     const previouslyPaid = existingPayments.reduce(
@@ -220,23 +221,30 @@ export async function voidMaterialSalePayment(input: {
       },
     });
 
-    // Recompute paymentStatus from the remaining non-void payments
+    // Recompute paymentStatus from the remaining non-void IN payments
     const remaining = await tx.materialSalePayment.aggregate({
-      where: { saleId: payment.saleId, status: { not: "VOID" } },
+      where: { saleId: payment.saleId, status: { not: "VOID" }, direction: "IN" },
       _sum: { amount: true },
     });
     const totalPaid = new Decimal(remaining._sum.amount ?? 0);
     const saleTotal = new Decimal(payment.sale.totalAmount);
     const netReceivable = await netReceivableFor(tx, payment.saleId, saleTotal);
+    // Voiding a refund (OUT) doesn't change the collection status — only the
+    // refundable credit grows back. IN payments still drive paymentStatus.
     const paymentStatus = totalPaid.lte(0) ? "PENDING" : totalPaid.gte(netReceivable) ? "PAID" : "PARTIAL";
-    await tx.materialSale.update({
-      where: { id: payment.saleId },
-      data: { paymentStatus },
-    });
+    if (payment.direction !== "OUT") {
+      await tx.materialSale.update({
+        where: { id: payment.saleId },
+        data: { paymentStatus },
+      });
+    }
 
     // Reverse the GL entry posted at creation
     const je = await tx.journalEntry.findFirst({
-      where: { sourceType: "MATERIAL_SALE_PAYMENT", sourceId: payment.id },
+      where: {
+        sourceId: payment.id,
+        sourceType: payment.direction === "OUT" ? "MATERIAL_SALE_REFUND" : "MATERIAL_SALE_PAYMENT",
+      },
       select: { id: true },
     });
     if (je) {
@@ -257,6 +265,91 @@ export async function voidMaterialSalePayment(input: {
 
     return { paymentStatus };
   });
+}
+
+/**
+ * Refund a customer credit — returns on an already-paid sale push AR negative
+ * (the customer is owed money back). A refund settles that credit:
+ *   Dr Accounts Receivable / Cr Cash.
+ * Capped at the outstanding credit (paid-in − net receivable − already
+ * refunded) so it can never over-refund. The row is a direction=OUT
+ * MaterialSalePayment — money in/out stays on one timeline per sale.
+ */
+export async function recordMaterialSaleRefund(input: {
+  saleId: string;
+  companyId: string;
+  amount: string | number | Decimal;
+  paymentMode: string;
+  referenceNo?: string;
+  notes?: string;
+  userId?: string;
+}) {
+  const amount = new Decimal(input.amount);
+  if (!amount.gt(0)) throw new ServiceError("Refund amount must be greater than 0");
+
+  const payment = await withSerializableTransaction(async (tx) => {
+    const sale = await tx.materialSale.findFirst({
+      where: { id: input.saleId, companyId: input.companyId },
+    });
+    if (!sale) throw new ServiceError("Material sale not found", 404);
+    if (sale.status === "CANCELLED") throw new ServiceError("Cannot refund a cancelled sale");
+
+    const agg = await tx.materialSalePayment.groupBy({
+      by: ["direction"],
+      where: { saleId: input.saleId, status: { not: "VOID" } },
+      _sum: { amount: true },
+    });
+    const sumOf = (dir: string) => new Decimal(agg.find((a) => a.direction === dir)?._sum.amount ?? 0);
+    const paidIn = sumOf("IN");
+    const refundedOut = sumOf("OUT");
+    const netReceivable = await netReceivableFor(tx, input.saleId, new Decimal(sale.totalAmount));
+    // Customer credit = collected beyond what the post-return sale is worth.
+    const refundable = paidIn.minus(netReceivable).minus(refundedOut);
+    if (refundable.lte(0)) {
+      throw new ServiceError("No refundable credit on this sale — nothing has been over-collected", 400);
+    }
+    if (amount.gt(refundable)) {
+      throw new ServiceError(`Refund ${amount} exceeds the refundable credit of ${refundable}`, 400);
+    }
+
+    const refund = await tx.materialSalePayment.create({
+      data: {
+        saleId: input.saleId,
+        amount,
+        paymentDate: new Date(),
+        paymentMode: input.paymentMode,
+        referenceNo: input.referenceNo ?? null,
+        notes: input.notes ?? null,
+        createdById: input.userId,
+        direction: "OUT",
+      },
+    });
+
+    // Dr AR / Cr Cash — the AR credit is settled, cash leaves.
+    await postJournalEntry(tx, {
+      companyId: input.companyId,
+      sourceType: "MATERIAL_SALE_REFUND",
+      sourceId: refund.id,
+      memo: `Customer refund — sale ${sale.saleNumber}`,
+      postedById: input.userId,
+      lines: [
+        { accountCode: ACCT.AR, debit: amount, credit: 0, entityType: "MaterialSale", entityId: sale.id, memo: "Customer credit settled by refund" },
+        { accountCode: ACCT.CASH, debit: 0, credit: amount, entityType: "MaterialSale", entityId: sale.id, memo: "Refund paid to customer" },
+      ],
+    });
+
+    await logAction(tx, {
+      userId: input.userId,
+      action: "MATERIAL_SALE_REFUND",
+      entityType: "MaterialSalePayment",
+      entityId: refund.id,
+      after: { saleId: sale.id, saleNumber: sale.saleNumber, amount: amount.toString(), paymentMode: input.paymentMode, refundableBefore: refundable.toString() },
+    });
+
+    return refund;
+  });
+
+  return payment;
 }
 
 export async function getMaterialSalePayments(saleId: string) {

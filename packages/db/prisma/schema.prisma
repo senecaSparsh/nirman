@@ -5403,6 +5403,11 @@ model MaterialSalePayment {
   chequeClearDate DateTime?
   chequeBounceReason String?
 
+  // Direction: IN = money collected from the customer; OUT = a refund paid
+  // back (returns on an already-paid sale leave a negative receivable —
+  // refunds settle it). Paid-sums and collection caps count IN only.
+  direction     String   @default("IN") // "IN" | "OUT"
+
   // Void support — a mis-entered payment is voided (never deleted) so the
   // audit trail survives; voided rows are excluded from every payment sum.
   status        String   @default("RECEIVED") // RECEIVED | VOID

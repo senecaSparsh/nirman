@@ -91,6 +91,25 @@ expect_num "net AR for sale = 0" "SELECT COALESCE(SUM(jl.debit)-SUM(jl.credit),0
 r=$(req POST "material-sales/$SALE/payments" '{"amount":1,"paymentMode":"CASH"}')
 expect_refused "payment on fully-returned sale" "$r"
 
+echo "════════ 4. refund the customer credit ════════"
+# The customer paid 1239 but the whole sale was returned — the credit is a
+# debt to them. Refund settles it: Dr AR / Cr Cash, capped at the credit.
+r=$(req POST "material-sales/$SALE/refund" '{"amount":1500,"paymentMode":"UPI","referenceNo":"RFD'$RANDOM'"}')
+expect_refused "refund above credit" "$r"
+r=$(req POST "material-sales/$SALE/refund" '{"amount":1239,"paymentMode":"UPI","referenceNo":"RFD'$RANDOM'"}')
+RF=$(echo "$r" | python3 -c "import json,sys; print(json.load(sys.stdin).get('refundId',''))" 2>/dev/null)
+[ -n "$RF" ] && { PASS=$((PASS+1)); echo "  refund $RF"; } || { FAIL=$((FAIL+1)); echo "  FAIL refund: ${r:0:140}"; }
+expect_num "refund Dr AR 1239" "SELECT COALESCE(SUM(jl.debit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceType\"='MATERIAL_SALE_REFUND' AND je.\"sourceId\"='$RF' AND a.code='1200'" 1239
+expect_num "refund Cr Cash 1239" "SELECT COALESCE(SUM(jl.credit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceType\"='MATERIAL_SALE_REFUND' AND je.\"sourceId\"='$RF' AND a.code='1000'" 1239
+expect_cnt "refund row direction=OUT" "SELECT CASE WHEN direction='OUT' THEN 1 ELSE 0 END FROM \"MaterialSalePayment\" WHERE id='$RF'" 1
+expect_num "credit fully settled" "SELECT COALESCE(SUM(jl.debit)-SUM(jl.credit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE a.code='1200' AND je.\"sourceId\" IN ('$SALE','$RET','$RET2','$PAY','$RF') AND je.status='POSTED'" 0
+r=$(req POST "material-sales/$SALE/refund" '{"amount":1,"paymentMode":"UPI"}')
+expect_refused "second refund (credit exhausted)" "$r"
+# voiding the refund restores the credit
+r=$(req POST "material-sales/payments/$RF/void" '{"reason":"verifier"}')
+expect_cnt "void refund accepted" "SELECT CASE WHEN status='VOID' THEN 1 ELSE 0 END FROM \"MaterialSalePayment\" WHERE id='$RF'" 1
+expect_num "credit restored after void" "SELECT COALESCE(SUM(jl.debit)-SUM(jl.credit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE a.code='1200' AND je.\"sourceId\" IN ('$SALE','$RET','$RET2','$PAY','$RF') AND je.status='POSTED'" -1239
+
 echo "════════════════════════════════════════"
 echo "material-sale-return chain: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

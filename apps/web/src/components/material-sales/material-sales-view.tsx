@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Package, Plus, Trash2, Printer, CreditCard, SearchX, ShieldCheck, RotateCcw, Zap, CheckCircle2 } from "lucide-react";
+import { Package, Plus, Trash2, Printer, CreditCard, SearchX, ShieldCheck, RotateCcw, Zap, CheckCircle2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label, Textarea } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import { EditableGrid, type EditableColumn } from "@/components/ui/editable-grid
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { CustomerFormDialog } from "@/components/sales/customer-form-dialog";
 import { MaterialFormDialog } from "@/components/materials/material-form-dialog";
+import { MaterialSaleRefundDialog } from "@/components/material-sales/material-sale-refund-dialog";
 import { LocationFormDialog } from "@/components/materials/location-form-dialog";
 import { VehicleCaptureSection, EMPTY_VEHICLE, type VehicleData } from "@/components/vehicle-capture-section";
 import { IdentityCell, MoneyCell, DateCell } from "@/components/ui/cells";
@@ -81,13 +82,19 @@ const paymentColumns: Column<MaterialSalePaymentRow>[] = [
     label: "Amount",
     align: "right",
     sortable: true,
-    render: (p) => <span className="tnum font-medium text-foreground">{formatCurrency(p.amount)}</span>,
+    render: (p) => (
+      <span className={`tnum font-medium ${p.direction === "OUT" ? "text-warning" : "text-foreground"}`}>
+        {p.direction === "OUT" ? "−" : ""}{formatCurrency(p.amount)}
+      </span>
+    ),
   },
   {
     key: "paymentMode",
     label: "Mode",
     sortable: true,
-    render: (p) => <Badge variant="outline">{p.paymentMode}</Badge>,
+    render: (p) => p.direction === "OUT"
+      ? <Badge variant="warning">Refund</Badge>
+      : <Badge variant="outline">{p.paymentMode}</Badge>,
   },
   {
     key: "paymentDate",
@@ -134,6 +141,7 @@ export type MaterialSaleRow = {
   totalCost: number;
   grossProfit: number;
   scrapSubtotal: number;
+  returnedTotal?: number; // Σ COMPLETED credit notes — the post-return receivable
   partyName: string | null;
   status: string;
   paymentStatus: string;
@@ -175,6 +183,8 @@ export type MaterialSalePaymentRow = {
   paymentMode: string;
   referenceNo: string | null;
   notes: string | null;
+  direction?: string; // "IN" | "OUT" — refunds pay money back to the customer
+  status?: string; // RECEIVED | VOID
   createdByName: string | null;
   chequeNo: string | null;
   chequeBank: string | null;
@@ -219,6 +229,7 @@ export function MaterialSalesView({
   const [cancelTarget, setCancelTarget] = useState<MaterialSaleRow | null>(null);
   const [detailTarget, setDetailTarget] = useState<MaterialSaleRow | null>(null);
   const [paymentDialogSale, setPaymentDialogSale] = useState<MaterialSaleRow | null>(null);
+  const [refundDialogSale, setRefundDialogSale] = useState<MaterialSaleRow | null>(null);
   const [returnDialogSale, setReturnDialogSale] = useState<MaterialSaleRow | null>(null);
   const [paymentsBySale, setPaymentsBySale] = useState<Record<string, MaterialSalePaymentRow[]>>({});
   const [paymentsLoading, setPaymentsLoading] = useState<string | null>(null);
@@ -274,10 +285,23 @@ export function MaterialSalesView({
     return stockMap[`${locationId}|${materialId}`]?.mac ?? 0;
   }
 
-  // Compute total paid for a sale from loaded payments (or server-provided ones)
+  // Compute total collected — IN payments only (refunds are money back out)
   function totalPaid(sale: MaterialSaleRow): number {
     const payments = paymentsBySale[sale.id] ?? sale.payments ?? [];
-    return payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+    return payments
+      .filter((p) => (p.direction ?? "IN") === "IN" && p.status !== "VOID")
+      .reduce((sum, p) => sum + toNum(p.amount), 0);
+  }
+
+  // Customer credit: collected beyond the post-return receivable, minus refunds
+  // already paid. >0 means we owe the customer — refundable.
+  function refundableCredit(sale: MaterialSaleRow): number {
+    const payments = paymentsBySale[sale.id] ?? sale.payments ?? [];
+    const refunded = payments
+      .filter((p) => p.direction === "OUT" && p.status !== "VOID")
+      .reduce((sum, p) => sum + toNum(p.amount), 0);
+    const netReceivable = Math.max(0, sale.totalAmount - (sale.returnedTotal ?? 0));
+    return Math.max(0, totalPaid(sale) - netReceivable - refunded);
   }
 
   // Outstanding balance = totalAmount - totalPaid
@@ -623,6 +647,11 @@ export function MaterialSalesView({
             <CreditCard className="h-3.5 w-3.5" />
           </Button>
         )}
+        {canRecordPayment && refundableCredit(s) > 0 && (
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-warning hover:text-warning" onClick={(e) => { e.stopPropagation(); setRefundDialogSale(s); }} title={`Refund ${formatCurrency(refundableCredit(s))} owed to customer`}>
+            <Undo2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
         {canCancel && s.status === "ACTIVE" && (
           <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-danger" onClick={(e) => { e.stopPropagation(); requestCancelSale(s); }} disabled={submitting} title="Cancel sale">
             <Trash2 className="h-3.5 w-3.5" />
@@ -851,6 +880,16 @@ export function MaterialSalesView({
           saleNumber={paymentDialogSale.saleNumber}
           totalAmount={paymentDialogSale.totalAmount}
           outstandingBalance={outstandingBalance(paymentDialogSale)}
+        />
+      )}
+
+      {refundDialogSale && (
+        <MaterialSaleRefundDialog
+          open={!!refundDialogSale}
+          onOpenChange={(o) => { if (!o) setRefundDialogSale(null); }}
+          saleId={refundDialogSale.id}
+          saleNumber={refundDialogSale.saleNumber}
+          refundableCredit={refundableCredit(refundDialogSale)}
         />
       )}
 

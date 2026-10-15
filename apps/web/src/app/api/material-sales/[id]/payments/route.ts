@@ -38,6 +38,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       referenceNo: p.referenceNo,
       notes: p.notes,
       createdByName: p.createdBy?.name ?? null,
+      direction: p.direction,
       chequeNo: p.chequeNo,
       chequeBank: p.chequeBank,
       chequePhotoUrl: p.chequePhotoUrl,

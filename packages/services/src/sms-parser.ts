@@ -681,7 +681,7 @@ async function matchPayment(
         });
         // Recompute + update parent payment status
         const allPayments = await tx.materialSalePayment.findMany({
-          where: { saleId: sale.id },
+          where: { saleId: sale.id, direction: "IN" },
           select: { amount: true },
         });
         const newTotalPaid = allPayments.reduce(
@@ -869,7 +869,7 @@ export async function manualMatchSms(input: ManualMatchInput) {
       });
       // Recompute parent payment status
       const allPayments = await tx.materialSalePayment.findMany({
-        where: { saleId: input.entityId },
+        where: { saleId: input.entityId, direction: "IN" },
         select: { amount: true },
       });
       const newTotalPaid = allPayments.reduce(

@@ -60,6 +60,10 @@ async function MaterialSalesContent() {
           },
           orderBy: { paymentDate: "desc" },
         },
+        returns: {
+          where: { status: "COMPLETED" },
+          select: { totalAmount: true },
+        },
       },
     }),
     prisma.customer.findMany({
@@ -120,6 +124,7 @@ async function MaterialSalesContent() {
     totalCost: toNum(s.totalCost),
     grossProfit: toNum(s.grossProfit),
     scrapSubtotal: toNum(s.scrapSubtotal),
+    returnedTotal: s.returns.reduce((sum, r) => sum + toNum(r.totalAmount), 0),
     partyName: s.partyName,
     status: s.status,
     paymentStatus: s.paymentStatus,
@@ -142,6 +147,8 @@ async function MaterialSalesContent() {
       paymentMode: p.paymentMode,
       referenceNo: p.referenceNo,
       notes: p.notes,
+      direction: p.direction,
+      status: p.status,
       createdByName: p.createdBy?.name ?? null,
       chequeNo: p.chequeNo,
       chequeBank: p.chequeBank,
