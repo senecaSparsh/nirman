@@ -2,7 +2,7 @@ import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
-import { postSupplierInvoice } from "./gl-posting";
+import { postSupplierInvoice, reverseJournalEntry } from "./gl-posting";
 import { withSerializableTransaction } from "./transaction";
 import { canAutoApprove } from "./rbac";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
@@ -714,4 +714,98 @@ export async function checkDueSupplierInvoices(): Promise<{
   }
 
   return { checked: invoices.length, due: invoices.length, notified };
+}
+
+/**
+ * Void a wrongly-entered supplier invoice — never deleted (audit trail).
+ *
+ * Only allowed when no money has moved: any non-VOID supplier payment linked
+ * to the invoice refuses the void. On APPROVED invoices the JE is reversed
+ * (SUPPLIER_INVOICE_REVERSAL — AP, ITC, PPV, expense all unwind) and
+ * Supplier.balanceOwed decrements by the same signed AP impact the approval
+ * added (services: full totalAmount; goods: the invoice-vs-GRN variance —
+ * AP was booked at GRN, so only the variance leg unwinds). PENDING/MATCHED/
+ * DISPUTED invoices post no GL — voiding them just withdraws the entry.
+ */
+export async function voidSupplierInvoice(input: {
+  invoiceId: string;
+  companyId: string;
+  userId?: string;
+  reason?: string;
+}) {
+  return withSerializableTransaction(async (tx) => {
+    const inv = await tx.supplierInvoice.findFirst({
+      where: { id: input.invoiceId, companyId: input.companyId },
+      include: { supplier: { select: { id: true, balanceOwed: true } } },
+    });
+    if (!inv) throw new ServiceError("Supplier invoice not found", 404);
+    if (inv.status === "VOID") throw new ServiceError("Invoice is already voided", 409);
+    if (inv.status === "PAID") {
+      throw new ServiceError("Cannot void a PAID invoice — void its payments first", 409);
+    }
+    const paidCount = await tx.supplierPayment.count({
+      where: { invoiceId: inv.id, status: { not: "VOID" } },
+    });
+    if (paidCount > 0) {
+      throw new ServiceError(`Cannot void — ${paidCount} payment(s) reference this invoice. Void them first.`, 409);
+    }
+
+    const wasApproved = inv.status === "APPROVED";
+    await tx.supplierInvoice.update({
+      where: { id: inv.id },
+      data: { status: "VOID" },
+    });
+
+    if (wasApproved) {
+      // Recompute the signed AP impact exactly the way approve computed it.
+      let isServicesInvoice = true;
+      let varianceTotal = new Decimal(0);
+      if (inv.purchaseOrderId) {
+        const grnLines = await tx.goodsReceiptLine.findMany({
+          where: { goodsReceipt: { purchaseOrderId: inv.purchaseOrderId } },
+          select: { qtyReceived: true, unitCost: true },
+        });
+        if (grnLines.length > 0) {
+          isServicesInvoice = false;
+          const grnSubtotal = grnLines.reduce(
+            (sum, l) => sum.plus(new Decimal(l.qtyReceived).times(new Decimal(l.unitCost))),
+            new Decimal(0),
+          );
+          const varianceSubtotal = new Decimal(inv.subtotal).minus(grnSubtotal);
+          const varianceGst = varianceSubtotal.gt(0) ? new Decimal(inv.gstAmount) : new Decimal(0);
+          varianceTotal = varianceSubtotal.plus(varianceGst);
+        }
+      }
+      const apIncrement = isServicesInvoice ? new Decimal(inv.totalAmount) : varianceTotal;
+      if (!apIncrement.isZero()) {
+        const newBalance = new Decimal(inv.supplier.balanceOwed).minus(apIncrement);
+        await tx.supplier.update({
+          where: { id: inv.supplierId },
+          data: { balanceOwed: newBalance },
+        });
+      }
+
+      const je = await tx.journalEntry.findFirst({
+        where: { sourceType: "SUPPLIER_INVOICE", sourceId: inv.id, status: "POSTED" },
+        select: { id: true },
+      });
+      if (je) {
+        await reverseJournalEntry(tx, je.id, {
+          postedById: input.userId,
+          memo: `Supplier invoice voided${input.reason ? `: ${input.reason}` : ""}`,
+        });
+      }
+    }
+
+    await logAction(tx, {
+      userId: input.userId,
+      companyId: input.companyId,
+      action: "SUPPLIER_INVOICE_VOID",
+      entityType: "SupplierInvoice",
+      entityId: inv.id,
+      before: { status: inv.status },
+      after: { status: "VOID", reason: input.reason ?? null },
+    });
+    return { status: "VOID" };
+  });
 }

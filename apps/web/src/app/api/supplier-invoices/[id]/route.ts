@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { approveSupplierInvoice, getSupplierInvoice } from "@nirman/services";
+import { approveSupplierInvoice, getSupplierInvoice, voidSupplierInvoice, ServiceError } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { apiHandler, ForbiddenError, getActingRole, getCompany, getPermissionsForProject, json, requireEffectivePermission, requireUser, scopeWhere, getActingRoleForProject } from "@/lib/server";
 
@@ -95,8 +95,39 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const { id } = await params;
   const body = await req.json();
 
-  if (!body?.action || !["approve", "reject", "upload-document"].includes(body.action)) {
-    return json({ error: "action must be 'approve', 'reject', or 'upload-document'" }, { status: 400 });
+  if (!body?.action || !["approve", "reject", "upload-document", "void"].includes(body.action)) {
+    return json({ error: "action must be 'approve', 'reject', 'upload-document', or 'void'" }, { status: 400 });
+  }
+
+  // Void a wrongly-entered invoice — reverses the GL entry and re-opens the
+  // payable only if no payments reference it. Same scope + permission gate
+  // as approve/reject.
+  if (body.action === "void") {
+    const scopeCheck = await prisma.supplierInvoice.findFirst({
+      where: { id, companyId: company.id, ...await scopeWhere("SupplierInvoice") },
+      select: { purchaseOrder: { select: { projectId: true } } },
+    });
+    if (!scopeCheck) return json({ error: "Supplier invoice not found" }, { status: 404 });
+    const perms = await getPermissionsForProject(scopeCheck.purchaseOrder?.projectId ?? null);
+    if (!perms.includes(PERM.FINANCE_MANAGE)) {
+      throw new ForbiddenError("You need finance rights on this project");
+    }
+    try {
+      await voidSupplierInvoice({
+        invoiceId: id,
+        companyId: company.id,
+        userId: user.id,
+        reason: body.reason,
+      });
+      revalidatePath("/suppliers");
+      revalidatePath("/finance");
+      revalidatePath("/gl");
+      revalidatePath("/m/books/finance");
+      return json({ ok: true, status: "VOID" });
+    } catch (err) {
+      if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status ?? 400 });
+      throw err;
+    }
   }
 
   // Handle document upload separately (no approval workflow)

@@ -178,18 +178,24 @@ export function SupplierInvoicesView({
     }
   }
 
-  async function handleAction(action: "approve" | "reject") {
+  async function handleAction(action: "approve" | "reject" | "void") {
     if (!detail) return;
+    const body: Record<string, unknown> = { action };
+    if (action === "void") {
+      const reason = window.prompt("Void this invoice? The AP/ITC/PPV legs reverse and the entry is withdrawn. Reason:");
+      if (reason === null) return;
+      body.reason = reason || undefined;
+    }
     setActionLoading(true);
     try {
       const res = await fetch(`/api/supplier-invoices/${detail.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Action failed");
-      toast.success(action === "approve" ? "Invoice approved" : "Invoice disputed");
+      toast.success(action === "approve" ? "Invoice approved" : action === "void" ? "Invoice voided — GL reversed" : "Invoice disputed");
       setDetail(null);
       fetchInvoices();
       router.refresh();
@@ -379,7 +385,7 @@ function InvoiceDetailContent({
   currentUserId?: string | null;
   canSelfApprove?: boolean;
   actionLoading: boolean;
-  onAction: (action: "approve" | "reject") => void;
+  onAction: (action: "approve" | "reject" | "void") => void;
   suppliers: SupplierOption[];
 }) {
   // Hide approve/reject from the receiver — self-approval is blocked
@@ -517,6 +523,11 @@ function InvoiceDetailContent({
         {canPay && (
           <Button size="sm" onClick={() => setShowPayment(true)}>
             <IndianRupee className="h-3.5 w-3.5" /> Record Payment
+          </Button>
+        )}
+        {canManage && detail.status !== "VOID" && detail.status !== "PAID" && (
+          <Button variant="outline" size="sm" className="text-danger" onClick={() => onAction("void")} disabled={actionLoading}>
+            <X className="h-3.5 w-3.5" /> Void
           </Button>
         )}
       </div>

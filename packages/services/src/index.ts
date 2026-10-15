@@ -268,6 +268,7 @@ export {
   type MatchVariance,
   type ThreeWayMatchResult,
   checkDueSupplierInvoices,
+  voidSupplierInvoice,
 } from "./supplier-invoice";
 
 // Stock Count — physical reconciliation
