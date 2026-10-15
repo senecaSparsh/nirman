@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/empty-state";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export type StatutoryOutstanding = {
-  kind: "PF" | "ESI" | "TDS" | "GST";
+  kind: "PF" | "ESI" | "TDS" | "GST" | "TDS_REFUND";
   outstanding: number;
   itcAvailable?: number;
   outputGst?: number;
@@ -36,8 +36,9 @@ export type StatutoryPaymentRow = {
 const KIND_LABEL: Record<string, string> = {
   PF: "Provident Fund",
   ESI: "ESI",
-  TDS: "TDS",
+  TDS: "TDS Payable",
   GST: "GST (net of ITC)",
+  TDS_REFUND: "TDS Receivable",
 };
 
 const columns: Column<StatutoryPaymentRow>[] = [
@@ -181,7 +182,7 @@ export function StatutoryPaymentsView({
                 ))}
               </Select>
             </Field>
-            <Field label="Cash Paid" required>
+            <Field label={kind === "TDS_REFUND" ? "Refund Received" : "Cash Paid"} required>
               <Input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" required />
             </Field>
           </div>

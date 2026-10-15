@@ -24,10 +24,10 @@ import { postJournalEntry, reverseJournalEntry, ACCT } from "./gl-posting";
 import { ServiceError } from "./errors";
 import { logAction } from "./audit";
 
-export const STATUTORY_KINDS = ["PF", "ESI", "TDS", "GST"] as const;
+export const STATUTORY_KINDS = ["PF", "ESI", "TDS", "GST", "TDS_REFUND"] as const;
 export type StatutoryKind = (typeof STATUTORY_KINDS)[number];
 
-const KIND_ACCOUNT: Record<Exclude<StatutoryKind, "GST">, string> = {
+const KIND_ACCOUNT: Record<Exclude<StatutoryKind, "GST" | "TDS_REFUND">, string> = {
   PF: ACCT.PF_PAYABLE,
   ESI: ACCT.ESI_PAYABLE,
   TDS: ACCT.TDS_PAYABLE,
@@ -56,6 +56,10 @@ export async function statutoryOutstanding(companyId: string, kind: StatutoryKin
     const output = await accountBalance(prisma, companyId, ACCT.OUTPUT_GST);
     const itc = (await accountBalance(prisma, companyId, ACCT.INPUT_GST)).neg(); // 1400 is debit-normal
     return { outstanding: Decimal.max(0, output.minus(itc)), itcAvailable: Decimal.max(0, itc), outputGst: Decimal.max(0, output) };
+  }
+  if (kind === "TDS_REFUND") {
+    // TDS receivable (1960) is debit-normal — the claimable balance.
+    return { outstanding: Decimal.max(0, (await accountBalance(prisma, companyId, ACCT.TDS_RECEIVABLE)).neg()) };
   }
   return { outstanding: Decimal.max(0, await accountBalance(prisma, companyId, KIND_ACCOUNT[kind])) };
 }
@@ -99,6 +103,17 @@ export async function recordStatutoryPayment(input: {
       if (itcUtilized.gt(0)) {
         lines.push({ accountCode: ACCT.INPUT_GST, debit: new Decimal(0), credit: itcUtilized, entityType: "StatutoryPayment", memo: "ITC utilized against output tax" });
       }
+    } else if (input.kind === "TDS_REFUND") {
+      // TDS deducted by buyers/tenants (Dr 1960) is recovered when the
+      // refund/settlement lands in cash — credit the receivable back out.
+      const receivable = (await accountBalance(tx, input.companyId, ACCT.TDS_RECEIVABLE)).neg();
+      if (amount.gt(Decimal.max(0, receivable))) {
+        throw new ServiceError(`Refund ${amount} exceeds the TDS receivable balance of ${Decimal.max(0, receivable)}`, 400);
+      }
+      lines.push(
+        { accountCode: ACCT.CASH, debit: amount, credit: new Decimal(0), entityType: "StatutoryPayment", memo: "TDS refund received" },
+        { accountCode: ACCT.TDS_RECEIVABLE, debit: new Decimal(0), credit: amount, entityType: "StatutoryPayment", memo: "TDS receivable relieved" },
+      );
     } else {
       const acct = KIND_ACCOUNT[input.kind];
       const due = await accountBalance(tx, input.companyId, acct);
