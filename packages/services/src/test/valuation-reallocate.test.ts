@@ -130,7 +130,7 @@ describe("reallocateProjectCosts — integration tests", () => {
 
   /** Create a land purchase linked to the project. */
   async function createLandPurchase(companyId: string, projectId: string, totalCost: number) {
-    return prisma.landPurchase.create({
+    const purchase = await prisma.landPurchase.create({
       data: {
         companyId,
         projectId,
@@ -140,6 +140,20 @@ describe("reallocateProjectCosts — integration tests", () => {
         totalCost: new Decimal(totalCost),
       },
     });
+    // parcel.projectId is the authoritative project link for land cost —
+    // mirror what recordLandPurchase creates.
+    await prisma.landParcel.create({
+      data: {
+        landPurchaseId: purchase.id,
+        number: "PLOT-T",
+        area: new Decimal(10000),
+        areaUnit: "SQFT",
+        status: "AVAILABLE",
+        acquisitionCost: new Decimal(totalCost),
+        projectId,
+      },
+    });
+    return purchase;
   }
 
   /** Create a scrap generation for the project. */

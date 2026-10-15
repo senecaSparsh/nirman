@@ -687,6 +687,8 @@ export async function reconcileWipGl(
   for (const r of await prisma.renovationProject.findMany({ where: { id: { in: idsOf("RenovationProject") } }, select: { id: true, projectId: true } })) rpProject.set(r.id, r.projectId);
   const lpProject = new Map<string, string>();
   for (const r of await prisma.landPurchase.findMany({ where: { id: { in: idsOf("LandPurchase") } }, select: { id: true, projectId: true } })) for (const x of [r] as { id: string; projectId: string | null }[]) if (x.projectId) lpProject.set(x.id, x.projectId);
+  const parcelProject = new Map<string, string>();
+  for (const r of await prisma.landParcel.findMany({ where: { id: { in: idsOf("LandParcel") } }, select: { id: true, projectId: true } })) if (r.projectId) parcelProject.set(r.id, r.projectId);
 
   const glByProject = new Map<string, Decimal>();
   let orphanNet = new Decimal(0);
@@ -697,6 +699,7 @@ export async function reconcileWipGl(
       : l.entityType === "RaBill" ? raProject.get(l.entityId ?? "")
       : l.entityType === "RenovationProject" ? rpProject.get(l.entityId ?? "")
       : l.entityType === "LandPurchase" ? lpProject.get(l.entityId ?? "")
+      : l.entityType === "LandParcel" ? parcelProject.get(l.entityId ?? "")
       : undefined;
     if (pid) glByProject.set(pid, (glByProject.get(pid) ?? new Decimal(0)).plus(net));
     else orphanNet = orphanNet.plus(net);
@@ -722,9 +725,16 @@ export async function reconcileWipGl(
         where: { projectId: project.id },
         select: { amount: true },
       }),
-      prisma.landPurchase.findMany({
-        where: { projectId: project.id, deletedAt: null },
-        select: { totalCost: true },
+      // Parcel-level land — parcel.projectId is authoritative (a subdivided
+      // purchase can feed several projects; PARTITIONED parents are cost
+      // containers and SOLD parcels already left via COGS).
+      prisma.landParcel.findMany({
+        where: {
+          projectId: project.id,
+          status: { notIn: ["PARTITIONED", "SOLD"] },
+          landPurchase: { deletedAt: null, purchaseStage: { not: "CANCELLED" } },
+        },
+        select: { acquisitionCost: true },
       }),
       prisma.renovationCost.findMany({
         where: { renovationProject: { projectId: project.id, type: { not: "REPAIR" }, status: { not: "CANCELLED" } } },
@@ -751,7 +761,7 @@ export async function reconcileWipGl(
     const sum = <T extends Decimal.Value>(arr: T[]) => arr.reduce((s, v) => s.plus(new Decimal(v)), new Decimal(0));
     const expected = sum(issueLines.map((l) => new Decimal(l.qty).times(l.unitCost)))
       .plus(sum(projectCosts.map((c) => c.amount)))
-      .plus(sum(projectLand.map((p) => p.totalCost)))
+      .plus(sum(projectLand.map((p) => p.acquisitionCost)))
       .plus(sum(renoCosts.map((c) => c.amount)))
       .minus(sum(scrapLines.map((l) => new Decimal(l.qty).times(l.unitCost))))
       .minus(sum(units.map((u) => u.capitalizedAmount)))

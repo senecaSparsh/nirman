@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   ArrowLeft, Pencil, Trash2, FileText, Layers, DollarSign,
-  Calendar, MapPinned, ScrollText, ExternalLink, Home, Banknote, CheckCircle2, Building2, Loader2, CalendarClock, Plus,
+  Calendar, MapPinned, ScrollText, ExternalLink, Home, Banknote, CheckCircle2, Building2, Loader2, CalendarClock, Plus, XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -242,10 +242,35 @@ export function LandHub({ data }: { data: LandHubData }) {
   const isBbaSigned = purchase.purchaseStage === "BBA_SIGNED";
   const isRegistered = purchase.purchaseStage === "REGISTERED";
   const isCompleted = purchase.purchaseStage === "COMPLETED";
+  const isCancelled = purchase.purchaseStage === "CANCELLED";
   const isStaged = isBooked || isBbaSigned || isRegistered;
+  const isCancellable = isBooked || isBbaSigned; // pre-registry only
   const totalPaid = purchase.totalPaid ?? 0;
   const balanceDue = purchase.balanceDue ?? 0;
   const payments = purchase.payments ?? [];
+
+  async function handleCancel() {
+    const reason = await prompt({
+      title: "Cancel land purchase",
+      description: `Cancel this deal? The asset is removed from the books, the unpaid balance (₹${Math.round(balanceDue).toLocaleString("en-IN")}) is released, and the ₹${Math.round(totalPaid).toLocaleString("en-IN")} already paid becomes a refund receivable from the seller.`,
+      label: "Reason",
+      confirmLabel: "Cancel purchase",
+    });
+    if (reason === null) return;
+    try {
+      const res = await fetch(`/api/land-purchases/${purchase.id}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: reason || null }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Cancel failed");
+      toast.success(`Purchase cancelled — ₹${Math.round(Number(data.refundReceivable)).toLocaleString("en-IN")} refund due from seller`);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Cancel failed");
+    }
+  }
 
   async function handleCreateProject() {
     const name = await prompt({
@@ -449,6 +474,16 @@ export function LandHub({ data }: { data: LandHubData }) {
               {isStaged && permissions.canEdit && (
                 <Button size="sm" onClick={() => setCompleteOpen(true)}>
                   <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Complete
+                </Button>
+              )}
+              {isCancelled && (
+                <span className="inline-flex items-center gap-1 rounded-sm border border-danger/40 bg-danger/10 px-1.5 py-0.5 text-caption font-medium text-danger">
+                  Cancelled
+                </span>
+              )}
+              {isCancellable && permissions.canDelete && (
+                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-danger" onClick={handleCancel}>
+                  <XCircle className="mr-1 h-3.5 w-3.5" /> Cancel Deal
                 </Button>
               )}
               {permissions.canEdit && !purchase.projectId && (

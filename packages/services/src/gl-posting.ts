@@ -44,6 +44,7 @@ export const CHART_OF_ACCOUNTS = [
   { code: "1500", name: "WIP - Project Costs", type: "ASSET" as const },
   { code: "1600", name: "Advances to Subcontractors", type: "ASSET" as const },
   { code: "1650", name: "Advances to Employees", type: "ASSET" as const },
+  { code: "1660", name: "Vendor Refunds Receivable", type: "ASSET" as const },
   { code: "1700", name: "Unsold Assets - Land", type: "ASSET" as const },
   { code: "1800", name: "Unsold Assets - Built Units", type: "ASSET" as const },
   { code: "1900", name: "Equipment & Fixtures", type: "ASSET" as const },
@@ -90,6 +91,7 @@ export const ACCT = {
   WIP: "1500",
   ADVANCE_TO_SUB: "1600",
   ADVANCE_TO_EMP: "1650",
+  VENDOR_REFUND_RECEIVABLE: "1660",
   LAND_ASSET: "1700",
   UNIT_ASSET: "1800",
   EQUIPMENT_ASSET: "1900",
@@ -1355,24 +1357,35 @@ export async function postLandPurchase(
     landPurchaseId: string;
     totalCost: Decimal;
     cashPaid?: Decimal;
-    /** When set, the land feeds a project — its cost belongs in WIP so unit
-     *  costing (which counts LandPurchase.totalCost) and the GL agree.
-     *  Unlinked land stays a held Land Asset (1700). */
-    projectId?: string | null;
+    /** Parcels whose cost feeds a project's WIP — set per parcel so a
+     *  subdivided purchase can split its cost across projects (and land bank).
+     *  Unit costing counts LandParcel.acquisitionCost per parcel.projectId,
+     *  so each project-linked portion must debit WIP for the GL to agree.
+     *  The non-project remainder stays a held Land Asset (1700). */
+    wipAllocations?: { parcelId: string; amount: Decimal | number | string }[];
     postedById?: string;
   },
 ) {
   const cashPaid = opts.cashPaid ?? opts.totalCost;
   const payable = new Decimal(opts.totalCost).minus(new Decimal(cashPaid));
-  const landAccount = opts.projectId ? ACCT.WIP : ACCT.LAND_ASSET;
-  const landMemo = opts.projectId
-    ? "Land acquisition capitalised into project WIP"
-    : "Land acquisition capitalised";
 
-  const lines: JournalLineInput[] = [
-    { accountCode: landAccount, debit: new Decimal(opts.totalCost), credit: 0, entityType: "LandPurchase", entityId: opts.landPurchaseId, memo: landMemo },
-    { accountCode: ACCT.CASH, debit: 0, credit: new Decimal(cashPaid), entityType: "LandPurchase", entityId: opts.landPurchaseId, memo: "Cash paid for land" },
-  ];
+  const wipAllocations = opts.wipAllocations ?? [];
+  const wipTotal = wipAllocations.reduce(
+    (s, a) => s.plus(new Decimal(a.amount)),
+    new Decimal(0),
+  );
+  const landBank = new Decimal(opts.totalCost).minus(wipTotal);
+
+  const lines: JournalLineInput[] = [];
+  for (const a of wipAllocations) {
+    const amount = new Decimal(a.amount);
+    if (amount.lte(0)) continue;
+    lines.push({ accountCode: ACCT.WIP, debit: amount, credit: 0, entityType: "LandParcel", entityId: a.parcelId, memo: "Land capitalised into project WIP" });
+  }
+  if (landBank.gt(0)) {
+    lines.push({ accountCode: ACCT.LAND_ASSET, debit: landBank, credit: 0, entityType: "LandPurchase", entityId: opts.landPurchaseId, memo: wipAllocations.length ? "Land bank portion (non-project parcels)" : "Land acquisition capitalised" });
+  }
+  lines.push({ accountCode: ACCT.CASH, debit: 0, credit: new Decimal(cashPaid), entityType: "LandPurchase", entityId: opts.landPurchaseId, memo: "Cash paid for land" });
   if (payable.gt(0)) {
     lines.push({ accountCode: ACCT.AP, debit: 0, credit: payable, entityType: "LandPurchase", entityId: opts.landPurchaseId, memo: "Balance payable to seller (staged purchase)" });
   }

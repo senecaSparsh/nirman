@@ -158,7 +158,9 @@ export async function recordLandPurchase(input: RecordLandPurchaseInput) {
       companyId: input.companyId,
       landPurchaseId: landPurchase.id,
       totalCost,
-      projectId: input.projectId ?? null,
+      wipAllocations: input.projectId
+        ? [{ parcelId: parcel.id, amount: totalCost }]
+        : [],
       postedById: input.createdById,
     });
 
@@ -559,13 +561,20 @@ export async function recordLandPurchaseWithPlan(input: RecordLandPurchaseWithPl
       });
     }
 
-    // 7. GL posting — capitalise the land (WIP when the purchase is
-    //    project-linked, held Land Asset otherwise)
+    // 7. GL posting — each project-linked parcel's share of the cost debits
+    //    WIP (unit costing counts parcel.acquisitionCost per projectId); the
+    //    unlinked remainder stays a held Land Asset.
+    // createdParcels holds the updated parent (WHOLE) or the children
+    // (SUBDIVIDED) — both modes populate it, and it alone avoids
+    // double-counting the parent.
+    const wipAllocations = createdParcels
+      .filter((p) => p.projectId)
+      .map((p) => ({ parcelId: p.id, amount: p.acquisitionCost }));
     await postLandPurchase(tx, {
       companyId: input.companyId,
       landPurchaseId: landPurchase.id,
       totalCost,
-      projectId: purchaseProjectId,
+      wipAllocations,
       postedById: input.createdById,
     });
 
@@ -802,9 +811,18 @@ export async function recordLandPurchaseOrder(input: LandPurchaseOrderInput) {
       landPurchaseId: landPurchase.id,
       totalCost,
       cashPaid: cashPaidForGl,
-      projectId: input.projectId ?? null,
+      wipAllocations: input.projectId
+        ? [{ parcelId: parcel.id, amount: totalCost }]
+        : [],
       postedById: input.createdById,
     });
+
+    // Refresh the project's cost pool now — completeLandPurchase does this
+    // again later, but leaving it to completion leaves land out of unit
+    // costing for the entire booking→registry window.
+    if (input.projectId) {
+      await reallocateProjectCosts(tx, input.projectId);
+    }
 
     if (input.createdById) {
       await logAction(tx, {
@@ -1516,5 +1534,150 @@ export async function markPossession(input: MarkPossessionInput) {
     }
 
     throw new ServiceError("Either landPurchaseId or projectId is required");
+  });
+}
+
+/**
+ * Cancel a pre-registry land purchase — the deal fell through (seller backed
+ * out, title defect, plan abandoned). The mirror of booking:
+ *
+ *   Cr WIP (per parcel) / Cr Land Asset     — asset leaves the books
+ *   Dr Accounts Payable                     — remaining payable extinguished
+ *   Dr Vendor Refunds Receivable            — cash already paid becomes a
+ *                                             refund owed by the seller
+ *
+ * Guaranteed balanced by construction: credits mirror the original purchase
+ * JE's asset legs exactly (per-parcel WIP splits included), while the AP
+ * net and refund receivable are computed from this purchase's posted lines —
+ * pending cheques never posted cash, bounced/voided payments already
+ * reversed, so cashOut is always what truly left the account.
+ *
+ * Allowed only pre-registry (BOOKED / BBA_SIGNED). Once REGISTERED the title
+ * has effectively transferred — undoing that is a resale, not a cancel.
+ */
+export async function cancelLandPurchase(input: {
+  landPurchaseId: string;
+  userId?: string;
+  reason?: string;
+}) {
+  return withSerializableTransaction(async (tx) => {
+    const lp = await tx.landPurchase.findUnique({
+      where: { id: input.landPurchaseId },
+      include: {
+        parcels: { select: { id: true, projectId: true } },
+        costComponents: { select: { id: true } },
+      },
+    });
+    if (!lp) throw new ServiceError("Land purchase not found", 404);
+    if (!["BOOKED", "BBA_SIGNED"].includes(lp.purchaseStage)) {
+      throw new ServiceError(
+        `Cannot cancel a purchase in ${lp.purchaseStage} stage — cancellation is only possible before registry`,
+        400,
+      );
+    }
+
+    // Reverse accrued cost-component JEs first so the net aggregates below
+    // already include their effects (component cash is also refundable).
+    const componentIds = lp.costComponents.map((c) => c.id);
+    if (componentIds.length > 0) {
+      const componentJes = await tx.journalEntry.findMany({
+        where: { sourceType: "LAND_COST_COMPONENT", sourceId: { in: componentIds }, status: "POSTED" },
+        select: { id: true },
+      });
+      for (const je of componentJes) {
+        await reverseJournalEntry(tx, je.id, { postedById: input.userId, memo: "Reversed on purchase cancellation" });
+      }
+    }
+
+    // Net position of every GL line tagged to this purchase (purchase JE,
+    // payments, clears, bounces, voids, component reversals all carry
+    // entityId = landPurchaseId on their legs).
+    const cashNet = await tx.journalLine.aggregate({
+      where: {
+        entityType: "LandPurchase",
+        entityId: lp.id,
+        account: { code: ACCT.CASH },
+        journalEntry: { companyId: lp.companyId, status: "POSTED" },
+      },
+      _sum: { credit: true, debit: true },
+    });
+    const apNet = await tx.journalLine.aggregate({
+      where: {
+        entityType: "LandPurchase",
+        entityId: lp.id,
+        account: { code: ACCT.AP },
+        journalEntry: { companyId: lp.companyId, status: "POSTED" },
+      },
+      _sum: { credit: true, debit: true },
+    });
+    const cashOut = new Decimal(cashNet._sum.credit ?? 0).minus(new Decimal(cashNet._sum.debit ?? 0));
+    const apBalance = new Decimal(apNet._sum.credit ?? 0).minus(new Decimal(apNet._sum.debit ?? 0));
+
+    // Mirror the original purchase JE's asset legs (each project parcel's
+    // WIP debit, plus the land-bank leg) as credits.
+    const purchaseJe = await tx.journalEntry.findFirst({
+      where: { sourceType: "LAND_PURCHASE", sourceId: lp.id, status: "POSTED" },
+      include: { lines: { include: { account: { select: { code: true } } } } },
+    });
+    if (!purchaseJe) throw new ServiceError("Purchase journal not found — cannot reverse", 500);
+
+    const lines = purchaseJe.lines
+      .filter((l) => new Decimal(l.debit).gt(0) && (l.account.code === ACCT.WIP || l.account.code === ACCT.LAND_ASSET))
+      .map((l) => ({
+        accountCode: l.account.code,
+        debit: new Decimal(0),
+        credit: new Decimal(l.debit),
+        entityType: l.entityType ?? undefined,
+        entityId: l.entityId ?? undefined,
+        memo: "Cancelled — asset derecognised",
+      }));
+    if (apBalance.gt(0)) {
+      lines.push({ accountCode: ACCT.AP, debit: apBalance, credit: new Decimal(0), entityType: "LandPurchase", entityId: lp.id, memo: "Payable extinguished on cancellation" });
+    }
+    if (cashOut.gt(0)) {
+      lines.push({ accountCode: ACCT.VENDOR_REFUND_RECEIVABLE, debit: cashOut, credit: new Decimal(0), entityType: "LandPurchase", entityId: lp.id, memo: "Refund due from seller" });
+    }
+
+    await postJournalEntry(tx, {
+      companyId: lp.companyId,
+      sourceType: "LAND_PURCHASE_CANCEL",
+      sourceId: lp.id,
+      memo: `Land purchase cancelled${input.reason ? ` — ${input.reason}` : ""}`,
+      postedById: input.userId,
+      lines,
+    });
+
+    // Pending cheques never posted GL — void the rows so the payment list
+    // shows they died with the deal.
+    await tx.landPurchasePayment.updateMany({
+      where: { landPurchaseId: lp.id, chequeStatus: "PENDING" },
+      data: { status: "VOID", voidedAt: new Date(), voidReason: "Purchase cancelled — cheque returned" },
+    });
+
+    await tx.landPurchase.update({
+      where: { id: lp.id },
+      data: { purchaseStage: "CANCELLED" },
+    });
+
+    // Parcels keep their rows for audit but the purchase-stage filter already
+    // drops them from project costing — reallocate so totalProjectCost moves.
+    const projectIds = new Set(lp.parcels.map((p) => p.projectId).filter((id): id is string => !!id));
+    for (const pid of projectIds) {
+      await reallocateProjectCosts(tx, pid);
+    }
+
+    if (input.userId) {
+      await logAction(tx, {
+        userId: input.userId,
+        companyId: lp.companyId,
+        action: "LAND_PURCHASE_CANCEL",
+        entityType: "LandPurchase",
+        entityId: lp.id,
+        before: { purchaseStage: lp.purchaseStage },
+        after: { purchaseStage: "CANCELLED", refundReceivable: cashOut.toString(), reason: input.reason ?? null },
+      });
+    }
+
+    return { purchaseStage: "CANCELLED" as const, refundReceivable: cashOut, payableReleased: apBalance };
   });
 }

@@ -71,6 +71,39 @@ expect_cnt "parcel flips AVAILABLE on completion" "SELECT count(*) FROM \"LandPa
 r=$(req POST "land-purchases/$LP/payment" '{"amount":1000,"paymentMode":"UPI"}')
 expect_refused "payment on completed purchase" "$r"
 
+echo "════════ 6. project-linked purchase → WIP, not Land Asset ════════"
+# A purchase bound to a project capitalises into WIP (1500): the unit-cost
+# pool counts parcel.acquisitionCost, so the GL must route the same way.
+LPROJ="wlp-$RANDOM$RANDOM"
+P "INSERT INTO \"Project\" (id,name,\"companyId\",status,\"updatedAt\",\"createdAt\") VALUES ('$LPROJ','wip-land-$RANDOM','$C','ACTIVE',now(),now())"
+r=$(req POST "land-purchases" "{\"mode\":\"BOOKED\",\"sellerName\":\"WIP Seller\",\"totalArea\":1000,\"areaUnit\":\"SQFT\",\"totalCost\":50000,\"tokenAmount\":50000,\"tokenPaymentMode\":\"UPI\",\"projectId\":\"$LPROJ\",\"location\":\"WIP Site\"}")
+LP2=$(echo "$r" | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
+[ -n "$LP2" ] && { PASS=$((PASS+1)); echo "  linked purchase $LP2"; } || { FAIL=$((FAIL+1)); echo "  FAIL linked buy: ${r:0:140}"; }
+expect_num "linked buy Dr 1500 = 50000" "SELECT COALESCE(SUM(jl.debit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceType\"='LAND_PURCHASE' AND je.\"sourceId\"='$LP2' AND a.code='1500'" 50000
+expect_num "linked buy touches NO 1700" "SELECT COALESCE(SUM(jl.debit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceType\"='LAND_PURCHASE' AND je.\"sourceId\"='$LP2' AND a.code='1700'" 0
+expect_cnt "parcel carries projectId" "SELECT count(*) FROM \"LandParcel\" WHERE \"landPurchaseId\"='$LP2' AND \"projectId\"='$LPROJ'" 1
+expect_num "project cost pool includes land" "SELECT \"totalProjectCost\" FROM \"Project\" WHERE id='$LPROJ'" 50000
+
+echo "════════ 7. cancel a booked purchase → asset out, cash→refund receivable ════════"
+# LP3: 80,000 booked, 30,000 token cash + 20,000 UPI payment (cashOut 50,000,
+# AP 30,000). Cancel must credit the asset, extinguish AP, and put 50,000
+# into vendor-refund receivable — and refuse on the COMPLETED purchase.
+r=$(req POST "land-purchases" "{\"mode\":\"BOOKED\",\"sellerName\":\"Cancel Seller\",\"totalArea\":800,\"areaUnit\":\"SQFT\",\"totalCost\":80000,\"tokenAmount\":30000,\"tokenPaymentMode\":\"UPI\",\"location\":\"Cancel Site\"}")
+LP3=$(echo "$r" | python3 -c "import json,sys; print(json.load(sys.stdin).get('id',''))" 2>/dev/null)
+[ -n "$LP3" ] && { PASS=$((PASS+1)); echo "  cancellable purchase $LP3"; } || { FAIL=$((FAIL+1)); echo "  FAIL LP3: ${r:0:140}"; }
+req POST "land-purchases/$LP3/payment" "{\"amount\":20000,\"paymentMode\":\"UPI\",\"referenceNo\":\"CN$REF\"}" >/dev/null
+r=$(req POST "land-purchases/$LP3/cancel" '{"reason":"verifier: seller backed out"}')
+echo "$r" | grep -q '"ok":true\|CANCELLED' && PASS=$((PASS+1)) || FAIL=$((FAIL+1)); echo "  cancel → ${r:0:120}"
+expect_num "cancel Dr 1660 refund = 50000" "SELECT COALESCE(SUM(jl.debit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceType\"='LAND_PURCHASE_CANCEL' AND je.\"sourceId\"='$LP3' AND a.code='1660'" 50000
+expect_num "cancel Dr 2000 AP = 30000" "SELECT COALESCE(SUM(jl.debit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceType\"='LAND_PURCHASE_CANCEL' AND je.\"sourceId\"='$LP3' AND a.code='2000'" 30000
+expect_num "cancel Cr 1700 asset = 80000" "SELECT COALESCE(SUM(jl.credit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE je.\"sourceType\"='LAND_PURCHASE_CANCEL' AND je.\"sourceId\"='$LP3' AND a.code='1700'" 80000
+expect_num "net AP for LP3 = 0" "SELECT abs(SUM(jl.debit)-SUM(jl.credit)) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE a.code='2000' AND jl.\"entityId\"='$LP3' AND je.status='POSTED'" 0
+expect_num "net cash out for LP3 = receivable" "SELECT COALESCE(SUM(jl.credit)-SUM(jl.debit),0) FROM \"JournalLine\" jl JOIN \"JournalEntry\" je ON je.id=jl.\"journalEntryId\" JOIN \"GlAccount\" a ON a.id=jl.\"accountId\" WHERE a.code='1000' AND jl.\"entityId\"='$LP3' AND je.status='POSTED'" 50000
+r=$(req POST "land-purchases/$LP/cancel" '{"reason":"already completed"}')
+expect_refused "cancel on COMPLETED purchase" "$r"
+r=$(req POST "land-purchases/$LP3/cancel" '{"reason":"twice"}')
+expect_refused "double cancel refused" "$r"
+
 echo "════════════════════════════════════════"
 echo "land-purchase chain: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

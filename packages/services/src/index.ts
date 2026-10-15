@@ -388,6 +388,7 @@ export {
   createLandPaymentSchedule,
   getLandPaymentSchedule,
   markPossession,
+  cancelLandPurchase,
 } from "./land";
 export type {
   LandPurchaseOrderInput,

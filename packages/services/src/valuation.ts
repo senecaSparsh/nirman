@@ -177,8 +177,11 @@ export async function projectTotalCost(projectId: string): Promise<{
         WHERE mi."projectId" = ${projectId}), 0)::float8 AS materials,
       COALESCE((SELECT SUM(amount) FROM "ProjectCost"
         WHERE "projectId" = ${projectId}), 0)::float8 AS labour,
-      COALESCE((SELECT SUM("totalCost") FROM "LandPurchase"
-        WHERE "projectId" = ${projectId} AND "deletedAt" IS NULL), 0)::float8 AS land,
+      COALESCE((SELECT SUM(p."acquisitionCost") FROM "LandParcel" p
+        JOIN "LandPurchase" lp ON lp.id = p."landPurchaseId"
+        WHERE p."projectId" = ${projectId}
+          AND p.status NOT IN ('PARTITIONED', 'SOLD')
+          AND lp."deletedAt" IS NULL AND lp."purchaseStage" <> 'CANCELLED'), 0)::float8 AS land,
       COALESCE((SELECT SUM(sgl.qty * sgl."unitCost")
         FROM "ScrapGenerationLine" sgl
         JOIN "ScrapGeneration" sg ON sg.id = sgl."scrapGenerationId"
@@ -258,9 +261,13 @@ export async function projectPnlBatch(projectIds: string[]) {
       GROUP BY "projectId"
     `),
     prisma.$queryRaw<{ projectId: string; total: number }[]>(Prisma.sql`
-      SELECT "projectId", COALESCE(SUM("totalCost"), 0)::float8 AS total
-      FROM "LandPurchase" WHERE "projectId" IN (${ids}) AND "deletedAt" IS NULL
-      GROUP BY "projectId"
+      SELECT p."projectId", COALESCE(SUM(p."acquisitionCost"), 0)::float8 AS total
+      FROM "LandParcel" p
+      JOIN "LandPurchase" lp ON lp.id = p."landPurchaseId"
+      WHERE p."projectId" IN (${ids})
+        AND p.status NOT IN ('PARTITIONED', 'SOLD')
+        AND lp."deletedAt" IS NULL AND lp."purchaseStage" <> 'CANCELLED'
+      GROUP BY p."projectId"
     `),
     prisma.$queryRaw<{ projectId: string; total: number }[]>(Prisma.sql`
       SELECT sg."projectId" AS "projectId",
@@ -357,12 +364,21 @@ export async function reallocateProjectCosts(
     new Decimal(0),
   );
 
-  const landPurchases = await tx.landPurchase.findMany({
-    where: { projectId, deletedAt: null },
-    select: { totalCost: true },
+  // Parcel-level land cost — parcel.projectId is the authoritative link
+  // (a subdivided purchase can feed several projects; each child parcel
+  // carries its pro-rata acquisitionCost). PARTITIONED parents are cost
+  // containers — their cost lives on the children — and SOLD parcels'
+  // cost already left via the sale's COGS.
+  const projectParcels = await tx.landParcel.findMany({
+    where: {
+      projectId,
+      status: { notIn: ["PARTITIONED", "SOLD"] },
+      landPurchase: { deletedAt: null, purchaseStage: { not: "CANCELLED" } },
+    },
+    select: { acquisitionCost: true },
   });
-  const land = landPurchases.reduce(
-    (sum, p) => sum.plus(new Decimal(p.totalCost)),
+  const land = projectParcels.reduce(
+    (sum, p) => sum.plus(new Decimal(p.acquisitionCost)),
     new Decimal(0),
   );
 
@@ -742,19 +758,17 @@ export async function getRealEstateInventory(
   });
   const totalRevenue = sales.reduce((s, sale) => s.plus(new Decimal(sale.salePrice)), new Decimal(0));
 
-  // Fetch land purchases for land cost per project
-  const landPurchases = await prisma.landPurchase.findMany({
-    where: { projectId: { in: projectIds }, deletedAt: null },
-    select: { projectId: true, totalCost: true },
-  });
-
   // ── Aggregate per project ──
   const projectSummaries: RealEstateProjectSummary[] = projects.map((project) => {
     const projectUnits = units.filter((u) => u.projectId === project.id);
     const projectParcels = parcels.filter((p) => p.projectId === project.id);
-    const projectLand = landPurchases.filter((l) => l.projectId === project.id);
 
-    const landCost = projectLand.reduce((s, l) => s.plus(new Decimal(l.totalCost)), new Decimal(0));
+    // Land cost = Σ parcel acquisitionCost (parcel.projectId is authoritative —
+    // subdivided purchases split cost across projects). PARTITIONED containers
+    // and SOLD parcels are excluded (same rule as reallocateProjectCosts).
+    const landCost = projectParcels
+      .filter((p) => p.status !== "PARTITIONED" && p.status !== "SOLD")
+      .reduce((s, l) => s.plus(new Decimal(l.acquisitionCost)), new Decimal(0));
     // constructionCost = totalProjectCost - landCost (totalProjectCost includes land + materials + labour)
     const constructionCost = new Decimal(project.totalProjectCost ?? 0).minus(landCost);
     const totalAssetValue = new Decimal(project.totalProjectCost ?? 0);
