@@ -160,6 +160,17 @@ export async function buildMaterialSaleEInvoicePayload(
   });
   if (!sale) throw new ServiceError("Sale not found", 404);
 
+  // Void sales must never register an IRN — the invoice would report
+  // revenue that no longer exists in GSTR-1.
+  if (sale.status === "CANCELLED" || sale.status === "RETURNED") {
+    throw new ServiceError(`Cannot register an e-invoice for a ${sale.status.toLowerCase()} sale — the invoice would report revenue that no longer exists`, 400);
+  }
+  // A partially-returned sale's full-value IRN would overstate the invoice;
+  // the correct trail is the original IRN + a credit note for the return.
+  if (sale.status === "PARTIALLY_RETURNED") {
+    throw new ServiceError("Cannot register an e-invoice for a partially returned sale — register the IRN before processing returns, then issue a credit note for the returned portion", 400);
+  }
+
   // e-Invoicing requires both parties to have GSTIN (B2B)
   if (!sale.company.gstin || !sale.customer.gstin) return null;
 
@@ -253,6 +264,12 @@ export async function buildAssetSaleEInvoicePayload(
   });
   if (!sale) throw new ServiceError("Sale not found", 404);
 
+  // Void sales must never register an IRN — both status and saleStage track
+  // cancellation on asset sales.
+  if (sale.status === "CANCELLED" || sale.status === "RETURNED" || sale.saleStage === "CANCELLED") {
+    throw new ServiceError("Cannot register an e-invoice for a cancelled sale — the invoice would report revenue that no longer exists", 400);
+  }
+
   // e-Invoicing requires both parties to have GSTIN (B2B)
   if (!sale.company.gstin || !sale.customer.gstin) return null;
 
@@ -322,6 +339,14 @@ export async function buildAssetSaleEInvoicePayload(
 
 // ── Generate IRN ───────────────────────────────────────────────────
 
+/**
+ * A claimed-but-never-completed IRN state (GENERATING/CANCELLING) older than
+ * this is treated as a dead attempt — the process crashed between the claim
+ * and the portal result write. Without the TTL the invoice's IRN path would
+ * 409 forever with no recovery short of manual DB surgery.
+ */
+const IRN_CLAIM_STALE_MS = 15 * 60 * 1000;
+
 export async function generateMaterialSaleIrn(
   saleId: string,
   companyId: string,
@@ -342,12 +367,18 @@ export async function generateMaterialSaleIrn(
   }
 
   // Claim the slot — a concurrent/double-tap generate sees GENERATING or
-  // GENERATED and bails instead of double-submitting to the portal.
+  // GENERATED and bails instead of double-submitting to the portal. A stale
+  // GENERATING (crashed attempt) may be re-claimed.
+  const staleBefore = new Date(Date.now() - IRN_CLAIM_STALE_MS);
   await withSerializableTransaction(async (tx) => {
     const claimed = await tx.materialSale.updateMany({
       where: {
         id: saleId,
-        OR: [{ irnStatus: null }, { irnStatus: { notIn: ["GENERATED", "GENERATING"] } }],
+        OR: [
+          { irnStatus: null },
+          { irnStatus: { notIn: ["GENERATED", "GENERATING"] } },
+          { irnStatus: "GENERATING", updatedAt: { lt: staleBefore } },
+        ],
       },
       data: { irnStatus: "GENERATING", irnError: null },
     });
@@ -429,11 +460,16 @@ export async function generateAssetSaleIrn(
     );
   }
 
+  const staleBefore = new Date(Date.now() - IRN_CLAIM_STALE_MS);
   await withSerializableTransaction(async (tx) => {
     const claimed = await tx.assetSale.updateMany({
       where: {
         id: saleId,
-        OR: [{ irnStatus: null }, { irnStatus: { notIn: ["GENERATED", "GENERATING"] } }],
+        OR: [
+          { irnStatus: null },
+          { irnStatus: { notIn: ["GENERATED", "GENERATING"] } },
+          { irnStatus: "GENERATING", updatedAt: { lt: staleBefore } },
+        ],
       },
       data: { irnStatus: "GENERATING", irnError: null },
     });
@@ -504,10 +540,20 @@ export async function cancelMaterialSaleIrn(
 ): Promise<{ status: string }> {
   // Claim the cancel by flipping GENERATED → CANCELLING inside the tx — a
   // concurrent cancel sees CANCELLING and bails. The portal call itself runs
-  // outside so a tx retry can't re-fire a second cancel request.
+  // outside so a tx retry can't re-fire a second cancel request. A stale
+  // CANCELLING (crashed attempt) may be re-claimed.
+  const staleBefore = new Date(Date.now() - IRN_CLAIM_STALE_MS);
   const irn = await withSerializableTransaction(async (tx) => {
     const claimed = await tx.materialSale.updateMany({
-      where: { id: saleId, companyId, irnStatus: "GENERATED", irn: { not: null } },
+      where: {
+        id: saleId,
+        companyId,
+        irn: { not: null },
+        OR: [
+          { irnStatus: "GENERATED" },
+          { irnStatus: "CANCELLING", updatedAt: { lt: staleBefore } },
+        ],
+      },
       data: { irnStatus: "CANCELLING" },
     });
     if (claimed.count === 0) {
@@ -566,9 +612,18 @@ export async function cancelAssetSaleIrn(
 ): Promise<{ status: string }> {
   // Same boundary fix as cancelMaterialSaleIrn — CANCELLING claim inside the
   // tx, portal call outside, CANCELLED write in a fresh tx.
+  const staleBefore = new Date(Date.now() - IRN_CLAIM_STALE_MS);
   const irn = await withSerializableTransaction(async (tx) => {
     const claimed = await tx.assetSale.updateMany({
-      where: { id: saleId, companyId, irnStatus: "GENERATED", irn: { not: null } },
+      where: {
+        id: saleId,
+        companyId,
+        irn: { not: null },
+        OR: [
+          { irnStatus: "GENERATED" },
+          { irnStatus: "CANCELLING", updatedAt: { lt: staleBefore } },
+        ],
+      },
       data: { irnStatus: "CANCELLING" },
     });
     if (claimed.count === 0) {
