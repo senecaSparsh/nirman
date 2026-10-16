@@ -21,17 +21,25 @@ const baseURL = PROBE_BASE ?? `http://localhost:${PORT}`;
 export default defineConfig({
   testDir: "./probe",
   fullyParallel: false,
-  workers: 1,
-  retries: 0,
+  workers: 4,
+  // One spec file holds every page — without fullyParallel it all serializes
+  // into a single worker no matter what `workers` says.
+  fullyParallel: true,
+  retries: 1, // cold-compile + machine-suspend flakes self-heal on a warm second hit
   reporter: [["list"]],
-  timeout: 180_000,
+  timeout: 300_000, // cold Turbopack compiles can eat most of the budget on first hit
   expect: { timeout: 7_000 },
   use: {
     baseURL,
     screenshot: "only-on-failure",
     trace: "off",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    // grep splits the suite — desktop spec under Desktop Chrome, mobile
+    // spec under the same project (its own test.use sets iPhone chrome).
+    { name: "chromium", use: { ...devices["Desktop Chrome"] }, grep: /@probe-desktop/ },
+    { name: "mobile", use: { ...devices["Desktop Chrome"] }, grep: /@probe-mobile/ },
+  ],
   // No webServer when PROBE_BASE is set — the caller owns that server.
   ...(PROBE_BASE
     ? {}
