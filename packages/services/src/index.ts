@@ -1261,6 +1261,8 @@ export {
   type ReconciliationReport,
 } from "./reconciliation-health";
 
+export { runInvariantChecks } from "./invariant-checks";
+
 // Statutory Payments — remit PF/ESI/TDS/GST liabilities (drain the payables)
 export {
   recordStatutoryPayment,

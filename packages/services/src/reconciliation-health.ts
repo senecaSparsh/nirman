@@ -1046,16 +1046,22 @@ export async function reconcileTrialBalance(
 export async function runBookReconciliation(
   companyId: string,
 ): Promise<ReconciliationReport> {
-  const checks = await Promise.all([
-    reconcileStockLedger(companyId),
-    reconcileInventoryGl(companyId),
-    reconcileSupplierAp(companyId),
-    reconcileWipGl(companyId),
-    reconcileLandCosts(companyId),
-    reconcileUnitCosts(companyId),
-    reconcileTrialBalance(companyId),
-    reconcileAccountSigns(companyId),
+  // Lazy import — invariant-checks.ts imports this module for buildCheck.
+  const { runInvariantChecks } = await import("./invariant-checks");
+  const [bookChecks, invariantChecks] = await Promise.all([
+    Promise.all([
+      reconcileStockLedger(companyId),
+      reconcileInventoryGl(companyId),
+      reconcileSupplierAp(companyId),
+      reconcileWipGl(companyId),
+      reconcileLandCosts(companyId),
+      reconcileUnitCosts(companyId),
+      reconcileTrialBalance(companyId),
+      reconcileAccountSigns(companyId),
+    ]),
+    runInvariantChecks(companyId),
   ]);
+  const checks = [...bookChecks, ...invariantChecks];
 
   const summary = summarizeChecks(checks);
 
