@@ -15,7 +15,7 @@ import {
   NotificationEventType,
 } from "./notification-event-bus";
 import { withSerializableTransaction } from "./transaction";
-import { syncPaymentScheduleFromPayments } from "./sale";
+import { syncPaymentScheduleFromPayments, sumClearedAssetSalePayments } from "./sale";
 
 /**
  * SMS Parser Service — auto payment entry from bank SMS notifications.
@@ -88,13 +88,10 @@ const ACCOUNT_REGEX =
 function detectTxnType(message: string): "CREDIT" | "DEBIT" | "REFUND" | null {
   const lower = message.toLowerCase();
   if (lower.includes("refund")) return "REFUND";
-  if (
-    lower.includes("credited") ||
-    lower.includes("received") ||
-    lower.includes("deposited") ||
-    lower.includes("credit")
-  )
-    return "CREDIT";
+  // Check DEBIT before CREDIT — a debit alert frequently contains the word
+  // "credit" ("your Credit Card ending 1234 has been debited") and must not
+  // be read as money received; a false-positive credit can auto-post phantom
+  // revenue when the amount happens to match an outstanding balance.
   if (
     lower.includes("debited") ||
     lower.includes("withdrawn") ||
@@ -102,6 +99,13 @@ function detectTxnType(message: string): "CREDIT" | "DEBIT" | "REFUND" | null {
     lower.includes("debit")
   )
     return "DEBIT";
+  if (
+    lower.includes("credited") ||
+    lower.includes("received") ||
+    lower.includes("deposited") ||
+    lower.includes("credit")
+  )
+    return "CREDIT";
   return null;
 }
 
@@ -191,7 +195,8 @@ export async function ingestSms(
   const receivedAt = input.receivedAt ?? new Date();
   const hash = smsHash(input.sender, input.message);
 
-  // Check for duplicate
+  // Fast-path duplicate check — the common case is a forwarded SMS arriving
+  // later, not a race.
   const existing = await prisma.bankSms.findUnique({
     where: { smsHash: hash },
   });
@@ -210,10 +215,16 @@ export async function ingestSms(
 
   // Parse the SMS
   const parsed = parseSms(input.sender, input.message, receivedAt);
+  const isCredit = parsed.txnType === "CREDIT" && !!parsed.amount;
 
-  // Only process CREDIT transactions (money received)
-  if (parsed.txnType !== "CREDIT" || !parsed.amount) {
-    const sms = await prisma.bankSms.create({
+  // Claim the hash BEFORE any money moves. Previously the payment+GL commit
+  // ran inside matchPayment and the BankSms row was created after — two
+  // concurrent ingests of the same message both posted payments before one
+  // lost the unique-hash race. Creating the row first makes the hash the
+  // claim: the loser gets P2002 and returns the winner's result.
+  let sms;
+  try {
+    sms = await prisma.bankSms.create({
       data: {
         companyId: input.companyId,
         sender: input.sender,
@@ -225,14 +236,39 @@ export async function ingestSms(
         bankName: parsed.bankName,
         txnType: parsed.txnType,
         counterparty: parsed.counterparty,
-        status: parsed.txnType === "CREDIT" ? "UNMATCHED" : "IGNORED",
-        matchReason:
-          parsed.txnType !== "CREDIT"
+        status: isCredit
+          ? "MATCHING"
+          : parsed.txnType === "CREDIT"
+            ? "UNMATCHED"
+            : "IGNORED",
+        matchReason: isCredit
+          ? null
+          : parsed.txnType !== "CREDIT"
             ? "Not a credit transaction"
             : "No amount detected",
         smsHash: hash,
       },
     });
+  } catch (err) {
+    // Unique-hash collision — the winner's ingest is already recorded (or in
+    // flight); re-read it and report the duplicate.
+    const won = await prisma.bankSms.findUnique({ where: { smsHash: hash } });
+    if (won) {
+      return {
+        id: won.id,
+        status: won.status,
+        amount: won.amount?.toString() ?? null,
+        matchedEntityType: won.matchedEntityType,
+        matchedEntityId: won.matchedEntityId,
+        paymentRecordId: won.paymentRecordId,
+        matchReason: won.matchReason,
+        duplicate: true,
+      };
+    }
+    throw err;
+  }
+
+  if (!isCredit) {
     return {
       id: sms.id,
       status: sms.status,
@@ -245,25 +281,30 @@ export async function ingestSms(
     };
   }
 
-  // Try to match the amount to an existing sale/tenancy
-  const matchResult = await matchPayment(
-    input.companyId,
-    parsed.amount,
-    parsed.counterparty,
-  );
+  // Try to match the amount to an existing sale/tenancy. A matcher failure
+  // leaves the row UNMATCHED (retryable via manual match) — the SMS itself
+  // is safely recorded either way.
+  let matchResult: MatchResult;
+  try {
+    matchResult = await matchPayment(
+      input.companyId,
+      parsed.amount!,
+      parsed.counterparty,
+    );
+  } catch (err) {
+    await prisma.bankSms.update({
+      where: { id: sms.id },
+      data: {
+        status: "UNMATCHED",
+        matchReason: `Auto-match failed: ${err instanceof Error ? err.message : "unknown error"}`,
+      },
+    });
+    throw err;
+  }
 
-  const sms = await prisma.bankSms.create({
+  sms = await prisma.bankSms.update({
+    where: { id: sms.id },
     data: {
-      companyId: input.companyId,
-      sender: input.sender,
-      message: input.message,
-      receivedAt,
-      amount: parsed.amount,
-      upiRef: parsed.upiRef,
-      accountNo: parsed.accountNo,
-      bankName: parsed.bankName,
-      txnType: parsed.txnType,
-      counterparty: parsed.counterparty,
       status: matchResult.matched ? "MATCHED" : "UNMATCHED",
       matchedEntityType: matchResult.entityType,
       matchedEntityId: matchResult.entityId,
@@ -272,7 +313,6 @@ export async function ingestSms(
         ? new Decimal(matchResult.confidence)
         : null,
       matchReason: matchResult.reason,
-      smsHash: hash,
     },
   });
 
@@ -283,7 +323,7 @@ export async function ingestSms(
       entityType: "BankSms",
       entityId: sms.id,
       after: {
-        amount: parsed.amount.toString(),
+        amount: parsed.amount!.toString(),
         matched: matchResult.matched,
         entityType: matchResult.entityType,
         entityId: matchResult.entityId,
@@ -334,7 +374,9 @@ async function matchPayment(
     },
     include: {
       customer: { select: { name: true, phone: true } },
-      payments: { where: { status: "RECEIVED" }, select: { amount: true } },
+      // Outstanding counts realised money only — voided rows, PENDING and
+      // BOUNCED cheques are not cash-in-hand.
+      payments: { select: { amount: true, status: true, chequeStatus: true } },
     },
   });
 
@@ -344,10 +386,7 @@ async function matchPayment(
   // whichever the DB returned first. Same ambiguity guard the installment
   // matcher below uses.
   const exactMatches = assetSales.filter((sale) => {
-    const totalPaid = sale.payments.reduce(
-      (s, p) => s.plus(new Decimal(p.amount)),
-      new Decimal(0),
-    );
+    const totalPaid = sumClearedAssetSalePayments(sale.payments);
     const outstanding = new Decimal(sale.salePrice)
       .plus(new Decimal(sale.gstAmount))
       .minus(totalPaid);
@@ -400,15 +439,13 @@ async function matchPayment(
       }
       // Sync payment schedule items with actual payment totals
       await syncPaymentScheduleFromPayments(tx, sale.id);
-      // Recompute + update parent payment status
+      // Recompute + update parent payment status — cleared payments only,
+      // same rule the schedule sync uses.
       const allPayments = await tx.assetSalePayment.findMany({
-        where: { assetSaleId: sale.id, status: "RECEIVED" },
-        select: { amount: true },
+        where: { assetSaleId: sale.id, status: { not: "VOID" } },
+        select: { amount: true, status: true, chequeStatus: true },
       });
-      const newTotalPaid = allPayments.reduce(
-        (s, p) => s.plus(new Decimal(p.amount)),
-        new Decimal(0),
-      );
+      const newTotalPaid = sumClearedAssetSalePayments(allPayments);
       const totalDue = new Decimal(sale.salePrice).plus(
         new Decimal(sale.gstAmount),
       );
@@ -524,13 +561,10 @@ async function matchPayment(
         }
         await syncPaymentScheduleFromPayments(tx, sale.id);
         const allPayments = await tx.assetSalePayment.findMany({
-          where: { assetSaleId: sale.id, status: "RECEIVED" },
-          select: { amount: true },
+          where: { assetSaleId: sale.id, status: { not: "VOID" } },
+          select: { amount: true, status: true, chequeStatus: true },
         });
-        const newTotalPaid = allPayments.reduce(
-          (s, p) => s.plus(new Decimal(p.amount)),
-          new Decimal(0),
-        );
+        const newTotalPaid = sumClearedAssetSalePayments(allPayments);
         const totalDue = new Decimal(sale.salePrice).plus(
           new Decimal(sale.gstAmount),
         );
@@ -564,7 +598,9 @@ async function matchPayment(
     }
   }
 
-  // 2. Check tenancy rent payments — find tenancies with due rent
+  // 2. Check tenancy rent payments — find tenancies with due rent.
+  //    Same uniqueness rule as sales: two units at the same monthly rent are
+  //    common, and a first-row match would credit a random tenant's ledger.
   const tenancies = await prisma.tenancy.findMany({
     where: {
       companyId,
@@ -576,66 +612,69 @@ async function matchPayment(
     },
   });
 
-  for (const tenancy of tenancies) {
-    // Check if the amount matches the monthly rent
-    if (new Decimal(tenancy.monthlyRent).minus(amount).abs().lt(1)) {
-      const confidence =
-        counterparty &&
-        tenancy.tenantName
-          .toLowerCase()
-          .includes(counterparty.toLowerCase().split(" ")[0]!)
-          ? 90
-          : 70;
-      // Create the payment + post GL in one transaction
-      const payment = await withSerializableTransaction(async (tx) => {
-        const p = await tx.rentalPayment.create({
-          data: {
-            tenancyId: tenancy.id,
-            amount,
-            netReceived: amount,
-            paymentDate: new Date(),
-            dueDate: new Date(),
-            mode: "BANK",
-            status: "RECEIVED",
-          },
-        });
-        // Post GL: Dr Cash, Cr Rent Revenue
-        await postJournalEntry(tx, {
-          companyId,
-          sourceType: "RENT_PAYMENT",
-          sourceId: p.id,
-          memo: `Rent received from ${tenancy.tenantName} (bank SMS auto-match)`,
-          lines: [
-            {
-              accountCode: ACCT.CASH,
-              debit: amount,
-              credit: 0,
-              entityType: "RentalPayment",
-              entityId: p.id,
-            },
-            {
-              accountCode: ACCT.SALES_REVENUE,
-              debit: 0,
-              credit: amount,
-              entityType: "Tenancy",
-              entityId: tenancy.id,
-            },
-          ],
-        });
-        return p;
+  const rentMatches = tenancies.filter((t) =>
+    new Decimal(t.monthlyRent).minus(amount).abs().lt(1),
+  );
+  if (rentMatches.length === 1) {
+    const tenancy = rentMatches[0]!;
+    const confidence =
+      counterparty &&
+      tenancy.tenantName
+        .toLowerCase()
+        .includes(counterparty.toLowerCase().split(" ")[0]!)
+        ? 90
+        : 70;
+    // Create the payment + post GL in one transaction
+    const payment = await withSerializableTransaction(async (tx) => {
+      const p = await tx.rentalPayment.create({
+        data: {
+          tenancyId: tenancy.id,
+          amount,
+          netReceived: amount,
+          paymentDate: new Date(),
+          dueDate: new Date(),
+          mode: "BANK",
+          status: "RECEIVED",
+        },
       });
-      return {
-        matched: true,
-        entityType: "TENANCY",
-        entityId: tenancy.id,
-        paymentId: payment.id,
-        confidence,
-        reason: `Matched to tenancy (${tenancy.tenantName}) — monthly rent amount`,
-      };
-    }
+      // Post GL: Dr Cash, Cr Rent Revenue
+      await postJournalEntry(tx, {
+        companyId,
+        sourceType: "RENT_PAYMENT",
+        sourceId: p.id,
+        memo: `Rent received from ${tenancy.tenantName} (bank SMS auto-match)`,
+        lines: [
+          {
+            accountCode: ACCT.CASH,
+            debit: amount,
+            credit: 0,
+            entityType: "RentalPayment",
+            entityId: p.id,
+          },
+          {
+            accountCode: ACCT.SALES_REVENUE,
+            debit: 0,
+            credit: amount,
+            entityType: "Tenancy",
+            entityId: tenancy.id,
+          },
+        ],
+      });
+      return p;
+    });
+    return {
+      matched: true,
+      entityType: "TENANCY",
+      entityId: tenancy.id,
+      paymentId: payment.id,
+      confidence,
+      reason: `Matched to tenancy (${tenancy.tenantName}) — monthly rent amount`,
+    };
   }
 
-  // 3. Check material sale payments
+  // 3. Check material sale payments — unique outstanding match only, and
+  //    outstanding counts realised money only (VOID rows, OUT refunds and
+  //    BOUNCED cheques excluded — the canonical sale-payment sum rule).
   const materialSales = await prisma.materialSale.findMany({
     where: {
       companyId,
@@ -644,71 +683,85 @@ async function matchPayment(
     },
     include: {
       customer: { select: { name: true } },
-      payments: { select: { amount: true } },
+      payments: {
+        where: {
+          status: { not: "VOID" },
+          direction: "IN",
+          OR: [{ chequeStatus: null }, { chequeStatus: { not: "BOUNCED" } }],
+        },
+        select: { amount: true },
+      },
     },
   });
 
-  for (const sale of materialSales) {
+  const msMatches = materialSales.filter((sale) => {
     const totalPaid = sale.payments.reduce(
       (s, p) => s.plus(new Decimal(p.amount)),
       new Decimal(0),
     );
     const outstanding = new Decimal(sale.totalAmount).minus(totalPaid);
-    if (outstanding.minus(amount).abs().lt(1)) {
-      const confidence =
-        counterparty &&
-        sale.customer?.name
-          ?.toLowerCase()
-          .includes(counterparty.toLowerCase().split(" ")[0]!)
-          ? 90
-          : 75;
-      // Create the payment + post GL + update parent status in one transaction
-      const payment = await withSerializableTransaction(async (tx) => {
-        const p = await tx.materialSalePayment.create({
-          data: {
-            saleId: sale.id,
-            amount,
-            paymentDate: new Date(),
-            paymentMode: "BANK",
-          },
-        });
-        // Post GL: Dr Cash, Cr Accounts Receivable
-        await postMaterialSalePayment(tx, {
-          companyId,
-          materialSaleId: sale.id,
-          paymentId: p.id,
+    return outstanding.minus(amount).abs().lt(1);
+  });
+  if (msMatches.length === 1) {
+    const sale = msMatches[0]!;
+    const confidence =
+      counterparty &&
+      sale.customer?.name
+        ?.toLowerCase()
+        .includes(counterparty.toLowerCase().split(" ")[0]!)
+        ? 90
+        : 75;
+    // Create the payment + post GL + update parent status in one transaction
+    const payment = await withSerializableTransaction(async (tx) => {
+      const p = await tx.materialSalePayment.create({
+        data: {
+          saleId: sale.id,
           amount,
-        });
-        // Recompute + update parent payment status
-        const allPayments = await tx.materialSalePayment.findMany({
-          where: { saleId: sale.id, direction: "IN" },
-          select: { amount: true },
-        });
-        const newTotalPaid = allPayments.reduce(
-          (s, p) => s.plus(new Decimal(p.amount)),
-          new Decimal(0),
-        );
-        const totalDue = new Decimal(sale.totalAmount);
-        const newStatus = newTotalPaid.gte(totalDue)
-          ? "PAID"
-          : newTotalPaid.gt(0)
-            ? "PARTIAL"
-            : "PENDING";
-        await tx.materialSale.update({
-          where: { id: sale.id },
-          data: { paymentStatus: newStatus },
-        });
-        return p;
+          paymentDate: new Date(),
+          paymentMode: "BANK",
+        },
       });
-      return {
-        matched: true,
-        entityType: "MATERIAL_SALE",
-        entityId: sale.id,
-        paymentId: payment.id,
-        confidence,
-        reason: `Matched to material sale ${sale.saleNumber} — exact outstanding amount`,
-      };
-    }
+      // Post GL: Dr Cash, Cr Accounts Receivable
+      await postMaterialSalePayment(tx, {
+        companyId,
+        materialSaleId: sale.id,
+        paymentId: p.id,
+        amount,
+      });
+      // Recompute + update parent payment status — realised payments only
+      const allPayments = await tx.materialSalePayment.findMany({
+        where: {
+          saleId: sale.id,
+          status: { not: "VOID" },
+          direction: "IN",
+          OR: [{ chequeStatus: null }, { chequeStatus: { not: "BOUNCED" } }],
+        },
+        select: { amount: true },
+      });
+      const newTotalPaid = allPayments.reduce(
+        (s, p) => s.plus(new Decimal(p.amount)),
+        new Decimal(0),
+      );
+      const totalDue = new Decimal(sale.totalAmount);
+      const newStatus = newTotalPaid.gte(totalDue)
+        ? "PAID"
+        : newTotalPaid.gt(0)
+          ? "PARTIAL"
+          : "PENDING";
+      await tx.materialSale.update({
+        where: { id: sale.id },
+        data: { paymentStatus: newStatus },
+      });
+      return p;
+    });
+    return {
+      matched: true,
+      entityType: "MATERIAL_SALE",
+      entityId: sale.id,
+      paymentId: payment.id,
+      confidence,
+      reason: `Matched to material sale ${sale.saleNumber} — exact outstanding amount`,
+    };
   }
 
   // No match found
@@ -744,14 +797,33 @@ export async function manualMatchSms(input: ManualMatchInput) {
     throw new ServiceError("SMS is already matched");
 
   const amount = new Decimal(sms.amount);
-  let paymentId: string | null = null;
+  let updated;
 
+  // Each branch runs as ONE serializable tx: claim the SMS (refuse a
+  // concurrent second match before any money moves), validate the target,
+  // post the payment + GL, then write the matched state back — atomic.
   if (input.entityType === "ASSET_SALE") {
-    paymentId = await withSerializableTransaction(async (tx) => {
+    updated = await withSerializableTransaction(async (tx) => {
+      const claim = await tx.bankSms.updateMany({
+        where: { id: sms.id, status: { not: "MATCHED" } },
+        data: {
+          status: "MATCHED",
+          matchedEntityType: input.entityType,
+          matchedEntityId: input.entityId,
+          matchConfidence: new Decimal(100),
+          matchReason: "Manually matched by user",
+        },
+      });
+      if (claim.count === 0) throw new ServiceError("SMS is already matched", 409);
       const sale = await tx.assetSale.findFirst({
         where: { id: input.entityId, companyId: input.companyId },
       });
       if (!sale) throw new ServiceError("Asset sale not found", 404);
+      // Money into dead books: a cancelled sale's payment would sit
+      // unreconciled forever, and a fully-paid sale's excess belongs in the
+      // customer's credit balance, not an unmatched payment row.
+      if (sale.status === "CANCELLED") throw new ServiceError("Cannot apply a payment to a cancelled sale — refund the payer instead", 400);
+      if (sale.paymentStatus === "PAID") throw new ServiceError("Sale is already fully paid — record this as customer credit from the sale's payments view instead", 400);
       const p = await tx.assetSalePayment.create({
         data: {
           assetSaleId: input.entityId,
@@ -781,15 +853,12 @@ export async function manualMatchSms(input: ManualMatchInput) {
       }
       // Sync payment schedule items with actual payment totals
       await syncPaymentScheduleFromPayments(tx, input.entityId);
-      // Recompute parent payment status
+      // Recompute parent payment status — realised payments only
       const allPayments = await tx.assetSalePayment.findMany({
-        where: { assetSaleId: input.entityId, status: "RECEIVED" },
-        select: { amount: true },
+        where: { assetSaleId: input.entityId, status: { not: "VOID" } },
+        select: { amount: true, status: true, chequeStatus: true },
       });
-      const newTotalPaid = allPayments.reduce(
-        (s, p) => s.plus(new Decimal(p.amount)),
-        new Decimal(0),
-      );
+      const newTotalPaid = sumClearedAssetSalePayments(allPayments);
       const totalDue = new Decimal(sale.salePrice).plus(
         new Decimal(sale.gstAmount),
       );
@@ -802,14 +871,32 @@ export async function manualMatchSms(input: ManualMatchInput) {
         where: { id: input.entityId },
         data: { paymentStatus: newStatus },
       });
-      return p.id;
+      await tx.bankSms.update({
+        where: { id: sms.id },
+        data: { paymentRecordId: p.id },
+      });
+      return tx.bankSms.findUnique({ where: { id: sms.id } });
     });
   } else if (input.entityType === "TENANCY") {
-    paymentId = await withSerializableTransaction(async (tx) => {
+    updated = await withSerializableTransaction(async (tx) => {
+      const claim = await tx.bankSms.updateMany({
+        where: { id: sms.id, status: { not: "MATCHED" } },
+        data: {
+          status: "MATCHED",
+          matchedEntityType: input.entityType,
+          matchedEntityId: input.entityId,
+          matchConfidence: new Decimal(100),
+          matchReason: "Manually matched by user",
+        },
+      });
+      if (claim.count === 0) throw new ServiceError("SMS is already matched", 409);
       const tenancy = await tx.tenancy.findFirst({
         where: { id: input.entityId, companyId: input.companyId },
       });
       if (!tenancy) throw new ServiceError("Tenancy not found", 404);
+      if (tenancy.status !== "ACTIVE") {
+        throw new ServiceError(`Cannot apply rent to a ${tenancy.status.toLowerCase()} tenancy`, 400);
+      }
       const p = await tx.rentalPayment.create({
         data: {
           tenancyId: input.entityId,
@@ -844,14 +931,31 @@ export async function manualMatchSms(input: ManualMatchInput) {
           },
         ],
       });
-      return p.id;
+      await tx.bankSms.update({
+        where: { id: sms.id },
+        data: { paymentRecordId: p.id },
+      });
+      return tx.bankSms.findUnique({ where: { id: sms.id } });
     });
   } else if (input.entityType === "MATERIAL_SALE") {
-    paymentId = await withSerializableTransaction(async (tx) => {
+    updated = await withSerializableTransaction(async (tx) => {
+      const claim = await tx.bankSms.updateMany({
+        where: { id: sms.id, status: { not: "MATCHED" } },
+        data: {
+          status: "MATCHED",
+          matchedEntityType: input.entityType,
+          matchedEntityId: input.entityId,
+          matchConfidence: new Decimal(100),
+          matchReason: "Manually matched by user",
+        },
+      });
+      if (claim.count === 0) throw new ServiceError("SMS is already matched", 409);
       const sale = await tx.materialSale.findFirst({
         where: { id: input.entityId, companyId: input.companyId },
       });
       if (!sale) throw new ServiceError("Material sale not found", 404);
+      if (sale.status === "CANCELLED") throw new ServiceError("Cannot apply a payment to a cancelled sale — refund the payer instead", 400);
+      if (sale.paymentStatus === "PAID") throw new ServiceError("Sale is already fully paid — record this as customer credit from the sale's payments view instead", 400);
       const p = await tx.materialSalePayment.create({
         data: {
           saleId: input.entityId,
@@ -867,9 +971,14 @@ export async function manualMatchSms(input: ManualMatchInput) {
         paymentId: p.id,
         amount,
       });
-      // Recompute parent payment status
+      // Recompute parent payment status — realised payments only
       const allPayments = await tx.materialSalePayment.findMany({
-        where: { saleId: input.entityId, direction: "IN" },
+        where: {
+          saleId: input.entityId,
+          status: { not: "VOID" },
+          direction: "IN",
+          OR: [{ chequeStatus: null }, { chequeStatus: { not: "BOUNCED" } }],
+        },
         select: { amount: true },
       });
       const newTotalPaid = allPayments.reduce(
@@ -886,21 +995,15 @@ export async function manualMatchSms(input: ManualMatchInput) {
         where: { id: input.entityId },
         data: { paymentStatus: newStatus },
       });
-      return p.id;
+      await tx.bankSms.update({
+        where: { id: sms.id },
+        data: { paymentRecordId: p.id },
+      });
+      return tx.bankSms.findUnique({ where: { id: sms.id } });
     });
+  } else {
+    throw new ServiceError(`Unknown entity type: ${input.entityType}`, 400);
   }
-
-  const updated = await prisma.bankSms.update({
-    where: { id: sms.id },
-    data: {
-      status: "MATCHED",
-      matchedEntityType: input.entityType,
-      matchedEntityId: input.entityId,
-      paymentRecordId: paymentId,
-      matchConfidence: new Decimal(100),
-      matchReason: "Manually matched by user",
-    },
-  });
 
   if (input.userId) {
     await logAction(prisma, {

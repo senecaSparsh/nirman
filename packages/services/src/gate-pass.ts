@@ -89,12 +89,27 @@ export interface CreateGatePassInput {
  */
 export async function createGatePass(input: CreateGatePassInput) {
   if (input.lines.length === 0) throw new ServiceError("Gate pass must have at least one line");
+  // Every line must describe a real outbound quantity — a zero/negative line
+  // is meaningless on the gate guard's manifest.
+  for (const line of input.lines) {
+    if (!new Decimal(line.qty).gt(0)) throw new ServiceError("Gate pass line qty must be > 0", 400);
+  }
 
   // Validate location belongs to the company
   const location = await prisma.stockLocation.findFirst({
     where: { id: input.locationId, companyId: input.companyId, deletedAt: null },
   });
   if (!location) throw new ServiceError("Location not found in this company", 404);
+
+  // Validate project belongs to the company when linked — a foreign projectId
+  // would attribute this company's manifest to another tenant's project.
+  if (input.projectId) {
+    const project = await prisma.project.findFirst({
+      where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!project) throw new ServiceError("Project not found in this company", 404);
+  }
 
   // Pre-fetch material snapshots for lines that have materialId but no snapshot
   const materialIds = input.lines.filter((l) => l.materialId && !l.materialName).map((l) => l.materialId!);
@@ -218,8 +233,10 @@ export async function approveGatePass(id: string, approverId: string, notes?: st
     if (!gp) throw new ServiceError("Gate pass not found", 404);
     if (gp.status !== "PENDING") throw new ServiceError(`Cannot approve gate pass in status ${gp.status}`);
     // Prevent self-approval — unless a tier-1 role (OWNER/ADMIN), where no
-    // higher approver exists above the creator.
-    if (gp.createdById && gp.createdById === approverId && !canAutoApprove(actorRole)) {
+    // higher approver exists above the creator. The SUBMITTER is covered too:
+    // the pass was pushed to PENDING by them, so letting them approve it is
+    // the same maker-checker break the creator guard closes.
+    if ((gp.createdById === approverId || gp.submittedById === approverId) && !canAutoApprove(actorRole)) {
       throw new ServiceError("Cannot approve your own gate pass");
     }
 
@@ -636,6 +653,9 @@ export async function autoCreateGatePassFromRef(
   },
 ) {
   const gatePassNumber = await generateGatePassNumber(tx, params.companyId);
+  for (const line of params.lines) {
+    if (!new Decimal(line.qty).gt(0)) throw new ServiceError("Gate pass line qty must be > 0", 400);
+  }
 
   // Pre-fetch material snapshots
   const materialIds = params.lines.filter((l) => l.materialId && !l.materialName).map((l) => l.materialId!);
