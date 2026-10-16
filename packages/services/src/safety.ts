@@ -269,7 +269,7 @@ export async function cancelIncident(id: string, userId: string, companyId?: str
   return withSerializableTransaction(async (tx) => {
     const incident = await tx.safetyIncident.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
     if (!incident) throw new ServiceError("Incident not found", 404);
-    if (incident.status !== "REPORTED") throw new ServiceError(`Cannot cancel incident in ${incident.status} status`, 400);
+    if (incident.status !== "REPORTED" && incident.status !== "UNDER_INVESTIGATION" && incident.status !== "INVESTIGATED") throw new ServiceError(`Cannot cancel incident in ${incident.status} status`, 400);
     const updated = await tx.safetyIncident.update({ where: { id }, data: { status: "CANCELLED" } });
     await logAction(tx, { userId, action: "SAFETY_INCIDENT_CANCEL", entityType: "SafetyIncident", entityId: id, after: { status: "CANCELLED" } });
     return updated;
@@ -281,6 +281,8 @@ export async function deleteIncident(id: string, userId?: string, companyId?: st
     const existing = await tx.safetyIncident.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
     if (!existing) throw new ServiceError("Incident not found", 404);
     if (existing.status === "CLOSED") throw new ServiceError("Cannot delete a closed incident", 400);
+    // Mid-investigation incidents are evidence — cancel first, then delete.
+    if (existing.status !== "REPORTED" && existing.status !== "CANCELLED") throw new ServiceError("Cannot delete an incident under investigation — cancel it first", 409);
     await tx.safetyIncident.delete({ where: { id } });
     if (userId) await logAction(tx, { userId, action: "SAFETY_INCIDENT_DELETE", entityType: "SafetyIncident", entityId: id, before: { incidentNumber: existing.incidentNumber } });
     return { ok: true };
@@ -533,7 +535,7 @@ export async function cancelInspection(id: string, userId: string, companyId?: s
   return withSerializableTransaction(async (tx) => {
     const insp = await tx.safetyInspection.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
     if (!insp) throw new ServiceError("Inspection not found", 404);
-    if (insp.status !== "SCHEDULED") throw new ServiceError(`Cannot cancel inspection in ${insp.status} status`, 400);
+    if (insp.status !== "SCHEDULED" && insp.status !== "IN_PROGRESS") throw new ServiceError(`Cannot cancel inspection in ${insp.status} status`, 400);
     const updated = await tx.safetyInspection.update({ where: { id }, data: { status: "CANCELLED" } });
     await logAction(tx, { userId, action: "SAFETY_INSPECTION_CANCEL", entityType: "SafetyInspection", entityId: id, after: { status: "CANCELLED" } });
     return updated;
@@ -545,6 +547,8 @@ export async function deleteInspection(id: string, userId?: string, companyId?: 
     const existing = await tx.safetyInspection.findFirst({ where: { id, ...(companyId ? { companyId } : {}) } });
     if (!existing) throw new ServiceError("Inspection not found", 404);
     if (existing.status === "COMPLETED") throw new ServiceError("Cannot delete a completed inspection", 400);
+    // An in-flight inspection may carry recorded findings — cancel first, then delete.
+    if (existing.status !== "SCHEDULED" && existing.status !== "CANCELLED") throw new ServiceError("Cannot delete an inspection in progress — cancel it first", 409);
     await tx.safetyInspection.delete({ where: { id } });
     if (userId) await logAction(tx, { userId, action: "SAFETY_INSPECTION_DELETE", entityType: "SafetyInspection", entityId: id, before: { inspectionNumber: existing.inspectionNumber } });
     return { ok: true };

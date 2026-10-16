@@ -811,6 +811,9 @@ export async function rejectMbEntry(id: string, rejectReason: string, userId?: s
     if (entry.status === "APPROVED") {
       throw new ServiceError("Cannot reject an already-approved entry", 400);
     }
+    if (entry.status === "REJECTED") {
+      throw new ServiceError("Cannot reject an already-rejected entry", 409);
+    }
     // Prevent self-rejection — the measurer cannot reject their own entry.
     if (userId && entry.measuredById && userId === entry.measuredById) {
       throw new ServiceError("You cannot reject an MB entry you measured.", 403);

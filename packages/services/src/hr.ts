@@ -2827,6 +2827,9 @@ export async function rejectDpr(dprId: string, rejecterId: string, reason: strin
     if (dpr.approvalStatus === "APPROVED") {
       throw new HrError("Cannot reject an already-approved DPR", 409);
     }
+    if (dpr.approvalStatus === "REJECTED") {
+      throw new HrError("Cannot reject an already-rejected DPR — resubmit it first", 409);
+    }
     // Prevent self-rejection — the submitter cannot reject their own DPR.
     if (dpr.submittedById === rejecterId) {
       throw new HrError("You cannot reject your own DPR.", 403);

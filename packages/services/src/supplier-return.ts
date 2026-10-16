@@ -367,6 +367,7 @@ export async function cancelSupplierReturn(returnId: string, userId?: string) {
     const ret = await tx.supplierReturn.findUnique({ where: { id: returnId } });
     if (!ret) throw new ServiceError("Return not found", 404);
     if (ret.status === "COMPLETED") throw new ServiceError("Cannot cancel a completed return");
+    if (ret.status === "CANCELLED") throw new ServiceError("Return is already cancelled", 409);
 
     // If the gate pass already confirmed the goods EXITED, the material is
     // physically gone — cancelling the return would leave stock on the books
