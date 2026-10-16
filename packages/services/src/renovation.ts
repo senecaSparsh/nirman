@@ -1,7 +1,7 @@
 import { prisma, type Prisma } from "@nirman/db";
 import { withSerializableTransaction } from "./transaction";
 import Decimal from "decimal.js";
-import { postRenovationCost, postRenovationCapitalization } from "./gl-posting";
+import { postRenovationCost, postRenovationCapitalization, reverseJournalEntry } from "./gl-posting";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
@@ -219,33 +219,16 @@ export async function deleteRenovationCost(costId: string, userId?: string) {
       throw new ServiceError("Cannot delete cost from a completed renovation");
     }
 
-    // Reverse GL entry
+    // Reverse GL entry — use the shared helper so the reversal carries the
+    // reversalOfId link, the balance check, and its own audit row instead of
+    // hand-rolling a mirror entry that skips all three.
     const je = await tx.journalEntry.findFirst({
       where: { sourceId: cost.id, sourceType: "RENOVATION_COST" },
     });
     if (je) {
-      const lines = await tx.journalLine.findMany({ where: { journalEntryId: je.id } });
-      await tx.journalEntry.create({
-        data: {
-          entryNumber: `${je.entryNumber}-REV`,
-          sourceType: "RENOVATION_COST_REVERSAL",
-          sourceId: je.sourceId,
-          memo: `Reversal of ${je.memo}`,
-          companyId: je.companyId,
-          postedById: userId,
-          status: "POSTED",
-          totalDebit: je.totalCredit,
-          totalCredit: je.totalDebit,
-          lines: {
-            create: lines.map((l) => ({
-              accountId: l.accountId,
-              debit: l.credit,
-              credit: l.debit,
-              entityType: l.entityType,
-              entityId: l.entityId,
-            })),
-          },
-        },
+      await reverseJournalEntry(tx, je.id, {
+        postedById: userId,
+        memo: `Reversal of ${je.memo}`,
       });
     }
 
@@ -437,28 +420,9 @@ export async function cancelRenovation(id: string, userId?: string, companyId?: 
         where: { sourceId: cost.id, sourceType: "RENOVATION_COST" },
       });
       if (je) {
-        const lines = await tx.journalLine.findMany({ where: { journalEntryId: je.id } });
-        await tx.journalEntry.create({
-          data: {
-            entryNumber: `${je.entryNumber}-REV`,
-            sourceType: "RENOVATION_COST_REVERSAL",
-            sourceId: je.sourceId,
-            memo: `Reversal of ${je.memo} (renovation cancelled)`,
-            companyId: je.companyId,
-            postedById: userId,
-            status: "POSTED",
-            totalDebit: je.totalCredit,
-            totalCredit: je.totalDebit,
-            lines: {
-              create: lines.map((l) => ({
-                accountId: l.accountId,
-                debit: l.credit,
-                credit: l.debit,
-                entityType: l.entityType,
-                entityId: l.entityId,
-              })),
-            },
-          },
+        await reverseJournalEntry(tx, je.id, {
+          postedById: userId,
+          memo: `Reversal of ${je.memo} (renovation cancelled)`,
         });
       }
     }
