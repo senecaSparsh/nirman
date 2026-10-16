@@ -580,6 +580,12 @@ export async function recordSchedulePayment(
       },
     });
     if (!item) throw new ServiceError("Payment schedule item not found", 404);
+    if (item.paymentSchedule.assetSale.status === "CANCELLED") {
+      throw new ServiceError("Cannot record a payment on a cancelled sale", 409);
+    }
+    if (item.status === "PAID" || item.status === "WAIVED") {
+      throw new ServiceError(`Cannot record a payment on a ${item.status.toLowerCase()} installment`, 409);
+    }
 
     const payAmount = new Decimal(amount);
     if (!payAmount.gt(0)) throw new ServiceError("Payment amount must be > 0", 400);

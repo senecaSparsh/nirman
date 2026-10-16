@@ -692,6 +692,11 @@ export async function updatePortalListing(
 ) {
   const existing = await prisma.portalListing.findUnique({ where: { id: listingId } });
   if (!existing) throw new ServiceError("Portal listing not found", 404);
+  // Guard at the service layer, not just the route — a concurrent sync can
+  // flip the listing to LISTED between the route's pre-check and this write.
+  if (existing.status === "LISTED") {
+    throw new ServiceError("Cannot edit a LISTED listing — delist or re-sync instead", 400);
+  }
 
   const data: Record<string, unknown> = {};
   if (input.title !== undefined) {
