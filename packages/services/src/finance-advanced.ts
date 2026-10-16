@@ -129,9 +129,11 @@ export async function getProjectProfitCenter(projectId: string, companyId: strin
     new Decimal(0),
   );
 
-  // Material cost: sum of MaterialIssueLine.unitCost × qty for this project
+  // Material cost: sum of MaterialIssueLine.unitCost × qty for this project.
+  // COMPLETED only — a cancelled issue's stock + JE were reversed, so its
+  // lines are dead cost (same rule as reallocateProjectCosts).
   const issueLines = await prisma.materialIssueLine.findMany({
-    where: { materialIssue: { projectId } },
+    where: { materialIssue: { projectId, status: "COMPLETED" } },
     select: { qty: true, unitCost: true },
   });
   const materialCost = issueLines.reduce(
@@ -390,7 +392,7 @@ export async function getJobCosting(projectId: string, companyId: string) {
   // Aggregate direct costs (material issues + project costs) for all active projects
   const [companyIssueLines, companyOverheads] = await Promise.all([
     prisma.materialIssueLine.findMany({
-      where: { materialIssue: { projectId: { in: projectIds } } },
+      where: { materialIssue: { projectId: { in: projectIds }, status: "COMPLETED" } },
       select: { qty: true, unitCost: true },
     }),
     prisma.projectCost.aggregate({

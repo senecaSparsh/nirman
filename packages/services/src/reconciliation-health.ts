@@ -915,7 +915,7 @@ export async function reconcileUnitCosts(
   for (const project of projects) {
     // Project-level materials (area-allocated pool).
     const projectLines = await prisma.materialIssueLine.findMany({
-      where: { materialIssue: { projectId: project.id, builtUnitId: null } },
+      where: { materialIssue: { projectId: project.id, status: "COMPLETED", builtUnitId: null } },
       select: { qty: true, unitCost: true },
     });
     const projectMaterials = projectLines.reduce(
@@ -925,7 +925,7 @@ export async function reconcileUnitCosts(
 
     // Direct-to-unit materials.
     const unitDirectLines = await prisma.materialIssueLine.findMany({
-      where: { materialIssue: { projectId: project.id, builtUnitId: { not: null } } },
+      where: { materialIssue: { projectId: project.id, status: "COMPLETED", builtUnitId: { not: null } } },
       select: { qty: true, unitCost: true },
     });
     const directMaterialsTotal = unitDirectLines.reduce(

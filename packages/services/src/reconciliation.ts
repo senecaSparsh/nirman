@@ -143,7 +143,7 @@ export async function getProjectMaterialReconciliation(
       const issues = await prisma.materialIssueLine.aggregate({
         where: {
           materialId: item.materialId,
-          materialIssue: { projectId },
+          materialIssue: { projectId, status: "COMPLETED" },
         },
         _sum: { qty: true },
       });

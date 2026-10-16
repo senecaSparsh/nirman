@@ -326,16 +326,17 @@ export async function getCostOverrunForecast(projectId: string, companyId: strin
     const budget = new Decimal(item.estimatedQty).times(new Decimal(item.rate));
 
     // Actual cost: material issues for this material in this project
+    // (COMPLETED only — cancelled issues' stock/GL were reversed).
     const issues = await prisma.materialIssueLine.aggregate({
       where: {
         materialId: item.materialId,
-        materialIssue: { projectId },
+        materialIssue: { projectId, status: "COMPLETED" },
       },
       _sum: { qty: true, unitCost: true },
     });
     // _sum of unitCost doesn't give us qty×cost, we need to fetch lines
     const issueLines = await prisma.materialIssueLine.findMany({
-      where: { materialId: item.materialId, materialIssue: { projectId } },
+      where: { materialId: item.materialId, materialIssue: { projectId, status: "COMPLETED" } },
       select: { qty: true, unitCost: true },
     });
     const actualCost = issueLines.reduce(
