@@ -743,26 +743,39 @@ export async function cancelMaterialIssue(id: string, userId?: string) {
     const companyId = issue.project?.companyId ?? issue.department?.companyId;
     if (!companyId) throw new ServiceError("Cannot determine company for this issue");
 
-    // Reverse stock: put materials back (ADJUSTMENT_IN at original unit cost)
-    for (const line of issue.lines) {
-      await recordMovement(tx, {
-        materialId: line.materialId,
-        movementType: "ADJUSTMENT_IN",
-        toLocationId: issue.fromLocationId,
-        qty: line.qty,
-        unitCost: line.unitCost, // restore at original MAC
-        reason: `Reversal of material issue ${issue.issueNumber ?? id.slice(-6)}`,
-        refType: "MATERIAL_ISSUE",
-        refId: issue.id,
-        userId,
-        companyId,
-      });
-    }
+    // Stock + GL reversal only apply to a COMPLETED issue — a PENDING one
+    // never drew stock (execution happens at gate-pass approval), so an
+    // unconditional ADJUSTMENT_IN would mint phantom inventory.
+    if (issue.status === "COMPLETED") {
+      // Reverse stock: put materials back (ADJUSTMENT_IN at original unit cost)
+      for (const line of issue.lines) {
+        await recordMovement(tx, {
+          materialId: line.materialId,
+          movementType: "ADJUSTMENT_IN",
+          toLocationId: issue.fromLocationId,
+          qty: line.qty,
+          unitCost: line.unitCost, // restore at original MAC
+          reason: `Reversal of material issue ${issue.issueNumber ?? id.slice(-6)}`,
+          refType: "MATERIAL_ISSUE",
+          refId: issue.id,
+          userId,
+          companyId,
+        });
+      }
 
-    // Refresh MAC for restored materials
-    const restoredMaterials = issue.lines.map((l) => l.materialId);
-    if (restoredMaterials.length > 0) {
-      await refreshMaterialCurrentCost(tx, restoredMaterials);
+      // Refresh MAC for restored materials
+      const restoredMaterials = issue.lines.map((l) => l.materialId);
+      if (restoredMaterials.length > 0) {
+        await refreshMaterialCurrentCost(tx, restoredMaterials);
+      }
+
+      // Reverse GL entries
+      const journalEntries = await tx.journalEntry.findMany({
+        where: { sourceId: issue.id, sourceType: "MATERIAL_ISSUE" },
+      });
+      for (const je of journalEntries) {
+        await reverseJournalEntry(tx, je.id, { postedById: userId, memo: `Reversal of ${je.memo}` });
+      }
     }
 
     // Release requisition allocation the cancelled issue was holding —
@@ -792,14 +805,6 @@ export async function cancelMaterialIssue(id: string, userId?: string) {
       }
     }
 
-    // Reverse GL entries
-    const journalEntries = await tx.journalEntry.findMany({
-      where: { sourceId: issue.id, sourceType: "MATERIAL_ISSUE" },
-    });
-    for (const je of journalEntries) {
-      await reverseJournalEntry(tx, je.id, { postedById: userId, memo: `Reversal of ${je.memo}` });
-    }
-
     // Cancel any still-pending linked gate pass — a cancelled issue must not
     // leave a PENDING pass in the guard queue (same cascade as supplier returns).
     await tx.gatePass.updateMany({
@@ -817,8 +822,9 @@ export async function cancelMaterialIssue(id: string, userId?: string) {
       },
     });
 
-    // Re-run project cost reallocation (materials returned → project cost decreases)
-    if (issue.projectId) {
+    // Re-run project cost reallocation (materials returned → project cost
+    // decreases) — only needed when the issue had actually executed.
+    if (issue.projectId && issue.status === "COMPLETED") {
       await reallocateProjectCosts(tx, issue.projectId);
     }
 
