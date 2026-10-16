@@ -1245,3 +1245,39 @@ revert is ever needed.
 Re-run mobile: `PROBE_BASE=http://localhost:3200
 PROBE_EMAIL=<owner-email> npx playwright test -c
 playwright.probe.config.ts --project=mobile`.
+
+## 63. API fuzz sweep — full write-surface malformed-input coverage (2026-10-17)
+
+`scripts/fuzz-sweep.ts` extends Layer 4's malformed-input battery from 12
+hand-picked money routes to **all 382 write handlers** (auto-discovered
+from `src/app/api/**/route.ts`; dynamic segments get a never-existent
+`fz-` id). Asserts: never 5xx, JSON error bodies, POST-accepts flagged.
+Run against a production-mode server (`BASE=http://localhost:3200 …`) —
+the whole sweep is ~4min there vs. compile-bound on dev.
+
+First pass: **58 findings**; iterating produced 58→25→13→10→4. Root causes
+were systemic, not per-route:
+
+- **`req.json()` returns `null` for a literal `null` body** — `body.field`
+  throws TypeError → 500 in every route reading fields without a zod
+  schema (~200 unguarded sites). Whack-a-mole wasn't viable — apiHandler
+  now wraps `req.json` so `null` → `ServiceError(400)` globally.
+  `jsonBody(req)` exists for routes needing a local guard (`.catch(()=>({}))`
+  sites slip through since catch only fires on parse errors, not null).
+- **`apiHandler` never mapped `ZodError`** — every `.parse`-style route
+  500'd on invalid input. Now → 400 with the first issue message.
+- **`throw new Error("X not found")`** in 7 route files leaked 500s for
+  bad ids → converted to `ServiceError(404)` / `UnauthorizedError(401)`.
+- **`z.any()` on `workflowSchema.graphJson`** let missing/null graphs reach
+  a NOT NULL column → Prisma 500. Now `z.record()`.
+- `manualMatchSms` could return `null` (findUnique in tx tails) → caller
+  `result.id` crashed → `findUniqueOrThrow` in all three branches.
+
+Final: **5,726 clean / 0 server errors**. The 4 remaining findings are
+designed accepts: raw SMS ingest stores arbitrary text for later matching;
+name-only creates (Supplier/Broker/Crew/etc.) legitimately accept
+`{name:"fzjunk"}`. fz-marked rows cleaned after each pass.
+
+Two probe fixes folded in: playwright.probe.config dropped a duplicate
+`fullyParallel` key; button-probe spec got `noUncheckedIndexedAccess`
+fixes (Cookie name/undefined, `handles[i]` guards).
