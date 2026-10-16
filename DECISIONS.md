@@ -939,3 +939,38 @@ legal-docs, scheduling, stock-adjustment (the sanctioned manual
 correction path — all invariants inside the tx), supplier-invoice
 approve (remainder baseline), recordRentPayment/voidRentPayment/
 applyRentEscalation/generateRentSchedule.
+
+## 53. Sweep round 2 tail — payment engines + core ledger (2026-10-16)
+
+Deep-probed the money engines deferred from the main pass.
+
+**Fix**: `cancelTransfer` now cascade-cancels its auto-created PENDING
+gate pass — a cancelled transfer otherwise left a live pass in the
+guard queue that could still be approved against a dead transfer (same
+cascade material issues and supplier returns already had). Verified
+live: cancel flips transfer + pass to CANCELLED together.
+
+**Known limitation (documented, not fixed — needs schema work)**:
+`MaterialLot` quantities are company-global, not per-location. A partial
+lot transfer decrements and re-increments the same lot (net zero), so
+the books can't tell which fraction of the lot sits where. Totals can
+never diverge (every OUT decrements, every IN increments) but per-lot
+location attribution is wrong — a recall report or an FEFO pick at site
+B can draw a lot whose physical stock sits at site A. The correct fix is
+a lot-location balance (MaterialLot.locationId or a LotLocationBalance
+table) with transfer splitting; that's a schema migration + lot-query
+rewrite, not a sweep patch.
+
+**Clean on inspection**: supplier-payment (dupe-reference + double-submit
+window + PO/invoice caps + unlinked-balance floor + symmetric void),
+sale-payment (dupe ref/cheque, post-return over-pay cap, linked
+credit-apply pair voiding, refund capped at true credit, cheque
+bounce→JE reversal), stock-ledger (FEFO + expired-lot issue block +
+lot-material pairing + atomic conditional decrement + serializable retry),
+material-sale cancel (completed-return/IRN/payment refusals), transfer
+dispatch/complete/return (gate-pass gate, source-MAC capture, partial-
+receipt shortage→shrinkage GL, inter-company pricing on received qty),
+cancelSale (IRN/expense/commission/deposit unwinds + schedule reset),
+processPayroll/payPayroll (DPR gate, line-derived totals, day-weighted
+project labour split, double-pay refusal, advance-recovery credit),
+statutory-payment (per-kind balance caps, ITC utilization, void→reversal).

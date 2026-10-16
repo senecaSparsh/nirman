@@ -910,6 +910,14 @@ export async function cancelTransfer(transferId: string, userId?: string) {
       data: { status: "CANCELLED" },
     });
 
+    // Cancel the auto-created gate pass too — a cancelled transfer must not
+    // leave a PENDING pass in the guard queue that could still be approved
+    // against a dead transfer (same cascade as material issues/returns).
+    await tx.gatePass.updateMany({
+      where: { refType: "StockTransfer", refId: transferId, status: "PENDING" },
+      data: { status: "CANCELLED" },
+    });
+
     if (userId) {
       await logAction(tx, {
         userId,
