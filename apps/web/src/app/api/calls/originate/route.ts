@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, getCurrentUser, getUserPermissions, json } from "@/lib/server";
+import { UnauthorizedError, apiHandler, getCompany, getCurrentUser, getUserPermissions, json } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 import { isTwilioConfigured, originateBridgedCall } from "@/lib/twilio-service";
@@ -23,7 +23,7 @@ import { isTwilioConfigured, originateBridgedCall } from "@/lib/twilio-service";
  */
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await getCurrentUser();
-  if (!user) throw new Error("Unauthorized");
+  if (!user) throw new UnauthorizedError("Unauthorized");
   const perms = await getUserPermissions();
   if (!perms.includes(PERM.CALL_CREATE)) {
     return json({ error: "Forbidden" }, { status: 403 });

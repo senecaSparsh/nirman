@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import {ingestSmsBatch, getSmsStats} from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
+import { jsonBody, apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -56,7 +56,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.SALE_CREATE);
   const company = await getCompany();
-  const body = await req.json();
+  const body = await jsonBody(req);
+  if (body instanceof Response) return body;
 
   // Support both single and batch
   const messages = Array.isArray(body.messages) ? body.messages : [body];

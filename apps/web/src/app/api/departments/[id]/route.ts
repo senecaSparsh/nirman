@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { logAction } from "@nirman/services";
+import { ServiceError, logAction } from "@nirman/services";
 import { apiHandler, assertScopeAllows, getCompany, json, departmentSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
@@ -52,7 +52,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   try {
     const updated = await withSerializableTransaction(async (tx) => {
       const existing = await tx.department.findFirst({ where: { id, companyId: company.id } });
-      if (!existing) throw new Error("Department not found in this company");
+      if (!existing) throw new ServiceError("Department not found in this company", 404);
       const dept = await tx.department.update({ where: { id }, data: parsed.data });
       await logAction(tx, {
         userId: user.id,

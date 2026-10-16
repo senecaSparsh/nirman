@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { createLegalDoc, listLegalDocs, listAllLegalDocs, countAllLegalDocs } from "@nirman/services";
-import { apiHandler, getCompany, json, requireEffectivePermission, scopeWhere, toNum } from "@/lib/server";
+import { jsonBody, apiHandler, getCompany, json, requireEffectivePermission, scopeWhere, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -111,7 +111,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requireEffectivePermission(PERM.LEGAL_MANAGE);
   const company = await getCompany();
-  const body = await req.json();
+  const body = await jsonBody(req);
+  if (body instanceof Response) return body;
 
   const {
     landPurchaseId, projectId, type, title, authority, status, appliesTo, docNumber,

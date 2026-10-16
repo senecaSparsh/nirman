@@ -54,7 +54,7 @@ export const PATCH = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.TELEPHONY_MANAGE);
   const company = await getCompany();
 
-  const body = await req.json().catch(() => ({}));
+  const body = (await req.json().catch(() => ({}))) ?? {};
   const mode = body.recordingMode as string | undefined;
   const selectedUserIds = body.selectedUserIds as string[] | undefined;
 

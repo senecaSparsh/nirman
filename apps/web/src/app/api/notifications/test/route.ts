@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { sendNotification } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { jsonBody, apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
@@ -11,7 +11,8 @@ import { z } from "zod";
 export const POST = apiHandler(async (req: NextRequest) => {
   await requirePermission(PERM.FINANCE_MANAGE);
   const company = await getCompany();
-  const body = await req.json();
+  const body = await jsonBody(req);
+  if (body instanceof Response) return body;
 
   const schema = z.object({
     channel: z.enum(["WHATSAPP", "EMAIL", "IN_APP"]),

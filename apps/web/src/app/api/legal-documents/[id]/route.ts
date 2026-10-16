@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { updateLegalDoc, deleteLegalDoc } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { jsonBody, apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -11,7 +11,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const user = await requirePermission(PERM.LEGAL_MANAGE);
   const company = await getCompany();
   const { id } = await params;
-  const body = await req.json();
+  const body = await jsonBody(req);
+  if (body instanceof Response) return body;
 
   const {
     type, title, authority, status, appliesTo, docNumber,

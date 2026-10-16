@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { findAvailablePhoneNumbers } from "@nirman/services";
-import { apiHandler, getCompany, json, getCurrentUser, getUserPermissions } from "@/lib/server";
+import { UnauthorizedError, apiHandler, getCompany, json, getCurrentUser, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -15,7 +15,7 @@ import { PERM } from "@/lib/roles";
  */
 export const GET = apiHandler(async (_req: NextRequest) => {
   const user = await getCurrentUser();
-  if (!user) throw new Error("Unauthorized");
+  if (!user) throw new UnauthorizedError("Unauthorized");
   const perms = await getUserPermissions();
   // OWNER/ADMIN have "*" so they pass automatically.
   if (!perms.includes(PERM.TELEPHONY_VIEW) && !perms.includes(PERM.HR_MANAGE)) {

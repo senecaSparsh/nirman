@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { randomBytes } from "node:crypto";
 import { hashPassword } from "better-auth/crypto";
 import { prisma } from "@nirman/db";
-import { apiHandler, canManageRole, getActingRole, getCompany, json, requirePermission } from "@/lib/server";
+import { jsonBody, apiHandler, canManageRole, getActingRole, getCompany, json, requirePermission } from "@/lib/server";
 import { assertEmployeeCodeAvailable, assertScopeWithinActor } from "@nirman/services";
 import { PERM, ALL_ROLES, type Role } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
@@ -76,7 +76,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const minLength = company.passwordMinLength ?? 8;
   const defaultPassword = generateTempPassword(minLength);
 
-  const body = await req.json();
+  const body = await jsonBody(req);
+  if (body instanceof Response) return body;
   const { users } = body as {
     users?: Array<{
       name?: string;

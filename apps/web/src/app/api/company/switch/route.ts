@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { companyId } = await req.json();
+  const { companyId } = (await req.json().catch(() => ({}))) ?? {};
   if (!companyId || typeof companyId !== "string") {
     return NextResponse.json({ error: "companyId required" }, { status: 400 });
   }

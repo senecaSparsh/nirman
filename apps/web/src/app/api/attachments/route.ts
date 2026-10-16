@@ -72,7 +72,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
  * Links an existing upload to an entity as an attachment.
  */
 export const POST = apiHandler(async (req: NextRequest) => {
-  const body = await req.json().catch(() => ({}));
+  const body = (await req.json().catch(() => ({}))) ?? {};
   const { entityType, entityId, uploadId, category, label, expiresAt } = body as Record<string, string | undefined>;
 
   // expiresAt is optional; when present it must parse as a real date.

@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, getCompany, json, customerSchema, requirePermission, requireEffectivePermission } from "@/lib/server";
+import { jsonBody, apiHandler, getCompany, json, customerSchema, requirePermission, requireEffectivePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -63,7 +63,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
 export const PUT = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.SALES_MANAGE);
   const company = await getCompany();
-  const body = await req.json();
+  const body = await jsonBody(req);
+  if (body instanceof Response) return body;
   const items: unknown = body.items;
   if (!Array.isArray(items)) {
     return json({ error: "Expected { items: [...] } array" }, { status: 400 });

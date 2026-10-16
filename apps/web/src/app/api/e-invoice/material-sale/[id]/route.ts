@@ -22,7 +22,7 @@ export const DELETE = apiHandler(async (req: NextRequest, { params }: { params: 
   const user = await requirePermission(PERM.SALES_VIEW);
   const company = await getCompany();
   const { id } = await params;
-  const body = await req.json().catch(() => ({}));
+  const body = (await req.json().catch(() => ({}))) ?? {};
   const reason = body.reason ?? "Cancelled by user";
   const result = await cancelMaterialSaleIrn(id, company.id, reason, user.id);
   return NextResponse.json(result);

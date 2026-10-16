@@ -169,7 +169,7 @@ async function getCompanyNode(id: string, currentCompanyId: string): Promise<Orb
         })
       : null;
     if (!hasMembership && !groupIds.includes(id)) {
-      throw new Error("Company not found");
+      throw new ServiceError("Company not found", 404);
     }
   }
   const c = await prisma.company.findFirst({
@@ -197,7 +197,7 @@ async function getCompanyNode(id: string, currentCompanyId: string): Promise<Orb
       },
     },
   });
-  if (!c) throw new Error("Company not found");
+  if (!c) throw new ServiceError("Company not found", 404);
 
   // If this is a parent company, aggregate project count across all children too
   let totalProjectsIncludingChildren = c._count.projects;
@@ -308,7 +308,7 @@ async function getProjectNode(id: string, _companyId: string): Promise<OrbitNode
       },
     },
   });
-  if (!p) throw new Error("Project not found");
+  if (!p) throw new ServiceError("Project not found", 404);
 
   const details: DetailField[] = [
     { label: "Status", value: p.status },
@@ -355,7 +355,7 @@ async function getBuiltUnitNode(id: string, _companyId: string): Promise<OrbitNo
       _count: { select: { materialIssues: true, portalListings: true, assetSales: true } },
     },
   });
-  if (!u) throw new Error("Built unit not found");
+  if (!u) throw new ServiceError("Built unit not found", 404);
 
   const tenancyCount = await prisma.tenancy.count({
     where: { builtUnitId: u.id },
@@ -398,7 +398,7 @@ async function getLandParcelNode(id: string, _companyId: string): Promise<OrbitN
       _count: { select: { children: true, builtUnits: { where: { deletedAt: null } }, partitions: true } },
     },
   });
-  if (!l) throw new Error("Land parcel not found");
+  if (!l) throw new ServiceError("Land parcel not found", 404);
 
   const salesCount = await prisma.assetSale.count({ where: { landParcelId: l.id } }).catch(() => 0);
 
@@ -439,7 +439,7 @@ async function getAssetSaleNode(id: string, _companyId: string): Promise<OrbitNo
       _count: { select: { payments: true, expenses: true, terms: true } },
     },
   });
-  if (!s) throw new Error("Sale not found");
+  if (!s) throw new ServiceError("Sale not found", 404);
 
   const details: DetailField[] = [
     { label: "Customer", value: s.customer.name },

@@ -30,7 +30,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
   const company = await getCompany();
 
-  const body = await req.json().catch(() => ({}));
+  const body = (await req.json().catch(() => ({}))) ?? {};
   const { phoneNumber, label } = body as { phoneNumber?: string; label?: string };
   if (!phoneNumber || typeof phoneNumber !== "string") {
     return json({ error: "phoneNumber is required" }, { status: 400 });

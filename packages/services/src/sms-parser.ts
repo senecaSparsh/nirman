@@ -875,7 +875,7 @@ export async function manualMatchSms(input: ManualMatchInput) {
         where: { id: sms.id },
         data: { paymentRecordId: p.id },
       });
-      return tx.bankSms.findUnique({ where: { id: sms.id } });
+      return tx.bankSms.findUniqueOrThrow({ where: { id: sms.id } });
     });
   } else if (input.entityType === "TENANCY") {
     updated = await withSerializableTransaction(async (tx) => {
@@ -935,7 +935,7 @@ export async function manualMatchSms(input: ManualMatchInput) {
         where: { id: sms.id },
         data: { paymentRecordId: p.id },
       });
-      return tx.bankSms.findUnique({ where: { id: sms.id } });
+      return tx.bankSms.findUniqueOrThrow({ where: { id: sms.id } });
     });
   } else if (input.entityType === "MATERIAL_SALE") {
     updated = await withSerializableTransaction(async (tx) => {
@@ -999,7 +999,7 @@ export async function manualMatchSms(input: ManualMatchInput) {
         where: { id: sms.id },
         data: { paymentRecordId: p.id },
       });
-      return tx.bankSms.findUnique({ where: { id: sms.id } });
+      return tx.bankSms.findUniqueOrThrow({ where: { id: sms.id } });
     });
   } else {
     throw new ServiceError(`Unknown entity type: ${input.entityType}`, 400);

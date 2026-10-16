@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { softDelete, logAction, extractVersion, ConcurrentEditError } from "@nirman/services";
+import { ServiceError, softDelete, logAction, extractVersion, ConcurrentEditError } from "@nirman/services";
 import { apiHandler, getCompany, json, customerSchema, requirePermission, requireUser } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
@@ -33,7 +33,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   try {
     const updated = await withSerializableTransaction(async (tx) => {
       const existing = await tx.customer.findFirst({ where: { id, companyId: company.id, deletedAt: null } });
-      if (!existing) throw new Error("Customer not found");
+      if (!existing) throw new ServiceError("Customer not found", 404);
       if (expectedVersion !== undefined && existing.version !== expectedVersion) {
         throw new ConcurrentEditError("Customer", id, expectedVersion, existing.version);
       }

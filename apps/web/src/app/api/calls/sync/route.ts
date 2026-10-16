@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, getCurrentUser, json } from "@/lib/server";
+import { UnauthorizedError, apiHandler, getCompany, getCurrentUser, json } from "@/lib/server";
 import { normalizePhone } from "@/lib/phone-otp";
 
 /**
@@ -20,10 +20,10 @@ import { normalizePhone } from "@/lib/phone-otp";
  */
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await getCurrentUser();
-  if (!user) throw new Error("Unauthorized");
+  if (!user) throw new UnauthorizedError("Unauthorized");
   const company = await getCompany();
 
-  const body = await req.json().catch(() => ({}));
+  const body = (await req.json().catch(() => ({}))) ?? {};
   const calls = (body as { calls?: unknown[] }).calls;
   if (!Array.isArray(calls) || calls.length === 0) {
     return json({ error: "calls[] is required" }, { status: 400 });

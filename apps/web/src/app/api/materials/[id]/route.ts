@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { softDelete, logAction, extractVersion, ConcurrentEditError, ServiceError } from "@nirman/services";
-import { apiHandler, getCompany, json, materialSchema, requirePermission } from "@/lib/server";
+import { jsonBody, apiHandler, getCompany, json, materialSchema, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -10,7 +10,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const user = await requirePermission(PERM.INVENTORY_MANAGE);
   const company = await getCompany();
   const { id } = await params;
-  const body = await req.json();
+  const body = await jsonBody(req);
+  if (body instanceof Response) return body;
   const expectedVersion = extractVersion(body);
   const parsed = materialSchema.partial().safeParse(body);
   if (!parsed.success) {

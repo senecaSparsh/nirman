@@ -1,6 +1,6 @@
 import { type NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requireEffectivePermission, getUserPermissions, scopeWhere } from "@/lib/server";
+import { jsonBody, apiHandler, getCompany, json, requireEffectivePermission, getUserPermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { recordPettyCashSpend } from "@nirman/services";
 
@@ -8,7 +8,8 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   const user = await requireEffectivePermission(PERM.EXPENSE_CREATE);
   const company = await getCompany();
   const { id: floatId } = await params;
-  const body = await req.json();
+  const body = await jsonBody(req);
+  if (body instanceof Response) return body;
   const { amount, category, categoryId, notes } = body;
   if (!amount || !category) {
     return json({ error: "Amount and category are required" }, { status: 400 });

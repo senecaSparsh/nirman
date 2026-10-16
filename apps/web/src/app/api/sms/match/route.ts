@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { manualMatchSms } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { jsonBody, apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 /**
@@ -11,7 +11,8 @@ import { PERM } from "@/lib/roles";
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.SALE_CREATE);
   const company = await getCompany();
-  const body = await req.json();
+  const body = await jsonBody(req);
+  if (body instanceof Response) return body;
 
   if (!body.smsId || !body.entityType || !body.entityId) {
     return json({ error: "smsId, entityType, and entityId are required" }, { status: 400 });

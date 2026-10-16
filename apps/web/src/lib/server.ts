@@ -311,6 +311,24 @@ export function json(body: unknown, init?: ResponseInit) {
 }
 
 /**
+ * Parse a JSON request body for routes that access fields without a zod
+ * schema. `null` parses successfully as JSON but `body.foo` then throws —
+ * this returns the body or a 400 Response for null/undefined/non-object
+ * roots. Arrays pass through (array-root handlers need them).
+ *
+ *   const body = await jsonBody(req);
+ *   if (body instanceof Response) return body;
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function jsonBody(req: Request): Promise<any> {
+  const body = await req.json().catch(() => undefined);
+  if (body == null || typeof body !== "object") {
+    return json({ error: "Request body must be a JSON object" }, { status: 400 });
+  }
+  return body;
+}
+
+/**
  * Cached dev-bypass user — resolved once from the DB (first OWNER) so that
  * mutations which record `userId` (requisitions, POs, audit logs, etc.) don't
  * fail with FK violations on a non-existent "dev" id.
@@ -2450,6 +2468,21 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
         }
 
         const requestStartAt = new Date();
+
+        // Null-body guard (global): `JSON.parse("null")` yields null, then
+        // `body.field` / `const {x} = body` throws a TypeError → 500 in every
+        // route that reads fields without a zod schema (~200 sites). Wrap
+        // req.json once so a literal `null` body is a clean 400 everywhere —
+        // the real crash class the fuzz sweep kept surfacing. Malformed JSON
+        // still throws SyntaxError → 400 via the existing mapping; array/
+        // string roots pass through (handlers already validate those).
+        const rawJson = (req as Request).json.bind(req);
+        (req as Request).json = async () => {
+          const v = await rawJson();
+          if (v === null) throw new ServiceError("Request body must be a JSON object", 400);
+          return v;
+        };
+
         const res = await fn(req as TReq, ctx);
 
         // Store the success body under the idempotency key so a retried
@@ -2546,6 +2579,12 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
       }
       if (err instanceof SyntaxError && err.message.includes("JSON")) {
         return json({ error: "Malformed JSON in request body" }, { status: 400 });
+      }
+      // zod .parse() routes: schema rejection is a client error (400), never
+      // a 500. Duck-typed on issues[] so this holds for any zod version.
+      if (err instanceof Error && err.name === "ZodError" && Array.isArray((err as { issues?: unknown }).issues)) {
+        const first = (err as unknown as { issues: { message?: string }[] }).issues[0];
+        return json({ error: first?.message ?? "Invalid input" }, { status: 400 });
       }
       if (err instanceof ForbiddenError) {
         return json({ error: err.message }, { status: 403 });

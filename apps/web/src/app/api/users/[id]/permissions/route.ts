@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { logAction } from "@nirman/services";
-import { apiHandler, canManageRoleSet, getActingRole, getCompany, getUserPermissions, json, requirePermission, resolveRolePermissions } from "@/lib/server";
+import { jsonBody, apiHandler, canManageRoleSet, getActingRole, getCompany, getUserPermissions, json, requirePermission, resolveRolePermissions } from "@/lib/server";
 import { PERM, ALL_PERMISSIONS, isCustomRole } from "@/lib/roles";
 
 /**
@@ -102,7 +102,8 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   const company = await getCompany();
   const { id: userId } = await params;
 
-  const body = await req.json();
+  const body = await jsonBody(req);
+  if (body instanceof Response) return body;
   const { permissions } = body as { permissions?: string[] };
 
   if (!Array.isArray(permissions)) {

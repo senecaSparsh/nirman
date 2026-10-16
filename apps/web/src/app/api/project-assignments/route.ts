@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
 import { resolveScopeType } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
+import { jsonBody, apiHandler, getCompany, json, requirePermission, scopeWhere, assertScopeAllows } from "@/lib/server";
 import { PERM, ALL_ROLES } from "@/lib/roles";
 
 export const GET = apiHandler(async (req: NextRequest) => {
@@ -44,7 +44,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.USERS_MANAGE);
   const company = await getCompany();
-  const body = await req.json();
+  const body = await jsonBody(req);
+  if (body instanceof Response) return body;
   const { userId, projectId, scopedRole } = body;
   if (!userId || !projectId) {
     return json({ error: "userId and projectId are required" }, { status: 400 });

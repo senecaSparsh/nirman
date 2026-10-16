@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { getActingRole, apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { jsonBody, getActingRole, apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { logAction } from "@nirman/services";
 import { configureNumberWebhook, clearNumberWebhook } from "@/lib/twilio-service";
@@ -27,7 +27,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
   const company = await getCompany();
 
-  const body = await req.json();
+  const body = await jsonBody(req);
+  if (body instanceof Response) return body;
   const { companyPhoneId, action } = body as { companyPhoneId?: string; action?: string };
 
   if (!companyPhoneId) {

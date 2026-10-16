@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { generateMaterialCode, logAction, lookupGstByHsn, suggestHsnByMaterial, recordStockAdjustment } from "@nirman/services";
+import { ServiceError, generateMaterialCode, logAction, lookupGstByHsn, suggestHsnByMaterial, recordStockAdjustment } from "@nirman/services";
 import { apiHandler, getCompany, json, materialSchema, requireAnyEffectivePermission, requireEffectivePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
@@ -216,7 +216,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     const created = await withSerializableTransaction(async (tx) => {
       // Validate category exists and belongs to the active company
       const category = await tx.materialCategory.findUnique({ where: { id: parsed.data.categoryId, companyId: company.id, deletedAt: null } });
-      if (!category) throw new Error("Category not found");
+      if (!category) throw new ServiceError("Category not found", 404);
 
       const { categoryId, baseUnit, ...scalars } = parsed.data;
       const mat = await tx.material.create({

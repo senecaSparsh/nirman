@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { getActingRole, apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { jsonBody, getActingRole, apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { logAction } from "@nirman/services";
 import {fetchTwilioNumbers,configureNumberWebhook} from "@/lib/twilio-service";
@@ -30,7 +30,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
   const company = await getCompany();
 
-  const body = await req.json().catch(() => ({}));
+  const body = await jsonBody(req);
+  if (body instanceof Response) return body;
   const { configureWebhooks = false } = body as { configureWebhooks?: boolean };
 
   // Fetch all Twilio numbers (read-only, no credits)

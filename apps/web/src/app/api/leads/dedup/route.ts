@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requireEffectivePermission, scopeWhere } from "@/lib/server";
+import { jsonBody, apiHandler, getCompany, json, requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { withSerializableTransaction } from "@nirman/services";
 
@@ -78,7 +78,8 @@ export const GET = apiHandler(async () => {
 export const POST = apiHandler(async (req: NextRequest) => {
   const _user = await requireEffectivePermission(PERM.SALES_MANAGE);
   const company = await getCompany();
-  const body = await req.json();
+  const body = await jsonBody(req);
+  if (body instanceof Response) return body;
   const keepId: string = body.keepId;
   const deleteIds: string[] = body.deleteIds ?? [];
 

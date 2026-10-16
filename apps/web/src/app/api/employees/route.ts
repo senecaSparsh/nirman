@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { createEmployee, generateOfferLetter, generateEmploymentAgreement, generateEmployeeIdCard, generateAppointmentLetter, setSalaryComponents, autoCompleteOnboarding } from "@nirman/services";
-import { apiHandler, getCompany, json, employeeSchema, requirePermission, requireEffectivePermission, toNum, assertScopeAllows, getCompanyDescendantIds, scopeWhere, getEmployeeAccessScope, isTopLevelViewer } from "@/lib/server";
+import { jsonBody, apiHandler, getCompany, json, employeeSchema, requirePermission, requireEffectivePermission, toNum, assertScopeAllows, getCompanyDescendantIds, scopeWhere, getEmployeeAccessScope, isTopLevelViewer } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 import { sensitiveWriteKeys } from "@/lib/employee-visibility";
@@ -69,7 +69,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.HR_MANAGE);
   const company = await getCompany();
-  const body = await req.json();
+  const body = await jsonBody(req);
+  if (body instanceof Response) return body;
   if (sensitiveWriteKeys(body).length > 0 && !(await getEmployeeAccessScope()).canSeeBankDetails) {
     return json({ error: "Only the HR Manager or Finance Head can set bank, ID or address details." }, { status: 403 });
   }

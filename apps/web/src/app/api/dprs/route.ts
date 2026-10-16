@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { submitDPR, subAdminApproveDpr, adminApproveDpr, canWaiveSelfApproval } from "@nirman/services";
-import { apiHandler, getCompany, json, dprSchema, toNum, scopeWhere, assertScopeAllows, getActingRole, requireEffectivePermission, getEffectivePermissions } from "@/lib/server";
+import { jsonBody, apiHandler, getCompany, json, dprSchema, toNum, scopeWhere, assertScopeAllows, getActingRole, requireEffectivePermission, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
 
@@ -77,7 +77,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requireEffectivePermission(PERM.DPR_SUBMIT);
   const company = await getCompany();
-  const body = await req.json();
+  const body = await jsonBody(req);
+  if (body instanceof Response) return body;
   // Back-dated filing into a payroll-locked period is a privileged action — only
   // an admin approver (owner-tier) may supply an override reason. Field users
   // still hit the lock.

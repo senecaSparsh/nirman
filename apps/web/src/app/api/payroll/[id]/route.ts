@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { processPayroll, payPayroll } from "@nirman/services";
-import { apiHandler, getCompany, json, requirePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
+import { jsonBody, apiHandler, getCompany, json, requirePermission, requireUser, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -81,7 +81,8 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   await requireUser();
   const { id } = await params;
-  const body = await req.json();
+  const body = await jsonBody(req);
+  if (body instanceof Response) return body;
   const action = body.action;
 
   if (action === "process") {

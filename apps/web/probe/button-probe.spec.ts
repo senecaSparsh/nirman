@@ -95,8 +95,8 @@ async function fetchSessionCookies(base: string): Promise<Cookie[]> {
     });
   }
   return (signIn.headers.getSetCookie?.() ?? []).map((c) => {
-    const [pair] = c.split(";");
-    const [name, ...v] = pair.trim().split("=");
+    const [pair = ""] = c.split(";");
+    const [name = "", ...v] = pair.trim().split("=");
     return { name, value: v.join("="), url: base };
   });
 }
@@ -278,6 +278,7 @@ async function probePage(page: import("@playwright/test").Page, entry: PageEntry
       continue;
     }
     const btn = handles[i++];
+    if (!btn) break;
     if (!(await btn.isVisible().catch(() => false))) continue;
 
     // nextjs-portal = the dev-overlay widget. Playwright's css engine

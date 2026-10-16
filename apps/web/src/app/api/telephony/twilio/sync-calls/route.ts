@@ -33,7 +33,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
   const company = await getCompany();
 
-  const body = await req.json().catch(() => ({}));
+  const body = (await req.json().catch(() => ({}))) ?? {};
   const limit = Math.min(100, Math.max(1, (body as { limit?: number }).limit ?? 50));
 
   // Fetch recent calls from Twilio (read-only, no credits)

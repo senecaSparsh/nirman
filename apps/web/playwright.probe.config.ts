@@ -20,7 +20,6 @@ const baseURL = PROBE_BASE ?? `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: "./probe",
-  fullyParallel: false,
   workers: 4,
   // One spec file holds every page — without fullyParallel it all serializes
   // into a single worker no matter what `workers` says.

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { jsonBody, apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { normalizePhone } from "@/lib/phone-otp";
 import { logAction } from "@nirman/services";
@@ -49,7 +49,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requirePermission(PERM.TELEPHONY_MANAGE);
   const company = await getCompany();
 
-  const body = await req.json();
+  const body = await jsonBody(req);
+  if (body instanceof Response) return body;
   const {
     phoneNumber,
     numberType,
