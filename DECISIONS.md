@@ -974,3 +974,35 @@ cancelSale (IRN/expense/commission/deposit unwinds + schedule reset),
 processPayroll/payPayroll (DPR gate, line-derived totals, day-weighted
 project labour split, double-pay refusal, advance-recovery credit),
 statutory-payment (per-kind balance caps, ITC utilization, void→reversal).
+
+## 54. State-machine transition matrix — exhaustive status × action probes (2026-10-16)
+
+**Tool**: `scripts/state-matrix.ts` — for each entity it clones a fixture row
+into EVERY status (generic `INSERT ... SELECT` + children, unique-col remints,
+date-shifts for compound uniques, conditional children for status-implied
+relations like sale returns) and calls EVERY mutating action over real HTTP.
+Verdicts: OK / REVIEW (refused by another rule) / GAP (succeeded on an illegal
+status — missing guard) / BUG (5xx). The legal-transition sets encode the
+domain rules learned during the sweeps, so any future guard regression fails
+loudly. New entity ≈ 10 registry lines. Run: `BASE=... npx tsx scripts/state-matrix.ts`
+(report → `state-matrix-report.md`). Dev-DB only — seeds are deleted after each
+cell but successful actions leave their side-effect rows (GL/movements).
+
+**First run**: 373 cells across 22 entities → 360 OK, 13 REVIEW (legit
+business-rule refusals: stale count, self-pay guard, missing prerequisites),
+**0 GAP, 0 BUG after fixes**. Guards it caught and fixed:
+
+- `rejectMbEntry` + `rejectDpr`: re-rejecting silently overwrote the original
+  rejection reason — now 409.
+- `cancelSupplierReturn`: no CANCELLED guard — re-cancel returned 200.
+- `cancelIncident`/`cancelInspection` widened to in-flight states AND
+  `deleteIncident`/`deleteInspection` restricted to pre-flight/CANCELLED —
+  previously mid-investigation records could be hard-deleted (delete was the
+  only escape hatch since cancel refused non-draft states).
+
+**Design note**: several "illegal-looking" transitions are intentional —
+idempotent re-activate (tenancy ACTIVE→activate is a no-op with deposit JE
+only on PENDING), resubmit-after-reject (requisition/RA-bill/change-order),
+PO-cancel on any unreceived state. The matrix's value is that it makes these
+_explicit_ — every 200 now sits in a curated legal set rather than passing
+unnoticed.
