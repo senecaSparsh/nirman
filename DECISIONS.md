@@ -739,3 +739,32 @@ Now refused at intent time across `createExpenseClaim`,
 `recordLandPurchase`, `recordLandPurchaseWithPlan` (per-section),
 `recordLandPurchaseOrder`. Payroll labour still posts — attendance was
 genuinely spent on that project; labour is a fact, not an intent.
+
+## 49. Journal double-reversal guard (2026-10-16)
+
+`reverseJournalEntry` had no protection against reversing the same JE twice
+or reversing a `_REVERSAL` entry itself — a racing cancel or retry would
+over-credit the books silently. `JournalEntryStatus.REVERSED` existed but
+was never set, and setting it would break reports (`status:"POSTED"`
+filters drop the original while its reversal stays POSTED → net −X instead
+of 0).
+
+Fix: `JournalEntry.reversalOfId` links the reversal to the exact entry —
+doc-level `sourceId` can't dedupe because one doc carries several JEs
+(revenue + COGS legs share it). Guards: refuse a second reversal (409),
+refuse reversing a `_REVERSAL` (400), refuse non-POSTED originals. 113
+historical reversals backfilled where the doc's JE set was unambiguous.
+Regression test: `src/test/je-double-reversal.test.ts`.
+
+## 50. Ceilings that silently floor instead of refusing
+
+Two spots clamp instead of erroring — both deliberate:
+
+- Transfer receive `qtyReceived = min(requested, dispatched)` — receiving
+  more than sent silently records dispatched; the shortage posts to GL.
+- Payroll deductions FIFO-clamp at gross — a deduction stack exceeding
+  pay doesn't error, it just stops paying.
+
+Both are "lenient physical/money flow" choices; the record keeps the truth
+(shortage leg, unpaid-deduction remainder). No change needed, documented so
+the next audit doesn't re-flag.
