@@ -59,10 +59,24 @@ interface CreateStockCountInput {
 }
 
 export async function createStockCount(input: CreateStockCountInput) {
+  if (input.lines.length === 0) throw new ServiceError("Stock count must have at least one line", 400);
+
   const location = await prisma.stockLocation.findFirst({
     where: { id: input.locationId, deletedAt: null },
   });
   if (!location) throw new ServiceError("Location not found or deleted", 404);
+
+  // Validate every counted material belongs to this company — an unchecked
+  // foreign materialId would reconcile into this location's stock ledger and
+  // pollute another tenant's material master.
+  const materialIds = input.lines.map((l) => l.materialId);
+  const materials = await prisma.material.findMany({
+    where: { id: { in: materialIds }, companyId: location.companyId, deletedAt: null },
+    select: { id: true },
+  });
+  if (materials.length !== materialIds.length) {
+    throw new ServiceError("One or more materials not found in this company", 404);
+  }
 
   // Snapshot current system quantities
   const items = await prisma.stockLocationItem.findMany({

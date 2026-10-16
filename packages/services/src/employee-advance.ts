@@ -236,13 +236,24 @@ export async function creditAdvanceRecoveries(
   let creditedTotal = 0;
   for (const c of components) {
     if (!c.advanceId) continue;
+    // Cap the credit at the advance's current outstanding — two payroll runs
+    // can each carry a recovery component for the same advance, and the sum
+    // of uncapped increments would over-recover (ADVANCE_TO_EMP negative).
+    const adv0 = await tx.employeeAdvance.findUnique({
+      where: { id: c.advanceId },
+      select: { amount: true, recoveredAmount: true, status: true },
+    });
+    if (!adv0 || adv0.status !== "ACTIVE") continue;
+    const outstanding = adv0.amount.minus(adv0.recoveredAmount);
+    const applyAmount = outstanding.lt(c.amount) ? outstanding : c.amount;
+    if (applyAmount.lte(0)) continue;
     const updated = await tx.employeeAdvance.updateMany({
       where: { id: c.advanceId, status: "ACTIVE" },
-      data: { recoveredAmount: { increment: c.amount } },
+      data: { recoveredAmount: { increment: applyAmount } },
     });
     if (updated.count === 0) continue;
     credited++;
-    creditedTotal += Number(c.amount);
+    creditedTotal += Number(applyAmount);
     // Auto-settle when fully recovered.
     const adv = await tx.employeeAdvance.findUnique({
       where: { id: c.advanceId },

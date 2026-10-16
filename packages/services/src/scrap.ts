@@ -105,6 +105,12 @@ export async function createScrapGeneration(input: CreateScrapGenerationInput) {
       where: { id: input.projectId, companyId: input.companyId, deletedAt: null },
     });
     if (!project) throw new ServiceError("Project not found", 404);
+    // A project-linked generation credits that project's WIP — a late credit
+    // on a halted/completed pool rewrites closed project costs. Standalone
+    // generation (no projectId) stays available; the credit lands on OPEX.
+    if (project.status === "ON_HOLD" || project.status === "COMPLETED") {
+      throw new ServiceError(`Cannot post a scrap credit to a ${project.status} project's WIP — generate it standalone so the credit lands on operating expense`, 400);
+    }
   }
 
   // Validate line data

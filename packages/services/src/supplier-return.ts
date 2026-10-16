@@ -101,6 +101,20 @@ export async function createSupplierReturn(input: CreateSupplierReturnInput) {
   if (!supplier) throw new ServiceError("Supplier not found or deleted", 404);
   if (!location) throw new ServiceError("Location not found or deleted", 404);
 
+  // A linked PO must belong to this company AND this supplier — the PO is the
+  // audit anchor for the delivered-qty cap at complete time, and a
+  // cross-supplier link would credit supplier A against supplier B's delivery.
+  if (input.purchaseOrderId) {
+    const po = await prisma.purchaseOrder.findFirst({
+      where: { id: input.purchaseOrderId, companyId: input.companyId },
+      select: { id: true, supplierId: true },
+    });
+    if (!po) throw new ServiceError("Purchase order not found in this company", 404);
+    if (po.supplierId !== input.supplierId) {
+      throw new ServiceError("Purchase order belongs to a different supplier — cannot anchor this return to it", 400);
+    }
+  }
+
   // Validate materials
   const materialIds = input.lines.map((l) => l.materialId);
   const materials = await prisma.material.findMany({
@@ -232,9 +246,10 @@ export async function completeSupplierReturn(input: CompleteSupplierReturnInput)
     if (ret.purchaseOrderId) {
       const poLines = await tx.purchaseOrderLine.findMany({
         where: { purchaseOrderId: ret.purchaseOrderId, materialId: { in: ret.lines.map((l) => l.materialId) } },
-        select: { materialId: true, qtyReceived: true },
+        select: { materialId: true, qtyReceived: true, unitCost: true },
       });
       const receivedByMaterial = new Map(poLines.map((l) => [l.materialId, new Decimal(l.qtyReceived)]));
+      const billedCostByMaterial = new Map(poLines.map((l) => [l.materialId, new Decimal(l.unitCost)]));
       const priorReturns = await tx.supplierReturnLine.findMany({
         where: {
           materialId: { in: ret.lines.map((l) => l.materialId) },
@@ -256,6 +271,16 @@ export async function completeSupplierReturn(input: CompleteSupplierReturnInput)
         if (new Decimal(line.qty).gt(returnable)) {
           throw new ServiceError(
             `Return qty ${line.qty} exceeds what PO delivered (${received} received, ${alreadyReturned} already returned — ${returnable} returnable) for material ${line.materialId}`,
+          );
+        }
+        // Price cap: the credit note can't relieve more AP per unit than the
+        // PO billed — a caller-set unitCost above the agreed ex-GST rate
+        // would debit AP for money the supplier never charged (the excess
+        // vanishes into PPV on the GL side).
+        const billedCost = billedCostByMaterial.get(line.materialId)!;
+        if (new Decimal(line.unitCost).gt(billedCost)) {
+          throw new ServiceError(
+            `Return unit cost ${line.unitCost} exceeds the PO's agreed rate ${billedCost} for material ${line.materialId} — the credit note cannot relieve more AP than the PO billed`,
           );
         }
       }
@@ -343,10 +368,25 @@ export async function cancelSupplierReturn(returnId: string, userId?: string) {
     if (!ret) throw new ServiceError("Return not found", 404);
     if (ret.status === "COMPLETED") throw new ServiceError("Cannot cancel a completed return");
 
-    // Cancel the auto-created gate pass if it's still awaiting approval —
-    // otherwise it sits PENDING forever for a dead return and blocks nothing.
+    // If the gate pass already confirmed the goods EXITED, the material is
+    // physically gone — cancelling the return would leave stock on the books
+    // that the site no longer has. Force the return to complete instead so
+    // the stock + GL deductions actually happen.
+    const exitedPass = await tx.gatePass.findFirst({
+      where: { refType: "SupplierReturn", refId: returnId, status: "EXITED" },
+      select: { gatePassNumber: true },
+    });
+    if (exitedPass) {
+      throw new ServiceError(
+        `Goods already exited under gate pass ${exitedPass.gatePassNumber} — complete the return so stock and accounts reflect the goods that left`,
+        409,
+      );
+    }
+
+    // Cancel the auto-created gate pass if it's still live — a dead return's
+    // approved pass would still wave goods out of the gate.
     await tx.gatePass.updateMany({
-      where: { refType: "SupplierReturn", refId: returnId, status: { in: ["PENDING", "DRAFT"] } },
+      where: { refType: "SupplierReturn", refId: returnId, status: { in: ["PENDING", "DRAFT", "APPROVED"] } },
       data: { status: "CANCELLED" },
     });
 
