@@ -1006,3 +1006,24 @@ only on PENDING), resubmit-after-reject (requisition/RA-bill/change-order),
 PO-cancel on any unreceived state. The matrix's value is that it makes these
 _explicit_ — every 200 now sits in a curated legal set rather than passing
 unnoticed.
+
+## 55. Invariant assertion pack — continuous ledger truth (2026-10-16)
+
+`packages/services/src/invariant-checks.ts` adds 11 entity-level checks to
+`runBookReconciliation` (now 19 checks on `/api/health/books`): non-negative
+stock/lots, cancelled-issue movement net-zero (phantom-stock regression
+catcher), per-entry journal balance, payment caps on both sale kinds,
+schedule-item / advance / PO-line / requisition bounds, EXITED-gate-pass
+parent linkage, positive movements, rate-contract ceilings. Each check counts
+violations and carries the offending row ids in `details`.
+
+First live run surfaced real dev-DB drift it was designed to catch: an
+AssetSale overpaid ₹15k by cleared test-cheque litter (payment-caps FAIL with
+the offending row id). The five pre-existing book-level FAILs (stock-ledger,
+inventory-gl, supplier-ap, wip-gl, unit-cost staleness) are dev-data drift
+predating the hardening sweep — the pack now reports them continuously rather
+than letting them compound silently.
+
+Pattern: cached/derived fields drift — the dominant bug class of the whole
+sweep. These checks make every such drift visible within one reconciliation
+run instead of a manual audit.
