@@ -26,9 +26,18 @@ export const GET = apiHandler(async (_req: NextRequest, ctx: { params: Promise<{
 
 export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<{ id: string }> }) => {
   const user = await requireEffectivePermission(PERM.ASSETS_MANAGE);
+  const company = await getCompany();
   const { id } = await ctx.params;
   const body = await req.json();
   const action = body?.action as string;
+
+  // Same scoping as GET/DELETE — the service calls below take a bare id, so
+  // without this check a caller could hold/revalue another tenant's parcel.
+  const parcel = await prisma.landParcel.findFirst({
+    where: { id, landPurchase: { companyId: company.id }, deletedAt: null, ...await scopeWhere("LandParcel", {}) },
+    select: { id: true },
+  });
+  if (!parcel) return json({ error: "Land parcel not found" }, { status: 404 });
 
   try {
     if (action === "hold") {

@@ -545,6 +545,11 @@ export async function createRaBill(input: CreateRaBillInput) {
       : new Decimal(0);
 
     const otherDeductions = new Decimal(input.otherDeductions ?? 0);
+    // A negative deduction is an addition in disguise — it would inflate
+    // netPayable above the billed gross (paying more than the work measured).
+    if (otherDeductions.lt(0)) {
+      throw new ServiceError("Other deductions cannot be negative — record a bonus as a separate adjustment, not a negative deduction", 400);
+    }
 
     const totalDeductions = retentionAmount
       .plus(tdsAmount)
@@ -552,6 +557,15 @@ export async function createRaBill(input: CreateRaBillInput) {
       .plus(otherDeductions);
 
     const netPayable = grossAmount.minus(totalDeductions).toDecimalPlaces(2);
+    // Deductions beyond the gross produce a negative payable — there is no
+    // money path for "the contractor owes us" on an RA bill. Refuse and make
+    // the caller split the clawback into a separate recovery instead.
+    if (netPayable.lt(0)) {
+      throw new ServiceError(
+        `Total deductions ${totalDeductions} exceed the gross amount ${grossAmount} — the contractor cannot owe money on an RA bill. Reduce the deductions or raise a separate recovery.`,
+        400,
+      );
+    }
 
     // Create the RA bill
     const raBill = await tx.raBill.create({
@@ -904,8 +918,8 @@ export async function payRaBill(
     }
 
     const netPayable = new Decimal(bill.netPayable);
-    if (netPayable.lte(0)) {
-      throw new ServiceError("Net payable must be > 0", 400);
+    if (netPayable.lt(0)) {
+      throw new ServiceError("Net payable cannot be negative", 400);
     }
 
     const mode = normalizePaymentMode(paymentMode);
@@ -917,7 +931,7 @@ export async function payRaBill(
         status: "PAID",
         paidById: paidById ?? null,
         paidAt: new Date(),
-        notes: [bill.notes, `Paid via ${mode}${paymentReference ? ` (ref: ${paymentReference})` : ""}`].filter(Boolean).join("\n"),
+        notes: [bill.notes, netPayable.gt(0) ? `Paid via ${mode}${paymentReference ? ` (ref: ${paymentReference})` : ""}` : "Fully deducted — nothing payable"].filter(Boolean).join("\n"),
       },
     });
 
@@ -930,18 +944,22 @@ export async function payRaBill(
       },
     });
 
-    // GL: Dr AP (settle the payable), Cr Cash (money out)
-    await postJournalEntry(tx, {
-      companyId: bill.companyId,
-      sourceType: "RA_BILL_PAYMENT",
-      sourceId: id,
-      memo: `RA Bill payment — ${bill.raBillNumber}`,
-      postedById: paidById,
-      lines: [
-        { accountCode: ACCT.AP, debit: netPayable, credit: 0, entityType: "RaBill", entityId: id, memo: "Settle subcontractor payable" },
-        { accountCode: ACCT.CASH, debit: 0, credit: netPayable, entityType: "RaBill", entityId: id, memo: `Payment via ${mode}` },
-      ],
-    });
+    // GL: Dr AP (settle the payable), Cr Cash (money out) — skipped on a
+    // fully-deducted bill: the payable was already settled by the deductions
+    // at approval, and a zero-amount JE would be pure noise.
+    if (netPayable.gt(0)) {
+      await postJournalEntry(tx, {
+        companyId: bill.companyId,
+        sourceType: "RA_BILL_PAYMENT",
+        sourceId: id,
+        memo: `RA Bill payment — ${bill.raBillNumber}`,
+        postedById: paidById,
+        lines: [
+          { accountCode: ACCT.AP, debit: netPayable, credit: 0, entityType: "RaBill", entityId: id, memo: "Settle subcontractor payable" },
+          { accountCode: ACCT.CASH, debit: 0, credit: netPayable, entityType: "RaBill", entityId: id, memo: `Payment via ${mode}` },
+        ],
+      });
+    }
 
     await logAction(tx, {
       userId: paidById,

@@ -3,7 +3,7 @@ import { withSerializableTransaction } from "./transaction";
 import Decimal from "decimal.js";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
-import { postNrvWriteDown } from "./gl-posting";
+import { postNrvWriteDown, postNrvRecovery, reverseJournalEntry } from "./gl-posting";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { ServiceError } from "./errors";
 
@@ -334,9 +334,29 @@ export async function unpartitionLandParcel(parentParcelId: string, userId?: str
 
     // 3. Soft-delete all children
     if (childIds.length > 0) {
+      // Reverse any posted NRV write-downs on the children first — the
+      // children cease to exist, but their impairment JEs would keep the
+      // LAND_ASSET account credited (understated) while the restored parent
+      // carries full acquisition cost. The GL must mirror parcel records.
+      const childNrvEntries = await tx.journalEntry.findMany({
+        where: { sourceType: "NRV_WRITE_DOWN", sourceId: { in: childIds }, status: "POSTED" },
+        select: { id: true },
+      });
+      if (childNrvEntries.length > 0) {
+        const alreadyReversed = await tx.journalEntry.findMany({
+          where: { reversalOfId: { in: childNrvEntries.map((j) => j.id) } },
+          select: { reversalOfId: true },
+        });
+        const reversedIds = new Set(alreadyReversed.map((j) => j.reversalOfId));
+        for (const je of childNrvEntries) {
+          if (!reversedIds.has(je.id)) {
+            await reverseJournalEntry(tx, je.id, { postedById: userId, memo: "NRV write-down reversed — parcel removed by unpartition" });
+          }
+        }
+      }
       await tx.landParcel.updateMany({
         where: { id: { in: childIds } },
-        data: { deletedAt: new Date() },
+        data: { deletedAt: new Date(), nrvWriteDown: new Decimal(0) },
       });
     }
 
@@ -390,13 +410,16 @@ export async function updateParcelValuation(
   data: { currentValuation?: Decimal | number | string; askingPrice?: Decimal | number | string },
   userId?: string,
 ) {
-  const parcel = await prisma.landParcel.findUnique({ where: { id: parcelId } });
-  if (!parcel) throw new ServiceError("Parcel not found", 404);
-  if (parcel.deletedAt) throw new ServiceError("Parcel is deleted");
-  if (parcel.status === "SOLD") throw new ServiceError("Cannot update valuation of a SOLD parcel");
-  if (parcel.status === "PARTITIONED") throw new ServiceError("Cannot update valuation of a PARTITIONED parcel");
-
   return withSerializableTransaction(async (tx) => {
+    // Read inside the tx — status checks done outside would be TOCTOU: a
+    // concurrent sale could mark the parcel SOLD between the check and the
+    // update, and a serializable retry would not re-run the pre-checks.
+    const parcel = await tx.landParcel.findUnique({ where: { id: parcelId } });
+    if (!parcel) throw new ServiceError("Parcel not found", 404);
+    if (parcel.deletedAt) throw new ServiceError("Parcel is deleted");
+    if (parcel.status === "SOLD") throw new ServiceError("Cannot update valuation of a SOLD parcel");
+    if (parcel.status === "PARTITIONED") throw new ServiceError("Cannot update valuation of a PARTITIONED parcel");
+
     const updated = await tx.landParcel.update({
       where: { id: parcelId },
       data: {
@@ -414,38 +437,60 @@ export async function updateParcelValuation(
     });
 
     // NRV write-down check: if the new valuation is below acquisitionCost,
-    // compute the write-down, update the field, and post a GL entry.
+    // compute the write-down, update the field, and post a GL entry. The
+    // field and the ledger must stay in lockstep — every delta posts a JE
+    // (write-down or recovery), so the GL never drifts from the field.
     if (data.currentValuation !== undefined) {
       const newValuation = new Decimal(data.currentValuation);
       const cost = new Decimal(updated.acquisitionCost);
+      const existingWriteDown = new Decimal(updated.nrvWriteDown ?? 0);
+      const landPurchase = await tx.landPurchase.findUnique({
+        where: { id: updated.landPurchaseId },
+        select: { companyId: true },
+      });
       if (newValuation.lt(cost)) {
         const writeDownAmount = cost.minus(newValuation);
-        const existingWriteDown = new Decimal(updated.nrvWriteDown ?? 0);
         const glDelta = writeDownAmount.minus(existingWriteDown);
         await tx.landParcel.update({
           where: { id: parcelId },
           data: { nrvWriteDown: writeDownAmount },
         });
-        if (glDelta.gt(0)) {
-          const landPurchase = await tx.landPurchase.findUnique({
-            where: { id: updated.landPurchaseId },
-            select: { companyId: true },
-          });
-          if (landPurchase) {
+        if (!glDelta.isZero() && landPurchase) {
+          if (glDelta.gt(0)) {
             await postNrvWriteDown(tx, {
               companyId: landPurchase.companyId,
               entityType: "LAND",
               entityId: parcelId,
               writeDownAmount: glDelta,
             });
+          } else {
+            // Partial NRV recovery while still below cost — reverse the
+            // excess write-down so GL tracks the field exactly.
+            await postNrvRecovery(tx, {
+              companyId: landPurchase.companyId,
+              entityType: "LAND",
+              entityId: parcelId,
+              amount: glDelta.abs(),
+            });
           }
         }
-      } else if (newValuation.gte(cost) && new Decimal(updated.nrvWriteDown ?? 0).gt(0)) {
-        // NRV has recovered above cost — clear the write-down
+      } else if (existingWriteDown.gt(0)) {
+        // NRV recovered to cost or above — reverse the full write-down in GL
+        // (IAS 2 write-down reversal) and clear the field. Without the JE the
+        // ledger keeps the loss while the field reads 0, and the next
+        // write-down would double-post.
         await tx.landParcel.update({
           where: { id: parcelId },
           data: { nrvWriteDown: new Decimal(0) },
         });
+        if (landPurchase) {
+          await postNrvRecovery(tx, {
+            companyId: landPurchase.companyId,
+            entityType: "LAND",
+            entityId: parcelId,
+            amount: existingWriteDown,
+          });
+        }
       }
     }
 
@@ -470,36 +515,38 @@ export async function updateParcelDetails(
   },
   userId?: string,
 ) {
-  const parcel = await prisma.landParcel.findUnique({ where: { id: parcelId } });
-  if (!parcel) throw new ServiceError("Parcel not found", 404);
-  if (parcel.deletedAt) throw new ServiceError("Parcel is deleted");
-  if (parcel.status === "SOLD") throw new ServiceError("Cannot edit a SOLD parcel");
-  if (parcel.status === "PARTITIONED") throw new ServiceError("Cannot edit a PARTITIONED parcel — edit its children instead");
+  return withSerializableTransaction(async (tx) => {
+    // All checks inside the tx — the sibling-sum invariant depends on rows a
+    // concurrent edit could change between pre-check and commit.
+    const parcel = await tx.landParcel.findUnique({ where: { id: parcelId } });
+    if (!parcel) throw new ServiceError("Parcel not found", 404);
+    if (parcel.deletedAt) throw new ServiceError("Parcel is deleted");
+    if (parcel.status === "SOLD") throw new ServiceError("Cannot edit a SOLD parcel");
+    if (parcel.status === "PARTITIONED") throw new ServiceError("Cannot edit a PARTITIONED parcel — edit its children instead");
 
-  // If area is changing on a child parcel, validate sibling sum = parent area
-  if (data.area !== undefined && parcel.parentParcelId) {
-    const newArea = new Decimal(data.area);
-    const parent = await prisma.landParcel.findUnique({
-      where: { id: parcel.parentParcelId },
-      include: { children: { where: { deletedAt: null, id: { not: parcelId } } } },
-    });
-    if (parent) {
-      const siblingSum = parent.children.reduce(
-        (s, c) => s.plus(new Decimal(c.area)),
-        newArea,
-      );
-      const parentArea = new Decimal(parent.area);
-      if (!siblingSum.equals(parentArea)) {
-        const diff = siblingSum.minus(parentArea);
-        throw new ServiceError(
-          `Sibling areas (${siblingSum.toFixed(3)} ${parent.areaUnit}) must sum to the parent's area (${parentArea.toFixed(3)} ${parent.areaUnit}). ` +
-          `Current difference: ${diff.gt(0) ? "+" : ""}${diff.toFixed(3)} ${parent.areaUnit}.`,
+    // If area is changing on a child parcel, validate sibling sum = parent area
+    if (data.area !== undefined && parcel.parentParcelId) {
+      const newArea = new Decimal(data.area);
+      const parent = await tx.landParcel.findUnique({
+        where: { id: parcel.parentParcelId },
+        include: { children: { where: { deletedAt: null, id: { not: parcelId } } } },
+      });
+      if (parent) {
+        const siblingSum = parent.children.reduce(
+          (s, c) => s.plus(new Decimal(c.area)),
+          newArea,
         );
+        const parentArea = new Decimal(parent.area);
+        if (!siblingSum.equals(parentArea)) {
+          const diff = siblingSum.minus(parentArea);
+          throw new ServiceError(
+            `Sibling areas (${siblingSum.toFixed(3)} ${parent.areaUnit}) must sum to the parent's area (${parentArea.toFixed(3)} ${parent.areaUnit}). ` +
+            `Current difference: ${diff.gt(0) ? "+" : ""}${diff.toFixed(3)} ${parent.areaUnit}.`,
+          );
+        }
       }
     }
-  }
 
-  return withSerializableTransaction(async (tx) => {
     const updated = await tx.landParcel.update({
       where: { id: parcelId },
       data: {

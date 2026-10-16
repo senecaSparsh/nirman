@@ -1,6 +1,6 @@
 import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
-import { postNrvWriteDown } from "./gl-posting";
+import { postNrvWriteDown, postNrvRecovery } from "./gl-posting";
 import { logAction } from "./audit";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { withSerializableTransaction } from "./transaction";
@@ -193,7 +193,7 @@ export async function flagNrvWriteDowns(companyId?: string) {
         status: { in: ["AVAILABLE", "HOLD"] },
         ...(companyId ? { landPurchase: { companyId } } : {}),
       },
-      select: { id: true, acquisitionCost: true, currentValuation: true, landPurchase: { select: { companyId: true } } },
+      select: { id: true, acquisitionCost: true, currentValuation: true, nrvWriteDown: true, landPurchase: { select: { companyId: true } } },
     }),
   ]);
 
@@ -205,7 +205,12 @@ export async function flagNrvWriteDowns(companyId?: string) {
     writeDownAmount: Decimal;
   }[] = [];
 
-  // Collect all updates + GL postings first, then apply atomically
+  // Collect all updates + GL postings first, then apply atomically.
+  // glAmount is the DELTA vs the recorded write-down: positive posts a
+  // write-down JE, negative posts a recovery JE. The field and the ledger
+  // must stay in lockstep — posting only positive deltas while silently
+  // clearing the field leaves the loss on the books forever (and the next
+  // write-down would double-post).
   const unitUpdates: { id: string; nrvWriteDown: Decimal; companyId: string; glAmount: Decimal }[] = [];
   const parcelUpdates: { id: string; nrvWriteDown: Decimal; companyId: string; glAmount: Decimal }[] = [];
 
@@ -221,8 +226,9 @@ export async function flagNrvWriteDowns(companyId?: string) {
       const glAmount = writeDown.minus(existingWriteDown);
       unitUpdates.push({ id: unit.id, nrvWriteDown: writeDown, companyId: unit.project.companyId, glAmount });
     } else if (existingWriteDown.gt(0)) {
-      // Clear previous write-down if NRV has recovered
-      unitUpdates.push({ id: unit.id, nrvWriteDown: new Decimal(0), companyId: unit.project.companyId, glAmount: new Decimal(0) });
+      // NRV recovered to cost or above — reverse the write-down in GL and
+      // clear the field. The delta (−existing) drives the recovery JE.
+      unitUpdates.push({ id: unit.id, nrvWriteDown: new Decimal(0), companyId: unit.project.companyId, glAmount: existingWriteDown.neg() });
     }
   }
 
@@ -230,10 +236,16 @@ export async function flagNrvWriteDowns(companyId?: string) {
   for (const parcel of parcels) {
     const cost = new Decimal(parcel.acquisitionCost);
     const nrv = new Decimal(parcel.currentValuation);
+    const existingWriteDown = parcel.nrvWriteDown ? new Decimal(parcel.nrvWriteDown) : new Decimal(0);
     if (nrv.lt(cost)) {
       const writeDown = cost.minus(nrv);
       writeDowns.push({ type: "LAND", id: parcel.id, costBasis: cost, nrv, writeDownAmount: writeDown });
-      parcelUpdates.push({ id: parcel.id, nrvWriteDown: writeDown, companyId: parcel.landPurchase.companyId, glAmount: writeDown });
+      // GL delta — posting the full writeDown each sweep would double-count
+      // the existing portion on every run.
+      parcelUpdates.push({ id: parcel.id, nrvWriteDown: writeDown, companyId: parcel.landPurchase.companyId, glAmount: writeDown.minus(existingWriteDown) });
+    } else if (existingWriteDown.gt(0)) {
+      // Recovered — clear the field and reverse the write-down.
+      parcelUpdates.push({ id: parcel.id, nrvWriteDown: new Decimal(0), companyId: parcel.landPurchase.companyId, glAmount: existingWriteDown.neg() });
     }
   }
 
@@ -255,6 +267,19 @@ export async function flagNrvWriteDowns(companyId?: string) {
             entityId: u.id,
             after: { nrvWriteDown: u.nrvWriteDown.toString(), glAmount: u.glAmount.toString() },
           });
+        } else if (u.glAmount.lt(0)) {
+          await postNrvRecovery(tx, {
+            companyId: u.companyId,
+            entityType: "BUILT_UNIT",
+            entityId: u.id,
+            amount: u.glAmount.abs(),
+          });
+          await logAction(tx, {
+            action: "NRV_RECOVERY",
+            entityType: "BUILT_UNIT",
+            entityId: u.id,
+            after: { nrvWriteDown: u.nrvWriteDown.toString(), glAmount: u.glAmount.toString() },
+          });
         }
       }
       for (const p of parcelUpdates) {
@@ -268,6 +293,19 @@ export async function flagNrvWriteDowns(companyId?: string) {
           });
           await logAction(tx, {
             action: "NRV_WRITE_DOWN",
+            entityType: "LAND_PARCEL",
+            entityId: p.id,
+            after: { nrvWriteDown: p.nrvWriteDown.toString(), glAmount: p.glAmount.toString() },
+          });
+        } else if (p.glAmount.lt(0)) {
+          await postNrvRecovery(tx, {
+            companyId: p.companyId,
+            entityType: "LAND",
+            entityId: p.id,
+            amount: p.glAmount.abs(),
+          });
+          await logAction(tx, {
+            action: "NRV_RECOVERY",
             entityType: "LAND_PARCEL",
             entityId: p.id,
             after: { nrvWriteDown: p.nrvWriteDown.toString(), glAmount: p.glAmount.toString() },

@@ -2320,6 +2320,45 @@ export async function postNrvWriteDown(
 }
 
 /**
+ * NRV Recovery: reverse a previous NRV write-down when NRV has recovered
+ * (IAS 2.33 — reversal of a write-down is required when the circumstances
+ * that caused it no longer exist, capped at the original write-down).
+ *
+ *   Dr UNIT_ASSET (1800) / LAND_ASSET (1700)   (restore carrying amount)
+ *   Cr OPERATING_EXPENSE (6000)               (reverse impairment loss)
+ *
+ * Callers pass the recovered amount — typically the prior write-down or
+ * the portion of it that is no longer needed.
+ */
+export async function postNrvRecovery(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    entityType: "BUILT_UNIT" | "LAND";
+    entityId: string;
+    amount: Decimal | number | string;
+    postedById?: string;
+  },
+) {
+  const amount = new Decimal(opts.amount);
+  if (amount.isZero() || amount.isNegative()) return null;
+
+  const debitAccount = opts.entityType === "BUILT_UNIT" ? ACCT.UNIT_ASSET : ACCT.LAND_ASSET;
+
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "NRV_RECOVERY",
+    sourceId: opts.entityId,
+    memo: `NRV write-down recovery — ${opts.entityType === "BUILT_UNIT" ? "built unit" : "land parcel"} NRV recovered`,
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: debitAccount, debit: amount, credit: 0, entityType: opts.entityType, entityId: opts.entityId, memo: "Restore asset to recovered NRV" },
+      { accountCode: ACCT.OPERATING_EXPENSE, debit: 0, credit: amount, entityType: opts.entityType, entityId: opts.entityId, memo: "Reversal of impairment loss" },
+    ],
+  });
+}
+
+/**
  * Sale Expense (seller-borne): when a sale expense head is marked
  * "borne by SELLER", the seller absorbs the cost. This posts:
  *   Dr Operating Expense   (amount)
