@@ -1103,3 +1103,33 @@ atomically at dispatch (transfer.ts:333,502), not at request time.
 Not a substitute for Schemathesis (that learns field shapes from a spec and
 covers the long tail of routes) — that remains the OpenAPI-emission task.
 This pack covers the high-risk writes we hand-picked.
+
+## 60. Mutation testing for real — scoped Stryker run (2026-10-16)
+
+The first Stryker attempt SIGABRT'd: 156 mutants × the full ~1,750-test
+DB-backed suite at concurrency=1. The fix was scope, not patience —
+`packages/services/vitest.mutation.config.ts` runs ONLY
+`guard-regressions.test.ts`, so a mutant costs one ~9s focused pass instead
+of a minutes-long full suite. `stryker.config.mjs` mutates the seven guard
+regions the hardening sweep added (MB/DPR re-reject, supplier-payment dedup,
+supplier-return re-cancel, issue phantom-stock, safety cancel/delete).
+
+Iteration: run 1 → 105/156 killed (67%), 43 survivors. Reading the survivors
+made the pattern obvious — they weren't missing _refusal_ tests, they were
+missing _legal-path_ assertions: a mutant that widens a `where`, drops one
+status clause, or disables `if (x)` only shows up when a test proves the
+allowed case still works (different-referenceNo pays, voided ref frees,
+15s-window expiry, REPORTED/UNDER_INVESTIGATION cancel, SCHEDULED delete,
+cross-tenant + missing-id 404s, audit-log payload fields). Added 14 tests in
+that shape (26 total). Run 2 → 155/156 killed (99.4%). The one survivor was
+a true equivalent mutant — `select: { id: true }` on a dupe check that only
+reads `paymentNumber`; removed the dead field instead of contorting a test.
+
+**Result: 155/155 killed, 100% mutation score** on the guard regions.
+Report: `packages/services/reports/mutation/mutation-report.html`
+(gitignored). Re-run: `cd packages/services && npx stryker run` (~2min).
+
+What it does NOT cover: the rest of the service files' mutation space —
+this scores the guard regions, not whole files. Widening `mutate:` to whole
+money files stays a background/overnight job for the same suite-weight
+reason; the scoped config now makes that feasible per-file if wanted.
