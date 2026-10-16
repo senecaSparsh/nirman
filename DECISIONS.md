@@ -1065,3 +1065,24 @@ gate-satisfied fixture; noted as a limitation).
 Conclusion: the sweep's dedup windows + serializable transactions + status
 guards hold under real concurrency — duplicates die as clean 4xx, never as
 doubled writes.
+
+## 58. Metamorphic pairs — reversibility as executable relations (2026-10-16)
+
+`scripts/metamorphic.ts` encodes the formal relation the sweep kept finding
+broken: `apply(A); apply(A⁻¹)` must leave the ledger unchanged. Snapshot →
+forward op → inverse op → diff the touched columns.
+
+5/5 pairs green: issue→cancel (stock + WIP restored + `_REVERSAL` JE),
+payment→void, transfer dispatch→returnToSource (both locations net-zero),
+supplier-payment→void (balanceOwed restored), pending-cheque→bounce
+(paid-sum no-op).
+
+Two conventions encoded so future regressions read as test failures, not
+"unexpected behavior": (1) reversals are append-only — original JE stays
+POSTED; the reversal is a mirrored `_REVERSAL` entry linked by
+`reversalOfId` (the `REVERSED` status exists but is unused); (2) CLEARED
+cheques can't bounce — dishonor-after-clear is a void, correctly refused.
+
+Harness caught its own oracle bug too: `NOT IN` on nullable `chequeStatus`
+silently dropped non-cheque payments — a reminder that the filters must
+mirror `sumClearedAssetSalePayments` exactly.
