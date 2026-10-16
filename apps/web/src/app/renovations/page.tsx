@@ -130,7 +130,6 @@ async function RenovationsContent() {
                       <Link
                         href={`/projects/${r.projectId}`}
                         className="truncate text-[13px] text-foreground transition-colors hover:text-brand-strong hover:underline"
-                        onClick={(e) => e.stopPropagation()}
                       >
                         {r.projectName}
                       </Link>

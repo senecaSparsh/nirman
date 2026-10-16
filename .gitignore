@@ -56,3 +56,4 @@ onboarding-queue.txt
 # Stryker mutation testing artifacts
 .stryker-tmp/
 reports/
+probe/*.jsonl
