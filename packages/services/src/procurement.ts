@@ -162,6 +162,15 @@ async function applyRateContractRules(
         400,
       );
     }
+    // The agreed rate is conditional on ordering at least minQty per release —
+    // a smaller release isn't entitled to contract pricing and mustn't burn
+    // totalReleasedQty.
+    if (contract.minQty != null && qty.lt(contract.minQty)) {
+      throw new ServiceError(
+        `Rate contract ${contract.contractNumber} for ${matName} requires a minimum release of ${contract.minQty} — this line orders ${qty}. Raise the qty or buy off-contract.`,
+        400,
+      );
+    }
     const released = new Decimal(contract.totalReleasedQty).plus(contractQtyDelta.get(contract.id) ?? 0).plus(qty);
     if (contract.maxQty != null && released.gt(contract.maxQty)) {
       throw new ServiceError(

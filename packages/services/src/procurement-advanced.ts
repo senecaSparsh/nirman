@@ -233,6 +233,14 @@ export async function createRateContract(input: CreateRateContractInput) {
     const rate = new Decimal(input.agreedRate);
     if (!rate.gt(0)) throw new ServiceError("Agreed rate must be > 0", 400);
 
+    const minQty = input.minQty != null ? new Decimal(input.minQty) : null;
+    const maxQty = input.maxQty != null ? new Decimal(input.maxQty) : null;
+    if (minQty != null && !minQty.gt(0)) throw new ServiceError("minQty must be > 0", 400);
+    if (maxQty != null && !maxQty.gt(0)) throw new ServiceError("maxQty must be > 0", 400);
+    if (minQty != null && maxQty != null && minQty.gt(maxQty)) {
+      throw new ServiceError("minQty cannot exceed maxQty", 400);
+    }
+
     const contractNumber = await generateContractNumber(tx, input.companyId);
 
     const contract = await tx.rateContract.create({
@@ -244,8 +252,8 @@ export async function createRateContract(input: CreateRateContractInput) {
         agreedRate: rate.toString(),
         validFrom: input.validFrom,
         validTo: input.validTo,
-        minQty: input.minQty != null ? new Decimal(input.minQty).toString() : null,
-        maxQty: input.maxQty != null ? new Decimal(input.maxQty).toString() : null,
+        minQty: minQty?.toString() ?? null,
+        maxQty: maxQty?.toString() ?? null,
         notes: input.notes ?? null,
         createdById: input.userId ?? null,
       },
@@ -433,29 +441,47 @@ export interface ProjectCommitments {
  * This feeds into the cost overrun forecast: actual + committed = projected.
  */
 export async function getProjectCommitments(projectId: string): Promise<ProjectCommitments> {
-  // Open requisitions — estimate from line-level lastRate snapshots
+  // Open requisitions — estimate from line-level lastRate snapshots. Count
+  // only the UNISSUED remainder: the qtyIssued portion already hit project
+  // cost via the issue GL, so counting the full request double-counts it in
+  // "actual + committed" projections.
   const openReqLines = await prisma.materialRequisitionLine.findMany({
     where: {
       requisition: { projectId, status: { in: ["SUBMITTED", "APPROVED"] } },
     },
-    select: { qtyRequested: true, lastRate: true },
+    select: { qtyRequested: true, qtyIssued: true, lastRate: true },
   });
 
   let reqTotal = new Decimal(0);
   for (const line of openReqLines) {
+    const remaining = Decimal.max(new Decimal(0), new Decimal(line.qtyRequested).minus(line.qtyIssued));
     const price = line.lastRate ? new Decimal(line.lastRate) : new Decimal(0);
-    reqTotal = reqTotal.plus(new Decimal(line.qtyRequested).times(price));
+    reqTotal = reqTotal.plus(remaining.times(price));
   }
 
-  // Open POs
+  // Open POs — committed = the UNRECEIVED remainder, not the header total.
+  // A PARTIAL PO's received portion is already actual cost (GRN → stock + AP);
+  // adding the full total double-counts it. PO.total = ΣlineTotal +
+  // miscChargesTotal, so remainder = misc + Σ(lineTotal × remaining/ordered).
   const openPos = await prisma.purchaseOrder.findMany({
     where: { projectId, status: { in: ["APPROVED", "ORDERED", "PARTIAL"] } },
-    select: { id: true, total: true },
+    select: {
+      id: true,
+      miscChargesTotal: true,
+      lines: { select: { qtyOrdered: true, qtyReceived: true, lineTotal: true } },
+    },
   });
-  const poTotal = openPos.reduce(
-    (sum, po) => sum.plus(new Decimal(po.total)),
-    new Decimal(0),
-  );
+  let poTotal = new Decimal(0);
+  for (const po of openPos) {
+    let remaining = new Decimal(po.miscChargesTotal);
+    for (const line of po.lines) {
+      const ordered = new Decimal(line.qtyOrdered);
+      if (ordered.lte(0)) continue;
+      const frac = Decimal.max(new Decimal(0), ordered.minus(line.qtyReceived)).div(ordered);
+      remaining = remaining.plus(new Decimal(line.lineTotal).times(frac));
+    }
+    poTotal = poTotal.plus(remaining);
+  }
 
   return {
     openRequisitions: {

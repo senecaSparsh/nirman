@@ -73,6 +73,13 @@ export async function createRenovation(input: CreateRenovationInput) {
       const parcel = await tx.landParcel.findFirst({ where: { id: input.landParcelId, landPurchase: { companyId: input.companyId }, deletedAt: null } });
       if (!parcel) throw new ServiceError("Land parcel not found in this company", 404);
       if (parcel.status === "SOLD") throw new ServiceError("Cannot renovate a SOLD parcel");
+      // The parcel's project assignment must match — costs post to
+      // renovation.projectId while completion capitalises into the parcel, so
+      // a cross-project link books spend on one project and asset value on
+      // another. Unassigned parcels (land bank) may link to any project.
+      if (parcel.projectId && parcel.projectId !== input.projectId) {
+        throw new ServiceError("Land parcel belongs to a different project — renovation costs must post to the asset's own project", 400);
+      }
       originalValuation = new Decimal(parcel.currentValuation);
     }
 
@@ -173,10 +180,12 @@ export async function addRenovationCost(input: AddRenovationCostInput) {
       },
     });
 
-    // Update actualCost on the renovation
+    // Update actualCost on the renovation. budget defaults to 0 = "no cap" —
+    // a Decimal(0) is truthy, so gate on gt(0), not on the object itself.
     const newActualCost = new Decimal(renovation.actualCost).plus(amount);
-    if (renovation.budget && newActualCost.gt(renovation.budget)) {
-      throw new ServiceError(`Cost exceeds renovation budget: ${newActualCost.toFixed(2)} > ${renovation.budget}`);
+    const budgetCap = new Decimal(renovation.budget);
+    if (budgetCap.gt(0) && newActualCost.gt(budgetCap)) {
+      throw new ServiceError(`Cost exceeds renovation budget: ${newActualCost.toFixed(2)} > ${budgetCap.toFixed(2)}`);
     }
     await tx.renovationProject.update({
       where: { id: renovation.id },
@@ -217,6 +226,9 @@ export async function deleteRenovationCost(costId: string, userId?: string) {
     if (!cost) throw new ServiceError("Renovation cost not found", 404);
     if (cost.renovationProject.status === "COMPLETED") {
       throw new ServiceError("Cannot delete cost from a completed renovation");
+    }
+    if (cost.renovationProject.status === "CANCELLED") {
+      throw new ServiceError("Cannot delete cost from a cancelled renovation — its journal entries were already reversed at cancellation");
     }
 
     // Reverse GL entry — use the shared helper so the reversal carries the
@@ -265,6 +277,16 @@ export async function completeRenovation(
     if (!renovation) throw new ServiceError("Renovation project not found", 404);
     if (renovation.status !== "IN_PROGRESS") {
       throw new ServiceError(`Cannot complete renovation in status ${renovation.status}. Must be IN_PROGRESS.`);
+    }
+    // Completion capitalises into the linked asset — a unit/parcel sold after
+    // the renovation started has a locked cost basis. Writing capitalizedAmount
+    // + currentValuation on a sold asset inflates a disposed asset and moves
+    // WIP into a dead account.
+    if (renovation.builtUnit?.status === "SOLD" || renovation.landParcel?.status === "SOLD") {
+      throw new ServiceError(
+        "The linked unit/parcel has been sold — its cost basis is locked. Cancel the renovation (if the spend is being refunded) or delete the cost lines and re-book them as project costs.",
+        400,
+      );
     }
 
     const actualCost = new Decimal(renovation.actualCost);
@@ -405,6 +427,7 @@ export async function cancelRenovation(id: string, userId?: string, companyId?: 
   });
   if (!renovation) throw new ServiceError("Renovation project not found", 404);
   if (renovation.status === "COMPLETED") throw new ServiceError("Cannot cancel a completed renovation");
+  if (renovation.status === "CANCELLED") throw new ServiceError("Renovation is already cancelled", 400);
 
   return withSerializableTransaction(async (tx) => {
     // Reverse all posted RENOVATION_COST GL entries for this renovation.
