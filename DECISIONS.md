@@ -1133,3 +1133,61 @@ What it does NOT cover: the rest of the service files' mutation space —
 this scores the guard regions, not whole files. Widening `mutate:` to whole
 money files stays a background/overnight job for the same suite-weight
 reason; the scoped config now makes that feasible per-file if wanted.
+
+## 61. UI "every button" probe — click-level page coverage (2026-10-16)
+
+Page-load smoke proves a route renders; it says nothing about the buttons on
+it. `apps/web/probe/button-probe.spec.ts` (+ `playwright.probe.config.ts`,
+run `pnpm --filter web e2e:probe`) walks every non-dynamic desktop page,
+enumerates visible enabled buttons, and clicks the ones that can't plausibly
+write — write-verb labels + `type=submit` are skipped, not clicked. A click
+is LIVE when any observable effect fires inside a 2.5s poll: overlay opens,
+URL changes, the button's own aria/state/class flips, an /api request fires,
+focus moves to a field, the DOM shape changes, or a download/popup happens.
+No effect ⇒ DEAD candidate (reported, not failed).
+
+Result on dev DB as OWNER: **103 pages, 4,061 buttons, 314 clicked, 286
+live, 7 dead-flagged, 3 wrote-immediately, 1,362 risky-skipped.**
+
+Findings worth knowing:
+
+- **1 real crash found + fixed**: `/renovations` 500'd for every user — a
+  server component passed `onClick` to `<Link>` (RSC can't serialize
+  handlers). Removed the handler; page renders.
+- **Dead candidates are designed no-ops**, all the same shape: already-active
+  filter chips / view toggles whose active marker is CSS-class-only
+  (`bg-foreground` in `sms-view.tsx` et al.) — clicking the selected chip is
+  a no-op by design. A11y nit: those chips lack `aria-pressed`/`role=tab`.
+- **Wrote-immediately (3)**: `/` "Click to advance status", `/tasks` timer
+  "Start", `/settings` workflow toggle — quick-action writes by design.
+  `/work-orders` "Release retention" WAS clicked under an older skip-regex
+  and released a retention in the dev DB — now skipped.
+- **Intercepts (~21)**: sonner toast cards sit top-right over the header
+  buttons (fixtures' gotoPage already works around this); residual ones are
+  open filter popovers covering sibling filter buttons — review-level noise.
+
+The probe itself needed three hardening passes, each worth remembering:
+
+- **ElementHandles, not `nth(i)`** — earlier clicks mutate the DOM, and an
+  index-based re-resolve once drifted onto an "Approve" button (a real
+  write). Handles are element identity; drift is impossible.
+- **Prefix match the risky regex** — `\bapprov\b` never matches "Approve"
+  (the 'e' kills the trailing boundary). Every truncated alternate silently
+  failed: Approve, Verify, Deactivate, Notify all got clicked once.
+- **Shadow-DOM walk for dev overlay** — `closest()` doesn't cross shadow
+  boundaries; the Next dev-tools widget's buttons match `button` and a
+  click opens a popover that intercepts everything after. Walk
+  `getRootNode().host` to exclude.
+- **Poll for effect, don't fixed-wait** — controlled `role=tab` chips flip
+  `aria-selected` only after the `?tab=` RSC round-trip (~>1s under dev
+  compile). A fixed 900ms window misread ~20 live tabs as dead.
+- **`data-nav` counts as DOM effect** — the nav-collapse toggle writes
+  `documentElement.dataset.nav`, not a class.
+- **JSONL, not afterAll** — a timeout-killed test restarts the worker and
+  wipes module state; per-page `button-report.jsonl` lines survive restarts.
+
+Not covered: dynamic `[id]` pages (no stable ids — the flow specs cover
+those), mobile `/m` surface, and buttons behind dialogs we open (we never
+submit dialogs — write-path coverage lives in the API layers). Re-probing a
+subset after UI changes: `PROBE_BASE=http://localhost:3000 npx playwright
+test -c playwright.probe.config.ts --grep "/finance"`.
