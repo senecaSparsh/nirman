@@ -1086,3 +1086,20 @@ cheques can't bounce — dishonor-after-clear is a void, correctly refused.
 Harness caught its own oracle bug too: `NOT IN` on nullable `chequeStatus`
 silently dropped non-cheque payments — a reminder that the filters must
 mirror `sumClearedAssetSalePayments` exactly.
+
+## 59. Fuzz pack — malformed input battery (2026-10-16)
+
+`scripts/fuzz-probe.ts` — input-space coverage without OpenAPI plumbing. 15
+malformed payload classes (empty/null/wrong root, missing fields, type
+confusion, negative/zero/huge amounts, bogus ids, SQL-ish strings, 60KB
+strings) + near-valid bodies with one corrupted field, fired at 12
+money/stock write routes. Asserts: never 5xx, JSON error shape, zero
+side-effect rows on refused input.
+
+Result: 201 clean / 0 findings. Boundary confirmed rather than broken:
+over-stock DRAFT transfers are legal-by-design — availability is enforced
+atomically at dispatch (transfer.ts:333,502), not at request time.
+
+Not a substitute for Schemathesis (that learns field shapes from a spec and
+covers the long tail of routes) — that remains the OpenAPI-emission task.
+This pack covers the high-risk writes we hand-picked.
