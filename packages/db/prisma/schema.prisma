@@ -4733,6 +4733,10 @@ model JournalEntry {
   entryNumber String             @unique
   entryDate    DateTime          @default(now())
   sourceType   String             // PO_RECEIPT | MATERIAL_ISSUE | ASSET_SALE | PAYMENT_RECEIVED | PROJECT_COST | EXPENSE | SUPPLIER_RETURN | LAND_PURCHASE | OPENING
+  // Links a reversal JE to the specific entry it reverses — the same doc can
+  // carry several JEs (e.g. revenue + COGS legs), so doc-level sourceId can't
+  // dedupe reversals. Set at post-time by reverseJournalEntry.
+  reversalOfId String?
   sourceId     String?
   memo        String?
   companyId   String

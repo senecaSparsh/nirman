@@ -238,6 +238,9 @@ export interface PostJournalInput {
   companyId: string;
   sourceType: string;
   sourceId?: string;
+  /** Links a reversal JE to the exact entry it reverses — multi-JE docs can't
+   *  dedupe on doc-level sourceId alone. */
+  reversalOfId?: string;
   memo?: string;
   postedById?: string;
   lines: JournalLineInput[];
@@ -320,6 +323,7 @@ export async function postJournalEntry(
       entryDate: d,
       sourceType: input.sourceType,
       sourceId: input.sourceId,
+      reversalOfId: input.reversalOfId ?? null,
       memo: input.memo,
       companyId: input.companyId,
       postedById: input.postedById,
@@ -371,6 +375,24 @@ export async function reverseJournalEntry(
     include: { lines: { include: { account: { select: { code: true } } } } },
   });
   if (!original) throw new ServiceError("Journal entry not found — cannot reverse", 404);
+  // A reversal is itself a JE with an _REVERSAL source type — reversing it
+  // again would un-reverse (the original event posts twice). Block at the
+  // boundary rather than trusting every caller's status guard.
+  if (original.sourceType.endsWith("_REVERSAL")) {
+    throw new ServiceError("Cannot reverse a reversal entry — void the source document instead", 400);
+  }
+  // Only one reversal per entry — dedupe on the reversal link, not the doc
+  // sourceId (one doc can carry several JEs: revenue + COGS, e.g.).
+  const alreadyReversed = await tx.journalEntry.findFirst({
+    where: { reversalOfId: original.id },
+    select: { id: true, entryNumber: true },
+  });
+  if (alreadyReversed) {
+    throw new ServiceError(`Journal entry ${original.entryNumber} is already reversed (${alreadyReversed.entryNumber})`, 409);
+  }
+  if (original.status !== "POSTED") {
+    throw new ServiceError(`Cannot reverse a journal entry in status ${original.status}`, 400);
+  }
   if (original.lines.length === 0) return null;
 
   // Swap debits and credits
@@ -386,6 +408,7 @@ export async function reverseJournalEntry(
     companyId: original.companyId,
     sourceType: `${original.sourceType}_REVERSAL`,
     sourceId: original.sourceId ?? undefined,
+    reversalOfId: original.id,
     memo: opts.memo ?? `Reversal of ${original.entryNumber}`,
     postedById: opts.postedById,
     lines: reversedLines,
