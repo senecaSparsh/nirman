@@ -210,6 +210,12 @@ export async function createChangeOrder(input: CreateChangeOrderInput) {
     if (input.companyId && project.company.id !== input.companyId) {
       throw new ServiceError("Project not found in this company", 404);
     }
+    // A change order is cost intent — implementing it rewrites the BOQ and
+    // moves totalBudget, so a halted/completed project's frozen cost pool
+    // must refuse it here, not at implement time.
+    if (project.status === "ON_HOLD" || project.status === "COMPLETED") {
+      throw new ServiceError(`Cannot raise a change order for a ${project.status} project`, 400);
+    }
 
     validateLines(input.lines);
     // Decoy-id guard: every line's boqItemId must belong to THIS project —
@@ -564,9 +570,15 @@ export async function cancelChangeOrder(id: string, userId: string) {
   return withSerializableTransaction(async (tx) => {
     const co = await tx.changeOrder.findUnique({ where: { id } });
     if (!co) throw new ServiceError("Change order not found", 404);
-    if (co.status === "IMPLEMENTED" || co.status === "APPROVED") {
+    if (co.status === "IMPLEMENTED") {
       throw new ServiceError(`Cannot cancel change order in ${co.status} status`, 400);
     }
+    if (co.status === "CANCELLED") {
+      throw new ServiceError("Change order is already cancelled", 400);
+    }
+    // APPROVED is cancellable: implementation is best-effort after approval,
+    // so an APPROVED order may have nothing applied — without this exit a
+    // failed auto-implement strands the record forever.
 
     const updated = await tx.changeOrder.update({
       where: { id },
@@ -605,8 +617,17 @@ export async function implementChangeOrder(id: string, userId: string) {
     if (co.status !== "APPROVED") {
       throw new ServiceError(`Cannot implement change order in ${co.status} status — must be APPROVED`, 400);
     }
+    // Implementing mutates the project's BOQ and totalBudget — refuse on a
+    // frozen cost pool the project may have entered after approval.
+    if (co.project.status === "ON_HOLD" || co.project.status === "COMPLETED") {
+      throw new ServiceError(`Cannot implement a change order on a ${co.project.status} project — its cost pool is frozen`, 400);
+    }
 
-    // Apply each line to the BOQ
+    // Apply each line to the BOQ, tracking the delta actually written. The
+    // project's budget moves by the APPLIED delta, not the CO's snapshot
+    // costDelta — a sequential CO on the same BOQ item may have shifted the
+    // baseline since this order's lines were captured.
+    let appliedDelta = new Decimal(0);
     for (const line of co.lines) {
       const revisedQty = new Decimal(line.revisedQty);
       const rate = new Decimal(line.rate);
@@ -616,17 +637,22 @@ export async function implementChangeOrder(id: string, userId: string) {
         // order's own project. A line pointing at a foreign project's BOQ
         // item (decoy id) must never rewrite another tenant's budget.
         const boqItem = await tx.boqItem.findFirst({ where: { id: line.boqItemId, projectId: co.projectId } });
-        if (boqItem) {
-          const newEstimatedAmount = revisedQty.times(rate).toDecimalPlaces(2);
-          await tx.boqItem.update({
-            where: { id: line.boqItemId },
-            data: {
-              estimatedQty: revisedQty.toDecimalPlaces(3).toString(),
-              rate: rate.toDecimalPlaces(2).toString(),
-              estimatedAmount: newEstimatedAmount.toString(),
-            },
-          });
+        if (!boqItem) {
+          // Silent-skip would mark IMPLEMENTED with the approved change only
+          // partially applied — and the old code still moved the full budget
+          // delta. Refuse so the order can be cancelled or re-issued.
+          throw new ServiceError(`BOQ item for line "${line.description}" no longer exists in this project — cancel and re-issue the change order`, 400);
         }
+        const newEstimatedAmount = revisedQty.times(rate).toDecimalPlaces(2);
+        appliedDelta = appliedDelta.plus(newEstimatedAmount.minus(boqItem.estimatedAmount ?? 0));
+        await tx.boqItem.update({
+          where: { id: line.boqItemId },
+          data: {
+            estimatedQty: revisedQty.toDecimalPlaces(3).toString(),
+            rate: rate.toDecimalPlaces(2).toString(),
+            estimatedAmount: newEstimatedAmount.toString(),
+          },
+        });
       } else if (revisedQty.gt(0)) {
         // Create a new BOQ line item (ADDITION)
         // Find the next serial number at the root level
@@ -669,6 +695,8 @@ export async function implementChangeOrder(id: string, userId: string) {
           }
         }
 
+        const newEstimatedAmount = revisedQty.times(rate).toDecimalPlaces(2);
+        appliedDelta = appliedDelta.plus(newEstimatedAmount);
         await tx.boqItem.create({
           data: {
             projectId: co.projectId,
@@ -679,7 +707,7 @@ export async function implementChangeOrder(id: string, userId: string) {
             unit: line.unit,
             estimatedQty: revisedQty.toDecimalPlaces(3).toString(),
             rate: rate.toDecimalPlaces(2).toString(),
-            estimatedAmount: revisedQty.times(rate).toDecimalPlaces(2).toString(),
+            estimatedAmount: newEstimatedAmount.toString(),
             notes: `From Change Order ${co.changeOrderNo}`,
             sortOrder: maxChildSerial + 1,
           },
@@ -687,10 +715,10 @@ export async function implementChangeOrder(id: string, userId: string) {
       }
     }
 
-    // Update project budget
+    // Update project budget by the delta actually written to the BOQ.
     const costDelta = new Decimal(co.costDelta);
-    if (!costDelta.eq(0) && co.project.totalBudget) {
-      const newBudget = new Decimal(co.project.totalBudget).plus(costDelta).toDecimalPlaces(2);
+    if (!appliedDelta.eq(0) && co.project.totalBudget) {
+      const newBudget = new Decimal(co.project.totalBudget).plus(appliedDelta).toDecimalPlaces(2);
       await tx.project.update({
         where: { id: co.projectId },
         data: { totalBudget: newBudget.toString() },
@@ -715,7 +743,8 @@ export async function implementChangeOrder(id: string, userId: string) {
         changeOrderNo: co.changeOrderNo,
         status: "IMPLEMENTED",
         costDelta: costDelta.toString(),
-        budgetUpdated: !costDelta.eq(0),
+        appliedDelta: appliedDelta.toString(),
+        budgetUpdated: !appliedDelta.eq(0),
       },
     });
 
@@ -729,6 +758,9 @@ export async function deleteChangeOrder(id: string, userId?: string) {
     if (!existing) throw new ServiceError("Change order not found", 404);
     if (existing.status === "IMPLEMENTED") {
       throw new ServiceError("Cannot delete an implemented change order", 400);
+    }
+    if (existing.status === "SUBMITTED" || existing.status === "APPROVED") {
+      throw new ServiceError(`Cannot delete a ${existing.status.toLowerCase()} change order — cancel it first`, 400);
     }
 
     await tx.changeOrder.delete({ where: { id } });
