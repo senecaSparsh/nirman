@@ -1232,6 +1232,16 @@ serializes into a single worker regardless of `workers`), `retries: 1`,
 per-surface chrome-label dedupe, `scripts/warm-mobile.mjs` (bottom-up
 compile warmer — useful if dev-mode probing is ever needed again).
 
+Post-run triage: the ~100 mobile intercept findings are probe-order
+noise (a prior click's open sheet covered header chrome — a fresh click on
+the same buttons succeeds). The 12 dead-flagged buttons are designed
+no-ops (default-selected `RegisterTabs`/period chips, carousel dots).
+Dev-DB writes from the pre-ElementHandle regex window, audited via
+AuditLog: 3× PURCHASE_ORDER_APPROVE + 3× PURCHASE_ORDER_ORDER, 2×
+DPR_ADMIN_APPROVE, 2× GL_CREATE, 7× TASK_STATUS_CHANGE, 2× TASK_CREATE —
+all on seed/fixture entities, ids preserved in the audit trail if a
+revert is ever needed.
+
 Re-run mobile: `PROBE_BASE=http://localhost:3200
 PROBE_EMAIL=<owner-email> npx playwright test -c
 playwright.probe.config.ts --project=mobile`.
