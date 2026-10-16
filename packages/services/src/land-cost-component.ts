@@ -2,7 +2,7 @@ import { type Prisma, type LandCostFrequency, type LandCostRecurrenceInterval } 
 import Decimal from "decimal.js";
 import { reallocateProjectCosts } from "./valuation";
 import { logAction } from "./audit";
-import { postLandCostComponent, reverseJournalEntry } from "./gl-posting";
+import { postLandCostComponent, postJournalEntry, reverseJournalEntry, ACCT } from "./gl-posting";
 import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
 
@@ -278,11 +278,19 @@ export async function deleteLandCostComponent(id: string, userId?: string) {
     const component = await tx.landCostComponent.findUnique({ where: { id } });
     if (!component) throw new ServiceError("Cost component not found", 404);
 
-    // Reverse every GL entry this component posted.
+    // Reverse every GL entry this component posted — skipping ones already
+    // reversed (a reduction correction may have linked an earlier reversal,
+    // and re-reversing would 409).
     const entries = await tx.journalEntry.findMany({
-      where: { sourceType: "LAND_COST_COMPONENT", sourceId: id },
+      where: { sourceType: "LAND_COST_COMPONENT", sourceId: id, status: "POSTED" },
     });
+    const alreadyReversed = await tx.journalEntry.findMany({
+      where: { reversalOfId: { in: entries.map((e) => e.id) } },
+      select: { reversalOfId: true },
+    });
+    const reversedIds = new Set(alreadyReversed.map((e) => e.reversalOfId));
     for (const entry of entries) {
+      if (reversedIds.has(entry.id)) continue;
       await reverseJournalEntry(tx, entry.id, {
         postedById: userId,
         memo: `Reversal: land cost component deleted (${component.label})`,
@@ -361,25 +369,22 @@ export async function recomputeLandTotalCost(
           postedById: userId,
         });
       } else {
-        // delta < 0: reverse entries to bring postedAmount down.
+        // delta < 0: post a single correction JE for exactly the reduction —
+        // reversing whole entries would overshoot whenever the boundary
+        // entry is larger than the remaining amount (the GL would post less
+        // than `effective` while the field says `effective`, permanently).
         const toReverse = currentPosted.minus(effective);
-        const entries = await tx.journalEntry.findMany({
-          where: { sourceType: "LAND_COST_COMPONENT", sourceId: c.id },
-          include: { lines: true },
-          orderBy: { entryDate: "desc" },
+        await postJournalEntry(tx, {
+          companyId: lp.companyId,
+          sourceType: "LAND_COST_COMPONENT_REVERSAL",
+          sourceId: c.id,
+          memo: `Reversal: land cost component schedule reduced (${c.label})`,
+          postedById: userId,
+          lines: [
+            { accountCode: ACCT.CASH, debit: toReverse, credit: 0, entityType: "LandCostComponent", entityId: c.id, memo: "Refund of over-accrued land cost" },
+            { accountCode: ACCT.LAND_ASSET, debit: 0, credit: toReverse, entityType: "LandPurchase", entityId: landPurchaseId, memo: "Reduce capitalised land cost" },
+          ],
         });
-        let remaining = toReverse;
-        for (const entry of entries) {
-          if (remaining.lte(0)) break;
-          const entryTotal = entry.lines.reduce(
-            (s, l) => s.plus(new Decimal(l.debit)), new Decimal(0),
-          );
-          await reverseJournalEntry(tx, entry.id, {
-            postedById: userId,
-            memo: `Reversal: land cost component schedule reduced (${c.label})`,
-          });
-          remaining = remaining.minus(entryTotal);
-        }
       }
       await tx.landCostComponent.update({
         where: { id: c.id },
@@ -408,17 +413,36 @@ export async function recomputeLandTotalCost(
     } else {
       // Only reprice leaf parcels (parcels with no children of their own)
       // to avoid double-counting intermediate parents that are themselves PARTITIONED
+      // Leaf parcels only, and not SOLD — a sold child's basis already left
+      // via COGS at sale time; repricing it would corrupt that sold basis
+      // and sink new cost into an asset the books no longer carry.
       const childParcels = await tx.landParcel.findMany({
-        where: { landPurchaseId, deletedAt: null, parentParcelId: { not: null }, children: { none: {} } },
+        where: { landPurchaseId, deletedAt: null, parentParcelId: { not: null }, children: { none: {} }, status: { not: "SOLD" } },
       });
-      const totalChildArea = childParcels.reduce((s, p) => s.plus(new Decimal(p.area)), new Decimal(0));
-      if (totalChildArea.gt(0)) {
+      // Distribute newTotal across leaf parcels by their EXISTING cost
+      // shares — flat area pro-rata would silently destroy a MARKET_VALUE
+      // partition's weighted allocation (weights are baked into the
+      // children's current acquisitionCost). Fall back to area when the
+      // existing basis is all zero (e.g. costless import).
+      const totalExistingCost = childParcels.reduce((s, p) => s.plus(new Decimal(p.acquisitionCost)), new Decimal(0));
+      if (totalExistingCost.gt(0)) {
         for (const child of childParcels) {
-          const share = new Decimal(child.area).div(totalChildArea);
+          const share = new Decimal(child.acquisitionCost).div(totalExistingCost);
           await tx.landParcel.update({
             where: { id: child.id },
             data: { acquisitionCost: newTotal.times(share) },
           });
+        }
+      } else {
+        const totalChildArea = childParcels.reduce((s, p) => s.plus(new Decimal(p.area)), new Decimal(0));
+        if (totalChildArea.gt(0)) {
+          for (const child of childParcels) {
+            const share = new Decimal(child.area).div(totalChildArea);
+            await tx.landParcel.update({
+              where: { id: child.id },
+              data: { acquisitionCost: newTotal.times(share) },
+            });
+          }
         }
       }
     }

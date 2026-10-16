@@ -421,7 +421,10 @@ export async function activateTenancy(tenancyId: string, companyId: string, user
     const updated = await tx.tenancy.update({ where: { id: t.id }, data: { status: "ACTIVE" } });
 
     // Post the security deposit to GL: Dr Cash, Cr Security Deposits Payable.
-    if (new Decimal(t.securityDeposit).gt(0)) {
+    // Only on the PENDING → ACTIVE transition — this function accepts an
+    // already-ACTIVE tenancy (schedule regen path), and re-posting here
+    // would double the deposit liability for one physical deposit.
+    if (t.status === "PENDING" && new Decimal(t.securityDeposit).gt(0)) {
       await postSecurityDepositReceived(tx, {
         companyId: t.companyId,
         tenancyId: t.id,
@@ -940,8 +943,11 @@ export async function changeTenant(input: ChangeTenantInput) {
     // Same as terminateTenancy — drop the old tenancy's uncollected schedule.
     await tx.rentalPayment.deleteMany({ where: { tenancyId: t.id, status: "PENDING" } });
 
-    // Refund old security deposit if was ACTIVE
-    if (t.status === "ACTIVE" && new Decimal(t.securityDeposit).gt(0)) {
+    // Refund old security deposit if it was ever posted — both ACTIVE and
+    // EXPIRED tenancies received the deposit at activation (EXPIRED means
+    // the lease ran out without an explicit terminate, so the deposit is
+    // still sitting in Security Deposits Payable).
+    if ((t.status === "ACTIVE" || t.status === "EXPIRED") && new Decimal(t.securityDeposit).gt(0)) {
       await postSecurityDepositRefunded(tx, {
         companyId: t.companyId,
         tenancyId: t.id,
@@ -953,6 +959,8 @@ export async function changeTenant(input: ChangeTenantInput) {
     // Create new tenancy
     const newRent = input.newMonthlyRent != null ? new Decimal(input.newMonthlyRent) : new Decimal(t.monthlyRent);
     const newDeposit = input.newSecurityDeposit != null ? new Decimal(input.newSecurityDeposit) : new Decimal(t.securityDeposit);
+    if (newRent.lte(0)) throw new ServiceError("Monthly rent must be > 0", 400);
+    if (newDeposit.lt(0)) throw new ServiceError("Security deposit cannot be negative", 400);
     const newStart = input.newStartDate ? new Date(input.newStartDate) : new Date();
     const newEnd = input.newEndDate ? new Date(input.newEndDate) : new Date(t.endDate);
 

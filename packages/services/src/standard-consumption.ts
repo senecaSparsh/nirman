@@ -36,6 +36,14 @@ export async function createStandardConsumption(input: CreateStandardConsumption
   const baseQty = new Decimal(input.baseQty ?? 1);
   if (!baseQty.gt(0)) throw new ServiceError("Base qty must be > 0");
 
+  // Validate the material belongs to this company — an unchecked foreign id
+  // would pin another tenant's material onto our benchmark rows.
+  const material = await prisma.material.findFirst({
+    where: { id: input.materialId, companyId: input.companyId, deletedAt: null },
+    select: { id: true },
+  });
+  if (!material) throw new ServiceError("Material not found in this company", 404);
+
   // Check for duplicate
   const existing = await prisma.standardConsumption.findUnique({
     where: {
@@ -91,7 +99,14 @@ export async function updateStandardConsumption(
 
   const data: Prisma.StandardConsumptionUpdateInput = {};
   if (input.workType !== undefined) data.workType = input.workType.trim();
-  if (input.materialId !== undefined) data.material = { connect: { id: input.materialId } };
+  if (input.materialId !== undefined) {
+    const material = await prisma.material.findFirst({
+      where: { id: input.materialId, companyId: existing.companyId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!material) throw new ServiceError("Material not found in this company", 404);
+    data.material = { connect: { id: input.materialId } };
+  }
   if (input.standardQty !== undefined) {
     const qty = new Decimal(input.standardQty);
     if (!qty.gt(0)) throw new ServiceError("Standard qty must be > 0");
@@ -398,10 +413,27 @@ export async function runDprVarianceAnalysis(
 
   let scrapGenerationId: string | null = null;
 
+  // Idempotent: if this DPR already generated scrap, return the existing
+  // generation — a re-run must not double the stock-in and the WIP credit.
+  if (options?.autoGenerateScrap && dpr.autoScrapGenerationId) {
+    return {
+      dprId,
+      workType: dpr.workType,
+      variances,
+      overConsumptionLines,
+      scrapGenerationId: dpr.autoScrapGenerationId,
+    };
+  }
+
   // Auto-generate scrap if requested and there's over-consumption
   if (options?.autoGenerateScrap && overConsumptionLines.length > 0 && options.scrapToLocationId) {
-    // Scrap valuation: % of the DPR line's actual issue cost (default 50%)
-    const valuationPct = new Decimal(options.scrapValuationPct ?? 50).dividedBy(100);
+    // Scrap valuation: % of the DPR line's actual issue cost (default 50%).
+    // Capped at 100% — scrap cannot be worth more than the material it
+    // came from; a >100% caller input would inflate inventory + WIP credit.
+    const rawPct = new Decimal(options.scrapValuationPct ?? 50);
+    if (rawPct.lt(0)) throw new ServiceError("Scrap valuation percentage cannot be negative", 400);
+    if (rawPct.gt(100)) throw new ServiceError("Scrap valuation percentage cannot exceed 100 — scrap is worth at most the material it came from", 400);
+    const valuationPct = rawPct.dividedBy(100);
 
     // Generate a scrap number
     const d = new Date();

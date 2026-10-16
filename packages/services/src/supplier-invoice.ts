@@ -2,7 +2,7 @@ import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
-import { postSupplierInvoice, reverseJournalEntry } from "./gl-posting";
+import { postSupplierInvoice, reverseJournalEntry, ACCT } from "./gl-posting";
 import { withSerializableTransaction } from "./transaction";
 import { canAutoApprove } from "./rbac";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
@@ -795,50 +795,25 @@ export async function voidSupplierInvoice(input: {
     });
 
     if (wasApproved) {
-      // Recompute the signed AP impact exactly the way approve computed it —
-      // including the un-invoiced-remainder baseline (this invoice is VOID at
-      // this point, so the prior-invoice aggregate naturally excludes it).
-      let isServicesInvoice = true;
-      let varianceTotal = new Decimal(0);
-      if (inv.purchaseOrderId) {
-        const grnLines = await tx.goodsReceiptLine.findMany({
-          where: { goodsReceipt: { purchaseOrderId: inv.purchaseOrderId } },
-          select: { qtyReceived: true, unitCost: true },
-        });
-        if (grnLines.length > 0) {
-          isServicesInvoice = false;
-          const grnSubtotal = grnLines.reduce(
-            (sum, l) => sum.plus(new Decimal(l.qtyReceived).times(new Decimal(l.unitCost))),
-            new Decimal(0),
-          );
-          const priorBilled = await tx.supplierInvoice.aggregate({
-            where: {
-              purchaseOrderId: inv.purchaseOrderId,
-              id: { not: inv.id },
-              status: { in: ["APPROVED", "PAID", "MATCHED"] },
-            },
-            _sum: { subtotal: true },
-          });
-          const uninvoicedGrn = grnSubtotal.minus(priorBilled._sum.subtotal ?? 0);
-          const varianceSubtotal = new Decimal(inv.subtotal).minus(uninvoicedGrn);
-          const varianceGst = varianceSubtotal.gt(0) ? new Decimal(inv.gstAmount) : new Decimal(0);
-          varianceTotal = varianceSubtotal.plus(varianceGst);
-        }
-      }
-      const apIncrement = isServicesInvoice ? new Decimal(inv.totalAmount) : varianceTotal;
-      if (!apIncrement.isZero()) {
-        const newBalance = new Decimal(inv.supplier.balanceOwed).minus(apIncrement);
-        await tx.supplier.update({
-          where: { id: inv.supplierId },
-          data: { balanceOwed: newBalance },
-        });
-      }
-
+      // Derive the AP impact from the journal entry being reversed, not by
+      // re-running the approve-time variance math — the un-invoiced-remainder
+      // baseline shifts as other invoices approve, so a recompute can unwind
+      // a different amount than approval posted and drift balanceOwed from
+      // the GL. The JE's AP leg IS the impact: credit = owed +, debit = −.
       const je = await tx.journalEntry.findFirst({
         where: { sourceType: "SUPPLIER_INVOICE", sourceId: inv.id, status: "POSTED" },
-        select: { id: true },
+        include: { lines: { include: { account: { select: { code: true } } } } },
       });
       if (je) {
+        const signedImpact = je.lines
+          .filter((l) => l.account.code === ACCT.AP)
+          .reduce((s, l) => s.plus(new Decimal(l.credit)).minus(new Decimal(l.debit)), new Decimal(0));
+        if (!signedImpact.isZero()) {
+          await tx.supplier.update({
+            where: { id: inv.supplierId },
+            data: { balanceOwed: new Decimal(inv.supplier.balanceOwed).minus(signedImpact) },
+          });
+        }
         await reverseJournalEntry(tx, je.id, {
           postedById: input.userId,
           memo: `Supplier invoice voided${input.reason ? `: ${input.reason}` : ""}`,
