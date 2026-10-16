@@ -1047,3 +1047,21 @@ issue/transfer lifecycle holds under arbitrary sequencing.
 Notable observation the suite surfaced as a "note": `execute` on a
 gated PENDING issue returns 403 until its gate pass is APPROVED —
 correct guard behavior, encoded so a regression would read as a break.
+
+## 57. Race pack — concurrency dedup under real load (2026-10-16)
+
+`scripts/race-probe.ts` fires 2–3 concurrent identical requests at the
+money/lifecycle endpoints where a double-submit would double-post money or
+stock, then asserts exactly-one-wins AND side-effects aren't doubled (one
+payment row, one JE, stock moved once).
+
+All 6 races green on the real API: supplier-payment same-UTR (dupe-ref wins),
+window dedup (identical amount/mode within seconds), PO approve (one
+auto-orders, rest refuse "status ORDERED"), issue-execute on gated PENDING
+(all refuse until pass approved), material-sale payment cap, requisition
+convert (quote gate refuses both — deep convert race needs a fully
+gate-satisfied fixture; noted as a limitation).
+
+Conclusion: the sweep's dedup windows + serializable transactions + status
+guards hold under real concurrency — duplicates die as clean 4xx, never as
+doubled writes.
