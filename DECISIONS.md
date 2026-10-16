@@ -768,3 +768,59 @@ Two spots clamp instead of erroring — both deliberate:
 Both are "lenient physical/money flow" choices; the record keeps the truth
 (shortage leg, unpaid-deduction remainder). No change needed, documented so
 the next audit doesn't re-flag.
+
+## 51. Lightly-probed service sweep — change orders, e-invoice, SMS, gate pass, direct purchase (2026-10-16)
+
+Second hardening pass over service modules the first sweep only skimmed.
+Same method: check every state transition, accumulator, and money write
+for the invariants the rest of the codebase enforces.
+
+**Change orders** — implementing rewrites BOQ lines and moves
+`Project.totalBudget`, but COs weren't on the §48 frozen-pool list:
+a COMPLETED/ON_HOLD project could still have its books rewritten.
+Refused at create AND implement. Two deeper bugs: a linked `boqItemId`
+deleted between approval and implementation was silently skipped —
+the order marked IMPLEMENTED with the approved change only partially
+applied while the budget moved the full delta — and the budget moved
+by the CO's snapshot `costDelta`, which goes stale when a sequential
+CO lands on the same BOQ item first. Implementation now refuses a
+missing linked item (cancel + re-issue) and moves the budget by the
+_applied_ delta recomputed from current `estimatedAmount` at write
+time. Lifecycle exits fixed too: APPROVED is now cancellable
+(best-effort auto-implement can fail, leaving an un-exitable stuck
+record), re-cancel of CANCELLED refused, and delete refuses
+SUBMITTED/APPROVED (in-flight records are immutable — cancel first).
+
+**e-Invoice** — void sales could register an IRN: CANCELLED/RETURNED
+material sales and CANCELLED asset sales (status or saleStage) now
+refuse — an IRN on a void sale reports phantom revenue in GSTR-1.
+PARTIALLY_RETURNED refused too (full-value IRN overstates; correct
+trail is original IRN + credit note). `GENERATING`/`CANCELLING` claims
+carry a 15-min stale window — a process crash between claim and portal
+result write previously bricked the invoice's IRN path forever.
+
+**SMS parser** — three money-path bugs. (1) Dedup claimed the smsHash
+_after_ matchPayment's payment+GL commit — concurrent duplicate SMS
+double-posted money; the hash is now claimed first (P2002 → duplicate).
+(2) `detectTxnType` matched "credit" before "debited" — a "Credit Card
+ending 4521 debited" alert classified as money received and could
+auto-post; DEBIT now wins. (3) Tenancy and material-sale matchers
+returned on the _first_ rent/outstanding match — two equal rents or
+equal outstanding balances credited an arbitrary record; they now use
+the same unique-match rule asset sales already had. Paid sums count
+realised money only (`sumClearedAssetSalePayments`; VOID/OUT/BOUNCED
+excluded on material sales). `manualMatchSms` claim + entity checks +
+payment + GL + status write are now one serializable tx, and it refuses
+CANCELLED sales, fully-PAID sales (customer-credit path is the recovery),
+and non-ACTIVE tenancies.
+
+**Gate pass** — line qty must be > 0 on both create paths; approver
+refused when they are also the _submitter_ (the creator check missed
+the maker-checker break); `projectId` is company-validated like
+`locationId` already was.
+
+**Clean on inspection**: `auto-requisition.ts` (dedup + advisory-only
+DRAFT + project-status guard all present), `direct-purchase.ts`
+(atomic conditional-decrement stock reversal, JE reversal via
+`reverseJournalEntry`, symmetric `balanceOwed`), `vehicle.ts` (plain
+ledger; route double-scopes trips).
