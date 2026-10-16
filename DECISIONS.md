@@ -1191,3 +1191,47 @@ those), mobile `/m` surface, and buttons behind dialogs we open (we never
 submit dialogs — write-path coverage lives in the API layers). Re-probing a
 subset after UI changes: `PROBE_BASE=http://localhost:3000 npx playwright
 test -c playwright.probe.config.ts --grep "/finance"`.
+
+## 62. Mobile /m probe + the production-server lesson (2026-10-17)
+
+Extended the §61 button probe to the mobile surface: same `probePage`
+logic parameterized by surface ("desktop"|"mobile"), two projects split by
+grep tag. Mobile runs iPhone chrome via `test.use` (viewport + touch + UA —
+the UA also stops middleware route-bouncing), render check accepts the phone
+shell (non-empty `<main>`) instead of `<h1>`, scrim-click recovers at
+top-center (bottom sheets + tab bar own the bottom edge). Result: **129/129
+pages, 1,986 buttons, 371 clicked, 257 live, 12 dead-flagged, 303
+risky-skipped, 0 unexpected writes.** Dead candidates are the same
+designed no-ops as desktop (class-only active chips, carousel dots,
+count-suffixed tabs).
+
+The multi-hour failure mode worth remembering: probing against `pnpm dev`
+stalled three times and was ultimately unfinishable at ~2-3min/page. The
+root cause chain was NOT the probe: **Postgres died during a machine
+suspend → every page query hung → Turbopack wedged (the AGENTS.md
+documented CPU-bound stall the wrapper can't detect) → mass
+ERR_ABORTED/ERR_EMPTY_RESPONSE.** Kill the wedged next-server PID +
+`pg_ctl -D /opt/homebrew/var/postgresql@14 start` recovered it, but dev
+mode still paid ~1-3min/page in cold compiles.
+
+The durable fix: probe against a **production-mode server** —
+`pnpm --filter web build` once (~10min) then
+`BETTER_AUTH_URL=http://localhost:3200 PORT=3200 pnpm --filter web start`.
+Zero compiles, health in 60ms, the whole 129-page run finished in **2.4
+minutes**. Two prod-mode gotchas solved along the way: demo-login is 403
+under NODE_ENV=production (PROBE_EMAIL/PROBE_PASS signs in with the seeded
+`nirman123` credential instead), and better-auth's prod origin check needs
+BETTER_AUTH_URL matching the server port. Probe-side fixes prod speed
+surfaced: render-check polls up to 8s (prod streams the shell instantly —
+an early snapshot reads an empty `<main>`), auth sign-in retries once on
+429 (5/min limiter vs 4 workers), and handle reads tolerate
+execution-context-destroyed mid-nav races.
+
+Also banked from the dev-grind: `fullyParallel: true` (one spec file
+serializes into a single worker regardless of `workers`), `retries: 1`,
+per-surface chrome-label dedupe, `scripts/warm-mobile.mjs` (bottom-up
+compile warmer — useful if dev-mode probing is ever needed again).
+
+Re-run mobile: `PROBE_BASE=http://localhost:3200
+PROBE_EMAIL=<owner-email> npx playwright test -c
+playwright.probe.config.ts --project=mobile`.

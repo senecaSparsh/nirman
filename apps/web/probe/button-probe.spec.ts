@@ -61,19 +61,39 @@ type Cookie = { name: string; value: string; url: string };
 let sessionCookies: Cookie[] = [];
 
 async function fetchSessionCookies(base: string): Promise<Cookie[]> {
-  const demo = await fetch(`${base}/api/auth/demo-login`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ role: "OWNER" }),
-  });
-  if (!demo.ok) throw new Error(`demo-login failed: ${demo.status}`);
-  const { email, password } = (await demo.json()) as { email: string; password: string };
-  const signIn = await fetch(`${base}/api/auth/sign-in/email`, {
+  // PROBE_EMAIL/PROBE_PASS: sign in with seeded credentials directly — the
+  // path for a production-mode server (demo-login is 403 under NODE_ENV=
+  // production, but the seeded credential Account still accepts sign-in).
+  let email = process.env.PROBE_EMAIL;
+  let password = process.env.PROBE_PASS ?? "nirman123";
+  if (!email) {
+    const demo = await fetch(`${base}/api/auth/demo-login`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ role: "OWNER" }),
+    });
+    if (!demo.ok) throw new Error(`demo-login failed: ${demo.status} (set PROBE_EMAIL/PROBE_PASS for a prod-mode server)`);
+    const j = (await demo.json()) as { email: string; password: string };
+    email = j.email;
+    password = j.password;
+  }
+  // The auth endpoint rate-limits at 5/min — with 4 parallel workers a
+  // retry burst can 429 a sign-in. Retry once after a short backoff.
+  let signIn = await fetch(`${base}/api/auth/sign-in/email`, {
     method: "POST",
     headers: { "content-type": "application/json", origin: base },
     body: JSON.stringify({ email, password }),
     redirect: "manual",
   });
+  if (signIn.status === 429) {
+    await new Promise((r) => setTimeout(r, 12_000));
+    signIn = await fetch(`${base}/api/auth/sign-in/email`, {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: base },
+      body: JSON.stringify({ email, password }),
+      redirect: "manual",
+    });
+  }
   return (signIn.headers.getSetCookie?.() ?? []).map((c) => {
     const [pair] = c.split(";");
     const [name, ...v] = pair.trim().split("=");
@@ -139,7 +159,7 @@ async function recover(
   if (urlChanged) {
     // Full settle — the next click targets DOM indexes on this page, so the
     // page must have actually rendered its buttons before we continue.
-    await page.goto(basePath, { waitUntil: "networkidle" }).catch(() => {});
+    await page.goto(basePath, { waitUntil: "domcontentloaded" }).catch(() => {});
     return;
   }
   if (!overlayOpen) return;
@@ -186,7 +206,12 @@ async function probePage(page: import("@playwright/test").Page, entry: PageEntry
   const stats = { page: entry.path, buttons: 0, clicked: 0, live: 0, dead: 0, risky: 0 };
   const findingsBefore = findings.length;
   if (sessionCookies.length) await page.context().addCookies(sessionCookies);
-  await page.goto(entry.path, { waitUntil: "networkidle" });
+  // domcontentloaded, not networkidle — the dev server's HMR socket and
+  // late chunk/font streams keep networkidle waiting ~10-30s/page. The
+  // render marker is the real "page is up" signal.
+  await page.goto(entry.path, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("main, h1, [data-noaccess], [role='alert']", { timeout: 20_000 }).catch(() => {});
+  await page.waitForTimeout(500); // hydration settle — buttons become interactive
 
   // Sonner toasts stack top-right — exactly over the header buttons —
   // and their cards intercept pointer events. A style tag (not a one-off
@@ -197,14 +222,21 @@ async function probePage(page: import("@playwright/test").Page, entry: PageEntry
 
   // A rendered page has an h1 (or a NoAccess block on restricted roles).
   // Mobile pages don't use <h1> — the phone shell marks success with a
-  // non-empty <main> + the bottom "Module navigation" bar.
-  const hasH1 = await page.locator("h1").first().isVisible().catch(() => false);
-  const hasNoAccess = await page.getByText(/isn.t part of your role/i).first().isVisible().catch(() => false);
-  const mobileRendered =
-    surface === "mobile" &&
-    (await page.locator("main").first().isVisible().catch(() => false)) &&
-    (await page.locator("main").first().innerText().catch(() => "")).trim().length > 20;
-  if (!hasH1 && !hasNoAccess && !mobileRendered) {
+  // non-empty <main>. Poll up to 8s: a production build streams the shell
+  // instantly and fills content later — a single early snapshot reads an
+  // empty <main> and flags a healthy page.
+  let rendered = false;
+  for (let t = 0; t < 8_000 && !rendered; t += 400) {
+    const hasH1 = await page.locator("h1").first().isVisible().catch(() => false);
+    const hasNoAccess = await page.getByText(/isn.t part of your role/i).first().isVisible().catch(() => false);
+    const mobileRendered =
+      surface === "mobile" &&
+      (await page.locator("main").first().isVisible().catch(() => false)) &&
+      (await page.locator("main").first().innerText().catch(() => "")).trim().length > 20;
+    rendered = hasH1 || hasNoAccess || mobileRendered;
+    if (!rendered) await page.waitForTimeout(400);
+  }
+  if (!rendered) {
     findings.push({ page: entry.path, button: "(page)", kind: "error", detail: "no h1/NoAccess — page did not render" });
     pageStats.push(stats);
     reportLine({ surface, page: entry.path, stats, findings: findings.slice(findingsBefore) });
@@ -240,7 +272,7 @@ async function probePage(page: import("@playwright/test").Page, entry: PageEntry
     // over the page; reload it once rather than timing out the rest.
     if (consecutiveIntercepts >= 2) {
       consecutiveIntercepts = 0;
-      await page.goto(entry.path, { waitUntil: "networkidle", timeout: 15_000 }).catch(() => {});
+      await page.goto(entry.path, { waitUntil: "domcontentloaded", timeout: 15_000 }).catch(() => {});
       handles = await buttons.elementHandles().catch(() => []);
       i = 0;
       continue;
@@ -263,13 +295,16 @@ async function probePage(page: import("@playwright/test").Page, entry: PageEntry
     });
     if (insideDevOverlay) continue;
 
+    // Every handle read can die mid-navigation (a previous click's nav
+    // completing now). A null attrs = detached — re-enumerate.
     const label =
-      ((await btn.getAttribute("aria-label")) || (await btn.innerText().catch(() => "")) || (await btn.getAttribute("title")) || "")
+      ((await btn.getAttribute("aria-label").catch(() => null)) || (await btn.innerText().catch(() => "")) || (await btn.getAttribute("title").catch(() => null)) || "")
         .replace(/\s+/g, " ")
         .trim()
         .slice(0, 60) || `icon-btn#${i - 1}`;
     const html = await btn.innerHTML().catch(() => "");
-    const attrs = await btnAttrs(btn);
+    const attrs = await btnAttrs(btn).catch(() => null);
+    if (!attrs) { handles = await buttons.elementHandles().catch(() => []); i = 0; continue; }
 
     // Never submit a form, never click a write-verb.
     if (attrs.type === "submit" || RISKY_LABEL.test(label) || RISKY_ICON.test(html)) {
@@ -377,7 +412,7 @@ async function probePage(page: import("@playwright/test").Page, entry: PageEntry
         findings.push({ page: entry.path, button: "(page)", kind: "error", detail: "nav-heavy — >8 link navigations, remaining buttons unprobed" });
         break;
       }
-      await page.goto(entry.path, { waitUntil: "networkidle", timeout: 15_000 }).catch(() => {});
+      await page.goto(entry.path, { waitUntil: "domcontentloaded", timeout: 15_000 }).catch(() => {});
       handles = await buttons.elementHandles().catch(() => []);
       i = 0;
       continue;
