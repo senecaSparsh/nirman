@@ -177,7 +177,7 @@ export async function createSupplierPayment(input: {
     if (input.referenceNo) {
       const dupe = await tx.supplierPayment.findFirst({
         where: { companyId: input.companyId, referenceNo: input.referenceNo, status: { not: "VOID" } },
-        select: { id: true, paymentNumber: true },
+        select: { paymentNumber: true },
       });
       if (dupe) {
         throw new ServiceError(

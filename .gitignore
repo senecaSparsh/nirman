@@ -52,3 +52,7 @@ onboarding-queue.txt
 .serena/
 .ua/
 .understand-anything/
+
+# Stryker mutation testing artifacts
+.stryker-tmp/
+reports/

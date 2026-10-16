@@ -19,7 +19,10 @@ export default {
     "file:///Users/sparshagarwal/Downloads/nirman-inventory/node_modules/.pnpm/@stryker-mutator+vitest-runner@9.5.0_@stryker-mutator+core@9.5.0_@types+node@20.19.43_s_d1ea7cda855ce180ecd5daebf0ce9b90/node_modules/@stryker-mutator/vitest-runner/dist/src/index.js",
   ],
   testRunner: "vitest",
-  vitest: { configFile: "vitest.config.ts" },
+  // Scoped config — runs ONLY guard-regressions.test.ts (~12 tests) per
+  // mutant instead of the full 1,750-test suite that SIGABRT'd the first
+  // attempt. Every mutate: region above has a covering test in that file.
+  vitest: { configFile: "vitest.mutation.config.ts" },
   reporters: ["progress", "clear-text", "html"],
   htmlReporter: { fileName: "reports/mutation/mutation-report.html" },
   // DB-backed tests share one postgres — keep concurrency at 1 so mutants
