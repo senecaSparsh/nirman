@@ -248,7 +248,7 @@ RT=$(echo "$r" | grep -oE '"id":"[^"]+"' | head -1 | cut -d'"' -f4)
 [ -n "$RT" ] && { PASS=$((PASS+1)); echo "  PASS sale return $RT"; expect_count "return stock" "SELECT count(*) FROM \"StockMovement\" WHERE \"refId\"='$RT'"; } || { FAIL=$((FAIL+1)); echo "  FAIL sale return: $r"; }
 
 echo "════════ 24. Cheque clear/bounce ════════"
-CHQ=$(uid); SALECH=$(P "SELECT id FROM \"AssetSale\" WHERE \"companyId\"='$C' LIMIT 1")
+CHQ=$(uid); SALECH=$(P "SELECT id FROM \"AssetSale\" WHERE \"companyId\"='$C' AND status != 'CANCELLED' ORDER BY \"createdAt\" DESC LIMIT 1")
 P "INSERT INTO \"AssetSalePayment\" (id,\"assetSaleId\",amount,mode,\"chequeNo\",\"chequeStatus\",status,\"paymentDate\") VALUES ('$CHQ','$SALECH',1000,'CHEQUE','CHQ-1','PENDING','ACTIVE',now())"
 r=$(req POST "sales/payments/$CHQ/cheque" '{"action":"clear"}')
 echo "$r" | grep -qE '"ok":true' && { PASS=$((PASS+1)); echo "  PASS cheque clear"; } || { FAIL=$((FAIL+1)); echo "  FAIL cheque clear: $r"; }

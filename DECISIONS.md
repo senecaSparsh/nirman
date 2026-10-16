@@ -824,3 +824,118 @@ DRAFT + project-status guard all present), `direct-purchase.ts`
 (atomic conditional-decrement stock reversal, JE reversal via
 `reverseJournalEntry`, symmetric `balanceOwed`), `vehicle.ts` (plain
 ledger; route double-scopes trips).
+
+## 52. Service sweep round 2 — valuation coherence, deposits, invoice voids (2026-10-16)
+
+Third pass over the service layer, focusing this time on cached-balance
+coherence (fields that must stay in lockstep with the GL) and
+accumulator/lifecycle edge cases.
+
+**Supplier return** — the qty cap against received PO quantities existed,
+but `unitCost` was caller-supplied with no ceiling: a return claiming
+₹5,000/unit on goods billed at ₹500 minted a fake AP credit absorbed
+silently into PPV. Return unitCost now caps at the PO line's ex-GST
+`unitCost` (not `unitLandedCost` — that includes GST + landed costs while
+the return line is ex-GST). Supplier + location are company-validated.
+
+**Stock count** — count lines accepted any materialId: a foreign tenant's
+material could be counted and reconciled into our stock ledger. Every
+line's material must belong to the location's company. Empty counts and
+negative counted quantities refused.
+
+**Scrap + employee advance** — scrap generation now refuses ON_HOLD/
+COMPLETED projects (§48 frozen cost pools — a late WIP credit on closed
+books). Advance recovery caps each payroll deduction at the remaining
+outstanding — two PAID runs could push recoveredAmount above amount and
+drive ADVANCE_TO_EMP negative.
+
+**NRV write-down/recovery (the big divergence)** — `nrvWriteDown` fields
+and the impairment ledger had drifted apart four ways: (1) the alerts
+sweep never read the existing field for parcels and re-posted the FULL
+write-down every run; (2) recovery cleared the field without a reversing
+JE, so the ledger kept a loss the field said was 0 (and the next
+write-down re-posted in full); (3) `updateParcelValuation` partial
+recoveries posted nothing; (4) `unpartitionLandParcel` soft-deleted
+impaired children while their write-down JEs stayed POSTED and the
+restored parent carried full cost — LAND_ASSET permanently understated.
+New `postNrvRecovery` (Dr asset / Cr OPEX) + delta semantics everywhere:
+impairment posts the increase, recovery posts the decrease, sweeps only
+post deltas, unpartition reverses child entries first. Status checks
+moved inside serializable txs (TOCTOU — a concurrent sale could flip
+the parcel SOLD between pre-check and write). Verified live end-to-end:
+valuation 60k on a 100k parcel → 40k write-down JE; back to 100k → 40k
+recovery JE, field 0.
+
+**Subcontractor RA bills** — `otherDeductions` accepted negatives (a
+negative deduction is a hidden addition → netPayable > billed gross) and
+totals > gross produced a negative payable the pay path then refused,
+leaving a stuck APPROVED bill. Both refused at create; a fully-deducted
+zero-payable bill now marks PAID cleanly instead of staying stuck.
+
+**Expense** — negative subtotal/GST/TDS and TDS > amount refused at
+create and update: postExpense computes the credit leg as amount − TDS,
+so TDS > amount produced a negative credit.
+
+**Equipment** — recordMaintenance refuses negative cost (a negative
+maintenance JE is phantom income); retireEquipment refuses with open
+maintenance (the record could never complete and un-retire refused it —
+a permanently stuck state).
+
+**reallocateProjectCosts** — counted `materialIssueLine`s with no issue
+status: a CANCELLED issue's lines kept their executed unitCost and kept
+inflating projectMaterials/direct unit costs even though the cancel
+path restores stock and reverses the JE — the cached cost diverged from
+the GL after every cancel. Same for cancelled scrap generations
+subtracting a recovery the books no longer hold. Both now count only
+COMPLETED docs. Verified live: cancelling a unit-linked issue dropped
+the direct-cost bucket by exactly its 482.80.
+
+**Land cost components** — schedule reductions reversed whole JEs
+newest-first and overshot whenever the boundary entry exceeded the
+remaining reduction (GL posted below postedAmount permanently); now one
+exact correction JE. Parcel repricing distributes new cost by each
+leaf's EXISTING cost share — flat area pro-rata silently destroyed
+MARKET_VALUE partition weightings — and excludes SOLD children
+(repricing a sold parcel corrupts the COGS basis already booked).
+Delete skips already-reversed JEs instead of 409ing.
+
+**Supplier invoice void** — the AP unwind re-ran approve-time variance
+math, but the un-invoiced-remainder baseline shifts as other invoices
+approve, so void could unwind a different amount than approval posted
+and drift `Supplier.balanceOwed` from the GL. Now derives the signed
+impact (credit − debit) from the AP leg of the JE actually being
+reversed.
+
+**Tenancy deposits** — `activateTenancy` accepted ACTIVE→ACTIVE and
+re-posted the deposit JE: double Dr Cash / double Security Deposits
+Payable for one physical deposit (verified live — re-activation now
+posts nothing). `changeTenant` refunded the deposit only for ACTIVE
+tenancies; EXPIRED leases were ACTIVE once and still hold the payable —
+they now refund too. newMonthlyRent/newSecurityDeposit get sign guards.
+
+**DPR auto-scrap** — `runDprVarianceAnalysis` wasn't idempotent: a re-run
+on a DPR that already generated scrap minted a second ScrapGeneration
+(double stock-in + double WIP credit). Returns the existing generation
+now. `scrapValuationPct` capped at 100 (scrap can't be worth more than
+the material it came from); benchmark materialIds are company-checked.
+
+**CRM payment schedule** — `recordSchedulePayment` refused nothing on
+state: payments could land on CANCELLED sales or PAID/WAIVED
+installments (a waived amount is deliberately forgiven — paying it
+books phantom revenue). Both refused.
+
+**Portal listing** — `updatePortalListing` got the LISTED guard
+`deletePortalListing` already had (route pre-check raced a concurrent
+sync). `/api/land-parcels/[id]` PATCH got the company+scope lookup GET
+and DELETE already had — hold/release/valuate dispatched on bare ids.
+
+**Clean on inspection**: quality-control (tenant seals + anchor
+validation + placeholder-CAPA start block), moving-average-cost +
+uom-conversion (pure math, guarded), recurring-expense (bounded
+catch-up, serialization-safe nextRunDate), employee-dossier
+(company-scoped components + amount bounds), leave (self-approval /
+overlap / balance / payroll-locked-day guards), task, safety,
+legal-docs, scheduling, stock-adjustment (the sanctioned manual
+correction path — all invariants inside the tx), supplier-invoice
+approve (remainder baseline), recordRentPayment/voidRentPayment/
+applyRentEscalation/generateRentSchedule.
