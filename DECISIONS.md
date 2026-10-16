@@ -1027,3 +1027,23 @@ than letting them compound silently.
 Pattern: cached/derived fields drift — the dominant bug class of the whole
 sweep. These checks make every such drift visible within one reconciliation
 run instead of a manual audit.
+
+## 56. Op-stream property suite — sequence-space coverage (2026-10-16)
+
+`scripts/op-stream.ts` — fast-check model-run harness. Generates random
+command sequences over the stock domain (issue create gated/direct,
+execute, cancel; transfer create/dispatch/complete/cancel/return),
+drives them over real HTTP+DB, and asserts ledger invariants after
+EVERY command: qty ≥ 0, cached qty == Σ movements, cancelled issues
+net to zero. Refusals must leave status untouched; 5xx = failure.
+fast-check shrinks violations to minimal counterexamples (proven: it
+shrank a harness bug to `[issue.create, issue.cancel]` before we
+trusted it against the app).
+
+First volume run: 40 runs × ~60 ops — 23 issues + 23 transfers through
+random interleavings, **0 invariant violations, 0 5xx**. The stock
+issue/transfer lifecycle holds under arbitrary sequencing.
+
+Notable observation the suite surfaced as a "note": `execute` on a
+gated PENDING issue returns 403 until its gate pass is APPROVED —
+correct guard behavior, encoded so a regression would read as a break.
