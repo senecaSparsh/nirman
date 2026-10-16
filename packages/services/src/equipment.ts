@@ -220,6 +220,9 @@ export async function recordMaintenance(input: RecordMaintenanceInput) {
     if (!equipment) throw new ServiceError("Equipment not found", 404);
     if (equipment.deletedAt) throw new ServiceError("Equipment is deleted");
     if (equipment.status === "RETIRED") throw new ServiceError("Cannot maintain retired equipment");
+    if (new Decimal(input.cost ?? 0).lt(0)) {
+      throw new ServiceError("Maintenance cost cannot be negative — a vendor credit is a separate flow", 400);
+    }
 
     const maintenance = await tx.equipmentMaintenance.create({
       data: {
@@ -335,6 +338,16 @@ export async function retireEquipment(equipmentId: string, userId?: string) {
     const equipment = await tx.equipment.findFirst({ where: { id: equipmentId, deletedAt: null } });
     if (!equipment) throw new ServiceError("Equipment not found", 404);
     if (equipment.status === "RETIRED") throw new ServiceError("Equipment already retired");
+    // Open maintenance + retired = stuck record: completeMaintenance needs
+    // IN_MAINTENANCE status and unretireEquipment refuses open maintenance,
+    // so the record could never be closed nor the equipment restored.
+    const openMaintenance = await tx.equipmentMaintenance.findFirst({
+      where: { equipmentId, endDate: null },
+      select: { id: true },
+    });
+    if (openMaintenance) {
+      throw new ServiceError("Complete the open maintenance record before retiring this equipment", 400);
+    }
     if (equipment.status === "ASSIGNED") {
       // Auto-return any active assignment before retiring
       const activeAssignment = await tx.equipmentAssignment.findFirst({

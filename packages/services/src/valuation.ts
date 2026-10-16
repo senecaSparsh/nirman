@@ -330,9 +330,12 @@ export async function reallocateProjectCosts(
   projectId: string,
   userId?: string,
 ): Promise<{ costPerSqft: Decimal; totalCost: Decimal; totalArea: Decimal }> {
-  // 1a. Material costs issued to the PROJECT (not to a specific unit) — area-allocated
+  // 1a. Material costs issued to the PROJECT (not to a specific unit) — area-allocated.
+  // CANCELLED issues are excluded — their stock was restored and their JE
+  // reversed at cancel time; counting their lines would keep a dead cost on
+  // the project that the GL no longer carries.
   const projectLines = await tx.materialIssueLine.findMany({
-    where: { materialIssue: { projectId, builtUnitId: null } },
+    where: { materialIssue: { projectId, builtUnitId: null, status: "COMPLETED" } },
     select: { qty: true, unitCost: true },
   });
   const projectMaterials = projectLines.reduce(
@@ -342,7 +345,7 @@ export async function reallocateProjectCosts(
 
   // 1b. Material costs issued directly to specific units — NOT area-allocated
   const unitDirectCosts = await tx.materialIssueLine.findMany({
-    where: { materialIssue: { projectId, builtUnitId: { not: null } } },
+    where: { materialIssue: { projectId, builtUnitId: { not: null }, status: "COMPLETED" } },
     include: { materialIssue: { select: { builtUnitId: true } } },
   });
   const unitDirectCostMap = new Map<string, Decimal>();
@@ -387,8 +390,10 @@ export async function reallocateProjectCosts(
   // postScrapGeneration). The costing layer must match the GL WIP balance,
   // so we subtract the scrap generation value (NOT scrap sale revenue, which
   // would double-count with the WIP credit at generation).
+  // Cancelled generations are excluded — their GL was reversed at cancel
+  // time, so counting them would double-deduct recovery the books no longer hold.
   const scrapGenLines = await tx.scrapGenerationLine.findMany({
-    where: { scrapGeneration: { projectId } },
+    where: { scrapGeneration: { projectId, status: "COMPLETED" } },
     select: { qty: true, unitCost: true },
   });
   const costRecovery = scrapGenLines.reduce(

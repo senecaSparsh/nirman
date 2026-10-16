@@ -87,6 +87,12 @@ export async function createExpense(input: CreateExpenseInput) {
   const sgst = input.sgst != null ? new Decimal(input.sgst) : new Decimal(0);
   const igst = input.igst != null ? new Decimal(input.igst) : new Decimal(0);
   const tdsAmount = input.tdsAmount != null ? new Decimal(input.tdsAmount) : new Decimal(0);
+  if (subtotal.lt(0) || cgst.lt(0) || sgst.lt(0) || igst.lt(0) || tdsAmount.lt(0)) {
+    throw new ServiceError("Expense amounts (subtotal, GST, TDS) cannot be negative", 400);
+  }
+  if (tdsAmount.gt(amount)) {
+    throw new ServiceError("TDS cannot exceed the expense amount — the credit leg would go negative", 400);
+  }
 
   // Consistency: subtotal + gst should equal amount (the grand total).
   const computedTotal = subtotal.plus(gstTotalOf(cgst, sgst, igst));
@@ -221,7 +227,18 @@ export async function updateExpense(expenseId: string, input: UpdateExpenseInput
       const sub = input.subtotal !== undefined ? new Decimal(input.subtotal) : new Decimal(existing.subtotal ?? 0);
       data.amount = sub.plus(gstOf("cgst")).plus(gstOf("sgst")).plus(gstOf("igst"));
     }
-    if (input.tdsAmount !== undefined) data.tdsAmount = new Decimal(input.tdsAmount);
+    if (input.tdsAmount !== undefined) {
+      const tds = new Decimal(input.tdsAmount);
+      const newAmount = input.amount !== undefined ? new Decimal(input.amount) : new Decimal(existing.amount);
+      if (tds.lt(0)) throw new ServiceError("TDS cannot be negative", 400);
+      if (tds.gt(newAmount)) throw new ServiceError("TDS cannot exceed the expense amount — the credit leg would go negative", 400);
+      data.tdsAmount = tds;
+    }
+    for (const key of ["subtotal", "cgst", "sgst", "igst"] as const) {
+      if (input[key] !== undefined && new Decimal(input[key]!).lt(0)) {
+        throw new ServiceError(`Expense ${key} cannot be negative`, 400);
+      }
+    }
     if (input.supplierId !== undefined) data.supplierId = input.supplierId;
     if (input.payeeName !== undefined) data.payeeName = input.payeeName;
     if (input.paymentMode !== undefined) data.paymentMode = input.paymentMode;
