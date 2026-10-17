@@ -43,7 +43,7 @@ const DEPARTMENTS = [
 ];
 
 const TEAM = [
-  { key: "anurag",  name: "Anurag Garg",   phone: "7302920202", role: "PROJECT_DIRECTOR",    designation: "Project Director",    hierarchyLevel: 2, reportsToKey: "vardaan", scopeType: "COMPANY",    dept: null },
+  { key: "anurag",  name: "Anurag Garg",   phone: "7302920202", role: "PROJECT_DIRECTOR",    designation: "Civil Head",    hierarchyLevel: 2, reportsToKey: "vardaan", scopeType: "COMPANY",    dept: null },
   { key: "manish",  name: "Manish Kumar",  phone: "7302920201", role: "FINANCE_HEAD",        designation: "Finance Head",        hierarchyLevel: 3, reportsToKey: "vardaan", scopeType: "COMPANY",    dept: null },
   { key: "raviraj", name: "Raviraj Singh", phone: "9520002752", role: "PROCUREMENT_MANAGER", designation: "Procurement Manager", hierarchyLevel: 3, reportsToKey: "vardaan", scopeType: "DEPARTMENT", dept: "PROC" },
   { key: "mani",    name: "Mani Singh",    phone: "7302920203", role: "SALES_MANAGER",       designation: "Sales Manager",       hierarchyLevel: 4, reportsToKey: "manish",  scopeType: "DEPARTMENT", dept: "SALES" },

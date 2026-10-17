@@ -303,7 +303,7 @@ disbursement).
 
 3. **Project Sanction**
    - Approve a new project on an un-partitioned land parcel
-   - Set project budget, assign Project Director (Anurag) and Site Engineers (Yash)
+   - Set project budget, assign Civil Head (Anurag) and Site Engineers (Yash)
    - Obtain RERA registration (mandatory before any marketing/sale)
    - Obtain NOCs: map sanction, fire NOC, airport authority NOC, environmental clearance
    - **App**: `/projects` (create project) + `/land` (legal/NOC tab)
