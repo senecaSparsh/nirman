@@ -1402,3 +1402,26 @@ GRAY item).
 Isolation caveat: verified on 5 entity types + reports — the pattern is
 universal (every query carries `companyId`), but exotic endpoints
 (custom SQL, cross-company admin tools) weren't enumerated.
+
+## 68. e2e flow suite — real-flow verification + dev-infra limits (2026-10-17)
+
+Ran the repo's own Playwright suite (`pnpm --filter web e2e`, AUTH_BYPASS
+:3100 dev server): **331 tests passed** across auth switching, device-field,
+HR, finance, map-walk, orbit, settings, plus the smoke sweep.
+
+**The one real bug found was a test fixture**: `role-chain.spec.ts` paired
+`projects[0]` with `stockLocations.find(PROJECT_SITE)` independently — a
+PROJECT-scope PO correctly 400s when the destination site belongs to a
+different project (`procurement.ts:286`). The test now uses the location's
+`projectId`. The HR 409 is a test-idempotency artifact (re-recording the
+same employee+date legitimately conflicts).
+
+**Every remaining failure is dev-infrastructure, not app behavior** —
+Turbopack cold compiles at ~15-99s/route plus filesystem-cache compactions
+(~30-60s stalls) exceed the 180s test cap under serial route hits; one
+tokio panic signature (`inner_of_uppers_lost_follower`) appeared. The
+mobile smoke failures are all this class — the same pages are verified
+live on the production-mode server via the button probe (129/129 /m
+pages rendered, 0 crashes). Recommendation recorded: run e2e against a
+production build when AUTH_BYPASS is available in prod, or pre-warm the
+route set before the suite.
