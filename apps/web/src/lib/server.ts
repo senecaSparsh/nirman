@@ -2440,7 +2440,7 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
         // The offline queue sends each op's client id as the key. A retried
         // sync (response lost, double-POST) must NOT re-apply — replay the
         // stored response instead. Durable (DB) so it survives a restart.
-        let idemRecord: { key: string; userId: string; path: string } | null = null;
+        let idemRecord: { id?: string; key: string; userId: string; path: string } | null = null;
         const idemKey = req.method === "POST" ? req.headers.get("x-idempotency-key")?.trim() : null;
         // Hash the request body so a reused key with a DIFFERENT payload is
         // rejected (422) instead of silently replaying the stored response —
@@ -2457,26 +2457,60 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
           const idemUser = await getCurrentUser();
           const idemUserId = idemUser?.id ?? "anon";
           const pathname = new URL(req.url).pathname;
-          const prior = await prisma.idempotencyKey.findUnique({
-            where: { key_userId: { key: idemKey, userId: idemUserId } },
-          }).catch(() => null);
-          if (prior) {
-            // Same key + different body = the caller is reusing a key for a
-            // different intent — reject loudly instead of replaying the wrong
-            // response. (Legacy rows have no requestHash — treat as replayable
-            // for backward compatibility.)
-            if (prior.requestHash && requestHash && prior.requestHash !== requestHash) {
-              return json(
-                { error: "Idempotency key was already used with a different request body." },
-                { status: 422 },
-              );
+          // Insert-first-wins: the (key,userId) unique constraint arbitrates
+          // concurrent double-fires — the old check-then-store-later order let
+          // two in-flight requests both miss `prior` and both write (verified:
+          // double expense rows from one client op). status 0 = in-flight.
+          const inserted = await prisma.idempotencyKey.create({
+            data: { key: idemKey, userId: idemUserId, method: req.method, path: pathname, status: 0, requestHash },
+            select: { id: true },
+          }).then((row) => row).catch((e: unknown) => {
+            if ((e as { code?: string })?.code === "P2002") return null;
+            return null; // DB unavailable for the key table — fall through non-idempotent
+          });
+          if (inserted) {
+            idemRecord = { id: inserted.id, key: idemKey, userId: idemUserId, path: pathname };
+          } else {
+            const prior = await prisma.idempotencyKey.findUnique({
+              where: { key_userId: { key: idemKey, userId: idemUserId } },
+            }).catch(() => null);
+            if (prior) {
+              // Same key + different body = the caller is reusing a key for a
+              // different intent — reject loudly instead of replaying the wrong
+              // response. (Legacy rows have no requestHash — treat as replayable
+              // for backward compatibility.)
+              if (prior.requestHash && requestHash && prior.requestHash !== requestHash) {
+                return json(
+                  { error: "Idempotency key was already used with a different request body." },
+                  { status: 422 },
+                );
+              }
+              // status 0 = another same-key request is still in flight. If the
+              // placeholder is older than 60s the writer died mid-flight —
+              // reclaim the key so a real retry can proceed.
+              if (prior.status === 0) {
+                const stale = prior.createdAt.getTime() < Date.now() - 60_000;
+                if (stale) {
+                  await prisma.idempotencyKey.delete({ where: { id: prior.id } }).catch(() => {});
+                  const reclaimed = await prisma.idempotencyKey.create({
+                    data: { key: idemKey, userId: idemUserId, method: req.method, path: pathname, status: 0, requestHash },
+                    select: { id: true },
+                  }).catch(() => null);
+                  if (reclaimed) idemRecord = { id: reclaimed.id, key: idemKey, userId: idemUserId, path: pathname };
+                } else {
+                  return json(
+                    { error: "Request with this idempotency key is already in flight — retry in a moment." },
+                    { status: 409, headers: { "Retry-After": "1" } },
+                  );
+                }
+              } else {
+                return json(
+                  prior.responseBody ? JSON.parse(prior.responseBody) : { ok: true, replayed: true },
+                  { status: prior.status, headers: { "X-Idempotent-Replay": "true" } },
+                );
+              }
             }
-            return json(
-              prior.responseBody ? JSON.parse(prior.responseBody) : { ok: true, replayed: true },
-              { status: prior.status, headers: { "X-Idempotent-Replay": "true" } },
-            );
           }
-          idemRecord = { key: idemKey, userId: idemUserId, path: pathname };
         }
 
         const requestStartAt = new Date();
@@ -2497,15 +2531,20 @@ export function apiHandler<TReq extends Request = Request, TCtx = unknown>(
 
         const res = await fn(req as TReq, ctx);
 
-        // Store the success body under the idempotency key so a retried
-        // request replays instead of re-applying (4xx/5xx never recorded —
-        // a legit retry after a real failure must go through).
-        if (idemRecord && res.status >= 200 && res.status < 300) {
-          const bodyText = await res.clone().text().catch(() => null);
-          if (bodyText != null && bodyText.length < 100_000) {
-            await prisma.idempotencyKey.create({
-              data: { key: idemRecord.key, userId: idemRecord.userId, method: req.method, path: idemRecord.path, status: res.status, responseBody: bodyText, requestHash },
+        // Store the success body on the claimed key row so a retried request
+        // replays instead of re-applying. On a non-2xx the placeholder is
+        // deleted — a legit retry after a real failure must go through.
+        if (idemRecord?.id) {
+          if (res.status >= 200 && res.status < 300) {
+            const bodyText = await res.clone().text().catch(() => null);
+            await prisma.idempotencyKey.update({
+              where: { id: idemRecord.id },
+              data: bodyText != null && bodyText.length < 100_000
+                ? { status: res.status, responseBody: bodyText }
+                : { status: res.status },
             }).catch(() => {});
+          } else {
+            await prisma.idempotencyKey.delete({ where: { id: idemRecord.id } }).catch(() => {});
           }
         }
 
