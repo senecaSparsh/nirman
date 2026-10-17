@@ -126,7 +126,7 @@ export const supplierSchema = z.object({
 
 export const quotationRequestLineSchema = z.object({
   materialId: z.string().min(1, "Material is required"),
-  qtyRequired: z.coerce.number().finite().min(0.001, "Quantity must be > 0"),
+  qtyRequired: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").min(0.001, "Quantity must be > 0"),
 });
 
 export const quotationRequestSchema = z.object({
@@ -142,15 +142,15 @@ export const quotationRequestSchema = z.object({
 
 export const quoteLineSchema = z.object({
   materialId: z.string().min(1, "Material is required"),
-  qty: z.coerce.number().finite().min(0.001, "Quantity must be > 0"),
-  unitPrice: z.coerce.number().finite().min(0, "Unit price must be >= 0"),
-  discountPerUnit: z.coerce.number().finite().min(0).default(0),
-  packingPerUnit: z.coerce.number().finite().min(0).default(0),
-  freightPerUnit: z.coerce.number().finite().min(0).default(0),
-  loadingPerUnit: z.coerce.number().finite().min(0).default(0),
-  insurancePerUnit: z.coerce.number().finite().min(0).default(0),
-  handlingPerUnit: z.coerce.number().finite().min(0).default(0),
-  buyerTransportPerUnit: z.coerce.number().finite().min(0).default(0),
+  qty: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").min(0.001, "Quantity must be > 0"),
+  unitPrice: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").min(0, "Unit price must be >= 0"),
+  discountPerUnit: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").min(0).default(0),
+  packingPerUnit: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").min(0).default(0),
+  freightPerUnit: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").min(0).default(0),
+  loadingPerUnit: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").min(0).default(0),
+  insurancePerUnit: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").min(0).default(0),
+  handlingPerUnit: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").min(0).default(0),
+  buyerTransportPerUnit: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").min(0).default(0),
 });
 
 export const addQuoteSchema = z.object({
@@ -220,8 +220,8 @@ export const approveQuotationSchema = z.object({
 
 export const purchaseOrderLineSchema = z.object({
   materialId: z.string().min(1, "Material is required"),
-  qtyOrdered: z.coerce.number().finite().min(0.001, "Quantity must be > 0"),
-  unitCost: z.coerce.number().finite().min(0, "Unit cost must be >= 0"),
+  qtyOrdered: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").min(0.001, "Quantity must be > 0"),
+  unitCost: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").min(0, "Unit cost must be >= 0"),
   gstRate: z.coerce.number().min(0).max(100).default(0),
   freightPerUnit: z.coerce.number().min(0).optional().default(0),
   loadingPerUnit: z.coerce.number().min(0).optional().default(0),
@@ -232,7 +232,7 @@ export const purchaseOrderLineSchema = z.object({
 
 export const purchaseOrderChargeSchema = z.object({
   heading: z.string().min(1, "Charge heading is required").max(100),
-  amount: z.coerce.number().finite().min(0, "Amount must be >= 0"),
+  amount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").min(0, "Amount must be >= 0"),
   notes: z.string().max(500).optional().nullable(),
 });
 
@@ -252,8 +252,8 @@ export const purchaseOrderSchema = z.object({
 export const receiveGoodsLineSchema = z.object({
   purchaseOrderLineId: z.string().min(1),
   materialId: z.string().min(1),
-  qtyReceived: z.coerce.number().finite().min(0.001, "Received quantity must be > 0"),
-  unitCost: z.coerce.number().finite().min(0, "Unit cost must be >= 0"),
+  qtyReceived: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").min(0.001, "Received quantity must be > 0"),
+  unitCost: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").min(0, "Unit cost must be >= 0"),
   lotNumber: z.string().max(80).optional().nullable(),
   batchCode: z.string().max(80).optional().nullable(),
   expiryDate: z.coerce.date().optional().nullable(),
@@ -317,7 +317,7 @@ export const rejectDeliverySchema = z.object({
 
 export const transferLineSchema = z.object({
   materialId: z.string().min(1, "Material is required"),
-  qty: z.coerce.number().finite().min(0.001, "Quantity must be > 0"),
+  qty: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").min(0.001, "Quantity must be > 0"),
   lotNumber: z.string().max(80).optional().nullable(),
 });
 
@@ -394,7 +394,7 @@ export const landPurchaseSchema = z.object({
   sellerName: z.string().min(1, "Seller name is required"),
   sellerContact: z.string().optional().nullable(),
   purchaseDate: z.string().optional().nullable(),
-  totalArea: z.coerce.number().finite().positive("Total area must be > 0"),
+  totalArea: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Total area must be > 0"),
   areaUnit: z.enum(["SQFT", "SQM", "SQYD", "ACRE", "BIGHA", "KATHA", "HECTARE"]).default("SQFT"),
   totalCost: moneyField("Total cost must be > 0"),
   registryNo: z.string().optional().nullable(),
@@ -411,17 +411,17 @@ const inlineProjectCreateSchema = z.object({
   address: z.string().optional().nullable(),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
-  totalBudget: z.coerce.number().finite().nonnegative().optional(),
-  totalSellableArea: z.coerce.number().finite().nonnegative().optional(),
+  totalBudget: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
+  totalSellableArea: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
   description: z.string().optional().nullable(),
 });
 
 // A single section in the guided land purchase plan
 const planSectionSchema = z.object({
   number: z.string().min(1, "Section number is required"),
-  area: z.coerce.number().finite().positive("Section area must be > 0"),
+  area: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Section area must be > 0"),
   purpose: z.enum(["SELL", "PROJECT", "HOLD"]),
-  askingPrice: z.coerce.number().finite().positive().optional(),
+  askingPrice: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive().optional(),
   projectId: z.string().optional().nullable(),
   projectCreate: inlineProjectCreateSchema.optional(),
 }).refine(
@@ -435,7 +435,7 @@ export const landPurchasePlanSchema = z.object({
   sellerName: z.string().min(1, "Seller name is required"),
   sellerContact: z.string().optional().nullable(),
   purchaseDate: z.string().optional().nullable(),
-  totalArea: z.coerce.number().finite().positive("Total area must be > 0"),
+  totalArea: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Total area must be > 0"),
   areaUnit: z.enum(["SQFT", "SQM", "SQYD", "ACRE", "BIGHA", "KATHA", "HECTARE"]).default("SQFT"),
   totalCost: moneyField("Total cost must be > 0"),
   registryNo: z.string().optional().nullable(),
@@ -447,36 +447,36 @@ export const landPurchasePlanSchema = z.object({
   // ── Land type & lease details ──
   landType: z.enum(["FREEHOLD", "LEASEHOLD"]).default("FREEHOLD"),
   leaseType: z.enum(["ONE_TIME", "YEARLY"]).optional().nullable(),
-  leasePeriodYears: z.coerce.number().finite().positive().optional().nullable(),
+  leasePeriodYears: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive().optional().nullable(),
   leaseStartDate: z.string().optional().nullable(),
   leaseEndDate: z.string().optional().nullable(),
   // ── Cost breakup ──
-  baseCost: z.coerce.number().finite().nonnegative().optional(),
-  leaseRentPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
-  leaseRentAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
-  gstPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
-  gstAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
-  registrationPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
-  registrationAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
-  stampDutyPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
-  stampDutyAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  baseCost: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
+  leaseRentPercent: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  leaseRentAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  gstPercent: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  gstAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  registrationPercent: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  registrationAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  stampDutyPercent: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  stampDutyAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
   // Transfer duty (authority land — DDA, HUDCO, etc.)
-  transferDutyPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
-  transferDutyAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  transferDutyPercent: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  transferDutyAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
   // Additional acquisition costs
-  brokerageAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
-  legalFees: z.coerce.number().finite().nonnegative().optional().nullable(),
-  otherCharges: z.coerce.number().finite().nonnegative().optional().nullable(),
+  brokerageAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  legalFees: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  otherCharges: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
   // Scheduled cost components — posted atomically with the purchase so an
   // interrupted wizard can't leave the purchase missing its cost breakdown.
   costComponents: z.array(z.object({
     label: z.string().min(1, "Label is required"),
-    amount: z.coerce.number().finite().positive("Cost amount must be > 0"),
+    amount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Cost amount must be > 0"),
     frequency: z.enum(["ONE_TIME", "RECURRING"]).default("ONE_TIME"),
     interval: z.enum(["MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY"]).optional().nullable(),
     startDate: z.string().optional().nullable(),
     endDate: z.string().optional().nullable(),
-    occurrences: z.coerce.number().finite().positive().optional().nullable(),
+    occurrences: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive().optional().nullable(),
     notes: z.string().optional().nullable(),
   })).optional(),
 });
@@ -489,7 +489,7 @@ export const landPurchaseEditSchema = z.object({
   sellerName: z.string().min(1, "Seller name is required").optional(),
   sellerContact: z.string().optional().nullable(),
   purchaseDate: z.string().optional().nullable(),
-  totalArea: z.coerce.number().finite().positive("Total area must be > 0").optional(),
+  totalArea: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Total area must be > 0").optional(),
   areaUnit: z.enum(["SQFT", "SQM", "SQYD", "ACRE", "BIGHA", "KATHA", "HECTARE"]).optional(),
   totalCost: moneyField("Total cost must be > 0").optional(),
   registryNo: z.string().optional().nullable(),
@@ -498,36 +498,36 @@ export const landPurchaseEditSchema = z.object({
   // ── Land type & lease details ──
   landType: z.enum(["FREEHOLD", "LEASEHOLD"]).optional(),
   leaseType: z.enum(["ONE_TIME", "YEARLY"]).optional().nullable(),
-  leasePeriodYears: z.coerce.number().finite().positive().optional().nullable(),
+  leasePeriodYears: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive().optional().nullable(),
   leaseStartDate: z.string().optional().nullable(),
   leaseEndDate: z.string().optional().nullable(),
   // ── Cost breakup ──
-  baseCost: z.coerce.number().finite().nonnegative().optional().nullable(),
-  leaseRentPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
-  leaseRentAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
-  gstPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
-  gstAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
-  registrationPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
-  registrationAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
-  stampDutyPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
-  stampDutyAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  baseCost: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  leaseRentPercent: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  leaseRentAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  gstPercent: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  gstAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  registrationPercent: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  registrationAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  stampDutyPercent: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  stampDutyAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
   // Transfer duty (authority land — DDA, HUDCO, etc.)
-  transferDutyPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
-  transferDutyAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
-  brokerageAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
-  legalFees: z.coerce.number().finite().nonnegative().optional().nullable(),
-  otherCharges: z.coerce.number().finite().nonnegative().optional().nullable(),
+  transferDutyPercent: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  transferDutyAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  brokerageAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  legalFees: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  otherCharges: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
 });
 
 // ── Land cost components (arbitrary / recurring / future costs) ──
 export const landCostComponentSchema = z.object({
   label: z.string().min(1, "Label is required").max(120),
-  amount: z.coerce.number().finite().positive("Amount must be > 0"),
+  amount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Amount must be > 0"),
   frequency: z.enum(["ONE_TIME", "RECURRING"]).default("ONE_TIME"),
   interval: z.enum(["MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY"]).optional().nullable(),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
-  occurrences: z.coerce.number().finite().positive().optional().nullable(),
+  occurrences: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive().optional().nullable(),
   notes: z.string().max(1000).optional().nullable(),
 });
 
@@ -553,21 +553,21 @@ export const partitionSchema = z.object({
   parentParcelId: z.string().min(1),
   children: z.array(z.object({
     number: z.string().min(1, "Parcel number is required"),
-    area: z.coerce.number().finite().positive("Area must be > 0"),
-    askingPrice: z.coerce.number().finite().positive().optional(),
+    area: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Area must be > 0"),
+    askingPrice: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive().optional(),
     isInfrastructure: z.boolean().optional(),
-    marketValue: z.coerce.number().finite().nonnegative().optional(),
-    weightFactor: z.coerce.number().finite().positive().optional(),
+    marketValue: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
+    weightFactor: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive().optional(),
     geometry: z.any().optional(),
   })).min(2, "At least 2 children required"),
   notes: z.string().optional(),
   allocationModel: z.enum(["PRO_RATA", "MARKET_VALUE"]).default("PRO_RATA"),
-  developmentCost: z.coerce.number().finite().nonnegative().optional(),
+  developmentCost: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
 });
 
 export const parcelValuationSchema = z.object({
-  currentValuation: z.coerce.number().finite().nonnegative().optional(),
-  askingPrice: z.coerce.number().finite().positive().optional().nullable(),
+  currentValuation: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
+  askingPrice: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive().optional().nullable(),
 });
 
 // ── Built Units ──
@@ -578,22 +578,22 @@ export const builtUnitSchema = z.object({
   unitNumber: z.string().min(1, "Unit number is required"),
   floor: z.coerce.number().int().optional().nullable(),
   wing: z.string().optional().nullable(),
-  area: z.coerce.number().finite().positive("Area must be > 0"),
+  area: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Area must be > 0"),
   areaUnit: z.enum(["SQFT", "SQM", "SQYD", "ACRE", "BIGHA", "KATHA", "HECTARE"]).default("SQFT"),
-  askingPrice: z.coerce.number().finite().positive().optional().nullable(),
+  askingPrice: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive().optional().nullable(),
   // RERA fields
-  carpetArea: z.coerce.number().finite().nonnegative().optional().nullable(),
-  superBuiltUpArea: z.coerce.number().finite().nonnegative().optional().nullable(),
-  balconyArea: z.coerce.number().finite().nonnegative().optional().nullable(),
-  clearHeight: z.coerce.number().finite().nonnegative().optional().nullable(),
+  carpetArea: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  superBuiltUpArea: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  balconyArea: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  clearHeight: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
   hasLoadingDock: z.coerce.boolean().optional(),
   landParcelId: z.string().optional().nullable(),
 });
 
 export const builtUnitStatusSchema = z.enum(["PLANNED", "UNDER_CONSTRUCTION", "AVAILABLE", "HOLD", "SOLD"]);
 export const builtUnitValuationSchema = z.object({
-  askingPrice: z.coerce.number().finite().positive().optional().nullable(),
-  currentValuation: z.coerce.number().finite().nonnegative().optional(),
+  askingPrice: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive().optional().nullable(),
+  currentValuation: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
 });
 
 // Edit an existing built unit's core attributes (no project/phase change).
@@ -602,14 +602,14 @@ export const builtUnitEditSchema = z.object({
   unitNumber: z.string().min(1, "Unit number is required"),
   floor: z.coerce.number().int().optional().nullable(),
   wing: z.string().optional().nullable(),
-  area: z.coerce.number().finite().positive("Area must be > 0"),
+  area: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Area must be > 0"),
   areaUnit: z.enum(["SQFT", "SQM", "SQYD", "ACRE", "BIGHA", "KATHA", "HECTARE"]),
-  askingPrice: z.coerce.number().finite().positive().optional().nullable(),
+  askingPrice: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive().optional().nullable(),
   // RERA fields
-  carpetArea: z.coerce.number().finite().nonnegative().optional().nullable(),
-  superBuiltUpArea: z.coerce.number().finite().nonnegative().optional().nullable(),
-  balconyArea: z.coerce.number().finite().nonnegative().optional().nullable(),
-  clearHeight: z.coerce.number().finite().nonnegative().optional().nullable(),
+  carpetArea: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  superBuiltUpArea: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  balconyArea: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  clearHeight: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
   hasLoadingDock: z.coerce.boolean().optional(),
 });
 
@@ -629,11 +629,11 @@ export const sellAssetSchema = z.object({
   builtUnitId: z.string().optional().nullable(),
   projectId: z.string().optional().nullable(),
   customerId: z.string().min(1, "Customer is required"),
-  salePrice: z.coerce.number().finite().positive("Sale price must be > 0"),
+  salePrice: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Sale price must be > 0"),
   gstRate: z.coerce.number().finite().nonnegative().max(28).optional(),
   paymentMode: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
-  initialPayment: z.coerce.number().finite().nonnegative().optional(),
+  initialPayment: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
   initialPaymentMode: z.string().optional(),
   // Sale deed / registry tracking
   saleDeedNo: z.string().max(200).optional().nullable(),
@@ -648,11 +648,11 @@ export const sellAssetSchema = z.object({
   bbaNo: z.string().max(200).optional().nullable(),
   bbaDate: z.string().optional().nullable(),
   // TDS tracking
-  tdsAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  tdsAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
   tdsCertificateNo: z.string().max(200).optional().nullable(),
   // Home loan tracking
   homeLoanBank: z.string().max(200).optional().nullable(),
-  homeLoanAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  homeLoanAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
   homeLoanSanctionNo: z.string().max(200).optional().nullable(),
   homeLoanSanctionDate: z.string().optional().nullable(),
   // Deal terms
@@ -662,14 +662,14 @@ export const sellAssetSchema = z.object({
   expenses: z.array(z.object({
     head: z.enum(["REGISTRY", "STAMP_DUTY", "TRANSFER", "LEASE_RENT", "GST", "OTHER"]),
     label: z.string().max(200).optional().nullable(),
-    amount: z.coerce.number().finite().nonnegative(),
+    amount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative(),
     borneBy: z.enum(["CLIENT", "SELLER", "NA"]),
     isIncluded: z.boolean().optional(),
   })).optional(),
   // Sale terms & conditions
   terms: z.array(z.object({
     description: z.string().min(1, "Term description is required"),
-    extraAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+    extraAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
     isIncluded: z.boolean().optional(),
   })).optional(),
   // Broker / deal source
@@ -677,7 +677,7 @@ export const sellAssetSchema = z.object({
   brokerId: z.string().optional().nullable(),
   brokerName: z.string().max(200).optional().nullable(),
   brokerPhone: z.string().max(20).optional().nullable(),
-  commissionAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  commissionAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
   commissionIsPartOfDeal: z.boolean().optional(),
   // Payment schedule
   paymentSchedule: z.object({
@@ -685,8 +685,8 @@ export const sellAssetSchema = z.object({
     items: z.array(z.object({
       installmentNo: z.coerce.number().int().positive(),
       description: z.string().min(1),
-      percentage: z.coerce.number().finite().nonnegative(),
-      amount: z.coerce.number().finite().nonnegative(),
+      percentage: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative(),
+      amount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative(),
       dueDate: z.string().optional().nullable(),
       wbsNodeId: z.string().optional().nullable(),
     })).min(1, "At least one installment is required"),
@@ -711,8 +711,8 @@ export const paymentScheduleSchema = z.object({
   items: z.array(z.object({
     installmentNo: z.coerce.number().int().positive(),
     description: z.string().min(1),
-    percentage: z.coerce.number().finite().nonnegative(),
-    amount: z.coerce.number().finite().nonnegative(),
+    percentage: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative(),
+    amount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative(),
     dueDate: z.string().optional().nullable(),
     wbsNodeId: z.string().optional().nullable(),
   })).min(1, "At least one installment is required"),
@@ -727,7 +727,7 @@ export const brokerSchema = z.object({
 });
 
 export const paymentSchema = z.object({
-  amount: z.coerce.number().finite().positive("Amount must be > 0"),
+  amount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Amount must be > 0"),
   mode: z.string().min(1, "Payment mode is required"),
   reference: z.string().optional().nullable(),
   // Cheque details
@@ -738,7 +738,7 @@ export const paymentSchema = z.object({
 });
 
 export const depositSchema = z.object({
-  depositAmount: z.coerce.number().finite().positive("Deposit amount must be > 0"),
+  depositAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Deposit amount must be > 0"),
   paymentMode: z.string().optional(),
   reference: z.string().optional().nullable(),
   // Cheque details
@@ -749,7 +749,7 @@ export const depositSchema = z.object({
 });
 
 export const completeSaleSchema = z.object({
-  finalPaymentAmount: z.coerce.number().finite().nonnegative().optional(),
+  finalPaymentAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
   paymentMode: z.string().optional(),
   reference: z.string().optional().nullable(),
   saleDeedNo: z.string().max(200).optional().nullable(),
@@ -761,11 +761,11 @@ export const completeSaleSchema = z.object({
   allotmentDate: z.string().optional().nullable(),
   bbaNo: z.string().max(200).optional().nullable(),
   bbaDate: z.string().optional().nullable(),
-  tdsAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  tdsAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
   tdsCertificateNo: z.string().max(200).optional().nullable(),
   // Home loan details — often finalized at completion
   homeLoanBank: z.string().max(200).optional().nullable(),
-  homeLoanAmount: z.coerce.number().finite().nonnegative().optional().nullable(),
+  homeLoanAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
   homeLoanSanctionNo: z.string().max(200).optional().nullable(),
   homeLoanSanctionDate: z.string().optional().nullable(),
   // Cheque details
@@ -786,8 +786,8 @@ export const completeSaleSchema = z.object({
 export const materialSaleLineSchema = z.object({
   materialId: z.string().min(1, "Material is required"),
   locationId: z.string().min(1, "Stock location is required"),
-  qty: z.coerce.number().finite().positive("Quantity must be > 0"),
-  unitPrice: z.coerce.number().finite().positive("Unit price must be > 0"),
+  qty: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Quantity must be > 0"),
+  unitPrice: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Unit price must be > 0"),
   gstRate: z.coerce.number().finite().nonnegative().max(28).optional(),
 });
 
@@ -815,14 +815,14 @@ export const renovationSchema = z.object({
   description: z.string().optional().nullable(),
   builtUnitId: z.string().optional().nullable(),
   landParcelId: z.string().optional().nullable(),
-  budget: z.coerce.number().finite().nonnegative().optional(),
+  budget: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
   startDate: z.string().optional().nullable(),
 });
 
 export const renovationCostSchema = z.object({
   renovationProjectId: z.string().min(1, "Renovation project is required"),
   costType: z.enum(["LABOUR", "OVERHEAD", "EQUIPMENT", "CONTRACTOR", "PERMIT", "TRANSFER_DUTY", "OTHER"]),
-  amount: z.coerce.number().finite().positive("Amount must be > 0"),
+  amount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Amount must be > 0"),
   vendor: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   receiptUrl: z.string().optional().nullable(),
@@ -860,7 +860,7 @@ export const tenancySchema = z.object({
   rentAgreementDocumentUrl: z.string().optional().nullable(),
   rentAgreementDocumentName: z.string().optional().nullable(),
   sacCode: z.string().optional().nullable(),
-  escalationPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
+  escalationPercent: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
   escalationIntervalMonths: z.coerce.number().int().positive().optional(),
   rentFreeDays: z.coerce.number().int().nonnegative().optional(),
   draftDocumentUrl: z.string().optional().nullable(),
@@ -883,7 +883,7 @@ export const editTenancySchema = z.object({
   rentAgreementDocumentName: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   customerId: z.string().optional().nullable(),
-  escalationPercent: z.coerce.number().finite().nonnegative().optional().nullable(),
+  escalationPercent: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
   rentFreeDays: z.coerce.number().int().nonnegative().optional(),
   draftDocumentUrl: z.string().optional().nullable(),
   draftDocumentName: z.string().optional().nullable(),
@@ -892,12 +892,12 @@ export const editTenancySchema = z.object({
 });
 
 export const rentPaymentSchema = z.object({
-  amount: z.coerce.number().finite().positive("Amount must be > 0"),
+  amount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Amount must be > 0"),
   paymentDate: z.string().optional(),
   dueDate: z.string().optional(),
   mode: z.string().min(1, "Payment mode is required"),
   reference: z.string().optional().nullable(),
-  tdsAmount: z.coerce.number().finite().nonnegative().optional(),
+  tdsAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
   tdsCertificateNo: z.string().optional().nullable(),
   periodStart: z.string().optional(),
   periodEnd: z.string().optional(),
@@ -908,13 +908,13 @@ export const changeTenantSchema = z.object({
   newTenantPhone: z.string().optional().nullable(),
   newTenantEmail: optionalEmail,
   newCustomerId: z.string().optional().nullable(),
-  newMonthlyRent: z.coerce.number().finite().positive().optional(),
+  newMonthlyRent: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive().optional(),
   newRentAgreementNo: z.string().optional().nullable(),
   newRentAgreementDocumentUrl: z.string().optional().nullable(),
   newRentAgreementDocumentName: z.string().optional().nullable(),
   newStartDate: z.string().optional(),
   newEndDate: z.string().optional(),
-  newSecurityDeposit: z.coerce.number().finite().nonnegative().optional(),
+  newSecurityDeposit: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
   notes: z.string().optional().nullable(),
 });
 
@@ -926,7 +926,7 @@ export const rentScheduleSchema = z.object({
 export const projectCostSchema = z.object({
   projectId: z.string().min(1, "Project is required"),
   costType: z.enum(["LABOUR", "OVERHEAD", "EQUIPMENT", "CONTRACTOR", "PERMIT", "TRANSFER_DUTY", "OTHER"]),
-  amount: z.coerce.number().finite().positive("Amount must be > 0"),
+  amount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Amount must be > 0"),
   date: z.string().optional().nullable(),
   vendor: z.string().optional().nullable(),
   subcontractorId: z.string().optional().nullable(),
@@ -958,7 +958,7 @@ export const equipmentAssignSchema = z.object({
 export const equipmentMaintenanceSchema = z.object({
   equipmentId: z.string().min(1),
   type: z.enum(["SCHEDULED", "REPAIR", "INSPECTION"]),
-  cost: z.coerce.number().finite().nonnegative().optional(),
+  cost: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
   vendor: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
@@ -967,7 +967,7 @@ export const equipmentMaintenanceSchema = z.object({
 // ── Requisitions ──
 export const requisitionLineSchema = z.object({
   materialId: z.string().min(1, "Material is required"),
-  qtyRequested: z.coerce.number().finite().positive("Quantity must be > 0"),
+  qtyRequested: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Quantity must be > 0"),
   notes: z.string().optional().nullable(),
   preferredSupplierId: z.string().optional().nullable(),
 });
@@ -1019,11 +1019,11 @@ const SALARY_COMPONENT_TYPES = [
 
 export const salaryComponentInputSchema = z.object({
   type: z.enum(SALARY_COMPONENT_TYPES),
-  amount: z.coerce.number().finite().nonnegative(),
+  amount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative(),
   frequency: z.enum(["MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY", "ONE_TIME"]).optional(),
   isDeduction: z.boolean().optional(),
   isPercentage: z.boolean().optional(),
-  percentageOfBasic: z.coerce.number().finite().nullable().optional(),
+  percentageOfBasic: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nullable().optional(),
   calculationType: z.enum(["FIXED", "PERCENTAGE_OF_BASIC", "UNIT_RATE"]).optional(),
   unitType: z.enum(["DAY", "KM", "TRIP", "HOUR", "MONTH", "CUSTOM"]).nullable().optional(),
   unitLabel: z.string().max(40).nullable().optional(),
@@ -1045,9 +1045,9 @@ export const employeeSchema = z.object({
   // Multi-company onboarding: create the same employee in multiple companies
   // (parent + children). If omitted, the active company is used.
   companyIds: z.array(z.string()).optional(),
-  dailyRate: z.coerce.number().finite().nonnegative("Daily rate must be >= 0").optional().nullable(),
+  dailyRate: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative("Daily rate must be >= 0").optional().nullable(),
   wageType: z.enum(["DAILY", "MONTHLY", "FIXED"]).optional(),
-  monthlySalary: z.coerce.number().finite().nonnegative().optional().nullable(),
+  monthlySalary: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
   designation: z.string().optional().nullable(),
   departmentId: z.string().optional().nullable(),
   joinDate: z.string().optional().nullable().refine((v) => !v || !isNaN(new Date(v).getTime()), "Invalid join date"),
@@ -1157,15 +1157,15 @@ export const generatePayrollSchema = z.object({
 });
 
 export const payrollLineUpdateSchema = z.object({
-  overtimeAmount: z.coerce.number().finite().nonnegative().optional(),
-  allowance: z.coerce.number().finite().nonnegative().optional(),
-  bonus: z.coerce.number().finite().nonnegative().optional(),
-  pf: z.coerce.number().finite().nonnegative().optional(),
-  employerPf: z.coerce.number().finite().nonnegative().optional(),
-  esi: z.coerce.number().finite().nonnegative().optional(),
-  professionTax: z.coerce.number().finite().nonnegative().optional(),
-  tax: z.coerce.number().finite().nonnegative().optional(),
-  deductions: z.coerce.number().finite().nonnegative().optional(),
+  overtimeAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
+  allowance: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
+  bonus: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
+  pf: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
+  employerPf: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
+  esi: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
+  professionTax: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
+  tax: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
+  deductions: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional(),
 });
 
 // Itemized breakdown replace — amounts are recomputed server-side from
@@ -1177,8 +1177,8 @@ export const payrollLineComponentsSchema = z.object({
     calculationType: z.enum(["FIXED", "PERCENTAGE_OF_BASIC", "UNIT_RATE"]).optional(),
     unitType: z.enum(["DAY", "KM", "TRIP", "HOUR", "MONTH", "CUSTOM"]).nullable().optional(),
     unitLabel: z.string().max(40).nullable().optional(),
-    rate: z.coerce.number().finite().nonnegative(),
-    quantity: z.coerce.number().finite().nonnegative().nullable().optional(),
+    rate: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative(),
+    quantity: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().nullable().optional(),
     isDeduction: z.boolean().optional(),
     notes: z.string().max(300).nullable().optional(),
   })),
@@ -1187,14 +1187,14 @@ export const payrollLineComponentsSchema = z.object({
 // ── DPR (Daily Progress Report) ──
 export const dprMaterialLineSchema = z.object({
   materialId: z.string().min(1, "Material is required"),
-  qty: z.coerce.number().finite().positive("Quantity must be > 0"),
-  unitCost: z.coerce.number().finite().nonnegative("Unit cost must be >= 0"),
+  qty: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Quantity must be > 0"),
+  unitCost: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative("Unit cost must be >= 0"),
 });
 
 export const dprLaborLineSchema = z.object({
   employeeId: z.string().optional().nullable(),
   crewId: z.string().optional().nullable(),
-  hoursWorked: z.coerce.number().finite().positive("Hours must be > 0"),
+  hoursWorked: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Hours must be > 0"),
   taskDescription: z.string().min(1, "Task description is required").max(300),
 }).refine(
   (data) => data.employeeId || data.crewId,
@@ -1207,7 +1207,7 @@ export const dprSchema = z.object({
   weather: z.string().max(200).optional().nullable(),
   workSummary: z.string().min(1, "Work summary is required").max(2000),
   workType: z.string().max(200).optional().nullable(),
-  workQty: z.coerce.number().finite().positive("Work qty must be > 0").optional().nullable(),
+  workQty: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Work qty must be > 0").optional().nullable(),
   workUnit: z.string().max(50).optional().nullable(),
   progressPct: z.coerce.number().min(0).max(100).optional().nullable(),
   blockers: z.string().max(1000).optional().nullable(),
@@ -1230,8 +1230,8 @@ export const departmentSchema = z.object({
 // ── Supplier Return ──
 export const supplierReturnLineSchema = z.object({
   materialId: z.string().min(1, "Material is required"),
-  qty: z.coerce.number().finite().positive("Quantity must be > 0"),
-  unitCost: z.coerce.number().finite().nonnegative("Unit cost must be >= 0"),
+  qty: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Quantity must be > 0"),
+  unitCost: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative("Unit cost must be >= 0"),
   reason: z.string().optional().nullable(),
 });
 
