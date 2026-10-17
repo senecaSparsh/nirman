@@ -68,7 +68,12 @@ ENV NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL} \
     NEXT_PUBLIC_SENTRY_DSN=${NEXT_PUBLIC_SENTRY_DSN} \
     NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
-    TURBO_TELEMETRY_DISABLED=1
+    TURBO_TELEMETRY_DISABLED=1 \
+    # Cap build-time heap — the auto-detect sees full host RAM and
+    # over-allocates when the builder shares a host with Coolify/Postgres.
+    # 2560MB leaves room for a second worker + the orchestrator (~5.5GB
+    # total worst case) on an 8GB box. Respected by scripts/build.mjs.
+    NODE_OPTIONS=--max-old-space-size=2560
 
 # Generate Prisma client BEFORE build — the app imports types from @nirman/db
 # at compile time, so the generated client must exist first.
