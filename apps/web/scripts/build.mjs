@@ -67,7 +67,13 @@ const totalMB = detectTotalMemoryMB();
 // past the old 4096 cap (SIGABRT OOM on the 12GB prod builder). 8GB is still
 // bounded enough for 12GB+ hosts while leaving headroom for the OS.
 const heapFraction = totalMB <= 1024 ? 0.92 : 0.78;
-const heapMB = Math.max(256, Math.min(8192, Math.floor(totalMB * heapFraction)));
+let heapMB = Math.max(256, Math.min(8192, Math.floor(totalMB * heapFraction)));
+// BUILD_MAX_HEAP_MB — explicit hard cap. Auto-detection sees host RAM, but a
+// build container can share that host (Coolify builds on the same box it
+// deploys to). Without this, the 8GB host → 6GB heap while Coolify+Postgres
+// are already running → OOM(137) mid-build.
+const hardCap = parseInt(process.env.BUILD_MAX_HEAP_MB ?? "", 10);
+if (hardCap > 0) heapMB = Math.min(heapMB, hardCap);
 
 const existingNodeOptions = process.env.NODE_OPTIONS || "";
 let nodeOptions;
