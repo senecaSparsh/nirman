@@ -1498,3 +1498,24 @@ review by counsel" pending DPDP-Act legal review.
 With this, every finding from every audit layer is either fixed or a
 documented design decision. Only the external items remain: VPS reboot
 (infrastructure) and counsel review (legal).
+
+## 73. Deep-flows probe — compound mutation-chain invariants (2026-10-17)
+
+`scripts/deep-flows.mjs` — the "actions that alter" complexity layer.
+Drives realistic multi-step chains on a live server and asserts derived
+state after every step rather than just "did it 2xx":
+
+- **PO lifecycle**: create → auto-approve (under threshold) → re-approve
+  guard (clean 400) → partial receive → 10s receive debounce → remainder
+  → over-receive reject → site stock balance moved exactly the received
+  qty. 11 checks.
+- **Transfer × gate-pass**: dispatch auto-creates a gate pass; transfer
+  completion correctly 400s until the physical-exit chain runs
+  (approve → confirmExit) — a cross-entity dependency verified end-to-end.
+- **Concurrent receives**: two racing partial receives never exceed the
+  ordered qty (no double-write).
+- **Expense → GL**: persistence verified.
+
+Final: **21/21 green** on the production build. Confirmed the deeper
+logic invariants hold — stock ledger moves correctly, physical-exit
+gates are enforced, debounces/races are handled.
