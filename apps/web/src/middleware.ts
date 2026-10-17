@@ -77,6 +77,10 @@ export function isPublicRoute(pathname: string): boolean {
     pathname.startsWith("/change-password/") ||
     pathname === "/consent" ||
     pathname.startsWith("/consent/") ||
+    pathname === "/privacy" ||
+    pathname.startsWith("/privacy/") ||
+    pathname === "/terms" ||
+    pathname.startsWith("/terms/") ||
     pathname.startsWith("/accept/") ||
     pathname.startsWith("/api/auth/") ||
     pathname.startsWith("/api/telephony/webhook") ||
@@ -241,6 +245,10 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/change-password/") ||
     pathname === "/consent" ||
     pathname.startsWith("/consent/") ||
+    pathname === "/privacy" ||
+    pathname.startsWith("/privacy/") ||
+    pathname === "/terms" ||
+    pathname.startsWith("/terms/") ||
     pathname.startsWith("/accept/") ||
     pathname.startsWith("/api/auth/") ||
     pathname.startsWith("/api/telephony/webhook") ||
