@@ -1318,3 +1318,26 @@ the linters already ran is the workaround.
 
 Also fixed: `workflowSchema.graphJson` needed `z.record(z.string(),
 z.any())` (not z.unknown()) to stay assignable to Prisma InputJsonValue.
+
+## 65. Idempotency + low-priv role matrix — replay correctness under concurrency (2026-10-17)
+
+`role-matrix.ts` run for the remaining low-priv roles (pacing added — the
+write limiter's ~20/s sustained refill was flagging my own 429s):
+
+| Role | Denied cleanly | Accepts | Verdict |
+|---|---|---|---|
+| SUPERVISOR | 1,135 (788×403) | 8 | all legitimate |
+| SECURITY_GUARD | 1,137 (952×403) | 6 | all self-service |
+| ACCOUNTANT | 1,131 (836×403) | 12 | all in-domain (GL seed, Tally sync) |
+
+**Idempotency race found + fixed**: the (key,userId) check was
+`findUnique` → run handler → `create` — a concurrent double-fire both
+missed `prior` and both wrote (reproduced: 2 expense rows on one key).
+Now insert-first-wins: `status 0` placeholder claimed BEFORE the handler
+runs; the unique constraint arbitrates — loser 409 "in flight", winner's
+row updated with the stored response. >60s placeholders reclaimed
+(writer died). Verified: concurrent → 409 + single 201; sequential →
+same expenseId replayed; different body → 422.
+
+Cumulative API coverage: 632 handlers malformed-clean (0 5xx), 3-role
+RBAC boundary verified, idempotent replay correct under concurrency.
