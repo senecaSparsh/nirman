@@ -1675,3 +1675,54 @@ attendance AND DPR-generated labor attendance, transfer completion
 requires the auto-created gate pass to exit physically.
 
 Artifacts tagged `pw<ts>` and cleaned post-run.
+
+## 81. Adversarial what-if ledger — 8 waves, ~145 live probes (2026-10-17)
+
+`scripts/whatif-wave{1..8}.mjs` + `whatif-runner.mjs` — the exhaustive
+operational what-if battery run against the `:3200` production build as
+the real SRG personas.
+
+Verified live: multi-tenancy sealed (2-company switch, zero leak, forged
+company-cookie ignored, cross-tenant ID-guess 404s, member-remove kills
+sessions); destructive mutations (deletes with live refs blocked,
+approved-PO immutable, owner-orphan guarded); money integrity (trial
+balance dr=cr to the paisa at ₹31.4cr, per-row atomic bulk import, audit
+coverage); real races (double-sale sequential+concurrent, over-receipt
+race, concurrent PO numbering, 2-device same-account approve); physical
+integration (transfer auto-creates PENDING gate pass — nothing leaves
+the gate until security approves, approval auto-dispatches); HR edges
+(leave overlap enforced at APPROVE not create, payroll locks attendance
++DPR, off-site review queue, geofence per-location 10–50,000m);
+destructive/hostile input (negative/zero qty, SQL/emoji/XSS/giant
+strings all safe).
+
+**Real bug found + fixed:** `qty 9e15` passed zod `.min(0.001)` and
+crashed the `Decimal(14,2)` column as an unhandled 500. Every
+`.finite()` money/qty field in `schemas.ts` now caps at `1e10` (₹10bn —
+covers any real value, blocks DB overflow). Verified: clean 400.
+
+**Design calls confirmed:** PENDING leave duplicates tolerated —
+overlap enforced at approval (409 "overlaps with an already-approved
+leave"); invoice-from-GRN is structurally 3-way matched (lines derive
+from accepted GRN qty — over-billing unreachable); MB cumulative guard
+blocks over-measurement live ("BOQ: 25000, measured: 4920, entry: 9e7");
+no built-in VIEWER role — `ACCOUNTANT` covers the niche; pure read-only
+via `CUSTOM_AUDITOR` (26 view perms, created + verified 403-on-write).
+
+## 82. UX persona probe + restore drill + full-stack green (2026-10-17)
+
+`apps/web/probe/ux-persona.spec.ts` — 8/8 real sign-in flows on the
+prod build: per-role landing + scoped nav + work page + clean forbidden
+denial + forced password-change + wrong-password inline error + mobile
+/m surface + multi-company picker.
+
+Restore drill exercised end-to-end: fresh prod backup (68KB,
+post-onboarding) → B2 upload → remote verify → local restore with zero
+errors → all 7 SRG users/employees/memberships present. The disaster
+recovery path actually works.
+
+Final static layers: 1779/1779 service unit tests, workspace typecheck
+clean, lint clean, verify-workflows-full.sh 72/72 on the current build.
+4 icon-only buttons aria-labeled (org-tree, legal edit/delete, mobile
+expand). All probes committed for regression reruns: BASE=<url>
+node scripts/whatif-waveN.mjs.
