@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 /**
  * UX-PERSONA PROBE — sign in as each SRG persona on the prod build and verify
@@ -54,7 +54,7 @@ const PERSONAS = [
 ] as const;
 
 // Sign in through the real UI form — that IS the UX under test.
-async function signIn(page, phone: string, password: string) {
+async function signIn(page: Page, phone: string, password: string) {
   await page.goto(`${BASE}/sign-in`, { waitUntil: "domcontentloaded" });
   // Hydration settle — the controlled inputs clear if filled pre-hydration.
   await page.waitForTimeout(1500);
@@ -68,7 +68,7 @@ async function signIn(page, phone: string, password: string) {
   if (picked) {
     await page.getByText(/SRG REALCON/i).first().click();
   }
-  await page.waitForURL((u) => !u.pathname.includes("sign-in"), { timeout: 15_000 }).catch(() => {});
+  await page.waitForURL((u: URL) => !u.pathname.includes("sign-in"), { timeout: 15_000 }).catch(() => {});
 }
 
 test.describe("UX-persona probe — real sign-in experience @probe-desktop", () => {
