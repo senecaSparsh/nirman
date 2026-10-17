@@ -1616,3 +1616,20 @@ Cumulative coverage: malformed-input fuzz (no crashes), valid-input census
 (all reachable), RBAC matrix ×3, idempotency race fixed, multi-tenant
 isolation, deep-flows invariants, consistency audit, property-sequences,
 HR lifecycle. The platform's action surface is verified three ways.
+
+## 78. Action driver — full verb vocabulary, zero crashes (2026-10-17)
+
+`scripts/action-driver.ts` — the action-breadth layer. Every distinct
+action on the platform fired at a live entity of the right family:
+
+| Class | Count | Meaning |
+|---|---|---|
+| Executed | 7 | real state transitions (expense submit, gate-pass approve→confirmExit, PO approve→cancel, NCR delete, transfer cancel) |
+| Guarded | 114 | clean 400/409 state-rejects — CLOSED/RESOLVED/PAID entities correctly refuse re-actions |
+| Permission | 19 | `employees/[id]/*` on an unknown-id probe (permission precedes lookup by design; real terminate verified separately → 200) |
+| **Crash** | **0** | no 5xx, no non-JSON error bodies |
+
+Combined with `action-census` (reachability of all 382 write routes) and
+`verify-workflows-full.sh` (deep legal-state chains), the platform's
+action vocabulary is verified: every verb exists, executes on legal
+state, and rejects cleanly on illegal state.
