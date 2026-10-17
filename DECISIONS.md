@@ -1546,3 +1546,24 @@ that wrote/deleted rows directly. Production write paths are verified
 closed.
 
 Run: `psql $DATABASE_URL -f scripts/consistency-audit.sql` — repeatable.
+
+## 75. Property-based sequence fuzzing (2026-10-17)
+
+`scripts/property-sequences.mjs` — the randomized-order layer. A seeded
+PRNG generates random sequences of state-altering ops (receive / issue /
+transfer / adjust with random qtys and directions) against a dedicated
+test material, runs the whole sequence, then asserts invariants:
+
+- no 5xx (rejections legal — insufficient stock, debounce, validation)
+- no negative stock at any location
+- PO received ≤ ordered, always
+- sequence ends in a queryable, uncorrupted state
+
+**6 seeds × ~28 ops = ~155 random mutations — zero violations.** Then
+the killer cross-check: the consistency audit run *after* the fuzz shows
+the same 2 pre-existing seed-drift rows and no new ones — the random
+sequences could not introduce drift even against the same material.
+That closes the loop: the write paths are single-writer-transactional
+and order-invariant.
+
+`SEED=N node scripts/property-sequences.mjs` replays an exact sequence.
