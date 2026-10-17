@@ -9,19 +9,24 @@ import { PERM } from "@/lib/roles";
  * session, rolePermission, verification, etc.) to prevent privilege
  * escalation or cross-company data injection via a malicious backup file.
  */
-const IMPORTABLE_MODELS = new Set([
+// Dependency-ordered (parents before children) — the same list is reused
+// for the import-order sort below, so keep both in sync.
+const IMPORT_ORDER = [
   "company", "project", "department", "stockLocation", "materialCategory",
   "material", "supplier", "subcontractor", "customer", "broker", "landSeller",
-  "equipment", "vehicle", "landPurchase", "purchaseOrder", "directPurchase",
-  "materialRequisition", "supplierPayment", "supplierReturn",
+  "equipment", "vehicle", "landPurchase", "landParcel", "purchaseOrder",
+  "directPurchase", "materialRequisition", "supplierPayment", "supplierReturn",
   "stockLocationItem", "stockMovement", "materialIssue", "stockTransfer",
   "stockCount", "scrapGeneration", "assetSale", "materialSale",
   "glAccount", "journalEntry", "projectCost", "expense",
-  "employee", "payrollPeriod", "attendance", "dailyProgressReport",
-  "wbsElement", "boq", "workOrder", "measurementBook",
+  "employee", "payrollPeriod", "attendance", "workerAttendance",
+  "dailyProgressReport", "wbsNode", "wbsElement", "boq", "boqItem",
+  "workOrder", "subcontractorWorkOrder", "measurementBook",
+  "measurementBookEntry",
   "lead", "task", "safetyIncident", "safetyHazard", "safetyInspection",
   "gatePass", "auditLog",
-]);
+];
+const IMPORTABLE_MODELS = new Set(IMPORT_ORDER);
 
 /**
  * POST /api/backup/import — restore from a JSON backup file.
@@ -58,22 +63,9 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   // Process in dependency order (parents first)
-  const orderedTables = Object.keys(tables).sort((a, b) => {
-    const order = [
-      "company", "project", "department", "stockLocation", "materialCategory",
-      "material", "supplier", "subcontractor", "customer", "broker", "landSeller",
-      "equipment", "vehicle", "landPurchase", "purchaseOrder", "directPurchase",
-      "materialRequisition", "supplierPayment", "supplierReturn",
-      "stockLocationItem", "stockMovement", "materialIssue", "stockTransfer",
-      "stockCount", "scrapGeneration", "assetSale", "materialSale",
-      "glAccount", "journalEntry", "projectCost", "expense",
-      "employee", "payrollPeriod", "attendance", "dailyProgressReport",
-      "wbsElement", "boq", "workOrder", "measurementBook",
-      "lead", "task", "safetyIncident", "safetyHazard", "safetyInspection",
-      "gatePass", "auditLog",
-    ];
-    return order.indexOf(a) - order.indexOf(b);
-  });
+  const orderedTables = Object.keys(tables).sort(
+    (a, b) => IMPORT_ORDER.indexOf(a) - IMPORT_ORDER.indexOf(b),
+  );
 
   for (const modelName of orderedTables) {
     const records = tables[modelName];
