@@ -1465,3 +1465,21 @@ This is the repo's own canonical live check — every core state machine
 verified end-to-end with real DB seeds + HTTP transitions + side-effect
 assertions, on the same production build the rest of the verification
 layers ran against.
+
+## 71. Performance + backup verification (2026-10-17)
+
+Two remaining production-readiness axes closed on the :3200 prod build:
+
+**Latency vs documented SLOs** (docs/SLO.md):
+- List APIs (customers/materials/employees/POs/expenses/sales/projects/
+  attendance/dashboard-counts/notifications): p50 9-27ms, p95 **18-62ms**
+  — 5-17x under the 300ms budget.
+- Page TTFB: `/` 231ms p95 (heaviest), every other page 10-117ms —
+  10-20x under the 2.5s budget.
+- Heavy report (stock-movement-summary, ~2y range): **22ms** vs 8s budget.
+
+**Backup export** (`/api/backup/export`, OWNER): real downloadable JSON —
+47 tables / 9,985 records / 9.3MB / `version:1` envelope. All core
+business tables present (employee, purchaseOrder, journalEntry,
+stockMovement, wbsNode, boqItem, auditLog…). Restore path is via the
+import endpoint; content verified structurally (not round-tripped).
