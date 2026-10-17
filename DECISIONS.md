@@ -1341,3 +1341,41 @@ same expenseId replayed; different body → 422.
 
 Cumulative API coverage: 632 handlers malformed-clean (0 5xx), 3-role
 RBAC boundary verified, idempotent replay correct under concurrency.
+
+## 66. UX walkthrough audit — user-intent coverage (2026-10-17)
+
+Ran the walkthrough-audit (feature completeness, entry states, dead
+exports, render states) + persona workflow walks (supervisor mobile
+morning, accountant financial chain, owner first-login, offline field
+recovery, first-timer onboarding) against the live :3200 server + code.
+
+**Feature completeness — clean**: signin/signup/forgot/reset/change-
+password (self `/change-password` + admin), signout on both shells,
+phone-OTP verify, per-surface `error.tsx`, root `not-found.tsx`, 307
+empty-state surfaces, `/settings/backup` company export, product tour +
+employee onboarding flows.
+
+**Persona walks — all paths live**: supervisor's /m/site/* hub renders
+attendance mark + DPR FAB create (MobileDprsFab modal — the list→create
+link exists, it's a client modal not a visible href) + receive + tasks;
+accountant's approvals/PO/supplier-payments/procurement all 200; owner
+home shows cash/approval/alert KPIs + reports nav; offline queue
+(`lib/offline/queue.ts` + `useDrafts` + SW register) enqueues on
+`!navigator.onLine` with explicit toast — verified the attendance form's
+offline path code-side.
+
+**Findings (all YELLOW/GRAY, no RED)**:
+- No privacy/terms page — the app stores employee PII (Aadhaar/PAN/bank);
+  B2B-internal so usually contract-covered, but DPDP-Act-sensitive.
+  `auto_fix: false` (legal copy needed).
+- `/home` and `/dashboard` 404 — natural URL guesses; a redirect to `/`
+  would catch them. `auto_fix: true` (middleware redirect).
+- No user-level data export (company-level `/settings/backup` exists;
+  individual export is admin-managed by B2B design — acceptable).
+- No verify-email page — phone-primary auth uses OTP; synthesized
+  `phone+*@nirman.internal` emails aren't user-visible, so N/A by design.
+
+Convergence evidence: personas tried — supervisor mobile/rushed,
+accountant desktop/financial, owner first-login, offline-recovery,
+first-timer onboarding; last two rounds (owner + onboarding) produced
+zero new gaps; all axes exhausted.
