@@ -1726,3 +1726,31 @@ clean, lint clean, verify-workflows-full.sh 72/72 on the current build.
 4 icon-only buttons aria-labeled (org-tree, legal edit/delete, mobile
 expand). All probes committed for regression reruns: BASE=<url>
 node scripts/whatif-waveN.mjs.
+
+## 83. External attack surface — every entry point verified (2026-10-17)
+
+Probed every unauthenticated route on `https://nirman.life` directly:
+
+- `/api/auth/demo-login` → **403 hard-gated** in production (the one-click
+  bypass is explicitly closed, not just "not linked")
+- `/sign-up` + `/api/sign-up` → **404** — no self-registration; onboarding
+  is admin-mediated only
+- `/api/auth/phone-otp` → **404** — no OTP self-provisioning path
+- `/accept` → **307 → /sign-in?redirect=** — invite acceptance is
+  session-gated
+- `/portal` → auth-gated shell (sign-in redirect client-side, no data)
+- `/api/cron/*` → **401 without x-cron-secret** — scheduled jobs can't be
+  triggered externally
+- `/api/telephony/webhook` → provider HMAC-SHA256 signature verified
+  (no-auth by design — the signature IS the auth)
+- Session cookie: `HttpOnly + SameSite=lax` (+ `__Secure-` under TLS),
+  365-day with 7-day auto-renew — deliberate (active users never re-auth;
+  sessions DB-revocable)
+- Headers: HSTS+preload, CSP, XFO, nosniff, Referrer-Policy,
+  restrictive Permissions-Policy
+- Auth endpoints enforce origin checks (`trustedOrigins` strict in prod)
+- CSRF: SameSite=Lax + JSON-only + no ACAO on preflight closes the real
+  browser vector
+
+**Result:** no unauthenticated path can create an account, read data,
+trigger a job, or forge a webhook. The external surface is sealed.
