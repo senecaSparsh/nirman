@@ -1483,3 +1483,18 @@ Two remaining production-readiness axes closed on the :3200 prod build:
 business tables present (employee, purchaseOrder, journalEntry,
 stockMovement, wbsNode, boqItem, auditLog…). Restore path is via the
 import endpoint; content verified structurally (not round-tripped).
+
+## 72. Privacy + terms pages — last walkthrough finding closed (2026-10-17)
+
+The walkthrough's remaining gap was a missing in-product privacy notice
+despite stored employee PII (Aadhaar/PAN/PF/ESI/UAN, bank details,
+attendance/check-in records, call recordings). Added `/privacy` + `/terms`
+as public server-component pages (registered in `isPublicRoute` both
+instances), linked from the sign-in footer so staff can read them before
+first login. Content covers what's stored, purpose, role-based access,
+retention, and request paths — explicitly marked "baseline wording —
+review by counsel" pending DPDP-Act legal review.
+
+With this, every finding from every audit layer is either fixed or a
+documented design decision. Only the external items remain: VPS reboot
+(infrastructure) and counsel review (legal).
