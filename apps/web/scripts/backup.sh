@@ -47,16 +47,63 @@ mkdir -p "$BACKUP_DIR/pg" "$BACKUP_DIR/uploads"
 # prune its own files inside this root-owned volume. Synced off-site too.
 mkdir -p "$BACKUP_DIR/pre-deploy" && chmod 1777 "$BACKUP_DIR/pre-deploy"
 
+# alert <message> — fires ALERT_WEBHOOK (Slack/Discord/ntfy/generic POST) if set.
+# Self-managing means failures must *page someone*, not just log.
+alert() {
+  echo "[backup] ALERT: $1"
+  [ -n "${ALERT_WEBHOOK:-}" ] && \
+    curl -fsS -m 10 -X POST "$ALERT_WEBHOOK" \
+      -H "content-type: application/json" \
+      -d "{\"text\":\"[nirman-backup] $1\"}" >/dev/null 2>&1 || true
+}
+
+# verify_dump <file> — a backup you can't restore is a rumor. Minimum check
+# every run: gzip integrity + real SQL content inside.
+verify_dump() {
+  gunzip -t "$1" 2>/dev/null || return 1
+  n=$(gunzip -c "$1" | grep -cE '^(CREATE TABLE|COPY )')
+  [ "$n" -gt 50 ]
+}
+
+# weekly_restore_verify — once a week, actually RESTORE the latest dump into
+# a scratch DB inside the same Postgres, count rows, drop it. The difference
+# between "we have backups" and "we have restores".
+weekly_restore_verify() {
+  [ "$(date +%u)" != "${VERIFY_DOW:-1}" ] && return 0   # default: Mondays
+  latest=$(ls -t "$BACKUP_DIR"/pg/nirman-*.sql.gz 2>/dev/null | head -1)
+  [ -z "$latest" ] && return 0
+  echo "[backup] weekly restore-verify on $(basename "$latest")"
+  psql -h "$PGHOST" -U "$PGUSER" -d postgres -c "DROP DATABASE IF EXISTS _verify" -q 2>/dev/null
+  psql -h "$PGHOST" -U "$PGUSER" -d postgres -c "CREATE DATABASE _verify" -q 2>/dev/null
+  if gunzip -c "$latest" | psql -h "$PGHOST" -U "$PGUSER" -d _verify -q 2>/tmp/verify.err; then
+    n=$(psql -h "$PGHOST" -U "$PGUSER" -d _verify -tAc 'SELECT count(*) FROM "User"' 2>/dev/null || echo 0)
+    echo "[backup] OK   restore-verify — _verify DB has $n users"
+    [ "${n:-0}" -gt 0 ] || alert "restore-verify produced 0 users — dump may be empty"
+  else
+    alert "restore-verify FAILED on $(basename "$latest"): $(tail -1 /tmp/verify.err)"
+  fi
+  psql -h "$PGHOST" -U "$PGUSER" -d postgres -c "DROP DATABASE IF EXISTS _verify" -q 2>/dev/null
+}
+
 run_backup() {
   ts="$(date -u +%Y%m%d-%H%M%S)"
+  status="ok"; notes=""
 
   # ── Database dump ──
   pg_out="$BACKUP_DIR/pg/nirman-$ts.sql.gz"
   if pg_dump -h "$PGHOST" -U "$PGUSER" -d "$PGDATABASE" --no-owner --no-privileges 2>/tmp/pgdump.err | gzip > "$pg_out"; then
     size=$(du -h "$pg_out" | cut -f1)
     echo "[backup] OK   pg → $pg_out ($size)"
+    if verify_dump "$pg_out"; then
+      echo "[backup] OK   integrity — gzip valid, schema+data present"
+    else
+      status="fail"; notes="$notes dump-corrupt;"
+      alert "pg dump failed integrity check: $pg_out"
+    fi
   else
     echo "[backup] FAIL pg_dump: $(cat /tmp/pgdump.err)"
+    status="fail"; notes="$notes pg_dump-failed;"
+    alert "pg_dump failed: $(head -1 /tmp/pgdump.err)"
     rm -f "$pg_out"
   fi
 
@@ -67,6 +114,7 @@ run_backup() {
     echo "[backup] OK   uploads → $up_out ($size)"
   else
     echo "[backup] FAIL tar: $(cat /tmp/tar.err)"
+    status="fail"; notes="$notes uploads-failed;"
     rm -f "$up_out"
   fi
 
@@ -76,13 +124,32 @@ run_backup() {
   # ── Optional off-site upload ──
   if [ -n "${RCLONE_REMOTE:-}" ]; then
     if command -v rclone >/dev/null 2>&1; then
-      rclone copy "$BACKUP_DIR" "$RCLONE_REMOTE" --create-empty-src-dirs \
-        && echo "[backup] OK   off-site sync → $RCLONE_REMOTE" \
-        || echo "[backup] FAIL rclone sync (check RCLONE_* env vars)"
+      if rclone copy "$BACKUP_DIR" "$RCLONE_REMOTE" --create-empty-src-dirs 2>/tmp/rclone.err; then
+        echo "[backup] OK   off-site sync → $RCLONE_REMOTE"
+        # Verify it actually landed — a silent failed sync is worse than none.
+        if rclone lsf "$RCLONE_REMOTE/pg/" 2>/dev/null | grep -q "$(basename "$pg_out")"; then
+          echo "[backup] OK   off-site verified — $(basename "$pg_out") present remote"
+        else
+          status="fail"; notes="$notes offsite-verify-failed;"
+          alert "off-site sync reported OK but file not found remote — check rclone remote"
+        fi
+      else
+        status="fail"; notes="$notes offsite-failed;"
+        alert "rclone sync failed: $(tail -1 /tmp/rclone.err)"
+      fi
     else
-      echo "[backup] FAIL rclone not installed but RCLONE_REMOTE is set"
+      status="fail"; notes="$notes rclone-missing;"
+      alert "rclone not installed but RCLONE_REMOTE is set"
     fi
   fi
+
+  # ── Weekly self-restore-verify (restores latest dump into scratch DB) ──
+  weekly_restore_verify
+
+  # ── Status file — prod-health-check + /api/health read this ──
+  cat > "$BACKUP_DIR/latest.json" <<EOF
+{"lastRun":"$ts","status":"$status","notes":"$notes","pg":"$(basename "${pg_out:-none}" 2>/dev/null)","offsite":"${RCLONE_REMOTE:-off}"}
+EOF
 }
 
 # rclone isn't in the postgres base image — install once at start (best-effort;
