@@ -1567,3 +1567,28 @@ That closes the loop: the write paths are single-writer-transactional
 and order-invariant.
 
 `SEED=N node scripts/property-sequences.mjs` replays an exact sequence.
+
+## 76. HR power chain — account lifecycle verified end-to-end (2026-10-17)
+
+The load-bearing flow — HR creates identities that actually control
+access — verified live on :3200, not just at the API surface:
+
+- `POST /api/users` (USERS_MANAGE) creates User + UserCompany membership
+  + credential Account + scope entries in one shot — scope is REQUIRED
+  (SITE_ENGINEER can't get company-wide; only owner/admin/PD/finance/
+  accountant can), role-assignment is hierarchy-gated.
+- The new account signs in (real session cookie) and `/api/me` works.
+- Role boundary enforced live: a SITE_ENGINEER's `POST /api/users`
+  escalation attempt → 403.
+- Deactivation (`PATCH users/[id] active:false`) kills re-login (401)
+  AND kills the already-issued session mid-flight (403 on next request —
+  `getCompany` rejects because the membership is gone).
+- `terminateEmployee` (services/employee-account.ts) does the full
+  teardown in one serializable tx: soft-delete + autoDeposit off +
+  membership deactivate + delegation clear + task-timer stop +
+  project/permission/scope wipe + push-sub kill + session delete when
+  the last membership dies. Access revocation is immediate, not
+  cookie-expiry.
+
+Access creation and revocation are both real, scoped, and immediate —
+the HR layer's power is verified, not assumed.
