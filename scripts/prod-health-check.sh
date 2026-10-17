@@ -19,7 +19,7 @@ if [ -f "$SECRETS_FILE" ]; then source "$SECRETS_FILE"; fi
 
 : "${VPS_SSH_HOST:=nirman-vps}"
 : "${PROD_DOMAIN:=nirman.life}"
-: "${COOLIFY_APP_UUID:=oa346mulnes3pgn6gmij6dih}"
+: "${COOLIFY_APP_UUID:=q8lzhbnhjzuvndppaaazgdpn}"
 
 APP_ID=1
 APP_NET="$COOLIFY_APP_UUID"
@@ -40,7 +40,7 @@ echo ""
 if ssh -o ConnectTimeout=5 "$VPS_SSH_HOST" 'echo ok' &>/dev/null; then
   ok "SSH to VPS"
 else
-  bad "SSH to VPS (run: ssh-copy-id -i ~/.ssh/devin_nirman root@82.41.67.34)"
+  bad "SSH to VPS (run: ssh-copy-id -i ~/.ssh/devin_nirman root@${VPS_IP:-82.41.67.77})"
   echo ""
   log "Cannot continue without SSH access."
   exit 1
@@ -67,7 +67,7 @@ else
 fi
 
 # ── 3. Containers running (find by coolify label, names change per deploy) ──
-CONTAINER_STATUS=$(ssh "$VPS_SSH_HOST" 'docker ps -a --filter "label=coolify.applicationId=1" --format "{{.Names}} {{.Status}}" 2>&1')
+CONTAINER_STATUS=$(ssh "$VPS_SSH_HOST" "docker ps -a --filter label=coolify.applicationUuid=$COOLIFY_APP_UUID --format '{{.Names}} {{.Status}}' 2>&1")
 ALL_UP=true
 EXPECTED_SERVICES="web db scheduler backup"
 for svc in $EXPECTED_SERVICES; do
@@ -124,7 +124,7 @@ if [ "$HTTP_CODE" = "200" ]; then
   curl -skS -m 10 "https://$PROD_DOMAIN/api/health" 2>/dev/null | python3 -m json.tool 2>/dev/null | head -5
 else
   bad "https://$PROD_DOMAIN/api/health → $HTTP_CODE"
-  log "  Check: ssh $VPS_SSH_HOST 'docker logs $WEB_CONTAINER --tail 30'"
+  log "  Check: ssh $VPS_SSH_HOST 'docker logs \$(docker ps -qf name=web | head -1) --tail 30'"
   log "  Check: ssh $VPS_SSH_HOST 'docker logs coolify --since 5m 2>&1 | grep StopApplication'"
 fi
 
