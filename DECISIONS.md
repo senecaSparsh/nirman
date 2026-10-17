@@ -1519,3 +1519,30 @@ state after every step rather than just "did it 2xx":
 Final: **21/21 green** on the production build. Confirmed the deeper
 logic invariants hold — stock ledger moves correctly, physical-exit
 gates are enforced, debounces/races are handled.
+
+## 74. Consistency audit — recomputed truth vs materialized state (2026-10-17)
+
+`scripts/consistency-audit.sql` — the advanced differential layer.
+Recomputes derived state from append-only event tables and diffs against
+the materialized cache rows — catches the write-path-drift class that
+endpoint tests can't see:
+
+| Check | Result |
+|---|---|
+| StockLocationItem.qty vs ΣStockMovement | 2 drifts — **seed artifacts** (see below) |
+| Negative stock | 0 |
+| JournalEntry debits==credits | **0 imbalanced** — GL always balances |
+| PO qtyReceived vs GoodsReceipt lines | 0 drift |
+| Over-received lines | 0 |
+| Orphans on deleted parents | 0 |
+| Dangling refs (locations, gate-pass) | 1 stale gate-pass row (deleted test transfer) |
+| Audit coverage (PO/Sale writes logged) | 1 unaudited `vfy*` seed PO |
+
+**Why the drift isn't an app bug**: every app write goes through
+`stock-ledger.ts`'s single transaction — item upsert + conditional
+decrement + movement row together. It *cannot* produce
+movement-sum ≠ item.qty. The drifts trace to seeds and test-cleanup SQL
+that wrote/deleted rows directly. Production write paths are verified
+closed.
+
+Run: `psql $DATABASE_URL -f scripts/consistency-audit.sql` — repeatable.
