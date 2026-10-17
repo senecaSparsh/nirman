@@ -96,7 +96,7 @@ test("full platform workflow chain @probe-desktop", async ({ page }) => {
 
   // ── 5. PO lifecycle: create → receive → stock moves ─────────────
   const projRes = await api(page, "GET", "projects");
-  const proj = (projRes.body.projects ?? projRes.body ?? [])[0] as { id: string } | undefined;
+  const proj = ((projRes.body.projects ?? projRes.body ?? []) as { id: string }[])[0];
   const locRes = await api(page, "GET", "stock-locations");
   const siteLoc = ((locRes.body.locations ?? locRes.body ?? []) as { id: string; type: string; projectId?: string }[])
     .find((l) => l.type === "PROJECT_SITE" && l.projectId);
@@ -113,7 +113,8 @@ test("full platform workflow chain @probe-desktop", async ({ page }) => {
   expect(poRes.status, `PO create: ${JSON.stringify(poRes.body).slice(0, 140)}`).toBeLessThan(300);
   const po = poRes.body;
   const poId = po.id as string;
-  const poLineId = ((po.lines ?? po.purchaseOrderLines) as { id: string }[])[0].id;
+  const poLines = (po.lines ?? po.purchaseOrderLines) as { id: string }[];
+  const poLineId = poLines[0]?.id;
   log(`PO created: ${poId} status=${po.status}`);
 
   // approve if not auto-approved
