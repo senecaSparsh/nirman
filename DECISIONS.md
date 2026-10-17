@@ -1633,3 +1633,26 @@ Combined with `action-census` (reachability of all 382 write routes) and
 `verify-workflows-full.sh` (deep legal-state chains), the platform's
 action vocabulary is verified: every verb exists, executes on legal
 state, and rejects cleanly on illegal state.
+
+## 79. Restore drill — the backup round-trip was broken, now fixed (2026-10-17)
+
+Ran the actual DR drill: export the live company archive (10,402 rows /
+47 tables), push the schema into a scratch Postgres DB, replay it.
+
+**Bug found:** `/api/backup/import` rejected the app's own export — its
+`IMPORTABLE_MODELS` allowlist omitted 6 exported tables (`landParcel`,
+`workerAttendance`, `wbsNode`, `boqItem`, `subcontractorWorkOrder`,
+`measurementBookEntry`) and rejected the entire import on the first
+unlisted key. The export's "per-company restore" promise was unrunnable.
+Fixed: a single `IMPORT_ORDER` list drives both allowlist and dependency
+sort; verified `POST /api/backup/import` round-trips the real archive —
+**200, 10,402 records, 46 tables**.
+
+Documented scope: JSON import = merge-into-live-company (layer 2).
+Bare-metal recovery remains pg_dump's job (docs/DISASTER-RECOVERY.md) —
+the FK-to-User rows can't restore into a userless DB by design, and the
+allowlist correctly still excludes auth tables.
+
+Integration check: Twilio creds verified live (Twilio API 200); WhatsApp/
+Tally/GSTA/Maps code paths exist but no creds configured — unused paths,
+not broken ones. The `:3200` prod build now includes all fixes.
