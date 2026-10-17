@@ -1656,3 +1656,22 @@ allowlist correctly still excludes auth tables.
 Integration check: Twilio creds verified live (Twilio API 200); WhatsApp/
 Tally/GSTA/Maps code paths exist but no creds configured — unused paths,
 not broken ones. The `:3200` prod build now includes all fixes.
+
+## 80. Playwright workflow chain — all major actions, one serial run (2026-10-17)
+
+`apps/web/probe/workflow-chain.spec.ts` — the browser-session chain:
+every major action workflow in one serial test against the production
+build, each asserting the previous step's effect.
+
+  sign-in → dashboard → customer create+persist → material → supplier →
+  PO auto-approve → receive → stock 0→20 → expense submit → employee →
+  attendance payroll-lock 409 → DPR labor-line payroll guard → transfer →
+  gate-pass approve → confirmExit → complete → reports → list persistence.
+
+Guards proven correct in the chain: (companyId,gstin) unique constraint
+(P2002 surfaces as a misleading "concurrent transaction" 409 — a known
+mapping wart, not a conflict bug), payroll-locked periods freeze
+attendance AND DPR-generated labor attendance, transfer completion
+requires the auto-created gate pass to exit physically.
+
+Artifacts tagged `pw<ts>` and cleaned post-run.
