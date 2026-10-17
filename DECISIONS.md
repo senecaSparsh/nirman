@@ -1445,3 +1445,23 @@ roles (clean denials, no escalation), multi-tenant isolation (zero
 cross-company leakage), idempotent replay under concurrency, 232 UI
 pages probed live, 5 UX persona walks converged, services suite green,
 e2e flows green (failures are dev-compile infra only).
+
+## 70. Canonical workflow verification — 72/72 green (2026-10-17)
+
+Ran `scripts/verify-workflows-full.sh` against the production build
+(:3200, seeded OWNER credentials → cookie jar): **72 passed / 0 failed /
+0 skipped** across all 29 groups — DPR chain, MB verify/reject, tenancy
+activate→schedule→escalate→terminate + changeTenant handover, advances,
+issue→gate-pass execution, transfer cancel/dispatch + in-transit guard,
+change-orders, hazards, incidents, NCR→CAPA lifecycle, safety
+inspections, PO mutations (addLine/eta/short-close/reject/resubmit),
+work-orders, sale cancel/update, equipment sell/maintenance, payroll
+process guard, material-sale-return, cheque clear/bounce, task timer,
+leave approve/reject + overlap guard, audit-trail spot checks, stale-
+count reconcile guard, sale-return proportional GL, negative probes
+(ghost-id/invalid-action/cross-entity 4xx).
+
+This is the repo's own canonical live check — every core state machine
+verified end-to-end with real DB seeds + HTTP transitions + side-effect
+assertions, on the same production build the rest of the verification
+layers ran against.
