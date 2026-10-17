@@ -147,6 +147,15 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // Natural URL guesses — users type /dashboard and /home instinctively;
+  // the app lives at /. Permanent redirects catch the guess without a
+  // 404 detour through the custom not-found page.
+  async redirects() {
+    return [
+      { source: "/dashboard", destination: "/", permanent: true },
+      { source: "/home", destination: "/", permanent: true },
+    ];
+  },
 };
 
 // ── Dev header guard ─────────────────────────────────────────────
