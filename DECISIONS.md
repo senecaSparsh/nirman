@@ -1754,3 +1754,24 @@ Probed every unauthenticated route on `https://nirman.life` directly:
 
 **Result:** no unauthenticated path can create an account, read data,
 trigger a job, or forge a webhook. The external surface is sealed.
+
+## 84. Referential-integrity + data-quality census (2026-10-17)
+
+Raw-SQL census across the live local DB — every pointer-class checked:
+
+- StockLocationItem→Material, RequisitionLine→Material, PO→Supplier,
+  WorkerAttendance→Employee, UserCompany→User: **zero orphans**
+- StockMovement→toLocationId: **zero dangling refs** (485 NULL destinations
+  are by-design outbound movements to work packages)
+- Negative stock anywhere: **0**
+- Sold unit left SOLD on a cancelled sale: **0**
+- RECEIVED payments on CANCELLED sales (21 rows): **correct bookkeeping** —
+  cancelSale() posts `postDepositRefund` GL reversals (Dr Customer_Deposit /
+  Cr Cash); the payment row is the receipt record, the reversal is the
+  refund record. Double-entry preserved. Completed sales can't be
+  cancelled (refund path instead); live-IRN sales can't be cancelled
+  (GST portal must cancel first — e-invoice consistency guard).
+
+Data layer is internally consistent at row level — the guards that block
+delete-with-references (wave 4) are exactly why the census finds zero
+orphans.
