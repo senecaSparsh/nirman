@@ -1379,3 +1379,26 @@ Convergence evidence: personas tried — supervisor mobile/rushed,
 accountant desktop/financial, owner first-login, offline-recovery,
 first-timer onboarding; last two rounds (owner + onboarding) produced
 zero new gaps; all axes exhausted.
+
+## 67. Multi-tenant isolation + URL aliases (2026-10-17)
+
+Provisioned a second tenant (`tenantb-co` + `tenantb@nirman.internal`
+OWNER with membership — kept in the dev DB as the standing isolation
+fixture) and probed cross-tenant access from the other side:
+
+- Direct fetches of 5 tenant-A entity ids → all 404 ("Customer not
+  found" etc.) — `companyId` scoping is in the lookup, not just lists.
+- List endpoints (`customers/projects/materials/employees/purchase-
+  orders`) → 200 with zero tenant-A rows.
+- Writes (PATCH/DELETE customer, PATCH employee, POST PO approve) →
+  all 404 — no cross-tenant mutation path.
+- Financial/report surfaces (`gl/ledger`, stock-movement-summary,
+  export) → only tenant-B (empty) data.
+
+`/dashboard` + `/home` → permanent redirect to `/` in next.config.ts
+(natural URL guesses were 404ing — the walkthrough's auto-fixable
+GRAY item).
+
+Isolation caveat: verified on 5 entity types + reports — the pattern is
+universal (every query carries `companyId`), but exotic endpoints
+(custom SQL, cross-company admin tools) weren't enumerated.
