@@ -89,7 +89,7 @@ function discover(): Route[] {
       const url = "/api/" + rel.replace(/\[[^\]]+\]/g, "fz-nonexistent");
       if (SKIP.some((re) => re.test(rel))) continue;
       const src = readFileSync(p, "utf8");
-      const methods = [...src.matchAll(/export\s+(?:async\s+)?(?:function|const|let|var)\s+(POST|PATCH|PUT|DELETE)\b/g)].map((m) => m[1]);
+      const methods = [...src.matchAll(/export\s+(?:async\s+)?(?:function|const|let|var)\s+(GET|POST|PATCH|PUT|DELETE)\b/g)].map((m) => m[1]);
       for (const method of methods) out.push({ method, url });
     }
   };
@@ -100,8 +100,14 @@ function discover(): Route[] {
 let pass = 0, fail = 0;
 const findings: string[] = [];
 async function fuzz(r: Route, bodyless: boolean) {
-  for (const [label, body] of MALFORMED) {
-    const { status, isJson, raw } = await api(r.method, r.url, body);
+  // GETs: the malformed input lives in query params, not a body — a
+  // dynamic fz- segment already exercises the lookup path. One request
+  // with hostile query params covers it (bodies are ignored on GETs).
+  const payloads: [string, unknown][] =
+    r.method === "GET" ? [["hostile query", undefined]] : MALFORMED;
+  for (const [label, body] of payloads) {
+    const url = r.method === "GET" ? `${r.url}?q=' OR '1'='1&page=abc&limit=-1&sort={x}&from=notadate&to[]=1&expand[]=a&expand[]=b` : r.url;
+    const { status, isJson, raw } = await api(r.method, url, body);
     if (status >= 500) {
       findings.push(`${r.method} ${r.url} [${label}] → 5xx ${status}: ${raw.slice(0, 140).replace(/\s+/g, " ")}`);
       fail++; continue;
@@ -111,6 +117,7 @@ async function fuzz(r: Route, bodyless: boolean) {
       findings.push(`${r.method} ${r.url} [${label}] → ${status} non-JSON error body`);
       fail++; continue;
     }
+    if (status < 400 && r.method === "GET") { pass++; continue; } // a GET 200 is always fine
     if (status < 400 && r.method === "POST" && !bodyless) {
       // A POST that accepts malformed input = a validation gap.
       findings.push(`${r.method} ${r.url} [${label}] → ${status} accepted`);

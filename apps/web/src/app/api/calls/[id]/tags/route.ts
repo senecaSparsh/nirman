@@ -92,8 +92,8 @@ export const DELETE = apiHandler(async (req: NextRequest, { params }: { params: 
   let bodyName: string | undefined;
   try {
     const body = await req.json();
-    bodyTagId = body.tagId;
-    bodyName = body.name;
+    bodyTagId = typeof body?.tagId === "string" ? body.tagId : undefined;
+    bodyName = typeof body?.name === "string" ? body.name : undefined;
   } catch {
     // No body — use query params
   }

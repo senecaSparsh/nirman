@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createDirectPurchase, listDirectPurchases, recordVehicleTrip, ServiceError } from "@nirman/services";
 import { prisma } from "@nirman/db";
-import { apiHandler, assertScopeAllows, getCompany, json, scopeWhere, toNum, requireEffectivePermission} from "@/lib/server";
+import { dateParam, apiHandler, assertScopeAllows, getCompany, json, scopeWhere, toNum, requireEffectivePermission} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
 const directPurchaseLineSchema = z.object({
@@ -40,8 +40,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
   const purchases = await listDirectPurchases({
     companyId: company.id,
-    from: from ? startOfDayIST(new Date(from)) : undefined,
-    to: to ? new Date(endOfDayIST(new Date(to)).getTime() - 1) : undefined,
+    from: dateParam(from) ? startOfDayIST(dateParam(from)!) : undefined,
+    to: dateParam(to) ? new Date(endOfDayIST(dateParam(to)!).getTime() - 1) : undefined,
     supplierId,
   });
 

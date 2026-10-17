@@ -1279,7 +1279,7 @@ export const workflowSchema = z.object({
   icon: z.string().max(60).default("Workflow"),
   // graphJson is a required JSON object — z.any() let undefined/null through
   // to a NOT NULL column → Prisma validation 500 on a malformed body.
-  graphJson: z.record(z.string(), z.unknown()),
+  graphJson: z.record(z.string(), z.any()),
 });
 
 export const workflowScheduleSchema = z.object({

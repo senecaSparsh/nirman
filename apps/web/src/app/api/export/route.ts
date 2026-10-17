@@ -21,7 +21,7 @@ import {
   getProjectMaterialReconciliation,
   projectPnl} from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, toNum, requireUser, scopeWhere, projectScopeFilter, getEffectivePermissions } from "@/lib/server";
+import { dateParam, apiHandler, getCompany, json, toNum, requireUser, scopeWhere, projectScopeFilter, getEffectivePermissions } from "@/lib/server";
 import { localDateISO, startOfDayIST, endOfDayIST } from "@/lib/utils";
 
 /**
@@ -52,6 +52,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const format = searchParams.get("format") ?? "xlsx";
   const from = searchParams.get("from");
   const to = searchParams.get("to");
+  const fromD = dateParam(from);
+  const toD = dateParam(to);
   const asOn = searchParams.get("asOn");
   const projectId = searchParams.get("projectId");
 
@@ -83,8 +85,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
   // Build date range
   const now = new Date();
   const fyStart = new Date(now.getFullYear() - (now.getMonth() < 3 ? 1 : 0), 3, 1);
-  const fromDate = from ? startOfDayIST(new Date(from)) : fyStart;
-  const toDate = to ? new Date(endOfDayIST(new Date(to)).getTime() - 1) : now;
+  const fromDate = fromD ? startOfDayIST(fromD) : fyStart;
+  const toDate = toD ? new Date(endOfDayIST(toD).getTime() - 1) : now;
 
   const filenameBase = `${type}-${localDateISO()}`;
   const companyName = company.name;
@@ -421,9 +423,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
     case "stock-issue-summary": {
       title = `STOCK ISSUE SUMMARY OF ${fromDate.toISOString().slice(0, 10)} TO ${toDate.toISOString().slice(0, 10)}`;
       const dateFilter: { issueDate?: { gte?: Date; lte?: Date } } = {};
-      if (from) dateFilter.issueDate = { gte: startOfDayIST(new Date(from)) };
-      if (to) {
-        const end = new Date(endOfDayIST(new Date(to)).getTime() - 1);
+      if (fromD) dateFilter.issueDate = { gte: startOfDayIST(fromD) };
+      if (toD) {
+        const end = new Date(endOfDayIST(toD).getTime() - 1);
         dateFilter.issueDate = { ...dateFilter.issueDate, lte: end };
       }
       const issues = await prisma.materialIssue.findMany({
@@ -508,9 +510,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
     case "issue-register": {
       title = `STOCK ISSUE REGISTER OF ${fromDate.toISOString().slice(0, 10)} TO ${toDate.toISOString().slice(0, 10)}`;
       const dateFilter: { issueDate?: { gte?: Date; lte?: Date } } = {};
-      if (from) dateFilter.issueDate = { gte: startOfDayIST(new Date(from)) };
-      if (to) {
-        const end = new Date(endOfDayIST(new Date(to)).getTime() - 1);
+      if (fromD) dateFilter.issueDate = { gte: startOfDayIST(fromD) };
+      if (toD) {
+        const end = new Date(endOfDayIST(toD).getTime() - 1);
         dateFilter.issueDate = { ...dateFilter.issueDate, lte: end };
       }
       const issues = await prisma.materialIssue.findMany({
@@ -543,9 +545,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
       title = `PURCHASE REGISTER OF ${fromDate.toISOString().slice(0, 10)} TO ${toDate.toISOString().slice(0, 10)}`;
       const billDateFilter = (field: string) => {
         const f: Record<string, { gte?: Date; lte?: Date }> = {};
-        if (from) f[field] = { gte: startOfDayIST(new Date(from)) };
-        if (to) {
-          const end = new Date(endOfDayIST(new Date(to)).getTime() - 1);
+        if (fromD) f[field] = { gte: startOfDayIST(fromD) };
+        if (toD) {
+          const end = new Date(endOfDayIST(toD).getTime() - 1);
           f[field] = { ...f[field], lte: end };
         }
         return f;

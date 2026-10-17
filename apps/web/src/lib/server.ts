@@ -173,9 +173,12 @@ export async function getCompany() {
       },
     });
   }
-  throw new Error(
-    `No company found for authenticated user ${user?.id ?? "(unknown)"} — this is a provisioning error. ` +
-    `Run the SRG provisioning script or assign the user to a company.`,
+  // A signed-in user with no resolvable company gets a clean 403, not a
+  // 500 — "your account isn't provisioned" is a client-visible state (the
+  // role-matrix probe surfaced 258 of these as Internal Server Errors).
+  throw new ServiceError(
+    "Your account isn't linked to a company yet — ask an administrator to complete your setup.",
+    403,
   );
   });
 }
@@ -277,6 +280,15 @@ export async function validateAttachments(attachmentIds: string[] | undefined, c
 }
 
 /** Convert a Prisma Decimal (or string) to a JS number for client serialization. */
+/** Parse a `?date=` query param — invalid strings become `undefined`
+ *  instead of `Invalid Date`, which would otherwise 500 inside Prisma
+ *  where clauses / date-fns arithmetic. */
+export function dateParam(v: string | null): Date | undefined {
+  if (!v) return undefined;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
 export function toNum(v: unknown): number {
   if (v == null) return 0;
   if (typeof v === "number") return v;

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { accountLedger } from "@nirman/services";
 import { PERM } from "@/lib/roles";
-import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
+import { dateParam, apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 
 /**
  * GET /api/gl/ledger?account=1300
@@ -23,8 +23,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
   const cursor = searchParams.get("cursor") ?? undefined;
   const limit = searchParams.get("limit") ? parseInt(searchParams.get("limit")!, 10) : undefined;
-  const startDate = searchParams.get("startDate") ? new Date(searchParams.get("startDate")!) : undefined;
-  const endDate = searchParams.get("endDate") ? new Date(searchParams.get("endDate")!) : undefined;
+  const startDate = dateParam(searchParams.get("startDate"));
+  const endDate = dateParam(searchParams.get("endDate"));
 
   const result = await accountLedger(company.id, accountCode, {
     cursor,

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { Prisma, prisma } from "@nirman/db";
-import { apiHandler, getCompany, getUserScope, json, requireEffectivePermission, toNum } from "@/lib/server";
+import { dateParam, apiHandler, getCompany, getUserScope, json, requireEffectivePermission, toNum } from "@/lib/server";
 import { istDateRange } from "@/lib/utils";
 import { PERM } from "@/lib/roles";
 
@@ -47,7 +47,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const fyStart = new Date(now.getFullYear() - (now.getMonth() < 3 ? 1 : 0), 3, 1);
   // Bound the calendar range in IST — a "Sep 1–27" report must cover Sep 27
   // 00:00–23:59 IST, not the server's local day (UTC prod drifts it 5.5h).
-  const range = istDateRange(from ? from : fyStart, to ? to : now);
+  const range = istDateRange(dateParam(from) ?? fyStart, dateParam(to) ?? now);
   const fromDate = range.gte;
   const toDate = range.lte;
 
