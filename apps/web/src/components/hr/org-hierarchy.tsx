@@ -940,7 +940,7 @@ function TreeRowD({
       {/* Chevron */}
       <div className="shrink-0 w-5 flex items-center justify-center">
         {chevron ? (
-          <button type="button" onClick={onChevronClick} className="text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={onChevronClick} aria-label={chevronOpen ? "Collapse" : "Expand"} className="text-muted-foreground hover:text-foreground">
             <ChevronRight
               className="size-4 transition-transform"
               style={{ transform: chevronOpen ? "rotate(90deg)" : "none" }}

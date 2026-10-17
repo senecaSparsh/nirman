@@ -361,7 +361,7 @@ function MobileChecklistRow({
       <div className="flex items-center" style={{ height: 24 }}>
         {/* Chevron — always shown, even for locked items (so you can see what's needed) */}
         <div className="shrink-0 w-4 flex items-center justify-center">
-          <button type="button" onClick={onToggleExpand} className="text-m-body press">
+          <button type="button" onClick={onToggleExpand} aria-label={isExpanded ? "Collapse" : "Expand"} className="text-m-body press">
             <ChevronRight
               className="size-3 transition-transform"
               style={{
@@ -516,8 +516,8 @@ function MobileChecklistRow({
                 )}
                 {canManage && (
                   <div className="ml-auto flex items-center gap-2">
-                    <button onClick={onEdit} className="press" style={{ color: "var(--color-ink-500)" }}><Pencil className="size-3.5" /></button>
-                    <button onClick={onDelete} className="press" style={{ color: "var(--color-ink-500)" }}><Trash2 className="size-3.5" /></button>
+                    <button onClick={onEdit} aria-label="Edit" className="press" style={{ color: "var(--color-ink-500)" }}><Pencil className="size-3.5" /></button>
+                    <button onClick={onDelete} aria-label="Delete" className="press" style={{ color: "var(--color-ink-500)" }}><Trash2 className="size-3.5" /></button>
                   </div>
                 )}
               </div>
