@@ -114,7 +114,9 @@ test.describe("@flow Role-chain: self-approval prevention + cross-role handoff",
         supplierId: data.supplier.id,
         procurementScope: "PROJECT",
         destinationLocationId: data.projectStockLocation.id,
-        projectId: data.project.id,
+        // The PO's project must own the destination site — PROJECT-scope POs
+        // reject a location that belongs to a different project (400).
+        projectId: data.projectStockLocation.projectId ?? data.project.id,
         lines: [
           {
             materialId: data.material.id,
