@@ -306,3 +306,79 @@ export const POST = apiHandler(async (req: NextRequest) => {
     { status: 201 },
   );
 });
+
+/**
+ * Bulk CSV import — POST does per-employee onboarding (offer letters, dedup
+ * suggestions, doc generation); PUT is the fast path for seeding a crew.
+ * Skips doc generation (labourers don't get offer letters) and dedupes on
+ * phone so re-importing the same file doesn't create duplicates.
+ */
+export const PUT = apiHandler(async (req: NextRequest) => {
+  const user = await requirePermission(PERM.HR_MANAGE);
+  const company = await getCompany();
+  const body = await jsonBody(req);
+  if (body instanceof Response) return body;
+  const items = (body as { items?: unknown[] }).items;
+  if (!Array.isArray(items) || items.length === 0) {
+    return json({ error: "Expected { items: [...] } array" }, { status: 400 });
+  }
+  if (items.length > 500) {
+    return json({ error: "Maximum 500 rows per import" }, { status: 400 });
+  }
+
+  const results = { created: 0, skipped: 0, errors: [] as { row: number; error: string }[] };
+
+  // Existing phones for dedup — one query up front, not one per row.
+  const existingPhones = new Set(
+    (
+      await prisma.employee.findMany({
+        where: { companyId: company.id, deletedAt: null, phone: { not: null } },
+        select: { phone: true },
+      })
+    ).map((e) => e.phone!.replace(/\s+/g, "")),
+  );
+
+  const bulkSchema = employeeSchema.pick({
+    name: true, trade: true, phone: true, email: true,
+    dailyRate: true, wageType: true, designation: true, monthlySalary: true,
+  });
+
+  for (let i = 0; i < items.length; i++) {
+    const parsed = bulkSchema.safeParse(items[i]);
+    if (!parsed.success) {
+      results.errors.push({ row: i + 1, error: parsed.error.issues[0]?.message ?? "Invalid input" });
+      continue;
+    }
+    const d = parsed.data;
+    if (d.phone && existingPhones.has(d.phone.replace(/\s+/g, ""))) {
+      results.skipped++;
+      continue;
+    }
+    try {
+      const created = await createEmployee({
+        companyId: company.id,
+        name: d.name.trim(),
+        trade: d.trade ?? undefined,
+        phone: d.phone ?? undefined,
+        email: d.email ?? undefined,
+        dailyRate: d.dailyRate ?? 0,
+        wageType: d.wageType ?? "DAILY",
+        monthlySalary: d.monthlySalary ?? null,
+        designation: d.designation ?? undefined,
+        active: true,
+        employmentType: "CASUAL",
+        noticePeriodDays: 0,
+        userId: user.id,
+      });
+      if (d.phone) existingPhones.add(d.phone.replace(/\s+/g, ""));
+      results.created++;
+      void created;
+    } catch (err) {
+      results.errors.push({ row: i + 1, error: err instanceof Error ? err.message : "Failed" });
+    }
+  }
+
+  revalidatePath("/hr/employees");
+  revalidatePath("/m/hr/employees");
+  return json(results);
+});

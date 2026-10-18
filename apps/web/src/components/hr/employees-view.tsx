@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Trash2, Users, UsersRound, Phone, Briefcase, SearchX, MapPin, Eye, UserCircle, AlertCircle, Landmark, ShieldCheck } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, UsersRound, Phone, Briefcase, SearchX, MapPin, Eye, UserCircle, AlertCircle, Landmark, ShieldCheck, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Label } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
+import { EmployeeCsvImportDialog } from "@/components/hr/employee-csv-import-dialog";
 import { CrewsView, type CrewRow } from "@/components/hr/crews-view";
 import { EmployeeName } from "@/components/employee-name";
 import { localDateISO, formatCurrency, cn } from "@/lib/utils";
@@ -329,6 +330,7 @@ export function EmployeesView({
   const canManage = permissions?.canManage ?? false;
   const [tab, setTab] = useTabParam(["employees","crews"] as const, "employees");
   const [formOpen, setFormOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<EmployeeRow | null>(null);
   const [delTarget, setDelTarget] = useState<EmployeeRow | null>(null);
 
@@ -374,9 +376,14 @@ export function EmployeesView({
   }
 
   const trailingButtons = canCreate ? (
-    <Button onClick={() => { setEditTarget(null); setFormOpen(true); }}>
-      <Plus className="h-4 w-4" /> Add employee
-    </Button>
+    <div className="flex gap-2">
+      <Button variant="outline" onClick={() => setImportOpen(true)}>
+        <Upload className="h-4 w-4" /> Import CSV
+      </Button>
+      <Button onClick={() => { setEditTarget(null); setFormOpen(true); }}>
+        <Plus className="h-4 w-4" /> Add employee
+      </Button>
+    </div>
   ) : null;
 
   const noMatch = (
@@ -479,6 +486,12 @@ export function EmployeesView({
           successMessage="Employee deleted"
         />
       )}
+
+      <EmployeeCsvImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onSuccess={() => router.refresh()}
+      />
     </div>
   );
 }

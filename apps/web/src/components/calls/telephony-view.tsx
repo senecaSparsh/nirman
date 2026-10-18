@@ -12,7 +12,6 @@ import {
   StatusPill,
   Hint,
 } from "@/components/page";
-import { PageHeader } from "@/components/page-header";
 import {
   Phone,
   Plus,
@@ -110,10 +109,6 @@ export function TelephonyView({
   const [providers] = useState(initialProviders);
   const [consentPolicy] = useState(initialPolicy);
 
-  const assignedCount = phoneNumbers.filter((n) => n.assignedTo).length;
-  const unassignedCount = phoneNumbers.length - assignedCount;
-  const twilioCount = phoneNumbers.filter((n) => n.provider === "TWILIO").length;
-
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: "numbers", label: "Numbers", count: phoneNumbers.length },
     { id: "providers", label: "Providers", count: providers.length },
@@ -124,22 +119,6 @@ export function TelephonyView({
 
   return (
     <Page>
-      <PageHeader
-        title="Telephony"
-        description="Company phone numbers, call recording, providers & consent policy"
-        breadcrumbs={[{ label: "Settings", href: "/settings" }, { label: "Telephony" }]}
-        stats={[
-          { label: "Numbers", value: phoneNumbers.length },
-          { label: "Assigned", value: assignedCount, tone: "success" },
-          ...(unassignedCount > 0
-            ? [{ label: "Unassigned", value: unassignedCount, tone: "warning" as const }]
-            : []),
-          ...(twilioCount > 0
-            ? [{ label: "Twilio", value: twilioCount, tone: "muted" as const }]
-            : []),
-        ]}
-      />
-
       {/* Tab bar — uses SubNav visual language but client-side */}
       <nav className="-mx-1 overflow-x-auto border-b border-border scrollbar-none no-print">
         <div className="flex min-w-full items-stretch gap-1 px-1">
@@ -183,6 +162,7 @@ export function TelephonyView({
 
 // ── Numbers Tab ──
 function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; members: Member[]; canManage: boolean }) {
+  const assignedCount = numbers.filter((n) => n.assignedTo).length;
   const [showAdd, setShowAdd] = useState(false);
   const [addMode, setAddMode] = useState<"own" | "nirman">("own");
   const [newNumber, setNewNumber] = useState("");
@@ -289,7 +269,11 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
       {canManage && (
         <Section
           title="Company Numbers"
-          description="Phone numbers assigned to your team for call tracking"
+          description={
+            numbers.length > 0
+              ? `Phone numbers assigned to your team for call tracking — ${assignedCount} of ${numbers.length} assigned`
+              : "Phone numbers assigned to your team for call tracking"
+          }
           action={
             <Button size="sm" onClick={() => setShowAdd(!showAdd)}>
               <Plus className="h-4 w-4" />
