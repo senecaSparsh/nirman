@@ -988,6 +988,7 @@ function DprApprovalRow({ dpr }: { dpr: ApprovalDprRow }) {
   const [done, setDone] = useState(false);
   const [rejected, setRejected] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   async function act(action: "subAdminApprove" | "adminApprove" | "reject", reason?: string) {
     setActing(true);
@@ -1050,7 +1051,8 @@ function DprApprovalRow({ dpr }: { dpr: ApprovalDprRow }) {
   const canApprove = dpr.canApproveAdmin || dpr.canApproveSubAdmin;
 
   return (
-    <div className="flex items-start justify-between gap-4 p-4">
+    <div className="p-4">
+      <div className="flex items-start justify-between gap-4">
       <div className="min-w-0 space-y-1.5">
         <div className="flex items-center gap-2">
           <span className="text-body font-semibold text-foreground">{dpr.projectName ?? "DPR"}</span>
@@ -1063,6 +1065,7 @@ function DprApprovalRow({ dpr }: { dpr: ApprovalDprRow }) {
         </div>
         <div className="text-caption text-muted-foreground">
           Date {formatDate(dpr.date)} · {dpr.progressPct.toFixed(0)}% progress
+          {dpr.photoCount > 0 ? ` · ${dpr.photoCount} photo${dpr.photoCount === 1 ? "" : "s"}` : ""}
         </div>
         <div className="text-caption">
           <span className="text-muted-foreground">Waiting on: </span>
@@ -1086,6 +1089,66 @@ function DprApprovalRow({ dpr }: { dpr: ApprovalDprRow }) {
         busy={acting}
         onConfirm={(reason) => { setRejectOpen(false); act("reject", reason); }}
       />
+      </div>
+
+      {/* Labour + materials — an approver is certifying that the work and
+          workforce claimed for this date actually happened. */}
+      {(dpr.laborLines.length > 0 || dpr.materialLines.length > 0) && (
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => setShowDetails(!showDetails)}
+            className="flex items-center gap-1 text-caption text-brand hover:underline"
+          >
+            {showDetails ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            {showDetails
+              ? "Hide labour & materials"
+              : `Show ${dpr.laborLines.length} labour line${dpr.laborLines.length === 1 ? "" : "s"}${dpr.materialLines.length > 0 ? `, ${dpr.materialLines.length} material${dpr.materialLines.length === 1 ? "" : "s"}` : ""}`}
+          </button>
+          {showDetails && (
+            <div className="mt-2 overflow-x-auto">
+              {dpr.laborLines.length > 0 && (
+                <table className="w-full text-caption">
+                  <thead>
+                    <tr className="text-left text-muted-foreground border-b border-border">
+                      <th className="py-1.5 pr-4 font-medium">Worker / crew</th>
+                      <th className="py-1.5 pr-4 font-medium text-right">Hours</th>
+                      <th className="py-1.5 font-medium">Task</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {dpr.laborLines.map((l, i) => (
+                      <tr key={i}>
+                        <td className="py-1.5 pr-4 font-medium text-foreground">{l.who}</td>
+                        <td className="py-1.5 pr-4 text-right tnum text-foreground">{formatNumber(l.hours)}</td>
+                        <td className="py-1.5 text-muted-foreground">{l.task}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              {dpr.materialLines.length > 0 && (
+                <table className="w-full text-caption mt-2">
+                  <thead>
+                    <tr className="text-left text-muted-foreground border-b border-border">
+                      <th className="py-1.5 pr-4 font-medium">Material consumed</th>
+                      <th className="py-1.5 font-medium text-right">Qty</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {dpr.materialLines.map((m, i) => (
+                      <tr key={i}>
+                        <td className="py-1.5 pr-4 font-medium text-foreground">{m.material}</td>
+                        <td className="py-1.5 text-right tnum text-foreground">{formatNumber(m.qty)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1096,6 +1159,7 @@ function RaBillApprovalRow({ raBill }: { raBill: ApprovalRaBillRow }) {
   const [done, setDone] = useState(false);
   const [rejected, setRejected] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   async function act(action: "approve" | "reject", reason?: string) {
     setActing(true);
@@ -1155,7 +1219,8 @@ function RaBillApprovalRow({ raBill }: { raBill: ApprovalRaBillRow }) {
   }
 
   return (
-    <div className="flex items-start justify-between gap-4 p-4">
+    <div className="p-4">
+      <div className="flex items-start justify-between gap-4">
       <div className="min-w-0 space-y-1.5">
         <div className="flex items-center gap-2">
           <span className="text-body font-semibold text-foreground">{raBill.raBillNumber}</span>
@@ -1170,6 +1235,16 @@ function RaBillApprovalRow({ raBill }: { raBill: ApprovalRaBillRow }) {
         <div className="text-caption text-muted-foreground">
           Period {formatDate(raBill.periodFrom)} → {formatDate(raBill.periodTo)}
         </div>
+        {/* Deductions are part of netPayable — show them, not just the total. */}
+        {(raBill.retentionAmount > 0 || raBill.tdsAmount > 0 || raBill.advanceRecovery > 0 || raBill.otherDeductions > 0) && (
+          <div className="text-caption text-muted-foreground">
+            Less:
+            {raBill.retentionAmount > 0 && ` retention ${formatCurrency(raBill.retentionAmount)}`}
+            {raBill.tdsAmount > 0 && ` · TDS ${formatCurrency(raBill.tdsAmount)}`}
+            {raBill.advanceRecovery > 0 && ` · advance ${formatCurrency(raBill.advanceRecovery)}`}
+            {raBill.otherDeductions > 0 && ` · other ${formatCurrency(raBill.otherDeductions)}`}
+          </div>
+        )}
         <div className="text-caption">
           <span className="text-muted-foreground">Waiting on: </span>
           <span className="font-medium text-foreground">{raBill.waitingOn}</span>
@@ -1202,6 +1277,51 @@ function RaBillApprovalRow({ raBill }: { raBill: ApprovalRaBillRow }) {
           onConfirm={(reason) => { setRejectOpen(false); act("reject", reason); }}
         />
       </div>
+      </div>
+
+      {/* Billed lines — the approver is signing work done against the WO;
+          they should see the BOQ items and this-period quantities. */}
+      {raBill.lines.length > 0 && (
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => setShowDetails(!showDetails)}
+            className="flex items-center gap-1 text-caption text-brand hover:underline"
+          >
+            {showDetails ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            {showDetails ? "Hide billed lines" : `Show ${raBill.lines.length} billed line${raBill.lines.length === 1 ? "" : "s"} (qty & rates)`}
+          </button>
+          {showDetails && (
+            <div className="mt-2 overflow-x-auto">
+              <table className="w-full text-caption">
+                <thead>
+                  <tr className="text-left text-muted-foreground border-b border-border">
+                    <th className="py-1.5 pr-4 font-medium">Item</th>
+                    <th className="py-1.5 pr-4 font-medium text-right">This period</th>
+                    <th className="py-1.5 pr-4 font-medium text-right">Cumulative</th>
+                    <th className="py-1.5 pr-4 font-medium text-right">Rate</th>
+                    <th className="py-1.5 font-medium text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {raBill.lines.map((line, i) => (
+                    <tr key={i}>
+                      <td className="py-1.5 pr-4">
+                        <div className="font-medium text-foreground">{line.item}</div>
+                        {line.unit && <div className="text-muted-foreground">{line.unit}</div>}
+                      </td>
+                      <td className="py-1.5 pr-4 text-right tnum text-foreground">{formatNumber(line.thisQty)}</td>
+                      <td className="py-1.5 pr-4 text-right tnum text-foreground">{formatNumber(line.totalQty)}</td>
+                      <td className="py-1.5 pr-4 text-right tnum text-foreground">{formatCurrency(line.rate)}</td>
+                      <td className="py-1.5 text-right tnum text-foreground">{formatCurrency(line.thisAmount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

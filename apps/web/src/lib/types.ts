@@ -1474,6 +1474,11 @@ export type ApprovalDprRow = {
   canApproveAdmin: boolean;
   waitingOn: string;
   urgency: string;
+  /** Who worked — the substance an approver is actually verifying. */
+  laborLines: { who: string; hours: number; task: string }[];
+  /** Materials consumed on site that day. */
+  materialLines: { material: string; qty: number }[];
+  photoCount: number;
 };
 
 export type ApprovalExpenseRow = {
@@ -1506,6 +1511,10 @@ export type ApprovalRaBillRow = {
   projectName: string | null;
   grossAmount: number;
   netPayable: number;
+  retentionAmount: number;
+  tdsAmount: number;
+  advanceRecovery: number;
+  otherDeductions: number;
   periodFrom: string;
   periodTo: string;
   submittedByName: string | null;
@@ -1513,5 +1522,14 @@ export type ApprovalRaBillRow = {
   canApprove: boolean;
   waitingOn: string;
   urgency: string;
+  /** Billed work lines — what the subcontractor claims for this period. */
+  lines: {
+    item: string;
+    unit: string | null;
+    thisQty: number;
+    totalQty: number;
+    rate: number;
+    thisAmount: number;
+  }[];
 };
 

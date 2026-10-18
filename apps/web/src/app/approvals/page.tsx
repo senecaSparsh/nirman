@@ -109,6 +109,12 @@ async function ApprovalsContent() {
           include: {
             project: { select: { name: true } },
             submittedBy: { select: { name: true } },
+            laborLines: {
+              select: { taskDescription: true, hoursWorked: true, employee: { select: { name: true } }, crew: { select: { name: true } } },
+            },
+            materialLines: {
+              select: { qty: true, material: { select: { name: true } } },
+            },
           },
         })
       : [],
@@ -152,6 +158,9 @@ async function ApprovalsContent() {
             project: { select: { name: true } },
             workOrder: { select: { workOrderNumber: true } },
             submittedBy: { select: { name: true } },
+            lines: {
+              include: { boqItem: { select: { description: true, unit: true } } },
+            },
           },
         })
       : [],
@@ -320,6 +329,16 @@ async function ApprovalsContent() {
     canApproveAdmin: canApproveDprAdmin && d.approvalStatus === "SUB_ADMIN_APPROVED",
     waitingOn: d.approvalStatus === "SUBMITTED" ? "Project Manager / HR Manager (Sub-Admin)" : "Project Director / Owner (Admin)",
     urgency: computeUrgency(null, d.createdAt),
+    laborLines: d.laborLines.map((l) => ({
+      who: l.employee?.name ?? l.crew?.name ?? "Unassigned",
+      hours: toNum(l.hoursWorked),
+      task: l.taskDescription ?? "",
+    })),
+    materialLines: d.materialLines.map((l) => ({
+      material: l.material?.name ?? "—",
+      qty: toNum(l.qty),
+    })),
+    photoCount: d.photoUrls.length,
   }));
   dprRows.sort((a, b) => (URGENCY_ORDER[a.urgency] ?? 9) - (URGENCY_ORDER[b.urgency] ?? 9));
 
@@ -373,6 +392,10 @@ async function ApprovalsContent() {
     projectName: b.project?.name ?? null,
     grossAmount: toNum(b.grossAmount),
     netPayable: toNum(b.netPayable),
+    retentionAmount: toNum(b.retentionAmount),
+    tdsAmount: toNum(b.tdsAmount),
+    advanceRecovery: toNum(b.advanceRecovery),
+    otherDeductions: toNum(b.otherDeductions),
     periodFrom: b.periodFrom.toISOString(),
     periodTo: b.periodTo.toISOString(),
     submittedByName: b.submittedBy?.name ?? null,
@@ -380,6 +403,14 @@ async function ApprovalsContent() {
     canApprove: canApproveRaBill,
     waitingOn: "Engineer-in-Charge / Project Manager",
     urgency: computeUrgency(null, b.createdAt),
+    lines: b.lines.map((l) => ({
+      item: l.boqItem?.description ?? "—",
+      unit: l.boqItem?.unit ?? null,
+      thisQty: toNum(l.thisQty),
+      totalQty: toNum(l.totalQty),
+      rate: toNum(l.rate),
+      thisAmount: toNum(l.thisAmount),
+    })),
   }));
   raBillRows.sort((a, b) => (URGENCY_ORDER[a.urgency] ?? 9) - (URGENCY_ORDER[b.urgency] ?? 9));
 
