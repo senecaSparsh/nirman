@@ -1902,3 +1902,21 @@ Go-live balance coverage, end to end:
 
 Also gated `Re-seed` (desktop + mobile) to FINANCE_MANAGE — it 403'd for
 viewers.
+
+## 90. Correction + adjustment paths (2026-10-18)
+
+The books are append-only by design — these are the two paths that make that
+workable:
+
+- **Reversal** — `POST /api/gl/entries/[id]/reverse` (FINANCE_MANAGE) posts the
+  mirror JE via `reverseJournalEntry` (blocks `_REVERSAL` sources, dedupes on
+  `reversalOfId`, requires POSTED). Ledger rows get a ↺ action; `reversed` /
+  `reversal` badges mark both directions. OPENING supplier-payable entries
+  unwind `supplier.balanceOwed` in the same tx (the coupling the create
+  enforces). Verified: 100000 → 0, replay 409s.
+- **Manual journal voucher** — `POST /api/gl/journal` (FINANCE_MANAGE) posts
+  balanced `MANUAL` entries (line-level dr-XOR-cr validation, ≥2 lines,
+  `postJournalEntry` enforces Σdr=Σcr). The /gl dialog has account pickers +
+  live Dr/Cr tally. Verified: balanced posts, unbalanced + malformed 400.
+
+Mobile GL stays a summary surface — corrections are a desktop finance task.
