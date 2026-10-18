@@ -1775,3 +1775,20 @@ Raw-SQL census across the live local DB — every pointer-class checked:
 Data layer is internally consistent at row level — the guards that block
 delete-with-references (wave 4) are exactly why the census finds zero
 orphans.
+
+## 85. Mutation testing — 100% kill rate on the guard layer (2026-10-17)
+
+`packages/services/stryker.config.mjs` — scoped to the guard regions the
+hardening sweep added (MB/DPR re-reject, supplier-payment dedup,
+issue-cancel stock restore, incident/inspection cancel+delete guards).
+
+For DB-backed tests, `coverageAnalysis: "off"` is required — instrumented
+coverage pushed the dry run past 17min; off-mode runs the scoped
+guard-regressions file per mutant (~40s each, 155 mutants, 2m19s total).
+
+**Result: 155/155 mutants killed, 0 survived, 0 timed out.** Every guard
+line flip produces a failing test — the suite doesn't just exercise the
+guards, it proves them. This is the strongest available signal that the
+integrity layer actually catches regressions.
+
+Report: `packages/services/reports/mutation/mutation-report.html`.
