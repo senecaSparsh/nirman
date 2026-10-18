@@ -165,6 +165,20 @@ export function LeadPipelineView({
               onRowClick={setSelected}
               onAddRow={canManage ? () => setFormOpen(true) : undefined}
               addRowLabel="New Lead"
+              toolbarTrailing={
+                /* Primary create — labeled, top-right (the table footer's
+                   "+ New Lead" row stays as the bottom affordance). */
+                canManage ? (
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setDedupOpen(true)}>
+                      <Copy className="h-3.5 w-3.5" /> Find duplicates
+                    </Button>
+                    <Button size="sm" onClick={() => setFormOpen(true)}>
+                      <Plus className="h-3.5 w-3.5" /> Add lead
+                    </Button>
+                  </div>
+                ) : undefined
+              }
               rowTone={(lead) => {
                 if (lead.nextFollowUpAt && new Date(lead.nextFollowUpAt).getTime() < Date.now() && !["BOOKED", "LOST"].includes(lead.stage)) return "danger";
                 if (lead.priority === "HOT") return "warning";

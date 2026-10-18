@@ -237,6 +237,15 @@ export function StockCountsView({
             pageSize={50}
             onAddRow={canCreate ? () => setFormOpen(true) : undefined}
             addRowLabel="New Stock Inventory"
+            toolbarTrailing={
+              /* Primary create — labeled, top-right (the table footer's
+                 "+ New Stock Inventory" row stays as the bottom affordance). */
+              canCreate ? (
+                <Button size="sm" onClick={() => setFormOpen(true)}>
+                  <Plus className="h-3.5 w-3.5" /> New Stock Inventory
+                </Button>
+              ) : undefined
+            }
             toolbarLeading={statusSelect}
           />
         </div>

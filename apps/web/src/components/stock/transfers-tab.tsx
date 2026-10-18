@@ -157,6 +157,15 @@ export function TransfersTab({ transfers, locations, projects, canTransfer }: { 
             pageSize={50}
             onAddRow={canCreate ? () => setFormOpen(true) : undefined}
             addRowLabel="New Transfer"
+            toolbarTrailing={
+              /* Primary create — labeled, top-right (the table footer's
+                 "+ New Transfer" row stays as the bottom affordance). */
+              canCreate ? (
+                <Button size="sm" onClick={() => setFormOpen(true)} disabled={localLocations.length < 2}>
+                  <Plus className="h-3.5 w-3.5" /> New Transfer
+                </Button>
+              ) : undefined
+            }
             toolbarLeading={statusSelect}
           />
         </div>

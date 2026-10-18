@@ -146,6 +146,15 @@ export function CostCentresTab({
             totalFormat={(_key, sum) => sum.toLocaleString("en-IN")}
             onAddRow={canCreate ? () => { setEditing(null); setFormOpen(true); } : undefined}
             addRowLabel="New Cost Centre"
+            toolbarTrailing={
+              /* Primary create — labeled, top-right (the table footer's
+                 "+ New Cost Centre" row stays as the bottom affordance). */
+              canCreate ? (
+                <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true); }}>
+                  <Plus className="h-3.5 w-3.5" /> New Cost Centre
+                </Button>
+              ) : undefined
+            }
           />
         </div>
       )}

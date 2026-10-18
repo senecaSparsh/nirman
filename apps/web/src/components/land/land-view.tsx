@@ -361,6 +361,11 @@ export function LandView({
 
           {/* ── Status filter ── */}
           <div className="flex items-center justify-end gap-2">
+            {canCreate && (
+              <Button size="sm" onClick={() => { setEditing(null); setWizardOpen(true); setForceSubdivide(false); }}>
+                <Plus className="h-3.5 w-3.5" /> Record Land Purchase
+              </Button>
+            )}
             <div className="relative shrink-0" style={{ width: 150 }}>
               <select
                 value={statusFilter}
@@ -411,6 +416,13 @@ export function LandView({
         <div className="space-y-3">
           {/* ── Status filter toolbar ── */}
           <div className="flex items-center justify-end gap-2">
+            {/* Primary create — labeled, top-right (the table footers'
+                "+ Add land purchase" rows stay as the bottom affordance). */}
+            {canCreate && (
+              <Button size="sm" onClick={() => { setEditing(null); setWizardOpen(true); setForceSubdivide(false); }}>
+                <Plus className="h-3.5 w-3.5" /> Record Land Purchase
+              </Button>
+            )}
             <div className="relative shrink-0" style={{ width: 150 }}>
               <select
                 value={statusFilter}
