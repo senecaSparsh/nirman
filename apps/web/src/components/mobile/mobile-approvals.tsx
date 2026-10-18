@@ -125,6 +125,12 @@ export async function MobileApprovals() {
           include: {
             project: { select: { name: true } },
             submittedBy: { select: { name: true } },
+            laborLines: {
+              select: { taskDescription: true, hoursWorked: true, employee: { select: { name: true } }, crew: { select: { name: true } } },
+            },
+            materialLines: {
+              select: { qty: true, material: { select: { name: true } } },
+            },
           },
         })
       : [],
@@ -148,6 +154,9 @@ export async function MobileApprovals() {
             project: { select: { name: true } },
             workOrder: { select: { workOrderNumber: true } },
             submittedBy: { select: { name: true } },
+            lines: {
+              select: { thisQty: true, totalQty: true, rate: true, thisAmount: true, boqItem: { select: { description: true, unit: true } } },
+            },
           },
         })
       : [],
@@ -246,6 +255,16 @@ export async function MobileApprovals() {
     progressPct: toNum(d.progressPct),
     canApproveSubAdmin: canApproveDprSubAdmin,
     canApproveAdmin: canApproveDprAdmin,
+    laborLines: d.laborLines.map((l) => ({
+      who: l.employee?.name ?? l.crew?.name ?? "Unassigned",
+      hours: toNum(l.hoursWorked),
+      task: l.taskDescription ?? "",
+    })),
+    materialLines: d.materialLines.map((l) => ({
+      material: l.material?.name ?? "—",
+      qty: toNum(l.qty),
+    })),
+    photoCount: d.photoUrls.length,
   }));
 
   const expenseRows = pendingExpenses.map((e) => ({
@@ -257,6 +276,12 @@ export async function MobileApprovals() {
     createdByName: e.createdBy?.name ?? null,
     createdAt: e.createdAt.toISOString(),
     date: e.date.toISOString(),
+    cgst: toNum(e.cgst),
+    sgst: toNum(e.sgst),
+    igst: toNum(e.igst),
+    tdsAmount: toNum(e.tdsAmount),
+    receiptUrl: e.receiptUrl,
+    paymentMode: e.paymentMode,
   }));
 
   const gatePassRows = pendingGatePasses.map((gp) => ({
@@ -302,10 +327,22 @@ export async function MobileApprovals() {
     projectName: b.project?.name ?? null,
     grossAmount: toNum(b.grossAmount),
     netPayable: toNum(b.netPayable),
+    retentionAmount: toNum(b.retentionAmount),
+    tdsAmount: toNum(b.tdsAmount),
+    advanceRecovery: toNum(b.advanceRecovery),
+    otherDeductions: toNum(b.otherDeductions),
     periodFrom: b.periodFrom.toISOString(),
     periodTo: b.periodTo.toISOString(),
     submittedByName: b.submittedBy?.name ?? null,
     createdAt: b.createdAt.toISOString(),
+    lines: b.lines.map((l) => ({
+      item: l.boqItem?.description ?? "—",
+      unit: l.boqItem?.unit ?? null,
+      thisQty: toNum(l.thisQty),
+      totalQty: toNum(l.totalQty),
+      rate: toNum(l.rate),
+      thisAmount: toNum(l.thisAmount),
+    })),
   }));
 
   const leaveRows = pendingLeaves.map((l) => ({

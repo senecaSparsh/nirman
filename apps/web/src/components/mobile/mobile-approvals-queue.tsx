@@ -73,6 +73,9 @@ interface DprRow {
  progressPct: number;
  canApproveSubAdmin: boolean;
  canApproveAdmin: boolean;
+ laborLines: { who: string; hours: number; task: string }[];
+ materialLines: { material: string; qty: number }[];
+ photoCount: number;
 }
 interface GpLine {
  materialName: string | null;
@@ -104,6 +107,12 @@ interface ExpenseRow {
  createdByName: string | null;
  createdAt: string;
  date: string;
+ cgst: number;
+ sgst: number;
+ igst: number;
+ tdsAmount: number;
+ receiptUrl: string | null;
+ paymentMode: string | null;
 }
 
 interface RaBillRow {
@@ -113,10 +122,15 @@ interface RaBillRow {
  projectName: string | null;
  grossAmount: number;
  netPayable: number;
+ retentionAmount: number;
+ tdsAmount: number;
+ advanceRecovery: number;
+ otherDeductions: number;
  periodFrom: string;
  periodTo: string;
  submittedByName: string | null;
  createdAt: string;
+ lines: { item: string; unit: string | null; thisQty: number; totalQty: number; rate: number; thisAmount: number }[];
 }
 interface ClaimLine {
  category: string;
@@ -1141,8 +1155,29 @@ async function approveGp(gp: GatePassRow) {
  style={{ width: `${dpr.progressPct}%` }}
  />
  </div>
- <span className="text-m-caption tnum" style={{ color: "var(--color-ink-500)" }}>{dpr.progressPct}%</span>
+ <span className="text-m-caption tnum" style={{ color: "var(--color-ink-500)" }}>{dpr.progressPct}%{dpr.photoCount > 0 ? ` · ${dpr.photoCount} photo${dpr.photoCount === 1 ? "" : "s"}` : ""}</span>
  </div>
+ {/* Labour + materials — what the approver is actually certifying. */}
+ {dpr.laborLines.length > 0 && (
+ <div className="space-y-1 border-t pt-1.5" style={{ borderColor: "var(--color-line)" }}>
+ {dpr.laborLines.map((l, i) => (
+ <div key={i} className="flex items-center justify-between gap-2 text-m-caption">
+ <div className="min-w-0 truncate font-medium" style={{ color: "var(--color-ink-950)" }}>{l.who}</div>
+ <div className="shrink-0 tnum" style={{ color: "var(--color-ink-500)" }}>{l.hours}h{l.task ? ` · ${l.task}` : ""}</div>
+ </div>
+ ))}
+ </div>
+ )}
+ {dpr.materialLines.length > 0 && (
+ <div className="space-y-1 border-t pt-1.5" style={{ borderColor: "var(--color-line)" }}>
+ {dpr.materialLines.map((m, i) => (
+ <div key={i} className="flex items-center justify-between gap-2 text-m-caption">
+ <div className="min-w-0 truncate" style={{ color: "var(--color-ink-950)" }}>{m.material}</div>
+ <div className="shrink-0 tnum" style={{ color: "var(--color-ink-500)" }}>{formatNumber(m.qty)}</div>
+ </div>
+ ))}
+ </div>
+ )}
  </div>
  </ApprovalCard>
  );
@@ -1200,9 +1235,24 @@ async function approveGp(gp: GatePassRow) {
  Created by: {exp.createdByName}
  </div>
  )}
- <div className="border-t pt-1.5 flex justify-between text-m-body font-semibold" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-950)" }}>
- <span>Amount</span>
+ <div className="border-t pt-1.5 space-y-0.5" style={{ borderColor: "var(--color-line)" }}>
+ {(exp.cgst > 0 || exp.sgst > 0 || exp.igst > 0 || exp.tdsAmount > 0) && (
+ <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+ {exp.cgst > 0 && `CGST ${formatCurrency(exp.cgst)}`}
+ {exp.sgst > 0 && ` · SGST ${formatCurrency(exp.sgst)}`}
+ {exp.igst > 0 && ` · IGST ${formatCurrency(exp.igst)}`}
+ {exp.tdsAmount > 0 && ` · TDS −${formatCurrency(exp.tdsAmount)}`}
+ </div>
+ )}
+ <div className="flex justify-between text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>
+ <span>Amount{exp.paymentMode ? ` · ${formatEnumLabel(exp.paymentMode)}` : ""}</span>
  <span className="tnum">{formatCurrency(exp.amount)}</span>
+ </div>
+ {exp.receiptUrl && (
+ <a href={exp.receiptUrl} target="_blank" rel="noopener noreferrer" className="text-m-caption" style={{ color: "var(--color-brand)" }}>
+ View receipt →
+ </a>
+ )}
  </div>
  </div>
  </ApprovalCard>
@@ -1380,13 +1430,40 @@ async function approveGp(gp: GatePassRow) {
  Submitted by: {b.submittedByName}
  </div>
  )}
- <div className="border-t pt-1.5 flex justify-between text-m-body font-semibold" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-950)" }}>
- <span>Net Payable</span>
- <span className="tnum">{formatCurrency(b.netPayable)}</span>
+ {/* Billed lines — what the subcontractor claims for the period. */}
+ {b.lines.length > 0 && (
+ <div className="space-y-1 border-t pt-1.5" style={{ borderColor: "var(--color-line)" }}>
+ {b.lines.map((l, i) => (
+ <div key={i} className="flex items-start justify-between gap-2 text-m-caption">
+ <div className="min-w-0">
+ <div className="truncate font-medium" style={{ color: "var(--color-ink-950)" }}>{l.item}</div>
+ {l.unit && <div style={{ color: "var(--color-ink-500)" }}>{l.unit}</div>}
  </div>
+ <div className="shrink-0 text-right">
+ <div className="tnum" style={{ color: "var(--color-ink-950)" }}>{formatNumber(l.thisQty)} × {formatCurrency(l.rate)}</div>
+ <div className="tnum font-medium" style={{ color: "var(--color-ink-950)" }}>{formatCurrency(l.thisAmount)}</div>
+ </div>
+ </div>
+ ))}
+ </div>
+ )}
+ <div className="border-t pt-1.5 space-y-0.5" style={{ borderColor: "var(--color-line)" }}>
  <div className="flex justify-between text-m-caption" style={{ color: "var(--color-ink-500)" }}>
  <span>Gross Amount</span>
  <span className="tnum">{formatCurrency(b.grossAmount)}</span>
+ </div>
+ {(b.retentionAmount > 0 || b.tdsAmount > 0 || b.advanceRecovery > 0 || b.otherDeductions > 0) && (
+ <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+ Less:{b.retentionAmount > 0 && ` retention ${formatCurrency(b.retentionAmount)}`}
+ {b.tdsAmount > 0 && ` · TDS ${formatCurrency(b.tdsAmount)}`}
+ {b.advanceRecovery > 0 && ` · advance ${formatCurrency(b.advanceRecovery)}`}
+ {b.otherDeductions > 0 && ` · other ${formatCurrency(b.otherDeductions)}`}
+ </div>
+ )}
+ <div className="flex justify-between text-m-body font-semibold" style={{ color: "var(--color-ink-950)" }}>
+ <span>Net Payable</span>
+ <span className="tnum">{formatCurrency(b.netPayable)}</span>
+ </div>
  </div>
  </div>
  </ApprovalCard>
