@@ -6,6 +6,8 @@ import { formatCurrency } from "@/lib/utils";
 import { PERM } from "@/lib/roles";
 import { canAutoApprove } from "@nirman/services";
 import { PageHeader } from "@/components/page-header";
+import { Hint } from "@/components/page";
+import { applyCap, LIST_CAP } from "@/lib/list-cap";
 import { ProcurementView } from "@/components/procurement/procurement-view";
 import { PageLoading } from "@/components/page-loading";
 import type {
@@ -53,9 +55,12 @@ async function ProcurementContent() {
   const membership = await getCurrentUserMembership();
   const currentUser = await getCurrentUser();
 
-  const [pos, suppliers, materials, locations, projects, directPurchases, categories, requisitions, phases, supplierReturns, quotationRequests, directReports] = await Promise.all([
+  // Every list query fetches cap + 1 rows so applyCap can tell "exactly
+  // at the cap" from "there are more rows hidden" — a hard `take: 500`
+  // can't distinguish the two and would truncate silently.
+  let [pos, suppliers, materials, locations, projects, directPurchases, categories, requisitions, phases, supplierReturns, quotationRequests, directReports] = await Promise.all([
     prisma.purchaseOrder.findMany({
-      take: 500,
+      take: LIST_CAP + 1,
       where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id },
       orderBy: { createdAt: "desc" },
       include: {
@@ -64,7 +69,7 @@ async function ProcurementContent() {
         destinationLocation: { select: { id: true, name: true, type: true } },
         lines: { select: { qtyOrdered: true, qtyReceived: true } }}}),
     prisma.supplier.findMany({
-      take: 500,
+      take: LIST_CAP + 1,
       // All non-deleted suppliers in this company — not just those with existing POs.
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
@@ -73,7 +78,7 @@ async function ProcurementContent() {
           select: {
             purchaseOrders: { where: { companyId: company.id, status: { in: ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"] } } }}}}}),
     prisma.material.findMany({
-      take: 500,
+      take: LIST_CAP + 1,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       include: {
@@ -82,7 +87,7 @@ async function ProcurementContent() {
           where: { location: { deletedAt: null, companyId: company.id }, ...(await scopeWhere("StockLocationItem")) },
           select: { qty: true, movingAvgCost: true }}}}),
     prisma.stockLocation.findMany({
-      take: 500,
+      take: LIST_CAP + 1,
       // Include locations across the whole company group so PO destinations
       // (a project site in a sibling/child SPV) are selectable.
       where: { ...await scopeWhere("StockLocation"), companyId: { in: groupCompanyIds }, deletedAt: null },

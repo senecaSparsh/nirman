@@ -67,6 +67,7 @@ export function CommandCenter(props: ProfileTabsProps) {
     : props.queues;
 
   const hasQueues = queues.length > 0;
+  const setupPending = props.setupSteps?.some((s) => !s.done) ?? false;
 
   return (
     <div className="space-y-6">
@@ -81,6 +82,8 @@ export function CommandCenter(props: ProfileTabsProps) {
                 {totalQueues} {totalQueues === 1 ? "thing needs" : "things need"} you.
               </span>
             </>
+          ) : setupPending ? (
+            <span className="text-muted-foreground"> Let&apos;s get the business set up.</span>
           ) : (
             <span className="text-muted-foreground"> Everything&apos;s in order.</span>
           )}
@@ -105,7 +108,7 @@ export function CommandCenter(props: ProfileTabsProps) {
 
       {/* ══ 2b. Setup checklist — a fresh company needs direction, not "all
           clear". Shown to OWNER/ADMIN until the basics exist. ═══ */}
-      {props.canManageCompany && (props.setupSteps?.some((s) => !s.done)) && (
+      {props.canManageCompany && setupPending && (
         <div className="rounded-lg border border-brand/20 bg-brand/5 p-4">
           <div className="mb-3 flex items-baseline justify-between gap-3">
             <h3 className="text-body font-semibold text-foreground">Get your business set up</h3>
@@ -150,7 +153,7 @@ export function CommandCenter(props: ProfileTabsProps) {
             ))}
           </div>
         </div>
-      ) : (
+      ) : setupPending ? null : (
         <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3.5">
           <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
           <p className="text-body text-foreground">

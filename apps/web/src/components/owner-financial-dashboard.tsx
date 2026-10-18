@@ -61,12 +61,15 @@ export function OwnerFinancialDashboard({
               tone="default"
             />
             <CashStat
-              label="Receivables"
-              value={cashPosition.arBalance}
+              // Negative AR = customers paid advances, not debt owed to us —
+              // show the amount under the advance label, not "-₹48.9K".
+              label={cashPosition.arBalance < 0 ? "Advances (from customers)" : "Receivables"}
+              value={Math.abs(cashPosition.arBalance)}
               tone={cashPosition.arBalance > 0 ? "warning" : "default"}
             />
             <CashStat
-              label="Payables"
+              // Negative AP = supplier advances paid ahead of invoices.
+              label={cashPosition.apBalance < 0 ? "Advances (to suppliers)" : "Payables"}
               value={cashPosition.apBalance}
               tone={cashPosition.apBalance > 0 ? "danger" : "default"}
               negate
