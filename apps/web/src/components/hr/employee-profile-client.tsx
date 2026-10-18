@@ -300,7 +300,7 @@ export function EmployeeProfileClient({
   roleLabelMap?: Map<string, string>;
 }) {
   const [tab, setTab] = useTabParam(
-    ["overview", "attendance", "payroll", "tasks", "dprs", "leaves", "crew", "reports", "dossier", "resources"] as const,
+    ["overview", "onboarding", "attendance", "payroll", "tasks", "dprs", "leaves", "crew", "reports", "dossier", "resources"] as const,
     "overview",
   );
   const router = useRouter();
@@ -319,6 +319,59 @@ export function EmployeeProfileClient({
   const openTasks = employee.tasks.filter((t) => t.status === "PENDING" || t.status === "IN_PROGRESS").length;
   const completedTasks = employee.tasks.filter((t) => t.status === "COMPLETED").length;
   void openTasks; void completedTasks; // reserved for future stats summary
+
+  const onboardingSteps = computeOnboardingSteps(employee);
+  const onboardingPending = onboardingSteps.filter((s) => !s.done).length;
+
+  const handleCreateAccount = async () => {
+    try {
+      const res = await fetch("/api/telephony/numbers/available");
+      if (res.ok) {
+        const data = await res.json();
+        setAvailableNumbers(data);
+      }
+    } catch (err) { console.warn("Failed to load available numbers:", err); }
+    setShowCreateAccount(true);
+  };
+
+  const handleGenerateAgreement = async () => {
+    try {
+      const res = await fetch(`/api/employees/${employee.id}/generate-agreement`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast.success(data.message ?? "Agreement generated");
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to generate agreement");
+    }
+  };
+
+  const handleConfirmAgreement = async () => {
+    try {
+      const res = await fetch(`/api/employees/${employee.id}/confirm-agreement`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      toast.success(data.message ?? "Agreement confirmed");
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to confirm agreement");
+    }
+  };
+
+  const handleGenerateAndConfirm = async () => {
+    try {
+      const genRes = await fetch(`/api/employees/${employee.id}/generate-agreement`, { method: "POST" });
+      const genData = await genRes.json();
+      if (!genRes.ok) throw new Error(genData.error);
+      const confRes = await fetch(`/api/employees/${employee.id}/confirm-agreement`, { method: "POST" });
+      const confData = await confRes.json();
+      if (!confRes.ok) throw new Error(confData.error);
+      toast.success("Agreement generated & confirmed");
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to generate & confirm");
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -344,66 +397,7 @@ export function EmployeeProfileClient({
         <aside className="lg:sticky lg:top-4 lg:self-start">
           <ProfileSidebar
             employee={employee}
-            canManage={permissions.canManage}
-            canManagePayroll={permissions.canManagePayroll}
-            canManageAccess={permissions.canManageAccess}
             onOpenPhoneDialog={() => setShowPhoneDialog(true)}
-            onManageAccess={() => setShowPermsEditor(true)}
-            onResetPassword={() => setShowResetPwd(true)}
-            assignableRoles={assignableRoles}
-            roleLabelMap={roleLabelMap}
-            onRoleChanged={() => router.refresh()}
-            onCreateAccount={async () => {
-              // Fetch available phone numbers
-              try {
-                const res = await fetch("/api/telephony/numbers/available");
-                if (res.ok) {
-                  const data = await res.json();
-                  setAvailableNumbers(data);
-                }
-              } catch (err) { console.warn("Failed to load available numbers:", err); }
-              setShowCreateAccount(true);
-            }}
-            onTerminate={() => setShowTerminate(true)}
-            onGenerateAgreement={async () => {
-              try {
-                const res = await fetch(`/api/employees/${employee.id}/generate-agreement`, { method: "POST" });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error);
-                toast.success(data.message ?? "Agreement generated");
-                router.refresh();
-              } catch (err: unknown) {
-                toast.error(err instanceof Error ? err.message : "Failed to generate agreement");
-              }
-            }}
-            onConfirmAgreement={async () => {
-              try {
-                const res = await fetch(`/api/employees/${employee.id}/confirm-agreement`, { method: "POST" });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error);
-                toast.success(data.message ?? "Agreement confirmed");
-                router.refresh();
-              } catch (err: unknown) {
-                toast.error(err instanceof Error ? err.message : "Failed to confirm agreement");
-              }
-            }}
-            onGenerateAndConfirm={async () => {
-              try {
-                // Step 1: Generate
-                const genRes = await fetch(`/api/employees/${employee.id}/generate-agreement`, { method: "POST" });
-                const genData = await genRes.json();
-                if (!genRes.ok) throw new Error(genData.error);
-                // Step 2: Confirm
-                const confRes = await fetch(`/api/employees/${employee.id}/confirm-agreement`, { method: "POST" });
-                const confData = await confRes.json();
-                if (!confRes.ok) throw new Error(confData.error);
-                toast.success("Agreement generated & confirmed");
-                router.refresh();
-              } catch (err: unknown) {
-                toast.error(err instanceof Error ? err.message : "Failed to generate & confirm");
-              }
-            }}
-            onSetupDeposit={() => setShowSetupDeposit(true)}
           />
         </aside>
 
@@ -412,6 +406,7 @@ export function EmployeeProfileClient({
           <Tabs value={tab} onValueChange={setTab}>
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="onboarding" count={onboardingPending}>Onboarding</TabsTrigger>
               <TabsTrigger value="attendance" count={employee.attendance.totalRecords}>Attendance</TabsTrigger>
               <TabsTrigger value="payroll" count={employee.payroll.history.length}>Payroll</TabsTrigger>
               <TabsTrigger value="tasks" count={employee.tasks.length}>Tasks</TabsTrigger>
@@ -425,6 +420,25 @@ export function EmployeeProfileClient({
 
             <TabsContent value="overview">
               <OverviewTab employee={employee} />
+            </TabsContent>
+            <TabsContent value="onboarding">
+              <OnboardingPanel
+                employee={employee}
+                canManage={permissions.canManage}
+                canManagePayroll={permissions.canManagePayroll}
+                canManageAccess={permissions.canManageAccess}
+                onManageAccess={() => setShowPermsEditor(true)}
+                onResetPassword={() => setShowResetPwd(true)}
+                onCreateAccount={handleCreateAccount}
+                onTerminate={() => setShowTerminate(true)}
+                onGenerateAgreement={handleGenerateAgreement}
+                onConfirmAgreement={handleConfirmAgreement}
+                onGenerateAndConfirm={handleGenerateAndConfirm}
+                onSetupDeposit={() => setShowSetupDeposit(true)}
+                assignableRoles={assignableRoles}
+                roleLabelMap={roleLabelMap}
+                onRoleChanged={() => router.refresh()}
+              />
             </TabsContent>
             <TabsContent value="attendance">
               <AttendanceTab employee={employee} />
@@ -841,40 +855,11 @@ function HeroStatTile({
 
 function ProfileSidebar({
   employee,
-  canManage,
-  canManagePayroll,
-  canManageAccess,
   onOpenPhoneDialog,
-  onManageAccess,
-  onResetPassword,
-  onCreateAccount,
-  onTerminate,
-  onGenerateAgreement,
-  onConfirmAgreement,
-  onGenerateAndConfirm,
-  onSetupDeposit,
-  assignableRoles = [],
-  roleLabelMap = new Map(),
-  onRoleChanged,
 }: {
   employee: EmployeeProfileData;
-  canManage: boolean;
-  canManagePayroll: boolean;
-  canManageAccess: boolean;
   onOpenPhoneDialog: () => void;
-  onManageAccess: () => void;
-  onResetPassword: () => void;
-  onCreateAccount: () => void;
-  onTerminate: () => void;
-  onGenerateAgreement: () => void;
-  onConfirmAgreement: () => void;
-  onGenerateAndConfirm: () => void;
-  onSetupDeposit: () => void;
-  assignableRoles?: { key: string; label: string }[];
-  roleLabelMap?: Map<string, string>;
-  onRoleChanged?: () => void;
 }) {
-  const docViewer = useDocumentViewer();
   const u = employee.user;
   const phone = employee.phone ?? u?.phone ?? null;
   const email = employee.email ?? displayEmail(u?.email) ?? null;
@@ -1008,200 +993,244 @@ function ProfileSidebar({
         </SidebarCard>
       )}
 
-      {/* Onboarding Checklist — shows where the employee is in the pipeline */}
+    </div>
+  );
+}
+
+/** Onboarding tab — the account/letter/deposit action cards laid out in a
+ *  two-column grid so the page balances instead of stacking in a 280px rail. */
+function OnboardingPanel({
+  employee,
+  canManage,
+  canManagePayroll,
+  canManageAccess,
+  onManageAccess,
+  onResetPassword,
+  onCreateAccount,
+  onTerminate,
+  onGenerateAgreement,
+  onConfirmAgreement,
+  onGenerateAndConfirm,
+  onSetupDeposit,
+  assignableRoles = [],
+  roleLabelMap = new Map(),
+  onRoleChanged,
+}: {
+  employee: EmployeeProfileData;
+  canManage: boolean;
+  canManagePayroll: boolean;
+  canManageAccess: boolean;
+  onManageAccess: () => void;
+  onResetPassword: () => void;
+  onCreateAccount: () => void;
+  onTerminate: () => void;
+  onGenerateAgreement: () => void;
+  onConfirmAgreement: () => void;
+  onGenerateAndConfirm: () => void;
+  onSetupDeposit: () => void;
+  assignableRoles?: { key: string; label: string }[];
+  roleLabelMap?: Map<string, string>;
+  onRoleChanged?: () => void;
+}) {
+  const docViewer = useDocumentViewer();
+  const u = employee.user;
+
+  return (
+    <div className="space-y-4">
+      {/* Checklist spans the full width so progress reads left-to-right */}
       <SidebarCard title="Onboarding Checklist" icon={ListChecks}>
         <OnboardingChecklist employee={employee} canManage={canManage} canManagePayroll={canManagePayroll} />
       </SidebarCard>
 
-      {/* Login account */}
-      <SidebarCard title="Login Account" icon={UserCircle}>
-        {u ? (
-          <>
-            <SidebarRow icon={Mail} label="Email" value={displayEmail(u.email) ?? "—"} />
-            <SidebarRow
-              icon={UserCircle}
-              label="Role"
-              value={roleLabelMap.get(u.role) ?? u.role.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
-              hint={
-                (u.secondaryRoles?.length ?? 0) > 0
-                  ? `+${u.secondaryRoles!.length} more role${u.secondaryRoles!.length > 1 ? "s" : ""}${
-                      u.activeRole && u.activeRole !== u.role
-                        ? ` · acting as ${roleLabelMap.get(u.activeRole) ?? u.activeRole}`
-                        : ""
-                    }`
-                  : undefined
-              }
-            />
-            <SidebarRow icon={UserCircle} label="Status" value={u.active ? "Active login" : "Disabled"} />
-            {u.lastLoginAt && (
-              <SidebarRow icon={Clock} label="Last Login" value={formatDate(u.lastLoginAt)} />
-            )}
-            {canManage && employee.active && (
-              <div className="py-2 space-y-2">
-                {canManageAccess && assignableRoles.length > 0 && (
-                  <RolePicker
-                    userId={u.id}
-                    employeeName={employee.name}
-                    currentRole={u.role}
-                    secondaryRoles={u.secondaryRoles ?? []}
-                    activeRole={u.activeRole ?? null}
-                    assignableRoles={assignableRoles}
-                    roleLabelMap={roleLabelMap}
-                    onChanged={onRoleChanged}
-                  />
-                )}
-                <div className="flex gap-2">
-                  {canManageAccess && (
-                    <Button variant="outline" size="sm" className="flex-1" onClick={onManageAccess}>
-                      <Shield className="h-3.5 w-3.5" /> Manage Access
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Login account */}
+        <SidebarCard title="Login Account" icon={UserCircle}>
+          {u ? (
+            <>
+              <SidebarRow icon={Mail} label="Email" value={displayEmail(u.email) ?? "—"} />
+              <SidebarRow
+                icon={UserCircle}
+                label="Role"
+                value={roleLabelMap.get(u.role) ?? u.role.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+                hint={
+                  (u.secondaryRoles?.length ?? 0) > 0
+                    ? `+${u.secondaryRoles!.length} more role${u.secondaryRoles!.length > 1 ? "s" : ""}${
+                        u.activeRole && u.activeRole !== u.role
+                          ? ` · acting as ${roleLabelMap.get(u.activeRole) ?? u.activeRole}`
+                          : ""
+                      }`
+                    : undefined
+                }
+              />
+              <SidebarRow icon={UserCircle} label="Status" value={u.active ? "Active login" : "Disabled"} />
+              {u.lastLoginAt && (
+                <SidebarRow icon={Clock} label="Last Login" value={formatDate(u.lastLoginAt)} />
+              )}
+              {canManage && employee.active && (
+                <div className="py-2 space-y-2">
+                  {canManageAccess && assignableRoles.length > 0 && (
+                    <RolePicker
+                      userId={u.id}
+                      employeeName={employee.name}
+                      currentRole={u.role}
+                      secondaryRoles={u.secondaryRoles ?? []}
+                      activeRole={u.activeRole ?? null}
+                      assignableRoles={assignableRoles}
+                      roleLabelMap={roleLabelMap}
+                      onChanged={onRoleChanged}
+                    />
+                  )}
+                  <div className="flex gap-2">
+                    {canManageAccess && (
+                      <Button variant="outline" size="sm" className="flex-1" onClick={onManageAccess}>
+                        <Shield className="h-3.5 w-3.5" /> Manage Access
+                      </Button>
+                    )}
+                    {canManageAccess && (
+                      <Button variant="outline" size="sm" className="flex-1" onClick={onResetPassword}>
+                        <KeyRound className="h-3.5 w-3.5" /> Set Password
+                      </Button>
+                    )}
+                    <Button variant="outline" size="sm" className="flex-1 text-destructive" onClick={onTerminate}>
+                      <Ban className="h-3.5 w-3.5" /> Terminate
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="py-2 space-y-2">
+              <p className="text-center text-caption text-muted-foreground">
+                No linked user account.<br />This worker has no app login.
+              </p>
+              {canManage && employee.active && (
+                <Button variant="outline" size="sm" className="w-full" onClick={onCreateAccount}>
+                  <UserPlus className="h-3.5 w-3.5" /> Create Login
+                </Button>
+              )}
+            </div>
+          )}
+        </SidebarCard>
+
+        {/* Employment Agreement */}
+        <SidebarCard title="Employment Agreement" icon={FileText}>
+          {employee.contractStatus ? (
+            <>
+              <SidebarRow
+                icon={FileText}
+                label="Status"
+                value={contractStatusLabel(employee.contractStatus)}
+              />
+              {employee.contractIssuedAt && (
+                <SidebarRow icon={Calendar} label="Issued" value={formatDate(employee.contractIssuedAt)} />
+              )}
+              {employee.contractConfirmedAt && (
+                <SidebarRow icon={CheckCircle2} label="Confirmed" value={formatDate(employee.contractConfirmedAt)} />
+              )}
+              {employee.employmentType && (
+                <SidebarRow icon={Briefcase} label="Type" value={employee.employmentType.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())} />
+              )}
+              {canManage && employee.active && (
+                <div className="py-2 flex flex-wrap gap-1.5">
+                  <button
+                    onClick={() => docViewer.openDoc(`/print/employment-agreement/${employee.id}`, "Employment Agreement")}
+                    className="flex flex-1 min-w-[8rem] items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-caption font-medium text-foreground hover:bg-muted transition-colors"
+                  >
+                    <FileText className="h-3.5 w-3.5" /> View / Print Agreement
+                  </button>
+                  {employee.contractStatus === "ISSUED" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 min-w-[8rem]"
+                      onClick={onConfirmAgreement}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Confirm Agreement
                     </Button>
                   )}
-                  {canManageAccess && (
-                    <Button variant="outline" size="sm" className="flex-1" onClick={onResetPassword}>
-                      <KeyRound className="h-3.5 w-3.5" /> Set Password
+                  {employee.contractStatus === "DRAFT" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 min-w-[8rem]"
+                      onClick={onGenerateAgreement}
+                    >
+                      <FileText className="h-3.5 w-3.5" /> Generate Agreement
                     </Button>
                   )}
-                  <Button variant="outline" size="sm" className="flex-1 text-destructive" onClick={onTerminate}>
-                    <Ban className="h-3.5 w-3.5" /> Terminate
+                  {(employee.contractStatus === "ISSUED" || employee.contractStatus === "CONFIRMED" || employee.contractStatus === "EXPIRED") && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="flex-1 min-w-[8rem] text-muted-foreground"
+                      onClick={onGenerateAgreement}
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" /> Regenerate (terms changed)
+                    </Button>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="py-2 space-y-2">
+              <p className="text-center text-caption text-muted-foreground">
+                No employment agreement.<br />Generate one to formalize terms.
+              </p>
+              {canManage && employee.active && (
+                <div className="flex gap-1.5">
+                  <Button size="sm" className="flex-1" onClick={onGenerateAndConfirm}>
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Generate &amp; Confirm
+                  </Button>
+                  <Button variant="outline" size="sm" className="flex-1" onClick={onGenerateAgreement}>
+                    <FileText className="h-3.5 w-3.5" /> Generate Only
                   </Button>
                 </div>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="py-2 space-y-2">
-            <p className="text-center text-caption text-muted-foreground">
-              No linked user account.<br />This worker has no app login.
-            </p>
-            {canManage && employee.active && (
-              <Button variant="outline" size="sm" className="w-full" onClick={onCreateAccount}>
-                <UserPlus className="h-3.5 w-3.5" /> Create Login
-              </Button>
-            )}
-          </div>
-        )}
-      </SidebarCard>
+              )}
+            </div>
+          )}
+        </SidebarCard>
 
-      {/* Employment Agreement */}
-      <SidebarCard title="Employment Agreement" icon={FileText}>
-        {employee.contractStatus ? (
-          <>
-            <SidebarRow
-              icon={FileText}
-              label="Status"
-              value={contractStatusLabel(employee.contractStatus)}
-            />
-            {employee.contractIssuedAt && (
-              <SidebarRow icon={Calendar} label="Issued" value={formatDate(employee.contractIssuedAt)} />
-            )}
-            {employee.contractConfirmedAt && (
-              <SidebarRow icon={CheckCircle2} label="Confirmed" value={formatDate(employee.contractConfirmedAt)} />
-            )}
-            {employee.employmentType && (
-              <SidebarRow icon={Briefcase} label="Type" value={employee.employmentType.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())} />
-            )}
-            {canManage && employee.active && (
-              <div className="py-2 flex flex-wrap gap-1.5">
-                <button
-                  onClick={() => docViewer.openDoc(`/print/employment-agreement/${employee.id}`, "Employment Agreement")}
-                  className="flex flex-1 min-w-[8rem] items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-caption font-medium text-foreground hover:bg-muted transition-colors"
-                >
-                  <FileText className="h-3.5 w-3.5" /> View / Print Agreement
-                </button>
-                {employee.contractStatus === "ISSUED" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 min-w-[8rem]"
-                    onClick={onConfirmAgreement}
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5" /> Confirm Agreement
-                  </Button>
-                )}
-                {employee.contractStatus === "DRAFT" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1 min-w-[8rem]"
-                    onClick={onGenerateAgreement}
-                  >
-                    <FileText className="h-3.5 w-3.5" /> Generate Agreement
-                  </Button>
-                )}
-                {(employee.contractStatus === "ISSUED" || employee.contractStatus === "CONFIRMED" || employee.contractStatus === "EXPIRED") && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="flex-1 min-w-[8rem] text-muted-foreground"
-                    onClick={onGenerateAgreement}
-                  >
-                    <RefreshCw className="h-3.5 w-3.5" /> Regenerate (terms changed)
-                  </Button>
-                )}
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="py-2 space-y-2">
-            <p className="text-center text-caption text-muted-foreground">
-              No employment agreement.<br />Generate one to formalize terms.
-            </p>
-            {canManage && employee.active && (
-              <div className="flex gap-1.5">
-                <Button size="sm" className="flex-1" onClick={onGenerateAndConfirm}>
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Generate &amp; Confirm
+        {/* Letters & ID Card */}
+        <LettersCard employee={employee} canManage={canManage} />
+
+        {/* Auto-Deposit (Salary → Bank) */}
+        <SidebarCard title="Auto-Deposit" icon={Wallet}>
+          {employee.autoDepositEnabled ? (
+            <>
+              <SidebarRow icon={Wallet} label="Status" value="Enabled" />
+              <SidebarRow icon={Calendar} label="Pay Day" value={`${employee.payDay ?? 7}th of each month`} />
+              <SidebarRow icon={UserCircle} label="Holder" value={employee.bankAccountHolder ?? "—"} />
+              <SidebarRow icon={Building2} label="Bank" value={employee.bankName ?? "—"} />
+              {employee.bankBranch && (
+                <SidebarRow icon={MapPin} label="Branch" value={employee.bankBranch} />
+              )}
+              <SidebarRow
+                icon={Wallet}
+                label="Account"
+                value={employee.bankAccountNumber ? `****${employee.bankAccountNumber.slice(-4)}` : "—"}
+              />
+              <SidebarRow icon={Wallet} label="IFSC" value={employee.bankIfsc ?? "—"} />
+              {employee.autoDepositSetupAt && (
+                <SidebarRow icon={Calendar} label="Setup On" value={formatDate(employee.autoDepositSetupAt)} />
+              )}
+              {canManagePayroll && employee.active && (
+                <Button variant="outline" size="sm" className="w-full" onClick={onSetupDeposit}>
+                  <Pencil className="h-3.5 w-3.5" /> Edit Bank Details
                 </Button>
-                <Button variant="outline" size="sm" className="flex-1" onClick={onGenerateAgreement}>
-                  <FileText className="h-3.5 w-3.5" /> Generate Only
+              )}
+            </>
+          ) : (
+            <div className="py-2 space-y-2">
+              {canManagePayroll && employee.active && (
+                <Button variant="outline" size="sm" className="w-full" onClick={onSetupDeposit}>
+                  <Wallet className="h-3.5 w-3.5" /> Setup Auto-Deposit
                 </Button>
-              </div>
-            )}
-          </div>
-        )}
-      </SidebarCard>
+              )}
+            </div>
+          )}
+        </SidebarCard>
+      </div>
 
-      {/* Letters & ID Card — offer letter, appointment letter, ID card */}
-      <LettersCard employee={employee} canManage={canManage} />
-
-      {/* Auto-Deposit (Salary → Bank) */}
-      <SidebarCard title="Auto-Deposit" icon={Wallet}>
-        {employee.autoDepositEnabled ? (
-          <>
-            <SidebarRow icon={Wallet} label="Status" value="Enabled" />
-            <SidebarRow icon={Calendar} label="Pay Day" value={`${employee.payDay ?? 7}th of each month`} />
-            <SidebarRow icon={UserCircle} label="Holder" value={employee.bankAccountHolder ?? "—"} />
-            <SidebarRow icon={Building2} label="Bank" value={employee.bankName ?? "—"} />
-            {employee.bankBranch && (
-              <SidebarRow icon={MapPin} label="Branch" value={employee.bankBranch} />
-            )}
-            <SidebarRow
-              icon={Wallet}
-              label="Account"
-              value={employee.bankAccountNumber ? `****${employee.bankAccountNumber.slice(-4)}` : "—"}
-            />
-            <SidebarRow icon={Wallet} label="IFSC" value={employee.bankIfsc ?? "—"} />
-            {employee.autoDepositSetupAt && (
-              <SidebarRow icon={Calendar} label="Setup On" value={formatDate(employee.autoDepositSetupAt)} />
-            )}
-            {canManagePayroll && employee.active && (
-              <Button variant="outline" size="sm" className="w-full" onClick={onSetupDeposit}>
-                <Pencil className="h-3.5 w-3.5" /> Edit Bank Details
-              </Button>
-            )}
-          </>
-        ) : (
-          <div className="py-2 space-y-2">
-            {canManagePayroll && employee.active && (
-              <Button variant="outline" size="sm" className="w-full" onClick={onSetupDeposit}>
-                <Wallet className="h-3.5 w-3.5" /> Setup Auto-Deposit
-              </Button>
-            )}
-          </div>
-        )}
-      </SidebarCard>
-
-      {/* Rendered here — this hook instance is local to ProfileSidebar, so the
-          viewer must mount inside this component for openDoc to display. */}
       <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
     </div>
   );
@@ -3673,16 +3702,9 @@ function SetupDepositDialog({
 //  so "complete" means the same thing on desktop, mobile queue, and mobile detail.
 // ───────────────────────────────────────────────────────────────
 
-function OnboardingChecklist({
-  employee,
-  canManage,
-}: {
-  employee: EmployeeProfileData;
-  canManage: boolean;
-  canManagePayroll: boolean;
-}) {
-  const router = useRouter();
-  const [completing, setCompleting] = useState(false);
+/** Shared 12-step onboarding computation — used by the checklist card and the
+ *  Onboarding tab's pending-count badge. */
+function computeOnboardingSteps(employee: EmployeeProfileData) {
   const hasProfile = !!(employee.name && (employee.phone || employee.user?.phone) && (employee.designation || employee.trade));
   const hasWage = employee.wageType === "DAILY" ? (employee.dailyRate ?? 0) > 0 : (employee.monthlySalary ?? 0) > 0;
   const hasEmploymentTerms = !!(
@@ -3702,7 +3724,7 @@ function OnboardingChecklist({
   const idCardIssued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(employee.idCardStatus ?? "");
   const hasAutoDeposit = employee.autoDepositEnabled === true;
 
-  const steps = [
+  return [
     { label: "Profile & Wage", done: hasProfile && hasWage, hint: !hasProfile ? "Missing name, phone, or designation" : !hasWage ? "Wage not set" : undefined },
     { label: "Employment Terms", done: hasEmploymentTerms, hint: !hasEmploymentTerms ? "Fill: employment type, notice period" : undefined },
     { label: "Salary Structure", done: hasSalaryStructure, hint: !hasSalaryStructure ? "Add CTC components (Basic, HRA, etc.)" : undefined },
@@ -3716,7 +3738,19 @@ function OnboardingChecklist({
     { label: "ID Card", done: idCardIssued, hint: !idCardIssued ? "Generate the employee ID card" : undefined },
     { label: "Auto-Deposit", done: hasAutoDeposit, hint: !hasAutoDeposit ? "Set up bank details for salary credit" : undefined },
   ];
+}
 
+function OnboardingChecklist({
+  employee,
+  canManage,
+}: {
+  employee: EmployeeProfileData;
+  canManage: boolean;
+  canManagePayroll: boolean;
+}) {
+  const router = useRouter();
+  const [completing, setCompleting] = useState(false);
+  const steps = computeOnboardingSteps(employee);
   const completedCount = steps.filter((s) => s.done).length;
   const isComplete = completedCount === steps.length;
 
