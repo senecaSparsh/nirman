@@ -56,7 +56,11 @@ export function EmployeeQuickCreateDialog({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create employee");
-      toast.success("Employee added");
+      toast.success("Employee added", {
+        action: onCreated
+          ? undefined
+          : { label: "View", onClick: () => router.push(`/hr/employees/${data.id}`) },
+      });
       onOpenChange(false);
       if (onCreated) {
         onCreated({ id: data.id, label: form.name.trim() });

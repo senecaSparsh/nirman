@@ -116,7 +116,9 @@ export function VendorsView({
         : await fetch("/api/suppliers", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to save vendor");
-      toast.success(editTarget ? "Vendor updated" : "Vendor created");
+      toast.success(editTarget ? "Vendor updated" : "Vendor created", {
+        action: editTarget ? undefined : { label: "View", onClick: () => router.push(`/suppliers/${data.id}`) },
+      });
       setFormOpen(false);
       router.refresh();
     } catch (err: unknown) {

@@ -93,7 +93,7 @@ export async function MaterialsContent() {
 
   const [materialCount, stockAgg, lowStockAgg] = await Promise.all([
     prisma.material.count({ where: { companyId: company.id, deletedAt: null } }),
-    prisma.$queryRaw<{ stock_value: number }[]>`
+    prisma.$queryRaw<{ stock_value: number }[]>(Prisma.sql`
       SELECT COALESCE(SUM(si.qty * si."movingAvgCost"), 0)::float AS stock_value
       FROM "StockLocationItem" si
       JOIN "StockLocation" l ON l.id = si."locationId"
@@ -101,8 +101,8 @@ export async function MaterialsContent() {
       WHERE m."companyId" = ${company.id} AND m."deletedAt" IS NULL
         AND l."companyId" = ${company.id} AND l."deletedAt" IS NULL
         ${locScope}
-    `,
-    prisma.$queryRaw<{ n: number }[]>`
+    `),
+    prisma.$queryRaw<{ n: number }[]>(Prisma.sql`
       SELECT COUNT(*)::int AS n FROM "Material" m
       WHERE m."companyId" = ${company.id} AND m."deletedAt" IS NULL
         AND m."minStock" IS NOT NULL
@@ -113,7 +113,7 @@ export async function MaterialsContent() {
             AND l."companyId" = ${company.id} AND l."deletedAt" IS NULL
             ${locScope}
         ), 0) < m."minStock"
-    `,
+    `),
   ]);
 
   const materialRows: MaterialRow[] = materials.map((m) => {

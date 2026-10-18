@@ -218,7 +218,11 @@ export function MaterialFormDialog({
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to save material");
-      toast.success(isEdit ? "Material updated" : "Material created");
+      toast.success(isEdit ? "Material updated" : "Material created", {
+        action: !isEdit && !onCreated
+          ? { label: "View", onClick: () => router.push(`/materials/${data.id}`) }
+          : undefined,
+      });
       onOpenChange(false);
       if (!isEdit && onCreated) {
         onCreated({ id: data.id, label: data.name });
