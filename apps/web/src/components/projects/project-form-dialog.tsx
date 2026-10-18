@@ -34,6 +34,9 @@ export type ProjectFormValues = {
   reraRegistrationDate?: string | null;
   reraValidityDate?: string | null;
   reraWebsiteUrl?: string | null;
+  // ── RERA escrow (70% designated account) ──
+  escrowBankName?: string | null;
+  escrowAccountNo?: string | null;
   // ── LCI threshold override ──
   lciThreshold?: number | null;
 };
@@ -88,6 +91,8 @@ export function ProjectFormDialog({
     reraRegistrationDate: initial?.reraRegistrationDate ?? "",
     reraValidityDate: initial?.reraValidityDate ?? "",
     reraWebsiteUrl: initial?.reraWebsiteUrl ?? "",
+    escrowBankName: initial?.escrowBankName ?? "",
+    escrowAccountNo: initial?.escrowAccountNo ?? "",
     lciThreshold: initial?.lciThreshold ?? undefined,
   });
 
@@ -306,6 +311,24 @@ export function ProjectFormDialog({
                 value={form.reraWebsiteUrl ?? ""}
                 onChange={(e) => set("reraWebsiteUrl", e.target.value)}
                 placeholder="https://maharera.maharashtra.gov.in/..."
+              />
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Escrow Bank" hint="Designated RERA account — 70% of buyer collections must sit here">
+              <Input
+                id="p-escrow-bank"
+                value={form.escrowBankName ?? ""}
+                onChange={(e) => set("escrowBankName", e.target.value)}
+                placeholder="e.g. State Bank of India"
+              />
+            </Field>
+            <Field label="Escrow Account No." hint="Separate account per RERA Section 4(2)(l)(D)">
+              <Input
+                id="p-escrow-acct"
+                value={form.escrowAccountNo ?? ""}
+                onChange={(e) => set("escrowAccountNo", e.target.value)}
+                placeholder="Account number"
               />
             </Field>
           </div>

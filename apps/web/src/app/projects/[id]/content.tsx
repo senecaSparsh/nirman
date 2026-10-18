@@ -254,6 +254,20 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
     }]),
   );
 
+  // RERA escrow position — 70% of cleared customer collections must be held
+  // in the project's designated account (Section 4(2)(l)(D)). Cleared means
+  // the same rule as sumClearedAssetSalePayments: non-void, non-pending,
+  // non-bounced instruments.
+  const escrowAgg = await prisma.assetSalePayment.aggregate({
+    _sum: { amount: true },
+    where: {
+      assetSale: { projectId: id, companyId: company.id },
+      status: { not: "VOID" },
+      OR: [{ chequeStatus: null }, { chequeStatus: { notIn: ["PENDING", "BOUNCED"] } }],
+    },
+  });
+  const escrowCollected = toNum(escrowAgg._sum.amount);
+
   // Map POs to rows
   const poRows: PurchaseOrderRow[] = purchaseOrders.map((po) => {
     const totalOrdered = po.lines.reduce((s, l) => s + toNum(l.qtyOrdered), 0);
@@ -583,6 +597,10 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
       reraRegistrationDate: project.reraRegistrationDate?.toISOString() ?? null,
       reraValidityDate: project.reraValidityDate?.toISOString() ?? null,
       reraWebsiteUrl: project.reraWebsiteUrl,
+      escrowBankName: project.escrowBankName,
+      escrowAccountNo: project.escrowAccountNo,
+      escrowCollected,
+      escrowRequired: escrowCollected * 0.7,
       lciThreshold: project.lciThreshold ? toNum(project.lciThreshold) : null,
       isPossessed: project.isPossessed,
       possessionDate: project.possessionDate?.toISOString() ?? null,
@@ -684,6 +702,8 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
     reraRegistrationDate: project.reraRegistrationDate?.toISOString().slice(0, 10) ?? "",
     reraValidityDate: project.reraValidityDate?.toISOString().slice(0, 10) ?? "",
     reraWebsiteUrl: project.reraWebsiteUrl ?? "",
+    escrowBankName: project.escrowBankName ?? "",
+    escrowAccountNo: project.escrowAccountNo ?? "",
     lciThreshold: project.lciThreshold ? toNum(project.lciThreshold) : undefined,
   };
 

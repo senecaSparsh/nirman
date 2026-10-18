@@ -1295,6 +1295,13 @@ model Project {
   reraRegistrationDate DateTime? // date of RERA registration
   reraValidityDate    DateTime?  // RERA registration validity expiry (typically 5 years or project completion)
   reraWebsiteUrl      String?    // RERA project page URL (for buyer verification)
+  // ── RERA escrow (Section 4(2)(l)(D)) ──
+  // 70% of all customer collections must be held in a designated project
+  // bank account; withdrawals require engineer + architect + CA
+  // certification. These fields record which account that is — the
+  // requirement itself is computed from cleared sale collections.
+  escrowBankName      String?
+  escrowAccountNo     String?
   // ── Possession tracking ──
   // For built-unit projects: tracks whether possession has been handed over
   // to buyers / the company has taken possession of the constructed units.

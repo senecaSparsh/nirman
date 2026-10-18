@@ -9,7 +9,7 @@ import {
   Package, Truck, Home, LandPlot, Wallet, Wrench,
   ArrowRight, TrendingUp, Clock,
   Plus, MapPin, AlertTriangle,
-  ShieldCheck, KeyRound, FileText,
+  ShieldCheck, KeyRound, FileText, Landmark,
 } from "lucide-react";
 import type { ProjectFormValues } from "@/components/projects/project-form-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +57,11 @@ export type ProjectHubData = {
     reraRegistrationDate: string | null;
     reraValidityDate: string | null;
     reraWebsiteUrl: string | null;
+    // RERA escrow — designated account + computed 70% position
+    escrowBankName?: string | null;
+    escrowAccountNo?: string | null;
+    escrowCollected?: number;
+    escrowRequired?: number;
     lciThreshold: number | null;
     // Possession tracking
     isPossessed?: boolean;
@@ -317,6 +322,34 @@ export function ProjectHub({
           </div>
         );
       })()}
+
+      {/* RERA escrow position — 70% of buyer collections must sit in the
+          designated account; withdrawals need engineer + architect + CA
+          certification. Shown for RERA-registered projects or once money
+          starts moving. */}
+      {(project.reraNumber || (project.escrowCollected ?? 0) > 0) && (
+        <div className="flex items-start gap-2 rounded-md border border-border bg-surface-muted/40 px-3 py-2">
+          <Landmark className="h-4 w-4 shrink-0 mt-0.5 text-muted-foreground" />
+          <div className="min-w-0 flex-1 text-caption">
+            <div className="font-medium text-foreground">RERA escrow — 70% rule</div>
+            {project.escrowBankName ? (
+              <div className="text-muted-foreground">
+                Designated: {project.escrowBankName}{project.escrowAccountNo ? ` · A/C …${project.escrowAccountNo.slice(-4)}` : ""}
+              </div>
+            ) : (
+              <button type="button" onClick={() => setEditOpen(true)} className="text-warning hover:underline">
+                No escrow account designated — set it in project settings
+              </button>
+            )}
+            <div className="text-muted-foreground">
+              Cleared collections {formatCurrency(project.escrowCollected ?? 0)} · minimum escrow balance required {formatCurrency(project.escrowRequired ?? 0)} (70%)
+            </div>
+            <div className="text-muted-foreground/80">
+              Withdrawals require engineer + architect + CA certification (Sec. 4(2)(l)(D))
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Possession status */}
       <div className="flex items-center gap-2">

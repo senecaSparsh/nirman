@@ -96,6 +96,9 @@ export const projectSchema = z.object({
   reraRegistrationDate: z.string().optional().nullable(),
   reraValidityDate: z.string().optional().nullable(),
   reraWebsiteUrl: z.string().max(500).optional().nullable(),
+  // ── RERA escrow (70% designated account) ──
+  escrowBankName: z.string().max(200).optional().nullable(),
+  escrowAccountNo: z.string().max(50).optional().nullable(),
 });
 
 export const projectPhaseSchema = z.object({
