@@ -21,7 +21,7 @@ import { ServiceError } from "./errors";
 import { withSerializableTransaction } from "./transaction";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { autoSyncEntryToTally } from "./auto-sync";
-import { requiresSaleAgreement } from "./sale-policy";
+import { requiresSaleAgreement, advanceCapApplies, RERA_PRE_AGREEMENT_CAP } from "./sale-policy";
 
 export function sumClearedAssetSalePayments(payments: {
   amount: Decimal | string | number;
@@ -409,6 +409,25 @@ export async function sellAsset(input: SellAssetInput) {
     if (initAmount.gt(0) && initAmount.gt(totalCollectible)) {
       throw new ServiceError(`Initial payment ${initAmount} exceeds total ${totalCollectible} (sale price + GST)`);
     }
+    // RERA Section 13 — when the sale is created without an agreement date,
+    // the booking advance cannot exceed 10% of the consideration. Passing
+    // atsDate/bbaDate at creation certifies the agreement exists.
+    if (
+      initAmount.gt(0) &&
+      advanceCapApplies({
+        assetType: input.assetType,
+        projectId: projectId || null,
+        atsDate: input.atsDate ?? null,
+        bbaDate: input.bbaDate ?? null,
+      })
+    ) {
+      const cap = salePrice.mul(RERA_PRE_AGREEMENT_CAP);
+      if (initAmount.gt(cap)) {
+        throw new ServiceError(
+          `RERA Section 13 — booking advance ${initAmount} exceeds the 10% pre-agreement cap (${cap.toFixed(2)}). Capture the ATS/BBA date on the sale to collect more.`,
+        );
+      }
+    }
     const isImmediateFullPayment = initAmount.gt(0) && initAmount.gte(totalCollectible);
 
     // Create the sale (always starts as PENDING; upgraded below if immediate)
@@ -443,13 +462,21 @@ export async function sellAsset(input: SellAssetInput) {
         expectedRegistryDate: input.expectedRegistryDate ? new Date(input.expectedRegistryDate) : null,
         // ATS (Agreement to Sell) — merged with registry
         atsNo: input.atsNo ?? null,
-        atsDate: input.atsDate ? new Date(input.atsDate) : null,
+        atsDate: input.atsDate
+          ? new Date(input.atsDate)
+          : input.atsDocumentUrl
+            ? new Date() // uploaded ATS at booking stamps the agreement date — same rule as uploadSaleDocument
+            : null,
         allowRegistryBeforeFullPayment: input.allowRegistryBeforeFullPayment ?? false,
         // Sale compliance documents
         allotmentLetterNo: input.allotmentLetterNo ?? null,
         allotmentDate: input.allotmentDate ? new Date(input.allotmentDate) : null,
         bbaNo: input.bbaNo ?? null,
-        bbaDate: input.bbaDate ? new Date(input.bbaDate) : null,
+        bbaDate: input.bbaDate
+          ? new Date(input.bbaDate)
+          : input.bbaDocumentUrl
+            ? new Date() // uploaded BBA at booking stamps the agreement date
+            : null,
         // TDS tracking — auto-compute 1% under Section 194-IA if sale ≥ ₹50L
         tdsAmount: computePropertyTds(new Decimal(input.salePrice!), input.tdsAmount),
         tdsCertificateNo: input.tdsCertificateNo ?? null,
@@ -867,6 +894,26 @@ export async function recordDeposit(input: RecordDepositInput) {
       throw new ServiceError(
         `Deposit ${cumulativeDeposit} would exceed total ${totalCollectible} (sale price + GST)`,
       );
+    }
+
+    // RERA Section 13 — before a written agreement exists, collections are
+    // capped at 10% of the consideration. Uploading the ATS or BBA (dates
+    // recorded on the sale) lifts the cap; standalone land sales are exempt
+    // because they complete on a conveyance, not an agreement.
+    if (
+      advanceCapApplies({
+        assetType: sale.assetType,
+        projectId: sale.projectId,
+        atsDate: sale.atsDate,
+        bbaDate: sale.bbaDate,
+      })
+    ) {
+      const cap = salePrice.mul(RERA_PRE_AGREEMENT_CAP);
+      if (cumulativeDeposit.gt(cap)) {
+        throw new ServiceError(
+          `RERA Section 13 — pre-agreement collections are capped at 10% of the sale price (cap ${cap.toFixed(2)}, would reach ${cumulativeDeposit.toFixed(2)}). Record the ATS/BBA date on the sale to collect further.`,
+        );
+      }
     }
 
     // Record the deposit as a payment row (for audit trail / receipts)

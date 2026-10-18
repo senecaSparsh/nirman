@@ -213,6 +213,9 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
       companyId: company.id,
       customerId: customer.id,
       salePrice: new Decimal(5000000),
+      // 20% collection — above the RERA 10% pre-agreement cap, so the
+      // agreement must be documented at creation.
+      atsDate: "2026-10-01",
     });
 
     const result = await recordDeposit({
@@ -260,6 +263,101 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
     ).rejects.toThrow(/exceed/);
   });
 
+  // ── RERA Section 13 — 10% pre-agreement cap ──
+
+  it("recordDeposit caps pre-agreement collections at 10% of sale price", async () => {
+    const { company, user } = await setup();
+    const customer = await createCustomer(company.id);
+    const unit = await createBuiltUnit("test-project");
+
+    const { sellAsset, recordDeposit } = await import("../sale");
+    const sale = await sellAsset({
+      assetType: "BUILT_UNIT",
+      builtUnitId: unit.id,
+      companyId: company.id,
+      customerId: customer.id,
+      salePrice: new Decimal(5000000),
+    });
+
+    // ₹5L = exactly 10% — allowed.
+    await recordDeposit({ saleId: sale.id, depositAmount: new Decimal(500000), userId: user.id });
+
+    // One more rupee past the cap — refused until an agreement is documented.
+    await expect(
+      recordDeposit({ saleId: sale.id, depositAmount: new Decimal(1), userId: user.id }),
+    ).rejects.toThrow(/RERA Section 13/);
+
+    // Document the agreement → cap lifts.
+    await prisma.assetSale.update({ where: { id: sale.id }, data: { atsDate: new Date("2026-10-01") } });
+    const result = await recordDeposit({ saleId: sale.id, depositAmount: new Decimal(500000), userId: user.id });
+    expect(result.saleStage).toBe("DEPOSIT_RECEIVED");
+  });
+
+  it("sellAsset rejects a booking advance over 10% without an agreement date", async () => {
+    const { company, user } = await setup();
+    const customer = await createCustomer(company.id);
+    const unit = await createBuiltUnit("test-project");
+    const unit2 = await prisma.builtUnit.create({
+      data: {
+        projectId: "test-project",
+        unitType: "BHK_2",
+        unitNumber: "A-102",
+        floor: 1,
+        wing: "A",
+        area: new Decimal(1000),
+        areaUnit: "SQFT",
+        status: "AVAILABLE",
+        productionCost: new Decimal(2000000),
+      },
+    });
+
+    const { sellAsset } = await import("../sale");
+    await expect(
+      sellAsset({
+        assetType: "BUILT_UNIT",
+        builtUnitId: unit.id,
+        companyId: company.id,
+        customerId: customer.id,
+        salePrice: new Decimal(5000000),
+        initialPayment: new Decimal(1000000), // 20%
+      }),
+    ).rejects.toThrow(/RERA Section 13/);
+
+    // Same advance with the agreement documented at creation — allowed.
+    const sale = await sellAsset({
+      assetType: "BUILT_UNIT",
+      builtUnitId: unit2.id,
+      companyId: company.id,
+      customerId: customer.id,
+      salePrice: new Decimal(5000000),
+      initialPayment: new Decimal(1000000),
+      bbaDate: "2026-10-01",
+    });
+    expect(sale.id).toBeTruthy();
+  });
+
+  it("standalone land sale is exempt from the 10% cap", async () => {
+    const { company, user } = await setup();
+    const customer = await createCustomer(company.id);
+    // Standalone land (no project) — completes on a conveyance, no BBA stage.
+    const parcel = await prisma.landParcel.findFirst({
+      where: { status: "AVAILABLE", projectId: null, saleId: null, deletedAt: null },
+    });
+    if (!parcel) return; // no standalone parcel in this seed — skip
+
+    const { sellAsset } = await import("../sale");
+    const sale = await sellAsset({
+      assetType: "LAND",
+      landParcelId: parcel.id,
+      companyId: company.id,
+      customerId: customer.id,
+      salePrice: new Decimal(5000000),
+      initialPayment: new Decimal(2500000), // 50% — no cap on standalone land
+      userId: user.id,
+    });
+    expect(sale.id).toBeTruthy();
+  });
+
   it("recordDeposit rejects deposit on completed sale", async () => {
     const { company, user } = await setup();
     const customer = await createCustomer(company.id);
@@ -273,6 +371,9 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
       customerId: customer.id,
       salePrice: new Decimal(5000000),
       initialPayment: new Decimal(5000000), // full payment
+      // Full payment at booking requires the agreement documented at
+      // creation — without atsDate/bbaDate the RERA 10% cap blocks it.
+      atsDate: "2026-10-01",
       userId: user.id,
     });
 
@@ -316,18 +417,18 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
       userId: user.id,
     });
 
-    // 2. Record deposit (1M of 5M)
+    // 2. Agreement first — a 20% collection without an ATS date violates the
+    // RERA 10% cap; uploading the ATS lifts the cap.
+    await prisma.assetSale.update({
+      where: { id: sale.id },
+      data: { atsDocumentUrl: "https://example.com/ats.pdf", atsDate: new Date("2026-10-01") },
+    });
+
     await recordDeposit({
       saleId: sale.id,
       depositAmount: new Decimal(1000000),
       paymentMode: "BANK_TRANSFER",
       userId: user.id,
-    });
-
-    // Upload ATS doc
-    await prisma.assetSale.update({
-      where: { id: sale.id },
-      data: { atsDocumentUrl: "https://example.com/ats.pdf" },
     });
 
     // 3. Complete sale with final payment (4M)
@@ -392,6 +493,9 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
       companyId: company.id,
       customerId: customer.id,
       salePrice: new Decimal(5000000),
+      // Agreement documented at creation — a full-price collection without
+      // an ATS date would breach the RERA 10% pre-agreement cap.
+      atsDate: "2026-10-01",
       userId: user.id,
     });
 
@@ -427,6 +531,9 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
       companyId: company.id,
       customerId: customer.id,
       salePrice: new Decimal(5000000),
+      // atsDate lets the full-price deposit pass the RERA cap — the
+      // completeSale gate still requires the uploaded document itself.
+      atsDate: "2026-10-01",
       userId: user.id,
     });
 
@@ -499,17 +606,18 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
     // Verify GST was computed
     expect(sale.gstAmount.toNumber()).toBe(250000);
 
+    // Upload ATS first — a 20% collection without an ATS date would hit the
+    // RERA 10% pre-agreement cap.
+    await prisma.assetSale.update({
+      where: { id: sale.id },
+      data: { atsDocumentUrl: "https://example.com/ats.pdf", atsDate: new Date("2026-10-01") },
+    });
+
     // Deposit 1M
     await recordDeposit({
       saleId: sale.id,
       depositAmount: new Decimal(1000000),
       userId: user.id,
-    });
-
-    // Upload ATS
-    await prisma.assetSale.update({
-      where: { id: sale.id },
-      data: { atsDocumentUrl: "https://example.com/ats.pdf" },
     });
 
     // Complete with final payment 4.25M (5.25M - 1M)
@@ -585,6 +693,9 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
       companyId: company.id,
       customerId: customer.id,
       salePrice: new Decimal(5000000),
+      // 20% deposit — above the RERA 10% pre-agreement cap, so the
+      // agreement date is documented at creation.
+      atsDate: "2026-10-01",
       userId: user.id,
     });
 
@@ -619,6 +730,9 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
       customerId: customer.id,
       salePrice: new Decimal(5000000),
       initialPayment: new Decimal(5000000),
+      // Full advance requires the agreement documented — otherwise the
+      // RERA 10% pre-agreement cap blocks it.
+      atsDate: "2026-10-01",
       userId: user.id,
     });
 

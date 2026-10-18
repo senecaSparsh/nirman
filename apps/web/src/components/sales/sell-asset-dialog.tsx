@@ -613,6 +613,14 @@ export function SellAssetDialog({
               <div className="space-y-1.5">
                 <Label htmlFor="sa-init">Advance Amount</Label>
                 <Input id="sa-init" type="number" min="0" step="0.01" value={form.initialPayment} onChange={(e) => set("initialPayment", e.target.value)} placeholder="0" />
+                {salePriceNum > 0 &&
+                  (form.assetType !== "LAND" || !!form.projectId) &&
+                  !form.atsDate && !atsDocUrl && (
+                  <p className={`text-caption ${initialPaymentNum > salePriceNum * 0.1 ? "text-danger" : "text-muted-foreground"}`}>
+                    RERA cap: max 10% before agreement = {formatCurrency(salePriceNum * 0.1)}.
+                    {initialPaymentNum > salePriceNum * 0.1 && " Fill the ATS date or upload the ATS to collect more."}
+                  </p>
+                )}
               </div>
               {initialPaymentNum > 0 && (
                 <div className="space-y-1.5">
