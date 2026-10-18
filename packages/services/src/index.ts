@@ -825,6 +825,7 @@ export {
   cancelLeaveRequest,
   leaveBalance,
   ANNUAL_LEAVE_ENTITLEMENT,
+  effectiveLeaveEntitlement,
   type CreateLeaveInput,
   type ApproveLeaveInput,
 } from "./leave";

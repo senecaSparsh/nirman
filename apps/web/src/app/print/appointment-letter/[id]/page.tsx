@@ -142,7 +142,7 @@ export default async function AppointmentLetterPage({
               <p className="whitespace-pre-line text-gray-700">{employeeAddress}</p>
             )}
             {employee.phone && <p>Phone: {employee.phone}</p>}
-            {employee.email && <p>Email: {employee.email}</p>}
+            {employee.email && !employee.email.endsWith("@nirman.internal") && <p>Email: {employee.email}</p>}
             {canSeeDocs && employee.dateOfBirth && (
               <p>Date of Birth: {formatDate(employee.dateOfBirth)}</p>
             )}
@@ -193,6 +193,11 @@ export default async function AppointmentLetterPage({
                 <strong>Work Location:</strong> {workLocation}
                 {employee.activeProject ? ` (Project: ${employee.activeProject.name})` : ""}
               </li>
+              {employee.paidLeaveQuota != null && (
+                <li>
+                  <strong>Paid Leave Quota:</strong> {employee.paidLeaveQuota} days per calendar year
+                </li>
+              )}
             </ul>
           </div>
 

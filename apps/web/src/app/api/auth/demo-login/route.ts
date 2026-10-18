@@ -99,17 +99,16 @@ export const POST = async (req: NextRequest) => {
     // credential Account with the demo password. Everything in one
     // transaction so a partial failure can't leave a passwordless account.
     const result = await withSerializableTransaction(async (tx) => {
-      // Prefer an existing user that already has this role (matches seed).
-      let user = await tx.user.findFirst({
-        where: { role },
+      // Prefer the canonical demo user for this button (ROLE_EMAILS), then
+      // fall back to any existing user with this role.
+      let user = await tx.user.findUnique({
+        where: { email },
         select: { id: true, email: true, name: true, role: true, companyId: true },
       });
 
-      // Otherwise fall back to the canonical demo email for the role, then
-      // to creating a fresh user.
       if (!user) {
-        user = await tx.user.findUnique({
-          where: { email },
+        user = await tx.user.findFirst({
+          where: { role },
           select: { id: true, email: true, name: true, role: true, companyId: true },
         });
       }

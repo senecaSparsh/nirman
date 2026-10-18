@@ -35,6 +35,7 @@ export default async function AcceptAgreementPage({
       contractEndDate: true,
       probationEndDate: true,
       noticePeriodDays: true,
+      paidLeaveQuota: true,
       contractStatus: true,
       contractIssuedAt: true,
       contractConfirmedAt: true,
@@ -160,6 +161,12 @@ export default async function AcceptAgreementPage({
                   <td className="px-3 py-2 font-semibold text-gray-600 bg-gray-50">Notice Period</td>
                   <td className="px-3 py-2">{noticeText}</td>
                 </tr>
+                {employee.paidLeaveQuota != null && (
+                  <tr className="border-t border-gray-100">
+                    <td className="px-3 py-2 font-semibold text-gray-600 bg-gray-50">Paid Leave Quota</td>
+                    <td className="px-3 py-2">{employee.paidLeaveQuota} days per year</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

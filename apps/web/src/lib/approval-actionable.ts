@@ -1,5 +1,5 @@
 import { prisma } from "@nirman/db";
-import { canSelfApprovePurchaseOrder, canWaiveSelfApproval } from "@nirman/services";
+import { canAutoApprove, canSelfApprovePurchaseOrder, canWaiveSelfApproval } from "@nirman/services";
 import {
   getActingRole,
   getCurrentUser,
@@ -89,4 +89,13 @@ export async function actionableApprovals(companyId: string) {
     pos: pos.filter((po) => canApprovePoRow(gates.get(po.projectId ?? ""), po.total.toString(), thresholds)),
     reqs: reqs.filter((r) => canApproveIndentRow(gates.get(r.projectId ?? ""))),
   };
+}
+
+/** Gate passes the caller can approve — the rule the sidebar badge counts. null = caller has no gate-pass approval. */
+export async function actionableGatePassWhere(companyId: string) {
+  const user = await getCurrentUser();
+  const [perms, scopedPerms] = await Promise.all([getUserPermissions(), getScopedRolePermissions()]);
+  if (!user || !(perms.includes(PERM.GATE_PASS_APPROVE) || scopedPerms.includes(PERM.GATE_PASS_APPROVE))) return null;
+  const gpSelf = canAutoApprove(await getActingRole()) ? {} : notCreatedBy(user.id);
+  return { companyId, status: "PENDING" as const, ...gpSelf, ...(await scopeWhere("GatePass")) };
 }

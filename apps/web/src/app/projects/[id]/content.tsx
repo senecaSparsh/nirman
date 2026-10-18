@@ -216,7 +216,10 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
       where: { projectId: id },
       orderBy: { date: "desc" },
       take: 20,
-      include: { submittedBy: { select: { name: true } } },
+      include: {
+        submittedBy: { select: { name: true } },
+        _count: { select: { laborLines: true } },
+      },
     }),
   ]);
 
@@ -543,14 +546,15 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
     reportDate: d.date.toISOString(),
     workType: d.workType,
     approvalStatus: d.approvalStatus,
-    labourCount: 0, // labour lines not counted in this query
+    labourCount: d._count.laborLines,
     notes: d.workSummary,
     submittedByName: d.submittedBy?.name ?? null,
   }));
 
   // Variance data
   const materialIssuesTotal = issueRows.reduce((s, i) => s + toNum(i.totalCost), 0);
-  const otherCostsTotal = costRows.reduce((s, c) => s + toNum(c.amount), 0);
+  const labourCostTotal = costRows.filter((c) => c.costType === "LABOUR").reduce((s, c) => s + toNum(c.amount), 0);
+  const otherCostsTotal = costRows.filter((c) => c.costType !== "LABOUR").reduce((s, c) => s + toNum(c.amount), 0);
   const workOrderTotal = workOrderRows.reduce((s, w) => s + toNum(w.totalValue), 0);
   const landCostTotal = parcelRows.reduce((s, p) => s + toNum(p.acquisitionCost), 0);
   const actualTotal = toNum(pnlResult.total);
@@ -626,7 +630,7 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
       actualTotal,
       variancePct: budgetTotal > 0 ? ((actualTotal - budgetTotal) / budgetTotal) * 100 : 0,
       materialIssuesTotal,
-      labourCostTotal: 0, // labour cost not separately tracked per project yet
+      labourCostTotal,
       workOrderTotal,
       otherCostsTotal,
       landCostTotal,

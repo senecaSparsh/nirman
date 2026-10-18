@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
-import { computeAttendanceTier, canAutoApprove } from "@nirman/services";
+import { computeAttendanceTier, canAutoApprove, effectiveLeaveEntitlement } from "@nirman/services";
 import { getActingRole, getCompany, toNum, getUserScope, scopeWhere, getScopedFormOptions, getCurrentUser, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
@@ -75,7 +75,7 @@ async function AttendanceContent() {
       where: {...await scopeWhere("LeaveRequest"),  companyId: company.id },
       orderBy: { createdAt: "desc" },
       include: {
-        employee: { select: { id: true, name: true, trade: true, designation: true, userId: true } },
+        employee: { select: { id: true, name: true, trade: true, designation: true, userId: true, paidLeaveQuota: true } },
         approvedBy: { select: { id: true, name: true } }}}),
     prisma.employee.findMany({
       take: 200,
@@ -118,12 +118,13 @@ async function AttendanceContent() {
   if (projectDateKeys.size > 0) {
     const dprs = await prisma.dailyProgressReport.findMany({
       take: 200,
-      where: {...await scopeWhere("DailyProgressReport"),  project: { companyId: company.id } },
+      where: { ...await scopeWhere("DailyProgressReport"), project: { companyId: company.id }, date: { gte: weekAgo } },
       select: { projectId: true, date: true, approvalStatus: true }});
     for (const dpr of dprs) {
       const key = `${dpr.projectId}|${dpr.date.toISOString().slice(0, 10)}`;
       if (projectDateKeys.has(key)) {
-        dprApprovalMap.set(key, dpr.approvalStatus === "APPROVED");
+        if (dpr.approvalStatus === "APPROVED") dprApprovalMap.set(key, true);
+        else if (!dprApprovalMap.has(key)) dprApprovalMap.set(key, false);
       }
     }
   }
@@ -135,7 +136,9 @@ async function AttendanceContent() {
     const tier = computeAttendanceTier({
       status: r.status,
       hasGpsCheckIn,
-      dprApproved});
+      dprApproved,
+      geoFenceOk: r.geoFenceOk,
+      offSiteReview: r.offSiteReview});
     return {
       id: r.id,
       employeeId: r.employeeId,
@@ -158,23 +161,45 @@ async function AttendanceContent() {
       checkOutLocation: r.checkOutLocation};
   });
 
-  const leaveRows = leaves.map((l) => ({
-    id: l.id,
-    employeeId: l.employeeId,
-    employeeUserId: l.employee?.userId ?? null,
-    employeeName: l.employee.name,
-    employeeTrade: l.employee.trade,
-    employeeDesignation: l.employee.designation,
-    type: l.type,
-    startDate: l.startDate.toISOString(),
-    endDate: l.endDate.toISOString(),
-    days: toNum(l.days),
-    reason: l.reason,
-    status: l.status,
-    approvedByName: l.approvedBy?.name ?? null,
-    approvedAt: l.approvedAt?.toISOString() ?? null,
-    rejectedReason: l.rejectedReason,
-    createdAt: l.createdAt.toISOString()}));
+  const leaveUsageByType = new Map<string, number>();
+  const leaveUsageTotalPaid = new Map<string, number>();
+  for (const l of leaves) {
+    if (l.status !== "APPROVED") continue;
+    const yr = l.startDate.getUTCFullYear();
+    const d = toNum(l.days);
+    const typeKey = `${l.employeeId}:${l.type}:${yr}`;
+    leaveUsageByType.set(typeKey, (leaveUsageByType.get(typeKey) ?? 0) + d);
+    if (l.type !== "UNPAID") {
+      const paidKey = `${l.employeeId}:${yr}`;
+      leaveUsageTotalPaid.set(paidKey, (leaveUsageTotalPaid.get(paidKey) ?? 0) + d);
+    }
+  }
+
+  const leaveRows = leaves.map((l) => {
+    const yr = l.startDate.getUTCFullYear();
+    const hasCustomQuota = l.employee.paidLeaveQuota != null && l.type !== "UNPAID";
+    return {
+      id: l.id,
+      employeeId: l.employeeId,
+      employeeUserId: l.employee?.userId ?? null,
+      employeeName: l.employee.name,
+      employeeTrade: l.employee.trade,
+      employeeDesignation: l.employee.designation,
+      type: l.type,
+      startDate: l.startDate.toISOString(),
+      endDate: l.endDate.toISOString(),
+      days: toNum(l.days),
+      usedDays: hasCustomQuota
+        ? (leaveUsageTotalPaid.get(`${l.employeeId}:${yr}`) ?? 0)
+        : (leaveUsageByType.get(`${l.employeeId}:${l.type}:${yr}`) ?? 0),
+      entitlement: effectiveLeaveEntitlement(l.type, l.employee.paidLeaveQuota),
+      reason: l.reason,
+      status: l.status,
+      approvedByName: l.approvedBy?.name ?? null,
+      approvedAt: l.approvedAt?.toISOString() ?? null,
+      rejectedReason: l.rejectedReason,
+      createdAt: l.createdAt.toISOString()};
+  });
 
   return (
     <>

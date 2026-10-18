@@ -15,6 +15,7 @@ export type EmployeeDossierInput = {
   probationEndDate?: string | null;
   confirmationDate?: string | null;
   noticePeriodDays?: number | null;
+  paidLeaveQuota?: number | null;
   contractStartDate?: string | null;
   contractEndDate?: string | null;
   payDay?: number | null;
@@ -175,6 +176,7 @@ export async function updateEmployeeDossier(
     if (input.probationEndDate !== undefined) data.probationEndDate = input.probationEndDate ? parseDossierDate(input.probationEndDate, "probation end date") : null;
     if (input.confirmationDate !== undefined) data.confirmationDate = input.confirmationDate ? parseDossierDate(input.confirmationDate, "confirmation date") : null;
     if (input.noticePeriodDays !== undefined) data.noticePeriodDays = input.noticePeriodDays ?? null;
+    if (input.paidLeaveQuota !== undefined) data.paidLeaveQuota = input.paidLeaveQuota ?? null;
     if (input.contractStartDate !== undefined) data.contractStartDate = input.contractStartDate ? parseDossierDate(input.contractStartDate, "contract start date") : null;
     if (input.contractEndDate !== undefined) data.contractEndDate = input.contractEndDate ? parseDossierDate(input.contractEndDate, "contract end date") : null;
     // Contract window sanity — end can't precede start. Validate the merged

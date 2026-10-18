@@ -51,7 +51,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     },
     include: {
       reportingLocation: {
-        select: { id: true, name: true, lat: true, lng: true, geoRadius: true },
+        select: { id: true, name: true, lat: true, lng: true, geoRadius: true, projectId: true },
       },
     },
   });
@@ -89,10 +89,11 @@ export const POST = apiHandler(async (req: NextRequest) => {
   //   3. The company's verified HQ geofence.
   let geoFenceOk: boolean | undefined;
   let geoFenceDistance: number | undefined;
-  const projectSiteFence = parsed.data.projectId
+  const effectiveProjectId = parsed.data.projectId ?? employee.activeProjectId ?? employee.reportingLocation?.projectId ?? undefined;
+  const projectSiteFence = effectiveProjectId
     ? await prisma.stockLocation.findFirst({
         where: {
-          projectId: parsed.data.projectId,
+          projectId: effectiveProjectId,
           companyId: company.id,
           deletedAt: null,
           lat: { not: null },
@@ -125,7 +126,7 @@ const attendance = await recordAttendance({
     companyId: company.id,
     employeeId: parsed.data.employeeId,
     date: attendanceDate,
-    projectId: parsed.data.projectId ?? undefined,
+    projectId: effectiveProjectId,
     checkIn: new Date(),
     status: "PRESENT",
     checkInLat: parsed.data.checkInLat,

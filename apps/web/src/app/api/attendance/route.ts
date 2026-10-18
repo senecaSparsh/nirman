@@ -87,7 +87,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
     });
     for (const dpr of dprs) {
       const key = `${dpr.projectId}|${dpr.date.toISOString().slice(0, 10)}`;
-      dprApprovalMap.set(key, dpr.approvalStatus === "APPROVED");
+      if (dpr.approvalStatus === "APPROVED") dprApprovalMap.set(key, true);
+      else if (!dprApprovalMap.has(key)) dprApprovalMap.set(key, false);
     }
   }
 
@@ -100,6 +101,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         hasGpsCheckIn,
         dprApproved,
         geoFenceOk: r.geoFenceOk,
+        offSiteReview: r.offSiteReview,
       });
       return {
         id: r.id,

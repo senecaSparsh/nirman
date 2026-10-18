@@ -449,6 +449,7 @@ model Employee {
   probationEndDate  DateTime?       // when probation ends (if employmentType = PROBATION)
   confirmationDate  DateTime?       // when confirmed as permanent
   noticePeriodDays  Int?            // notice period in days (e.g. 30, 60, 90)
+  paidLeaveQuota    Int?            // annual paid leave days allowed (set at enrollment, e.g. 4 or 2; null = default entitlement)
   contractStartDate DateTime?       // contract start (if employmentType = CONTRACT)
   contractEndDate   DateTime?       // contract end / renewal date
   // ── Contract / agreement tracking ──

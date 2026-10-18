@@ -18,6 +18,7 @@ import {
   computeStatusFromHours,
   countLateDays,
   computeLateHalfDayDeductions,
+  computeAttendanceTier,
   monthRange,
   computeWorkingDays,
 } from "./hr";
@@ -275,5 +276,17 @@ describe("payroll date boundaries", () => {
 
   it("includes February 29 in a leap year", () => {
     expect(monthRange(2024, 2).endDate.toISOString().slice(0, 10)).toBe("2024-02-29");
+  });
+});
+
+describe("computeAttendanceTier with offSiteReview", () => {
+  it("keeps outside-geofence check-in RED while offSiteReview is PENDING or null", () => {
+    expect(computeAttendanceTier({ status: "PRESENT", hasGpsCheckIn: true, geoFenceOk: false, offSiteReview: "PENDING", dprApproved: true })).toBe("RED");
+    expect(computeAttendanceTier({ status: "PRESENT", hasGpsCheckIn: true, geoFenceOk: false, offSiteReview: null, dprApproved: true })).toBe("RED");
+  });
+
+  it("upgrades outside-geofence check-in to YELLOW/GREEN once senior approves offSiteReview", () => {
+    expect(computeAttendanceTier({ status: "PRESENT", hasGpsCheckIn: true, geoFenceOk: false, offSiteReview: "APPROVED", dprApproved: false })).toBe("YELLOW");
+    expect(computeAttendanceTier({ status: "PRESENT", hasGpsCheckIn: true, geoFenceOk: false, offSiteReview: "APPROVED", dprApproved: true })).toBe("GREEN");
   });
 });

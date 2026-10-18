@@ -197,6 +197,7 @@ async function AccountsOverviewContent() {
     recentProjectCosts,
     qaCtx,
     pendingFinanceApprovals,
+    approvedRaBills,
   ] = await Promise.all([
     getTallySyncStats(company.id).catch(() => ({
       total: 0, synced: 0, failed: 0, pending: 0, imported: 0, variance: 0})),
@@ -261,17 +262,45 @@ async function AccountsOverviewContent() {
       ]);
       return e + c + b;
     })().catch(() => 0),
+    prisma.raBill.findMany({
+      where: { ...await scopeWhere("RaBill"), companyId: company.id, status: "APPROVED" },
+      select: { id: true, raBillNumber: true, netPayable: true,
+        workOrder: { select: { subcontractor: { select: { name: true } } } } },
+      orderBy: { netPayable: "desc" },
+      take: 200,
+    }).catch(() => []),
   ]);
 
   // Only suppliers with outstanding balance > 0 are "payable"
   const payableSuppliers = allSupplierOutstanding
     .filter((s) => toNum(s.balanceOwed) > 0)
     .sort((a, b) => toNum(b.balanceOwed) - toNum(a.balanceOwed));
+  // Approved-but-unpaid RA bills are subcontractor payables — supplier cards
+  // only cover material vendors (the AP credit posts at RA approval).
+  const raBySub = new Map<string, number>();
+  for (const b of approvedRaBills) {
+    const name = b.workOrder.subcontractor.name;
+    raBySub.set(name, (raBySub.get(name) ?? 0) + toNum(b.netPayable));
+  }
+  const raPayables = [...raBySub.entries()]
+    .map(([name, payable]) => ({ name, payable }))
+    .filter((r) => r.payable > 0.01)
+    .sort((a, b) => b.payable - a.payable);
+  const raPayableTotal = raPayables.reduce((s, r) => s + r.payable, 0);
   const totalPayables = payableSuppliers.reduce(
     (s, x) => s + toNum(x.balanceOwed),
     0,
-  );
-  const topPayable = payableSuppliers[0];
+  ) + raPayableTotal;
+  // Largest single payable across both subledgers — supplier or subcontractor.
+  const topPayable = [
+    ...(payableSuppliers[0]
+      ? [{ name: payableSuppliers[0].name, amount: toNum(payableSuppliers[0].balanceOwed), href: "/m/suppliers" }]
+      : []),
+    ...(raPayables[0]
+      ? [{ name: raPayables[0].name, amount: raPayables[0].payable, href: "/m/work-orders" }]
+      : []),
+  ].sort((a, b) => b.amount - a.amount)[0] ?? null;
+  const payableCount = payableSuppliers.length + raPayables.length;
   const totalReceipts = recentReceipts.reduce(
     (s, r) => s + toNum(r.amount),
     0,
@@ -322,6 +351,18 @@ async function AccountsOverviewContent() {
       href: "/m/suppliers",
       severity: "low",
       qtyText: formatCurrency(toNum(s.balanceOwed)),
+      category: "Payable"});
+  }
+
+  // Approved-but-unpaid RA bills — subcontractors waiting on payment
+  for (const r of raPayables.slice(0, 2)) {
+    attentionBanners.push({
+      id: `ra-pay-${r.name}`,
+      title: r.name,
+      subtitle: `Approved RA bills · ${formatCurrency(r.payable)}`,
+      href: "/m/reports/pending-payments",
+      severity: "low",
+      qtyText: formatCurrency(r.payable),
       category: "Payable"});
   }
 
@@ -412,7 +453,7 @@ async function AccountsOverviewContent() {
 
         {/* Top payable line — flag: amber if outstanding, green if none */}
         <Link
-          href={topPayable ? "/m/suppliers" : "/m/accounts?tab=payments"}
+          href={topPayable ? topPayable.href : "/m/accounts?tab=payments"}
           className="flex items-center gap-2.5 px-3 py-3 text-m-body press"
           style={{ borderBottom: "1px solid var(--color-line)" }}
         >
@@ -427,9 +468,9 @@ async function AccountsOverviewContent() {
               <>
                 <span className="font-bold">{topPayable.name}</span>
                 <span style={{ color: "var(--color-ink-500)" }}> owes </span>
-                <span className="font-bold tabular-nums">{formatCurrency(toNum(topPayable.balanceOwed))}</span>
-                {payableSuppliers.length > 1 && (
-                  <span style={{ color: "var(--color-ink-500)" }}> · {payableSuppliers.length - 1} more · {formatCurrencyCompact(totalPayables)} total</span>
+                <span className="font-bold tabular-nums">{formatCurrency(topPayable.amount)}</span>
+                {payableCount > 1 && (
+                  <span style={{ color: "var(--color-ink-500)" }}> · {payableCount - 1} more · {formatCurrencyCompact(totalPayables)} total</span>
                 )}
               </>
             ) : (

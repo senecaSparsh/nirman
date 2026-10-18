@@ -24,26 +24,36 @@ async function PayrollExpenseContent() {
   const __effPerms = await getUserPermissions();
   const company = await getCompany();
 
-  if (!__effPerms.includes(PERM.FINANCE_VIEW)) {
+  if (!__effPerms.includes(PERM.FINANCE_VIEW) && !__effPerms.includes(PERM.PAYROLL_VIEW)) {
     return (
-      <NoAccess what="the labour cost report" permission={PERM.FINANCE_VIEW} />
+      <NoAccess what="the labour cost report" permission={PERM.PAYROLL_VIEW} />
     );
   }
 
   // Last 12 months of payroll periods
   const now = new Date();
   const from = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+  const to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
   const periods = await prisma.payrollPeriod.findMany({
     take: 500,
     where: {
       companyId: company.id,
-      startDate: { gte: from },
+      startDate: { gte: from, lte: to },
     },
     include: {
       lines: {
         include: {
-          employee: { select: { id: true, name: true, trade: true, crewId: true, crew: { select: { name: true } } } },
+          employee: {
+            select: {
+              id: true,
+              name: true,
+              trade: true,
+              crewId: true,
+              crew: { select: { name: true } },
+              activeProject: { select: { name: true } },
+            },
+          },
         },
       },
     },
@@ -70,7 +80,7 @@ async function PayrollExpenseContent() {
       const trade = line.employee.trade ?? "Unassigned";
       if (!byTrade.has(trade)) byTrade.set(trade, { trade, gross: 0, net: 0, employees: new Set() });
       const row = byTrade.get(trade)!;
-      row.gross += toNum(line.basicAmount) + toNum(line.overtimeAmount);
+      row.gross += toNum(line.grossPay);
       row.net += toNum(line.netPay);
       row.employees.add(line.employee.id);
     }
@@ -86,13 +96,29 @@ async function PayrollExpenseContent() {
       const crew = line.employee.crew?.name ?? "No crew";
       if (!byCrew.has(crew)) byCrew.set(crew, { crew, gross: 0, net: 0, employees: new Set() });
       const row = byCrew.get(crew)!;
-      row.gross += toNum(line.basicAmount) + toNum(line.overtimeAmount);
+      row.gross += toNum(line.grossPay);
       row.net += toNum(line.netPay);
       row.employees.add(line.employee.id);
     }
   }
   const crewRows = Array.from(byCrew.values())
     .map((r) => ({ crew: r.crew, gross: r.gross, net: r.net, employees: r.employees.size }))
+    .sort((a, b) => b.gross - a.gross);
+
+  // By project / site
+  const byProject = new Map<string, { project: string; gross: number; net: number; employees: Set<string> }>();
+  for (const p of periods) {
+    for (const line of p.lines) {
+      const project = line.employee.activeProject?.name ?? "Unassigned / Head Office";
+      if (!byProject.has(project)) byProject.set(project, { project, gross: 0, net: 0, employees: new Set() });
+      const row = byProject.get(project)!;
+      row.gross += toNum(line.grossPay);
+      row.net += toNum(line.netPay);
+      row.employees.add(line.employee.id);
+    }
+  }
+  const projectRows = Array.from(byProject.values())
+    .map((r) => ({ project: r.project, gross: r.gross, net: r.net, employees: r.employees.size }))
     .sort((a, b) => b.gross - a.gross);
 
   const totalGross = monthly.reduce((s, m) => s + toNum(m.gross), 0);
@@ -103,7 +129,7 @@ async function PayrollExpenseContent() {
     <>
       <PageHeader
         title="Payroll Expense"
-        description="Monthly salary spend and comparative analysis by trade and crew — workforce cost over the last 12 months."
+        description="Monthly salary spend and comparative analysis by project/site, trade, and crew — workforce cost over the last 12 months."
         stats={[
           { label: "Gross (12mo)", value: formatCurrency(totalGross) },
           { label: "Net (12mo)", value: formatCurrency(totalNet) },
@@ -115,6 +141,7 @@ async function PayrollExpenseContent() {
         monthly={monthly}
         tradeRows={tradeRows}
         crewRows={crewRows}
+        projectRows={projectRows}
         totalGross={totalGross}
         totalNet={totalNet}
         totalOvertime={totalOvertime}

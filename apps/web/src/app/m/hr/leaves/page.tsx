@@ -6,7 +6,7 @@ import { prisma } from "@nirman/db";
 import { CalendarDays, Plus } from "lucide-react";
 import { getCompany, getActionPermissions, scopeWhere, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { ANNUAL_LEAVE_ENTITLEMENT } from "@nirman/services";
+import { effectiveLeaveEntitlement } from "@nirman/services";
 import {
   MobileEmptyState,
   MobileStatCard,
@@ -47,7 +47,7 @@ async function MobileLeavesContent() {
       orderBy: { startDate: "desc" },
       take: 50,
       include: {
-        employee: { select: { id: true, name: true, trade: true } },
+        employee: { select: { id: true, name: true, trade: true, paidLeaveQuota: true } },
       },
     }),
     actions.canRecordLeave
@@ -85,23 +85,33 @@ async function MobileLeavesContent() {
       ))).flat()
     : [];
   const usageByKey = new Map(usageRows.map((r) => [`${r.employeeId}:${r.type}:${r.year}`, Number(r.days ?? 0)]));
+  const totalPaidUsageByKey = new Map<string, number>();
+  for (const r of usageRows) {
+    if (r.type === "UNPAID") continue;
+    const key = `${r.employeeId}:${r.year}`;
+    totalPaidUsageByKey.set(key, (totalPaidUsageByKey.get(key) ?? 0) + Number(r.days ?? 0));
+  }
 
-  const serialized = leaves.map((l) => ({
-    id: l.id,
-    employeeId: l.employeeId,
-    employeeName: l.employee.name,
-    employeeTrade: l.employee.trade ?? null,
-    type: l.type,
-    status: l.status,
-    startDate: l.startDate.toISOString(),
-    endDate: l.endDate.toISOString(),
-    reason: l.reason ?? null,
-    days: Math.ceil(
-      (new Date(l.endDate).getTime() - new Date(l.startDate).getTime()) / (24 * 60 * 60 * 1000),
-    ) + 1,
-    usedDays: usageByKey.get(`${l.employeeId}:${l.type}:${new Date(l.startDate).getUTCFullYear()}`) ?? 0,
-    entitlement: ANNUAL_LEAVE_ENTITLEMENT[l.type] ?? 0,
-  }));
+  const serialized = leaves.map((l) => {
+    const yr = new Date(l.startDate).getUTCFullYear();
+    const hasCustomQuota = l.employee.paidLeaveQuota != null && l.type !== "UNPAID";
+    return {
+      id: l.id,
+      employeeId: l.employeeId,
+      employeeName: l.employee.name,
+      employeeTrade: l.employee.trade ?? null,
+      type: l.type,
+      status: l.status,
+      startDate: l.startDate.toISOString(),
+      endDate: l.endDate.toISOString(),
+      reason: l.reason ?? null,
+      days: Number(l.days),
+      usedDays: hasCustomQuota
+        ? (totalPaidUsageByKey.get(`${l.employeeId}:${yr}`) ?? 0)
+        : (usageByKey.get(`${l.employeeId}:${l.type}:${yr}`) ?? 0),
+      entitlement: effectiveLeaveEntitlement(l.type, l.employee.paidLeaveQuota),
+    };
+  });
 
   const csvColumns: MobileColumnSpec[] = [
     { key: "employeeName", label: "Employee" },

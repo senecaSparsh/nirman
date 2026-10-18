@@ -42,7 +42,13 @@ async function MobilePendingListContent() {
 
   // Per-section gates — an hr.view-only user must not see payroll totals,
   // cross-scope POs, or approval queues they can't act on.
-  const canApproveDpr = __effPerms.includes(PERM.DPR_APPROVE_SUB_ADMIN) || __effPerms.includes(PERM.DPR_APPROVE_ADMIN);
+  const canApproveSubAdmin = __effPerms.includes(PERM.DPR_APPROVE_SUB_ADMIN);
+  const canApproveAdmin = __effPerms.includes(PERM.DPR_APPROVE_ADMIN);
+  const approvableDprStatuses = [
+    ...(canApproveSubAdmin ? ["SUBMITTED" as const] : []),
+    ...(canApproveAdmin ? ["SUB_ADMIN_APPROVED" as const] : []),
+  ];
+  const canApproveDpr = approvableDprStatuses.length > 0;
   const canManageLeave = __effPerms.includes(PERM.HR_MANAGE);
   const canSeePayroll = __effPerms.includes(PERM.PAYROLL_VIEW) || __effPerms.includes(PERM.PAYROLL_MANAGE);
   const canApprovePo = __effPerms.includes(PERM.PO_APPROVE);
@@ -66,7 +72,7 @@ async function MobilePendingListContent() {
     pendingTasks,
   ] = await Promise.all([
     canApproveDpr ? prisma.dailyProgressReport.findMany({
-      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: "SUBMITTED", submittedById: { not: userId } },
+      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: { in: approvableDprStatuses }, submittedById: { not: userId } },
       orderBy: { date: "desc" },
       take: 15,
       include: {

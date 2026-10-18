@@ -129,9 +129,9 @@ export default async function EmploymentAgreementPage({
   // Prefer the employee's real contact details over login credentials —
   // user.email for phone-login accounts is a synthetic @nirman.internal
   // placeholder, and user.phone is the login identity, not the contact phone.
-  const userEmail = employee.user?.email?.endsWith("@nirman.internal") ? null : employee.user?.email;
+  const cleanEmail = (e?: string | null) => (e && !e.endsWith("@nirman.internal") ? e : null);
   const employeePhone = employee.phone ?? employee.user?.phone ?? "—";
-  const employeeEmail = employee.email ?? userEmail ?? "—";
+  const employeeEmail = cleanEmail(employee.email) ?? cleanEmail(employee.user?.email) ?? "—";
   const employeeCode = employee.user?.employeeCode ?? "—";
 
   return (
@@ -267,7 +267,10 @@ export default async function EmploymentAgreementPage({
           {/* 4. Benefits */}
           <section>
             <h4 className="font-bold text-gray-900">4. Benefits &amp; Allowances</h4>
-            <p>The Employee is eligible for the following benefits: {benefitsText}.</p>
+            <p>
+              The Employee is eligible for the following benefits: {benefitsText}.
+              {employee.paidLeaveQuota != null ? ` The Employee is entitled to ${employee.paidLeaveQuota} days of paid leave per calendar year.` : ""}
+            </p>
           </section>
 
           {/* 5. Working Hours */}

@@ -212,6 +212,7 @@ async function MobileOnboardingDetailContent({
     probationEndDate: canSeeComp && employee.probationEndDate ? employee.probationEndDate.toISOString() : null,
     confirmationDate: canSeeComp && employee.confirmationDate ? employee.confirmationDate.toISOString() : null,
     noticePeriodDays: canSeeComp ? employee.noticePeriodDays : null,
+    paidLeaveQuota: canSeeComp ? employee.paidLeaveQuota : null,
     contractStartDate: canSeeComp && employee.contractStartDate ? employee.contractStartDate.toISOString() : null,
     contractEndDate: canSeeComp && employee.contractEndDate ? employee.contractEndDate.toISOString() : null,
     autoDepositEnabled: canSeeComp ? employee.autoDepositEnabled : false,

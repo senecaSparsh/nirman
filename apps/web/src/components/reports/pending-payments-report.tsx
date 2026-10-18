@@ -341,7 +341,7 @@ export function PendingPaymentsReport({
 
       <Tabs defaultValue="payables">
         <TabsList>
-          <TabsTrigger value="payables" count={overduePOs.length}>Unpaid POs</TabsTrigger>
+          <TabsTrigger value="payables" count={overduePOs.length}>Payables</TabsTrigger>
           <TabsTrigger value="receivables" count={receivables.length}>Receivables</TabsTrigger>
           {draftPOs.length > 0 && (
             <TabsTrigger value="drafts" count={draftPOs.length}>Draft POs</TabsTrigger>

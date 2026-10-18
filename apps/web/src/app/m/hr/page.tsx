@@ -76,7 +76,7 @@ export default function HrHomePage() {
         ] = await Promise.all([
           prisma.dailyProgressReport
             .findMany({
-              where: { ...dprScope },
+              where: { ...dprScope, date: { lte: todayDateOnly } },
               orderBy: { createdAt: "desc" },
               take: 5,
               include: { project: { select: { name: true } } }})
@@ -129,7 +129,7 @@ export default function HrHomePage() {
             : Promise.resolve(0),
           prisma.payrollPeriod
             .findFirst({
-              where: { companyId: company.id, status: "DRAFT" },
+              where: { companyId: company.id, status: "DRAFT", year: { lte: today.getFullYear() + 1 } },
               orderBy: [{ year: "desc" }, { month: "desc" }],
               select: { id: true, month: true, year: true, totalNet: true }})
             .catch(() => null),

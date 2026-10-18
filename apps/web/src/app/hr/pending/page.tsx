@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import Link from "next/link";
 import { prisma } from "@nirman/db";
 import { getCompany, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
+import { actionableApprovals, actionableGatePassWhere } from "@/lib/approval-actionable";
 import { PERM } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { PageHeader } from "@/components/page-header";
@@ -55,25 +56,35 @@ async function PendingListContent() {
   const _canApproveRequisition = __effPerms.includes(PERM.REQUISITION_APPROVE);
   const _canManagePayroll = __effPerms.includes(PERM.PAYROLL_MANAGE);
 
+  const now = new Date();
+  const gatePassWhere = await actionableGatePassWhere(company.id);
   const [
     pendingDprs,
+    dprCount,
     pendingLeaves,
+    leaveCount,
     draftPayrolls,
-    pendingPurchaseOrders,
-    pendingRequisitions,
+    payrollCount,
+    approvals,
     pendingGatePasses,
+    gatePassCount,
     overdueTasks,
+    overdueCount,
     pendingTasks,
+    pendingTaskCount,
   ] = await Promise.all([
     // DPRs awaiting approval
     prisma.dailyProgressReport.findMany({
-      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: "SUBMITTED" },
+      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] } },
       orderBy: { date: "desc" },
       take: 20,
       include: {
         project: { select: { id: true, name: true } },
         submittedBy: { select: { id: true, name: true } },
       },
+    }),
+    prisma.dailyProgressReport.count({
+      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] } },
     }),
     // Leave requests pending
     prisma.leaveRequest.findMany({
@@ -82,6 +93,9 @@ async function PendingListContent() {
       take: 20,
       include: { employee: { select: { id: true, name: true } } },
     }),
+    prisma.leaveRequest.count({
+      where: {...await scopeWhere("LeaveRequest"),  companyId: company.id, status: "PENDING" },
+    }),
     // Draft payroll periods
     prisma.payrollPeriod.findMany({
       where: { companyId: company.id, status: "DRAFT" },
@@ -89,49 +103,29 @@ async function PendingListContent() {
       take: 10,
       include: { _count: { select: { lines: true } } },
     }),
+    prisma.payrollPeriod.count({ where: { companyId: company.id, status: "DRAFT" } }),
     // Purchase orders pending approval
-    prisma.purchaseOrder.findMany({
-      where: { companyId: company.id, status: "DRAFT" },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      include: {
-        supplier: { select: { id: true, name: true } },
-        project: { select: { id: true, name: true } },
-      },
-    }),
     // Requisitions pending approval
-    prisma.materialRequisition.findMany({
-      where: {
-        ...await scopeWhere("MaterialRequisition"),
-        OR: [
-          { project: { companyId: company.id, deletedAt: null } },
-          { department: { companyId: company.id, deletedAt: null } },
-        ],
-        status: "SUBMITTED",
-      },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      include: {
-        project: { select: { id: true, name: true } },
-        requestedBy: { select: { id: true, name: true } },
-      },
-    }),
+    actionableApprovals(company.id),
     // Gate passes pending approval — the sidebar badge counts these via
     // /api/approvals, so the page must show them too (badge ⊆ page).
-    prisma.gatePass.findMany({
-      where: {...await scopeWhere("GatePass"),  companyId: company.id, status: "PENDING" },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      include: {
-        project: { select: { id: true, name: true } },
-        submittedBy: { select: { id: true, name: true } },
-      },
-    }),
+    gatePassWhere
+      ? prisma.gatePass.findMany({
+          where: gatePassWhere,
+          orderBy: { createdAt: "desc" },
+          take: 20,
+          include: {
+            project: { select: { id: true, name: true } },
+            submittedBy: { select: { id: true, name: true } },
+          },
+        })
+      : [],
+    gatePassWhere ? prisma.gatePass.count({ where: gatePassWhere }) : 0,
     // Overdue tasks (due date passed, not completed)
     prisma.task.findMany({
       where: {...await scopeWhere("Task"), 
         status: { in: ["PENDING", "IN_PROGRESS"] },
-        dueDate: { lt: new Date() },
+        dueDate: { lt: now },
       },
       orderBy: { dueDate: "asc" },
       take: 20,
@@ -140,11 +134,17 @@ async function PendingListContent() {
         assignedBy: { select: { id: true, name: true } },
       },
     }),
+    prisma.task.count({
+      where: {...await scopeWhere("Task"), 
+        status: { in: ["PENDING", "IN_PROGRESS"] },
+        dueDate: { lt: now },
+      },
+    }),
     // Pending tasks (not started, due in the future)
     prisma.task.findMany({
       where: {...await scopeWhere("Task"), 
         status: "PENDING",
-        dueDate: { gte: new Date() },
+        dueDate: { gte: now },
       },
       orderBy: { dueDate: "asc" },
       take: 20,
@@ -152,17 +152,16 @@ async function PendingListContent() {
         assignedTo: { select: { id: true, name: true } },
       },
     }),
+    prisma.task.count({
+      where: {...await scopeWhere("Task"), 
+        status: "PENDING",
+        dueDate: { gte: now },
+      },
+    }),
   ]);
 
-  const totalCount =
-    pendingDprs.length +
-    pendingLeaves.length +
-    draftPayrolls.length +
-    pendingPurchaseOrders.length +
-    pendingRequisitions.length +
-    pendingGatePasses.length +
-    overdueTasks.length +
-    pendingTasks.length;
+  const awaitingApproval = dprCount + leaveCount + approvals.pos.length + approvals.reqs.length + gatePassCount;
+  const totalCount = awaitingApproval + payrollCount + overdueCount + pendingTaskCount;
 
   return (
     <div className="space-y-4">
@@ -171,8 +170,8 @@ async function PendingListContent() {
         description="Everything that needs your attention — approvals, requests, and overdue tasks across all modules."
         stats={[
           { label: "Total pending", value: totalCount },
-          { label: "Overdue tasks", value: overdueTasks.length },
-          { label: "Awaiting approval", value: pendingDprs.length + pendingLeaves.length + pendingPurchaseOrders.length + pendingRequisitions.length + pendingGatePasses.length },
+          { label: "Overdue tasks", value: overdueCount },
+          { label: "Awaiting approval", value: awaitingApproval },
         ]}
       />
       <div className="flex justify-end">
@@ -193,12 +192,12 @@ async function PendingListContent() {
       )}
 
       {/* Overdue tasks — highest priority */}
-      {overdueTasks.length > 0 && (
+      {overdueCount > 0 && (
         <PendingSection
           title="Overdue Tasks"
           icon={<AlertCircle className="h-4 w-4 text-danger" />}
           tone="danger"
-          count={overdueTasks.length}
+          count={overdueCount}
           items={overdueTasks.map((t) => ({
             id: t.id,
             title: t.title,
@@ -211,51 +210,51 @@ async function PendingListContent() {
       )}
 
       {/* DPRs pending approval */}
-      {pendingDprs.length > 0 && (
+      {dprCount > 0 && (
         <PendingSection
           title="DPRs Pending Approval"
           icon={<FileText className="h-4 w-4 text-warning" />}
           tone="warning"
-          count={pendingDprs.length}
+          count={dprCount}
           items={pendingDprs.map((d) => ({
             id: d.id,
             title: d.project?.name ?? "Unknown project",
             subtitle: d.workSummary?.slice(0, 80) ?? "No summary",
             meta: `${formatDate(d.date)} · ${d.submittedBy?.name ?? "Unknown"}`,
-            href: "/hr/dprs",
+            href: `/hr/dprs?id=${d.id}`,
             tone: "warning" as const,
           }))}
         />
       )}
 
       {/* Leave requests pending */}
-      {pendingLeaves.length > 0 && (
+      {leaveCount > 0 && (
         <PendingSection
           title="Leave Requests Pending"
           icon={<CalendarOff className="h-4 w-4 text-info" />}
           tone="info"
-          count={pendingLeaves.length}
+          count={leaveCount}
           items={pendingLeaves.map((l) => ({
             id: l.id,
             title: l.employee?.name ?? "Unknown employee",
             subtitle: `${l.type} · ${toNum(l.days)} day${toNum(l.days) !== 1 ? "s" : ""}`,
             meta: `From ${formatDate(l.startDate)}`,
-            href: "/hr/attendance",
+            href: "/hr/attendance?tab=leave",
             tone: "info" as const,
           }))}
         />
       )}
 
       {/* Draft payrolls */}
-      {draftPayrolls.length > 0 && (
+      {payrollCount > 0 && (
         <PendingSection
           title="Draft Payrolls to Process"
           icon={<Wallet className="h-4 w-4 text-danger" />}
           tone="danger"
-          count={draftPayrolls.length}
+          count={payrollCount}
           items={draftPayrolls.map((p) => ({
             id: p.id,
-            title: `${p.month + 1}/${p.year}`,
+            title: `${p.month}/${p.year}`,
             subtitle: `${p._count.lines} employees`,
             meta: `Net: ${formatCurrency(toNum(p.totalNet))}`,
             href: "/hr/payroll",
@@ -265,34 +264,34 @@ async function PendingListContent() {
       )}
 
       {/* Purchase orders pending approval */}
-      {pendingPurchaseOrders.length > 0 && (
+      {approvals.pos.length > 0 && (
         <PendingSection
           title="Purchase Orders Pending Approval"
           icon={<ShoppingCart className="h-4 w-4 text-warning" />}
           tone="warning"
-          count={pendingPurchaseOrders.length}
-          items={pendingPurchaseOrders.map((po) => ({
+          count={approvals.pos.length}
+          items={approvals.pos.slice(0, 20).map((po) => ({
             id: po.id,
             title: po.poNumber,
-            subtitle: `${po.supplier?.name ?? "Unknown supplier"} · ${po.project?.name ?? "No project"}`,
+            subtitle: `${po.supplier?.name ?? "Unknown supplier"} · ${po._count.lines} line${po._count.lines === 1 ? "" : "s"}`,
             meta: `Total: ${formatCurrency(toNum(po.total))}`,
-            href: "/procurement",
+            href: `/procurement?po=${po.id}`,
             tone: "warning" as const,
           }))}
         />
       )}
 
       {/* Requisitions pending approval */}
-      {pendingRequisitions.length > 0 && (
+      {approvals.reqs.length > 0 && (
         <PendingSection
           title="Indents Pending Approval"
           icon={<Hammer className="h-4 w-4 text-warning" />}
           tone="warning"
-          count={pendingRequisitions.length}
-          items={pendingRequisitions.map((r) => ({
+          count={approvals.reqs.length}
+          items={approvals.reqs.slice(0, 20).map((r) => ({
             id: r.id,
             title: r.reqNumber,
-            subtitle: `${r.project?.name ?? "No project"} · ${r.requestedBy?.name ?? "Unknown"}`,
+            subtitle: `${r.project?.name ?? "No project"} · ${r._count.lines} line${r._count.lines === 1 ? "" : "s"}`,
             meta: formatDate(r.createdAt),
             href: "/requisitions",
             tone: "warning" as const,
@@ -301,12 +300,12 @@ async function PendingListContent() {
       )}
 
       {/* Gate passes pending approval */}
-      {pendingGatePasses.length > 0 && (
+      {gatePassCount > 0 && (
         <PendingSection
           title="Gate Passes Pending Approval"
           icon={<ShieldCheck className="h-4 w-4 text-warning" />}
           tone="warning"
-          count={pendingGatePasses.length}
+          count={gatePassCount}
           items={pendingGatePasses.map((g) => ({
             id: g.id,
             title: g.gatePassNumber,
@@ -319,12 +318,12 @@ async function PendingListContent() {
       )}
 
       {/* Pending tasks (not overdue) */}
-      {pendingTasks.length > 0 && (
+      {pendingTaskCount > 0 && (
         <PendingSection
           title="Upcoming Tasks"
           icon={<ClipboardList className="h-4 w-4 text-muted-foreground" />}
           tone="neutral"
-          count={pendingTasks.length}
+          count={pendingTaskCount}
           items={pendingTasks.map((t) => ({
             id: t.id,
             title: t.title,
@@ -404,6 +403,11 @@ function PendingSection({
           </Link>
         ))}
       </div>
+      {count > items.length && (
+        <p className="border-t border-inherit px-4 py-2 text-micro text-muted-foreground">
+          Showing {items.length} of {count}
+        </p>
+      )}
     </div>
   );
 }

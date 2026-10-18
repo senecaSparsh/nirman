@@ -708,6 +708,7 @@ export async function sellAsset(input: SellAssetInput) {
     } else if (initAmount.gt(0)) {
       // ── Partial initial payment: treat as a deposit (liability, no revenue yet) ──
       await markAssetStatus(tx, input.assetType, landParcelId, builtUnitId, "RESERVED", projectId || null);
+      await delistPortalListings(tx, builtUnitId, projectId || null);
 
       await tx.assetSalePayment.create({
         data: {

@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, requirePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
-import { logAction } from "@nirman/services";
+import { logAction, payPayroll } from "@nirman/services";
 import { z } from "zod";
 
 /**
@@ -80,15 +80,12 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
 
   // Auto-mark the period as PAID when ALL lines have a paymentDate
   const allLines = await prisma.payrollLine.findMany({
-    where: { payrollPeriodId: periodId, AND: [{ employee: { companyId: company.id } }, await scopeWhere("PayrollLine")] },
+    where: { payrollPeriodId: periodId },
     select: { paymentDate: true },
   });
   const allPaid = allLines.length > 0 && allLines.every((l) => l.paymentDate !== null);
-  if (allPaid && line.payrollPeriod.status !== "PAID") {
-    await prisma.payrollPeriod.update({
-      where: { id: periodId },
-      data: { status: "PAID", paidAt: new Date() },
-    });
+  if (allPaid && line.payrollPeriod.status === "PROCESSED") {
+    await payPayroll({ payrollPeriodId: periodId, userId: session.id, companyId: company.id });
   }
 
   await logAction(prisma, {

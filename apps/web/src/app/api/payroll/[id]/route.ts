@@ -24,6 +24,19 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     },
   });
   if (!period) return json({ error: "Payroll period not found" }, { status: 404 });
+  const lateCounts = period.lines.length > 0
+    ? await prisma.workerAttendance.groupBy({
+        by: ["employeeId"],
+        where: {
+          companyId: company.id,
+          employeeId: { in: period.lines.map((l) => l.employeeId) },
+          status: "LATE",
+          date: { gte: period.startDate, lte: period.endDate },
+        },
+        _count: { _all: true },
+      })
+    : [];
+  const lateByEmployee = new Map(lateCounts.map((r) => [r.employeeId, r._count._all]));
   return json({
     id: period.id,
     month: period.month,
@@ -60,6 +73,12 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       grossPay: toNum(l.grossPay),
       totalDeductions: toNum(l.totalDeductions),
       netPay: toNum(l.netPay),
+      lateDays: lateByEmployee.get(l.employeeId) ?? 0,
+      lateHalfDayCut: Math.floor((lateByEmployee.get(l.employeeId) ?? 0) / 4) * 0.5,
+      paymentReference: l.paymentReference,
+      paymentMode: l.paymentMode,
+      paymentDate: l.paymentDate,
+      proofUploadId: l.proofUploadId,
       components: l.components.map((c) => ({
         id: c.id,
         type: c.type,

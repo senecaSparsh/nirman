@@ -305,4 +305,41 @@ describe("Rejected leave NPL fix — integration tests", () => {
     expect(attendance!.notes).toContain("rejected");
     expect(attendance!.notes).toContain(leave.id);
   });
+
+  it("enforces per-employee paidLeaveQuota set at enrollment (e.g. 2 days vs 4 days)", async () => {
+    const { company, user } = await setup();
+    const empWith2 = await prisma.employee.create({
+      data: {
+        name: "Two-Leave Worker",
+        phone: "9888877771",
+        companyId: company.id,
+        wageType: "DAILY",
+        dailyRate: new Decimal(500),
+        paidLeaveQuota: 2,
+        active: true,
+      },
+    });
+    const { approveLeaveRequest } = await import("../leave");
+
+    // First 2-day paid leave (Mon-Tue Sep 7-8, 2026) succeeds
+    const l1 = await createLeaveRequest(company.id, empWith2.id, "2026-09-07", "2026-09-08", "CASUAL");
+    const r1 = await approveLeaveRequest({
+      leaveId: l1.id,
+      companyId: company.id,
+      approve: true,
+      approvedById: user.id,
+    });
+    expect(r1.status).toBe("APPROVED");
+
+    // Additional 1-day paid leave (Wed Sep 9, 2026) exceeds the 2-day quota -> 409
+    const l2 = await createLeaveRequest(company.id, empWith2.id, "2026-09-09", "2026-09-09", "SICK");
+    await expect(
+      approveLeaveRequest({
+        leaveId: l2.id,
+        companyId: company.id,
+        approve: true,
+        approvedById: user.id,
+      }),
+    ).rejects.toThrow("Insufficient leave balance");
+  });
 });

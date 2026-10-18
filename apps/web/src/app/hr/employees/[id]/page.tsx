@@ -327,6 +327,7 @@ async function EmployeeProfileContent({
     probationEndDate: accessScope.canSeePayroll ? (employee.probationEndDate?.toISOString() ?? null) : null,
     confirmationDate: accessScope.canSeePayroll ? (employee.confirmationDate?.toISOString() ?? null) : null,
     noticePeriodDays: accessScope.canSeePayroll ? employee.noticePeriodDays : null,
+    paidLeaveQuota: accessScope.canSeePayroll ? employee.paidLeaveQuota : null,
     contractStartDate: accessScope.canSeePayroll ? (employee.contractStartDate?.toISOString() ?? null) : null,
     contractEndDate: accessScope.canSeePayroll ? (employee.contractEndDate?.toISOString() ?? null) : null,
     // ── Contract / agreement tracking ──

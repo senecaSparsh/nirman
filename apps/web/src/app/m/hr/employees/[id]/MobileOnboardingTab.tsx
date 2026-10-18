@@ -118,6 +118,7 @@ export type OnboardingEmployeeData = {
   probationEndDate: string | null;
   confirmationDate: string | null;
   noticePeriodDays: number | null;
+  paidLeaveQuota?: number | null;
   contractStartDate: string | null;
   contractEndDate: string | null;
   // Auto-deposit
@@ -490,6 +491,7 @@ function ProfileSubTab({
             <InfoGrid items={[
               { label: "Type", value: employee.employmentType ? employee.employmentType.charAt(0) + employee.employmentType.slice(1).toLowerCase() : null },
               { label: "Notice", value: employee.noticePeriodDays != null ? `${employee.noticePeriodDays} days` : null },
+              { label: "Paid Leave", value: employee.paidLeaveQuota != null ? `${employee.paidLeaveQuota} days/yr` : "Default" },
               { label: "Contract Start", value: employee.contractStartDate ? formatDate(employee.contractStartDate) : null },
               { label: "Contract End", value: employee.contractEndDate ? formatDate(employee.contractEndDate) : null },
               { label: "Probation End", value: employee.probationEndDate ? formatDate(employee.probationEndDate) : null },
@@ -686,6 +688,7 @@ function EmploymentTermsEditor({
 }) {
   const [employmentType, setEmploymentType] = useState(employee.employmentType ?? "");
   const [noticePeriodDays, setNoticePeriodDays] = useState(employee.noticePeriodDays?.toString() ?? "");
+  const [paidLeaveQuota, setPaidLeaveQuota] = useState(employee.paidLeaveQuota?.toString() ?? "");
   const [contractStartDate, setContractStartDate] = useState(employee.contractStartDate ? employee.contractStartDate.split("T")[0] ?? "" : "");
   const [contractEndDate, setContractEndDate] = useState(employee.contractEndDate ? employee.contractEndDate.split("T")[0] ?? "" : "");
   const [probationEndDate, setProbationEndDate] = useState(employee.probationEndDate ? employee.probationEndDate.split("T")[0] ?? "" : "");
@@ -701,6 +704,7 @@ function EmploymentTermsEditor({
         body: JSON.stringify({
           employmentType: employmentType || null,
           noticePeriodDays: noticePeriodDays ? Number(noticePeriodDays) : null,
+          paidLeaveQuota: paidLeaveQuota !== "" ? Number(paidLeaveQuota) : null,
           contractStartDate: contractStartDate || null,
           contractEndDate: contractEndDate || null,
           probationEndDate: probationEndDate || null,
@@ -745,6 +749,14 @@ function EmploymentTermsEditor({
           placeholder="30"
         />
       </div>
+      <UnderlineInput
+        label="Paid Leave Quota (days/yr)"
+        type="number"
+        inputMode="numeric"
+        value={paidLeaveQuota}
+        onChange={setPaidLeaveQuota}
+        placeholder="e.g. 4 or 12 (default)"
+      />
       {(employmentType === "CONTRACT" || employmentType === "PROBATION") && (
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <UnderlineInput label="Contract Start" type="date" value={contractStartDate} onChange={setContractStartDate} />

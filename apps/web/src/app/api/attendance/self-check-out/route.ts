@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma, type AttendanceStatus } from "@nirman/db";
-import { assertAttendancePeriodOpen } from "@nirman/services";
+import { assertAttendancePeriodOpen, computeStatusFromHours } from "@nirman/services";
 import { apiHandler, getCompany, json, requireUser, getUserPermissions,} from "@/lib/server";
 import { PERM } from "@/lib/roles";
 
@@ -120,15 +120,10 @@ export const POST = apiHandler(async (req: NextRequest) => {
   // Determine final status based on hours worked
   // < 85% of standard hours (8h) → HALF_DAY
   // 85-100% → LATE
-  // ≥ 100% → PRESENT
+  // ≥ 100% → PRESENT (or OVERTIME when > 8h)
   let finalStatus = existing.status;
   if (hoursWorked !== null && existing.status === "PRESENT") {
-    const pct = hoursWorked / 8;
-    if (pct < 0.85) {
-      finalStatus = "HALF_DAY";
-    } else if (pct < 1.0) {
-      finalStatus = "LATE";
-    }
+    finalStatus = computeStatusFromHours(hoursWorked);
   }
 
   const updated = await prisma.workerAttendance.update({

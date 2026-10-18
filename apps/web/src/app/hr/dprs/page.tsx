@@ -107,7 +107,7 @@ async function DprsContent() {
         description="Site progress reports with multi-tier approval. Over-consumption is auto-flagged against standard benchmarks."
         stats={[
           { label: "DPRs", value: dprRows.length },
-          { label: "Pending approval", value: dprRows.filter(d => d.approvalStatus === "SUBMITTED").length },
+          { label: "Pending approval", value: dprRows.filter(d => d.approvalStatus === "SUBMITTED" || d.approvalStatus === "SUB_ADMIN_APPROVED").length },
         ]}
       />
       <DprsView

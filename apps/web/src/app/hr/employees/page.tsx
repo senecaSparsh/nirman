@@ -126,6 +126,7 @@ async function EmployeesContent() {
     reportingLocationName: e.reportingLocation?.name ?? null,
     employmentType: canSeePayroll ? e.employmentType : null,
     noticePeriodDays: canSeePayroll ? e.noticePeriodDays : null,
+    paidLeaveQuota: canSeePayroll ? e.paidLeaveQuota : null,
     contractStartDate: canSeePayroll ? (e.contractStartDate?.toISOString() ?? null) : null,
     contractEndDate: canSeePayroll ? (e.contractEndDate?.toISOString() ?? null) : null,
     payDay: canSeePayroll ? e.payDay : null,

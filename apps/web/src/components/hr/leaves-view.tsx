@@ -26,6 +26,8 @@ export type LeaveRow = {
   startDate: string;
   endDate: string;
   days: number;
+  usedDays?: number;
+  entitlement?: number;
   reason: string | null;
   status: string;
   approvedByName: string | null;
@@ -199,6 +201,23 @@ export function LeavesView({
       sortable: true,
       render: (l) => <span className="tnum text-body">{l.days}</span>,
       exportValue: (l) => l.days,
+    },
+    {
+      key: "balance",
+      label: "Quota Used",
+      align: "right",
+      render: (l) => {
+        if (l.type === "UNPAID") return <span className="text-micro text-muted-foreground">Unpaid</span>;
+        if (l.entitlement == null) return <span className="text-micro text-muted-foreground">—</span>;
+        const used = l.usedDays ?? 0;
+        const over = used > l.entitlement;
+        return (
+          <span className={cn("tnum text-caption", over ? "text-danger font-medium" : "text-muted-foreground")}>
+            {used}/{l.entitlement}d
+          </span>
+        );
+      },
+      exportValue: (l) => (l.type === "UNPAID" ? "Unpaid" : l.entitlement != null ? `${l.usedDays ?? 0}/${l.entitlement}` : ""),
     },
     {
       key: "status",

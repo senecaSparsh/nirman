@@ -155,6 +155,17 @@ export const ANNUAL_LEAVE_ENTITLEMENT: Record<LeaveType, number> = {
   PATERNITY: 5,
 };
 
+export function effectiveLeaveEntitlement(
+  type: LeaveType,
+  employeePaidLeaveQuota?: number | null,
+): number {
+  if (type === "UNPAID") return 0;
+  if (employeePaidLeaveQuota != null && employeePaidLeaveQuota >= 0) {
+    return employeePaidLeaveQuota;
+  }
+  return ANNUAL_LEAVE_ENTITLEMENT[type] ?? 0;
+}
+
 export async function approveLeaveRequest(input: ApproveLeaveInput) {
   // Captured inside the transaction for the post-commit notification.
   let employeeUserId: string | null = null;
@@ -164,7 +175,7 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
   const updated = await withSerializableTransaction(async (tx) => {
     const leave = await tx.leaveRequest.findFirst({
       where: { id: input.leaveId, companyId: input.companyId },
-      include: { employee: { select: { userId: true, joinDate: true } } },
+      include: { employee: { select: { userId: true, joinDate: true, paidLeaveQuota: true } } },
     });
     if (!leave) throw new ServiceError("Leave request not found", 404);
     if (leave.status !== "PENDING") {
@@ -202,8 +213,9 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
 
       // ── Balance check: sum already-approved days for the same type in the
       //    same calendar year and compare against the annual entitlement.
-      const entitlement = ANNUAL_LEAVE_ENTITLEMENT[leave.type] ?? 0;
-      if (entitlement > 0) {
+      const hasCustomQuota = leave.employee.paidLeaveQuota != null && leave.type !== "UNPAID";
+      const entitlement = effectiveLeaveEntitlement(leave.type, leave.employee.paidLeaveQuota);
+      if (hasCustomQuota || entitlement > 0) {
         // leave.startDate is a UTC-midnight @db.Date — use UTC year so the
         // balance bucket matches the stored calendar date regardless of
         // server timezone.
@@ -213,7 +225,7 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
           where: {
             employeeId: leave.employeeId,
             status: "APPROVED",
-            type: leave.type,
+            ...(hasCustomQuota ? { type: { not: "UNPAID" } } : { type: leave.type }),
             id: { not: leave.id },
             startDate: { gte: yearStart, lte: yearEnd },
           },
@@ -454,7 +466,7 @@ export async function leaveBalance(employeeId: string, year: number) {
     where: {
       employeeId,
       status: "APPROVED",
-      startDate: { gte: new Date(year, 0, 1), lte: new Date(year, 11, 31, 23, 59, 59) },
+      startDate: { gte: new Date(Date.UTC(year, 0, 1)), lte: new Date(Date.UTC(year, 11, 31, 23, 59, 59)) },
     },
     select: { type: true, days: true },
   });

@@ -4,7 +4,7 @@ import { apiHandler, getCompany, getUserPermissions, json, requireUser, toNum, s
 import { canAutoApprove, canSelfApprovePurchaseOrder, canWaiveSelfApproval } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { canApproveIndentRow, canApprovePoRow, companyRequisitionFilter, notCreatedBy, notSubmittedBy } from "@/lib/approval-queue";
-import { actionableApprovals, gatesFor, poThresholds } from "@/lib/approval-actionable";
+import { actionableApprovals, actionableGatePassWhere, gatesFor, poThresholds } from "@/lib/approval-actionable";
 
 /**
  * GET /api/approvals — the procurement approval queue.
@@ -61,9 +61,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
     // Count only what THIS user can approve — a req-only approver must not
     // get a badge inflated by POs they have no permission to touch.
     const { pos, reqs } = await actionableApprovals(company.id);
-    const gpCount = canApproveGatePass
-      ? await prisma.gatePass.count({ where: { companyId: company.id, status: "PENDING", ...gpSelf, ...gpScope } })
-      : 0;
+    const gpWhere = await actionableGatePassWhere(company.id);
+    const gpCount = gpWhere ? await prisma.gatePass.count({ where: gpWhere }) : 0;
     return json({ count: pos.length + reqs.length + gpCount });
   }
 

@@ -39,6 +39,7 @@ export const EMPLOYEE_COMP_FIELDS = [
   "probationEndDate",
   "confirmationDate",
   "noticePeriodDays",
+  "paidLeaveQuota",
   "contractStartDate",
   "contractEndDate",
   "contractTerms",

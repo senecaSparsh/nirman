@@ -60,6 +60,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       reportingLocationId: e.reportingLocationId,
       reportingLocationName: e.reportingLocation?.name ?? null,
       hierarchyLevel: e.hierarchyLevel,
+      paidLeaveQuota: canSeePayroll ? e.paidLeaveQuota : null,
       userId: e.userId,
       archived: e.deletedAt != null,
     })),
@@ -200,6 +201,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       // Employment terms (dossier) — accepted at creation time
       employmentType: parsed.data.employmentType ?? undefined,
       noticePeriodDays: parsed.data.noticePeriodDays ?? undefined,
+      paidLeaveQuota: parsed.data.paidLeaveQuota ?? undefined,
       contractStartDate: parsed.data.contractStartDate ? new Date(parsed.data.contractStartDate) : undefined,
       contractEndDate: parsed.data.contractEndDate ? new Date(parsed.data.contractEndDate) : undefined,
       // Dossier fields — collected during hiring

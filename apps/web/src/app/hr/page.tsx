@@ -72,16 +72,16 @@ async function HrDashboardContent() {
     prisma.workerAttendance.count({ where: { companyId: company.id, date: todayDateOnly, status: { in: ["PRESENT", "OVERTIME"] } } }),
     prisma.workerAttendance.count({ where: { companyId: company.id, date: todayDateOnly, status: "ABSENT" } }),
     prisma.payrollPeriod.findFirst({
-      where: { companyId: company.id },
+      where: { companyId: company.id, year: { lte: today.getFullYear() + 1 } },
       orderBy: [{ year: "desc" }, { month: "desc" }],
       include: { _count: { select: { lines: true } } }}),
     prisma.dailyProgressReport.findMany({
-      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, date: { gte: weekAgo } },
+      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, date: { gte: weekAgo, lte: todayDateOnly } },
       orderBy: { date: "desc" },
       take: 8,
       include: { project: { select: { name: true } }, submittedBy: { select: { name: true } } }}),
     prisma.payrollPeriod.count({ where: { companyId: company.id, status: "DRAFT" } }),
-    prisma.dailyProgressReport.count({ where: { companyId: company.id, approvalStatus: "SUBMITTED" } }),
+    prisma.dailyProgressReport.count({ where: { companyId: company.id, approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] } } }),
     prisma.leaveRequest.count({ where: { companyId: company.id, status: "PENDING" } }),
     prisma.employee.findMany({
       take: 201,

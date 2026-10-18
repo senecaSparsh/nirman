@@ -545,6 +545,7 @@ async function MobileEmployeeDetailContent({
     probationEndDate: accessScope.canSeePayroll && employee.probationEndDate ? employee.probationEndDate.toISOString() : null,
     confirmationDate: accessScope.canSeePayroll && employee.confirmationDate ? employee.confirmationDate.toISOString() : null,
     noticePeriodDays: accessScope.canSeePayroll ? employee.noticePeriodDays : null,
+    paidLeaveQuota: accessScope.canSeePayroll ? employee.paidLeaveQuota : null,
     contractStartDate: accessScope.canSeePayroll && employee.contractStartDate ? employee.contractStartDate.toISOString() : null,
     contractEndDate: accessScope.canSeePayroll && employee.contractEndDate ? employee.contractEndDate.toISOString() : null,
     autoDepositEnabled: accessScope.canSeePayroll ? employee.autoDepositEnabled : false,

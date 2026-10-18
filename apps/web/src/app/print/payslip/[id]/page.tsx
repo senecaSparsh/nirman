@@ -43,7 +43,7 @@ export default async function PayslipPage({ params }: { params: Promise<{ id: st
       AND: canSeePayroll ? [await scopeWhere("PayrollLine")] : [],
     },
     include: {
-      payrollPeriod: { select: { month: true, year: true, status: true, paidAt: true } },
+      payrollPeriod: { select: { month: true, year: true, status: true, paidAt: true, startDate: true, endDate: true } },
       components: { orderBy: [{ isDeduction: "asc" }, { createdAt: "asc" }] },
       employee: {
         select: {
@@ -67,6 +67,15 @@ export default async function PayslipPage({ params }: { params: Promise<{ id: st
 
   const e = line.employee;
   const period = `${MONTHS[line.payrollPeriod.month]} ${line.payrollPeriod.year}`;
+  const lateDays = await prisma.workerAttendance.count({
+    where: {
+      companyId: company.id,
+      employeeId: line.employeeId,
+      status: "LATE",
+      date: { gte: line.payrollPeriod.startDate, lte: line.payrollPeriod.endDate },
+    },
+  });
+  const lateHalfDayCut = Math.floor(lateDays / 4) * 0.5;
 
   // ── Earnings rows: always the stored buckets (they're the paid truth);
   //    component rows give the itemized "why" underneath. ──
@@ -110,7 +119,15 @@ export default async function PayslipPage({ params }: { params: Promise<{ id: st
         <div><span className="text-gray-500">Pay Period:</span> <span className="font-semibold">{period}</span></div>
         <div><span className="text-gray-500">Designation:</span> {e.designation ?? e.trade ?? "—"}</div>
         <div><span className="text-gray-500">Department:</span> {e.department?.name ?? "—"}</div>
-        <div><span className="text-gray-500">Days Worked:</span> <span className="font-semibold">{toNum(line.daysWorked)}</span></div>
+        <div>
+          <span className="text-gray-500">Days Worked:</span>{" "}
+          <span className="font-semibold">{toNum(line.daysWorked)}</span>
+          {lateHalfDayCut > 0 && (
+            <span className="ml-1 text-xs text-gray-600">
+              (after {lateHalfDayCut}d cut for {lateDays} late days)
+            </span>
+          )}
+        </div>
         <div><span className="text-gray-500">Pay Day:</span> {e.payDay ? `${e.payDay}${e.payDay === 1 ? "st" : e.payDay === 2 ? "nd" : e.payDay === 3 ? "rd" : "th"} of month` : "—"}</div>
         {e.panNumber && <div><span className="text-gray-500">PAN:</span> <span className="font-mono">{e.panNumber}</span></div>}
         {e.uan && <div><span className="text-gray-500">UAN:</span> <span className="font-mono">{e.uan}</span></div>}

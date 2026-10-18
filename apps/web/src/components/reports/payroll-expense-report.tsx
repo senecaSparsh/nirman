@@ -20,11 +20,13 @@ export type MonthlyRow = {
 };
 export type TradeRow = { trade: string; gross: number; net: number; employees: number };
 export type CrewRow = { crew: string; gross: number; net: number; employees: number };
+export type ProjectLabourRow = { project: string; gross: number; net: number; employees: number };
 
 export function PayrollExpenseReport({
   monthly,
   tradeRows,
   crewRows,
+  projectRows = [],
   totalGross,
   totalNet,
   totalOvertime,
@@ -32,6 +34,7 @@ export function PayrollExpenseReport({
   monthly: MonthlyRow[];
   tradeRows: TradeRow[];
   crewRows: CrewRow[];
+  projectRows?: ProjectLabourRow[];
   totalGross: number;
   totalNet: number;
   totalOvertime: number;
@@ -127,7 +130,35 @@ export function PayrollExpenseReport({
         </Table>
       </div>
 
-      {/* Comparative analysis — by trade & by crew */}
+      {/* Comparative analysis — by project/site, trade & crew */}
+      {projectRows.length > 0 && (
+        <div className="rounded-lg border border-border bg-card">
+          <div className="border-b border-border px-4 py-3">
+            <h3 className="text-body font-semibold">By Project / Site</h3>
+          </div>
+          <Table>
+            <THead>
+              <TR>
+                <TH>Project / Site</TH>
+                <TH className="text-right">Workers</TH>
+                <TH className="text-right">Gross</TH>
+                <TH className="text-right">Net</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {projectRows.map((p) => (
+                <TR key={p.project}>
+                  <TD className="font-medium">{p.project}</TD>
+                  <TD className="text-right tnum">{formatNumber(p.employees, 0)}</TD>
+                  <TD className="text-right tnum">{formatCurrency(p.gross)}</TD>
+                  <TD className="text-right tnum font-semibold">{formatCurrency(p.net)}</TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+        </div>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-lg border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">

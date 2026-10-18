@@ -82,7 +82,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   // writing nothing.
   const hasUpdatableField =
     Object.values(parsed.data).some((v) => v !== undefined) ||
-    ["employmentType", "probationEndDate", "confirmationDate", "noticePeriodDays",
+    ["employmentType", "probationEndDate", "confirmationDate", "noticePeriodDays", "paidLeaveQuota",
      "contractStartDate", "contractEndDate", "payDay",
      "bankAccountHolder", "bankAccountNumber", "bankIfsc", "bankName", "bankBranch",
      "panNumber", "aadhaarNumber", "pfNumber", "esiNumber", "uan",
@@ -142,6 +142,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     // Identity / personal (for ID card & compliance)
     dateOfBirth: parsed.data.dateOfBirth !== undefined ? (parsed.data.dateOfBirth ? new Date(parsed.data.dateOfBirth) : null) : undefined,
     bloodGroup: parsed.data.bloodGroup,
+    paidLeaveQuota: parsed.data.paidLeaveQuota,
   });
 
   // ── Salary components — the schema accepts this key (shared with POST);
@@ -175,7 +176,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
   // ── Dossier fields (employment terms, bank, tax, emergency, address) ──
   const dossierFields: EmployeeDossierInput = {};
   const dossierKeys: (keyof EmployeeDossierInput)[] = [
-    "employmentType", "probationEndDate", "confirmationDate", "noticePeriodDays",
+    "employmentType", "probationEndDate", "confirmationDate", "noticePeriodDays", "paidLeaveQuota",
     "contractStartDate", "contractEndDate", "payDay",
     "bankAccountHolder", "bankAccountNumber", "bankIfsc", "bankName", "bankBranch",
     "panNumber", "aadhaarNumber", "pfNumber", "esiNumber", "uan",

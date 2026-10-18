@@ -104,6 +104,7 @@ export const POST = apiHandler(async (req: NextRequest, ctx: { params: Promise<{
       probationEndDate: sourceEmployee.probationEndDate,
       confirmationDate: sourceEmployee.confirmationDate,
       noticePeriodDays: sourceEmployee.noticePeriodDays,
+      paidLeaveQuota: sourceEmployee.paidLeaveQuota,
       contractStartDate: sourceEmployee.contractStartDate,
       contractEndDate: sourceEmployee.contractEndDate,
       // Bank details — copied (same bank account)

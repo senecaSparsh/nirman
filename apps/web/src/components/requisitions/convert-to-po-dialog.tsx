@@ -65,7 +65,7 @@ export function ConvertToPoDialog({
       const res = await fetch(`/api/requisitions/${requisition.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "waiveQuotes", waiveReason: waiveReason.trim() }),
+        body: JSON.stringify({ action: "waiveQuotes", reason: waiveReason.trim(), waiveReason: waiveReason.trim() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to waive quotes");

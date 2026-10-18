@@ -184,6 +184,7 @@ export function computeAttendanceTier(input: {
   hasGpsCheckIn?: boolean;
   dprApproved?: boolean;
   geoFenceOk?: boolean | null;
+  offSiteReview?: string | null;
 }): AttendanceTier {
   // Authorized leave counts as green
   if (input.status === "PAID_LEAVE") return "GREEN";
@@ -192,8 +193,8 @@ export function computeAttendanceTier(input: {
   // Present / late / overtime / half-day → check DPR approval
   if (input.status === "PRESENT" || input.status === "LATE" || input.status === "OVERTIME" || input.status === "HALF_DAY") {
     // If geofence was checked and the worker was OUTSIDE the geofence → RED
-    // (they checked in but weren't at the site)
-    if (input.geoFenceOk === false) return "RED";
+    // (they checked in but weren't at the site) unless a senior approved the off-site visit.
+    if (input.geoFenceOk === false && input.offSiteReview !== "APPROVED") return "RED";
     // If we have GPS data, use the three-tier logic
     if (input.hasGpsCheckIn === true) {
       if (input.dprApproved) return "GREEN";
@@ -308,6 +309,7 @@ export async function getAttendanceWithTiers(opts: {
       hasGpsCheckIn: !!(r.checkInLat != null && r.checkInLng != null),
       dprApproved,
       geoFenceOk: r.geoFenceOk,
+      offSiteReview: r.offSiteReview,
     });
 
     return {
@@ -633,6 +635,7 @@ export interface CreateEmployeeInput {
   // Employment terms (dossier) — accepted at creation time
   employmentType?: "PERMANENT" | "CONTRACT" | "CASUAL" | "PROBATION" | "INTERN";
   noticePeriodDays?: number;
+  paidLeaveQuota?: number | null;
   contractStartDate?: Date;
   contractEndDate?: Date;
   // Dossier fields — collected during hiring for complete onboarding
@@ -729,6 +732,7 @@ export async function createEmployee(input: CreateEmployeeInput) {
         // Employment terms (dossier)
         employmentType: input.employmentType ?? null,
         noticePeriodDays: input.noticePeriodDays ?? null,
+        paidLeaveQuota: input.paidLeaveQuota ?? null,
         contractStartDate: input.contractStartDate ?? null,
         contractEndDate: input.contractEndDate ?? null,
         // Dossier fields — collected during hiring
@@ -791,6 +795,7 @@ export interface UpdateEmployeeInput {
   // Identity / personal (for ID card & compliance)
   dateOfBirth?: Date | null;
   bloodGroup?: string | null;
+  paidLeaveQuota?: number | null;
 }
 
 export async function updateEmployee(input: UpdateEmployeeInput) {
@@ -877,6 +882,7 @@ export async function updateEmployee(input: UpdateEmployeeInput) {
     // restores it. Termination clears it too (see terminateEmployee).
     if (input.active === false) data.autoDepositEnabled = false;
     if (input.dateOfBirth !== undefined) data.dateOfBirth = input.dateOfBirth ? saneDob(input.dateOfBirth) : null;
+    if (input.paidLeaveQuota !== undefined) data.paidLeaveQuota = input.paidLeaveQuota ?? null;
     if (input.bloodGroup !== undefined) data.bloodGroup = input.bloodGroup;
 
     const updated = await tx.employee.update({ where: { id: input.employeeId }, data });
@@ -1706,25 +1712,6 @@ export async function generatePayroll(input: GeneratePayrollInput) {
         componentsByEmployee.get(emp.id) ?? [],
         { basicAmount, daysWorked: adjustedDaysWorked, wageType: emp.wageType, workingDays },
       );
-
-      // Late-half-day deduction becomes its own itemized row so the payslip
-      // explains it (and HR can waive it on the draft if needed).
-      const lateDeductionAmount = basicAmount.minus(computeBasicAmount(emp, daysWorked, workingDays));
-      if (lateDeductionAmount.gt(0)) {
-        lineComponents.push({
-          type: "OTHER",
-          label: "Late attendance deduction",
-          calculationType: "FIXED",
-          unitType: null,
-          unitLabel: null,
-          rate: lateDeductionAmount,
-          quantity: null,
-          amount: lateDeductionAmount,
-          bucket: "DEDUCTIONS",
-          isDeduction: true,
-          notes: `${countLateDays(attendances)} late day(s) → ${lateHalfDayDeductions * 0.5} day pay`,
-        });
-      }
 
       // Salary-advance recovery — auto-deducted until the advance settles.
       for (const adv of advancesByEmployee.get(emp.id) ?? []) {

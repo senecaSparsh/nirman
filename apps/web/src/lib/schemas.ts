@@ -1070,6 +1070,7 @@ export const employeeSchema = z.object({
   // Employment terms (dossier) — accepted at creation time
   employmentType: z.enum(["PERMANENT", "CONTRACT", "CASUAL", "PROBATION", "INTERN"]).optional().nullable(),
   noticePeriodDays: z.coerce.number().int().min(0).max(365).optional().nullable(),
+  paidLeaveQuota: z.coerce.number().int().min(0).max(365).optional().nullable(),
   contractStartDate: z.string().optional().nullable().refine((v) => !v || !isNaN(new Date(v).getTime()), "Invalid contract start date"),
   contractEndDate: z.string().optional().nullable().refine((v) => !v || !isNaN(new Date(v).getTime()), "Invalid contract end date"),
   // Dossier fields — collected during hiring for complete onboarding

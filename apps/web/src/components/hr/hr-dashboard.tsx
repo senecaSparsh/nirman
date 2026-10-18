@@ -229,7 +229,7 @@ export function HrDashboard({
 
   const pendingActions: PendingAction[] = [
     ...(pendingDprApprovals > 0 ? [{ label: "DPRs pending approval", count: pendingDprApprovals, href: "/hr/dprs", tone: "warning" as const }] : []),
-    ...(pendingLeaves > 0 ? [{ label: "Leave requests pending", count: pendingLeaves, href: "/hr/attendance", tone: "info" as const }] : []),
+    ...(pendingLeaves > 0 ? [{ label: "Leave requests pending", count: pendingLeaves, href: "/hr/attendance?tab=leave", tone: "info" as const }] : []),
     ...(pendingPayrolls > 0 ? [{ label: "Draft payrolls to process", count: pendingPayrolls, href: "/hr/payroll", tone: "danger" as const }] : []),
   ];
 

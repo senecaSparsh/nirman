@@ -117,7 +117,35 @@ async function PendingPaymentsContent() {
       };
     });
 
-  const overdueRows = [...payablePOs, ...unlinkedSupplierRows];
+  // Approved RA bills are subcontractor payables — approval posts the AP
+  // credit (Cr 2000), and they settle in one shot on payment (APPROVED →
+  // PAID, no partials). Gross billed vs net payable differ by deductions.
+  const approvedRaBills = await prisma.raBill.findMany({
+    take: 500,
+    where: { ...await scopeWhere("RaBill"), companyId: company.id, status: "APPROVED" },
+    include: { workOrder: { select: { workOrderNumber: true, subcontractor: { select: { name: true } } } } },
+    orderBy: { billDate: "asc" },
+  });
+  const raBillRows = approvedRaBills
+    .map((b) => {
+      const payable = toNum(b.netPayable);
+      const daysOverdue = Math.floor((now.getTime() - b.billDate.getTime()) / 86400000);
+      return {
+        id: `ra-${b.id}`,
+        poNumber: b.raBillNumber,
+        supplier: b.workOrder.subcontractor.name,
+        expectedDate: null,
+        orderedValue: toNum(b.grossAmount),
+        receivedValue: toNum(b.grossAmount),
+        payable,
+        status: "RA BILL",
+        daysOverdue,
+        agingBucket: getAgingBucket(daysOverdue),
+      };
+    })
+    .filter((r) => r.payable > 0.01);
+
+  const overdueRows = [...payablePOs, ...unlinkedSupplierRows, ...raBillRows];
 
   // 2. Outstanding sale receivables — inbound
   const sales = await prisma.assetSale.findMany({

@@ -44,7 +44,7 @@ async function MobilePendingPaymentsContent() {
   const company = await getCompany();
   const now = new Date();
 
-  const [overduePOs, supplierPayments, supplierCards, sales, draftPOs] = await Promise.all([
+  const [overduePOs, supplierPayments, supplierCards, sales, draftPOs, approvedRaBills] = await Promise.all([
     prisma.purchaseOrder.findMany({
       where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: { in: ["ORDERED", "PARTIAL", "RECEIVED"] }, lines: { some: { qtyReceived: { gt: 0 } } } },
       include: { supplier: { select: { id: true, name: true } }, lines: { select: { qtyOrdered: true, qtyReceived: true, unitCost: true, gstRate: true } } },
@@ -75,6 +75,12 @@ async function MobilePendingPaymentsContent() {
       where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: "DRAFT" },
       include: { supplier: { select: { name: true } }, lines: { select: { qtyOrdered: true, unitCost: true } } },
       orderBy: { createdAt: "desc" },
+    }),
+    prisma.raBill.findMany({
+      where: { ...await scopeWhere("RaBill"), companyId: company.id, status: "APPROVED" },
+      include: { workOrder: { select: { workOrderNumber: true, subcontractor: { select: { name: true } } } } },
+      orderBy: { billDate: "asc" },
+      take: 500,
     }),
   ]);
 
@@ -113,7 +119,24 @@ async function MobilePendingPaymentsContent() {
       return { id: `sup-bal-${s.id}`, poNumber: "Opening / bills", supplier: s.name, daysOverdue, payable, agingBucket: getAgingBucket(daysOverdue), ageLabel: `${daysOverdue}d open` };
     });
 
-  const overdueRows = [...payablePOs, ...unlinkedSupplierRows];
+  // Approved RA bills are subcontractor payables (AP credit posts at
+  // approval; they settle whole on payment — no partials).
+  const raBillRows = approvedRaBills
+    .map((b) => {
+      const daysOverdue = Math.floor((now.getTime() - b.billDate.getTime()) / 86400000);
+      return {
+        id: `ra-${b.id}`,
+        poNumber: b.raBillNumber,
+        supplier: b.workOrder.subcontractor.name,
+        daysOverdue,
+        payable: toNum(b.netPayable),
+        agingBucket: getAgingBucket(daysOverdue),
+        ageLabel: `RA bill · ${daysOverdue > 0 ? `${daysOverdue}d` : "today"}`,
+      };
+    })
+    .filter((r) => r.payable > 0.01);
+
+  const overdueRows = [...payablePOs, ...unlinkedSupplierRows, ...raBillRows];
 
   const receivableRows = sales.map((s) => {
     const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
@@ -153,7 +176,7 @@ async function MobilePendingPaymentsContent() {
     <div>
       <MobileReportHeader
         title="Pending Payments"
-        subtitle="Payables to suppliers, outstanding receivables, and draft POs"
+        subtitle="Payables to suppliers & contractors, receivables, draft POs"
         icon={Wallet}
         period="Current"
       />
@@ -199,7 +222,7 @@ async function MobilePendingPaymentsContent() {
       {/* Overdue POs */}
       {overdueRows.length > 0 && (
         <>
-          <MobileSectionTitle>Payable to suppliers ({overdueRows.length})</MobileSectionTitle>
+          <MobileSectionTitle>Payables ({overdueRows.length})</MobileSectionTitle>
           <div className="flex flex-col gap-2 mb-4">
             {overdueRows.slice(0, 15).map((r) => (
               <MobileRow

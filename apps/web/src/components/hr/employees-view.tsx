@@ -42,6 +42,7 @@ export type EmployeeRow = {
   // Dossier fields (for employment terms at creation/edit)
   employmentType: string | null;
   noticePeriodDays: number | null;
+  paidLeaveQuota?: number | null;
   contractStartDate: string | null;
   contractEndDate: string | null;
   // Bank & payroll
@@ -492,8 +493,8 @@ export function EmployeesView({
         onClose={() => setImportOpen(false)}
         endpoint="/api/employees"
         entityName="Employee"
-        templateHeaders="name,trade,phone,designation,wageType,dailyRate"
-        templateSample="Ramesh Kumar,Mason,9876543210,Mason,DAILY,850"
+        templateHeaders="name,trade,phone,designation,wageType,dailyRate,monthlySalary,paidLeaveQuota"
+        templateSample="Ramesh Kumar,Mason,9876543210,Mason,DAILY,850,,4"
         fieldMap={{
           name: "name",
           trade: "trade",
@@ -501,8 +502,10 @@ export function EmployeesView({
           designation: "designation",
           wageType: "wageType",
           dailyRate: "dailyRate",
+          monthlySalary: "monthlySalary",
+          paidLeaveQuota: "paidLeaveQuota",
         }}
-        numericFields={["dailyRate"]}
+        numericFields={["dailyRate", "monthlySalary", "paidLeaveQuota"]}
         onSuccess={() => router.refresh()}
       />
     </div>
@@ -554,6 +557,7 @@ function EmployeeFormDialog({
     // Employment terms (dossier)
     employmentType: employee?.employmentType ?? "",
     noticePeriodDays: employee?.noticePeriodDays?.toString() ?? "",
+    paidLeaveQuota: employee?.paidLeaveQuota?.toString() ?? "",
     contractStartDate: employee?.contractStartDate ? employee.contractStartDate.split("T")[0] : "",
     contractEndDate: employee?.contractEndDate ? employee.contractEndDate.split("T")[0] : "",
     // Personal / identity
@@ -606,6 +610,7 @@ function EmployeeFormDialog({
       // Employment terms (dossier) — sent alongside basic fields
       employmentType: form.employmentType || null,
       noticePeriodDays: form.noticePeriodDays ? Number(form.noticePeriodDays) : null,
+      paidLeaveQuota: form.paidLeaveQuota !== "" ? Number(form.paidLeaveQuota) : null,
       contractStartDate: form.contractStartDate || null,
       contractEndDate: form.contractEndDate || null,
       // Personal / identity
@@ -822,6 +827,10 @@ function EmployeeFormDialog({
             <div>
               <Label>Notice Period (days)</Label>
               <Input type="number" min="0" value={form.noticePeriodDays} onChange={(e) => set("noticePeriodDays", e.target.value)} placeholder="e.g. 30" />
+            </div>
+            <div>
+              <Label>Paid Leave Quota (days/yr)</Label>
+              <Input type="number" min="0" max="365" value={form.paidLeaveQuota} onChange={(e) => set("paidLeaveQuota", e.target.value)} placeholder="e.g. 4 or 12 (default)" />
             </div>
             {(form.employmentType === "CONTRACT" || form.employmentType === "PROBATION") && (
               <>

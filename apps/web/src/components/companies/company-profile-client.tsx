@@ -175,7 +175,7 @@ export function CompanyProfileClient({
   customRoles: { key: string; label: string; tier: number }[];
 }) {
   const [tab, setTab] = useTabParam(
-    ["overview", "members", "hierarchy", "locations", "policy", "procurement", "integrations", "audit"] as const,
+    ["overview", "members", "phones", "hierarchy", "locations", "policy", "procurement", "integrations", "audit"] as const,
     "overview",
   );
 

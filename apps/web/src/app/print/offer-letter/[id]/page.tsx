@@ -116,9 +116,9 @@ export default async function OfferLetterPage({
   const employeeName = employee.user?.name ?? employee.name;
   const employeeDesignation = employee.user?.designation ?? employee.designation ?? "Employee";
   // Prefer real contact details over login credentials — see employment-agreement.
-  const userEmail = employee.user?.email?.endsWith("@nirman.internal") ? null : employee.user?.email;
+  const cleanEmail = (e?: string | null) => (e && !e.endsWith("@nirman.internal") ? e : null);
   const employeePhone = employee.phone ?? employee.user?.phone ?? "—";
-  const employeeEmail = employee.email ?? userEmail ?? "—";
+  const employeeEmail = cleanEmail(employee.email) ?? cleanEmail(employee.user?.email) ?? "—";
 
   const componentLabel: Record<string, string> = {
     BASIC: "Basic Salary",
@@ -348,9 +348,9 @@ export default async function OfferLetterPage({
           <section>
             <h4 className="font-bold text-gray-900">6. Leave Policy</h4>
             <p>
-              You are entitled to leaves as per company policy and the Shops and Establishments Act
-              applicable to your state. This includes earned leave (EL), casual leave (CL), and
-              sick leave (SL). Details of the leave policy are available in the employee handbook.
+              {employee.paidLeaveQuota != null
+                ? `You are entitled to ${employee.paidLeaveQuota} days of paid leave per calendar year, in addition to statutory leaves under the Shops and Establishments Act applicable to your state.`
+                : "You are entitled to leaves as per company policy and the Shops and Establishments Act applicable to your state. This includes earned leave (EL), casual leave (CL), and sick leave (SL). Details of the leave policy are available in the employee handbook."}
             </p>
           </section>
 

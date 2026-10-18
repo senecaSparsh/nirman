@@ -62,6 +62,12 @@ type PayrollLine = {
   grossPay: number;
   totalDeductions: number;
   netPay: number;
+  lateDays?: number;
+  lateHalfDayCut?: number;
+  paymentReference?: string | null;
+  paymentMode?: string | null;
+  paymentDate?: string | null;
+  proofUploadId?: string | null;
   components?: LineComponent[];
 };
 
@@ -477,6 +483,7 @@ export function PayrollView({
         <PayrollDetailDialog
           period={detailTarget}
           canEdit={canManage && detailTarget.status === "DRAFT"}
+          canManage={canManage}
           onClose={() => setDetailTarget(null)}
           onUpdated={() => router.refresh()}
         />
@@ -718,11 +725,13 @@ function GeneratePayrollDialog({
 function PayrollDetailDialog({
   period,
   canEdit,
+  canManage = false,
   onClose,
   onUpdated,
 }: {
   period: PayrollRow;
   canEdit: boolean;
+  canManage?: boolean;
   onClose: () => void;
   onUpdated: () => void;
 }) {
@@ -732,6 +741,9 @@ function PayrollDetailDialog({
   const [editOvertime, setEditOvertime] = useState("");
   const [editComponents, setEditComponents] = useState<LineComponent[]>([]);
   const [saving, setSaving] = useState(false);
+  const [payModeByLine, setPayModeByLine] = useState<Record<string, string>>({});
+  const [payRefByLine, setPayRefByLine] = useState<Record<string, string>>({});
+  const [payingLineId, setPayingLineId] = useState<string | null>(null);
   // Add-component form state
   const [addType, setAddType] = useState("OTHER");
   const [addLabel, setAddLabel] = useState("");
@@ -853,6 +865,38 @@ function PayrollDetailDialog({
     setAddRate(""); setAddUnit("DAY"); setAddQty(""); setAddIsDeduction(false);
   }
 
+  async function handleMarkLinePaid(l: PayrollLine) {
+    setPayingLineId(l.id);
+    try {
+      const mode = payModeByLine[l.id] ?? l.paymentMode ?? "NEFT";
+      const ref = (payRefByLine[l.id] ?? l.paymentReference ?? "").trim() || null;
+      const res = await fetch(`/api/payroll/${period.id}/lines/${l.id}/mark-paid`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentMode: mode,
+          paymentReference: ref,
+          paymentDate: new Date().toISOString(),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Failed to mark line as paid");
+      toast.success(data.message ?? `Marked ${l.employeeName} as paid`);
+      setLines((prev) =>
+        prev?.map((row) =>
+          row.id === l.id
+            ? { ...row, paymentMode: mode, paymentReference: ref, paymentDate: new Date().toISOString() }
+            : row,
+        ) ?? null,
+      );
+      onUpdated();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to mark paid");
+    } finally {
+      setPayingLineId(null);
+    }
+  }
+
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()} title={`${MONTHS[period.month]} ${period.year} — Payroll Lines`} className="max-w-4xl">
       {loading ? (
@@ -917,9 +961,23 @@ function PayrollDetailDialog({
                     </TD>
                     <TD>
                       <div className="font-medium"><EmployeeName id={l.employeeId} name={l.employeeName} /></div>
-                      <div className="text-caption text-muted-foreground">{l.trade ?? l.wageType}</div>
+                      <div className="text-caption text-muted-foreground">
+                        {l.trade ?? l.wageType}
+                        {l.paymentDate && (
+                          <span className="ml-1.5 rounded bg-success/10 px-1 py-0.5 text-micro font-medium text-success">
+                            Paid{l.paymentMode ? ` · ${l.paymentMode}` : ""}{l.paymentReference ? ` (${l.paymentReference})` : ""}
+                          </span>
+                        )}
+                      </div>
                     </TD>
-                    <TD className="tnum">{l.daysWorked}</TD>
+                    <TD className="tnum">
+                      <div>{l.daysWorked}</div>
+                      {(l.lateHalfDayCut ?? 0) > 0 && (
+                        <div className="text-micro text-warning" title={`${l.lateDays} late days → ${l.lateHalfDayCut} day cut`}>
+                          −{l.lateHalfDayCut}d ({l.lateDays} late)
+                        </div>
+                      )}
+                    </TD>
                     <TD className="tnum">{formatCurrency(l.basicAmount)}</TD>
                     <TD className="tnum">
                       {isEditing ? (
@@ -958,6 +1016,11 @@ function PayrollDetailDialog({
                     <TR className="bg-muted/20">
                       <TD colSpan={canEdit ? 15 : 14} className="p-0">
                         <div className="px-4 py-2 space-y-1.5">
+                          {(l.lateHalfDayCut ?? 0) > 0 && (
+                            <p className="text-caption text-warning py-0.5">
+                              Late attendance cut applied: {l.lateDays} late day(s) → {l.lateHalfDayCut} day deducted from basic pay.
+                            </p>
+                          )}
                           {displayComponents.length === 0 ? (
                             <p className="text-caption text-muted-foreground py-1">
                               No itemized components — this line is just basic + overtime.
@@ -1072,6 +1135,63 @@ function PayrollDetailDialog({
                               <Button size="sm" variant="outline" onClick={handleAddComponent} className="h-7 text-caption">
                                 <Plus className="h-3 w-3 mr-1" /> Add
                               </Button>
+                            </div>
+                          )}
+
+                          {canManage && period.status !== "DRAFT" && (
+                            <div className="flex flex-wrap items-center gap-2 pt-1.5 border-t border-border/50">
+                              <span className="text-micro font-medium text-muted-foreground">Payout:</span>
+                              <Select
+                                value={payModeByLine[l.id] ?? l.paymentMode ?? "NEFT"}
+                                onChange={(e) => setPayModeByLine((prev) => ({ ...prev, [l.id]: e.target.value }))}
+                                className="h-7 w-24 text-caption"
+                              >
+                                <option value="NEFT">NEFT</option>
+                                <option value="BANK">Bank</option>
+                                <option value="UPI">UPI</option>
+                                <option value="CHEQUE">Cheque</option>
+                                <option value="CASH">Cash</option>
+                              </Select>
+                              <Input
+                                value={payRefByLine[l.id] ?? l.paymentReference ?? ""}
+                                onChange={(e) => setPayRefByLine((prev) => ({ ...prev, [l.id]: e.target.value }))}
+                                placeholder="UTR / Cheque / Ref no."
+                                className="h-7 w-44 text-caption"
+                              />
+                              <Button
+                                size="sm"
+                                variant={l.paymentDate ? "outline" : "default"}
+                                onClick={() => handleMarkLinePaid(l)}
+                                disabled={payingLineId === l.id}
+                                className="h-7 text-caption"
+                              >
+                                {payingLineId === l.id ? (
+                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                ) : (
+                                  <DollarSign className="h-3 w-3 mr-1" />
+                                )}
+                                {l.paymentDate ? "Update Payout" : "Mark Paid"}
+                              </Button>
+                              <a
+                                href={`/print/payslip/${l.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="ml-auto text-caption font-medium text-brand hover:underline"
+                              >
+                                Print Payslip →
+                              </a>
+                            </div>
+                          )}
+                          {(!canManage || period.status === "DRAFT") && (
+                            <div className="flex justify-end pt-1">
+                              <a
+                                href={`/print/payslip/${l.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-caption font-medium text-brand hover:underline"
+                              >
+                                Print Payslip →
+                              </a>
                             </div>
                           )}
                         </div>

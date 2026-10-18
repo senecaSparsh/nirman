@@ -207,7 +207,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     }
     if (action === "waiveQuotes") {
       const user = await requireEffectivePermission(PERM.PO_APPROVE);
-      const reason = body?.reason as string;
+      const reason = (body?.reason ?? body?.waiveReason) as string;
       if (!reason?.trim()) return json({ error: "A waiver reason is required" }, { status: 400 });
       await waiveQuoteRequirement({ requisitionId: id, waivedById: user.id, reason });
       revalidatePath("/requisitions");

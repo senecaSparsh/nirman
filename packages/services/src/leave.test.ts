@@ -4,7 +4,7 @@
  *   computeLeaveDays — count weekdays (Mon-Fri) between start and end dates (inclusive)
  */
 import { describe, it, expect } from "vitest";
-import { computeLeaveDays } from "./leave";
+import { computeLeaveDays, effectiveLeaveEntitlement } from "./leave";
 
 describe("computeLeaveDays", () => {
   it("counts weekdays in a single week (Mon-Fri)", () => {
@@ -60,5 +60,22 @@ describe("computeLeaveDays", () => {
     const start = new Date("2026-09-12");
     const end = new Date("2026-09-14");
     expect(computeLeaveDays(start, end).toNumber()).toBe(1);
+  });
+});
+
+describe("effectiveLeaveEntitlement", () => {
+  it("uses per-employee paidLeaveQuota when set (e.g. 4 or 2 days)", () => {
+    expect(effectiveLeaveEntitlement("CASUAL", 4)).toBe(4);
+    expect(effectiveLeaveEntitlement("SICK", 2)).toBe(2);
+    expect(effectiveLeaveEntitlement("EARNED", 0)).toBe(0);
+  });
+
+  it("keeps UNPAID leave uncapped even when paidLeaveQuota is set", () => {
+    expect(effectiveLeaveEntitlement("UNPAID", 4)).toBe(0);
+  });
+
+  it("falls back to ANNUAL_LEAVE_ENTITLEMENT when paidLeaveQuota is null/undefined", () => {
+    expect(effectiveLeaveEntitlement("CASUAL", null)).toBe(12);
+    expect(effectiveLeaveEntitlement("EARNED", undefined)).toBe(20);
   });
 });

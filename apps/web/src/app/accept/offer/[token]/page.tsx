@@ -36,6 +36,7 @@ export default async function AcceptOfferPage({
       contractEndDate: true,
       probationEndDate: true,
       noticePeriodDays: true,
+      paidLeaveQuota: true,
       offerLetterStatus: true,
       offerLetterIssuedAt: true,
       offerLetterAcceptedAt: true,
@@ -161,6 +162,12 @@ export default async function AcceptOfferPage({
                         ? "Immediate"
                         : `${employee.noticePeriodDays} days`}
                     </td>
+                  </tr>
+                )}
+                {employee.paidLeaveQuota != null && (
+                  <tr className="border-b border-gray-100">
+                    <td className="px-3 py-2 font-semibold text-gray-600 bg-gray-50">Paid Leave Quota</td>
+                    <td className="px-3 py-2">{employee.paidLeaveQuota} days per year</td>
                   </tr>
                 )}
                 {employee.contractEndDate && (

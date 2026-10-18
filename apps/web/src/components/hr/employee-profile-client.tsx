@@ -77,6 +77,7 @@ export type EmployeeProfileData = {
   probationEndDate: string | null;
   confirmationDate: string | null;
   noticePeriodDays: number | null;
+  paidLeaveQuota?: number | null;
   contractStartDate: string | null;
   contractEndDate: string | null;
   // ── Contract / agreement tracking ──
@@ -299,7 +300,7 @@ export function EmployeeProfileClient({
   roleLabelMap?: Map<string, string>;
 }) {
   const [tab, setTab] = useTabParam(
-    ["overview", "attendance", "payroll", "tasks", "dprs", "leaves", "crew", "reports", "dossier"] as const,
+    ["overview", "attendance", "payroll", "tasks", "dprs", "leaves", "crew", "reports", "dossier", "resources"] as const,
     "overview",
   );
   const router = useRouter();
@@ -417,7 +418,7 @@ export function EmployeeProfileClient({
               <TabsTrigger value="dprs" count={employee.dprs.history.length}>DPRs</TabsTrigger>
               <TabsTrigger value="leaves" count={employee.leaves.total}>Leave</TabsTrigger>
               <TabsTrigger value="crew" count={employee.supervisedCrews.length}>Crew</TabsTrigger>
-              <TabsTrigger value="reports">Reports</TabsTrigger>
+              <TabsTrigger value="reports" count={employee.directReports.length}>Reports</TabsTrigger>
               <TabsTrigger value="dossier" count={employee.attachments.length + employee.benefits.length}>Dossier</TabsTrigger>
               <TabsTrigger value="resources" count={employee.resources.filter((r) => !r.returnedAt).length}>Resources</TabsTrigger>
             </TabsList>
@@ -442,6 +443,9 @@ export function EmployeeProfileClient({
             </TabsContent>
             <TabsContent value="crew">
               <CrewTab employee={employee} />
+            </TabsContent>
+            <TabsContent value="reports">
+              <ReportsTab employee={employee} />
             </TabsContent>
             <TabsContent value="dossier">
               <DossierTab employee={employee} canManage={permissions.canManage} departments={employee.departments} />
@@ -1734,6 +1738,16 @@ function PayrollTab({ employee, canManagePayroll, canManage }: { employee: Emplo
             searchable
             searchPlaceholder="Search period, status…"
             pageSize={25}
+            rowActions={(r) => (
+              <Link
+                href={`/print/payslip/${r.id}`}
+                target="_blank"
+                onClick={(e) => e.stopPropagation()}
+                className="text-caption font-medium text-brand hover:underline"
+              >
+                Payslip
+              </Link>
+            )}
             emptyState={<EmptyState size="compact" icon={<AlertCircle />} title="No matching records" description="Adjust the search or filters." />}
           />
         </div>
@@ -2329,6 +2343,10 @@ function LeavesTab({ employee, canManage }: { employee: EmployeeProfileData; can
     },
   ];
 
+  const paidDaysTaken = rows
+    .filter((r) => r.status === "APPROVED" && r.type !== "UNPAID")
+    .reduce((s, r) => s + toNum(r.days), 0);
+
   return (
     <div className="space-y-4">
       <StatBand
@@ -2336,7 +2354,13 @@ function LeavesTab({ employee, canManage }: { employee: EmployeeProfileData; can
           { label: "Total Requests", value: l.total },
           { label: "Pending", value: l.pending, tone: l.pending > 0 ? "text-warning" : "text-foreground" },
           { label: "Approved", value: l.approved, tone: "text-success" },
-          { label: "Days Taken", value: rows.filter((r) => r.status === "APPROVED").reduce((s, r) => s + toNum(r.days), 0).toFixed(1) },
+          {
+            label: employee.paidLeaveQuota != null ? "Paid Leave Quota Used" : "Days Taken",
+            value:
+              employee.paidLeaveQuota != null
+                ? `${paidDaysTaken.toFixed(1)} / ${employee.paidLeaveQuota}d`
+                : rows.filter((r) => r.status === "APPROVED").reduce((s, r) => s + toNum(r.days), 0).toFixed(1),
+          },
         ]}
       />
 
@@ -2409,6 +2433,50 @@ function CrewTab({ employee }: { employee: EmployeeProfileData }) {
                   </div>
                 </div>
                 <Badge variant={c.active ? "success" : "muted"} dot>{c.active ? "Active" : "Inactive"}</Badge>
+              </div>
+            ))}
+          </div>
+        )}
+      </SectionCard>
+    </div>
+  );
+}
+
+function ReportsTab({ employee }: { employee: EmployeeProfileData }) {
+  return (
+    <div className="space-y-4">
+      <SectionCard title="Reports To" icon={UserCircle}>
+        {employee.reportsTo ? (
+          <div className="flex items-center justify-between rounded-md bg-subtle px-3 py-2.5">
+            <div>
+              <div className="font-medium text-foreground">{employee.reportsTo.name}</div>
+              <div className="text-meta text-muted-foreground">
+                {employee.reportsTo.role.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+              </div>
+            </div>
+            <Badge variant="outline">Manager</Badge>
+          </div>
+        ) : (
+          <p className="py-3 text-center text-body text-muted-foreground">
+            {employee.userId ? "No reporting manager assigned" : "Link a user account to configure reporting lines"}
+          </p>
+        )}
+      </SectionCard>
+
+      <SectionCard title="Direct Reports" icon={Users}>
+        {employee.directReports.length === 0 ? (
+          <p className="py-3 text-center text-body text-muted-foreground">No direct reports assigned</p>
+        ) : (
+          <div className="space-y-1.5">
+            {employee.directReports.map((dr) => (
+              <div key={dr.membershipId} className="flex items-center justify-between rounded-md bg-subtle px-3 py-2.5">
+                <div>
+                  <div className="font-medium text-foreground">{dr.name}</div>
+                  <div className="text-meta text-muted-foreground">
+                    {dr.role.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}
+                  </div>
+                </div>
+                <Badge variant="brand">Direct Report</Badge>
               </div>
             ))}
           </div>
@@ -2835,6 +2903,7 @@ function DossierTab({ employee, canManage, departments }: { employee: EmployeePr
   const [termsForm, setTermsForm] = useState({
     employmentType: employee.employmentType ?? "",
     noticePeriodDays: employee.noticePeriodDays?.toString() ?? "",
+    paidLeaveQuota: employee.paidLeaveQuota?.toString() ?? "",
     contractStartDate: employee.contractStartDate ? employee.contractStartDate.split("T")[0] : "",
     contractEndDate: employee.contractEndDate ? employee.contractEndDate.split("T")[0] : "",
     probationEndDate: employee.probationEndDate ? employee.probationEndDate.split("T")[0] : "",
@@ -2955,6 +3024,7 @@ function DossierTab({ employee, canManage, departments }: { employee: EmployeePr
       await saveDossierFields({
         employmentType: termsForm.employmentType || null,
         noticePeriodDays: termsForm.noticePeriodDays ? Number(termsForm.noticePeriodDays) : null,
+        paidLeaveQuota: termsForm.paidLeaveQuota !== "" ? Number(termsForm.paidLeaveQuota) : null,
         contractStartDate: termsForm.contractStartDate || null,
         contractEndDate: termsForm.contractEndDate || null,
         probationEndDate: termsForm.probationEndDate || null,
@@ -3037,6 +3107,10 @@ function DossierTab({ employee, canManage, departments }: { employee: EmployeePr
                 <Input type="number" min="0" value={termsForm.noticePeriodDays} onChange={(e) => setTermsForm((f) => ({ ...f, noticePeriodDays: e.target.value }))} />
               </div>
               <div>
+                <Label>Paid Leave Quota (days/yr)</Label>
+                <Input type="number" min="0" max="365" value={termsForm.paidLeaveQuota} onChange={(e) => setTermsForm((f) => ({ ...f, paidLeaveQuota: e.target.value }))} placeholder="Default entitlement" />
+              </div>
+              <div>
                 <Label>Contract Start Date</Label>
                 <Input type="date" value={termsForm.contractStartDate} onChange={(e) => setTermsForm((f) => ({ ...f, contractStartDate: e.target.value }))} />
               </div>
@@ -3065,6 +3139,7 @@ function DossierTab({ employee, canManage, departments }: { employee: EmployeePr
           <div className="space-y-1.5 py-1">
             <DossierRow label="Employment Type" value={employee.employmentType ? employee.employmentType.charAt(0) + employee.employmentType.slice(1).toLowerCase() : "—"} />
             <DossierRow label="Notice Period" value={employee.noticePeriodDays ? `${employee.noticePeriodDays} days` : "—"} />
+            <DossierRow label="Paid Leave Quota" value={employee.paidLeaveQuota != null ? `${employee.paidLeaveQuota} days/yr` : "Default"} />
             <DossierRow label="Contract Start" value={employee.contractStartDate ? formatDate(employee.contractStartDate) : "—"} />
             <DossierRow label="Contract End" value={employee.contractEndDate ? formatDate(employee.contractEndDate) : "—"} />
             <DossierRow label="Probation End" value={employee.probationEndDate ? formatDate(employee.probationEndDate) : "—"} />
