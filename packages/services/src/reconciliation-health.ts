@@ -943,19 +943,28 @@ export async function reconcileUnitCosts(
       new Decimal(0),
     );
 
-    // Land.
-    const landPurchases = await prisma.landPurchase.findMany({
-      where: { projectId: project.id, deletedAt: null },
-      select: { totalCost: true },
+    // Land — same source as reallocateProjectCosts: parcel-level
+    // acquisitionCost (pro-rata on subdivisions), excluding PARTITIONED
+    // parents (cost moved to children) and SOLD parcels (cost left via
+    // the sale's COGS), and purchases whose stage is CANCELLED.
+    const projectParcels = await prisma.landParcel.findMany({
+      where: {
+        projectId: project.id,
+        status: { notIn: ["PARTITIONED", "SOLD"] },
+        landPurchase: { deletedAt: null, purchaseStage: { not: "CANCELLED" } },
+      },
+      select: { acquisitionCost: true },
     });
-    const land = landPurchases.reduce(
-      (sum, p) => sum.plus(new Decimal(p.totalCost)),
+    const land = projectParcels.reduce(
+      (sum, p) => sum.plus(new Decimal(p.acquisitionCost)),
       new Decimal(0),
     );
 
-    // Scrap recovery.
+    // Scrap recovery — only COMPLETED generations carry a WIP credit;
+    // draft/cancelled ones never hit the books (mirrors
+    // reallocateProjectCosts which excludes them explicitly).
     const scrapLines = await prisma.scrapGenerationLine.findMany({
-      where: { scrapGeneration: { projectId: project.id } },
+      where: { scrapGeneration: { projectId: project.id, status: "COMPLETED" } },
       select: { qty: true, unitCost: true },
     });
     const costRecovery = scrapLines.reduce(
