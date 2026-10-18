@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useUrlQuery } from "@/lib/use-url-filter";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -238,7 +239,7 @@ export function WbsView({ projects, canEdit }: { projects: Project[]; canEdit: b
   const [editingNode, setEditingNode] = useState<WbsNode | null>(null);
   const [parentNode, setParentNode] = useState<WbsNode | null>(null);
 
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useUrlQuery("q");
   const [detailNode, setDetailNode] = useState<WbsNode | null>(null);
   const [confirm, confirmDialog] = useConfirm();
   const [calcSchedule, setCalcSchedule] = useState(false);

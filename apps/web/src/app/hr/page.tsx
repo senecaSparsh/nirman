@@ -7,6 +7,8 @@ import { PERM, migrateRole, ROLES } from "@/lib/roles";
 import { PageLoading } from "@/components/page-loading";
 import { RefreshButton } from "@/components/refresh-button";
 import { PageHeader } from "@/components/page-header";
+import { Hint } from "@/components/page";
+import { applyCap, LIST_CAP } from "@/lib/list-cap";
 import { HrDashboard } from "@/components/hr/hr-dashboard";
 import { OrgHierarchyDesktop } from "@/components/hr/org-hierarchy";
 import type { OrgTreeData } from "@/lib/org-hierarchy-types";
@@ -38,6 +40,13 @@ async function HrDashboardContent() {
   const today = new Date();
   const todayDateOnly = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
   const weekAgo = new Date(today.getTime() - 7 * 86400000);
+
+  const cappedLabels: string[] = [];
+  const capQ = (label: string, cap = LIST_CAP) => <T,>(rows: T[]): T[] => {
+    const r = applyCap(rows, cap);
+    if (r.capped) cappedLabels.push(label);
+    return r.rows;
+  };
 
   const [
     employeeCount,
@@ -75,17 +84,17 @@ async function HrDashboardContent() {
     prisma.dailyProgressReport.count({ where: { companyId: company.id, approvalStatus: "SUBMITTED" } }),
     prisma.leaveRequest.count({ where: { companyId: company.id, status: "PENDING" } }),
     prisma.employee.findMany({
-      take: 200,
+      take: 201,
       where: { companyId: company.id, deletedAt: null, active: true, ...await scopeWhere("Employee") },
-      select: { trade: true, dailyRate: true, wageType: true, monthlySalary: true }}),
+      select: { trade: true, dailyRate: true, wageType: true, monthlySalary: true }}).then(capQ("employees", 200)),
     prisma.workerAttendance.findMany({
-      take: 200,
+      take: 201,
       where: {...await scopeWhere("WorkerAttendance"),  companyId: company.id, date: { gte: weekAgo } },
-      select: { date: true, status: true }}),
+      select: { date: true, status: true }}).then(capQ("weekly attendance", 200)),
     prisma.workerAttendance.findMany({
-      take: 500,
+      take: LIST_CAP + 1,
       where: {...await scopeWhere("WorkerAttendance"),  companyId: company.id, date: todayDateOnly, status: { in: ["PRESENT", "OVERTIME"] } },
-      include: { project: { select: { name: true } } }}),
+      include: { project: { select: { name: true } } }}).then(capQ("today's attendance")),
     loadOrgTree(company.id, company.name, currentUser?.id ?? null, canSeePayroll),
   ]);
 
@@ -154,6 +163,11 @@ async function HrDashboardContent() {
         ]}
       />
       <DepartmentActivityFeed department="hr" />
+      {cappedLabels.length > 0 && (
+        <Hint tone="warning">
+          {`Showing only the most recent records for ${cappedLabels.join(", ")} — derived stats below are computed from that subset; older entries are still in the database.`}
+        </Hint>
+      )}
       <div className="flex justify-end">
         <RefreshButton />
       </div>

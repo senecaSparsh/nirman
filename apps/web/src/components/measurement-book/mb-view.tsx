@@ -39,13 +39,6 @@ type MbEntry = {
   rejectReason: string | null;
 };
 
-const _STATUS_CONFIG = {
-  DRAFT: { label: "Draft", variant: "muted" },
-  VERIFIED: { label: "Verified", variant: "default" },
-  APPROVED: { label: "Approved", variant: "default" },
-  REJECTED: { label: "Rejected", variant: "danger" },
-} as const;
-
 /** Column definitions for the measurement book DataTable. */
 const mbColumns: Column<MbEntry>[] = [
   {

@@ -1921,7 +1921,7 @@ function PayrollHistoryRow({ p, canManagePayroll, _employeeId }: { p: PayrollIte
       // refresh so they pick up the payment without a manual reload.
       router.refresh();
     } catch (err) {
-      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Could not mark as paid");
       setUploadingProof(false);
     } finally {
       setMarkingPaid(false);

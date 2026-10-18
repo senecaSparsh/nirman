@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
+import { useUrlQuery, useUrlFilter } from "@/lib/use-url-filter";
 import Link from "next/link";
 import {
   ShieldCheck, CheckCircle2, Clock, AlertTriangle, XCircle,
@@ -64,10 +65,10 @@ const STATUS_CONFIG: Record<LegalDocStatus, { label: string; icon: typeof Clock;
  *  - A table grouped by stage with entity links, validity, and expiry alerts
  */
 export function PermissionsView({ docs, canManage }: { docs: PermissionRow[]; canManage: boolean }) {
-  const [stageFilter, setStageFilter] = useState<string>("ALL");
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
-  const [contextFilter, setContextFilter] = useState<string>("ALL");
-  const [search, setSearch] = useState("");
+  const [stageFilter, setStageFilter] = useUrlFilter<string>("stage", "ALL");
+  const [statusFilter, setStatusFilter] = useUrlFilter<string>("st", "ALL");
+  const [contextFilter, setContextFilter] = useUrlFilter<string>("ctx", "ALL");
+  const [search, setSearch] = useUrlQuery("q");
 
   // Summary stats
   const stats = useMemo(() => {

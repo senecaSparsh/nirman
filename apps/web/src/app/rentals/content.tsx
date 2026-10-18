@@ -3,6 +3,8 @@ import { prisma } from "@nirman/db";
 import { getCompany, toNum, projectScopeFilter, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
+import { Hint } from "@/components/page";
+import { applyCap, LIST_CAP } from "@/lib/list-cap";
 import { RentalsView } from "@/components/rentals/rentals-view";
 import { formatCurrency } from "@/lib/utils";
 import { NoAccess } from "@/components/no-access";
@@ -23,9 +25,15 @@ export async function RentalsContent() {
     canTerminate: __effPerms.includes(PERM.SALES_MANAGE),
   };
 
-  const [tenancies, landParcels, builtUnits, customers, projects] = await Promise.all([
+  const cappedLabels: string[] = [];
+  const capQ = (label: string, cap = LIST_CAP) => <T,>(rows: T[]): T[] => {
+    const r = applyCap(rows, cap);
+    if (r.capped) cappedLabels.push(label);
+    return r.rows;
+  };
+  const [tenancies, landParcels, builtUnits, customers, projects, tenancyStatusAgg] = await Promise.all([
     prisma.tenancy.findMany({
-      take: 500,
+      take: LIST_CAP + 1,
       where: { companyId: company.id },
       orderBy: { createdAt: "desc" },
       include: {
@@ -33,30 +41,37 @@ export async function RentalsContent() {
         project: { select: { id: true, name: true } },
         payments: { orderBy: { paymentDate: "desc" } },
       },
-    }),
+    }).then(capQ("tenancies")),
     prisma.landParcel.findMany({
-      take: 200,
+      take: 201,
       where: { deletedAt: null, status: { in: ["AVAILABLE", "RENTED"] }, saleId: null, landPurchase: { companyId: company.id } },
       select: { id: true, number: true, area: true, areaUnit: true, projectId: true },
       orderBy: { number: "asc" },
-    }),
+    }).then(capQ("rentable land parcels", 200)),
     prisma.builtUnit.findMany({
-      take: 200,
+      take: 201,
       where: { deletedAt: null, status: { in: ["AVAILABLE", "RENTED"] }, saleId: null, project: { companyId: company.id } },
       select: { id: true, unitNumber: true, unitType: true, area: true, areaUnit: true, projectId: true },
       orderBy: { unitNumber: "asc" },
-    }),
+    }).then(capQ("rentable units", 200)),
     prisma.customer.findMany({
-      take: 200,
+      take: 201,
       where: { deletedAt: null, companyId: company.id },
       select: { id: true, name: true, phone: true },
       orderBy: { name: "asc" },
-    }),
+    }).then(capQ("customers", 200)),
     prisma.project.findMany({
-      take: 200,
+      take: 201,
       where: { companyId: company.id, deletedAt: null, ...await projectScopeFilter() ?? {} },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
+    }).then(capQ("projects", 200)),
+    // Header stats come from complete aggregates — tenancies list is capped.
+    prisma.tenancy.groupBy({
+      by: ["status"],
+      where: { companyId: company.id },
+      _count: true,
+      _sum: { monthlyRent: true },
     }),
   ]);
 
@@ -120,11 +135,16 @@ export async function RentalsContent() {
         title="Rentals"
         description="Manage rental tenancies for land parcels and built units. Track agreements, security deposits, and monthly rent payments."
         stats={[
-          { label: "Tenancies", value: tenancyRows.length, hint: "All rental agreements for land parcels and built units, including ended ones." },
-          { label: "Active", value: tenancyRows.filter((t) => t.status === "ACTIVE").length, hint: "Tenancies currently in effect with an active tenant." },
-          { label: "Monthly rent", value: formatCurrency(tenancyRows.filter((t) => t.status === "ACTIVE").reduce((s, t) => s + toNum(t.monthlyRent), 0)), hint: "Sum of current monthly rent across all active tenancies (before escalations)." },
+          { label: "Tenancies", value: tenancyStatusAgg.reduce((s, g) => s + g._count, 0), hint: "All rental agreements for land parcels and built units, including ended ones." },
+          { label: "Active", value: tenancyStatusAgg.find((g) => g.status === "ACTIVE")?._count ?? 0, hint: "Tenancies currently in effect with an active tenant." },
+          { label: "Monthly rent", value: formatCurrency(tenancyStatusAgg.reduce((s, g) => s + (g.status === "ACTIVE" ? toNum(g._sum.monthlyRent) : 0), 0)), hint: "Sum of current monthly rent across all active tenancies (before escalations)." },
         ]}
       />
+      {cappedLabels.length > 0 && (
+        <Hint tone="warning">
+          {`Showing only the most recent records for ${cappedLabels.join(", ")} — older entries are still in the database but hidden from this page.`}
+        </Hint>
+      )}
       <RentalsView
         tenancies={tenancyRows}
         landParcels={landParcels.map((p) => ({ id: p.id, label: `Parcel ${p.number} (${toNum(p.area)} ${p.areaUnit})`, projectId: p.projectId }))}

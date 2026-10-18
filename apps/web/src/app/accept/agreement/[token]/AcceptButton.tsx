@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 export function AcceptButton({ employeeId, token }: { employeeId: string; token: string }) {
+  const router = useRouter();
   const [accepting, setAccepting] = useState(false);
   const [accepted, setAccepted] = useState(false);
 
@@ -19,7 +21,7 @@ export function AcceptButton({ employeeId, token }: { employeeId: string; token:
       if (!res.ok) throw new Error(data.error ?? "Failed to accept");
       toast.success(data.message ?? "Agreement accepted");
       setAccepted(true);
-      setTimeout(() => window.location.reload(), 1000);
+      setTimeout(() => router.refresh(), 1000);
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed");
     } finally {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useUrlFilter } from "@/lib/use-url-filter";
 import { Package, Download, FileSpreadsheet, ChevronDown, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
@@ -38,8 +39,8 @@ export function StockMovementsView({
   permissions?: { canTransfer?: boolean; canIssue?: boolean };
 }) {
   const canIssue = permissions?.canIssue ?? false;
-  const [typeFilter, setTypeFilter] = useState("");
-  const [locationFilter, setLocationFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useUrlFilter<string>("type", "");
+  const [locationFilter, setLocationFilter] = useUrlFilter<string>("loc", "");
   const [issueOpen, setIssueOpen] = useState(false);
   const [selected, setSelected] = useState<StockMovementRow | null>(null);
 

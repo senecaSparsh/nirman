@@ -4,6 +4,8 @@ import { prisma } from "@nirman/db";
 import { getCompany, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
+import { Hint } from "@/components/page";
+import { applyCap, LIST_CAP } from "@/lib/list-cap";
 import { UnitsHub } from "@/components/built-units/units-hub";
 import { PageLoading } from "@/components/page-loading";
 import { formatCurrency } from "@/lib/utils";
@@ -38,10 +40,17 @@ async function BuiltUnitsContent() {
     canSell: __effPerms.includes(PERM.SALE_CREATE),
   };
 
-  const [builtUnits, projects, phases, customers, portalListings, portalBuiltUnits, portalProj] = await Promise.all([
+  const cappedLabels: string[] = [];
+  const capQ = (label: string, cap = LIST_CAP) => <T,>(rows: T[]): T[] => {
+    const r = applyCap(rows, cap);
+    if (r.capped) cappedLabels.push(label);
+    return r.rows;
+  };
+  const unitWhere = {...await scopeWhere("BuiltUnit"),  deletedAt: null, project: { companyId: company.id } };
+  const [builtUnits, projects, phases, customers, portalListings, portalBuiltUnits, portalProj, unitStatusAgg, soldUnitCount] = await Promise.all([
     prisma.builtUnit.findMany({
-      take: 500,
-      where: {...await scopeWhere("BuiltUnit"),  deletedAt: null, project: { companyId: company.id } },
+      take: LIST_CAP + 1,
+      where: unitWhere,
       orderBy: [{ projectId: "asc" }, { unitNumber: "asc" }],
       include: {
         project: { select: { id: true, name: true } },
@@ -56,26 +65,26 @@ async function BuiltUnitsContent() {
           take: 1,
         },
       },
-    }),
+    }).then(capQ("built units")),
     prisma.project.findMany({
-      take: 200,
+      take: 201,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true },
-    }),
+    }).then(capQ("projects", 200)),
     prisma.projectPhase.findMany({
-      take: 200,
+      take: 201,
       where: {...await scopeWhere("ProjectPhase"),  project: { companyId: company.id, deletedAt: null } },
       orderBy: [{ projectId: "asc" }, { sortOrder: "asc" }],
       select: { id: true, name: true, status: true, projectId: true },
-    }),
+    }).then(capQ("phases", 200)),
     // Customer has no companyId — scope to customers with sales in this company.
     prisma.customer.findMany({
-      take: 200,
+      take: 201,
       where: { deletedAt: null, assetSales: { some: { companyId: company.id } } },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
-    }),
+    }).then(capQ("customers", 200)),
     canViewPortals
       ? prisma.portalListing.findMany({
           where: { companyId: company.id },
@@ -101,8 +110,8 @@ async function BuiltUnitsContent() {
             },
           },
           orderBy: { createdAt: "desc" },
-          take: 200,
-        })
+          take: 201,
+        }).then(capQ("portal listings", 200))
       : Promise.resolve([]),
     canViewPortals
       ? prisma.builtUnit.findMany({
@@ -129,17 +138,25 @@ async function BuiltUnitsContent() {
             project: { select: { id: true, name: true } },
           },
           orderBy: [{ project: { name: "asc" } }, { unitNumber: "asc" }],
-          take: 500,
-        })
+          take: LIST_CAP + 1,
+        }).then(capQ("listable units"))
       : Promise.resolve([]),
     canViewPortals
       ? prisma.project.findMany({
-          take: 200,
+          take: 201,
           where: { ...await scopeWhere("Project"), companyId: company.id, deletedAt: null },
           select: { id: true, name: true },
           orderBy: { name: "asc" },
-        })
+        }).then(capQ("portal projects", 200))
       : Promise.resolve([]),
+    // Header stats must not come from the capped list — complete aggregates.
+    prisma.builtUnit.groupBy({
+      by: ["status"],
+      where: unitWhere,
+      _count: true,
+      _sum: { currentValuation: true },
+    }),
+    prisma.builtUnit.count({ where: { ...unitWhere, assetSales: { some: { status: "ACTIVE" } } } }),
   ]);
 
   const unitRows: BuiltUnitRow[] = builtUnits.map((u) => {
@@ -313,9 +330,11 @@ async function BuiltUnitsContent() {
   const renovationLandParcels = renLandParcels.map((p) => ({ id: p.id, number: p.number }));
 
   // "Sold" = has an active sale (unit may be RESERVED during staged sale flow).
-  const soldCount = unitRows.filter((u) => u.saleId != null).length;
-  const availableCount = unitRows.filter((u) => u.status === "AVAILABLE").length;
-  const totalValuation = unitRows.reduce((s, u) => s + toNum(u.currentValuation), 0);
+  // Stats come from complete aggregates — unitRows is capped at LIST_CAP.
+  const soldCount = soldUnitCount;
+  const totalUnits = unitStatusAgg.reduce((s, g) => s + g._count, 0);
+  const availableCount = unitStatusAgg.find((g) => g.status === "AVAILABLE")?._count ?? 0;
+  const totalValuation = unitStatusAgg.reduce((s, g) => s + toNum(g._sum.currentValuation), 0);
 
   return (
     <div className="space-y-6">
@@ -323,12 +342,17 @@ async function BuiltUnitsContent() {
         title="Built Units"
         description="Flats, shops, and offices built on projects — track status, valuation, and portal listings."
         stats={[
-          { label: "Total", value: unitRows.length, hint: "All built units (flats, shops, offices) across every project, excluding soft-deleted." },
+          { label: "Total", value: totalUnits, hint: "All built units (flats, shops, offices) across every project, excluding soft-deleted." },
           { label: "Available", value: availableCount, tone: availableCount > 0 ? "success" : "muted", hint: "Units with AVAILABLE status — ready to be sold or listed on portals." },
           { label: "Sold", value: soldCount, tone: soldCount > 0 ? "success" : "muted", hint: "Units that have been sold and linked to an active sale." },
           { label: "Valuation", value: formatCurrency(totalValuation), hint: "Sum of current valuations across all built units, after any NRV write-downs." },
         ]}
       />
+      {cappedLabels.length > 0 && (
+        <Hint tone="warning">
+          {`Showing only the most recent records for ${cappedLabels.join(", ")} — older entries are still in the database but hidden from this page.`}
+        </Hint>
+      )}
       <UnitsHub
         units={unitRows}
         projects={projectRows}

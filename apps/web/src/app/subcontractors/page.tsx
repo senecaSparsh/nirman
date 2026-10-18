@@ -2,6 +2,8 @@ import { prisma } from "@nirman/db";
 import { getCompany, toNum, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
+import { Hint } from "@/components/page";
+import { applyCap, LIST_CAP } from "@/lib/list-cap";
 import { SubcontractorsView } from "@/components/subcontractors/subcontractors-view";
 import { NoAccess } from "@/components/no-access";
 import { formatCurrency } from "@/lib/utils";
@@ -15,8 +17,8 @@ export default async function SubcontractorsPage() {
 
   const company = await getCompany();
 
-  const subcontractors = await prisma.subcontractor.findMany({
-    take: 500,
+  const subcontractorsAll = await prisma.subcontractor.findMany({
+    take: LIST_CAP + 1,
     where: { deletedAt: null, companyId: company.id },
     orderBy: { name: "asc" },
     include: {
@@ -25,6 +27,8 @@ export default async function SubcontractorsPage() {
       },
     },
   });
+  const { rows: subcontractors, capped } = applyCap(subcontractorsAll);
+  const cappedLabels = capped ? ["subcontractors"] : [];
 
   const rows: SubcontractorRow[] = subcontractors.map((s) => {
     const activeStatuses = ["DRAFT", "ISSUED", "ACTIVE"];
@@ -65,6 +69,11 @@ export default async function SubcontractorsPage() {
           { label: "Retention Held", value: formatCurrency(totalRetention), hint: `Total retention held. ${formatCurrency(totalPaid)} paid out.` },
         ]}
       />
+      {cappedLabels.length > 0 && (
+        <Hint tone="warning">
+          {`Showing only the most recent records for ${cappedLabels.join(", ")} — older entries are still in the database but hidden from this page.`}
+        </Hint>
+      )}
       <SubcontractorsView
         subcontractors={rows}
         canCreate={perms.canCreate}

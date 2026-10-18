@@ -83,6 +83,12 @@ describe("ProjectsPage (ProjectsContent)", () => {
       { id: "p2", name: "B", type: "COMMERCIAL", status: "COMPLETED", builtUnits: [], _count: { stockLocations: 0, phases: 0 } },
       { id: "p3", name: "C", type: "LAND", status: "ON_HOLD", builtUnits: [], _count: { stockLocations: 0, phases: 0 } },
     ]);
+    // Header stats come from the groupBy aggregate, not the (capped) list.
+    mockPrisma().project!.groupBy.mockResolvedValue([
+      { status: "ACTIVE", _count: 1 },
+      { status: "COMPLETED", _count: 1 },
+      { status: "ON_HOLD", _count: 1 },
+    ]);
 
     const ui = await ProjectsContent();
     render(ui);

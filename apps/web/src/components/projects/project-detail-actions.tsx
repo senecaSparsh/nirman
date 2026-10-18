@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Pencil, Trash2, Milestone, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ export function ProjectDetailActions({
   canManage?: boolean;
   canReallocate?: boolean;
 }) {
+  const router = useRouter();
   const [internalEditOpen, setInternalEditOpen] = useState(false);
   const [delOpen, setDelOpen] = useState(false);
   const [checkingMilestones, setCheckingMilestones] = useState(false);
@@ -63,7 +65,7 @@ export function ProjectDetailActions({
         description: `Cost/sqft: ${formatCurrency(data.costPerSqft)} · Total: ${formatCurrency(data.totalProjectCost)}`,
       });
       // Refresh the page to show updated values
-      window.location.reload();
+      router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to reallocate costs");
     } finally {

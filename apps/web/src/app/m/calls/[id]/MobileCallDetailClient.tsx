@@ -192,7 +192,8 @@ export function MobileCallDetailClient({
         return;
       }
       const data = await res.json();
-      setNotes([{ ...data.note }, ...notes]);
+      // The route returns the created note row directly (not wrapped in { note }).
+      setNotes([{ ...data }, ...notes]);
       setNewNote("");
       haptic(10);
     } catch {
@@ -216,7 +217,10 @@ export function MobileCallDetailClient({
         return;
       }
       const data = await res.json();
-      setTags([...tags, { callTag: data.tag }]);
+      // API returns ok:true for already-applied tags — dedupe before appending.
+      if (!tags.some((t) => t.callTag.id === data.tag.id)) {
+        setTags([...tags, { callTag: data.tag }]);
+      }
       setNewTag("");
       haptic(10);
     } catch {

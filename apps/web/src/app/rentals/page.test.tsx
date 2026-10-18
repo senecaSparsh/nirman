@@ -128,6 +128,11 @@ describe("RentalsPage (RentalsContent)", () => {
       { id: "t1", assetType: "BUILT_UNIT", landParcelId: null, builtUnitId: "u1", customerId: "c1", customer: { id: "c1", name: "J", phone: "1" }, projectId: null, project: null, tenantName: "J", tenantPhone: "1", tenantEmail: null, startDate: new Date("2024-01-01"), endDate: new Date("2025-01-01"), monthlyRent: 15000, baseRent: 15000, securityDeposit: 30000, rentAgreementNo: null, rentAgreementDocumentUrl: null, rentAgreementDocumentName: null, sacCode: null, escalationPercent: null, escalationIntervalMonths: null, nextEscalationDate: null, lastEscalatedAt: null, rentFreeDays: null, draftDocumentUrl: null, draftDocumentName: null, draftNotes: null, draftDate: null, status: "ACTIVE", notes: null, payments: [] },
       { id: "t2", assetType: "BUILT_UNIT", landParcelId: null, builtUnitId: "u2", customerId: "c2", customer: { id: "c2", name: "K", phone: "2" }, projectId: null, project: null, tenantName: "K", tenantPhone: "2", tenantEmail: null, startDate: new Date("2024-01-01"), endDate: new Date("2025-01-01"), monthlyRent: 20000, baseRent: 20000, securityDeposit: 40000, rentAgreementNo: null, rentAgreementDocumentUrl: null, rentAgreementDocumentName: null, sacCode: null, escalationPercent: null, escalationIntervalMonths: null, nextEscalationDate: null, lastEscalatedAt: null, rentFreeDays: null, draftDocumentUrl: null, draftDocumentName: null, draftNotes: null, draftDate: null, status: "ENDED", notes: null, payments: [] },
     ]);
+    // Tenancy stats come from the groupBy aggregate, not the (capped) list.
+    mockPrisma().tenancy!.groupBy.mockResolvedValue([
+      { status: "ACTIVE", _count: 1, _sum: { monthlyRent: 15000 } },
+      { status: "ENDED", _count: 1, _sum: { monthlyRent: 20000 } },
+    ]);
 
     const ui = await RentalsContent();
     render(ui);

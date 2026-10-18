@@ -4,6 +4,8 @@ import { projectPnl } from "@nirman/services";
 import { getCompany, getUserScope, toNum, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
+import { Hint } from "@/components/page";
+import { applyCap, LIST_CAP } from "@/lib/list-cap";
 import { ProjectsView } from "@/components/projects/projects-view";
 import { NoAccess } from "@/components/no-access";
 import { DepartmentActivityFeed } from "@/components/department-activity-feed";
@@ -35,8 +37,8 @@ export async function ProjectsContent() {
       ? { id: { in: scope.projectIds } }
       : {};
 
-  const projects = await prisma.project.findMany({
-    take: 500,
+  const { rows: projects, capped } = applyCap(await prisma.project.findMany({
+    take: LIST_CAP + 1,
     where: { companyId: company.id, deletedAt: null, ...projectScopeFilter },
     orderBy: { createdAt: "desc" },
     include: {
@@ -51,7 +53,16 @@ export async function ProjectsContent() {
         },
       },
     },
+  }));
+  const cappedLabels = capped ? ["projects"] : [];
+
+  // Header stats come from a complete aggregate — the projects list is capped.
+  const projStatusAgg = await prisma.project.groupBy({
+    by: ["status"],
+    where: { companyId: company.id, deletedAt: null, ...projectScopeFilter },
+    _count: true,
   });
+  const totalProjects = projStatusAgg.reduce((s, g) => s + g._count, 0);
 
   // Compute P&L for each project (parallel)
   const pnlResults = await Promise.all(
@@ -68,9 +79,9 @@ export async function ProjectsContent() {
   );
   const pnlMap = new Map(pnlResults.map((r) => [r.projectId, r]));
 
-  const activeCount = projects.filter((p) => p.status === "ACTIVE").length;
-  const completedCount = projects.filter((p) => p.status === "COMPLETED").length;
-  const onHoldCount = projects.filter((p) => p.status === "ON_HOLD").length;
+  const activeCount = projStatusAgg.find((g) => g.status === "ACTIVE")?._count ?? 0;
+  const completedCount = projStatusAgg.find((g) => g.status === "COMPLETED")?._count ?? 0;
+  const onHoldCount = projStatusAgg.find((g) => g.status === "ON_HOLD")?._count ?? 0;
 
   // Serialize for client component — with health data
   const projectRows = projects.map((p) => {
@@ -110,13 +121,18 @@ export async function ProjectsContent() {
         title="Projects"
         description="Every construction and development project — phases, budget, cost-per-sqft, and built units. BOQ, WBS, and site diaries live inside each project."
         stats={[
-          { label: "Total", value: projects.length, hint: "All projects in the company, including completed and on-hold." },
+          { label: "Total", value: totalProjects, hint: "All projects in the company, including completed and on-hold." },
           { label: "Active", value: activeCount, hint: "Projects currently in ACTIVE status." },
           { label: "Completed", value: completedCount, hint: "Projects marked as COMPLETED." },
           { label: "On hold", value: onHoldCount, hint: "Projects paused or on hold." },
         ]}
       />
       <DepartmentActivityFeed department="projects" />
+      {cappedLabels.length > 0 && (
+        <Hint tone="warning">
+          {`Showing only the most recent records for ${cappedLabels.join(", ")} — older entries are still in the database but hidden from this page.`}
+        </Hint>
+      )}
       <ProjectsView
         projects={projectRows}
         typeLabels={TYPE_LABELS}

@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useUrlQuery } from "@/lib/use-url-filter";
 import { toast } from "sonner";
 import {
   Check, X, Inbox, ArrowRight, Search, RefreshCw, Loader2,
@@ -147,7 +148,7 @@ export function ApprovalsView({
   pendingClaimsCount?: number;
 }) {
   const router = useRouter();
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useUrlQuery("q");
   const [bulkApproving, setBulkApproving] = useState(false);
   const [confirm, confirmDialog] = useConfirm();
 

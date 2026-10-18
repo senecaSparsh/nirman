@@ -97,6 +97,12 @@ describe("SuppliersPage (VendorsContent)", () => {
         _count: { purchaseOrders: 5 },
       },
     ]);
+    // totalSpent/openPOs come from the groupBy aggregate (not the 10-row
+    // recentPOs sample) — mock the aggregate directly.
+    mockPrisma().purchaseOrder!.groupBy.mockResolvedValue([
+      { supplierId: "s1", status: "ORDERED", _count: 1, _sum: { total: 10000 } },
+      { supplierId: "s1", status: "RECEIVED", _count: 1, _sum: { total: 5000 } },
+    ]);
 
     const ui = await VendorsContent();
     render(ui);

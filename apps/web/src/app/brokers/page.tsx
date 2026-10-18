@@ -2,6 +2,8 @@ import { prisma } from "@nirman/db";
 import { getCompany, toNum, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
+import { Hint } from "@/components/page";
+import { applyCap, LIST_CAP } from "@/lib/list-cap";
 import { BrokersView } from "@/components/brokers/brokers-view";
 import { NoAccess } from "@/components/no-access";
 import { formatCurrency } from "@/lib/utils";
@@ -15,8 +17,8 @@ export default async function BrokersPage() {
 
   const company = await getCompany();
 
-  const brokers = await prisma.broker.findMany({
-    take: 500,
+  const brokersAll = await prisma.broker.findMany({
+    take: LIST_CAP + 1,
     where: { deletedAt: null, companyId: company.id },
     orderBy: { name: "asc" },
     include: {
@@ -26,6 +28,8 @@ export default async function BrokersPage() {
       },
     },
   });
+  const { rows: brokers, capped } = applyCap(brokersAll);
+  const cappedLabels = capped ? ["brokers"] : [];
 
   const rows: BrokerRow[] = brokers.map((b) => {
     const brokerDeals = b.assetSales;
@@ -65,6 +69,11 @@ export default async function BrokersPage() {
           { label: "Commission", value: formatCurrency(totalCommission), hint: `Total commission across all broker deals. ${formatCurrency(totalUnpaid)} unpaid.` },
         ]}
       />
+      {cappedLabels.length > 0 && (
+        <Hint tone="warning">
+          {`Showing only the most recent records for ${cappedLabels.join(", ")} — older entries are still in the database but hidden from this page.`}
+        </Hint>
+      )}
       <BrokersView
         brokers={rows}
         canCreate={perms.canCreate}

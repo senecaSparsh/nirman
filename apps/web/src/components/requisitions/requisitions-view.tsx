@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useUrlFilter } from "@/lib/use-url-filter";
 import { toast } from "sonner";
 import { Plus, ClipboardList, X, Check, ShoppingCart, Trash2, Zap, Loader2, Printer, FileText, FileSpreadsheet, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -201,7 +202,7 @@ export function RequisitionsView({
   const [detailTarget, setDetailTarget] = useState<RequisitionRow | null>(null);
   const [convertTarget, setConvertTarget] = useState<RequisitionRow | null>(null);
   const [deleting, setDeleting] = useState<RequisitionRow | null>(null);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useUrlFilter<string>("st_req", "");
   const [autoOpen, setAutoOpen] = useState(false);
   const [autoProjectId, setAutoProjectId] = useState("");
   const [autoLoading, setAutoLoading] = useState(false);

@@ -112,6 +112,11 @@ describe("GatePassesPage (GatePassesContent)", () => {
       { id: "gp1", gatePassNumber: "GP-001", status: "PENDING", category: "OUTBOUND", refType: null, refId: null, locationId: "l1", location: { id: "l1", name: "Gate", type: "W" }, projectId: null, project: null, vehicleNumber: null, vehicleType: null, driverName: null, driverPhone: null, transporterName: null, destination: null, purpose: null, notes: null, createdAt: new Date("2024-01-01"), submittedAt: null, approvedAt: null, exitedAt: null, rejectionReason: null, approvalNotes: null, createdBy: null, submittedBy: null, approvedBy: null, rejectedBy: null, exitedBy: null, exitNotes: null, exitPhotos: null, lines: [] },
       { id: "gp2", gatePassNumber: "GP-002", status: "APPROVED", category: "OUTBOUND", refType: null, refId: null, locationId: "l1", location: { id: "l1", name: "Gate", type: "W" }, projectId: null, project: null, vehicleNumber: null, vehicleType: null, driverName: null, driverPhone: null, transporterName: null, destination: null, purpose: null, notes: null, createdAt: new Date("2024-01-01"), submittedAt: null, approvedAt: null, exitedAt: null, rejectionReason: null, approvalNotes: null, createdBy: null, submittedBy: null, approvedBy: null, rejectedBy: null, exitedBy: null, exitNotes: null, exitPhotos: null, lines: [] },
     ]);
+    // Status stats come from the groupBy aggregate, not the (capped) list.
+    mockPrisma().gatePass!.groupBy.mockResolvedValue([
+      { status: "PENDING", _count: 1 },
+      { status: "APPROVED", _count: 1 },
+    ]);
 
     const ui = await GatePassesContent();
     render(ui);

@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useUrlQuery } from "@/lib/use-url-filter";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Building2, Search, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,7 @@ export function DepartmentsView({
   canEdit: boolean;
   canDelete: boolean;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useUrlQuery("q");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<DepartmentRow | null>(null);
   const [deleting, setDeleting] = useState<DepartmentRow | null>(null);

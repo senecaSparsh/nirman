@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useUrlFilter } from "@/lib/use-url-filter";
 import { LayoutGrid, MapPin, Pencil, Plus, Rows3, Trash2, Wrench, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Segmented } from "@/components/ui/tabs";
@@ -42,8 +43,8 @@ export function EquipmentView({
 }) {
   const canCreate = permissions?.canCreate ?? false;
   const canEdit = permissions?.canEdit ?? false;
-  const [statusFilter, setStatusFilter] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useUrlFilter<string>("st", "");
+  const [categoryFilter, setCategoryFilter] = useUrlFilter<string>("cat", "");
   /** Register first, board second — see the comment at the render site. */
   const [view, setView] = useState<"table" | "board">("table");
   const [formOpen, setFormOpen] = useState(false);

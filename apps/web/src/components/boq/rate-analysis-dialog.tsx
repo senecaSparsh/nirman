@@ -56,15 +56,6 @@ interface RateAnalysisData {
   }>;
 }
 
-const _COMPONENT_COLORS: Record<ComponentType, string> = {
-  MATERIAL: "bg-blue-100 text-blue-700",
-  LABOUR: "bg-amber-100 text-amber-700",
-  EQUIPMENT: "bg-purple-100 text-purple-700",
-  OVERHEAD: "bg-gray-100 text-gray-700",
-  PROFIT: "bg-green-100 text-green-700",
-  OTHER: "bg-pink-100 text-pink-700",
-};
-
 function defaultBasisForType(type: ComponentType): LineBasis {
   return type === "OVERHEAD" || type === "PROFIT" ? "PERCENTAGE" : "QUANTITY";
 }

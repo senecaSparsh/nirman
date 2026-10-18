@@ -7,6 +7,7 @@ import {Wallet, TrendingUp, FileText, AlertTriangle} from "lucide-react";
 import { getCompany, toNum, scopeWhere, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
+import { squareToSupplierCards } from "@/lib/supplier-payables";
 import {
   MobileSectionTitle,
   MobileRow,
@@ -43,15 +44,31 @@ async function MobilePendingPaymentsContent() {
   const company = await getCompany();
   const now = new Date();
 
-  const [overduePOs, sales, draftPOs] = await Promise.all([
+  const [overduePOs, supplierPayments, supplierCards, sales, draftPOs] = await Promise.all([
     prisma.purchaseOrder.findMany({
-      where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: { in: ["ORDERED", "PARTIAL"] }, expectedDate: { lt: now } },
-      include: { supplier: { select: { name: true } }, lines: { select: { qtyOrdered: true, qtyReceived: true, unitCost: true } } },
-      orderBy: { expectedDate: "asc" },
+      where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id, status: { in: ["ORDERED", "PARTIAL", "RECEIVED"] }, lines: { some: { qtyReceived: { gt: 0 } } } },
+      include: { supplier: { select: { id: true, name: true } }, lines: { select: { qtyOrdered: true, qtyReceived: true, unitCost: true, gstRate: true } } },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.supplierPayment.findMany({
+      where: { ...await scopeWhere("SupplierPayment"), companyId: company.id, status: "ACTIVE" },
+      select: { supplierId: true, amount: true },
+    }),
+    prisma.supplier.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      select: { id: true, name: true, balanceOwed: true, createdAt: true },
+      take: 2000,
     }),
     prisma.assetSale.findMany({
-      where: { ...await scopeWhere("AssetSale"),...await scopeWhere("AssetSale"),  companyId: company.id, status: "ACTIVE", paymentStatus: { in: ["PENDING", "PARTIAL"] } },
-      include: { customer: { select: { name: true } }, project: { select: { name: true } }, payments: { select: { amount: true } } },
+      where: { ...await scopeWhere("AssetSale"), companyId: company.id, status: "ACTIVE", paymentStatus: { in: ["PENDING", "PARTIAL"] } },
+      include: {
+        customer: { select: { name: true } },
+        project: { select: { name: true } },
+        payments: {
+          where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: { not: "BOUNCED" } }] },
+          select: { amount: true },
+        },
+      },
       orderBy: { saleDate: "asc" },
     }),
     prisma.purchaseOrder.findMany({
@@ -61,11 +78,42 @@ async function MobilePendingPaymentsContent() {
     }),
   ]);
 
-  const overdueRows = overduePOs.map((po) => {
-    const receivedValue = po.lines.reduce((s, l) => s + toNum(l.qtyReceived) * toNum(l.unitCost), 0);
+  const paidBySupplier = new Map<string, number>();
+  for (const p of supplierPayments) {
+    paidBySupplier.set(p.supplierId, (paidBySupplier.get(p.supplierId) ?? 0) + toNum(p.amount));
+  }
+
+  const poOverdueRows = overduePOs.map((po) => {
+    const receivedValue = po.lines.reduce((s, l) => s + toNum(l.qtyReceived) * toNum(l.unitCost) * (1 + toNum(l.gstRate) / 100), 0);
+    const paidPool = paidBySupplier.get(po.supplierId) ?? 0;
+    const applied = Math.min(paidPool, receivedValue);
+    paidBySupplier.set(po.supplierId, paidPool - applied);
     const daysOverdue = po.expectedDate ? Math.floor((now.getTime() - po.expectedDate.getTime()) / 86400000) : 0;
-    return { id: po.id, poNumber: po.poNumber, supplier: po.supplier.name, daysOverdue, payable: receivedValue, agingBucket: getAgingBucket(daysOverdue) };
+    return {
+      id: po.id,
+      supplierId: po.supplierId,
+      poNumber: po.poNumber,
+      supplier: po.supplier.name,
+      daysOverdue,
+      payable: receivedValue - applied,
+      agingBucket: getAgingBucket(daysOverdue),
+      ageLabel: daysOverdue > 0 ? `${daysOverdue}d overdue` : "not yet due",
+    };
   });
+
+  const { poRows: payablePOs, unexplained } = squareToSupplierCards(
+    poOverdueRows,
+    supplierCards.map((s) => ({ id: s.id, balanceOwed: toNum(s.balanceOwed) })),
+  );
+  const unlinkedSupplierRows = supplierCards
+    .filter((s) => unexplained.has(s.id))
+    .map((s) => {
+      const payable = unexplained.get(s.id) ?? 0;
+      const daysOverdue = Math.floor((now.getTime() - s.createdAt.getTime()) / 86400000);
+      return { id: `sup-bal-${s.id}`, poNumber: "Opening / bills", supplier: s.name, daysOverdue, payable, agingBucket: getAgingBucket(daysOverdue), ageLabel: `${daysOverdue}d open` };
+    });
+
+  const overdueRows = [...payablePOs, ...unlinkedSupplierRows];
 
   const receivableRows = sales.map((s) => {
     const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
@@ -105,7 +153,7 @@ async function MobilePendingPaymentsContent() {
     <div>
       <MobileReportHeader
         title="Pending Payments"
-        subtitle="Overdue payables, outstanding receivables, and draft POs"
+        subtitle="Payables to suppliers, outstanding receivables, and draft POs"
         icon={Wallet}
         period="Current"
       />
@@ -115,7 +163,7 @@ async function MobilePendingPaymentsContent() {
           // Overdue-PO payable only — not all supplier balances (those live
           // on the Accounts hub at ₹10.96L). Labeled so the number isn't
           // misread as the company-wide payable figure.
-          { label: "Overdue payable", value: formatCurrencyCompact(totalPayable), tone: "stop" },
+          { label: "Payable", value: formatCurrencyCompact(totalPayable), tone: "stop" },
           { label: "Receivable", value: formatCurrencyCompact(totalReceivable), tone: "go" },
           { label: "Net Cash", value: formatCurrencyCompact(netCash), tone: netCash >= 0 ? "go" : "stop" },
           { label: "Draft POs", value: formatCurrencyCompact(totalDraft), tone: "signal" },
@@ -134,7 +182,7 @@ async function MobilePendingPaymentsContent() {
       {/* Top overdue POs by payable amount */}
       {overdueRows.length > 0 && (
         <>
-          <MobileSectionTitle>Top Overdue POs by Amount</MobileSectionTitle>
+          <MobileSectionTitle>Largest Payables</MobileSectionTitle>
           <div className="mb-4">
             <MobileBarChart
               data={overdueRows.slice(0, 10).map((r) => ({
@@ -151,14 +199,14 @@ async function MobilePendingPaymentsContent() {
       {/* Overdue POs */}
       {overdueRows.length > 0 && (
         <>
-          <MobileSectionTitle>Overdue POs ({overdueRows.length})</MobileSectionTitle>
+          <MobileSectionTitle>Payable to suppliers ({overdueRows.length})</MobileSectionTitle>
           <div className="flex flex-col gap-2 mb-4">
             {overdueRows.slice(0, 15).map((r) => (
               <MobileRow
                 key={r.id}
                 icon={AlertTriangle}
                 title={r.supplier}
-                subtitle={`${r.poNumber} · ${r.daysOverdue}d overdue`}
+                subtitle={`${r.poNumber} · ${r.ageLabel}`}
                 meta={formatCurrencyCompact(r.payable)}
                 tone="danger"
               />

@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useUrlQuery } from "@/lib/use-url-filter";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
@@ -65,7 +66,7 @@ export function SafetyView({
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("incidents");
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useUrlQuery("q");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [dialogOpen, setDialogOpen] = useState(false);
 

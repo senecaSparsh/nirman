@@ -34,6 +34,7 @@ export function MobileNewSupplierClient({
     email: "",
     address: "",
     leadTimeDays: "",
+    openingBalance: "",
   });
   const [duplicateName, setDuplicateName] = useState<string | null>(null);
   const [duplicatePhone, setDuplicatePhone] = useState<string | null>(null);
@@ -86,6 +87,7 @@ export function MobileNewSupplierClient({
         email: form.email.trim() || null,
         address: form.address.trim() || null,
         leadTimeDays: form.leadTimeDays ? Number(form.leadTimeDays) : null,
+        ...(form.openingBalance && Number(form.openingBalance) > 0 ? { openingBalance: Number(form.openingBalance) } : {}),
       };
       const res = await fetch("/api/suppliers", {
         method: "POST",
@@ -132,7 +134,7 @@ export function MobileNewSupplierClient({
           <button
             onClick={() => {
               setSuccess(null);
-              setForm({ name: "", gstin: "", phone: "", email: "", address: "", leadTimeDays: "" });
+              setForm({ name: "", gstin: "", phone: "", email: "", address: "", leadTimeDays: "", openingBalance: "" });
             }}
             className="flex-1 rounded-[0.5rem] px-4 py-2 text-m-body font-bold border text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
@@ -257,17 +259,30 @@ export function MobileNewSupplierClient({
             />
           </div>
 
-          {/* Lead time — narrow */}
-          <div className="w-28">
-            <UnderlineInput
-              label="Lead time (days)"
-              value={form.leadTimeDays}
-              onChange={(v) => set("leadTimeDays", v)}
-              placeholder="e.g. 7"
-              type="number"
-              inputMode="numeric"
-              min="0"
-            />
+          {/* Lead time + Opening balance — side by side */}
+          <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
+            <div>
+              <UnderlineInput
+                label="Lead time (days)"
+                value={form.leadTimeDays}
+                onChange={(v) => set("leadTimeDays", v)}
+                placeholder="e.g. 7"
+                type="number"
+                inputMode="numeric"
+                min="0"
+              />
+            </div>
+            <div className="pl-2">
+              <UnderlineInput
+                label="Opening balance owed (₹)"
+                value={form.openingBalance}
+                onChange={(v) => set("openingBalance", v)}
+                placeholder="Optional"
+                type="number"
+                inputMode="decimal"
+                min="0"
+              />
+            </div>
           </div>
         </SectionCard>
 

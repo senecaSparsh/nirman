@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,7 @@ export function AdjustStockDialog({
   stockItems: StockItemRow[];
   locations?: LocationOption[];
 }) {
+  const router = useRouter();
   const [locations, setLocations] = useState<LocationOption[]>(
     serverLocations ??
       stockItems.map((i) => ({
@@ -182,8 +184,8 @@ export function AdjustStockDialog({
         `${verb} ${formatNumber(qtyNum, 3)} ${material.unit} — new balance ${formatNumber(Number(data.newQty), 3)} ${material.unit}`,
       );
       onOpenChange(false);
-      // revalidatePath on the server refreshes the RSC; force a client refresh too.
-      window.location.reload();
+      // revalidatePath on the server refreshes the RSC; ask the router for it.
+      router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to adjust stock");
     } finally {

@@ -105,7 +105,7 @@ describe("PATCH /api/customers/[id]", () => {
       makeRequest("/api/customers/missing", { method: "PATCH", body: { name: "X" } }),
       ctx,
     );
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(404);
   });
 
   it("returns 409 on concurrent edit (version mismatch)", async () => {

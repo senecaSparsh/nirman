@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useUrlFilter } from "@/lib/use-url-filter";
 import Link from "next/link";
 import { Plus, LandPlot, Layers, SplitSquareHorizontal, CircleDollarSign, ArrowRight, MapPin, ChevronDown, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -264,7 +265,7 @@ export function LandView({
 
   // Status filter: show only purchases that have at least one parcel in the
   // selected status (AVAILABLE / HOLD / PARTITIONED / SOLD).
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useUrlFilter<string>("st", "");
 
   // Convert a LandParcelRow into the SellableAssetRow shape for the SellAssetDialog.
   function toSellableAsset(p: LandParcelRow): SellableAssetRow {

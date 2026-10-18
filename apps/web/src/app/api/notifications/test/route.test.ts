@@ -37,7 +37,7 @@ describe("POST /api/notifications/test", () => {
     expect(body.status).toBe("SENT");
   });
 
-  it("returns 500 for invalid channel (zod parse throws)", async () => {
+  it("returns 400 for invalid channel (zod parse throws)", async () => {
     const res = await POST(
       makeRequest("/api/notifications/test", {
         method: "POST",
@@ -45,10 +45,10 @@ describe("POST /api/notifications/test", () => {
       }),
       {},
     );
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(400);
   });
 
-  it("returns 500 when recipient is missing (zod parse throws)", async () => {
+  it("returns 400 when recipient is missing (zod parse throws)", async () => {
     const res = await POST(
       makeRequest("/api/notifications/test", {
         method: "POST",
@@ -56,7 +56,7 @@ describe("POST /api/notifications/test", () => {
       }),
       {},
     );
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(400);
   });
 
   it("returns 403 when the user lacks FINANCE_MANAGE", async () => {

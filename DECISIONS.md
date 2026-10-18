@@ -1324,11 +1324,11 @@ z.any())` (not z.unknown()) to stay assignable to Prisma InputJsonValue.
 `role-matrix.ts` run for the remaining low-priv roles (pacing added — the
 write limiter's ~20/s sustained refill was flagging my own 429s):
 
-| Role | Denied cleanly | Accepts | Verdict |
-|---|---|---|---|
-| SUPERVISOR | 1,135 (788×403) | 8 | all legitimate |
-| SECURITY_GUARD | 1,137 (952×403) | 6 | all self-service |
-| ACCOUNTANT | 1,131 (836×403) | 12 | all in-domain (GL seed, Tally sync) |
+| Role           | Denied cleanly  | Accepts | Verdict                             |
+| -------------- | --------------- | ------- | ----------------------------------- |
+| SUPERVISOR     | 1,135 (788×403) | 8       | all legitimate                      |
+| SECURITY_GUARD | 1,137 (952×403) | 6       | all self-service                    |
+| ACCOUNTANT     | 1,131 (836×403) | 12      | all in-domain (GL seed, Tally sync) |
 
 **Idempotency race found + fixed**: the (key,userId) check was
 `findUnique` → run handler → `create` — a concurrent double-fire both
@@ -1365,6 +1365,7 @@ home shows cash/approval/alert KPIs + reports nav; offline queue
 offline path code-side.
 
 **Findings (all YELLOW/GRAY, no RED)**:
+
 - No privacy/terms page — the app stores employee PII (Aadhaar/PAN/bank);
   B2B-internal so usually contract-covered, but DPDP-Act-sensitive.
   `auto_fix: false` (legal copy needed).
@@ -1389,7 +1390,7 @@ fixture) and probed cross-tenant access from the other side:
 - Direct fetches of 5 tenant-A entity ids → all 404 ("Customer not
   found" etc.) — `companyId` scoping is in the lookup, not just lists.
 - List endpoints (`customers/projects/materials/employees/purchase-
-  orders`) → 200 with zero tenant-A rows.
+orders`) → 200 with zero tenant-A rows.
 - Writes (PATCH/DELETE customer, PATCH employee, POST PO approve) →
   all 404 — no cross-tenant mutation path.
 - Financial/report surfaces (`gl/ledger`, stock-movement-summary,
@@ -1471,6 +1472,7 @@ layers ran against.
 Two remaining production-readiness axes closed on the :3200 prod build:
 
 **Latency vs documented SLOs** (docs/SLO.md):
+
 - List APIs (customers/materials/employees/POs/expenses/sales/projects/
   attendance/dashboard-counts/notifications): p50 9-27ms, p95 **18-62ms**
   — 5-17x under the 300ms budget.
@@ -1527,20 +1529,20 @@ Recomputes derived state from append-only event tables and diffs against
 the materialized cache rows — catches the write-path-drift class that
 endpoint tests can't see:
 
-| Check | Result |
-|---|---|
-| StockLocationItem.qty vs ΣStockMovement | 2 drifts — **seed artifacts** (see below) |
-| Negative stock | 0 |
-| JournalEntry debits==credits | **0 imbalanced** — GL always balances |
-| PO qtyReceived vs GoodsReceipt lines | 0 drift |
-| Over-received lines | 0 |
-| Orphans on deleted parents | 0 |
-| Dangling refs (locations, gate-pass) | 1 stale gate-pass row (deleted test transfer) |
-| Audit coverage (PO/Sale writes logged) | 1 unaudited `vfy*` seed PO |
+| Check                                   | Result                                        |
+| --------------------------------------- | --------------------------------------------- |
+| StockLocationItem.qty vs ΣStockMovement | 2 drifts — **seed artifacts** (see below)     |
+| Negative stock                          | 0                                             |
+| JournalEntry debits==credits            | **0 imbalanced** — GL always balances         |
+| PO qtyReceived vs GoodsReceipt lines    | 0 drift                                       |
+| Over-received lines                     | 0                                             |
+| Orphans on deleted parents              | 0                                             |
+| Dangling refs (locations, gate-pass)    | 1 stale gate-pass row (deleted test transfer) |
+| Audit coverage (PO/Sale writes logged)  | 1 unaudited `vfy*` seed PO                    |
 
 **Why the drift isn't an app bug**: every app write goes through
 `stock-ledger.ts`'s single transaction — item upsert + conditional
-decrement + movement row together. It *cannot* produce
+decrement + movement row together. It _cannot_ produce
 movement-sum ≠ item.qty. The drifts trace to seeds and test-cleanup SQL
 that wrote/deleted rows directly. Production write paths are verified
 closed.
@@ -1560,7 +1562,7 @@ test material, runs the whole sequence, then asserts invariants:
 - sequence ends in a queryable, uncorrupted state
 
 **6 seeds × ~28 ops = ~155 random mutations — zero violations.** Then
-the killer cross-check: the consistency audit run *after* the fuzz shows
+the killer cross-check: the consistency audit run _after_ the fuzz shows
 the same 2 pre-existing seed-drift rows and no new ones — the random
 sequences could not introduce drift even against the same material.
 That closes the loop: the write paths are single-writer-transactional
@@ -1574,9 +1576,9 @@ The load-bearing flow — HR creates identities that actually control
 access — verified live on :3200, not just at the API surface:
 
 - `POST /api/users` (USERS_MANAGE) creates User + UserCompany membership
-  + credential Account + scope entries in one shot — scope is REQUIRED
-  (SITE_ENGINEER can't get company-wide; only owner/admin/PD/finance/
-  accountant can), role-assignment is hierarchy-gated.
+  - credential Account + scope entries in one shot — scope is REQUIRED
+    (SITE_ENGINEER can't get company-wide; only owner/admin/PD/finance/
+    accountant can), role-assignment is hierarchy-gated.
 - The new account signs in (real session cookie) and `/api/me` works.
 - Role boundary enforced live: a SITE_ENGINEER's `POST /api/users`
   escalation attempt → 403.
@@ -1599,14 +1601,14 @@ the HR layer's power is verified, not assumed.
 domain-valid request (real seed ids, plausible fields) at every
 discovered write handler and classifies the outcome:
 
-| Status | Count | Meaning |
-|---|---|---|
-| 2xx | 27 | executed a real mutation |
-| 400 | 153 | alive + validating — needs a fuller body |
-| 401/403 | 25 | permission-gated |
-| 404 | 169 | entity lookup rejected the seed id — reachable |
-| 429 | 8 | rate-limited |
-| **5xx / 405 / non-JSON** | **0** | **no dead handlers, no crashes** |
+| Status                   | Count | Meaning                                        |
+| ------------------------ | ----- | ---------------------------------------------- |
+| 2xx                      | 27    | executed a real mutation                       |
+| 400                      | 153   | alive + validating — needs a fuller body       |
+| 401/403                  | 25    | permission-gated                               |
+| 404                      | 169   | entity lookup rejected the seed id — reachable |
+| 429                      | 8     | rate-limited                                   |
+| **5xx / 405 / non-JSON** | **0** | **no dead handlers, no crashes**               |
 
 Every write action is reachable and validating — nothing is dead code,
 unimplemented, or silently broken. The 27 real creates the generic body
@@ -1622,12 +1624,12 @@ HR lifecycle. The platform's action surface is verified three ways.
 `scripts/action-driver.ts` — the action-breadth layer. Every distinct
 action on the platform fired at a live entity of the right family:
 
-| Class | Count | Meaning |
-|---|---|---|
-| Executed | 7 | real state transitions (expense submit, gate-pass approve→confirmExit, PO approve→cancel, NCR delete, transfer cancel) |
-| Guarded | 114 | clean 400/409 state-rejects — CLOSED/RESOLVED/PAID entities correctly refuse re-actions |
-| Permission | 19 | `employees/[id]/*` on an unknown-id probe (permission precedes lookup by design; real terminate verified separately → 200) |
-| **Crash** | **0** | no 5xx, no non-JSON error bodies |
+| Class      | Count | Meaning                                                                                                                    |
+| ---------- | ----- | -------------------------------------------------------------------------------------------------------------------------- |
+| Executed   | 7     | real state transitions (expense submit, gate-pass approve→confirmExit, PO approve→cancel, NCR delete, transfer cancel)     |
+| Guarded    | 114   | clean 400/409 state-rejects — CLOSED/RESOLVED/PAID entities correctly refuse re-actions                                    |
+| Permission | 19    | `employees/[id]/*` on an unknown-id probe (permission precedes lookup by design; real terminate verified separately → 200) |
+| **Crash**  | **0** | no 5xx, no non-JSON error bodies                                                                                           |
 
 Combined with `action-census` (reachability of all 382 write routes) and
 `verify-workflows-full.sh` (deep legal-state chains), the platform's
@@ -1663,10 +1665,10 @@ not broken ones. The `:3200` prod build now includes all fixes.
 every major action workflow in one serial test against the production
 build, each asserting the previous step's effect.
 
-  sign-in → dashboard → customer create+persist → material → supplier →
-  PO auto-approve → receive → stock 0→20 → expense submit → employee →
-  attendance payroll-lock 409 → DPR labor-line payroll guard → transfer →
-  gate-pass approve → confirmExit → complete → reports → list persistence.
+sign-in → dashboard → customer create+persist → material → supplier →
+PO auto-approve → receive → stock 0→20 → expense submit → employee →
+attendance payroll-lock 409 → DPR labor-line payroll guard → transfer →
+gate-pass approve → confirmExit → complete → reports → list persistence.
 
 Guards proven correct in the chain: (companyId,gstin) unique constraint
 (P2002 surfaces as a misleading "concurrent transaction" 409 — a known
@@ -1920,3 +1922,24 @@ workable:
   live Dr/Cr tally. Verified: balanced posts, unbalanced + malformed 400.
 
 Mobile GL stays a summary surface — corrections are a desktop finance task.
+
+## 91. Payables reconcile to the supplier card (2026-10-18)
+
+- `Supplier.balanceOwed` is the reconciled AP subledger: `reconcileSupplierAp`
+  checks it against each supplier's GL AP slice. It already includes goods-receipt
+  payables, so the card is the total to match.
+- Pending Payments (desktop + mobile) allocates PO payables FIFO after payments.
+  That allocation ignores supplier returns, so `squareToSupplierCards` trims the
+  newest PO payables down to the card. The card balance the POs don't explain
+  becomes an "Opening / bills" row. Per-supplier totals therefore equal the
+  Vendors "Owed" column. Verified live: report ₹5.74L = Vendors ₹5.74L = Σ card
+  ₹5,73,673.
+- Known approximation: aging for "Opening / bills" counts from supplier setup, not
+  the original bill date, and those rows carry no due date. Exact aging needs
+  bill-date allocation.
+- Opening supplier payables are accepted on create (desktop, mobile, CSV import).
+  Vendors rows get a pay button that pre-selects the supplier and the full balance.
+  Verified end to end: ₹1,000 opening, ₹400 paid through the dialog, card ₹600,
+  GL Dr 2000 / Cr Cash balanced. Cleaned up only through void, reversal, and soft
+  delete. Test journal rows are not deleted directly, because that bypasses the audit trail.
+- Tests: web vitest 2717/2717, services 1779/1779, typecheck clean.

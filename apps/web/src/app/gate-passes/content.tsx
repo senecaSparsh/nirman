@@ -4,6 +4,8 @@ import { getActingRole, getCompany, toNum, scopeWhere, projectScopeFilter, getCu
 import { canAutoApprove } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
+import { Hint } from "@/components/page";
+import { applyCap, LIST_CAP } from "@/lib/list-cap";
 import { NoAccess } from "@/components/no-access";
 import { GatePassesView } from "@/components/gate-pass/gate-passes-view";
 import type { StockLocationRow, MaterialRow, ProjectOption } from "@/lib/types";
@@ -28,9 +30,15 @@ export async function GatePassesContent() {
 
   const projectScope = await projectScopeFilter();
 
+  const cappedLabels: string[] = [];
+  const capQ = (label: string, cap = LIST_CAP) => <T,>(rows: T[]): T[] => {
+    const r = applyCap(rows, cap);
+    if (r.capped) cappedLabels.push(label);
+    return r.rows;
+  };
   const [gatePasses, locations, materials, projects] = await Promise.all([
     prisma.gatePass.findMany({
-      take: 500,
+      take: LIST_CAP + 1,
       where: { companyId: company.id, ...await scopeWhere("GatePass") },
       orderBy: { createdAt: "desc" },
       include: {
@@ -41,22 +49,22 @@ export async function GatePassesContent() {
         submittedBy: { select: { id: true, name: true } },
         approvedBy: { select: { id: true, name: true } },
         rejectedBy: { select: { id: true, name: true } },
-        exitedBy: { select: { id: true, name: true } }}}),
+        exitedBy: { select: { id: true, name: true } }}}).then(capQ("gate passes")),
     prisma.stockLocation.findMany({
-      take: 200,
+      take: 201,
       where: { companyId: company.id, deletedAt: null },
       orderBy: [{ type: "asc" }, { name: "asc" }],
-      select: { id: true, type: true, name: true, projectId: true, lat: true, lng: true, geoRadius: true }}),
+      select: { id: true, type: true, name: true, projectId: true, lat: true, lng: true, geoRadius: true }}).then(capQ("locations", 200)),
     prisma.material.findMany({
-      take: 200,
+      take: 201,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
-      select: { id: true, code: true, name: true, grade: true, specification: true, unit: true, isLotTracked: true, isScrap: true, baseUnit: true, secondaryUnit: true, uomConversionFactor: true }}),
+      select: { id: true, code: true, name: true, grade: true, specification: true, unit: true, isLotTracked: true, isScrap: true, baseUnit: true, secondaryUnit: true, uomConversionFactor: true }}).then(capQ("materials", 200)),
     prisma.project.findMany({
-      take: 200,
+      take: 201,
       where: { companyId: company.id, deletedAt: null, ...(projectScope ?? {}) },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, type: true, status: true }}),
+      select: { id: true, name: true, type: true, status: true }}).then(capQ("projects", 200)),
   ]);
 
   const gpRows = gatePasses.map((gp) => ({
@@ -152,10 +160,16 @@ export async function GatePassesContent() {
     type: p.type,
     status: p.status}));
 
-  const pending = gpRows.filter((g) => g.status === "PENDING").length;
-  const approved = gpRows.filter((g) => g.status === "APPROVED").length;
-  const _exited = gpRows.filter((g) => g.status === "EXITED").length;
-  const rejected = gpRows.filter((g) => g.status === "REJECTED").length;
+  // Status counts come from a complete aggregate — gpRows is capped.
+  const statusAgg = await prisma.gatePass.groupBy({
+    by: ["status"],
+    where: { companyId: company.id, ...await scopeWhere("GatePass") },
+    _count: true,
+  });
+  const totalGPs = statusAgg.reduce((s, g) => s + g._count, 0);
+  const pending = statusAgg.find((g) => g.status === "PENDING")?._count ?? 0;
+  const approved = statusAgg.find((g) => g.status === "APPROVED")?._count ?? 0;
+  const rejected = statusAgg.find((g) => g.status === "REJECTED")?._count ?? 0;
 
   return (
     <>
@@ -163,12 +177,17 @@ export async function GatePassesContent() {
         title="Gate Passes"
         description="Outbound gate passes — items cannot leave the gate until an authorized person approves."
         stats={[
-          { label: "Total", value: gpRows.length, hint: "All outbound gate passes created, regardless of status." },
+          { label: "Total", value: totalGPs, hint: "All outbound gate passes created, regardless of status." },
           { label: "Pending approval", value: pending, hint: "Gate passes submitted and waiting for an authorized approver." },
           { label: "Approved (awaiting exit)", value: approved, hint: "Gate passes approved but the vehicle has not yet exited the gate." },
           { label: "Rejected", value: rejected, hint: "Gate passes denied by the approver — material cannot leave site." },
         ]}
       />
+      {cappedLabels.length > 0 && (
+        <Hint tone="warning">
+          {`Showing only the most recent records for ${cappedLabels.join(", ")} — older entries are still in the database but hidden from this page.`}
+        </Hint>
+      )}
       <GatePassesView
         gatePasses={gpRows}
         locations={locationRows}

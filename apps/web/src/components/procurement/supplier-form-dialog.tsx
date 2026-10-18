@@ -19,6 +19,7 @@ type FormState = {
   email: string;
   address: string;
   leadTimeDays: string;
+  openingBalance: string;
 };
 
 export function SupplierFormDialog({
@@ -45,6 +46,7 @@ export function SupplierFormDialog({
     email: supplier?.email ?? "",
     address: supplier?.address ?? "",
     leadTimeDays: supplier?.leadTimeDays != null ? String(supplier.leadTimeDays) : "",
+    openingBalance: "",
   });
 
   const validationRules: ValidationRules<FormState> = {
@@ -53,6 +55,7 @@ export function SupplierFormDialog({
     email: (v) => email(v as string),
     gstin: (v) => gstin(v as string),
     leadTimeDays: (v) => nonNegativeNumber(v as string, "Lead Time"),
+    openingBalance: (v) => nonNegativeNumber(v as string, "Opening Balance"),
   };
   const { errors, onBlur, validateAll, clearError, clearAll } = useInlineValidation<FormState>(validationRules);
 
@@ -67,6 +70,7 @@ export function SupplierFormDialog({
       email: supplier?.email ?? "",
       address: supplier?.address ?? "",
       leadTimeDays: supplier?.leadTimeDays != null ? String(supplier.leadTimeDays) : "",
+      openingBalance: "",
     });
   }, [open, supplier, clearAll]);
 
@@ -90,6 +94,9 @@ export function SupplierFormDialog({
         email: form.email.trim() || null,
         address: form.address.trim() || null,
         leadTimeDays: form.leadTimeDays.trim() === "" ? null : Number(form.leadTimeDays),
+        ...(!isEdit && form.openingBalance.trim() !== "" && Number(form.openingBalance) > 0
+          ? { openingBalance: Number(form.openingBalance) }
+          : {}),
       };
       const url = supplier ? `/api/suppliers/${supplier.id}` : "/api/suppliers";
       const method = supplier ? "PATCH" : "POST";
@@ -149,6 +156,11 @@ export function SupplierFormDialog({
         <Field label="Address">
           <Textarea value={form.address} onChange={(e) => set("address", e.target.value)} rows={2} placeholder="Shop/street, area, city, PIN" />
         </Field>
+        {!isEdit && (
+          <Field label="Opening Balance Owed (₹)" error={errors.openingBalance} hint="Unpaid bills carried in at go-live — posts Cr Accounts Payable / Dr Opening Balance Equity.">
+            <Input type="number" min="0" step="0.01" value={form.openingBalance} onChange={(e) => set("openingBalance", e.target.value)} onBlur={() => onBlur("openingBalance", form)} aria-invalid={!!errors.openingBalance} placeholder="Optional" />
+          </Field>
+        )}
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel

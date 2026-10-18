@@ -787,7 +787,7 @@ export function BuiltUnitsView({
           Dialogs
           ════════════════════════════════════════════════════════════ */}
       <BuiltUnitFormDialog open={formOpen} onOpenChange={setFormOpen} projects={projects} phases={phases} />
-      <PurchaseUnitDialog open={purchaseOpen} onOpenChange={setPurchaseOpen} projects={projects} onPurchased={() => window.location.reload()} />
+      <PurchaseUnitDialog open={purchaseOpen} onOpenChange={setPurchaseOpen} projects={projects} onPurchased={() => router.refresh()} />
       <BuiltUnitEditDialog
         open={editTarget !== null}
         onOpenChange={(o) => { if (!o) setEditTarget(null); }}

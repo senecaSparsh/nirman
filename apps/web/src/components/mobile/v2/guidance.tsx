@@ -244,8 +244,6 @@ function ActionCardShell({
 }) {
   const accent =
     tone === "go" ? "var(--color-go)" : tone === "stop" ? "var(--color-stop)" : "var(--color-signal)";
-  const _accentDark =
-    tone === "go" ? "var(--color-go)" : tone === "stop" ? "var(--color-stop)" : "var(--color-signal-dark)";
   const wash =
     tone === "go" ? "var(--color-go-wash)" : tone === "stop" ? "var(--color-stop-wash)" : "var(--color-signal-wash)";
 

@@ -53,7 +53,7 @@ onboarding-queue.txt
 .ua/
 .understand-anything/
 
-# Stryker mutation testing artifacts
+# Stryker mutation testing artifacts (package-level only; app dirs named reports/ are source)
 .stryker-tmp/
-reports/
+packages/*/reports/
 **/probe/*.jsonl

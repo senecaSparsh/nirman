@@ -884,6 +884,9 @@ export async function scopeWhere(
     "RateContract", "PortalListing",
     // ── Finance ledger + payroll admin — perm-gated, not geographical ──
     "GlAccount", "JournalEntry", "TallySyncLog", "PayrollPeriod",
+    // Statutory payments (PF/ESI/TDS/GST) are company-level finance with no
+    // project/department FK — same treatment as JournalEntry.
+    "StatutoryPayment",
     // ── Telephony / comms — company-wide infrastructure ──
     "CompanyPhone", "CallLog", "CallTag", "SmsLog", "TelephonyProviderConfig",
     "ConsentPolicy", "BankSms",

@@ -188,13 +188,6 @@ export type LandPaymentScheduleRow = {
   items: LandPaymentScheduleItemRow[];
 };
 
-const _PAYMENT_VARIANT: Record<string, "default" | "success" | "warning" | "danger"> = {
-  PENDING: "warning",
-  PARTIAL: "warning",
-  PAID: "success",
-  CANCELLED: "danger",
-};
-
 const INTERVAL_LABELS: Record<string, string> = {
   MONTHLY: "Monthly",
   QUARTERLY: "Quarterly",

@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useUrlFilter } from "@/lib/use-url-filter";
 import { toast } from "sonner";
 import {
   Plus, Settings2, RefreshCw, Pencil, Send, Check, X, Trash2,
@@ -55,9 +56,9 @@ export function ExpensesView({
   const [rejecting, setRejecting] = useState<ExpenseRow | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<"ALL" | Status>("ALL");
-  const [projectFilter, setProjectFilter] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useUrlFilter<"ALL" | Status>("st", "ALL");
+  const [projectFilter, setProjectFilter] = useUrlFilter<string>("project", "");
+  const [categoryFilter, setCategoryFilter] = useUrlFilter<string>("cat", "");
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { ALL: expenses.length, DRAFT: 0, PENDING: 0, APPROVED: 0, REJECTED: 0 };

@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
+import { useUrlQuery } from "@/lib/use-url-filter";
 import Image from "next/image";
 import {Search, Truck, Phone, User, MapPin, ChevronRight, Plus, Loader2} from "lucide-react";
 import { toast } from "sonner";
@@ -62,7 +63,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export function VehiclesView({ vehicles, canManage = false }: { vehicles: VehicleRow[]; canManage?: boolean }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useUrlQuery("q");
   const [selected, setSelected] = useState<VehicleRow | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 

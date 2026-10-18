@@ -58,11 +58,6 @@ interface ProjectOpt {
 
 const PAYMENT_MODES = ["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"] as const;
 
-const _inputClass =
-  "w-full h-7 px-1 text-m-caption font-medium outline-none border-b focus:border-b-2 transition-colors";
-const _inputStyle = {
-  backgroundColor: "transparent",
-} as React.CSSProperties;
 
 // Compact variant for use inside 2-col grid (narrower columns)
 const inputClassSm =

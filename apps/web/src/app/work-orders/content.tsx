@@ -4,6 +4,8 @@ import { getCompany, getUserScope, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { NoAccess } from "@/components/no-access";
 import { PageHeader } from "@/components/page-header";
+import { Hint } from "@/components/page";
+import { applyCap } from "@/lib/list-cap";
 import { WorkOrdersView } from "@/components/work-orders/work-orders-view";
 
 export async function WoContent() {
@@ -21,12 +23,13 @@ export async function WoContent() {
       ? { id: { in: scope.projectIds } }
       : {};
 
-  const projects = await prisma.project.findMany({
-    take: 200,
+  const { rows: projects, capped } = applyCap(await prisma.project.findMany({
+    take: 201,
     where: { companyId: company.id, deletedAt: null, ...projectScopeFilter },
     orderBy: { name: "asc" },
     select: { id: true, name: true, type: true, status: true },
-  });
+  }));
+  const cappedLabels = capped ? ["projects"] : [];
 
   const canCreate = __effPerms.includes(PERM.ASSETS_MANAGE);
   const permissions = {
@@ -43,6 +46,11 @@ export async function WoContent() {
         description="Subcontractor work orders, running-account bills, and payment certificates. Track work done, deductions, and certify payments."
         stats={[{ label: "Projects", value: projects.length, hint: "Projects available for subcontractor work orders and running-account billing." }]}
       />
+      {cappedLabels.length > 0 && (
+        <Hint tone="warning">
+          {`Showing only the most recent records for ${cappedLabels.join(", ")} — older entries are still in the database but hidden from this page.`}
+        </Hint>
+      )}
       <WorkOrdersView projects={projects} canCreate={canCreate} permissions={permissions} />
     </>
   );

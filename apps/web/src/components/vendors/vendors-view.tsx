@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Truck, Plus, Pencil, Trash2, ShieldCheck, Upload } from "lucide-react";
+import { Truck, Plus, Pencil, Trash2, ShieldCheck, Upload, IndianRupee } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
@@ -13,10 +13,12 @@ import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { VendorRatingsView } from "@/components/vendor-ratings/vendor-ratings-view";
 import { DataTable } from "@/components/ui/data-table";
 import { GenericCsvImportDialog } from "@/components/csv-import-dialog";
+import { SupplierPaymentFormDialog } from "@/components/procurement/supplier-payment-form-dialog";
+import type { SupplierRow } from "@/lib/types";
 import { DateCell, IdentityCell, MoneyCell, QtyCell } from "@/components/ui/cells";
 import { statusColor } from "@/components/page";
 import { useTabParam } from "@/lib/use-tab-param";
-import { formatCurrency, formatDate, toNum} from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 
 export type VendorRow = {
   id: string;
@@ -29,6 +31,7 @@ export type VendorRow = {
   leadTimeDays: number | null;
   totalPOs: number;
   openPOs: number;
+  poCount: number; // alias for openPOs — SupplierPaymentFormDialog expects SupplierRow
   totalSpent: number;
   recentPOs: {
     id: string;
@@ -53,6 +56,7 @@ export function VendorsView({
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<VendorRow | null>(null);
   const [delTarget, setDelTarget] = useState<VendorRow | null>(null);
+  const [payTarget, setPayTarget] = useState<VendorRow | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
 
@@ -63,6 +67,24 @@ export function VendorsView({
   const [fAddress, setFAddress] = useState("");
   const [fLeadTime, setFLeadTime] = useState("");
   const [fOpeningBalance, setFOpeningBalance] = useState("");
+
+  // SupplierPaymentFormDialog speaks SupplierRow — map the vendor rows down.
+  const supplierOptions = useMemo<SupplierRow[]>(
+    () =>
+      vendors.map((v) => ({
+        id: v.id,
+        name: v.name,
+        gstin: v.gstin,
+        phone: v.phone,
+        email: v.email,
+        address: v.address,
+        balanceOwed: v.balanceOwed,
+        openPOs: v.openPOs,
+        poCount: v.poCount,
+        leadTimeDays: v.leadTimeDays,
+      })),
+    [vendors],
+  );
 
   function openCreate() {
     setEditTarget(null);
@@ -103,10 +125,6 @@ export function VendorsView({
       setSubmitting(false);
     }
   }
-
-  const _totalBalance = vendors.reduce((s, v) => s + toNum(v.balanceOwed), 0);
-  const _totalSpent = vendors.reduce((s, v) => s + toNum(v.totalSpent), 0);
-  const _withDues = vendors.filter((v) => v.balanceOwed > 0).length;
 
   return (
     <div className="space-y-4">
@@ -184,6 +202,16 @@ export function VendorsView({
                   canManage
                     ? (v) => (
                         <>
+                          {v.balanceOwed > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              title={`Record payment (${formatCurrency(v.balanceOwed)} owed)`}
+                              onClick={() => setPayTarget(v)}
+                            >
+                              <IndianRupee className="size-3.5 text-brand" />
+                            </Button>
+                          )}
                           <Button variant="ghost" size="icon-sm" title="Edit vendor" onClick={() => openEdit(v)}>
                             <Pencil className="size-3.5" />
                           </Button>
@@ -447,6 +475,15 @@ export function VendorsView({
         }}
         numericFields={["leadTimeDays", "openingBalance"]}
         onSuccess={() => router.refresh()}
+      />
+
+      <SupplierPaymentFormDialog
+        open={payTarget !== null}
+        onOpenChange={(o) => { if (!o) setPayTarget(null); }}
+        suppliers={supplierOptions}
+        defaultSupplierId={payTarget?.id}
+        defaultAmount={payTarget?.balanceOwed}
+        onSuccess={() => { setPayTarget(null); router.refresh(); }}
       />
     </div>
   );

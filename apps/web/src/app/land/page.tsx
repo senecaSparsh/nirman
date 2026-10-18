@@ -4,6 +4,8 @@ import { prisma } from "@nirman/db";
 import { getCompany, toNum, scopeWhere, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
+import { Hint } from "@/components/page";
+import { applyCap, LIST_CAP } from "@/lib/list-cap";
 import { LandView } from "@/components/land/land-view";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 import { PageLoading } from "@/components/page-loading";
@@ -42,9 +44,21 @@ async function LandContent() {
   };
 
   // Fetch purchases, parcels, projects, land sales, and customers (for sell dialog).
-  const [purchases, parcels, projects, landSales, customers, sellers] = await Promise.all([
+  const cappedLabels: string[] = [];
+  const capQ = (label: string, cap = LIST_CAP) => <T,>(rows: T[]): T[] => {
+    const r = applyCap(rows, cap);
+    if (r.capped) cappedLabels.push(label);
+    return r.rows;
+  };
+  const parcelWhere = {...await scopeWhere("LandParcel"),  deletedAt: null, landPurchase: { companyId: company.id } } as const;
+  const unsoldSellableWhere = {
+    ...parcelWhere,
+    status: { not: "PARTITIONED" as const },
+    assetSales: { none: { status: "ACTIVE" as const } },
+  };
+  const [purchases, parcels, projects, landSales, customers, sellers, purchaseAgg, parcelStatusAgg, unsoldAgg, landSaleAgg] = await Promise.all([
     prisma.landPurchase.findMany({
-      take: 500,
+      take: LIST_CAP + 1,
       where: {...await scopeWhere("LandPurchase"),  companyId: company.id, deletedAt: null },
       orderBy: { createdAt: "desc" },
       include: {
@@ -59,9 +73,9 @@ async function LandContent() {
         },
         payments: { select: { id: true, amount: true, paymentMode: true, chequeStatus: true, status: true } },
       },
-    }),
+    }).then(capQ("land purchases")),
     prisma.landParcel.findMany({
-      take: 500,
+      take: LIST_CAP + 1,
       where: {...await scopeWhere("LandParcel"),  deletedAt: null, landPurchase: { companyId: company.id } },
       orderBy: [{ landPurchaseId: "asc" }, { number: "asc" }],
       include: {
@@ -69,33 +83,56 @@ async function LandContent() {
         parentParcel: { select: { number: true } },
         _count: { select: { children: true } },
       },
-    }),
+    }).then(capQ("land parcels")),
     prisma.project.findMany({
-      take: 200,
+      take: 201,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true },
-    }),
+    }).then(capQ("projects", 200)),
     prisma.assetSale.findMany({
-      take: 200,
+      take: 201,
       where: {...await scopeWhere("AssetSale"),  companyId: company.id, assetType: "LAND", status: "ACTIVE" },
       select: {
         id: true, saleNumber: true, salePrice: true, profit: true, saleDate: true,
         landParcelId: true, customer: { select: { name: true } },
       },
-    }),
+    }).then(capQ("land sales", 200)),
     // Customer has no companyId — scope to customers with sales in this company.
     prisma.customer.findMany({
-      take: 200,
+      take: 201,
       where: { deletedAt: null, assetSales: { some: { companyId: company.id } } },
       orderBy: { name: "asc" },
       select: { id: true, name: true },
-    }),
+    }).then(capQ("customers", 200)),
     prisma.landSeller.findMany({
-      take: 200,
+      take: 201,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, phone: true },
+    }).then(capQ("land sellers", 200)),
+    // Portfolio aggregates — the lists above are capped for display, so the
+    // header stats must come from complete aggregates, not row counts.
+    prisma.landPurchase.aggregate({
+      where: {...await scopeWhere("LandPurchase"),  companyId: company.id, deletedAt: null },
+      _count: true,
+      _sum: { totalArea: true },
+    }),
+    prisma.landParcel.groupBy({
+      by: ["status"],
+      where: parcelWhere,
+      _count: true,
+    }),
+    prisma.landParcel.groupBy({
+      by: ["status"],
+      where: unsoldSellableWhere,
+      _count: true,
+      _sum: { area: true, acquisitionCost: true, currentValuation: true },
+    }),
+    prisma.assetSale.aggregate({
+      where: {...await scopeWhere("AssetSale"),  companyId: company.id, assetType: "LAND", status: "ACTIVE" },
+      _count: true,
+      _sum: { salePrice: true, profit: true },
     }),
   ]);
 
@@ -226,23 +263,25 @@ async function LandContent() {
   // ── Company-wide portfolio rollup ──
   // Partitioned parents are containers, not sellable units — exclude them from
   // counts and valuations so subdividing 1 plot into 3 shows 3, not 4.
-  const sellableParcels = parcelRows.filter((p) => p.status !== "PARTITIONED");
-  const soldParcels = sellableParcels.filter((p) => p.salePrice != null);
-  const unsoldParcels = sellableParcels.filter((p) => p.salePrice == null);
+  // Stats come from the complete aggregates above (lists are capped at 500).
+  const allStatus = new Map(parcelStatusAgg.map((g) => [g.status, g._count]));
+  const unsoldStatus = new Map(unsoldAgg.map((g) => [g.status, g]));
+  const allCount = parcelStatusAgg.reduce((s, g) => s + g._count, 0);
+  const partitioned = allStatus.get("PARTITIONED") ?? 0;
   const portfolio: LandPortfolio = {
-    purchaseCount: purchaseRows.length,
-    totalArea: purchaseRows.reduce((s, p) => s + toNum(p.totalArea), 0),
-    parcelCount: sellableParcels.length,
-    availableCount: unsoldParcels.filter((p) => p.status === "AVAILABLE").length,
-    holdCount: unsoldParcels.filter((p) => p.status === "HOLD").length,
-    soldCount: soldParcels.length,
-    partitionedCount: parcelRows.filter((p) => p.status === "PARTITIONED").length,
-    availableArea: unsoldParcels.filter((p) => p.status === "AVAILABLE").reduce((s, p) => s + toNum(p.area), 0),
-    costBasis: unsoldParcels.reduce((s, p) => s + toNum(p.acquisitionCost), 0),
-    unsoldValue: unsoldParcels.reduce((s, p) => s + toNum(p.currentValuation), 0),
+    purchaseCount: purchaseAgg._count,
+    totalArea: toNum(purchaseAgg._sum.totalArea),
+    parcelCount: allCount - partitioned,
+    availableCount: unsoldStatus.get("AVAILABLE")?._count ?? 0,
+    holdCount: unsoldStatus.get("HOLD")?._count ?? 0,
+    soldCount: landSaleAgg._count,
+    partitionedCount: partitioned,
+    availableArea: toNum(unsoldStatus.get("AVAILABLE")?._sum.area),
+    costBasis: unsoldAgg.reduce((s, g) => s + toNum(g._sum.acquisitionCost), 0),
+    unsoldValue: unsoldAgg.reduce((s, g) => s + toNum(g._sum.currentValuation), 0),
     unrealizedGain: 0,
-    soldRevenue: soldParcels.reduce((s, p) => s + toNum((p.salePrice ?? p.currentValuation)), 0),
-    soldProfit: soldParcels.reduce((s, p) => s + toNum((p.saleProfit ?? 0)), 0),
+    soldRevenue: toNum(landSaleAgg._sum.salePrice),
+    soldProfit: toNum(landSaleAgg._sum.profit),
     totalValue: 0,
   };
   portfolio.unrealizedGain = portfolio.unsoldValue - portfolio.costBasis;
@@ -255,7 +294,7 @@ async function LandContent() {
         description="Land acquisitions, parcel subdivision, valuation, and sales."
         stats={[
           { label: "Area", value: `${formatNumber(portfolio.totalArea, 0)} ${parcelRows[0]?.areaUnit ?? "sqft"}`, hint: "Total area across all land purchases." },
-          { label: "Parcels", value: sellableParcels.length, hint: "Sellable parcels only — partitioned parents are excluded. A whole plot counts as 1; after subdivision it counts as the number of sub-plots." },
+          { label: "Parcels", value: portfolio.parcelCount, hint: "Sellable parcels only — partitioned parents are excluded. A whole plot counts as 1; after subdivision it counts as the number of sub-plots." },
           { label: "Available", value: portfolio.availableCount, tone: portfolio.availableCount > 0 ? "success" as const : "muted" as const, hint: "Parcels ready to sell — not on hold, not sold, not partitioned." },
           { label: "Unsold value", value: formatCurrency(portfolio.unsoldValue), hint: "Current valuation of all unsold parcels (available + on hold). This is what the land is worth on paper today." },
           { label: "Unrealized", value: `${portfolio.unrealizedGain >= 0 ? "+" : ""}${formatCurrency(portfolio.unrealizedGain)}`, tone: portfolio.unrealizedGain >= 0 ? "success" as const : "danger" as const, hint: "Paper gain on land you still hold = current valuation − acquisition cost. Not booked until sold." },
@@ -266,6 +305,11 @@ async function LandContent() {
         ]}
       />
       <DepartmentActivityFeed department="land" />
+      {cappedLabels.length > 0 && (
+        <Hint tone="warning">
+          {`Showing only the most recent records for ${cappedLabels.join(", ")} — older entries are still in the database but hidden from this page.`}
+        </Hint>
+      )}
       <LandView
         purchases={purchaseRows}
         parcels={parcelRows}

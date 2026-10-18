@@ -97,15 +97,6 @@ const STATUS_CONFIG: Record<WorkOrder["status"], { label: string; color: string;
   CANCELLED: { label: "Cancelled", color: "text-red-600",           dot: "bg-red-500" },
 };
 
-const _STATUS_FILTERS: Array<{ key: WorkOrder["status"] | "ALL"; label: string }> = [
-  { key: "ALL", label: "All" },
-  { key: "DRAFT", label: "Draft" },
-  { key: "ISSUED", label: "Issued" },
-  { key: "ACTIVE", label: "Active" },
-  { key: "COMPLETED", label: "Completed" },
-  { key: "CLOSED", label: "Closed" },
-];
-
 // ════════════════════════════════════════════════════════════
 // Print certificate helper — opens a clean print window
 // ════════════════════════════════════════════════════════════
@@ -259,8 +250,6 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
 }) {
   const router = useRouter();
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
-  const [statusFilter, _setStatusFilter] = useState<WorkOrder["status"] | "ALL">("ALL");
-  const [search, _setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailWO, setDetailWO] = useState<WorkOrder | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -295,20 +284,8 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
     return { total, active, draft, issued, totalWorkDone, totalPaid, retentionHeld, raBills };
   }, [workOrders]);
 
-  // ── Filtered WOs ──
-  const filteredWOs = useMemo(() => {
-    let result = workOrders;
-    if (statusFilter !== "ALL") result = result.filter((w) => w.status === statusFilter);
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter((w) =>
-        w.workOrderNumber.toLowerCase().includes(q) ||
-        w.workTitle.toLowerCase().includes(q) ||
-        w.subcontractor.name.toLowerCase().includes(q)
-      );
-    }
-    return result;
-  }, [workOrders, statusFilter, search]);
+  // No filter controls are rendered — the table shows all WOs for the project.
+  const filteredWOs = workOrders;
 
   async function onAction(id: string, action: string, body?: Record<string, unknown>) {
     if (actionLoading) return;

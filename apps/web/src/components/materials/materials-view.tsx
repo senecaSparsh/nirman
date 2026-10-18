@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useUrlQuery, useUrlFilter } from "@/lib/use-url-filter";
 import { toast } from "sonner";
 import { Plus, Search, Pencil, Trash2, Package, AlertTriangle, Tags, X, Upload, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -96,8 +97,8 @@ function CatalogTab({
   canDelete: boolean;
   suppliers?: { id: string; name: string }[];
 }) {
-  const [query, setQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
+  const [query, setQuery] = useUrlQuery("q");
+  const [categoryFilter, setCategoryFilter] = useUrlFilter<string>("cat", "");
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [editing, setEditing] = useState<MaterialRow | null>(null);

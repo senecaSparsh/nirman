@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useUrlFilter } from "@/lib/use-url-filter";
 import { toast } from "sonner";
 import {
   Plus, Pencil, Trash2, ShoppingCart, Tags, Download,
@@ -358,9 +359,9 @@ function PurchaseOrdersTab({
   canReceiveGoods: boolean;
   currentUserId?: string | null;
 }) {
-  const [statusFilter, setStatusFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [statusFilter, setStatusFilter] = useUrlFilter<string>("st", "");
+  const [dateFrom, setDateFrom] = useUrlFilter<string>("from", "");
+  const [dateTo, setDateTo] = useUrlFilter<string>("to", "");
   const [formOpen, setFormOpen] = useState(false);
   const [selected, setSelected] = useState<PurchaseOrderRow | null>(null);
   const [view, setView] = useState<"list" | "board">("list");
@@ -398,11 +399,6 @@ function PurchaseOrdersTab({
     { status: "SHORT_CLOSED", label: "Short-closed", color: "var(--color-stage-hold)", items: filtered.filter((p) => p.status === "SHORT_CLOSED") },
     { status: "CANCELLED", label: "Cancelled", color: "var(--color-danger)", items: filtered.filter((p) => p.status === "CANCELLED") },
   ];
-
-  const _openCount = filtered.filter((p) => ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"].includes(p.status)).length;
-  const _totalValue = filtered.filter((p) => p.status !== "CANCELLED").reduce((s, p) => s + toNum(p.total), 0);
-  const _draftCount = purchaseOrders.filter((p) => p.status === "DRAFT").length;
-  const _orderedCount = purchaseOrders.filter((p) => p.status === "ORDERED").length;
 
   // Extract the List/Board toggle + status filter + trailing buttons so they
   // can be reused in both list and board views without TypeScript narrowing.
@@ -696,9 +692,6 @@ function SuppliersTab({ suppliers, canManage, canManagePayments }: { suppliers: 
   const [deleting, setDeleting] = useState<SupplierRow | null>(null);
   const [paySupplier, setPaySupplier] = useState<SupplierRow | null>(null);
 
-  const _totalOwed = suppliers.reduce((s, v) => s + toNum(v.balanceOwed), 0);
-  const _withDues = suppliers.filter((s) => s.balanceOwed > 0).length;
-
   const columns: Column<SupplierRow>[] = [
     {
       key: "name",
@@ -852,7 +845,7 @@ function DirectPurchasesTab({
 }) {
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useUrlFilter<string>("st_dp", "");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const filtered = directPurchases.filter((p) => !statusFilter || p.status === statusFilter);

@@ -133,6 +133,10 @@ describe("MaterialsPage (MaterialsContent)", () => {
         },
       ])
       .mockResolvedValueOnce([]);
+    // Stats come from raw SQL aggregates (Promise.all order: stock value → low-stock count)
+    mockPrisma().$queryRaw
+      .mockResolvedValueOnce([{ stock_value: 5000 }])
+      .mockResolvedValueOnce([{ n: 0 }]);
 
     const ui = await MaterialsContent();
     render(ui);

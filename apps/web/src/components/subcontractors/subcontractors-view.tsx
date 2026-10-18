@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useUrlQuery } from "@/lib/use-url-filter";
 import { toast } from "sonner";
 import {Plus, Pencil, Trash2, HardHat, Phone, Search} from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,7 +26,7 @@ export function SubcontractorsView({
   canEdit: boolean;
   canDelete: boolean;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useUrlQuery("q");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<SubcontractorRow | null>(null);
   const [deleting, setDeleting] = useState<SubcontractorRow | null>(null);
@@ -215,6 +217,7 @@ function SubcontractorFormDialog({
   subcontractor: SubcontractorRow | null;
   canEdit: boolean;
 }) {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [gstin, setGstin] = useState("");
   const [phone, setPhone] = useState("");
@@ -263,7 +266,7 @@ function SubcontractorFormDialog({
       }
       toast.success(subcontractor ? "Subcontractor updated" : "Subcontractor created");
       onOpenChange(false);
-      window.location.reload();
+      router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save subcontractor");
     } finally {

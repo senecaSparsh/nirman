@@ -27,7 +27,7 @@ export default function MobileSubcontractorDetailPage({
           where: { id, companyId: company.id, deletedAt: null },
           include: {
             workOrders: {
-              where: await scopeWhere("WorkOrder"),
+              where: await scopeWhere("SubcontractorWorkOrder"),
               orderBy: { createdAt: "desc" },
               take: 20,
               include: { project: { select: { id: true, name: true } } },

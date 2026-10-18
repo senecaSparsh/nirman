@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useUrlQuery } from "@/lib/use-url-filter";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Handshake, Phone, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,7 +26,7 @@ export function BrokersView({
   canEdit: boolean;
   canDelete: boolean;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useUrlQuery("q");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<BrokerRow | null>(null);
   const [deleting, setDeleting] = useState<BrokerRow | null>(null);
@@ -210,6 +212,7 @@ function BrokerFormDialog({
   broker: BrokerRow | null;
   canEdit: boolean;
 }) {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [agency, setAgency] = useState("");
@@ -256,7 +259,7 @@ function BrokerFormDialog({
       }
       toast.success(broker ? "Broker updated" : "Broker created");
       onOpenChange(false);
-      window.location.reload();
+      router.refresh();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save broker");
     } finally {

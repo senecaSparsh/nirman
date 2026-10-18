@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useUrlQuery, useUrlFilter } from "@/lib/use-url-filter";
 import { Plus, Search, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,8 +49,8 @@ export function SupplierPaymentsView({
   suppliers: SupplierRow[];
 }) {
   const [showForm, setShowForm] = useState(false);
-  const [search, setSearch] = useState("");
-  const [modeFilter, setModeFilter] = useState<string>("");
+  const [search, setSearch] = useUrlQuery("q");
+  const [modeFilter, setModeFilter] = useUrlFilter<string>("mode", "");
 
   const filtered = useMemo(() => {
     return payments.filter((p) => {

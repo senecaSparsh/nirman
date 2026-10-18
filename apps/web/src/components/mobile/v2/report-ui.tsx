@@ -126,13 +126,6 @@ export function MobileBarChart({
     stop: "var(--color-stop)",
     signal: "var(--color-signal)",
   };
-  const _toneBg = {
-    default: "var(--color-concrete)",
-    go: "var(--color-go-wash)",
-    stop: "var(--color-stop-wash)",
-    signal: "var(--color-signal-wash)",
-  };
-
   return (
     <div className="flex flex-col gap-2">
       {sorted.map((d, i) => {

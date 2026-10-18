@@ -6,6 +6,11 @@ import { fireEvent } from "@testing-library/react";
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn(), prefetch: vi.fn() }),
+  usePathname: () => "/brokers",
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 import { BrokersView } from "./brokers-view";
 import type { BrokerRow } from "@/lib/types";

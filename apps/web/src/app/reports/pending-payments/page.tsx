@@ -7,6 +7,7 @@ import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { PendingPaymentsReport } from "@/components/reports/pending-payments-report";
+import { squareToSupplierCards } from "@/lib/supplier-payables";
 
 import { NoAccess } from "@/components/no-access";
 export default function PendingPaymentsPage() {
@@ -45,23 +46,30 @@ async function PendingPaymentsContent() {
     },
     include: {
       supplier: { select: { id: true, name: true } },
-      lines: { select: { qtyOrdered: true, qtyReceived: true, unitCost: true } },
+      lines: { select: { qtyOrdered: true, qtyReceived: true, unitCost: true, gstRate: true } },
     },
     orderBy: { createdAt: "asc" },
   });
 
-  const supplierPayments = await prisma.supplierPayment.findMany({
-    where: { ...await scopeWhere("SupplierPayment"), companyId: company.id, status: "ACTIVE" },
-    select: { supplierId: true, amount: true },
-  });
+  const [supplierPayments, supplierCards] = await Promise.all([
+    prisma.supplierPayment.findMany({
+      where: { ...await scopeWhere("SupplierPayment"), companyId: company.id, status: "ACTIVE" },
+      select: { supplierId: true, amount: true },
+    }),
+    prisma.supplier.findMany({
+      where: { companyId: company.id, deletedAt: null },
+      select: { id: true, name: true, balanceOwed: true, createdAt: true },
+      take: 2000,
+    }),
+  ]);
   const paidBySupplier = new Map<string, number>();
   for (const p of supplierPayments) {
     paidBySupplier.set(p.supplierId, (paidBySupplier.get(p.supplierId) ?? 0) + toNum(p.amount));
   }
 
-  const overdueRows = receivedPOs.map((po) => {
-    const receivedValue = po.lines.reduce((s, l) => s + toNum(l.qtyReceived) * toNum(l.unitCost), 0);
-    const orderedValue = po.lines.reduce((s, l) => s + toNum(l.qtyOrdered) * toNum(l.unitCost), 0);
+  const poOverdueRows = receivedPOs.map((po) => {
+    const receivedValue = po.lines.reduce((s, l) => s + toNum(l.qtyReceived) * toNum(l.unitCost) * (1 + toNum(l.gstRate) / 100), 0);
+    const orderedValue = po.lines.reduce((s, l) => s + toNum(l.qtyOrdered) * toNum(l.unitCost) * (1 + toNum(l.gstRate) / 100), 0);
     const paidPool = paidBySupplier.get(po.supplierId) ?? 0;
     const applied = Math.min(paidPool, receivedValue);
     paidBySupplier.set(po.supplierId, paidPool - applied);
@@ -70,6 +78,7 @@ async function PendingPaymentsContent() {
     const daysOverdue = po.expectedDate ? Math.floor((now.getTime() - po.expectedDate.getTime()) / 86400000) : 0;
     return {
       id: po.id,
+      supplierId: po.supplierId,
       poNumber: po.poNumber,
       supplier: po.supplier.name,
       expectedDate: po.expectedDate?.toISOString() ?? null,
@@ -83,6 +92,33 @@ async function PendingPaymentsContent() {
     };
   }).filter((r) => !r.fullyPaid);
 
+  // Supplier cards are the reconciled AP subledger: PO payables are squared to
+  // them, and the balance the POs don't explain is opening / bills (no due date).
+  const { poRows: payablePOs, unexplained } = squareToSupplierCards(
+    poOverdueRows,
+    supplierCards.map((s) => ({ id: s.id, balanceOwed: toNum(s.balanceOwed) })),
+  );
+  const unlinkedSupplierRows = supplierCards
+    .filter((s) => unexplained.has(s.id))
+    .map((s) => {
+      const payable = unexplained.get(s.id) ?? 0;
+      const daysOverdue = Math.floor((now.getTime() - s.createdAt.getTime()) / 86400000);
+      return {
+        id: `sup-bal-${s.id}`,
+        poNumber: "Opening / bills",
+        supplier: s.name,
+        expectedDate: null,
+        orderedValue: payable,
+        receivedValue: payable,
+        payable,
+        status: "OPEN",
+        daysOverdue,
+        agingBucket: getAgingBucket(daysOverdue),
+      };
+    });
+
+  const overdueRows = [...payablePOs, ...unlinkedSupplierRows];
+
   // 2. Outstanding sale receivables — inbound
   const sales = await prisma.assetSale.findMany({
     take: 500,
@@ -94,13 +130,17 @@ async function PendingPaymentsContent() {
     include: {
       customer: { select: { name: true } },
       project: { select: { name: true } },
-      payments: { select: { amount: true } },
+      payments: {
+        where: { status: { not: "VOID" }, OR: [{ chequeStatus: null }, { chequeStatus: { not: "BOUNCED" } }] },
+        select: { amount: true },
+      },
     },
     orderBy: { saleDate: "asc" },
   });
 
   const receivableRows = sales.map((s) => {
     const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+    const totalSaleValue = toNum(s.salePrice) + toNum(s.gstAmount);
     const daysSinceSale = Math.floor((now.getTime() - s.saleDate.getTime()) / 86400000);
     return {
       id: s.id,
@@ -108,9 +148,9 @@ async function PendingPaymentsContent() {
       customer: s.customer.name,
       project: s.project?.name ?? "Standalone",
       saleDate: s.saleDate.toISOString(),
-      salePrice: toNum(s.salePrice),
+      salePrice: totalSaleValue,
       collected,
-      outstanding: toNum(s.salePrice) - collected,
+      outstanding: Math.max(0, totalSaleValue - collected),
       paymentStatus: s.paymentStatus,
       daysSinceSale,
       agingBucket: getAgingBucket(daysSinceSale),

@@ -5,6 +5,8 @@ import { PERM } from "@/lib/roles";
 import { NoAccess } from "@/components/no-access";
 import type { DepartmentRow } from "@/lib/types";
 import { PageHeader } from "@/components/page-header";
+import { Hint } from "@/components/page";
+import { applyCap, LIST_CAP } from "@/lib/list-cap";
 import { DepartmentsView } from "@/components/departments/departments-view";
 
 export async function DepartmentsContent() {
@@ -16,15 +18,23 @@ export async function DepartmentsContent() {
     return <NoAccess what="departments" permission={PERM.INVENTORY_VIEW} />;
   }
 
-  const departments = await prisma.department.findMany({
-    take: 500,
+  const { rows: departments, capped } = applyCap(await prisma.department.findMany({
+    take: LIST_CAP + 1,
     where: { companyId: company.id, deletedAt: null },
     orderBy: { code: "asc" },
     include: {
       stockLocation: { select: { id: true, name: true } },
       _count: { select: { materialIssues: { where: { department: { deletedAt: null } } } } },
     },
-  });
+  }));
+  const cappedLabels = capped ? ["departments"] : [];
+
+  // Header stats come from complete aggregates — departments list is capped.
+  const [deptTotal, deptActive, deptWithStock] = await Promise.all([
+    prisma.department.count({ where: { companyId: company.id, deletedAt: null } }),
+    prisma.department.count({ where: { companyId: company.id, deletedAt: null, active: true } }),
+    prisma.department.count({ where: { companyId: company.id, deletedAt: null, stockLocation: { isNot: null } } }),
+  ]);
 
   const rows: DepartmentRow[] = departments.map((d) => ({
     id: d.id,
@@ -49,11 +59,16 @@ export async function DepartmentsContent() {
         title="Departments"
         description="Operational cost centers — manufacturing lines, workshop, lab. Materials issued to a department hit Operating Expenses (not WIP)."
         stats={[
-          { label: "Departments", value: rows.length },
-          { label: "Active", value: rows.filter((d) => d.active).length },
-          { label: "With Stock Room", value: rows.filter((d) => d.stockLocationName).length },
+          { label: "Departments", value: deptTotal },
+          { label: "Active", value: deptActive },
+          { label: "With Stock Room", value: deptWithStock },
         ]}
       />
+      {cappedLabels.length > 0 && (
+        <Hint tone="warning">
+          {`Showing only the most recent records for ${cappedLabels.join(", ")} — older entries are still in the database but hidden from this page.`}
+        </Hint>
+      )}
       <DepartmentsView
         departments={rows}
         canCreate={perms.canCreate}

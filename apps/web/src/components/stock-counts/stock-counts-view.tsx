@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useUrlFilter } from "@/lib/use-url-filter";
 import { toast } from "sonner";
 import { Plus, ClipboardCheck, Check, ArrowRight, Loader2, Trash2, ChevronDown, BookOpen, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -52,7 +53,7 @@ export function StockCountsView({
   const [formOpen, setFormOpen] = useState(false);
   const [detailTarget, setDetailTarget] = useState<StockCountRow | null>(null);
   const [delTarget, setDelTarget] = useState<StockCountRow | null>(null);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useUrlFilter<string>("st", "");
   const [previewing, setPreviewing] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewLines, setPreviewLines] = useState<GlPreviewLine[]>([]);

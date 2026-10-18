@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useUrlFilter } from "@/lib/use-url-filter";
 import { toast } from "sonner";
 import { Plus, ShoppingCart, Users, Download, FileSpreadsheet, ChevronDown, ContactRound, FileText, Bell, LayoutGrid, Rows3, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,7 @@ export function SalesView({
     ["pipeline", "sales", "customers", "bank-sms"] as const,
     initialTab,
   );
+  const router = useRouter();
   const searchParams = useSearchParams();
   const autoOpenSaleId = searchParams.get("sale");
   const autoOpenNewSale = searchParams.get("newSale") === "1";
@@ -141,7 +143,7 @@ export function SalesView({
         onCreated={() => {
           setCustomerCreateOpen(false);
           // Refresh to pick up the new customer in the customers list
-          window.location.reload();
+          router.refresh();
         }}
       />
     </div>
@@ -335,12 +337,12 @@ function SalesTab({
   initialUnitId?: string | null;
 }) {
   const [view, setView] = useState<"board" | "table">("board");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [stageFilter, setStageFilter] = useState("");
-  const [payFilter, setPayFilter] = useState("");
-  const [bbaFilter, setBbaFilter] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [statusFilter, setStatusFilter] = useUrlFilter<string>("st", "");
+  const [stageFilter, setStageFilter] = useUrlFilter<string>("sale_stage", "");
+  const [payFilter, setPayFilter] = useUrlFilter<string>("pay", "");
+  const [bbaFilter, setBbaFilter] = useUrlFilter<string>("bba", "");
+  const [dateFrom, setDateFrom] = useUrlFilter<string>("from", "");
+  const [dateTo, setDateTo] = useUrlFilter<string>("to", "");
   const [formOpen, setFormOpen] = useState(Boolean(autoOpenNewSale));
   const [selected, setSelected] = useState<AssetSaleRow | null>(null);
   const now = useHydratedDate();
