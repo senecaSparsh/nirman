@@ -1,10 +1,55 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { logAction, ServiceError } from "@nirman/services";
+import { logAction, ServiceError, postJournalEntry, ACCT } from "@nirman/services";
+import { Prisma } from "@nirman/db";
 import { PERM } from "@/lib/roles";
 import { apiHandler, getCompany, json, requirePermission, requireEffectivePermission, supplierSchema, toNum } from "@/lib/server";
 import { withSerializableTransaction } from "@nirman/services";
+import type { z } from "zod";
+
+type SupplierInput = z.infer<typeof supplierSchema>;
+
+/**
+ * Create a supplier, carrying a go-live payable when `openingBalance` is
+ * set. Posts Dr Opening Equity (3100) / Cr Accounts Payable (2000) in the
+ * same transaction — the supplier ledger and the GL can never diverge, and
+ * later unlinked payments settle balanceOwed through the normal flow.
+ */
+async function createSupplier(
+  tx: Prisma.TransactionClient,
+  data: SupplierInput,
+  companyId: string,
+  userId: string,
+) {
+  const { openingBalance, ...rest } = data;
+  const opening = openingBalance && openingBalance > 0 ? openingBalance : 0;
+  const supplier = await tx.supplier.create({
+    data: { ...rest, companyId, balanceOwed: opening },
+  });
+  if (opening > 0) {
+    await postJournalEntry(tx, {
+      companyId,
+      sourceType: "OPENING",
+      sourceId: supplier.id,
+      memo: `Opening payable — ${supplier.name}`,
+      postedById: userId,
+      lines: [
+        { accountCode: ACCT.OPENING_EQUITY, debit: opening, credit: 0 },
+        { accountCode: ACCT.AP, debit: 0, credit: opening, entityType: "Supplier", entityId: supplier.id },
+      ],
+    });
+  }
+  await logAction(tx, {
+    userId,
+    companyId,
+    action: "SUPPLIER_CREATE",
+    entityType: "Supplier",
+    entityId: supplier.id,
+    after: { name: supplier.name, gstin: supplier.gstin, phone: supplier.phone, openingBalance: opening || undefined },
+  });
+  return supplier;
+}
 
 export const GET = apiHandler(async (req: NextRequest) => {
   await requireEffectivePermission(PERM.PROCUREMENT_VIEW);
@@ -58,16 +103,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     if (existing) {
       throw new ServiceError(`Supplier "${existing.name}" already exists`, 409);
     }
-    const supplier = await tx.supplier.create({ data: { ...parsed.data, companyId: company.id } });
-    await logAction(tx, {
-      userId: user.id,
-      companyId: company.id,
-      action: "SUPPLIER_CREATE",
-      entityType: "Supplier",
-      entityId: supplier.id,
-      after: { name: supplier.name, gstin: supplier.gstin, phone: supplier.phone },
-    });
-    return supplier;
+    return createSupplier(tx, parsed.data, company.id, user.id);
   });
   revalidatePath("/suppliers");
   revalidatePath("/m/suppliers");
@@ -106,15 +142,7 @@ export const PUT = apiHandler(async (req: NextRequest) => {
     }
     try {
       await withSerializableTransaction(async (tx) => {
-        const supplier = await tx.supplier.create({ data: { ...parsed.data, companyId: company.id } });
-        await logAction(tx, {
-          userId: user.id,
-          companyId: company.id,
-          action: "SUPPLIER_CREATE",
-          entityType: "Supplier",
-          entityId: supplier.id,
-          after: { name: supplier.name, gstin: supplier.gstin, phone: supplier.phone },
-        });
+        await createSupplier(tx, parsed.data, company.id, user.id);
       });
       results.created++;
     } catch (err: unknown) {

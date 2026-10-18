@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ContactRound, Plus, Copy } from "lucide-react";
+import { useUrlFilter } from "@/lib/use-url-filter";
 import { Button } from "@/components/ui/button";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/empty-state";
@@ -35,7 +36,11 @@ export function LeadPipelineView({
   assignees: { id: string; name: string }[];
   canManage: boolean;
 }) {
-  const [stage, setStage] = useState<"ALL" | LeadStage>("ALL");
+  // Stage filter lives in the URL (?stage=) so a refresh or shared link
+  // lands on the same slice — not back on "All".
+  const [rawStage, setStageRaw] = useUrlFilter<string>("stage", "");
+  const stage = (STAGES.some((s) => s.value === rawStage) ? rawStage : "ALL") as "ALL" | LeadStage;
+  const setStage = (v: "ALL" | LeadStage) => setStageRaw(v === "ALL" ? "" : v);
   const [formOpen, setFormOpen] = useState(false);
   const [dedupOpen, setDedupOpen] = useState(false);
   const [selected, setSelected] = useState<LeadRow | null>(null);

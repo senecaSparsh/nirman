@@ -5,6 +5,8 @@ import { getCompany, toNum, scopeWhere, projectScopeFilter, getEffectivePermissi
 import { formatCurrency } from "@/lib/utils";
 import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
+import { Hint } from "@/components/page";
+import { applyCap, LIST_CAP } from "@/lib/list-cap";
 import { SalesView } from "@/components/sales/sales-view";
 import { PageLoading } from "@/components/page-loading";
 import type { AssetSaleRow, CustomerRow, LeadRow } from "@/lib/types";
@@ -36,9 +38,17 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
     );
   }
 
+  // Content lists fetch cap + 1 so applyCap can flag truncation instead of
+  // silently hiding rows beyond the cap.
+  const cappedLabels: string[] = [];
+  const capQ = (label: string, cap = LIST_CAP) => <T,>(rows: T[]): T[] => {
+    const r = applyCap(rows, cap);
+    if (r.capped) cappedLabels.push(label);
+    return r.rows;
+  };
   const [sales, customers, leads, projects, units, salesMembers, unitStats] = await Promise.all([
     prisma.assetSale.findMany({
-      take: 500,
+      take: LIST_CAP + 1,
       where: {...await scopeWhere("AssetSale"),  companyId: company.id },
       orderBy: { createdAt: "desc" },
       include: {
@@ -48,15 +58,15 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
         expenses: { orderBy: { sortOrder: "asc" } },
         terms: { orderBy: { sortOrder: "asc" } },
         broker: { select: { id: true, name: true, phone: true, agency: true } },
-        paymentSchedule: { include: { items: { orderBy: { installmentNo: "asc" } } } }}}),
+        paymentSchedule: { include: { items: { orderBy: { installmentNo: "asc" } } } }}}).then(capQ("sales")),
     prisma.customer.findMany({
-      take: 500,
+      take: LIST_CAP + 1,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       include: {
-        _count: { select: { assetSales: { where: { companyId: company.id, status: "ACTIVE" } } } }}}),
+        _count: { select: { assetSales: { where: { companyId: company.id, status: "ACTIVE" } } } }}}).then(capQ("customers")),
     prisma.lead.findMany({
-      take: 500,
+      take: LIST_CAP + 1,
       where: {...await scopeWhere("Lead"),  companyId: company.id, deletedAt: null },
       orderBy: [{ nextFollowUpAt: "asc" }, { createdAt: "desc" }],
       include: {
@@ -64,21 +74,21 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
         interestedUnit: { select: { id: true, unitNumber: true } },
         assignedTo: { select: { id: true, name: true } },
         activities: { orderBy: { occurredAt: "desc" }, take: 1 },
-        _count: { select: { activities: true } }}}),
+        _count: { select: { activities: true } }}}).then(capQ("leads")),
     prisma.project.findMany({
-      take: 200,
+      take: 201,
       where: { companyId: company.id, deletedAt: null, status: { in: ["PLANNED", "ACTIVE"] }, ...await projectScopeFilter() ?? {} },
       orderBy: { name: "asc" },
-      select: { id: true, name: true }}),
+      select: { id: true, name: true }}).then(capQ("projects", 200)),
     prisma.builtUnit.findMany({
-      take: 200,
-      where: {...await scopeWhere("BuiltUnit"), 
+      take: 201,
+      where: {...await scopeWhere("BuiltUnit"),
         deletedAt: null,
         status: { in: ["AVAILABLE", "HOLD"] },
         saleId: null,
         project: { companyId: company.id, deletedAt: null }},
       orderBy: [{ project: { name: "asc" } }, { unitNumber: "asc" }],
-      select: { id: true, unitNumber: true, unitType: true, projectId: true, project: { select: { name: true } } }}),
+      select: { id: true, unitNumber: true, unitType: true, projectId: true, project: { select: { name: true } } }}).then(capQ("unit options", 200)),
     prisma.userCompany.findMany({
       take: 200,
       where: {
@@ -320,8 +330,13 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
   const soldUnits = unitCountByStatus.SOLD ?? 0;
   const availableUnits = unitCountByStatus.AVAILABLE ?? 0;
   const reservedUnits = unitCountByStatus.RESERVED ?? 0;
-  const _rentedUnits = unitCountByStatus.RENTED ?? 0;
-  const _underConstruction = unitCountByStatus.UNDER_CONSTRUCTION ?? 0;
+  // Everything counted in Total that can't actually be sold — without this,
+  // Available + Sold + Reserved visibly don't add up to Total.
+  const notSaleableUnits =
+    (unitCountByStatus.PLANNED ?? 0) +
+    (unitCountByStatus.UNDER_CONSTRUCTION ?? 0) +
+    (unitCountByStatus.HOLD ?? 0) +
+    (unitCountByStatus.RENTED ?? 0);
 
   return (
     <>
@@ -333,12 +348,18 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
           { label: "Available", value: availableUnits, hint: "Units ready for sale and not yet booked or reserved." },
           { label: "Sold", value: soldUnits, tone: "success", hint: "Units with a completed sale (registry done). Booked units with deposit are in 'Reserved' below." },
           { label: "Reserved", value: reservedUnits, tone: "warning", hint: "Units with a deposit received but sale not yet completed." },
+          { label: "Not for sale", value: notSaleableUnits, tone: "muted", hint: "Planned, under construction, on hold, or rented out — counted in Total but not saleable." },
           { label: "Open Leads", value: leadRows.filter((lead) => !["BOOKED", "LOST"].includes(lead.stage)).length, hint: "Leads still moving through qualification and follow-up." },
           { label: "Booked", value: formatCurrency(bookedRevenue), tone: "success", hint: "Total contract value across all non-cancelled sales (includes reserved deposits). Not all of this is collected yet." },
           { label: "Collected", value: formatCurrency(collected), tone: "success", hint: "Total payments received across all non-cancelled sales. The gap between Booked and Collected is outstanding." },
         ]}
       />
       <DepartmentActivityFeed department="sales" />
+      {cappedLabels.length > 0 && (
+        <Hint tone="warning">
+          {`Showing only the most recent records for ${cappedLabels.join(", ")} — older entries are still in the database but hidden from this page.`}
+        </Hint>
+      )}
       <SalesView
         leads={leadRows}
         sales={saleRows}

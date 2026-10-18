@@ -62,16 +62,17 @@ export function VendorsView({
   const [fEmail, setFEmail] = useState("");
   const [fAddress, setFAddress] = useState("");
   const [fLeadTime, setFLeadTime] = useState("");
+  const [fOpeningBalance, setFOpeningBalance] = useState("");
 
   function openCreate() {
     setEditTarget(null);
-    setFName(""); setFGstin(""); setFPhone(""); setFEmail(""); setFAddress(""); setFLeadTime("");
+    setFName(""); setFGstin(""); setFPhone(""); setFEmail(""); setFAddress(""); setFLeadTime(""); setFOpeningBalance("");
     setFormOpen(true);
   }
 
   function openEdit(v: VendorRow) {
     setEditTarget(v);
-    setFName(v.name); setFGstin(v.gstin ?? ""); setFPhone(v.phone ?? ""); setFEmail(v.email ?? ""); setFAddress(v.address ?? ""); setFLeadTime(v.leadTimeDays != null ? String(v.leadTimeDays) : "");
+    setFName(v.name); setFGstin(v.gstin ?? ""); setFPhone(v.phone ?? ""); setFEmail(v.email ?? ""); setFAddress(v.address ?? ""); setFLeadTime(v.leadTimeDays != null ? String(v.leadTimeDays) : ""); setFOpeningBalance("");
     setFormOpen(true);
   }
 
@@ -86,6 +87,7 @@ export function VendorsView({
         email: fEmail || null,
         address: fAddress || null,
         leadTimeDays: fLeadTime ? Number(fLeadTime) : null,
+        ...(fOpeningBalance && Number(fOpeningBalance) > 0 ? { openingBalance: Number(fOpeningBalance) } : {}),
       };
       const res = editTarget
         ? await fetch(`/api/suppliers/${editTarget.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
@@ -388,6 +390,24 @@ export function VendorsView({
             <Label>Address</Label>
             <Textarea value={fAddress} onChange={(e) => setFAddress(e.target.value)} rows={2} />
           </div>
+          {!editTarget && (
+            <div>
+              <Label>Opening balance owed (₹)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={fOpeningBalance}
+                onChange={(e) => setFOpeningBalance(e.target.value)}
+                placeholder="Unpaid bills carried in at go-live — optional"
+              />
+              {fOpeningBalance && Number(fOpeningBalance) > 0 && (
+                <p className="mt-1 text-caption text-muted-foreground">
+                  Posts as an opening payable (Cr Accounts Payable / Dr Opening Balance Equity) — future payments settle it.
+                </p>
+              )}
+            </div>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setFormOpen(false)}>Cancel</Button>
             <Button onClick={submit} disabled={submitting}>
@@ -414,8 +434,8 @@ export function VendorsView({
         onClose={() => setCsvOpen(false)}
         endpoint="/api/suppliers"
         entityName="Supplier"
-        templateHeaders="name,gstin,phone,email,address,leadTimeDays"
-        templateSample="ABC Cement Pvt Ltd,27ABCDE1234F1Z5,9876543210,orders@abccement.com,123 Industrial Area Mumbai,7"
+        templateHeaders="name,gstin,phone,email,address,leadTimeDays,openingBalance"
+        templateSample="ABC Cement Pvt Ltd,27ABCDE1234F1Z5,9876543210,orders@abccement.com,123 Industrial Area Mumbai,7,250000"
         fieldMap={{
           name: "name",
           gstin: "gstin",
@@ -423,8 +443,9 @@ export function VendorsView({
           email: "email",
           address: "address",
           leadTimeDays: "leadTimeDays",
+          openingBalance: "openingBalance",
         }}
-        numericFields={["leadTimeDays"]}
+        numericFields={["leadTimeDays", "openingBalance"]}
         onSuccess={() => router.refresh()}
       />
     </div>

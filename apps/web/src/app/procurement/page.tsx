@@ -58,7 +58,13 @@ async function ProcurementContent() {
   // Every list query fetches cap + 1 rows so applyCap can tell "exactly
   // at the cap" from "there are more rows hidden" — a hard `take: 500`
   // can't distinguish the two and would truncate silently.
-  let [pos, suppliers, materials, locations, projects, directPurchases, categories, requisitions, phases, supplierReturns, quotationRequests, directReports] = await Promise.all([
+  const cappedLabels: string[] = [];
+  const capQ = (label: string, cap = LIST_CAP) => <T,>(rows: T[]): T[] => {
+    const r = applyCap(rows, cap);
+    if (r.capped) cappedLabels.push(label);
+    return r.rows;
+  };
+  const [pos, suppliers, materials, locations, projects, directPurchases, categories, requisitions, phases, supplierReturns, quotationRequests, directReports] = await Promise.all([
     prisma.purchaseOrder.findMany({
       take: LIST_CAP + 1,
       where: { ...await scopeWhere("PurchaseOrder"), companyId: company.id },
@@ -67,7 +73,7 @@ async function ProcurementContent() {
         supplier: { select: { id: true, name: true } },
         project: { select: { id: true, name: true } },
         destinationLocation: { select: { id: true, name: true, type: true } },
-        lines: { select: { qtyOrdered: true, qtyReceived: true } }}}),
+        lines: { select: { qtyOrdered: true, qtyReceived: true } }}}).then(capQ("purchase orders")),
     prisma.supplier.findMany({
       take: LIST_CAP + 1,
       // All non-deleted suppliers in this company — not just those with existing POs.
@@ -76,7 +82,7 @@ async function ProcurementContent() {
       include: {
         _count: {
           select: {
-            purchaseOrders: { where: { companyId: company.id, status: { in: ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"] } } }}}}}),
+            purchaseOrders: { where: { companyId: company.id, status: { in: ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"] } } } }}}}).then(capQ("suppliers")),
     prisma.material.findMany({
       take: LIST_CAP + 1,
       where: { companyId: company.id, deletedAt: null },
@@ -85,7 +91,7 @@ async function ProcurementContent() {
         category: { select: { id: true, name: true, unit: true } },
         stockItems: {
           where: { location: { deletedAt: null, companyId: company.id }, ...(await scopeWhere("StockLocationItem")) },
-          select: { qty: true, movingAvgCost: true }}}}),
+          select: { qty: true, movingAvgCost: true }}}}).then(capQ("materials")),
     prisma.stockLocation.findMany({
       take: LIST_CAP + 1,
       // Include locations across the whole company group so PO destinations
@@ -95,12 +101,12 @@ async function ProcurementContent() {
       include: {
         company: { select: { id: true, name: true } },
         project: { select: { id: true, name: true } },
-        stockItems: { select: { qty: true, movingAvgCost: true } }}}),
+        stockItems: { select: { qty: true, movingAvgCost: true } }}}).then(capQ("locations")),
     prisma.project.findMany({
       take: 201,
       where: { companyId: company.id, deletedAt: null, ...await projectScopeFilter() ?? {} },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, type: true, status: true }}),
+      select: { id: true, name: true, type: true, status: true }}).then(capQ("projects", 200)),
     prisma.directPurchase.findMany({
       take: LIST_CAP + 1,
       where: { companyId: company.id },
@@ -110,14 +116,14 @@ async function ProcurementContent() {
         location: { select: { id: true, name: true } },
         lines: {
           include: {
-            material: { select: { id: true, code: true, name: true, unit: true } }}}}}),
+            material: { select: { id: true, code: true, name: true, unit: true } }}}}}).then(capQ("cash purchases")),
     // Company-scoped catalog entity; needed by the inline material
     // creator inside the PO form's line items.
     prisma.materialCategory.findMany({
       take: 201,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, unit: true }}),
+      select: { id: true, name: true, unit: true }}).then(capQ("material categories", 200)),
     // ── Requisitions (indents) — for the Indents tab ──
     prisma.materialRequisition.findMany({
       take: LIST_CAP + 1,
@@ -135,12 +141,12 @@ async function ProcurementContent() {
           include: { material: { select: { code: true, name: true, unit: true } } }},
         vendorQuotes: {
           where: { status: { not: "REJECTED" } },
-          select: { id: true, landedTotal: true, isCheapest: true, status: true }}}}),
+          select: { id: true, landedTotal: true, isCheapest: true, status: true }}}}).then(capQ("indents")),
     // Project phases — needed by the requisitions view's phase selector
     prisma.projectPhase.findMany({
       take: 201,
       where: {...await scopeWhere("ProjectPhase"),  project: { companyId: company.id, deletedAt: null } },
-      select: { id: true, name: true, projectId: true }}),
+      select: { id: true, name: true, projectId: true }}).then(capQ("project phases", 200)),
     // ── Supplier returns — for the Returns tab ──
     prisma.supplierReturn.findMany({
       take: LIST_CAP + 1,
@@ -150,7 +156,7 @@ async function ProcurementContent() {
         supplier: { select: { name: true } },
         location: { select: { name: true } },
         lines: {
-          include: { material: { select: { code: true, name: true, unit: true } } }}}}),
+          include: { material: { select: { code: true, name: true, unit: true } } }}}}).then(capQ("supplier returns")),
     // ── Quotation requests — for the Quotations tab ──
     prisma.quotationRequest.findMany({
       where: { ...await scopeWhere("QuotationRequest"), companyId: company.id },
@@ -163,7 +169,7 @@ async function ProcurementContent() {
         quotes: {
           where: { status: { not: "REJECTED" } },
           select: { id: true, landedTotal: true, status: true, isCheapest: true }},
-        convertedPo: { select: { id: true, poNumber: true, status: true } }}}),
+        convertedPo: { select: { id: true, poNumber: true, status: true } }}}).then(capQ("quotations", 100)),
     // Direct reports — for the "Your approval" badge on quotation requests
     membership
       ? prisma.userCompany.findMany({
@@ -172,24 +178,6 @@ async function ProcurementContent() {
           select: { id: true }})
       : [],
   ]);
-
-  const cappedLabels: string[] = [];
-  function capRows<T>(rows: T[], label: string, cap = LIST_CAP): T[] {
-    const r = applyCap(rows, cap);
-    if (r.capped) cappedLabels.push(label);
-    return r.rows;
-  }
-  pos = capRows(pos, "purchase orders");
-  suppliers = capRows(suppliers, "suppliers");
-  materials = capRows(materials, "materials");
-  locations = capRows(locations, "locations");
-  projects = capRows(projects, "projects", 200);
-  directPurchases = capRows(directPurchases, "cash purchases");
-  categories = capRows(categories, "material categories", 200);
-  requisitions = capRows(requisitions, "indents");
-  phases = capRows(phases, "project phases", 200);
-  supplierReturns = capRows(supplierReturns, "supplier returns");
-  quotationRequests = capRows(quotationRequests, "quotations", 100);
 
   const poRows: PurchaseOrderRow[] = pos.map((po) => {
     const totalOrdered = po.lines.reduce((s, l) => s + toNum(l.qtyOrdered), 0);

@@ -118,6 +118,10 @@ export const supplierSchema = z.object({
   email: z.string().max(120).optional().nullable(),
   address: z.string().max(500).optional().nullable(),
   leadTimeDays: z.coerce.number().int().min(0).optional().nullable(),
+  // Go-live payable — unpaid bills carried in from before the system.
+  // Sets balanceOwed + posts Dr Opening Equity / Cr AP in the same tx so
+  // the trial balance and the supplier ledger can't diverge.
+  openingBalance: z.coerce.number().finite().min(0, "Opening balance cannot be negative").max(1e10).optional().nullable(),
 });
 
 // ───────────────────────────────────────────────────────────

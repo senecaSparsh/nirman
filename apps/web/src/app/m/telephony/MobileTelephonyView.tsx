@@ -632,9 +632,57 @@ function AddNumberPanel({ twilioCount }: { twilioCount: number }) {
 }
 
 // ── Providers Tab ──
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ProvidersTab({ providers, canManage }: { providers: Provider[]; canManage: boolean }) {
-  if (providers.length === 0) {
+  const router = useRouter();
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [confirm, confirmDialog] = useConfirm();
+
+  async function toggleProvider(p: Provider) {
+    setBusyId(p.id);
+    try {
+      const res = await fetch(`/api/telephony/providers/${p.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active: !p.active }),
+      });
+      if (res.ok) {
+        toast.success(p.active ? "Provider paused" : "Provider activated");
+        haptic();
+        router.refresh();
+      } else {
+        toast.error("Could not update provider");
+      }
+    } catch {
+      toast.error("Network error");
+    }
+    setBusyId(null);
+  }
+
+  async function removeProvider(p: Provider) {
+    const ok = await confirm({
+      title: `Remove ${p.provider}?`,
+      description: "Inbound webhooks from this provider will stop being processed. Numbers and call history are preserved.",
+      confirmLabel: "Remove",
+      variant: "destructive",
+    });
+    if (!ok) return;
+    setBusyId(p.id);
+    try {
+      const res = await fetch(`/api/telephony/providers/${p.id}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success("Provider removed");
+        haptic();
+        router.refresh();
+      } else {
+        toast.error("Could not remove");
+      }
+    } catch {
+      toast.error("Network error");
+    }
+    setBusyId(null);
+  }
+
+  if (providers.length === 0 && !canManage) {
     return (
       <MobileNoResults
         title="No provider configured"
@@ -644,33 +692,143 @@ function ProvidersTab({ providers, canManage }: { providers: Provider[]; canMana
   }
 
   return (
-    <div className="space-y-2">
-      {providers.map((p) => (
-        <Card key={p.id} className="p-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div
-                className="grid place-items-center size-8 rounded-full shrink-0"
-                style={{ backgroundColor: "var(--color-concrete)" }}
-              >
-                <Server className="size-4" style={{ color: "var(--color-ink-600)" }} />
+    <>
+      {canManage && <AddProviderPanel />}
+      <div className="space-y-2">
+        {providers.length === 0 && (
+          <MobileNoResults
+            title="No provider configured"
+            hint="Add a provider to enable automatic call tracking via webhooks."
+          />
+        )}
+        {providers.map((p) => (
+          <Card key={p.id} className="p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div
+                  className="grid place-items-center size-8 rounded-full shrink-0"
+                  style={{ backgroundColor: "var(--color-concrete)" }}
+                >
+                  <Server className="size-4" style={{ color: "var(--color-ink-600)" }} />
+                </div>
+                <div>
+                  <p className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
+                    {p.provider}
+                  </p>
+                  <p className="text-m-caption truncate max-w-[200px]" style={{ color: "var(--color-ink-500)" }}>
+                    {p.webhookUrl}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
-                  {p.provider}
-                </p>
-                <p className="text-m-caption truncate max-w-[200px]" style={{ color: "var(--color-ink-500)" }}>
-                  {p.webhookUrl}
-                </p>
-              </div>
+              <Badge tone={p.active ? "go" : "neutral"}>
+                {p.active ? "Active" : "Inactive"}
+              </Badge>
             </div>
-            <Badge tone={p.active ? "go" : "neutral"}>
-              {p.active ? "Active" : "Inactive"}
-            </Badge>
-          </div>
-        </Card>
-      ))}
-    </div>
+            {canManage && (
+              <div className="flex gap-2 mt-3 pt-3 border-t" style={{ borderColor: "var(--color-line)" }}>
+                <Button
+                  variant="secondary"
+                  size="md"
+                  className="flex-1"
+                  onClick={() => toggleProvider(p)}
+                  disabled={busyId === p.id}
+                >
+                  {busyId === p.id ? <Loader2 className="size-4 animate-spin" /> : null}
+                  {p.active ? "Deactivate" : "Activate"}
+                </Button>
+                <Button
+                  variant="danger"
+                  size="md"
+                  onClick={() => removeProvider(p)}
+                  disabled={busyId === p.id}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            )}
+          </Card>
+        ))}
+      </div>
+      {confirmDialog}
+    </>
+  );
+}
+
+// ── Add-provider panel (parity with desktop: Exotel/Knowlarity/Twilio creds) ──
+function AddProviderPanel() {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [provider, setProvider] = useState("EXOTEL");
+  const [apiKey, setApiKey] = useState("");
+  const [apiSecret, setApiSecret] = useState("");
+
+  async function save() {
+    if (!apiKey.trim() || !apiSecret.trim()) { toast.error("Enter the API key and secret"); return; }
+    setBusy(true);
+    try {
+      const res = await fetch("/api/telephony/providers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider, apiKey: apiKey.trim(), apiSecret: apiSecret.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        toast.success("Provider added");
+        haptic();
+        setOpen(false);
+        setApiKey(""); setApiSecret("");
+        router.refresh();
+      } else {
+        toast.error(data.error ?? "Could not add provider");
+      }
+    } catch { toast.error("Network error"); }
+    setBusy(false);
+  }
+
+  if (!open) {
+    return (
+      <Button variant="signal" size="md" fullWidth onClick={() => { haptic(10); setOpen(true); }}>
+        <Plus className="size-4" /> Add a provider
+      </Button>
+    );
+  }
+
+  return (
+    <Card className="p-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>Add a provider</p>
+        <button onClick={() => setOpen(false)} className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Close</button>
+      </div>
+      <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+        Cloud telephony credentials — inbound calls then arrive via webhooks automatically.
+      </p>
+      <MobileSelectWithCreate
+        label="Provider"
+        value={provider}
+        onChange={setProvider}
+        options={["EXOTEL", "KNOWLARITY", "TWILIO"].map((v) => ({ value: v, label: v.charAt(0) + v.slice(1).toLowerCase() }))}
+      />
+      <input
+        value={apiKey}
+        onChange={(e) => setApiKey(e.target.value)}
+        placeholder="API key / SID"
+        className="w-full rounded-lg px-3 py-2.5 text-m-body"
+        style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-950)" }}
+      />
+      <input
+        type="password"
+        value={apiSecret}
+        onChange={(e) => setApiSecret(e.target.value)}
+        placeholder="API secret / token"
+        className="w-full rounded-lg px-3 py-2.5 text-m-body"
+        style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-950)" }}
+      />
+      <Button variant="signal" size="md" fullWidth onClick={save} disabled={busy || !apiKey.trim() || !apiSecret.trim()}>
+        {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+        Save provider
+      </Button>
+    </Card>
   );
 }
 
@@ -867,6 +1025,7 @@ function RecordingTab({ company, members, canManage }: { company: CompanyConfig;
 
 // ── Consent Tab ──
 function ConsentTab({ policy, company, canManage }: { policy: ConsentPolicy | null; company: CompanyConfig; canManage: boolean }) {
+  const router = useRouter();
   const [showEdit, setShowEdit] = useState(false);
   const [policyText, setPolicyText] = useState(policy?.policyText ?? "");
   const [saving, setSaving] = useState(false);
@@ -882,7 +1041,8 @@ function ConsentTab({ policy, company, canManage }: { policy: ConsentPolicy | nu
       if (res.ok) {
         toast.success(policy ? "Policy v" + (policy.version + 1) + " published" : "Policy published");
         haptic();
-        window.location.reload();
+        setShowEdit(false);
+        router.refresh();
       } else {
         toast.error("Could not save policy");
       }

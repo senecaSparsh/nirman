@@ -52,10 +52,18 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   if (expectedVersion !== undefined && existing.version !== expectedVersion) {
     return json({ error: new ConcurrentEditError("Supplier", id, expectedVersion, existing.version).message, code: "CONCURRENT_EDIT" }, { status: 409 });
   }
+  // openingBalance is a create-time field — it posts an opening JE. Sending
+  // it on edit would silently write a non-existent column; strip it and
+  // reject a positive value (an existing payable needs a reversal, not a
+  // hidden overwrite).
+  const { openingBalance, ...updateData } = parsed.data;
+  if (openingBalance && openingBalance > 0) {
+    return json({ error: "Opening balance can only be set when the supplier is created — correct an existing payable with a reversal, not an edit." }, { status: 400 });
+  }
   const updated = await withSerializableTransaction(async (tx) => {
     const sup = await tx.supplier.update({
       where: { id },
-      data: { ...parsed.data, version: { increment: 1 } },
+      data: { ...updateData, version: { increment: 1 } },
     });
     await logAction(tx, {
       userId: user.id,
