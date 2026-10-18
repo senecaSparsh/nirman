@@ -46,7 +46,7 @@ async function ProjectProgressContent() {
   // Latest DPR progress % per project
   const latestDprs = await prisma.dailyProgressReport.findMany({
     take: 200,
-    where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id },
+    where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, date: { lte: new Date() } },
     orderBy: { date: "desc" },
     distinct: ["projectId"],
     select: { projectId: true, progressPct: true, date: true },

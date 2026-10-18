@@ -89,7 +89,7 @@ export default function MobileProjectDetailPage({
         take: 5,
         select: { id: true, costType: true, amount: true, date: true, vendor: true }}),
       prisma.dailyProgressReport.findMany({
-        where: {...await scopeWhere("DailyProgressReport"),  projectId: id },
+        where: {...await scopeWhere("DailyProgressReport"),  projectId: id, date: { lte: new Date() } },
         orderBy: { date: "desc" },
         take: 5,
         select: { id: true, date: true, approvalStatus: true, progressPct: true, workSummary: true }}),
@@ -98,7 +98,7 @@ export default function MobileProjectDetailPage({
       prisma.landParcel.count({
         where: { projectId: id, deletedAt: null, status: "AVAILABLE" }}),
       prisma.workerAttendance.findMany({
-        where: {...await scopeWhere("WorkerAttendance"),  projectId: id },
+        where: {...await scopeWhere("WorkerAttendance"),  projectId: id, date: { lte: new Date() } },
         orderBy: { date: "desc" },
         take: 5,
         include: { employee: { select: { name: true } } }}),

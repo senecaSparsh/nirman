@@ -20,7 +20,7 @@ export default function MobileDprsPage() {
 
         const BATCH_SIZE = 40;
         const dprs = await prisma.dailyProgressReport.findMany({
-          where: {...await scopeWhere("DailyProgressReport"),  project: { companyId: company.id } },
+          where: {...await scopeWhere("DailyProgressReport"),  project: { companyId: company.id }, date: { lte: new Date() } },
           orderBy: [{ date: "desc" }, { id: "desc" }],
           take: BATCH_SIZE + 1,
           include: {

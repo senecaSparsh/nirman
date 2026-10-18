@@ -213,7 +213,7 @@ async function AccountsOverviewContent() {
     getSupplierOutstanding(company.id).catch(() => []),
     prisma.payrollPeriod
       .findFirst({
-        where: { companyId: company.id, status: "DRAFT" },
+        where: { companyId: company.id, status: "DRAFT", year: { lte: new Date().getFullYear() + 1 } },
         orderBy: [{ year: "desc" }, { month: "desc" }],
         select: { id: true, month: true, year: true, totalNet: true }})
       .catch(() => null),

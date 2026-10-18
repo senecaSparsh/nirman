@@ -12,6 +12,7 @@ import { MoneyCell } from "@/components/ui/cells";
 import { EmployeeName } from "@/components/employee-name";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { Dialog } from "@/components/ui/dialog";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { GlPreviewPanel } from "@/components/finance/gl-preview-panel";
 import { formatCurrency, formatDate, cn, toNum} from "@/lib/utils";
@@ -269,6 +270,10 @@ export function PayrollView({
   const [generateOpen, setGenerateOpen] = useState(false);
   const [detailTarget, setDetailTarget] = useState<PayrollRow | null>(null);
   const [summaryTarget, setSummaryTarget] = useState<PayrollRow | null>(null);
+  // Process and Mark Paid are one-way money moves (GL post + attendance lock /
+  // cash settlement + advance recovery — no unprocess path). They always go
+  // through a confirmation first, from both the row and the detail dialog.
+  const [confirmTarget, setConfirmTarget] = useState<{ period: PayrollRow; action: "process" | "pay" } | null>(null);
 
   const handleAction = async (period: PayrollRow, action: "process" | "pay") => {
     try {
@@ -279,6 +284,7 @@ export function PayrollView({
       });
       if (res.ok) {
         toast.success(action === "process" ? "Payroll processed — posted to GL" : "Payroll settled — salaries paid");
+        setDetailTarget(null);
         router.refresh();
       } else {
         const data = await res.json().catch(() => ({}));
@@ -380,12 +386,12 @@ export function PayrollView({
           <Eye className="mr-1 h-3.5 w-3.5" /> View Lines
         </Button>
         {p.status === "DRAFT" && (
-          <Button size="sm" onClick={(e) => { e.stopPropagation(); handleAction(p, "process"); }}>
+          <Button size="sm" onClick={(e) => { e.stopPropagation(); setConfirmTarget({ period: p, action: "process" }); }}>
             <CheckCircle className="mr-1 h-3.5 w-3.5" /> Process
           </Button>
         )}
         {p.status === "PROCESSED" && (
-          <Button size="sm" onClick={(e) => { e.stopPropagation(); handleAction(p, "pay"); }}>
+          <Button size="sm" onClick={(e) => { e.stopPropagation(); setConfirmTarget({ period: p, action: "pay" }); }}>
             <DollarSign className="mr-1 h-3.5 w-3.5" /> Mark Paid
           </Button>
         )}
@@ -466,7 +472,7 @@ export function PayrollView({
           canManage={canManage}
           onClose={() => setSummaryTarget(null)}
           onViewLines={() => { setDetailTarget(summaryTarget); setSummaryTarget(null); }}
-          onAction={handleAction}
+          onAction={(p, a) => setConfirmTarget({ period: p, action: a })}
         />
       )}
 
@@ -486,6 +492,33 @@ export function PayrollView({
           canManage={canManage}
           onClose={() => setDetailTarget(null)}
           onUpdated={() => router.refresh()}
+        />
+      )}
+
+      {/* Process / Mark Paid confirmation — one-way money moves */}
+      {confirmTarget && (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => { if (!open) setConfirmTarget(null); }}
+          title={confirmTarget.action === "process"
+            ? `Process ${MONTHS[confirmTarget.period.month]} ${confirmTarget.period.year} payroll?`
+            : `Mark ${MONTHS[confirmTarget.period.month]} ${confirmTarget.period.year} as paid?`}
+          description={confirmTarget.action === "process" ? (
+            <>
+              This posts <strong>{formatCurrency(confirmTarget.period.totalNet)}</strong> net pay
+              for <strong>{confirmTarget.period.employeeCount} employee{confirmTarget.period.employeeCount === 1 ? "" : "s"}</strong> to
+              the books and locks this month&apos;s attendance so it can no longer be edited.
+              This cannot be undone.
+            </>
+          ) : (
+            <>
+              This records <strong>{formatCurrency(confirmTarget.period.totalNet)}</strong> as paid,
+              settles the salary payable in the books, and recovers any outstanding advances.
+              This cannot be undone.
+            </>
+          )}
+          confirmLabel={confirmTarget.action === "process" ? "Process payroll" : "Mark paid"}
+          onConfirm={() => handleAction(confirmTarget.period, confirmTarget.action)}
         />
       )}
     </div>

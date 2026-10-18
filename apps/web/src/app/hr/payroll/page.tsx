@@ -33,7 +33,12 @@ async function PayrollContent() {
 
   const periods = await prisma.payrollPeriod.findMany({
     take: 500,
-    where: { companyId: company.id },
+    where: {
+      companyId: company.id,
+      // Same horizon as generatePayroll — far-future drafts from tests/typos
+      // must not bury the current period at the top of the list.
+      year: { lte: new Date().getFullYear() + 1 },
+    },
     orderBy: [{ year: "desc" }, { month: "desc" }],
     include: {
       _count: { select: { lines: true } },

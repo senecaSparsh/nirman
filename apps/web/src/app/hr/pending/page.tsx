@@ -75,7 +75,7 @@ async function PendingListContent() {
   ] = await Promise.all([
     // DPRs awaiting approval
     prisma.dailyProgressReport.findMany({
-      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] } },
+      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] }, date: { lte: now } },
       orderBy: { date: "desc" },
       take: 20,
       include: {
@@ -98,12 +98,12 @@ async function PendingListContent() {
     }),
     // Draft payroll periods
     prisma.payrollPeriod.findMany({
-      where: { companyId: company.id, status: "DRAFT" },
+      where: { companyId: company.id, status: "DRAFT", year: { lte: new Date().getFullYear() + 1 } },
       orderBy: [{ year: "desc" }, { month: "desc" }],
       take: 10,
       include: { _count: { select: { lines: true } } },
     }),
-    prisma.payrollPeriod.count({ where: { companyId: company.id, status: "DRAFT" } }),
+    prisma.payrollPeriod.count({ where: { companyId: company.id, status: "DRAFT", year: { lte: new Date().getFullYear() + 1 } } }),
     // Purchase orders pending approval
     // Requisitions pending approval
     actionableApprovals(company.id),

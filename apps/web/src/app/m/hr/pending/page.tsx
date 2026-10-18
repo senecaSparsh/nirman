@@ -72,7 +72,7 @@ async function MobilePendingListContent() {
     pendingTasks,
   ] = await Promise.all([
     canApproveDpr ? prisma.dailyProgressReport.findMany({
-      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: { in: approvableDprStatuses }, submittedById: { not: userId } },
+      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: { in: approvableDprStatuses }, submittedById: { not: userId }, date: { lte: new Date() } },
       orderBy: { date: "desc" },
       take: 15,
       include: {
@@ -89,7 +89,7 @@ async function MobilePendingListContent() {
       include: { employee: { select: { name: true } } },
     }) : Promise.resolve([]),
     canSeePayroll ? prisma.payrollPeriod.findMany({
-      where: { companyId: company.id, status: "DRAFT" },
+      where: { companyId: company.id, status: "DRAFT", year: { lte: new Date().getFullYear() + 1 } },
       orderBy: [{ year: "desc" }, { month: "desc" }],
       take: 5,
       include: { _count: { select: { lines: true } } },

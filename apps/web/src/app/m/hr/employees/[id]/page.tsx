@@ -70,6 +70,7 @@ async function MobileEmployeeDetailContent({
             orderBy: { type: "asc" },
           },
           payrollLines: {
+            where: { payrollPeriod: { year: { lte: new Date().getFullYear() + 1 } } },
             orderBy: [{ payrollPeriod: { year: "desc" } }, { payrollPeriod: { month: "desc" } }],
             take: 24,
             include: {
@@ -90,11 +91,13 @@ async function MobileEmployeeDetailContent({
           },
         },
         attendances: {
+          where: { date: { lte: new Date() } },
           orderBy: { date: "desc" },
           take: 60,
           include: { project: { select: { id: true, name: true } } },
         },
         dprLaborLines: {
+          where: { dpr: { date: { lte: new Date() } } },
           orderBy: { dpr: { date: "desc" } },
           take: 30,
           include: {

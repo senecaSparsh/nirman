@@ -530,7 +530,7 @@ async function loadOrgTree(
       take: 500, // cap to avoid huge payloads
     }),
     prisma.dailyProgressReport.findMany({
-      where: {...await scopeWhere("DailyProgressReport"),  submittedById: { in: userIds } },
+      where: {...await scopeWhere("DailyProgressReport"),  submittedById: { in: userIds }, date: { lte: new Date() } },
       orderBy: { date: "desc" },
       take: userIds.length * 5,
       select: { id: true, date: true, approvalStatus: true, submittedById: true, project: { select: { name: true } } }}),

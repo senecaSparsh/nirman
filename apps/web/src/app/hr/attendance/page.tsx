@@ -64,7 +64,7 @@ async function AttendanceContent() {
       select: { id: true, name: true, trade: true, activeProjectId: true, crewId: true }}),
     Promise.resolve(scopedOpts.projects),
     prisma.workerAttendance.findMany({
-      where: {...await scopeWhere("WorkerAttendance"),  companyId: company.id, date: { gte: weekAgo }, ...projectFilter },
+      where: {...await scopeWhere("WorkerAttendance"),  companyId: company.id, date: { gte: weekAgo, lte: todayDateOnly }, ...projectFilter },
       orderBy: { date: "desc" },
       take: 100,
       include: {
@@ -118,7 +118,7 @@ async function AttendanceContent() {
   if (projectDateKeys.size > 0) {
     const dprs = await prisma.dailyProgressReport.findMany({
       take: 200,
-      where: { ...await scopeWhere("DailyProgressReport"), project: { companyId: company.id }, date: { gte: weekAgo } },
+      where: { ...await scopeWhere("DailyProgressReport"), project: { companyId: company.id }, date: { gte: weekAgo, lte: todayDateOnly } },
       select: { projectId: true, date: true, approvalStatus: true }});
     for (const dpr of dprs) {
       const key = `${dpr.projectId}|${dpr.date.toISOString().slice(0, 10)}`;

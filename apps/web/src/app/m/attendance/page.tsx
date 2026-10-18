@@ -52,6 +52,7 @@ export default function MobileAttendancePage({
                   companyId: company.id,
                   offSiteReview: "PENDING",
                   employee: { deletedAt: null },
+                  date: { lte: new Date() },
                 },
                 orderBy: { date: "desc" },
                 take: 25,

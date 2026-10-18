@@ -6,6 +6,7 @@ import { CalendarCheck, ChevronDown, FileText, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, formatEnumLabel } from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
+import { useConfirm } from "@/lib/use-confirm";
 import { MobileSectionTitle, MobileRow, MobileStatusBadge } from "@/components/mobile/v2/primitives";
 import { MobileSearchHeader, MobileFilterIcon, MobileNoResults } from "@/components/mobile/v2/scaffold";
 import { MobileExportShareIcons, type MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
@@ -67,6 +68,7 @@ export function MobilePayrollList({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [acting, setActing] = useState(false);
   const [lineCache, setLineCache] = useState<Record<string, PayrollLineView[] | "loading">>({});
+  const [confirm, confirmDialog] = useConfirm();
 
   function toggleExpanded(id: string) {
     const next = expandedId === id ? null : id;
@@ -80,10 +82,19 @@ export function MobilePayrollList({
     }
   }
 
-  async function periodAction(id: string, action: "process" | "pay") {
+  async function periodAction(p: PayrollListItem, action: "process" | "pay") {
+    // One-way money moves — no unprocess path. Always confirm first.
+    const ok = await confirm({
+      title: action === "process" ? `Process ${p.monthLabel} payroll?` : `Mark ${p.monthLabel} as paid?`,
+      description: action === "process"
+        ? `This posts ${formatCurrency(p.totalNet)} net pay to the books and locks this month's attendance. This cannot be undone.`
+        : `This records ${formatCurrency(p.totalNet)} as paid, settles the books, and recovers any advances. This cannot be undone.`,
+      confirmLabel: action === "process" ? "Process payroll" : "Mark paid",
+    });
+    if (!ok) return;
     setActing(true);
     try {
-      const res = await fetch(`/api/payroll/${id}`, {
+      const res = await fetch(`/api/payroll/${p.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action }),
@@ -230,7 +241,7 @@ export function MobilePayrollList({
                       {canManage && p.status === "DRAFT" ? (
                         <button
                           disabled={acting}
-                          onClick={() => periodAction(p.id, "process")}
+                          onClick={() => periodAction(p, "process")}
                           className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1"
                           style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
                         >
@@ -240,7 +251,7 @@ export function MobilePayrollList({
                       {canManage && p.status === "PROCESSED" ? (
                         <button
                           disabled={acting}
-                          onClick={() => periodAction(p.id, "pay")}
+                          onClick={() => periodAction(p, "pay")}
                           className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press flex items-center justify-center gap-1"
                           style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
                         >
@@ -261,6 +272,7 @@ export function MobilePayrollList({
           })}
         </div>
       )}
+      {confirmDialog}
     </div>
   );
 }

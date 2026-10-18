@@ -17,7 +17,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
     where: {
       companyId: company.id,
       ...(status ? { status: { in: status.split(",") as PayrollStatus[] } } : {}),
-      ...(year ? { year: parseInt(year) } : {}),
+      // Same horizon as generatePayroll — an explicit ?year= still works, but
+      // an unfiltered list must not surface far-future junk drafts first.
+      year: year ? parseInt(year) : { lte: new Date().getFullYear() + 1 },
     },
     orderBy: [{ year: "desc" }, { month: "desc" }],
     take: 120,

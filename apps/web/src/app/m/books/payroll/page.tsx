@@ -30,7 +30,7 @@ async function BooksPayrollContent() {
   const actions = await getActionPermissions();
 
   const periods = await prisma.payrollPeriod.findMany({
-    where: { companyId: company.id },
+    where: { companyId: company.id, year: { lte: new Date().getFullYear() + 1 } },
     orderBy: [{ year: "desc" }, { month: "desc" }],
     take: 25,
     select: { id: true, month: true, year: true, status: true, totalNet: true, totalGross: true },

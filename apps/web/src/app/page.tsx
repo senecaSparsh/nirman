@@ -187,7 +187,7 @@ async function CommandCenterContent() {
       : [],
     dprApprovalStatuses.length > 0
       ? prisma.dailyProgressReport.findMany({
-          where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: { in: dprApprovalStatuses }, submittedById: { not: userId } },
+          where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, approvalStatus: { in: dprApprovalStatuses }, submittedById: { not: userId }, date: { lte: now } },
           orderBy: { date: "desc" }, take: 5,
           include: { project: { select: { name: true } } }})
       : [],

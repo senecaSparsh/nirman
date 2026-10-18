@@ -72,11 +72,13 @@ async function EmployeeProfileContent({
         },
       },
       attendances: {
+        where: { date: { lte: new Date() } },
         orderBy: { date: "desc" },
         take: 90,
         include: { project: { select: { id: true, name: true } } },
       },
       payrollLines: {
+        where: { payrollPeriod: { year: { lte: new Date().getFullYear() + 1 } } },
         orderBy: [{ payrollPeriod: { year: "desc" } }, { payrollPeriod: { month: "desc" } }],
         take: 24,
         include: {
@@ -89,6 +91,7 @@ async function EmployeeProfileContent({
         },
       },
       dprLaborLines: {
+        where: { dpr: { date: { lte: new Date() } } },
         orderBy: { dpr: { date: "desc" } },
         take: 50,
         include: {

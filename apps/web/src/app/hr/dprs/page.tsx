@@ -52,9 +52,14 @@ async function DprsContent() {
 
   const scopedOpts = await getScopedFormOptions();
 
+  const _today = new Date();
+  const todayDateOnly = new Date(Date.UTC(_today.getFullYear(), _today.getMonth(), _today.getDate()));
+
   const [dprs, projects, materials, employees, workTypes] = await Promise.all([
     prisma.dailyProgressReport.findMany({
-      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, ...projectFilter },
+      // DPRs report work already done — future dates are test/junk rows that
+      // would otherwise bury today's reports at the top of the list.
+      where: {...await scopeWhere("DailyProgressReport"),  companyId: company.id, date: { lte: todayDateOnly }, ...projectFilter },
       orderBy: { date: "desc" },
       take: 100,
       include: {

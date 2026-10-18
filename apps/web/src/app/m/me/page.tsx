@@ -110,7 +110,7 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
     const [payslip, leaves, presentDays, recentAttendance, advances] = await Promise.all([
       // Latest PAID payslip — what the worker actually got last.
       prisma.payrollLine.findFirst({
-        where: { employeeId: employee.id, payrollPeriod: { status: "PAID" } },
+        where: { employeeId: employee.id, payrollPeriod: { status: "PAID", year: { lte: now.getUTCFullYear() + 1 } } },
         orderBy: [{ payrollPeriod: { year: "desc" } }, { payrollPeriod: { month: "desc" } }],
         select: {
           id: true,
@@ -150,7 +150,7 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
       // Last 14 days at a glance — "did they mark me right?" — the strip
       // the count alone can't answer.
       prisma.workerAttendance.findMany({
-        where: { employeeId: employee.id, date: { gte: stripStart } },
+        where: { employeeId: employee.id, date: { gte: stripStart, lte: new Date() } },
         orderBy: { date: "desc" },
         take: 14,
         select: { date: true, status: true },
