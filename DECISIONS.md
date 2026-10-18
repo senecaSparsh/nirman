@@ -1806,3 +1806,19 @@ container healthy, site live with zero missed health checks.
 
 **Infra note:** if builds OOM again, swap usage during the build window is
 the signal — the build can safely use up to ~5GB without killing prod.
+
+## 87. Load/capacity verification — sustained + parallel-write (2026-10-18)
+
+Local prod build (:3200) under real concurrency:
+
+- **Reads**: 280 requests at 20-way concurrency across 7 endpoints (projects,
+  stock, trial balance, sales, employees, requisitions, CSV export) —
+  **all 200, zero errors, ~80 rps**. p50 238ms, p95 312ms, p99 338ms,
+  max 375ms — bounded tail, no collapse under sustained load.
+- **Writes**: 10 parallel requisition creates — all 201, distinct
+  sequential numbers REQ-0002..0011, no dupes/gaps, slowest <1s.
+  Sequence allocation is race-safe under real parallel writes.
+
+Verdict: capacity is sound at construction-team scale (tens of concurrent
+users); the API stays healthy at ~80 rps mixed read load on a single
+container.
