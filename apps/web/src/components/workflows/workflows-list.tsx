@@ -190,6 +190,15 @@ export function WorkflowsList({ workflows }: { workflows: WorkflowRow[] }) {
             onRowClick={(w) => router.push(`/workflows/${w.id}`)}
             onAddRow={canEdit ? () => router.push("/workflows/new") : undefined}
             addRowLabel="New Workflow"
+            toolbarTrailing={
+              /* Primary create — labeled, top-right (the table footer's
+                 "+ New Workflow" row stays as the bottom affordance). */
+              canEdit ? (
+                <Button size="sm" onClick={() => router.push("/workflows/new")}>
+                  <Plus className="h-3.5 w-3.5" /> New Workflow
+                </Button>
+              ) : undefined
+            }
           />
         </div>
       )}

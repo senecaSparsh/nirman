@@ -303,6 +303,15 @@ export function MeasurementBookView({
             pageSize={50}
             onAddRow={canCreate ? () => setDialogOpen(true) : undefined}
             addRowLabel="New Entry"
+            toolbarTrailing={
+              /* Primary create — labeled, top-right (the table footer's
+                 "+ New Entry" row stays as the bottom affordance). */
+              canCreate ? (
+                <Button size="sm" onClick={() => setDialogOpen(true)}>
+                  <Plus className="h-3.5 w-3.5" /> New Entry
+                </Button>
+              ) : undefined
+            }
           />
         </div>
       )}

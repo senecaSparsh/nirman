@@ -182,6 +182,15 @@ export function RateContractsView({ canCreate, categories }: { canCreate: boolea
             pageSize={50}
             onAddRow={canCreate ? () => setDialogOpen(true) : undefined}
             addRowLabel="New Rate Contract"
+            toolbarTrailing={
+              /* Primary create — labeled, top-right (the table footer's
+                 "+ New Rate Contract" row stays as the bottom affordance). */
+              canCreate ? (
+                <Button size="sm" onClick={() => setDialogOpen(true)}>
+                  <Plus className="h-3.5 w-3.5" /> New Rate Contract
+                </Button>
+              ) : undefined
+            }
           />
         </div>
       )}

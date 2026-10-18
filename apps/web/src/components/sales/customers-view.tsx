@@ -159,9 +159,16 @@ export function CustomersView({
             addRowLabel="New Customer"
             toolbarTrailing={
               canCreate ? (
-                <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)}>
-                  <Upload className="mr-1.5 h-3.5 w-3.5" /> CSV Import
-                </Button>
+                <>
+                  <Button variant="outline" size="sm" onClick={() => setCsvOpen(true)}>
+                    <Upload className="mr-1.5 h-3.5 w-3.5" /> CSV Import
+                  </Button>
+                  {/* Primary create — labeled, top-right (the table footer's
+                      "+ New Customer" row stays as the bottom affordance). */}
+                  <Button size="sm" onClick={openNew}>
+                    <Plus className="h-3.5 w-3.5" /> New Customer
+                  </Button>
+                </>
               ) : undefined
             }
           />

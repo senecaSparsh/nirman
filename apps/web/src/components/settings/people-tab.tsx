@@ -216,6 +216,12 @@ export function PeopleTab({
                 initialSort={{ key: "name", direction: "asc" }}
                 onAddRow={onNewSub}
                 addRowLabel="New Subcontractor"
+                toolbarTrailing={
+                  /* Primary create — labeled, top-right. */
+                  <Button size="sm" onClick={onNewSub}>
+                    <Plus className="h-3.5 w-3.5" /> New Subcontractor
+                  </Button>
+                }
               />
             </div>
           )}
@@ -248,6 +254,12 @@ export function PeopleTab({
                 totalFormat={(_key, sum) => formatCurrency(sum)}
                 onAddRow={onNewEmp}
                 addRowLabel="New Employee"
+                toolbarTrailing={
+                  /* Primary create — labeled, top-right. */
+                  <Button size="sm" onClick={onNewEmp}>
+                    <Plus className="h-3.5 w-3.5" /> New Employee
+                  </Button>
+                }
               />
             </div>
           )}

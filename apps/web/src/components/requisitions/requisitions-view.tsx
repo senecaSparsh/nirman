@@ -475,6 +475,14 @@ export function RequisitionsView({
                         </span>
                       </div>
                     )}
+                    {/* Primary create action — labeled, top-right (matches every
+                        other module; the table footer's "+ New Indent" row stays
+                        as a secondary affordance at the bottom). */}
+                    {canCreate && (
+                      <Button size="sm" onClick={() => setFormOpen(true)} disabled={projects.length === 0}>
+                        <Plus className="h-3.5 w-3.5" /> New Indent
+                      </Button>
+                    )}
                   </>
                 }
               />

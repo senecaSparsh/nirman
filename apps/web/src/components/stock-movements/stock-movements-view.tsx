@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useUrlFilter } from "@/lib/use-url-filter";
 import { Package, Download, FileSpreadsheet, ChevronDown, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Dialog } from "@/components/ui/dialog";
@@ -133,6 +134,13 @@ export function StockMovementsView({
           Export Excel
         </span>
       </div>
+      {/* Primary create — labeled, top-right (the table footer's
+          "+ Issue Materials" row stays as the bottom affordance). */}
+      {canIssue && locations.length > 0 && (projects.length > 0 || departments.length > 0) && (
+        <Button size="sm" onClick={() => setIssueOpen(true)}>
+          <Package className="h-3.5 w-3.5" /> Issue Materials
+        </Button>
+      )}
     </>
   );
 

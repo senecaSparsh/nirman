@@ -153,6 +153,15 @@ export function StockLocationsView({
             initialSort={{ key: "name", direction: "asc" }}
             onAddRow={canManage ? openCreate : undefined}
             addRowLabel="New Location"
+            toolbarTrailing={
+              /* Primary create — labeled, top-right (the table footer's
+                 "+ New Location" row stays as the bottom affordance). */
+              canManage ? (
+                <Button size="sm" onClick={openCreate}>
+                  <Plus className="h-3.5 w-3.5" /> New Location
+                </Button>
+              ) : undefined
+            }
             showTotals
             sumColumns={["itemCount", "stockValue"]}
             totalFormat={(key, sum) =>
