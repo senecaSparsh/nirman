@@ -5,7 +5,7 @@ import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
-import { BookOpen, Loader2, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, TriangleAlert, Coins, DatabaseZap, Landmark } from "lucide-react";
+import { BookOpen, Loader2, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, TriangleAlert, Coins, DatabaseZap, Landmark, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -28,9 +28,11 @@ type TrialBalanceRow = {
 };
 type LedgerLine = {
   id: string;
+  journalEntryId: string;
   entryNumber: string;
   entryDate: string;
   sourceType: string;
+  isReversed: boolean;
   memo: string | null;
   debit: number;
   credit: number;
@@ -134,7 +136,10 @@ function trialBalanceColumns(fmt: (v: number | string | null | undefined) => str
 }
 
 /** Column definitions for the account ledger drill-down DataTable. */
-function ledgerColumns(fmt: (v: number | string | null | undefined) => string): Column<LedgerLine>[] {
+function ledgerColumns(
+  fmt: (v: number | string | null | undefined) => string,
+  opts?: { canManage?: boolean; onReverse?: (l: LedgerLine) => void; reversingId?: string | null },
+): Column<LedgerLine>[] {
   return [
   {
     key: "entryNumber",
@@ -197,6 +202,33 @@ function ledgerColumns(fmt: (v: number | string | null | undefined) => string): 
     render: (l) => <span className="tnum">{l.credit !== 0 ? fmt(l.credit) : "—"}</span>,
     exportValue: (l) => l.credit,
   },
+  ...(opts?.canManage
+    ? [{
+        key: "actions",
+        label: "",
+        sortable: false,
+        render: (l: LedgerLine) =>
+          l.isReversed || l.sourceType.endsWith("_REVERSAL") ? (
+            <Badge variant="muted">{l.sourceType.endsWith("_REVERSAL") ? "reversal" : "reversed"}</Badge>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              disabled={opts.reversingId === l.journalEntryId}
+              onClick={() => opts.onReverse?.(l)}
+              title="Post a reversing entry for this journal entry"
+            >
+              {opts.reversingId === l.journalEntryId ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Undo2 className="h-3 w-3" />
+              )}
+            </Button>
+          ),
+        exportValue: () => "",
+      } as Column<LedgerLine>]
+    : []),
 ];
 }
 
@@ -225,6 +257,7 @@ export function GeneralLedgerView({
   );
   const ledger = ledgerData?.lines ?? null;
   const [seeding, setSeeding] = useState(false);
+  const [reversingId, setReversingId] = useState<string | null>(null);
   const [openingOpen, setOpeningOpen] = useState(false);
   const { mode, toggle } = useCurrencyMode();
   const showPaise = mode === "detailed";
@@ -236,6 +269,28 @@ export function GeneralLedgerView({
   useEffect(() => {
     if (ledgerError) toast.error("Failed to load account ledger");
   }, [ledgerError]);
+
+  async function reverseEntry(l: LedgerLine) {
+    if (!window.confirm(
+      `Reverse journal entry ${l.entryNumber}?\n\nPosts a mirror entry that un-does every debit/credit — the standard correction (books are append-only).`,
+    )) return;
+    setReversingId(l.journalEntryId);
+    try {
+      const res = await fetch(`/api/gl/entries/${l.journalEntryId}/reverse`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to reverse entry");
+      toast.success(`Reversed — posted ${data.entryNumber}`);
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to reverse entry");
+    } finally {
+      setReversingId(null);
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -378,7 +433,7 @@ export function GeneralLedgerView({
               <DataTable
                 data={ledger}
                 initialSort={{ key: "entryDate", direction: "desc" }}
-                columns={ledgerColumns(fmt)}
+                columns={ledgerColumns(fmt, { canManage, onReverse: reverseEntry, reversingId })}
                 storageKey="gl-ledger"
                 hideable
                 exportFileName="account-ledger"

@@ -2249,7 +2249,7 @@ export async function accountLedger(
 
   const lines = await prisma.journalLine.findMany({
     where,
-    include: { journalEntry: { select: { entryNumber: true, entryDate: true, sourceType: true, memo: true } } },
+    include: { journalEntry: { select: { id: true, entryNumber: true, entryDate: true, sourceType: true, memo: true } } },
     orderBy: { journalEntry: { entryDate: "desc" } },
     take: limit + 1, // +1 to check if there are more
     ...(cursorObj
@@ -2264,6 +2264,7 @@ export async function accountLedger(
   return {
     lines: page.map((l) => ({
       id: l.id,
+      journalEntryId: l.journalEntry.id,
       entryNumber: l.journalEntry.entryNumber,
       entryDate: l.journalEntry.entryDate,
       sourceType: l.journalEntry.sourceType,

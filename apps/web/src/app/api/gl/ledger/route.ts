@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { prisma } from "@nirman/db";
 import { accountLedger } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { dateParam, apiHandler, getCompany, json, requirePermission } from "@/lib/server";
@@ -33,12 +34,25 @@ export const GET = apiHandler(async (req: NextRequest) => {
     endDate,
   });
 
+  // One query for the whole page — which of these entries already carry a
+  // reversal JE (reversalOfId links reversal → original).
+  const entryIds = result.lines.map((l) => l.journalEntryId);
+  const reversals = entryIds.length
+    ? await prisma.journalEntry.findMany({
+        where: { companyId: company.id, reversalOfId: { in: entryIds } },
+        select: { reversalOfId: true },
+      })
+    : [];
+  const reversedSet = new Set(reversals.map((r) => r.reversalOfId));
+
   return json({
     lines: result.lines.map((l) => ({
       id: l.id,
+      journalEntryId: l.journalEntryId,
       entryNumber: l.entryNumber,
       entryDate: l.entryDate.toISOString(),
       sourceType: l.sourceType,
+      isReversed: reversedSet.has(l.journalEntryId),
       memo: l.memo,
       debit: l.debit.toString(),
       credit: l.credit.toString(),
