@@ -975,7 +975,16 @@ function UnitsTab({ data }: { data: ProjectHubData }) {
   return (
     <div className="space-y-4">
       {units.length === 0 ? (
-        <EmptyState icon={<Home className="h-5 w-5" />} title="No built units" description="Add built units (flats, shops, offices) to this project." />
+        <EmptyState
+          icon={<Home className="h-5 w-5" />}
+          title="No built units"
+          description="Add built units (flats, shops, offices) to this project — multiple rows per entry."
+          action={
+            <Button size="sm" className="gap-1.5" onClick={() => setFormOpen(true)}>
+              <Plus className="size-3.5" /> Add Units
+            </Button>
+          }
+        />
       ) : (
         <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
           <DataTable
@@ -1136,7 +1145,18 @@ function LandTab({ data }: { data: ProjectHubData }) {
   return (
     <div className="space-y-4">
       {parcels.length === 0 ? (
-        <EmptyState icon={<LandPlot className="h-5 w-5" />} title="No land parcels" description="Land parcels linked to this project will appear here." />
+        <EmptyState
+          icon={<LandPlot className="h-5 w-5" />}
+          title="No land parcels"
+          description="Land parcels linked to this project will appear here. Record a land purchase to create one."
+          action={
+            <Link href="/land">
+              <Button size="sm" className="gap-1.5">
+                <Plus className="size-3.5" /> Record Land Purchase
+              </Button>
+            </Link>
+          }
+        />
       ) : (
         <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
           <DataTable
@@ -1622,7 +1642,18 @@ function EquipmentTab({ data }: { data: ProjectHubData }) {
       </div>
 
       {equipment.length === 0 ? (
-        <EmptyState icon={<Wrench className="h-5 w-5" />} title="No equipment assigned" description="Equipment assigned to this project's site will appear here." />
+        <EmptyState
+          icon={<Wrench className="h-5 w-5" />}
+          title="No equipment assigned"
+          description="Equipment assigned to this project's site will appear here."
+          action={
+            <Link href="/equipment">
+              <Button size="sm" variant="outline" className="gap-1.5">
+                <Plus className="size-3.5" /> Manage Equipment
+              </Button>
+            </Link>
+          }
+        />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {equipment.map((e) => {
