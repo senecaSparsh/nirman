@@ -1160,6 +1160,9 @@ function ProfileSidebar({
         )}
       </SidebarCard>
 
+      {/* Letters & ID Card — offer letter, appointment letter, ID card */}
+      <LettersCard employee={employee} canManage={canManage} />
+
       {/* Auto-Deposit (Salary → Bank) */}
       <SidebarCard title="Auto-Deposit" icon={Wallet}>
         {employee.autoDepositEnabled ? (
@@ -1196,7 +1199,117 @@ function ProfileSidebar({
           </div>
         )}
       </SidebarCard>
+
+      {/* Rendered here — this hook instance is local to ProfileSidebar, so the
+          viewer must mount inside this component for openDoc to display. */}
+      <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
     </div>
+  );
+}
+
+function LettersCard({ employee, canManage }: { employee: EmployeeProfileData; canManage: boolean }) {
+  const router = useRouter();
+  const docViewer = useDocumentViewer();
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const letters = [
+    {
+      key: "offer",
+      label: "Offer Letter",
+      status: employee.offerLetterStatus,
+      issuedAt: employee.offerLetterIssuedAt,
+      printPath: `/print/offer-letter/${employee.id}`,
+      api: "generate-offer-letter",
+    },
+    {
+      key: "appointment",
+      label: "Appointment Letter",
+      status: employee.appointmentLetterStatus,
+      issuedAt: employee.appointmentLetterIssuedAt,
+      printPath: `/print/appointment-letter/${employee.id}`,
+      api: "generate-appointment-letter",
+    },
+    {
+      key: "idcard",
+      label: "Employee ID Card",
+      status: employee.idCardStatus,
+      issuedAt: employee.idCardIssuedAt,
+      printPath: `/print/employee-id-card/${employee.id}`,
+      api: "generate-id-card",
+    },
+  ];
+
+  async function generate(api: string, label: string) {
+    setBusy(api);
+    try {
+      const res = await fetch(`/api/employees/${employee.id}/${api}`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? `Failed to generate ${label}`);
+      toast.success(data.message ?? `${label} generated`);
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : `Failed to generate ${label}`);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <SidebarCard title="Letters & ID Card" icon={FileText}>
+      {letters.map((l) => {
+        const issued = ["ISSUED", "CONFIRMED", "EXPIRED"].includes(l.status ?? "");
+        return (
+          <div key={l.key} className="py-1.5 border-b last:border-0 border-border">
+            <div className="flex items-center justify-between">
+              <span className="text-caption font-medium text-foreground">{l.label}</span>
+              <span
+                className={cn(
+                  "text-micro font-bold px-1.5 py-0.5 rounded-full",
+                  issued ? "bg-success/12 text-success" : "bg-muted text-muted-foreground",
+                )}
+              >
+                {issued ? "Issued" : "Not issued"}
+              </span>
+            </div>
+            {issued && l.issuedAt && (
+              <p className="text-meta text-muted-foreground">{formatDate(l.issuedAt)}</p>
+            )}
+            {canManage && employee.active && (
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {issued && (
+                  <button
+                    type="button"
+                    onClick={() => docViewer.openDoc(l.printPath, l.label)}
+                    className="flex-1 min-w-[6rem] inline-flex items-center justify-center gap-1 rounded-md border border-border px-2 py-1 text-caption font-medium text-foreground hover:bg-muted transition-colors"
+                  >
+                    <FileText className="h-3 w-3" /> View / Print
+                  </button>
+                )}
+                <Button
+                  variant={issued ? "ghost" : "outline"}
+                  size="sm"
+                  className={cn("flex-1 min-w-[6rem]", issued && "text-muted-foreground")}
+                  disabled={busy === l.api}
+                  onClick={() => generate(l.api, l.label)}
+                >
+                  {busy === l.api ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : issued ? (
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  ) : (
+                    <FileText className="h-3.5 w-3.5" />
+                  )}
+                  {issued ? "Regenerate" : "Generate"}
+                </Button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      {/* Mounted inside this component — the useDocumentViewer hook instance is
+          local, so the viewer must render here for openDoc to display. */}
+      <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
+    </SidebarCard>
   );
 }
 
