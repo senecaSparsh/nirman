@@ -1822,3 +1822,56 @@ Local prod build (:3200) under real concurrency:
 Verdict: capacity is sound at construction-team scale (tens of concurrent
 users); the API stays healthy at ~80 rps mixed read load on a single
 container.
+
+## 88. Day-1 onboarding + real-user UX gaps (2026-10-18)
+
+Real-UI audit of a fresh company (census-test) — what a new client actually
+sees on day 1 — plus the follow-on fixes. The theme: the system verified
+correct end-to-end, but a brand-new tenant landed on zeros with no direction.
+
+**Fixed this round:**
+
+- **Setup checklist** — the Today dashboard showed "Everything's in order" to
+  an empty company. Now OWNER/ADMIN sees a "Get your business set up" card
+  (6 steps: project → team → materials → suppliers → customers → opening
+  bank balance) with progress; greeting switches to "Let's get the business
+  set up"; the redundant "queue is clear" card hides while setup is pending.
+  Mobile `/m/home` briefing got the same parity (customers + opening balance
+  added to its 4-step list — both surfaces now identical).
+- **Blind approvals, all types** — PO rows expand to qty/rate lines, gate
+  passes show contents leaving the site, expense rows stopped discarding
+  the fetched GST/TDS split + receipt link, RA bills show deductions +
+  billed BOQ lines (this-period + cumulative qty), DPRs show labour lines +
+  materials consumed + photo count. Claims already had an Eye→detail dialog.
+- **Opening cash/bank balance** — `POST /api/gl/opening-balance` posts Dr
+  1000 / Cr 3100, FINANCE_MANAGE-gated, one-time (409 on re-post — correct
+  via reversal). Surfaced on `/gl` ("Opening balance" button) and
+  `/m/books/gl` (mobile bottom sheet). Until this existed, every go-live
+  KPI started from a false ₹0.
+- **Employee CSV import** — `PUT /api/employees` bulk-create with
+  phone-dedup + per-row errors; uses the existing shared
+  `GenericCsvImportDialog` (same as suppliers/customers — the duplicate
+  bespoke dialog was replaced).
+- **Dead-end empty states on the project page** — "No built units" opens
+  the batch units dialog; "No land parcels" links to record a purchase;
+  "No equipment assigned" links to manage equipment.
+- **Negative AR/AP labeled as advances** — "-₹48.9K Receivables" now reads
+  "Advances (from customers) ₹48.9K". Net-cash math unchanged; the sign was
+  data-correct but read as a bug.
+- **Reject dialog** — visible "A reason is required" cue instead of a
+  silently-disabled button.
+- **calls-view typecheck** — unfinished URL-filter refactor from an earlier
+  session used `useUrlFilter("dir", "")` (literal `""` type); explicit
+  `<string>` generics fixed the three errors that were breaking `tsc`.
+
+**Verified live:** fresh tenant shows the 6-step checklist + new greeting;
+SRG (fully seeded) hides it; employee CSV import round-tripped a real file
+(2 created, 1 phone-dedupe skipped, 1 row error) through the UI; opening
+balance posted JE + 409'd on re-post; typecheck clean; all pushed.
+
+**Not done (deliberate):** bulk import for stock-locations/departments/crews
+(tiny masters — single-digit entities, per-row entry is fine); AR/AP opening
+balances (would need entity-linked subledger rows — the cash step covers the
+dashboard's day-1 correctness); parcels-tree "No parcels" description (a
+purchase always auto-creates a root parcel — that state only occurs on
+soft-delete edge cases).
