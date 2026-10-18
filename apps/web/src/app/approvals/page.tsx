@@ -67,7 +67,7 @@ async function ApprovalsContent() {
           include: {
             supplier: { select: { id: true, name: true } },
             project: { select: { id: true, name: true, totalBudget: true } },
-            lines: { select: { qtyOrdered: true, unitCost: true, materialId: true } },
+            lines: { select: { qtyOrdered: true, unitCost: true, lineTotal: true, material: { select: { name: true, code: true, unit: true } } } },
             createdBy: { select: { id: true, name: true } },
           },
         })
@@ -95,7 +95,7 @@ async function ApprovalsContent() {
           orderBy: { createdAt: "desc" },
           take: 50,
           include: {
-            lines: { select: { id: true } },
+            lines: { select: { materialName: true, materialCode: true, unit: true, qty: true, description: true, material: { select: { name: true, unit: true } } } },
             location: { select: { name: true } },
             createdBy: { select: { name: true } },
           },
@@ -119,6 +119,7 @@ async function ApprovalsContent() {
           take: 50,
           include: {
             project: { select: { name: true } },
+            supplier: { select: { name: true } },
             createdBy: { select: { name: true } },
           },
         })
@@ -230,6 +231,14 @@ async function ApprovalsContent() {
         expectedDate: po.expectedDate?.toISOString() ?? null,
         canApprove: canApprovePo,
         waitingOn: "Project Director / Procurement Manager",
+        lineDetails: po.lines.map((l) => ({
+          materialName: l.material.name,
+          materialCode: l.material.code,
+          unit: l.material.unit,
+          qtyOrdered: toNum(l.qtyOrdered),
+          unitCost: toNum(l.unitCost),
+          lineTotal: toNum(l.lineTotal),
+        })),
         ...ctx,
         urgency: computeUrgency(po.expectedDate, po.createdAt),
       };
@@ -290,6 +299,11 @@ async function ApprovalsContent() {
     canApprove: canApproveGatePass,
     waitingOn: "Store Keeper / Supervisor",
     urgency: computeUrgency(null, gp.createdAt),
+    lineDetails: gp.lines.map((l) => ({
+      label: l.materialName ?? l.material?.name ?? l.description ?? "Item",
+      unit: l.unit ?? l.material?.unit ?? null,
+      qty: toNum(l.qty),
+    })),
   }));
   gatePassRows.sort((a, b) => (URGENCY_ORDER[a.urgency] ?? 9) - (URGENCY_ORDER[b.urgency] ?? 9));
 
@@ -314,20 +328,20 @@ async function ApprovalsContent() {
     category: e.category,
     categoryName: e.category,
     amount: toNum(e.amount),
-    subtotal: toNum(e.amount),
-    cgst: 0,
-    sgst: 0,
-    igst: 0,
-    tdsAmount: 0,
+    subtotal: toNum(e.subtotal) || toNum(e.amount),
+    cgst: toNum(e.cgst),
+    sgst: toNum(e.sgst),
+    igst: toNum(e.igst),
+    tdsAmount: toNum(e.tdsAmount),
     projectName: e.project?.name ?? null,
     payeeName: e.payeeName,
-    supplierName: null,
-    paymentMode: null,
-    receiptUrl: null,
+    supplierName: e.supplier?.name ?? null,
+    paymentMode: e.paymentMode,
+    receiptUrl: e.receiptUrl,
     submittedByName: e.createdBy?.name ?? null,
     submittedAt: e.createdAt.toISOString(),
-    date: e.createdAt.toISOString(),
-    notes: null,
+    date: e.date?.toISOString() ?? e.createdAt.toISOString(),
+    notes: e.notes,
     canApprove: canApproveExpense,
     waitingOn: "Finance Head / Accountant",
   }));

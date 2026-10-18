@@ -434,13 +434,20 @@ function RejectReasonDialog({
       description="The requester will see this reason."
     >
       <div className="space-y-4">
-        <Textarea
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Why is this being rejected?"
-          rows={3}
-          autoFocus
-        />
+        <div className="space-y-1.5">
+          <Textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Why is this being rejected? (required)"
+            rows={3}
+            autoFocus
+            aria-required
+            aria-label="Rejection reason"
+          />
+          {!reason.trim() && (
+            <p className="text-caption text-muted-foreground">A reason is required — the requester will see it.</p>
+          )}
+        </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button type="button" variant="destructive" disabled={!reason.trim() || busy} onClick={() => onConfirm(reason.trim())}>
@@ -458,6 +465,7 @@ function POApprovalRow({ po }: { po: ApprovalPORow }) {
   const [done, setDone] = useState(false);
   const [rejected, setRejected] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   async function act(action: "approve" | "reject", reason?: string) {
     setActing(true);
@@ -520,7 +528,8 @@ function POApprovalRow({ po }: { po: ApprovalPORow }) {
   }
 
   return (
-    <div className={`flex items-start justify-between gap-4 p-4 ${po.wouldExceedBudget ? "bg-danger/5" : ""}`}>
+    <div className={`p-4 ${po.wouldExceedBudget ? "bg-danger/5" : ""}`}>
+      <div className="flex items-start justify-between gap-4">
       <div className="min-w-0 space-y-1.5">
         <div className="flex items-center gap-2">
           <span className="text-body font-semibold text-foreground">{po.poNumber}</span>
@@ -583,6 +592,55 @@ function POApprovalRow({ po }: { po: ApprovalPORow }) {
           onConfirm={(reason) => { setRejectOpen(false); act("reject", reason); }}
         />
       </div>
+      </div>
+
+      {/* Line details — the approver signs the amount; they should see what
+          they're buying (same inspection affordance indents already had). */}
+      {po.lineDetails.length > 0 && (
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => setShowDetails(!showDetails)}
+            className="flex items-center gap-1 text-caption text-brand hover:underline"
+          >
+            {showDetails ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            {showDetails ? "Hide line details" : `Show ${po.lineDetails.length} line${po.lineDetails.length === 1 ? "" : "s"} (qty & rates)`}
+          </button>
+          {showDetails && (
+            <div className="mt-2 overflow-x-auto">
+              <table className="w-full text-caption">
+                <thead>
+                  <tr className="text-left text-muted-foreground border-b border-border">
+                    <th className="py-1.5 pr-4 font-medium">Material</th>
+                    <th className="py-1.5 pr-4 font-medium text-right">Qty</th>
+                    <th className="py-1.5 pr-4 font-medium text-right">Rate</th>
+                    <th className="py-1.5 font-medium text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {po.lineDetails.map((line, i) => (
+                    <tr key={i}>
+                      <td className="py-1.5 pr-4">
+                        <div className="font-medium text-foreground">{line.materialName}</div>
+                        <div className="text-muted-foreground">{line.materialCode} · {line.unit}</div>
+                      </td>
+                      <td className="py-1.5 pr-4 text-right tnum text-foreground">
+                        {formatNumber(line.qtyOrdered)} {line.unit}
+                      </td>
+                      <td className="py-1.5 pr-4 text-right tnum text-foreground">
+                        {formatCurrency(line.unitCost)}
+                      </td>
+                      <td className="py-1.5 text-right tnum text-foreground">
+                        {formatCurrency(line.lineTotal)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -796,6 +854,7 @@ function GatePassApprovalRow({ gp }: { gp: ApprovalGatePassRow }) {
   const [done, setDone] = useState(false);
   const [rejected, setRejected] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
 
   async function act(action: "approve" | "reject", reason?: string) {
     setActing(true);
@@ -854,7 +913,8 @@ function GatePassApprovalRow({ gp }: { gp: ApprovalGatePassRow }) {
   }
 
   return (
-    <div className="flex items-start justify-between gap-4 p-4">
+    <div className="p-4">
+      <div className="flex items-start justify-between gap-4">
       <div className="min-w-0 space-y-1.5">
         <div className="flex items-center gap-2">
           <span className="text-body font-semibold text-foreground">{gp.gatePassNumber}</span>
@@ -893,6 +953,31 @@ function GatePassApprovalRow({ gp }: { gp: ApprovalGatePassRow }) {
         busy={acting}
         onConfirm={(reason) => { setRejectOpen(false); act("reject", reason); }}
       />
+      </div>
+
+      {/* What's actually leaving the gate — the approver should see it */}
+      {gp.lineDetails.length > 0 && (
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => setShowDetails(!showDetails)}
+            className="flex items-center gap-1 text-caption text-brand hover:underline"
+          >
+            {showDetails ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            {showDetails ? "Hide contents" : `Show ${gp.lineDetails.length} line${gp.lineDetails.length === 1 ? "" : "s"} leaving`}
+          </button>
+          {showDetails && (
+            <ul className="mt-2 space-y-1 text-caption">
+              {gp.lineDetails.map((l, i) => (
+                <li key={i} className="flex items-baseline justify-between gap-3">
+                  <span className="text-foreground">{l.label}</span>
+                  <span className="tnum text-muted-foreground">{formatNumber(l.qty)}{l.unit ? ` ${l.unit}` : ""}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1192,12 +1277,30 @@ function ExpenseApprovalRow({ expense }: { expense: ApprovalExpenseRow }) {
         </div>
         <div className="text-caption text-muted-foreground">
           {expense.payeeName ?? ""}
+          {expense.supplierName ? ` · ${expense.supplierName}` : ""}
           {expense.projectName ? ` · ${expense.projectName}` : ""}
           {expense.submittedByName ? ` · raised by ${expense.submittedByName}` : ""}
         </div>
         <div className="text-caption text-muted-foreground">
           Date {formatDate(expense.date)}
+          {expense.paymentMode ? ` · ${expense.paymentMode}` : ""}
+          {expense.notes ? ` · ${expense.notes.slice(0, 80)}${expense.notes.length > 80 ? "…" : ""}` : ""}
         </div>
+        {/* Tax breakdown — an approver needs the real split, not just the total */}
+        {(toNum(expense.cgst) > 0 || toNum(expense.sgst) > 0 || toNum(expense.igst) > 0 || toNum(expense.tdsAmount) > 0) && (
+          <div className="text-caption text-muted-foreground">
+            Taxable {formatCurrency(expense.subtotal)}
+            {toNum(expense.cgst) > 0 && ` · CGST ${formatCurrency(expense.cgst)}`}
+            {toNum(expense.sgst) > 0 && ` · SGST ${formatCurrency(expense.sgst)}`}
+            {toNum(expense.igst) > 0 && ` · IGST ${formatCurrency(expense.igst)}`}
+            {toNum(expense.tdsAmount) > 0 && ` · TDS ${formatCurrency(expense.tdsAmount)}`}
+          </div>
+        )}
+        {expense.receiptUrl && (
+          <a href={expense.receiptUrl} target="_blank" rel="noopener noreferrer" className="text-caption text-brand hover:underline inline-flex items-center gap-1">
+            View receipt <ArrowRight className="h-3 w-3" />
+          </a>
+        )}
         <div className="text-caption">
           <span className="text-muted-foreground">Waiting on: </span>
           <span className="font-medium text-foreground">{expense.waitingOn}</span>

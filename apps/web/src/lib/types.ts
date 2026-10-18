@@ -1366,6 +1366,15 @@ export type SupplierReturnRow = {
 
 // ── Approvals ──
 
+export type ApprovalPOLineDetail = {
+  materialName: string;
+  materialCode: string;
+  unit: string;
+  qtyOrdered: number;
+  unitCost: number;
+  lineTotal: number;
+};
+
 export type ApprovalPORow = {
   id: string;
   poNumber: string;
@@ -1382,6 +1391,7 @@ export type ApprovalPORow = {
   expectedDate: string | null;
   canApprove: boolean;
   waitingOn: string;
+  lineDetails: ApprovalPOLineDetail[];
   // Budget context (null for COMPANY-scoped POs or projects without a budget)
   projectBudget: number | null;
   projectSpent: number | null;
@@ -1428,6 +1438,12 @@ export type ApprovalReqRow = {
   lineDetails: ApprovalReqLineDetail[];
 };
 
+export type ApprovalGatePassLineDetail = {
+  label: string;
+  unit: string | null;
+  qty: number;
+};
+
 export type ApprovalGatePassRow = {
   id: string;
   gatePassNumber: string;
@@ -1442,6 +1458,7 @@ export type ApprovalGatePassRow = {
   canApprove: boolean;
   waitingOn: string;
   urgency: string;
+  lineDetails: ApprovalGatePassLineDetail[];
 };
 
 export type ApprovalDprRow = {
