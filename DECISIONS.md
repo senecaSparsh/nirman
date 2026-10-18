@@ -1792,3 +1792,17 @@ guards, it proves them. This is the strongest available signal that the
 integrity layer actually catches regressions.
 
 Report: `packages/services/reports/mutation/mutation-report.html`.
+
+## 86. Production deploy + build-OOM infra fix (2026-10-18)
+
+Deployed `72b11e63` to nirman.life — all session fixes now live (numeric
+cap, a11y labels, probes, docs).
+
+First attempt OOM-killed (`pnpm build` exit 137 at 5m18s): the box was
+upgraded to 8GB but only had 1GB swap (60% used) — the 3GB-heap webpack
+build + live containers spiked over the top. Fix: added a 4GB swapfile
+(`/swap2.img`, persisted in fstab — 5GB total). Retry built in 480s,
+container healthy, site live with zero missed health checks.
+
+**Infra note:** if builds OOM again, swap usage during the build window is
+the signal — the build can safely use up to ~5GB without killing prod.
