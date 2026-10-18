@@ -215,9 +215,13 @@ async function CommandCenterContent() {
   const isOwnerOrAdmin = role === "OWNER" || role === "ADMIN";
   let cashPosition: CashPositionData | null = null;
   let projectProfitRows: ProjectProfitRow[] = [];
+  // Day-1 setup checklist — a fresh company sees zeros with no direction.
+  // Count the primitives a construction business must seed before real work;
+  // the card disappears once everything exists.
+  let setupSteps: { label: string; href: string; done: boolean }[] = [];
 
   if (isOwnerOrAdmin) {
-    const [tb, projects, invVal] = await Promise.all([
+    const [tb, projects, invVal, employeeCount, materialCount, supplierCount, customerCount] = await Promise.all([
       trialBalance(company.id),
       prisma.project.findMany({
         take: 200,
@@ -225,7 +229,19 @@ async function CommandCenterContent() {
         select: { id: true, name: true, status: true },
         orderBy: { name: "asc" }}),
       materialInventoryValue(company.id),
+      prisma.employee.count({ where: { companyId: company.id } }),
+      prisma.material.count({ where: { companyId: company.id, deletedAt: null } }),
+      prisma.supplier.count({ where: { companyId: company.id } }),
+      prisma.customer.count({ where: { companyId: company.id } }),
     ]);
+
+    setupSteps = [
+      { label: "Create your first project", href: "/projects", done: projects.length > 0 },
+      { label: "Add your team", href: "/hr/employees", done: employeeCount > 0 },
+      { label: "Add materials or import CSV", href: "/materials", done: materialCount > 0 },
+      { label: "Add your suppliers", href: "/suppliers", done: supplierCount > 0 },
+      { label: "Add your customers", href: "/customers", done: customerCount > 0 },
+    ];
 
     // Extract key account balances from trial balance
     const findBalance = (code: string) => {
@@ -543,6 +559,7 @@ async function CommandCenterContent() {
         roleLabel={displayRoleLabel}
         roleDescription={roleDef.description}
         canManageCompany={canManageCompany}
+        setupSteps={setupSteps}
         queues={queues}
         totalQueues={totalQueues}
         blockingQueues={blockingQueues}

@@ -155,6 +155,9 @@ export type ProfileTabsProps = {
   roleLabel: string;
   roleDescription: string;
   canManageCompany: boolean;
+  // Day-1 setup checklist (OWNER/ADMIN only) — each primitive the company
+  // must seed before real work; the card hides itself once all are done.
+  setupSteps?: { label: string; href: string; done: boolean }[];
   // Work
   queues: QueueData[];
   totalQueues: number;

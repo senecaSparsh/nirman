@@ -103,6 +103,33 @@ export function CommandCenter(props: ProfileTabsProps) {
         pendingActions={pendingActions}
       />
 
+      {/* ══ 2b. Setup checklist — a fresh company needs direction, not "all
+          clear". Shown to OWNER/ADMIN until the basics exist. ═══ */}
+      {props.canManageCompany && (props.setupSteps?.some((s) => !s.done)) && (
+        <div className="rounded-lg border border-brand/20 bg-brand/5 p-4">
+          <div className="mb-3 flex items-baseline justify-between gap-3">
+            <h3 className="text-body font-semibold text-foreground">Get your business set up</h3>
+            <span className="text-caption text-muted-foreground">
+              {props.setupSteps!.filter((s) => s.done).length} of {props.setupSteps!.length} done
+            </span>
+          </div>
+          <div className="space-y-1">
+            {props.setupSteps!.map((s) => (
+              <div key={s.href} className="flex items-center gap-2.5 py-1">
+                <CheckCircle2 className={cn("h-4 w-4 shrink-0", s.done ? "text-success" : "text-muted-foreground/40")} />
+                {s.done ? (
+                  <span className="text-body text-muted-foreground line-through">{s.label}</span>
+                ) : (
+                  <Link href={s.href} className="text-body font-medium text-brand hover:underline">
+                    {s.label}
+                  </Link>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ══ 3. Attention queue ══════════════════════════════════════ */}
       {hasQueues ? (
         <div>
