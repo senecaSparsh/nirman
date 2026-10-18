@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
+import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import { scopeWhere,  getCompany, toNum, getUserRole, getEmployeeAccessScope, canManageSpecificEmployee, getCurrentUser, getCompanyDescendantIds, getScopedFormOptions, getUserPermissions } from "@/lib/server";
 import { PERM, ROLES, canAssignRole, canAssignCustomRole, canManageOwnerLevelRole, customRoleGrantedPermissions, type Role } from "@/lib/roles";
@@ -132,6 +133,16 @@ async function EmployeeProfileContent({
   }).catch(() => []);
 
   if (!employee) {
+    // The scoped query returns null for BOTH "deleted/nonexistent" and
+    // "exists but outside your scope" — the two cases need different copy.
+    // A deleted-record link (e.g. an old notification) shouldn't tell the
+    // user they lack permission; that's the wrong mental model (they'd ask
+    // an admin for access to a record that doesn't exist). Probe the row
+    // without the scope filter to tell them apart.
+    const existsOutsideScope = await prisma.employee.count({
+      where: { id, companyId: company.id, deletedAt: null },
+    });
+    if (existsOutsideScope === 0) notFound();
     return <NoAccess what="employee" />;
   }
 
