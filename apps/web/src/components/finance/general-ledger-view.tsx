@@ -12,7 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/empty-state";
 import { Dialog } from "@/components/ui/dialog";
-import { Input, Label } from "@/components/ui/input";
+import { Input, Label, Select } from "@/components/ui/input";
 import { formatCurrencyCompact, formatCurrencyDetailed, formatDate } from "@/lib/utils";
 import { useCurrencyMode } from "@/components/currency-provider";
 import { entityUrl } from "@/lib/entity-url";
@@ -259,6 +259,7 @@ export function GeneralLedgerView({
   const [seeding, setSeeding] = useState(false);
   const [reversingId, setReversingId] = useState<string | null>(null);
   const [openingOpen, setOpeningOpen] = useState(false);
+  const [voucherOpen, setVoucherOpen] = useState(false);
   const { mode, toggle } = useCurrencyMode();
   const showPaise = mode === "detailed";
   const router = useRouter();
@@ -370,6 +371,18 @@ export function GeneralLedgerView({
                   variant="outline"
                   size="sm"
                   className="h-7 gap-1.5"
+                  onClick={() => setVoucherOpen(true)}
+                  title="Post a manual journal voucher — accrual, write-off, reclass"
+                >
+                  <BookOpen className="h-3.5 w-3.5" />
+                  Journal voucher
+                </Button>
+              )}
+              {canManage && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1.5"
                   onClick={() => setOpeningOpen(true)}
                   title="Post the opening cash/bank balance for go-live"
                 >
@@ -454,6 +467,12 @@ export function GeneralLedgerView({
         onClose={() => setOpeningOpen(false)}
         onPosted={() => router.refresh()}
       />
+      <JournalVoucherDialog
+        open={voucherOpen}
+        accounts={accounts}
+        onClose={() => setVoucherOpen(false)}
+        onPosted={() => router.refresh()}
+      />
     </div>
   );
 }
@@ -522,6 +541,128 @@ function OpeningBalanceDialog({
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={onClose} disabled={posting}>Cancel</Button>
           <Button type="submit" disabled={posting}>{posting ? "Posting…" : "Post opening balance"}</Button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+type VoucherLine = { accountCode: string; debit: string; credit: string };
+
+function JournalVoucherDialog({
+  open,
+  accounts,
+  onClose,
+  onPosted,
+}: {
+  open: boolean;
+  accounts: AccountRow[];
+  onClose: () => void;
+  onPosted: () => void;
+}) {
+  const [memo, setMemo] = useState("");
+  const [entryDate, setEntryDate] = useState("");
+  const [lines, setLines] = useState<VoucherLine[]>([
+    { accountCode: "", debit: "", credit: "" },
+    { accountCode: "", debit: "", credit: "" },
+  ]);
+  const [posting, setPosting] = useState(false);
+
+  const totalDr = lines.reduce((s, l) => s + (Number(l.debit) || 0), 0);
+  const totalCr = lines.reduce((s, l) => s + (Number(l.credit) || 0), 0);
+  const balanced = totalDr === totalCr && totalDr > 0;
+
+  function setLine(i: number, patch: Partial<VoucherLine>) {
+    setLines((prev) => prev.map((l, j) => (j === i ? { ...l, ...patch } : l)));
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setPosting(true);
+    try {
+      const res = await fetch("/api/gl/journal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          memo,
+          ...(entryDate ? { entryDate } : {}),
+          lines: lines.map((l) => ({
+            accountCode: l.accountCode,
+            debit: Number(l.debit) || 0,
+            credit: Number(l.credit) || 0,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to post voucher");
+      toast.success(`Journal voucher posted — ${data.entryNumber}`);
+      setLines([{ accountCode: "", debit: "", credit: "" }, { accountCode: "", debit: "", credit: "" }]);
+      setMemo("");
+      setEntryDate("");
+      onClose();
+      onPosted();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to post");
+    } finally {
+      setPosting(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => !o && onClose()}
+      title="Journal voucher"
+      description="Manual adjustment with no source document — accrual, write-off, reclassification. Debits must equal credits; corrections go through reversal."
+    >
+      <form onSubmit={submit} className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="jv-memo">Narration *</Label>
+            <Input id="jv-memo" value={memo} onChange={(e) => setMemo(e.target.value)} required autoFocus placeholder="e.g. Accrue October salaries" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="jv-date">Date</Label>
+            <Input id="jv-date" type="date" value={entryDate} onChange={(e) => setEntryDate(e.target.value)} />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div className="grid grid-cols-[1fr_6rem_6rem_2rem] gap-2 text-caption font-medium text-muted-foreground">
+            <span>Account</span><span className="text-right">Debit</span><span className="text-right">Credit</span><span />
+          </div>
+          {lines.map((l, i) => (
+            <div key={i} className="grid grid-cols-[1fr_6rem_6rem_2rem] gap-2 items-center">
+              <Select value={l.accountCode} onChange={(e) => setLine(i, { accountCode: e.target.value })} required>
+                <option value="">Pick account…</option>
+                {accounts.map((a) => (
+                  <option key={a.code} value={a.code}>{a.code} — {a.name}</option>
+                ))}
+              </Select>
+              <Input type="number" min="0" step="0.01" value={l.debit} onChange={(e) => setLine(i, { debit: e.target.value, credit: e.target.value ? "" : l.credit })} placeholder="0" />
+              <Input type="number" min="0" step="0.01" value={l.credit} onChange={(e) => setLine(i, { credit: e.target.value, debit: e.target.value ? "" : l.debit })} placeholder="0" />
+              <button
+                type="button"
+                className="text-muted-foreground hover:text-danger disabled:opacity-30"
+                disabled={lines.length <= 2}
+                onClick={() => setLines((prev) => prev.filter((_, j) => j !== i))}
+                title="Remove line"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <div className="flex items-center justify-between">
+            <Button type="button" variant="ghost" size="sm" onClick={() => setLines((p) => [...p, { accountCode: "", debit: "", credit: "" }])}>
+              + Add line
+            </Button>
+            <div className={`text-caption font-medium ${balanced ? "text-success" : "text-muted-foreground"}`}>
+              Dr {formatCurrencyCompact(totalDr)} / Cr {formatCurrencyCompact(totalCr)}{balanced ? " ✓" : ""}
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="outline" onClick={onClose} disabled={posting}>Cancel</Button>
+          <Button type="submit" disabled={posting || !balanced}>{posting ? "Posting…" : "Post voucher"}</Button>
         </div>
       </form>
     </Dialog>
