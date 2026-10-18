@@ -10,6 +10,7 @@ import { formatCurrencyCompact } from "@/lib/utils";
 import { MobileEmptyState, MobileStatCard } from "@/components/mobile/v2/primitives";
 import { MobileGlList } from "./MobileGlList";
 import { MobileReseedAccountsButton } from "./MobileReseedAccountsButton";
+import { MobileOpeningBalanceButton } from "./MobileOpeningBalanceButton";
 import type { MobileColumnSpec } from "@/components/mobile/v2/export-share-bar";
 
 /**
@@ -30,7 +31,13 @@ async function MobileGlContent() {
   await connection();
   const __effPerms = await getEffectivePermissions();
   if (!__effPerms.includes(PERM.FINANCE_VIEW)) notFound();
+  const canManage = __effPerms.includes(PERM.FINANCE_MANAGE);
   const company = await getCompany();
+
+  const hasOpeningBalance = (await prisma.journalEntry.findFirst({
+    where: { companyId: company.id, sourceType: "OPENING", sourceId: "cash-bank", status: "POSTED", reversalOfId: null },
+    select: { id: true },
+  })) !== null;
 
   const accounts = await prisma.glAccount.findMany({
     where: { companyId: company.id },
@@ -75,6 +82,12 @@ async function MobileGlContent() {
       {accounts.length === 0 && (
         <div className="mb-4 flex justify-end">
           <MobileReseedAccountsButton />
+        </div>
+      )}
+
+      {canManage && !hasOpeningBalance && (
+        <div className="mb-4 flex justify-end">
+          <MobileOpeningBalanceButton />
         </div>
       )}
 

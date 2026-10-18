@@ -97,12 +97,12 @@ async function ProcurementContent() {
         project: { select: { id: true, name: true } },
         stockItems: { select: { qty: true, movingAvgCost: true } }}}),
     prisma.project.findMany({
-      take: 200,
+      take: 201,
       where: { companyId: company.id, deletedAt: null, ...await projectScopeFilter() ?? {} },
       orderBy: { name: "asc" },
       select: { id: true, name: true, type: true, status: true }}),
     prisma.directPurchase.findMany({
-      take: 500,
+      take: LIST_CAP + 1,
       where: { companyId: company.id },
       orderBy: { billDate: "desc" },
       include: {
@@ -114,13 +114,13 @@ async function ProcurementContent() {
     // Company-scoped catalog entity; needed by the inline material
     // creator inside the PO form's line items.
     prisma.materialCategory.findMany({
-      take: 200,
+      take: 201,
       where: { companyId: company.id, deletedAt: null },
       orderBy: { name: "asc" },
       select: { id: true, name: true, unit: true }}),
     // ── Requisitions (indents) — for the Indents tab ──
     prisma.materialRequisition.findMany({
-      take: 500,
+      take: LIST_CAP + 1,
       where: {
         ...await scopeWhere("MaterialRequisition"),
         OR: [
@@ -138,12 +138,12 @@ async function ProcurementContent() {
           select: { id: true, landedTotal: true, isCheapest: true, status: true }}}}),
     // Project phases — needed by the requisitions view's phase selector
     prisma.projectPhase.findMany({
-      take: 200,
+      take: 201,
       where: {...await scopeWhere("ProjectPhase"),  project: { companyId: company.id, deletedAt: null } },
       select: { id: true, name: true, projectId: true }}),
     // ── Supplier returns — for the Returns tab ──
     prisma.supplierReturn.findMany({
-      take: 500,
+      take: LIST_CAP + 1,
       where: { companyId: company.id },
       orderBy: { createdAt: "desc" },
       include: {
@@ -155,7 +155,7 @@ async function ProcurementContent() {
     prisma.quotationRequest.findMany({
       where: { ...await scopeWhere("QuotationRequest"), companyId: company.id },
       orderBy: { createdAt: "desc" },
-      take: 100,
+      take: 101,
       include: {
         project: { select: { id: true, name: true } },
         submittedBy: { select: { id: true, name: true } },
@@ -172,6 +172,24 @@ async function ProcurementContent() {
           select: { id: true }})
       : [],
   ]);
+
+  const cappedLabels: string[] = [];
+  function capRows<T>(rows: T[], label: string, cap = LIST_CAP): T[] {
+    const r = applyCap(rows, cap);
+    if (r.capped) cappedLabels.push(label);
+    return r.rows;
+  }
+  pos = capRows(pos, "purchase orders");
+  suppliers = capRows(suppliers, "suppliers");
+  materials = capRows(materials, "materials");
+  locations = capRows(locations, "locations");
+  projects = capRows(projects, "projects", 200);
+  directPurchases = capRows(directPurchases, "cash purchases");
+  categories = capRows(categories, "material categories", 200);
+  requisitions = capRows(requisitions, "indents");
+  phases = capRows(phases, "project phases", 200);
+  supplierReturns = capRows(supplierReturns, "supplier returns");
+  quotationRequests = capRows(quotationRequests, "quotations", 100);
 
   const poRows: PurchaseOrderRow[] = pos.map((po) => {
     const totalOrdered = po.lines.reduce((s, l) => s + toNum(l.qtyOrdered), 0);
@@ -376,6 +394,11 @@ async function ProcurementContent() {
         ]}
       />
       <DepartmentActivityFeed department="procurement" />
+      {cappedLabels.length > 0 && (
+        <Hint tone="warning">
+          {`Showing only the most recent records for ${cappedLabels.join(", ")} — older entries are still in the database but hidden from this page.`}
+        </Hint>
+      )}
       <ProcurementView
         suppliers={supplierRows}
         purchaseOrders={poRows}
