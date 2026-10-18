@@ -123,7 +123,7 @@ export function TwilioTab() {
     }
   }
 
-  async function configureWebhook(numberSid: string, action: "configure" | "clear") {
+  async function configureWebhook(companyPhoneId: string, action: "configure" | "clear") {
     setActionLoading(true);
     setError("");
     setSuccess("");
@@ -131,7 +131,7 @@ export function TwilioTab() {
       const res = await fetch("/api/telephony/twilio/configure-webhook", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyPhoneId: numberSid, action }),
+        body: JSON.stringify({ companyPhoneId, action }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

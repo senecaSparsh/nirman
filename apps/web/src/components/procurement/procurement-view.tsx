@@ -24,7 +24,6 @@ import { SupplierPaymentFormDialog } from "./supplier-payment-form-dialog";
 import { DirectPurchaseFormDialog } from "./direct-purchase-form-dialog";
 import { RequisitionsView } from "@/components/requisitions/requisitions-view";
 import { SupplierReturnsView } from "@/components/supplier-returns/supplier-returns-view";
-import { WorkflowStrip } from "@/components/workflow-strip";
 import { localDateISO, formatCurrency, formatDate, toNum} from "@/lib/utils";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { downloadCSV, downloadExcel } from "@/lib/export";
@@ -80,37 +79,26 @@ export function ProcurementView({
 
   return (
     <div className="space-y-5">
-      <WorkflowStrip
-        steps={[
-          { label: "Indent", tab: "indents" },
-          { label: "Quotations", tab: "quotations" },
-          { label: "Purchase Order", tab: "purchase-orders" },
-          { label: "Receive" },
-          { label: "Returns", tab: "returns" },
-        ]}
-        activeTab={tab}
-        onTabChange={setTab}
-        shortcut={{ label: "Cash Purchase", tab: "direct-purchases" }}
-      />
+      {/* Tab order mirrors the pipeline (Indent → Quotation → PO → Returns); the default tab stays Purchase Orders. */}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
-          <TabsTrigger value="purchase-orders">
-            <span className="flex items-center gap-1.5"><ShoppingCart className="h-3.5 w-3.5" /> Purchase Orders</span>
-          </TabsTrigger>
           <TabsTrigger value="indents">
             <span className="flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5" /> Indents</span>
           </TabsTrigger>
           <TabsTrigger value="quotations">
             <span className="flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" /> Quotations</span>
           </TabsTrigger>
-          <TabsTrigger value="suppliers">
-            <span className="flex items-center gap-1.5"><Tags className="h-3.5 w-3.5" /> Suppliers</span>
+          <TabsTrigger value="purchase-orders">
+            <span className="flex items-center gap-1.5"><ShoppingCart className="h-3.5 w-3.5" /> Purchase Orders</span>
           </TabsTrigger>
           <TabsTrigger value="direct-purchases">
             <span className="flex items-center gap-1.5"><ShoppingCart className="h-3.5 w-3.5" /> Cash Purchases</span>
           </TabsTrigger>
           <TabsTrigger value="returns">
             <span className="flex items-center gap-1.5"><Undo2 className="h-3.5 w-3.5" /> Returns</span>
+          </TabsTrigger>
+          <TabsTrigger value="suppliers">
+            <span className="flex items-center gap-1.5"><Tags className="h-3.5 w-3.5" /> Suppliers</span>
           </TabsTrigger>
         </TabsList>
 

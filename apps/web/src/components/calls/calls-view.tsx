@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useUrlFilter, useUrlQuery } from "@/lib/use-url-filter";
+import { useQueryParam } from "@/lib/use-tab-param";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import {
@@ -27,7 +30,6 @@ import {
 } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 
-import { toNum } from "@/lib/utils";
 type CallStatus = "RINGING" | "ANSWERED" | "MISSED" | "BUSY" | "REJECTED" | "FAILED" | "VOICEMAIL";
 type Direction = "INBOUND" | "OUTBOUND" | "INTERNAL";
 
@@ -62,6 +64,11 @@ interface CallsViewProps {
   calls: CallRow[];
   phoneNumbers: PhoneNumber[];
   tags: Tag[];
+  total: number;
+  missedCount: number;
+  totalDurationSec: number;
+  page: number;
+  pageCount: number;
   canViewAll: boolean;
   canViewFullNumber: boolean;
   canCreate: boolean;
@@ -95,51 +102,37 @@ function directionIcon(dir: Direction) {
 }
 
 export function CallsView({
-  calls: initialCalls,
+  calls,
   phoneNumbers,
+  tags,
+  total,
+  missedCount,
+  totalDurationSec,
+  page,
+  pageCount,
   canViewFullNumber,
   canCreate,
   canListenRecording,
 }: CallsViewProps) {
-  const [calls] = useState(initialCalls);
-  const [search, setSearch] = useState("");
-  const [filterDirection, setFilterDirection] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
-  const [filterPhone, setFilterPhone] = useState("");
+  const router = useRouter();
+  // Filters live in the URL and are applied server-side — the list below
+  // is one page of the filtered result, not a client-side slice of 50.
+  const [search, setSearch] = useUrlQuery("q");
+  const [filterDirection, setFilterDirection] = useUrlFilter<string>("dir", "");
+  const [filterStatus, setFilterStatus] = useUrlFilter<string>("st", "");
+  const [filterPhone, setFilterPhone] = useUrlFilter<string>("phone", "");
+  const [filterTag, setFilterTag] = useUrlFilter<string>("tag", "");
+  const [, setPageParam] = useQueryParam("page", "1");
   const [showAddForm, setShowAddForm] = useState(false);
-
-  const filteredCalls = useMemo(() => {
-    return calls.filter((c) => {
-      if (search) {
-        const q = search.toLowerCase();
-        const fromMatch = c.fromNumber.includes(search);
-        const toMatch = c.toNumber.includes(search);
-        const nameMatch =
-          c.caller?.name.toLowerCase().includes(q) ||
-          c.callee?.name.toLowerCase().includes(q) ||
-          c.notes?.toLowerCase().includes(q);
-        if (!fromMatch && !toMatch && !nameMatch) return false;
-      }
-      if (filterDirection && c.direction !== filterDirection) return false;
-      if (filterStatus && c.status !== filterStatus) return false;
-      if (filterPhone && c.companyPhoneId !== filterPhone) return false;
-      return true;
-    });
-  }, [calls, search, filterDirection, filterStatus, filterPhone]);
-
-  const missedCount = calls.filter((c) => c.status === "MISSED").length;
-  const totalDuration = calls.reduce((sum, c) => sum + toNum(c.durationSec), 0);
+  const hasFilter = !!(search || filterDirection || filterStatus || filterPhone || filterTag);
 
   return (
     <Page>
       <PageHeader
-        title="Call Log"
-        description="Incoming, outgoing, and internal calls across all company numbers"
-        breadcrumbs={[{ label: "Calls" }]}
         stats={[
-          { label: "Total", value: calls.length },
+          { label: "Total", value: total },
           { label: "Missed", value: missedCount, tone: missedCount > 0 ? "danger" : "muted" },
-          { label: "Talk time", value: formatDuration(totalDuration), tone: "muted" },
+          { label: "Talk time", value: formatDuration(totalDurationSec), tone: "muted" },
         ]}
         action={canCreate ? (
           <Button size="sm" onClick={() => setShowAddForm(!showAddForm)}>
@@ -156,7 +149,7 @@ export function CallsView({
           onClose={() => setShowAddForm(false)}
           onSaved={() => {
             setShowAddForm(false);
-            window.location.reload();
+            router.refresh();
           }}
         />
       )}
@@ -196,19 +189,27 @@ export function CallsView({
               </option>
             ))}
           </Select>
-          <ToolbarCount>{filteredCalls.length} of {calls.length} calls</ToolbarCount>
+          {tags.length > 0 && (
+            <Select value={filterTag} onChange={(e) => setFilterTag(e.target.value)} className="w-auto">
+              <option value="">All tags</option>
+              {tags.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </Select>
+          )}
+          <ToolbarCount>{total} {total === 1 ? "call" : "calls"}</ToolbarCount>
         </Toolbar>
 
         {/* Call list */}
-        {filteredCalls.length === 0 ? (
+        {calls.length === 0 ? (
           <div className="overflow-hidden rounded-b-lg border border-t-0 border-border bg-card shadow-raised">
             <EmptyState
               icon={<Phone />}
               title="No calls found"
               description={
-                calls.length === 0
-                  ? "Calls will appear here once they're logged or received."
-                  : "Try adjusting your filters."
+                hasFilter
+                  ? "Try adjusting your filters."
+                  : "Calls will appear here once they're logged or received."
               }
               size="compact"
             />
@@ -229,10 +230,13 @@ export function CallsView({
                 </tr>
               </thead>
               <tbody className="[&_tr:last-child]:border-0">
-                {filteredCalls.map((call) => {
+                {calls.map((call) => {
                   const isStaffCaller = !!call.callerUserId;
                   const otherParty = isStaffCaller ? call.toNumber : call.fromNumber;
-                  const staffName = call.caller?.name ?? call.callee?.name ?? "—";
+                  const staffName =
+                    call.direction === "INTERNAL" && call.caller && call.callee
+                      ? `${call.caller.name} ↔ ${call.callee.name}`
+                      : call.caller?.name ?? call.callee?.name ?? "—";
                   return (
                     <tr key={call.id} className="group border-b border-border transition-colors last:border-0 hover:bg-subtle">
                       <td className="px-3 py-2.5 align-middle">
@@ -290,6 +294,21 @@ export function CallsView({
                 })}
               </tbody>
             </table>
+            {pageCount > 1 && (
+              <div className="flex items-center justify-between border-t border-border px-3 py-2">
+                <p className="text-caption text-muted-foreground">
+                  Page {page} of {pageCount} · {total} {total === 1 ? "call" : "calls"}
+                </p>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="ghost" disabled={page <= 1} onClick={() => setPageParam(String(page - 1))}>
+                    Previous
+                  </Button>
+                  <Button size="sm" variant="ghost" disabled={page >= pageCount} onClick={() => setPageParam(String(page + 1))}>
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Section>

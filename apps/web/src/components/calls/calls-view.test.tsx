@@ -2,6 +2,25 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@/test/render";
 import { fireEvent } from "@testing-library/react";
+
+// CallsView reads/writes filters via useUrlFilter/useUrlQuery/useQueryParam,
+// which need a router + search params context.
+const mockRouter = {
+  push: vi.fn(),
+  replace: vi.fn(),
+  back: vi.fn(),
+  forward: vi.fn(),
+  refresh: vi.fn(),
+  prefetch: vi.fn(),
+};
+vi.mock("next/navigation", () => ({
+  useRouter: () => mockRouter,
+  usePathname: () => "/calls",
+  useSearchParams: () => new URLSearchParams(),
+  redirect: vi.fn(),
+  notFound: vi.fn(),
+}));
+
 import { CallsView } from "./calls-view";
 
 const calls = [
@@ -56,67 +75,73 @@ const calls = [
 const phoneNumbers = [{ id: "ph1", phoneNumber: "9123456789", label: "Main", department: null }];
 const tags = [{ id: "t1", name: "Important", color: "red" }];
 
+const baseProps = {
+  calls,
+  phoneNumbers,
+  tags,
+  total: calls.length,
+  missedCount: 1,
+  totalDurationSec: 120,
+  page: 1,
+  pageCount: 1,
+  canViewAll: true,
+  canViewFullNumber: true,
+  canCreate: true,
+  canListenRecording: true,
+};
+
 describe("CallsView", () => {
-  it("renders page title and description", () => {
-    render(
-      <CallsView calls={calls} phoneNumbers={phoneNumbers} tags={tags} canViewAll canViewFullNumber canCreate canListenRecording />,
-    );
-    expect(screen.getByText("Call Log")).toBeInTheDocument();
-    expect(screen.getByText(/Incoming, outgoing, and internal calls/)).toBeInTheDocument();
+  it("renders call stats (total, missed, talk time)", () => {
+    render(<CallsView {...baseProps} />);
+    expect(screen.getByText("Total")).toBeInTheDocument();
+    expect(screen.getByText("Talk time")).toBeInTheDocument();
+    expect(screen.getByText("2 calls")).toBeInTheDocument();
   });
 
   it("renders Log Call button when canCreate is true", () => {
-    render(
-      <CallsView calls={calls} phoneNumbers={phoneNumbers} tags={tags} canViewAll canViewFullNumber canCreate canListenRecording />,
-    );
+    render(<CallsView {...baseProps} />);
     expect(screen.getByRole("button", { name: /Log Call/ })).toBeInTheDocument();
   });
 
   it("does not render Log Call button when canCreate is false", () => {
-    render(
-      <CallsView calls={calls} phoneNumbers={phoneNumbers} tags={tags} canViewAll canViewFullNumber canCreate={false} canListenRecording />,
-    );
+    render(<CallsView {...baseProps} canCreate={false} />);
     expect(screen.queryByRole("button", { name: /Log Call/ })).not.toBeInTheDocument();
   });
 
   it("renders search input with placeholder", () => {
-    render(
-      <CallsView calls={calls} phoneNumbers={phoneNumbers} tags={tags} canViewAll canViewFullNumber canCreate canListenRecording />,
-    );
+    render(<CallsView {...baseProps} />);
     expect(screen.getByPlaceholderText("Search by number, name, or notes…")).toBeInTheDocument();
   });
 
   it("renders filter dropdowns for direction, status, and phone", () => {
-    render(
-      <CallsView calls={calls} phoneNumbers={phoneNumbers} tags={tags} canViewAll canViewFullNumber canCreate canListenRecording />,
-    );
+    render(<CallsView {...baseProps} />);
     expect(screen.getByText("All directions")).toBeInTheDocument();
     expect(screen.getByText("All statuses")).toBeInTheDocument();
     expect(screen.getByText("All numbers")).toBeInTheDocument();
   });
 
-  it("filters calls by search term", () => {
-    render(
-      <CallsView calls={calls} phoneNumbers={phoneNumbers} tags={tags} canViewAll canViewFullNumber canCreate canListenRecording />,
-    );
+  it("search input accepts typed text (value is URL-backed)", () => {
+    render(<CallsView {...baseProps} />);
     const search = screen.getByPlaceholderText("Search by number, name, or notes…");
     fireEvent.change(search, { target: { value: "Ramesh" } });
-    // After filtering, Ramesh should be visible
+    expect(search).toHaveValue("Ramesh");
+  });
+
+  it("renders rows for the calls it is given", () => {
+    render(<CallsView {...baseProps} />);
     expect(screen.getByText("Ramesh")).toBeInTheDocument();
+    expect(screen.getByText("Suresh")).toBeInTheDocument();
   });
 
   it("renders empty state when no calls match", () => {
-    render(
-      <CallsView calls={[]} phoneNumbers={phoneNumbers} tags={tags} canViewAll canViewFullNumber canCreate canListenRecording />,
-    );
+    render(<CallsView {...baseProps} calls={[]} total={0} missedCount={0} totalDurationSec={0} />);
     expect(screen.getByText("No calls found")).toBeInTheDocument();
   });
 
-  it("shows missed count in stats", () => {
-    render(
-      <CallsView calls={calls} phoneNumbers={phoneNumbers} tags={tags} canViewAll canViewFullNumber canCreate canListenRecording />,
-    );
-    // "Missed" appears in both the stats label and the filter dropdown
-    expect(screen.getAllByText("Missed").length).toBeGreaterThan(0);
+  it("renders pagination controls when pageCount > 1", () => {
+    render(<CallsView {...baseProps} page={1} pageCount={3} total={140} />);
+    expect(screen.getByText("Page 1 of 3 · 140 calls")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
   });
 });

@@ -17,7 +17,6 @@ import { SaleDetailDialog } from "./sale-detail-dialog";
 import { BbaPipelineBoard } from "./bba-pipeline-board";
 import { CustomerFormDialog } from "./customer-form-dialog";
 import { SmsView, type SmsRow } from "@/components/sms/sms-view";
-import { WorkflowStrip } from "@/components/workflow-strip";
 import { localDateISO, formatCurrency, formatDate } from "@/lib/utils";
 import { downloadCSV, downloadExcel } from "@/lib/export";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
@@ -69,27 +68,17 @@ export function SalesView({
 
   return (
     <div className="space-y-5">
-      <WorkflowStrip
-        steps={[
-          { label: "Lead", tab: "pipeline" },
-          { label: "Customer", tab: "customers" },
-          { label: "Sale", tab: "sales" },
-          { label: "Collection" },
-          { label: "Registry" },
-        ]}
-        activeTab={tab}
-        onTabChange={setTab}
-      />
+      {/* Tab order mirrors the funnel (Lead → Customer → Sale); Bank SMS stays last. */}
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="pipeline">
             <span className="flex items-center gap-1.5"><ContactRound className="h-3.5 w-3.5" /> Pipeline</span>
           </TabsTrigger>
-          <TabsTrigger value="sales">
-            <span className="flex items-center gap-1.5"><ShoppingCart className="h-3.5 w-3.5" /> Bookings</span>
-          </TabsTrigger>
           <TabsTrigger value="customers">
             <span className="flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> Customers</span>
+          </TabsTrigger>
+          <TabsTrigger value="sales">
+            <span className="flex items-center gap-1.5"><ShoppingCart className="h-3.5 w-3.5" /> Bookings</span>
           </TabsTrigger>
           {smsItems ? (
             <TabsTrigger value="bank-sms">

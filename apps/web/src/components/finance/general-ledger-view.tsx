@@ -5,12 +5,14 @@ import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
-import { BookOpen, Loader2, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, TriangleAlert, Coins, DatabaseZap } from "lucide-react";
+import { BookOpen, Loader2, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, TriangleAlert, Coins, DatabaseZap, Landmark } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/empty-state";
+import { Dialog } from "@/components/ui/dialog";
+import { Input, Label } from "@/components/ui/input";
 import { formatCurrencyCompact, formatCurrencyDetailed, formatDate } from "@/lib/utils";
 import { useCurrencyMode } from "@/components/currency-provider";
 import { entityUrl } from "@/lib/entity-url";
@@ -204,12 +206,14 @@ export function GeneralLedgerView({
   totalDebit,
   totalCredit,
   isBalanced,
+  canManage,
 }: {
   accounts: AccountRow[];
   trialBalance: TrialBalanceRow[];
   totalDebit: number;
   totalCredit: number;
   isBalanced: boolean;
+  canManage?: boolean;
 }) {
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
   const {
@@ -221,6 +225,7 @@ export function GeneralLedgerView({
   );
   const ledger = ledgerData?.lines ?? null;
   const [seeding, setSeeding] = useState(false);
+  const [openingOpen, setOpeningOpen] = useState(false);
   const { mode, toggle } = useCurrencyMode();
   const showPaise = mode === "detailed";
   const router = useRouter();
@@ -303,6 +308,18 @@ export function GeneralLedgerView({
                 {seeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DatabaseZap className="h-3.5 w-3.5" />}
                 Re-seed
               </Button>
+              {canManage && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1.5"
+                  onClick={() => setOpeningOpen(true)}
+                  title="Post the opening cash/bank balance for go-live"
+                >
+                  <Landmark className="h-3.5 w-3.5" />
+                  Opening balance
+                </Button>
+              )}
             </div>
           </div>
           {trialBalance.length === 0 ? (
@@ -374,6 +391,82 @@ export function GeneralLedgerView({
           </CardContent>
         </Card>
       )}
+
+      <OpeningBalanceDialog
+        open={openingOpen}
+        onClose={() => setOpeningOpen(false)}
+        onPosted={() => router.refresh()}
+      />
     </div>
+  );
+}
+
+function OpeningBalanceDialog({
+  open,
+  onClose,
+  onPosted,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onPosted: () => void;
+}) {
+  const [amount, setAmount] = useState("");
+  const [asOfDate, setAsOfDate] = useState("");
+  const [memo, setMemo] = useState("");
+  const [posting, setPosting] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setPosting(true);
+    try {
+      const res = await fetch("/api/gl/opening-balance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: Number(amount),
+          ...(asOfDate ? { asOfDate } : {}),
+          ...(memo.trim() ? { memo: memo.trim() } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to post");
+      toast.success(`Opening balance posted — ${data.entryNumber}`);
+      onClose();
+      onPosted();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to post");
+    } finally {
+      setPosting(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => !o && onClose()}
+      title="Opening cash/bank balance"
+      description="Post the balance in the bank on go-live day. Debits Cash/Bank (1000), credits Opening Balance Equity (3100). One-time entry — corrections need a reversal."
+    >
+      <form onSubmit={submit} className="space-y-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="ob-amount">Amount (₹) *</Label>
+          <Input id="ob-amount" type="number" min="0.01" step="0.01" required autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 5000000" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="ob-date">As-of date</Label>
+            <Input id="ob-date" type="date" value={asOfDate} onChange={(e) => setAsOfDate(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ob-memo">Memo</Label>
+            <Input id="ob-memo" value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="Opening balance" />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="outline" onClick={onClose} disabled={posting}>Cancel</Button>
+          <Button type="submit" disabled={posting}>{posting ? "Posting…" : "Post opening balance"}</Button>
+        </div>
+      </form>
+    </Dialog>
   );
 }

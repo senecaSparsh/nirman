@@ -344,7 +344,12 @@ export const PUT = apiHandler(async (req: NextRequest) => {
   });
 
   for (let i = 0; i < items.length; i++) {
-    const parsed = bulkSchema.safeParse(items[i]);
+    const raw = items[i];
+    // CSVs arrive as raw strings — uppercase wageType before enum validation.
+    if (raw && typeof raw === "object" && "wageType" in raw && typeof (raw as Record<string, unknown>).wageType === "string") {
+      (raw as Record<string, unknown>).wageType = String((raw as Record<string, unknown>).wageType).toUpperCase();
+    }
+    const parsed = bulkSchema.safeParse(raw);
     if (!parsed.success) {
       results.errors.push({ row: i + 1, error: parsed.error.issues[0]?.message ?? "Invalid input" });
       continue;

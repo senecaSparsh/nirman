@@ -1,10 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog } from "@/components/ui/dialog";
 import { useConfirm } from "@/lib/use-confirm";
+import { useTabParam } from "@/lib/use-tab-param";
 import { TwilioTab } from "@/components/calls/twilio-tab";
 import {
   Page,
@@ -23,6 +26,9 @@ import {
   FileText,
   CheckCircle2,
   Users,
+  Pencil,
+  Pause,
+  Play,
 } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 
@@ -93,21 +99,19 @@ interface TelephonyViewProps {
   canManage: boolean;
 }
 
-type Tab = "numbers" | "providers" | "consent" | "recording" | "twilio";
+const TABS = ["numbers", "providers", "consent", "recording", "twilio"] as const;
+type Tab = (typeof TABS)[number];
 
 export function TelephonyView({
   company,
-  phoneNumbers: initialNumbers,
-  providers: initialProviders,
-  consentPolicy: initialPolicy,
+  phoneNumbers,
+  providers,
+  consentPolicy,
   members,
-  recordingMembers: initialRecordingMembers,
+  recordingMembers,
   canManage,
 }: TelephonyViewProps) {
-  const [tab, setTab] = useState<Tab>("numbers");
-  const [phoneNumbers] = useState(initialNumbers);
-  const [providers] = useState(initialProviders);
-  const [consentPolicy] = useState(initialPolicy);
+  const [tab, setTab] = useTabParam(TABS, "numbers", { param: "sub" });
 
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: "numbers", label: "Numbers", count: phoneNumbers.length },
@@ -154,7 +158,7 @@ export function TelephonyView({
       {tab === "numbers" && <NumbersTab numbers={phoneNumbers} members={members} canManage={canManage} />}
       {tab === "providers" && <ProvidersTab providers={providers} canManage={canManage} />}
       {tab === "consent" && <ConsentTab policy={consentPolicy} company={company} canManage={canManage} />}
-      {tab === "recording" && <RecordingTab company={company} members={initialRecordingMembers} canManage={canManage} />}
+      {tab === "recording" && <RecordingTab company={company} members={recordingMembers} canManage={canManage} />}
       {tab === "twilio" && <TwilioTab />}
     </Page>
   );
@@ -162,6 +166,7 @@ export function TelephonyView({
 
 // ── Numbers Tab ──
 function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; members: Member[]; canManage: boolean }) {
+  const router = useRouter();
   const assignedCount = numbers.filter((n) => n.assignedTo).length;
   const [showAdd, setShowAdd] = useState(false);
   const [addMode, setAddMode] = useState<"own" | "nirman">("own");
@@ -172,6 +177,11 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [confirm, confirmDialog] = useConfirm();
+  const [editing, setEditing] = useState<PhoneNumber | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [editDepartment, setEditDepartment] = useState("");
+  const [editStatus, setEditStatus] = useState("ACTIVE");
+  const [editConsentBeep, setEditConsentBeep] = useState(false);
 
   // Twilio browse state
   const [twCountry, setTwCountry] = useState("IN");
@@ -197,7 +207,45 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
       setShowAdd(false);
       setNewNumber("");
       setNewLabel("");
-      window.location.reload();
+      router.refresh();
+    } catch {
+      setError("Could not reach the server.");
+    }
+    setLoading(false);
+  }
+
+  function openEdit(n: PhoneNumber) {
+    setEditing(n);
+    setEditLabel(n.label ?? "");
+    setEditDepartment(n.department ?? "");
+    setEditStatus(n.status);
+    setEditConsentBeep(n.consentBeep ?? false);
+    setError("");
+  }
+
+  async function saveEdit() {
+    if (!editing) return;
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/telephony/numbers/${editing.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label: editLabel,
+          department: editDepartment,
+          status: editStatus,
+          consentBeep: editConsentBeep,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "Could not save changes.");
+        setLoading(false);
+        return;
+      }
+      setEditing(null);
+      router.refresh();
     } catch {
       setError("Could not reach the server.");
     }
@@ -228,7 +276,7 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setError(data.error ?? "Provisioning failed."); setLoading(false); return; }
-      window.location.reload();
+      router.refresh();
     } catch { setError("Could not reach the server."); }
     setLoading(false);
   }
@@ -240,7 +288,7 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ assignToUserId: userId }),
     });
-    window.location.reload();
+    router.refresh();
   }
 
   async function unassignNumber(numberId: string) {
@@ -249,7 +297,7 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ unassign: true }),
     });
-    window.location.reload();
+    router.refresh();
   }
 
   async function deleteNumber(numberId: string) {
@@ -261,7 +309,7 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
     });
     if (!ok) return;
     await fetch(`/api/telephony/numbers/${numberId}`, { method: "DELETE" });
-    window.location.reload();
+    router.refresh();
   }
 
   return (
@@ -434,6 +482,7 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
                       <p className="font-medium text-foreground">{n.phoneNumber}</p>
                       <div className="flex items-center gap-1.5">
                         {n.label && <p className="text-caption text-muted-foreground">{n.label}</p>}
+                        {n.department && <Badge variant="muted" size="sm">{n.department}</Badge>}
                         {n.provider === "TWILIO" && <Badge variant="brand" size="sm">Twilio</Badge>}
                       </div>
                     </td>
@@ -463,6 +512,9 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
                     {canManage && (
                       <td className="w-px whitespace-nowrap px-3 py-1.5 text-right align-middle [&>*]:opacity-0 [&>*]:transition-opacity group-hover:[&>*]:opacity-100 group-focus-within:[&>*]:opacity-100">
                         <div className="flex justify-end gap-1">
+                          <button onClick={() => openEdit(n)} title="Edit number" className="text-muted-foreground hover:text-foreground">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
                           {n.assignedTo && (
                             <button onClick={() => unassignNumber(n.id)} title="Unassign" className="text-muted-foreground hover:text-foreground">
                               <UserMinus className="h-3.5 w-3.5" />
@@ -529,18 +581,73 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
       )}
 
       {confirmDialog}
+
+      {/* Edit number dialog */}
+      <Dialog
+        open={!!editing}
+        onOpenChange={(open) => !open && setEditing(null)}
+        title={`Edit ${editing?.phoneNumber ?? "number"}`}
+        description="Label, department, status, and the per-number consent beep"
+        footer={
+          <>
+            <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
+            <Button size="sm" onClick={saveEdit} disabled={loading}>
+              {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              Save changes
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Label</Label>
+              <Input value={editLabel} onChange={(e) => setEditLabel(e.target.value)} placeholder="Reception, Site office…" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Department</Label>
+              <Input value={editDepartment} onChange={(e) => setEditDepartment(e.target.value)} placeholder="Sales, Support…" />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Status</Label>
+            <Select value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
+              <option value="ACTIVE">Active</option>
+              <option value="INACTIVE">Inactive</option>
+              <option value="SUSPENDED">Suspended</option>
+            </Select>
+          </div>
+          <label className="flex items-center gap-2.5 text-body text-foreground">
+            <input
+              type="checkbox"
+              checked={editConsentBeep}
+              onChange={(e) => setEditConsentBeep(e.target.checked)}
+              className="size-4 rounded border-border text-brand focus:ring-brand"
+            />
+            Play a consent beep at the start of recorded calls on this number
+          </label>
+          {error && (
+            <p className="flex items-start gap-1.5 rounded-md bg-danger-soft px-2.5 py-2 text-caption text-danger">
+              <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" />
+              <span>{error}</span>
+            </p>
+          )}
+        </div>
+      </Dialog>
     </div>
   );
 }
 
 // ── Providers Tab ──
 function ProvidersTab({ providers, canManage }: { providers: Provider[]; canManage: boolean }) {
+  const router = useRouter();
   const [showAdd, setShowAdd] = useState(false);
   const [provider, setProvider] = useState("EXOTEL");
   const [apiKey, setApiKey] = useState("");
   const [apiSecret, setApiSecret] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [confirm, confirmDialog] = useConfirm();
 
   async function addProvider() {
     setLoading(true);
@@ -560,11 +667,32 @@ function ProvidersTab({ providers, canManage }: { providers: Provider[]; canMana
       setShowAdd(false);
       setApiKey("");
       setApiSecret("");
-      window.location.reload();
+      router.refresh();
     } catch {
       setError("Could not reach the server.");
     }
     setLoading(false);
+  }
+
+  async function toggleProvider(p: Provider) {
+    await fetch(`/api/telephony/providers/${p.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active: !p.active }),
+    });
+    router.refresh();
+  }
+
+  async function removeProvider(p: Provider) {
+    const ok = await confirm({
+      title: `Remove ${p.provider}?`,
+      description: "Inbound webhooks from this provider will stop being processed. Numbers and call history are preserved.",
+      confirmLabel: "Remove",
+      variant: "destructive",
+    });
+    if (!ok) return;
+    await fetch(`/api/telephony/providers/${p.id}`, { method: "DELETE" });
+    router.refresh();
   }
 
   return (
@@ -630,11 +758,12 @@ function ProvidersTab({ providers, canManage }: { providers: Provider[]; canMana
                 <th className="h-9 whitespace-nowrap px-3 text-left align-middle text-label text-muted-foreground">Provider</th>
                 <th className="h-9 whitespace-nowrap px-3 text-left align-middle text-label text-muted-foreground">Webhook URL</th>
                 <th className="h-9 whitespace-nowrap px-3 text-left align-middle text-label text-muted-foreground">Status</th>
+                {canManage && <th className="h-9 whitespace-nowrap px-3 text-right align-middle text-label text-muted-foreground">Actions</th>}
               </tr>
             </thead>
             <tbody className="[&_tr:last-child]:border-0">
               {providers.map((p) => (
-                <tr key={p.id} className="border-b border-border transition-colors last:border-0 hover:bg-subtle">
+                <tr key={p.id} className="group border-b border-border transition-colors last:border-0 hover:bg-subtle">
                   <td className="px-3 py-2.5 align-middle font-medium text-foreground">{p.provider}</td>
                   <td className="px-3 py-2.5 align-middle text-caption text-muted-foreground">
                     <span className="block truncate max-w-xs">{p.webhookUrl}</span>
@@ -646,24 +775,43 @@ function ProvidersTab({ providers, canManage }: { providers: Provider[]; canMana
                       <Badge variant="muted" dot>Inactive</Badge>
                     )}
                   </td>
+                  {canManage && (
+                    <td className="w-px whitespace-nowrap px-3 py-1.5 text-right align-middle [&>*]:opacity-0 [&>*]:transition-opacity group-hover:[&>*]:opacity-100 group-focus-within:[&>*]:opacity-100">
+                      <div className="flex justify-end gap-1">
+                        <button
+                          onClick={() => toggleProvider(p)}
+                          title={p.active ? "Deactivate" : "Activate"}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          {p.active ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                        </button>
+                        <button onClick={() => removeProvider(p)} title="Remove" className="text-danger hover:opacity-70">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </Section>
+      {confirmDialog}
     </div>
   );
 }
 
 // ── Recording Tab ──
 function RecordingTab({ company, members, canManage }: { company: CompanyConfig; members: RecordingMember[]; canManage: boolean }) {
+  const router = useRouter();
   const [mode, setMode] = useState(company.recordingMode);
   const [selected, setSelected] = useState<Set<string>>(
     new Set(members.filter((m) => m.recordCalls).map((m) => m.userId)),
   );
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
 
   const activeMembers = members.filter((m) => m.active);
   const selectedCount = selected.size;
@@ -688,6 +836,7 @@ function RecordingTab({ company, members, canManage }: { company: CompanyConfig;
   async function save() {
     setSaving(true);
     setSaved(false);
+    setError("");
     try {
       const res = await fetch("/api/telephony/recording-config", {
         method: "PATCH",
@@ -700,9 +849,13 @@ function RecordingTab({ company, members, canManage }: { company: CompanyConfig;
       if (res.ok) {
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
+        router.refresh();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "Could not save recording settings.");
       }
     } catch {
-      // ignore
+      setError("Could not reach the server.");
     }
     setSaving(false);
   }
@@ -737,6 +890,12 @@ function RecordingTab({ company, members, canManage }: { company: CompanyConfig;
               <span className="flex items-center gap-1 text-caption text-success">
                 <CheckCircle2 className="h-3.5 w-3.5" />
                 Saved
+              </span>
+            )}
+            {error && (
+              <span className="flex items-center gap-1 text-caption text-danger">
+                <AlertCircle className="h-3.5 w-3.5" />
+                {error}
               </span>
             )}
             <Button size="sm" onClick={save} disabled={saving || mode === company.recordingMode && mode !== "SELECTED"}>
@@ -848,6 +1007,7 @@ function RecordingTab({ company, members, canManage }: { company: CompanyConfig;
 // ── Consent Tab ──
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function ConsentTab({ policy, company, canManage }: { policy: ConsentPolicy | null; company: CompanyConfig; canManage: boolean }) {
+  const router = useRouter();
   const [showEdit, setShowEdit] = useState(false);
   const [policyText, setPolicyText] = useState(policy?.policyText ?? "");
   const [loading, setLoading] = useState(false);
@@ -868,7 +1028,7 @@ function ConsentTab({ policy, company, canManage }: { policy: ConsentPolicy | nu
         return;
       }
       setShowEdit(false);
-      window.location.reload();
+      router.refresh();
     } catch {
       setError("Could not reach the server.");
     }

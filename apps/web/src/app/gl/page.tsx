@@ -70,6 +70,7 @@ async function GeneralLedgerContent() {
         totalDebit={toNum(tb.totalDebit)}
         totalCredit={toNum(tb.totalCredit)}
         isBalanced={tb.isBalanced}
+        canManage={__effPerms.includes(PERM.FINANCE_MANAGE)}
       />
       {__effPerms.includes(PERM.FINANCE_VIEW) && (
         <GstReportsPanel />

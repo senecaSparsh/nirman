@@ -34,7 +34,9 @@ export function PageHeader({
   breadcrumbs,
   className,
 }: {
-  title: string;
+  /** Omit only for embedded sub-views inside a tab — the page-level header
+      already carries the title, and repeating it double-renders the chrome. */
+  title?: string;
   description?: React.ReactNode;
   /** The single primary action. Renders as the rightmost, loudest control. */
   action?: React.ReactNode;
@@ -78,7 +80,7 @@ export function PageHeader({
 
       <div className="flex flex-wrap items-start justify-between gap-x-8 gap-y-3">
         <div className="min-w-0 flex-1">
-          <h1 className="text-title text-foreground">{title}</h1>
+          {title && <h1 className="text-title text-foreground">{title}</h1>}
           {description && (
             <div className="mt-1.5 max-w-prose text-meta leading-relaxed text-muted-foreground">
               {description}

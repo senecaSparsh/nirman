@@ -1,7 +1,8 @@
 import { connection } from "next/server";
-import { prisma } from "@nirman/db";
+import { prisma, type Prisma } from "@nirman/db";
 import { getCompany, requireUser, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { normalizePhone } from "@/lib/phone-otp";
 import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
 import { PageHeader } from "@/components/page-header";
@@ -9,10 +10,16 @@ import { CallsView } from "@/components/calls/calls-view";
 import { TelephonyView } from "@/components/calls/telephony-view";
 import { CallsTabs } from "@/components/calls/calls-tabs";
 
+const CALLS_PAGE_SIZE = 50;
+const VALID_DIRECTIONS = ["INBOUND", "OUTBOUND", "INTERNAL"];
+const VALID_STATUSES = ["RINGING", "ANSWERED", "MISSED", "BUSY", "REJECTED", "FAILED", "VOICEMAIL"];
+
 export async function CallsContent({
-  searchParams = Promise.resolve({})}: { searchParams?: Promise<{ tab?: string }> } = {}) {
+  searchParams = Promise.resolve({})}: {
+  searchParams?: Promise<{ tab?: string; q?: string; dir?: string; st?: string; phone?: string; tag?: string; page?: string }>;
+} = {}) {
   await connection();
-  const { tab } = await searchParams;
+  const { tab, q = "", dir = "", st = "", phone = "", tag = "", page: rawPage = "1" } = await searchParams;
   const __effPerms = await getUserPermissions();
   const company = await getCompany();
   const user = await requireUser();
@@ -28,15 +35,54 @@ export async function CallsContent({
   const canManageTelephony = __effPerms.includes(PERM.TELEPHONY_MANAGE);
   const canViewTelephony = __effPerms.includes(PERM.TELEPHONY_VIEW);
 
-  // Load initial calls (first page)
+  // Load one page of calls, filtered server-side — the URL params
+  // (q / dir / st / phone / page) are the filters' source of truth, so a
+  // shared link or a refresh reproduces the exact same list.
   // Without CALL_VIEW_ALL, users only see calls where they are the caller or callee
+  const qTrim = q.trim();
+  const qDigits = normalizePhone(qTrim);
+  const callsWhere: Prisma.CallLogWhereInput = {
+    companyId: company.id,
+    deletedAt: null,
+    ...(canViewAll ? {} : { OR: [{ callerUserId: user.id }, { calleeUserId: user.id }] }),
+    ...(VALID_DIRECTIONS.includes(dir) ? { direction: dir } : {}),
+    ...(VALID_STATUSES.includes(st) ? { status: st } : {}),
+    ...(phone ? { companyPhoneId: phone } : {}),
+    ...(tag ? { tags: { some: { callTagId: tag } } } : {}),
+    ...(qTrim
+      ? {
+          AND: [
+            {
+              OR: [
+                ...(qDigits
+                  ? [{ fromNumber: { contains: qDigits } }, { toNumber: { contains: qDigits } }]
+                  : []),
+                { caller: { name: { contains: qTrim, mode: "insensitive" as const } } },
+                { callee: { name: { contains: qTrim, mode: "insensitive" as const } } },
+                { notes: { contains: qTrim, mode: "insensitive" as const } },
+              ],
+            },
+          ],
+        }
+      : {}),
+  };
+
+  const [totalCalls, missedCount, durationAgg] = await Promise.all([
+    prisma.callLog.count({ where: callsWhere }),
+    prisma.callLog.count({ where: { ...callsWhere, status: "MISSED" } }),
+    prisma.callLog.aggregate({ _sum: { durationSec: true }, where: callsWhere }),
+  ]);
+
+  // Clamp out-of-range pages (a stale ?page=5 after filters shrink the
+  // result set) instead of rendering an empty list.
+  const pageCount = Math.max(1, Math.ceil(totalCalls / CALLS_PAGE_SIZE));
+  const page = Math.min(Math.max(1, parseInt(rawPage, 10) || 1), pageCount);
+
   const calls = await prisma.callLog.findMany({
-    where: {
-      companyId: company.id,
-      deletedAt: null,
-      ...(canViewAll ? {} : { OR: [{ callerUserId: user.id }, { calleeUserId: user.id }] })},
+    where: callsWhere,
     orderBy: { startedAt: "desc" },
-    take: 50,
+    skip: (page - 1) * CALLS_PAGE_SIZE,
+    take: CALLS_PAGE_SIZE,
     select: {
       id: true,
       direction: true,
@@ -147,6 +193,11 @@ export async function CallsContent({
             calls={serializedCalls}
             phoneNumbers={phoneNumbers}
             tags={tags}
+            total={totalCalls}
+            missedCount={missedCount}
+            totalDurationSec={durationAgg._sum?.durationSec ?? 0}
+            page={page}
+            pageCount={pageCount}
             canViewAll={canViewAll}
             canViewFullNumber={canViewFullNumber}
             canCreate={canCreate}

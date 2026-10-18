@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, } from "@/components/ui/input";
 import { useConfirm } from "@/lib/use-confirm";
@@ -112,7 +113,10 @@ export function CallDetailView({
   const [legalHold, setLegalHold] = useState(call.legalHold);
   const [confirm, confirmDialog] = useConfirm();
 
-  const staffName = call.caller?.name ?? call.callee?.name ?? "Unassigned";
+  const staffName =
+    call.direction === "INTERNAL" && call.caller && call.callee
+      ? `${call.caller.name} ↔ ${call.callee.name}`
+      : call.caller?.name ?? call.callee?.name ?? "Unassigned";
 
   function togglePlay() {
     if (!call.recording || !canListenRecording) return;
@@ -148,7 +152,8 @@ export function CallDetailView({
         return;
       }
       const data = await res.json();
-      setNotes([{ ...data.note }, ...notes]);
+      // POST returns the CallNote row itself (id, note, createdAt, user).
+      setNotes([{ id: data.id, note: data.note, createdAt: data.createdAt, user: data.user }, ...notes]);
       setNewNote("");
     } catch {
       setError("Could not reach the server.");
@@ -172,7 +177,11 @@ export function CallDetailView({
         return;
       }
       const data = await res.json();
-      setTags([...tags, { callTag: data.tag }]);
+      // The API find-or-creates the tag — if it was already linked, skip
+      // appending or the chip renders twice until refresh.
+      if (!tags.some((t) => t.callTag.id === data.tag.id)) {
+        setTags([...tags, { callTag: data.tag }]);
+      }
       setNewTag("");
     } catch {
       setError("Could not reach the server.");
@@ -182,10 +191,11 @@ export function CallDetailView({
 
   async function removeTag(tagId: string) {
     try {
-      await fetch(`/api/calls/${call.id}/tags?tagId=${tagId}`, { method: "DELETE" });
-      setTags(tags.filter((t) => t.callTag.id !== tagId));
-    } catch (err) {
-      console.error("Failed to remove tag:", err);
+      const res = await fetch(`/api/calls/${call.id}/tags?tagId=${tagId}`, { method: "DELETE" });
+      if (res.ok) setTags(tags.filter((t) => t.callTag.id !== tagId));
+      else setError("Could not remove tag.");
+    } catch {
+      setError("Could not reach the server.");
     }
   }
 
@@ -203,6 +213,7 @@ export function CallDetailView({
         setLoading(false);
         return;
       }
+      toast.success("Saved");
     } catch {
       setError("Could not reach the server.");
     }

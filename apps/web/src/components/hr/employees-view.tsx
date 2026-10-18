@@ -13,7 +13,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
-import { EmployeeCsvImportDialog } from "@/components/hr/employee-csv-import-dialog";
+import { GenericCsvImportDialog } from "@/components/csv-import-dialog";
 import { CrewsView, type CrewRow } from "@/components/hr/crews-view";
 import { EmployeeName } from "@/components/employee-name";
 import { localDateISO, formatCurrency, cn } from "@/lib/utils";
@@ -487,9 +487,22 @@ export function EmployeesView({
         />
       )}
 
-      <EmployeeCsvImportDialog
+      <GenericCsvImportDialog
         open={importOpen}
         onClose={() => setImportOpen(false)}
+        endpoint="/api/employees"
+        entityName="Employee"
+        templateHeaders="name,trade,phone,designation,wageType,dailyRate"
+        templateSample="Ramesh Kumar,Mason,9876543210,Mason,DAILY,850"
+        fieldMap={{
+          name: "name",
+          trade: "trade",
+          phone: "phone",
+          designation: "designation",
+          wageType: "wageType",
+          dailyRate: "dailyRate",
+        }}
+        numericFields={["dailyRate"]}
         onSuccess={() => router.refresh()}
       />
     </div>
