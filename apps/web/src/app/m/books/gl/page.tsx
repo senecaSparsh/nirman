@@ -79,7 +79,7 @@ async function MobileGlContent() {
         <MobileStatCard label="Total Credit" value={formatCurrencyCompact(totalCredit)} icon={BookOpen} tone="go" />
       </div>
 
-      {accounts.length === 0 && (
+      {canManage && accounts.length === 0 && (
         <div className="mb-4 flex justify-end">
           <MobileReseedAccountsButton />
         </div>

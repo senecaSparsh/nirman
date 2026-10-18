@@ -284,6 +284,7 @@ export function GeneralLedgerView({
               <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => router.refresh()} title="Refresh">
                 <RefreshCw className="h-3.5 w-3.5" />
               </Button>
+              {canManage && (
               <Button
                 variant="outline"
                 size="sm"
@@ -308,6 +309,7 @@ export function GeneralLedgerView({
                 {seeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <DatabaseZap className="h-3.5 w-3.5" />}
                 Re-seed
               </Button>
+              )}
               {canManage && (
                 <Button
                   variant="outline"

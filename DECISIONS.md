@@ -1875,3 +1875,30 @@ balances (would need entity-linked subledger rows — the cash step covers the
 dashboard's day-1 correctness); parcels-tree "No parcels" description (a
 purchase always auto-creates a root parcel — that state only occurs on
 soft-delete edge cases).
+
+## 89. Opening balances — what's covered and the one real boundary (2026-10-18)
+
+Go-live balance coverage, end to end:
+
+- **Cash/bank** — `POST /api/gl/opening-balance` (Dr 1000 / Cr 3100), once-only,
+  on `/gl` and `/m/books/gl`.
+- **Supplier payables** — `openingBalance` on supplier create + CSV import
+  (sets `balanceOwed` + posts Dr 3100 / Cr 2000 atomically; unlinked
+  payments settle it; PATCH rejects a re-post — use a reversal).
+- **Opening stock** — `openingStock` on material create (OPENING_BALANCE
+  movement, offsets 3100 — existed).
+- **Opening AR — the boundary**: there is no customer-invoice entity; AR is
+  derived from `Sale` rows, and `sellAsset` always stamps `now()`. Booking a
+  migrated receivable as a sale attributes revenue to the current period
+  (wrong) — a real opening-invoice subsystem or period-backdated sale
+  entries is the fix and is a feature, not a patch. Until then, migrated
+  customer dues should be entered as real sales with the understanding that
+  period reporting is inflated in month 1.
+- Employee wage advances — `EmployeeAdvance` with payroll-scheduled
+  recovery (existed).
+- Company bootstrap — `seedCompanyDefaults` at `/api/auth/bootstrap` creates
+  chart + expense categories + "Main Store"; project create adds the site
+  store (existed).
+
+Also gated `Re-seed` (desktop + mobile) to FINANCE_MANAGE — it 403'd for
+viewers.
