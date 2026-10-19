@@ -34,10 +34,10 @@ async function MobileGlContent() {
   const canManage = __effPerms.includes(PERM.FINANCE_MANAGE);
   const company = await getCompany();
 
-  const hasOpeningBalance = (await prisma.journalEntry.findFirst({
+  const openingMarker = await prisma.journalEntry.findFirst({
     where: { companyId: company.id, sourceType: "OPENING", sourceId: "cash-bank", status: "POSTED", reversalOfId: null },
     select: { id: true },
-  })) !== null;
+  });
 
   const accounts = await prisma.glAccount.findMany({
     where: { companyId: company.id },
@@ -58,6 +58,11 @@ async function MobileGlContent() {
       return { code: a.code, name: a.name, type: a.type, debit, credit, balance };
     })
     .filter((r) => r.debit !== 0 || r.credit !== 0);
+
+  // Set via the opening-balance marker entry, or cash already holds a
+  // balance — both mean the step is done.
+  const hasOpeningBalance =
+    openingMarker !== null || (rows.find((r) => r.code === "1000")?.balance ?? 0) !== 0;
 
   const totalDebit = rows.reduce((s, r) => s + toNum(r.debit), 0);
   const totalCredit = rows.reduce((s, r) => s + toNum(r.credit), 0);

@@ -239,13 +239,19 @@ async function CommandCenterContent() {
       }),
     ]);
 
+    // Opening balance counts as set whenever cash actually has a balance —
+    // the marker entry is only one path in (migrations and bulk imports
+    // arrive with cash already in the books).
+    const cashAccount = tb.accounts.find((a) => a.code === "1000");
+    const cashAlreadyFunded = cashAccount !== undefined && toNum(cashAccount.balance) !== 0;
+
     setupSteps = [
       { label: "Create your first project", href: "/projects", done: projects.length > 0 },
       { label: "Add your team", href: "/hr/employees", done: employeeCount > 0 },
       { label: "Add materials or import CSV", href: "/materials", done: materialCount > 0 },
       { label: "Add your suppliers", href: "/suppliers", done: supplierCount > 0 },
       { label: "Add your customers", href: "/customers", done: customerCount > 0 },
-      { label: "Set opening bank balance", href: "/gl", done: openingCash !== null },
+      { label: "Set opening bank balance", href: "/gl", done: openingCash !== null || cashAlreadyFunded },
     ];
 
     // Extract key account balances from trial balance

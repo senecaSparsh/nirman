@@ -282,7 +282,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   // that can act on it) while any step is incomplete; everyone else gets null.
   let setup: { hasProjects: boolean; hasMembers: boolean; hasMaterials: boolean; hasSuppliers: boolean; hasCustomers: boolean; hasOpeningBalance: boolean } | null = null;
   if (["OWNER", "ADMIN", "DEVELOPER"].includes(user.role)) {
-    const [memberCount, materialCount, supplierCount, customerCount, openingCash] = await Promise.all([
+    const [memberCount, materialCount, supplierCount, customerCount, openingCash, cashActivity] = await Promise.all([
       prisma.userCompany.count({ where: { companyId: company.id, active: true, user: { isHidden: { not: true } } } }),
       prisma.material.count({ where: { companyId: company.id, deletedAt: null } }),
       prisma.supplier.count({ where: { companyId: company.id, deletedAt: null } }),
@@ -291,14 +291,21 @@ export const GET = apiHandler(async (_req: NextRequest) => {
         where: { companyId: company.id, sourceType: "OPENING", sourceId: "cash-bank", status: "POSTED", reversalOfId: null },
         select: { id: true },
       }),
+      prisma.journalLine.aggregate({
+        _sum: { debit: true, credit: true },
+        where: { journalEntry: { companyId: company.id, status: "POSTED", reversalOfId: null }, account: { code: "1000" } },
+      }),
     ]);
+    const cashBal = Number(cashActivity._sum.debit ?? 0) - Number(cashActivity._sum.credit ?? 0);
     setup = {
       hasProjects: activeProjects > 0,
       hasMembers: memberCount > 1,
       hasMaterials: materialCount > 0,
       hasSuppliers: supplierCount > 0,
       hasCustomers: customerCount > 0,
-      hasOpeningBalance: openingCash !== null,
+      // Set via the opening-balance entry, or cash already holds a balance
+      // (imports/seeding arrive funded) — either way the nag is done.
+      hasOpeningBalance: openingCash !== null || cashBal !== 0,
     };
     if (Object.values(setup).every(Boolean)) setup = null; // fully provisioned
   }

@@ -389,10 +389,11 @@ function KpiStrip(props: ProfileTabsProps) {
   }
 
   if (props.canSeeStock) {
+    const inStock = props.stockHealth[0]?.value ?? 0;
     kpis.push({
       label: "Low stock",
       value: formatNumberShort(props.lowStockCount),
-      sub: `${props.stockHealth[0]?.value ?? 0} healthy`,
+      sub: props.lowStockCount === 0 ? `${inStock} in stock · all good` : `${inStock} in stock`,
       tone: props.lowStockCount > 0 ? "warning" : "default",
     });
   }
