@@ -26,7 +26,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const rawLines: unknown[] = Array.isArray(body?.lines) ? body.lines : [];
   if (rawLines.length < 2) return json({ error: "A journal voucher needs at least two lines (one debit, one credit)" }, { status: 400 });
 
-  const lines = await Promise.all(rawLines.map(async (l: { accountCode?: string; debit?: unknown; credit?: unknown; memo?: unknown; entityType?: unknown; entityId?: unknown }, i: number) => {
+  const lines = await Promise.all((rawLines as { accountCode?: string; debit?: unknown; credit?: unknown; memo?: unknown; entityType?: unknown; entityId?: unknown }[]).map(async (l, i) => {
     const debit = Number(l?.debit) || 0;
     const credit = Number(l?.credit) || 0;
     if (!l?.accountCode || typeof l.accountCode !== "string") {
