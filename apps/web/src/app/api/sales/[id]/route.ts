@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { cancelSale, completeSale, markRegistryDone, recordDeposit, recordPayment, sendNotification, updateSale } from "@nirman/services";
+import { cancelSale, completeSale, markRegistryDone, recordDeposit, recordPayment, refundCompletedSale, sendNotification, updateSale } from "@nirman/services";
 import { apiHandler, getCompany, json, toNum, paymentSchema, depositSchema, completeSaleSchema, requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
@@ -205,6 +205,21 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       return json({ ok: true });
     } catch (err: unknown) {
       return json({ error: (err instanceof Error ? err.message : "Cancel failed") }, { status: 400 });
+    }
+  }
+
+  if (action === "refund") {
+    try {
+      await refundCompletedSale(id, user.id);
+      revalidatePath("/sales");
+      revalidatePath("/m/sales");
+      revalidatePath(`/sales/${id}`);
+      revalidatePath(`/m/sales/${id}`);
+      revalidatePath("/finance");
+      revalidatePath("/gl");
+      return json({ ok: true });
+    } catch (err: unknown) {
+      return json({ error: (err instanceof Error ? err.message : "Refund failed") }, { status: 400 });
     }
   }
 

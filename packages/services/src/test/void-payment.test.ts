@@ -92,7 +92,7 @@ describe("voidAssetSalePayment", () => {
       companyId: company.id,
       customerId: customer.id,
       salePrice: new Decimal(5000000),
-      atsDate: new Date(),
+      atsDate: new Date().toISOString(),
     });
 
     await recordDeposit({
@@ -205,7 +205,7 @@ describe("capitalization catch-up on sale", () => {
       companyId: fixture.company.id,
       customerId: customer.id,
       salePrice: new Decimal(5000000),
-      atsDate: new Date(),
+      atsDate: new Date().toISOString(),
     });
     await recordDeposit({ saleId: sale.id, depositAmount: new Decimal(5000000), paymentMode: "BANK", userId: fixture.user.id });
     await completeSale({
@@ -225,5 +225,104 @@ describe("capitalization catch-up on sale", () => {
 
     const after = await prisma.builtUnit.findUnique({ where: { id: unit.id } });
     expect(after!.capitalizedAmount.toString()).toBe("2000000");
+  });
+});
+
+describe("refundCompletedSale", () => {
+  beforeEach(async () => {
+    await resetDb();
+  });
+
+  it("unwinds a completed sale — JEs reversed, payments refunded, unit released", async () => {
+    const fixture = await createTestFixture();
+    await seedTestAccounts(fixture.company.id);
+    const customer = await prisma.customer.create({
+      data: { companyId: fixture.company.id, name: "Refund Buyer", phone: "9999999999" },
+    });
+    const unit = await prisma.builtUnit.create({
+      data: {
+        projectId: "test-project",
+        unitType: "BHK_2",
+        unitNumber: "C-301",
+        area: new Decimal(1000),
+        areaUnit: "SQFT",
+        status: "AVAILABLE",
+        productionCost: new Decimal(2000000),
+      },
+    });
+    const { sellAsset, recordDeposit, completeSale, refundCompletedSale } = await import("../sale");
+
+    const sale = await sellAsset({
+      assetType: "BUILT_UNIT",
+      builtUnitId: unit.id,
+      companyId: fixture.company.id,
+      customerId: customer.id,
+      salePrice: new Decimal(5000000),
+      atsDate: "2026-10-01",
+    });
+    await recordDeposit({ saleId: sale.id, depositAmount: new Decimal(500000), paymentMode: "BANK", userId: fixture.user.id });
+    await completeSale({
+      saleId: sale.id,
+      userId: fixture.user.id,
+      registryDocumentUrl: "https://x/registry.pdf",
+      atsDocumentUrl: "https://x/ats.pdf",
+      finalPaymentAmount: new Decimal(4500000),
+    });
+
+    const preRefund = await prisma.journalEntry.count({
+      where: { OR: [{ sourceId: sale.id }, { sourceId: { in: (await prisma.assetSalePayment.findMany({ where: { assetSaleId: sale.id }, select: { id: true } })).map((p) => p.id) } }], status: "POSTED", reversalOfId: null, NOT: { sourceType: { endsWith: "_REVERSAL" } } },
+    });
+    expect(preRefund).toBeGreaterThan(0);
+
+    await refundCompletedSale(sale.id, fixture.user.id);
+
+    const after = await prisma.assetSale.findUnique({ where: { id: sale.id }, include: { payments: true } });
+    expect(after!.status).toBe("CANCELLED");
+    expect(after!.saleStage).toBe("CANCELLED");
+    expect(after!.payments.every((p) => p.status === "REFUNDED")).toBe(true);
+
+    // Every live JE got a reversal — trial-balance-wise the sale nets to zero.
+    const liveEntries = await prisma.journalEntry.findMany({
+      where: {
+        OR: [{ sourceId: sale.id }, { sourceId: { in: after!.payments.map((p) => p.id) } }],
+        reversalOfId: null,
+        NOT: { sourceType: { endsWith: "_REVERSAL" } },
+      },
+      select: { id: true },
+    });
+    for (const e of liveEntries) {
+      const reversal = await prisma.journalEntry.findFirst({ where: { reversalOfId: e.id } });
+      expect(reversal).not.toBeNull();
+    }
+    const reversalCount = await prisma.journalEntry.count({
+      where: { reversalOfId: { in: liveEntries.map((e) => e.id) } },
+    });
+    expect(reversalCount).toBe(preRefund);
+
+    const unitAfter = await prisma.builtUnit.findUnique({ where: { id: unit.id } });
+    expect(unitAfter!.status).toBe("AVAILABLE");
+    expect(unitAfter!.saleId).toBeNull();
+
+    // A completed sale is now cancelled — a second refund must refuse.
+    await expect(refundCompletedSale(sale.id, fixture.user.id)).rejects.toThrow();
+  });
+
+  it("refuses to refund a non-completed sale", async () => {
+    const fixture = await createTestFixture();
+    const customer = await prisma.customer.create({
+      data: { companyId: fixture.company.id, name: "Buyer", phone: "9999999999" },
+    });
+    const unit = await prisma.builtUnit.create({
+      data: { projectId: "test-project", unitType: "BHK_2", unitNumber: "D-401", area: new Decimal(1000), areaUnit: "SQFT", status: "AVAILABLE" },
+    });
+    const { sellAsset, refundCompletedSale } = await import("../sale");
+    const sale = await sellAsset({
+      assetType: "BUILT_UNIT",
+      builtUnitId: unit.id,
+      companyId: fixture.company.id,
+      customerId: customer.id,
+      salePrice: new Decimal(5000000),
+    });
+    await expect(refundCompletedSale(sale.id, fixture.user.id)).rejects.toThrow("Only completed sales need a refund");
   });
 });

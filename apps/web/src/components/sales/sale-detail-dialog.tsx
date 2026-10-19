@@ -5,7 +5,7 @@ import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import {Banknote, X, Printer, CheckCircle2, XCircle, HandCoins, MessageCircle, FileText, ExternalLink, CalendarClock, AlertCircle, Zap} from "lucide-react";
+import {Banknote, X, Printer, CheckCircle2, XCircle, HandCoins, MessageCircle, FileText, ExternalLink, CalendarClock, AlertCircle, Zap, Undo2} from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
@@ -53,6 +53,7 @@ export function SaleDetailDialog({
   const [depositOpen, setDepositOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [refundOpen, setRefundOpen] = useState(false);
   const [scheduleEditOpen, setScheduleEditOpen] = useState(false);
   const [saleEditOpen, setSaleEditOpen] = useState(false);
   const [acting, setActing] = useState(false);
@@ -142,6 +143,34 @@ export function SaleDetailDialog({
     }
   }
 
+  async function refundSale() {
+    if (!sale) return;
+    setActing(true);
+    const prevStatus = detail?.status;
+    try {
+      await mutateAction({
+        endpoint: `/api/sales/${sale.id}`,
+        method: "PATCH",
+        body: { action: "refund" },
+        optimisticUpdate: () => {
+          setDetail((d) => d ? { ...d, status: "CANCELLED" as AssetSaleDetail["status"] } : d);
+        },
+        revert: () => {
+          setDetail((d) => d && prevStatus ? { ...d, status: prevStatus } : d);
+        },
+        successMessage: "Sale refunded",
+        successDescription: "All payments refunded and books reversed. Asset released back to available.",
+        refreshOnSuccess: false,
+      });
+      onOpenChange(false);
+      router.refresh();
+    } catch {
+      // Error already handled by useApiAction (toast + revert)
+    } finally {
+      setActing(false);
+    }
+  }
+
   async function sendWhatsAppConfirmation(paymentId: string) {
     if (!sale) return;
     try {
@@ -218,6 +247,9 @@ export function SaleDetailDialog({
 
   // Cancel is allowed for PENDING and DEPOSIT_RECEIVED stages (not COMPLETED)
   const canCancel = !isCancelled && !isCompleted && canManage;
+  // Completed sales can't just be cancelled — the deed is registered, so the
+  // exit is a refund that unwinds revenue/COGS/payments and frees the asset.
+  const canRefund = isCompleted && !isCancelled && canManage;
   // Record Deposit: for PENDING and DEPOSIT_RECEIVED sales (service allows any non-COMPLETED stage)
   const canRecordDeposit = !isCancelled && !isCompleted && canManage;
   // Complete Sale: only for sales with a deposit (DEPOSIT_RECEIVED)
@@ -272,6 +304,11 @@ export function SaleDetailDialog({
               {canCancel && (
                 <Button size="sm" variant="outline" onClick={() => setCancelOpen(true)} disabled={acting} className="text-muted-foreground hover:text-danger">
                   <X className="h-4 w-4" /> {acting ? "Cancelling…" : "Cancel Sale"}
+                </Button>
+              )}
+              {canRefund && (
+                <Button size="sm" variant="outline" onClick={() => setRefundOpen(true)} disabled={acting} className="text-muted-foreground hover:text-danger">
+                  <Undo2 className="h-4 w-4" /> {acting ? "Refunding…" : "Refund Sale"}
                 </Button>
               )}
               {canManage && !isCancelled && (
@@ -1030,6 +1067,15 @@ export function SaleDetailDialog({
         }
         confirmLabel="Cancel Sale"
         onConfirm={cancelSale}
+      />
+
+      <ConfirmDialog
+        open={refundOpen}
+        onOpenChange={setRefundOpen}
+        title="Refund this completed sale?"
+        description="Refunds every payment received, reverses the revenue/GST/COGS journal entries, and releases the asset back to available — as if the sale never happened. Use when a registered deed is cancelled. This cannot be undone."
+        confirmLabel="Refund Sale"
+        onConfirm={refundSale}
       />
 
       {collectItem && (

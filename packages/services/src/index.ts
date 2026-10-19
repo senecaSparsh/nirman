@@ -322,6 +322,7 @@ export {
   recordPayment,
   voidAssetSalePayment,
   cancelSale,
+  refundCompletedSale,
   updateSale,
   computeSaleProfit,
   computePaymentStatus,

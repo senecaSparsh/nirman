@@ -1954,6 +1954,147 @@ export async function cancelSale(saleId: string, userId?: string) {
 }
 
 // ───────────────────────────────────────────────────────────
+//  Refund a COMPLETED sale — the deed was cancelled / the deal fell
+//  through post-completion. Unwinds every book effect: revenue, GST,
+//  TDS receivable, COGS, deposit settle, expenses, commission, and all
+//  payment receipts — then releases the asset back to inventory.
+//  Append-only: every reversal is a new JE, nothing is deleted.
+// ───────────────────────────────────────────────────────────
+export async function refundCompletedSale(saleId: string, userId?: string) {
+  const result = await withSerializableTransaction(async (tx) => {
+    const sale = await tx.assetSale.findUnique({
+      where: { id: saleId },
+      include: { payments: true },
+    });
+    if (!sale) throw new ServiceError("Sale not found", 404);
+    if (sale.status === "CANCELLED") throw new ServiceError("Sale already cancelled");
+    if (sale.saleStage !== "COMPLETED") {
+      throw new ServiceError("Only completed sales need a refund — use cancel for pre-completion sales");
+    }
+    if (sale.irnStatus === "GENERATED") {
+      throw new ServiceError(
+        "This sale has a live e-invoice (IRN) on the GST portal. Cancel the e-invoice first, then refund the sale.",
+        409,
+      );
+    }
+
+    // Every JE this sale produced: revenue+GST+TDS+AR (ASSET_SALE), COGS
+    // release (ASSET_SALE_COGS), deposit application (ASSET_SALE_DEPOSIT_SETTLE),
+    // broker accrual (BROKER_COMMISSION), per-payment receipts (PAYMENT_RECEIVED),
+    // and any deposit entries keyed on the sale itself.
+    const paymentIds = sale.payments.map((p) => p.id);
+    const entries = await tx.journalEntry.findMany({
+      where: {
+        status: "POSTED",
+        reversalOfId: null, // don't re-reverse a reversal
+        OR: [{ sourceId: saleId }, { sourceId: { in: paymentIds } }],
+        NOT: { sourceType: { endsWith: "_REVERSAL" } },
+      },
+      select: { id: true },
+    });
+    // Skip entries that were already reversed (e.g. a bounced cheque's
+    // receipt, or a voided payment) — reversing them again double-counts.
+    const live: string[] = [];
+    for (const e of entries) {
+      const prior = await tx.journalEntry.findFirst({ where: { reversalOfId: e.id }, select: { id: true } });
+      if (!prior) live.push(e.id);
+    }
+    for (const entryId of live) {
+      await reverseJournalEntry(tx, entryId, { postedById: userId, memo: "Completed sale refunded — deed cancelled" });
+    }
+
+    // Seller-borne sale expenses post under the expense row's id, not the
+    // sale id — reverse those too.
+    const saleExpenses = await tx.saleExpense.findMany({
+      where: { assetSaleId: saleId, borneBy: "SELLER" },
+      select: { id: true },
+    });
+    for (const exp of saleExpenses) {
+      const je = await tx.journalEntry.findFirst({
+        where: { sourceType: "SALE_EXPENSE", sourceId: exp.id, status: "POSTED" },
+        select: { id: true },
+      });
+      if (je) {
+        const prior = await tx.journalEntry.findFirst({ where: { reversalOfId: je.id }, select: { id: true } });
+        if (!prior) await reverseJournalEntry(tx, je.id, { postedById: userId, memo: "Sale refunded — expense reversal" });
+      }
+    }
+
+    // Money returned to the buyer — mark the payment rows REFUNDED (kept for
+    // audit; the reversal JEs above already moved the GL balances).
+    if (paymentIds.length > 0) {
+      await tx.assetSalePayment.updateMany({
+        where: { assetSaleId: saleId, status: { not: "VOID" } },
+        data: { status: "REFUNDED" },
+      });
+    }
+
+    // Asset goes back to sellable stock at its capitalized cost (the COGS
+    // reversal above restored its book value).
+    await markAssetStatus(tx, sale.assetType, sale.landParcelId, sale.builtUnitId, "AVAILABLE", sale.projectId);
+    if (sale.assetType === "LAND" && sale.landParcelId) {
+      await tx.landParcel.update({ where: { id: sale.landParcelId }, data: { saleId: null } });
+    } else if (sale.assetType === "BUILT_UNIT" && sale.builtUnitId) {
+      await tx.builtUnit.update({ where: { id: sale.builtUnitId }, data: { saleId: null } });
+    } else if (sale.assetType === "PROJECT" && sale.projectId) {
+      await tx.builtUnit.updateMany({
+        where: { projectId: sale.projectId, deletedAt: null },
+        data: { saleId: null },
+      });
+    }
+
+    // The payment schedule dies with the sale — reset it the same way
+    // cancelSale does so nothing keeps nagging the collections queue.
+    const schedule = await tx.paymentSchedule.findFirst({
+      where: { assetSaleId: saleId },
+      select: { id: true },
+    });
+    if (schedule) {
+      await tx.paymentScheduleItem.updateMany({
+        where: { paymentScheduleId: schedule.id },
+        data: { paidAmount: 0, status: "PENDING" },
+      });
+    }
+
+    // Re-run cost allocation — the unit rejoins the sellable pool.
+    if (sale.projectId) {
+      await reallocateProjectCosts(tx, sale.projectId);
+    }
+
+    const updated = await tx.assetSale.update({
+      where: { id: saleId },
+      data: { status: "CANCELLED", saleStage: "CANCELLED", paymentStatus: "PENDING" },
+    });
+
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        companyId: sale.companyId,
+        action: "ASSET_SALE_REFUND",
+        entityType: "AssetSale",
+        entityId: saleId,
+        before: { status: sale.status, saleStage: sale.saleStage },
+        after: { status: "CANCELLED", saleStage: "CANCELLED", reversedEntries: live.length },
+      });
+    }
+
+    return { updated, companyId: sale.companyId, saleNumber: sale.saleNumber, reversedEntries: live.length };
+  });
+
+  void emitNotificationEvent({
+    eventType: NotificationEventType.SALE_CANCELLED,
+    companyId: result.companyId,
+    excludeIds: [userId],
+    entityType: "AssetSale",
+    entityId: saleId,
+    variables: { saleNumber: result.saleNumber ?? saleId },
+    timestamp: new Date(),
+  });
+
+  return result.updated;
+}
+
+// ───────────────────────────────────────────────────────────
 //  Helpers
 // ───────────────────────────────────────────────────────────
 
