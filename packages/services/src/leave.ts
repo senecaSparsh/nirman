@@ -151,7 +151,9 @@ export const ANNUAL_LEAVE_ENTITLEMENT: Record<LeaveType, number> = {
   SICK: 12,
   EARNED: 20,
   UNPAID: 0, // 0 → no entitlement cap (unpaid, unlimited)
-  MATERNITY: 84,
+  // Maternity Benefit (Amendment) Act 2017: 26 weeks (182 days) for a woman
+  // with fewer than two surviving children — 84 was the pre-2017 rate.
+  MATERNITY: 182,
   PATERNITY: 5,
 };
 
