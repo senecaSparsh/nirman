@@ -2002,10 +2002,11 @@ function SalaryStructureSection({ employeeId, canManage }: { employeeId: string;
         <span className="text-body font-medium text-foreground">{componentLabel(c.type)}</span>
         <span className="ml-2 text-meta text-muted-foreground">
           {compCalc(c) === "PERCENTAGE_OF_BASIC"
-            ? `${c.percentageOfBasic}% of basic`
+            ? `${c.percentageOfBasic}% of basic${c.wageCap ? ` capped at ${formatCurrency(c.wageCap)}` : ""}`
             : isVariable(c)
               ? `${formatCurrency(c.amount)}${unitSuffix(c.unitType, c.unitLabel)}`
               : frequencyLabel(c.frequency)}
+          {c.wageCeiling ? ` · only while basic ≤ ${formatCurrency(c.wageCeiling)}` : ""}
         </span>
       </div>
       <span className={`tnum text-body font-semibold ${c.isDeduction ? "text-danger" : "text-foreground"}`}>
