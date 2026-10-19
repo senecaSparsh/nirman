@@ -169,6 +169,85 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   companies: Building2,
 };
 
+type LabelSpot = { side: "above" | "below" | "left" | "right"; row: number; dx: number };
+type Box = { x0: number; y0: number; x1: number; y1: number };
+
+// Collision-aware label placement for the ring (nominal box 344 × 372px, 1 : 1.08).
+// Each label tries its own side of the chip in stacked rows, sliding
+// horizontally when a neighbour is in the way, then beside the chip, then the
+// opposite side. Anything still colliding drops to icon + count (the name
+// stays in the chip's accessible label and the list it opens).
+function layoutOrbitLabels(
+  chips: { x: number; y: number; label: string; above: boolean }[],
+  chipRem: number,
+  card: { yPct: number; halfW: number; halfH: number },
+  inline: boolean,
+): (LabelSpot | null)[] {
+  const W = 344;
+  const H = 372;
+  const LH = 16;
+  const rC = chipRem * 8;
+  const gap = rC + 6;
+  const pts = chips.map((c) => ({ x: (c.x / 100) * W, y: (c.y / 100) * H }));
+  const cy = (card.yPct / 100) * H;
+  const cardBox: Box = { x0: W / 2 - card.halfW, x1: W / 2 + card.halfW, y0: cy - card.halfH, y1: cy + card.halfH };
+  const chipBoxes = pts.map((p) => ({ x0: p.x - rC - 4, x1: p.x + rC + 4, y0: p.y - rC - 4, y1: p.y + rC + 4 }));
+  // Inline orbits sit in page flow where the floating chat button overlays
+  // the ring's bottom-right quadrant — keep labels out of that zone.
+  const extras: Box[] = inline ? [{ x0: 326, x1: 400, y0: 225, y1: 290 }] : [];
+  const hits = (a: Box, b: Box) => a.x0 < b.x1 + 2 && a.x1 > b.x0 - 2 && a.y0 < b.y1 + 2 && a.y1 > b.y0 - 2;
+  const placed: Box[] = [];
+  const SLIDES = [0, 14, -14, 28, -28, 42, -42];
+  return chips.map((chip, i) => {
+    const p = pts[i]!;
+    const w = Math.min(96, chip.label.length * 6.2 + 6);
+    const near = (row: number, up: boolean, dx: number): Box => {
+      const y0 = up ? p.y - 25.6 - 19.2 * row - LH : p.y + 22.4 + 19.2 * row;
+      return { x0: p.x + dx - w / 2, x1: p.x + dx + w / 2, y0, y1: y0 + LH };
+    };
+    const beside = (left: boolean): Box => ({
+      x0: left ? p.x - gap - w : p.x + gap,
+      x1: left ? p.x - gap : p.x + gap + w,
+      y0: p.y - LH / 2,
+      y1: p.y + LH / 2,
+    });
+    const up = chip.above;
+    const outward = p.x >= W / 2;
+    const rows = up ? 2 : 3;
+    const cands: [LabelSpot, Box][] = [];
+    for (let row = 0; row <= rows; row++) {
+      for (const dx of SLIDES) {
+        cands.push([{ side: up ? "above" : "below", row, dx }, near(row, up, dx)]);
+      }
+    }
+    cands.push(
+      [{ side: outward ? "right" : "left", row: 0, dx: 0 }, beside(!outward)],
+      [{ side: outward ? "left" : "right", row: 0, dx: 0 }, beside(outward)],
+    );
+    for (let row = 0; row <= 1; row++) {
+      cands.push([{ side: up ? "below" : "above", row, dx: 0 }, near(row, !up, 0)]);
+    }
+    const free = ([, b]: [LabelSpot, Box]) =>
+      b.x0 >= -8 && b.x1 <= W + 8 && b.y0 >= -16 && b.y1 <= H + 16 &&
+      !hits(b, cardBox) &&
+      extras.every((e) => !hits(b, e)) &&
+      chipBoxes.every((c, j) => j === i || !hits(b, c)) &&
+      placed.every((q) => !hits(b, q));
+    const hit = cands.find(free);
+    if (!hit) return null;
+    placed.push(hit[1]);
+    return hit[0];
+  });
+}
+
+function labelTransform({ side, row, dx }: LabelSpot, chipRem: number) {
+  const x = dx === 0 ? "-50%" : `calc(-50% + ${dx}px)`;
+  if (side === "above") return `translate(${x}, calc(-100% - ${1.6 + 1.2 * row}rem))`;
+  if (side === "below") return `translate(${x}, ${1.4 + 1.2 * row}rem)`;
+  const off = `${chipRem / 2 + 0.375}rem`;
+  return side === "left" ? `translate(calc(-100% - ${off}), -50%)` : `translate(${off}, -50%)`;
+}
+
 export interface OrbitNavigatorProps {
   initialNode: {
     id: string;
@@ -311,26 +390,22 @@ export function OrbitNavigator({
   const radiusPercent = 35;
   const CENTER_Y = 46;
   const W_TO_H = 100 / 108;
-  const chipSize = chipCount > 14 ? "2rem" : chipCount > 10 ? "2.25rem" : "2.5rem";
-
-  // Bottom-arc label staggering: nodes near the bottom of the ring sit
-  // ~40px apart horizontally but labels are 80px wide, so a neighbour's
-  // paper-backed pill hides the middle of the adjacent label ("Customers"
-  // showed as "ustomers"). Alternating two rows keeps every label readable.
-  const belowLabelRow: Record<number, number> = {};
-  {
-    // (plain object — `Map` here is the lucide icon import, not the global)
-    const below = orbitChips
-      .map((_, idx) => {
-        const a =
-          (chipCount === 1 ? -90 : -90 + (360 / chipCount) * idx) *
-          (Math.PI / 180);
-        return { idx, x: Math.cos(a), below: Math.sin(a) >= -0.15 };
-      })
-      .filter((c) => c.below)
-      .sort((a, b) => a.x - b.x);
-    below.forEach((c, order) => (belowLabelRow[c.idx] = order % 2));
-  }
+  const chipRem = chipCount > 14 ? 1.8 : chipCount > 10 ? 2.25 : 2.5;
+  const chipSize = `${chipRem}rem`;
+  const labelSpots = layoutOrbitLabels(
+    orbitChips.map((chip, i) => {
+      const angle = (chipCount === 1 ? -90 : -90 + (360 / chipCount) * i) * (Math.PI / 180);
+      return {
+        x: 50 + radiusPercent * Math.cos(angle),
+        y: CENTER_Y + radiusPercent * W_TO_H * Math.sin(angle),
+        label: chip.label,
+        above: Math.sin(angle) < -0.15,
+      };
+    }),
+    chipRem,
+    { yPct: CENTER_Y, halfW: 62, halfH: 60 },
+    inline,
+  );
 
   const content = (
     <>
@@ -418,7 +493,7 @@ export function OrbitNavigator({
                 <>
                   {/* Orbit track — a single hairline circle the nodes sit on */}
                   <div
-                    className="absolute left-1/2 -translate-x-1/2 rounded-full border transition-all duration-300"
+                    className="absolute left-1/2 rounded-full border transition-all duration-300"
                     style={{
                       top: `${CENTER_Y}%`,
                       width: `${radiusPercent * 2}%`,
@@ -447,6 +522,7 @@ export function OrbitNavigator({
                         onClick={() => handleChipTap(chip)}
                         disabled={isEmpty || cardExpanded}
                         title={chip.label}
+                        aria-label={chip.label}
                         className="absolute z-20 text-m-body transition-all duration-300"
                         style={{
                           left: `${x}%`,
@@ -513,9 +589,8 @@ export function OrbitNavigator({
                       (Math.PI / 180);
                     const x = 50 + radiusPercent * Math.cos(angle);
                     const y = CENTER_Y + radiusPercent * W_TO_H * Math.sin(angle);
-                    // Upper-half chips get their label above the node, lower
-                    // half below — pointing away from the center card's edge.
-                    const labelAbove = Math.sin(angle) < -0.15;
+                    const spot = labelSpots[i];
+                    if (!spot) return null;
                     return (
                       <span
                         key={`${chip.id}-label`}
@@ -524,9 +599,7 @@ export function OrbitNavigator({
                         style={{
                           left: `${x}%`,
                           top: `${y}%`,
-                          transform: labelAbove
-                            ? "translate(-50%, calc(-100% - 1.6rem))"
-                            : `translate(-50%, ${belowLabelRow[i] === 1 ? "2.6rem" : "1.4rem"})`,
+                          transform: labelTransform(spot, chipRem),
                           opacity: cardExpanded ? 0 : 1,
                           color:
                             chip.count === 0
@@ -550,7 +623,7 @@ export function OrbitNavigator({
                 className="absolute left-1/2 z-30 transition-all duration-300"
                 style={{
                   top: `${CENTER_Y}%`,
-                  width: cardExpanded ? "100%" : "46%",
+                  width: cardExpanded ? "100%" : "36%",
                   height: cardExpanded ? "100%" : "auto",
                   transform: "translate(-50%, -50%)",
                 }}
@@ -672,7 +745,7 @@ export function OrbitNavigator({
 /* ─── Center card with details ─── */
 function CenterCard({
   node,
-  expanded: _expanded,
+  expanded,
 }: {
   node: OrbitNode;
   expanded?: boolean;
@@ -680,17 +753,17 @@ function CenterCard({
   const Icon = TYPE_ICONS[node.type] ?? MapPin;
   return (
     <div
-      className="w-full rounded-[0.75rem] border-2 p-2.5 text-center"
+      className="w-full rounded-[0.75rem] border-2 p-2 text-center"
       style={{
         borderColor: "var(--color-ink-950)",
         backgroundColor: "var(--color-paper)",
       }}
     >
       <div
-        className="grid place-items-center w-10 h-10 rounded-[0.5rem] mx-auto mb-1 text-m-section"
+        className="grid place-items-center w-7 h-7 rounded-[0.5rem] mx-auto mb-0.5"
         style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-700)" }}
       >
-        <Icon className="size-5" />
+        <Icon className="size-4" />
       </div>
       <p
         className="font-bold text-m-body leading-tight line-clamp-2"
@@ -713,10 +786,11 @@ function CenterCard({
         </p>
       ) : null}
 
-      {/* Quick details grid */}
-      {node.details.length > 0 ? (
+      {/* Quick details grid — only once the card is expanded; the collapsed
+          ring card stays compact enough to clear every chip. */}
+      {expanded && node.details.length > 0 ? (
         <div
-          className="mt-1.5 pt-1.5 border-t grid grid-cols-2 gap-x-2 gap-y-0.5 text-left"
+          className="mt-1 pt-1 border-t grid grid-cols-2 gap-x-2 gap-y-0.5 text-left"
           style={{ borderColor: "var(--color-line)" }}
         >
           {node.details.slice(0, 6).map((d, i) => (
@@ -743,7 +817,7 @@ function CenterCard({
         <Link
           href={node.href}
           prefetch
-          className="mt-2 inline-flex items-center gap-1 text-m-label font-semibold underline"
+          className="mt-1 inline-flex items-center gap-1 text-m-label font-semibold underline"
           style={{ color: "var(--color-steel)" }}
         >
           <ExternalLink className="size-2.5" />
