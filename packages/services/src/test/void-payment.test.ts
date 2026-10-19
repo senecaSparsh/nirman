@@ -92,6 +92,7 @@ describe("voidAssetSalePayment", () => {
       companyId: company.id,
       customerId: customer.id,
       salePrice: new Decimal(5000000),
+      atsDate: new Date(),
     });
 
     await recordDeposit({
@@ -204,6 +205,7 @@ describe("capitalization catch-up on sale", () => {
       companyId: fixture.company.id,
       customerId: customer.id,
       salePrice: new Decimal(5000000),
+      atsDate: new Date(),
     });
     await recordDeposit({ saleId: sale.id, depositAmount: new Decimal(5000000), paymentMode: "BANK", userId: fixture.user.id });
     await completeSale({
