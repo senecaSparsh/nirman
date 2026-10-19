@@ -38,12 +38,13 @@ async function GeneralLedgerContent() {
     );
   }
 
-  const [tb, accounts, tallyStats, tallyConfig] = await Promise.all([
+  const [tb, accounts, tallyStats, tallyConfig, projects] = await Promise.all([
     trialBalance(company.id),
     prisma.glAccount.findMany({
     where: { companyId: company.id }, take: 500, orderBy: { code: "asc" } }),
     getTallySyncStats(company.id),
     getIntegrationConfig({ companyId: company.id, key: "TALLY" }),
+    prisma.project.findMany({ where: { companyId: company.id, deletedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" }, take: 200 }),
   ]);
 
   const accountRows = accounts.map((a) => ({
@@ -71,6 +72,7 @@ async function GeneralLedgerContent() {
         totalCredit={toNum(tb.totalCredit)}
         isBalanced={tb.isBalanced}
         canManage={__effPerms.includes(PERM.FINANCE_MANAGE)}
+        projects={projects.map((p) => ({ id: p.id, name: p.name }))}
       />
       {__effPerms.includes(PERM.FINANCE_VIEW) && (
         <GstReportsPanel />

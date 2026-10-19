@@ -10,8 +10,10 @@ import { PERM } from "@/lib/roles";
  * reclass, any adjustment that has no source document). Balanced entries only
  * — postJournalEntry rejects Σdr ≠ Σcr. FINANCE_MANAGE.
  *
- * Body: { memo, entryDate?, lines: [{ accountCode, debit, credit, memo? }] }
- * Each line carries either a debit or a credit (not both).
+ * Body: { memo, entryDate?, lines: [{ accountCode, debit, credit, memo?, entityType?, entityId? }] }
+ * Each line carries either a debit or a credit (not both). A line may also
+ * carry a project allocation — entityType: "Project" + a valid projectId —
+ * so JVs like cost reallocations land in the right project's WIP slice.
  */
 export const POST = apiHandler(async (req: NextRequest) => {
   const user = await requireEffectivePermission(PERM.FINANCE_MANAGE);
@@ -24,7 +26,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   const rawLines: unknown[] = Array.isArray(body?.lines) ? body.lines : [];
   if (rawLines.length < 2) return json({ error: "A journal voucher needs at least two lines (one debit, one credit)" }, { status: 400 });
 
-  const lines = rawLines.map((l: any, i: number) => {
+  const lines = await Promise.all(rawLines.map(async (l: { accountCode?: string; debit?: unknown; credit?: unknown; memo?: unknown; entityType?: unknown; entityId?: unknown }, i: number) => {
     const debit = Number(l?.debit) || 0;
     const credit = Number(l?.credit) || 0;
     if (!l?.accountCode || typeof l.accountCode !== "string") {
@@ -33,13 +35,23 @@ export const POST = apiHandler(async (req: NextRequest) => {
     if (debit < 0 || credit < 0) throw new ServiceError(`Line ${i + 1}: amounts cannot be negative`, 400);
     if (debit > 0 && credit > 0) throw new ServiceError(`Line ${i + 1}: a line is either a debit or a credit, not both`, 400);
     if (debit === 0 && credit === 0) throw new ServiceError(`Line ${i + 1}: enter a debit or credit amount`, 400);
+    // Optional project allocation — the only entity link a manual JV may
+    // claim (keeps project-level cost reallocations inside the right WIP slice).
+    if (l?.entityType != null || l?.entityId != null) {
+      if (l.entityType !== "Project" || typeof l.entityId !== "string") {
+        throw new ServiceError(`Line ${i + 1}: manual entries may only be allocated to a project`, 400);
+      }
+      const project = await prisma.project.findFirst({ where: { id: l.entityId, companyId: company.id, deletedAt: null }, select: { id: true } });
+      if (!project) throw new ServiceError(`Line ${i + 1}: project not found`, 404);
+    }
     return {
       accountCode: l.accountCode,
       debit,
       credit,
       ...(typeof l.memo === "string" && l.memo.trim() ? { memo: l.memo.trim() } : {}),
+      ...(l?.entityType === "Project" && typeof l?.entityId === "string" ? { entityType: "Project", entityId: l.entityId } : {}),
     };
-  });
+  }));
 
   const entryDate = body?.entryDate ? new Date(body.entryDate) : undefined;
   if (entryDate && isNaN(entryDate.getTime())) return json({ error: "Invalid entry date" }, { status: 400 });

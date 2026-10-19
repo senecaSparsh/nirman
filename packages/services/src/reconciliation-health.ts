@@ -304,7 +304,7 @@ export async function reconcileStockLedger(
     details: details.slice(0, 50),
     message:
       details.length > 0
-        ? `${details.length} location-material pair(s) have a qty mismatch. The movement log and the on-hand cache disagree — run a stock count to reconcile.`
+        ? `${details.length} location-material pair(s) have a qty mismatch. The movement log and the on-hand cache disagree — a stock count treats physical-vs-system drift and cannot repair a split pair (every adjustment moves both sides); rebuild the cache from the movement log and investigate the non-atomic write that created the split.`
         : undefined,
   });
 }

@@ -239,6 +239,7 @@ export function GeneralLedgerView({
   totalCredit,
   isBalanced,
   canManage,
+  projects = [],
 }: {
   accounts: AccountRow[];
   trialBalance: TrialBalanceRow[];
@@ -246,6 +247,7 @@ export function GeneralLedgerView({
   totalCredit: number;
   isBalanced: boolean;
   canManage?: boolean;
+  projects?: { id: string; name: string }[];
 }) {
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
   const {
@@ -470,6 +472,7 @@ export function GeneralLedgerView({
       <JournalVoucherDialog
         open={voucherOpen}
         accounts={accounts}
+        projects={projects}
         onClose={() => setVoucherOpen(false)}
         onPosted={() => router.refresh()}
       />
@@ -547,24 +550,26 @@ function OpeningBalanceDialog({
   );
 }
 
-type VoucherLine = { accountCode: string; debit: string; credit: string };
+type VoucherLine = { accountCode: string; debit: string; credit: string; projectId: string };
 
 function JournalVoucherDialog({
   open,
   accounts,
+  projects,
   onClose,
   onPosted,
 }: {
   open: boolean;
   accounts: AccountRow[];
+  projects?: { id: string; name: string }[];
   onClose: () => void;
   onPosted: () => void;
 }) {
   const [memo, setMemo] = useState("");
   const [entryDate, setEntryDate] = useState("");
   const [lines, setLines] = useState<VoucherLine[]>([
-    { accountCode: "", debit: "", credit: "" },
-    { accountCode: "", debit: "", credit: "" },
+    { accountCode: "", debit: "", credit: "", projectId: "" },
+    { accountCode: "", debit: "", credit: "", projectId: "" },
   ]);
   const [posting, setPosting] = useState(false);
 
@@ -590,13 +595,14 @@ function JournalVoucherDialog({
             accountCode: l.accountCode,
             debit: Number(l.debit) || 0,
             credit: Number(l.credit) || 0,
+            ...(l.projectId ? { entityType: "Project", entityId: l.projectId } : {}),
           })),
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to post voucher");
       toast.success(`Journal voucher posted — ${data.entryNumber}`);
-      setLines([{ accountCode: "", debit: "", credit: "" }, { accountCode: "", debit: "", credit: "" }]);
+      setLines([{ accountCode: "", debit: "", credit: "", projectId: "" }, { accountCode: "", debit: "", credit: "", projectId: "" }]);
       setMemo("");
       setEntryDate("");
       onClose();
@@ -627,11 +633,11 @@ function JournalVoucherDialog({
           </div>
         </div>
         <div className="space-y-2">
-          <div className="grid grid-cols-[1fr_6rem_6rem_2rem] gap-2 text-caption font-medium text-muted-foreground">
-            <span>Account</span><span className="text-right">Debit</span><span className="text-right">Credit</span><span />
+          <div className="grid grid-cols-[1fr_6rem_6rem_7rem_2rem] gap-2 text-caption font-medium text-muted-foreground">
+            <span>Account</span><span className="text-right">Debit</span><span className="text-right">Credit</span><span>Project</span><span />
           </div>
           {lines.map((l, i) => (
-            <div key={i} className="grid grid-cols-[1fr_6rem_6rem_2rem] gap-2 items-center">
+            <div key={i} className="grid grid-cols-[1fr_6rem_6rem_7rem_2rem] gap-2 items-center">
               <Select value={l.accountCode} onChange={(e) => setLine(i, { accountCode: e.target.value })} required>
                 <option value="">Pick account…</option>
                 {accounts.map((a) => (
@@ -640,6 +646,12 @@ function JournalVoucherDialog({
               </Select>
               <Input type="number" min="0" step="0.01" value={l.debit} onChange={(e) => setLine(i, { debit: e.target.value, credit: e.target.value ? "" : l.credit })} placeholder="0" />
               <Input type="number" min="0" step="0.01" value={l.credit} onChange={(e) => setLine(i, { credit: e.target.value, debit: e.target.value ? "" : l.debit })} placeholder="0" />
+              <Select value={l.projectId} onChange={(e) => setLine(i, { projectId: e.target.value })} title="Optional — allocate this line to a project (e.g. WIP write-off)">
+                <option value="">—</option>
+                {(projects ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </Select>
               <button
                 type="button"
                 className="text-muted-foreground hover:text-danger disabled:opacity-30"
@@ -652,7 +664,7 @@ function JournalVoucherDialog({
             </div>
           ))}
           <div className="flex items-center justify-between">
-            <Button type="button" variant="ghost" size="sm" onClick={() => setLines((p) => [...p, { accountCode: "", debit: "", credit: "" }])}>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setLines((p) => [...p, { accountCode: "", debit: "", credit: "", projectId: "" }])}>
               + Add line
             </Button>
             <div className={`text-caption font-medium ${balanced ? "text-success" : "text-muted-foreground"}`}>
