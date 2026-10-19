@@ -333,6 +333,7 @@ async function EmployeeProfileContent({
     wageType: employee.wageType,
     dailyRate: accessScope.canSeePayroll ? toNum(employee.dailyRate) : null,
     monthlySalary: accessScope.canSeePayroll && employee.monthlySalary ? toNum(employee.monthlySalary) : null,
+    overtimeMultiplier: accessScope.canSeePayroll && employee.overtimeMultiplier ? toNum(employee.overtimeMultiplier) : null,
     joinDate: employee.joinDate ? employee.joinDate.toISOString() : null,
     hierarchyLevel: employee.hierarchyLevel,
     active: employee.active,

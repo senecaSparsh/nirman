@@ -388,6 +388,10 @@ export type CreateSalaryComponentInput = {
   isPercentage?: boolean;
   percentageOfBasic?: number | null;
   calculationType?: SalaryCalcTypeInput;
+  /** Statutory base cap for PERCENTAGE_OF_BASIC — e.g. EPF 12% on max ₹15,000. */
+  wageCap?: number | null;
+  /** Statutory eligibility ceiling — component only applies while basic ≤ this. */
+  wageCeiling?: number | null;
   unitType?: SalaryUnitTypeInput | null;
   unitLabel?: string | null;
   notes?: string | null;
@@ -473,6 +477,8 @@ export async function createSalaryComponent(
         isPercentage: calc.isPercentage,
         percentageOfBasic: input.percentageOfBasic != null ? new Prisma.Decimal(input.percentageOfBasic) : null,
         calculationType: calc.calculationType,
+        wageCap: input.wageCap != null ? new Prisma.Decimal(input.wageCap) : null,
+        wageCeiling: input.wageCeiling != null ? new Prisma.Decimal(input.wageCeiling) : null,
         unitType: calc.unitType,
         unitLabel: input.unitLabel ?? null,
         notes: input.notes ?? null,
@@ -484,6 +490,8 @@ export async function createSalaryComponent(
         isPercentage: calc.isPercentage,
         percentageOfBasic: input.percentageOfBasic != null ? new Prisma.Decimal(input.percentageOfBasic) : null,
         calculationType: calc.calculationType,
+        wageCap: input.wageCap != null ? new Prisma.Decimal(input.wageCap) : null,
+        wageCeiling: input.wageCeiling != null ? new Prisma.Decimal(input.wageCeiling) : null,
         unitType: calc.unitType,
         unitLabel: input.unitLabel ?? null,
         notes: input.notes ?? null,
@@ -510,6 +518,8 @@ export type UpdateSalaryComponentInput = {
   isPercentage?: boolean;
   percentageOfBasic?: number | null;
   calculationType?: SalaryCalcTypeInput;
+  wageCap?: number | null;
+  wageCeiling?: number | null;
   unitType?: SalaryUnitTypeInput | null;
   unitLabel?: string | null;
   notes?: string | null;
@@ -553,6 +563,8 @@ export async function updateSalaryComponent(
     if (input.frequency !== undefined) data.frequency = input.frequency;
     if (input.isDeduction !== undefined) data.isDeduction = input.isDeduction;
     if (input.percentageOfBasic !== undefined) data.percentageOfBasic = input.percentageOfBasic != null ? new Prisma.Decimal(input.percentageOfBasic) : null;
+    if (input.wageCap !== undefined) data.wageCap = input.wageCap != null ? new Prisma.Decimal(input.wageCap) : null;
+    if (input.wageCeiling !== undefined) data.wageCeiling = input.wageCeiling != null ? new Prisma.Decimal(input.wageCeiling) : null;
     if (input.unitLabel !== undefined) data.unitLabel = input.unitLabel ?? null;
     if (input.notes !== undefined) data.notes = input.notes ?? null;
     if (input.active !== undefined) data.active = input.active;

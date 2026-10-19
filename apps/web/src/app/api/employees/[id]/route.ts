@@ -129,6 +129,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     dailyRate: parsed.data.dailyRate,
     wageType: parsed.data.wageType,
     monthlySalary: parsed.data.monthlySalary,
+    overtimeMultiplier: parsed.data.overtimeMultiplier,
     designation: parsed.data.designation,
     departmentId: parsed.data.departmentId,
     joinDate: parsed.data.joinDate !== undefined ? (parsed.data.joinDate ? new Date(parsed.data.joinDate) : null) : undefined,

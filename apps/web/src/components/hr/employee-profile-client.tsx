@@ -55,6 +55,7 @@ export type EmployeeProfileData = {
   /** Wage amount — null when the viewer lacks payroll.manage|hr.manage. */
   dailyRate: number | null;
   monthlySalary: number | null;
+  overtimeMultiplier: number | null;
   joinDate: string | null;
   hierarchyLevel: number | null;
   active: boolean;
@@ -1929,6 +1930,8 @@ function SalaryStructureSection({ employeeId, canManage }: { employeeId: string;
   const [newFrequency, setNewFrequency] = useState("MONTHLY");
   const [newUnit, setNewUnit] = useState("KM");
   const [newUnitLabel, setNewUnitLabel] = useState("");
+  const [newWageCap, setNewWageCap] = useState("");
+  const [newWageCeiling, setNewWageCeiling] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -1960,12 +1963,14 @@ function SalaryStructureSection({ employeeId, canManage }: { employeeId: string;
       isPercentage: newCalc === "PERCENTAGE_OF_BASIC",
       percentageOfBasic: newCalc === "PERCENTAGE_OF_BASIC" ? Number(newPercentage) : null,
       calculationType: newCalc,
+      wageCap: newCalc === "PERCENTAGE_OF_BASIC" && newWageCap ? Number(newWageCap) : null,
+      wageCeiling: newWageCeiling ? Number(newWageCeiling) : null,
       unitType: newCalc === "UNIT_RATE" ? newUnit : null,
       unitLabel: newCalc === "UNIT_RATE" && newUnit === "CUSTOM" ? newUnitLabel.trim() : null,
       notes: null,
       active: true,
     }]);
-    setNewType(""); setNewAmount(""); setNewPercentage(""); setNewFrequency("MONTHLY"); setNewCalc("FIXED"); setNewUnit("KM"); setNewUnitLabel("");
+    setNewType(""); setNewAmount(""); setNewPercentage(""); setNewFrequency("MONTHLY"); setNewCalc("FIXED"); setNewUnit("KM"); setNewUnitLabel(""); setNewWageCap(""); setNewWageCeiling("");
   }
 
   async function handleSave() {
@@ -1980,6 +1985,7 @@ function SalaryStructureSection({ employeeId, canManage }: { employeeId: string;
             isDeduction: c.isDeduction, isPercentage: c.isPercentage,
             percentageOfBasic: c.percentageOfBasic,
             calculationType: compCalc(c), unitType: c.unitType ?? null,
+            wageCap: c.wageCap ?? null, wageCeiling: c.wageCeiling ?? null,
             unitLabel: c.unitLabel ?? null, notes: c.notes ?? null,
           })),
         }),
@@ -2075,6 +2081,12 @@ function SalaryStructureSection({ employeeId, canManage }: { employeeId: string;
                   <Input type="number" min={0} value={newPercentage} onChange={(e) => setNewPercentage(e.target.value)} placeholder="%" />
                 ) : (
                   <Input type="number" min={0} value={newAmount} onChange={(e) => setNewAmount(e.target.value)} placeholder="Amount ₹" />
+                )}
+                {newCalc === "PERCENTAGE_OF_BASIC" && (
+                  <Input type="number" min={0} value={newWageCap} onChange={(e) => setNewWageCap(e.target.value)} placeholder="Cap basic at ₹ (PF: 15000)" title="Statutory wage cap — percentage applies to the lower of basic and this amount" />
+                )}
+                {(newType === "EMPLOYEE_ESI" || newType === "EMPLOYER_ESI") && (
+                  <Input type="number" min={0} value={newWageCeiling} onChange={(e) => setNewWageCeiling(e.target.value)} placeholder="Skip if basic > ₹ (ESI: 21000)" title="Eligibility ceiling — component applies only while monthly basic stays under this amount" />
                 )}
                 {newCalc === "UNIT_RATE" && (
                   <>

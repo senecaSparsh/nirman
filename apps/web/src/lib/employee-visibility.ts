@@ -32,6 +32,7 @@
 export const EMPLOYEE_COMP_FIELDS = [
   "dailyRate",
   "monthlySalary",
+  "overtimeMultiplier",
   "payDay",
   "autoDepositEnabled",
   "autoDepositSetupAt",

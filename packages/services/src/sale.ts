@@ -134,17 +134,21 @@ export async function syncPaymentScheduleFromPayments(tx: Prisma.TransactionClie
 export function computePropertyTds(
   salePrice: Decimal,
   manualTds?: Decimal | string | number | null,
+  stampDutyValue?: Decimal | string | number | null,
 ): Decimal | null {
   if (manualTds != null) {
     return new Decimal(manualTds);
   }
-  // Section 194-IA threshold: ₹50,00,000
+  // Section 194-IA: 1% of consideration OR stamp duty value — whichever is
+  // higher (Finance Act 2022, effective 01.04.2022). No TDS only when BOTH
+  // the consideration and the stamp duty value are under ₹50,00,000.
   const THRESHOLD = new Decimal(5000000);
   const RATE = new Decimal(0.01); // 1%
-  if (salePrice.gte(THRESHOLD)) {
-    return salePrice.times(RATE).toDecimalPlaces(2);
+  const sdv = stampDutyValue != null ? new Decimal(stampDutyValue) : new Decimal(0);
+  if (salePrice.lt(THRESHOLD) && sdv.lt(THRESHOLD)) {
+    return null;
   }
-  return null;
+  return Decimal.max(salePrice, sdv).times(RATE).toDecimalPlaces(2);
 }
 
 async function generateSaleNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
@@ -182,6 +186,7 @@ export interface SellAssetInput {
   bbaDate?: string;             // ISO date
   // TDS tracking
   tdsAmount?: Decimal | number | string;
+  stampDutyValue?: Decimal | number | string; // circle-rate value — 194-IA base is max(price, this)
   tdsCertificateNo?: string;
   // Home loan tracking
   homeLoanBank?: string;
@@ -477,8 +482,10 @@ export async function sellAsset(input: SellAssetInput) {
           : input.bbaDocumentUrl
             ? new Date() // uploaded BBA at booking stamps the agreement date
             : null,
-        // TDS tracking — auto-compute 1% under Section 194-IA if sale ≥ ₹50L
-        tdsAmount: computePropertyTds(new Decimal(input.salePrice!), input.tdsAmount),
+        // TDS tracking — auto-compute 1% under Section 194-IA on the higher
+        // of sale price and stamp duty value if either crosses ₹50L.
+        stampDutyValue: input.stampDutyValue ? new Decimal(input.stampDutyValue) : null,
+        tdsAmount: computePropertyTds(new Decimal(input.salePrice!), input.tdsAmount, input.stampDutyValue),
         tdsCertificateNo: input.tdsCertificateNo ?? null,
         // Home loan tracking
         homeLoanBank: input.homeLoanBank ?? null,
@@ -1018,6 +1025,7 @@ export interface CompleteSaleInput {
   bbaNo?: string;
   bbaDate?: string;
   tdsAmount?: Decimal | number | string;
+  stampDutyValue?: Decimal | number | string; // circle-rate value — 194-IA base is max(price, this)
   tdsCertificateNo?: string;
   // Home loan details — often finalized at completion, not at booking
   homeLoanBank?: string;
@@ -1117,7 +1125,7 @@ export async function completeSale(input: CompleteSaleInput) {
 
     // Section 194-IA: the buyer deducts 1% and remits it to the government. That
     // deduction is a receivable (Form 26AS credit), not an open customer balance.
-    const tdsDeducted = computePropertyTds(sale.salePrice, input.tdsAmount);
+    const tdsDeducted = computePropertyTds(sale.salePrice, input.tdsAmount, input.stampDutyValue ?? sale.stampDutyValue);
     const tdsReceivable = tdsDeducted && tdsDeducted.gt(0) && remainingBalance.minus(finalPayment).eq(tdsDeducted)
       ? tdsDeducted
       : new Decimal(0);
@@ -1149,9 +1157,11 @@ export async function completeSale(input: CompleteSaleInput) {
         ...(input.allotmentDate ? { allotmentDate: new Date(input.allotmentDate) } : {}),
         ...(input.bbaNo ? { bbaNo: input.bbaNo } : {}),
         ...(input.bbaDate ? { bbaDate: new Date(input.bbaDate) } : {}),
-        // TDS — auto-compute if not manually provided at completion
+        // TDS — auto-compute if not manually provided at completion; the
+        // stamp duty value may arrive on this very call, so prefer the input.
+        ...(input.stampDutyValue ? { stampDutyValue: new Decimal(input.stampDutyValue) } : {}),
         ...(() => {
-          const tds = computePropertyTds(sale.salePrice, input.tdsAmount);
+          const tds = computePropertyTds(sale.salePrice, input.tdsAmount, input.stampDutyValue ?? sale.stampDutyValue);
           return tds != null ? { tdsAmount: tds } : {};
         })(),
         ...(input.tdsCertificateNo ? { tdsCertificateNo: input.tdsCertificateNo } : {}),
@@ -1657,6 +1667,7 @@ export interface UpdateSaleInput {
   bbaNo?: string | null;
   bbaDate?: string | null;
   tdsAmount?: Decimal | number | string | null;
+  stampDutyValue?: Decimal | number | string | null;
   tdsCertificateNo?: string | null;
   // Home loan
   homeLoanBank?: string | null;
@@ -1752,6 +1763,7 @@ export async function updateSale(input: UpdateSaleInput) {
     if (input.bbaNo !== undefined) data.bbaNo = input.bbaNo ?? null;
     if (input.bbaDate !== undefined) data.bbaDate = input.bbaDate ? new Date(input.bbaDate) : null;
     if (input.tdsAmount !== undefined) data.tdsAmount = input.tdsAmount != null ? new Decimal(input.tdsAmount) : null;
+    if (input.stampDutyValue !== undefined) data.stampDutyValue = input.stampDutyValue != null ? new Decimal(input.stampDutyValue) : null;
     if (input.tdsCertificateNo !== undefined) data.tdsCertificateNo = input.tdsCertificateNo ?? null;
     if (input.homeLoanBank !== undefined) data.homeLoanBank = input.homeLoanBank ?? null;
     if (input.homeLoanAmount !== undefined) data.homeLoanAmount = input.homeLoanAmount != null ? new Decimal(input.homeLoanAmount) : null;

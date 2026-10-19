@@ -114,6 +114,7 @@ async function EmployeesContent() {
     dailyRate: canSeePayroll ? toNum(e.dailyRate) : null,
     wageType: e.wageType,
     monthlySalary: canSeePayroll && e.monthlySalary ? toNum(e.monthlySalary) : null,
+    overtimeMultiplier: canSeePayroll && e.overtimeMultiplier ? toNum(e.overtimeMultiplier) : null,
     designation: e.designation,
     joinDate: e.joinDate?.toISOString() ?? null,
     crewId: e.crewId,

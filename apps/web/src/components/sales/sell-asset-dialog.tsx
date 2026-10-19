@@ -122,6 +122,7 @@ export function SellAssetDialog({
     customerId: initialCustomerId ?? "",
     salePrice: "",
     gstRate: "",
+    stampDutyValue: "",
     paymentMode: "BANK_TRANSFER",
     initialPayment: "",
     initialPaymentMode: "BANK_TRANSFER",
@@ -323,6 +324,7 @@ export function SellAssetDialog({
         salePrice: salePriceNum,
         gstRate: form.gstRate ? Number(form.gstRate) : 0,
         gstAmount: gstAmountNum,
+        stampDutyValue: form.stampDutyValue ? Number(form.stampDutyValue) : null,
         paymentMode: form.paymentMode,
         notes: form.notes.trim() || null,
         saleDeedNo: !form.isATS && form.saleDeedNo.trim() ? form.saleDeedNo.trim() : null,
@@ -586,6 +588,11 @@ export function SellAssetDialog({
               <div className="space-y-1.5">
                 <Label htmlFor="sa-gst">GST Rate (%)</Label>
                 <Input id="sa-gst" type="number" min="0" max="28" step="0.01" value={form.gstRate} onChange={(e) => set("gstRate", e.target.value)} placeholder="e.g. 1 or 5" />
+                <p className="text-[0.6875rem] text-muted-foreground">
+                  {form.assetType === "LAND"
+                    ? "Sale of bare land is outside GST — keep 0% (developed/plotted land may differ — confirm with your CA)."
+                    : "Under-construction residential: 5% (1% affordable — ≤90 sqm, ≤₹45L). Commercial: 12%."}
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label>GST Amount</Label>
@@ -593,6 +600,13 @@ export function SellAssetDialog({
                   {formatCurrency(gstAmountNum)}
                 </div>
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="sa-sdv">Stamp duty value / circle rate (optional)</Label>
+              <Input id="sa-sdv" type="number" min="0" step="1" value={form.stampDutyValue} onChange={(e) => set("stampDutyValue", e.target.value)} placeholder="Only if higher than sale price" />
+              <p className="text-[0.6875rem] text-muted-foreground">
+                TDS u/s 194-IA is 1% of the higher of sale price and stamp duty value — fill this if the circle rate is higher.
+              </p>
             </div>
             {salePriceNum > 0 && (
               <div className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2 text-body">

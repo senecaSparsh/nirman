@@ -16,10 +16,10 @@ export const SALARY_COMPONENT_OPTIONS = [
   { value: "LTA", label: "LTA (Leave Travel)", isDeduction: false },
   { value: "PERFORMANCE_BONUS", label: "Performance Bonus", isDeduction: false },
   { value: "JOINING_BONUS", label: "Joining Bonus", isDeduction: false },
-  { value: "EMPLOYER_PF", label: "Employer PF (12% of basic)", isDeduction: false },
-  { value: "EMPLOYEE_PF", label: "Employee PF (deducted)", isDeduction: true },
-  { value: "EMPLOYER_ESI", label: "Employer ESI (3.25%)", isDeduction: false },
-  { value: "EMPLOYEE_ESI", label: "Employee ESI (0.75%, deducted)", isDeduction: true },
+  { value: "EMPLOYER_PF", label: "Employer PF (12% of basic, capped ₹15k)", isDeduction: false },
+  { value: "EMPLOYEE_PF", label: "Employee PF (12% deducted, capped ₹15k)", isDeduction: true },
+  { value: "EMPLOYER_ESI", label: "Employer ESI (3.25%, wages ≤ ₹21k)", isDeduction: false },
+  { value: "EMPLOYEE_ESI", label: "Employee ESI (0.75% deducted, wages ≤ ₹21k)", isDeduction: true },
   { value: "GRATUITY", label: "Gratuity (4.81% of basic)", isDeduction: false },
   { value: "PROFESSION_TAX", label: "Profession Tax (deducted)", isDeduction: true },
   { value: "TDS", label: "TDS / Income Tax (deducted)", isDeduction: true },
@@ -55,6 +55,10 @@ export type SalaryComponentRow = {
   isPercentage: boolean;
   percentageOfBasic: number | null;
   calculationType: SalaryComponentCalc | null;
+  /** Statutory base cap for % components (EPF: min(basic, ₹15,000)). */
+  wageCap?: number | null;
+  /** Statutory eligibility ceiling (ESI: applies only if basic ≤ ₹21,000). */
+  wageCeiling?: number | null;
   unitType: string | null;
   unitLabel: string | null;
   notes: string | null;

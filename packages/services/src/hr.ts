@@ -623,6 +623,7 @@ export interface CreateEmployeeInput {
   dailyRate?: Decimal | number | string;
   wageType?: "DAILY" | "MONTHLY" | "FIXED";
   monthlySalary?: Decimal | number | string | null;
+  overtimeMultiplier?: Decimal | number | string | null;
   designation?: string;
   departmentId?: string | null;
   joinDate?: Date;
@@ -720,6 +721,7 @@ export async function createEmployee(input: CreateEmployeeInput) {
         dailyRate: input.dailyRate ?? 0,
         wageType: input.wageType ?? "DAILY",
         monthlySalary: input.monthlySalary ?? null,
+        overtimeMultiplier: input.overtimeMultiplier != null ? new Decimal(input.overtimeMultiplier) : null,
         designation: input.designation ?? null,
         departmentId: input.departmentId || null,
         joinDate: input.joinDate ?? null,
@@ -782,6 +784,7 @@ export interface UpdateEmployeeInput {
   dailyRate?: Decimal | number | string | null;
   wageType?: "DAILY" | "MONTHLY" | "FIXED";
   monthlySalary?: Decimal | number | string | null;
+  overtimeMultiplier?: Decimal | number | string | null;
   designation?: string | null;
   departmentId?: string | null;
   joinDate?: Date | null;
@@ -867,6 +870,7 @@ export async function updateEmployee(input: UpdateEmployeeInput) {
     if (input.dailyRate !== undefined) data.dailyRate = input.dailyRate ?? 0;
     if (input.wageType !== undefined) data.wageType = input.wageType;
     if (input.monthlySalary !== undefined) data.monthlySalary = input.monthlySalary ?? null;
+    if (input.overtimeMultiplier !== undefined) data.overtimeMultiplier = input.overtimeMultiplier != null ? new Decimal(input.overtimeMultiplier) : null;
     if (input.designation !== undefined) data.designation = input.designation ?? null;
     if (input.departmentId !== undefined) data.department = input.departmentId ? { connect: { id: input.departmentId } } : { disconnect: true };
     if (input.joinDate !== undefined) data.joinDate = input.joinDate;
@@ -1427,6 +1431,8 @@ type SalaryComponentRow = {
   calculationType: SalaryComponentCalcType;
   unitType: SalaryUnitType | null;
   unitLabel: string | null;
+  wageCap: Decimal | number | string | null;
+  wageCeiling: Decimal | number | string | null;
   notes: string | null;
 };
 
@@ -1489,10 +1495,19 @@ export function buildLineComponents(
     const rate = calc === "PERCENTAGE_OF_BASIC"
       ? new Decimal(c.percentageOfBasic ?? 0)
       : new Decimal(c.amount);
+    // Statutory eligibility ceiling — e.g. ESI applies only while the wage
+    // is ≤ ₹21,000/mo; an employee over the ceiling gets zero contribution.
+    if (c.wageCeiling != null && ctx.basicAmount.gt(c.wageCeiling)) continue;
     let quantity: Decimal | null = null;
     let amount: Decimal;
+    let lineNotes = c.notes;
     if (calc === "PERCENTAGE_OF_BASIC") {
-      amount = ctx.basicAmount.times(rate).div(100).toDecimalPlaces(2);
+      // Statutory base cap — e.g. EPF is 12% of min(basic, ₹15,000), not of
+      // the full basic. Without this, a ₹40k basic over-deducts ₹3,000/mo.
+      const capped = c.wageCap != null && ctx.basicAmount.gt(c.wageCap);
+      const wageBase = c.wageCap != null ? Decimal.min(ctx.basicAmount, new Decimal(c.wageCap)) : ctx.basicAmount;
+      amount = wageBase.times(rate).div(100).toDecimalPlaces(2);
+      if (capped) lineNotes = `${lineNotes ? lineNotes + " — " : ""}statutory: ${rate}% of ₹${c.wageCap} ceiling`;
     } else if (calc === "UNIT_RATE") {
       quantity = c.unitType === "DAY" ? ctx.daysWorked : new Decimal(0);
       amount = rate.times(quantity).toDecimalPlaces(2);
@@ -1512,7 +1527,7 @@ export function buildLineComponents(
       amount,
       bucket: bucketForComponent(c.type, c.isDeduction),
       isDeduction: c.isDeduction,
-      notes: c.notes,
+      notes: lineNotes,
     });
   }
   return rows;
@@ -1701,7 +1716,10 @@ export async function generatePayroll(input: GeneratePayrollInput) {
       }
       const otHours = computeOvertimeHours(attendances);
       const hr = hourlyRateFor(emp, workingDays);
-      const overtimeAmount = otHours.times(hr).times(OVERTIME_MULTIPLIER);
+      // Per-employee override — BOCW §29 entitles building workers to 2×;
+      // the 1.5× default is company policy for staff not covered by it.
+      const otMultiplier = emp.overtimeMultiplier != null ? new Decimal(emp.overtimeMultiplier) : new Decimal(OVERTIME_MULTIPLIER);
+      const overtimeAmount = otHours.times(hr).times(otMultiplier);
 
       // ── Itemized components from the employee's salary structure ──
       // Fixed/percentage/unit-rate components become PayrollLineComponent

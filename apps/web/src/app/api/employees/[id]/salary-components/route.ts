@@ -59,6 +59,8 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
       isPercentage: c.isPercentage,
       percentageOfBasic: c.percentageOfBasic ? toNum(c.percentageOfBasic) : null,
       calculationType: c.calculationType,
+      wageCap: c.wageCap ? toNum(c.wageCap) : null,
+      wageCeiling: c.wageCeiling ? toNum(c.wageCeiling) : null,
       unitType: c.unitType,
       unitLabel: c.unitLabel,
       notes: c.notes,

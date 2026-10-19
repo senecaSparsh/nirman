@@ -420,6 +420,10 @@ model Employee {
   // Wage structure — drives payroll computation (see hr.ts).
   wageType       WageType @default(DAILY)
   monthlySalary  Decimal? @db.Decimal(14,2) // set when wageType = MONTHLY/FIXED
+  // Overtime pay multiplier — null falls back to the 1.5× company default.
+  // BOCW Act §29 entitles building workers to 2× ordinary wages; set 2 for
+  // site labour covered by the Act, or higher per company policy.
+  overtimeMultiplier Decimal? @db.Decimal(4,2)
   designation    String?  // e.g. "Site Engineer", "Lead Mason", "Helper"
   departmentId  String?  // FK to Department — for department-based scoping
   joinDate       DateTime?
@@ -811,6 +815,13 @@ model SalaryComponent {
                                   // kept in sync: true iff calculationType = PERCENTAGE_OF_BASIC
   percentageOfBasic Decimal?      @db.Decimal(5, 2) // percentage value (e.g. 40.00 for 40%)
   calculationType SalaryComponentCalcType @default(FIXED) // FIXED | PERCENTAGE_OF_BASIC | UNIT_RATE
+  // Statutory wage rules for PERCENTAGE_OF_BASIC components:
+  //   wageCap     — percentage applies to min(basic, wageCap). EPF: 12% on
+  //                 max ₹15,000/month wage (EPF & MP Act Sch-I para 29).
+  //   wageCeiling — component applies only while basic ≤ ceiling. ESI: only
+  //                 for employees drawing ≤ ₹21,000/month (ESI Act s.2(9)).
+  wageCap     Decimal?            @db.Decimal(14, 2)
+  wageCeiling Decimal?            @db.Decimal(14, 2)
   unitType    SalaryUnitType?     // UNIT_RATE only: what the rate is priced per (DAY auto-fills from attendance)
   unitLabel   String?             // UNIT_RATE + unitType=CUSTOM: free-text unit (e.g. "bag", "shift")
   notes       String?             // e.g. "HDFC Ergo group mediclaim"
@@ -4124,6 +4135,9 @@ model AssetSale {
   salePrice     Decimal       @db.Decimal(14, 2)
   gstRate       Decimal       @default(0) @db.Decimal(5, 2) // GST % applied on sale (e.g. 1, 5, 18)
   gstAmount     Decimal       @default(0) @db.Decimal(14, 2) // computed GST = salePrice × gstRate / 100
+  // Stamp duty (circle-rate) value — Section 194-IA computes TDS on the
+  // HIGHER of sale consideration and stamp duty value (post-01.04.2022).
+  stampDutyValue Decimal?     @db.Decimal(14, 2)
   costBasis     Decimal       @default(0) @db.Decimal(14, 2) // acquisitionCost (land) or productionCost (unit) at time of sale
   profit        Decimal       @default(0) @db.Decimal(14, 2) // salePrice - costBasis
   saleDate      DateTime      @default(now())

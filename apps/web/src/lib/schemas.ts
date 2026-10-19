@@ -656,6 +656,7 @@ export const sellAssetSchema = z.object({
   bbaDate: z.string().optional().nullable(),
   // TDS tracking
   tdsAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  stampDutyValue: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
   tdsCertificateNo: z.string().max(200).optional().nullable(),
   // Home loan tracking
   homeLoanBank: z.string().max(200).optional().nullable(),
@@ -769,6 +770,7 @@ export const completeSaleSchema = z.object({
   bbaNo: z.string().max(200).optional().nullable(),
   bbaDate: z.string().optional().nullable(),
   tdsAmount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  stampDutyValue: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
   tdsCertificateNo: z.string().max(200).optional().nullable(),
   // Home loan details — often finalized at completion
   homeLoanBank: z.string().max(200).optional().nullable(),
@@ -1032,6 +1034,8 @@ export const salaryComponentInputSchema = z.object({
   isPercentage: z.boolean().optional(),
   percentageOfBasic: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nullable().optional(),
   calculationType: z.enum(["FIXED", "PERCENTAGE_OF_BASIC", "UNIT_RATE"]).optional(),
+  wageCap: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().nullable().optional(),
+  wageCeiling: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().nullable().optional(),
   unitType: z.enum(["DAY", "KM", "TRIP", "HOUR", "MONTH", "CUSTOM"]).nullable().optional(),
   unitLabel: z.string().max(40).nullable().optional(),
   notes: z.string().max(300).nullable().optional(),
@@ -1055,6 +1059,7 @@ export const employeeSchema = z.object({
   dailyRate: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative("Daily rate must be >= 0").optional().nullable(),
   wageType: z.enum(["DAILY", "MONTHLY", "FIXED"]).optional(),
   monthlySalary: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").nonnegative().optional().nullable(),
+  overtimeMultiplier: z.coerce.number().finite().min(0).max(10).optional().nullable(),
   designation: z.string().optional().nullable(),
   departmentId: z.string().optional().nullable(),
   joinDate: z.string().optional().nullable().refine((v) => !v || !isNaN(new Date(v).getTime()), "Invalid join date"),

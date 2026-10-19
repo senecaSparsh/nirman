@@ -29,6 +29,7 @@ export type EmployeeRow = {
   dailyRate: number | null;
   wageType: string;
   monthlySalary: number | null;
+  overtimeMultiplier: number | null;
   designation: string | null;
   joinDate: string | null;
   crewId: string | null;
@@ -547,6 +548,7 @@ function EmployeeFormDialog({
     wageType: employee?.wageType ?? "DAILY",
     dailyRate: employee?.dailyRate?.toString() ?? "",
     monthlySalary: employee?.monthlySalary?.toString() ?? "",
+    overtimeMultiplier: employee?.overtimeMultiplier?.toString() ?? "",
     crewId: employee?.crewId ?? "",
     activeProjectId: employee?.activeProjectId ?? "",
     joinDate: employee?.joinDate ? employee.joinDate.split("T")[0] : localDateISO(),
@@ -600,6 +602,7 @@ function EmployeeFormDialog({
       wageType: form.wageType,
       dailyRate: form.dailyRate ? parseFloat(form.dailyRate) : 0,
       monthlySalary: form.monthlySalary ? parseFloat(form.monthlySalary) : null,
+      overtimeMultiplier: form.overtimeMultiplier ? parseFloat(form.overtimeMultiplier) : null,
       crewId: form.crewId || null,
       activeProjectId: form.activeProjectId || null,
       joinDate: form.joinDate || null,
@@ -802,6 +805,11 @@ function EmployeeFormDialog({
             <div>
               <Label>Monthly Salary (₹)</Label>
               <Input type="number" min="0" step="0.01" value={form.monthlySalary} onChange={(e) => set("monthlySalary", e.target.value)} placeholder="For MONTHLY/FIXED" />
+            </div>
+            <div className="sm:col-span-2">
+              <Label>Overtime multiplier (×)</Label>
+              <Input type="number" min="1" max="10" step="0.5" value={form.overtimeMultiplier} onChange={(e) => set("overtimeMultiplier", e.target.value)} placeholder="Default 1.5" />
+              <p className="mt-1 text-[0.6875rem] text-muted-foreground">Leave blank for the 1.5× company default. Site labour covered by the BOCW Act are entitled to 2× ordinary wages — set 2 for them.</p>
             </div>
           </div>
         </div>
