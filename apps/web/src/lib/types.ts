@@ -969,6 +969,7 @@ export type ExpenseRow = {
   sgst: number;
   igst: number;
   tdsAmount: number;
+  tdsSection: string | null;
   supplierId: string | null;
   supplierName: string | null;
   payeeName: string | null;
@@ -1491,6 +1492,7 @@ export type ApprovalExpenseRow = {
   sgst: number;
   igst: number;
   tdsAmount: number;
+  tdsSection: string | null;
   projectName: string | null;
   payeeName: string | null;
   supplierName: string | null;

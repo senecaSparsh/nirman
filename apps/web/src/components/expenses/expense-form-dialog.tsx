@@ -15,6 +15,27 @@ import { localDateISO, formatCurrency, formatDate, cn } from "@/lib/utils";
 import { required, nonNegativeNumber } from "@/lib/validate";
 import { useInlineValidation, type ValidationRules } from "@/lib/use-inline-validation";
 
+/** Statutory TDS sections relevant to construction/real-estate expenses —
+ *  rates per the Income Tax Act (thresholds noted for the owner's eye). */
+const TDS_SECTION_RATES: Record<string, number> = {
+  "194C-1": 1,   // contractor — individual/HUF (₹30k single / ₹1L aggregate)
+  "194C-2": 2,   // contractor — firm/company
+  "194J-10": 10, // professional fees — architect, engineer, legal (₹30k/yr)
+  "194J-2": 2,   // technical services / call centre
+  "194I-10": 10, // rent — land & building (₹2.4L/yr)
+  "194I-2": 2,   // rent — plant & machinery
+  "194H": 2,     // commission & brokerage (₹20k/yr)
+};
+const TDS_SECTION_LABELS: Record<string, string> = {
+  "194C-1": "194C — Contractor (individual/HUF) · 1%",
+  "194C-2": "194C — Contractor (firm/company) · 2%",
+  "194J-10": "194J — Professional fees · 10%",
+  "194J-2": "194J — Technical services · 2%",
+  "194I-10": "194I — Rent (land/building) · 10%",
+  "194I-2": "194I — Rent (plant/machinery) · 2%",
+  "194H": "194H — Commission/brokerage · 2%",
+};
+
 const PAYMENT_MODES = ["CASH", "UPI", "NEFT", "BANK", "CHEQUE", "CREDIT"] as const;
 
 function todayISO() {
@@ -32,6 +53,7 @@ export interface ExpenseFormValues {
   sgst: number;
   igst: number;
   tdsAmount: number;
+  tdsSection?: string | null;
   supplierId: string | null;
   payeeName: string | null;
   paymentMode: string | null;
@@ -82,6 +104,7 @@ export function ExpenseFormDialog({
     sgst: "",
     igst: "",
     tdsAmount: "",
+    tdsSection: "",
     supplierId: "",
     payeeName: "",
     paymentMode: "",
@@ -127,6 +150,7 @@ export function ExpenseFormDialog({
         sgst: String(editing.sgst ?? ""),
         igst: String(editing.igst ?? ""),
         tdsAmount: String(editing.tdsAmount ?? ""),
+        tdsSection: editing.tdsSection ?? "",
         supplierId: editing.supplierId ?? "",
         payeeName: editing.payeeName ?? "",
         paymentMode: editing.paymentMode ?? "",
@@ -142,7 +166,7 @@ export function ExpenseFormDialog({
     } else if (open && !editing) {
       setForm({
         projectId: defaults?.projectId ?? "", categoryId: "", category: "", amount: "",
-        subtotal: "", cgst: "", sgst: "", igst: "", tdsAmount: "", supplierId: "",
+        subtotal: "", cgst: "", sgst: "", igst: "", tdsAmount: "", tdsSection: "", supplierId: "",
         payeeName: "", paymentMode: "", bankAccount: "", chequeNo: "", chequeDate: "",
         referenceNo: "", date: todayISO(), notes: "",
       });
@@ -208,6 +232,7 @@ export function ExpenseFormDialog({
         sgst: Number(form.sgst) || 0,
         igst: Number(form.igst) || 0,
         tdsAmount: Number(form.tdsAmount) || 0,
+        tdsSection: form.tdsSection || null,
         supplierId: form.supplierId || null,
         payeeName: form.payeeName.trim() || null,
         paymentMode: form.paymentMode || null,
@@ -334,7 +359,7 @@ export function ExpenseFormDialog({
 
         {/* Amount + GST breakdown */}
         <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-2">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="e-amount" className={errors.amount ? "text-danger" : undefined}>Total Amount *</Label>
               <Input id="e-amount" type="number" min="0" step="0.01" value={form.amount} onChange={(e) => set("amount", e.target.value)} onBlur={() => onBlur("amount", form)} aria-invalid={!!errors.amount} required disabled={isLocked} />
@@ -349,6 +374,26 @@ export function ExpenseFormDialog({
               <Label htmlFor="e-tds" className={errors.tdsAmount ? "text-danger" : undefined}>TDS Deducted</Label>
               <Input id="e-tds" type="number" min="0" step="0.01" value={form.tdsAmount} onChange={(e) => set("tdsAmount", e.target.value)} onBlur={() => onBlur("tdsAmount", form)} aria-invalid={!!errors.tdsAmount} disabled={isLocked} />
               {errors.tdsAmount && <p className="text-caption text-danger" role="alert">{errors.tdsAmount}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="e-tds-section">TDS Section</Label>
+              <Select
+                id="e-tds-section"
+                value={form.tdsSection}
+                disabled={isLocked}
+                onChange={(e) => {
+                  const sec = e.target.value;
+                  set("tdsSection", sec);
+                  const rate = TDS_SECTION_RATES[sec];
+                  // Auto-rate on the ex-GST base — TDS applies to the taxable
+                  // value, not the GST leg. Manual entry still wins if the
+                  // user types over the computed figure.
+                  if (rate != null) set("tdsAmount", ((computedSubtotal || amountNum) * rate / 100).toFixed(2));
+                }}
+              >
+                <option value="">— None / manual —</option>
+                {Object.entries(TDS_SECTION_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </Select>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-3">

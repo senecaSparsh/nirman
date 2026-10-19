@@ -352,6 +352,7 @@ async function ApprovalsContent() {
     sgst: toNum(e.sgst),
     igst: toNum(e.igst),
     tdsAmount: toNum(e.tdsAmount),
+    tdsSection: e.tdsSection,
     projectName: e.project?.name ?? null,
     payeeName: e.payeeName,
     supplierName: e.supplier?.name ?? null,

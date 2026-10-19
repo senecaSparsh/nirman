@@ -211,7 +211,7 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
     id: e.id, projectId: e.projectId, projectName: e.project?.name ?? null,
     categoryId: e.categoryId, categoryName: e.categoryMaster?.name ?? null, category: e.category,
     amount: toNum(e.amount), subtotal: toNum(e.subtotal), cgst: toNum(e.cgst), sgst: toNum(e.sgst), igst: toNum(e.igst),
-    tdsAmount: toNum(e.tdsAmount), supplierId: e.supplierId, supplierName: e.supplier?.name ?? null,
+    tdsAmount: toNum(e.tdsAmount), tdsSection: e.tdsSection, supplierId: e.supplierId, supplierName: e.supplier?.name ?? null,
     payeeName: e.payeeName, paymentMode: e.paymentMode, bankAccount: e.bankAccount,
     chequeNo: e.chequeNo, chequeDate: e.chequeDate?.toISOString() ?? null, chequePhotoUrl: e.chequePhotoUrl,
     referenceNo: e.referenceNo, receiptUrl: e.receiptUrl, status: e.status,

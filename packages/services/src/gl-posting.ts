@@ -1142,6 +1142,8 @@ export async function postExpense(
     gstTotal?: Decimal | number | string;
     /** TDS deducted. Defaults to 0. Credited to TDS Payable. */
     tdsAmount?: Decimal | number | string;
+    /** Which TDS section — lands on the JE memo for challan reconciliation. */
+    tdsSection?: string | null;
     /** GL expense account code for the subtotal. Defaults to 6000 Operating Expenses. */
     expenseAccountCode?: string;
     /** When true, credit Accounts Payable instead of Cash (vendor on credit). */
@@ -1166,7 +1168,7 @@ export async function postExpense(
     lines.push({ accountCode: ACCT.INPUT_GST, debit: gstTotal, credit: 0, entityType: "Expense", entityId: opts.expenseId });
   }
   if (tdsAmount.gt(0)) {
-    lines.push({ accountCode: ACCT.TDS_PAYABLE, debit: 0, credit: tdsAmount, entityType: "Expense", entityId: opts.expenseId });
+    lines.push({ accountCode: ACCT.TDS_PAYABLE, debit: 0, credit: tdsAmount, entityType: "Expense", entityId: opts.expenseId, memo: `TDS deducted${opts.tdsSection ? ` u/s ${opts.tdsSection.split("-")[0]}` : ""}` });
   }
   lines.push({ accountCode: creditAccount, debit: 0, credit: creditTotal, entityType: "Expense", entityId: opts.expenseId });
 

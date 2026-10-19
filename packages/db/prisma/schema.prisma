@@ -4478,6 +4478,7 @@ model Expense {
   sgst        Decimal  @default(0) @db.Decimal(14, 2)
   igst        Decimal  @default(0) @db.Decimal(14, 2)
   tdsAmount   Decimal  @default(0) @db.Decimal(14, 2)
+  tdsSection  String?  // "194C" | "194J" | "194I" | "194H" — which TDS section the deduction was made under
   // Payee / vendor
   supplierId  String?
   payeeName   String?  // free-text payee for non-supplier (electricity board, etc.)

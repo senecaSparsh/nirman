@@ -92,6 +92,7 @@ export function ExpensesView({
       sgst: e.sgst,
       igst: e.igst,
       tdsAmount: e.tdsAmount,
+      tdsSection: e.tdsSection,
       supplierId: e.supplierId,
       payeeName: e.payeeName,
       paymentMode: e.paymentMode,
@@ -465,6 +466,7 @@ const expenseColumns: Column<ExpenseRow>[] = [
         <div className="text-right">
           <span className="tnum font-semibold text-foreground">{formatCurrency(e.amount)}</span>
           {gst > 0 && <div className="text-caption text-muted-foreground tnum">incl. {formatCurrency(gst)} GST</div>}
+          {e.tdsAmount > 0 && <div className="text-caption text-muted-foreground tnum">TDS {formatCurrency(e.tdsAmount)}{e.tdsSection ? ` · ${e.tdsSection.split("-")[0]}` : ""}</div>}
         </div>
       );
     },

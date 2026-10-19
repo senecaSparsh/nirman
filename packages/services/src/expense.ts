@@ -30,6 +30,7 @@ export interface CreateExpenseInput {
   sgst?: Decimal | number | string;
   igst?: Decimal | number | string;
   tdsAmount?: Decimal | number | string;
+  tdsSection?: string | null; // "194C" | "194J" | "194I" | "194H" — goes on the JE memo so the challan reconciliation knows which section was deducted
   supplierId?: string | null;
   payeeName?: string | null;
   paymentMode?: string | null;
@@ -116,6 +117,7 @@ export async function createExpense(input: CreateExpenseInput) {
         sgst,
         igst,
         tdsAmount,
+        tdsSection: input.tdsSection ?? null,
         supplierId: input.supplierId ?? null,
         payeeName: input.payeeName ?? null,
         paymentMode: input.paymentMode ?? null,
@@ -177,6 +179,7 @@ export interface UpdateExpenseInput {
   sgst?: Decimal | number | string;
   igst?: Decimal | number | string;
   tdsAmount?: Decimal | number | string;
+  tdsSection?: string | null;
   supplierId?: string | null;
   payeeName?: string | null;
   paymentMode?: string | null;
@@ -234,6 +237,7 @@ export async function updateExpense(expenseId: string, input: UpdateExpenseInput
       if (tds.gt(newAmount)) throw new ServiceError("TDS cannot exceed the expense amount — the credit leg would go negative", 400);
       data.tdsAmount = tds;
     }
+    if (input.tdsSection !== undefined) data.tdsSection = input.tdsSection ?? null;
     for (const key of ["subtotal", "cgst", "sgst", "igst"] as const) {
       if (input[key] !== undefined && new Decimal(input[key]!).lt(0)) {
         throw new ServiceError(`Expense ${key} cannot be negative`, 400);
@@ -361,6 +365,7 @@ export async function approveExpense(
       subtotal,
       gstTotal: gstTotal.gt(0) ? gstTotal : undefined,
       tdsAmount: (existing.tdsAmount ?? 0).gt(0) ? existing.tdsAmount : undefined,
+      tdsSection: existing.tdsSection,
       expenseAccountCode,
       payViaAp,
       postedById: userId,
