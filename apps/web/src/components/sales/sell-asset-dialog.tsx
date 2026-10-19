@@ -777,6 +777,11 @@ export function SellAssetDialog({
                   <div className="space-y-1.5">
                     <Label htmlFor="sa-commission">Commission Amount</Label>
                     <Input id="sa-commission" type="number" min="0" step="0.01" value={form.commissionAmount} onChange={(e) => set("commissionAmount", e.target.value)} placeholder="0" />
+                    {commissionNum >= 20000 && (
+                      <p className="text-[0.6875rem] text-muted-foreground">
+                        TDS u/s 194H: 2% = {formatCurrency(commissionNum * 0.02)} deducted — broker gets {formatCurrency(commissionNum * 0.98)}.
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-1.5 pt-6">
                     <label className="flex items-center gap-2 text-caption text-muted-foreground cursor-pointer">

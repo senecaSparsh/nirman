@@ -1705,6 +1705,10 @@ model Supplier {
   email       String?
   address     String?
   balanceOwed Decimal  @default(0) @db.Decimal(14, 2)
+  // MSME registration — Section 43B(h) disallows deductions for dues unpaid
+  // beyond 45 days (15 without a written agreement) to an MSME supplier.
+  isMsme      Boolean  @default(false)
+  udyamNo     String?  // Udyam registration number — proof of MSME status
   leadTimeDays Int?    // average vendor lead time in days — LCI input (S_lead)
   // Optimistic locking — see Material.version comment
   version     Int      @default(0)
@@ -4138,6 +4142,10 @@ model AssetSale {
   // Stamp duty (circle-rate) value — Section 194-IA computes TDS on the
   // HIGHER of sale consideration and stamp duty value (post-01.04.2022).
   stampDutyValue Decimal?     @db.Decimal(14, 2)
+  // Section 194H — 2% TDS on commission ≥ ₹20k/yr per broker (post-01.10.2024
+  // rate; pre-Oct-2024 was 5%). Stored so payBrokerCommission settles the
+  // NET payable and the deducted slice sits in TDS Payable until remitted.
+  commissionTds  Decimal?     @db.Decimal(14, 2)
   costBasis     Decimal       @default(0) @db.Decimal(14, 2) // acquisitionCost (land) or productionCost (unit) at time of sale
   profit        Decimal       @default(0) @db.Decimal(14, 2) // salePrice - costBasis
   saleDate      DateTime      @default(now())

@@ -121,6 +121,9 @@ export const supplierSchema = z.object({
   email: z.string().max(120).optional().nullable(),
   address: z.string().max(500).optional().nullable(),
   leadTimeDays: z.coerce.number().int().min(0).optional().nullable(),
+  // MSME flag — Section 43B(h) makes >45-day dues to an MSME non-deductible.
+  isMsme: z.boolean().optional(),
+  udyamNo: z.string().max(30).optional().nullable(),
   // Go-live payable — unpaid bills carried in from before the system.
   // Sets balanceOwed + posts Dr Opening Equity / Cr AP in the same tx so
   // the trial balance and the supplier ledger can't diverge.

@@ -2412,11 +2412,18 @@ export async function postBrokerCommission(
     companyId: string;
     assetSaleId: string;
     amount: Decimal | number | string;
+    /** Section 194H TDS on the commission (2% ≥ ₹20k/yr per payee). When
+     *  present the payable splits: broker gets amount−tds, TDS Payable holds
+     *  the deducted slice until the company deposits it. */
+    tdsAmount?: Decimal | number | string | null;
     postedById?: string;
   },
 ) {
   const amount = new Decimal(opts.amount);
   if (amount.isZero() || amount.isNegative()) return null;
+  const tds = opts.tdsAmount != null ? new Decimal(opts.tdsAmount) : new Decimal(0);
+  const netPayable = amount.minus(tds);
+  if (netPayable.isNegative()) throw new ServiceError("Commission TDS exceeds the commission", 400);
 
   return postJournalEntry(tx, {
     companyId: opts.companyId,
@@ -2426,7 +2433,8 @@ export async function postBrokerCommission(
     postedById: opts.postedById,
     lines: [
       { accountCode: ACCT.BROKERAGE_EXPENSE, debit: amount, credit: 0, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Broker commission expense" },
-      { accountCode: ACCT.BROKER_PAYABLE, debit: 0, credit: amount, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Commission payable to broker" },
+      { accountCode: ACCT.BROKER_PAYABLE, debit: 0, credit: netPayable, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Commission payable to broker (net of TDS)" },
+      ...(tds.gt(0) ? [{ accountCode: ACCT.TDS_PAYABLE, debit: 0, credit: tds, entityType: "AssetSale" as const, entityId: opts.assetSaleId, memo: "TDS u/s 194H deducted on commission" }] : []),
     ],
   });
 }

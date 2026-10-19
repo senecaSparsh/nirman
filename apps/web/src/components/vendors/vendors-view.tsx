@@ -28,6 +28,9 @@ export type VendorRow = {
   email: string | null;
   address: string | null;
   balanceOwed: number;
+  isMsme: boolean;
+  udyamNo: string | null;
+  msmeDaysOutstanding: number | null;
   leadTimeDays: number | null;
   totalPOs: number;
   openPOs: number;
@@ -67,6 +70,8 @@ export function VendorsView({
   const [fAddress, setFAddress] = useState("");
   const [fLeadTime, setFLeadTime] = useState("");
   const [fOpeningBalance, setFOpeningBalance] = useState("");
+  const [fIsMsme, setFIsMsme] = useState(false);
+  const [fUdyamNo, setFUdyamNo] = useState("");
 
   // SupplierPaymentFormDialog speaks SupplierRow — map the vendor rows down.
   const supplierOptions = useMemo<SupplierRow[]>(
@@ -88,13 +93,13 @@ export function VendorsView({
 
   function openCreate() {
     setEditTarget(null);
-    setFName(""); setFGstin(""); setFPhone(""); setFEmail(""); setFAddress(""); setFLeadTime(""); setFOpeningBalance("");
+    setFName(""); setFGstin(""); setFPhone(""); setFEmail(""); setFAddress(""); setFLeadTime(""); setFOpeningBalance(""); setFIsMsme(false); setFUdyamNo("");
     setFormOpen(true);
   }
 
   function openEdit(v: VendorRow) {
     setEditTarget(v);
-    setFName(v.name); setFGstin(v.gstin ?? ""); setFPhone(v.phone ?? ""); setFEmail(v.email ?? ""); setFAddress(v.address ?? ""); setFLeadTime(v.leadTimeDays != null ? String(v.leadTimeDays) : ""); setFOpeningBalance("");
+    setFName(v.name); setFGstin(v.gstin ?? ""); setFPhone(v.phone ?? ""); setFEmail(v.email ?? ""); setFAddress(v.address ?? ""); setFLeadTime(v.leadTimeDays != null ? String(v.leadTimeDays) : ""); setFOpeningBalance(""); setFIsMsme(v.isMsme); setFUdyamNo(v.udyamNo ?? "");
     setFormOpen(true);
   }
 
@@ -109,6 +114,8 @@ export function VendorsView({
         email: fEmail || null,
         address: fAddress || null,
         leadTimeDays: fLeadTime ? Number(fLeadTime) : null,
+        isMsme: fIsMsme,
+        udyamNo: fUdyamNo.trim() || null,
         ...(fOpeningBalance && Number(fOpeningBalance) > 0 ? { openingBalance: Number(fOpeningBalance) } : {}),
       };
       const res = editTarget
@@ -244,13 +251,25 @@ export function VendorsView({
                     sortable: true,
                     width: "260px",
                     render: (v) => (
-                      <IdentityCell
-                        name={v.name}
-                        sub={v.gstin ? `GSTIN ${v.gstin}` : (v.address ?? "No GSTIN on file")}
-                        /* Amber = we still owe them, green = settled. Same
-                           status map as every pill in the app. */
-                        dot={statusColor(v.balanceOwed > 0 ? "PENDING" : "PAID")}
-                      />
+                      <div>
+                        <IdentityCell
+                          name={v.name}
+                          sub={v.gstin ? `GSTIN ${v.gstin}` : (v.address ?? "No GSTIN on file")}
+                          /* Amber = we still owe them, green = settled. Same
+                             status map as every pill in the app. */
+                          dot={statusColor(v.balanceOwed > 0 ? "PENDING" : "PAID")}
+                        />
+                        {v.isMsme && (
+                          <span
+                            className={`ml-9 inline-flex items-center rounded px-1.5 py-0.5 text-[0.625rem] font-medium ${v.msmeDaysOutstanding != null && v.msmeDaysOutstanding > 45 ? "bg-danger/10 text-danger" : "bg-info/10 text-info"}`}
+                            title={v.msmeDaysOutstanding != null && v.msmeDaysOutstanding > 45
+                              ? `Unpaid ${v.msmeDaysOutstanding} days — past the 45-day 43B(h) limit; this payable is not tax-deductible.`
+                              : "MSME-registered — dues must clear within 45 days (Section 43B(h))"}
+                          >
+                            MSME{v.msmeDaysOutstanding != null && v.msmeDaysOutstanding > 45 ? ` · ${v.msmeDaysOutstanding}d overdue` : ""}
+                          </span>
+                        )}
+                      </div>
                     ),
                   },
                   {
@@ -423,6 +442,19 @@ export function VendorsView({
               <Input type="email" value={fEmail} onChange={(e) => setFEmail(e.target.value)} placeholder="Optional" />
             </div>
           </div>
+          <div className="flex items-center gap-3 rounded-md border border-border px-3 py-2">
+            <input type="checkbox" id="v-msme" checked={fIsMsme} onChange={(e) => setFIsMsme(e.target.checked)} className="rounded" />
+            <div>
+              <Label htmlFor="v-msme" className="cursor-pointer">MSME-registered supplier</Label>
+              <p className="text-[0.6875rem] text-muted-foreground">43B(h): unpaid MSME dues over 45 days lose their tax deduction.</p>
+            </div>
+          </div>
+          {fIsMsme && (
+            <div>
+              <Label>Udyam Registration No.</Label>
+              <Input value={fUdyamNo} onChange={(e) => setFUdyamNo(e.target.value)} placeholder="UDYAM-XX-00-0000000" />
+            </div>
+          )}
           <div>
             <Label>Address</Label>
             <Textarea value={fAddress} onChange={(e) => setFAddress(e.target.value)} rows={2} />

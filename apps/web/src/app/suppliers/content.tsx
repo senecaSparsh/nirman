@@ -26,7 +26,7 @@ export async function VendorsContent() {
 
   const OPEN_PO_STATUSES = ["DRAFT", "APPROVED", "ORDERED", "PARTIAL"] as const;
 
-  const [suppliers, poAgg] = await Promise.all([
+  const [suppliers, poAgg, poAgg2] = await Promise.all([
     prisma.supplier.findMany({
       take: LIST_CAP + 1,
       where: { deletedAt: null, companyId: company.id },
@@ -60,9 +60,17 @@ export async function VendorsContent() {
       _count: true,
       _sum: { total: true },
     }),
+    // Oldest unpaid invoice per supplier — drives the 43B(h) 45-day flag on
+    // MSME vendors (dues unpaid past 45 days lose their deduction).
+    prisma.supplierInvoice.groupBy({
+      by: ["supplierId"],
+      where: { companyId: company.id, status: { in: ["PENDING", "MATCHED", "DISPUTED", "APPROVED"] } },
+      _min: { invoiceDate: true },
+    }),
   ]);
   const { rows: supplierRows, capped } = applyCap(suppliers);
   const cappedLabels = capped ? ["vendors"] : [];
+  const oldestUnpaid = new Map(poAgg2.map((g) => [g.supplierId, g._min.invoiceDate]));
 
   // status buckets per supplier: { supplierId: { total, openCount } }
   const poAggMap = new Map<string, { total: number; openCount: number }>();
@@ -86,6 +94,13 @@ export async function VendorsContent() {
       email: s.email,
       address: s.address,
       balanceOwed: toNum(s.balanceOwed),
+      isMsme: s.isMsme,
+      udyamNo: s.udyamNo,
+      // Days since the oldest unpaid invoice — the 43B(h) 45-day clock.
+      msmeDaysOutstanding: s.isMsme && oldestUnpaid.get(s.id)
+        // eslint-disable-next-line react-hooks/purity -- server component, Date.now() is fine
+        ? Math.floor((Date.now() - oldestUnpaid.get(s.id)!.getTime()) / 86400000)
+        : null,
       leadTimeDays: s.leadTimeDays,
       totalPOs: s._count.purchaseOrders,
       openPOs,

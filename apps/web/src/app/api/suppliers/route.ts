@@ -83,6 +83,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
       balanceOwed: toNum(s.balanceOwed),
       openPOs: s._count.purchaseOrders,
       leadTimeDays: s.leadTimeDays,
+      isMsme: s.isMsme,
+      udyamNo: s.udyamNo,
     })),
   );
 });

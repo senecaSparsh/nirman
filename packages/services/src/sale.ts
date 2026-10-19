@@ -151,6 +151,25 @@ export function computePropertyTds(
   return Decimal.max(salePrice, sdv).times(RATE).toDecimalPlaces(2);
 }
 
+/**
+ * Section 194H — TDS on commission paid to a resident broker: 2% when the
+ * FY aggregate for that payee crosses ₹20,000 (rate from 01.10.2024;
+ * threshold from 01.04.2025). We can't see the broker's annual total, so the
+ * pragmatic trigger is this sale's commission — brokers almost always cross
+ * ₹20k on a single property deal. Returns null below the floor; the caller
+ * may still override with an explicit figure.
+ */
+export function computeBrokerCommissionTds(
+  commission: Decimal,
+  manualTds?: Decimal | string | number | null,
+): Decimal | null {
+  if (manualTds != null) return new Decimal(manualTds);
+  if (commission.gte(new Decimal(20000))) {
+    return commission.times("0.02").toDecimalPlaces(2);
+  }
+  return null;
+}
+
 async function generateSaleNumber(tx: Prisma.TransactionClient, companyId: string): Promise<string> {
   const d = new Date();
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
@@ -202,6 +221,7 @@ export interface SellAssetInput {
   terms?: SaleTermInput[];
   // ── Broker / deal source ──
   dealSource?: "SELF" | "BROKER";
+  commissionTds?: Decimal | number | string | null; // manual 194H override
   brokerId?: string;
   brokerName?: string;
   brokerPhone?: string;
@@ -502,6 +522,9 @@ export async function sellAsset(input: SellAssetInput) {
         brokerName: input.brokerName ?? null,
         brokerPhone: input.brokerPhone ?? null,
         commissionAmount: input.commissionAmount ? new Decimal(input.commissionAmount) : null,
+        commissionTds: input.commissionAmount && input.dealSource === "BROKER"
+          ? computeBrokerCommissionTds(new Decimal(input.commissionAmount), input.commissionTds)
+          : null,
         commissionIsPartOfDeal: input.commissionIsPartOfDeal ?? false,
         // Salesperson attribution — the column existed but was never written,
         // so "my deals" views had nothing to key on.
@@ -584,10 +607,12 @@ export async function sellAsset(input: SellAssetInput) {
     if (input.dealSource === "BROKER" && input.commissionAmount) {
       const commission = new Decimal(input.commissionAmount);
       if (commission.gt(0)) {
+        const tds = computeBrokerCommissionTds(commission, input.commissionTds);
         await postBrokerCommission(tx, {
           companyId,
           assetSaleId: sale.id,
           amount: commission,
+          tdsAmount: tds,
           postedById: input.userId,
         });
       }
@@ -1679,6 +1704,7 @@ export interface UpdateSaleInput {
   brokerPhone?: string | null;
   brokerAgency?: string | null;
   commissionAmount?: Decimal | number | string | null;
+  commissionTds?: Decimal | number | string | null;
   // Deal terms
   expectedRegistryDate?: string | null;
   dealMaturityMonths?: number | null;
@@ -1773,7 +1799,36 @@ export async function updateSale(input: UpdateSaleInput) {
     if (input.brokerPhone !== undefined) data.brokerPhone = input.brokerPhone ?? null;
     // brokerAgency is derived from the Broker master record (s.broker.agency),
     // not a direct field on AssetSale — not editable here.
-    if (input.commissionAmount !== undefined) data.commissionAmount = input.commissionAmount != null ? new Decimal(input.commissionAmount) : null;
+    if (input.commissionAmount !== undefined) {
+      data.commissionAmount = input.commissionAmount != null ? new Decimal(input.commissionAmount) : null;
+      // The accrual must track the field — a commission added or revised
+      // after booking used to skip the books entirely. Once paid, the JE is
+      // settled history: block the edit rather than orphan a paid payable.
+      if (sale.dealSource === "BROKER") {
+        if (sale.commissionPaid) {
+          throw new ServiceError("Commission already paid — the amount can't change; adjust via journal voucher", 400);
+        }
+        const existingAccrual = await tx.journalEntry.findFirst({
+          where: { sourceType: "BROKER_COMMISSION", sourceId: input.saleId, status: "POSTED" },
+          select: { id: true },
+        });
+        if (existingAccrual) {
+          const prior = await tx.journalEntry.findFirst({ where: { reversalOfId: existingAccrual.id }, select: { id: true } });
+          if (!prior) await reverseJournalEntry(tx, existingAccrual.id, { postedById: input.userId, memo: "Broker commission revised" });
+        }
+        const newAmt = input.commissionAmount != null ? new Decimal(input.commissionAmount) : null;
+        if (newAmt && newAmt.gt(0)) {
+          const tds = computeBrokerCommissionTds(newAmt, input.commissionTds);
+          data.commissionTds = tds;
+          await postBrokerCommission(tx, { companyId: sale.companyId, assetSaleId: input.saleId, amount: newAmt, tdsAmount: tds, postedById: input.userId });
+        } else {
+          data.commissionTds = null;
+        }
+      }
+    }
+    if (input.commissionTds !== undefined && input.commissionAmount === undefined) {
+      data.commissionTds = input.commissionTds != null ? new Decimal(input.commissionTds) : null;
+    }
     if (input.expectedRegistryDate !== undefined) data.expectedRegistryDate = input.expectedRegistryDate ? new Date(input.expectedRegistryDate) : null;
     if (input.dealMaturityMonths !== undefined) data.dealMaturityMonths = input.dealMaturityMonths;
     if (input.paymentCycle !== undefined) data.paymentCycle = input.paymentCycle ?? null;
@@ -2334,11 +2389,16 @@ export async function payBrokerCommission(saleId: string, userId?: string) {
     }
 
     const amount = new Decimal(sale.commissionAmount);
+    // Net of 194H TDS — the deducted slice stays in TDS Payable until the
+    // company deposits it with the IT department; the broker gets the rest.
+    const tds = new Decimal(sale.commissionTds ?? 0);
+    const netPayable = amount.minus(tds);
+    if (netPayable.isNegative()) throw new ServiceError("Commission TDS exceeds the commission", 400);
 
     await postBrokerCommissionPaid(tx, {
       companyId: sale.companyId,
       assetSaleId: saleId,
-      amount,
+      amount: netPayable,
       postedById: userId,
     });
 

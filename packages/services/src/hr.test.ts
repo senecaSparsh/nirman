@@ -297,19 +297,19 @@ describe("buildLineComponents statutory wage rules", () => {
 
   it("EPF caps the basic at ₹15,000 — 12% of a ₹40k basic is ₹1,800 not ₹4,800", () => {
     const rows = buildLineComponents([{ ...base, wageCap: 15000, wageCeiling: null }], { basicAmount: new Decimal(40000), daysWorked: new Decimal(26), wageType: "MONTHLY" });
-    expect(rows[0].amount.toNumber()).toBe(1800);
-    expect(rows[0].notes).toContain("statutory");
+    expect(rows[0]!.amount.toNumber()).toBe(1800);
+    expect(rows[0]!.notes).toContain("statutory");
   });
 
   it("uncapped basic below the ceiling uses the full base", () => {
     const rows = buildLineComponents([{ ...base, wageCap: 15000, wageCeiling: null }], { basicAmount: new Decimal(12000), daysWorked: new Decimal(26), wageType: "MONTHLY" });
-    expect(rows[0].amount.toNumber()).toBe(1440);
+    expect(rows[0]!.amount.toNumber()).toBe(1440);
   });
 
   it("ESI eligibility ceiling drops the component entirely when basic exceeds ₹21,000", () => {
     const esi = { type: "EMPLOYEE_ESI", amount: 0, frequency: "MONTHLY", isDeduction: true, isPercentage: true, percentageOfBasic: 0.75, calculationType: "PERCENTAGE_OF_BASIC", unitType: null, unitLabel: null, wageCap: null, wageCeiling: 21000, notes: null } as const;
     expect(buildLineComponents([esi], { basicAmount: new Decimal(25000), daysWorked: new Decimal(26), wageType: "MONTHLY" })).toHaveLength(0);
     const under = buildLineComponents([esi], { basicAmount: new Decimal(20000), daysWorked: new Decimal(26), wageType: "MONTHLY" });
-    expect(under[0].amount.toNumber()).toBe(150);
+    expect(under[0]!.amount.toNumber()).toBe(150);
   });
 });
