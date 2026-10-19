@@ -683,6 +683,8 @@ export async function setSalaryComponents(
             isPercentage: calc.isPercentage,
             percentageOfBasic: c.percentageOfBasic != null ? new Prisma.Decimal(c.percentageOfBasic) : null,
             calculationType: calc.calculationType,
+            wageCap: c.wageCap != null ? new Prisma.Decimal(c.wageCap) : null,
+            wageCeiling: c.wageCeiling != null ? new Prisma.Decimal(c.wageCeiling) : null,
             unitType: calc.unitType,
             unitLabel: c.unitLabel ?? null,
             notes: c.notes ?? null,
