@@ -140,8 +140,14 @@ export function BbaPipelineBoard({
     const totalCollected = filtered.reduce((s, x) => s + toNum(x.totalPaid), 0);
     const totalOutstanding = filtered.reduce((s, x) => s + toNum(x.balanceDue), 0);
     const isBbaSigned = (s: AssetSaleRow) => Boolean(s.bbaNo) || Boolean(s.bbaDocumentUrl);
-    const bbaDone = filtered.filter(isBbaSigned).length;
-    const bbaPending = filtered.filter((s) => !isBbaSigned(s)).length;
+    // BBA is a unit-sale instrument — standalone land conveyance is ATS +
+    // sale deed, so land rows and finished/cancelled sales must not count as
+    // "BBA pending" or the stat card nags about paperwork that isn't owed.
+    const bbaRelevant = filtered.filter(
+      (s) => s.assetType === "BUILT_UNIT" && s.saleStage !== "COMPLETED" && s.saleStage !== "CANCELLED" && s.status !== "CANCELLED",
+    );
+    const bbaDone = bbaRelevant.filter(isBbaSigned).length;
+    const bbaPending = bbaRelevant.filter((s) => !isBbaSigned(s)).length;
     const overduePayments = filtered.filter(
       (s) => s.balanceDue > 0 && s.paymentSchedule?.items.some((i) => i.status === "DUE"),
     ).length;
@@ -371,16 +377,19 @@ function BbaSaleCard({
         </div>
       )}
 
-      {/* Footer: BBA badge + broker */}
+      {/* Footer: BBA badge + broker — only unit sales owe a BBA; completed
+          and cancelled deals, and standalone land, skip the nag. */}
       <div className="mt-2 flex items-center gap-1.5">
-        {sale.bbaNo || sale.bbaDocumentUrl ? (
-          <span className="inline-flex items-center gap-1 rounded bg-success/10 px-1.5 py-0.5 text-micro font-medium text-success">
-            <FileText className="h-2.5 w-2.5" /> BBA
-          </span>
-        ) : (
-          <span className="inline-flex items-center gap-1 rounded bg-warning/10 px-1.5 py-0.5 text-micro font-medium text-warning">
-            <FileText className="h-2.5 w-2.5" /> BBA pending
-          </span>
+        {sale.assetType === "BUILT_UNIT" && sale.saleStage !== "COMPLETED" && sale.saleStage !== "CANCELLED" && sale.status !== "CANCELLED" && (
+          sale.bbaNo || sale.bbaDocumentUrl ? (
+            <span className="inline-flex items-center gap-1 rounded bg-success/10 px-1.5 py-0.5 text-micro font-medium text-success">
+              <FileText className="h-2.5 w-2.5" /> BBA
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded bg-warning/10 px-1.5 py-0.5 text-micro font-medium text-warning">
+              <FileText className="h-2.5 w-2.5" /> BBA pending
+            </span>
+          )
         )}
         {sale.dealSource === "BROKER" && (
           <span className="inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5 text-micro text-muted-foreground">

@@ -44,8 +44,10 @@ export function CustomerDetailDialog({
     const totalValue = customerSales.reduce((s, x) => s + toNum(x.salePrice) + toNum(x.gstAmount), 0);
     const totalPaid = customerSales.reduce((s, x) => s + toNum(x.totalPaid), 0);
     const outstanding = customerSales.reduce((s, x) => s + toNum(x.balanceDue), 0);
-    const bbaDone = customerSales.filter((s) => s.bbaNo).length;
-    const bbaPending = customerSales.filter((s) => !s.bbaNo).length;
+    // BBA applies to unit sales only — land deals go ATS → deed directly.
+    const bbaUnitSales = customerSales.filter((s) => s.assetType === "BUILT_UNIT" && s.saleStage !== "COMPLETED");
+    const bbaDone = bbaUnitSales.filter((s) => s.bbaNo).length;
+    const bbaPending = bbaUnitSales.filter((s) => !s.bbaNo).length;
     return { totalValue, totalPaid, outstanding, bbaDone, bbaPending };
   }, [customerSales]);
 
