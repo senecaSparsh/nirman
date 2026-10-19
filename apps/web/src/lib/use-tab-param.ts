@@ -1,7 +1,8 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import { toast } from "sonner";
 
 /**
  * ═══════════════════════════════════════════════════════════════════
@@ -59,6 +60,17 @@ export function useTabParam<T extends string>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [raw, fallback, allowedKey],
   );
+
+  // A bad deep-link should say so — silently landing on the default tab
+  // leaves people hunting for a tab that doesn't exist.
+  const notifiedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (raw && !(allowed as readonly string[]).includes(raw) && notifiedRef.current !== raw) {
+      notifiedRef.current = raw;
+      toast.info(`No tab called "${raw}" — showing ${fallback.charAt(0).toUpperCase()}${fallback.slice(1)}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [raw, fallback, allowedKey]);
 
   const setValue = useCallback(
     (next: T) => {
