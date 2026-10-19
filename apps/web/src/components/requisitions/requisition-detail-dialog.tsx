@@ -239,6 +239,11 @@ export function RequisitionDetailDialog({
                   Next: upload ≥{detail.quotes?.minRequired ?? 3}{" "}quotes &amp; select a winner below — the PO is created automatically.
                 </span>
               )}
+              {detail.status === "APPROVED" && canApprove && (detail.requestedById !== currentUserId || canSelfApprove) && (
+                <Button size="sm" variant="ghost" onClick={() => doAction("reject")} disabled={acting} title="Withdraw this indent — it won't be ordered" className="text-muted-foreground hover:text-danger">
+                  <X className="h-4 w-4" /> Withdraw
+                </Button>
+              )}
               {detail.status === "CONVERTED" && detail.convertedPoId && (
                 <a href={`/procurement?po=${detail.convertedPoId}`} className="inline-flex">
                   <Button size="sm" variant="outline">

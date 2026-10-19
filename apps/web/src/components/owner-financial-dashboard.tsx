@@ -70,9 +70,8 @@ export function OwnerFinancialDashboard({
             <CashStat
               // Negative AP = supplier advances paid ahead of invoices.
               label={cashPosition.apBalance < 0 ? "Advances (to suppliers)" : "Payables"}
-              value={cashPosition.apBalance}
+              value={Math.abs(cashPosition.apBalance)}
               tone={cashPosition.apBalance > 0 ? "danger" : "default"}
-              negate
             />
             <CashStat
               label="Inventory"

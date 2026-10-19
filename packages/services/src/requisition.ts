@@ -387,7 +387,13 @@ export async function rejectRequisition(reqId: string, rejectedById?: string, re
       },
     });
     if (!req) throw new ServiceError("Indent not found", 404);
-    if (req.status !== "SUBMITTED") throw new ServiceError(`Cannot reject indent in status ${req.status}`);
+    // APPROVED is not a dead end: the business may still decide not to buy
+    // (price moved, material found on site, scope changed). An approved indent
+    // has no PO yet — rejecting it simply withdraws it from the ready-to-order
+    // queue, and the audit log keeps the APPROVED→REJECTED transition.
+    if (req.status !== "SUBMITTED" && req.status !== "APPROVED") {
+      throw new ServiceError(`Cannot reject indent in status ${req.status}`);
+    }
     // Prevent self-rejection — the requester or submitter cannot reject their own requisition.
     if (rejectedById && req.requestedById === rejectedById) {
       throw new ServiceError("You cannot reject your own indent.", 403);
