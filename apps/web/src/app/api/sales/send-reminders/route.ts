@@ -6,6 +6,7 @@ import {
   processDueEscalations,
   checkMilestonePayments,
   generateDueRentSchedules,
+  sendDemandNotice,
 } from "@nirman/services";
 import { apiHandler, getCompany, json, requirePermission } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -25,7 +26,7 @@ import { PERM } from "@/lib/roles";
  * 5. sendPaymentDueReminders — WhatsApp/Email customers with due BBA payments
  */
 export const POST = apiHandler(async (_req: NextRequest) => {
-  await requirePermission(PERM.SALES_MANAGE);
+  const _user = await requirePermission(PERM.SALES_MANAGE);
   const company = await getCompany();
 
   // 1. Check THIS company's active projects for milestone completions → mark
@@ -37,13 +38,29 @@ export const POST = apiHandler(async (_req: NextRequest) => {
   });
   let milestoneChecked = 0;
   let milestoneTriggered = 0;
+  const newlyDueIds: string[] = [];
   for (const p of activeProjects) {
     try {
       const result = await checkMilestonePayments(p.id);
       milestoneChecked += result.checked;
       milestoneTriggered += result.newlyDue;
+      newlyDueIds.push(...result.newlyDueIds);
     } catch {
       // Skip failed project checks
+    }
+  }
+
+  // Milestone-triggered demand dispatch — a completed WBS milestone means the
+  // buyer owes NOW, not whenever someone notices. One demand per newly-due
+  // installment; failures are counted, never fatal to the sweep.
+  let demandsSent = 0;
+  let demandsFailed = 0;
+  for (const itemId of newlyDueIds) {
+    try {
+      await sendDemandNotice(itemId, company.id, _user.id);
+      demandsSent += 1;
+    } catch {
+      demandsFailed += 1;
     }
   }
 
@@ -59,6 +76,7 @@ export const POST = apiHandler(async (_req: NextRequest) => {
     ok: true,
     ranAt: new Date().toISOString(),
     milestones: { checked: milestoneChecked, triggered: milestoneTriggered },
+    demands: { sent: demandsSent, failed: demandsFailed },
     escalations,
     rentSchedule,
     rentReminders,

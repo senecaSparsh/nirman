@@ -86,24 +86,30 @@ export async function sendDemandNotice(scheduleItemId: string, companyId: string
     paidAmount: item.paidAmount,
     dueDate: item.dueDate,
   });
-  if (!interest) throw new ServiceError("Installment is not yet overdue", 409);
+  // A DUE item is demandable regardless of calendar overrun — for CLP the
+  // milestone completion itself triggers the demand, often before any
+  // dueDate passes (interest leg is simply omitted in that case).
+  const balance = new Decimal(item.totalAmount.toString()).minus(item.paidAmount?.toString() ?? "0");
+  if (balance.lte(0)) throw new ServiceError("Installment is already settled", 409);
 
   const sale = item.paymentSchedule.assetSale;
   const customer = sale.customer;
   if (!customer) throw new ServiceError("Sale has no customer to notify", 400);
   const unit = sale.builtUnit?.unitNumber ?? sale.landParcel?.number ?? "—";
-  const dueDate = new Date(item.dueDate!).toISOString().slice(0, 10);
+  const dueDate = item.dueDate ? new Date(item.dueDate).toISOString().slice(0, 10) : null;
 
   const message =
     `PAYMENT DEMAND NOTICE\n\n` +
     `Dear ${customer.name},\n\n` +
     `Unit: ${unit} · Sale ${sale.saleNumber}\n` +
     `Installment: ${item.description} (#${item.installmentNo})\n` +
-    `Amount due: ${inr(interest.principalDue)}\n` +
-    `Due date: ${dueDate} — ${interest.daysOverdue} day(s) overdue\n` +
-    `Late interest @ ${interest.ratePercent}% p.a. (SBI MCLR + 2%): ${inr(interest.interest)}\n\n` +
-    `TOTAL PAYABLE: ${inr(interest.totalPayable)}\n\n` +
-    `Please pay immediately to avoid further interest accrual.\n` +
+    `Amount due: ${inr(balance)}\n` +
+    (dueDate ? `Due date: ${dueDate}${interest ? ` — ${interest.daysOverdue} day(s) overdue` : ""}\n` : "") +
+    (interest ? `Late interest @ ${interest.ratePercent}% p.a. (SBI MCLR + 2%): ${inr(interest.interest)}\n` : "") +
+    `\nTOTAL PAYABLE: ${inr(interest ? interest.totalPayable : balance)}\n\n` +
+    (interest
+      ? `Please pay immediately to avoid further interest accrual.\n`
+      : `Please remit at the earliest.\n`) +
     `This notice is system-generated and recorded for compliance.`;
 
   const recipient = customer.phone ?? customer.email;
@@ -124,9 +130,18 @@ export async function sendDemandNotice(scheduleItemId: string, companyId: string
       saleNumber: sale.saleNumber,
       customerId: customer.id,
       unit,
-      ...interest,
+      ...(interest ?? {
+        daysOverdue: 0, ratePercent: null, principalDue: balance.toFixed(2),
+        interest: "0.00", totalPayable: balance.toFixed(2),
+      }),
       sentById: userId ?? null,
     },
   });
-  return { notificationLogId: result.id, ...interest };
+  return {
+    notificationLogId: result.id,
+    ...(interest ?? {
+      daysOverdue: 0, ratePercent: LATE_INTEREST_RATE.toFixed(2), principalDue: balance.toFixed(2),
+      interest: "0.00", totalPayable: balance.toFixed(2),
+    }),
+  };
 }

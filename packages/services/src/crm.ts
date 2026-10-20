@@ -755,6 +755,23 @@ export async function sendPaymentDueReminders(companyId?: string) {
     },
     data: { status: "DUE" },
   });
+  // Spam guard — a customer must not get the same installment reminder every
+  // sweep. Any item with a reminder or demand letter logged in the last 72h
+  // is skipped this run.
+  const recentLogs = await prisma.notificationLog.findMany({
+    where: {
+      eventType: { in: ["SALE_PAYMENT_RECEIVED", "DEMAND_LETTER"] },
+      sentAt: { gte: new Date(now.getTime() - 72 * 3600000) },
+      ...(companyId ? { companyId } : {}),
+    },
+    select: { metadata: true },
+  });
+  const recentlyNotified = new Set(
+    recentLogs
+      .map((l) => (l.metadata as { scheduleItemId?: string } | null)?.scheduleItemId)
+      .filter((v): v is string => Boolean(v)),
+  );
+
   // Find all DUE schedule items with a due date <= now+3 days (upcoming or overdue)
   const dueItems = await prisma.paymentScheduleItem.findMany({
     where: {
@@ -783,6 +800,7 @@ export async function sendPaymentDueReminders(companyId?: string) {
 
   let sent = 0;
   for (const item of dueItems) {
+    if (recentlyNotified.has(item.id)) continue;
     try {
       const sale = item.paymentSchedule.assetSale;
       const customer = sale.customer;
