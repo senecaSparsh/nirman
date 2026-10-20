@@ -62,6 +62,7 @@ export type ProjectHubData = {
     escrowAccountNo?: string | null;
     escrowCollected?: number;
     escrowRequired?: number;
+    escrowSpent?: number;
     lciThreshold: number | null;
     // Possession tracking
     isPossessed?: boolean;
@@ -344,6 +345,19 @@ export function ProjectHub({
             <div className="text-muted-foreground">
               Cleared collections {formatCurrency(project.escrowCollected ?? 0)} · minimum escrow balance required {formatCurrency(project.escrowRequired ?? 0)} (70%)
             </div>
+            {(project.escrowSpent ?? 0) > 0 && (() => {
+              const required = project.escrowRequired ?? 0;
+              const spent = project.escrowSpent ?? 0;
+              const pct = required > 0 ? Math.round((spent / required) * 100) : 0;
+              return (
+                <div className="text-muted-foreground">
+                  Construction spend {formatCurrency(spent)} · {pct}% of the escrowed requirement — withdrawals stay eligible up to certified cost
+                  {required > 0 && spent < required * 0.5 && (
+                    <span className="text-warning"> · low certified spend vs escrowed collections</span>
+                  )}
+                </div>
+              );
+            })()}
             <div className="text-muted-foreground/80">
               Withdrawals require engineer + architect + CA certification (Sec. 4(2)(l)(D))
             </div>

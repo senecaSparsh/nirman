@@ -601,6 +601,10 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
       escrowAccountNo: project.escrowAccountNo,
       escrowCollected,
       escrowRequired: escrowCollected * 0.7,
+      // Withdrawal eligibility — RERA releases the escrow against engineer+
+      // architect+CA certified construction cost. pnl.total is the project's
+      // ledgered spend (materials + labour + contractors): the honest proxy.
+      escrowSpent: toNum(pnlResult.total),
       lciThreshold: project.lciThreshold ? toNum(project.lciThreshold) : null,
       isPossessed: project.isPossessed,
       possessionDate: project.possessionDate?.toISOString() ?? null,

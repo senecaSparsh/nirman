@@ -19,7 +19,9 @@ import {
   trialBalance,
   getPurchaserPerformance,
   getProjectMaterialReconciliation,
-  projectPnl} from "@nirman/services";
+  projectPnl,
+  generateGstr1,
+  generateGstr3b} from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { dateParam, apiHandler, getCompany, json, toNum, requireUser, scopeWhere, projectScopeFilter, getEffectivePermissions } from "@/lib/server";
 import { localDateISO, startOfDayIST, endOfDayIST } from "@/lib/utils";
@@ -72,7 +74,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
     "stock-issue-summary": PERM.INVENTORY_VIEW,
     "stock-movement-summary": PERM.INVENTORY_VIEW,
     "issue-register": PERM.INVENTORY_VIEW,
-    "purchase-register": PERM.PROCUREMENT_VIEW};
+    "purchase-register": PERM.PROCUREMENT_VIEW,
+    "gstr1": PERM.FINANCE_VIEW,
+    "gstr3b": PERM.FINANCE_VIEW};
 
   const requiredPerm = PERM_MAP[type];
   if (!requiredPerm) {
@@ -538,6 +542,99 @@ export const GET = apiHandler(async (req: NextRequest) => {
       });
       const totalAmount = rows.reduce((s, r) => s + toNum(r.totalAmount), 0);
       sheets = buildIssueRegisterReport({ rows, totalAmount });
+      break;
+    }
+
+    case "gstr1": {
+      title = `GSTR-1 OUTWARD SUPPLIES ${fromDate.toISOString().slice(0, 10)} TO ${toDate.toISOString().slice(0, 10)}`;
+      const r = await generateGstr1(company.id, fromDate, toDate);
+      const num = (d: unknown) => (d && typeof (d as { toNumber?: unknown }).toNumber === "function" ? (d as { toNumber: () => number }).toNumber() : Number(d) || 0);
+      const invSheet = {
+        name: "B2B & Other Invoices",
+        columns: [
+          { header: "Date", key: "date", width: 12 },
+          { header: "Source", key: "source", width: 16 },
+          { header: "Reference", key: "memo", width: 40 },
+          { header: "Taxable Value", key: "taxableValue", width: 14, format: "#,##0.00" },
+          { header: "Rate %", key: "gstRate", width: 8, format: "0.#" },
+          { header: "CGST", key: "cgst", width: 12, format: "#,##0.00" },
+          { header: "SGST", key: "sgst", width: 12, format: "#,##0.00" },
+          { header: "IGST", key: "igst", width: 12, format: "#,##0.00" },
+          { header: "Total GST", key: "gstAmount", width: 12, format: "#,##0.00" },
+        ],
+        rows: r.entries.map((e) => ({
+          date: e.date.toISOString().slice(0, 10),
+          source: e.sourceType,
+          memo: e.memo,
+          taxableValue: num(e.taxableValue),
+          gstRate: num(e.gstRate),
+          cgst: num(e.cgst),
+          sgst: num(e.sgst),
+          igst: num(e.igst),
+          gstAmount: num(e.gstAmount),
+        })),
+        summary: [
+          { label: "Taxable value", value: num(r.totalTaxableValue) },
+          { label: "Output GST", value: num(r.totalOutputGst) },
+          { label: "Invoices", value: r.totalInvoiceCount },
+        ],
+      };
+      const cnSheet = {
+        name: "Credit Notes",
+        columns: [
+          { header: "Date", key: "date", width: 12 },
+          { header: "Return No.", key: "returnNumber", width: 18 },
+          { header: "Buyer GSTIN", key: "customerGstin", width: 18 },
+          { header: "Taxable Value", key: "taxableValue", width: 14, format: "#,##0.00" },
+          { header: "CGST", key: "cgst", width: 12, format: "#,##0.00" },
+          { header: "SGST", key: "sgst", width: 12, format: "#,##0.00" },
+          { header: "IGST", key: "igst", width: 12, format: "#,##0.00" },
+          { header: "Total GST", key: "gstAmount", width: 12, format: "#,##0.00" },
+        ],
+        rows: r.creditNotes.map((c) => ({
+          date: c.date.toISOString().slice(0, 10),
+          returnNumber: c.returnNumber,
+          customerGstin: c.customerGstin ?? "",
+          taxableValue: num(c.taxableValue),
+          cgst: num(c.cgst),
+          sgst: num(c.sgst),
+          igst: num(c.igst),
+          gstAmount: num(c.gstAmount),
+        })),
+        summary: [
+          { label: "Net taxable (inv − CN)", value: num(r.netTaxableValue) },
+          { label: "Net output GST", value: num(r.netOutputGst) },
+        ],
+      };
+      sheets = [invSheet, cnSheet];
+      break;
+    }
+
+    case "gstr3b": {
+      title = `GSTR-3B MONTHLY SUMMARY ${fromDate.toISOString().slice(0, 10)} TO ${toDate.toISOString().slice(0, 10)}`;
+      const r = await generateGstr3b(company.id, fromDate, toDate);
+      const num = (d: unknown) => (d && typeof (d as { toNumber?: unknown }).toNumber === "function" ? (d as { toNumber: () => number }).toNumber() : Number(d) || 0);
+      sheets = [{
+        name: "GSTR-3B",
+        columns: [
+          { header: "Section", key: "section", width: 52 },
+          { header: "Taxable", key: "taxable", width: 16, format: "#,##0.00" },
+          { header: "CGST", key: "cgst", width: 14, format: "#,##0.00" },
+          { header: "SGST", key: "sgst", width: 14, format: "#,##0.00" },
+          { header: "IGST", key: "igst", width: 14, format: "#,##0.00" },
+          { header: "Total", key: "total", width: 14, format: "#,##0.00" },
+        ],
+        rows: [
+          { section: "3.1 Outward taxable supplies", taxable: num(r.outwardTaxableValue), cgst: num(r.outwardCgst), sgst: num(r.outwardSgst), igst: num(r.outwardIgst), total: num(r.outwardOutputGst) },
+          { section: "3.2 Inward supplies liable to RCM / ITC", taxable: num(r.inwardTaxableValue), cgst: num(r.inwardCgst), sgst: num(r.inwardSgst), igst: num(r.inwardIgst), total: num(r.inwardInputGst) },
+          { section: "4. ITC available (less reversals)", taxable: "", cgst: "", sgst: "", igst: "", total: num(r.itcAvailable) - num(r.itcReversed) },
+          { section: "5. Net GST payable (cash)", taxable: "", cgst: "", sgst: "", igst: "", total: num(r.netGstPayable) },
+          { section: "ITC carried forward", taxable: "", cgst: "", sgst: "", igst: "", total: num(r.itcCarriedForward) },
+        ],
+        summary: [
+          { label: "Net GST payable", value: num(r.netGstPayable) },
+        ],
+      }];
       break;
     }
 

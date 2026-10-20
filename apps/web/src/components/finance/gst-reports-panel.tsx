@@ -4,8 +4,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import {FileText, Download} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input, Label } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
 import { useTodayDateState } from "@/lib/use-today-date";
 
@@ -65,75 +65,48 @@ export function GstReportsPanel() {
     }
   }
 
-  function exportCsv() {
-    if (!gstr1 && !gstr3b) return;
-    // Export each report as a separate CSV file so accountants get clean
-    // files instead of a concatenated hybrid.
-    const downloads: { name: string; content: string }[] = [];
-    if (gstr3b) {
-      let csv = "GSTR-3B Summary\n";
-      csv += `Outward Taxable Value,${gstr3b.outwardTaxableValue}\n`;
-      csv += `Output GST,${gstr3b.outwardOutputGst}\n`;
-      csv += `  CGST,${gstr3b.outwardCgst}\n`;
-      csv += `  SGST,${gstr3b.outwardSgst}\n`;
-      csv += `  IGST,${gstr3b.outwardIgst}\n`;
-      csv += `Inward Taxable Value,${gstr3b.inwardTaxableValue}\n`;
-      csv += `Input GST (ITC),${gstr3b.inwardInputGst}\n`;
-      csv += `  CGST,${gstr3b.inwardCgst}\n`;
-      csv += `  SGST,${gstr3b.inwardSgst}\n`;
-      csv += `  IGST,${gstr3b.inwardIgst}\n`;
-      csv += `ITC Reversed,${gstr3b.itcReversed}\n`;
-      csv += `Net ITC Available,${gstr3b.itcAvailable}\n`;
-      csv += `Net GST Payable,${gstr3b.netGstPayable}\n`;
-      csv += `ITC Carried Forward,${gstr3b.itcCarriedForward}\n`;
-      downloads.push({ name: `gstr-3b-${from}-to-${to}.csv`, content: csv });
-    }
-    if (gstr1) {
-      let csv = "Date,Source,Memo,Taxable Value,GST Amount,GST Rate,CGST,SGST,IGST\n";
-      for (const e of gstr1.entries) {
-        csv += `${new Date(e.date).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })},${e.sourceType},"${e.memo}",${e.taxableValue},${e.gstAmount},${e.gstRate.toFixed(2)}%,${e.cgst},${e.sgst},${e.igst}\n`;
-      }
-      downloads.push({ name: `gstr-1-${from}-to-${to}.csv`, content: csv });
-    }
-    for (const d of downloads) {
-      const blob = new Blob([d.content], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = d.name;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
+  // Downloads the server-rendered xlsx (incl. credit-note sheets) — the
+  // hand-rolled CSV dropped CNs and broke on commas in memos.
+  function downloadExport(type: "gstr1" | "gstr3b") {
+    window.open(`/api/export?type=${type}&format=xlsx&from=${from}&to=${to}`, "_blank");
   }
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader divided>
         <CardTitle className="flex items-center gap-2">
-          <FileText className="size-4" /> GST Reconciliation Reports
+          <FileText className="size-4 text-muted-foreground" /> GST Reconciliation Reports
         </CardTitle>
+        <CardDescription>
+          Generate GSTR-3B summaries and GSTR-1 outward supply schedules for any period.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Date range */}
-        <div className="flex items-end gap-2">
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">From</label>
+        <div className="flex flex-wrap items-end gap-2">
+          <div>
+            <Label>From</Label>
             <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" />
           </div>
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">To</label>
+          <div>
+            <Label>To</Label>
             <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
           </div>
-          <Button variant="outline" size="sm" onClick={() => fetchReport("gstr3b")} disabled={loading !== null}>
+          <Button variant="outline" size="sm" className="h-8" onClick={() => fetchReport("gstr3b")} disabled={loading !== null}>
             {loading === "gstr3b" ? "Loading…" : "GSTR-3B Summary"}
           </Button>
-          <Button variant="outline" size="sm" onClick={() => fetchReport("gstr1")} disabled={loading !== null}>
+          <Button variant="outline" size="sm" className="h-8" onClick={() => fetchReport("gstr1")} disabled={loading !== null}>
             {loading === "gstr1" ? "Loading…" : "GSTR-1 Details"}
           </Button>
           {(gstr1 || gstr3b) && (
-            <Button variant="ghost" size="sm" onClick={exportCsv}>
-              <Download className="size-3 mr-1" /> CSV
-            </Button>
+            <div className="flex gap-1">
+              <Button variant="ghost" size="sm" className="h-8" onClick={() => downloadExport("gstr3b")}>
+                <Download className="size-3.5" /> 3B xlsx
+              </Button>
+              <Button variant="ghost" size="sm" className="h-8" onClick={() => downloadExport("gstr1")}>
+                <Download className="size-3.5" /> GSTR-1 xlsx
+              </Button>
+            </div>
           )}
         </div>
 
