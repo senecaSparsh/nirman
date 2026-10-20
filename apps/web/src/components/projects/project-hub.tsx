@@ -27,6 +27,7 @@ import { BuiltUnitFormDialog } from "@/components/built-units/built-unit-form-di
 import { LegalDocsSection } from "@/components/legal/legal-docs-section";
 import { AttachmentList } from "@/components/attachments/attachment-list";
 import { ProjectCostFormDialog } from "@/components/finance/project-cost-form-dialog";
+import { EscrowWithdrawalDialog } from "@/components/projects/escrow-withdrawal-dialog";
 import { useTabParam } from "@/lib/use-tab-param";
 import { useTrackRecent } from "@/lib/use-recently-viewed";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
@@ -63,6 +64,11 @@ export type ProjectHubData = {
     escrowCollected?: number;
     escrowLedgerBalance?: number;
     escrowRequired?: number;
+    escrowWithdrawals?: {
+      id: string; withdrawalNo: number; amount: number; purpose: string;
+      engineerName: string; architectName: string; caName: string;
+      certificateUrl: string | null; status: string; createdAt: string;
+    }[];
     escrowSpent?: number;
     lciThreshold: number | null;
     // Possession tracking
@@ -214,6 +220,7 @@ export function ProjectHub({
   const router = useRouter();
   const [possessionSubmitting, setPossessionSubmitting] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [withdrawalOpen, setWithdrawalOpen] = useState(false);
   const now = useHydratedDate();
 
   const reraDays = useMemo(() => {
@@ -370,6 +377,35 @@ export function ProjectHub({
             <div className="text-muted-foreground/80">
               Withdrawals require engineer + architect + CA certification (Sec. 4(2)(l)(D))
             </div>
+            {(project.escrowWithdrawals ?? []).length > 0 && (
+              <div className="mt-1 space-y-0.5">
+                {(project.escrowWithdrawals ?? []).map((w) => (
+                  <div key={w.id} className="flex items-baseline justify-between gap-2 text-muted-foreground">
+                    <span className={w.status === "VOID" ? "line-through opacity-60" : ""}>
+                      #{w.withdrawalNo} {formatCurrency(w.amount)} — {w.purpose}
+                    </span>
+                    <span className="shrink-0 text-xs">
+                      {w.engineerName} · {w.architectName} · {w.caName}{w.certificateUrl ? " 📄" : ""}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {project.escrowAccountNo && (project.escrowLedgerBalance ?? 0) > 0 && (
+              <button
+                type="button"
+                onClick={() => setWithdrawalOpen(true)}
+                className="mt-1 text-xs font-medium text-primary hover:underline"
+              >
+                Record certified withdrawal
+              </button>
+            )}
+            <EscrowWithdrawalDialog
+              open={withdrawalOpen}
+              onOpenChange={setWithdrawalOpen}
+              projectId={project.id}
+              escrowBalance={project.escrowLedgerBalance ?? 0}
+            />
             {/* BOCW cess — 1% of the construction cost owed to the state
                 welfare board. Ledgered spend is the running proxy; the cess is
                 actually assessed on the sanctioned estimate, so flag both. */}

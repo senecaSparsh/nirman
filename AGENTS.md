@@ -73,8 +73,11 @@ the `coolify-proxy` container isn't on the app network. Fix:
   runs against that DB and does NOT get `db:push`. A `DATABASE_URL=... npx prisma
 db push` does NOT override (packages/db/.env wins); apply the DDL directly:
   `psql "$DATABASE_URL" -d nirman_inventory_test -c 'ALTER TABLE "Company" ADD
-COLUMN IF NOT EXISTS "upiId" TEXT;'`. Symptom if forgotten: mass
-  `PrismaClientKnownRequestError: column X does not exist` across the whole suite.
+COLUMN IF NOT EXISTS "upiId" TEXT;'` — or, when the change shipped as a real
+  migration, apply the file: `psql -d nirman_inventory_test -f
+packages/db/prisma/migrations/<ts>_<name>/migration.sql`. Symptom if forgotten:
+  mass `PrismaClientKnownRequestError: column/table X does not exist` across the
+  whole suite.
 - `pnpm db:studio` — Prisma Studio.
 - `pnpm --filter @nirman/services test` — run service unit tests (vitest).
 - `BASE=http://localhost:3000 ./scripts/verify-workflows-full.sh` — **live workflow

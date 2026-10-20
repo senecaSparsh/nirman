@@ -772,6 +772,7 @@ export {
   deleteDpr,
   deleteAttendance,
   assertAttendancePeriodOpen,
+  attendancePeriodLocked,
   projectProgressHistory,
   workforceProductivity,
   attendanceSummary,
@@ -1279,3 +1280,9 @@ export {
 
 // Collections — allottee demand notices + RERA late-payment interest (MCLR+2%)
 export { computeLateInterest, sendDemandNotice, LATE_INTEREST_RATE, type LateInterest } from "./collections";
+
+export {
+  projectEscrowLedgerBalance,
+  recordEscrowWithdrawal,
+  voidEscrowWithdrawal,
+} from "./escrow";

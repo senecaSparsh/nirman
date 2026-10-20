@@ -1317,6 +1317,7 @@ model Project {
   // requirement itself is computed from cleared sale collections.
   escrowBankName      String?
   escrowAccountNo     String?
+  escrowWithdrawals   EscrowWithdrawal[]
   // ── Possession tracking ──
   // For built-unit projects: tracks whether possession has been handed over
   // to buyers / the company has taken possession of the constructed units.
@@ -4382,6 +4383,35 @@ enum ProjectCostType {
   PERMIT
   TRANSFER_DUTY   // Transfer duty / unearned increase on authority (DDA/HUDCO) leasehold land
   OTHER
+}
+
+/**
+ * A certified withdrawal from the project's RERA escrow account
+ * (S.4(2)(l)(D)). Each withdrawal carries the three signatories' details —
+ * engineer, architect, practising CA — whose certificates authorise the
+ * bank to release it. Posting books Dr Cash / Cr Escrow (1060).
+ */
+model EscrowWithdrawal {
+  id             String   @id @default(cuid())
+  companyId      String
+  projectId      String
+  withdrawalNo   Int      // per-project sequence for the certificate pack
+  amount         Decimal  @db.Decimal(14, 2)
+  purpose        String   // e.g. "Tower B slab — certified construction cost"
+  engineerName   String
+  architectName  String
+  caName         String   // practising chartered accountant
+  certificateUrl String?  // uploaded signed certificate (Form 3 style)
+  status         String   @default("POSTED") // POSTED | VOID
+  voidReason     String?
+  postedById     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  @@index([projectId])
+  @@index([companyId])
 }
 
 model ProjectCost {

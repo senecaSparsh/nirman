@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import type { AreaUnit, BuiltUnitStatus, BuiltUnitType, LandParcelStatus } from "@nirman/db";
-import { projectPnl } from "@nirman/services";
+import { projectEscrowLedgerBalance, projectPnl } from "@nirman/services";
 import { getCompany, toNum, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { NoAccess } from "@/components/no-access";
@@ -272,38 +272,12 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
   // project's sale receipts. Computed collections tell you what SHOULD be
   // escrowed; the ledger tells you what IS. Drift between them means money
   // moved through the operating account.
-  const escrowAccount = await prisma.glAccount.findFirst({
-    where: { companyId: company.id, code: "1060" },
-    select: { id: true },
+  const escrowLedgerBalance = (await projectEscrowLedgerBalance(prisma, company.id, id)).toNumber();
+  const escrowWithdrawals = await prisma.escrowWithdrawal.findMany({
+    where: { projectId: id },
+    orderBy: { withdrawalNo: "desc" },
+    take: 20,
   });
-  let escrowLedgerBalance = 0;
-  if (escrowAccount) {
-    // Payment-tagged lines resolve their project through the sale; sale-tagged
-    // lines carry the asset sale id directly.
-    const lines = await prisma.journalLine.findMany({
-      where: {
-        accountId: escrowAccount.id,
-        journalEntry: { companyId: company.id, status: "POSTED" },
-        OR: [
-          { entityType: "AssetSale" },
-          { entityType: "AssetSalePayment" },
-        ],
-      },
-      select: { debit: true, credit: true, entityType: true, entityId: true },
-    });
-    const saleIds = lines.filter((l) => l.entityType === "AssetSale").map((l) => l.entityId!);
-    const paymentIds = lines.filter((l) => l.entityType === "AssetSalePayment").map((l) => l.entityId!);
-    const [projSales, projPayments] = await Promise.all([
-      prisma.assetSale.findMany({ where: { id: { in: saleIds }, projectId: id }, select: { id: true } }),
-      prisma.assetSalePayment.findMany({ where: { id: { in: paymentIds }, assetSale: { projectId: id } }, select: { id: true } }),
-    ]);
-    const inScopeSales = new Set(projSales.map((s) => s.id));
-    const inScopePayments = new Set(projPayments.map((p) => p.id));
-    escrowLedgerBalance = lines.reduce((sum, l) => {
-      const inScope = l.entityType === "AssetSale" ? inScopeSales.has(l.entityId!) : inScopePayments.has(l.entityId!);
-      return inScope ? sum + toNum(l.debit) - toNum(l.credit) : sum;
-    }, 0);
-  }
 
   // Map POs to rows
   const poRows: PurchaseOrderRow[] = purchaseOrders.map((po) => {
@@ -639,6 +613,11 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
       escrowCollected,
       escrowRequired: escrowCollected * 0.7,
       escrowLedgerBalance: project.escrowAccountNo ? escrowLedgerBalance : undefined,
+      escrowWithdrawals: escrowWithdrawals.map((w) => ({
+        id: w.id, withdrawalNo: w.withdrawalNo, amount: toNum(w.amount), purpose: w.purpose,
+        engineerName: w.engineerName, architectName: w.architectName, caName: w.caName,
+        certificateUrl: w.certificateUrl, status: w.status, createdAt: w.createdAt.toISOString(),
+      })),
       // Withdrawal eligibility — RERA releases the escrow against engineer+
       // architect+CA certified construction cost. pnl.total is the project's
       // ledgered spend (materials + labour + contractors): the honest proxy.
