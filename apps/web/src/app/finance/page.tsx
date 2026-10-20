@@ -28,6 +28,7 @@ import { StatutoryPaymentsView } from "@/components/finance/statutory-payments-v
 import { PageLoading } from "@/components/page-loading";
 import { FinanceTabs } from "@/components/finance/finance-tabs";
 import { OutstandingActionCard } from "@/components/finance/outstanding-action-card";
+import { CashRunwayCard } from "@/components/finance/cash-runway-card";
 import type { ProjectCostRow, AuditLogRow, ProjectOption, ExpenseRow, ExpenseCategoryRow, GlAccountOption } from "@/lib/types";
 
 import { NoAccess } from "@/components/no-access";
@@ -267,6 +268,45 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
     : [];
   const statutoryPaymentsData = needStatutory ? await prisma.statutoryPayment.findMany({
     take: 200, where: { ...await scopeWhere("StatutoryPayment"), companyId: company.id }, orderBy: { paymentDate: "desc" } }) : [];
+
+  // ── Cash runway — next 30 days. Answers "can I pay Friday's wages" ──
+  // in  : installment balances with dueDate ≤ +30d (incl. overdue — still collectible)
+  // out : undelivered value on POs due ≤ +30d + draft payroll + statutory outstanding
+  const now = new Date();
+  const in30 = new Date(now.getTime() + 30 * 86400000);
+  const [dueInstallments, openPOs30, draftPayrolls, statutoryKinds] = await Promise.all([
+    prisma.paymentScheduleItem.findMany({
+      where: {
+        status: { in: ["PENDING", "DUE", "PARTIAL"] },
+        dueDate: { lte: in30 },
+        paymentSchedule: { assetSale: { companyId: company.id, status: { not: "CANCELLED" }, ...await scopeWhere("AssetSale") } },
+      },
+      select: { totalAmount: true, paidAmount: true },
+    }),
+    prisma.purchaseOrder.findMany({
+      take: 200,
+      where: {
+        companyId: company.id,
+        status: { in: ["ORDERED", "PARTIAL"] },
+        expectedDate: { lte: in30 },
+        ...await scopeWhere("PurchaseOrder"),
+      },
+      select: { lines: { select: { qtyOrdered: true, qtyReceived: true, unitCost: true, gstRate: true } } },
+    }),
+    prisma.payrollPeriod.findMany({
+      where: { companyId: company.id, status: { in: ["DRAFT", "PROCESSED"] } },
+      select: { totalNet: true },
+    }),
+    Promise.all(STATUTORY_KINDS.map(async (k) => toNum((await statutoryOutstanding(company.id, k)).outstanding))),
+  ]);
+  const expectedIn30 = dueInstallments.reduce((s, i) => s + Math.max(0, toNum(i.totalAmount) - toNum(i.paidAmount)), 0);
+  const poCommitment30 = openPOs30.reduce(
+    (s, po) => s + po.lines.reduce((l, li) => l + Math.max(0, toNum(li.qtyOrdered) - toNum(li.qtyReceived)) * toNum(li.unitCost) * (1 + toNum(li.gstRate) / 100), 0),
+    0,
+  );
+  const draftPayrollNet = draftPayrolls.reduce((s, p) => s + toNum(p.totalNet), 0);
+  const statutoryDueTotal = statutoryKinds.reduce((s, v) => s + v, 0);
+  const committedOut30 = poCommitment30 + draftPayrollNet + statutoryDueTotal;
   // 194-IA tracker — every sale where the buyer withheld TDS, so the CA can
   // chase 26QB acks / Form 16B and reconcile the TDS_RECEIVABLE GL balance.
   const tdsSalesData = needStatutory ? await prisma.assetSale.findMany({
@@ -295,6 +335,13 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
         action={<RefreshButton />}
       />
       <DepartmentActivityFeed department="finance" />
+      <CashRunwayCard
+        expectedIn={expectedIn30}
+        committedOut={committedOut30}
+        statutoryDue={statutoryDueTotal}
+        draftPayroll={draftPayrollNet}
+        posInFlight={poCommitment30}
+      />
       <OutstandingActionCard outstanding={outstanding} outstandingSaleCount={outstandingSaleCount} />
       <FinanceTabs
         overview={
