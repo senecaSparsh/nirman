@@ -68,7 +68,7 @@ export default async function SaleStatementPage({
   const items = sale.paymentSchedule?.items ?? [];
   const scheduleTotal = items.reduce((s, i) => s + toNum(i.totalAmount), 0);
   const clearedPayments = sale.payments.filter((p) => p.chequeStatus !== "PENDING" && p.chequeStatus !== "BOUNCED");
-  const totalPaid = clearedPayments.reduce((s, p) => s + toNum(p.amount), 0);
+  const totalPaid = clearedPayments.reduce((s, p) => s + toNum(p.amount) - toNum(p.interestAmount), 0);
   const totalAccrued = items.reduce(
     (s, i) => s + (i.status === "PAID" || i.status === "WAIVED" ? 0 : Number(computeLateInterest({ totalAmount: i.totalAmount, paidAmount: i.paidAmount, dueDate: i.dueDate })?.interest ?? 0)),
     0,

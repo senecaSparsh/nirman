@@ -23,7 +23,7 @@ export default function MobileSaleDetailPage({
             payments: {
               orderBy: { paymentDate: "desc" },
               select: {
-                id: true, amount: true, paymentDate: true,
+                id: true, amount: true, interestAmount: true, paymentDate: true,
                 mode: true, reference: true, status: true,
                 chequeStatus: true,
                 chequeNo: true, chequeBank: true, chequeDate: true,
@@ -113,7 +113,7 @@ export default function MobileSaleDetailPage({
         // Only count CLEARED payments — exclude PENDING and BOUNCED cheques
         const totalPaid = sale.payments
           .filter((p) => p.status !== "VOID" && p.status !== "BOUNCED" && p.chequeStatus !== "BOUNCED" && p.chequeStatus !== "PENDING")
-          .reduce((sum, p) => sum + toNum(p.amount), 0);
+          .reduce((sum, p) => sum + toNum(p.amount) - toNum(p.interestAmount), 0);
 
         const asset = sale.assetType === "LAND"
           ? landParcel

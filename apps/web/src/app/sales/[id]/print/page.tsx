@@ -41,7 +41,7 @@ export default async function PrintableSaleFormPage({
 
   const company = sale.company;
   const customer = sale.customer;
-  const totalPaid = sale.payments.reduce((s, p) => s + toNum(p.amount), 0);
+  const totalPaid = sale.payments.reduce((s, p) => s + (p.status === "VOID" ? 0 : toNum(p.amount) - toNum(p.interestAmount)), 0);
   const balanceDue = toNum(sale.salePrice) + toNum(sale.gstAmount) - totalPaid;
 
   const sellerBorneExpenses = sale.expenses.filter((e) => e.borneBy === "SELLER");

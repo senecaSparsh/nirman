@@ -141,7 +141,7 @@ async function CommandCenterContent() {
     prisma.assetSale.findMany({
       where: {...await scopeWhere("AssetSale"),  companyId: company.id, status: "ACTIVE" },
       orderBy: { createdAt: "desc" }, take: 10,
-      include: { customer: { select: { name: true } }, payments: { where: { status: { not: "VOID" } }, select: { amount: true } } }}),
+      include: { customer: { select: { name: true } }, payments: { where: { status: { not: "VOID" } }, select: { amount: true, interestAmount: true } } }}),
     prisma.stockCount.findMany({
       where: {
         AND: [
@@ -422,7 +422,7 @@ async function CommandCenterContent() {
     consequence: "Collect outstanding balances from customers",
     count: salesWithBalance.length, href: "/sales", cta: "Collect", urgency: "soon", icon: "dollarSign",
     items: salesWithBalance.map((s) => {
-      const totalPaid = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+      const totalPaid = s.payments.reduce((sum, p) => sum + toNum(p.amount) - toNum(p.interestAmount), 0);
       return { label: s.customer.name, sub: `${formatCurrency(Math.max(0, toNum(s.salePrice) - toNum(s.tdsAmount) - totalPaid))} balance due` };
     })});
   // Overdue installments — past dueDate, still unpaid. Blocking urgency: every

@@ -78,7 +78,7 @@ export default async function PortalSalesPage() {
   const companyName = companyRow?.name ?? "";
 
   const rows = sales.map((s) => {
-    const totalPaid = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+    const totalPaid = s.payments.reduce((sum, p) => sum + (p.status === "VOID" ? 0 : toNum(p.amount) - toNum(p.interestAmount)), 0);
     const totalAmount = toNum(s.salePrice) + toNum(s.gstAmount);
     return {
       id: s.id,

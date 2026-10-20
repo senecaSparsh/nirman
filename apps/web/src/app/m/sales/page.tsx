@@ -39,7 +39,7 @@ export default function MobileSalesPage() {
               customer: { select: { id: true, name: true, phone: true } },
               builtUnit: { select: { unitNumber: true, unitType: true, project: { select: { name: true } } } },
               project: { select: { name: true } },
-              payments: { where: { status: "RECEIVED" }, select: { amount: true } }}}),
+              payments: { where: { status: "RECEIVED" }, select: { amount: true, interestAmount: true } }}}),
           prisma.lead.findMany({
             where: {...await scopeWhere("Lead"),  companyId: company.id, deletedAt: null },
             orderBy: [{ nextFollowUpAt: "asc" }, { createdAt: "desc" }],
@@ -67,7 +67,7 @@ export default function MobileSalesPage() {
         ]);
 
         const items = sales.map((s) => {
-          const totalPaid = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+          const totalPaid = s.payments.reduce((sum, p) => sum + toNum(p.amount) - toNum(p.interestAmount), 0);
           const salePrice = toNum(s.salePrice);
           const balance = salePrice + toNum(s.gstAmount) - totalPaid;
           const assetLabel = s.builtUnit

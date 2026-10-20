@@ -81,7 +81,7 @@ async function SaleDetailContent({
       : null,
   ]);
 
-  const totalPaid = sale.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+  const totalPaid = sale.payments.reduce((sum, p) => sum + (p.status === "VOID" ? 0 : toNum(p.amount) - toNum(p.interestAmount)), 0);
   const canManage = __effPerms.includes(PERM.SALES_MANAGE);
 
   const row: AssetSaleRow = {

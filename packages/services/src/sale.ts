@@ -23,8 +23,15 @@ import { emitNotificationEvent, NotificationEventType } from "./notification-eve
 import { autoSyncEntryToTally } from "./auto-sync";
 import { requiresSaleAgreement, advanceCapApplies, RERA_PRE_AGREEMENT_CAP } from "./sale-policy";
 
+/**
+ * Principal realised on the sale — cleared, non-void payments minus their
+ * late-interest legs. Interest is income over and above the sale price, not
+ * payment toward it: including it would over-report "paid" and silently
+ * settle schedules for money that was never principal.
+ */
 export function sumClearedAssetSalePayments(payments: {
   amount: Decimal | string | number;
+  interestAmount?: Decimal | string | number | null;
   status: string;
   chequeStatus?: string | null;
 }[]): Decimal {
@@ -32,7 +39,7 @@ export function sumClearedAssetSalePayments(payments: {
     if (payment.status === "VOID" || payment.chequeStatus === "PENDING" || payment.chequeStatus === "BOUNCED") {
       return sum;
     }
-    return sum.plus(new Decimal(payment.amount));
+    return sum.plus(new Decimal(payment.amount)).minus(new Decimal(payment.interestAmount ?? 0));
   }, new Decimal(0));
 }
 
@@ -98,21 +105,27 @@ export async function syncPaymentScheduleFromPayments(tx: Prisma.TransactionClie
   });
   if (!schedule || schedule.items.length === 0) return;
 
-  // Sum all realised payments (skip uncleared cheques + voided payments)
+  // Sum all realised payments (skip uncleared cheques + voided payments).
+  // A payment's interestAmount leg is late-interest income, not principal —
+  // subtract it before allocation or a combined payment over-fills items.
   const payments = await tx.assetSalePayment.findMany({
     where: { assetSaleId: saleId, status: { not: "VOID" } },
-    select: { amount: true, status: true, chequeStatus: true },
+    select: { amount: true, interestAmount: true, status: true, chequeStatus: true },
   });
-  const totalPaid = sumClearedAssetSalePayments(payments);
+  // sumClearedAssetSalePayments already strips the interest legs — the pool
+  // is principal-only.
+  const principalPool = Decimal.max(0, sumClearedAssetSalePayments(payments));
 
-  // Distribute FIFO across schedule items. WAIVED rows are skipped — they
-  // take no allocation and never revert to PENDING. Every non-waived row is
-  // rewritten (no early break) so a shrunken payment pool — void, bounce —
-  // actually zeroes the tail instead of leaving stale paidAmount behind.
-  let remaining = totalPaid;
+  // Distribute FIFO across schedule items against TOTAL due (base + GST) —
+  // allocating only item.amount would strand the GST leg unpaid forever.
+  // WAIVED rows are skipped — they take no allocation and never revert to
+  // PENDING. Every non-waived row is rewritten (no early break) so a
+  // shrunken payment pool — void, bounce — actually zeroes the tail instead
+  // of leaving stale paidAmount behind.
+  let remaining = principalPool;
   for (const item of schedule.items) {
     if (item.status === "WAIVED") continue;
-    const itemAmount = new Decimal(item.amount);
+    const itemAmount = new Decimal(item.totalAmount);
     const allocation = remaining.lt(itemAmount) ? Decimal.max(0, remaining) : itemAmount;
     const newStatus = allocation.gte(itemAmount) ? "PAID" : allocation.gt(0) ? "PARTIAL" : "PENDING";
     await tx.paymentScheduleItem.update({
@@ -1445,8 +1458,10 @@ export async function recordPayment(input: RecordPaymentInput) {
     if (!amount.gt(0)) throw new ServiceError("Payment amount must be > 0");
 
     const totalCollectible = new Decimal(sale.salePrice).plus(new Decimal(sale.gstAmount)).minus(new Decimal(sale.tdsAmount ?? 0));
+    // Interest legs aren't principal — a payment carrying late interest
+    // shouldn't consume sale-price headroom.
     const cumulativeCommitted = sale.payments.reduce(
-      (sum, p) => p.status === "VOID" ? sum : sum.plus(new Decimal(p.amount)),
+      (sum, p) => p.status === "VOID" ? sum : sum.plus(new Decimal(p.amount)).minus(new Decimal(p.interestAmount ?? 0)),
       new Decimal(0),
     ).plus(amount);
     if (cumulativeCommitted.gt(totalCollectible)) {

@@ -4273,6 +4273,10 @@ model AssetSalePayment {
   id          String   @id @default(cuid())
   assetSaleId String
   amount      Decimal  @db.Decimal(14, 2)
+  // Late-interest leg collected in the same payment — schedule allocation
+  // must count only (amount − interestAmount) against installment principal,
+  // else a combined payment over-allocates the schedule.
+  interestAmount Decimal @default(0) @db.Decimal(14, 2)
   paymentDate DateTime @default(now())
   mode        String
   reference   String?

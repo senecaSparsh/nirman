@@ -127,7 +127,7 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
   const unitMap = new Map(builtUnits.map((u) => [u.id, u]));
 
   const saleRows: AssetSaleRow[] = sales.map((s) => {
-    const totalPaid = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+    const totalPaid = s.payments.reduce((sum, p) => sum + (p.status === "VOID" ? 0 : toNum(p.amount) - toNum(p.interestAmount)), 0);
     const parcel = s.landParcelId ? parcelMap.get(s.landParcelId) : null;
     const unit = s.builtUnitId ? unitMap.get(s.builtUnitId) : null;
     return {

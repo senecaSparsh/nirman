@@ -630,6 +630,7 @@ export async function recordSchedulePayment(
       data: {
         assetSaleId: sale.id,
         amount: totalReceived.toString(),
+        interestAmount: interestPaid.toString(),
         paymentDate: new Date(),
         mode: paymentMode ?? "BANK_TRANSFER",
         reference: `Installment ${item.installmentNo}: ${item.description}` + (interestPaid.gt(0) ? ` + ₹${interestPaid.toNumber().toLocaleString("en-IN")} late interest` : ""),
