@@ -802,6 +802,11 @@ export async function sendPaymentDueReminders(companyId?: string) {
       .filter((v): v is string => Boolean(v)),
   );
 
+  // Tap-to-pay UPI link for reminders — same friction removal as demand letters
+  const companyRow = companyId
+    ? await prisma.company.findUnique({ where: { id: companyId }, select: { upiId: true, name: true } })
+    : null;
+
   // Find all DUE schedule items with a due date <= now+3 days (upcoming or overdue)
   const dueItems = await prisma.paymentScheduleItem.findMany({
     where: {
@@ -848,11 +853,15 @@ export async function sendPaymentDueReminders(companyId?: string) {
         `Dear ${customer.name},\n\n` +
         `${isOverdue ? "Your payment is OVERDUE" : "Your payment is due soon"}.\n` +
         `Installment: ${item.description}\n` +
-        `Amount: ₹${new Decimal(item.amount).toNumber().toLocaleString("en-IN")}\n` +
+        `Amount: ₹${new Decimal(item.totalAmount).minus(item.paidAmount).toNumber().toLocaleString("en-IN")}\n` +
         (item.dueDate ? `Due date: ${item.dueDate.toISOString().slice(0, 10)}\n` : "") +
         `Sale: ${sale.saleNumber}\n` +
         (late ? `\nLate interest is accruing at ${late.ratePercent}% p.a. (SBI MCLR + 2%) — ${late.daysOverdue} day(s) late: ₹${Number(late.interest).toLocaleString("en-IN")} so far. Total payable: ₹${Number(late.totalPayable).toLocaleString("en-IN")}.\n` : "") +
-        `\nPlease make the payment at the earliest.\n— Nirman Inventory`;
+        `\nPlease make the payment at the earliest.` +
+        (companyRow?.upiId
+          ? `\nPay now: upi://pay?pa=${encodeURIComponent(companyRow.upiId)}&pn=${encodeURIComponent(companyRow.name).slice(0, 100)}&am=${late ? late.totalPayable : new Decimal(item.totalAmount).minus(item.paidAmount)}&cu=INR&tn=${encodeURIComponent(`${sale.saleNumber} inst ${item.installmentNo}`)}`
+          : "") +
+        `\n— Nirman Inventory`;
 
       await sendNotification({
         companyId: sale.companyId,
