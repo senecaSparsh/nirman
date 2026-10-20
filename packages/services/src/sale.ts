@@ -1670,8 +1670,10 @@ export async function voidAssetSalePayment(input: {
 
     // ── Restore sale aggregates from the remaining live payments ──
     const livePayments = sale.payments.filter((p) => p.id !== payment.id && p.status !== "VOID");
+    // Principal only — a payment's interest leg is income, never deposit
+    // balance or sale-price headroom.
     const liveTotal = livePayments.reduce(
-      (sum, p) => (p.chequeStatus === "PENDING" || p.chequeStatus === "BOUNCED" ? sum : sum.plus(new Decimal(p.amount))),
+      (sum, p) => (p.chequeStatus === "PENDING" || p.chequeStatus === "BOUNCED" ? sum : sum.plus(new Decimal(p.amount)).minus(new Decimal(p.interestAmount ?? 0))),
       new Decimal(0),
     );
     const totalCollectible = new Decimal(sale.salePrice).plus(new Decimal(sale.gstAmount)).minus(new Decimal(sale.tdsAmount ?? 0));
@@ -1951,13 +1953,27 @@ export async function cancelSale(saleId: string, userId?: string) {
     // reverse them all: Dr Customer_Deposit / Cr Cash.
     // Uncleared cheques were posted at booking too, so they must be reversed;
     // bounced cheques were already reversed when they bounced.
+    // Principal only — a payment's interest leg booked to income under the
+    // payment key, not the deposit pool; refunding gross would over-refund.
     const totalPreCompletionPayments = sale.payments.reduce(
       (sum, p) => {
         if (p.status === "VOID" || p.chequeStatus === "BOUNCED") return sum;
-        return sum.plus(new Decimal(p.amount));
+        return sum.plus(new Decimal(p.amount)).minus(new Decimal(p.interestAmount ?? 0));
       },
       new Decimal(0),
     );
+    // Refund the interest legs too — reverse each payment-keyed income JE
+    // (Dr 4450 / Cr Cash), which is exactly the cash-back entry.
+    for (const p of sale.payments) {
+      if (p.status === "VOID" || p.chequeStatus === "BOUNCED") continue;
+      const keyedJes = await tx.journalEntry.findMany({
+        where: { sourceType: "PAYMENT_RECEIVED", sourceId: p.id, status: "POSTED" },
+        select: { id: true },
+      });
+      for (const je of keyedJes) {
+        await reverseJournalEntry(tx, je.id, { postedById: userId, memo: "Sale cancelled — interest leg reversed" });
+      }
+    }
     if (sale.saleStage !== "PENDING" && totalPreCompletionPayments.gt(0)) {
       await postDepositRefund(tx, {
         companyId: sale.companyId,
