@@ -140,14 +140,17 @@ export async function generateGstr1(
   const companyGstin = company?.gstin ?? null;
 
   // Resolve account codes → IDs (GlAccount PK is now id, not code)
-  const accountCodes = ["2100", "4000", "4100", "4200"];
+  // 4450 (late-payment interest income) is taxable consideration under
+  // construction-linked supplies — its credit leg carries the taxable value
+  // when the JE splits output GST off the interest collected.
+  const accountCodes = ["2100", "4000", "4100", "4200", "4450"];
   const glAccounts = await prisma.glAccount.findMany({
     where: { companyId, code: { in: accountCodes } },
     select: { id: true, code: true },
   });
   const codeToId = new Map(glAccounts.map((a) => [a.code, a.id]));
   const outputGstAccountId = codeToId.get("2100");
-  const revenueAccountIds = ["4000", "4100", "4200"].map((c) => codeToId.get(c)).filter((id): id is string => !!id);
+  const revenueAccountIds = ["4000", "4100", "4200", "4450"].map((c) => codeToId.get(c)).filter((id): id is string => !!id);
 
   // Outward supply = every JE in the window carrying a revenue credit — not
   // just JEs with a 2100 leg. A zero-GST/exempt sale has no 2100 leg, yet its
