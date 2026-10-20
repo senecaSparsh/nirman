@@ -3501,7 +3501,14 @@ function TerminateDialog({
   const router = useRouter();
   const [reason, setReason] = useState("Terminated by admin");
   const [settlement, setSettlement] = useState("");
+  const [leaveHint, setLeaveHint] = useState<{ remainingDays: number; dailyWage: number; suggestedEncashment: number } | null>(null);
   const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    fetch(`/api/employees/${employeeId}/leave-balance`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d && d.remainingDays > 0) setLeaveHint(d); })
+      .catch(() => {});
+  }, [employeeId]);
 
   async function handleTerminate() {
     setSaving(true);
@@ -3555,6 +3562,19 @@ function TerminateDialog({
             placeholder="Leave blank if settling later"
             className="w-full rounded-md border border-border bg-card px-3 py-2 text-body text-foreground outline-none focus:border-primary"
           />
+          {leaveHint && (
+            <button
+              type="button"
+              className="text-caption text-brand hover:underline"
+              onClick={() => setSettlement((cur) => {
+                const add = leaveHint.suggestedEncashment;
+                const curNum = Number(cur) || 0;
+                return (curNum + add).toFixed(0);
+              })}
+            >
+              + {leaveHint.remainingDays}d unused leave ≈ {formatCurrency(leaveHint.suggestedEncashment)} (tap to add)
+            </button>
+          )}
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
