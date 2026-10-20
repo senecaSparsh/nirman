@@ -5465,6 +5465,10 @@ model MaterialSalePayment {
   id          String   @id @default(cuid())
   saleId      String
   amount      Decimal  @db.Decimal(14, 2)
+  // B2B buyer-side TDS (e.g. 194Q 0.1% / 194C 1%) — deducted from the
+  // payment, recoverable through 26AS; settled against our AR balance.
+  tdsAmount   Decimal  @default(0) @db.Decimal(14, 2)
+  tdsSection  String?
   paymentDate DateTime @default(now())
   paymentMode String   // "BANK" | "CASH" | "UPI" | "CHEQUE"
   referenceNo String?

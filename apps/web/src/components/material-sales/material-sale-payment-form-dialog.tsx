@@ -45,8 +45,12 @@ export function MaterialSalePaymentFormDialog({
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [cheque, setCheque] = useState<ChequeFormState>(EMPTY_CHEQUE);
+  const [tdsAmount, setTdsAmount] = useState("");
+  const [tdsSection, setTdsSection] = useState("");
 
   const parsedAmount = Number(amount) || 0;
+  const parsedTds = Number(tdsAmount) || 0;
+  const settled = parsedAmount + parsedTds;
   const isCheque = paymentMode === "CHEQUE";
 
   // Customer credits from their other sales — apply them here instead of
@@ -101,8 +105,12 @@ export function MaterialSalePaymentFormDialog({
       toast.error("Please fix the errors in the form");
       return;
     }
-    if (parsedAmount > outstandingBalance) {
-      toast.error(`Amount exceeds outstanding balance of ${formatCurrency(outstandingBalance)}`);
+    if (settled > outstandingBalance) {
+      toast.error(`Amount + TDS exceeds outstanding balance of ${formatCurrency(outstandingBalance)}`);
+      return;
+    }
+    if (parsedTds > 0 && parsedTds >= parsedAmount) {
+      toast.error("TDS cannot meet or exceed the payment amount");
       return;
     }
     if (isCheque && !cheque.chequeNo.trim()) { toast.error("Cheque number is required for cheque payments"); return; }
@@ -117,6 +125,7 @@ export function MaterialSalePaymentFormDialog({
           paymentMode,
           referenceNo: referenceNo || undefined,
           notes: notes || undefined,
+          ...(parsedTds > 0 ? { tdsAmount: parsedTds, tdsSection: tdsSection || undefined } : {}),
           ...(isCheque ? {
             chequeNo: cheque.chequeNo.trim() || undefined,
             chequeDate: cheque.chequeDate || undefined,
@@ -199,6 +208,24 @@ export function MaterialSalePaymentFormDialog({
           </Field>
         </div>
 
+        <details className="rounded-md border border-border/60 px-3 py-2">
+          <summary className="cursor-pointer text-caption text-muted-foreground">Buyer deducted TDS (B2B — 194Q/194C)? Tap to record</summary>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <Field label="TDS amount (₹)">
+              <Input type="number" step="0.01" min="0" value={tdsAmount} onChange={(e) => setTdsAmount(e.target.value)} placeholder="0.00" className="tnum" />
+            </Field>
+            <Field label="Section">
+              <Select value={tdsSection} onChange={(e) => setTdsSection(e.target.value)}>
+                <option value="">—</option>
+                <option value="194Q">194Q (0.1% goods)</option>
+                <option value="194C">194C (1% works)</option>
+                <option value="other">Other</option>
+              </Select>
+            </Field>
+            <p className="col-span-2 text-xs text-muted-foreground">TDS settles the receivable and posts to TDS Receivable (1961) — it reconciles in 26AS, not as cash.</p>
+          </div>
+        </details>
+
         <Field label="Notes">
           <textarea
             className="w-full rounded-md border border-border bg-background px-3 py-2 text-body outline-none focus:ring-2 focus:ring-ring"
@@ -214,8 +241,8 @@ export function MaterialSalePaymentFormDialog({
         <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-caption text-muted-foreground">
           Sale total: <span className="tnum font-medium text-foreground">{formatCurrency(totalAmount)}</span>
           <span className="ml-2">Outstanding: <span className="tnum font-medium text-foreground">{formatCurrency(outstandingBalance)}</span></span>
-          {parsedAmount > 0 && parsedAmount <= outstandingBalance && (
-            <span className="ml-2 text-success">→ After payment: {formatCurrency(outstandingBalance - parsedAmount)}</span>
+          {settled > 0 && settled <= outstandingBalance && (
+            <span className="ml-2 text-success">→ After payment{parsedTds > 0 ? " + TDS" : ""}: {formatCurrency(outstandingBalance - settled)}</span>
           )}
         </div>
 

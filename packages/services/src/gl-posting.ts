@@ -52,6 +52,7 @@ export const CHART_OF_ACCOUNTS = [
   { code: "1910", name: "Accumulated Depreciation - Equipment", type: "ASSET" as const },
   { code: "1950", name: "Inter-Company Receivable", type: "ASSET" as const },
   { code: "1960", name: "TDS Receivable - Rent", type: "ASSET" as const },
+  { code: "1961", name: "TDS Receivable - Sales", type: "ASSET" as const },
   { code: "2000", name: "Accounts Payable", type: "LIABILITY" as const },
   { code: "2050", name: "Inter-Company Payable", type: "LIABILITY" as const },
   { code: "2100", name: "Output GST", type: "LIABILITY" as const },
@@ -105,6 +106,7 @@ export const ACCT = {
   ACCUM_DEPRECIATION: "1910", // Contra-asset: accumulated depreciation on equipment
   IC_RECEIVABLE: "1950",
   TDS_RECEIVABLE: "1960",
+  TDS_RECEIVABLE_SALES: "1961",
   AP: "2000",
   IC_PAYABLE: "2050",
   OUTPUT_GST: "2100",
@@ -937,18 +939,23 @@ export async function postMaterialSalePayment(
     materialSaleId: string;
     paymentId: string;
     amount: Decimal;
+    /** Buyer-side TDS deducted from the payment — recoverable via 26AS.
+     *  The receivable settles the full AR; cash gets only what arrived. */
+    tdsAmount?: Decimal | number;
     postedById?: string;
   },
 ) {
+  const tds = new Decimal(opts.tdsAmount ?? 0);
   return postJournalEntry(tx, {
     companyId: opts.companyId,
     sourceType: "MATERIAL_SALE_PAYMENT",
     sourceId: opts.paymentId,
-    memo: "Payment received against material sale",
+    memo: tds.gt(0) ? "Payment received against material sale (net of buyer TDS)" : "Payment received against material sale",
     postedById: opts.postedById,
     lines: [
       { accountCode: ACCT.CASH, debit: opts.amount, credit: 0, entityType: "MaterialSalePayment", entityId: opts.paymentId },
-      { accountCode: ACCT.AR, debit: 0, credit: opts.amount, entityType: "MaterialSale", entityId: opts.materialSaleId },
+      ...(tds.gt(0) ? [{ accountCode: ACCT.TDS_RECEIVABLE_SALES, debit: tds, credit: new Decimal(0), entityType: "MaterialSalePayment", entityId: opts.paymentId }] : []),
+      { accountCode: ACCT.AR, debit: 0, credit: opts.amount.plus(tds), entityType: "MaterialSale", entityId: opts.materialSaleId },
     ],
   });
 }

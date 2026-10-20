@@ -66,6 +66,9 @@ export async function createMaterialSalePayment(input: {
   referenceNo?: string;
   notes?: string;
   userId?: string;
+  // B2B buyer-side TDS — deducted from what arrived, settled against AR.
+  tdsAmount?: string | number | Decimal;
+  tdsSection?: string;
   // Cheque details
   chequeNo?: string;
   chequeDate?: string; // ISO date
@@ -122,16 +125,20 @@ export async function createMaterialSalePayment(input: {
     // 2. Calculate total paid so far (IN payments only — OUT refunds are
     // money back to the customer, never collection credit; BOUNCED cheques
     // were never real money either)
+    const tds = new Decimal(input.tdsAmount ?? 0);
+    if (tds.lt(0)) throw new ServiceError("TDS amount cannot be negative");
+    if (tds.gte(amount)) throw new ServiceError("TDS cannot meet or exceed the payment amount");
+
     const existingPayments = await tx.materialSalePayment.findMany({
       where: { saleId: input.saleId, status: { not: "VOID" }, direction: "IN", OR: [{ chequeStatus: null }, { chequeStatus: { not: "BOUNCED" } }] },
-      select: { amount: true },
+      select: { amount: true, tdsAmount: true },
     });
     const previouslyPaid = existingPayments.reduce(
-      (sum, p) => sum.plus(new Decimal(p.amount)),
+      (sum, p) => sum.plus(new Decimal(p.amount)).plus(new Decimal(p.tdsAmount ?? 0)),
       new Decimal(0),
     );
 
-    const totalAfterPayment = previouslyPaid.plus(amount);
+    const totalAfterPayment = previouslyPaid.plus(amount).plus(tds);
     const saleTotal = new Decimal(sale.totalAmount);
     const netReceivable = await netReceivableFor(tx, input.saleId, saleTotal);
     if (netReceivable.lte(0)) {
@@ -149,6 +156,8 @@ export async function createMaterialSalePayment(input: {
       data: {
         saleId: input.saleId,
         amount,
+        tdsAmount: tds,
+        tdsSection: input.tdsSection ?? null,
         paymentDate: input.paymentDate ?? new Date(),
         paymentMode: input.paymentMode,
         referenceNo: input.referenceNo,
@@ -176,6 +185,7 @@ export async function createMaterialSalePayment(input: {
       materialSaleId: input.saleId,
       paymentId: payment.id,
       amount,
+      tdsAmount: tds,
       postedById: input.userId,
     });
 
