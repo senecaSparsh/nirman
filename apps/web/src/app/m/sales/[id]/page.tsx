@@ -1,4 +1,5 @@
 import { prisma } from "@nirman/db";
+import { computeLateInterest } from "@nirman/services";
 import { toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { MobileDetailPage } from "@/components/mobile/v2/detail-page";
@@ -241,8 +242,10 @@ export default function MobileSaleDetailPage({
                     description: it.description,
                     percentage: toNum(it.percentage),
                     amount: toNum(it.amount),
+                    totalAmount: toNum(it.totalAmount),
                     dueDate: it.dueDate ? it.dueDate.toISOString() : null,
                     paidAmount: toNum(it.paidAmount),
+                    accruedInterest: it.dueDate ? toNum(computeLateInterest({ totalAmount: it.totalAmount, paidAmount: it.paidAmount, dueDate: it.dueDate })?.interest ?? 0) : 0,
                     status: it.status,
                     wbsNodeId: it.wbsNodeId}))}
               : null}

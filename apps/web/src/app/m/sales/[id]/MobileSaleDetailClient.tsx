@@ -185,8 +185,10 @@ export function MobileSaleDetailClient({
       description: string;
       percentage: number;
       amount: number;
+      totalAmount?: number;
       dueDate: string | null;
       paidAmount: number;
+      accruedInterest?: number;
       status: string;
     }[];
   } | null;
@@ -212,6 +214,8 @@ export function MobileSaleDetailClient({
   const [showCancel, setShowCancel] = useState(false);
   const [voidPaymentId, setVoidPaymentId] = useState<string | null>(null);
   const [demandingItemId, setDemandingItemId] = useState<string | null>(null);
+  const [payItem, setPayItem] = useState<{ id: string; installmentNo: number; description: string; totalAmount: number; paidAmount: number; accruedInterest: number } | null>(null);
+  const [payInterest, setPayInterest] = useState("");
   const [voidReason, setVoidReason] = useState("");
   const [showComplete, setShowComplete] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
@@ -340,7 +344,21 @@ export function MobileSaleDetailClient({
     }
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/sales/${saleId}`, {
+      // Per-installment collect goes through the schedule-item endpoint so the
+      // late-interest leg posts (4450) and the item flips PAID atomically.
+      // A plain sale payment still works — it syncs items FIFO but books no
+      // interest income.
+      const res = payItem
+        ? await fetch(`/api/payment-schedules/items/${payItem.id}/pay`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              amount,
+              interestAmount: Number(payInterest) || 0,
+              paymentMode: payMode,
+            }),
+          })
+        : await fetch(`/api/sales/${saleId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -369,7 +387,9 @@ export function MobileSaleDetailClient({
         } : undefined,
       });
       setShowPayment(false);
+      setPayItem(null);
       setPayAmount("");
+      setPayInterest("");
       setPayRef("");
       setPayCheque(EMPTY_MOBILE_CHEQUE);
       router.refresh();
@@ -1124,8 +1144,24 @@ export function MobileSaleDetailClient({
                     </div>
                   )}
                 </div>
-                {it.status !== "PAID" && (
+                {it.status !== "PAID" && it.status !== "WAIVED" && (
                   <div className="ml-2 flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const bal = Math.max(0, (it.totalAmount ?? it.amount) - it.paidAmount);
+                        const interest = Math.max(0, it.accruedInterest ?? 0);
+                        setPayItem({ id: it.id, installmentNo: it.installmentNo, description: it.description, totalAmount: it.totalAmount ?? it.amount, paidAmount: it.paidAmount, accruedInterest: interest });
+                        setPayAmount(bal.toFixed(2));
+                        setPayInterest(interest.toFixed(2));
+                        setShowPayment(true);
+                      }}
+                      className="rounded px-2 py-1 text-m-caption font-bold"
+                      style={{ backgroundColor: "var(--color-go)", color: "#fff" }}
+                      title="Collect this installment (principal + accrued interest)"
+                    >
+                      Collect
+                    </button>
                     <button
                       type="button"
                       onClick={async () => {
@@ -1549,8 +1585,17 @@ export function MobileSaleDetailClient({
 
       {/* ── Payment modal ── */}
       {showPayment ? (
-        <Modal onClose={() => setShowPayment(false)} title="Record Payment">
+        <Modal onClose={() => { setShowPayment(false); setPayItem(null); }} title={payItem ? `Collect #${payItem.installmentNo}` : "Record Payment"}>
           <form onSubmit={handlePayment} className="flex flex-col gap-3">
+            {payItem && (
+              <div className="rounded-[0.5rem] border px-3 py-2" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+                <p className="text-m-caption font-bold" style={{ color: "var(--color-ink-700)" }}>{payItem.description}</p>
+                <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                  Balance {formatCurrency(Math.max(0, payItem.totalAmount - payItem.paidAmount))}
+                  {payItem.accruedInterest > 0 && ` · +${formatCurrency(payItem.accruedInterest)} interest`}
+                </p>
+              </div>
+            )}
             <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                 Payment Details
@@ -1604,12 +1649,34 @@ export function MobileSaleDetailClient({
                   style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
                 />
               </div>
+              {payItem && (
+                <div>
+                  <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
+                    Late Interest (MCLR+2%)
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={payInterest}
+                    onChange={(e) => setPayInterest(e.target.value)}
+                    className="w-full h-7 px-1 text-m-caption font-bold tabular-nums outline-none border-b focus:border-b-2 transition-colors"
+                    style={{ backgroundColor: "transparent" }}
+                  />
+                  {(Number(payAmount) + Number(payInterest)) > 0 && (
+                    <p className="text-m-caption font-bold mt-1" style={{ color: "var(--color-signal-dark)" }}>
+                      Collecting {formatCurrency(Number(payAmount) + Number(payInterest))} total
+                    </p>
+                  )}
+                </div>
+              )}
               {payMode === "CHEQUE" && <MobileChequeFields value={payCheque} onChange={setPayCheque} />}
             </div>
             <div className="flex gap-2 pt-1">
               <button
                 type="button"
-                onClick={() => setShowPayment(false)}
+                onClick={() => { setShowPayment(false); setPayItem(null); }}
                 className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold text-m-body press"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               >
