@@ -7,7 +7,7 @@ import { PERM } from "@/lib/roles";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { amountInWords } from "@nirman/services";
+import { amountInWords, computeLateInterest, LATE_INTEREST_RATE } from "@nirman/services";
 
 /**
  * Demand Notice — sent to the buyer when a payment installment is due.
@@ -105,6 +105,7 @@ export default async function DemandNoticePage({
   const percentage = toNum(item.percentage);
   const alreadyPaid = toNum(item.paidAmount);
   const balanceDue = totalAmount - alreadyPaid;
+  const late = computeLateInterest({ totalAmount: item.totalAmount, paidAmount: item.paidAmount, dueDate: item.dueDate });
 
   const assetLabel = sale.assetType === "LAND"
     ? `Plot ${landParcel?.number ?? "—"}`
@@ -240,6 +241,20 @@ export default async function DemandNoticePage({
               <td className="py-1.5 pr-4 font-semibold text-gray-600">Due Date</td>
               <td className="py-1.5 font-bold text-red-700">{formatDate(dueDate)}</td>
             </tr>
+            {late && (
+              <>
+                <tr className="border-b border-gray-200">
+                  <td className="py-1.5 pr-4 font-semibold text-gray-600">
+                    Late Interest ({late.daysOverdue} day(s) @ {late.ratePercent}% p.a.)
+                  </td>
+                  <td className="py-1.5 font-bold text-red-700">{formatCurrency(Number(late.interest))}</td>
+                </tr>
+                <tr className="border-b-2 border-gray-400 bg-red-50">
+                  <td className="py-2 pr-4 font-bold text-red-700">Total Payable incl. Interest</td>
+                  <td className="py-2 text-base font-bold text-red-700">{formatCurrency(Number(late.totalPayable))}</td>
+                </tr>
+              </>
+            )}
           </tbody>
         </table>
       </section>
@@ -282,9 +297,9 @@ export default async function DemandNoticePage({
       <section className="mt-4 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
         <p className="font-semibold">Important — Late Payment Interest</p>
         <p className="mt-1">
-          Delay in payment beyond the due date will attract interest at the rate specified in the
-          Builder-Buyer Agreement (typically 18% per annum on the overdue amount), calculated on a
-          daily basis from the due date until the date of actual receipt.
+          Delay in payment beyond the due date attracts interest at {LATE_INTEREST_RATE.toFixed(2)}% per
+          annum (SBI MCLR + 2%, per the agreement and applicable RERA rules), computed daily from the
+          due date until receipt.{late && ` ${late.daysOverdue} day(s) have already accrued ${formatCurrency(Number(late.interest))} — the amount grows each day this remains unpaid.`}
         </p>
       </section>
 

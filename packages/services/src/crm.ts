@@ -4,6 +4,7 @@ import { logAction } from "./audit";
 import { postPaymentReceived, postDepositReceived } from "./gl-posting";
 import { sendNotification } from "./notifications";
 import { ServiceError } from "./errors";
+import { computeLateInterest } from "./collections";
 import { createSalePaymentSchedule, syncPaymentScheduleFromPayments, type PaymentScheduleItemInput } from "./sale";
 import { withSerializableTransaction } from "./transaction";
 
@@ -736,6 +737,24 @@ export function computeRealEstateGst(
  */
 export async function sendPaymentDueReminders(companyId?: string) {
   const now = new Date();
+  // Date-triggered installments (TLP/DPP, or CLP without a WBS link) become
+  // DUE when their dueDate passes — checkMilestonePayments only covers
+  // WBS-linked CLP items, so without this flip a time-linked plan never
+  // produces a reminder no matter how overdue it is.
+  await prisma.paymentScheduleItem.updateMany({
+    where: {
+      status: "PENDING",
+      dueDate: { lte: now },
+      wbsNodeId: null,
+      paymentSchedule: {
+        assetSale: {
+          status: { not: "CANCELLED" },
+          ...(companyId ? { companyId } : {}),
+        },
+      },
+    },
+    data: { status: "DUE" },
+  });
   // Find all DUE schedule items with a due date <= now+3 days (upcoming or overdue)
   const dueItems = await prisma.paymentScheduleItem.findMany({
     where: {
@@ -773,6 +792,9 @@ export async function sendPaymentDueReminders(companyId?: string) {
       if (!recipient) continue;
 
       const isOverdue = item.dueDate && new Date(item.dueDate) < now;
+      const late = isOverdue
+        ? computeLateInterest({ totalAmount: item.totalAmount, paidAmount: item.paidAmount, dueDate: item.dueDate, asOf: now })
+        : null;
       const channel = customer.phone ? "WHATSAPP" : "EMAIL";
       const message =
         `Dear ${customer.name},\n\n` +
@@ -780,8 +802,9 @@ export async function sendPaymentDueReminders(companyId?: string) {
         `Installment: ${item.description}\n` +
         `Amount: ₹${new Decimal(item.amount).toNumber().toLocaleString("en-IN")}\n` +
         (item.dueDate ? `Due date: ${item.dueDate.toISOString().slice(0, 10)}\n` : "") +
-        `Sale: ${sale.saleNumber}\n\n` +
-        `Please make the payment at the earliest.\n— Nirman Inventory`;
+        `Sale: ${sale.saleNumber}\n` +
+        (late ? `\nLate interest is accruing at ${late.ratePercent}% p.a. (SBI MCLR + 2%) — ${late.daysOverdue} day(s) late: ₹${Number(late.interest).toLocaleString("en-IN")} so far. Total payable: ₹${Number(late.totalPayable).toLocaleString("en-IN")}.\n` : "") +
+        `\nPlease make the payment at the earliest.\n— Nirman Inventory`;
 
       await sendNotification({
         companyId: sale.companyId,

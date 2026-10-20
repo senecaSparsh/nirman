@@ -57,6 +57,7 @@ export function SaleDetailDialog({
   const [scheduleEditOpen, setScheduleEditOpen] = useState(false);
   const [saleEditOpen, setSaleEditOpen] = useState(false);
   const [acting, setActing] = useState(false);
+  const [demanding, setDemanding] = useState<string | null>(null);
   const [chequeActionLoading, setChequeActionLoading] = useState(false);
   const [docUploading, setDocUploading] = useState(false);
   const [collectItem, setCollectItem] = useState<{ id: string; installmentNo: number; description: string; amount: number; paidAmount: number } | null>(null);
@@ -114,6 +115,20 @@ export function SaleDetailDialog({
       trackRecent({ type: "sale", id: sale.id, label: sale.saleNumber, href: `/sales?sale=${sale.id}` });
     }
   }, [open, sale, trackRecent]);
+
+  async function sendDemand(itemId: string) {
+    setDemanding(itemId);
+    try {
+      const res = await fetch(`/api/payment-schedules/items/${itemId}/demand`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to send demand");
+      toast.success(`Demand sent — ${formatCurrency(Number(data.totalPayable))} incl. ${formatCurrency(Number(data.interest))} interest`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to send demand");
+    } finally {
+      setDemanding(null);
+    }
+  }
 
   async function cancelSale() {
     if (!sale) return;
@@ -796,6 +811,17 @@ export function SaleDetailDialog({
                                   </Button>
                                 ) : (
                                   <span className="text-caption text-muted-foreground">—</span>
+                                )}
+                                {(item.status === "DUE" || item.status === "PARTIAL") && item.dueDate && now && new Date(item.dueDate) < now && !isCancelled && (
+                                  <button
+                                    type="button"
+                                    title="Send demand notice (WhatsApp, with late interest)"
+                                    className="inline-flex items-center gap-1 text-micro text-danger hover:text-foreground disabled:opacity-40"
+                                    disabled={demanding === item.id}
+                                    onClick={() => sendDemand(item.id)}
+                                  >
+                                    <MessageCircle className="h-3 w-3" />
+                                  </button>
                                 )}
                                 <a
                                   href={`/print/demand-notice/${item.id}`}

@@ -1274,3 +1274,6 @@ export {
   STATUTORY_KINDS,
   type StatutoryKind,
 } from "./statutory-payment";
+
+// Collections — allottee demand notices + RERA late-payment interest (MCLR+2%)
+export { computeLateInterest, sendDemandNotice, LATE_INTEREST_RATE, type LateInterest } from "./collections";
