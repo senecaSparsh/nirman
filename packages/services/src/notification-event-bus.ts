@@ -67,6 +67,9 @@ export enum NotificationEventType {
   // Inventory (5)
   STOCK_TRANSFER_CREATED = "STOCK_TRANSFER_CREATED",
   STOCK_ISSUE_CREATED = "STOCK_ISSUE_CREATED",
+  // Just-crossed signal: cumulative issues of a material to a project pushed
+  // past its BOQ estimate on this transaction. Soft warn — never blocks.
+  MATERIAL_OVER_ISSUE = "MATERIAL_OVER_ISSUE",
   STOCK_COUNT_DUE = "STOCK_COUNT_DUE",
   SCRAP_GENERATED = "SCRAP_GENERATED",
   MATERIAL_PRICE_CHANGE = "MATERIAL_PRICE_CHANGE",
@@ -173,6 +176,7 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   // Inventory
   [NotificationEventType.STOCK_TRANSFER_CREATED]: "DAILY",
   [NotificationEventType.STOCK_ISSUE_CREATED]: "DAILY",
+  [NotificationEventType.MATERIAL_OVER_ISSUE]: "IMMEDIATE",
   [NotificationEventType.STOCK_COUNT_DUE]: "DAILY",
   [NotificationEventType.SCRAP_GENERATED]: "DAILY",
   [NotificationEventType.MATERIAL_PRICE_CHANGE]: "WEEKLY",
@@ -814,6 +818,7 @@ const QUALITY_EVENTS = new Set([
 const INVENTORY_EVENTS = new Set([
   NotificationEventType.STOCK_TRANSFER_CREATED,
   NotificationEventType.STOCK_ISSUE_CREATED,
+  NotificationEventType.MATERIAL_OVER_ISSUE,
   NotificationEventType.STOCK_COUNT_DUE,
   NotificationEventType.SCRAP_GENERATED,
   NotificationEventType.MATERIAL_PRICE_CHANGE,
@@ -947,6 +952,8 @@ const EVENT_MESSAGES: Partial<
     `Stock transfer ${s("transferNumber")} created${s("fromName") && s("toName") ? ` — ${s("fromName")} → ${s("toName")}` : ""}.`,
   [NotificationEventType.STOCK_ISSUE_CREATED]: ({ s }) =>
     `Material issue ${s("issueNumber")}${s("projectName") ? ` to ${s("projectName")}` : ""} — stock went out.`,
+  [NotificationEventType.MATERIAL_OVER_ISSUE]: ({ s }) =>
+    `Over-issue: ${s("materialName")} on ${s("projectName")} just crossed its BOQ — ${s("issuedQty")} issued vs ${s("boqQty")} planned.`,
   [NotificationEventType.STOCK_COUNT_DUE]: ({ s }) =>
     `Stock count due${s("locationName") ? ` at ${s("locationName")}` : ""}.`,
   [NotificationEventType.SCRAP_GENERATED]: ({ s }) =>

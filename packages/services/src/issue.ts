@@ -304,6 +304,50 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
     timestamp: new Date(),
   });
 
+  // BOQ over-issue ping — fires only when THIS issue pushes cumulative
+  // issues past the material's BOQ estimate (just-crossed, not repeated
+  // noise). Soft warn; legitimate over-issues via change orders still pass.
+  void (async () => {
+    try {
+      for (const line of input.lines) {
+        const boq = await prisma.boqItem.aggregate({
+          _sum: { estimatedQty: true },
+          where: { projectId: input.projectId, materialId: line.materialId, type: "LINE_ITEM" },
+        });
+        const boqQty = new Decimal(boq._sum.estimatedQty ?? 0);
+        if (boqQty.lte(0)) continue;
+        const issued = await prisma.materialIssueLine.aggregate({
+          _sum: { qty: true },
+          where: {
+            materialId: line.materialId,
+            materialIssue: { projectId: input.projectId, status: { not: "CANCELLED" } },
+          },
+        });
+        const issuedQty = new Decimal(issued._sum.qty ?? 0);
+        if (issuedQty.gt(boqQty) && issuedQty.minus(line.qty).lte(boqQty)) {
+          const material = await prisma.material.findUnique({
+            where: { id: line.materialId },
+            select: { name: true, unit: true },
+          });
+          await emitNotificationEvent({
+            eventType: NotificationEventType.MATERIAL_OVER_ISSUE,
+            companyId: projectCompanyId,
+            excludeIds: [],
+            entityType: "MaterialIssue",
+            entityId: result.materialIssue.id,
+            variables: {
+              materialName: material?.name ?? "Material",
+              projectName,
+              issuedQty: `${issuedQty.toFixed(0)} ${material?.unit ?? ""}`,
+              boqQty: `${boqQty.toFixed(0)} ${material?.unit ?? ""}`,
+            },
+            timestamp: new Date(),
+          });
+        }
+      }
+    } catch { /* best-effort — flagging never blocks an issue */ }
+  })();
+
   return result;
 }
 
