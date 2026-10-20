@@ -7,6 +7,7 @@ import { PERM } from "@/lib/roles";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { PendingPaymentsReport } from "@/components/reports/pending-payments-report";
+import { computeLateInterest } from "@nirman/services";
 import { squareToSupplierCards } from "@/lib/supplier-payables";
 
 import { NoAccess } from "@/components/no-access";
@@ -168,7 +169,10 @@ async function PendingPaymentsContent() {
 
   const receivableRows = sales.map((s) => {
     const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
-    const totalSaleValue = toNum(s.salePrice) + toNum(s.gstAmount);
+    // 194-IA: buyer-withheld TDS is settled to the ITD, not owed by the
+    // customer — subtract it from what's collectible (same rule as the
+    // finance banner and /api/sales list).
+    const totalSaleValue = toNum(s.salePrice) + toNum(s.gstAmount) - toNum(s.tdsAmount);
     const daysSinceSale = Math.floor((now.getTime() - s.saleDate.getTime()) / 86400000);
     return {
       id: s.id,
@@ -200,6 +204,39 @@ async function PendingPaymentsContent() {
     createdAt: po.createdAt.toISOString(),
   }));
 
+  // 4. Overdue installments — the collections workbench. Any unpaid schedule
+  //    item past its dueDate is overdue regardless of stored status (the
+  //    reminder sweep flips PENDING→DUE, but the report shouldn't wait for
+  //    the sweep to reflect reality). Interest accrues at SBI MCLR+2%.
+  const overdueItems = await prisma.paymentScheduleItem.findMany({
+    take: 300,
+    where: {
+      status: { in: ["PENDING", "DUE", "PARTIAL"] },
+      dueDate: { lt: now },
+      paymentSchedule: { assetSale: { companyId: company.id, status: { not: "CANCELLED" }, ...await scopeWhere("AssetSale") } },
+    },
+    include: {
+      paymentSchedule: {
+        include: { assetSale: { select: { saleNumber: true, customer: { select: { name: true } } } } },
+      },
+    },
+    orderBy: { dueDate: "asc" },
+  });
+  const installmentRows = overdueItems.map((i) => {
+    const late = computeLateInterest({ totalAmount: i.totalAmount, paidAmount: i.paidAmount, dueDate: i.dueDate, asOf: now });
+    return {
+      id: i.id,
+      saleNumber: i.paymentSchedule.assetSale.saleNumber,
+      customer: i.paymentSchedule.assetSale.customer.name,
+      installment: `#${i.installmentNo} ${i.description}`,
+      dueDate: i.dueDate!.toISOString(),
+      daysOverdue: late?.daysOverdue ?? 0,
+      principal: Number(late?.principalDue ?? 0),
+      interest: Number(late?.interest ?? 0),
+      totalPayable: Number(late?.totalPayable ?? 0),
+    };
+  }).filter((r) => r.principal > 0.01);
+
   const totalPayable = overdueRows.reduce((s, r) => s + toNum(r.payable), 0);
   const totalReceivable = receivableRows.reduce((s, r) => s + toNum(r.outstanding), 0);
   const totalDraft = draftRows.reduce((s, r) => s + toNum(r.value), 0);
@@ -224,6 +261,7 @@ async function PendingPaymentsContent() {
       <PendingPaymentsReport
         overduePOs={overdueRows}
         receivables={receivableRows}
+        installments={installmentRows}
         draftPOs={draftRows}
         totalPayable={totalPayable}
         totalReceivable={totalReceivable}

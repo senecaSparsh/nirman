@@ -52,10 +52,24 @@ export type DraftPORow = {
   value: number;
   createdAt: string;
 };
+// Overdue schedule-item row for the collections tab — carries the
+// MCLR+2%-accrued interest + demand dispatch action.
+export type OverdueInstallmentRow = {
+  id: string;
+  saleNumber: string;
+  customer: string;
+  installment: string;
+  dueDate: string;
+  daysOverdue: number;
+  principal: number;
+  interest: number;
+  totalPayable: number;
+};
 
 export function PendingPaymentsReport({
   overduePOs,
   receivables,
+  installments = [],
   draftPOs,
   totalPayable,
   totalReceivable,
@@ -66,6 +80,7 @@ export function PendingPaymentsReport({
 }: {
   overduePOs: OverduePORow[];
   receivables: ReceivableRow[];
+  installments?: OverdueInstallmentRow[];
   draftPOs: DraftPORow[];
   totalPayable: number;
   totalReceivable: number;
@@ -75,7 +90,8 @@ export function PendingPaymentsReport({
   canSendReminders?: boolean;
 }) {
   const [sending, setSending] = useState(false);
-  const hasData = overduePOs.length > 0 || receivables.length > 0 || draftPOs.length > 0;
+  const [demanding, setDemanding] = useState<string | null>(null);
+  const hasData = overduePOs.length > 0 || receivables.length > 0 || draftPOs.length > 0 || installments.length > 0;
 
   async function sendReminders() {
     setSending(true);
@@ -94,6 +110,89 @@ export function PendingPaymentsReport({
       setSending(false);
     }
   }
+
+  async function sendDemand(itemId: string) {
+    setDemanding(itemId);
+    try {
+      const res = await fetch(`/api/payment-schedules/items/${itemId}/demand`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to send demand");
+      toast.success(`Demand sent — ${formatCurrency(Number(data.totalPayable))} incl. ${formatCurrency(Number(data.interest))} interest`);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to send demand");
+    } finally {
+      setDemanding(null);
+    }
+  }
+
+  const installmentColumns: Column<OverdueInstallmentRow>[] = [
+    {
+      key: "saleNumber",
+      label: "Sale",
+      sortable: true,
+      render: (i) => <span className="font-mono text-sm">{i.saleNumber}</span>,
+      exportValue: (i) => i.saleNumber,
+    },
+    { key: "customer", label: "Customer", sortable: true, exportValue: (i) => i.customer },
+    { key: "installment", label: "Installment", render: (i) => <span className="text-sm">{i.installment}</span>, exportValue: (i) => i.installment },
+    {
+      key: "dueDate",
+      label: "Due",
+      sortable: true,
+      sortValue: (i) => new Date(i.dueDate).getTime(),
+      render: (i) => <span className="text-muted-foreground">{formatDate(i.dueDate)}</span>,
+      exportValue: (i) => formatDate(i.dueDate),
+    },
+    {
+      key: "daysOverdue",
+      label: "Days Late",
+      align: "right",
+      sortable: true,
+      render: (i) => <span className="tnum text-danger font-semibold">{i.daysOverdue}d</span>,
+      exportValue: (i) => i.daysOverdue,
+    },
+    {
+      key: "principal",
+      label: "Principal",
+      align: "right",
+      sortable: true,
+      render: (i) => <span className="tnum">{formatCurrency(i.principal)}</span>,
+      exportValue: (i) => i.principal,
+    },
+    {
+      key: "interest",
+      label: "Interest (MCLR+2%)",
+      align: "right",
+      sortable: true,
+      render: (i) => <span className="tnum text-warning">{formatCurrency(i.interest)}</span>,
+      exportValue: (i) => i.interest,
+    },
+    {
+      key: "totalPayable",
+      label: "Total Demanded",
+      align: "right",
+      sortable: true,
+      render: (i) => <span className="tnum font-bold">{formatCurrency(i.totalPayable)}</span>,
+      exportValue: (i) => i.totalPayable,
+    },
+    {
+      key: "demand",
+      label: "",
+      align: "right",
+      render: (i) =>
+        canSendReminders ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-[11px]"
+            disabled={demanding === i.id}
+            onClick={() => sendDemand(i.id)}
+          >
+            {demanding === i.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />} Demand
+          </Button>
+        ) : null,
+    },
+  ];
 
   if (!hasData) {
     return (
@@ -343,6 +442,9 @@ export function PendingPaymentsReport({
         <TabsList>
           <TabsTrigger value="payables" count={overduePOs.length}>Payables</TabsTrigger>
           <TabsTrigger value="receivables" count={receivables.length}>Receivables</TabsTrigger>
+          {installments.length > 0 && (
+            <TabsTrigger value="installments" count={installments.length}>Overdue Installments</TabsTrigger>
+          )}
           {draftPOs.length > 0 && (
             <TabsTrigger value="drafts" count={draftPOs.length}>Draft POs</TabsTrigger>
           )}
@@ -383,6 +485,26 @@ export function PendingPaymentsReport({
             />
           </div>
         </TabsContent>
+
+        {/* ── Overdue installments (collections) ─────────────────── */}
+        {installments.length > 0 && (
+          <TabsContent value="installments">
+            <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+              <DataTable
+                data={installments}
+                columns={installmentColumns}
+                storageKey="overdue-installments"
+                hideable
+                exportFileName="overdue-installments"
+                initialSort={{ key: "daysOverdue", direction: "desc" }}
+                searchable
+                searchPlaceholder="Search sale, customer, installment…"
+                rowTone={(i) => (i.daysOverdue > 30 ? "danger" : "warning")}
+                emptyState={noMatch}
+              />
+            </div>
+          </TabsContent>
+        )}
 
         {/* ── Draft POs awaiting approval ─────────────────────────── */}
         {draftPOs.length > 0 && (
