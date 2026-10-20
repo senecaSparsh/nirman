@@ -391,15 +391,27 @@ export function ProjectHub({
                 ))}
               </div>
             )}
-            {project.escrowAccountNo && (project.escrowLedgerBalance ?? 0) > 0 && (
-              <button
-                type="button"
-                onClick={() => setWithdrawalOpen(true)}
-                className="mt-1 text-xs font-medium text-primary hover:underline"
-              >
-                Record certified withdrawal
-              </button>
-            )}
+            <div className="mt-1 flex gap-3">
+              {project.escrowAccountNo && (project.escrowLedgerBalance ?? 0) > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setWithdrawalOpen(true)}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  Record certified withdrawal
+                </button>
+              )}
+              {project.escrowAccountNo && (
+                <a
+                  href={`/print/escrow-statement/${project.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  Print statement
+                </a>
+              )}
+            </div>
             <EscrowWithdrawalDialog
               open={withdrawalOpen}
               onOpenChange={setWithdrawalOpen}
