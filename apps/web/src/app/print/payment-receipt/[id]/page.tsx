@@ -9,7 +9,7 @@ import { amountInWords } from "@nirman/services";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { notFound } from "next/navigation";
 
-type AssetPaymentSummary = { id: string; paymentDate: Date; mode: string; reference: string | null; amount: unknown };
+type AssetPaymentSummary = { id: string; paymentDate: Date; mode: string; reference: string | null; amount: unknown; interestAmount?: unknown };
 
 /**
  * Print-friendly Payment Receipt — for individual payments received against an
@@ -93,7 +93,9 @@ export default async function PaymentReceiptPage({
   const gstRate = toNum(sale.gstRate);
   const gstAmount = toNum(sale.gstAmount);
   const total = salePrice + gstAmount;
-  const totalPaid = (sale.payments ?? []).reduce((s, p: AssetPaymentSummary) => s + toNum(p.amount), 0);
+  // Principal only — the interest leg is income over the price, not payment
+  // toward it.
+  const totalPaid = (sale.payments ?? []).reduce((s, p: AssetPaymentSummary) => s + toNum(p.amount) - toNum(p.interestAmount), 0);
   const balanceDue = total - totalPaid;
   const pctPaid = total > 0 ? Math.min(100, (totalPaid / total) * 100) : 0;
 
@@ -176,6 +178,12 @@ export default async function PaymentReceiptPage({
           <div className="text-xs font-semibold uppercase text-gray-500">Amount Received</div>
           <div className="text-2xl font-bold tnum">{formatCurrency(amount)}</div>
         </div>
+        {toNum(payment.interestAmount) > 0 && (
+          <div className="mt-1 text-xs text-gray-600">
+            Includes late-payment interest {formatCurrency(toNum(payment.interestAmount))} ·
+            toward installments {formatCurrency(amount - toNum(payment.interestAmount))}
+          </div>
+        )}
         <div className="mt-1 text-sm italic text-gray-600">In words: {words}</div>
       </div>
 
