@@ -211,6 +211,7 @@ export function MobileSaleDetailClient({
   const [showPayment, setShowPayment] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
   const [voidPaymentId, setVoidPaymentId] = useState<string | null>(null);
+  const [demandingItemId, setDemandingItemId] = useState<string | null>(null);
   const [voidReason, setVoidReason] = useState("");
   const [showComplete, setShowComplete] = useState(false);
   const [showDeposit, setShowDeposit] = useState(false);
@@ -1124,14 +1125,43 @@ export function MobileSaleDetailClient({
                   )}
                 </div>
                 {it.status !== "PAID" && (
-                  <button
-                    type="button"
-                    onClick={() => docViewer.openDoc(`/m/print/demand-notice/${it.id}`, "Demand Notice")}
-                    className="ml-2 shrink-0"
-                    title="Print demand notice"
-                  >
-                    <Printer className="size-3" style={{ color: "var(--color-ink-500)" }} />
-                  </button>
+                  <div className="ml-2 flex shrink-0 items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        haptic(50);
+                        setDemandingItemId(it.id);
+                        try {
+                          const res = await fetch(`/api/payment-schedules/items/${it.id}/demand`, { method: "POST" });
+                          const data = await res.json().catch(() => ({}));
+                          if (res.status === 409) {
+                            toast.info("Demand already sent within 24h — open the notice to print/resend later");
+                          } else if (!res.ok) {
+                            toast.error(data.error ?? "Demand failed");
+                          } else {
+                            toast.success(`Demand sent to ${data.sentTo ?? "customer"} — ${formatCurrency(Number(data.totalPayable))} incl. ${formatCurrency(Number(data.interest))} interest`);
+                          }
+                        } catch {
+                          toast.error("Demand failed — check connection");
+                        } finally {
+                          setDemandingItemId(null);
+                        }
+                      }}
+                      disabled={demandingItemId === it.id}
+                      className="rounded px-2 py-1 text-m-caption font-bold"
+                      style={{ backgroundColor: "var(--color-warning)", color: "#fff" }}
+                      title="Send demand notice (WhatsApp/email)"
+                    >
+                      {demandingItemId === it.id ? "…" : "Demand"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => docViewer.openDoc(`/m/print/demand-notice/${it.id}`, "Demand Notice")}
+                      title="Print demand notice"
+                    >
+                      <Printer className="size-3" style={{ color: "var(--color-ink-500)" }} />
+                    </button>
+                  </div>
                 )}
               </div>
             ))}
