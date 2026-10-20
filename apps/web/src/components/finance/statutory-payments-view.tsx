@@ -224,6 +224,16 @@ export function StatutoryPaymentsView({
             {o.kind === "GST" && (o.itcAvailable ?? 0) > 0 && (
               <p className="text-micro text-muted-foreground">ITC available: {formatCurrency(o.itcAvailable!)}</p>
             )}
+            {o.kind === "PF" && (
+              <button
+                type="button"
+                onClick={() => window.open("/api/export?type=pf-ecr", "_blank")}
+                className="mt-1 text-micro text-brand hover:underline"
+                title="Download EPFO ECR upload file for the latest payroll period"
+              >
+                ECR file ↓
+              </button>
+            )}
           </Card>
         ))}
       </div>
