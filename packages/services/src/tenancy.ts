@@ -1190,13 +1190,19 @@ export async function sendRentDueReminders(companyId?: string) {
     where: {
       status: "OVERDUE",
       paymentDate: { lte: now },
+      // 72h per-payment cooldown — an unfiltered sweep re-reminded every
+      // overdue rent every time it ran.
+      OR: [
+        { reminderSentAt: null },
+        { reminderSentAt: { lt: new Date(now.getTime() - 72 * 60 * 60 * 1000) } },
+      ],
       tenancy: {
         status: "ACTIVE",
         ...(companyId ? { companyId } : {}),
       },
     },
     include: {
-      tenancy: { select: { tenantName: true, tenantPhone: true, tenantEmail: true, monthlyRent: true, companyId: true } },
+      tenancy: { select: { tenantName: true, tenantPhone: true, tenantEmail: true, monthlyRent: true, companyId: true, company: { select: { upiId: true, name: true } } } },
     },
     take: 100,
   });
@@ -1207,13 +1213,18 @@ export async function sendRentDueReminders(companyId?: string) {
       const recipient = p.tenancy.tenantPhone ?? p.tenancy.tenantEmail;
       if (!recipient) continue;
 
+      const fmtAmt = `₹${Number(p.amount).toLocaleString("en-IN")}`;
+      const upiLink = p.tenancy.company.upiId
+        ? `\nPay now: upi://pay?pa=${encodeURIComponent(p.tenancy.company.upiId)}&pn=${encodeURIComponent(p.tenancy.company.name).slice(0, 100)}&am=${Number(p.amount)}&cu=INR&tn=${encodeURIComponent("Rent " + p.dueDate.toISOString().slice(0, 7))}`
+        : "";
+
       await sendNotification({
         companyId: p.tenancy.companyId,
         eventType: "RENT_DUE_REMINDER",
         channel: p.tenancy.tenantPhone ? "WHATSAPP" : "EMAIL",
         recipient,
         recipientName: p.tenancy.tenantName,
-        message: `Dear ${p.tenancy.tenantName}, your rent of ${p.amount} is overdue (due date: ${p.dueDate.toISOString().slice(0, 10)}). Please make the payment at the earliest. — Nirman Inventory`,
+        message: `Dear ${p.tenancy.tenantName}, your rent of ${fmtAmt} is overdue (due date: ${p.dueDate.toISOString().slice(0, 10)}). Please make the payment at the earliest.${upiLink} — Nirman Inventory`,
         metadata: { tenancyId: p.tenancyId, paymentId: p.id, amount: p.amount.toString() },
       });
 
