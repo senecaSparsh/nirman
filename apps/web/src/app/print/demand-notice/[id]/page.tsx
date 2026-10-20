@@ -39,7 +39,7 @@ export default async function DemandNoticePage({
     wbsNode: { select: { name: true, code: true } },
   } as const;
 
-  let company: { id: string; name: string; address: string | null; gstin: string | null; phone: string | null; email: string | null } | null = null;
+  let company: { id: string; name: string; address: string | null; gstin: string | null; phone: string | null; email: string | null; upiId?: string | null } | null = null;
   let item = null;
 
   const user = await getCurrentUser();
@@ -73,7 +73,7 @@ export default async function DemandNoticePage({
       if (saleCompanyId) {
         company = await prisma.company.findUnique({
           where: { id: saleCompanyId },
-          select: { id: true, name: true, address: true, gstin: true, phone: true, email: true },
+          select: { id: true, name: true, address: true, gstin: true, phone: true, email: true, upiId: true },
         });
       }
     }
@@ -292,6 +292,17 @@ export default async function DemandNoticePage({
           </table>
         </div>
       </section>
+
+      {/* How to pay — UPI VPA when configured, else office contact */}
+      {company.upiId && (
+        <section className="mt-4 rounded border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">
+          <p className="font-semibold">Pay instantly via UPI</p>
+          <p className="mt-1">
+            UPI ID: <span className="font-mono font-bold">{company.upiId}</span> — pay {formatCurrency(Number(late?.totalPayable ?? balanceDue))} with
+            remark <span className="font-mono">{sale.saleNumber} inst {item.installmentNo}</span>
+          </p>
+        </section>
+      )}
 
       {/* Late payment warning */}
       <section className="mt-4 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
