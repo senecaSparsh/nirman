@@ -4,6 +4,7 @@ import { ArrowLeft, FileText, Receipt } from "lucide-react";
 import { prisma } from "@nirman/db";
 import { getPortalCustomer } from "@/lib/portal-auth";
 import { toNum } from "@/lib/server";
+import { computeLateInterest } from "@nirman/services";
 import { EmptyState } from "@/components/empty-state";
 
 export const metadata = { title: "My Sales" };
@@ -67,6 +68,14 @@ export default async function PortalSalesPage() {
     },
     orderBy: { saleDate: "desc" },
   });
+
+  // Company UPI VPA → per-installment tap-to-pay links on the statement.
+  const companyRow = await prisma.company.findUnique({
+    where: { id: customer.companyId },
+    select: { upiId: true, name: true },
+  });
+  const upiId = companyRow?.upiId ?? null;
+  const companyName = companyRow?.name ?? "";
 
   const rows = sales.map((s) => {
     const totalPaid = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
@@ -210,17 +219,27 @@ export default async function PortalSalesPage() {
                   <div className="space-y-1">
                     {sale.scheduleItems.map((i) => {
                       const overdue = i.dueDate && i.status !== "PAID" && new Date(i.dueDate) < new Date();
+                      const balance = i.totalAmount - i.paidAmount;
+                      const late = overdue ? computeLateInterest({ totalAmount: i.totalAmount, paidAmount: i.paidAmount, dueDate: i.dueDate }) : null;
+                      const payAmount = late ? Number(late.totalPayable) : balance;
+                      const upiHref = upiId && i.status !== "PAID" && i.status !== "WAIVED" && balance > 0.01
+                        ? `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(companyName).slice(0, 100)}&am=${payAmount}&cu=INR&tn=${encodeURIComponent(`${sale.saleNumber} inst ${i.no}`)}`
+                        : null;
                       return (
-                        <div key={i.id} className={`flex items-center justify-between rounded px-2 py-1 text-xs ${i.status === "PAID" ? "bg-emerald-50" : overdue ? "bg-red-50" : "bg-slate-50"}`}>
+                        <div key={i.id} className={`flex items-center justify-between gap-2 rounded px-2 py-1 text-xs ${i.status === "PAID" ? "bg-emerald-50" : overdue ? "bg-red-50" : "bg-slate-50"}`}>
                           <span className="text-slate-700">
                             <span className="font-medium">#{i.no}</span> {i.description}
                           </span>
                           <span className={`tnum font-medium ${i.status === "PAID" ? "text-emerald-700" : overdue ? "text-red-700" : "text-slate-600"}`}>
                             {fmtCurrency(i.totalAmount)}
                             {i.dueDate && <span className="ml-1.5 font-normal text-slate-400">· {fmtDate(i.dueDate)}</span>}
+                            {late && <span className="ml-1.5 text-red-500" title="Late interest accrued">+{fmtCurrency(Number(late.interest))} int</span>}
                             <span className={`ml-1.5 ${i.status === "PAID" ? "text-emerald-600" : overdue ? "text-red-500" : "text-slate-400"}`}>
-                              {i.status === "PAID" ? "✓" : overdue ? "Overdue" : i.status === "PARTIAL" ? `${fmtCurrency(i.totalAmount - i.paidAmount)} left` : i.status.toLowerCase()}
+                              {i.status === "PAID" ? "✓" : overdue ? "Overdue" : i.status === "PARTIAL" ? `${fmtCurrency(balance)} left` : i.status.toLowerCase()}
                             </span>
+                            {upiHref && (
+                              <a href={upiHref} className="ml-1.5 inline-block rounded bg-brand px-1.5 py-0.5 font-medium text-white">Pay</a>
+                            )}
                           </span>
                         </div>
                       );
