@@ -737,7 +737,12 @@ ${messages.join("\n")}
       // Only PF-eligible lines belong in the ECR — employees with zero PF
       // deduction (PF-ineligible: above wage ceiling opt-outs, interns,
       // daily-wage without PF) are excluded, not sent as zero rows.
-      const rows = lines.filter((l) => toNum(l.pf) > 0 || toNum(l.employerPf) > 0).map((l) => {
+      // Split: a blank-UAN row gets the whole file rejected on the EPFO portal —
+      // exclude them, and hand the count back so the UI can tell the operator
+      // which employees need their UAN filled before they can file.
+      const pfLines = lines.filter((l) => toNum(l.pf) > 0 || toNum(l.employerPf) > 0);
+      const missingUan = pfLines.filter((l) => !l.employee.uan).map((l) => l.employee.name);
+      const rows = pfLines.filter((l) => l.employee.uan).map((l) => {
         const gross = toNum(l.grossPay);
         const basic = toNum(l.basicAmount);
         const epfWages = basic > 0 ? basic : gross; // fall back to gross if basic unset
@@ -748,7 +753,7 @@ ${messages.join("\n")}
         // EPF-EPS difference = employer share − EPS leg (clamped ≥0)
         const epfEpsDiff = Math.max(0, Math.round((employerEpf - epsContri) * 100) / 100);
         const ncpDays = Math.max(0, Math.round((daysInPeriod - toNum(l.daysWorked)) * 100) / 100);
-        const uan = l.employee.uan ?? "";
+        const uan = l.employee.uan!;
         const name = l.employee.name.replace(/#/g, " ").replace(/~/g, " ");
         return [uan, name, gross.toFixed(0), epfWages.toFixed(0), epsWages.toFixed(0), epsWages.toFixed(0),
           employeeEpf.toFixed(0), epsContri.toFixed(0), epfEpsDiff.toFixed(0), ncpDays.toFixed(0), "0"]
@@ -759,6 +764,10 @@ ${messages.join("\n")}
         headers: {
           "Content-Type": "text/plain;charset=utf-8;",
           "Content-Disposition": `attachment; filename="pf-ecr-${period.year}-${String(period.month).padStart(2, "0")}.txt"`,
+          ...(missingUan.length > 0 ? {
+            "X-PF-ECR-Skipped-Count": String(missingUan.length),
+            "X-PF-ECR-Skipped-Names": missingUan.join(", ").slice(0, 500),
+          } : {}),
         },
       });
     }

@@ -227,7 +227,22 @@ export function StatutoryPaymentsView({
             {o.kind === "PF" && (
               <button
                 type="button"
-                onClick={() => window.open("/api/export?type=pf-ecr", "_blank")}
+                onClick={async () => {
+                  // fetch (not window.open) so the X-PF-ECR-Skipped-* headers
+                  // can warn the operator that rows were excluded for a
+                  // missing UAN — a silent exclusion files a short return.
+                  const res = await fetch("/api/export?type=pf-ecr");
+                  if (!res.ok) { toast.error((await res.json().catch(() => ({}))).error ?? "ECR export failed"); return; }
+                  const skipped = res.headers.get("x-pf-ecr-skipped-count");
+                  const names = res.headers.get("x-pf-ecr-skipped-names");
+                  const blob = await res.blob();
+                  const a = document.createElement("a");
+                  a.href = URL.createObjectURL(blob);
+                  a.download = res.headers.get("content-disposition")?.split("filename=")[1]?.replace(/"/g, "") ?? "pf-ecr.txt";
+                  a.click();
+                  URL.revokeObjectURL(a.href);
+                  if (skipped) toast.warning(`${skipped} employee(s) excluded — no UAN on file: ${names}`, { duration: 10000 });
+                }}
                 className="mt-1 text-micro text-brand hover:underline"
                 title="Download EPFO ECR upload file for the latest payroll period"
               >

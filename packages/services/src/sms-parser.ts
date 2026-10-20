@@ -501,6 +501,8 @@ async function matchPayment(
       id: true,
       installmentNo: true,
       totalAmount: true,
+      dueDate: true,
+      paidAmount: true,
       paymentSchedule: {
         select: {
           assetSaleId: true,
@@ -593,7 +595,7 @@ async function matchPayment(
       // accrued interest — flag the residual to staff so it's waived or
       // collected, never vanished.
       const accrued = item.dueDate
-        ? computeLateInterest({ totalAmount: item.totalAmount, paidAmount: item.paidAmount, dueDate: item.dueDate })?.interest ?? 0
+        ? Number(computeLateInterest({ totalAmount: item.totalAmount, paidAmount: item.paidAmount, dueDate: item.dueDate })?.interest ?? 0)
         : 0;
       if (accrued > 0) {
         void sendNotification({
