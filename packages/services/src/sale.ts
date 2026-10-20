@@ -1645,6 +1645,10 @@ export async function voidAssetSalePayment(input: {
     const paymentStatus: "PENDING" | "PARTIAL" | "PAID" =
       liveTotal.isZero() ? "PENDING" : liveTotal.lt(totalCollectible) ? "PARTIAL" : "PAID";
 
+    // The shrunken payment pool must redistribute across schedule items —
+    // without this the installment stays PAID on money that no longer exists.
+    await syncPaymentScheduleFromPayments(tx, sale.id);
+
     const isDeposit = sale.saleStage !== "COMPLETED";
     await tx.assetSale.update({
       where: { id: sale.id },
