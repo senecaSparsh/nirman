@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@nirman/db";
 import {Wallet, TrendingUp, FileText, AlertTriangle} from "lucide-react";
 import { getCompany, toNum, scopeWhere, getEffectivePermissions } from "@/lib/server";
+import { computeLateInterest } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { formatCurrency, formatCurrencyCompact } from "@/lib/utils";
 import { squareToSupplierCards } from "@/lib/supplier-payables";
@@ -138,6 +139,41 @@ async function MobilePendingPaymentsContent() {
 
   const overdueRows = [...payablePOs, ...unlinkedSupplierRows, ...raBillRows];
 
+  // ── Overdue buyer installments — the collections workbench the sales
+  //    manager needs on their phone. Interest at MCLR+2% like the desktop
+  //    workbench; each row deep-links to the sale to collect or demand.
+  const overdueItems = await prisma.paymentScheduleItem.findMany({
+    take: 100,
+    where: {
+      status: { in: ["DUE", "PARTIAL"] },
+      dueDate: { lte: now },
+      paymentSchedule: { assetSale: { companyId: company.id, status: "ACTIVE", ...await scopeWhere("AssetSale") } },
+    },
+    include: {
+      paymentSchedule: {
+        include: { assetSale: { select: { id: true, saleNumber: true, customer: { select: { name: true } } } } },
+      },
+    },
+    orderBy: { dueDate: "asc" },
+  });
+  const installmentRows = overdueItems
+    .map((i) => {
+      const late = computeLateInterest({ totalAmount: i.totalAmount, paidAmount: i.paidAmount, dueDate: i.dueDate, asOf: now });
+      if (!late) return null;
+      return {
+        id: i.id,
+        saleId: i.paymentSchedule.assetSale.id,
+        saleNumber: i.paymentSchedule.assetSale.saleNumber,
+        customer: i.paymentSchedule.assetSale.customer.name,
+        installment: `#${i.installmentNo} ${i.description}`,
+        daysOverdue: late.daysOverdue,
+        principal: Number(late.principalDue),
+        interest: Number(late.interest),
+        totalPayable: Number(late.totalPayable),
+      };
+    })
+    .filter((r): r is NonNullable<typeof r> => r !== null && r.principal > 0.01);
+
   const receivableRows = sales.map((s) => {
     const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
     const outstanding = Math.max(0, toNum(s.salePrice) + toNum(s.gstAmount) - collected - toNum(s.tdsAmount));
@@ -201,6 +237,29 @@ async function MobilePendingPaymentsContent() {
           summary={`Payable: ${formatCurrencyCompact(totalPayable)} · Receivable: ${formatCurrencyCompact(totalReceivable)} · Net: ${formatCurrency(netCash)}`}
         />
       </div>
+
+      {/* Overdue installments — collections workbench on mobile. First in
+          the page: this is the money the business chases daily. */}
+      {installmentRows.length > 0 && (
+        <>
+          <MobileSectionTitle>
+            <span className="flex items-center gap-1.5"><AlertTriangle className="size-3.5 text-warning" /> Overdue installments ({installmentRows.length})</span>
+          </MobileSectionTitle>
+          <div className="mb-4 space-y-1.5">
+            {installmentRows.map((i) => (
+              <MobileRow
+                key={i.id}
+                href={`/m/sales/${i.saleId}`}
+                title={`${i.customer} · ${i.installment}`}
+                subtitle={`${i.saleNumber} · ${i.daysOverdue}d overdue`}
+                meta={formatCurrency(i.totalPayable)}
+                metaSub={`${formatCurrencyCompact(i.principal)}${i.interest > 0 ? ` + ${formatCurrencyCompact(i.interest)} int` : ""}`}
+                tone="danger"
+              />
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Top overdue POs by payable amount */}
       {overdueRows.length > 0 && (
