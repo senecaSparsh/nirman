@@ -21,7 +21,8 @@ import {
   getProjectMaterialReconciliation,
   projectPnl,
   generateGstr1,
-  generateGstr3b} from "@nirman/services";
+  generateGstr3b,
+  generateTallyVoucherXml} from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { dateParam, apiHandler, getCompany, json, toNum, requireUser, scopeWhere, projectScopeFilter, getEffectivePermissions } from "@/lib/server";
 import { localDateISO, startOfDayIST, endOfDayIST } from "@/lib/utils";
@@ -76,7 +77,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
     "issue-register": PERM.INVENTORY_VIEW,
     "purchase-register": PERM.PROCUREMENT_VIEW,
     "gstr1": PERM.FINANCE_VIEW,
-    "gstr3b": PERM.FINANCE_VIEW};
+    "gstr3b": PERM.FINANCE_VIEW,
+    "tally-xml": PERM.FINANCE_VIEW};
 
   const requiredPerm = PERM_MAP[type];
   if (!requiredPerm) {
@@ -636,6 +638,72 @@ export const GET = apiHandler(async (req: NextRequest) => {
         ],
       }];
       break;
+    }
+
+    case "tally-xml": {
+      // Bulk CA handoff — every journal entry in the period as one Tally
+      // import file. Each JE becomes a TALLYMESSAGE voucher (type mapped
+      // from sourceType); the per-voucher ENVELOPEs are unwrapped and
+      // merged into a single import envelope.
+      const jes = await prisma.journalEntry.findMany({
+        where: {
+          companyId: company.id,
+          entryDate: { gte: fromDate, lte: toDate },
+        },
+        include: {
+          lines: {
+            include: { account: { select: { code: true, name: true } } },
+          },
+        },
+        orderBy: [{ entryDate: "asc" }, { entryNumber: "asc" }],
+      });
+      const messages = jes.map((je) => {
+        const xml = generateTallyVoucherXml(
+          {
+            entryNumber: je.entryNumber,
+            entryDate: je.entryDate,
+            sourceType: je.sourceType,
+            memo: je.memo,
+            companyId: company.id,
+            totalDebit: je.totalDebit,
+            totalCredit: je.totalCredit,
+            lines: je.lines.map((l) => ({
+              accountCode: l.account.code,
+              accountName: l.account.name,
+              debit: l.debit,
+              credit: l.credit,
+              memo: l.memo,
+            })),
+          },
+          company.name,
+        );
+        const m = xml.match(/<TALLYMESSAGE>[\s\S]*<\/TALLYMESSAGE>/);
+        return m ? m[0] : "";
+      }).filter(Boolean);
+      const escapeXml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const envelope = `<ENVELOPE>
+  <HEADER>
+    <TALLYREQUEST>Import Data</TALLYREQUEST>
+    <VERSION>1</VERSION>
+    <TALLYTYPE>Data</TALLYTYPE>
+  </HEADER>
+  <BODY>
+    <DESC>
+      <STATICVARIABLES>
+        <SVCURRENTCOMPANY>${escapeXml(company.name)}</SVCURRENTCOMPANY>
+      </STATICVARIABLES>
+    </DESC>
+    <DATA>
+${messages.join("\n")}
+    </DATA>
+  </BODY>
+</ENVELOPE>`;
+      return new Response(envelope, {
+        headers: {
+          "Content-Type": "application/xml;charset=utf-8;",
+          "Content-Disposition": `attachment; filename="tally-vouchers-${filenameBase}.xml"`,
+        },
+      });
     }
 
     case "purchase-register": {
