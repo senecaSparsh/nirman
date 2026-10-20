@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@nirman/db";
-import { apiHandler, getCompany, getUserPermissions, json, requireUser, toNum, scopeWhere, getActingRole,} from "@/lib/server";
-import { canAutoApprove, canSelfApprovePurchaseOrder, canWaiveSelfApproval } from "@nirman/services";
+import { apiHandler, getCompany, getUserPermissions, json, requireUser, toNum, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { actionableApprovalCounts } from "@/lib/approval-actionable";
 
 /**
  * GET /api/briefing
@@ -25,13 +25,13 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   const company = await getCompany();
   const perms = await getUserPermissions();
 
+  // The client uses these flags to decide which approval groups to render.
   const canApprovePo = perms.includes(PERM.PO_APPROVE);
   const canApproveReq = perms.includes(PERM.REQUISITION_APPROVE);
   const canApproveGp = perms.includes(PERM.GATE_PASS_APPROVE);
   const canApproveDpr = perms.includes(PERM.DPR_APPROVE_SUB_ADMIN) || perms.includes(PERM.DPR_APPROVE_ADMIN);
   const canApproveExpense = perms.includes(PERM.EXPENSE_APPROVE);
   const canApproveRa = perms.includes(PERM.RA_APPROVE);
-  const canManageHr = perms.includes(PERM.HR_MANAGE);
   const canViewInventory = perms.includes(PERM.INVENTORY_VIEW);
   const canViewFinance = perms.includes(PERM.FINANCE_VIEW);
 
@@ -39,62 +39,21 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   const startOfToday = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
   const endOfToday = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
 
-  // Pre-compute scope filters for scoped models
-  const reqScope = await scopeWhere("MaterialRequisition", {});
-  const gpScope = await scopeWhere("GatePass", {});
   const dprScope = await scopeWhere("DailyProgressReport", {});
 
   // ── 1. Approvals waiting on YOU ──
-  // Mirrors /m/approvals: permission-gated per type AND excludes items the
-  // current user created/submitted — you can't approve your own work, so
-  // counting it here would show a number with nothing actionable behind it.
-  // Each type follows its self-approval rule: POs owner only; indents, DPRs,
-  // expenses, claims and RA bills owner only; gate passes and leaves tier-1.
-  const briefingActing = await getActingRole();
-  const poSelf = canSelfApprovePurchaseOrder(briefingActing) ? undefined : { not: user.id };
-  const waiverSelf = canWaiveSelfApproval(briefingActing) ? undefined : { not: user.id };
-  const otherSelf = canAutoApprove(briefingActing) ? undefined : { not: user.id };
-  const [poCount, reqCount, gpCount, dprCount, expenseCount, claimCount, raCount, leaveCount] = await Promise.all([
-    canApprovePo
-      ? prisma.purchaseOrder.count({ where: { companyId: company.id, status: "DRAFT", createdById: poSelf } })
-      : 0,
-    canApproveReq
-      ? prisma.materialRequisition.count({
-          where: { project: { companyId: company.id }, status: "SUBMITTED", requestedById: waiverSelf, ...reqScope },
-        })
-      : 0,
-    canApproveGp
-      ? prisma.gatePass.count({ where: { companyId: company.id, status: "PENDING", submittedById: otherSelf, ...gpScope } })
-      : 0,
-    canApproveDpr
-      ? prisma.dailyProgressReport.count({
-          where: {
-            project: { companyId: company.id },
-            approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] },
-            submittedById: waiverSelf,
-            ...dprScope,
-          },
-        })
-      : 0,
-    canApproveExpense
-      ? prisma.expense.count({ where: { companyId: company.id, status: "PENDING", submittedById: waiverSelf } })
-      : 0,
-    canApproveExpense
-      ? prisma.expenseClaim.count({
-          where: { companyId: company.id, status: "SUBMITTED", claimantId: waiverSelf, ...await scopeWhere("ExpenseClaim", {}) },
-        })
-      : 0,
-    canApproveRa
-      ? prisma.raBill.count({
-          where: { companyId: company.id, status: "SUBMITTED", createdById: waiverSelf, submittedById: waiverSelf },
-        })
-      : 0,
-    canManageHr
-      ? prisma.leaveRequest.count({ where: { companyId: company.id, status: "PENDING" } })
-      : 0,
-  ]);
-
-  const approvalsTotal = poCount + reqCount + gpCount + dprCount + expenseCount + claimCount + raCount + leaveCount;
+  // One implementation of "what can I approve" — shared with the nav badge
+  // and /approvals so the briefing can never disagree with either.
+  const counts = await actionableApprovalCounts(company.id);
+  const poCount = counts.po;
+  const reqCount = counts.req;
+  const gpCount = counts.gatePass;
+  const dprCount = counts.dpr;
+  const expenseCount = counts.expense;
+  const claimCount = counts.claim;
+  const raCount = counts.raBill;
+  const leaveCount = counts.leave;
+  const approvalsTotal = counts.total;
 
   // ── 2. Low-stock alerts (triggered overnight) ──
   let lowStock: Array<{ materialId: string; materialName: string; materialCode: string; qty: number; unit: string; reorderPoint: number | null }> = [];
@@ -178,6 +137,32 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       dueDate: po.expectedDate?.toISOString() ?? po.createdAt.toISOString(),
       type: "purchase_order",
     }));
+
+    // Money owed TO us — overdue buyer installments are receivables, not
+    // payables; the morning briefing should never show only outflow.
+    const overdueInstallments = await prisma.paymentScheduleItem.findMany({
+      where: {
+        status: { in: ["DUE", "PARTIAL"] },
+        dueDate: { lt: new Date() },
+        paymentSchedule: { assetSale: { companyId: company.id, status: { not: "CANCELLED" } } },
+      },
+      orderBy: { dueDate: "asc" },
+      take: 5,
+      include: {
+        paymentSchedule: {
+          include: { assetSale: { select: { saleNumber: true, customer: { select: { name: true } } } } },
+        },
+      },
+    });
+    for (const i of overdueInstallments) {
+      const balance = toNum(i.totalAmount) - toNum(i.paidAmount);
+      paymentsDue.push({
+        description: `${i.paymentSchedule.assetSale.customer.name} — installment #${i.installmentNo} (${i.paymentSchedule.assetSale.saleNumber})`,
+        amount: balance,
+        dueDate: i.dueDate!.toISOString(),
+        type: "installment_due",
+      });
+    }
   }
 
   // ── 5. My tasks (for ALL users, not just field workers) ──
