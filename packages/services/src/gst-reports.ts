@@ -425,13 +425,14 @@ export async function generateGstr3b(
   const companyGstin = company?.gstin ?? null;
 
   // Resolve account codes → IDs (GlAccount PK is now id, not code)
-  const accountCodes3b = ["2100", "4000", "4100", "4200", "1400", "1300"];
+  const accountCodes3b = ["2100", "4000", "4100", "4200", "4450", "1400", "1300"];
   const glAccounts3b = await prisma.glAccount.findMany({
     where: { companyId, code: { in: accountCodes3b } },
     select: { id: true, code: true },
   });
   const codeToId3b = new Map(glAccounts3b.map((a) => [a.code, a.id]));
-  const revenueAccountIds3b = ["4000", "4100", "4200"].map((c) => codeToId3b.get(c)).filter((id): id is string => !!id);
+  // 4450 (late interest) is outward taxable supply under 3.1(a).
+  const revenueAccountIds3b = ["4000", "4100", "4200", "4450"].map((c) => codeToId3b.get(c)).filter((id): id is string => !!id);
   const outputGstId3b = codeToId3b.get("2100");
   const inputGstId3b = codeToId3b.get("1400");
   const inventoryId3b = codeToId3b.get("1300");
