@@ -58,7 +58,7 @@ export default async function PortalSalesPage() {
     // users with no staff context), which would strip every row here.
     where: { customerId: customer.id, status: "ACTIVE" },
     include: {
-      project: { select: { id: true, name: true } },
+      project: { select: { id: true, name: true, escrowBankName: true, escrowAccountNo: true, reraNumber: true } },
       landParcel: { select: { id: true, number: true, area: true, areaUnit: true } },
       builtUnit: {
         select: { id: true, unitNumber: true, unitType: true, area: true, areaUnit: true, floor: true, wing: true },
@@ -87,6 +87,9 @@ export default async function PortalSalesPage() {
       saleStage: s.saleStage,
       assetType: s.assetType,
       projectName: s.project?.name ?? "—",
+      escrowNote: s.project?.escrowAccountNo
+        ? `Payments are held in the project\'s RERA designated account — ${s.project.escrowBankName ?? "bank"} · A/C …${s.project.escrowAccountNo.slice(-4)}${s.project.reraNumber ? ` · RERA ${s.project.reraNumber}` : ""}`
+        : s.project?.reraNumber ? `RERA ${s.project.reraNumber}` : null,
       unitLabel:
         s.assetType === "LAND"
           ? `Plot ${s.landParcel?.number ?? "—"}`
@@ -190,6 +193,11 @@ export default async function PortalSalesPage() {
                   </div>
                   <p className="mt-0.5 text-xs text-slate-500">
                     {sale.projectName} · {sale.saleNumber} · Booked {fmtDate(sale.saleDate)}
+                    {sale.escrowNote && (
+                      <div className="mt-0.5 flex items-center gap-1 text-xs text-emerald-700">
+                        <span aria-hidden>🏦</span>{sale.escrowNote}
+                      </div>
+                    )}
                   </p>
                 </div>
                 <div className="text-right">
