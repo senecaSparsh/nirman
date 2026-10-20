@@ -1070,3 +1070,38 @@ export async function getSmsStats(companyId: string) {
     totalMatchedAmount: totalAmount._sum.amount?.toString() ?? "0",
   };
 }
+
+// ───────────────────────────────────────────────────────────
+//  IGNORE — dismiss an SMS that is not a receivable payment
+// ───────────────────────────────────────────────────────────
+
+export async function ignoreSms(input: {
+  smsId: string;
+  companyId: string;
+  userId?: string;
+}) {
+  const sms = await prisma.bankSms.findFirst({
+    where: { id: input.smsId, companyId: input.companyId },
+  });
+  if (!sms) throw new ServiceError("SMS not found", 404);
+  if (sms.status === "MATCHED")
+    throw new ServiceError("SMS is already matched — void the payment from the sale/tenancy instead", 400);
+
+  const updated = await prisma.bankSms.update({
+    where: { id: sms.id },
+    data: { status: "IGNORED", matchReason: "Dismissed by user" },
+  });
+
+  if (input.userId) {
+    await logAction(prisma, {
+      userId: input.userId,
+      action: "BANK_SMS_IGNORED",
+      entityType: "BankSms",
+      entityId: sms.id,
+      before: { status: sms.status },
+      after: { status: "IGNORED" },
+    });
+  }
+
+  return updated;
+}

@@ -890,6 +890,7 @@ export {
   ingestSms,
   ingestSmsBatch,
   manualMatchSms,
+  ignoreSms,
   getSmsStats,
   type ParsedSms,
   type IngestSmsInput,

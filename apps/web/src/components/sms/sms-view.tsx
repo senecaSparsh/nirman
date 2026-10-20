@@ -40,8 +40,24 @@ export function SmsView({ items, canCreate }: { items: SmsRow[]; canCreate: bool
   const [ingestOpen, setIngestOpen] = useState(false);
   const [matchTarget, setMatchTarget] = useState<SmsRow | null>(null);
   const [filter, setFilter] = useState<string>("ALL");
+  const [ignoring, setIgnoring] = useState<string | null>(null);
 
   const filtered = filter === "ALL" ? items : items.filter((i) => i.status === filter);
+
+  async function ignoreSmsRow(id: string) {
+    setIgnoring(id);
+    try {
+      const res = await fetch(`/api/sms/${id}/ignore`, { method: "POST" });
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}));
+        toast.error(b?.error ?? "Could not ignore this SMS");
+        return;
+      }
+      router.refresh();
+    } finally {
+      setIgnoring(null);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -133,13 +149,24 @@ export function SmsView({ items, canCreate }: { items: SmsRow[]; canCreate: bool
 
                   {/* Action: manual match for unmatched */}
                   {sms.status === "UNMATCHED" && sms.amount != null && canCreate && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setMatchTarget(sms)}
-                    >
-                      <Link2 className="h-3.5 w-3.5" /> Match
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setMatchTarget(sms)}
+                      >
+                        <Link2 className="h-3.5 w-3.5" /> Match
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={ignoring === sms.id}
+                        onClick={() => ignoreSmsRow(sms.id)}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        {ignoring === sms.id ? "Ignoring…" : "Ignore"}
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>
