@@ -222,6 +222,24 @@ async function PendingPaymentsContent() {
     },
     orderBy: { dueDate: "asc" },
   });
+  // Last demand dispatch per item — the "did we already chase this buyer"
+  // evidence column. DEMAND_LETTER logs carry scheduleItemId in metadata.
+  const demandLogs = await prisma.notificationLog.findMany({
+    where: {
+      companyId: company.id,
+      eventType: "DEMAND_LETTER",
+      status: "SENT",
+    },
+    select: { metadata: true, sentAt: true },
+    orderBy: { sentAt: "desc" },
+    take: 500,
+  });
+  const lastDemandByItem = new Map<string, Date>();
+  for (const l of demandLogs) {
+    const itemId = (l.metadata as { scheduleItemId?: string } | null)?.scheduleItemId;
+    if (itemId && !lastDemandByItem.has(itemId) && l.sentAt) lastDemandByItem.set(itemId, l.sentAt);
+  }
+
   const installmentRows = overdueItems.map((i) => {
     const late = computeLateInterest({ totalAmount: i.totalAmount, paidAmount: i.paidAmount, dueDate: i.dueDate, asOf: now });
     return {
@@ -234,6 +252,7 @@ async function PendingPaymentsContent() {
       principal: Number(late?.principalDue ?? 0),
       interest: Number(late?.interest ?? 0),
       totalPayable: Number(late?.totalPayable ?? 0),
+      lastDemanded: lastDemandByItem.get(i.id)?.toISOString() ?? null,
     };
   }).filter((r) => r.principal > 0.01);
 

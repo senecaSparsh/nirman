@@ -64,6 +64,7 @@ export type OverdueInstallmentRow = {
   principal: number;
   interest: number;
   totalPayable: number;
+  lastDemanded: string | null;
 };
 
 export function PendingPaymentsReport({
@@ -174,6 +175,17 @@ export function PendingPaymentsReport({
       sortable: true,
       render: (i) => <span className="tnum font-bold">{formatCurrency(i.totalPayable)}</span>,
       exportValue: (i) => i.totalPayable,
+    },
+    {
+      key: "lastDemanded",
+      label: "Demanded",
+      sortable: true,
+      sortValue: (i) => (i.lastDemanded ? new Date(i.lastDemanded).getTime() : 0),
+      render: (i) =>
+        i.lastDemanded
+          ? <span className="text-caption text-muted-foreground">{formatDate(i.lastDemanded)}</span>
+          : <span className="text-micro text-warning">never</span>,
+      exportValue: (i) => (i.lastDemanded ? formatDate(i.lastDemanded) : "never"),
     },
     {
       key: "demand",
