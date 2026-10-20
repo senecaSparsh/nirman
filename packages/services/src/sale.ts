@@ -105,18 +105,21 @@ export async function syncPaymentScheduleFromPayments(tx: Prisma.TransactionClie
   });
   const totalPaid = sumClearedAssetSalePayments(payments);
 
-  // Distribute FIFO across schedule items
+  // Distribute FIFO across schedule items. WAIVED rows are skipped — they
+  // take no allocation and never revert to PENDING. Every non-waived row is
+  // rewritten (no early break) so a shrunken payment pool — void, bounce —
+  // actually zeroes the tail instead of leaving stale paidAmount behind.
   let remaining = totalPaid;
   for (const item of schedule.items) {
+    if (item.status === "WAIVED") continue;
     const itemAmount = new Decimal(item.amount);
-    const allocation = remaining.lt(itemAmount) ? remaining : itemAmount;
+    const allocation = remaining.lt(itemAmount) ? Decimal.max(0, remaining) : itemAmount;
     const newStatus = allocation.gte(itemAmount) ? "PAID" : allocation.gt(0) ? "PARTIAL" : "PENDING";
     await tx.paymentScheduleItem.update({
       where: { id: item.id },
       data: { paidAmount: allocation, status: newStatus },
     });
     remaining = remaining.minus(allocation);
-    if (remaining.lte(0)) break;
   }
 }
 
