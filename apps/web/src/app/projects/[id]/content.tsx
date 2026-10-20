@@ -268,6 +268,43 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
   });
   const escrowCollected = toNum(escrowAgg._sum.amount);
 
+  // Ledgered escrow balance — the actual 1060 account position for this
+  // project's sale receipts. Computed collections tell you what SHOULD be
+  // escrowed; the ledger tells you what IS. Drift between them means money
+  // moved through the operating account.
+  const escrowAccount = await prisma.glAccount.findFirst({
+    where: { companyId: company.id, code: "1060" },
+    select: { id: true },
+  });
+  let escrowLedgerBalance = 0;
+  if (escrowAccount) {
+    // Payment-tagged lines resolve their project through the sale; sale-tagged
+    // lines carry the asset sale id directly.
+    const lines = await prisma.journalLine.findMany({
+      where: {
+        accountId: escrowAccount.id,
+        journalEntry: { companyId: company.id, status: "POSTED" },
+        OR: [
+          { entityType: "AssetSale" },
+          { entityType: "AssetSalePayment" },
+        ],
+      },
+      select: { debit: true, credit: true, entityType: true, entityId: true },
+    });
+    const saleIds = lines.filter((l) => l.entityType === "AssetSale").map((l) => l.entityId!);
+    const paymentIds = lines.filter((l) => l.entityType === "AssetSalePayment").map((l) => l.entityId!);
+    const [projSales, projPayments] = await Promise.all([
+      prisma.assetSale.findMany({ where: { id: { in: saleIds }, projectId: id }, select: { id: true } }),
+      prisma.assetSalePayment.findMany({ where: { id: { in: paymentIds }, assetSale: { projectId: id } }, select: { id: true } }),
+    ]);
+    const inScopeSales = new Set(projSales.map((s) => s.id));
+    const inScopePayments = new Set(projPayments.map((p) => p.id));
+    escrowLedgerBalance = lines.reduce((sum, l) => {
+      const inScope = l.entityType === "AssetSale" ? inScopeSales.has(l.entityId!) : inScopePayments.has(l.entityId!);
+      return inScope ? sum + toNum(l.debit) - toNum(l.credit) : sum;
+    }, 0);
+  }
+
   // Map POs to rows
   const poRows: PurchaseOrderRow[] = purchaseOrders.map((po) => {
     const totalOrdered = po.lines.reduce((s, l) => s + toNum(l.qtyOrdered), 0);
@@ -601,6 +638,7 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
       escrowAccountNo: project.escrowAccountNo,
       escrowCollected,
       escrowRequired: escrowCollected * 0.7,
+      escrowLedgerBalance: project.escrowAccountNo ? escrowLedgerBalance : undefined,
       // Withdrawal eligibility — RERA releases the escrow against engineer+
       // architect+CA certified construction cost. pnl.total is the project's
       // ledgered spend (materials + labour + contractors): the honest proxy.

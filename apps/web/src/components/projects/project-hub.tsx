@@ -61,6 +61,7 @@ export type ProjectHubData = {
     escrowBankName?: string | null;
     escrowAccountNo?: string | null;
     escrowCollected?: number;
+    escrowLedgerBalance?: number;
     escrowRequired?: number;
     escrowSpent?: number;
     lciThreshold: number | null;
@@ -345,6 +346,14 @@ export function ProjectHub({
             <div className="text-muted-foreground">
               Cleared collections {formatCurrency(project.escrowCollected ?? 0)} · minimum escrow balance required {formatCurrency(project.escrowRequired ?? 0)} (70%)
             </div>
+            {project.escrowLedgerBalance != null && (
+              <div className="text-muted-foreground">
+                Escrow ledger balance {formatCurrency(project.escrowLedgerBalance)}
+                {project.escrowLedgerBalance < (project.escrowRequired ?? 0) && (
+                  <span className="text-warning"> — below the 70% requirement</span>
+                )}
+              </div>
+            )}
             {(project.escrowSpent ?? 0) > 0 && (() => {
               const required = project.escrowRequired ?? 0;
               const spent = project.escrowSpent ?? 0;

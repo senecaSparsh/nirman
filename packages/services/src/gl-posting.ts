@@ -38,6 +38,7 @@ import { nextSequenceNumber } from "./sequence";
 export const CHART_OF_ACCOUNTS = [
   { code: "1000", name: "Cash / Bank", type: "ASSET" as const },
   { code: "1050", name: "Petty Cash", type: "ASSET" as const },
+  { code: "1060", name: "RERA Escrow Account", type: "ASSET" as const },
   { code: "1200", name: "Accounts Receivable", type: "ASSET" as const },
   { code: "1300", name: "Inventory - Materials", type: "ASSET" as const },
   { code: "1400", name: "Input GST / ITC", type: "ASSET" as const },
@@ -87,6 +88,10 @@ export const CHART_OF_ACCOUNTS = [
 export const ACCT = {
   CASH: "1000",
   PETTY_CASH: "1050",
+  // RERA-designated project account — allottee money for escrowed projects
+  // sits here, not in operating cash (S.4(2)(l)(D): 70% must stay for
+  // construction until certified withdrawn).
+  ESCROW: "1060",
   AR: "1200",
   INVENTORY: "1300",
   INPUT_GST: "1400",
@@ -716,6 +721,20 @@ export async function postAssetSale(
  *   Dr Cash / Bank        (amount)
  *   Cr Accounts Receivable (amount)
  */
+/**
+ * The cash account a sale's money lands in. RERA-designated projects hold
+ * allottee receipts in the escrow account (1060) — S.4(2)(l)(D) keeps 70%
+ * there until certified withdrawn — not in operating cash. Falls back to
+ * Cash / Bank when the project has no designated account.
+ */
+async function saleCashAccount(tx: Prisma.TransactionClient, assetSaleId: string): Promise<string> {
+  const sale = await tx.assetSale.findUnique({
+    where: { id: assetSaleId },
+    select: { project: { select: { escrowAccountNo: true } } },
+  });
+  return sale?.project?.escrowAccountNo ? ACCT.ESCROW : ACCT.CASH;
+}
+
 export async function postPaymentReceived(
   tx: Prisma.TransactionClient,
   opts: {
@@ -726,6 +745,7 @@ export async function postPaymentReceived(
     postedById?: string;
   },
 ) {
+  const cashAccount = await saleCashAccount(tx, opts.assetSaleId);
   return postJournalEntry(tx, {
     companyId: opts.companyId,
     sourceType: "PAYMENT_RECEIVED",
@@ -733,7 +753,7 @@ export async function postPaymentReceived(
     memo: "Payment received against sale",
     postedById: opts.postedById,
     lines: [
-      { accountCode: ACCT.CASH, debit: opts.amount, credit: 0, entityType: "AssetSalePayment", entityId: opts.paymentId },
+      { accountCode: cashAccount, debit: opts.amount, credit: 0, entityType: "AssetSalePayment", entityId: opts.paymentId },
       { accountCode: ACCT.AR, debit: 0, credit: opts.amount, entityType: "AssetSale", entityId: opts.assetSaleId },
     ],
   });
@@ -769,6 +789,7 @@ export async function postLateInterestReceived(
     ? opts.amount.times(rate).div(rate.plus(100)).toDecimalPlaces(2)
     : new Decimal(0);
   const incomeLeg = opts.amount.minus(gstLeg);
+  const cashAccount = await saleCashAccount(tx, opts.assetSaleId);
 
   return postJournalEntry(tx, {
     companyId: opts.companyId,
@@ -777,7 +798,7 @@ export async function postLateInterestReceived(
     memo: "Late-payment interest received",
     postedById: opts.postedById,
     lines: [
-      { accountCode: ACCT.CASH, debit: opts.amount, credit: 0, entityType: "AssetSalePayment", entityId: opts.paymentId, memo: "Late interest collected" },
+      { accountCode: cashAccount, debit: opts.amount, credit: 0, entityType: "AssetSalePayment", entityId: opts.paymentId, memo: "Late interest collected" },
       { accountCode: ACCT.INTEREST_INCOME, debit: 0, credit: incomeLeg, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "RERA late-payment interest" },
       ...(gstLeg.gt(0)
         ? [{ accountCode: ACCT.OUTPUT_GST, debit: 0 as const, credit: gstLeg, entityType: "AssetSale" as const, entityId: opts.assetSaleId, memo: "GST on delayed-payment interest" }]
@@ -830,6 +851,7 @@ export async function postDepositReceived(
     postedById?: string;
   },
 ) {
+  const cashAccount = await saleCashAccount(tx, opts.assetSaleId);
   return postJournalEntry(tx, {
     companyId: opts.companyId,
     sourceType: "ASSET_SALE_DEPOSIT",
@@ -837,7 +859,7 @@ export async function postDepositReceived(
     memo: "Customer deposit received (sale pending)",
     postedById: opts.postedById,
     lines: [
-      { accountCode: ACCT.CASH, debit: opts.amount, credit: 0, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Deposit cash received" },
+      { accountCode: cashAccount, debit: opts.amount, credit: 0, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Deposit cash received" },
       { accountCode: ACCT.CUSTOMER_DEPOSIT, debit: 0, credit: opts.amount, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Customer deposit liability" },
     ],
   });
@@ -867,7 +889,7 @@ export async function postDepositRefund(
     postedById: opts.postedById,
     lines: [
       { accountCode: ACCT.CUSTOMER_DEPOSIT, debit: opts.amount, credit: 0, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Reverse deposit liability" },
-      { accountCode: ACCT.CASH, debit: 0, credit: opts.amount, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Deposit refund to customer" },
+      { accountCode: await saleCashAccount(tx, opts.assetSaleId), debit: 0, credit: opts.amount, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Deposit refund to customer" },
     ],
   });
 }
@@ -897,7 +919,7 @@ export async function postPaymentReversal(
     postedById: opts.postedById,
     lines: [
       { accountCode: ACCT.AR, debit: opts.amount, credit: 0, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Restore receivable (cheque bounced)" },
-      { accountCode: ACCT.CASH, debit: 0, credit: opts.amount, entityType: "AssetSalePayment", entityId: opts.paymentId, memo: "Reverse cash from bounced cheque" },
+      { accountCode: await saleCashAccount(tx, opts.assetSaleId), debit: 0, credit: opts.amount, entityType: "AssetSalePayment", entityId: opts.paymentId, memo: "Reverse cash from bounced cheque" },
     ],
   });
 }

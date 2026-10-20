@@ -12,7 +12,7 @@ import { CHART_OF_ACCOUNTS, ACCT, buildEquipmentSaleLines } from "./gl-posting";
  */
 describe("General Ledger — chart of accounts", () => {
   it("has 45 system accounts", () => {
-    expect(CHART_OF_ACCOUNTS).toHaveLength(45);
+    expect(CHART_OF_ACCOUNTS).toHaveLength(46);
   });
 
   it("has unique account codes", () => {
