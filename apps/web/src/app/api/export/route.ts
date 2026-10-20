@@ -78,7 +78,8 @@ export const GET = apiHandler(async (req: NextRequest) => {
     "purchase-register": PERM.PROCUREMENT_VIEW,
     "gstr1": PERM.FINANCE_VIEW,
     "gstr3b": PERM.FINANCE_VIEW,
-    "tally-xml": PERM.FINANCE_VIEW};
+    "tally-xml": PERM.FINANCE_VIEW,
+    "pf-ecr": PERM.FINANCE_VIEW};
 
   const requiredPerm = PERM_MAP[type];
   if (!requiredPerm) {
@@ -702,6 +703,62 @@ ${messages.join("\n")}
         headers: {
           "Content-Type": "application/xml;charset=utf-8;",
           "Content-Disposition": `attachment; filename="tally-vouchers-${filenameBase}.xml"`,
+        },
+      });
+    }
+
+    case "pf-ecr": {
+      // EPFO ECR upload file — pipe-delimited, one line per member:
+      // UAN#~#NAME#~#GROSS#~#EPF_WAGES#~#EPS_WAGES#~#EDLI_WAGES#~#
+      // EPF_CONTRI#~#EPS_CONTRI#~#EPF_EPS_DIFF#~#NCP_DAYS#~#REFUND
+      // Params: month (1-12), year — resolved to the PAID/PROCESSED
+      // payroll period; defaults to the most recent processed period.
+      const mParam = Number(searchParams.get("month"));
+      const yParam = Number(searchParams.get("year"));
+      const period = await prisma.payrollPeriod.findFirst({
+        where: {
+          companyId: company.id,
+          status: { in: ["PROCESSED", "PAID"] },
+          ...(mParam >= 1 && mParam <= 12 && yParam >= 2000 ? { month: mParam, year: yParam } : {}),
+        },
+        orderBy: [{ year: "desc" }, { month: "desc" }],
+      });
+      if (!period) {
+        return json({ error: "No processed/paid payroll period found for that month — run payroll first" }, { status: 404 });
+      }
+      const lines = await prisma.payrollLine.findMany({
+        where: { payrollPeriodId: period.id },
+        include: { employee: { select: { uan: true, name: true } } },
+        orderBy: { employee: { name: "asc" } },
+      });
+      const EPS_WAGE_CAP = 15000;
+      const EPS_RATE = 0.0833;
+      const daysInPeriod = new Date(period.year, period.month, 0).getDate();
+      // Only PF-eligible lines belong in the ECR — employees with zero PF
+      // deduction (PF-ineligible: above wage ceiling opt-outs, interns,
+      // daily-wage without PF) are excluded, not sent as zero rows.
+      const rows = lines.filter((l) => toNum(l.pf) > 0 || toNum(l.employerPf) > 0).map((l) => {
+        const gross = toNum(l.grossPay);
+        const basic = toNum(l.basicAmount);
+        const epfWages = basic > 0 ? basic : gross; // fall back to gross if basic unset
+        const epsWages = Math.min(epfWages, EPS_WAGE_CAP);
+        const epsContri = Math.round(epsWages * EPS_RATE * 100) / 100;
+        const employeeEpf = toNum(l.pf);
+        const employerEpf = toNum(l.employerPf);
+        // EPF-EPS difference = employer share − EPS leg (clamped ≥0)
+        const epfEpsDiff = Math.max(0, Math.round((employerEpf - epsContri) * 100) / 100);
+        const ncpDays = Math.max(0, Math.round((daysInPeriod - toNum(l.daysWorked)) * 100) / 100);
+        const uan = l.employee.uan ?? "";
+        const name = l.employee.name.replace(/#/g, " ").replace(/~/g, " ");
+        return [uan, name, gross.toFixed(0), epfWages.toFixed(0), epsWages.toFixed(0), epsWages.toFixed(0),
+          employeeEpf.toFixed(0), epsContri.toFixed(0), epfEpsDiff.toFixed(0), ncpDays.toFixed(0), "0"]
+          .map((v) => v.replace(/#/g, " ")).join("#~#");
+      });
+      const txt = rows.join("\r\n") + "\r\n";
+      return new Response("\uFEFF" + txt, {
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8;",
+          "Content-Disposition": `attachment; filename="pf-ecr-${period.year}-${String(period.month).padStart(2, "0")}.txt"`,
         },
       });
     }
