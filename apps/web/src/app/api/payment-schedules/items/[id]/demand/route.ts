@@ -28,7 +28,7 @@ export const POST = apiHandler(async (_req: NextRequest, { params }: { params: P
     return json(result, { status: 201 });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Failed to send demand";
-    const status = message.includes("not found") ? 404 : message.includes("not yet overdue") || message.includes("Cannot demand") ? 409 : 400;
+    const status = message.includes("not found") ? 404 : message.includes("not yet overdue") || message.includes("Cannot demand") || message.includes("already sent") ? 409 : 400;
     return json({ error: message }, { status });
   }
 });

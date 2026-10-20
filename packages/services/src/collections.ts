@@ -92,6 +92,17 @@ export async function sendDemandNotice(scheduleItemId: string, companyId: string
   const balance = new Decimal(item.totalAmount.toString()).minus(item.paidAmount?.toString() ?? "0");
   if (balance.lte(0)) throw new ServiceError("Installment is already settled", 409);
 
+  // Dedup — a second notice within 24h is operator error, not follow-up.
+  const recent = await prisma.notificationLog.findFirst({
+    where: {
+      eventType: "DEMAND_LETTER",
+      sentAt: { gte: new Date(Date.now() - 24 * 3600000) },
+      metadata: { path: ["scheduleItemId"], equals: item.id },
+    },
+    select: { sentAt: true },
+  });
+  if (recent) throw new ServiceError("Demand notice already sent for this installment in the last 24h", 409);
+
   const sale = item.paymentSchedule.assetSale;
   const customer = sale.customer;
   if (!customer) throw new ServiceError("Sale has no customer to notify", 400);
