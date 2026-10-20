@@ -29,6 +29,20 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
       actualEnd: toDate(body.actualEnd),
       userId: user.id,
     });
+    // Milestone closed → the linked CLP installments are due NOW, not whenever
+    // the reminder sweep next runs. Dispatch one demand per newly-due item;
+    // per-item failures never break the milestone update that just committed.
+    const milestoneHit = (body.actualEnd != null) || (body.progressPct != null && Number(body.progressPct) >= 100);
+    if (milestoneHit) {
+      const dueItems = await prisma.paymentScheduleItem.findMany({
+        where: { wbsNodeId: id, status: "DUE" },
+        select: { id: true },
+      });
+      const { sendDemandNotice } = await import("@nirman/services");
+      for (const item of dueItems) {
+        try { await sendDemandNotice(item.id, company.id, user.id); } catch { /* demand failure never fails the milestone */ }
+      }
+    }
     return json(node);
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });
