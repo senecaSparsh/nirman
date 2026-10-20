@@ -12,6 +12,9 @@ const schema = z.object({
   // at MCLR+2% — the service clamps and posts it to 4450 Interest Income).
   interestAmount: z.coerce.number().min(0).optional(),
   paymentMode: z.string().optional(),
+  chequeNo: z.string().optional(),
+  chequeDate: z.string().optional(),
+  chequeBank: z.string().optional(),
 });
 
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -26,7 +29,11 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   const parsed = schema.safeParse(body);
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid" }, { status: 400 });
   try {
-    const item = await recordSchedulePayment(id, parsed.data.amount, parsed.data.paymentMode, user.id, parsed.data.interestAmount);
+    const item = await recordSchedulePayment(id, parsed.data.amount, parsed.data.paymentMode, user.id, parsed.data.interestAmount, {
+      chequeNo: parsed.data.chequeNo,
+      chequeDate: parsed.data.chequeDate,
+      chequeBank: parsed.data.chequeBank,
+    });
     // Buyer confirmation — the installment path bypassed the sale-payment
     // route's WhatsApp receipt, so a UPI payer got silence. Notify post-commit.
     try {

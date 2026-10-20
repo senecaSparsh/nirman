@@ -572,6 +572,7 @@ export async function recordSchedulePayment(
   userId?: string,
   /** Late-payment interest collected with this payment (≤ accrued). Posts to 4450. */
   interestAmount?: Decimal | number | string,
+  cheque?: { chequeNo?: string; chequeDate?: string; chequeBank?: string },
 ) {
   return withSerializableTransaction(async (tx) => {
     const item = await tx.paymentScheduleItem.findUnique({
@@ -633,6 +634,13 @@ export async function recordSchedulePayment(
         interestAmount: interestPaid.toString(),
         paymentDate: new Date(),
         mode: paymentMode ?? "BANK_TRANSFER",
+        // A cheque is provisional cash — the payment stays out of cleared
+        // sums and schedule allocation until it clears, same as the
+        // sale-level path.
+        chequeStatus: paymentMode === "CHEQUE" ? "PENDING" : null,
+        chequeNo: cheque?.chequeNo ?? null,
+        chequeDate: cheque?.chequeDate ? new Date(cheque.chequeDate) : null,
+        chequeBank: cheque?.chequeBank ?? null,
         reference: `Installment ${item.installmentNo}: ${item.description}` + (interestPaid.gt(0) ? ` + ₹${interestPaid.toNumber().toLocaleString("en-IN")} late interest` : ""),
       },
     });

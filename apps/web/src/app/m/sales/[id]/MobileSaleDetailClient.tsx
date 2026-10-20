@@ -356,6 +356,11 @@ export function MobileSaleDetailClient({
               amount,
               interestAmount: Number(payInterest) || 0,
               paymentMode: payMode,
+              ...(payMode === "CHEQUE" ? {
+                chequeNo: payCheque.chequeNo.trim() || undefined,
+                chequeDate: payCheque.chequeDate || undefined,
+                chequeBank: payCheque.chequeBank.trim() || undefined,
+              } : {}),
             }),
           })
         : await fetch(`/api/sales/${saleId}`, {
