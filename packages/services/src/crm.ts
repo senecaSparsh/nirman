@@ -1,7 +1,7 @@
 import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
-import { postPaymentReceived, postDepositReceived } from "./gl-posting";
+import { postPaymentReceived, postDepositReceived, postLateInterestReceived } from "./gl-posting";
 import { sendNotification } from "./notifications";
 import { ServiceError } from "./errors";
 import { computeLateInterest } from "./collections";
@@ -570,6 +570,8 @@ export async function recordSchedulePayment(
   amount: Decimal | number | string,
   paymentMode?: string,
   userId?: string,
+  /** Late-payment interest collected with this payment (≤ accrued). Posts to 4450. */
+  interestAmount?: Decimal | number | string,
 ) {
   return withSerializableTransaction(async (tx) => {
     const item = await tx.paymentScheduleItem.findUnique({
@@ -589,7 +591,22 @@ export async function recordSchedulePayment(
     }
 
     const payAmount = new Decimal(amount);
-    if (!payAmount.gt(0)) throw new ServiceError("Payment amount must be > 0", 400);
+    if (!payAmount.gt(0) && !(interestAmount && new Decimal(interestAmount).gt(0))) {
+      throw new ServiceError("Payment amount must be > 0", 400);
+    }
+
+    // Interest portion — capped at what has actually accrued (MCLR+2% on the
+    // outstanding principal). Interest does not touch paidAmount: that field
+    // tracks installment principal only.
+    const accrued = computeLateInterest({
+      totalAmount: item.totalAmount,
+      paidAmount: item.paidAmount,
+      dueDate: item.dueDate,
+    });
+    const interestPaid = interestAmount && accrued
+      ? Decimal.min(new Decimal(interestAmount), new Decimal(accrued.interest))
+      : new Decimal(0);
+    const totalReceived = payAmount.plus(interestPaid);
 
     const newPaidAmount = new Decimal(item.paidAmount).plus(payAmount);
     const itemTotal = new Decimal(item.totalAmount);
@@ -612,10 +629,10 @@ export async function recordSchedulePayment(
     const payment = await tx.assetSalePayment.create({
       data: {
         assetSaleId: sale.id,
-        amount: payAmount.toString(),
+        amount: totalReceived.toString(),
         paymentDate: new Date(),
         mode: paymentMode ?? "BANK_TRANSFER",
-        reference: `Installment ${item.installmentNo}: ${item.description}`,
+        reference: `Installment ${item.installmentNo}: ${item.description}` + (interestPaid.gt(0) ? ` + ₹${interestPaid.toNumber().toLocaleString("en-IN")} late interest` : ""),
       },
     });
     // Reconcile all schedule items against actual payment totals
@@ -626,19 +643,32 @@ export async function recordSchedulePayment(
     //   Revenue hasn't been recognised yet, so there's no AR to credit. The payment
     //   is treated as an advance/deposit until completion.
     // - Post-completion: Dr Cash, Cr AR (reduces the receivable created by postAssetSale)
-    if (sale.saleStage === "COMPLETED") {
-      await postPaymentReceived(tx, {
+    if (payAmount.gt(0)) {
+      if (sale.saleStage === "COMPLETED") {
+        await postPaymentReceived(tx, {
+          companyId: sale.companyId,
+          assetSaleId: sale.id,
+          paymentId: payment.id,
+          amount: payAmount,
+          postedById: userId,
+        });
+      } else {
+        await postDepositReceived(tx, {
+          companyId: sale.companyId,
+          assetSaleId: sale.id,
+          amount: payAmount,
+          postedById: userId,
+        });
+      }
+    }
+    // Interest leg — recognised as income the moment it's collected, at any
+    // sale stage (it's already earned; never parks in customer deposits).
+    if (interestPaid.gt(0)) {
+      await postLateInterestReceived(tx, {
         companyId: sale.companyId,
         assetSaleId: sale.id,
         paymentId: payment.id,
-        amount: payAmount,
-        postedById: userId,
-      });
-    } else {
-      await postDepositReceived(tx, {
-        companyId: sale.companyId,
-        assetSaleId: sale.id,
-        amount: payAmount,
+        amount: interestPaid,
         postedById: userId,
       });
     }

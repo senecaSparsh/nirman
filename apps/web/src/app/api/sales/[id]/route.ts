@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { cancelSale, completeSale, markRegistryDone, recordDeposit, recordPayment, refundCompletedSale, sendNotification, updateSale } from "@nirman/services";
+import { cancelSale, completeSale, markRegistryDone, recordDeposit, recordPayment, refundCompletedSale, sendNotification, updateSale, computeLateInterest } from "@nirman/services";
 import { apiHandler, getCompany, json, toNum, paymentSchema, depositSchema, completeSaleSchema, requireEffectivePermission, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
@@ -145,6 +145,7 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
             dueDate: item.dueDate ? item.dueDate.toISOString() : null,
             status: item.status,
             paidAmount: toNum(item.paidAmount),
+            accruedInterest: Number(computeLateInterest({ totalAmount: item.totalAmount, paidAmount: item.paidAmount, dueDate: item.dueDate })?.interest ?? 0),
             wbsNodeId: item.wbsNodeId,
           })),
         }

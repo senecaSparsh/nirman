@@ -71,6 +71,7 @@ export const CHART_OF_ACCOUNTS = [
   { code: "4200", name: "Inter-Company Sales Revenue", type: "REVENUE" as const },
   { code: "4300", name: "Round-Off Income/Expense", type: "REVENUE" as const },
   { code: "4400", name: "Gain on Asset Disposal", type: "REVENUE" as const },
+  { code: "4450", name: "Late Payment Interest Income", type: "REVENUE" as const },
   { code: "5000", name: "Cost of Goods Sold", type: "EXPENSE" as const },
   { code: "5100", name: "Purchase Price Variance", type: "EXPENSE" as const },
   { code: "5500", name: "Inventory Shrinkage Expense", type: "EXPENSE" as const },
@@ -117,6 +118,7 @@ export const ACCT = {
   COST_RECOVERY: "4100",
   ROUND_OFF: "4300",
   GAIN_ON_DISPOSAL: "4400",
+  INTEREST_INCOME: "4450",
   COGS: "5000",
   PPV: "5100",
   INVENTORY_SHRINKAGE: "5500",
@@ -731,6 +733,37 @@ export async function postPaymentReceived(
     lines: [
       { accountCode: ACCT.CASH, debit: opts.amount, credit: 0, entityType: "AssetSalePayment", entityId: opts.paymentId },
       { accountCode: ACCT.AR, debit: 0, credit: opts.amount, entityType: "AssetSale", entityId: opts.assetSaleId },
+    ],
+  });
+}
+
+/**
+ * Late-payment interest received on a sale installment: interest income is
+ * recognised immediately (accrual — it was earned over the overdue period),
+ * never parked in customer deposits.
+ *
+ *   Dr Cash / Bank                    (interest)
+ *   Cr 4450 Late Payment Interest Income
+ */
+export async function postLateInterestReceived(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    assetSaleId: string;
+    paymentId: string;
+    amount: Decimal;
+    postedById?: string;
+  },
+) {
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "PAYMENT_RECEIVED",
+    sourceId: opts.paymentId,
+    memo: "Late-payment interest received",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.CASH, debit: opts.amount, credit: 0, entityType: "AssetSalePayment", entityId: opts.paymentId, memo: "Late interest collected" },
+      { accountCode: ACCT.INTEREST_INCOME, debit: 0, credit: opts.amount, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "RERA late-payment interest" },
     ],
   });
 }

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { prisma } from "@nirman/db";
+import { computeLateInterest } from "@nirman/services";
 import { getCompany, toNum, scopeWhere, projectScopeFilter, getEffectivePermissions } from "@/lib/server";
 import { formatCurrency } from "@/lib/utils";
 import { PERM } from "@/lib/roles";
@@ -217,6 +218,7 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
               dueDate: item.dueDate ? item.dueDate.toISOString() : null,
               status: item.status,
               paidAmount: toNum(item.paidAmount),
+              accruedInterest: Number(computeLateInterest({ totalAmount: item.totalAmount, paidAmount: item.paidAmount, dueDate: item.dueDate })?.interest ?? 0),
               wbsNodeId: item.wbsNodeId}))}
         : null,
       paymentStatus: s.paymentStatus,

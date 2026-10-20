@@ -871,6 +871,7 @@ export type AssetSaleRow = {
       dueDate: string | null;
       status: string;
       paidAmount: number;
+      accruedInterest?: number;
       wbsNodeId: string | null;
     }[];
   } | null;

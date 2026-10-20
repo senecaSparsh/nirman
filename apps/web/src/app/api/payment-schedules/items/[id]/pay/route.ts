@@ -6,7 +6,10 @@ import { PERM } from "@/lib/roles";
 import { z } from "zod";
 
 const schema = z.object({
-  amount: z.coerce.number().min(0.01),
+  amount: z.coerce.number().min(0),
+  // Late-payment interest collected alongside the principal leg (≤ accrued
+  // at MCLR+2% — the service clamps and posts it to 4450 Interest Income).
+  interestAmount: z.coerce.number().min(0).optional(),
   paymentMode: z.string().optional(),
 });
 
@@ -22,7 +25,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
   const parsed = schema.safeParse(body);
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid" }, { status: 400 });
   try {
-    const item = await recordSchedulePayment(id, parsed.data.amount, parsed.data.paymentMode, user.id);
+    const item = await recordSchedulePayment(id, parsed.data.amount, parsed.data.paymentMode, user.id, parsed.data.interestAmount);
     return json(item);
   } catch (err: unknown) {
     return json({ error: err instanceof Error ? err.message : "Failed" }, { status: 400 });

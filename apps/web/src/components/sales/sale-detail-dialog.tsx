@@ -60,7 +60,7 @@ export function SaleDetailDialog({
   const [demanding, setDemanding] = useState<string | null>(null);
   const [chequeActionLoading, setChequeActionLoading] = useState(false);
   const [docUploading, setDocUploading] = useState(false);
-  const [collectItem, setCollectItem] = useState<{ id: string; installmentNo: number; description: string; amount: number; paidAmount: number } | null>(null);
+  const [collectItem, setCollectItem] = useState<{ id: string; installmentNo: number; description: string; amount: number; paidAmount: number; accruedInterest?: number } | null>(null);
   const { mutate: mutateAction } = useApiAction();
   const trackRecent = useTrackRecent();
   const now = useHydratedDate();
@@ -1124,12 +1124,14 @@ function CollectInstallmentDialog({
   onClose,
   onSuccess,
 }: {
-  item: { id: string; installmentNo: number; description: string; amount: number; paidAmount: number };
+  item: { id: string; installmentNo: number; description: string; amount: number; paidAmount: number; accruedInterest?: number };
   onClose: () => void;
   onSuccess: () => void;
 }) {
   const balanceDue = item.amount - item.paidAmount;
+  const accrued = item.accruedInterest ?? 0;
   const [amount, setAmount] = useState(String(balanceDue));
+  const [interest, setInterest] = useState(String(accrued > 0 ? accrued : "0"));
   const [paymentMode, setPaymentMode] = useState("BANK_TRANSFER");
   const [saving, setSaving] = useState(false);
 
@@ -1142,6 +1144,7 @@ function CollectInstallmentDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: Number(amount),
+          interestAmount: Number(interest) || 0,
           paymentMode,
         }),
       });
@@ -1179,6 +1182,22 @@ function CollectInstallmentDialog({
           />
           <p className="text-caption text-muted-foreground">Balance due: {formatCurrency(balanceDue)}</p>
         </div>
+        {accrued > 0 && (
+          <div className="space-y-1.5">
+            <label className="text-label text-muted-foreground">Late interest (₹) — SBI MCLR + 2% accrued</label>
+            <Input
+              type="number"
+              min={0}
+              max={accrued}
+              step="0.01"
+              value={interest}
+              onChange={(e) => setInterest(e.target.value)}
+            />
+            <p className="text-caption text-muted-foreground">
+              Accrued {formatCurrency(accrued)} — collecting {formatCurrency(Number(amount) + (Number(interest) || 0))} total
+            </p>
+          </div>
+        )}
         <div className="space-y-1.5">
           <label className="text-label text-muted-foreground">Payment Mode</label>
           <Select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)}>
