@@ -1604,32 +1604,50 @@ export async function voidAssetSalePayment(input: {
     });
 
     const amount = new Decimal(payment.amount);
+    // The interest leg is income, never principal — voiding refunds only the
+    // principal portion to deposits/AR; the interest JE gets reversed below.
+    const interestLeg = new Decimal(payment.interestAmount ?? 0);
+    const principal = Decimal.max(0, amount.minus(interestLeg));
 
     // ── GL reversal ──
-    // Post-completion payments posted PAYMENT_RECEIVED keyed by payment.id —
-    // reverse that exact entry (idempotent: skip if already reversed).
-    // Deposits posted ASSET_SALE_DEPOSIT keyed by sale.id (shared across all
-    // deposits) — post a compensating refund for just this amount instead.
-    const paymentJe = await tx.journalEntry.findFirst({
+    // Post-completion payments AND every interest leg post PAYMENT_RECEIVED
+    // keyed by payment.id — reverse ALL such entries (findMany, not findFirst:
+    // an interest-carrying payment leaves two JEs under the same key and
+    // reversing only one strands the other). Deposits post ASSET_SALE_DEPOSIT
+    // keyed by sale.id (shared) — refund just this payment's principal.
+    const paymentJes = await tx.journalEntry.findMany({
       where: { sourceType: "PAYMENT_RECEIVED", sourceId: payment.id },
-      select: { id: true },
-      orderBy: { createdAt: "desc" },
+      include: { lines: { select: { debit: true } } },
     });
-    if (paymentJe) {
-      const alreadyReversed = await tx.journalEntry.findFirst({
-        where: { sourceType: "PAYMENT_RECEIVED_REVERSAL", sourceId: payment.id },
-        select: { id: true },
-      });
-      if (!alreadyReversed) {
-        await reverseJournalEntry(tx, paymentJe.id, {
+    const alreadyReversed = paymentJes.length > 0
+      ? await tx.journalEntry.findFirst({
+          where: { sourceType: "PAYMENT_RECEIVED_REVERSAL", sourceId: payment.id },
+          select: { id: true },
+        })
+      : null;
+    if (!alreadyReversed) {
+      for (const je of paymentJes) {
+        await reverseJournalEntry(tx, je.id, {
           postedById: input.userId,
           memo: `Void sale payment${input.reason ? ` — ${input.reason}` : ""}`,
         });
       }
-    } else if (sale.saleStage === "COMPLETED") {
-      // Completed-sale payment with no per-payment JE (deposit-settled flow):
-      // the money settled AR, so voiding re-opens the receivable and returns
-      // the cash — mirror of postPaymentReceived.
+    }
+    // How much of this payment was booked under the payment key? Completed-
+    // sale payments post principal + interest both keyed to the payment;
+    // pre-completion principal sits in the shared deposit JE instead (only
+    // the interest leg lands under the payment key). Whatever cash was never
+    // debited under this key still has to come back out on void.
+    const keyedDebits = paymentJes.reduce(
+      (sum, je) => sum.plus(je.lines.reduce((ls, l) => ls.plus(new Decimal(l.debit)), new Decimal(0))),
+      new Decimal(0),
+    );
+    const uncovered = Decimal.max(0, amount.minus(keyedDebits));
+
+    if (sale.saleStage === "COMPLETED" && uncovered.gt(0) && !alreadyReversed) {
+      // Completed-sale principal with no per-payment JE (deposit-settled
+      // flow): the money settled AR, so voiding re-opens the receivable and
+      // returns the cash — mirror of postPaymentReceived.
       await postJournalEntry(tx, {
         companyId: sale.companyId,
         sourceType: "PAYMENT_RECEIVED_REVERSAL",
@@ -1637,15 +1655,15 @@ export async function voidAssetSalePayment(input: {
         memo: `Void sale payment${input.reason ? ` — ${input.reason}` : ""}`,
         postedById: input.userId,
         lines: [
-          { accountCode: ACCT.AR, debit: amount, credit: new Decimal(0), entityType: "AssetSale", entityId: sale.id, memo: "Re-open receivable (payment voided)" },
-          { accountCode: ACCT.CASH, debit: new Decimal(0), credit: amount, entityType: "AssetSalePayment", entityId: payment.id, memo: "Cash returned to customer" },
+          { accountCode: ACCT.AR, debit: uncovered, credit: new Decimal(0), entityType: "AssetSale", entityId: sale.id, memo: "Re-open receivable (payment voided)" },
+          { accountCode: ACCT.CASH, debit: new Decimal(0), credit: uncovered, entityType: "AssetSalePayment", entityId: payment.id, memo: "Cash returned to customer" },
         ],
       });
-    } else {
+    } else if (sale.saleStage !== "COMPLETED" && principal.gt(0)) {
       await postDepositRefund(tx, {
         companyId: sale.companyId,
         assetSaleId: sale.id,
-        amount,
+        amount: principal,
         postedById: input.userId,
       });
     }
