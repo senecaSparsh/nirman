@@ -764,6 +764,9 @@ export function SaleDetailDialog({
                         <p className="text-caption text-muted-foreground">
                           {formatCurrency(nextDue.amount)} · due {formatDate(nextDue.dueDate!)}
                           {isOverdue && now && ` · ${Math.ceil((now.getTime() - dueDate.getTime()) / 86400000)} day(s) late`}
+                          {isOverdue && (nextDue.accruedInterest ?? 0) > 0.01 && (
+                            <span className="font-medium text-danger"> · +{formatCurrency(nextDue.accruedInterest!)} interest</span>
+                          )}
                         </p>
                       </div>
                       {canManage && !isCancelled && (
