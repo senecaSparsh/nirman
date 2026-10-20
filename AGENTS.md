@@ -69,6 +69,12 @@ the `coolify-proxy` container isn't on the app network. Fix:
 'findMany')` errors for any model added after the client was first loaded. The wrapper
   detects this error signature and auto-restarts.
 - `pnpm db:push` — push schema to DB (dev). `pnpm db:migrate` for migrations.
+  **Also mirror schema changes into `nirman_inventory_test`** — the service suite
+  runs against that DB and does NOT get `db:push`. A `DATABASE_URL=... npx prisma
+db push` does NOT override (packages/db/.env wins); apply the DDL directly:
+  `psql "$DATABASE_URL" -d nirman_inventory_test -c 'ALTER TABLE "Company" ADD
+COLUMN IF NOT EXISTS "upiId" TEXT;'`. Symptom if forgotten: mass
+  `PrismaClientKnownRequestError: column X does not exist` across the whole suite.
 - `pnpm db:studio` — Prisma Studio.
 - `pnpm --filter @nirman/services test` — run service unit tests (vitest).
 - `BASE=http://localhost:3000 ./scripts/verify-workflows-full.sh` — **live workflow
