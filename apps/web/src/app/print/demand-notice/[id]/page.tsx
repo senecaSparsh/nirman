@@ -314,6 +314,20 @@ export default async function DemandNoticePage({
         </p>
       </section>
 
+      {/* Escalation clause — ≥30 days overdue: the default remedy under the
+          agreement (cancellation + forfeiture as permitted by law). */}
+      {late && late.daysOverdue >= 30 && (
+        <section className="mt-4 rounded border border-red-300 bg-red-50 p-3 text-sm text-red-900">
+          <p className="font-semibold">Final Notice Before Default</p>
+          <p className="mt-1">
+            This installment is {late.daysOverdue} days overdue. Continued default may entitle us to
+            initiate cancellation of the allotment as per the agreement terms, forfeit amounts as
+            permitted by applicable law, and pursue recovery of the balance with interest. Kindly
+            remit the total payable amount immediately to avoid escalation.
+          </p>
+        </section>
+      )}
+
       {/* Signature */}
       <section className="mt-12">
         <div className="border-t border-gray-400 pt-2">

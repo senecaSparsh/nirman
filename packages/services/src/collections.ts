@@ -129,6 +129,11 @@ export async function sendDemandNotice(scheduleItemId: string, companyId: string
     (interest
       ? `Please pay immediately to avoid further interest accrual.\n`
       : `Please remit at the earliest.\n`) +
+    // ≥30 days: escalate to the agreement's cancellation clause — a demand
+    // this old is no longer a reminder, it's the last notice before default.
+    (interest && interest.daysOverdue >= 30
+      ? `\nNOTICE: This installment is ${interest.daysOverdue} days overdue. Continued default may entitle the developer to initiate cancellation of allotment as per the agreement terms, forfeit amounts as permitted by law, and pursue recovery. Pay immediately to avoid escalation.\n`
+      : "") +
     (upiLink ? `\nPay now: ${upiLink}\n` : "") +
     `This notice is system-generated and recorded for compliance.`;
 
