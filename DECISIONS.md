@@ -1947,3 +1947,52 @@ Mobile GL stays a summary surface — corrections are a desktop finance task.
   GL Dr 2000 / Cr Cash balanced. Cleaned up only through void, reversal, and soft
   delete. Test journal rows are not deleted directly, because that bypasses the audit trail.
 - Tests: web vitest 2717/2717, services 1779/1779, typecheck clean.
+
+## 92. Backbone program — what makes this the system the business runs on (2026-10-20)
+
+Decided: **both, sequenced** — prove on SRG Realcon for a quarter, then open to
+2–3 friendly builders. Multi-company is already in the schema.
+
+**What hurts most / demos best (researched, not guessed):** the collections
+spine. Every credible Indian RE competitor (Sell.Do, PropFlo, Makanify,
+WhatsPortal, Briqhaus) leads with milestone-triggered demand letters +
+WhatsApp reminders + delayed-payment interest + TDS tracking — because a
+demand raised 2 weeks late is money collected 2 weeks late. RERA escrow is
+the second trust-signal: 70% of allottee receipts into a designated no-lien
+account, every withdrawal needs engineer + architect + CA certificates
+(Form-3), no advance withdrawals.
+
+**Biggest field-adoption blocker (decided):** not connectivity — _distributive
+equity_. The site engineer does the data entry; the director gets the
+dashboard. Field adoption survives only where the field worker gets something
+back _immediately_: raise a material request without a phone call, one-tap
+attendance, no end-of-day reconstruction, fewer follow-up calls. Every field
+surface must pass the "what does the site engineer get in 30 seconds" test.
+Offline queue, Hindi labels, glove-sized targets are mechanical supports —
+the give-back is the actual feature.
+
+**Structure: four pillars, not modules.** Every business event lands in the
+ledger once and fans out to compliance, collections, and reports:
+
+| Pillar  | Spine                               | Control plane                     | Statutory output              |
+| ------- | ----------------------------------- | --------------------------------- | ----------------------------- |
+| Collect | demand → receipt → recon            | credit limits, discount approval  | 194-IA tracking, 26AS recon   |
+| Spend   | indent → PO → GRN → invoice → pay   | 3-way match, separation of duties | 194C/206AA, MSME 43B(h) aging |
+| Build   | BOQ → DPR → issue → progress → bill | gate pass, MB verify, RA approve  | WIP capitalisation            |
+| Comply  | ledger → statutory packs            | payroll lock, JV approval         | GSTR/ECR/PT/RERA/Tally export |
+
+**Phase order:**
+
+- P1 — Collections spine: CLP demand-letter generation, WhatsApp/UPI reminder
+  dispatch, MCLR+2% late-interest accrual (D30), per-sale 194-IA 26QB tracker,
+  allottee statement PDF
+- P1b — Field give-back: what each site role gets back in 30s (material
+  request without a call, one-tap attendance, instant DPR status) — this is
+  the adoption hinge, not a polish item
+- P2 — RERA escrow view: per-project designated-account ledger, withdrawal
+  certificate workflow (engineer/architect/CA certs), 70% utilisation
+- P3 — Site truth: photo-first GRN (challan + weighbridge OCR), DPR↔BOQ
+  variance flags, offline write queue
+- P4 — Statutory autopilot: GSTR-1/3B packs, PF ECR/ESI/PT challans, Tally
+  XML voucher export (CA coexistence), RERA quarterly pack, BOCW cess (D27)
+- P5 — Allottee portal + bank/CC statement pack (books banks lend against)
