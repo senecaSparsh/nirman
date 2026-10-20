@@ -752,9 +752,22 @@ export async function postLateInterestReceived(
     assetSaleId: string;
     paymentId: string;
     amount: Decimal;
+    /** GST rate on the underlying supply (e.g. 5 on CLP under-construction).
+     *  Delayed-payment interest is consideration → GST-taxable; the collected
+     *  amount is treated as GST-inclusive and split base/output-GST. */
+    gstRate?: Decimal | number;
     postedById?: string;
   },
 ) {
+  // GST-inclusive split: for a CLP sale at 5%, interest of ₹100 carries
+  // ₹4.76 output GST + ₹95.24 income. Completed/registered units (gstRate 0)
+  // book the full amount as income — no supply, no GST.
+  const rate = new Decimal(opts.gstRate ?? 0);
+  const gstLeg = rate.gt(0)
+    ? opts.amount.times(rate).div(rate.plus(100)).toDecimalPlaces(2)
+    : new Decimal(0);
+  const incomeLeg = opts.amount.minus(gstLeg);
+
   return postJournalEntry(tx, {
     companyId: opts.companyId,
     sourceType: "PAYMENT_RECEIVED",
@@ -763,7 +776,10 @@ export async function postLateInterestReceived(
     postedById: opts.postedById,
     lines: [
       { accountCode: ACCT.CASH, debit: opts.amount, credit: 0, entityType: "AssetSalePayment", entityId: opts.paymentId, memo: "Late interest collected" },
-      { accountCode: ACCT.INTEREST_INCOME, debit: 0, credit: opts.amount, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "RERA late-payment interest" },
+      { accountCode: ACCT.INTEREST_INCOME, debit: 0, credit: incomeLeg, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "RERA late-payment interest" },
+      ...(gstLeg.gt(0)
+        ? [{ accountCode: ACCT.OUTPUT_GST, debit: 0 as const, credit: gstLeg, entityType: "AssetSale" as const, entityId: opts.assetSaleId, memo: "GST on delayed-payment interest" }]
+        : []),
     ],
   });
 }

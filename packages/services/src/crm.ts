@@ -669,6 +669,10 @@ export async function recordSchedulePayment(
         assetSaleId: sale.id,
         paymentId: payment.id,
         amount: interestPaid,
+        // GST-inclusive split — the interest is consideration for the
+        // underlying supply, so the sale's GST rate governs regardless of
+        // when it's collected (completed-building sales carry gstRate 0).
+        gstRate: sale.gstRate,
         postedById: userId,
       });
     }
