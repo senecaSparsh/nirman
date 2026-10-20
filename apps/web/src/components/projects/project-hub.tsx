@@ -361,6 +361,14 @@ export function ProjectHub({
             <div className="text-muted-foreground/80">
               Withdrawals require engineer + architect + CA certification (Sec. 4(2)(l)(D))
             </div>
+            {/* BOCW cess — 1% of the construction cost owed to the state
+                welfare board. Ledgered spend is the running proxy; the cess is
+                actually assessed on the sanctioned estimate, so flag both. */}
+            {(project.escrowSpent ?? 0) > 0 && (
+              <div className="text-muted-foreground/80">
+                Est. BOCW cess {formatCurrency(Math.round((project.escrowSpent ?? 0) * 0.01 * 100) / 100)} (1% of construction cost to date)
+              </div>
+            )}
           </div>
         </div>
       )}
