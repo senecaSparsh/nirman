@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, FileText } from "lucide-react";
+import { ArrowLeft, FileText, Receipt } from "lucide-react";
 import { prisma } from "@nirman/db";
 import { getPortalCustomer } from "@/lib/portal-auth";
-import { scopeWhere,  toNum } from "@/lib/server";
+import { toNum } from "@/lib/server";
 import { EmptyState } from "@/components/empty-state";
 
 export const metadata = { title: "My Sales" };
@@ -52,7 +52,10 @@ export default async function PortalSalesPage() {
   }
 
   const sales = await prisma.assetSale.findMany({
-    where: { ...await scopeWhere("AssetSale"), customerId: customer.id, status: "ACTIVE" },
+    // Portal customers are scoped by customerId alone — scopeWhere() routes
+    // through the staff session layer (getCompany → sign-in redirect for
+    // users with no staff context), which would strip every row here.
+    where: { customerId: customer.id, status: "ACTIVE" },
     include: {
       project: { select: { id: true, name: true } },
       landParcel: { select: { id: true, number: true, area: true, areaUnit: true } },
@@ -60,6 +63,7 @@ export default async function PortalSalesPage() {
         select: { id: true, unitNumber: true, unitType: true, area: true, areaUnit: true, floor: true, wing: true },
       },
       payments: { orderBy: { paymentDate: "asc" } },
+      paymentSchedule: { include: { items: { orderBy: { installmentNo: "asc" } } } },
     },
     orderBy: { saleDate: "desc" },
   });
@@ -83,6 +87,24 @@ export default async function PortalSalesPage() {
       totalPaid,
       balanceDue: totalAmount - totalPaid,
       paymentProgress: totalAmount > 0 ? Math.round((totalPaid / totalAmount) * 100) : 0,
+      payments: s.payments
+        .filter((p) => p.status !== "VOID")
+        .map((p) => ({
+          id: p.id,
+          amount: toNum(p.amount),
+          date: p.paymentDate.toISOString(),
+          mode: p.mode,
+        })),
+      scheduleItems:
+        s.paymentSchedule?.items.map((i) => ({
+          id: i.id,
+          no: i.installmentNo,
+          description: i.description,
+          dueDate: i.dueDate ? i.dueDate.toISOString() : null,
+          totalAmount: toNum(i.totalAmount),
+          paidAmount: toNum(i.paidAmount),
+          status: i.status,
+        })) ?? [],
     };
   });
 
@@ -177,6 +199,57 @@ export default async function PortalSalesPage() {
                 <span className="font-medium text-emerald-600">{fmtCurrency(sale.totalPaid)} paid</span>
                 <span className="font-medium text-amber-600">{fmtCurrency(sale.balanceDue)} due</span>
               </div>
+
+              {/* Allottee statement — the installment plan + payment ledger the
+                  buyer otherwise has to call the office for. Next-due
+                  installment is highlighted; each payment links to its
+                  printable receipt. */}
+              {sale.scheduleItems.length > 0 && (
+                <div className="mt-3 border-t border-slate-100 pt-2">
+                  <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">Payment Schedule</p>
+                  <div className="space-y-1">
+                    {sale.scheduleItems.map((i) => {
+                      const overdue = i.dueDate && i.status !== "PAID" && new Date(i.dueDate) < new Date();
+                      return (
+                        <div key={i.id} className={`flex items-center justify-between rounded px-2 py-1 text-xs ${i.status === "PAID" ? "bg-emerald-50" : overdue ? "bg-red-50" : "bg-slate-50"}`}>
+                          <span className="text-slate-700">
+                            <span className="font-medium">#{i.no}</span> {i.description}
+                          </span>
+                          <span className={`tnum font-medium ${i.status === "PAID" ? "text-emerald-700" : overdue ? "text-red-700" : "text-slate-600"}`}>
+                            {fmtCurrency(i.totalAmount)}
+                            {i.dueDate && <span className="ml-1.5 font-normal text-slate-400">· {fmtDate(i.dueDate)}</span>}
+                            <span className={`ml-1.5 ${i.status === "PAID" ? "text-emerald-600" : overdue ? "text-red-500" : "text-slate-400"}`}>
+                              {i.status === "PAID" ? "✓" : overdue ? "Overdue" : i.status === "PARTIAL" ? `${fmtCurrency(i.totalAmount - i.paidAmount)} left` : i.status.toLowerCase()}
+                            </span>
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {sale.payments.length > 0 && (
+                <div className="mt-2 border-t border-slate-100 pt-2">
+                  <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">Payments</p>
+                  <div className="space-y-1">
+                    {sale.payments.map((p) => (
+                      <a
+                        key={p.id}
+                        href={`/print/payment-receipt/${p.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between rounded px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Receipt className="h-3 w-3 text-slate-400" />
+                          {fmtDate(p.date)} · {p.mode.replace(/_/g, " ").toLowerCase()}
+                        </span>
+                        <span className="tnum font-medium text-emerald-700">{fmtCurrency(p.amount)}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

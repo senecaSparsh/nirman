@@ -2,6 +2,7 @@ import { connection } from "next/server";
 import { PrintToolbar } from "@/components/print/print-button";
 import { PrintHeader } from "@/components/print/print-header";
 import { prisma } from "@nirman/db";
+import { getPortalCustomer } from "@/lib/portal-auth";
 import { toNum, getCompany, getUserPermissions, scopeWhere } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { amountInWords } from "@nirman/services";
@@ -37,15 +38,28 @@ export default async function PaymentReceiptPage({
 
 
   const __effPerms = await getUserPermissions();
-  if (!__effPerms.includes(PERM.SALES_VIEW)) {
-    notFound();
+  const hasStaffAccess = __effPerms.includes(PERM.SALES_VIEW);
+
+  // Portal customers may print receipts for their own payments — the same
+  // pattern as /print/demand-notice. Scoped to the logged-in customer's sale.
+  // getCompany() resolves the staff session (redirects to /sign-in without
+  // one), so the portal path must resolve the company from the sale itself.
+  let portalCustomerId: string | null = null;
+  if (!hasStaffAccess) {
+    const portalCustomer = await getPortalCustomer();
+    if (!portalCustomer) notFound();
+    portalCustomerId = portalCustomer.id;
   }
-  const company = await getCompany();
 
   const payment = await prisma.assetSalePayment.findFirst({
     // Company + project/department scope ride the sale relation — the
     // post-fetch companyId check below stays as a belt-and-suspenders guard.
-    where: { id, assetSale: { companyId: company.id, ...(await scopeWhere("AssetSale")) } },
+    where: {
+      id,
+      assetSale: {
+        ...(portalCustomerId ? { customerId: portalCustomerId } : { companyId: (await getCompany()).id, ...(await scopeWhere("AssetSale")) }),
+      },
+    },
     include: {
       assetSale: {
         include: {
@@ -60,8 +74,17 @@ export default async function PaymentReceiptPage({
 
   if (!payment || !payment.assetSale) notFound();
 
-  // Guard against cross-company access
-  if (payment.assetSale.companyId !== company.id) notFound();
+  const company = portalCustomerId
+    ? await prisma.company.findUnique({
+        where: { id: payment.assetSale.companyId },
+        select: { id: true, name: true, address: true, gstin: true, phone: true, email: true, pan: true },
+      })
+    : await getCompany();
+  if (!company) notFound();
+
+  // Guard against cross-company access (staff path; portal customers are
+  // already scoped to their own customerId in the query above)
+  if (!portalCustomerId && payment.assetSale.companyId !== company.id) notFound();
 
   const sale = payment.assetSale;
   const amount = toNum(payment.amount);
