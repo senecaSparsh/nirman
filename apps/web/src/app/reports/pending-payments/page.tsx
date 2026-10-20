@@ -46,7 +46,7 @@ async function PendingPaymentsContent() {
       lines: { some: { qtyReceived: { gt: 0 } } },
     },
     include: {
-      supplier: { select: { id: true, name: true } },
+      supplier: { select: { id: true, name: true, isMsme: true } },
       lines: { select: { qtyOrdered: true, qtyReceived: true, unitCost: true, gstRate: true } },
     },
     orderBy: { createdAt: "asc" },
@@ -82,6 +82,7 @@ async function PendingPaymentsContent() {
       supplierId: po.supplierId,
       poNumber: po.poNumber,
       supplier: po.supplier.name,
+      isMsme: po.supplier.isMsme,
       expectedDate: po.expectedDate?.toISOString() ?? null,
       orderedValue,
       receivedValue,
@@ -257,6 +258,10 @@ async function PendingPaymentsContent() {
   }).filter((r) => r.principal > 0.01);
 
   const totalPayable = overdueRows.reduce((s, r) => s + toNum(r.payable), 0);
+  // Sec 43B(h) exposure — MSME dues aging >45 days are disallowed as expense
+  const msmeOver45 = overdueRows
+    .filter((r) => "isMsme" in r && r.isMsme && r.daysOverdue > 45)
+    .reduce((s, r) => s + toNum(r.payable), 0);
   const totalReceivable = receivableRows.reduce((s, r) => s + toNum(r.outstanding), 0);
   const totalDraft = draftRows.reduce((s, r) => s + toNum(r.value), 0);
   const netCash = totalReceivable - totalPayable;
@@ -275,6 +280,9 @@ async function PendingPaymentsContent() {
           { label: "Receivable", value: formatCurrency(totalReceivable) },
           { label: "Net cash", value: formatCurrency(netCash) },
           { label: "Draft POs", value: formatCurrency(totalDraft) },
+          ...(msmeOver45 > 0
+            ? [{ label: "MSME >45d (43B)", value: formatCurrency(msmeOver45), tone: "danger" as const }]
+            : []),
         ]}
       />
       <PendingPaymentsReport

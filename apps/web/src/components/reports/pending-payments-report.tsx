@@ -24,6 +24,7 @@ export type OverduePORow = {
   id: string;
   poNumber: string;
   supplier: string;
+  isMsme?: boolean;
   expectedDate: string | null;
   orderedValue: number;
   receivedValue: number;
@@ -231,7 +232,21 @@ export function PendingPaymentsReport({
       label: "Supplier",
       sortable: true,
       filterable: true,
-      render: (p) => <span className="font-medium text-foreground">{p.supplier}</span>,
+      render: (p) => (
+        <span className="font-medium text-foreground">
+          {p.supplier}
+          {p.isMsme && p.daysOverdue > 45 && (
+            <span className="ml-1.5 rounded bg-danger-soft px-1 py-0.5 text-micro font-medium text-danger" title="MSME supplier unpaid >45 days — expense disallowed under Sec 43B(h)">
+              43B(h)
+            </span>
+          )}
+          {p.isMsme && p.daysOverdue <= 45 && (
+            <span className="ml-1.5 rounded bg-muted px-1 py-0.5 text-micro text-muted-foreground" title="MSME-registered supplier — pay within 45 days (Sec 43B(h))">
+              MSME
+            </span>
+          )}
+        </span>
+      ),
       filterValue: (p) => p.supplier,
       exportValue: (p) => p.supplier,
     },
