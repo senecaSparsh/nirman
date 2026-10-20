@@ -30,8 +30,9 @@ export default function MobileMaterialSaleDetailPage({
               orderBy: { paymentDate: "desc" },
               select: {
                 id: true, amount: true, paymentDate: true,
-                paymentMode: true, referenceNo: true, status: true,
-                chequeNo: true, chequeBank: true, chequePhotoUrl: true}}}});
+                paymentMode: true, referenceNo: true, status: true, direction: true,
+                chequeNo: true, chequeBank: true, chequePhotoUrl: true}},
+            returns: { where: { status: "COMPLETED" }, select: { totalAmount: true } } }});
 
         if (!sale) {
           return (
@@ -143,6 +144,7 @@ export default function MobileMaterialSaleDetailPage({
               gstRate: toNum(l.gstRate),
               gstAmount: toNum(l.gstAmount),
               lineTotal: toNum(l.lineTotal)}))}
+            returnedAmount={sale.returns.reduce((s, r) => s + toNum(r.totalAmount), 0)}
             payments={sale.payments.map((p) => ({
               id: p.id,
               amount: toNum(p.amount),

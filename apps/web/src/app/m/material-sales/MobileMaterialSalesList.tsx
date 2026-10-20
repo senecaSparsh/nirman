@@ -41,6 +41,7 @@ export type MaterialSaleItem = {
   saleDate: string;
   totalAmount: number;
   totalPaid: number;
+  returnedAmount?: number;
   grossProfit: number;
   scrapSubtotal: number;
   customerName: string | null;
@@ -475,7 +476,7 @@ function SaleCard({ s, onAction }: { s: MaterialSaleItem; onAction?: () => void 
         saleId={s.id}
         saleNumber={s.saleNumber}
         totalAmount={s.totalAmount}
-        outstandingBalance={Math.max(0, s.totalAmount - s.totalPaid)}
+        outstandingBalance={Math.max(0, s.totalAmount - (s.returnedAmount ?? 0) - s.totalPaid)}
         onPaid={onAction}
       />
     </>

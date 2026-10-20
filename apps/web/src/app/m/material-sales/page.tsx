@@ -38,7 +38,8 @@ export default function MobileMaterialSalesPage() {
             customer: { select: { name: true } },
             project: { select: { name: true } },
             lines: { select: { id: true } },
-            payments: { select: { amount: true } },
+            payments: { select: { amount: true, status: true, direction: true } },
+            returns: { where: { status: "COMPLETED" }, select: { totalAmount: true } },
           },
         });
 
@@ -65,7 +66,8 @@ export default function MobileMaterialSalesPage() {
           paymentStatus: s.paymentStatus,
           saleDate: s.saleDate.toISOString(),
           totalAmount: toNum(s.totalAmount),
-          totalPaid: s.payments.reduce((sum, p) => sum + toNum(p.amount), 0),
+          totalPaid: s.payments.reduce((sum, p) => sum + (p.status !== "VOID" && p.direction === "IN" ? toNum(p.amount) : 0), 0),
+          returnedAmount: s.returns.reduce((sum, r) => sum + toNum(r.totalAmount), 0),
           grossProfit: toNum(s.grossProfit),
           scrapSubtotal: toNum(s.scrapSubtotal),
           customerName: s.customer?.name ?? null,

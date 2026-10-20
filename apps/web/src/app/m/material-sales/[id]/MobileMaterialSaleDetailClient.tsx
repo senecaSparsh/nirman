@@ -64,6 +64,7 @@ export function MobileMaterialSaleDetailClient({
   subtotal,
   gstTotal,
   totalAmount,
+  returnedAmount,
   totalCost,
   grossProfit,
   scrapSubtotal,
@@ -93,6 +94,7 @@ export function MobileMaterialSaleDetailClient({
   subtotal: number;
   gstTotal: number;
   totalAmount: number;
+  returnedAmount?: number;
   totalCost: number;
   grossProfit: number;
   scrapSubtotal: number;
@@ -205,7 +207,9 @@ export function MobileMaterialSaleDetailClient({
 
   const statusLabel = isCancelled ? "Cancelled" : isPartial ? "Partial" : isPending ? "Unpaid" : "Paid";
   const totalPaid = payments.reduce((s, p) => s + toNum((p.status === "VOID" ? 0 : p.amount)), 0);
-  const balanceDue = Math.max(0, totalAmount - totalPaid);
+  // Completed returns reduce what the customer owes — the gross total
+  // overstates the collectible on partially-returned sales.
+  const balanceDue = Math.max(0, totalAmount - (returnedAmount ?? 0) - totalPaid);
 
   async function handleCancel() {
     setSubmitting(true);
