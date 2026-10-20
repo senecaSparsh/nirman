@@ -103,6 +103,7 @@ async function CommandCenterContent() {
     pendingExpenses,
     pendingClaims,
     pendingRaBills,
+    pendingCheques,
     overdueInstallments,
   ] = await Promise.all([
     isDevBypass ? null : prisma.user.findUnique({
@@ -209,6 +210,14 @@ async function CommandCenterContent() {
           where: { ...await scopeWhere("RaBill"), companyId: company.id, status: "SUBMITTED", createdById: { not: userId }, submittedById: { not: userId } },
           orderBy: { createdAt: "desc" }, take: 5,
           include: { project: { select: { name: true } }, workOrder: { select: { workOrderNumber: true } } }})
+      : [],
+    // Pending-clearance cheques — money keyed in but not yet banked. On the
+    // dashboard because a stale cheque is invisible until someone reconciles.
+    canSeeSales
+      ? prisma.assetSalePayment.findMany({
+          where: { chequeStatus: "PENDING", assetSale: { companyId: company.id, status: { not: "CANCELLED" } } },
+          orderBy: { paymentDate: "asc" }, take: 5,
+          include: { assetSale: { select: { id: true, saleNumber: true, customer: { select: { name: true } } } } }})
       : [],
     // Past-due schedule items = the collections queue — a customer who owes
     // money TODAY is far more urgent than a sales-balance aggregate.
@@ -436,6 +445,13 @@ async function CommandCenterContent() {
       const daysLate = Math.floor((now.getTime() - new Date(i.dueDate!).getTime()) / 86400000);
       return { label: i.paymentSchedule.assetSale.customer.name, sub: `#${i.installmentNo} ${formatCurrency(balance)} · ${daysLate}d late`, href: `/sales/${i.paymentSchedule.assetSale.id}` };
     })});
+  // Cheques awaiting clearance — a sale "paid" by an uncleared cheque is
+  // provisional money; it belongs on the dashboard until the bank confirms.
+  if (pendingCheques.length > 0) queues.push({
+    key: "pending-cheques", title: "Cheques awaiting clearance",
+    consequence: "Confirm clearance or mark bounced — the money isn't usable yet",
+    count: pendingCheques.length, href: "/sales", cta: "Clear", urgency: "blocking", icon: "dollarSign",
+    items: pendingCheques.map((p) => ({ label: p.assetSale.customer.name, sub: `${formatCurrency(toNum(p.amount))} · ${p.chequeNo ? `chq ${p.chequeNo} · ` : ""}${formatDate(p.paymentDate)}`, href: `/sales/${p.assetSale.id}` }))});
   if (canManageStock && pendingStockCounts.length > 0) queues.push({
     key: "stock-count", title: "Stock inventories to process",
     consequence: "Confirm counts and reconcile variances to keep stock accurate",
