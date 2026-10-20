@@ -3,10 +3,6 @@ import { prisma } from "@nirman/db";
 import { getCurrentUser, getCompany, getUserRole, toNum, projectScopeFilter, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { SettingsView } from "@/components/settings/settings-view";
-import { HsnMasterAdmin } from "@/components/settings/hsn-master-admin";
-import { NotificationsPanel } from "@/components/notifications/notifications-panel";
-import { NotificationPreferences } from "@/components/notifications/notification-preferences";
-import { DelegationCard } from "@/components/settings/delegation-card";
 import { NoAccess } from "@/components/no-access";
 import type { StockLocationRow, DepartmentRow } from "@/lib/types";
 
@@ -134,13 +130,13 @@ export async function SettingsContent() {
   }));
 
   return (
-    <>
     <SettingsView
       company={{
         id: company.id,
         name: company.name,
         gstin: company.gstin,
         pan: company.pan,
+        upiId: company.upiId,
         address: company.address,
         lat: company.lat,
         lng: company.lng,
@@ -187,27 +183,11 @@ export async function SettingsContent() {
         hasChildren: c._count.children > 0,
       }))}
       canManageCompanies={isSuperuser}
+      canManageFinance={__effPerms.includes(PERM.FINANCE_MANAGE)}
       actorRole={role}
       departments={departmentRows}
       managers={memberships.map((m) => ({ membershipId: m.id, userId: m.userId, name: m.user.name, role: m.role }))}
       customRoles={customRoles.map((cr) => ({ id: cr.id, key: cr.key, label: cr.label, description: cr.description, baseRole: cr.baseRole, tier: cr.tier, permissions: cr.permissions }))}
     />
-      {__effPerms.includes(PERM.FINANCE_MANAGE) && (
-        <div className="mt-6">
-          <HsnMasterAdmin />
-        </div>
-      )}
-      {__effPerms.includes(PERM.FINANCE_MANAGE) && (
-        <div className="mt-6">
-          <NotificationsPanel />
-        </div>
-      )}
-      <div className="mt-6">
-        <NotificationPreferences />
-      </div>
-      <div className="mt-6">
-        <DelegationCard />
-      </div>
-    </>
   );
 }

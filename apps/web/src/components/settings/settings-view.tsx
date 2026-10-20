@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, ShieldPlus, Loader2, Network, Plug, Pencil, Layers, Warehouse, Lock, KeyRound, History, Upload, Search, Unlock, Phone } from "lucide-react";
+import { Plus, Trash2, MapPin, Users, Building2, HardHat, Shield, ShieldPlus, Loader2, Network, Plug, Pencil, Layers, Warehouse, Lock, KeyRound, History, Upload, Search, Unlock, Phone, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,10 @@ import { CompaniesManager, type CompanyRow } from "@/components/settings/compani
 import { CostCentresTab } from "@/components/settings/cost-centres-tab";
 import { PeopleTab } from "@/components/settings/people-tab";
 import { IntegrationsTab } from "@/components/settings/integrations-tab";
+import { HsnMasterAdmin } from "@/components/settings/hsn-master-admin";
+import { DelegationCard } from "@/components/settings/delegation-card";
+import { NotificationsPanel } from "@/components/notifications/notifications-panel";
+import { NotificationPreferences } from "@/components/notifications/notification-preferences";
 import { ScopeEditorDialog } from "@/components/settings/scope-editor-dialog";
 import { PermissionsEditorDialog } from "@/components/settings/permissions-editor-dialog";
 import { CreateUserDialog } from "@/components/settings/create-user-dialog";
@@ -60,6 +64,7 @@ type CompanyInfo = {
   name: string;
   gstin: string | null;
   pan: string | null;
+  upiId?: string | null;
   address: string | null;
   lat: number | null;
   lng: number | null;
@@ -83,6 +88,7 @@ export function SettingsView({
   companies,
   departments,
   canManageCompanies,
+  canManageFinance = false,
   actorRole,
   managers,
   customRoles,
@@ -96,12 +102,13 @@ export function SettingsView({
   companies: CompanyRow[];
   departments: DepartmentRow[];
   canManageCompanies: boolean;
+  canManageFinance?: boolean;
   actorRole: string;
   managers: { membershipId: string; userId: string; name: string; role: string }[];
   customRoles?: { id: string; key: string; label: string; description: string; baseRole: string | null; tier: number; permissions: string[] }[];
 }) {
   const [tab, setTab] = useTabParam(
-    ["company","users","locations","cost-centres","people","companies","integrations"] as const,
+    ["company","users","locations","cost-centres","people","companies","integrations","notifications"] as const,
     "company",
   );
   const router = useRouter();
@@ -221,6 +228,7 @@ export function SettingsView({
           name: companyForm.name.trim(),
           gstin: companyForm.gstin?.trim() || null,
           pan: companyForm.pan?.trim() || null,
+          upiId: companyForm.upiId?.trim() || null,
           address: companyForm.address?.trim() || null,
           lat: companyForm.lat ?? null,
           lng: companyForm.lng ?? null,
@@ -329,203 +337,227 @@ export function SettingsView({
           <TabsTrigger value="integrations">
             <span className="flex items-center gap-1.5"><Plug className="h-3.5 w-3.5" /> Integrations</span>
           </TabsTrigger>
+          <TabsTrigger value="notifications">
+            <span className="flex items-center gap-1.5"><Bell className="h-3.5 w-3.5" /> Notifications</span>
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="company">
-          <div className="mb-3 flex items-center justify-between rounded-md border border-border bg-muted/30 px-4 py-2.5">
+        <TabsContent value="company" className="space-y-6">
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-subtle/60 px-4 py-3">
             <div className="text-caption text-muted-foreground">
-              This tab covers identity & procurement. For the full company profile — members, hierarchy, security policy, audit — open the company profile page.
+              This tab covers identity &amp; procurement. For the full company profile — members, hierarchy, security policy, audit — open the company profile page.
             </div>
-            <Button asChild size="sm" variant="outline">
+            <Button asChild size="sm" variant="outline" className="shrink-0">
               <Link href={`/companies/${company.id}`}>Open company profile</Link>
             </Button>
           </div>
           <Card>
             <CardContent className="p-6">
-              <form onSubmit={saveCompany} className="space-y-4 max-w-lg">
-                <div className="space-y-1.5">
-                  <Label htmlFor="c-name">Company Name *</Label>
-                  <Input id="c-name" value={companyForm.name} onChange={(e) => setCompanyForm((f) => ({ ...f, name: e.target.value }))} required />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>GSTIN</Label>
-                    <Input value={companyForm.gstin ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, gstin: e.target.value }))} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>PAN</Label>
-                    <Input value={companyForm.pan ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, pan: e.target.value }))} />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label hint="Pick a suggestion or use GPS — verified addresses only">Address</Label>
-                  <AddressSearchField
-                    value={companyForm.address ?? ""}
-                    onPick={(s) => setCompanyForm((f) => ({ ...f, address: s.address, lat: s.lat, lng: s.lng, geoRadius: f.geoRadius ?? 500 }))}
-                    onClear={() => setCompanyForm((f) => ({ ...f, address: "", lat: null, lng: null }))}
-                    placeholder="Search registered office address…"
-                  />
-                  {companyForm.lat != null && companyForm.lng != null && (
-                    <p className="text-caption text-muted-foreground tnum">
-                      {companyForm.lat.toFixed(5)}, {companyForm.lng.toFixed(5)}
-                    </p>
-                  )}
-                </div>
-                {companyForm.lat != null && companyForm.lng != null && (
-                  <div className="space-y-1.5">
-                    <Label hint="Default: 500m — check-in geo-fence for staff without an assigned site">Geo-fence radius (m)</Label>
-                    <Input
-                      type="number"
-                      min="10"
-                      value={companyForm.geoRadius != null ? String(companyForm.geoRadius) : ""}
-                      onChange={(e) => setCompanyForm((f) => ({ ...f, geoRadius: e.target.value ? parseInt(e.target.value) : null }))}
-                      placeholder="500"
-                    />
-                  </div>
-                )}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Phone</Label>
-                    <Input value={companyForm.phone ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+91 98765 43210" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Email</Label>
-                    <Input type="email" value={companyForm.email ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, email: e.target.value }))} placeholder="accounts@company.com" />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Currency</Label>
-                  <Select value={companyForm.currency} onChange={(e) => setCompanyForm((f) => ({ ...f, currency: e.target.value }))}>
-                    {["INR", "USD", "EUR", "GBP", "AED"].map((c) => <option key={c} value={c}>{c}</option>)}
-                  </Select>
-                </div>
-
-                {/* ── Procurement Config ── */}
-                <div className="rounded-md border border-border p-4 space-y-3">
-                  <div>
-                    <div className="text-body font-semibold">Procurement Configuration</div>
-                    <div className="text-caption text-muted-foreground">
-                      LCI threshold and PO approval routing — controls how purchase orders are routed for approval.
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>LCI Threshold Default (%)</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      step="any"
-                      value={companyForm.lciThresholdDefault ?? ""}
-                      onChange={(e) => setCompanyForm((f) => ({ ...f, lciThresholdDefault: e.target.value === "" ? null : Number(e.target.value) }))}
-                      placeholder="e.g. 2 (items below 2% of budget auto-procured)"
-                    />
-                    <p className="text-caption text-muted-foreground">
-                      Default Low-Cost Item threshold for projects without an explicit override. Items below this % of project budget are auto-procured without PO.
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label>PO Approval — Manager Threshold (₹)</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={companyForm.poApprovalThresholdManager ?? ""}
-                        onChange={(e) => setCompanyForm((f) => ({ ...f, poApprovalThresholdManager: e.target.value === "" ? null : Number(e.target.value) }))}
-                        placeholder="50000"
-                      />
-                      <p className="text-caption text-muted-foreground">POs below this amount can be approved by a Manager.</p>
+              <form onSubmit={saveCompany} className="space-y-6">
+                <div className="grid gap-6 lg:grid-cols-2">
+                  {/* Left column: Identity & Address */}
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-section text-foreground">Company Identity</h3>
+                      <p className="text-caption text-muted-foreground">
+                        Registered name, tax identifiers, and primary contact details.
+                      </p>
                     </div>
                     <div className="space-y-1.5">
-                      <Label>PO Approval — Admin Threshold (₹)</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={companyForm.poApprovalThresholdAdmin ?? ""}
-                        onChange={(e) => setCompanyForm((f) => ({ ...f, poApprovalThresholdAdmin: e.target.value === "" ? null : Number(e.target.value) }))}
-                        placeholder="500000"
-                      />
-                      <p className="text-caption text-muted-foreground">POs at or above this amount require the Owner.</p>
+                      <Label htmlFor="c-name">Company Name *</Label>
+                      <Input id="c-name" value={companyForm.name} onChange={(e) => setCompanyForm((f) => ({ ...f, name: e.target.value }))} required />
                     </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Approval aging threshold (hours)</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={336}
-                      value={companyForm.approvalAgingHours ?? ""}
-                      onChange={(e) => setCompanyForm((f) => ({ ...f, approvalAgingHours: e.target.value === "" ? null : Number(e.target.value) }))}
-                      placeholder="48"
-                    />
-                    <p className="text-caption text-muted-foreground">
-                      Approvals waiting longer than this hit the daily escalation digest to Owner/Admin/Director and any active delegates. Default 48h.
-                    </p>
-                  </div>
-                </div>
-
-                {/* ── Approval Routing Preview ── */}
-                <div className="rounded-md border border-border p-4 space-y-3">
-                  <div>
-                    <div className="text-body font-semibold">Approval Routing Preview</div>
-                    <div className="text-caption text-muted-foreground">
-                      Test an amount to see which role would be required to approve a PO of that value.
-                    </div>
-                  </div>
-                  <div className="flex items-end gap-2">
-                    <div className="flex-1 space-y-1.5">
-                      <Label>PO Amount</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={previewAmount}
-                        onChange={(e) => setPreviewAmount(e.target.value)}
-                        placeholder="e.g. 75000"
-                      />
-                    </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={previewLoading || !previewAmount}
-                      onClick={async () => {
-                        setPreviewLoading(true);
-                        setPreviewResult(null);
-                        try {
-                          const res = await fetch(`/api/approval-routing?amount=${encodeURIComponent(previewAmount)}`);
-                          const data = await res.json();
-                          if (!res.ok) throw new Error(data.error ?? "Failed to fetch routing");
-                          setPreviewResult(data);
-                        } catch (err: unknown) {
-                          toast.error(err instanceof Error ? err.message : "Failed to fetch routing");
-                        } finally {
-                          setPreviewLoading(false);
-                        }
-                      }}
-                    >
-                      {previewLoading ? "Checking…" : "Preview"}
-                    </Button>
-                  </div>
-                  {previewResult && (
-                    <div className="rounded-md bg-muted/50 p-3 text-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="text-caption text-muted-foreground">Required approver:</span>
-                        <span className="font-semibold text-foreground">{formatEnumLabel(previewResult.requiredRole)}</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label>GSTIN</Label>
+                        <Input value={companyForm.gstin ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, gstin: e.target.value }))} />
                       </div>
-                      <p className="text-caption text-muted-foreground mt-1">{previewResult.reason}</p>
+                      <div className="space-y-1.5">
+                        <Label>PAN</Label>
+                        <Input value={companyForm.pan ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, pan: e.target.value }))} />
+                      </div>
                     </div>
-                  )}
+                    <div className="space-y-1.5">
+                      <Label hint="Adds a tap-to-pay link to demand notices — e.g. company@hdfcbank">UPI ID</Label>
+                      <Input value={companyForm.upiId ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, upiId: e.target.value }))} placeholder="name@bank" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label hint="Pick a suggestion or use GPS — verified addresses only">Address</Label>
+                      <AddressSearchField
+                        value={companyForm.address ?? ""}
+                        onPick={(s) => setCompanyForm((f) => ({ ...f, address: s.address, lat: s.lat, lng: s.lng, geoRadius: f.geoRadius ?? 500 }))}
+                        onClear={() => setCompanyForm((f) => ({ ...f, address: "", lat: null, lng: null }))}
+                        placeholder="Search registered office address…"
+                      />
+                      {companyForm.lat != null && companyForm.lng != null && (
+                        <p className="text-caption text-muted-foreground tnum">
+                          {companyForm.lat.toFixed(5)}, {companyForm.lng.toFixed(5)}
+                        </p>
+                      )}
+                    </div>
+                    {companyForm.lat != null && companyForm.lng != null && (
+                      <div className="space-y-1.5">
+                        <Label hint="Default: 500m — check-in geo-fence for staff without an assigned site">Geo-fence radius (m)</Label>
+                        <Input
+                          type="number"
+                          min="10"
+                          value={companyForm.geoRadius != null ? String(companyForm.geoRadius) : ""}
+                          onChange={(e) => setCompanyForm((f) => ({ ...f, geoRadius: e.target.value ? parseInt(e.target.value) : null }))}
+                          placeholder="500"
+                        />
+                      </div>
+                    )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label>Phone</Label>
+                        <Input value={companyForm.phone ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+91 98765 43210" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Email</Label>
+                        <Input type="email" value={companyForm.email ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, email: e.target.value }))} placeholder="accounts@company.com" />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Currency</Label>
+                      <Select value={companyForm.currency} onChange={(e) => setCompanyForm((f) => ({ ...f, currency: e.target.value }))}>
+                        {["INR", "USD", "EUR", "GBP", "AED"].map((c) => <option key={c} value={c}>{c}</option>)}
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Right column: Procurement Config + Approval Routing Preview */}
+                  <div className="space-y-4">
+                    <div className="rounded-lg border border-border bg-subtle/30 p-4 space-y-3">
+                      <div>
+                        <div className="text-body font-semibold">Procurement Configuration</div>
+                        <div className="text-caption text-muted-foreground">
+                          LCI threshold and PO approval routing — controls how purchase orders are routed for approval.
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>LCI Threshold Default (%)</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step="any"
+                          value={companyForm.lciThresholdDefault ?? ""}
+                          onChange={(e) => setCompanyForm((f) => ({ ...f, lciThresholdDefault: e.target.value === "" ? null : Number(e.target.value) }))}
+                          placeholder="e.g. 2 (items below 2% of budget auto-procured)"
+                        />
+                        <p className="text-caption text-muted-foreground">
+                          Default Low-Cost Item threshold for projects without an explicit override. Items below this % of project budget are auto-procured without PO.
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label>PO Approval — Manager Threshold (₹)</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={companyForm.poApprovalThresholdManager ?? ""}
+                            onChange={(e) => setCompanyForm((f) => ({ ...f, poApprovalThresholdManager: e.target.value === "" ? null : Number(e.target.value) }))}
+                            placeholder="50000"
+                          />
+                          <p className="text-caption text-muted-foreground">POs below this amount can be approved by a Manager.</p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>PO Approval — Admin Threshold (₹)</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={companyForm.poApprovalThresholdAdmin ?? ""}
+                            onChange={(e) => setCompanyForm((f) => ({ ...f, poApprovalThresholdAdmin: e.target.value === "" ? null : Number(e.target.value) }))}
+                            placeholder="500000"
+                          />
+                          <p className="text-caption text-muted-foreground">POs at or above this amount require the Owner.</p>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Approval aging threshold (hours)</Label>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={336}
+                          value={companyForm.approvalAgingHours ?? ""}
+                          onChange={(e) => setCompanyForm((f) => ({ ...f, approvalAgingHours: e.target.value === "" ? null : Number(e.target.value) }))}
+                          placeholder="48"
+                        />
+                        <p className="text-caption text-muted-foreground">
+                          Approvals waiting longer than this hit the daily escalation digest to Owner/Admin/Director and any active delegates. Default 48h.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-border bg-subtle/30 p-4 space-y-3">
+                      <div>
+                        <div className="text-body font-semibold">Approval Routing Preview</div>
+                        <div className="text-caption text-muted-foreground">
+                          Test an amount to see which role would be required to approve a PO of that value.
+                        </div>
+                      </div>
+                      <div className="flex items-end gap-2">
+                        <div className="flex-1 space-y-1.5">
+                          <Label>PO Amount</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={previewAmount}
+                            onChange={(e) => setPreviewAmount(e.target.value)}
+                            placeholder="e.g. 75000"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={previewLoading || !previewAmount}
+                          onClick={async () => {
+                            setPreviewLoading(true);
+                            setPreviewResult(null);
+                            try {
+                              const res = await fetch(`/api/approval-routing?amount=${encodeURIComponent(previewAmount)}`);
+                              const data = await res.json();
+                              if (!res.ok) throw new Error(data.error ?? "Failed to fetch routing");
+                              setPreviewResult(data);
+                            } catch (err: unknown) {
+                              toast.error(err instanceof Error ? err.message : "Failed to fetch routing");
+                            } finally {
+                              setPreviewLoading(false);
+                            }
+                          }}
+                        >
+                          {previewLoading ? "Checking…" : "Preview"}
+                        </Button>
+                      </div>
+                      {previewResult && (
+                        <div className="rounded-md bg-muted/50 p-3 text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="text-caption text-muted-foreground">Required approver:</span>
+                            <span className="font-semibold text-foreground">{formatEnumLabel(previewResult.requiredRole)}</span>
+                          </div>
+                          <p className="text-caption text-muted-foreground mt-1">{previewResult.reason}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
-                <Button type="submit" disabled={savingCompany}>
-                  {savingCompany ? "Saving…" : "Save Changes"}
-                </Button>
+                <div className="flex justify-end border-t border-border pt-4">
+                  <Button type="submit" disabled={savingCompany}>
+                    {savingCompany ? "Saving…" : "Save Changes"}
+                  </Button>
+                </div>
               </form>
             </CardContent>
           </Card>
+
+          {canManageFinance && <HsnMasterAdmin />}
         </TabsContent>
 
-        <TabsContent value="users">
+        <TabsContent value="users" className="space-y-6">
           <UsersManager users={users} actorRole={actorRole} companyId={company.id} projects={projects} departments={departments} managers={managers} customRoles={customRoles} />
+          <DelegationCard />
         </TabsContent>
 
         <TabsContent value="locations">
@@ -556,68 +588,73 @@ export function SettingsView({
         <TabsContent value="integrations">
           <IntegrationsTab />
         </TabsContent>
+
+        <TabsContent value="notifications" className="space-y-6">
+          <NotificationPreferences />
+          {canManageFinance && <NotificationsPanel />}
+        </TabsContent>
       </Tabs>
 
       {/* Location form dialog */}
-      {locFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setLocFormOpen(false)}>
-          <div className="w-full max-w-md rounded-lg bg-card p-6 shadow-lg" onClick={(e) => e.stopPropagation()}>
-            <h2 className="mb-4 text-lg font-semibold">{editingLocId ? "Edit Stock Location" : "New Stock Location"}</h2>
-            <form onSubmit={saveLocation} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label>Type</Label>
-                <Select value={locForm.type} onChange={(e) => setLocForm((f) => ({ ...f, type: e.target.value, projectId: "" }))}>
-                  <option value="CENTRAL_WAREHOUSE">Central Warehouse (Parent)</option>
-                  <option value="COMPANY_WAREHOUSE">Company Warehouse</option>
-                  <option value="PROJECT_SITE">Project Site</option>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Name *</Label>
-                <Input value={locForm.name} onChange={(e) => setLocForm((f) => ({ ...f, name: e.target.value }))} required />
-              </div>
-              {locForm.type === "PROJECT_SITE" && (
-                <div className="space-y-1.5">
-                  <Label>Project</Label>
-                  <SelectWithCreate
-                    value={locForm.projectId}
-                    onChange={(v) => setLocForm((f) => ({ ...f, projectId: v }))}
-                    placeholder="Select project…"
-                    createLabel="project"
-                    options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
-                    renderCreateDialog={({ open: o, onCreated, onClose }) => (
-                      <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "" }]); onCreated(e); }} />
-                    )}
-                  />
-                </div>
-              )}
-              <div className="space-y-1.5">
-                <Label hint="Pick a suggestion or use GPS — verified addresses only">Address</Label>
-                <AddressSearchField
-                  value={locForm.address}
-                  onPick={(s) => setLocForm((f) => ({ ...f, address: s.address, lat: String(s.lat), lng: String(s.lng), geoRadius: f.geoRadius || "500" }))}
-                  onClear={() => setLocForm((f) => ({ ...f, address: "", lat: "", lng: "" }))}
-                  placeholder="Search site address…"
-                />
-                {locForm.lat && locForm.lng && (
-                  <p className="text-caption text-muted-foreground tnum">
-                    {parseFloat(locForm.lat).toFixed(5)}, {parseFloat(locForm.lng).toFixed(5)}
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <Label>Geo-fence Radius (metres)</Label>
-                <Input type="number" min="0" value={locForm.geoRadius} onChange={(e) => setLocForm((f) => ({ ...f, geoRadius: e.target.value }))} placeholder="Default: 500" />
-                <p className="text-xs text-muted-foreground">GPS-tagged receipts are flagged if received outside this radius from the location center.</p>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setLocFormOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={savingLoc}>{savingLoc ? "Creating…" : "Create"}</Button>
-              </div>
-            </form>
+      <Dialog
+        open={locFormOpen}
+        onOpenChange={setLocFormOpen}
+        title={editingLocId ? "Edit Stock Location" : "New Stock Location"}
+        description="Warehouses and project sites where material inventory is tracked."
+      >
+        <form onSubmit={saveLocation} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Type</Label>
+            <Select value={locForm.type} onChange={(e) => setLocForm((f) => ({ ...f, type: e.target.value, projectId: "" }))}>
+              <option value="CENTRAL_WAREHOUSE">Central Warehouse (Parent)</option>
+              <option value="COMPANY_WAREHOUSE">Company Warehouse</option>
+              <option value="PROJECT_SITE">Project Site</option>
+            </Select>
           </div>
-        </div>
-      )}
+          <div className="space-y-1.5">
+            <Label>Name *</Label>
+            <Input value={locForm.name} onChange={(e) => setLocForm((f) => ({ ...f, name: e.target.value }))} required />
+          </div>
+          {locForm.type === "PROJECT_SITE" && (
+            <div className="space-y-1.5">
+              <Label>Project</Label>
+              <SelectWithCreate
+                value={locForm.projectId}
+                onChange={(v) => setLocForm((f) => ({ ...f, projectId: v }))}
+                placeholder="Select project…"
+                createLabel="project"
+                options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
+                renderCreateDialog={({ open: o, onCreated, onClose }) => (
+                  <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "" }]); onCreated(e); }} />
+                )}
+              />
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label hint="Pick a suggestion or use GPS — verified addresses only">Address</Label>
+            <AddressSearchField
+              value={locForm.address}
+              onPick={(s) => setLocForm((f) => ({ ...f, address: s.address, lat: String(s.lat), lng: String(s.lng), geoRadius: f.geoRadius || "500" }))}
+              onClear={() => setLocForm((f) => ({ ...f, address: "", lat: "", lng: "" }))}
+              placeholder="Search site address…"
+            />
+            {locForm.lat && locForm.lng && (
+              <p className="text-caption text-muted-foreground tnum">
+                {parseFloat(locForm.lat).toFixed(5)}, {parseFloat(locForm.lng).toFixed(5)}
+              </p>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label>Geo-fence Radius (metres)</Label>
+            <Input type="number" min="0" value={locForm.geoRadius} onChange={(e) => setLocForm((f) => ({ ...f, geoRadius: e.target.value }))} placeholder="Default: 500" />
+            <p className="text-caption text-muted-foreground">GPS-tagged receipts are flagged if received outside this radius from the location center.</p>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setLocFormOpen(false)}>Cancel</Button>
+            <Button type="submit" disabled={savingLoc}>{savingLoc ? "Saving…" : editingLocId ? "Save Changes" : "Create"}</Button>
+          </div>
+        </form>
+      </Dialog>
 
       {deletingLoc && (
         <DeleteConfirmDialog
@@ -631,45 +668,45 @@ export function SettingsView({
       )}
 
       {/* Subcontractor form dialog */}
-      {subFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setSubFormOpen(false)}>
-          <div className="w-full max-w-md rounded-lg bg-card p-6 shadow-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h2 className="mb-4 text-lg font-semibold">{editingSub ? "Edit Subcontractor" : "New Subcontractor"}</h2>
-            <form onSubmit={saveSubcontractor} className="space-y-3">
-              <div className="space-y-1.5">
-                <Label>Name *</Label>
-                <Input value={subForm.name} onChange={(e) => setSubForm((f) => ({ ...f, name: e.target.value }))} required />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Trade</Label>
-                  <Input value={subForm.trade} onChange={(e) => setSubForm((f) => ({ ...f, trade: e.target.value }))} placeholder="Plumbing" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Phone</Label>
-                  <Input value={subForm.phone} onChange={(e) => setSubForm((f) => ({ ...f, phone: e.target.value }))} />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Email</Label>
-                <Input value={subForm.email} onChange={(e) => setSubForm((f) => ({ ...f, email: e.target.value }))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>GSTIN</Label>
-                <Input value={subForm.gstin} onChange={(e) => setSubForm((f) => ({ ...f, gstin: e.target.value }))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Address</Label>
-                <Input value={subForm.address} onChange={(e) => setSubForm((f) => ({ ...f, address: e.target.value }))} />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setSubFormOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={savingSub}>{savingSub ? "Saving…" : editingSub ? "Save Changes" : "Create"}</Button>
-              </div>
-            </form>
+      <Dialog
+        open={subFormOpen}
+        onOpenChange={setSubFormOpen}
+        title={editingSub ? "Edit Subcontractor" : "New Subcontractor"}
+        description="External contractors for work orders and RA bills."
+      >
+        <form onSubmit={saveSubcontractor} className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Name *</Label>
+            <Input value={subForm.name} onChange={(e) => setSubForm((f) => ({ ...f, name: e.target.value }))} required />
           </div>
-        </div>
-      )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Trade</Label>
+              <Input value={subForm.trade} onChange={(e) => setSubForm((f) => ({ ...f, trade: e.target.value }))} placeholder="Plumbing" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Phone</Label>
+              <Input value={subForm.phone} onChange={(e) => setSubForm((f) => ({ ...f, phone: e.target.value }))} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Email</Label>
+            <Input value={subForm.email} onChange={(e) => setSubForm((f) => ({ ...f, email: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>GSTIN</Label>
+            <Input value={subForm.gstin} onChange={(e) => setSubForm((f) => ({ ...f, gstin: e.target.value }))} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Address</Label>
+            <Input value={subForm.address} onChange={(e) => setSubForm((f) => ({ ...f, address: e.target.value }))} />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setSubFormOpen(false)}>Cancel</Button>
+            <Button type="submit" disabled={savingSub}>{savingSub ? "Saving…" : editingSub ? "Save Changes" : "Create"}</Button>
+          </div>
+        </form>
+      </Dialog>
 
       {deletingSub && (
         <DeleteConfirmDialog
@@ -683,43 +720,43 @@ export function SettingsView({
       )}
 
       {/* Employee form dialog */}
-      {empFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setEmpFormOpen(false)}>
-          <div className="w-full max-w-md rounded-lg bg-card p-6 shadow-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <h2 className="mb-4 text-lg font-semibold">{editingEmp ? "Edit Employee" : "New Employee"}</h2>
-            <form onSubmit={saveEmployee} className="space-y-3">
-              <div className="space-y-1.5">
-                <Label>Name *</Label>
-                <Input value={empForm.name} onChange={(e) => setEmpForm((f) => ({ ...f, name: e.target.value }))} required />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Trade</Label>
-                  <Input value={empForm.trade} onChange={(e) => setEmpForm((f) => ({ ...f, trade: e.target.value }))} placeholder="Masonry" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Phone</Label>
-                  <Input value={empForm.phone} onChange={(e) => setEmpForm((f) => ({ ...f, phone: e.target.value }))} />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Email</Label>
-                  <Input value={empForm.email} onChange={(e) => setEmpForm((f) => ({ ...f, email: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Daily Rate</Label>
-                  <Input type="number" min="0" step="0.01" value={empForm.dailyRate} onChange={(e) => setEmpForm((f) => ({ ...f, dailyRate: e.target.value }))} placeholder="0" />
-                </div>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setEmpFormOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={savingEmp}>{savingEmp ? "Saving…" : editingEmp ? "Save Changes" : "Create"}</Button>
-              </div>
-            </form>
+      <Dialog
+        open={empFormOpen}
+        onOpenChange={setEmpFormOpen}
+        title={editingEmp ? "Edit Employee" : "New Employee"}
+        description="Internal workforce and staff members."
+      >
+        <form onSubmit={saveEmployee} className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Name *</Label>
+            <Input value={empForm.name} onChange={(e) => setEmpForm((f) => ({ ...f, name: e.target.value }))} required />
           </div>
-        </div>
-      )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Trade</Label>
+              <Input value={empForm.trade} onChange={(e) => setEmpForm((f) => ({ ...f, trade: e.target.value }))} placeholder="Masonry" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Phone</Label>
+              <Input value={empForm.phone} onChange={(e) => setEmpForm((f) => ({ ...f, phone: e.target.value }))} />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Email</Label>
+              <Input value={empForm.email} onChange={(e) => setEmpForm((f) => ({ ...f, email: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Daily Rate</Label>
+              <Input type="number" min="0" step="0.01" value={empForm.dailyRate} onChange={(e) => setEmpForm((f) => ({ ...f, dailyRate: e.target.value }))} placeholder="0" />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setEmpFormOpen(false)}>Cancel</Button>
+            <Button type="submit" disabled={savingEmp}>{savingEmp ? "Saving…" : editingEmp ? "Save Changes" : "Create"}</Button>
+          </div>
+        </form>
+      </Dialog>
 
       {deletingEmp && (
         <DeleteConfirmDialog
@@ -822,13 +859,6 @@ function LocationsTab({
 
   return (
     <div className="space-y-4">
-      {locations.length > 0 && (
-        <div className="flex justify-end">
-          <Button size="sm" onClick={onNew}>
-            <Plus className="size-4" /> New Location
-          </Button>
-        </div>
-      )}
       {locations.length === 0 ? (
         <EmptyState
           size="compact"
@@ -851,6 +881,13 @@ function LocationsTab({
             sumColumns={["itemCount", "stockValue"]}
             totalFormat={(key, sum) =>
               key === "itemCount" ? sum.toLocaleString("en-IN") : formatCurrency(sum)
+            }
+            onAddRow={onNew}
+            addRowLabel="New Location"
+            toolbarTrailing={
+              <Button size="sm" onClick={onNew}>
+                <Plus className="size-3.5" /> New Location
+              </Button>
             }
           />
         </div>
@@ -1277,15 +1314,17 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
 
       {/* Role descriptions */}
       <Card>
-        <CardContent className="space-y-2 p-4">
-          <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Role Permissions</p>
-          {/* DEVELOPER is the internal builder hat — hidden from catalogs. */}
-          {ROLE_LIST.filter((r) => r.key !== "DEVELOPER").map((r) => (
-            <div key={r.key} className="flex items-start gap-3 text-body">
-              <Badge variant={roleBadgeVariant(r.key)} className="mt-0.5 shrink-0">{r.label}</Badge>
-              <span className="text-muted-foreground">{r.description}</span>
-            </div>
-          ))}
+        <CardContent className="space-y-3 p-4">
+          <p className="text-label text-muted-foreground">Built-in Role Definitions</p>
+          <div className="grid gap-2.5 sm:grid-cols-2">
+            {/* DEVELOPER is the internal builder hat — hidden from catalogs. */}
+            {ROLE_LIST.filter((r) => r.key !== "DEVELOPER").map((r) => (
+              <div key={r.key} className="flex items-start gap-2.5 rounded-md border border-border bg-subtle/30 p-2.5 text-caption">
+                <Badge variant={roleBadgeVariant(r.key)} className="mt-0.5 shrink-0">{r.label}</Badge>
+                <span className="text-muted-foreground leading-relaxed">{r.description}</span>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
@@ -1632,17 +1671,8 @@ function CreateCustomRoleDialog({
   }
 
   return (
-    <Dialog open={true} onOpenChange={(o) => { if (!o) onClose(); }} title={isEdit ? "Edit Custom Role" : "Create Custom Role"}>
+    <Dialog open={true} onOpenChange={(o) => { if (!o) onClose(); }} title={isEdit ? "Edit Custom Role" : "Create Custom Role"} description={isEdit ? "Update the role's label, base, tier, and permission set. The key is fixed once created." : "Create a custom role — either start from a built-in role and add permissions, or build the permission set entirely from scratch."}>
       <form onSubmit={handleCreate} className="space-y-4">
-        <div>
-          <h2 className="text-lg font-semibold">{isEdit ? "Edit Custom Role" : "Create Custom Role"}</h2>
-          <p className="text-caption text-muted-foreground">
-            {isEdit
-              ? "Update the role's label, base, tier, and permission set. The key is fixed once created."
-              : "Create a custom role — either start from a built-in role and add permissions, or build the permission set entirely from scratch."}
-          </p>
-        </div>
-
         {/* Mode toggle */}
         <div className="flex gap-2">
           <button

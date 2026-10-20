@@ -98,6 +98,14 @@ export async function sendDemandNotice(scheduleItemId: string, companyId: string
   const unit = sale.builtUnit?.unitNumber ?? sale.landParcel?.number ?? "—";
   const dueDate = item.dueDate ? new Date(item.dueDate).toISOString().slice(0, 10) : null;
 
+  // Tap-to-pay UPI intent — removes the "how do I pay" friction that stalls
+  // collections. Standard UPI deep link: upi://pay?pa=VPA&pn=payee&am=amt&cu=INR&tn=note
+  const company = await prisma.company.findUnique({ where: { id: companyId }, select: { upiId: true, name: true } });
+  const payAmount = interest ? interest.totalPayable : balance;
+  const upiLink = company?.upiId
+    ? `upi://pay?pa=${encodeURIComponent(company.upiId)}&pn=${encodeURIComponent(company.name).slice(0, 100)}&am=${payAmount}&cu=INR&tn=${encodeURIComponent(`${sale.saleNumber} inst ${item.installmentNo}`)}`
+    : null;
+
   const message =
     `PAYMENT DEMAND NOTICE\n\n` +
     `Dear ${customer.name},\n\n` +
@@ -110,6 +118,7 @@ export async function sendDemandNotice(scheduleItemId: string, companyId: string
     (interest
       ? `Please pay immediately to avoid further interest accrual.\n`
       : `Please remit at the earliest.\n`) +
+    (upiLink ? `\nPay now: ${upiLink}\n` : "") +
     `This notice is system-generated and recorded for compliance.`;
 
   const recipient = customer.phone ?? customer.email;

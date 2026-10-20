@@ -39,6 +39,8 @@ const companyUpdateSchema = z.object({
   code: z.string().trim().min(1).max(10).regex(/^[A-Za-z0-9]+$/, "Code must be letters/digits only").optional().nullable(),
   gstin: z.string().optional().nullable(),
   pan: z.string().optional().nullable(),
+  // UPI VPA for payment links on demand notices (e.g. company@hdfcbank)
+  upiId: z.string().trim().regex(/^[\w.\-]{2,}@[A-Za-z]{2,}$/, "Invalid UPI ID (expected name@bank)").optional().nullable(),
   address: z.string().optional().nullable(),
   // Verified HQ geo-fence — set from the address picker; used as the fallback
   // check-in fence for employees without an assigned reporting location.
@@ -137,7 +139,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     }
   }
 
-  if (["poApprovalThresholdManager", "poApprovalThresholdAdmin", "gstin", "pan"].some((f) => data[f as keyof typeof data] !== undefined) && !canDoOwnerOnly(await getOwnRole())) {
+  if (["poApprovalThresholdManager", "poApprovalThresholdAdmin", "gstin", "pan", "upiId"].some((f) => data[f as keyof typeof data] !== undefined) && !canDoOwnerOnly(await getOwnRole())) {
     return json({ error: "Only the owner can change approval thresholds and tax identity." }, { status: 403 });
   }
   if (data.code) data.code = data.code.toUpperCase();
