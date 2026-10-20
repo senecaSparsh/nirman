@@ -33,6 +33,20 @@ export type StatutoryPaymentRow = {
   status: string;
 };
 
+// One row per sale where the buyer withheld TDS under §194-IA — the CA's
+// reconciliation list for 26QB acknowledgements, Form 16B certificates, and
+// the TDS_RECEIVABLE GL balance.
+export type TdsSaleRow = {
+  id: string;
+  saleNumber: string;
+  customerName: string;
+  salePrice: number;
+  stampDutyValue: number | null;
+  tdsAmount: number;
+  tdsCertificateNo: string | null;
+  status: string;
+};
+
 const KIND_LABEL: Record<string, string> = {
   PF: "Provident Fund",
   ESI: "ESI",
@@ -40,6 +54,46 @@ const KIND_LABEL: Record<string, string> = {
   GST: "GST (net of ITC)",
   TDS_REFUND: "TDS Receivable",
 };
+
+const tdsSaleColumns: Column<TdsSaleRow>[] = [
+  {
+    key: "saleNumber",
+    label: "Sale",
+    render: (r) => <span className="font-mono text-sm">{r.saleNumber}</span>,
+  },
+  { key: "customerName", label: "Buyer", sortable: true },
+  {
+    key: "salePrice",
+    label: "Sale Price",
+    align: "right",
+    sortable: true,
+    render: (r) => <span className="tnum">{formatCurrency(r.salePrice)}</span>,
+  },
+  {
+    key: "tdsAmount",
+    label: "TDS Withheld",
+    align: "right",
+    sortable: true,
+    render: (r) => {
+      const expected = Math.round(Math.max(r.salePrice, r.stampDutyValue ?? 0) * 0.01 * 100) / 100;
+      const mismatch = Math.abs(expected - r.tdsAmount) > 1;
+      return (
+        <span className={`tnum ${mismatch ? "text-danger" : ""}`}>
+          {formatCurrency(r.tdsAmount)}
+          {mismatch && <span className="block text-micro text-danger">expected {formatCurrency(expected)}</span>}
+        </span>
+      );
+    },
+  },
+  {
+    key: "tdsCertificateNo",
+    label: "Form 16B",
+    render: (r) =>
+      r.tdsCertificateNo
+        ? <Badge variant="success">{r.tdsCertificateNo}</Badge>
+        : <Badge variant="muted">awaiting</Badge>,
+  },
+];
 
 const columns: Column<StatutoryPaymentRow>[] = [
   {
@@ -91,10 +145,12 @@ const columnsWithVoid = (onVoid: (r: StatutoryPaymentRow) => void, canManage: bo
 export function StatutoryPaymentsView({
   outstanding,
   payments,
+  tdsSales = [],
   canManage,
 }: {
   outstanding: StatutoryOutstanding[];
   payments: StatutoryPaymentRow[];
+  tdsSales?: TdsSaleRow[];
   canManage: boolean;
 }) {
   const router = useRouter();
@@ -194,6 +250,25 @@ export function StatutoryPaymentsView({
           />
         }
       />
+
+      {tdsSales.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-label text-foreground">194-IA — TDS Withheld by Buyers</p>
+              <p className="text-caption text-muted-foreground">
+                1% of the higher of sale price or stamp-duty value. Verify each buyer filed 26QB and issued Form 16B — amounts sit in TDS Receivable until your 26AS claim.
+              </p>
+            </div>
+            <Badge variant="outline" className="tnum">{formatCurrency(tdsSales.reduce((s, r) => s + r.tdsAmount, 0))}</Badge>
+          </div>
+          <DataTable
+            columns={tdsSaleColumns}
+            data={tdsSales}
+            emptyState={<EmptyState icon={<Landmark className="h-5 w-5" />} title="No TDS sales" description="Sales above ₹50L appear here when a buyer withholds 194-IA TDS." />}
+          />
+        </div>
+      )}
 
       <Dialog
         open={payOpen}

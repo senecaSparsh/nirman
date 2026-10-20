@@ -267,6 +267,17 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
     : [];
   const statutoryPaymentsData = needStatutory ? await prisma.statutoryPayment.findMany({
     take: 200, where: { ...await scopeWhere("StatutoryPayment"), companyId: company.id }, orderBy: { paymentDate: "desc" } }) : [];
+  // 194-IA tracker — every sale where the buyer withheld TDS, so the CA can
+  // chase 26QB acks / Form 16B and reconcile the TDS_RECEIVABLE GL balance.
+  const tdsSalesData = needStatutory ? await prisma.assetSale.findMany({
+    where: { ...await scopeWhere("AssetSale"), companyId: company.id, status: { not: "CANCELLED" }, tdsAmount: { gt: 0 } },
+    select: {
+      id: true, saleNumber: true, salePrice: true, stampDutyValue: true,
+      tdsAmount: true, tdsCertificateNo: true, status: true,
+      customer: { select: { name: true } },
+    },
+    orderBy: { saleDate: "desc" },
+  }) : [];
 
   return (
     <>
@@ -389,6 +400,11 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
               id: r.id, kind: r.kind, amount: toNum(r.amount), itcUtilized: toNum(r.itcUtilized),
               period: r.period, paymentDate: r.paymentDate.toISOString(), referenceNo: r.referenceNo,
               notes: r.notes, status: r.status }))}
+            tdsSales={tdsSalesData.map((s) => ({
+              id: s.id, saleNumber: s.saleNumber, customerName: s.customer.name,
+              salePrice: toNum(s.salePrice), stampDutyValue: s.stampDutyValue ? toNum(s.stampDutyValue) : null,
+              tdsAmount: toNum(s.tdsAmount), tdsCertificateNo: s.tdsCertificateNo, status: s.status,
+            }))}
             canManage={__effPerms.includes(PERM.FINANCE_MANAGE)}
           />
         }
