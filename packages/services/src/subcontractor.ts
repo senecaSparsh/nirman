@@ -112,9 +112,15 @@ export async function createWorkOrder(input: CreateWorkOrderInput) {
       }
     }
 
-    // TDS rate based on category
+    // TDS rate based on category; s.206AA overrides when the
+    // subcontractor has no PAN (PAN is chars 3-12 of their GSTIN).
     const tdsCategory = input.tdsCategory ?? "COMPANY";
-    const tdsPct = tdsCategory === "INDIVIDUAL" ? new Decimal(1) : new Decimal(2);
+    const hasPan = Boolean(sub.gstin && sub.gstin.length >= 12);
+    const tdsPct = !hasPan
+      ? new Decimal(20)
+      : tdsCategory === "INDIVIDUAL"
+        ? new Decimal(1)
+        : new Decimal(2);
 
     const workOrderNumber = await generateWorkOrderNumber(tx, input.companyId);
 

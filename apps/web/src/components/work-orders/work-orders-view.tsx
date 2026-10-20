@@ -1218,8 +1218,12 @@ function WorkOrderDialog({
 
   const [saving, setSaving] = useState(false);
 
-  const { data: subcontractorsData } = useFetch<{ id: string; name: string; trade: string | null }[]>("/api/subcontractors");
+  const { data: subcontractorsData } = useFetch<{ id: string; name: string; trade: string | null; gstin: string | null }[]>("/api/subcontractors");
   const subcontractors = subcontractorsData ?? [];
+  const selectedSubHasPan = (() => {
+    const s = subcontractors.find((x) => x.id === form.subcontractorId);
+    return !s || Boolean(s.gstin && s.gstin.length >= 12);
+  })();
 
   const { data: boqTreeData } = useFetch<{ tree?: unknown[] }>(
     projectId ? `/api/boq/tree?projectId=${projectId}` : null,
@@ -1332,6 +1336,11 @@ function WorkOrderDialog({
               <option value="COMPANY">Company (2%)</option>
               <option value="OTHER">Other (2%)</option>
             </Select>
+            {!selectedSubHasPan && (
+              <p className="mt-1 text-micro text-amber-600">
+                No PAN on this subcontractor — TDS will be deducted at 20% under Sec 206AA.
+              </p>
+            )}
           </Field>
           <Field label="Advance Amount">
             <Input type="number" step="0.01" value={form.advanceAmount} onChange={(e) => set("advanceAmount", e.target.value)} />
