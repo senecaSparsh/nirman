@@ -751,6 +751,52 @@ export async function checkDueSupplierInvoices(): Promise<{
     notified++;
   }
 
+  // Section 43B(h) cliff — an MSME supplier unpaid 45 days past invoice date
+  // turns the expense non-deductible this FY. Warn a week out so finance can
+  // pay before the deduction is lost; the overdue sweep only fires after the
+  // invoice's own dueDate, which may already be past the statutory window.
+  const cliffStart = new Date(now.getTime() + 38 * 24 * 60 * 60 * 1000);
+  const msmeApproaching = await prisma.supplierInvoice.findMany({
+    where: {
+      status: { in: ["PENDING", "MATCHED", "DISPUTED", "APPROVED"] },
+      invoiceDate: { gte: new Date(cliffStart.getTime() - 45 * 24 * 60 * 60 * 1000 * 2), lte: now },
+      supplier: { isMsme: true },
+    },
+    select: { id: true, companyId: true, invoiceNumber: true, invoiceDate: true, totalAmount: true, supplier: { select: { name: true } } },
+  });
+  for (const inv of msmeApproaching) {
+    const ageDays = Math.floor((now.getTime() - inv.invoiceDate.getTime()) / 86400000);
+    if (ageDays < 38 || ageDays > 60) continue;
+    const daysLeft = 45 - ageDays;
+    const recent = await prisma.inAppNotification.findFirst({
+      where: {
+        companyId: inv.companyId,
+        eventType: NotificationEventType.MSME_CLIFF_WARNING,
+        createdAt: { gte: dedupeSince },
+        metadata: { path: ["supplierInvoiceId"], equals: inv.id },
+      },
+      select: { id: true },
+    });
+    if (recent) continue;
+    void emitNotificationEvent({
+      eventType: NotificationEventType.MSME_CLIFF_WARNING,
+      companyId: inv.companyId,
+      entityType: "SupplierInvoice",
+      entityId: inv.id,
+      variables: {
+        supplierInvoiceId: inv.id,
+        supplierName: inv.supplier.name,
+        amount: inv.totalAmount.toString(),
+        invoiceNumber: inv.invoiceNumber,
+        daysLeft: String(Math.max(0, daysLeft)),
+        message: daysLeft > 0
+          ? `MSME invoice ${inv.invoiceNumber} (${inv.supplier.name}) is ${ageDays} days old — pay within ${daysLeft} day(s) or the expense becomes non-deductible under Sec 43B(h).`
+          : `MSME invoice ${inv.invoiceNumber} (${inv.supplier.name}) has crossed 45 days — the expense is now non-deductible under Sec 43B(h) for this FY.`,
+      },
+      timestamp: new Date(),
+    });
+  }
+
   return { checked: invoices.length, due: invoices.length, notified };
 }
 

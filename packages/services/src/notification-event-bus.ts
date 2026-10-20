@@ -54,6 +54,7 @@ export enum NotificationEventType {
   PO_ORDERED = "PO_ORDERED",
   GOODS_RECEIVED = "GOODS_RECEIVED",
   SUPPLIER_PAYMENT_DUE = "SUPPLIER_PAYMENT_DUE",
+  MSME_CLIFF_WARNING = "MSME_CLIFF_WARNING",
   LOW_STOCK_ALERT = "LOW_STOCK_ALERT",
 
   // Sales (6)
@@ -163,6 +164,7 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   [NotificationEventType.PO_ORDERED]: "DAILY",
   [NotificationEventType.GOODS_RECEIVED]: "DAILY",
   [NotificationEventType.SUPPLIER_PAYMENT_DUE]: "IMMEDIATE",
+  [NotificationEventType.MSME_CLIFF_WARNING]: "IMMEDIATE",
   [NotificationEventType.LOW_STOCK_ALERT]: "DAILY",
 
   // Sales
@@ -789,6 +791,7 @@ const FINANCE_EVENTS = new Set([
   NotificationEventType.PAYROLL_ZERO_GROSS,
   NotificationEventType.SUPPLIER_PAYMENT_DUE,
   NotificationEventType.SUPPLIER_INVOICE_SUBMITTED,
+  NotificationEventType.MSME_CLIFF_WARNING,
   NotificationEventType.PETTY_CASH_LOW_BALANCE,
   NotificationEventType.PETTY_CASH_TOPUP,
 ]);
@@ -930,6 +933,8 @@ const EVENT_MESSAGES: Partial<
     `Goods received${s("poNumber") ? ` against PO ${s("poNumber")}` : ""}${s("grnNumber") ? ` (GRN ${s("grnNumber")})` : ""}.`,
   [NotificationEventType.SUPPLIER_PAYMENT_DUE]: ({ s, money }) =>
     `Payment due to ${s("supplierName") || "supplier"}${money("amount") ? ` — ${money("amount")}` : ""}.`,
+  [NotificationEventType.MSME_CLIFF_WARNING]: ({ s }) =>
+    s("message") || `MSME invoice ${s("invoiceNumber")} approaching the 45-day Sec 43B(h) cliff.`,
   [NotificationEventType.LOW_STOCK_ALERT]: ({ s }) =>
     `Low stock: ${s("materialName") || s("material")}${s("currentQty") ? ` — ${s("currentQty")} left` : ""}.`,
 
