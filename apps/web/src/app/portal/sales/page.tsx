@@ -208,6 +208,15 @@ export default async function PortalSalesPage() {
                 <span className="font-medium text-emerald-600">{fmtCurrency(sale.totalPaid)} paid</span>
                 <span className="font-medium text-amber-600">{fmtCurrency(sale.balanceDue)} due</span>
               </div>
+              <div className="mt-1.5 text-right">
+                <a
+                  href={`/print/sale-statement/${sale.id}`}
+                  target="_blank"
+                  className="text-[11px] font-medium text-brand hover:underline"
+                >
+                  Download statement ↓
+                </a>
+              </div>
 
               {/* Allottee statement — the installment plan + payment ledger the
                   buyer otherwise has to call the office for. Next-due

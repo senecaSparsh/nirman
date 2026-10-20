@@ -352,6 +352,11 @@ export function SaleDetailDialog({
                   <Printer className="h-4 w-4" /> Allotment Letter
                 </a>
               </Button>
+              <Button asChild size="sm" variant="outline">
+                <a href={`/print/sale-statement/${sale.id}`} target="_blank" rel="noopener noreferrer" title="Print allottee statement (installments + payments + interest)">
+                  <Printer className="h-4 w-4" /> Statement
+                </a>
+              </Button>
               {sale.irnStatus === "GENERATED" ? (
                 <span className="inline-flex items-center gap-1 rounded-md border border-success/30 bg-success/10 px-3 py-1.5 text-xs font-medium text-success" title={`IRN: ${sale.irn}`}>
                   <CheckCircle2 className="h-3 w-3" /> IRN Generated
