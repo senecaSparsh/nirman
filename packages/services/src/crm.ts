@@ -876,7 +876,7 @@ export async function sendPaymentDueReminders(companyId?: string) {
   // is skipped this run.
   const recentLogs = await prisma.notificationLog.findMany({
     where: {
-      eventType: { in: ["SALE_PAYMENT_RECEIVED", "DEMAND_LETTER"] },
+      eventType: { in: ["SALE_PAYMENT_REMINDER", "SALE_PAYMENT_RECEIVED", "DEMAND_LETTER"] },
       sentAt: { gte: new Date(now.getTime() - 72 * 3600000) },
       ...(companyId ? { companyId } : {}),
     },
@@ -951,7 +951,9 @@ export async function sendPaymentDueReminders(companyId?: string) {
 
       await sendNotification({
         companyId: sale.companyId,
-        eventType: "SALE_PAYMENT_RECEIVED",
+        // A reminder is not a receipt — logging it as PAYMENT_RECEIVED
+        // corrupted both reporting and the cooldown set.
+        eventType: "SALE_PAYMENT_REMINDER",
         channel,
         recipient,
         recipientName: customer.name,
