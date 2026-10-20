@@ -150,7 +150,9 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
         }
       : null,
     totalPaid,
-    balanceDue: toNum(s.salePrice) + toNum(s.gstAmount) - totalPaid,
+    // TDS withheld by the buyer (194-IA) is discharged to the ITD on the
+    // seller's behalf — it is not a customer receivable.
+    balanceDue: toNum(s.salePrice) + toNum(s.gstAmount) - totalPaid - toNum(s.tdsAmount),
     paymentCount: s.payments.length,
     payments: s.payments.map((p) => ({
       id: p.id,

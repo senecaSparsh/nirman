@@ -227,7 +227,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       const from12 = new Date(now.getFullYear(), now.getMonth() - 11, 1);
       const sales = await prisma.assetSale.findMany({
         where: { companyId: company.id, status: "ACTIVE", saleDate: { gte: from12 }, ...asScope },
-        include: { customer: { select: { name: true } }, project: { select: { name: true } }, payments: { select: { amount: true, paymentDate: true } } },
+        include: { customer: { select: { name: true } }, project: { select: { name: true } }, payments: { where: { status: { not: "VOID" } }, select: { amount: true, paymentDate: true } } },
         orderBy: { saleDate: "asc" }});
       const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
       const monthlyMap = new Map<string, { label: string; sales: number; collected: number; count: number }>();
@@ -242,7 +242,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
         totalSales += invoiceValue;
         const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
         totalCollected += collected;
-        totalOutstanding += Math.max(0, invoiceValue - collected);
+        totalOutstanding += Math.max(0, invoiceValue - collected - toNum(s.tdsAmount));
         const key = `${s.saleDate.getFullYear()}-${s.saleDate.getMonth()}`;
         const row = monthlyMap.get(key);
         if (row) { row.sales += invoiceValue; row.count += 1; }
@@ -341,12 +341,12 @@ export const GET = apiHandler(async (req: NextRequest) => {
       });
       const sales = await prisma.assetSale.findMany({
         where: { companyId: company.id, status: "ACTIVE", paymentStatus: { in: ["PENDING", "PARTIAL"] }, ...asScope },
-        include: { customer: { select: { name: true } }, project: { select: { name: true } }, payments: { select: { amount: true } } },
+        include: { customer: { select: { name: true } }, project: { select: { name: true } }, payments: { where: { status: { not: "VOID" } }, select: { amount: true } } },
         orderBy: { saleDate: "asc" }});
       const receivableRows = sales.map((s) => {
         const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
         const daysSinceSale = Math.floor((now.getTime() - s.saleDate.getTime()) / 86400000);
-        return { saleNumber: s.saleNumber, customer: s.customer.name, project: s.project?.name ?? "Standalone", saleDate: s.saleDate.toISOString(), salePrice: toNum(s.salePrice) + toNum(s.gstAmount), collected, outstanding: Math.max(0, toNum(s.salePrice) + toNum(s.gstAmount) - collected), paymentStatus: s.paymentStatus, daysSinceSale, agingBucket: daysSinceSale <= 0 ? "current" : daysSinceSale <= 30 ? "1-30d" : daysSinceSale <= 60 ? "31-60d" : daysSinceSale <= 90 ? "61-90d" : ">90d" };
+        return { saleNumber: s.saleNumber, customer: s.customer.name, project: s.project?.name ?? "Standalone", saleDate: s.saleDate.toISOString(), salePrice: toNum(s.salePrice) + toNum(s.gstAmount), collected, outstanding: Math.max(0, toNum(s.salePrice) + toNum(s.gstAmount) - collected - toNum(s.tdsAmount)), paymentStatus: s.paymentStatus, daysSinceSale, agingBucket: daysSinceSale <= 0 ? "current" : daysSinceSale <= 30 ? "1-30d" : daysSinceSale <= 60 ? "31-60d" : daysSinceSale <= 90 ? "61-90d" : ">90d" };
       }).filter((r) => r.outstanding > 0.01);
       const draftPOs = await prisma.purchaseOrder.findMany({
         where: { companyId: company.id, status: "DRAFT" },

@@ -56,7 +56,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
   const unitMap = new Map(builtUnits.map((u) => [u.id, u]));
 
   const mapped = sales.map((s) => {
-      const totalPaid = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
+      const totalPaid = s.payments.reduce((sum, p) => sum + (p.status === "VOID" ? 0 : toNum(p.amount)), 0);
       const parcel = s.landParcelId ? parcelMap.get(s.landParcelId) : null;
       const unit = s.builtUnitId ? unitMap.get(s.builtUnitId) : null;
       return {
@@ -171,7 +171,9 @@ export const GET = apiHandler(async (req: NextRequest) => {
         paymentMode: s.paymentMode,
         notes: s.notes,
         totalPaid,
-        balanceDue: toNum(s.salePrice) + toNum(s.gstAmount) - totalPaid,
+        // TDS withheld by the buyer (194-IA) is discharged to the ITD on the
+        // seller's behalf — it is not a customer receivable.
+        balanceDue: toNum(s.salePrice) + toNum(s.gstAmount) - totalPaid - toNum(s.tdsAmount),
         paymentCount: s.payments.length,
         // e-Invoicing (IRN + QR)
         irn: s.irn,

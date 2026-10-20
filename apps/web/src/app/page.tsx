@@ -140,7 +140,7 @@ async function CommandCenterContent() {
     prisma.assetSale.findMany({
       where: {...await scopeWhere("AssetSale"),  companyId: company.id, status: "ACTIVE" },
       orderBy: { createdAt: "desc" }, take: 10,
-      include: { customer: { select: { name: true } }, payments: { select: { amount: true } } }}),
+      include: { customer: { select: { name: true } }, payments: { where: { status: { not: "VOID" } }, select: { amount: true } } }}),
     prisma.stockCount.findMany({
       where: {
         AND: [
@@ -405,7 +405,7 @@ async function CommandCenterContent() {
     count: salesWithBalance.length, href: "/sales", cta: "Collect", urgency: "soon", icon: "dollarSign",
     items: salesWithBalance.map((s) => {
       const totalPaid = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
-      return { label: s.customer.name, sub: `${formatCurrency(toNum(s.salePrice) - totalPaid)} balance due` };
+      return { label: s.customer.name, sub: `${formatCurrency(Math.max(0, toNum(s.salePrice) - toNum(s.tdsAmount) - totalPaid))} balance due` };
     })});
   if (canManageStock && pendingStockCounts.length > 0) queues.push({
     key: "stock-count", title: "Stock inventories to process",

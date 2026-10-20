@@ -43,7 +43,7 @@ async function MobileSalesRevenueContent() {
       customer: { select: { name: true } },
       project: { select: { name: true } },
       builtUnit: { select: { unitType: true } },
-      payments: { select: { amount: true } },
+      payments: { where: { status: { not: "VOID" } }, select: { amount: true } },
     },
     orderBy: { saleDate: "desc" },
   });
@@ -60,7 +60,7 @@ async function MobileSalesRevenueContent() {
       unitType: s.builtUnit?.unitType ?? null,
       salePrice,
       collected,
-      outstanding: Math.max(0, salePrice - collected),
+      outstanding: Math.max(0, salePrice - collected - toNum(s.tdsAmount)),
       saleDate: s.saleDate.toISOString(),
     };
   });

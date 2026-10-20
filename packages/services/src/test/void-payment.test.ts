@@ -107,7 +107,7 @@ describe("voidAssetSalePayment", () => {
       userId: user.id,
       registryDocumentUrl: "https://x/registry.pdf",
       atsDocumentUrl: "https://x/ats.pdf",
-      finalPaymentAmount: new Decimal(4000000),
+      finalPaymentAmount: new Decimal(3950000),
     });
 
     // Sale is COMPLETED + PAID. A further post-completion payment can only
@@ -207,7 +207,7 @@ describe("capitalization catch-up on sale", () => {
       salePrice: new Decimal(5000000),
       atsDate: new Date().toISOString(),
     });
-    await recordDeposit({ saleId: sale.id, depositAmount: new Decimal(5000000), paymentMode: "BANK", userId: fixture.user.id });
+    await recordDeposit({ saleId: sale.id, depositAmount: new Decimal(4950000), paymentMode: "BANK", userId: fixture.user.id });
     await completeSale({
       saleId: sale.id,
       userId: fixture.user.id,
@@ -266,7 +266,7 @@ describe("refundCompletedSale", () => {
       userId: fixture.user.id,
       registryDocumentUrl: "https://x/registry.pdf",
       atsDocumentUrl: "https://x/ats.pdf",
-      finalPaymentAmount: new Decimal(4500000),
+      finalPaymentAmount: new Decimal(4450000),
     });
 
     const preRefund = await prisma.journalEntry.count({

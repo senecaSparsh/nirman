@@ -370,7 +370,9 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
       companyId: company.id,
       customerId: customer.id,
       salePrice: new Decimal(5000000),
-      initialPayment: new Decimal(5000000), // full payment
+      // ₹50L ≥ the 194-IA threshold → buyer withholds ₹50K TDS; the full
+      // cash leg is ₹49.5L.
+      initialPayment: new Decimal(4950000), // full payment net of TDS
       // Full payment at booking requires the agreement documented at
       // creation — without atsDate/bbaDate the RERA 10% cap blocks it.
       atsDate: "2026-10-01",
@@ -434,7 +436,7 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
     // 3. Complete sale with final payment (4M)
     await completeSale({
       saleId: sale.id,
-      finalPaymentAmount: new Decimal(4000000),
+      finalPaymentAmount: new Decimal(3950000),
       paymentMode: "BANK_TRANSFER",
       registryDocumentUrl: "https://example.com/registry.pdf",
       saleDeedNo: "SD-2026-001",
@@ -474,7 +476,7 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
 
     // Final payment: Dr Cash 4M / Cr AR 4M
     const cash = sumAccount(entries, ACCT.CASH);
-    expect(cash.debit.toNumber()).toBe(5000000); // 1M deposit + 4M final
+    expect(cash.debit.toNumber()).toBe(4950000); // 1M deposit + 3.95M final; the 50K TDS leg settles via TDS_RECEIVABLE
 
     // AR should net to zero: Dr 5M (revenue) - Cr 1M (deposit settle) - Cr 4M (final payment) = 0
     const arNet = ar.debit.minus(ar.credit);
@@ -501,7 +503,7 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
 
     await recordDeposit({
       saleId: sale.id,
-      depositAmount: new Decimal(5000000),
+      depositAmount: new Decimal(4950000),
       userId: user.id,
     });
 
@@ -539,7 +541,7 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
 
     await recordDeposit({
       saleId: sale.id,
-      depositAmount: new Decimal(5000000),
+      depositAmount: new Decimal(4950000),
       userId: user.id,
     });
 
@@ -623,7 +625,7 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
     // Complete with final payment 4.25M (5.25M - 1M)
     await completeSale({
       saleId: sale.id,
-      finalPaymentAmount: new Decimal(4250000),
+      finalPaymentAmount: new Decimal(4200000),
       registryDocumentUrl: "https://example.com/registry.pdf",
       userId: user.id,
     });
@@ -638,9 +640,9 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
     expect(revenue.credit.toNumber()).toBe(5000000);
     expect(outputGst.credit.toNumber()).toBe(250000);
 
-    // Cash: 1M deposit + 4.25M final = 5.25M
+    // Cash: 1M deposit + 4.2M final = 5.2M; the 50K TDS leg settles via TDS_RECEIVABLE
     const cash = sumAccount(entries, ACCT.CASH);
-    expect(cash.debit.toNumber()).toBe(5250000);
+    expect(cash.debit.toNumber()).toBe(5200000);
 
     // AR nets to zero
     const arNet = ar.debit.minus(ar.credit);
@@ -729,7 +731,7 @@ describe("Sale lifecycle — sellAsset → recordDeposit → completeSale", () =
       companyId: company.id,
       customerId: customer.id,
       salePrice: new Decimal(5000000),
-      initialPayment: new Decimal(5000000),
+      initialPayment: new Decimal(4950000),
       // Full advance requires the agreement documented — otherwise the
       // RERA 10% pre-agreement cap blocks it.
       atsDate: "2026-10-01",

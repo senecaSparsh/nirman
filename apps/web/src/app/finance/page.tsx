@@ -15,6 +15,7 @@ import { canAutoApprove } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
+import { RefreshButton } from "@/components/refresh-button";
 import { FinanceView } from "@/components/finance/finance-view";
 import { SupplierInvoicesView } from "@/components/finance/supplier-invoices-view";
 import { ExpensesView } from "@/components/expenses/expenses-view";
@@ -122,13 +123,18 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
   const sales = await prisma.assetSale.findMany({
     take: 200,
     where: {...await scopeWhere("AssetSale"),  companyId: company.id, status: "ACTIVE" },
-    select: { salePrice: true, payments: { select: { amount: true } } }});
+    select: { salePrice: true, tdsAmount: true, payments: { where: { status: { not: "VOID" } }, select: { amount: true } } }});
   const totalRevenue = sales.reduce((s, sale) => s + toNum(sale.salePrice), 0);
   const totalCollected = sales.reduce((s, sale) => s + sale.payments.reduce((ps, p) => ps + toNum(p.amount), 0), 0);
-  const outstandingSaleCount = sales.filter((sale) => {
+  // 194-IA TDS withheld by buyers is discharged to the ITD, not owed by
+  // the customer — net it out of "outstanding" so PAID-net-of-TDS sales
+  // don't nag for the withheld amount. Per-sale floor at 0: overpaid
+  // sales are customer credits, not offsets against other dues.
+  const perSaleOutstanding = sales.map((sale) => {
     const collected = sale.payments.reduce((ps, p) => ps + toNum(p.amount), 0);
-    return toNum(sale.salePrice) - collected > 0;
-  }).length;
+    return Math.max(0, toNum(sale.salePrice) - toNum(sale.tdsAmount) - collected);
+  });
+  const outstandingSaleCount = perSaleOutstanding.filter((o) => o > 0).length;
 
   const projectCostRows: ProjectCostRow[] = projectCosts.map((c) => ({
     id: c.id,
@@ -169,7 +175,7 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
 
   const totalCosts = projectCostRows.reduce((s, c) => s + toNum(c.amount), 0);
   const totalExpenses = expenseRows.reduce((s, e) => s + toNum(e.amount), 0);
-  const outstanding = totalRevenue - totalCollected;
+  const outstanding = perSaleOutstanding.reduce((s, o) => s + o, 0);
 
   const perms = {
     canCreateExpense: __effPerms.includes(PERM.EXPENSE_CREATE),
@@ -275,6 +281,7 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
           { label: "Outstanding", value: formatCurrency(outstanding), tone: outstanding > 0 ? "warning" : "muted", hint: "Revenue minus collected — what customers still owe you." },
           { label: "Costs + Expenses", value: formatCurrency(totalCosts + totalExpenses), tone: "danger", hint: `${formatCurrency(totalCosts)} project costs + ${formatCurrency(totalExpenses)} operating expenses.` },
         ]}
+        action={<RefreshButton />}
       />
       <DepartmentActivityFeed department="finance" />
       <OutstandingActionCard outstanding={outstanding} outstandingSaleCount={outstandingSaleCount} />

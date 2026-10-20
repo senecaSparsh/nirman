@@ -140,7 +140,7 @@ async function MobilePendingPaymentsContent() {
 
   const receivableRows = sales.map((s) => {
     const collected = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
-    const outstanding = Math.max(0, toNum(s.salePrice) + toNum(s.gstAmount) - collected);
+    const outstanding = Math.max(0, toNum(s.salePrice) + toNum(s.gstAmount) - collected - toNum(s.tdsAmount));
     const daysSinceSale = Math.floor((now.getTime() - s.saleDate.getTime()) / 86400000);
     return { id: s.id, saleNumber: s.saleNumber, customer: s.customer.name, project: s.project?.name ?? "—", outstanding, daysSinceSale, agingBucket: getAgingBucket(daysSinceSale) };
   }).filter((r) => r.outstanding > 0.01);

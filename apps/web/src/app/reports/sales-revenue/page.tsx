@@ -45,7 +45,7 @@ async function SalesRevenueContent() {
         customer: { select: { name: true } },
         project: { select: { id: true, name: true } },
         builtUnit: { select: { unitType: true } },
-        payments: { select: { amount: true, paymentDate: true } },
+        payments: { where: { status: { not: "VOID" } }, select: { amount: true, paymentDate: true } },
       },
       orderBy: { saleDate: "asc" },
     }),
@@ -69,7 +69,7 @@ async function SalesRevenueContent() {
       unitType: s.builtUnit?.unitType ?? null,
       salePrice: toNum(s.salePrice),
       collected,
-      outstanding: toNum(s.salePrice) - collected,
+      outstanding: Math.max(0, toNum(s.salePrice) - collected - toNum(s.tdsAmount)),
       saleDate: s.saleDate.toISOString(),
       paymentDates: s.payments.map((p) => p.paymentDate.toISOString()),
     };

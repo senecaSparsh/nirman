@@ -428,8 +428,10 @@ export async function sellAsset(input: SellAssetInput) {
     const gstAmount = salePrice.mul(gstRate).div(100).toDecimalPlaces(2);
 
     // Determine whether this is an immediate full-payment sale or a staged sale.
-    // Total collectible = salePrice + gstAmount (GST is charged on top of sale price).
-    const totalCollectible = salePrice.plus(gstAmount);
+    // Total collectible = salePrice + gstAmount − TDS the buyer withholds
+    // under 194-IA (that portion is deposited to the ITD, never paid to us).
+    const saleTds = computePropertyTds(salePrice, input.tdsAmount, input.stampDutyValue) ?? new Decimal(0);
+    const totalCollectible = salePrice.plus(gstAmount).minus(saleTds);
     const initAmount = input.initialPayment ? new Decimal(input.initialPayment) : new Decimal(0);
     if (initAmount.gt(0) && initAmount.gt(totalCollectible)) {
       throw new ServiceError(`Initial payment ${initAmount} exceeds total ${totalCollectible} (sale price + GST)`);
@@ -919,7 +921,9 @@ export async function recordDeposit(input: RecordDepositInput) {
 
     const salePrice = new Decimal(sale.salePrice);
     const gstAmount = new Decimal(sale.gstAmount);
-    const totalCollectible = salePrice.plus(gstAmount);
+    // Buyer-withheld 194-IA TDS is discharged to the ITD — net it out of
+    // what the customer still needs to pay.
+    const totalCollectible = salePrice.plus(gstAmount).minus(new Decimal(sale.tdsAmount ?? 0));
     const existingDeposit = sale.depositAmount ? new Decimal(sale.depositAmount) : new Decimal(0);
     const cumulativeDeposit = existingDeposit.plus(depositAmount);
     if (cumulativeDeposit.gt(totalCollectible)) {
@@ -1116,8 +1120,10 @@ export async function completeSale(input: CompleteSaleInput) {
     const costBasis = new Decimal(sale.costBasis);
     const totalPaidSoFar = sumClearedAssetSalePayments(sale.payments);
 
-    // Determine the final payment (remaining balance)
-    const remainingBalance = salePrice.plus(gstAmount).minus(totalPaidSoFar);
+    // Determine the final payment (remaining cash balance — the 194-IA TDS
+    // leg is settled by the buyer depositing with the ITD, booked as
+    // TDS_RECEIVABLE, never collected in cash).
+    const remainingBalance = salePrice.plus(gstAmount).minus(new Decimal(sale.tdsAmount ?? 0)).minus(totalPaidSoFar);
     const finalPayment = input.finalPaymentAmount != null
       ? new Decimal(input.finalPaymentAmount)
       : remainingBalance;
@@ -1151,9 +1157,9 @@ export async function completeSale(input: CompleteSaleInput) {
     // Section 194-IA: the buyer deducts 1% and remits it to the government. That
     // deduction is a receivable (Form 26AS credit), not an open customer balance.
     const tdsDeducted = computePropertyTds(sale.salePrice, input.tdsAmount, input.stampDutyValue ?? sale.stampDutyValue);
-    const tdsReceivable = tdsDeducted && tdsDeducted.gt(0) && remainingBalance.minus(finalPayment).eq(tdsDeducted)
-      ? tdsDeducted
-      : new Decimal(0);
+    // remainingBalance is already net of TDS — if a TDS amount applies it is
+    // always settled as a receivable at completion (Dr TDS_RECEIVABLE / Cr AR).
+    const tdsReceivable = tdsDeducted && tdsDeducted.gt(0) ? tdsDeducted : new Decimal(0);
     const paymentStatus = computePaymentStatus(
       totalPaidSoFar.plus(input.paymentMode === "CHEQUE" ? 0 : finalPayment).plus(tdsReceivable),
       salePrice.plus(gstAmount),
@@ -1435,7 +1441,7 @@ export async function recordPayment(input: RecordPaymentInput) {
     const amount = new Decimal(input.amount);
     if (!amount.gt(0)) throw new ServiceError("Payment amount must be > 0");
 
-    const totalCollectible = new Decimal(sale.salePrice).plus(new Decimal(sale.gstAmount));
+    const totalCollectible = new Decimal(sale.salePrice).plus(new Decimal(sale.gstAmount)).minus(new Decimal(sale.tdsAmount ?? 0));
     const cumulativeCommitted = sale.payments.reduce(
       (sum, p) => p.status === "VOID" ? sum : sum.plus(new Decimal(p.amount)),
       new Decimal(0),
@@ -1632,7 +1638,7 @@ export async function voidAssetSalePayment(input: {
       (sum, p) => (p.chequeStatus === "PENDING" || p.chequeStatus === "BOUNCED" ? sum : sum.plus(new Decimal(p.amount))),
       new Decimal(0),
     );
-    const totalCollectible = new Decimal(sale.salePrice).plus(new Decimal(sale.gstAmount));
+    const totalCollectible = new Decimal(sale.salePrice).plus(new Decimal(sale.gstAmount)).minus(new Decimal(sale.tdsAmount ?? 0));
     const paymentStatus: "PENDING" | "PARTIAL" | "PAID" =
       liveTotal.isZero() ? "PENDING" : liveTotal.lt(totalCollectible) ? "PARTIAL" : "PAID";
 
@@ -2259,7 +2265,7 @@ export async function createSalePaymentSchedule(
     }
 
     // Validate amounts sum to sale price + GST
-    const totalCollectible = new Decimal(sale.salePrice).plus(new Decimal(sale.gstAmount));
+    const totalCollectible = new Decimal(sale.salePrice).plus(new Decimal(sale.gstAmount)).minus(new Decimal(sale.tdsAmount ?? 0));
     const totalAmt = schedule.items.reduce(
       (sum, item) => sum.plus(new Decimal(item.amount)),
       new Decimal(0),
