@@ -2741,31 +2741,56 @@ export async function bounceCheque(paymentId: string, userId?: string, bounceRea
     //   Dr Cash / Cr AR (postPaymentReceived) → reverse with
     //   postPaymentReversal (Dr AR / Cr Cash).
     const amount = new Decimal(payment.amount);
-    if (amount.gt(0)) {
-      if (sale.saleStage === "COMPLETED") {
-        await postPaymentReversal(tx, {
-          companyId: sale.companyId,
-          assetSaleId: sale.id,
-          paymentId,
-          amount,
-          postedById: userId,
-        });
-      } else {
-        await postDepositRefund(tx, {
-          companyId: sale.companyId,
-          assetSaleId: sale.id,
-          amount,
-          postedById: userId,
-        });
-      }
+    // Interest legs post to income under the payment key — never into
+    // deposits/AR. Bouncing refunds principal only; the interest JE is
+    // reversed separately, or the bounce would over-refund the deposit
+    // while the income stayed booked.
+    const interestLeg = new Decimal(payment.interestAmount ?? 0);
+    const principal = Decimal.max(0, amount.minus(interestLeg));
+    // Every PAYMENT_RECEIVED JE keyed to this payment — the interest leg
+    // always, the principal leg when the sale was completed — reverses
+    // exactly once.
+    const paymentJes = await tx.journalEntry.findMany({
+      where: { sourceType: "PAYMENT_RECEIVED", sourceId: paymentId },
+      include: { lines: { select: { debit: true } } },
+    });
+    for (const je of paymentJes) {
+      await reverseJournalEntry(tx, je.id, {
+        postedById: userId,
+        memo: `Cheque bounced${bounceReason ? ` — ${bounceReason}` : ""}`,
+      });
+    }
+    // Whatever the keyed JEs never covered still has to come back out:
+    // deposit-settled completed-sale payments left no per-payment JE.
+    const keyedDebits = paymentJes.reduce(
+      (sum, je) => sum.plus(je.lines.reduce((ls, l) => ls.plus(new Decimal(l.debit)), new Decimal(0))),
+      new Decimal(0),
+    );
+    const uncovered = Decimal.max(0, amount.minus(keyedDebits));
+    if (sale.saleStage === "COMPLETED" && uncovered.gt(0)) {
+      await postPaymentReversal(tx, {
+        companyId: sale.companyId,
+        assetSaleId: sale.id,
+        paymentId,
+        amount: uncovered,
+        postedById: userId,
+      });
+    } else if (sale.saleStage !== "COMPLETED" && principal.gt(0)) {
+      await postDepositRefund(tx, {
+        companyId: sale.companyId,
+        assetSaleId: sale.id,
+        amount: principal,
+        postedById: userId,
+      });
     }
 
-    // Recompute sale stage based on remaining valid payments
+    // Recompute sale stage based on remaining valid payments — principal
+    // only; an interest leg is income, never deposit balance.
     const validPayments = sale.payments.filter(
       (p) => p.id !== paymentId && p.chequeStatus !== "BOUNCED",
     );
     const totalRemaining = validPayments.reduce(
-      (sum, p) => sum.plus(new Decimal(p.amount)),
+      (sum, p) => sum.plus(new Decimal(p.amount)).minus(new Decimal(p.interestAmount ?? 0)),
       new Decimal(0),
     );
 
