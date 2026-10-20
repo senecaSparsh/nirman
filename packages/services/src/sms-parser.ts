@@ -16,6 +16,8 @@ import {
 } from "./notification-event-bus";
 import { withSerializableTransaction } from "./transaction";
 import { syncPaymentScheduleFromPayments, sumClearedAssetSalePayments } from "./sale";
+import { sendNotification } from "./notifications";
+import { computeLateInterest } from "./collections";
 
 /**
  * SMS Parser Service — auto payment entry from bank SMS notifications.
@@ -507,7 +509,7 @@ async function matchPayment(
               id: true,
               saleNumber: true,
               saleStage: true,
-              customer: { select: { name: true } },
+              customer: { select: { name: true, phone: true } },
             },
           },
         },
@@ -587,6 +589,38 @@ async function matchPayment(
         variables: { amount: amount.toString(), saleNumber: sale.saleNumber },
         timestamp: new Date(),
       });
+      // Exact-amount match on an overdue installment silently forgives the
+      // accrued interest — flag the residual to staff so it's waived or
+      // collected, never vanished.
+      const accrued = item.dueDate
+        ? computeLateInterest({ totalAmount: item.totalAmount, paidAmount: item.paidAmount, dueDate: item.dueDate })?.interest ?? 0
+        : 0;
+      if (accrued > 0) {
+        void sendNotification({
+          companyId,
+          eventType: "INTEREST_REMAINDER",
+          channel: "IN_APP",
+          recipient: companyId,
+          recipientName: "Collections",
+          message: `SMS-matched payment of ₹${amount} cleared installment #${item.installmentNo} on ${sale.saleNumber}, but ₹${Math.round(accrued * 100) / 100} accrued late interest was left uncollected — collect or formally waive it.`,
+          metadata: { saleId: sale.id, scheduleItemId: item.id, residualInterest: accrued },
+        }).catch(() => {});
+      }
+      // Buyer acknowledgment — an auto-matched payment deserves the same
+      // receipt the manual-payment path sends.
+      const custPhone = item.paymentSchedule.assetSale.customer?.phone ?? null;
+      const custName = item.paymentSchedule.assetSale.customer?.name ?? "Customer";
+      if (custPhone) {
+        void sendNotification({
+          companyId,
+          eventType: "PAYMENT_RECEIVED",
+          channel: "WHATSAPP",
+          recipient: custPhone,
+          recipientName: custName,
+          message: `✅ *Payment Received*\n\nDear ${custName},\n\nWe have received your payment of ₹${amount} for ${sale.saleNumber} (installment #${item.installmentNo}).\n\nThank you for your business!`,
+          metadata: { saleId: sale.id, scheduleItemId: item.id, amount: amount.toString(), source: "SMS_AUTO_MATCH" },
+        }).catch(() => {});
+      }
       return {
         matched: true,
         entityType: "ASSET_SALE",
