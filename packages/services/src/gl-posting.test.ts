@@ -11,8 +11,8 @@ import { CHART_OF_ACCOUNTS, ACCT, buildEquipmentSaleLines } from "./gl-posting";
  * DB and is exercised by the integration flows (receiveGoods, sellAsset, etc.).
  */
 describe("General Ledger — chart of accounts", () => {
-  it("has 43 system accounts", () => {
-    expect(CHART_OF_ACCOUNTS).toHaveLength(43);
+  it("has 44 system accounts", () => {
+    expect(CHART_OF_ACCOUNTS).toHaveLength(44);
   });
 
   it("has unique account codes", () => {
