@@ -5,7 +5,7 @@ import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import {Banknote, X, Printer, CheckCircle2, XCircle, HandCoins, MessageCircle, FileText, ExternalLink, CalendarClock, AlertCircle, Zap, Undo2} from "lucide-react";
+import {Banknote, X, Printer, CheckCircle2, XCircle, HandCoins, MessageCircle, FileText, ExternalLink, CalendarClock, AlertCircle, Zap, Undo2, Slash} from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
@@ -58,6 +58,7 @@ export function SaleDetailDialog({
   const [saleEditOpen, setSaleEditOpen] = useState(false);
   const [acting, setActing] = useState(false);
   const [demanding, setDemanding] = useState<string | null>(null);
+  const [waiving, setWaiving] = useState<string | null>(null);
   const [chequeActionLoading, setChequeActionLoading] = useState(false);
   const [docUploading, setDocUploading] = useState(false);
   const [collectItem, setCollectItem] = useState<{ id: string; installmentNo: number; description: string; amount: number; paidAmount: number; accruedInterest?: number } | null>(null);
@@ -835,6 +836,35 @@ export function SaleDetailDialog({
                                 >
                                   <Printer className="h-3 w-3" />
                                 </a>
+                                {(item.status === "DUE" || item.status === "PARTIAL" || item.status === "PENDING") && !isCancelled && (
+                                  <button
+                                    type="button"
+                                    title="Waive this installment (write-off — needs a reason)"
+                                    className="inline-flex items-center gap-1 text-micro text-muted-foreground hover:text-danger disabled:opacity-40"
+                                    disabled={waiving === item.id}
+                                    onClick={async () => {
+                                      const reason = window.prompt(`Waive ${item.description}? This writes off ${formatCurrency(item.amount)}${item.status === "PARTIAL" ? " (paid part stays — server rejects partials)" : ""} and can never be un-waived. Reason:`);
+                                      if (reason === null) return;
+                                      setWaiving(item.id);
+                                      try {
+                                        const res = await fetch(`/api/payment-schedules/items/${item.id}/waive`, {
+                                          method: "POST",
+                                          headers: { "Content-Type": "application/json" },
+                                          body: JSON.stringify({ reason: reason || undefined }),
+                                        });
+                                        const data = await res.json().catch(() => ({}));
+                                        if (!res.ok) toast.error(data.error ?? "Waive failed");
+                                        else {
+                                          toast.success(`Installment waived — ${formatCurrency(Number(data.waivedAmount))} written off`);
+                                          router.refresh();
+                                        }
+                                      } catch { toast.error("Waive failed"); }
+                                      finally { setWaiving(null); }
+                                    }}
+                                  >
+                                    <Slash className="h-3 w-3" />
+                                  </button>
+                                )}
                               </div>
                             </TD>
                           )}

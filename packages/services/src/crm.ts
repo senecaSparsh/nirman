@@ -1,7 +1,7 @@
 import { prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
-import { postPaymentReceived, postDepositReceived, postLateInterestReceived } from "./gl-posting";
+import { postPaymentReceived, postDepositReceived, postLateInterestReceived, postBadDebtWriteOff } from "./gl-posting";
 import { sendNotification } from "./notifications";
 import { ServiceError } from "./errors";
 import { computeLateInterest } from "./collections";
@@ -682,8 +682,10 @@ export async function recordSchedulePayment(
       where: { paymentScheduleId: item.paymentScheduleId },
       select: { status: true, totalAmount: true, paidAmount: true },
     });
+    // Waived items are non-collectible — exclude them from the target else a
+    // sale with a waived installment could never reach PAID.
     const grandTotal = allItems.reduce(
-      (sum, i) => sum.plus(new Decimal(i.totalAmount)),
+      (sum, i) => (i.status === "WAIVED" ? sum : sum.plus(new Decimal(i.totalAmount))),
       new Decimal(0),
     );
     const totalPaid = allItems.reduce(
@@ -712,7 +714,87 @@ export async function recordSchedulePayment(
   });
 }
 
-// ── GST Calculation Helper ─────────────────────────────────
+/**
+ * Waive an installment — the write-off path for negotiated discounts,
+ * goodwill releases, or amounts a sale agreement was restructured out of.
+ *
+ *   - Pre-completion: no JE needed — the tranche was never posted (AR is
+ *     booked at completion, not on schedule rows).
+ *   - Completed sale: the AR already carries this balance → Dr Bad Debts
+ *     / Cr AR so the receivable ledger agrees with the schedule.
+ *
+ * Waived items are excluded from the sale's collectible total so the sale
+ * can still reach PAID. Partially-paid items refuse — refund or collect
+ * the paid portion first (keeps the WAIVED⇒zero-paid invariant).
+ */
+export async function waiveScheduleItem(
+  scheduleItemId: string,
+  reason?: string,
+  userId?: string,
+) {
+  return withSerializableTransaction(async (tx) => {
+    const item = await tx.paymentScheduleItem.findUnique({
+      where: { id: scheduleItemId },
+      include: { paymentSchedule: { include: { assetSale: true } } },
+    });
+    if (!item || !item.paymentSchedule?.assetSale) throw new ServiceError("Schedule item not found", 404);
+    const sale = item.paymentSchedule.assetSale;
+    if (sale.status === "CANCELLED") throw new ServiceError("Cannot waive on a cancelled sale", 409);
+    if (item.status === "PAID") throw new ServiceError("Cannot waive a paid installment", 409);
+    if (item.status === "WAIVED") throw new ServiceError("Installment already waived", 409);
+    if (new Decimal(item.paidAmount).gt(0.01)) {
+      throw new ServiceError("Installment is partially paid — collect or refund the paid portion first", 409);
+    }
+    const balance = new Decimal(item.totalAmount);
+
+    await tx.paymentScheduleItem.update({
+      where: { id: scheduleItemId },
+      data: { status: "WAIVED" },
+    });
+
+    if (sale.saleStage === "COMPLETED" && balance.gt(0)) {
+      await postBadDebtWriteOff(tx, {
+        companyId: sale.companyId,
+        assetSaleId: sale.id,
+        amount: balance,
+        memo: `Waived installment #${item.installmentNo} (${item.description}) — ${reason ?? "management waiver"}`,
+        postedById: userId,
+      });
+    }
+
+    // Recompute sale payment status excluding the waived tranche
+    const allItems = await tx.paymentScheduleItem.findMany({
+      where: { paymentScheduleId: item.paymentScheduleId },
+      select: { status: true, totalAmount: true, paidAmount: true },
+    });
+    const collectible = allItems.reduce(
+      (sum, i) => (i.status === "WAIVED" ? sum : sum.plus(new Decimal(i.totalAmount))),
+      new Decimal(0),
+    );
+    const totalPaid = allItems.reduce(
+      (sum, i) => sum.plus(new Decimal(i.paidAmount)),
+      new Decimal(0),
+    );
+    const salePaymentStatus = collectible.gt(0) && totalPaid.gte(collectible) ? "PAID" : totalPaid.gt(0) ? "PARTIAL" : "PENDING";
+    await tx.assetSale.update({
+      where: { id: sale.id },
+      data: { paymentStatus: salePaymentStatus },
+    });
+
+    if (userId) {
+      await logAction(tx, {
+        userId,
+        companyId: sale.companyId,
+        action: "SCHEDULE_ITEM_WAIVE",
+        entityType: "PaymentScheduleItem",
+        entityId: scheduleItemId,
+        after: { waivedAmount: balance.toString(), reason: reason ?? null, salePaymentStatus },
+      });
+    }
+
+    return { waivedAmount: balance.toNumber(), salePaymentStatus };
+  });
+}
 
 /**
  * Compute GST for a real estate sale based on project type.

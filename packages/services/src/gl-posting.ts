@@ -80,6 +80,7 @@ export const CHART_OF_ACCOUNTS = [
   { code: "6200", name: "Brokerage & Commission Expense", type: "EXPENSE" as const },
   { code: "6300", name: "Loss on Asset Disposal", type: "EXPENSE" as const },
   { code: "6400", name: "Depreciation Expense", type: "EXPENSE" as const },
+  { code: "6450", name: "Bad Debts Written Off", type: "EXPENSE" as const },
 ];
 
 /** Account code constants — used by posting functions so codes are typo-proof. */
@@ -119,6 +120,7 @@ export const ACCT = {
   ROUND_OFF: "4300",
   GAIN_ON_DISPOSAL: "4400",
   INTEREST_INCOME: "4450",
+  BAD_DEBTS: "6450",
   COGS: "5000",
   PPV: "5100",
   INVENTORY_SHRINKAGE: "5500",
@@ -780,6 +782,33 @@ export async function postLateInterestReceived(
       ...(gstLeg.gt(0)
         ? [{ accountCode: ACCT.OUTPUT_GST, debit: 0 as const, credit: gstLeg, entityType: "AssetSale" as const, entityId: opts.assetSaleId, memo: "GST on delayed-payment interest" }]
         : []),
+    ],
+  });
+}
+
+/**
+ * Waived installment on a COMPLETED sale — the AR was booked at completion,
+ * so the write-off must close the receivable leg: Dr Bad Debts / Cr AR.
+ */
+export async function postBadDebtWriteOff(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    assetSaleId: string;
+    amount: Decimal;
+    memo?: string;
+    postedById?: string;
+  },
+) {
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "ASSET_SALE",
+    sourceId: opts.assetSaleId,
+    memo: opts.memo ?? "Installment waived — bad debt write-off",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.BAD_DEBTS, debit: opts.amount, credit: 0, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Installment waived" },
+      { accountCode: ACCT.AR, debit: 0, credit: opts.amount, entityType: "AssetSale", entityId: opts.assetSaleId, memo: "Receivable released" },
     ],
   });
 }

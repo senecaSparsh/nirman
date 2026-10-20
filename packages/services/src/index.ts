@@ -1142,6 +1142,7 @@ export {
   generatePaymentSchedule,
   checkMilestonePayments,
   recordSchedulePayment,
+  waiveScheduleItem,
   sendPaymentDueReminders,
   computeRealEstateGst,
   type LeadSource,
