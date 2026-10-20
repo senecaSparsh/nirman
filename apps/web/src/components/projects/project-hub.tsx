@@ -384,8 +384,27 @@ export function ProjectHub({
                     <span className={w.status === "VOID" ? "line-through opacity-60" : ""}>
                       #{w.withdrawalNo} {formatCurrency(w.amount)} — {w.purpose}
                     </span>
-                    <span className="shrink-0 text-xs">
+                    <span className="flex shrink-0 items-center gap-2 text-xs">
                       {w.engineerName} · {w.architectName} · {w.caName}{w.certificateUrl ? " 📄" : ""}
+                      {w.status !== "VOID" && (
+                        <button
+                          type="button"
+                          className="text-destructive hover:underline"
+                          onClick={async () => {
+                            const reason = window.prompt("Reason for voiding withdrawal #" + w.withdrawalNo);
+                            if (!reason) return;
+                            const res = await fetch(`/api/projects/${project.id}/escrow-withdrawal`, {
+                              method: "DELETE",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ withdrawalId: w.id, voidReason: reason }),
+                            });
+                            if (res.ok) { toast.success("Withdrawal voided — ledger reversed"); router.refresh(); }
+                            else { const d = await res.json().catch(() => ({})); toast.error(d.error ?? "Failed to void"); }
+                          }}
+                        >
+                          void
+                        </button>
+                      )}
                     </span>
                   </div>
                 ))}
