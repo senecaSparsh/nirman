@@ -17,7 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Label, Select } from "@/components/ui/input";
+import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { SelectWithCreate } from "@/components/ui/select-with-create";
 import { DepartmentFormDialog } from "@/components/materials/department-form-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -2809,40 +2809,41 @@ function ResourcesTab({ employee, canManage }: { employee: EmployeeProfileData; 
       {showIssue && <IssueResourceDialog employeeId={employee.id} onClose={() => setShowIssue(false)} onIssued={() => { setShowIssue(false); router.refresh(); }} />}
 
       {/* Return dialog */}
-      {returning && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => !submitting && setReturning(null)}>
-          <div className="bg-card rounded-lg shadow-lg max-w-sm w-full p-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-title font-bold mb-3">Return Resource</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="text-meta text-muted-foreground">Condition at return</label>
-                <select className="w-full mt-1 h-9 rounded-[0.375rem] border px-2 text-body" style={{ borderColor: "var(--border)" }} value={returnCondition} onChange={(e) => setReturnCondition(e.target.value)}>
-                  <option value="">— Select —</option>
-                  <option value="NEW">New</option>
-                  <option value="GOOD">Good</option>
-                  <option value="FAIR">Fair</option>
-                  <option value="DAMAGED">Damaged</option>
-                  <option value="LOST">Lost</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-meta text-muted-foreground">Return notes</label>
-                <textarea className="w-full mt-1 rounded-[0.375rem] border p-2 text-body" rows={2} style={{ borderColor: "var(--border)" }} value={returnNotes} onChange={(e) => setReturnNotes(e.target.value)} />
-              </div>
-              <label className="flex items-center gap-2 text-body">
-                <input type="checkbox" checked={depositRefunded} onChange={(e) => setDepositRefunded(e.target.checked)} className="accent-brand-strong" />
-                Security deposit refunded
-              </label>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setReturning(null)} disabled={submitting} className="flex-1">Cancel</Button>
-                <Button size="sm" onClick={() => handleReturn(returning)} disabled={submitting} className="flex-1">
-                  {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Confirm Return
-                </Button>
-              </div>
-            </div>
+      <Dialog
+        open={returning != null}
+        onOpenChange={(o) => !o && !submitting && setReturning(null)}
+        title="Return Resource"
+        description="Record the condition and deposit status for this returned resource."
+        size="sm"
+      >
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Condition at return</Label>
+            <Select value={returnCondition} onChange={(e) => setReturnCondition(e.target.value)}>
+              <option value="">— Select —</option>
+              <option value="NEW">New</option>
+              <option value="GOOD">Good</option>
+              <option value="FAIR">Fair</option>
+              <option value="DAMAGED">Damaged</option>
+              <option value="LOST">Lost</option>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Return notes</Label>
+            <Textarea rows={2} value={returnNotes} onChange={(e) => setReturnNotes(e.target.value)} />
+          </div>
+          <label className="flex items-center gap-2 text-body">
+            <input type="checkbox" checked={depositRefunded} onChange={(e) => setDepositRefunded(e.target.checked)} className="accent-brand-strong" />
+            Security deposit refunded
+          </label>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" size="sm" onClick={() => setReturning(null)} disabled={submitting} className="flex-1">Cancel</Button>
+            <Button size="sm" onClick={() => returning && handleReturn(returning)} disabled={submitting} className="flex-1">
+              {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />} Confirm Return
+            </Button>
           </div>
         </div>
-      )}
+      </Dialog>
     </div>
   );
 }
@@ -2892,69 +2893,71 @@ function IssueResourceDialog({ employeeId, onClose, onIssued }: { employeeId: st
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => !submitting && onClose()}>
-      <div className="bg-card rounded-lg shadow-lg max-w-md w-full p-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-title font-bold mb-3">Issue Resource</h3>
-        <div className="space-y-3">
-          <div>
-            <label className="text-meta text-muted-foreground">Resource name *</label>
-            <input className="w-full mt-1 h-9 rounded-[0.375rem] border px-2 text-body" style={{ borderColor: "var(--border)" }} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Dell Latitude Laptop" />
+    <Dialog
+      open
+      onOpenChange={(o) => !o && !submitting && onClose()}
+      title="Issue Resource"
+      description="Assign company equipment, uniforms, or keys to this employee."
+    >
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <Label required>Resource name</Label>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Dell Latitude Laptop" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>Category</Label>
+            <Select value={category} onChange={(e) => setCategory(e.target.value)}>
+              {Object.entries(RESOURCE_CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            </Select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-meta text-muted-foreground">Category</label>
-              <select className="w-full mt-1 h-9 rounded-[0.375rem] border px-2 text-body" style={{ borderColor: "var(--border)" }} value={category} onChange={(e) => setCategory(e.target.value)}>
-                {Object.entries(RESOURCE_CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-meta text-muted-foreground">Quantity</label>
-              <input type="number" min={1} className="w-full mt-1 h-9 rounded-[0.375rem] border px-2 text-body" style={{ borderColor: "var(--border)" }} value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-meta text-muted-foreground">Asset tag</label>
-              <input className="w-full mt-1 h-9 rounded-[0.375rem] border px-2 text-body" style={{ borderColor: "var(--border)" }} value={assetTag} onChange={(e) => setAssetTag(e.target.value)} placeholder="QR / tag" />
-            </div>
-            <div>
-              <label className="text-meta text-muted-foreground">Serial number</label>
-              <input className="w-full mt-1 h-9 rounded-[0.375rem] border px-2 text-body" style={{ borderColor: "var(--border)" }} value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-meta text-muted-foreground">Expected return</label>
-              <input type="date" className="w-full mt-1 h-9 rounded-[0.375rem] border px-2 text-body" style={{ borderColor: "var(--border)" }} value={expectedReturnAt} onChange={(e) => setExpectedReturnAt(e.target.value)} />
-            </div>
-            <div>
-              <label className="text-meta text-muted-foreground">Condition at issue</label>
-              <select className="w-full mt-1 h-9 rounded-[0.375rem] border px-2 text-body" style={{ borderColor: "var(--border)" }} value={conditionAtIssue} onChange={(e) => setConditionAtIssue(e.target.value)}>
-                <option value="">—</option>
-                <option value="NEW">New</option>
-                <option value="GOOD">Good</option>
-                <option value="FAIR">Fair</option>
-                <option value="DAMAGED">Damaged</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="text-meta text-muted-foreground">Security deposit (₹)</label>
-            <input type="number" min={0} className="w-full mt-1 h-9 rounded-[0.375rem] border px-2 text-body" style={{ borderColor: "var(--border)" }} value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} placeholder="0" />
-          </div>
-          <div>
-            <label className="text-meta text-muted-foreground">Notes</label>
-            <textarea className="w-full mt-1 rounded-[0.375rem] border p-2 text-body" rows={2} style={{ borderColor: "var(--border)" }} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any additional notes" />
-          </div>
-          <div className="flex gap-2 pt-1">
-            <Button variant="outline" size="sm" onClick={onClose} disabled={submitting} className="flex-1">Cancel</Button>
-            <Button size="sm" onClick={handleSubmit} disabled={submitting} className="flex-1">
-              {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} Issue
-            </Button>
+          <div className="space-y-1.5">
+            <Label>Quantity</Label>
+            <Input type="number" min={1} value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} />
           </div>
         </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>Asset tag</Label>
+            <Input value={assetTag} onChange={(e) => setAssetTag(e.target.value)} placeholder="QR / tag" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Serial number</Label>
+            <Input value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>Expected return</Label>
+            <Input type="date" value={expectedReturnAt} onChange={(e) => setExpectedReturnAt(e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Condition at issue</Label>
+            <Select value={conditionAtIssue} onChange={(e) => setConditionAtIssue(e.target.value)}>
+              <option value="">—</option>
+              <option value="NEW">New</option>
+              <option value="GOOD">Good</option>
+              <option value="FAIR">Fair</option>
+              <option value="DAMAGED">Damaged</option>
+            </Select>
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Security deposit (₹)</Label>
+          <Input type="number" min={0} value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} placeholder="0" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Notes</Label>
+          <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any additional notes" />
+        </div>
+        <div className="flex gap-2 pt-2">
+          <Button variant="outline" size="sm" onClick={onClose} disabled={submitting} className="flex-1">Cancel</Button>
+          <Button size="sm" onClick={handleSubmit} disabled={submitting} className="flex-1">
+            {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} Issue
+          </Button>
+        </div>
       </div>
-    </div>
+    </Dialog>
   );
 }
 
@@ -3002,46 +3005,44 @@ function AddToCompanyButton({ employeeId, companies }: { employeeId: string; com
       >
         <Plus className="h-3.5 w-3.5" /> Add to Company
       </button>
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => !adding && setOpen(false)}>
-          <div className="bg-card rounded-lg shadow-lg max-w-sm w-full p-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-title font-bold mb-1">Add to Company</h3>
-            <p className="text-body text-muted-foreground mb-3">
-              Select a company to add this employee to. Their personal data will be copied; you&apos;ll complete onboarding for the new company.
-            </p>
-            <div className="space-y-1.5 mb-3">
-              {companies.map((c) => (
-                <label
-                  key={c.id}
-                  className={`flex items-center gap-2 p-2 rounded-[0.375rem] border cursor-pointer transition-colors ${targetId === c.id ? "border-brand-strong bg-brand-wash" : "border-border hover:bg-muted/50"}`}
-                >
-                  <input
-                    type="radio"
-                    name="targetCompany"
-                    value={c.id}
-                    checked={targetId === c.id}
-                    onChange={(e) => setTargetId(e.target.value)}
-                    className="accent-brand-strong"
-                  />
-                  <span className="text-body font-medium">{c.name}</span>
-                  {c.parentCompanyId === null && (
-                    <span className="text-meta px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">Parent</span>
-                  )}
-                </label>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setOpen(false)} disabled={adding} className="flex-1">
-                Cancel
-              </Button>
-              <Button size="sm" onClick={handleAdd} disabled={adding || !targetId} className="flex-1">
-                {adding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                Add & Onboard
-              </Button>
-            </div>
-          </div>
+      <Dialog
+        open={open}
+        onOpenChange={(o) => !o && !adding && setOpen(false)}
+        title="Add to Company"
+        description="Select a company to add this employee to. Their personal data will be copied; you'll complete onboarding for the new company."
+        size="sm"
+      >
+        <div className="space-y-1.5 mb-3">
+          {companies.map((c) => (
+            <label
+              key={c.id}
+              className={`flex items-center gap-2 p-2.5 rounded-md border cursor-pointer transition-colors ${targetId === c.id ? "border-brand bg-brand-soft/40" : "border-border hover:bg-muted/50"}`}
+            >
+              <input
+                type="radio"
+                name="targetCompany"
+                value={c.id}
+                checked={targetId === c.id}
+                onChange={(e) => setTargetId(e.target.value)}
+                className="accent-brand-strong"
+              />
+              <span className="text-body font-medium">{c.name}</span>
+              {c.parentCompanyId === null && (
+                <span className="ml-auto text-micro px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">Parent</span>
+              )}
+            </label>
+          ))}
         </div>
-      )}
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setOpen(false)} disabled={adding} className="flex-1">
+            Cancel
+          </Button>
+          <Button size="sm" onClick={handleAdd} disabled={adding || !targetId} className="flex-1">
+            {adding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+            Add &amp; Onboard
+          </Button>
+        </div>
+      </Dialog>
     </>
   );
 }
@@ -3499,6 +3500,7 @@ function TerminateDialog({
 }) {
   const router = useRouter();
   const [reason, setReason] = useState("Terminated by admin");
+  const [settlement, setSettlement] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function handleTerminate() {
@@ -3507,7 +3509,10 @@ function TerminateDialog({
       const res = await fetch(`/api/employees/${employeeId}/terminate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reason }),
+        body: JSON.stringify({
+          reason,
+          ...(settlement.trim() ? { finalSettlementAmount: Number(settlement) } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to terminate");
@@ -3537,7 +3542,18 @@ function TerminateDialog({
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             className="w-full rounded-md border border-border bg-card px-3 py-2 text-body text-foreground outline-none focus:border-primary"
-            placeholder="Termination reason"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-label font-medium text-foreground">Final settlement paid (₹, optional)</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            value={settlement}
+            onChange={(e) => setSettlement(e.target.value)}
+            placeholder="Leave blank if settling later"
+            className="w-full rounded-md border border-border bg-card px-3 py-2 text-body text-foreground outline-none focus:border-primary"
           />
         </div>
         <div className="flex justify-end gap-2 pt-2">

@@ -860,6 +860,7 @@ export {
   assignPhoneToEmployee,
   unlinkEmployeePhone,
   terminateEmployee,
+  settleEmployeeExit,
   restoreEmployee,
   syncEmployeeUser,
   checkPhoneAvailability,

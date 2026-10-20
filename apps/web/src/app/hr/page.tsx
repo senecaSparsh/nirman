@@ -15,6 +15,8 @@ import type { OrgTreeData } from "@/lib/org-hierarchy-types";
 import { buildOrgTree } from "@/lib/org-tree-builder";
 import { NoAccess } from "@/components/no-access";
 import { DepartmentActivityFeed } from "@/components/department-activity-feed";
+import { SettleExitButton } from "@/components/hr/settle-exit-button";
+import { formatCurrency } from "@/lib/utils";
 
 export default function HrDashboardPage() {
   return (
@@ -152,15 +154,16 @@ async function HrDashboardContent() {
   const attendanceRate = todayAttendance > 0 ? (presentToday / todayAttendance) * 100 : 0;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <PageHeader
         title="HR Dashboard"
         description="Daily workforce overview — attendance, pending approvals, and payroll status."
         stats={[
           { label: "Employees", value: employeeCount, hint: "Total employees on record, including inactive ones (soft-deleted excluded)." },
-          { label: "Present today", value: presentToday, hint: "Workers marked PRESENT or OVERTIME in today's attendance." },
+          { label: "Present today", value: presentToday, tone: presentToday > 0 ? "success" : "muted", hint: "Workers marked PRESENT or OVERTIME in today's attendance." },
           { label: "Crews", value: crewCount, hint: "Active worker crews currently registered." },
         ]}
+        action={<RefreshButton />}
       />
       <DepartmentActivityFeed department="hr" />
       {cappedLabels.length > 0 && (
@@ -168,9 +171,6 @@ async function HrDashboardContent() {
           {`Showing only the most recent records for ${cappedLabels.join(", ")} — derived stats below are computed from that subset; older entries are still in the database.`}
         </Hint>
       )}
-      <div className="flex justify-end">
-        <RefreshButton />
-      </div>
 
       <HrDashboard
         employeeCount={employeeCount}
@@ -207,6 +207,61 @@ async function HrDashboardContent() {
 
       {/* ── Organization tree — reporting line + scope assignments ── */}
       <OrgHierarchyDesktop tree={orgTree} />
+
+      {/* ── Exits & settlements — terminated staff otherwise vanish; a
+          PENDING full-and-final is a payable nobody can see or pay. ── */}
+      {canSeePayroll && <ExitsPanel companyId={company.id} canManage={__effPerms.includes(PERM.HR_MANAGE)} />}
+    </div>
+  );
+}
+
+async function ExitsPanel({ companyId, canManage }: { companyId: string; canManage: boolean }) {
+  const exits = await prisma.employeeExit.findMany({
+    where: { companyId },
+    orderBy: { terminationDate: "desc" },
+    take: 50,
+  });
+  if (exits.length === 0) return null;
+  // EmployeeExit stores employeeId as a plain FK string (soft-deleted rows
+  // can't hold a live relation) — resolve names separately.
+  const employees = await prisma.employee.findMany({
+    where: { id: { in: exits.map((x) => x.employeeId) } },
+    select: { id: true, name: true },
+  });
+  const employeeById = new Map(employees.map((e) => [e.id, e]));
+  return (
+    <div className="mt-6 rounded-lg border border-border bg-card p-4">
+      <h3 className="text-body font-semibold text-foreground">Exits &amp; Full-and-Final Settlements</h3>
+      <div className="mt-3 divide-y divide-border">
+        {exits.map((x) => (
+          <div key={x.id} className="flex items-center justify-between gap-3 py-2">
+            <div className="min-w-0">
+              <p className="text-body font-medium text-foreground">
+                {employeeById.get(x.employeeId)?.name ?? "Former employee"}
+              </p>
+              <p className="text-caption text-muted-foreground">
+                Exited {x.terminationDate.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}
+                {x.terminationReason ? ` · ${x.terminationReason}` : ""}
+                {(x.pfExitFiled === false || x.esiExitFiled === false) && <span className="ml-1.5 text-warning">statutory filing pending</span>}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {x.finalSettlementAmount != null ? (
+                <span className="tnum text-body">{formatCurrency(toNum(x.finalSettlementAmount))}</span>
+              ) : (
+                <span className="text-caption text-muted-foreground">Amount TBD</span>
+              )}
+              {x.finalSettlementStatus === "COMPLETED" ? (
+                <span className="rounded bg-emerald-50 px-2 py-0.5 text-micro font-medium text-emerald-700">Settled</span>
+              ) : canManage ? (
+                <SettleExitButton employeeId={x.employeeId} suggestedAmount={x.finalSettlementAmount ? toNum(x.finalSettlementAmount) : null} />
+              ) : (
+                <span className="rounded bg-amber-50 px-2 py-0.5 text-micro font-medium text-amber-700">Pending</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

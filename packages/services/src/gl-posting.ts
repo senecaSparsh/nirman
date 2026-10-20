@@ -1678,6 +1678,61 @@ export async function postPayrollPayment(
 }
 
 /**
+ * Full-and-final accrual — an employee's exit settlement is booked the moment
+ * it's agreed, even before the money moves: Dr Salaries & Wages (the cost is
+ * labour, whether or not it went through a payroll period) / Cr Salaries
+ * Payable. Settlement clears 2200 against Cash.
+ */
+export async function postFinalSettlementAccrual(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    employeeId: string;
+    amount: Decimal;
+    memo?: string;
+    postedById?: string;
+  },
+) {
+  if (opts.amount.lte(0)) return null;
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "EMPLOYEE_EXIT",
+    sourceId: opts.employeeId,
+    memo: opts.memo ?? "Full-and-final settlement accrued",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.SALARIES_EXPENSE, debit: opts.amount, credit: 0, entityType: "Employee", entityId: opts.employeeId, memo: "Final settlement cost" },
+      { accountCode: ACCT.SALARIES_PAYABLE, debit: 0, credit: opts.amount, entityType: "Employee", entityId: opts.employeeId, memo: "Settlement payable" },
+    ],
+  });
+}
+
+/** Cash leg of the F&F: Dr Salaries Payable / Cr Cash. */
+export async function postFinalSettlementPayment(
+  tx: Prisma.TransactionClient,
+  opts: {
+    companyId: string;
+    employeeId: string;
+    amount: Decimal;
+    memo?: string;
+    postedById?: string;
+  },
+) {
+  if (opts.amount.lte(0)) return null;
+  return postJournalEntry(tx, {
+    companyId: opts.companyId,
+    sourceType: "EMPLOYEE_EXIT",
+    sourceId: opts.employeeId,
+    memo: opts.memo ?? "Full-and-final settlement paid",
+    postedById: opts.postedById,
+    lines: [
+      { accountCode: ACCT.SALARIES_PAYABLE, debit: opts.amount, credit: 0, entityType: "Employee", entityId: opts.employeeId, memo: "Settlement cleared" },
+      { accountCode: ACCT.CASH, debit: 0, credit: opts.amount, entityType: "Employee", entityId: opts.employeeId, memo: "Settlement paid" },
+    ],
+  });
+}
+
+/**
  * Direct Purchase: capitalise materials into inventory, recognise input GST,
  * and credit Accounts Payable — same double-entry as a PO receipt but without
  * a formal PurchaseOrder. Used by the express/local purchase flow.

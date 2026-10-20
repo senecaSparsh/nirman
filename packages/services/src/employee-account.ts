@@ -1,6 +1,7 @@
 import { prisma, type Prisma } from "@nirman/db";
 import Decimal from "decimal.js";
 import { logAction } from "./audit";
+import { postFinalSettlementAccrual, postFinalSettlementPayment } from "./gl-posting";
 import { withSerializableTransaction } from "./transaction";
 import { assertEmployeeCodeAvailable } from "./sequence";
 import { assertScopeAllowedForRoles, assertScopeWithinActor, validateScopeEntries } from "./rbac";
@@ -935,6 +936,27 @@ export async function terminateEmployee(input: TerminateEmployeeInput) {
         esiExitFiled: input.esiExitFiled ?? null,
       },
     });
+
+    // 5. Book the settlement — a cash/payable amount without a JE was a
+    //    silent books leak: PENDING accrues the obligation, COMPLETED
+    //    (paid-at-exit) also clears it against cash.
+    const settlementAmt = new Decimal(input.finalSettlementAmount ?? 0);
+    if (settlementAmt.gt(0)) {
+      await postFinalSettlementAccrual(tx, {
+        companyId: input.companyId,
+        employeeId: input.employeeId,
+        amount: settlementAmt,
+        postedById: input.actorUserId,
+      });
+      if (input.finalSettlementAmount != null) {
+        await postFinalSettlementPayment(tx, {
+          companyId: input.companyId,
+          employeeId: input.employeeId,
+          amount: settlementAmt,
+          postedById: input.actorUserId,
+        });
+      }
+    }
 
     // Surface the outstanding salary advance — a worker leaving with an
     // unrecovered advance can never repay it via payroll deduction (there are
@@ -2206,5 +2228,65 @@ export async function restoreEmployee(input: {
     });
 
     return { employeeId: input.employeeId, userId: employee.userId };
+  });
+}
+
+/**
+ * Settle a PENDING full-and-final — the exit record was created without a
+ * settlement amount (or before it was agreed). Records the amount, accrues
+ * it if it was never booked, pays it, and closes the exit row.
+ */
+export async function settleEmployeeExit(input: {
+  employeeId: string;
+  companyId: string;
+  amount: number;
+  actorUserId: string;
+}) {
+  const amount = new Decimal(input.amount);
+  if (amount.lte(0)) throw new HrError("Settlement amount must be positive", 400);
+
+  return withSerializableTransaction(async (tx) => {
+    const exit = await tx.employeeExit.findUnique({
+      where: { employeeId: input.employeeId },
+    });
+    if (!exit || exit.companyId !== input.companyId) throw new HrError("Exit record not found", 404);
+    if (exit.finalSettlementStatus === "COMPLETED") throw new HrError("Settlement already completed", 409);
+
+    const booked = new Decimal(exit.finalSettlementAmount ?? 0);
+    // Accrue only the unbooked delta — the amount given at termination was
+    // already booked as a payable there; re-accruing would double-count.
+    const unbooked = amount.minus(booked);
+    if (unbooked.gt(0)) {
+      await postFinalSettlementAccrual(tx, {
+        companyId: input.companyId,
+        employeeId: input.employeeId,
+        amount: unbooked,
+        postedById: input.actorUserId,
+      });
+    }
+    await postFinalSettlementPayment(tx, {
+      companyId: input.companyId,
+      employeeId: input.employeeId,
+      amount,
+      postedById: input.actorUserId,
+    });
+
+    const updated = await tx.employeeExit.update({
+      where: { employeeId: input.employeeId },
+      data: {
+        finalSettlementAmount: amount.toString(),
+        finalSettlementDate: new Date(),
+        finalSettlementStatus: "COMPLETED",
+      },
+    });
+    await logAction(tx, {
+      userId: input.actorUserId,
+      companyId: input.companyId,
+      action: "EMPLOYEE_EXIT_SETTLE",
+      entityType: "Employee",
+      entityId: input.employeeId,
+      after: { settledAmount: amount.toString() },
+    });
+    return updated;
   });
 }
