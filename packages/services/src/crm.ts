@@ -894,10 +894,12 @@ export async function sendPaymentDueReminders(companyId?: string) {
     ? await prisma.company.findUnique({ where: { id: companyId }, select: { upiId: true, name: true } })
     : null;
 
-  // Find all DUE schedule items with a due date <= now+3 days (upcoming or overdue)
+  // Find all due schedule items with a due date <= now+3 days (upcoming or
+  // overdue). PARTIAL items are still collectible — a half-paid installment
+  // past its date needs the reminder just as much.
   const dueItems = await prisma.paymentScheduleItem.findMany({
     where: {
-      status: "DUE",
+      status: { in: ["DUE", "PARTIAL"] },
       dueDate: { lte: new Date(now.getTime() + 3 * 86400000) },
       paymentSchedule: {
         assetSale: {
