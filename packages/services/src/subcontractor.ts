@@ -531,7 +531,28 @@ export async function createRaBill(input: CreateRaBillInput) {
     const retentionAmount = grossAmount.times(retentionPct).div(100).toDecimalPlaces(2);
 
     const tdsPct = new Decimal(wo.tdsPct);
-    const tdsAmount = grossAmount.times(tdsPct).div(100).toDecimalPlaces(2);
+    // Section 194C thresholds: TDS applies only when the single bill exceeds
+    // ₹30,000 OR cumulative payments to the contractor this FY exceed ₹1,00,000
+    // — a ₹1,000 running bill must not silently lose 2%. The annual aggregate
+    // is per-CONTRACTOR across all their work orders this FY (Apr 1 → Mar 31),
+    // not just this WO — splitting one contractor across two WOs can't duck TDS.
+    const SINGLE_BILL_TDS_LIMIT = new Decimal(30000);
+    const ANNUAL_TDS_LIMIT = new Decimal(100000);
+    const billNow = new Date();
+    const fyStart = new Date(Date.UTC(billNow.getUTCFullYear() - (billNow.getUTCMonth() < 3 ? 1 : 0), 3, 1));
+    const contractorFyBills = await tx.raBill.aggregate({
+      where: {
+        workOrder: { subcontractorId: wo.subcontractorId },
+        billDate: { gte: fyStart },
+        status: { in: ["DRAFT", "SUBMITTED", "APPROVED", "PAID"] },
+      },
+      _sum: { grossAmount: true },
+    });
+    const contractorFyGross = new Decimal(contractorFyBills._sum.grossAmount ?? 0).plus(grossAmount);
+    const tdsApplicable = grossAmount.gt(SINGLE_BILL_TDS_LIMIT) || contractorFyGross.gt(ANNUAL_TDS_LIMIT);
+    const tdsAmount = tdsApplicable
+      ? grossAmount.times(tdsPct).div(100).toDecimalPlaces(2)
+      : new Decimal(0);
 
     // Advance recovery: recover advanceRecoveryPct of grossAmount, capped at the
     // remaining outstanding advance. The outstanding advance = total advance paid
