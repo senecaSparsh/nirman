@@ -103,6 +103,7 @@ async function CommandCenterContent() {
     pendingExpenses,
     pendingClaims,
     pendingRaBills,
+    overdueInstallments,
   ] = await Promise.all([
     isDevBypass ? null : prisma.user.findUnique({
       where: { id: userId },
@@ -208,6 +209,23 @@ async function CommandCenterContent() {
           where: { ...await scopeWhere("RaBill"), companyId: company.id, status: "SUBMITTED", createdById: { not: userId }, submittedById: { not: userId } },
           orderBy: { createdAt: "desc" }, take: 5,
           include: { project: { select: { name: true } }, workOrder: { select: { workOrderNumber: true } } }})
+      : [],
+    // Past-due schedule items = the collections queue — a customer who owes
+    // money TODAY is far more urgent than a sales-balance aggregate.
+    canSeeSales
+      ? prisma.paymentScheduleItem.findMany({
+          where: {
+            status: { in: ["DUE", "PARTIAL"] },
+            dueDate: { lt: new Date() },
+            paymentSchedule: { assetSale: { companyId: company.id, status: { not: "CANCELLED" } } },
+          },
+          orderBy: { dueDate: "asc" },
+          take: 5,
+          include: {
+            paymentSchedule: {
+              include: { assetSale: { include: { customer: { select: { name: true } } } } },
+            },
+          }})
       : [],
   ]);
 
@@ -406,6 +424,17 @@ async function CommandCenterContent() {
     items: salesWithBalance.map((s) => {
       const totalPaid = s.payments.reduce((sum, p) => sum + toNum(p.amount), 0);
       return { label: s.customer.name, sub: `${formatCurrency(Math.max(0, toNum(s.salePrice) - toNum(s.tdsAmount) - totalPaid))} balance due` };
+    })});
+  // Overdue installments — past dueDate, still unpaid. Blocking urgency: every
+  // day late accrues interest AND ages the receivable.
+  if (overdueInstallments.length > 0) queues.push({
+    key: "overdue-installments", title: "Overdue installments",
+    consequence: "Demand payment — interest is accruing at 10.65% p.a.",
+    count: overdueInstallments.length, href: "/reports/pending-payments?tab=installments", cta: "Demand", urgency: "blocking", icon: "dollarSign",
+    items: overdueInstallments.map((i) => {
+      const balance = Math.max(0, toNum(i.totalAmount) - toNum(i.paidAmount));
+      const daysLate = Math.floor((now.getTime() - new Date(i.dueDate!).getTime()) / 86400000);
+      return { label: i.paymentSchedule.assetSale.customer.name, sub: `#${i.installmentNo} ${formatCurrency(balance)} · ${daysLate}d late`, href: `/sales/${i.paymentSchedule.assetSale.id}` };
     })});
   if (canManageStock && pendingStockCounts.length > 0) queues.push({
     key: "stock-count", title: "Stock inventories to process",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { AlertCircle, ArrowDownRight, ArrowUpRight, Clock, SearchX, Send, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -93,6 +94,12 @@ export function PendingPaymentsReport({
 }) {
   const [sending, setSending] = useState(false);
   const [demanding, setDemanding] = useState<string | null>(null);
+  // Deep-linkable tab — the dashboard's overdue-installments queue and any
+  // notification link land straight on the collections tab.
+  const searchParams = useSearchParams();
+  const initialTab = ["payables", "receivables", "installments", "drafts"].includes(searchParams.get("tab") ?? "")
+    ? searchParams.get("tab")!
+    : "payables";
   const hasData = overduePOs.length > 0 || receivables.length > 0 || draftPOs.length > 0 || installments.length > 0;
 
   async function sendReminders() {
@@ -465,7 +472,7 @@ export function PendingPaymentsReport({
         <AgingSummaryCard title="Receivable Aging" summary={receivableAging} variant="success" />
       </div>
 
-      <Tabs defaultValue="payables">
+      <Tabs defaultValue={initialTab}>
         <TabsList>
           <TabsTrigger value="payables" count={overduePOs.length}>Payables</TabsTrigger>
           <TabsTrigger value="receivables" count={receivables.length}>Receivables</TabsTrigger>
