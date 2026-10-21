@@ -122,6 +122,26 @@ export async function createMaterialSalePayment(input: {
       }
     }
 
+    // Double-submit guard — same sale + amount + mode + actor within 15s
+    // is a retried submit, not a genuinely separate collection (the UTR
+    // dedup above only fires when a reference was provided).
+    const recentDupe = await tx.materialSalePayment.findFirst({
+      where: {
+        saleId: input.saleId,
+        amount: new Decimal(input.amount),
+        paymentMode: input.paymentMode,
+        status: { not: "VOID" },
+        createdAt: { gte: new Date(Date.now() - 15_000) },
+      },
+      select: { id: true },
+    });
+    if (recentDupe) {
+      throw new ServiceError(
+        "An identical payment on this sale was recorded moments ago — if this is a genuinely separate collection, wait a few seconds and retry.",
+        409,
+      );
+    }
+
     // 2. Calculate total paid so far (IN payments only — OUT refunds are
     // money back to the customer, never collection credit; BOUNCED cheques
     // were never real money either)

@@ -902,6 +902,25 @@ export async function recordLandPurchasePayment(input: RecordLandPurchasePayment
     if (lp.purchaseStage === "COMPLETED") throw new ServiceError("Land purchase is already completed");
     if (lp.purchaseStage === "CANCELLED") throw new ServiceError("Cannot record payment on a cancelled purchase");
 
+    // Double-submit guard — a cash/NEFT payment carries no reference, so a
+    // UI double-click would post a duplicate JE. Same purchase + amount +
+    // mode + actor within 15s is a retry, not a second collection.
+    const recentDupe = await tx.landPurchasePayment.findFirst({
+      where: {
+        landPurchaseId: lp.id,
+        amount: new Decimal(input.amount),
+        status: { not: "VOID" },
+        createdAt: { gte: new Date(Date.now() - 15_000) },
+      },
+      select: { id: true },
+    });
+    if (recentDupe) {
+      throw new ServiceError(
+        "An identical payment on this purchase was recorded moments ago — if this is a genuinely separate payment, wait a few seconds and retry.",
+        409,
+      );
+    }
+
     // Duplicate-reference guard — same UTR/cheque across payments means the
     // same bank transaction booked twice.
     if (input.referenceNo) {

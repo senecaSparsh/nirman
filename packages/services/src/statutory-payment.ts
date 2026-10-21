@@ -85,6 +85,25 @@ export async function recordStatutoryPayment(input: {
   if (!amount.gt(0)) throw new ServiceError("Amount must be greater than zero", 400);
 
   return withSerializableTransaction(async (tx) => {
+    // A statutory challan is real money to the government — a double-submit
+    // posts a second JE with no natural duplicate key. Same kind + amount +
+    // actor within 15s is a retry, not a second payment.
+    const recentDupe = await tx.statutoryPayment.findFirst({
+      where: {
+        companyId: input.companyId,
+        kind: input.kind,
+        amount: new Decimal(input.amount),
+        createdAt: { gte: new Date(Date.now() - 15_000) },
+      },
+      select: { id: true },
+    });
+    if (recentDupe) {
+      throw new ServiceError(
+        "An identical statutory payment was recorded moments ago — if this is a genuinely separate payment, wait a few seconds and retry.",
+        409,
+      );
+    }
+
     const paymentDate = input.paymentDate ? new Date(input.paymentDate) : new Date();
 
     const lines: { accountCode: string; debit: Decimal; credit: Decimal; entityType: string; entityId?: string; memo: string }[] = [];
