@@ -96,6 +96,10 @@ export async function VendorsContent() {
       balanceOwed: toNum(s.balanceOwed),
       isMsme: s.isMsme,
       udyamNo: s.udyamNo,
+      bankName: s.bankName,
+      bankAccountNo: s.bankAccountNo,
+      bankIfsc: s.bankIfsc,
+      upiId: s.upiId,
       // Days since the oldest unpaid invoice — the 43B(h) 45-day clock.
       msmeDaysOutstanding: s.isMsme && oldestUnpaid.get(s.id)
         // eslint-disable-next-line react-hooks/purity -- server component, Date.now() is fine

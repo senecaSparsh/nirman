@@ -1717,6 +1717,12 @@ model Supplier {
   // beyond 45 days (15 without a written agreement) to an MSME supplier.
   isMsme      Boolean  @default(false)
   udyamNo     String?  // Udyam registration number — proof of MSME status
+  // Bank details — needed for NEFT/RTGS disbursement files and cheque
+  // reconciliation. Plain text, not secrets.
+  bankName    String?
+  bankAccountNo String?
+  bankIfsc    String?
+  upiId       String?
   leadTimeDays Int?    // average vendor lead time in days — LCI input (S_lead)
   // Optimistic locking — see Material.version comment
   version     Int      @default(0)

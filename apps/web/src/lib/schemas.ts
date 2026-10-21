@@ -124,6 +124,12 @@ export const supplierSchema = z.object({
   // MSME flag — Section 43B(h) makes >45-day dues to an MSME non-deductible.
   isMsme: z.boolean().optional(),
   udyamNo: z.string().max(30).optional().nullable(),
+  // Disbursement coordinates — needed for NEFT/RTGS payment runs and
+  // cheque reconciliation. Plain text, not secrets.
+  bankName: z.string().max(120).optional().nullable(),
+  bankAccountNo: z.string().max(30).optional().nullable(),
+  bankIfsc: z.string().max(15).optional().nullable(),
+  upiId: z.string().max(120).optional().nullable(),
   // Go-live payable — unpaid bills carried in from before the system.
   // Sets balanceOwed + posts Dr Opening Equity / Cr AP in the same tx so
   // the trial balance and the supplier ledger can't diverge.

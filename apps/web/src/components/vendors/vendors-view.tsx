@@ -30,6 +30,10 @@ export type VendorRow = {
   balanceOwed: number;
   isMsme: boolean;
   udyamNo: string | null;
+  bankName: string | null;
+  bankAccountNo: string | null;
+  bankIfsc: string | null;
+  upiId: string | null;
   msmeDaysOutstanding: number | null;
   leadTimeDays: number | null;
   totalPOs: number;
@@ -72,6 +76,10 @@ export function VendorsView({
   const [fOpeningBalance, setFOpeningBalance] = useState("");
   const [fIsMsme, setFIsMsme] = useState(false);
   const [fUdyamNo, setFUdyamNo] = useState("");
+  const [fBankName, setFBankName] = useState("");
+  const [fBankAccount, setFBankAccount] = useState("");
+  const [fBankIfsc, setFBankIfsc] = useState("");
+  const [fUpiId, setFUpiId] = useState("");
 
   // SupplierPaymentFormDialog speaks SupplierRow — map the vendor rows down.
   const supplierOptions = useMemo<SupplierRow[]>(
@@ -93,13 +101,13 @@ export function VendorsView({
 
   function openCreate() {
     setEditTarget(null);
-    setFName(""); setFGstin(""); setFPhone(""); setFEmail(""); setFAddress(""); setFLeadTime(""); setFOpeningBalance(""); setFIsMsme(false); setFUdyamNo("");
+    setFName(""); setFGstin(""); setFPhone(""); setFEmail(""); setFAddress(""); setFLeadTime(""); setFOpeningBalance(""); setFIsMsme(false); setFUdyamNo(""); setFBankName(""); setFBankAccount(""); setFBankIfsc(""); setFUpiId("");
     setFormOpen(true);
   }
 
   function openEdit(v: VendorRow) {
     setEditTarget(v);
-    setFName(v.name); setFGstin(v.gstin ?? ""); setFPhone(v.phone ?? ""); setFEmail(v.email ?? ""); setFAddress(v.address ?? ""); setFLeadTime(v.leadTimeDays != null ? String(v.leadTimeDays) : ""); setFOpeningBalance(""); setFIsMsme(v.isMsme); setFUdyamNo(v.udyamNo ?? "");
+    setFName(v.name); setFGstin(v.gstin ?? ""); setFPhone(v.phone ?? ""); setFEmail(v.email ?? ""); setFAddress(v.address ?? ""); setFLeadTime(v.leadTimeDays != null ? String(v.leadTimeDays) : ""); setFOpeningBalance(""); setFIsMsme(v.isMsme); setFUdyamNo(v.udyamNo ?? ""); setFBankName(v.bankName ?? ""); setFBankAccount(v.bankAccountNo ?? ""); setFBankIfsc(v.bankIfsc ?? ""); setFUpiId(v.upiId ?? "");
     setFormOpen(true);
   }
 
@@ -116,6 +124,10 @@ export function VendorsView({
         leadTimeDays: fLeadTime ? Number(fLeadTime) : null,
         isMsme: fIsMsme,
         udyamNo: fUdyamNo.trim() || null,
+        bankName: fBankName.trim() || null,
+        bankAccountNo: fBankAccount.trim() || null,
+        bankIfsc: fBankIfsc.trim() || null,
+        upiId: fUpiId.trim() || null,
         ...(fOpeningBalance && Number(fOpeningBalance) > 0 ? { openingBalance: Number(fOpeningBalance) } : {}),
       };
       const res = editTarget
@@ -455,6 +467,29 @@ export function VendorsView({
               <Input value={fUdyamNo} onChange={(e) => setFUdyamNo(e.target.value)} placeholder="UDYAM-XX-00-0000000" />
             </div>
           )}
+          <div className="rounded-md border border-border px-3 py-2 space-y-2">
+            <p className="text-xs font-medium text-foreground">Bank details — for NEFT/RTGS payment runs</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Bank name</Label>
+                <Input value={fBankName} onChange={(e) => setFBankName(e.target.value)} placeholder="HDFC Bank" />
+              </div>
+              <div>
+                <Label>IFSC</Label>
+                <Input value={fBankIfsc} onChange={(e) => setFBankIfsc(e.target.value.toUpperCase())} placeholder="HDFC0001234" maxLength={15} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Account number</Label>
+                <Input value={fBankAccount} onChange={(e) => setFBankAccount(e.target.value)} placeholder="50100XXXXXXX" className="tnum" />
+              </div>
+              <div>
+                <Label>UPI ID</Label>
+                <Input value={fUpiId} onChange={(e) => setFUpiId(e.target.value)} placeholder="vendor@bank" />
+              </div>
+            </div>
+          </div>
           <div>
             <Label>Address</Label>
             <Textarea value={fAddress} onChange={(e) => setFAddress(e.target.value)} rows={2} />

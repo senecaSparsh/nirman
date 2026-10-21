@@ -85,6 +85,10 @@ export const GET = apiHandler(async (req: NextRequest) => {
       leadTimeDays: s.leadTimeDays,
       isMsme: s.isMsme,
       udyamNo: s.udyamNo,
+      bankName: s.bankName,
+      bankAccountNo: s.bankAccountNo,
+      bankIfsc: s.bankIfsc,
+      upiId: s.upiId,
     })),
   );
 });

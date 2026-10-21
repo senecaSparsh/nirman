@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatusPill } from "@/components/page";
+import { Dialog } from "@/components/ui/dialog";
+import { Select, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/empty-state";
 import { formatCurrency, formatDate, cn, toNum} from "@/lib/utils";
 
@@ -23,6 +25,11 @@ export interface AgingSummary {
 
 export type OverduePORow = {
   id: string;
+  /** Supplier-backed rows only — PO payables + supplier opening dues.
+   *  RA bills pay subcontractors and claims pay employees through their
+   *  own surfaces, so they don't carry it. */
+  supplierId?: string;
+  purchaseOrderId?: string;
   poNumber: string;
   supplier: string;
   isMsme?: boolean;
@@ -95,6 +102,7 @@ export function PendingPaymentsReport({
   const [sending, setSending] = useState(false);
   const [demanding, setDemanding] = useState<string | null>(null);
   const [demandAllLoading, setDemandAllLoading] = useState(false);
+  const [runOpen, setRunOpen] = useState(false);
   // Deep-linkable tab — the dashboard's overdue-installments queue and any
   // notification link land straight on the collections tab.
   const searchParams = useSearchParams();
@@ -505,6 +513,13 @@ export function PendingPaymentsReport({
 
         {/* ── Overdue POs (payables) ─────────────────────────────── */}
         <TabsContent value="payables">
+          {overduePOs.length > 0 && canSendReminders && (
+            <div className="mb-3 flex justify-end">
+              <Button size="sm" variant="outline" onClick={() => setRunOpen(true)}>
+                Start payment run
+              </Button>
+            </div>
+          )}
           <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
             <DataTable
               data={overduePOs}
@@ -593,6 +608,8 @@ export function PendingPaymentsReport({
           </TabsContent>
         )}
       </Tabs>
+      {runOpen && <PaymentRunDialog rows={overduePOs} open={runOpen} onOpenChange={setRunOpen} onDone={() => {}} />}
+
     </div>
   );
 }
@@ -673,5 +690,174 @@ function AgingSummaryCard({
         })}
       </div>
     </div>
+  );
+}
+
+
+// ── Payment run — batch AP disbursement ──
+
+function PaymentRunDialog({
+  rows: allRows,
+  open,
+  onOpenChange,
+  onDone,
+}: {
+  rows: OverduePORow[];
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  onDone: () => void;
+}) {
+  // Only supplier-addressable rows qualify — RA bills pay subcontractors and
+  // claims reimburse staff through their own flows.
+  const rows = allRows.filter((r) => !!r.supplierId);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(rows.map((r) => r.id)));
+  const [mode, setMode] = useState("NEFT");
+  const [tds, setTds] = useState<Record<string, string>>({});
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<{ succeeded: number; failed: number; bankFile: string; bankFileHeader: string; results: { ok: boolean; error?: string; supplierId: string }[] } | null>(null);
+
+  const selectedRows = rows.filter((r) => selected.has(r.id));
+  const total = selectedRows.reduce((s, r) => s + r.payable, 0);
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  async function submit() {
+    setRunning(true);
+    try {
+      const res = await fetch("/api/payment-runs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentMode: mode,
+          items: selectedRows.map((r) => ({
+            supplierId: r.supplierId!,
+            purchaseOrderId: r.id,
+            amount: r.payable,
+            tdsAmount: tds[r.id] ? Number(tds[r.id]) : undefined,
+            tdsSection: tds[r.id] ? "194C" : undefined,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Payment run failed");
+      setResult(data);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Payment run failed");
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  function downloadFile() {
+    if (!result) return;
+    const blob = new Blob([result.bankFileHeader + "\n" + result.bankFile + "\n"], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `payment-run-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => { onOpenChange(o); if (!o) { setResult(null); onDone(); } }}
+      title="Supplier payment run"
+      description="Select the payables to disburse. Each posts a real payment + ledger entry; download the bank file after."
+    >
+      {result ? (
+        <div className="space-y-3">
+          <p className="text-sm">
+            <span className="font-medium text-success">{result.succeeded} posted</span>
+            {result.failed > 0 && <span className="ml-2 text-danger">{result.failed} failed</span>}
+          </p>
+          {result.failed > 0 && (
+            <div className="max-h-32 overflow-auto rounded border border-border p-2 text-xs">
+              {result.results.filter((r) => !r.ok).map((r, i) => (
+                <div key={i} className="text-danger">{r.supplierId}: {r.error}</div>
+              ))}
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={downloadFile}>Download bank file</Button>
+            <Button onClick={() => { onOpenChange(false); setResult(null); onDone(); }}>Done</Button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="max-h-56 overflow-auto rounded border border-border">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-muted">
+                <tr>
+                  <th className="px-2 py-1.5 text-left"></th>
+                  <th className="px-2 py-1.5 text-left">Supplier / PO</th>
+                  <th className="px-2 py-1.5 text-right">Payable</th>
+                  <th className="px-2 py-1.5 text-right">TDS ₹</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id} className="border-t border-border">
+                    <td className="px-2 py-1.5">
+                      <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggle(r.id)} className="rounded" />
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <div className="font-medium">{r.supplier}</div>
+                      <div className="text-micro text-muted-foreground">{r.poNumber}{r.isMsme ? " · MSME" : ""}</div>
+                    </td>
+                    <td className="px-2 py-1.5 text-right tnum">{formatCurrency(r.payable)}</td>
+                    <td className="px-2 py-1.5">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={tds[r.id] ?? ""}
+                        onChange={(e) => setTds((p) => ({ ...p, [r.id]: e.target.value }))}
+                        placeholder="0"
+                        className="w-20 rounded border border-border bg-background px-1.5 py-1 text-right text-xs tnum"
+                        disabled={!selected.has(r.id)}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2 text-sm">
+            <span>{selected.size} payable{selected.size !== 1 ? "s" : ""}</span>
+            <span className="font-bold tnum">{formatCurrency(total)}</span>
+          </div>
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <Label>Payment mode</Label>
+              <Select value={mode} onChange={(e) => setMode(e.target.value)}>
+                <option value="NEFT">NEFT</option>
+                <option value="RTGS">RTGS</option>
+                <option value="UPI">UPI</option>
+                <option value="CHEQUE">Cheque</option>
+                <option value="BANK">Bank (other)</option>
+              </Select>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={running}>Cancel</Button>
+              <Button onClick={submit} disabled={running || selected.size === 0}>
+                {running ? "Posting…" : `Run ${formatCurrency(total)}`}
+              </Button>
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            TDS is deducted per row (194C). The bank file lists beneficiaries with their saved account/UPI details —
+            fill them on each vendor&rsquo;s record for complete rows.
+          </p>
+        </div>
+      )}
+    </Dialog>
   );
 }

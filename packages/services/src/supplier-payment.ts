@@ -496,3 +496,73 @@ export async function getSupplierOutstanding(companyId: string, supplierId?: str
     balanceOwed: new Decimal(s.balanceOwed),
   }));
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Payment run — batch AP pay. A finance head working the pending list pays
+// each supplier once per run instead of clicking through N dialogs; each item
+// still posts its own payment + JE via createSupplierPayment (per-item tx —
+// a failure on row 3 doesn't strand rows 1–2's committed payments). The
+// bankFile is a disbursement CSV the treasurer uploads to the bank portal.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function createPaymentRun(input: {
+  companyId: string;
+  userId?: string;
+  paymentMode: string;
+  paymentDate?: Date;
+  items: {
+    supplierId: string;
+    amount: Decimal | number | string;
+    tdsAmount?: Decimal | number | string;
+    tdsSection?: string;
+    invoiceId?: string;
+    purchaseOrderId?: string;
+    referenceNo?: string;
+    notes?: string;
+  }[];
+}) {
+  if (input.items.length === 0) throw new ServiceError("Payment run needs at least one item");
+  if (input.items.length > 100) throw new ServiceError("A payment run is capped at 100 items");
+
+  const results: { index: number; supplierId: string; paymentNumber?: string; amount: string; netPaid?: string; ok: boolean; error?: string }[] = [];
+  const supplierCache = new Map<string, { name: string; bankName: string | null; bankAccountNo: string | null; bankIfsc: string | null; upiId: string | null }>();
+
+  for (let i = 0; i < input.items.length; i++) {
+    const item = input.items[i]!;
+    try {
+      const payment = await createSupplierPayment({
+        ...item,
+        companyId: input.companyId,
+        userId: input.userId,
+        paymentMode: input.paymentMode,
+        paymentDate: input.paymentDate,
+      });
+      results.push({ index: i, supplierId: item.supplierId, paymentNumber: payment.paymentNumber, amount: payment.amount.toString(), netPaid: payment.netPaidAmount.toString(), ok: true });
+    } catch (err) {
+      results.push({ index: i, supplierId: item.supplierId, amount: String(item.amount), ok: false, error: err instanceof Error ? err.message : "Failed" });
+    }
+    // Bank-file row needs supplier details regardless of success
+    if (!supplierCache.has(item.supplierId)) {
+      const s = await prisma.supplier.findUnique({
+        where: { id: item.supplierId },
+        select: { name: true, bankName: true, bankAccountNo: true, bankIfsc: true, upiId: true },
+      });
+      if (s) supplierCache.set(item.supplierId, s);
+    }
+  }
+
+  const bankFile = results
+    .filter((r) => r.ok)
+    .map((r) => {
+      const s = supplierCache.get(r.supplierId);
+      const net = new Decimal(r.netPaid ?? r.amount);
+      return [r.paymentNumber, s?.name ?? r.supplierId, s?.bankName ?? "", s?.bankAccountNo ?? "", s?.bankIfsc ?? "", s?.upiId ?? "", net.toFixed(2)].join(",");
+    });
+
+  return {
+    results,
+    succeeded: results.filter((r) => r.ok).length,
+    failed: results.filter((r) => !r.ok).length,
+    bankFileHeader: "PaymentNumber,Beneficiary,BankName,AccountNo,IFSC,UPI,Amount",
+    bankFile: bankFile.join("\n"),
+  };
+}
