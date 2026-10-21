@@ -140,3 +140,55 @@ export async function checkBooksHealth(): Promise<{ companies: number; failed: n
   }
   return { companies: companies.length, failed };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RERA validity sweep — selling a unit on a project whose registration lapsed
+// is a legal problem, not an ops one. Warns weekly at ≤90 days remaining, so
+// renewal paperwork has runway before the cutoff.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function checkReraValidity(): Promise<{ companies: number; flagged: number }> {
+  const now = new Date();
+  const ninetyDaysOut = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+  const projects = await prisma.project.findMany({
+    where: {
+      reraValidityDate: { not: null, lte: ninetyDaysOut },
+      deletedAt: null,
+    },
+    select: { id: true, name: true, companyId: true, reraValidityDate: true },
+  });
+
+  let flagged = 0;
+  for (const p of projects) {
+    const expiry = p.reraValidityDate!;
+    const expired = expiry.getTime() <= now.getTime();
+    const daysLeft = Math.ceil((expiry.getTime() - now.getTime()) / 86400000);
+    // Dedupe: one warning per 7 days per project; escalate to daily inside
+    // the final week and after expiry (the message changes meaning anyway).
+    const cooldownMs = daysLeft <= 7 || expired ? 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
+    const recent = await prisma.inAppNotification.findFirst({
+      where: {
+        companyId: p.companyId,
+        eventType: NotificationEventType.RERA_VALIDITY_EXPIRING,
+        link: { contains: p.id },
+        createdAt: { gte: new Date(now.getTime() - cooldownMs) },
+      },
+      select: { id: true },
+    });
+    if (recent) continue;
+
+    void emitNotificationEvent({
+      eventType: NotificationEventType.RERA_VALIDITY_EXPIRING,
+      companyId: p.companyId,
+      entityType: "Project",
+      entityId: p.id,
+      variables: {
+        projectName: p.name,
+        expiryDate: expiry.toISOString().slice(0, 10),
+        daysLeft: String(daysLeft),
+      },
+      timestamp: now,
+    });
+    flagged++;
+  }
+  return { companies: 0, flagged };
+}
