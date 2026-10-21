@@ -94,6 +94,7 @@ export function PendingPaymentsReport({
 }) {
   const [sending, setSending] = useState(false);
   const [demanding, setDemanding] = useState<string | null>(null);
+  const [demandAllLoading, setDemandAllLoading] = useState(false);
   // Deep-linkable tab — the dashboard's overdue-installments queue and any
   // notification link land straight on the collections tab.
   const searchParams = useSearchParams();
@@ -118,6 +119,24 @@ export function PendingPaymentsReport({
     } finally {
       setSending(false);
     }
+  }
+
+  // Collections-day action — demand letters for every overdue installment in
+  // one sweep. The 24h cooldown + PAID/WAIVED guards make repeat clicks safe:
+  // only undemanded items actually dispatch.
+  async function demandAll() {
+    setDemandAllLoading(true);
+    let sent = 0, skipped = 0;
+    for (const i of installments) {
+      try {
+        const res = await fetch(`/api/payment-schedules/items/${i.id}/demand`, { method: "POST" });
+        if (res.ok) sent++; else skipped++;
+      } catch {
+        skipped++;
+      }
+    }
+    toast.success(`Demand sweep done — ${sent} sent${skipped ? `, ${skipped} skipped` : ""}`);
+    setDemandAllLoading(false);
   }
 
   async function sendDemand(itemId: string) {
@@ -524,6 +543,20 @@ export function PendingPaymentsReport({
         {installments.length > 0 && (
           <TabsContent value="installments">
             <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+              {canSendReminders && (
+                <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-2">
+                  <p className="text-caption text-muted-foreground">Formal demand = WhatsApp + legal-language letter</p>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="h-7 text-[11px]"
+                    disabled={demandAllLoading}
+                    onClick={demandAll}
+                  >
+                    {demandAllLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />} Demand all {installments.length}
+                  </Button>
+                </div>
+              )}
               <DataTable
                 data={installments}
                 columns={installmentColumns}
