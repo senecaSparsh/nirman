@@ -113,6 +113,12 @@ export default async function IssueSlipPage({ params }: { params: Promise<{ id: 
                   {issue.driverPhone && <span className="ml-1 text-xs text-gray-500">({issue.driverPhone})</span>}
                 </div>
               )}
+              {issue.ewayBillNo && (
+                <div>
+                  <span className="text-gray-600">E-way Bill: </span>
+                  <span className="font-mono font-medium">{issue.ewayBillNo}</span>
+                </div>
+              )}
             </div>
           </div>
         )}

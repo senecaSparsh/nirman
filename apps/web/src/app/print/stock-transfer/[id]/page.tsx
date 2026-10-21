@@ -131,6 +131,9 @@ export default async function StockTransferNotePage({
               {transfer.transporterName && (
                 <div><span className="text-gray-500">Transporter:</span> <span className="font-medium">{transfer.transporterName}</span></div>
               )}
+              {transfer.ewayBillNo && (
+                <div><span className="text-gray-500">E-way Bill:</span> <span className="font-mono font-medium">{transfer.ewayBillNo}</span></div>
+              )}
             </div>
           </div>
         )}
