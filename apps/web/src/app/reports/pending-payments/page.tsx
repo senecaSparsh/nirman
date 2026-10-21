@@ -147,7 +147,36 @@ async function PendingPaymentsContent() {
     })
     .filter((r) => r.payable > 0.01);
 
-  const overdueRows = [...payablePOs, ...unlinkedSupplierRows, ...raBillRows];
+  // Approved-but-unpaid expense claims — reimbursements owed to staff
+  // (Cr Reimbursements Payable). ApprovedAt is the "due" reference — an
+  // approved claim should clear within days, not months.
+  const unpaidClaims = await prisma.expenseClaim.findMany({
+    take: 500,
+    where: { companyId: company.id, status: "APPROVED" },
+    include: { claimant: { select: { name: true, email: true } }, lines: { select: { amount: true, gstAmount: true } } },
+    orderBy: { approvedAt: "asc" },
+  });
+  const claimRows = unpaidClaims
+    .map((c) => {
+      const payable = c.lines.reduce((s, l) => s + toNum(l.amount) + toNum(l.gstAmount), 0);
+      const ref = c.approvedAt ?? c.createdAt;
+      const daysOverdue = Math.floor((now.getTime() - ref.getTime()) / 86400000);
+      return {
+        id: `claim-${c.id}`,
+        poNumber: `Claim ${c.id.slice(-6)}`,
+        supplier: c.claimant?.name ?? c.claimant?.email ?? "Employee",
+        expectedDate: null,
+        orderedValue: payable,
+        receivedValue: payable,
+        payable,
+        status: "REIMBURSEMENT",
+        daysOverdue,
+        agingBucket: getAgingBucket(daysOverdue),
+      };
+    })
+    .filter((r) => r.payable > 0.01);
+
+  const overdueRows = [...payablePOs, ...unlinkedSupplierRows, ...raBillRows, ...claimRows];
 
   // 2. Outstanding sale receivables — inbound
   const sales = await prisma.assetSale.findMany({
