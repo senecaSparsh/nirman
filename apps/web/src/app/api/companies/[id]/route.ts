@@ -41,6 +41,9 @@ const companyUpdateSchema = z.object({
   pan: z.string().optional().nullable(),
   // UPI VPA for payment links on demand notices (e.g. company@hdfcbank)
   upiId: z.string().trim().regex(/^[\w.\-]{2,}@[A-Za-z]{2,}$/, "Invalid UPI ID (expected name@bank)").optional().nullable(),
+  // Books locked through this date (inclusive) — no JE posts into it.
+  // Null unlocks. Owner-only, like the other tax-identity fields.
+  glLockedUntil: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   // Verified HQ geo-fence — set from the address picker; used as the fallback
   // check-in fence for employees without an assigned reporting location.
@@ -139,10 +142,18 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     }
   }
 
-  if (["poApprovalThresholdManager", "poApprovalThresholdAdmin", "gstin", "pan", "upiId"].some((f) => data[f as keyof typeof data] !== undefined) && !canDoOwnerOnly(await getOwnRole())) {
+  if (["poApprovalThresholdManager", "poApprovalThresholdAdmin", "gstin", "pan", "upiId", "glLockedUntil"].some((f) => data[f as keyof typeof data] !== undefined) && !canDoOwnerOnly(await getOwnRole())) {
     return json({ error: "Only the owner can change approval thresholds and tax identity." }, { status: 403 });
   }
   if (data.code) data.code = data.code.toUpperCase();
+  if (data.glLockedUntil !== undefined) {
+    const raw = data.glLockedUntil;
+    const parsed = raw ? new Date(raw) : null;
+    if (parsed && Number.isNaN(parsed.getTime())) {
+      return json({ error: "Invalid glLockedUntil date" }, { status: 400 });
+    }
+    (data as Record<string, unknown>).glLockedUntil = parsed;
+  }
 
   try {
     const updated = await prisma.company.update({

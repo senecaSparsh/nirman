@@ -324,6 +324,17 @@ export async function postJournalEntry(
   const codeToId = new Map(glAccounts.map((g) => [g.code, g.id]));
 
   const d = input.entryDate ?? new Date();
+
+  // Period lock — once the CA files the month's returns, no entry may post
+  // into it again. Reversals are dated today, so they pass; a backdated
+  // edit into a filed month is what this stops.
+  const company = await tx.company.findUnique({ where: { id: input.companyId }, select: { glLockedUntil: true } });
+  if (company?.glLockedUntil && d <= company.glLockedUntil) {
+    throw new ServiceError(
+      `Books locked through ${company.glLockedUntil.toISOString().slice(0, 10)} — cannot post an entry dated ${d.toISOString().slice(0, 10)}. Unlock the period or post with a current date.`,
+    );
+  }
+
   const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   const prefix = `JE-${ymd}-`;
   const entryNumber = await nextSequenceNumber(tx, prefix, 5);

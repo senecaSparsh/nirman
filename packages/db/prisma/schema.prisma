@@ -33,6 +33,9 @@ model Company {
   // notices and reminders carry a tap-to-pay UPI intent link so the buyer
   // can settle the installment straight from the message.
   upiId     String?
+  // GL period lock — no journal entry may post with entryDate on or before
+  // this date. Finance advances it after each filing (GSTR / month close).
+  glLockedUntil DateTime?
   address   String?
   // Geo-fence center + radius (metres) for the registered office / HQ.
   // Set via the verified address picker on the company profile — used as the

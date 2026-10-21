@@ -65,6 +65,8 @@ type CompanyInfo = {
   gstin: string | null;
   pan: string | null;
   upiId?: string | null;
+  // Books locked through this date (inclusive) — owner-only, like gstin/pan
+  glLockedUntil?: string | null;
   address: string | null;
   lat: number | null;
   lng: number | null;
@@ -229,6 +231,7 @@ export function SettingsView({
           gstin: companyForm.gstin?.trim() || null,
           pan: companyForm.pan?.trim() || null,
           upiId: companyForm.upiId?.trim() || null,
+          glLockedUntil: companyForm.glLockedUntil || null,
           address: companyForm.address?.trim() || null,
           lat: companyForm.lat ?? null,
           lng: companyForm.lng ?? null,
@@ -380,6 +383,14 @@ export function SettingsView({
                     <div className="space-y-1.5">
                       <Label hint="Adds a tap-to-pay link to demand notices — e.g. company@hdfcbank">UPI ID</Label>
                       <Input value={companyForm.upiId ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, upiId: e.target.value }))} placeholder="name@bank" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label hint="No journal entry can be dated on/before this — advance after each month's filings">Books locked through</Label>
+                      <Input
+                        type="date"
+                        value={companyForm.glLockedUntil ? companyForm.glLockedUntil.slice(0, 10) : ""}
+                        onChange={(e) => setCompanyForm((f) => ({ ...f, glLockedUntil: e.target.value || null }))}
+                      />
                     </div>
                     <div className="space-y-1.5">
                       <Label hint="Pick a suggestion or use GPS — verified addresses only">Address</Label>
