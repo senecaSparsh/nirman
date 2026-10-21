@@ -183,6 +183,8 @@ export default function MobileSaleDetailPage({
             saleDeedNo={sale.saleDeedNo}
             atsNo={sale.atsNo}
             atsDate={sale.atsDate ? sale.atsDate.toISOString() : null}
+            atsBuyerAcceptedAt={sale.atsBuyerAcceptedAt ? sale.atsBuyerAcceptedAt.toISOString() : null}
+            atsSignerName={sale.atsSignerName}
             expectedRegistryDate={sale.expectedRegistryDate ? sale.expectedRegistryDate.toISOString() : null}
             // Compliance documents
             allotmentLetterNo={sale.allotmentLetterNo}

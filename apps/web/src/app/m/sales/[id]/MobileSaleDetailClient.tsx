@@ -81,6 +81,8 @@ export function MobileSaleDetailClient({
   saleDeedNo,
   atsNo,
   atsDate,
+  atsBuyerAcceptedAt,
+  atsSignerName,
   expectedRegistryDate,
   // Compliance documents
   allotmentLetterNo,
@@ -148,6 +150,8 @@ export function MobileSaleDetailClient({
   saleDeedNo: string | null;
   atsNo?: string | null;
   atsDate?: string | null;
+  atsBuyerAcceptedAt?: string | null;
+  atsSignerName?: string | null;
   expectedRegistryDate: string | null;
   allotmentLetterNo: string | null;
   allotmentDate: string | null;
@@ -682,6 +686,8 @@ export function MobileSaleDetailClient({
           saleDate={saleDate}
           atsNo={atsNo}
           atsDate={atsDate}
+          atsBuyerAcceptedAt={atsBuyerAcceptedAt}
+          atsSignerName={atsSignerName}
           atsDocumentUrl={atsDocumentUrl}
           bbaNo={bbaNo}
           bbaDate={bbaDate}
@@ -2109,6 +2115,8 @@ function SaleLifecycleTimeline({
   saleDate,
   atsNo,
   atsDate,
+  atsBuyerAcceptedAt,
+  atsSignerName,
   atsDocumentUrl,
   bbaNo,
   bbaDate,
@@ -2124,6 +2132,8 @@ function SaleLifecycleTimeline({
   saleDate: string;
   atsNo?: string | null;
   atsDate?: string | null;
+  atsBuyerAcceptedAt?: string | null;
+  atsSignerName?: string | null;
   atsDocumentUrl?: string | null;
   bbaNo?: string | null;
   bbaDate?: string | null;
@@ -2157,7 +2167,9 @@ function SaleLifecycleTimeline({
     },
     {
       label: "ATS / BBA",
-      sub: atsNo || bbaNo ? (atsNo ? `ATS ${atsNo}` : `BBA ${bbaNo}`) : "Pending",
+      sub: atsNo || bbaNo
+        ? `${atsNo ? `ATS ${atsNo}` : `BBA ${bbaNo}`}${atsBuyerAcceptedAt ? ` · signed${atsSignerName ? ` by ${atsSignerName}` : ""}` : ""}`
+        : "Pending",
       state: atsNo || bbaNo ? ("done" as const) : hasDeposit && !isCompleted ? ("current" as const) : ("pending" as const),
       docLabel: atsDocumentUrl ? "ATS doc" : bbaDocumentUrl ? "BBA doc" : null,
       docUrl: atsDocumentUrl || bbaDocumentUrl,
