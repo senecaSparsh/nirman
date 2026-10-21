@@ -1996,3 +1996,10 @@ ledger once and fans out to compliance, collections, and reports:
 - P4 — Statutory autopilot: GSTR-1/3B packs, PF ECR/ESI/PT challans, Tally
   XML voucher export (CA coexistence), RERA quarterly pack, BOCW cess (D27)
 - P5 — Allottee portal + bank/CC statement pack (books banks lend against)
+
+- P6 — Trust packs (from the 2026-10 sweep, sized builds not yet shipped):
+  bank/CC statement import + auto-match recon (the monthly CA workflow —
+  today only SMS-parse covers live credits); vendor payment run (batch
+  pay → one approval → bank file); supplier portal (vendors see their
+  bills/POs/payments — the allottee portal pattern); buyer-side ATS
+  review+accept flow (the /accept/agreement pattern, for sales).
