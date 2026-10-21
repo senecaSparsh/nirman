@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import { Bell, Loader2 } from "lucide-react";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 type Preference = {
@@ -82,6 +82,9 @@ const EVENT_TYPES = [
   { value: "CLAIM_APPROVED", label: "Expense Claim Approved", group: "HR/DPR" },
   { value: "CLAIM_REJECTED", label: "Expense Claim Rejected", group: "HR/DPR" },
   { value: "CLAIM_PAID", label: "Expense Claim Paid", group: "HR/DPR" },
+  { value: "ADVANCE_REQUESTED", label: "Advance Requested", group: "HR/DPR" },
+  { value: "ATTENDANCE_CORRECTION_REQUESTED", label: "Punch-Fix Requested", group: "HR/DPR" },
+  { value: "ATTENDANCE_CORRECTION_DECIDED", label: "Punch-Fix Decided", group: "HR/DPR" },
   { value: "CONTRACT_EXPIRING", label: "Contract Expiring", group: "HR/DPR" },
   { value: "PROBATION_ENDING", label: "Probation Ending", group: "HR/DPR" },
   { value: "EMPLOYEE_DOC_EXPIRING", label: "Employee Doc Expiring", group: "HR/DPR" },
@@ -157,17 +160,19 @@ export function NotificationPreferences() {
   }
 
   return (
-    <Card className="p-4 space-y-4">
-      <div className="flex items-center gap-2">
-        <Bell className="h-4 w-4 text-muted-foreground" />
-        <h3 className="text-body font-semibold">My Notification Preferences</h3>
-      </div>
-      <p className="text-caption text-muted-foreground">
-        Choose which events you want to be notified about, and via which channel.
-        Unchecked items will not send you a notification.
-      </p>
-
-      <div className="overflow-hidden rounded-lg border border-border">
+    <Card>
+      <CardHeader divided>
+        <CardTitle className="flex items-center gap-2">
+          <Bell className="size-4 text-muted-foreground" />
+          My Notification Preferences
+        </CardTitle>
+        <CardDescription>
+          Choose which events you want to be notified about, and via which channel.
+          Unchecked items will not send you a notification.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="overflow-hidden rounded-lg border border-border">
         <table className="w-full">
           <thead>
             <tr className="border-b border-border bg-subtle">
@@ -234,6 +239,7 @@ export function NotificationPreferences() {
         them connected in Settings → Integrations — the bell entry is still
         recorded regardless.
       </p>
+      </CardContent>
     </Card>
   );
 }
