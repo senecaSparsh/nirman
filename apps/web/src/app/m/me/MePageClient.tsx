@@ -680,7 +680,7 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
               )}
               {/* Fix a missed punch — the third self-service ask. The day
                   lands in HR's queue; deciding edits the attendance row. */}
-              <AttendanceCorrectionForm hasPending={initial.hr.corrections.some((c) => c.status === "REQUESTED")} />
+              <AttendanceCorrectionForm pendingDates={initial.hr.corrections.filter((c) => c.status === "REQUESTED").map((c) => c.date.slice(0, 10))} />
               {initial.hr.corrections.length > 0 && (
                 <div className="mb-2 space-y-1">
                   {initial.hr.corrections.map((c) => (
@@ -1326,7 +1326,9 @@ function AdvanceRequestForm({ hasPending }: { hasPending: boolean }) {
 
 /** "I forgot to punch" — posts to /api/me/attendance-corrections; HR deciding
     upserts the day's WorkerAttendance row (the real fix). */
-function AttendanceCorrectionForm({ hasPending }: { hasPending: boolean }) {
+function AttendanceCorrectionForm({ pendingDates }: { pendingDates: string[] }) {
+  // Per-day rule (matches the service): a pending ask blocks re-asking for
+  // THAT day only — a worker can still fix a different missed day.
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState("");
   const [checkIn, setCheckIn] = useState("");
@@ -1336,13 +1338,7 @@ function AttendanceCorrectionForm({ hasPending }: { hasPending: boolean }) {
   const [busy, setBusy] = useState(false);
   const router = useRouter();
 
-  if (hasPending) {
-    return (
-      <p className="mb-2 text-m-caption" style={{ color: "var(--color-warn)" }}>
-        A punch-correction request is already with HR for that day.
-      </p>
-    );
-  }
+  const dayPending = date !== "" && pendingDates.includes(date);
 
   if (!open) {
     return (
@@ -1359,6 +1355,7 @@ function AttendanceCorrectionForm({ hasPending }: { hasPending: boolean }) {
 
   const submit = async () => {
     if (!date) { toast.error("Pick the day to fix"); return; }
+    if (dayPending) { toast.error("A fix for that day is already with HR"); return; }
     if (!reason.trim()) { toast.error("Give a reason — HR decides on it"); return; }
     setBusy(true);
     try {
@@ -1416,11 +1413,11 @@ function AttendanceCorrectionForm({ hasPending }: { hasPending: boolean }) {
       />
       <div className="flex gap-2">
         <button
-          type="button" onClick={submit} disabled={busy}
+          type="button" onClick={submit} disabled={busy || dayPending}
           className="flex-1 rounded-lg py-2 text-m-caption font-bold"
-          style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+          style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", opacity: dayPending ? 0.5 : 1 }}
         >
-          {busy ? "Sending…" : "Ask for correction"}
+          {busy ? "Sending…" : dayPending ? "Already pending" : "Ask for correction"}
         </button>
         <button
           type="button" onClick={() => setOpen(false)} disabled={busy}
