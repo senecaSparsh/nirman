@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { Search, ArrowRight, TrendingUp, AlertTriangle, HardHat, MapPin, Wallet } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/empty-state";
+import { MetricGrid, Metric, StatusPill } from "@/components/page";
 import { formatNumber, formatDate, formatCurrency, cn } from "@/lib/utils";
 
 
@@ -190,6 +191,7 @@ export function HrDashboard({
   pendingPayrolls,
   pendingDprApprovals,
   pendingLeaves,
+  pendingAsks = 0,
   latestPayroll,
   recentDprs,
   tradeBreakdown,
@@ -207,6 +209,8 @@ export function HrDashboard({
   pendingPayrolls: number;
   pendingDprApprovals: number;
   pendingLeaves: number;
+  /** Self-service asks waiting on a decision (advance + punch-fix). */
+  pendingAsks?: number;
   latestPayroll: PayrollSummary;
   recentDprs: DprItem[];
   tradeBreakdown: TradeBreakdown[];
@@ -230,48 +234,53 @@ export function HrDashboard({
   const pendingActions: PendingAction[] = [
     ...(pendingDprApprovals > 0 ? [{ label: "DPRs pending approval", count: pendingDprApprovals, href: "/hr/dprs", tone: "warning" as const }] : []),
     ...(pendingLeaves > 0 ? [{ label: "Leave requests pending", count: pendingLeaves, href: "/hr/attendance?tab=leave", tone: "info" as const }] : []),
+    ...(pendingAsks > 0 ? [{ label: "Worker requests pending", count: pendingAsks, href: "/approvals", tone: "info" as const }] : []),
     ...(pendingPayrolls > 0 ? [{ label: "Draft payrolls to process", count: pendingPayrolls, href: "/hr/payroll", tone: "danger" as const }] : []),
   ];
 
   return (
     <div className="space-y-6">
       {/* ── Row 1: KPI band ─────────────────────────────────────────── */}
-      <div className="grid divide-border overflow-hidden rounded-lg border border-border bg-card sm:divide-x sm:grid-cols-4 divide-y sm:divide-y-0">
-        <Link href="/hr/employees" className="group flex flex-col gap-1 p-4 transition-colors hover:bg-subtle">
-          <span className="text-label text-muted-foreground/75">Headcount</span>
-          <span className="text-figure-lg text-foreground">{activeEmployees}</span>
-          <span className="text-caption text-muted-foreground">{employeeCount - activeEmployees} inactive · {crewCount} crews</span>
-        </Link>
-        <Link href="/hr/attendance" className="group flex flex-col gap-1 p-4 transition-colors hover:bg-subtle">
-          <span className="text-label text-muted-foreground/75">Present Today</span>
-          <span className="text-figure-lg text-success">{presentToday}</span>
-          <span className="text-caption text-muted-foreground">{absentToday} absent · {totalAttendanceToday - presentToday - absentToday} other</span>
-        </Link>
-        <Link href="/hr/payroll" className="group flex flex-col gap-1 p-4 transition-colors hover:bg-subtle">
-          <span className="text-label text-muted-foreground/75">Monthly Labour Cost</span>
-          <span className="text-figure-lg text-foreground">{monthlyLabourCost != null ? formatCurrency(monthlyLabourCost) : "—"}</span>
-          <span className="text-caption text-muted-foreground">{pendingPayrolls > 0 ? `${pendingPayrolls} draft payroll${pendingPayrolls > 1 ? "s" : ""}` : "All payrolls settled"}</span>
-        </Link>
-        <Link href="/hr/dprs" className="group flex flex-col gap-1 p-4 transition-colors hover:bg-subtle">
-          <span className="text-label text-muted-foreground/75">Pending Actions</span>
-          <span className={cn("text-figure-lg", pendingActions.length > 0 ? "text-warning" : "text-foreground")}>
-            {pendingDprApprovals + pendingLeaves + pendingPayrolls}
-          </span>
-          <span className="text-caption text-muted-foreground">{pendingDprApprovals} DPRs · {pendingLeaves} leaves · {pendingPayrolls} payrolls</span>
-        </Link>
-      </div>
+      <MetricGrid cols={4}>
+        <Metric
+          label="Headcount"
+          value={activeEmployees}
+          sub={`${employeeCount - activeEmployees} inactive · ${crewCount} crews`}
+          href="/hr/employees"
+        />
+        <Metric
+          label="Present Today"
+          value={presentToday}
+          sub={`${absentToday} absent · ${totalAttendanceToday - presentToday - absentToday} other`}
+          tone="success"
+          href="/hr/attendance"
+        />
+        <Metric
+          label="Monthly Labour Cost"
+          value={monthlyLabourCost != null ? formatCurrency(monthlyLabourCost) : "—"}
+          sub={pendingPayrolls > 0 ? `${pendingPayrolls} draft payroll${pendingPayrolls > 1 ? "s" : ""}` : "All payrolls settled"}
+          href="/hr/payroll"
+        />
+        <Metric
+          label="Pending Actions"
+          value={pendingDprApprovals + pendingLeaves + pendingAsks + pendingPayrolls}
+          sub={`${pendingDprApprovals} DPRs · ${pendingLeaves} leaves · ${pendingAsks} asks · ${pendingPayrolls} payrolls`}
+          tone={pendingActions.length > 0 ? "warning" : "default"}
+          href="/hr/dprs"
+        />
+      </MetricGrid>
 
       {/* ── Row 2: Attendance + Trade breakdown ─────────────────────── */}
-      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+      <div className="grid gap-4 lg:grid-cols-2">
         {/* Attendance panel */}
-        <div className="rounded-lg border border-border bg-card">
-          <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+        <div className="flex flex-col rounded-lg border border-border bg-card shadow-raised">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <h2 className="text-section text-foreground">Today&apos;s Attendance</h2>
-            <Link href="/hr/attendance" className="flex items-center gap-0.5 text-caption text-brand hover:underline">
+            <Link href="/hr/attendance" className="flex items-center gap-0.5 text-caption font-medium text-brand hover:underline">
               Log attendance <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
-          <div className="grid gap-4 p-4 sm:grid-cols-[auto_1fr]">
+          <div className="grid flex-1 gap-4 p-4 sm:grid-cols-[auto_1fr] items-center">
             <AttendanceRing rate={attendanceRate} present={presentToday} absent={absentToday} total={totalAttendanceToday} />
             <div>
               <div className="mb-2 flex items-center gap-1.5">
@@ -284,27 +293,33 @@ export function HrDashboard({
         </div>
 
         {/* Trade breakdown panel */}
-        <div className="rounded-lg border border-border bg-card">
-          <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+        <div className="flex flex-col rounded-lg border border-border bg-card shadow-raised">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <h2 className="text-section text-foreground">Headcount by Trade</h2>
-            <Link href="/hr/employees" className="flex items-center gap-0.5 text-caption text-brand hover:underline">
+            <Link href="/hr/employees" className="flex items-center gap-0.5 text-caption font-medium text-brand hover:underline">
               All employees <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
-          <div className="p-4">
+          <div className="flex-1 p-4">
             <TradeBreakdownChart trades={tradeBreakdown} total={activeEmployees} />
           </div>
         </div>
       </div>
 
       {/* ── Row 3: Pending actions + Project presence ───────────────── */}
-      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+      <div className="grid gap-4 lg:grid-cols-2">
         {/* Pending actions */}
-        <div className="rounded-lg border border-border bg-card">
-          <div className="border-b border-border px-4 py-2.5">
+        <div className="flex flex-col rounded-lg border border-border bg-card shadow-raised">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <h2 className="text-section text-foreground">Action Queue</h2>
+            <Link
+              href="/hr/pending"
+              className="flex items-center gap-0.5 text-caption font-medium text-brand hover:underline"
+            >
+              View all <ArrowRight className="h-3 w-3" />
+            </Link>
           </div>
-          <div className="p-4">
+          <div className="flex-1 p-4">
             {pendingActions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-center">
                 <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-success/10">
@@ -322,9 +337,9 @@ export function HrDashboard({
                   >
                     <span className={cn(
                       "flex h-7 w-7 items-center justify-center rounded-md",
-                      a.tone === "warning" && "bg-warning/10 text-warning",
-                      a.tone === "danger" && "bg-danger/10 text-danger",
-                      a.tone === "info" && "bg-info/10 text-info",
+                      a.tone === "warning" && "bg-warning-soft text-warning",
+                      a.tone === "danger" && "bg-danger-soft text-danger",
+                      a.tone === "info" && "bg-info-soft text-info",
                     )}>
                       <AlertTriangle className="h-3.5 w-3.5" />
                     </span>
@@ -335,38 +350,32 @@ export function HrDashboard({
                 ))}
               </div>
             )}
-            <Link
-              href="/hr/pending"
-              className="mt-3 flex items-center justify-center gap-1 text-caption text-brand hover:underline"
-            >
-              View all pending items <ArrowRight className="h-3 w-3" />
-            </Link>
           </div>
         </div>
 
         {/* Project presence */}
-        <div className="rounded-lg border border-border bg-card">
-          <div className="border-b border-border px-4 py-2.5">
+        <div className="flex flex-col rounded-lg border border-border bg-card shadow-raised">
+          <div className="border-b border-border px-4 py-3">
             <h2 className="text-section text-foreground">Site Presence Today</h2>
           </div>
-          <div className="p-4">
+          <div className="flex-1 p-4">
             <ProjectPresenceList projects={projectPresence} />
           </div>
         </div>
       </div>
 
       {/* ── Row 4: Recent DPRs + Payroll summary ─────────────────────── */}
-      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
         {/* Recent DPRs */}
-        <div className="rounded-lg border border-border bg-card">
-          <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+        <div className="flex flex-col rounded-lg border border-border bg-card shadow-raised">
+          <div className="flex items-center gap-2 border-b border-border px-4 py-3">
             <h2 className="text-section text-foreground">Recent Daily Progress Reports</h2>
             <div className="relative ml-auto sm:max-w-xs">
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search…" className="h-8 pl-8 text-caption" />
+              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search…" className="h-7 pl-8 text-caption" />
             </div>
           </div>
-          <div className="p-2">
+          <div className="flex-1 p-2">
             {filteredDprs.length === 0 ? (
               <p className="py-8 text-center text-body text-muted-foreground">
                 {recentDprs.length === 0 ? (
@@ -386,17 +395,9 @@ export function HrDashboard({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="truncate text-body font-medium text-foreground">{dpr.project.name}</span>
-                        <span className={cn(
-                          "shrink-0 rounded px-1.5 py-0.5 text-micro font-medium",
-                          dpr.approvalStatus === "APPROVED" && "bg-success/10 text-success",
-                          dpr.approvalStatus === "SUBMITTED" && "bg-warning/10 text-warning",
-                          dpr.approvalStatus === "SUB_ADMIN_APPROVED" && "bg-info/10 text-info",
-                          dpr.approvalStatus === "REJECTED" && "bg-danger/10 text-danger",
-                        )}>
-                          {dpr.approvalStatus === "SUBMITTED" ? "Pending" : dpr.approvalStatus === "SUB_ADMIN_APPROVED" ? "Sub-Approved" : dpr.approvalStatus === "APPROVED" ? "Approved" : "Rejected"}
-                        </span>
+                        <StatusPill status={dpr.approvalStatus} />
                       </div>
-                      <div className="truncate text-caption text-muted-foreground">
+                      <div className="mt-0.5 truncate text-caption text-muted-foreground">
                         {dpr.workSummary.slice(0, 80)}{dpr.workSummary.length > 80 ? "…" : ""}
                       </div>
                     </div>
@@ -412,23 +413,16 @@ export function HrDashboard({
         </div>
 
         {/* Payroll summary */}
-        <div className="rounded-lg border border-border bg-card">
-          <div className="border-b border-border px-4 py-2.5">
+        <div className="flex flex-col rounded-lg border border-border bg-card shadow-raised">
+          <div className="border-b border-border px-4 py-3">
             <h2 className="text-section text-foreground">Latest Payroll</h2>
           </div>
-          <div className="p-4">
+          <div className="flex-1 p-4">
             {latestPayroll ? (
               <Link href="/hr/payroll" className="group block">
                 <div className="flex items-center justify-between">
                   <span className="text-body font-medium">{MONTHS[latestPayroll.month]} {latestPayroll.year}</span>
-                  <span className={cn(
-                    "rounded px-1.5 py-0.5 text-micro font-medium",
-                    latestPayroll.status === "PAID" && "bg-success/10 text-success",
-                    latestPayroll.status === "PROCESSED" && "bg-info/10 text-info",
-                    latestPayroll.status === "DRAFT" && "bg-warning/10 text-warning",
-                  )}>
-                    {latestPayroll.status}
-                  </span>
+                  <StatusPill status={latestPayroll.status} />
                 </div>
                 <div className="mt-3 space-y-1.5">
                   <div className="flex justify-between text-caption">
@@ -445,7 +439,7 @@ export function HrDashboard({
                   </div>
                   <div className="text-micro text-muted-foreground">{latestPayroll.employeeCount} employees</div>
                 </div>
-                <div className="mt-2 flex items-center gap-1 text-caption text-brand group-hover:underline">
+                <div className="mt-3 flex items-center gap-1 text-caption font-medium text-brand group-hover:underline">
                   View details <ArrowRight className="h-3 w-3" />
                 </div>
               </Link>

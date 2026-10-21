@@ -62,6 +62,8 @@ async function HrDashboardContent() {
     pendingPayrolls,
     pendingDprApprovals,
     pendingLeaves,
+    pendingAsks,
+    pendingCorrections,
     employees,
     weekAttendance,
     todayProjectAttendance,
@@ -85,6 +87,8 @@ async function HrDashboardContent() {
     prisma.payrollPeriod.count({ where: { companyId: company.id, status: "DRAFT" } }),
     prisma.dailyProgressReport.count({ where: { companyId: company.id, approvalStatus: { in: ["SUBMITTED", "SUB_ADMIN_APPROVED"] } } }),
     prisma.leaveRequest.count({ where: { companyId: company.id, status: "PENDING" } }),
+    prisma.employeeAdvance.count({ where: { companyId: company.id, status: "REQUESTED" } }),
+    prisma.attendanceCorrectionRequest.count({ where: { companyId: company.id, status: "REQUESTED" } }),
     prisma.employee.findMany({
       take: 201,
       where: { companyId: company.id, deletedAt: null, active: true, ...await scopeWhere("Employee") },
@@ -183,6 +187,7 @@ async function HrDashboardContent() {
         pendingPayrolls={pendingPayrolls}
         pendingDprApprovals={pendingDprApprovals}
         pendingLeaves={pendingLeaves}
+        pendingAsks={pendingAsks + pendingCorrections}
         latestPayroll={latestPayroll ? {
           month: latestPayroll.month,
           year: latestPayroll.year,
