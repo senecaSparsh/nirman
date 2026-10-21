@@ -2052,6 +2052,20 @@ service tests, both typechecks):
 - **Buyer-side ATS e-acceptance** — shareable /accept/ats/<token> link
   (30d TTL, rotated on re-issue) records signature + timestamp; mobile
   timeline shows "signed by"; staff sees it on the sale's ATS row.
+- **Anatomy skill + site-pour figure** — wheresryan22/anatomy (MIT)
+  vendored into components/iso + .devin/skills. Figure lives in the
+  /properties empty state (loop mode) AND the project overview sidebar
+  (target mode: eases to real WBS progress + cement-issued readout).
+  NOT a hero — it communicates state, doesn't bury listings.
+- **Employee self-service advance requests** — POST /api/me/advances
+  creates a REQUESTED row (no cash/JE until HR decides); the dossier
+  shows pending requests with approve (sets monthlyRecovery → ACTIVE +
+  the issue JE) / reject (CANCELLED + reason). Live-verified: request →
+  approve → Dr 1650 / Cr 1000; reject → cancelled; dup + scope guards.
+- **Company-switch stale data (real bug)** — useFetch cleared the
+  memory cache on switch but never bumped cacheVersion, so mounted
+  hooks held the old company's `data` state forever; SWR revalidated
+  only 3 keys. Now: bump + revalidate-all on the switch event.
 
 **Still open (sized, honest):**
 
