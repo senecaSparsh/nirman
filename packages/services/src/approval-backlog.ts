@@ -78,7 +78,7 @@ export async function checkApprovalBacklog(): Promise<{ companies: number; flagg
     void emitNotificationEvent({
       eventType: NotificationEventType.APPROVAL_BACKLOG,
       companyId: company.id,
-      entityType: "Company",
+      entityType: "ApprovalQueue",
       entityId: company.id,
       variables: {
         count: String(total),

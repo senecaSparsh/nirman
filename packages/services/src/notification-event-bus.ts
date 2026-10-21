@@ -339,6 +339,7 @@ const ENTITY_ROUTE_MAP: Record<string, string> = {
   RenovationProject: "/m/projects",
   Task: "/m/site/tasks",
   StockCount: "/m/stock-counts",
+  ApprovalQueue: "/m/pulse/approvals",
   Employee: "/m/hr/employees",
 };
 
