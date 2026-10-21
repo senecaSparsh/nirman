@@ -67,6 +67,7 @@ export enum NotificationEventType {
 
   // Inventory (5)
   STOCK_TRANSFER_CREATED = "STOCK_TRANSFER_CREATED",
+  APPROVAL_BACKLOG = "APPROVAL_BACKLOG",
   STOCK_TRANSFER_STALE = "STOCK_TRANSFER_STALE",
   STOCK_ISSUE_CREATED = "STOCK_ISSUE_CREATED",
   // Just-crossed signal: cumulative issues of a material to a project pushed
@@ -179,6 +180,7 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   // Inventory
   [NotificationEventType.STOCK_TRANSFER_CREATED]: "DAILY",
   [NotificationEventType.STOCK_TRANSFER_STALE]: "DAILY",
+  [NotificationEventType.APPROVAL_BACKLOG]: "DAILY",
   [NotificationEventType.STOCK_ISSUE_CREATED]: "DAILY",
   [NotificationEventType.MATERIAL_OVER_ISSUE]: "IMMEDIATE",
   [NotificationEventType.STOCK_COUNT_DUE]: "DAILY",
@@ -823,6 +825,7 @@ const QUALITY_EVENTS = new Set([
 const INVENTORY_EVENTS = new Set([
   NotificationEventType.STOCK_TRANSFER_CREATED,
   NotificationEventType.STOCK_TRANSFER_STALE,
+  NotificationEventType.APPROVAL_BACKLOG,
   NotificationEventType.STOCK_ISSUE_CREATED,
   NotificationEventType.MATERIAL_OVER_ISSUE,
   NotificationEventType.STOCK_COUNT_DUE,
@@ -956,6 +959,8 @@ const EVENT_MESSAGES: Partial<
     `Unit listing ${s("unitNumber") || s("listingTitle")} synced to portal.`,
 
   // Inventory
+  [NotificationEventType.APPROVAL_BACKLOG]: ({ s, money }) =>
+    `${s("count")} approval(s) pending over 48h (${s("breakdown")})${money("amount") ? ` — ${money("amount")} stuck` : ""}. Open approvals.`,
   [NotificationEventType.STOCK_TRANSFER_STALE]: ({ s, money }) =>
     `${s("entityName") || "Transfer"} of ${money("amount")} has been in transit over 48h — stock unaccounted. Confirm receipt or return.`,
   [NotificationEventType.STOCK_TRANSFER_CREATED]: ({ s }) =>
