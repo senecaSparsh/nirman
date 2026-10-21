@@ -29,6 +29,7 @@ export function PaymentDialog({
     amount: "",
     mode: "BANK_TRANSFER",
     reference: "",
+    interest: "0",
   });
   const [cheque, setCheque] = useState<ChequeFormState>(EMPTY_CHEQUE);
 
@@ -41,6 +42,10 @@ export function PaymentDialog({
   const balanceDue = sale.balanceDue;
   const amountNum = Number(form.amount) || 0;
   const isCheque = form.mode === "CHEQUE";
+  // Late interest accrued across this sale's overdue schedule items — the
+  // income leg is collected with the payment, capped server-side too.
+  const totalAccrued = (sale.paymentSchedule?.items ?? []).reduce((s, i) => s + (i.accruedInterest ?? 0), 0);
+  const interestNum = Math.min(Number(form.interest) || 0, totalAccrued);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -56,6 +61,7 @@ export function PaymentDialog({
           amount: amountNum,
           mode: form.mode,
           reference: form.reference.trim() || null,
+          ...(interestNum > 0 ? { interestAmount: interestNum } : {}),
           ...(isCheque ? {
             chequeNo: cheque.chequeNo.trim() || null,
             chequeDate: cheque.chequeDate || null,
@@ -138,6 +144,22 @@ export function PaymentDialog({
             required
           />
         </div>
+        {totalAccrued > 0.01 && (
+          <div className="space-y-1.5">
+            <Label htmlFor="p-interest" hint={`Accrued across overdue installments (max ${formatCurrency(totalAccrued)})`}>Late Interest</Label>
+            <Input
+              id="p-interest"
+              type="number"
+              min="0"
+              max={totalAccrued}
+              step="0.01"
+              value={form.interest}
+              onChange={(e) => set("interest", e.target.value)}
+              placeholder={`Max ${formatCurrency(totalAccrued)}`}
+            />
+            <p className="text-caption text-muted-foreground">Posts to interest income — not principal.</p>
+          </div>
+        )}
         <div className="space-y-1.5">
           <Label htmlFor="p-mode">Mode</Label>
           <Select id="p-mode" value={form.mode} onChange={(e) => set("mode", e.target.value)}>
