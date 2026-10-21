@@ -1041,6 +1041,97 @@ export async function reconcileTrialBalance(
   });
 }
 
+
+/**
+ * Check 9: NRV write-down drift.
+ *
+ * IAS 2 carries unsold units/land at lower-of-cost-or-NRV. When
+ * currentValuation dips below cost the write-down should be on the books —
+ * flagNrvWriteDowns posts it, but that sweep only runs when finance triggers
+ * it. This check is read-only: it flags the gap between the recorded
+ * nrvWriteDown field and what cost−NRV says it should be, so the drift is
+ * visible on the books-health page instead of hiding until audit season.
+ */
+export async function reconcileNrvValuations(
+  companyId: string,
+  tolerance: string = MONEY_TOL,
+): Promise<ReconciliationCheck> {
+  const [units, parcels] = await Promise.all([
+    prisma.builtUnit.findMany({
+      where: {
+        deletedAt: null,
+        status: { in: ["AVAILABLE", "HOLD"] },
+        project: { companyId },
+      },
+      select: {
+        id: true, unitNumber: true, productionCost: true, currentValuation: true, nrvWriteDown: true,
+        project: { select: { name: true } },
+      },
+    }),
+    prisma.landParcel.findMany({
+      where: {
+        deletedAt: null,
+        status: { in: ["AVAILABLE", "HOLD"] },
+        landPurchase: { companyId },
+      },
+      select: {
+        id: true, number: true, acquisitionCost: true, currentValuation: true, nrvWriteDown: true,
+        landPurchase: { select: { location: true } },
+      },
+    }),
+  ]);
+
+  let required = new Decimal(0);
+  let recorded = new Decimal(0);
+  const details: ReconciliationDetail[] = [];
+
+  for (const u of units) {
+    const need = Decimal.max(new Decimal(u.productionCost).minus(new Decimal(u.currentValuation)), 0);
+    const have = new Decimal(u.nrvWriteDown ?? 0);
+    required = required.plus(need);
+    recorded = recorded.plus(have);
+    if (!need.minus(have).abs().lte(new Decimal(tolerance))) {
+      details.push({
+        id: u.id,
+        label: `Unit ${u.unitNumber} (${u.project.name})`,
+        expected: need.toString(),
+        actual: have.toString(),
+        delta: need.minus(have).toString(),
+      });
+    }
+  }
+  for (const p of parcels) {
+    const need = Decimal.max(new Decimal(p.acquisitionCost).minus(new Decimal(p.currentValuation)), 0);
+    const have = new Decimal(p.nrvWriteDown ?? 0);
+    required = required.plus(need);
+    recorded = recorded.plus(have);
+    if (!need.minus(have).abs().lte(new Decimal(tolerance))) {
+      details.push({
+        id: p.id,
+        label: `Parcel ${p.number} (${p.landPurchase.location ?? "no location"})`,
+        expected: need.toString(),
+        actual: have.toString(),
+        delta: need.minus(have).toString(),
+      });
+    }
+  }
+
+  return buildCheck({
+    id: "nrv-valuations",
+    name: "NRV Write-down Drift",
+    description:
+      "Compares each unsold unit/parcel's recorded nrvWriteDown against cost − currentValuation. Drift means a valuation was updated without running the NRV write-down sweep — the loss isn't in the books.",
+    expected: required,
+    actual: recorded,
+    tolerance,
+    details: details.slice(0, 50),
+    message:
+      details.length > 0
+        ? `${details.length} asset(s) carry a write-down gap (IAS 2: inventory at lower of cost or NRV). Run the NRV sweep from Books Health to post the delta.`
+        : undefined,
+  });
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Aggregate runner
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1067,6 +1158,7 @@ export async function runBookReconciliation(
       reconcileUnitCosts(companyId),
       reconcileTrialBalance(companyId),
       reconcileAccountSigns(companyId),
+      reconcileNrvValuations(companyId),
     ]),
     runInvariantChecks(companyId),
   ]);

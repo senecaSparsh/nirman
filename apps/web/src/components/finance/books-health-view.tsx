@@ -146,7 +146,7 @@ export function BooksHealthView({
 
       {/* ── Check cards ── */}
       {liveChecks.map((check) => (
-        <CheckCard key={check.id} check={check} />
+        <CheckCard key={check.id} check={check} onActionDone={rerun} />
       ))}
 
       {/* ── Footnote ── */}
@@ -161,8 +161,29 @@ export function BooksHealthView({
   );
 }
 
-function CheckCard({ check }: { check: CheckRow }) {
+function CheckCard({ check, onActionDone }: { check: CheckRow; onActionDone?: () => Promise<void> }) {
   const [expanded, setExpanded] = React.useState(false);
+  const [sweeping, setSweeping] = React.useState(false);
+  const [sweepResult, setSweepResult] = React.useState<string | null>(null);
+
+  // The NRV check is flag-only — the write-down is a finance decision, so
+  // the sweep runs on demand from the card, gated by FINANCE_MANAGE API-side.
+  async function runNrvSweep() {
+    setSweeping(true);
+    setSweepResult(null);
+    try {
+      const res = await fetch("/api/health/nrv-sweep", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Sweep failed");
+      setSweepResult(`Posted ${data.writeDownsPosted} write-down${data.writeDownsPosted === 1 ? "" : "s"}.`);
+      await onActionDone?.();
+    } catch (e) {
+      setSweepResult(e instanceof Error ? e.message : "Sweep failed");
+    } finally {
+      setSweeping(false);
+    }
+  }
+
   const meta = STATUS_META[check.status];
   const Icon = meta.icon;
   const hasDetails = check.details.length > 0;
@@ -222,6 +243,16 @@ function CheckCard({ check }: { check: CheckRow }) {
             )}
           >
             {check.message}
+          </div>
+        )}
+
+        {/* NRV sweep action — only where the drift is actionable */}
+        {check.id === "nrv-valuations" && check.status !== "PASS" && (
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={runNrvSweep} disabled={sweeping}>
+              {sweeping ? "Posting write-downs…" : "Run NRV write-down sweep"}
+            </Button>
+            {sweepResult && <span className="text-caption text-muted-foreground">{sweepResult}</span>}
           </div>
         )}
 
