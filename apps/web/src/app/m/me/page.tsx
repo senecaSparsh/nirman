@@ -166,9 +166,17 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
       // ledger: what was taken, what's recovered, what's still owed.
       // REQUESTED included so the pending ask shows as "waiting on HR".
       prisma.employeeAdvance.findMany({
-        where: { employeeId: employee.id, status: { in: ["ACTIVE", "PAUSED", "REQUESTED"] } },
+        where: {
+          employeeId: employee.id,
+          // ACTIVE/PAUSED/REQUESTED are the live rows; recently-CANCELLED stays
+          // so a rejected ask doesn't silently vanish — the worker sees the outcome.
+          OR: [
+            { status: { in: ["ACTIVE", "PAUSED", "REQUESTED"] } },
+            { status: "CANCELLED", updatedAt: { gte: new Date(Date.now() - 30 * 86400_000) } },
+          ],
+        },
         orderBy: { createdAt: "desc" },
-        select: { id: true, amount: true, recoveredAmount: true, monthlyRecovery: true, status: true, issueDate: true },
+        select: { id: true, amount: true, recoveredAmount: true, monthlyRecovery: true, status: true, issueDate: true, notes: true },
       }),
     ]);
     hr = {
@@ -227,6 +235,7 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
         monthlyRecovery: Number(a.monthlyRecovery),
         status: a.status,
         issueDate: a.issueDate.toISOString().slice(0, 10),
+        notes: a.notes,
       })),
     };
   }

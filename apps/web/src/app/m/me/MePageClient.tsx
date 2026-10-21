@@ -152,6 +152,7 @@ export interface MePageInitial {
       monthlyRecovery: number;
       status: string;
       issueDate: string;
+      notes: string | null;
     }[];
   } | null;
 }
@@ -704,14 +705,26 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
                 <div className="pt-2 mt-2 space-y-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
                   {initial.hr.advances.map((a) => (
                     <div key={a.id}>
-                      {a.status === "REQUESTED" ? (
+                      {a.status === "CANCELLED" ? (
+                        <div className="flex items-baseline justify-between gap-2">
+                          <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
+                            Advance request · {formatDate(a.issueDate)}
+                          </p>
+                          <p className="text-m-caption font-semibold tabular-nums shrink-0" style={{ color: "var(--color-stop)" }}>
+                            {a.notes?.includes("Withdrawn") ? "withdrawn" : "declined"}
+                          </p>
+                        </div>
+                      ) : a.status === "REQUESTED" ? (
                         <div className="flex items-baseline justify-between gap-2">
                           <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                             Advance request · {formatDate(a.issueDate)}
                           </p>
-                          <p className="text-m-caption font-semibold tabular-nums shrink-0" style={{ color: "var(--color-warn)" }}>
-                            ₹{a.amount.toLocaleString("en-IN")} · pending
-                          </p>
+                          <div className="flex items-baseline gap-2 shrink-0">
+                            <p className="text-m-caption font-semibold tabular-nums" style={{ color: "var(--color-warn)" }}>
+                              ₹{a.amount.toLocaleString("en-IN")} · pending
+                            </p>
+                            <WithdrawAdvanceButton id={a.id} />
+                          </div>
                         </div>
                       ) : (
                         <>
@@ -1418,5 +1431,31 @@ function AttendanceCorrectionForm({ hasPending }: { hasPending: boolean }) {
         </button>
       </div>
     </div>
+  );
+}
+
+
+/** Withdraw your own pending advance ask — REQUESTED only; once HR decides,
+    the row is ledger history. */
+function WithdrawAdvanceButton({ id }: { id: string }) {
+  const [busy, setBusy] = useState(false);
+  const router = useRouter();
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          const res = await fetch(`/api/me/advances/${id}`, { method: "PATCH" });
+          if (res.ok) { toast.success("Request withdrawn"); router.refresh(); }
+          else toast.error((await res.json().catch(() => ({}))).error ?? "Could not withdraw");
+        } finally { setBusy(false); }
+      }}
+      className="text-m-caption font-bold underline"
+      style={{ color: "var(--color-ink-500)" }}
+    >
+      {busy ? "…" : "withdraw"}
+    </button>
   );
 }
