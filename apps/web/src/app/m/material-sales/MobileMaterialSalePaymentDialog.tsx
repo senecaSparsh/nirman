@@ -51,8 +51,13 @@ export function MobileMaterialSalePaymentDialog({
       toast.error("Enter a valid amount");
       return;
     }
-    if (amount > outstandingBalance) {
-      toast.error(`Amount exceeds outstanding balance of ${formatCurrency(outstandingBalance)}`);
+    const tds = Number(payTds) || 0;
+    if (tds < 0 || tds >= amount) {
+      toast.error("TDS must be less than the payment amount");
+      return;
+    }
+    if (amount + tds > outstandingBalance) {
+      toast.error(`Amount + TDS exceeds outstanding balance of ${formatCurrency(outstandingBalance)}`);
       return;
     }
     if (payMode === "CHEQUE" && !payCheque.chequeNo.trim()) {
@@ -200,7 +205,7 @@ export function MobileMaterialSalePaymentDialog({
 
         {payAmount && Number(payAmount) > 0 && Number(payAmount) <= outstandingBalance ? (
           <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-            After payment: <span className="font-bold tabular-nums" style={{ color: "var(--color-go)" }}>{formatCurrency(outstandingBalance - Number(payAmount))}</span>
+            After payment{(Number(payTds) || 0) > 0 ? " + TDS" : ""}: <span className="font-bold tabular-nums" style={{ color: "var(--color-go)" }}>{formatCurrency(outstandingBalance - Number(payAmount) - (Number(payTds) || 0))}</span>
           </p>
         ) : null}
 
