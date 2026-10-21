@@ -59,6 +59,7 @@ export enum NotificationEventType {
 
   // Sales (6)
   SALE_CREATED = "SALE_CREATED",
+  LEAD_CREATED = "LEAD_CREATED",
   SALE_PAYMENT_RECEIVED = "SALE_PAYMENT_RECEIVED",
   SALE_PAYMENT_DUE = "SALE_PAYMENT_DUE",
   SALE_CANCELLED = "SALE_CANCELLED",
@@ -173,6 +174,7 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
 
   // Sales
   [NotificationEventType.SALE_CREATED]: "IMMEDIATE",
+  [NotificationEventType.LEAD_CREATED]: "IMMEDIATE",
   [NotificationEventType.SALE_PAYMENT_RECEIVED]: "IMMEDIATE",
   [NotificationEventType.SALE_PAYMENT_DUE]: "IMMEDIATE",
   [NotificationEventType.SALE_CANCELLED]: "DAILY",
@@ -781,6 +783,7 @@ const PROCUREMENT_EVENTS = new Set([
 ]);
 const SALES_EVENTS = new Set([
   NotificationEventType.SALE_CREATED,
+  NotificationEventType.LEAD_CREATED,
   NotificationEventType.SALE_PAYMENT_RECEIVED,
   NotificationEventType.SALE_PAYMENT_DUE,
   NotificationEventType.SALE_CANCELLED,
@@ -953,6 +956,8 @@ const EVENT_MESSAGES: Partial<
     `Low stock: ${s("materialName") || s("material")}${s("currentQty") ? ` — ${s("currentQty")} left` : ""}.`,
 
   // Sales
+  [NotificationEventType.LEAD_CREATED]: ({ s }) =>
+    `New lead ${s("leadName")}${s("source") ? ` via ${s("source")}` : ""} — follow up while the enquiry is hot.`,
   [NotificationEventType.SALE_CREATED]: ({ s, money }) =>
     `Sale ${s("saleNumber")} created${money("salePrice") ? ` for ${money("salePrice")}` : ""}.`,
   [NotificationEventType.SALE_PAYMENT_RECEIVED]: ({ s, money }) =>

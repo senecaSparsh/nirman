@@ -138,6 +138,7 @@ export async function SettingsContent() {
         pan: company.pan,
         upiId: company.upiId,
         glLockedUntil: company.glLockedUntil?.toISOString() ?? null,
+        publicListingsEnabled: company.publicListingsEnabled,
         address: company.address,
         lat: company.lat,
         lng: company.lng,

@@ -90,6 +90,11 @@ export function isPublicRoute(pathname: string): boolean {
     pathname === "/portal" ||
     pathname.startsWith("/portal/") ||
     pathname.startsWith("/api/portal/") ||
+    // Public property discovery + enquiry — buyer-facing, no login.
+    pathname === "/properties" ||
+    pathname.startsWith("/properties/") ||
+    pathname === "/api/enquiries" ||
+    pathname.startsWith("/api/enquiries/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon") ||
     /\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|map|webmanifest|txt)$/.test(pathname)
@@ -256,6 +261,11 @@ export function middleware(req: NextRequest) {
     pathname === "/portal" ||
     pathname.startsWith("/portal/") ||
     pathname.startsWith("/api/portal/") ||
+    // Public property discovery + enquiry — buyer-facing, no login.
+    pathname === "/properties" ||
+    pathname.startsWith("/properties/") ||
+    pathname === "/api/enquiries" ||
+    pathname.startsWith("/api/enquiries/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon") ||
     pathname.match(/\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|map|webmanifest|txt)$/)

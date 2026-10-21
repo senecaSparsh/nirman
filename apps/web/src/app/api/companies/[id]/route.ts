@@ -44,6 +44,9 @@ const companyUpdateSchema = z.object({
   // Books locked through this date (inclusive) — no JE posts into it.
   // Null unlocks. Owner-only, like the other tax-identity fields.
   glLockedUntil: z.string().optional().nullable(),
+  // Public property-discovery page (/properties/<id>) — owner chooses to be
+  // listed; off keeps the entity's inventory private.
+  publicListingsEnabled: z.boolean().optional(),
   address: z.string().optional().nullable(),
   // Verified HQ geo-fence — set from the address picker; used as the fallback
   // check-in fence for employees without an assigned reporting location.
@@ -142,7 +145,7 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
     }
   }
 
-  if (["poApprovalThresholdManager", "poApprovalThresholdAdmin", "gstin", "pan", "upiId", "glLockedUntil"].some((f) => data[f as keyof typeof data] !== undefined) && !canDoOwnerOnly(await getOwnRole())) {
+  if (["poApprovalThresholdManager", "poApprovalThresholdAdmin", "gstin", "pan", "upiId", "glLockedUntil", "publicListingsEnabled"].some((f) => data[f as keyof typeof data] !== undefined) && !canDoOwnerOnly(await getOwnRole())) {
     return json({ error: "Only the owner can change approval thresholds and tax identity." }, { status: 403 });
   }
   if (data.code) data.code = data.code.toUpperCase();

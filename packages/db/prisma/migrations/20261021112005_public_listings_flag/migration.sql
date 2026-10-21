@@ -1,0 +1,1 @@
+ALTER TABLE "Company" ADD COLUMN IF NOT EXISTS "publicListingsEnabled" BOOLEAN NOT NULL DEFAULT false;

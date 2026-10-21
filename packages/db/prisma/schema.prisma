@@ -36,6 +36,11 @@ model Company {
   // GL period lock — no journal entry may post with entryDate on or before
   // this date. Finance advances it after each filing (GSTR / month close).
   glLockedUntil DateTime?
+  // Public property-discovery page — when on, /properties/<companyId> renders
+  // the company's LISTED portal listings and accepts enquiries that land as
+  // PORTAL-source leads. Off by default: an entity that doesn't sell units
+  // (subcontractor, JV) shouldn't publish an empty inventory page.
+  publicListingsEnabled Boolean @default(false)
   address   String?
   // Geo-fence center + radius (metres) for the registered office / HQ.
   // Set via the verified address picker on the company profile — used as the

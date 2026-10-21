@@ -67,6 +67,7 @@ type CompanyInfo = {
   upiId?: string | null;
   // Books locked through this date (inclusive) — owner-only, like gstin/pan
   glLockedUntil?: string | null;
+  publicListingsEnabled?: boolean;
   address: string | null;
   lat: number | null;
   lng: number | null;
@@ -232,6 +233,7 @@ export function SettingsView({
           pan: companyForm.pan?.trim() || null,
           upiId: companyForm.upiId?.trim() || null,
           glLockedUntil: companyForm.glLockedUntil || null,
+          publicListingsEnabled: companyForm.publicListingsEnabled ?? false,
           address: companyForm.address?.trim() || null,
           lat: companyForm.lat ?? null,
           lng: companyForm.lng ?? null,
@@ -391,6 +393,21 @@ export function SettingsView({
                         value={companyForm.glLockedUntil ? companyForm.glLockedUntil.slice(0, 10) : ""}
                         onChange={(e) => setCompanyForm((f) => ({ ...f, glLockedUntil: e.target.value || null }))}
                       />
+                    </div>
+                    <div className="flex items-center gap-3 rounded-md border border-border px-3 py-2">
+                      <input
+                        type="checkbox"
+                        id="co-public-listings"
+                        checked={companyForm.publicListingsEnabled ?? false}
+                        onChange={(e) => setCompanyForm((f) => ({ ...f, publicListingsEnabled: e.target.checked }))}
+                        className="rounded"
+                      />
+                      <div>
+                        <Label htmlFor="co-public-listings" className="cursor-pointer">Public properties page</Label>
+                        <p className="text-[0.6875rem] text-muted-foreground">
+                          Opens a public /properties page for this company — buyers browse LISTED units and enquiries land as leads.
+                        </p>
+                      </div>
                     </div>
                     <div className="space-y-1.5">
                       <Label hint="Pick a suggestion or use GPS — verified addresses only">Address</Label>

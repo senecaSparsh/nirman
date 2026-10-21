@@ -96,6 +96,12 @@ describe("isPublicRoute", () => {
     expect(isPublicRoute("/api/telephony/webhook/twilio/voice")).toBe(true);
   });
 
+  it("returns true for public property discovery + enquiry", () => {
+    expect(isPublicRoute("/properties")).toBe(true);
+    expect(isPublicRoute("/properties/some-company-id")).toBe(true);
+    expect(isPublicRoute("/api/enquiries")).toBe(true);
+  });
+
   it("returns true for /portal paths", () => {
     expect(isPublicRoute("/portal")).toBe(true);
     expect(isPublicRoute("/portal/listings")).toBe(true);
