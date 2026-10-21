@@ -1998,11 +1998,10 @@ ledger once and fans out to compliance, collections, and reports:
 - P5 — Allottee portal + bank/CC statement pack (books banks lend against)
 
 - P6 — Trust packs (from the 2026-10 sweep, sized builds not yet shipped):
-  bank/CC statement import + auto-match recon (the monthly CA workflow —
-  today only SMS-parse covers live credits); vendor payment run (batch
-  pay → one approval → bank file); supplier portal (vendors see their
-  bills/POs/payments — the allottee portal pattern); buyer-side ATS
-  review+accept flow (the /accept/agreement pattern, for sales).
+  supplier portal (vendors see their bills/POs/payments — the allottee
+  portal pattern). Shipped: bank/CC statement import + auto-match recon;
+  vendor payment run (batch pay → bank file); buyer-side ATS
+  review+accept flow; public property-discovery + enquiry funnel.
 
 ## 93. Readiness sweep wave 2 (2026-10-21) — controls, sweeps, field parity
 
@@ -2038,12 +2037,24 @@ service tests, both typechecks):
   material-sale payment dialog; "Pay Full" respects the deduction.
 - **Collections completeness** — payment-ledger rows on the allottee statement
   split principal+interest like receipts do.
+- **Bank/CC statement import** — CSV import on the SMS reconciliation page
+  reuses the SMS matcher: unambiguous credits auto-match, debits skipped,
+  duplicates deduped (verified: 2nd import deduped 4/4).
+- **Vendor payment run** — batch AP pay on the payables report: select
+  payables → TDS per line → NEFT/RTGS/UPI → each posts a real
+  SupplierPayment (own tx + JE + TDS leg) → disbursement CSV with the
+  supplier's saved bank details. Supplier gained
+  bankName/bankAccountNo/bankIfsc/upiId (schema + form + GET).
+- **Public property discovery** — opt-in per company
+  (`publicListingsEnabled`, owner-only in settings). /properties/<id>
+  renders LISTED listings unauthenticated; enquiries land as PORTAL leads
+  (honeypot + auth-preset rate limit, unit resolved via project).
+- **Buyer-side ATS e-acceptance** — shareable /accept/ats/<token> link
+  (30d TTL, rotated on re-issue) records signature + timestamp; mobile
+  timeline shows "signed by"; staff sees it on the sale's ATS row.
 
 **Still open (sized, honest):**
 
-- Bank/CC statement import + auto-match (P6 — the CA's monthly workflow;
-  SMS-parse only covers live credits today)
-- Vendor payment run (batch AP pay → one approval → bank file) (P6)
-- Supplier portal (P6), buyer-side ATS accept flow (P6)
-- Public property-discovery page (buyer browsing pre-login)
+- Supplier portal (P6 — vendors see their bills/POs/payments; allottee
+  portal pattern). The remaining large trust-pack build.
 - BOCW cess accrual (1% of construction cost — deferred legal nuance, D27)
