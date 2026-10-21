@@ -95,6 +95,9 @@ export function isPublicRoute(pathname: string): boolean {
     pathname.startsWith("/properties/") ||
     pathname === "/api/enquiries" ||
     pathname.startsWith("/api/enquiries/") ||
+    // Public ATS buyer-acceptance POST — the link token IS the auth.
+    pathname === "/api/accept" ||
+    pathname.startsWith("/api/accept/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon") ||
     /\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|map|webmanifest|txt)$/.test(pathname)
@@ -266,6 +269,9 @@ export function middleware(req: NextRequest) {
     pathname.startsWith("/properties/") ||
     pathname === "/api/enquiries" ||
     pathname.startsWith("/api/enquiries/") ||
+    // Public ATS buyer-acceptance POST — the link token IS the auth.
+    pathname === "/api/accept" ||
+    pathname.startsWith("/api/accept/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon") ||
     pathname.match(/\.(svg|png|jpg|jpeg|gif|webp|ico|css|js|map|webmanifest|txt)$/)

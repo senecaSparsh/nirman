@@ -42,6 +42,8 @@ function makeSale(overrides: Partial<AssetSaleRow> = {}): AssetSaleRow {
     saleDeedNo: null,
     expectedRegistryDate: null,
     atsNo: null,
+    atsBuyerAcceptedAt: null,
+    atsSignerName: null,
     atsDate: null,
     allowRegistryBeforeFullPayment: false,
     allotmentLetterNo: null,

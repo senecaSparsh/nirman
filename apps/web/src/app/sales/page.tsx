@@ -161,6 +161,8 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
       expectedRegistryDate: s.expectedRegistryDate ? s.expectedRegistryDate.toISOString() : null,
       // ATS (Agreement to Sell) — merged with registry
       atsNo: s.atsNo,
+    atsBuyerAcceptedAt: s.atsBuyerAcceptedAt ? s.atsBuyerAcceptedAt.toISOString() : null,
+    atsSignerName: s.atsSignerName,
       atsDate: s.atsDate ? s.atsDate.toISOString() : null,
       allowRegistryBeforeFullPayment: s.allowRegistryBeforeFullPayment,
       // Sale compliance documents
@@ -353,7 +355,7 @@ async function SalesContent({ searchParams }: { searchParams: Promise<{ tab?: st
           { label: "Not for sale", value: notSaleableUnits, tone: "muted", hint: "Planned, under construction, on hold, or rented out — counted in Total but not saleable." },
           { label: "Open Leads", value: leadRows.filter((lead) => !["BOOKED", "LOST"].includes(lead.stage)).length, hint: "Leads still moving through qualification and follow-up." },
           { label: "Booked", value: formatCurrency(bookedRevenue), tone: "success", hint: "Total contract value across all non-cancelled sales (includes reserved deposits). Not all of this is collected yet." },
-          { label: "Collected", value: formatCurrency(collected), tone: "success", hint: "Total payments received across all non-cancelled sales. The gap between Booked and Collected is outstanding." },
+          { label: "Collected", value: formatCurrency(collected), tone: "success", hint: "Principal received across all non-cancelled sales. Real dues (after GST and TDS withheld by buyers) are on the Bookings tab." },
         ]}
       />
       <DepartmentActivityFeed department="sales" />

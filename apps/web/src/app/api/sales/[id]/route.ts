@@ -73,6 +73,8 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
     // ATS (Agreement to Sell) — merged with registry
     atsNo: s.atsNo,
     atsDate: s.atsDate ? s.atsDate.toISOString() : null,
+    atsBuyerAcceptedAt: s.atsBuyerAcceptedAt ? s.atsBuyerAcceptedAt.toISOString() : null,
+    atsSignerName: s.atsSignerName,
     allowRegistryBeforeFullPayment: s.allowRegistryBeforeFullPayment,
     // Document uploads
     atsDocumentUrl: s.atsDocumentUrl,

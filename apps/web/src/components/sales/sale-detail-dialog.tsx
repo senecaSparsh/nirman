@@ -61,6 +61,7 @@ export function SaleDetailDialog({
   const [waiving, setWaiving] = useState<string | null>(null);
   const [chequeActionLoading, setChequeActionLoading] = useState(false);
   const [docUploading, setDocUploading] = useState(false);
+  const [issuingAtsLink, setIssuingAtsLink] = useState(false);
   const [collectItem, setCollectItem] = useState<{ id: string; installmentNo: number; description: string; amount: number; paidAmount: number; accruedInterest?: number } | null>(null);
   const { mutate: mutateAction } = useApiAction();
   const trackRecent = useTrackRecent();
@@ -90,6 +91,27 @@ export function SaleDetailDialog({
       toast.error(err instanceof Error ? err.message : "Upload failed");
     } finally {
       setDocUploading(false);
+    }
+  }
+
+  async function issueAtsLink() {
+    if (!sale) return;
+    setIssuingAtsLink(true);
+    try {
+      const res = await fetch(`/api/sales/${sale.id}/issue-ats-link`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to issue link");
+      const url = `${window.location.origin}${data.acceptPath}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        toast.success("ATS acceptance link copied", { description: url });
+      } catch {
+        toast.info(url, { duration: 15000 });
+      }
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to issue link");
+    } finally {
+      setIssuingAtsLink(false);
     }
   }
 
@@ -460,7 +482,22 @@ export function SaleDetailDialog({
                     {sale.allowRegistryBeforeFullPayment ? "Registry allowed before full payment. " : ""}
                     Booking recorded. Complete the sale when the sale deed is registered.
                   </p>
+                  {sale.atsBuyerAcceptedAt && (
+                    <p className="mt-1 text-caption font-medium text-success">
+                      Buyer accepted on {formatDate(sale.atsBuyerAcceptedAt)}
+                      {sale.atsSignerName ? ` by ${sale.atsSignerName}` : ""}
+                    </p>
+                  )}
                 </div>
+                <button
+                  type="button"
+                  onClick={issueAtsLink}
+                  disabled={issuingAtsLink}
+                  className="shrink-0 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                  title="Copy a link the buyer can open to review and accept the ATS"
+                >
+                  {issuingAtsLink ? "…" : sale.atsBuyerAcceptedAt ? "Re-issue link" : "Copy ATS link"}
+                </button>
               </div>
             )}
 

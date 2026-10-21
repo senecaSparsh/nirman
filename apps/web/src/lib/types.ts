@@ -815,6 +815,9 @@ export type AssetSaleRow = {
   atsNo: string | null;
   atsDate: string | null;
   allowRegistryBeforeFullPayment: boolean;
+  // Buyer e-acceptance of the ATS (shareable link)
+  atsBuyerAcceptedAt: string | null;
+  atsSignerName: string | null;
   // Sale compliance documents
   allotmentLetterNo: string | null;
   allotmentDate: string | null;

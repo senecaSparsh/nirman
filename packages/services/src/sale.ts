@@ -2885,3 +2885,86 @@ export async function bounceCheque(paymentId: string, userId?: string, bounceRea
     return { ok: true, saleStage: totalRemaining.gt(0) ? "DEPOSIT_RECEIVED" as const : "PENDING" as const };
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ATS buyer e-acceptance — a shareable link that records the buyer's review +
+// acceptance of the Agreement to Sell. Mirrors the employment-contract token
+// pattern: the token IS the auth, 30-day TTL, re-issue rotates.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Issue (or re-issue) the buyer acceptance link. Returns the token + path the
+ *  staff share over WhatsApp. Rotating the token invalidates older links. */
+export async function issueAtsAcceptLink(input: {
+  saleId: string;
+  companyId: string;
+  userId: string;
+}): Promise<{ token: string; issuedAt: string; alreadyAccepted: boolean }> {
+  return withSerializableTransaction(async (tx) => {
+    const sale = await tx.assetSale.findFirst({
+      where: { id: input.saleId, companyId: input.companyId },
+      select: { id: true, saleStage: true, atsBuyerAcceptedAt: true },
+    });
+    if (!sale) throw new ServiceError("Sale not found", 404);
+    if (sale.saleStage === "CANCELLED") throw new ServiceError("Cannot issue an acceptance link on a cancelled sale", 400);
+
+    const token = crypto.randomUUID();
+    const issuedAt = new Date();
+    await tx.assetSale.update({
+      where: { id: sale.id },
+      data: { atsAcceptToken: token, atsAcceptIssuedAt: issuedAt },
+    });
+    await logAction(tx, {
+      userId: input.userId,
+      companyId: input.companyId,
+      action: "ATS_ACCEPT_LINK_ISSUED",
+      entityType: "AssetSale",
+      entityId: sale.id,
+      after: { issuedAt: issuedAt.toISOString() },
+    });
+    return { token, issuedAt: issuedAt.toISOString(), alreadyAccepted: !!sale.atsBuyerAcceptedAt };
+  });
+}
+
+/** Record the buyer's acceptance. Called from the public accept page — the
+ *  token IS the auth. Returns the sale's display data for the thank-you view. */
+export async function acceptAts(input: {
+  token: string;
+  signerName: string;
+  signerPhone?: string | null;
+}): Promise<{ alreadyAccepted: boolean; acceptedAt: string; saleId: string }> {
+  const ATS_LINK_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+  return withSerializableTransaction(async (tx) => {
+    const sale = await tx.assetSale.findFirst({
+      where: { atsAcceptToken: input.token },
+      select: { id: true, companyId: true, atsBuyerAcceptedAt: true, atsAcceptIssuedAt: true },
+    });
+    if (!sale) throw new ServiceError("Invalid or expired link", 404);
+    if (
+      sale.atsAcceptIssuedAt &&
+      Date.now() - sale.atsAcceptIssuedAt.getTime() > ATS_LINK_TTL_MS
+    ) {
+      throw new ServiceError("This link has expired — ask your builder for a fresh one", 410);
+    }
+    if (sale.atsBuyerAcceptedAt) {
+      return { alreadyAccepted: true, acceptedAt: sale.atsBuyerAcceptedAt.toISOString(), saleId: sale.id };
+    }
+    const acceptedAt = new Date();
+    await tx.assetSale.update({
+      where: { id: sale.id },
+      data: {
+        atsBuyerAcceptedAt: acceptedAt,
+        atsSignerName: input.signerName,
+        atsSignerPhone: input.signerPhone ?? null,
+      },
+    });
+    await logAction(tx, {
+      userId: undefined, // public endpoint — no staff user; the audit row itself is the trail
+      companyId: sale.companyId,
+      action: "ATS_BUYER_ACCEPTED",
+      entityType: "AssetSale",
+      entityId: sale.id,
+      after: { acceptedAt: acceptedAt.toISOString(), signerName: input.signerName },
+    });
+    return { alreadyAccepted: false, acceptedAt: acceptedAt.toISOString(), saleId: sale.id };
+  });
+}

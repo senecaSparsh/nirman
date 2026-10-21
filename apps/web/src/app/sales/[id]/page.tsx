@@ -114,6 +114,8 @@ async function SaleDetailContent({
     saleDeedNo: sale.saleDeedNo,
     expectedRegistryDate: sale.expectedRegistryDate ? sale.expectedRegistryDate.toISOString() : null,
     atsNo: sale.atsNo,
+    atsBuyerAcceptedAt: sale.atsBuyerAcceptedAt ? sale.atsBuyerAcceptedAt.toISOString() : null,
+    atsSignerName: sale.atsSignerName,
     atsDate: sale.atsDate ? sale.atsDate.toISOString() : null,
     allowRegistryBeforeFullPayment: sale.allowRegistryBeforeFullPayment,
     allotmentLetterNo: sale.allotmentLetterNo,

@@ -4212,6 +4212,15 @@ model AssetSale {
   // registryDocumentUrl is set).
   atsDocumentUrl       String?    // Agreement to Sell — uploaded PDF/image
   atsDocumentName      String?    // original filename for display
+  // ── Buyer e-acceptance of the ATS ──
+  // Staff issues a shareable link (token); the buyer opens it, reviews the
+  // terms and accepts. atsBuyerAcceptedAt + signer identity is the audit
+  // trail — RERA disputes turn on whether the buyer saw and accepted the ATS.
+  atsAcceptToken       String?
+  atsAcceptIssuedAt    DateTime?
+  atsBuyerAcceptedAt   DateTime?
+  atsSignerName        String?
+  atsSignerPhone       String?
   bbaDocumentUrl       String?    // Builder-Buyer Agreement — uploaded PDF/image
   bbaDocumentName      String?    // original filename for display
   registryDocumentUrl  String?    // Sale deed / registry document — uploaded PDF/image (REQUIRED for completion)

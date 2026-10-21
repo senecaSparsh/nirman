@@ -320,7 +320,7 @@ export type { CreateLegalDocInput, UpdateLegalDocInput } from "./legal-docs";
 // Sale — asset sales + payments + staged deposit flow
 export {
   sellAsset,
-  recordDeposit,
+  recordDeposit, issueAtsAcceptLink, acceptAts,
   completeSale,
   markRegistryDone,
   recordPayment,
