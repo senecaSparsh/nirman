@@ -355,8 +355,9 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
       },
     });
 
-    return updated;
+    return Object.assign(updated, { lockedDates });
   });
+  const lockedDates: string[] = (updated as { lockedDates?: string[] }).lockedDates ?? [];
 
   // Tell the requester — the person whose leave this was. Sent via
   // recipientIds (replaces role resolution) so it never broadcasts to
@@ -378,6 +379,8 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
       startDate: leaveStartDate,
       approverName,
       reason: input.rejectedReason ?? "",
+      lockedDays: String(lockedDates.length),
+      lockedDates: lockedDates.join(", "),
     },
     timestamp: new Date(),
   });

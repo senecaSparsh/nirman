@@ -1047,7 +1047,7 @@ const EVENT_MESSAGES: Partial<
   [NotificationEventType.LEAVE_SUBMITTED]: ({ s }) =>
     `${s("employeeName") || "An employee"} requested ${s("leaveType") ? s("leaveType").toLowerCase() : "leave"} leave (${s("days") || "?"} day${s("days") === "1" ? "" : "s"}${s("startDate") ? ` from ${s("startDate")}` : ""}) — needs approval.`,
   [NotificationEventType.LEAVE_APPROVED]: ({ s }) =>
-    `Your ${s("leaveType") ? s("leaveType").toLowerCase() : ""} leave (${s("days") || "?"} day${s("days") === "1" ? "" : "s"}${s("startDate") ? ` from ${s("startDate")}` : ""}) was approved${s("approverName") ? ` by ${s("approverName")}` : ""}.`,
+    `Your ${s("leaveType") ? s("leaveType").toLowerCase() : ""} leave (${s("days") || "?"} day${s("days") === "1" ? "" : "s"}${s("startDate") ? ` from ${s("startDate")}` : ""}) was approved${s("approverName") ? ` by ${s("approverName")}` : ""}${Number(s("lockedDays")) > 0 ? ` — ${s("lockedDays")} day(s) fell in a processed payroll month (${s("lockedDates")}); those are handled as next-period adjustments` : ""}.`,
   [NotificationEventType.LEAVE_REJECTED]: ({ s }) =>
     `Your ${s("leaveType") ? s("leaveType").toLowerCase() : ""} leave request was rejected${s("reason") ? `: ${s("reason")}` : ""}.`,
   [NotificationEventType.CLAIM_SUBMITTED]: ({ s, money }) =>

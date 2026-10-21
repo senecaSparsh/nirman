@@ -39,7 +39,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
       rejectedReason: parsed.data.rejectedReason ?? undefined,
       actorRole: actingRole,
     });
-    return json({ ok: true, id: leave.id, status: leave.status });
+    return json({ ok: true, id: leave.id, status: leave.status, lockedDates: (leave as { lockedDates?: string[] }).lockedDates ?? [] });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to update leave request") }, { status: 400 });
   }
@@ -72,7 +72,7 @@ export const DELETE = apiHandler(async (_req: NextRequest, { params }: { params:
 
   try {
     const leave = await cancelLeaveRequest(id, company.id, user.id);
-    return json({ ok: true, id: leave.id, status: leave.status });
+    return json({ ok: true, id: leave.id, status: leave.status, lockedDates: (leave as { lockedDates?: string[] }).lockedDates ?? [] });
   } catch (err: unknown) {
     return json({ error: (err instanceof Error ? err.message : "Failed to cancel leave request") }, { status: 400 });
   }
