@@ -2091,6 +2091,38 @@ service tests, both typechecks):
 - **Aging reports complete the affordance set** — stock-aging +
   land-aging got the same print + CSV the other reports carry.
 
+- **Race-class hardening across self-service + payments** — the status
+  check sat OUTSIDE the decide transaction, so a concurrent write won
+  between check and write: two approvers (or a double-click) posted two
+  ACTIVE flips + two cash-out JEs for one advance ask; a withdraw could
+  overwrite an approval landing meanwhile (CANCELLED over ACTIVE with
+  the JE already posted). All four paths (advance decide, correction
+  decide, both withdraws) now claim inside the transaction/update
+  itself — updateMany where status='REQUESTED', a 0-count is the
+  honest 'already decided' 409.
+- **Payment double-submit guards everywhere** — AssetSalePayment had
+  no createdAt at all (paymentDate is user-entered/backdateable, so
+  neither sort nor dedup was possible — column + migration added) and
+  the same 15s same-amount/mode/actor window the supplier path carried
+  now covers land purchase, statutory challan and material-sale
+  collections. UTR/cheque dedup already existed; referenceless cash is
+  the residual this closes.
+- **The payroll-lock skip is honest now** — approving leave across a
+  processed month no longer 409s forever; locked days land as a
+  next-period adjustment the audit names. Both sides hear about it —
+  the worker's notification says which days adjusted and the route
+  returns lockedDates for the approver's toast.
+- **Portal cookies are secure in production** — customer + supplier
+  OTP sessions carried httpOnly+sameSite:lax but no secure flag; over
+  HTTP they rode cleartext. Now gated on NODE_ENV (dev needs the
+  exception for http://localhost).
+- **Punch-fix asks unblock correctly** — the /m/me form blocked every
+  new correction while ANY ask was pending; the service rule is
+  per-day. The date picker now checks just that day.
+- **Live suite covers the new asks** — verify-workflows-full section
+  30 drives the whole ask lifecycle through real API calls, the same
+  coverage every other state machine gets.
+
 **Still open (sized, honest):**
 
 - BOCW cess accrual (1% of construction cost — deferred legal nuance, D27)
