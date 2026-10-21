@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useUrlQuery } from "@/lib/use-url-filter";
 import { toast } from "sonner";
-import {Plus, Pencil, Trash2, HardHat, Phone, Search} from "lucide-react";
+import {Plus, Pencil, Trash2, HardHat, Phone} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
@@ -26,18 +25,9 @@ export function SubcontractorsView({
   canEdit: boolean;
   canDelete: boolean;
 }) {
-  const [query, setQuery] = useUrlQuery("q");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<SubcontractorRow | null>(null);
   const [deleting, setDeleting] = useState<SubcontractorRow | null>(null);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return subcontractors;
-    return subcontractors.filter((s) =>
-      [s.name, s.phone, s.email, s.trade, s.gstin, s.address].filter(Boolean).some((v) => v!.toLowerCase().includes(q))
-    );
-  }, [subcontractors, query]);
 
   const baseColumns: Column<SubcontractorRow>[] = [
     {
@@ -143,48 +133,43 @@ export function SubcontractorsView({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search name, trade, phone, GSTIN…"
-            className="pl-9"
-          />
-        </div>
-        {canCreate && (
-          <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
-            <Plus className="h-4 w-4" /> Add Subcontractor
-          </Button>
-        )}
-      </div>
-
-      {filtered.length === 0 && !query ? (
+      {subcontractors.length === 0 ? (
         <EmptyState
           icon={<HardHat className="h-6 w-6" />}
           title="No subcontractors yet"
           description="Add subcontractors to issue work orders, track RA bills, and manage TDS/retention."
           action={canCreate ? (
-            <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
+            <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true); }}>
               <Plus className="h-4 w-4" /> Add your first subcontractor
             </Button>
           ) : undefined}
         />
       ) : (
-        <DataTable
-          columns={columns}
-          data={filtered}
-          getRowId={(s) => s.id}
-          initialSort={{ key: "name", direction: "asc" }}
-          emptyState={
-            <EmptyState
-              icon={<Search className="h-5 w-5" />}
-              title="No subcontractors found"
-              description="Try a different search."
-            />
-          }
-        />
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            columns={columns}
+            data={subcontractors}
+            getRowId={(s) => s.id}
+            storageKey="subcontractors"
+            searchable
+            searchPlaceholder="Search name, trade, phone, GSTIN…"
+            hideable
+            exportFileName="subcontractors"
+            initialSort={{ key: "name", direction: "asc" }}
+            showTotals
+            sumColumns={["totalWorkDone", "totalPaid", "retentionBalance"]}
+            totalFormat={(_k, sum) => formatCurrency(sum)}
+            onAddRow={canCreate ? () => { setEditing(null); setFormOpen(true); } : undefined}
+            addRowLabel="Add Subcontractor"
+            toolbarTrailing={
+              canCreate ? (
+                <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true); }}>
+                  <Plus className="size-3.5" /> Add Subcontractor
+                </Button>
+              ) : undefined
+            }
+          />
+        </div>
       )}
 
       <SubcontractorFormDialog

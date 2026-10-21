@@ -3,25 +3,34 @@ import { TrendingDown, TrendingUp, Landmark } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
 /**
- * CashRunwayCard — next-30-day money position for the owner:
- * expected collections in vs committed spend out, with the components
- * visible so the number is trusted rather than a black box.
+ * CashRunwayCard — the next-30-day money position for the owner.
+ *
+ * The projection starts from cash actually in the bank and adds expected
+ * collections, then subtracts committed spend. Without the opening balance
+ * this card told an owner holding ₹7.42Cr that they faced a "-₹10.18L net
+ * shortfall" — a red alert that is technically "net of flows" but reads as
+ * "you are running out of money". A shortfall is only real when projected
+ * cash goes negative.
  */
 export function CashRunwayCard({
+  openingCash,
   expectedIn,
   committedOut,
   statutoryDue,
   draftPayroll,
   posInFlight,
 }: {
+  openingCash: number;
   expectedIn: number;
   committedOut: number;
   statutoryDue: number;
   draftPayroll: number;
   posInFlight: number;
 }) {
-  const net = expectedIn - committedOut;
-  const positive = net >= 0;
+  const projected = openingCash + expectedIn - committedOut;
+  const shortfall = projected < 0;
+  const positive = !shortfall;
+  const netFlow = expectedIn - committedOut;
 
   return (
     <div className={`flex flex-wrap items-center justify-between gap-4 rounded-lg border px-4 py-3 ${positive ? "border-success-border bg-success-soft/40" : "border-danger/30 bg-danger-soft/30"}`}>
@@ -31,14 +40,17 @@ export function CashRunwayCard({
         </div>
         <div>
           <p className="text-body font-semibold text-foreground">
-            Next 30 days: <span className="tnum">{formatCurrency(net)}</span> {positive ? "net inflow" : "net shortfall"}
+            In 30 days: <span className="tnum">{formatCurrency(projected)}</span> cash
+            {shortfall && <span className="ml-2 text-danger">— shortfall</span>}
           </p>
           <p className="text-caption text-muted-foreground">
-            {formatCurrency(expectedIn)} expected from installments · {formatCurrency(committedOut)} committed
-            {posInFlight > 0 && ` (POs ${formatCurrency(posInFlight)}`}
+            {formatCurrency(openingCash)} in hand · {formatCurrency(expectedIn)} expected in · {formatCurrency(committedOut)} committed out
+          </p>
+          <p className="text-micro text-muted-foreground/80">
+            Net movement {netFlow >= 0 ? "+" : ""}{formatCurrency(netFlow)}
+            {posInFlight > 0 && ` · POs ${formatCurrency(posInFlight)}`}
             {draftPayroll > 0 && ` · payroll ${formatCurrency(draftPayroll)}`}
             {statutoryDue > 0 && ` · statutory ${formatCurrency(statutoryDue)}`}
-            {posInFlight > 0 && ")"}
           </p>
         </div>
       </div>

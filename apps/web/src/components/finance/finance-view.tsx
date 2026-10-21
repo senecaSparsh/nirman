@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {Plus, TrendingDown, Wallet, RefreshCw, ExternalLink} from "lucide-react";
+import {Plus, TrendingDown, Wallet, ExternalLink} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -40,7 +39,6 @@ export function FinanceView({
   const [editingExpense, setEditingExpense] = useState<{ id: string; projectId: string | null; category: string; amount: number; date: string; notes: string | null } | null>(null);
   const [deletingCost, setDeletingCost] = useState<ProjectCostRow | null>(null);
   const [deletingExpense, setDeletingExpense] = useState<{ id: string; category: string; amount: number } | null>(null);
-  const router = useRouter();
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
@@ -82,12 +80,6 @@ export function FinanceView({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
-          <RefreshCw className="h-4 w-4" />
-        </Button>
-      </div>
-
       <Tabs defaultValue="pnl">
         <TabsList>
           <TabsTrigger value="pnl">Project P&L</TabsTrigger>
@@ -100,7 +92,7 @@ export function FinanceView({
           {projectPnls.length === 0 ? (
             <EmptyState icon={<TrendingDown className="h-5 w-5" />} title="No projects" description="Create projects to see P&L data." />
           ) : (
-            <div className="rounded-lg border border-border overflow-hidden">
+            <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
               <DataTable
                 data={projectPnls}
                 onRowClick={(p) => window.location.href = `/projects/${p.projectId}`}
@@ -139,7 +131,7 @@ export function FinanceView({
               </div>
             </div>
           ) : (
-            <div className="rounded-lg border border-border overflow-hidden">
+            <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
               <DataTable
                 data={moneyFlow}
                 initialSort={{ key: "date", direction: "desc" }}
@@ -183,7 +175,7 @@ export function FinanceView({
 
         {/* ── Audit Log ───────────────────────────────────────────── */}
         <TabsContent value="audit">
-          <div className="rounded-lg border border-border overflow-hidden">
+          <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
             <DataTable
               data={auditLogs}
               initialSort={{ key: "timestamp", direction: "desc" }}

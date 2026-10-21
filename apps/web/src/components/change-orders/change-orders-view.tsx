@@ -2,15 +2,16 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useUrlQuery } from "@/lib/use-url-filter";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { StatusPill } from "@/components/page";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
-import {Plus, GitBranch, Search, Trash2} from "lucide-react";
+import {Plus, GitBranch, Trash2} from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 
 type ChangeOrderType = "ADDITION" | "DELETION" | "MODIFICATION" | "ACCELERATION" | "DECELERATION" | "VARIATION";
@@ -42,15 +43,6 @@ const TYPE_LABELS: Record<string, string> = {
   VARIATION: "Variation",
 };
 
-const STATUS_TONES: Record<string, "default" | "warning" | "success" | "danger"> = {
-  DRAFT: "default",
-  SUBMITTED: "warning",
-  APPROVED: "success",
-  REJECTED: "danger",
-  IMPLEMENTED: "success",
-  CANCELLED: "default",
-};
-
 export function ChangeOrdersView({
   changeOrders,
   projects,
@@ -61,92 +53,129 @@ export function ChangeOrdersView({
   canManage: boolean;
 }) {
   const router = useRouter();
-  const [query, setQuery] = useUrlQuery("q");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const filtered = useMemo(() => {
-    let result = changeOrders;
-    if (statusFilter !== "ALL") result = result.filter((c) => c.status === statusFilter);
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      result = result.filter(
-        (c) => c.title.toLowerCase().includes(q) || c.changeOrderNo.toLowerCase().includes(q) || c.projectName.toLowerCase().includes(q),
-      );
-    }
-    return result;
-  }, [changeOrders, query, statusFilter]);
+    if (statusFilter === "ALL") return changeOrders;
+    return changeOrders.filter((c) => c.status === statusFilter);
+  }, [changeOrders, statusFilter]);
+
+  const columns: Column<ChangeOrderItem>[] = [
+    {
+      key: "changeOrderNo",
+      label: "CO Number",
+      sortable: true,
+      render: (c) => <span className="font-mono text-caption font-semibold text-foreground">{c.changeOrderNo}</span>,
+    },
+    {
+      key: "title",
+      label: "Title",
+      sortable: true,
+      render: (c) => (
+        <div className="min-w-0">
+          <div className="truncate font-medium text-foreground">{c.title}</div>
+          <div className="truncate text-caption text-muted-foreground">
+            {c.phaseName ? `${c.phaseName} · ` : ""}
+            {c.lineCount} lines
+            {c.scheduleDeltaDays !== 0 ? ` · ${c.scheduleDeltaDays > 0 ? "+" : ""}${c.scheduleDeltaDays}d` : ""}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "projectName",
+      label: "Project",
+      sortable: true,
+      render: (c) => <span className="text-muted-foreground">{c.projectName}</span>,
+    },
+    {
+      key: "type",
+      label: "Type",
+      sortable: true,
+      render: (c) => <Badge variant="outline">{TYPE_LABELS[c.type] ?? c.type}</Badge>,
+    },
+    {
+      key: "costDelta",
+      label: "Cost Δ",
+      align: "right",
+      sortable: true,
+      render: (c) => (
+        <span className={cn("tnum font-medium", c.costDelta > 0 ? "text-danger" : c.costDelta < 0 ? "text-success" : "text-muted-foreground")}>
+          {c.costDelta > 0 ? "+" : ""}{formatCurrency(c.costDelta)}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      render: (c) => <StatusPill status={c.status} />,
+    },
+    {
+      key: "createdAt",
+      label: "Created",
+      align: "right",
+      sortable: true,
+      sortValue: (c) => new Date(c.createdAt),
+      render: (c) => <span className="tnum text-caption text-muted-foreground">{formatDate(c.createdAt)}</span>,
+    },
+  ];
+
+  const statusSelect = (
+    <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-7 w-[140px] text-caption">
+      <option value="ALL">All Status</option>
+      <option value="DRAFT">Draft</option>
+      <option value="SUBMITTED">Submitted</option>
+      <option value="APPROVED">Approved</option>
+      <option value="IMPLEMENTED">Implemented</option>
+      <option value="REJECTED">Rejected</option>
+      <option value="CANCELLED">Cancelled</option>
+    </Select>
+  );
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search change orders…"
-            className="pl-8"
-          />
-        </div>
-        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-[140px]">
-          <option value="ALL">All Status</option>
-          <option value="DRAFT">Draft</option>
-          <option value="SUBMITTED">Submitted</option>
-          <option value="APPROVED">Approved</option>
-          <option value="IMPLEMENTED">Implemented</option>
-          <option value="REJECTED">Rejected</option>
-          <option value="CANCELLED">Cancelled</option>
-        </Select>
-        {canManage && projects.length > 0 && (
-          <Button size="sm" onClick={() => setDialogOpen(true)}>
-            <Plus className="mr-1 h-4 w-4" /> New Change Order
-          </Button>
-        )}
-      </div>
-
-      {/* Table */}
-      {filtered.length === 0 ? (
+      {changeOrders.length === 0 ? (
         <EmptyState
           icon={<GitBranch />}
-          title="No change orders found"
-          description={
-            changeOrders.length === 0 ? "Create one to track scope changes." : "No change orders match your filters."
+          title="No change orders yet"
+          description="Create one to track formal modifications to project scope, BOQ, budget, and schedule."
+          action={
+            canManage && projects.length > 0 ? (
+              <Button size="sm" onClick={() => setDialogOpen(true)}>
+                <Plus className="size-4" /> New Change Order
+              </Button>
+            ) : undefined
           }
-          size="compact"
         />
       ) : (
-        <div className="rounded-lg border border-border overflow-hidden">
-          <div className="grid grid-cols-[120px_1fr_120px_100px_120px_100px_80px] gap-2 border-b border-border bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground">
-            <div>CO Number</div>
-            <div>Title</div>
-            <div>Project</div>
-            <div>Type</div>
-            <div className="text-right">Cost Δ</div>
-            <div>Status</div>
-            <div className="text-right">Created</div>
-          </div>
-          {filtered.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => router.push(`/change-orders/${c.id}`)}
-              className="grid w-full grid-cols-[120px_1fr_120px_100px_120px_100px_80px] gap-2 border-b border-border/50 px-3 py-2 text-sm text-left hover:bg-muted/30 transition-colors"
-            >
-              <div className="font-mono text-xs text-muted-foreground self-center">{c.changeOrderNo}</div>
-              <div className="min-w-0 self-center">
-                <div className="truncate font-medium">{c.title}</div>
-                <div className="truncate text-xs text-muted-foreground">{c.phaseName ? `${c.phaseName} · ` : ""}{c.lineCount} lines{c.scheduleDeltaDays !== 0 ? ` · ${c.scheduleDeltaDays > 0 ? "+" : ""}${c.scheduleDeltaDays}d` : ""}</div>
-              </div>
-              <div className="text-xs text-muted-foreground self-center truncate">{c.projectName}</div>
-              <div className="text-xs self-center">{TYPE_LABELS[c.type] ?? c.type}</div>
-              <div className={cn("text-right font-medium tabular-nums self-center", c.costDelta > 0 ? "text-destructive" : c.costDelta < 0 ? "text-green-600" : "")}>
-                {c.costDelta > 0 ? "+" : ""}{formatCurrency(c.costDelta)}
-              </div>
-              <div className="self-center"><Badge variant={STATUS_TONES[c.status] ?? "default"}>{c.status}</Badge></div>
-              <div className="text-right text-xs text-muted-foreground self-center tabular-nums">{formatDate(c.createdAt)}</div>
-            </button>
-          ))}
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            columns={columns}
+            data={filtered}
+            getRowId={(c) => c.id}
+            storageKey="change-orders"
+            searchable
+            searchPlaceholder="Search CO number, title, project…"
+            hideable
+            exportFileName="change-orders"
+            initialSort={{ key: "createdAt", direction: "desc" }}
+            showTotals
+            sumColumns={["costDelta"]}
+            totalFormat={(_k, sum) => `${sum > 0 ? "+" : ""}${formatCurrency(sum)}`}
+            onRowClick={(c) => router.push(`/change-orders/${c.id}`)}
+            onAddRow={canManage && projects.length > 0 ? () => setDialogOpen(true) : undefined}
+            addRowLabel="New Change Order"
+            toolbarLeading={statusSelect}
+            toolbarTrailing={
+              canManage && projects.length > 0 ? (
+                <Button size="sm" onClick={() => setDialogOpen(true)}>
+                  <Plus className="size-3.5" /> New Change Order
+                </Button>
+              ) : undefined
+            }
+          />
         </div>
       )}
 

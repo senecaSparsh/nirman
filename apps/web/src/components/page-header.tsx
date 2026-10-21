@@ -89,17 +89,17 @@ export function PageHeader({
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-2 no-print">
-          {/* Stats sit INLINE with the heading, right-aligned, so the
-              numbers are visible without scrolling and don't compete with
-              the title for vertical space. */}
+          {/* Stats sit INLINE with the heading, right-aligned, in a hairline-
+              divided instrument panel so every page header has crisp structure
+              and visual symmetry. */}
           {stats && stats.length > 0 && (
-            <dl className="flex flex-wrap items-start gap-x-6 gap-y-2">
+            <dl className="flex flex-wrap items-stretch divide-x divide-border rounded-lg border border-border bg-card shadow-raised">
               {stats.map((s, i) => (
-                <div key={i} className="group/stat relative min-w-0">
+                <div key={i} className="group/stat relative min-w-[76px] px-3.5 py-2">
                   <dt className="text-label leading-none text-muted-foreground">{s.label}</dt>
                   <dd
                     className={cn(
-                      "mt-1 text-[13px] font-semibold leading-none tnum",
+                      "mt-1 text-[14px] font-semibold leading-none tnum",
                       s.tone === "warning" && "text-warning",
                       s.tone === "danger" && "text-danger",
                       s.tone === "success" && "text-success",
@@ -110,7 +110,7 @@ export function PageHeader({
                     {s.value}
                   </dd>
                   {s.hint && (
-                    <div className="pointer-events-none absolute left-0 top-full z-50 mt-2 hidden w-max max-w-xs rounded-md border border-border bg-elevated px-3 py-2 text-caption leading-relaxed text-muted-foreground shadow-overlay group-hover/stat:block">
+                    <div className="pointer-events-none absolute right-0 top-full z-50 mt-2 hidden w-max max-w-xs rounded-md border border-border bg-elevated px-3 py-2 text-caption leading-relaxed text-muted-foreground shadow-overlay group-hover/stat:block">
                       {s.hint}
                     </div>
                   )}

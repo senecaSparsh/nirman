@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { prisma } from "@nirman/db";
 import { getCompany, toNum, scopeWhere, getUserPermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
+import { formatCurrency } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { PageLoading } from "@/components/page-loading";
 import { MaterialSalesView } from "@/components/material-sales/material-sales-view";
@@ -12,10 +13,6 @@ import { DepartmentActivityFeed } from "@/components/department-activity-feed";
 export default function MaterialSalesPage() {
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Material Sales"
-        description="Sell raw materials and inventory items to customers — stock is relieved at MAC and revenue is recognised in the GL."
-      />
       <Suspense fallback={<PageLoading label="Loading material sales…" variant="list" />}>
         <MaterialSalesContent />
       </Suspense>
@@ -171,10 +168,23 @@ async function MaterialSalesContent() {
     })),
   }));
 
+  const activeSales = saleRows.filter((s) => s.status !== "CANCELLED");
+  const totalRevenue = activeSales.reduce((s, r) => s + r.totalAmount - r.returnedTotal, 0);
+  const totalProfit = activeSales.reduce((s, r) => s + r.grossProfit, 0);
+
   return (
     <>
-    <DepartmentActivityFeed department="sales" />
-    <MaterialSalesView
+      <PageHeader
+        title="Material Sales"
+        description="Sell raw materials and inventory items to customers — stock is relieved at MAC and revenue is recognised in the GL."
+        stats={[
+          { label: "Sales", value: activeSales.length, hint: "Active material sales (excluding cancelled)." },
+          { label: "Revenue", value: formatCurrency(totalRevenue), hint: "Net revenue across active material sales (after returns)." },
+          { label: "Gross Profit", value: formatCurrency(totalProfit), tone: totalProfit >= 0 ? "success" : "danger", hint: "Gross profit over moving-average material cost." },
+        ]}
+      />
+      <DepartmentActivityFeed department="sales" />
+      <MaterialSalesView
       sales={saleRows}
       customers={customers.map((c) => ({ id: c.id, name: c.name, phone: c.phone }))}
       locations={stockLocations.map((l) => ({ id: l.id, name: l.name, type: l.type }))}

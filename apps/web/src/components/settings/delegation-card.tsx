@@ -118,9 +118,9 @@ export function DelegationCard() {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader divided>
         <CardTitle className="flex items-center gap-2">
-          <UserCheck className="size-5" />
+          <UserCheck className="size-4 text-muted-foreground" />
           Out of office — delegate my authority
         </CardTitle>
         <CardDescription>

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, ArrowRight, Activity } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Section } from "@/components/page";
+import { Section, MetricGrid, Metric } from "@/components/page";
 import { MyTasksPanel } from "@/components/tasks/my-tasks-panel";
 import { cn } from "@/lib/utils";
 import { useDashboardPolling } from "@/lib/use-dashboard-polling";
@@ -51,20 +51,24 @@ export function CommandCenter(props: ProfileTabsProps) {
   // and overrides the numbers so the dashboard stays fresh without
   // a full page reload. Item lists are NOT refreshed by polling —
   // only the counts change. A page refresh will bring in new items.
-  const totalQueues = polledCounts?.totalQueues ?? props.totalQueues;
-  const blockingQueues = polledCounts?.blockingQueues ?? props.blockingQueues;
-  const lowStockCount = polledCounts?.kpis.lowStockCount ?? props.lowStockCount;
-  const totalPOs6mo = polledCounts?.kpis.totalPOs6mo ?? props.totalPOs6mo;
-  const totalSpend6mo = polledCounts?.kpis.totalSpend6mo ?? props.totalSpend6mo;
-  const pendingActions = polledCounts?.kpis.pendingActions ?? props.pendingActions;
-
-  // Update queue counts from polled data (keep server item lists)
+  // Update queue counts from polled data (keep server item lists).
+  // Use props.queues as the source of truth for which queues exist on screen
+  // and recompute totalQueues / blockingQueues from the visible queues so the
+  // KPI strip ("NEEDS YOU") and the queue section ("Your queue is clear")
+  // can never contradict each other.
   const queues = polledCounts
     ? props.queues.map((q) => {
         const polled = polledCounts.queues.find((pq) => pq.key === q.key);
         return polled ? { ...q, count: polled.count } : q;
-      })
+      }).filter((q) => q.count > 0)
     : props.queues;
+
+  const totalQueues = queues.reduce((n, q) => n + q.count, 0);
+  const blockingQueues = queues.filter((q) => q.urgency === "blocking").reduce((n, q) => n + q.count, 0);
+  const lowStockCount = polledCounts?.kpis.lowStockCount ?? props.lowStockCount;
+  const totalPOs6mo = polledCounts?.kpis.totalPOs6mo ?? props.totalPOs6mo;
+  const totalSpend6mo = polledCounts?.kpis.totalSpend6mo ?? props.totalSpend6mo;
+  const pendingActions = polledCounts?.kpis.pendingActions ?? props.pendingActions;
 
   const hasQueues = queues.length > 0;
   const setupPending = props.setupSteps?.some((s) => !s.done) ?? false;
@@ -109,21 +113,21 @@ export function CommandCenter(props: ProfileTabsProps) {
       {/* ══ 2b. Setup checklist — a fresh company needs direction, not "all
           clear". Shown to OWNER/ADMIN until the basics exist. ═══ */}
       {props.canManageCompany && setupPending && (
-        <div className="rounded-lg border border-brand/20 bg-brand/5 p-4">
+        <div className="rounded-lg border border-brand-border bg-brand-soft/40 p-4">
           <div className="mb-3 flex items-baseline justify-between gap-3">
             <h3 className="text-body font-semibold text-foreground">Get your business set up</h3>
-            <span className="text-caption text-muted-foreground">
+            <span className="text-caption font-medium text-muted-foreground tnum">
               {props.setupSteps!.filter((s) => s.done).length} of {props.setupSteps!.length} done
             </span>
           </div>
-          <div className="space-y-1">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {props.setupSteps!.map((s) => (
-              <div key={s.href} className="flex items-center gap-2.5 py-1">
+              <div key={s.href} className="flex items-center gap-2.5 rounded-md border border-border/60 bg-card/70 px-3 py-2">
                 <CheckCircle2 className={cn("h-4 w-4 shrink-0", s.done ? "text-success" : "text-muted-foreground/40")} />
                 {s.done ? (
-                  <span className="text-body text-muted-foreground line-through">{s.label}</span>
+                  <span className="text-caption text-muted-foreground line-through">{s.label}</span>
                 ) : (
-                  <Link href={s.href} className="text-body font-medium text-brand hover:underline">
+                  <Link href={s.href} className="text-caption font-semibold text-brand hover:underline">
                     {s.label}
                   </Link>
                 )}
@@ -413,30 +417,19 @@ function KpiStrip(props: ProfileTabsProps) {
 
   if (kpis.length === 0) return null;
 
+  const cols = (Math.min(Math.max(kpis.length, 2), 4) as 2 | 3 | 4);
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <MetricGrid cols={cols}>
       {kpis.map((kpi, i) => (
-        <div
+        <Metric
           key={i}
-          className="rounded-lg border border-border bg-card px-4 py-3"
-        >
-          <div className="text-label text-muted-foreground/70">{kpi.label}</div>
-          <div
-            className={cn(
-              "mt-1 text-title font-semibold tnum",
-              kpi.tone === "warning" && "text-warning",
-              kpi.tone === "danger" && "text-danger",
-              (!kpi.tone || kpi.tone === "default") && "text-foreground",
-            )}
-          >
-            {kpi.value}
-          </div>
-          {kpi.sub && (
-            <div className="mt-0.5 text-micro text-muted-foreground">{kpi.sub}</div>
-          )}
-        </div>
+          label={kpi.label}
+          value={kpi.value}
+          sub={kpi.sub}
+          tone={kpi.tone ?? "default"}
+        />
       ))}
-    </div>
+    </MetricGrid>
   );
 }
 

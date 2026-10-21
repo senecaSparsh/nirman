@@ -6,11 +6,11 @@ import { toast } from "sonner";
 import { Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { MetricGrid, Metric, statusBadgeVariant } from "@/components/page";
 import { PageLoading } from "@/components/page-loading";
 import { EmptyState } from "@/components/empty-state";
 import { DataTable } from "@/components/ui/data-table";
 import { formatCurrency, cn, toNum} from "@/lib/utils";
-import { statusBadgeVariant } from "@/components/page";
 import { BarChart3 } from "lucide-react";
 
 type Project = { id: string; name: string };
@@ -82,26 +82,10 @@ export function BudgetVarianceView({ projects }: { projects: Project[] }) {
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           {projectSelector}
         </div>
-        <dl className="flex items-start gap-x-6 gap-y-2 no-print">
-          <div className="min-w-0">
-            <dt className="text-label leading-none text-muted-foreground">Budget</dt>
-            <dd className="mt-1 text-[13px] font-semibold leading-none tnum text-foreground">{data ? formatCurrency(data.totalBudget) : "—"}</dd>
-          </div>
-          <div className="min-w-0">
-            <dt className="text-label leading-none text-muted-foreground">Actual</dt>
-            <dd className="mt-1 text-[13px] font-semibold leading-none tnum text-foreground">{data ? formatCurrency(data.totalActual) : "—"}</dd>
-          </div>
-          <div className="min-w-0">
-            <dt className="text-label leading-none text-muted-foreground">Variance</dt>
-            <dd className={cn("mt-1 text-[13px] font-semibold leading-none tnum", data && data.totalVariance < 0 ? "text-danger" : "text-success")}>
-              {data ? `${data.totalVariance >= 0 ? "+" : ""}${formatCurrency(data.totalVariance)}` : "—"}
-            </dd>
-          </div>
-        </dl>
       </header>
 
       {loading && !data ? (
@@ -109,34 +93,21 @@ export function BudgetVarianceView({ projects }: { projects: Project[] }) {
       ) : data ? (
         <div className={cn("space-y-4", loading && "pointer-events-none opacity-60 transition-opacity")}>
           {/* Summary cards — overall budget vs actual */}
-          <div className="grid gap-2 sm:grid-cols-4">
-            <Card className="p-3 space-y-0.5">
-              <span className="text-caption text-muted-foreground">Total Budget</span>
-              <div className="text-body font-semibold tnum">{formatCurrency(data.totalBudget)}</div>
-            </Card>
-            <Card className="p-3 space-y-0.5">
-              <span className="text-caption text-muted-foreground">Total Actual</span>
-              <div className="text-body font-semibold tnum">{formatCurrency(data.totalActual)}</div>
-            </Card>
-            <Card className={cn("p-3 space-y-0.5", isOverBudget ? "border-danger/30" : "border-success/30")}>
-              <span className="text-caption text-muted-foreground">Variance</span>
-              <div className={cn("text-body font-semibold tnum", isOverBudget ? "text-danger" : "text-success")}>
-                {data.totalVariance >= 0 ? "+" : ""}{formatCurrency(data.totalVariance)}
-              </div>
-              <span className="text-caption text-muted-foreground">
-                {data.totalVariancePct.toFixed(1)}% {isOverBudget ? "over" : "under"}
-              </span>
-            </Card>
-            <Card className="p-3 space-y-0.5">
-              <span className="text-caption text-muted-foreground">Budget Split</span>
-              <div className="text-caption font-medium text-foreground">
-                BOQ: <span className="tnum">{formatCurrency(data.boqBudget)}</span>
-              </div>
-              <div className="text-caption font-medium text-muted-foreground">
-                Other: <span className="tnum">{formatCurrency(data.nonBoqBudget)}</span>
-              </div>
-            </Card>
-          </div>
+          <MetricGrid cols={4}>
+            <Metric label="Total Budget" value={formatCurrency(data.totalBudget)} />
+            <Metric label="Total Actual" value={formatCurrency(data.totalActual)} />
+            <Metric
+              label="Variance"
+              value={`${data.totalVariance >= 0 ? "+" : ""}${formatCurrency(data.totalVariance)}`}
+              tone={isOverBudget ? "danger" : "success"}
+              sub={`${data.totalVariancePct.toFixed(1)}% ${isOverBudget ? "over" : "under"}`}
+            />
+            <Metric
+              label="Budget Split"
+              value={formatCurrency(data.boqBudget)}
+              sub={`BOQ · Other: ${formatCurrency(data.nonBoqBudget)}`}
+            />
+          </MetricGrid>
 
           {/* Side-by-side budget vs actual bar comparison */}
           {data.items.length > 0 && (

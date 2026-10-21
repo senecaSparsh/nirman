@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Building2, ChevronRight, Trash2, UserPlus, X, Users } from "lucide-react";
+import { Plus, Building2, ChevronRight, Trash2, UserPlus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Dialog } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { MemberScopeFields } from "@/components/settings/member-scope-fields";
@@ -456,69 +457,66 @@ export function CompaniesManager({
         </CardContent>
       </Card>
 
-      {creating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setCreating(false)}>
-          <div className="w-full max-w-md rounded-lg bg-card p-6 shadow-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">New Company</h2>
-              <button onClick={() => setCreating(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
-            </div>
-            <form onSubmit={createCompany} className="space-y-3">
-              <div className="space-y-1.5">
-                <Label>Name *</Label>
-                <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Business Type</Label>
-                <Input value={form.businessType} onChange={(e) => setForm((f) => ({ ...f, businessType: e.target.value }))} placeholder="Rice Milling & Export, Real Estate…" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Document Code</Label>
-                <Input value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) }))} placeholder="e.g. SRG → PO-SRG-260914-0001" />
-                <p className="text-caption text-muted-foreground">Used in document numbers so each entity keeps its own series (needed for GST invoice continuity). Leave blank to share the global series.</p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>Parent Company</Label>
-                  <Select value={form.parentCompanyId} onChange={(e) => setForm((f) => ({ ...f, parentCompanyId: e.target.value }))}>
-                    <option value="">None (top-level)</option>
-                    {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Currency</Label>
-                  <Select value={form.currency} onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}>
-                    {["INR", "USD", "EUR", "GBP", "AED"].map((c) => <option key={c} value={c}>{c}</option>)}
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label>GSTIN</Label>
-                  <Input value={form.gstin} onChange={(e) => setForm((f) => ({ ...f, gstin: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>PAN</Label>
-                  <Input value={form.pan} onChange={(e) => setForm((f) => ({ ...f, pan: e.target.value }))} />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label hint="Pick a suggestion or use GPS — verified addresses only">Address</Label>
-                <AddressSearchField
-                  value={form.address}
-                  onPick={(s) => setForm((f) => ({ ...f, address: s.address, lat: s.lat, lng: s.lng }))}
-                  onClear={() => setForm((f) => ({ ...f, address: "", lat: null, lng: null }))}
-                  placeholder="Search registered office address…"
-                />
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" onClick={() => setCreating(false)}>Cancel</Button>
-                <Button type="submit" disabled={saving}>{saving ? "Creating…" : "Create"}</Button>
-              </div>
-            </form>
+      <Dialog
+        open={creating}
+        onOpenChange={setCreating}
+        title="New Company"
+        description="Add a parent or subsidiary entity in your company group."
+      >
+        <form onSubmit={createCompany} className="space-y-3">
+          <div className="space-y-1.5">
+            <Label>Name *</Label>
+            <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
           </div>
-        </div>
-      )}
+          <div className="space-y-1.5">
+            <Label>Business Type</Label>
+            <Input value={form.businessType} onChange={(e) => setForm((f) => ({ ...f, businessType: e.target.value }))} placeholder="Rice Milling & Export, Real Estate…" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Document Code</Label>
+            <Input value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) }))} placeholder="e.g. SRG → PO-SRG-260914-0001" />
+            <p className="text-caption text-muted-foreground">Used in document numbers so each entity keeps its own series (needed for GST invoice continuity). Leave blank to share the global series.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Parent Company</Label>
+              <Select value={form.parentCompanyId} onChange={(e) => setForm((f) => ({ ...f, parentCompanyId: e.target.value }))}>
+                <option value="">None (top-level)</option>
+                {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Currency</Label>
+              <Select value={form.currency} onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}>
+                {["INR", "USD", "EUR", "GBP", "AED"].map((c) => <option key={c} value={c}>{c}</option>)}
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>GSTIN</Label>
+              <Input value={form.gstin} onChange={(e) => setForm((f) => ({ ...f, gstin: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>PAN</Label>
+              <Input value={form.pan} onChange={(e) => setForm((f) => ({ ...f, pan: e.target.value }))} />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label hint="Pick a suggestion or use GPS — verified addresses only">Address</Label>
+            <AddressSearchField
+              value={form.address}
+              onPick={(s) => setForm((f) => ({ ...f, address: s.address, lat: s.lat, lng: s.lng }))}
+              onClear={() => setForm((f) => ({ ...f, address: "", lat: null, lng: null }))}
+              placeholder="Search registered office address…"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setCreating(false)}>Cancel</Button>
+            <Button type="submit" disabled={saving}>{saving ? "Creating…" : "Create"}</Button>
+          </div>
+        </form>
+      </Dialog>
       {confirmDialog}
     </div>
   );

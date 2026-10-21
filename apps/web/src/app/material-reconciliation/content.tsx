@@ -30,7 +30,11 @@ export async function ReconContent() {
 
   return (
     <>
-      <PageHeader title="Material Reconciliation" stats={[{ label: "Projects", value: projects.length }]} />
+      <PageHeader
+        title="Material Reconciliation"
+        description="Compare BOQ required quantities against issued, consumed (Measurement Book), and on-hand stock — with wastage tolerance flags per project."
+        stats={[{ label: "Projects", value: projects.length }]}
+      />
       <MaterialReconciliationView projects={projects} />
     </>
   );

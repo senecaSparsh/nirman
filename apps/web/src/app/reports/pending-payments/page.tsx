@@ -107,6 +107,7 @@ async function PendingPaymentsContent() {
       const daysOverdue = Math.floor((now.getTime() - s.createdAt.getTime()) / 86400000);
       return {
         id: `sup-bal-${s.id}`,
+        supplierId: s.id,
         poNumber: "Opening / bills",
         supplier: s.name,
         expectedDate: null,

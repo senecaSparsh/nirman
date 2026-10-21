@@ -259,21 +259,21 @@ export function MeasurementBookView({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between gap-4">
-        <Field label="Project">
+      <header className="flex flex-wrap items-center justify-between gap-3 min-w-0">
+        <div className="shrink-0">
           <SelectWithCreate
             value={projectId}
             onChange={setProjectId}
-            placeholder="Select…"
+            placeholder="Select project…"
             createLabel="project"
-            className="max-w-sm"
+            className="h-7 min-w-[180px] text-caption"
             options={localProjects.map((p) => ({ value: p.id, label: p.name }))}
             renderCreateDialog={({ open: o, onCreated, onClose }) => (
               <ProjectFormDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalProjects((p) => [...p, { id: e.id, name: e.label ?? "", type: "RESIDENTIAL", status: "PLANNED" }]); onCreated(e); }} />
             )}
           />
-        </Field>
-      </div>
+        </div>
+      </header>
 
       {loading ? (
         <PageLoading label="Loading measurements…" variant="default" />

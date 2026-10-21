@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { TrendingUp, TrendingDown, Wallet, Building2, ArrowRight, BarChart3 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardToolbar } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { formatCurrency, toNum} from "@/lib/utils";
 
@@ -42,19 +42,22 @@ export function OwnerFinancialDashboard({
   const overallMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
   return (
-    <div className="space-y-4">
+    <div className="grid gap-4 lg:grid-cols-2">
       {/* ── Cash Position Card ── */}
-      <Card>
-        <CardContent className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Wallet className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-section font-semibold text-foreground">Cash Position</h3>
-            <Link href="/gl" className="ml-auto text-caption text-brand hover:underline inline-flex items-center gap-1">
-              View GL <ArrowRight className="h-3 w-3" />
+      <Card className="flex flex-col">
+        <CardHeader divided>
+          <CardToolbar>
+            <CardTitle className="flex items-center gap-2">
+              <Wallet className="size-4 text-muted-foreground" />
+              Cash Position
+            </CardTitle>
+            <Link href="/gl" className="inline-flex items-center gap-1 text-caption font-medium text-brand hover:underline">
+              View GL <ArrowRight className="size-3" />
             </Link>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          </CardToolbar>
+        </CardHeader>
+        <CardContent className="flex flex-1 flex-col justify-between space-y-4">
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-md border border-border bg-border [&>*]:bg-card">
             <CashStat
               label="Cash / Bank"
               value={cashPosition.cashBalance}
@@ -80,9 +83,9 @@ export function OwnerFinancialDashboard({
             />
           </div>
 
-          <div className="flex items-center justify-between border-t border-border pt-3">
+          <div className="flex items-center justify-between rounded-md border border-border bg-subtle/50 px-3.5 py-2.5">
             <span className="text-body font-medium text-foreground">Net Cash Position</span>
-            <span className={`text-body font-semibold tnum ${netCash >= 0 ? "text-success" : "text-danger"}`}>
+            <span className={`text-figure tnum ${netCash >= 0 ? "text-success" : "text-danger"}`}>
               {formatCurrency(netCash)}
             </span>
           </div>
@@ -90,42 +93,53 @@ export function OwnerFinancialDashboard({
       </Card>
 
       {/* ── Project Profitability Card ── */}
-      <Card>
-        <CardContent className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-section font-semibold text-foreground">Project Profitability</h3>
-            <Link href="/finance" className="ml-auto text-caption text-brand hover:underline inline-flex items-center gap-1">
-              View Finance <ArrowRight className="h-3 w-3" />
+      <Card className="flex flex-col">
+        <CardHeader divided>
+          <CardToolbar>
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="size-4 text-muted-foreground" />
+              Project Profitability
+            </CardTitle>
+            <Link href="/finance" className="inline-flex items-center gap-1 text-caption font-medium text-brand hover:underline">
+              View Finance <ArrowRight className="size-3" />
             </Link>
-          </div>
-
+          </CardToolbar>
+        </CardHeader>
+        <CardContent className="flex flex-1 flex-col space-y-3">
           {projectProfits.length === 0 ? (
             <EmptyState size="compact" icon={<BarChart3 />} title="No project profitability data" description="Active projects with financial data will appear here." />
           ) : (
             <>
               {/* Summary row */}
-              <div className="grid grid-cols-3 gap-3 border-b border-border pb-3">
+              <div className="grid grid-cols-3 gap-px overflow-hidden rounded-md border border-border bg-border [&>*]:bg-card [&>*]:p-3">
                 <div>
-                  <div className="text-caption text-muted-foreground">Total Revenue</div>
-                  <div className="text-body font-semibold tnum text-foreground">{formatCurrency(totalRevenue)}</div>
-                  <div className="text-meta text-muted-foreground/70">Booked (accrual)</div>
+                  <div className="text-label text-muted-foreground">Total Revenue</div>
+                  <div className="mt-1 text-body font-semibold tnum text-foreground">{formatCurrency(totalRevenue)}</div>
+                  <div className="mt-0.5 text-micro text-muted-foreground">Booked (accrual)</div>
                 </div>
                 <div>
-                  <div className="text-caption text-muted-foreground">Total Cost</div>
-                  <div className="text-body font-semibold tnum text-foreground">{formatCurrency(totalCost)}</div>
-                  <div className="text-meta text-muted-foreground/70">Land + materials + explicit costs</div>
+                  <div className="text-label text-muted-foreground">Cost Booked</div>
+                  <div className="mt-1 text-body font-semibold tnum text-foreground">{formatCurrency(totalCost)}</div>
+                  <div className="mt-0.5 text-micro text-muted-foreground">Materials + labour + land</div>
                 </div>
                 <div>
-                  <div className="text-caption text-muted-foreground">Net Profit</div>
-                  <div className={`text-body font-semibold tnum ${totalProfit >= 0 ? "text-success" : "text-danger"}`}>
+                  {/* Not "Net Profit": revenue is booked on the sale, cost only
+                      as work and materials are consumed. A project early in
+                      construction legitimately shows a 95%+ margin — calling
+                      that net profit invites an owner to bank money that is
+                      already spoken for. */}
+                  <div className="text-label text-muted-foreground">Gross Profit</div>
+                  <div className={`mt-1 text-body font-semibold tnum ${totalProfit >= 0 ? "text-success" : "text-danger"}`}>
                     {formatCurrency(totalProfit)}
                   </div>
-                  <div className="text-caption text-muted-foreground">
-                    {overallMargin.toFixed(1)}% margin
+                  <div className="mt-0.5 text-micro text-muted-foreground">
+                    {overallMargin.toFixed(1)}% gross margin
                   </div>
                 </div>
               </div>
+              <p className="text-micro text-muted-foreground/80">
+                Cost is recognised as work happens — early-stage projects read high until their full build cost lands.
+              </p>
 
               {/* Per-project rows — top 3 by profit, bottom 3 by loss */}
               <div className="space-y-3">
@@ -143,7 +157,7 @@ export function OwnerFinancialDashboard({
                     <>
                       {top3.length > 0 && (
                         <div>
-                          <div className="mb-1.5 text-caption font-medium text-muted-foreground">Top performers</div>
+                          <div className="mb-1.5 text-label text-muted-foreground">Top performers</div>
                           <div className="space-y-2">
                             {top3.map((p) => (
                               <ProjectProfitRowItem key={p.id} p={p} />
@@ -153,7 +167,7 @@ export function OwnerFinancialDashboard({
                       )}
                       {bottom3.length > 0 && (
                         <div>
-                          <div className="mb-1.5 text-caption font-medium text-muted-foreground">Needs attention</div>
+                          <div className="mb-1.5 text-label text-muted-foreground">Needs attention</div>
                           <div className="space-y-2">
                             {bottom3.map((p) => (
                               <ProjectProfitRowItem key={p.id} p={p} />
@@ -164,7 +178,7 @@ export function OwnerFinancialDashboard({
                       {projectProfits.length > 6 && (
                         <Link
                           href="/finance"
-                          className="block text-center text-caption text-brand hover:underline pt-1"
+                          className="block pt-1 text-center text-caption font-medium text-brand hover:underline"
                         >
                           View all {projectProfits.length} projects →
                         </Link>
@@ -199,7 +213,7 @@ function ProjectProfitRowItem({ p }: { p: ProjectProfitRow }) {
             {formatCurrency(p.profit)}
           </div>
           <div className="text-caption text-muted-foreground">
-            {p.margin.toFixed(1)}% margin
+            {p.margin.toFixed(1)}% gross
           </div>
         </div>
         {p.profit >= 0 ? (
@@ -229,9 +243,9 @@ function CashStat({
     : tone === "warning" ? "text-warning"
     : "text-foreground";
   return (
-    <div>
-      <div className="text-caption text-muted-foreground">{label}</div>
-      <div className={`text-body font-semibold tnum ${colorClass}`}>
+    <div className="p-3">
+      <div className="text-label text-muted-foreground">{label}</div>
+      <div className={`mt-1 text-figure tnum ${colorClass}`}>
         {formatCurrency(display)}
       </div>
     </div>

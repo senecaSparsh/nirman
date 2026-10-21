@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useUrlQuery } from "@/lib/use-url-filter";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Handshake, Phone, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Handshake, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
@@ -26,18 +25,9 @@ export function BrokersView({
   canEdit: boolean;
   canDelete: boolean;
 }) {
-  const [query, setQuery] = useUrlQuery("q");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<BrokerRow | null>(null);
   const [deleting, setDeleting] = useState<BrokerRow | null>(null);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return brokers;
-    return brokers.filter((b) =>
-      [b.name, b.phone, b.agency, b.notes].filter(Boolean).some((v) => v!.toLowerCase().includes(q))
-    );
-  }, [brokers, query]);
 
   const baseColumns: Column<BrokerRow>[] = [
     {
@@ -138,48 +128,43 @@ export function BrokersView({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search broker, agency, phone…"
-            className="pl-9"
-          />
-        </div>
-        {canCreate && (
-          <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
-            <Plus className="h-4 w-4" /> Add Broker
-          </Button>
-        )}
-      </div>
-
-      {filtered.length === 0 && !query ? (
+      {brokers.length === 0 ? (
         <EmptyState
           icon={<Handshake className="h-6 w-6" />}
           title="No brokers yet"
           description="Add brokers/agents to track commissions and deal sources."
           action={canCreate ? (
-            <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
+            <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true); }}>
               <Plus className="h-4 w-4" /> Add your first broker
             </Button>
           ) : undefined}
         />
       ) : (
-        <DataTable
-          columns={columns}
-          data={filtered}
-          getRowId={(b) => b.id}
-          initialSort={{ key: "name", direction: "asc" }}
-          emptyState={
-            <EmptyState
-              icon={<Search className="h-5 w-5" />}
-              title="No brokers found"
-              description="Try a different search."
-            />
-          }
-        />
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            columns={columns}
+            data={brokers}
+            getRowId={(b) => b.id}
+            storageKey="brokers"
+            searchable
+            searchPlaceholder="Search broker, agency, phone…"
+            hideable
+            exportFileName="brokers"
+            initialSort={{ key: "name", direction: "asc" }}
+            showTotals
+            sumColumns={["dealCount", "totalCommission", "commissionPaid"]}
+            totalFormat={(key, sum) => key === "dealCount" ? sum.toLocaleString("en-IN") : formatCurrency(sum)}
+            onAddRow={canCreate ? () => { setEditing(null); setFormOpen(true); } : undefined}
+            addRowLabel="Add Broker"
+            toolbarTrailing={
+              canCreate ? (
+                <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true); }}>
+                  <Plus className="size-3.5" /> Add Broker
+                </Button>
+              ) : undefined
+            }
+          />
+        </div>
       )}
 
       <BrokerFormDialog

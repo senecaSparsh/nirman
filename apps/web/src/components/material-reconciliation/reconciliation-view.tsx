@@ -5,7 +5,7 @@ import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { Card } from "@/components/ui/card";
+import { MetricGrid, Metric } from "@/components/page";
 import { PageLoading } from "@/components/page-loading";
 import { EmptyState } from "@/components/empty-state";
 import { formatNumber, cn } from "@/lib/utils";
@@ -139,31 +139,25 @@ export function MaterialReconciliationView({ projects }: { projects: Project[] }
 
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        {projectSelect}
+      </div>
+
       {loading ? (
         <PageLoading label="Loading reconciliation…" variant="default" />
       ) : data ? (
         <>
           {/* Summary */}
-          <div className="grid gap-3 sm:grid-cols-4">
-            <Card className="p-4 space-y-1">
-              <span className="text-xs text-muted-foreground">Total Required (BOQ)</span>
-              <div className="text-xl font-semibold">{formatNumber(data.totalRequired, 3)}</div>
-            </Card>
-            <Card className="p-4 space-y-1">
-              <span className="text-xs text-muted-foreground">Total Issued</span>
-              <div className="text-xl font-semibold">{formatNumber(data.totalIssued, 3)}</div>
-            </Card>
-            <Card className="p-4 space-y-1">
-              <span className="text-xs text-muted-foreground">Total Consumed (MB)</span>
-              <div className="text-xl font-semibold">{formatNumber(data.totalConsumed, 3)}</div>
-            </Card>
-            <Card className={cn("p-4 space-y-1", data.overToleranceCount > 0 ? "border-warning/30" : "")}>
-              <span className="text-xs text-muted-foreground">Over Tolerance</span>
-              <div className={cn("text-xl font-semibold", data.overToleranceCount > 0 ? "text-warning" : "")}>
-                {data.overToleranceCount} items
-              </div>
-            </Card>
-          </div>
+          <MetricGrid cols={4}>
+            <Metric label="Total Required (BOQ)" value={formatNumber(data.totalRequired, 3)} />
+            <Metric label="Total Issued" value={formatNumber(data.totalIssued, 3)} />
+            <Metric label="Total Consumed (MB)" value={formatNumber(data.totalConsumed, 3)} />
+            <Metric
+              label="Over Tolerance"
+              value={`${data.overToleranceCount} items`}
+              tone={data.overToleranceCount > 0 ? "warning" : "default"}
+            />
+          </MetricGrid>
 
           {data.items.length > 0 ? (
             <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
@@ -178,7 +172,6 @@ export function MaterialReconciliationView({ projects }: { projects: Project[] }
                 totalFormat={(_key, sum) => formatNumber(sum, 3)}
                 hideable
                 pageSize={50}
-                toolbarLeading={projectSelect}
               />
             </div>
           ) : (

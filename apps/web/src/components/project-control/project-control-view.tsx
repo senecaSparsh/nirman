@@ -4,13 +4,12 @@ import { useState, useEffect } from "react";
 import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import { Select } from "@/components/ui/input";
-import { Field } from "@/components/field";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { MetricGrid, Metric } from "@/components/page";
 import { PageLoading } from "@/components/page-loading";
 import { EmptyState } from "@/components/empty-state";
 import { formatCurrency, formatNumber, cn } from "@/lib/utils";
-import {TrendingUp, TrendingDown, DollarSign, Package, Gauge} from "lucide-react";
+import { Gauge } from "lucide-react";
 
 type Project = { id: string; name: string };
 
@@ -69,11 +68,11 @@ export function ProjectControlView({ projects }: { projects: Project[] }) {
 
   return (
     <div className="space-y-6">
-      <Field label="Project">
-        <Select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="max-w-sm">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <Select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="h-7 w-auto min-w-[180px] text-caption">
           {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </Select>
-      </Field>
+      </header>
 
       {loading ? (
         <PageLoading label="Loading project control…" variant="cards" />
@@ -82,67 +81,60 @@ export function ProjectControlView({ projects }: { projects: Project[] }) {
           {/* EVM Metrics */}
           {evm && (
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Earned Value Management</h3>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <MetricCard label="Planned Value (PV)" value={formatCurrency(evm.pv)} icon={DollarSign} />
-                <MetricCard label="Earned Value (EV)" value={formatCurrency(evm.ev)} icon={TrendingUp} />
-                <MetricCard label="Actual Cost (AC)" value={formatCurrency(evm.ac)} icon={DollarSign} />
-                <MetricCard label="% Complete" value={`${evm.pctComplete}%`} icon={Gauge} />
-                <MetricCard
+              <h3 className="text-label text-muted-foreground">Earned Value Management</h3>
+              <MetricGrid cols={4}>
+                <Metric label="Planned Value (PV)" value={formatCurrency(evm.pv)} />
+                <Metric label="Earned Value (EV)" value={formatCurrency(evm.ev)} />
+                <Metric label="Actual Cost (AC)" value={formatCurrency(evm.ac)} />
+                <Metric label="% Complete" value={`${evm.pctComplete}%`} />
+                <Metric
                   label="Cost Variance (CV)"
                   value={formatCurrency(evm.cv)}
-                  icon={evm.cv >= 0 ? TrendingUp : TrendingDown}
-                  tone={evm.cv >= 0 ? "positive" : "negative"}
+                  tone={evm.cv >= 0 ? "success" : "danger"}
                   sub={`CPI: ${evm.cpi.toFixed(2)} ${evm.cpi >= 1 ? "(under budget)" : "(over budget)"}`}
                 />
-                <MetricCard
+                <Metric
                   label="Schedule Variance (SV)"
                   value={formatCurrency(evm.sv)}
-                  icon={evm.sv >= 0 ? TrendingUp : TrendingDown}
-                  tone={evm.sv >= 0 ? "positive" : "negative"}
+                  tone={evm.sv >= 0 ? "success" : "danger"}
                   sub={`SPI: ${evm.spi.toFixed(2)} ${evm.spi >= 1 ? "(ahead of schedule)" : "(behind schedule)"}`}
                 />
-                <MetricCard
+                <Metric
                   label="Estimate at Completion"
                   value={formatCurrency(evm.eac)}
-                  icon={DollarSign}
                   sub={`BAC: ${formatCurrency(evm.pv)}`}
                 />
-                <MetricCard
+                <Metric
                   label="Variance at Completion"
                   value={formatCurrency(evm.vac)}
-                  icon={evm.vac >= 0 ? TrendingUp : TrendingDown}
-                  tone={evm.vac >= 0 ? "positive" : "negative"}
+                  tone={evm.vac >= 0 ? "success" : "danger"}
                   sub={evm.vac >= 0 ? "Under budget forecast" : "Over budget forecast"}
                 />
-              </div>
+              </MetricGrid>
             </div>
           )}
 
           {/* Commitments */}
           {commitments && (
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Commitments</h3>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <MetricCard
+              <h3 className="text-label text-muted-foreground">Commitments</h3>
+              <MetricGrid cols={3}>
+                <Metric
                   label="Open Indents"
                   value={formatCurrency(commitments.openRequisitions.totalEstimated)}
                   sub={`${commitments.openRequisitions.count} indents pending`}
-                  icon={Package}
                 />
-                <MetricCard
+                <Metric
                   label="Open Purchase Orders"
                   value={formatCurrency(commitments.openPurchaseOrders.totalCommitted)}
                   sub={`${commitments.openPurchaseOrders.count} POs in progress`}
-                  icon={Package}
                 />
-                <MetricCard
+                <Metric
                   label="Total Committed"
                   value={formatCurrency(commitments.totalCommitted)}
                   sub="Indents + POs"
-                  icon={DollarSign}
                 />
-              </div>
+              </MetricGrid>
             </div>
           )}
 
@@ -241,32 +233,5 @@ export function ProjectControlView({ projects }: { projects: Project[] }) {
         </>
       )}
     </div>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  sub,
-  icon: Icon,
-  tone,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  icon: React.ComponentType<{ className?: string }>;
-  tone?: "positive" | "negative";
-}) {
-  return (
-    <Card className="p-4 space-y-1">
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">{label}</span>
-        <Icon className={cn("h-4 w-4", tone === "positive" && "text-emerald-500", tone === "negative" && "text-destructive")} />
-      </div>
-      <div className={cn("text-xl font-semibold", tone === "positive" && "text-emerald-600", tone === "negative" && "text-destructive")}>
-        {value}
-      </div>
-      {sub && <div className="text-xs text-muted-foreground">{sub}</div>}
-    </Card>
   );
 }

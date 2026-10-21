@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
-import { useUrlQuery } from "@/lib/use-url-filter";
 import Image from "next/image";
-import {Search, Truck, Phone, User, MapPin, ChevronRight, Plus, Loader2} from "lucide-react";
+import {Truck, Phone, User, MapPin, ChevronRight, Plus, Loader2} from "lucide-react";
 import { toast } from "sonner";
 import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/empty-state";
 import { Dialog } from "@/components/ui/dialog";
@@ -47,35 +47,9 @@ const TYPE_LABELS: Record<string, string> = {
   CYCLE: "Cycle", HAND_CART: "Hand Cart", PORTER: "Porter", OTHER: "Other",
 };
 
-const TYPE_COLORS: Record<string, string> = {
-  TRUCK: "bg-blue-10 text-blue",
-  TEMPO: "bg-teal-10 text-teal",
-  PICKUP: "bg-amber-10 text-amber",
-  TRACTOR: "bg-green-10 text-green",
-  MINI_TRUCK: "bg-purple-10 text-purple",
-  AUTO: "bg-orange-10 text-orange",
-  CAR: "bg-slate-10 text-slate",
-  BIKE: "bg-pink-10 text-pink",
-  CYCLE: "bg-cyan-10 text-cyan",
-  HAND_CART: "bg-brown-10 text-brown",
-  PORTER: "bg-rose-10 text-rose",
-  OTHER: "bg-muted text-muted-foreground",
-};
-
 export function VehiclesView({ vehicles, canManage = false }: { vehicles: VehicleRow[]; canManage?: boolean }) {
-  const [query, setQuery] = useUrlQuery("q");
   const [selected, setSelected] = useState<VehicleRow | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return vehicles;
-    return vehicles.filter((v) =>
-      [v.vehicleNumber, v.vehicleType, v.driverName, v.transporterName]
-        .filter(Boolean)
-        .some((f) => f!.toLowerCase().includes(q))
-    );
-  }, [vehicles, query]);
 
   const columns: Column<VehicleRow>[] = [
     {
@@ -103,12 +77,9 @@ export function VehiclesView({ vehicles, canManage = false }: { vehicles: Vehicl
       label: "Type",
       sortable: true,
       render: (v) => (
-        <span className={cn(
-          "inline-flex items-center rounded px-1.5 py-0.5 text-caption font-medium",
-          TYPE_COLORS[v.vehicleType] ?? TYPE_COLORS.OTHER,
-        )}>
+        <Badge variant="outline">
           {TYPE_LABELS[v.vehicleType] ?? v.vehicleType}
-        </span>
+        </Badge>
       ),
       exportValue: (v) => TYPE_LABELS[v.vehicleType] ?? v.vehicleType,
     },
@@ -183,24 +154,7 @@ export function VehiclesView({ vehicles, canManage = false }: { vehicles: Vehicl
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 max-w-sm">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search vehicle no, driver, transporter…"
-            className="pl-9"
-          />
-        </div>
-        {canManage ? (
-          <Button onClick={() => setCreateOpen(true)} className="shrink-0">
-            <Plus className="h-4 w-4" /> New Vehicle
-          </Button>
-        ) : null}
-      </div>
-
-      {filtered.length === 0 && !query ? (
+      {vehicles.length === 0 ? (
         <EmptyState
           icon={<Truck className="h-6 w-6" />}
           title="No vehicles yet"
@@ -214,20 +168,32 @@ export function VehiclesView({ vehicles, canManage = false }: { vehicles: Vehicl
           }
         />
       ) : (
-        <DataTable
-          columns={columns}
-          data={filtered}
-          getRowId={(v) => v.id}
-          initialSort={{ key: "lastUsedAt", direction: "desc" }}
-          onRowClick={(v) => setSelected(v)}
-          emptyState={
-            <EmptyState
-              icon={<Search className="h-5 w-5" />}
-              title="No vehicles found"
-              description="Try a different search."
-            />
-          }
-        />
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            columns={columns}
+            data={vehicles}
+            getRowId={(v) => v.id}
+            storageKey="vehicles"
+            searchable
+            searchPlaceholder="Search vehicle no, driver, transporter…"
+            hideable
+            exportFileName="vehicles"
+            initialSort={{ key: "lastUsedAt", direction: "desc" }}
+            showTotals
+            sumColumns={["tripCount"]}
+            totalFormat={(_k, sum) => sum.toLocaleString("en-IN")}
+            onRowClick={(v) => setSelected(v)}
+            onAddRow={canManage ? () => setCreateOpen(true) : undefined}
+            addRowLabel="New Vehicle"
+            toolbarTrailing={
+              canManage ? (
+                <Button size="sm" onClick={() => setCreateOpen(true)}>
+                  <Plus className="size-3.5" /> New Vehicle
+                </Button>
+              ) : undefined
+            }
+          />
+        </div>
       )}
 
       <VehicleDetailDialog

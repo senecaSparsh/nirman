@@ -2,16 +2,16 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useUrlQuery } from "@/lib/use-url-filter";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
-import {formatDate} from "@/lib/utils";
-import { statusBadgeVariant, humanStatus } from "@/components/page";
-import {Plus, ClipboardCheck, Search, Loader2} from "lucide-react";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { formatDate } from "@/lib/utils";
+import { StatusPill } from "@/components/page";
+import {Plus, ClipboardCheck, Loader2} from "lucide-react";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { EmptyState } from "@/components/empty-state";
 
@@ -57,7 +57,6 @@ export function QualityControlView({
   canManage: boolean;
 }) {
   const router = useRouter();
-  const [query, setQuery] = useUrlQuery("q");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [severityFilter, setSeverityFilter] = useState("ALL");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -66,98 +65,129 @@ export function QualityControlView({
     let result = ncrs;
     if (statusFilter !== "ALL") result = result.filter((n) => n.status === statusFilter);
     if (severityFilter !== "ALL") result = result.filter((n) => n.severity === severityFilter);
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      result = result.filter(
-        (n) => n.title.toLowerCase().includes(q) || n.ncrNumber.toLowerCase().includes(q) || n.projectName.toLowerCase().includes(q),
-      );
-    }
     return result;
-  }, [ncrs, query, statusFilter, severityFilter]);
+  }, [ncrs, statusFilter, severityFilter]);
+
+  const columns: Column<NcrItem>[] = [
+    {
+      key: "ncrNumber",
+      label: "NCR Number",
+      sortable: true,
+      render: (n) => <span className="font-mono text-caption font-semibold text-foreground">{n.ncrNumber}</span>,
+    },
+    {
+      key: "title",
+      label: "Title",
+      sortable: true,
+      render: (n) => (
+        <div className="min-w-0">
+          <div className="truncate font-medium text-foreground">{n.title}</div>
+          <div className="truncate text-caption text-muted-foreground">
+            {n.location ? `${n.location} · ` : ""}{n.subcontractorName ?? ""}
+            {n.hasCapa && <span className="ml-1 text-success">· CAPA {n.capaStatus}</span>}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "projectName",
+      label: "Project",
+      sortable: true,
+      render: (n) => <span className="text-muted-foreground">{n.projectName}</span>,
+    },
+    {
+      key: "category",
+      label: "Category",
+      sortable: true,
+      render: (n) => <span className="text-caption">{CATEGORY_LABELS[n.category] ?? n.category}</span>,
+    },
+    {
+      key: "severity",
+      label: "Severity",
+      sortable: true,
+      render: (n) => <Badge variant={SEVERITY_VARIANTS[n.severity] ?? "default"}>{n.severity}</Badge>,
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      render: (n) => {
+        const capaDone = n.status === "CAPA_REQUIRED" && (n.capaStatus === "VERIFIED" || n.capaStatus === "CLOSED");
+        const effective = capaDone ? "READY_TO_CLOSE" : n.status;
+        return <StatusPill status={effective} />;
+      },
+    },
+    {
+      key: "raisedAt",
+      label: "Raised",
+      align: "right",
+      sortable: true,
+      sortValue: (n) => new Date(n.raisedAt),
+      render: (n) => <span className="tnum text-caption text-muted-foreground">{formatDate(n.raisedAt)}</span>,
+    },
+  ];
+
+  const filters = (
+    <div className="flex items-center gap-2">
+      <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-7 w-[140px] text-caption">
+        <option value="ALL">All Status</option>
+        <option value="OPEN">Open</option>
+        <option value="UNDER_REVIEW">Under Review</option>
+        <option value="CAPA_REQUIRED">CAPA Required</option>
+        <option value="ACCEPTED">Accepted</option>
+        <option value="REJECTED">Rejected</option>
+        <option value="CLOSED">Closed</option>
+        <option value="CANCELLED">Cancelled</option>
+      </Select>
+      <Select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)} className="h-7 w-[130px] text-caption">
+        <option value="ALL">All Severity</option>
+        <option value="CRITICAL">Critical</option>
+        <option value="MAJOR">Major</option>
+        <option value="MINOR">Minor</option>
+        <option value="OBSERVATION">Observation</option>
+      </Select>
+    </div>
+  );
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search NCRs…" className="pl-8" />
-        </div>
-        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-[140px]">
-          <option value="ALL">All Status</option>
-          <option value="OPEN">Open</option>
-          <option value="UNDER_REVIEW">Under Review</option>
-          <option value="CAPA_REQUIRED">CAPA Required</option>
-          <option value="ACCEPTED">Accepted</option>
-          <option value="REJECTED">Rejected</option>
-          <option value="CLOSED">Closed</option>
-          <option value="CANCELLED">Cancelled</option>
-        </Select>
-        <Select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)} className="w-[130px]">
-          <option value="ALL">All Severity</option>
-          <option value="CRITICAL">Critical</option>
-          <option value="MAJOR">Major</option>
-          <option value="MINOR">Minor</option>
-          <option value="OBSERVATION">Observation</option>
-        </Select>
-        {canManage && projects.length > 0 && (
-          <Button size="sm" onClick={() => setDialogOpen(true)}>
-            <Plus className="mr-1 h-4 w-4" /> Raise NCR
-          </Button>
-        )}
-      </div>
-
-      {/* Table */}
-      {filtered.length === 0 ? (
+      {ncrs.length === 0 ? (
         <EmptyState
           icon={<ClipboardCheck />}
-          title={ncrs.length === 0 ? "No NCRs raised yet" : "No NCRs match your filters"}
-          description={ncrs.length === 0 ? "Raise one to track quality issues." : undefined}
+          title="No NCRs raised yet"
+          description="Raise a Non-Conformance Report to track quality issues, root causes, and CAPA resolutions."
+          action={
+            canManage && projects.length > 0 ? (
+              <Button size="sm" onClick={() => setDialogOpen(true)}>
+                <Plus className="size-4" /> Raise NCR
+              </Button>
+            ) : undefined
+          }
         />
       ) : (
-        <div className="rounded-lg border border-border overflow-hidden">
-          <div className="grid grid-cols-[120px_1fr_120px_100px_100px_100px_90px] gap-2 border-b border-border bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground">
-            <div>NCR Number</div>
-            <div>Title</div>
-            <div>Project</div>
-            <div>Category</div>
-            <div>Severity</div>
-            <div>Status</div>
-            <div className="text-right">Raised</div>
-          </div>
-          {filtered.map((n) => (
-            <button
-              key={n.id}
-              onClick={() => router.push(`/quality-control/ncr/${n.id}`)}
-              className="grid w-full grid-cols-[120px_1fr_120px_100px_100px_100px_90px] gap-2 border-b border-border/50 px-3 py-2 text-sm text-left hover:bg-muted/30 transition-colors"
-            >
-              <div className="font-mono text-xs text-muted-foreground self-center">{n.ncrNumber}</div>
-              <div className="min-w-0 self-center">
-                <div className="truncate font-medium">{n.title}</div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {n.location ? `${n.location} · ` : ""}{n.subcontractorName ?? ""}
-                  {n.hasCapa && <span className="ml-1 text-green-600">· CAPA {n.capaStatus}</span>}
-                </div>
-              </div>
-              <div className="text-xs text-muted-foreground self-center truncate">{n.projectName}</div>
-              <div className="text-xs self-center">{CATEGORY_LABELS[n.category] ?? n.category}</div>
-              <div className="self-center"><Badge variant={SEVERITY_VARIANTS[n.severity] ?? "default"}>{n.severity}</Badge></div>
-              {/* When the NCR is waiting on CAPA closure but that CAPA is
-                  already verified/closed, the row is actually ready for NCR
-                  sign-off — show that instead of a red CAPA_REQUIRED that
-                  contradicts the green "CAPA CLOSED" sub-line. */}
-              {(() => {
-                const capaDone = n.status === "CAPA_REQUIRED" && (n.capaStatus === "VERIFIED" || n.capaStatus === "CLOSED");
-                const effective = capaDone ? "READY_TO_CLOSE" : n.status;
-                return (
-                  <div className="self-center">
-                    <Badge variant={statusBadgeVariant(effective)}>{humanStatus(effective)}</Badge>
-                  </div>
-                );
-              })()}
-              <div className="text-right text-xs text-muted-foreground self-center tabular-nums">{formatDate(n.raisedAt)}</div>
-            </button>
-          ))}
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            columns={columns}
+            data={filtered}
+            getRowId={(n) => n.id}
+            storageKey="quality-control-ncrs"
+            searchable
+            searchPlaceholder="Search NCR number, title, project…"
+            hideable
+            exportFileName="ncrs"
+            initialSort={{ key: "raisedAt", direction: "desc" }}
+            onRowClick={(n) => router.push(`/quality-control/ncr/${n.id}`)}
+            onAddRow={canManage && projects.length > 0 ? () => setDialogOpen(true) : undefined}
+            addRowLabel="Raise NCR"
+            toolbarLeading={filters}
+            toolbarTrailing={
+              canManage && projects.length > 0 ? (
+                <Button size="sm" onClick={() => setDialogOpen(true)}>
+                  <Plus className="size-3.5" /> Raise NCR
+                </Button>
+              ) : undefined
+            }
+          />
         </div>
       )}
 

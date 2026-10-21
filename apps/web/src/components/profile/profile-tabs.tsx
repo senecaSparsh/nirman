@@ -36,7 +36,7 @@ import {
   CheckSquare,
   type LucideIcon,
 } from "lucide-react";
-import { formatCurrency, formatNumber, formatDate, toNum} from "@/lib/utils";
+import { formatNumber, formatDate, toNum} from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Section, MetricGrid, Metric } from "@/components/page";
 import { MyTasksPanel } from "@/components/tasks/my-tasks-panel";
@@ -487,32 +487,10 @@ export function OverviewCharts(props: ProfileTabsProps) {
         </div>
       </div>
 
-      {/* KPI cards — numbers the queues don't already say. "Pending actions"
-          was dropped: the queue cards above already carry every count with a
-          CTA, and the chart below restates the same array. */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        {props.canSeeProcurement && (
-          <KpiCard
-            label="POs (6 mo)"
-            value={formatNumber(props.totalPOs6mo, 0)}
-            sub={formatCurrency(props.totalSpend6mo)}
-            delta={props.poTrendDelta}
-          />
-        )}
-        {props.canSeeStock && (
-          <KpiCard
-            label="Low stock items"
-            value={formatNumber(props.lowStockCount, 0)}
-            sub={`${formatNumber(props.stockHealth[0]?.value ?? 0, 0)} healthy`}
-            deltaLabel={props.lowStockCount > 0 ? "needs attention" : "all good"}
-          />
-        )}
-      </div>
-
       {/* Charts grid */}
       <div className="grid gap-4 lg:grid-cols-2">
         {hasProcurement && (
-          <div className="rounded-lg border border-border bg-card p-4">
+          <div className="rounded-lg border border-border bg-card p-4 shadow-raised">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-body font-semibold">Procurement trend</h3>
               <span className="text-caption text-muted-foreground tnum">POs / month · 6 mo</span>
@@ -528,7 +506,7 @@ export function OverviewCharts(props: ProfileTabsProps) {
         )}
 
         {hasStock && (
-          <div className="rounded-lg border border-border bg-card p-4">
+          <div className="rounded-lg border border-border bg-card p-4 shadow-raised">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-body font-semibold">Stock health</h3>
               <span className="text-caption text-muted-foreground">
@@ -544,7 +522,7 @@ export function OverviewCharts(props: ProfileTabsProps) {
         )}
 
         {hasPending && (
-          <div className={`rounded-lg border border-border bg-card p-4 ${hasProcurement && hasStock ? "lg:col-span-2" : ""}`}>
+          <div className={`rounded-lg border border-border bg-card p-4 shadow-raised ${hasProcurement && hasStock ? "lg:col-span-2" : ""}`}>
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-body font-semibold">Pending actions by type</h3>
               <span className="text-caption text-muted-foreground">items needing you</span>

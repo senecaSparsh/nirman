@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
 import { CheckSquare, ListChecks } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useTabParam } from "@/lib/use-tab-param";
 import { MyTasksPanel } from "@/components/tasks/my-tasks-panel";
 import { TasksManager } from "@/components/tasks/tasks-manager";
 
@@ -44,7 +44,7 @@ export function MyTasksHub({
   currentUserId: string;
   canViewTeam: boolean;
 }) {
-  const [tab, setTab] = useState("mine");
+  const [tab, setTab] = useTabParam(["mine", "team"] as const, "mine");
 
   return (
     <Tabs value={tab} onValueChange={setTab}>

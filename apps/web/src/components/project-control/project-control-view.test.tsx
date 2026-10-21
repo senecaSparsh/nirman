@@ -39,7 +39,7 @@ describe("ProjectControlView", () => {
   it("renders project selector before data loads", () => {
     render(<ProjectControlView projects={projects} />);
     // The project selector is always visible (even during loading)
-    expect(screen.getByText("Project")).toBeInTheDocument();
+    expect(screen.getByRole("combobox")).toBeInTheDocument();
     expect(screen.getByText("Tower One")).toBeInTheDocument();
   });
 

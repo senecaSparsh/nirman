@@ -29,6 +29,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardToolbar } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Segmented } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
 import type {
   OrgTreeData,
@@ -73,14 +74,14 @@ export function OrgHierarchyDesktop({ tree }: { tree: OrgTreeData }) {
             </Badge>
           </div>
           {/* View toggle */}
-          <div className="flex items-center gap-3">
-            <ToggleButtonD active={view === "reporting"} onClick={() => setView("reporting")}>
-              Reporting line
-            </ToggleButtonD>
-            <ToggleButtonD active={view === "assignment"} onClick={() => setView("assignment")}>
-              By assignment
-            </ToggleButtonD>
-          </div>
+          <Segmented
+            value={view}
+            onChange={setView}
+            options={[
+              { value: "reporting", label: "Reporting line" },
+              { value: "assignment", label: "By assignment" },
+            ]}
+          />
         </CardToolbar>
       </CardHeader>
       <CardContent className="p-2">
@@ -106,31 +107,6 @@ export function OrgHierarchyDesktop({ tree }: { tree: OrgTreeData }) {
         )}
       </CardContent>
     </Card>
-  );
-}
-
-function ToggleButtonD({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "border-b-2 border-transparent py-1 text-meta font-medium transition-colors",
-        active
-          ? "border-brand text-foreground"
-          : "text-muted-foreground hover:text-foreground",
-      )}
-    >
-      {children}
-    </button>
   );
 }
 

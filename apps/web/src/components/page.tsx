@@ -443,6 +443,8 @@ const STATUS_MEANING: Record<string, StatusMeaning> = {
   // quality control — severity
   MAJOR: "alert",
   OBSERVATION: "neutral",
+  IMPLEMENTED: "good",
+  EXITED: "good",
   // quotation request
   QUOTES_COLLECTED: "active",
 };

@@ -4,12 +4,11 @@ import { useState, useEffect } from "react";
 import { useFetch } from "@/lib/use-fetch";
 import { toast } from "sonner";
 import { Select } from "@/components/ui/input";
-import { Field } from "@/components/field";
-import { Card } from "@/components/ui/card";
+import { MetricGrid, Metric } from "@/components/page";
 import { PageLoading } from "@/components/page-loading";
 import { EmptyState } from "@/components/empty-state";
-import { formatCurrency, cn } from "@/lib/utils";
-import { Wallet, TrendingUp, TrendingDown, Building2 } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
+import { Wallet } from "lucide-react";
 
 type Project = { id: string; name: string };
 
@@ -37,64 +36,51 @@ export function ProfitCenterView({ projects }: { projects: Project[] }) {
 
   return (
     <div className="space-y-6">
-      <Field label="Project">
-        <Select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="max-w-sm">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <Select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="h-7 w-auto min-w-[180px] text-caption">
           {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </Select>
-      </Field>
+      </header>
 
       {loading ? (
         <PageLoading label="Loading profit center…" variant="default" />
       ) : pc ? (
         <>
           {/* Summary cards */}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="p-4 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Total Revenue</span>
-                <TrendingUp className="h-4 w-4 text-emerald-500" />
-              </div>
-              <div className="text-xl font-semibold">{formatCurrency(pc.totalRevenue)}</div>
-              <div className="text-xs text-muted-foreground">+ {formatCurrency(pc.costRecovery)} cost recovery</div>
-            </Card>
-            <Card className="p-4 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Total Cost</span>
-                <TrendingDown className="h-4 w-4 text-destructive" />
-              </div>
-              <div className="text-xl font-semibold">{formatCurrency(pc.totalCost)}</div>
-              <div className="text-xs text-muted-foreground">{formatCurrency(pc.costPerSqft)}/sqft</div>
-            </Card>
-            <Card className={cn("p-4 space-y-1", pc.grossProfit >= 0 ? "border-emerald-500/30" : "border-destructive/30")}>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Gross Profit</span>
-                <Wallet className={cn("h-4 w-4", pc.grossProfit >= 0 ? "text-emerald-500" : "text-destructive")} />
-              </div>
-              <div className={cn("text-xl font-semibold", pc.grossProfit >= 0 ? "text-emerald-600" : "text-destructive")}>
-                {formatCurrency(pc.grossProfit)}
-              </div>
-              <div className="text-xs text-muted-foreground">Margin: {pc.marginPct.toFixed(1)}%</div>
-            </Card>
-            <Card className="p-4 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Revenue/sqft</span>
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="text-xl font-semibold">{formatCurrency(pc.revenuePerSqft)}</div>
-              <div className="text-xs text-muted-foreground">{pc.totalSellableArea.toFixed(0)} sqft sellable</div>
-            </Card>
-          </div>
+          <MetricGrid cols={4}>
+            <Metric
+              label="Total Revenue"
+              value={formatCurrency(pc.totalRevenue)}
+              sub={`+ ${formatCurrency(pc.costRecovery)} cost recovery`}
+            />
+            <Metric
+              label="Total Cost"
+              value={formatCurrency(pc.totalCost)}
+              sub={`${formatCurrency(pc.costPerSqft)}/sqft`}
+            />
+            <Metric
+              label="Gross Profit"
+              value={formatCurrency(pc.grossProfit)}
+              tone={pc.grossProfit >= 0 ? "success" : "danger"}
+              sub={`Margin: ${pc.marginPct.toFixed(1)}%`}
+            />
+            <Metric
+              label="Revenue / sqft"
+              value={formatCurrency(pc.revenuePerSqft)}
+              sub={`${pc.totalSellableArea.toFixed(0)} sqft sellable`}
+            />
+          </MetricGrid>
 
           {/* Cost breakdown */}
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Cost Breakdown</h3>
-            <div className="rounded-lg border border-border overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 border-b border-border">
+            <h3 className="text-label text-muted-foreground">Cost Breakdown</h3>
+            <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+              <table className="w-full text-body">
+                <thead className="border-b border-border bg-subtle">
                   <tr>
-                    <th className="text-left px-3 py-2 font-medium text-muted-foreground">Cost Component</th>
-                    <th className="text-right px-3 py-2 font-medium text-muted-foreground">Amount</th>
-                    <th className="text-right px-3 py-2 font-medium text-muted-foreground">% of Total</th>
+                    <th className="px-3 py-2 text-left text-label text-muted-foreground">Cost Component</th>
+                    <th className="px-3 py-2 text-right text-label text-muted-foreground">Amount</th>
+                    <th className="px-3 py-2 text-right text-label text-muted-foreground">% of Total</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -104,10 +90,10 @@ export function ProfitCenterView({ projects }: { projects: Project[] }) {
                   <CostRow label="Equipment" amount={pc.equipmentCost} total={pc.totalCost} />
                   <CostRow label="Subcontractor" amount={pc.subcontractorCost} total={pc.totalCost} />
                   <CostRow label="Overhead" amount={pc.overheadCost} total={pc.totalCost} />
-                  <tr className="border-t border-border font-semibold">
-                    <td className="px-3 py-2">Total Cost</td>
-                    <td className="text-right px-3 py-2">{formatCurrency(pc.totalCost)}</td>
-                    <td className="text-right px-3 py-2">100%</td>
+                  <tr className="border-t border-border bg-subtle/40 font-semibold">
+                    <td className="px-3 py-2.5">Total Cost</td>
+                    <td className="px-3 py-2.5 text-right tnum">{formatCurrency(pc.totalCost)}</td>
+                    <td className="px-3 py-2.5 text-right tnum">100%</td>
                   </tr>
                 </tbody>
               </table>
@@ -124,10 +110,10 @@ export function ProfitCenterView({ projects }: { projects: Project[] }) {
 function CostRow({ label, amount, total }: { label: string; amount: number; total: number }) {
   const pct = total > 0 ? (amount / total) * 100 : 0;
   return (
-    <tr className="border-b border-border/50">
-      <td className="px-3 py-2">{label}</td>
-      <td className="text-right px-3 py-2">{formatCurrency(amount)}</td>
-      <td className="text-right px-3 py-2 text-muted-foreground">{pct.toFixed(1)}%</td>
+    <tr className="border-b border-border last:border-b-0">
+      <td className="px-3 py-2.5 font-medium text-foreground">{label}</td>
+      <td className="px-3 py-2.5 text-right tnum">{formatCurrency(amount)}</td>
+      <td className="px-3 py-2.5 text-right tnum text-muted-foreground">{pct.toFixed(1)}%</td>
     </tr>
   );
 }

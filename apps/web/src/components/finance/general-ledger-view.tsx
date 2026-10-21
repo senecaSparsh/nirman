@@ -299,16 +299,16 @@ export function GeneralLedgerView({
     <div className="space-y-5">
       {/* Balance status banner */}
       <div
-        className={`flex items-center gap-2 rounded-xl border p-4 ${
+        className={`flex items-center gap-2.5 rounded-lg border px-4 py-3 ${
           isBalanced
-            ? "border-success/30 bg-success/5 text-success"
-            : "border-danger/30 bg-danger/5 text-danger"
+            ? "border-success-border bg-success-soft/50 text-foreground [&_svg]:text-success"
+            : "border-danger-border bg-danger-soft/50 text-foreground [&_svg]:text-danger"
         }`}
       >
         {isBalanced ? (
-          <CheckCircle2 className="h-5 w-5" />
+          <CheckCircle2 className="size-4 shrink-0" />
         ) : (
-          <AlertCircle className="h-5 w-5" />
+          <AlertCircle className="size-4 shrink-0" />
         )}
         <span className="text-body font-medium">
           {isBalanced
@@ -320,15 +320,19 @@ export function GeneralLedgerView({
       {/* Trial balance */}
       <Card>
         <CardContent className="p-0">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <h3 className="text-body font-semibold">Trial Balance</h3>
-            <div className="flex items-center gap-4 text-caption">
-              <span>
-                Total Debit: <span className="tnum font-medium">{fmt(totalDebit)}</span>
-              </span>
-              <span>
-                Total Credit: <span className="tnum font-medium">{fmt(totalCredit)}</span>
-              </span>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+            <div className="flex items-center gap-4">
+              <h3 className="text-section text-foreground">Trial Balance</h3>
+              <div className="flex items-center gap-3 text-caption text-muted-foreground">
+                <span>
+                  Debit: <span className="tnum font-semibold text-foreground">{fmt(totalDebit)}</span>
+                </span>
+                <span>
+                  Credit: <span className="tnum font-semibold text-foreground">{fmt(totalCredit)}</span>
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5 text-caption">
               <Button
                 variant="outline"
                 size="sm"

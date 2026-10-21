@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Upload, FileSpreadsheet, X, CheckCircle2, AlertCircle, Download } from "lucide-react";
+import { Upload, CheckCircle2, AlertCircle, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {Label} from "@/components/ui/input";
-import { Select } from "@/components/ui/input";
+import { Label, Select } from "@/components/ui/input";
+import { Dialog } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -205,23 +205,14 @@ export function CsvImportDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-border bg-card shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-5 py-3">
-          <div className="flex items-center gap-2">
-            <FileSpreadsheet className="h-5 w-5 text-brand" />
-            <h2 className="text-body font-semibold">Import Materials from CSV</h2>
-          </div>
-          <button onClick={onClose} className="rounded-md p-1 text-muted-foreground hover:text-foreground">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="space-y-4 p-5">
+    <Dialog
+      open={open}
+      onOpenChange={(o) => !o && onClose()}
+      title="Import Materials from CSV"
+      description="Upload a comma-separated file (.csv, max 500 rows) to bulk-create materials."
+      size="lg"
+    >
+      <div className="space-y-4">
           {/* Template download */}
           <div className="flex items-center justify-between rounded-lg border border-border bg-subtle/50 p-3">
             <div>
@@ -319,15 +310,15 @@ export function CsvImportDialog({
               </div>
               <div className="grid grid-cols-3 gap-3">
                 <div className="rounded-md border border-success/30 bg-success/5 p-2 text-center">
-                  <div className="text-h3 font-bold text-success">{result.created}</div>
+                  <div className="text-figure text-success">{result.created}</div>
                   <div className="text-caption text-muted-foreground">Created</div>
                 </div>
                 <div className="rounded-md border border-warning/30 bg-warning/5 p-2 text-center">
-                  <div className="text-h3 font-bold text-warning">{result.skipped}</div>
+                  <div className="text-figure text-warning">{result.skipped}</div>
                   <div className="text-caption text-muted-foreground">Skipped (dupes)</div>
                 </div>
                 <div className="rounded-md border border-danger/30 bg-danger/5 p-2 text-center">
-                  <div className="text-h3 font-bold text-danger">{result.errors.length}</div>
+                  <div className="text-figure text-danger">{result.errors.length}</div>
                   <div className="text-caption text-muted-foreground">Errors</div>
                 </div>
               </div>
@@ -354,8 +345,8 @@ export function CsvImportDialog({
 
           {/* Actions */}
           {!result && (
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={onClose}>Cancel</Button>
+            <div className="flex justify-end gap-2 border-t border-border pt-4">
+              <Button variant="outline" onClick={onClose}>Cancel</Button>
               <Button
                 onClick={importData}
                 disabled={preview.length === 0 || importing || !defaultCategoryId}
@@ -364,8 +355,7 @@ export function CsvImportDialog({
               </Button>
             </div>
           )}
-        </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

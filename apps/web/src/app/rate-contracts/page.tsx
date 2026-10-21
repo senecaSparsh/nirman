@@ -38,7 +38,10 @@ async function RcContent() {
 
   return (
     <>
-      <PageHeader title="Rate Contracts" stats={[]} />
+      <PageHeader
+        title="Rate Contracts"
+        description="Pre-negotiated framework agreements with suppliers at fixed rates. Purchase orders auto-fill the agreed rate during the contract validity window."
+      />
       <RateContractsView canCreate={canCreate} categories={categories} />
     </>
   );

@@ -36,6 +36,7 @@ export async function MbContent() {
     <>
       <PageHeader
         title="Measurement Book"
+        description="Site engineer's verified record of actual quantities executed against BOQ items — feeds directly into subcontractor RA bills."
         stats={[
           { label: "Projects", value: projects.length },
         ]}

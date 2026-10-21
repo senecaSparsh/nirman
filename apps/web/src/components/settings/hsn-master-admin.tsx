@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Loader2, Upload, RefreshCw, Database, Zap } from "lucide-react";
 
 /**
@@ -72,96 +73,82 @@ export function HsnMasterAdmin() {
   }
 
   return (
-    <div className="rounded-lg border p-6 space-y-4">
-      <div className="flex items-center gap-2">
-        <Database className="size-5 text-muted-foreground" />
-        <h3 className="text-lg font-semibold">HSN/GST Master</h3>
-      </div>
-      <p className="text-sm text-muted-foreground">
-        The HSN/GST master is sourced from the
-        <code className="mx-1 px-1 py-0.5 rounded bg-muted text-xs">hsn-code-package</code>
-        npm package (12,604 HSN codes + 496 SAC codes from CBIC Notification 09/2025-CT(Rate)).
-        Categories link to specific HSN codes so selecting a category auto-fills HSN + GST.
-        A weekly cron auto-reseeds the DB. Import a CBIC CSV for manual overrides.
-      </p>
-
-      {/* Sync from baseline */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium">Sync from bundled baseline</p>
-            <p className="text-xs text-muted-foreground">
-              Re-seeds the DB from the JSON file in the repo (12,604+ entries).
-              Run after <code className="mx-1 px-1 py-0.5 rounded bg-muted text-xs">{"pnpm hsn:auto-sync"}</code>
-              + deploy, or use the weekly cron.
-            </p>
+    <Card>
+      <CardHeader divided>
+        <CardTitle className="flex items-center gap-2">
+          <Database className="size-4 text-muted-foreground" />
+          HSN / GST Master
+        </CardTitle>
+        <CardDescription>
+          Sourced from the <code className="rounded bg-muted px-1 py-0.5 text-caption">hsn-code-package</code> baseline
+          (12,604 HSN + 496 SAC codes from CBIC Notification 09/2025-CT(Rate)). Categories link to HSN codes to auto-fill GST.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          {/* Sync from baseline */}
+          <div className="flex flex-col justify-between gap-3 rounded-lg border border-border bg-subtle/30 p-3.5">
+            <div>
+              <p className="text-body font-medium text-foreground">Sync from bundled baseline</p>
+              <p className="mt-0.5 text-caption text-muted-foreground">
+                Re-seeds the database from the bundled JSON baseline (12,604+ entries). Also runs automatically via weekly cron.
+              </p>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={handleSeed} disabled={seeding} variant="outline" size="sm">
+                {seeding ? <Loader2 className="size-3.5 animate-spin" /> : <RefreshCw className="size-3.5" />}
+                Sync Baseline
+              </Button>
+            </div>
           </div>
-          <Button onClick={handleSeed} disabled={seeding} variant="outline" size="sm">
-            {seeding ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
-            Sync
-          </Button>
-        </div>
-      </div>
 
-      <div className="border-t" />
-
-      {/* CSV import */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium">Import CBIC CSV</p>
-            <p className="text-xs text-muted-foreground">
-              Download a CSV from gst.gov.in, then upload it here. Format:
-              <code className="mx-1 px-1 py-0.5 rounded bg-muted text-xs">hsnCode,description,gstRate</code>
-            </p>
-          </div>
-          <div>
-            <Input
-              ref={fileRef}
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleImportCsv(file);
-              }}
-            />
-            <Button
-              onClick={() => fileRef.current?.click()}
-              disabled={importing}
-              variant="outline"
-              size="sm"
-            >
-              {importing ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
-              Upload CSV
-            </Button>
+          {/* CSV import */}
+          <div className="flex flex-col justify-between gap-3 rounded-lg border border-border bg-subtle/30 p-3.5">
+            <div>
+              <p className="text-body font-medium text-foreground">Import CBIC CSV</p>
+              <p className="mt-0.5 text-caption text-muted-foreground">
+                Upload a CSV from gst.gov.in for manual overrides. Format: <code className="rounded bg-muted px-1 py-0.5 text-micro">hsnCode,description,gstRate</code>
+              </p>
+            </div>
+            <div className="flex justify-end">
+              <Input
+                ref={fileRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleImportCsv(file);
+                }}
+              />
+              <Button
+                onClick={() => fileRef.current?.click()}
+                disabled={importing}
+                variant="outline"
+                size="sm"
+              >
+                {importing ? <Loader2 className="size-3.5 animate-spin" /> : <Upload className="size-3.5" />}
+                Upload CSV
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="border-t" />
+        {/* Auto-sync info */}
+        <div className="flex items-start gap-2.5 rounded-md border border-border bg-muted/40 px-3 py-2.5">
+          <Zap className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+          <p className="text-caption text-muted-foreground">
+            <span className="font-medium text-foreground">Auto-sync (API fallback):</span>{" "}
+            If <code className="rounded bg-muted px-1 py-0.5 text-micro">GSTA_API_KEY</code> is set, unknown HSN codes are auto-fetched from gstaccelerator.in and cached in the database.
+          </p>
+        </div>
 
-      {/* Auto-sync info */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <Zap className="size-4 text-muted-foreground" />
-          <div>
-            <p className="text-sm font-medium">Auto-sync (API fallback)</p>
-            <p className="text-xs text-muted-foreground">
-              If <code className="mx-1 px-1 py-0.5 rounded bg-muted text-xs">GSTA_API_KEY</code> is set,
-              unknown HSN codes are auto-fetched from gstaccelerator.in and cached in the DB.
-              A weekly cron (Mondays 3am UTC) re-seeds from the bundled JSON.
-              No manual action needed.
-            </p>
+        {importResult && (
+          <div className="rounded-md bg-muted p-3 text-body text-foreground">
+            {importResult}
           </div>
-        </div>
-      </div>
-
-      {importResult && (
-        <div className="rounded-md bg-muted p-3 text-sm">
-          {importResult}
-        </div>
-      )}
-    </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

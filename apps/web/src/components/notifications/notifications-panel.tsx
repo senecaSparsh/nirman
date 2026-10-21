@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import {Label, Select, Textarea} from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardToolbar } from "@/components/ui/card";
 import { StatusPill } from "@/components/page";
 import { EmptyState } from "@/components/empty-state";
 
@@ -84,73 +85,80 @@ export function NotificationsPanel() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Bell className="h-5 w-5 text-muted-foreground" />
+    <Card>
+      <CardHeader divided>
+        <CardToolbar>
           <div>
-            <h3 className="text-body font-semibold">Notifications</h3>
-            <p className="text-caption text-muted-foreground">WhatsApp / email / in-app alert templates and delivery log</p>
+            <CardTitle className="flex items-center gap-2">
+              <Bell className="size-4 text-muted-foreground" />
+              Notification Templates &amp; Delivery Log
+            </CardTitle>
+            <CardDescription className="mt-0.5">
+              WhatsApp, email, and in-app alert templates and delivery status.
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={loadLog}>View Log</Button>
+            <Button size="sm" onClick={() => setFormOpen(true)}>
+              <Plus className="size-3.5" /> New Template
+            </Button>
+          </div>
+        </CardToolbar>
+      </CardHeader>
+
+      <CardContent className="space-y-4">
+        {/* Stats */}
+        <div className="flex flex-wrap gap-4 rounded-md border border-border bg-subtle/40 px-3.5 py-2">
+          <div className="flex items-center gap-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+            <span className="tnum text-body font-medium">{stats.sent}</span>
+            <span className="text-caption text-muted-foreground">sent</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Clock className="h-3.5 w-3.5 text-warning" />
+            <span className="tnum text-body font-medium">{stats.pending}</span>
+            <span className="text-caption text-muted-foreground">pending</span>
+          </div>
+          {stats.failed > 0 && (
+            <div className="flex items-center gap-1.5">
+              <XCircle className="h-3.5 w-3.5 text-danger" />
+              <span className="tnum text-body font-medium">{stats.failed}</span>
+              <span className="text-caption text-muted-foreground">failed</span>
+            </div>
+          )}
+          <div className="ml-auto flex items-center gap-1.5">
+            <span className="text-caption text-muted-foreground">Total:</span>
+            <span className="tnum text-body font-medium">{stats.total}</span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={loadLog}>View Log</Button>
-          <Button size="sm" onClick={() => setFormOpen(true)}>
-            <Plus className="mr-1 h-3.5 w-3.5" /> New Template
-          </Button>
-        </div>
-      </div>
 
-      {/* Stats */}
-      <div className="flex flex-wrap gap-3">
-        <div className="flex items-center gap-1.5">
-          <CheckCircle2 className="h-4 w-4 text-success" />
-          <span className="tnum text-body font-medium">{stats.sent}</span>
-          <span className="text-caption text-muted-foreground">sent</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <Clock className="h-4 w-4 text-warning" />
-          <span className="tnum text-body font-medium">{stats.pending}</span>
-          <span className="text-caption text-muted-foreground">pending</span>
-        </div>
-        {stats.failed > 0 && (
-          <div className="flex items-center gap-1.5">
-            <XCircle className="h-4 w-4 text-danger" />
-            <span className="tnum text-body font-medium">{stats.failed}</span>
-            <span className="text-caption text-muted-foreground">failed</span>
+        {/* Templates list */}
+        {templates.length === 0 ? (
+          <EmptyState
+            size="compact"
+            icon={<Bell />}
+            title="No notification templates yet"
+            description="Create templates for low stock, task assignments, quote approvals, and more."
+          />
+        ) : (
+          <div className="space-y-2">
+            {templates.map((t) => (
+              <div key={t.id} className="rounded-lg border border-border bg-card p-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={t.channel === "WHATSAPP" ? "success" : t.channel === "EMAIL" ? "brand" : "muted"} className="text-micro">
+                      {t.channel}
+                    </Badge>
+                    <span className="text-body font-medium">{EVENT_TYPES.find((e) => e.value === t.eventType)?.label ?? t.eventType}</span>
+                    {!t.isActive && <StatusPill status="INACTIVE" />}
+                  </div>
+                </div>
+                <p className="mt-1.5 text-caption text-muted-foreground font-mono">{t.template}</p>
+              </div>
+            ))}
           </div>
         )}
-        <div className="flex items-center gap-1.5">
-          <span className="text-caption text-muted-foreground">Total:</span>
-          <span className="tnum text-body">{stats.total}</span>
-        </div>
-      </div>
-
-      {/* Templates list */}
-      {templates.length === 0 ? (
-        <EmptyState
-          icon={<Bell />}
-          title="No notification templates yet"
-          description="Create templates for low stock, task assignments, quote approvals, and more."
-        />
-      ) : (
-        <div className="space-y-2">
-          {templates.map((t) => (
-            <div key={t.id} className="rounded-lg border border-border bg-card p-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Badge variant={t.channel === "WHATSAPP" ? "success" : t.channel === "EMAIL" ? "brand" : "muted"} className="text-micro">
-                    {t.channel}
-                  </Badge>
-                  <span className="text-body font-medium">{EVENT_TYPES.find((e) => e.value === t.eventType)?.label ?? t.eventType}</span>
-                  {!t.isActive && <StatusPill status="INACTIVE" />}
-                </div>
-              </div>
-              <p className="mt-1.5 text-caption text-muted-foreground font-mono">{t.template}</p>
-            </div>
-          ))}
-        </div>
-      )}
+      </CardContent>
 
       {/* Log dialog */}
       {showLog && (
@@ -194,7 +202,7 @@ export function NotificationsPanel() {
           onSaved={() => { setFormOpen(false); load(); }}
         />
       )}
-    </div>
+    </Card>
   );
 }
 

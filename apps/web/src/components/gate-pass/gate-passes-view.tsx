@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
+import { StatusPill } from "@/components/page";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { GatePassFormDialog } from "./gate-pass-form-dialog";
@@ -71,15 +72,6 @@ type Permissions = {
   canManage: boolean;
   /** Tier-1 approvers (OWNER/ADMIN) may approve their own gate pass. */
   canSelfApprove?: boolean;
-};
-
-const STATUS_CONFIG: Record<GatePassRow["status"], { label: string; color: string; dot: string }> = {
-  DRAFT: { label: "Draft", color: "text-muted-foreground", dot: "bg-muted-foreground" },
-  PENDING: { label: "Pending", color: "text-warning", dot: "bg-warning" },
-  APPROVED: { label: "Approved", color: "text-success", dot: "bg-success" },
-  REJECTED: { label: "Rejected", color: "text-danger", dot: "bg-danger" },
-  EXITED: { label: "Exited", color: "text-info", dot: "bg-info" },
-  CANCELLED: { label: "Cancelled", color: "text-muted-foreground", dot: "bg-muted-foreground" },
 };
 
 const CATEGORY_LABELS: Record<GatePassRow["category"], string> = {
@@ -161,15 +153,7 @@ export function GatePassesView({
       key: "status",
       label: "Status",
       sortable: true,
-      render: (r) => {
-        const cfg = STATUS_CONFIG[r.status];
-        return (
-          <div className="flex items-center gap-1.5">
-            <span className={`h-2 w-2 rounded-full ${cfg.dot}`} />
-            <span className={`text-xs font-medium ${cfg.color}`}>{cfg.label}</span>
-          </div>
-        );
-      },
+      render: (r) => <StatusPill status={r.status} />,
     },
     {
       key: "locationName",
@@ -349,13 +333,19 @@ function GatePassDataTable({
   toolbarTrailing?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-border overflow-hidden">
+    <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
       <DataTable
         data={rows}
         columns={columns}
+        storageKey="gate-passes"
+        hideable
+        exportFileName="gate-passes"
         onRowClick={onRowClick}
         searchable
         searchPlaceholder="Search by GP number, vehicle, destination…"
+        showTotals
+        sumColumns={["lineCount"]}
+        totalFormat={(_k, sum) => sum.toLocaleString("en-IN")}
         pageSize={50}
         toolbarTrailing={toolbarTrailing}
       />

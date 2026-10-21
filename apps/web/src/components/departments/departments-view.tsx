@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useUrlQuery } from "@/lib/use-url-filter";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Building2, Search, Package } from "lucide-react";
+import { Plus, Pencil, Trash2, Building2, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { Dialog } from "@/components/ui/dialog";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/empty-state";
+import { StatusPill } from "@/components/page";
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog";
 import { cn } from "@/lib/utils";
 
@@ -36,25 +36,16 @@ export function DepartmentsView({
   canEdit: boolean;
   canDelete: boolean;
 }) {
-  const [query, setQuery] = useUrlQuery("q");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<DepartmentRow | null>(null);
   const [deleting, setDeleting] = useState<DepartmentRow | null>(null);
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return departments;
-    return departments.filter((d) =>
-      [d.code, d.name, d.description].filter(Boolean).some((v) => v!.toLowerCase().includes(q))
-    );
-  }, [departments, query]);
 
   const baseColumns: Column<DepartmentRow>[] = [
     {
       key: "code",
       label: "Code",
       sortable: true,
-      render: (d) => <span className="font-mono text-caption font-medium text-foreground">{d.code}</span>,
+      render: (d) => <span className="font-mono text-caption font-semibold text-foreground">{d.code}</span>,
       exportValue: (d) => d.code,
     },
     {
@@ -77,7 +68,7 @@ export function DepartmentsView({
         <span className="flex items-center gap-1 text-body text-foreground">
           <Package className="h-3 w-3 text-muted-foreground" /> {d.stockLocationName}
         </span>
-      ) : <span className="text-muted-foreground">—</span>,
+      ) : <span className="text-muted-foreground/40">—</span>,
       exportValue: (d) => d.stockLocationName ?? "",
     },
     {
@@ -96,15 +87,8 @@ export function DepartmentsView({
       key: "active",
       label: "Status",
       sortable: true,
-      render: (d) => (
-        <span className={cn(
-          "inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-caption font-medium",
-          d.active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
-        )}>
-          <span className={cn("h-1.5 w-1.5 rounded-full", d.active ? "bg-success" : "bg-muted-foreground")} />
-          {d.active ? "Active" : "Inactive"}
-        </span>
-      ),
+      sortValue: (d) => (d.active ? "1" : "0"),
+      render: (d) => <StatusPill status={d.active ? "ACTIVE" : "INACTIVE"} />,
       filterValue: (d) => (d.active ? "ACTIVE" : "INACTIVE"),
       exportValue: (d) => (d.active ? "ACTIVE" : "INACTIVE"),
     },
@@ -134,48 +118,43 @@ export function DepartmentsView({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search code, name, description…"
-            className="pl-9"
-          />
-        </div>
-        {canCreate && (
-          <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
-            <Plus className="h-4 w-4" /> Add Department
-          </Button>
-        )}
-      </div>
-
-      {filtered.length === 0 && !query ? (
+      {departments.length === 0 ? (
         <EmptyState
           icon={<Building2 className="h-6 w-6" />}
           title="No departments yet"
           description="Departments are operational cost centers — manufacturing lines, workshop, lab. Materials issued to a department hit Operating Expenses (not WIP)."
           action={canCreate ? (
-            <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
+            <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true); }}>
               <Plus className="h-4 w-4" /> Add your first department
             </Button>
           ) : undefined}
         />
       ) : (
-        <DataTable
-          columns={columns}
-          data={filtered}
-          getRowId={(d) => d.id}
-          initialSort={{ key: "code", direction: "asc" }}
-          emptyState={
-            <EmptyState
-              icon={<Search className="h-5 w-5" />}
-              title="No departments found"
-              description="Try a different search."
-            />
-          }
-        />
+        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+          <DataTable
+            columns={columns}
+            data={departments}
+            getRowId={(d) => d.id}
+            storageKey="departments"
+            searchable
+            searchPlaceholder="Search code, name, description…"
+            hideable
+            exportFileName="departments"
+            initialSort={{ key: "code", direction: "asc" }}
+            showTotals
+            sumColumns={["issueCount"]}
+            totalFormat={(_k, sum) => sum.toLocaleString("en-IN")}
+            onAddRow={canCreate ? () => { setEditing(null); setFormOpen(true); } : undefined}
+            addRowLabel="Add Department"
+            toolbarTrailing={
+              canCreate ? (
+                <Button size="sm" onClick={() => { setEditing(null); setFormOpen(true); }}>
+                  <Plus className="size-3.5" /> Add Department
+                </Button>
+              ) : undefined
+            }
+          />
+        </div>
       )}
 
       <DepartmentFormDialog

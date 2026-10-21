@@ -185,16 +185,16 @@ export function IntegrationsTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Plug className="h-5 w-5 text-muted-foreground" />
+        <Plug className="h-4 w-4 text-muted-foreground" />
         <div>
-          <h3 className="text-sm font-semibold">Integrations</h3>
-          <p className="text-xs text-muted-foreground">
+          <h3 className="text-body font-semibold">Integrations</h3>
+          <p className="text-caption text-muted-foreground">
             Configure external service connections. Credentials are encrypted at rest.
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         {integrations.map((integ) => {
           const Icon = ICONS[integ.icon] ?? Plug;
           const isActive = activeKey === integ.key;
@@ -202,7 +202,7 @@ export function IntegrationsTab() {
           const hasError = integ.lastVerifyError;
 
           return (
-            <Card key={integ.key} className={isActive ? "ring-2 ring-primary" : ""}>
+            <Card key={integ.key} className={isActive ? "ring-2 ring-brand lg:col-span-2" : ""}>
               <CardContent className="p-4">
                 {/* Header row */}
                 <div className="flex items-start justify-between gap-3">

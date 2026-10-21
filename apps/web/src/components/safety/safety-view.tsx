@@ -2,16 +2,17 @@
 
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useUrlQuery } from "@/lib/use-url-filter";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input, Select, Textarea } from "@/components/ui/input";
 import { Field } from "@/components/field";
 import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
-import { localDateISO, cn, formatDate } from "@/lib/utils";
-import { statusBadgeVariant } from "@/components/page";
-import { AlertTriangle, ShieldAlert, ClipboardCheck, Plus, Search, Loader2 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { localDateISO, formatDate } from "@/lib/utils";
+import { StatusPill } from "@/components/page";
+import { AlertTriangle, ShieldAlert, ClipboardCheck, Plus, Loader2 } from "lucide-react";
 import { computeRiskLevel } from "@nirman/services/safety";
 import { PhotoUploader } from "@/components/ui/photo-uploader";
 import { EmptyState } from "@/components/empty-state";
@@ -33,12 +34,6 @@ interface InspectionItem {
 }
 type Project = { id: string; name: string; type: string; status: string };
 
-const TABS: { value: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { value: "incidents", label: "Incidents", icon: AlertTriangle },
-  { value: "hazards", label: "Hazards", icon: ShieldAlert },
-  { value: "inspections", label: "Inspections", icon: ClipboardCheck },
-];
-
 const RISK_VARIANTS: Record<string, "default" | "warning" | "danger" | "success"> = {
   LOW: "success", MEDIUM: "warning", HIGH: "danger", CRITICAL: "danger",
 };
@@ -48,7 +43,6 @@ const SEVERITY_VARIANTS: Record<string, "default" | "warning" | "danger"> = {
 const RESULT_VARIANTS: Record<string, "default" | "warning" | "success" | "danger"> = {
   PASSED: "success", PASSED_WITH_NOTES: "warning", FAILED: "danger", STOP_WORK: "danger",
 };
-
 const TYPE_LABELS: Record<string, string> = {
   ACCIDENT: "Accident", NEAR_MISS: "Near Miss", INJURY: "Injury", FATALITY: "Fatality",
   PROPERTY_DAMAGE: "Property Damage", ENVIRONMENTAL: "Environmental", FIRE: "Fire",
@@ -66,42 +60,26 @@ export function SafetyView({
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("incidents");
-  const [query, setQuery] = useUrlQuery("q");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const filteredIncidents = useMemo(() => {
-    let r = incidents;
-    if (statusFilter !== "ALL") r = r.filter((i) => i.status === statusFilter);
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      r = r.filter((i) => i.title.toLowerCase().includes(q) || i.incidentNumber.toLowerCase().includes(q) || i.projectName.toLowerCase().includes(q));
-    }
-    return r;
-  }, [incidents, query, statusFilter]);
-
-  const filteredHazards = useMemo(() => {
-    let r = hazards;
-    if (statusFilter !== "ALL") r = r.filter((h) => h.status === statusFilter);
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      r = r.filter((h) => h.title.toLowerCase().includes(q) || h.hazardNumber.toLowerCase().includes(q) || h.projectName.toLowerCase().includes(q));
-    }
-    return r;
-  }, [hazards, query, statusFilter]);
-
-  const filteredInspections = useMemo(() => {
-    let r = inspections;
-    if (statusFilter !== "ALL") r = r.filter((i) => i.status === statusFilter);
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      r = r.filter((i) => i.title.toLowerCase().includes(q) || i.inspectionNumber.toLowerCase().includes(q) || i.projectName.toLowerCase().includes(q));
-    }
-    return r;
-  }, [inspections, query, statusFilter]);
+  const filteredIncidents = useMemo(
+    () => (statusFilter === "ALL" ? incidents : incidents.filter((i) => i.status === statusFilter)),
+    [incidents, statusFilter],
+  );
+  const filteredHazards = useMemo(
+    () => (statusFilter === "ALL" ? hazards : hazards.filter((h) => h.status === statusFilter)),
+    [hazards, statusFilter],
+  );
+  const filteredInspections = useMemo(
+    () => (statusFilter === "ALL" ? inspections : inspections.filter((i) => i.status === statusFilter)),
+    [inspections, statusFilter],
+  );
 
   function switchTab(t: Tab) {
-    setTab(t); setQuery(""); setStatusFilter("ALL"); setDialogOpen(false);
+    setTab(t);
+    setStatusFilter("ALL");
+    setDialogOpen(false);
   }
 
   const statusOptions = tab === "incidents"
@@ -110,137 +88,293 @@ export function SafetyView({
     ? [["IDENTIFIED", "Identified"], ["MITIGATING", "Mitigating"], ["RESOLVED", "Resolved"]]
     : [["SCHEDULED", "Scheduled"], ["IN_PROGRESS", "In Progress"], ["COMPLETED", "Completed"], ["CANCELLED", "Cancelled"]];
 
+  const statusSelect = (
+    <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-7 w-[150px] text-caption">
+      <option value="ALL">All Status</option>
+      {statusOptions.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+    </Select>
+  );
+
+  const ctaLabel = tab === "incidents" ? "Report Incident" : tab === "hazards" ? "Report Hazard" : "Schedule Inspection";
+  const ctaButton = canManage && projects.length > 0 ? (
+    <Button size="sm" onClick={() => setDialogOpen(true)}>
+      <Plus className="size-3.5" /> {ctaLabel}
+    </Button>
+  ) : undefined;
+
+  const incidentColumns: Column<IncidentItem>[] = [
+    {
+      key: "incidentNumber",
+      label: "Number",
+      sortable: true,
+      render: (i) => <span className="font-mono text-caption font-semibold text-foreground">{i.incidentNumber}</span>,
+    },
+    {
+      key: "title",
+      label: "Title",
+      sortable: true,
+      render: (i) => (
+        <div className="min-w-0">
+          <div className="truncate font-medium text-foreground">{i.title}</div>
+          <div className="truncate text-caption text-muted-foreground">
+            {i.location ? `${i.location} · ` : ""}{i.injuredCount > 0 ? `${i.injuredCount} injured` : ""}{i.fatalities > 0 ? ` · ${i.fatalities} fatal` : ""}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "projectName",
+      label: "Project",
+      sortable: true,
+      render: (i) => <span className="text-muted-foreground">{i.projectName}</span>,
+    },
+    {
+      key: "type",
+      label: "Type",
+      sortable: true,
+      render: (i) => <span className="text-caption">{TYPE_LABELS[i.type] ?? i.type}</span>,
+    },
+    {
+      key: "severity",
+      label: "Severity",
+      sortable: true,
+      render: (i) => <Badge variant={SEVERITY_VARIANTS[i.severity] ?? "default"}>{i.severity.replace("_", " ")}</Badge>,
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      render: (i) => <StatusPill status={i.status} />,
+    },
+    {
+      key: "incidentDate",
+      label: "Date",
+      align: "right",
+      sortable: true,
+      sortValue: (i) => new Date(i.incidentDate),
+      render: (i) => <span className="tnum text-caption text-muted-foreground">{formatDate(i.incidentDate)}</span>,
+    },
+  ];
+
+  const hazardColumns: Column<HazardItem>[] = [
+    {
+      key: "hazardNumber",
+      label: "Number",
+      sortable: true,
+      render: (h) => <span className="font-mono text-caption font-semibold text-foreground">{h.hazardNumber}</span>,
+    },
+    {
+      key: "title",
+      label: "Title",
+      sortable: true,
+      render: (h) => (
+        <div className="min-w-0">
+          <div className="truncate font-medium text-foreground">{h.title}</div>
+          {h.location && <div className="truncate text-caption text-muted-foreground">{h.location}</div>}
+        </div>
+      ),
+    },
+    {
+      key: "projectName",
+      label: "Project",
+      sortable: true,
+      render: (h) => <span className="text-muted-foreground">{h.projectName}</span>,
+    },
+    {
+      key: "riskLevel",
+      label: "Risk",
+      sortable: true,
+      render: (h) => <Badge variant={RISK_VARIANTS[h.riskLevel] ?? "default"}>{h.riskLevel}</Badge>,
+    },
+    {
+      key: "score",
+      label: "Score",
+      align: "right",
+      sortable: true,
+      sortValue: (h) => h.likelihood * h.severity,
+      render: (h) => <span className="tnum text-body font-medium">{h.likelihood * h.severity}</span>,
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      render: (h) => <StatusPill status={h.status} />,
+    },
+    {
+      key: "targetResolutionDate",
+      label: "Target",
+      align: "right",
+      sortable: true,
+      sortValue: (h) => (h.targetResolutionDate ? new Date(h.targetResolutionDate) : ""),
+      render: (h) => <span className="tnum text-caption text-muted-foreground">{h.targetResolutionDate ? formatDate(h.targetResolutionDate) : "—"}</span>,
+    },
+  ];
+
+  const inspectionColumns: Column<InspectionItem>[] = [
+    {
+      key: "inspectionNumber",
+      label: "Number",
+      sortable: true,
+      render: (i) => <span className="font-mono text-caption font-semibold text-foreground">{i.inspectionNumber}</span>,
+    },
+    {
+      key: "title",
+      label: "Title",
+      sortable: true,
+      render: (i) => (
+        <div className="min-w-0">
+          <div className="truncate font-medium text-foreground">{i.title}</div>
+          {i.inspectorName && <div className="truncate text-caption text-muted-foreground">{i.inspectorName}</div>}
+        </div>
+      ),
+    },
+    {
+      key: "projectName",
+      label: "Project",
+      sortable: true,
+      render: (i) => <span className="text-muted-foreground">{i.projectName}</span>,
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      render: (i) => <StatusPill status={i.status} />,
+    },
+    {
+      key: "result",
+      label: "Result",
+      sortable: true,
+      sortValue: (i) => i.result ?? "",
+      render: (i) => i.result ? <Badge variant={RESULT_VARIANTS[i.result] ?? "default"}>{i.result.replace(/_/g, " ")}</Badge> : <span className="text-muted-foreground">—</span>,
+    },
+    {
+      key: "scheduledDate",
+      label: "Scheduled",
+      align: "right",
+      sortable: true,
+      sortValue: (i) => new Date(i.scheduledDate),
+      render: (i) => <span className="tnum text-caption text-muted-foreground">{formatDate(i.scheduledDate)}</span>,
+    },
+    {
+      key: "conductedDate",
+      label: "Conducted",
+      align: "right",
+      sortable: true,
+      sortValue: (i) => (i.conductedDate ? new Date(i.conductedDate) : ""),
+      render: (i) => <span className="tnum text-caption text-muted-foreground">{i.conductedDate ? formatDate(i.conductedDate) : "—"}</span>,
+    },
+  ];
+
   return (
     <div className="space-y-4">
-      {/* Tab bar */}
-      <div className="flex gap-1 border-b border-border">
-        {TABS.map((t) => {
-          const active = tab === t.value;
-          const Icon = t.icon;
-          const count = t.value === "incidents" ? incidents.length : t.value === "hazards" ? hazards.length : inspections.length;
-          return (
-            <button key={t.value} onClick={() => switchTab(t.value)} className={cn("flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors", active ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground")}>
-              <Icon className="h-4 w-4" />{t.label}
-              <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-xs tabular-nums">{count}</span>
-            </button>
-          );
-        })}
-      </div>
+      <Tabs value={tab} onValueChange={switchTab}>
+        <TabsList>
+          <TabsTrigger value="incidents" count={incidents.length}>
+            <span className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" /> Incidents</span>
+          </TabsTrigger>
+          <TabsTrigger value="hazards" count={hazards.length}>
+            <span className="flex items-center gap-1.5"><ShieldAlert className="h-3.5 w-3.5" /> Hazards</span>
+          </TabsTrigger>
+          <TabsTrigger value="inspections" count={inspections.length}>
+            <span className="flex items-center gap-1.5"><ClipboardCheck className="h-3.5 w-3.5" /> Inspections</span>
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Search ${tab}…`} className="pl-8" />
-        </div>
-        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-[150px]">
-          <option value="ALL">All Status</option>
-          {statusOptions.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </Select>
-        {canManage && projects.length > 0 && (
-          <Button size="sm" onClick={() => setDialogOpen(true)}>
-            <Plus className="mr-1 h-4 w-4" />
-            {tab === "incidents" ? "Report Incident" : tab === "hazards" ? "Report Hazard" : "Schedule Inspection"}
-          </Button>
-        )}
-      </div>
+        <TabsContent value="incidents">
+          {incidents.length === 0 ? (
+            <EmptyState
+              icon={<AlertTriangle />}
+              title="No incidents reported yet"
+              description="Report accidents, near-misses, and injuries here."
+              action={ctaButton}
+            />
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+              <DataTable
+                columns={incidentColumns}
+                data={filteredIncidents}
+                getRowId={(i) => i.id}
+                storageKey="safety-incidents"
+                searchable
+                searchPlaceholder="Search incidents…"
+                hideable
+                exportFileName="safety-incidents"
+                initialSort={{ key: "incidentDate", direction: "desc" }}
+                onRowClick={(i) => router.push(`/safety/incidents/${i.id}`)}
+                onAddRow={canManage && projects.length > 0 ? () => setDialogOpen(true) : undefined}
+                addRowLabel="Report Incident"
+                toolbarLeading={statusSelect}
+                toolbarTrailing={ctaButton}
+              />
+            </div>
+          )}
+        </TabsContent>
 
-      {/* Tables */}
-      {tab === "incidents" && (
-        <IncidentTable items={filteredIncidents} totalCount={incidents.length} onRowClick={(id) => router.push(`/safety/incidents/${id}`)} />
-      )}
-      {tab === "hazards" && (
-        <HazardTable items={filteredHazards} totalCount={hazards.length} onRowClick={(id) => router.push(`/safety/hazards/${id}`)} />
-      )}
-      {tab === "inspections" && (
-        <InspectionTable items={filteredInspections} totalCount={inspections.length} onRowClick={(id) => router.push(`/safety/inspections/${id}`)} />
-      )}
+        <TabsContent value="hazards">
+          {hazards.length === 0 ? (
+            <EmptyState
+              icon={<ShieldAlert />}
+              title="No hazards identified yet"
+              description="Report site hazards with risk assessment here."
+              action={ctaButton}
+            />
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+              <DataTable
+                columns={hazardColumns}
+                data={filteredHazards}
+                getRowId={(h) => h.id}
+                storageKey="safety-hazards"
+                searchable
+                searchPlaceholder="Search hazards…"
+                hideable
+                exportFileName="safety-hazards"
+                initialSort={{ key: "score", direction: "desc" }}
+                onRowClick={(h) => router.push(`/safety/hazards/${h.id}`)}
+                onAddRow={canManage && projects.length > 0 ? () => setDialogOpen(true) : undefined}
+                addRowLabel="Report Hazard"
+                toolbarLeading={statusSelect}
+                toolbarTrailing={ctaButton}
+              />
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="inspections">
+          {inspections.length === 0 ? (
+            <EmptyState
+              icon={<ClipboardCheck />}
+              title="No inspections scheduled yet"
+              description="Plan safety walkthroughs and audits here."
+              action={ctaButton}
+            />
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+              <DataTable
+                columns={inspectionColumns}
+                data={filteredInspections}
+                getRowId={(i) => i.id}
+                storageKey="safety-inspections"
+                searchable
+                searchPlaceholder="Search inspections…"
+                hideable
+                exportFileName="safety-inspections"
+                initialSort={{ key: "scheduledDate", direction: "desc" }}
+                onRowClick={(i) => router.push(`/safety/inspections/${i.id}`)}
+                onAddRow={canManage && projects.length > 0 ? () => setDialogOpen(true) : undefined}
+                addRowLabel="Schedule Inspection"
+                toolbarLeading={statusSelect}
+                toolbarTrailing={ctaButton}
+              />
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Dialogs */}
       {dialogOpen && tab === "incidents" && <NewIncidentDialog open={dialogOpen} onOpenChange={setDialogOpen} projects={projects} onSaved={() => { setDialogOpen(false); router.refresh(); }} />}
       {dialogOpen && tab === "hazards" && <NewHazardDialog open={dialogOpen} onOpenChange={setDialogOpen} projects={projects} onSaved={() => { setDialogOpen(false); router.refresh(); }} />}
       {dialogOpen && tab === "inspections" && <NewInspectionDialog open={dialogOpen} onOpenChange={setDialogOpen} projects={projects} onSaved={() => { setDialogOpen(false); router.refresh(); }} />}
-    </div>
-  );
-}
-
-function IncidentTable({ items, totalCount, onRowClick }: { items: IncidentItem[]; totalCount: number; onRowClick: (id: string) => void }) {
-  if (items.length === 0) {
-    return <EmptyState icon={<AlertTriangle />} title={totalCount === 0 ? "No incidents reported yet" : "No incidents match your filters"} description={totalCount === 0 ? "Report accidents, near-misses, and injuries here." : undefined} />;
-  }
-  return (
-    <div className="rounded-lg border border-border overflow-hidden">
-      <div className="grid grid-cols-[130px_1fr_140px_120px_120px_120px_100px] gap-2 border-b border-border bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground">
-        <div>Number</div><div>Title</div><div>Project</div><div>Type</div><div>Severity</div><div>Status</div><div className="text-right">Date</div>
-      </div>
-      {items.map((i) => (
-        <button key={i.id} onClick={() => onRowClick(i.id)} className="grid w-full grid-cols-[130px_1fr_140px_120px_120px_120px_100px] gap-2 border-b border-border/50 px-3 py-2 text-sm text-left hover:bg-muted/30 transition-colors">
-          <div className="font-mono text-xs text-muted-foreground self-center">{i.incidentNumber}</div>
-          <div className="min-w-0 self-center">
-            <div className="truncate font-medium">{i.title}</div>
-            <div className="truncate text-xs text-muted-foreground">{i.location ? `${i.location} · ` : ""}{i.injuredCount > 0 ? `${i.injuredCount} injured` : ""}{i.fatalities > 0 ? ` · ${i.fatalities} fatal` : ""}</div>
-          </div>
-          <div className="text-xs text-muted-foreground self-center truncate">{i.projectName}</div>
-          <div className="text-xs self-center">{TYPE_LABELS[i.type] ?? i.type}</div>
-          <div className="self-center"><Badge variant={SEVERITY_VARIANTS[i.severity] ?? "default"}>{i.severity.replace("_", " ")}</Badge></div>
-          <div className="self-center"><Badge variant={statusBadgeVariant(i.status)}>{i.status.replace(/_/g, " ")}</Badge></div>
-          <div className="text-right text-xs text-muted-foreground self-center tabular-nums">{formatDate(i.incidentDate)}</div>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function HazardTable({ items, totalCount, onRowClick }: { items: HazardItem[]; totalCount: number; onRowClick: (id: string) => void }) {
-  if (items.length === 0) {
-    return <EmptyState icon={<ShieldAlert />} title={totalCount === 0 ? "No hazards identified yet" : "No hazards match your filters"} description={totalCount === 0 ? "Report site hazards with risk assessment here." : undefined} />;
-  }
-  return (
-    <div className="rounded-lg border border-border overflow-hidden">
-      <div className="grid grid-cols-[130px_1fr_140px_100px_80px_120px_110px] gap-2 border-b border-border bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground">
-        <div>Number</div><div>Title</div><div>Project</div><div>Risk</div><div>Score</div><div>Status</div><div className="text-right">Target</div>
-      </div>
-      {items.map((h) => (
-        <button key={h.id} onClick={() => onRowClick(h.id)} className="grid w-full grid-cols-[130px_1fr_140px_100px_80px_120px_110px] gap-2 border-b border-border/50 px-3 py-2 text-sm text-left hover:bg-muted/30 transition-colors">
-          <div className="font-mono text-xs text-muted-foreground self-center">{h.hazardNumber}</div>
-          <div className="min-w-0 self-center">
-            <div className="truncate font-medium">{h.title}</div>
-            <div className="truncate text-xs text-muted-foreground">{h.location ?? ""}</div>
-          </div>
-          <div className="text-xs text-muted-foreground self-center truncate">{h.projectName}</div>
-          <div className="self-center"><Badge variant={RISK_VARIANTS[h.riskLevel] ?? "default"}>{h.riskLevel}</Badge></div>
-          <div className="text-xs self-center tabular-nums">{h.likelihood * h.severity}</div>
-          <div className="self-center"><Badge variant={statusBadgeVariant(h.status)}>{h.status}</Badge></div>
-          <div className="text-right text-xs text-muted-foreground self-center tabular-nums">{h.targetResolutionDate ? formatDate(h.targetResolutionDate) : "—"}</div>
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function InspectionTable({ items, totalCount, onRowClick }: { items: InspectionItem[]; totalCount: number; onRowClick: (id: string) => void }) {
-  if (items.length === 0) {
-    return <EmptyState icon={<ClipboardCheck />} title={totalCount === 0 ? "No inspections scheduled yet" : "No inspections match your filters"} description={totalCount === 0 ? "Plan safety walkthroughs and audits here." : undefined} />;
-  }
-  return (
-    <div className="rounded-lg border border-border overflow-hidden">
-      <div className="grid grid-cols-[130px_1fr_140px_120px_120px_110px_110px] gap-2 border-b border-border bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground">
-        <div>Number</div><div>Title</div><div>Project</div><div>Status</div><div>Result</div><div className="text-right">Scheduled</div><div className="text-right">Conducted</div>
-      </div>
-      {items.map((i) => (
-        <button key={i.id} onClick={() => onRowClick(i.id)} className="grid w-full grid-cols-[130px_1fr_140px_120px_120px_110px_110px] gap-2 border-b border-border/50 px-3 py-2 text-sm text-left hover:bg-muted/30 transition-colors">
-          <div className="font-mono text-xs text-muted-foreground self-center">{i.inspectionNumber}</div>
-          <div className="min-w-0 self-center">
-            <div className="truncate font-medium">{i.title}</div>
-            <div className="truncate text-xs text-muted-foreground">{i.inspectorName ?? ""}</div>
-          </div>
-          <div className="text-xs text-muted-foreground self-center truncate">{i.projectName}</div>
-          <div className="self-center"><Badge variant={statusBadgeVariant(i.status)}>{i.status.replace(/_/g, " ")}</Badge></div>
-          <div className="self-center">{i.result ? <Badge variant={RESULT_VARIANTS[i.result] ?? "default"}>{i.result.replace(/_/g, " ")}</Badge> : <span className="text-xs text-muted-foreground">—</span>}</div>
-          <div className="text-right text-xs text-muted-foreground self-center tabular-nums">{formatDate(i.scheduledDate)}</div>
-          <div className="text-right text-xs text-muted-foreground self-center tabular-nums">{i.conductedDate ? formatDate(i.conductedDate) : "—"}</div>
-        </button>
-      ))}
     </div>
   );
 }

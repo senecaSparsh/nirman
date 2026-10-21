@@ -15,7 +15,6 @@ import {
   ToolbarDivider,
   StatusPill,
 } from "@/components/page";
-import { PageHeader } from "@/components/page-header";
 import {
   PhoneIncoming,
   PhoneOutgoing,
@@ -106,8 +105,6 @@ export function CallsView({
   phoneNumbers,
   tags,
   total,
-  missedCount,
-  totalDurationSec,
   page,
   pageCount,
   canViewFullNumber,
@@ -128,20 +125,6 @@ export function CallsView({
 
   return (
     <Page>
-      <PageHeader
-        stats={[
-          { label: "Total", value: total },
-          { label: "Missed", value: missedCount, tone: missedCount > 0 ? "danger" : "muted" },
-          { label: "Talk time", value: formatDuration(totalDurationSec), tone: "muted" },
-        ]}
-        action={canCreate ? (
-          <Button size="sm" onClick={() => setShowAddForm(!showAddForm)}>
-            <Plus className="h-4 w-4" />
-            Log Call
-          </Button>
-        ) : undefined}
-      />
-
       {/* Manual call log form */}
       {showAddForm && (
         <ManualCallForm
@@ -198,6 +181,12 @@ export function CallsView({
             </Select>
           )}
           <ToolbarCount>{total} {total === 1 ? "call" : "calls"}</ToolbarCount>
+          {canCreate && (
+            <Button size="sm" onClick={() => setShowAddForm(!showAddForm)}>
+              <Plus className="size-3.5" />
+              Log Call
+            </Button>
+          )}
         </Toolbar>
 
         {/* Call list */}

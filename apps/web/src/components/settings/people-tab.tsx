@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Plus, Pencil, Trash2, HardHat, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Segmented } from "@/components/ui/tabs";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { EmptyState } from "@/components/empty-state";
 import { StatusPill } from "@/components/page";
@@ -165,45 +166,35 @@ export function PeopleTab({
     },
   ];
 
+  const viewToggle = (
+    <Segmented
+      value={subTab}
+      onChange={setSubTab}
+      options={[
+        { value: "subcontractors", label: `Subcontractors (${subcontractors.length})`, icon: <HardHat /> },
+        { value: "employees", label: `Employees (${employees.length})`, icon: <UserPlus /> },
+      ]}
+    />
+  );
+
   return (
     <div className="space-y-4">
-      {/* Segmented toggle */}
-      <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-0.5">
-        <button
-          type="button"
-          onClick={() => setSubTab("subcontractors")}
-          className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-body font-medium transition-colors ${
-            subTab === "subcontractors" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <HardHat className="h-3.5 w-3.5" /> Subcontractors
-          <span className="text-caption text-muted-foreground">({subcontractors.length})</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setSubTab("employees")}
-          className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-body font-medium transition-colors ${
-            subTab === "employees" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <UserPlus className="h-3.5 w-3.5" /> Employees
-          <span className="text-caption text-muted-foreground">({employees.length})</span>
-        </button>
-      </div>
-
       {subTab === "subcontractors" ? (
         <div className="space-y-4">
           {subcontractors.length === 0 ? (
-            <EmptyState
-              icon={<HardHat className="h-5 w-5" />}
-              title="No subcontractors yet"
-              description="Add subcontractors to issue work orders and track RA bills with TDS and retention."
-              action={
-                <Button onClick={onNewSub} size="sm">
-                  <Plus className="size-4" /> New Subcontractor
-                </Button>
-              }
-            />
+            <>
+              <div>{viewToggle}</div>
+              <EmptyState
+                icon={<HardHat className="h-5 w-5" />}
+                title="No subcontractors yet"
+                description="Add subcontractors to issue work orders and track RA bills with TDS and retention."
+                action={
+                  <Button onClick={onNewSub} size="sm">
+                    <Plus className="size-4" /> New Subcontractor
+                  </Button>
+                }
+              />
+            </>
           ) : (
             <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
               <DataTable
@@ -216,6 +207,7 @@ export function PeopleTab({
                 initialSort={{ key: "name", direction: "asc" }}
                 onAddRow={onNewSub}
                 addRowLabel="New Subcontractor"
+                toolbarLeading={viewToggle}
                 toolbarTrailing={
                   /* Primary create — labeled, top-right. */
                   <Button size="sm" onClick={onNewSub}>
@@ -229,16 +221,19 @@ export function PeopleTab({
       ) : (
         <div className="space-y-4">
           {employees.length === 0 ? (
-            <EmptyState
-              icon={<UserPlus className="h-5 w-5" />}
-              title="No employees yet"
-              description="Add people to assign tasks to and track workforce costs."
-              action={
-                <Button onClick={onNewEmp} size="sm">
-                  <Plus className="size-4" /> New Employee
-                </Button>
-              }
-            />
+            <>
+              <div>{viewToggle}</div>
+              <EmptyState
+                icon={<UserPlus className="h-5 w-5" />}
+                title="No employees yet"
+                description="Add people to assign tasks to and track workforce costs."
+                action={
+                  <Button onClick={onNewEmp} size="sm">
+                    <Plus className="size-4" /> New Employee
+                  </Button>
+                }
+              />
+            </>
           ) : (
             <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
               <DataTable
@@ -254,6 +249,7 @@ export function PeopleTab({
                 totalFormat={(_key, sum) => formatCurrency(sum)}
                 onAddRow={onNewEmp}
                 addRowLabel="New Employee"
+                toolbarLeading={viewToggle}
                 toolbarTrailing={
                   /* Primary create — labeled, top-right. */
                   <Button size="sm" onClick={onNewEmp}>

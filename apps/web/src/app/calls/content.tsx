@@ -14,6 +14,13 @@ const CALLS_PAGE_SIZE = 50;
 const VALID_DIRECTIONS = ["INBOUND", "OUTBOUND", "INTERNAL"];
 const VALID_STATUSES = ["RINGING", "ANSWERED", "MISSED", "BUSY", "REJECTED", "FAILED", "VOICEMAIL"];
 
+function formatDuration(sec: number): string {
+  if (sec === 0) return "—";
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 export async function CallsContent({
   searchParams = Promise.resolve({})}: {
   searchParams?: Promise<{ tab?: string; q?: string; dir?: string; st?: string; phone?: string; tag?: string; page?: string }>;
@@ -186,6 +193,11 @@ export async function CallsContent({
       <PageHeader
         title="Calls"
         description="Call log, recordings, and telephony configuration — all in one place."
+        stats={[
+          { label: "Total", value: totalCalls },
+          { label: "Missed", value: missedCount, tone: missedCount > 0 ? "danger" : "muted" },
+          { label: "Talk time", value: formatDuration(durationAgg._sum?.durationSec ?? 0), tone: "muted" },
+        ]}
       />
       <CallsTabs
         callLog={
