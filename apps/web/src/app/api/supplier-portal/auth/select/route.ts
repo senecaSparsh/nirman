@@ -44,6 +44,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   res.cookies.set(SUPPLIER_PORTAL_COOKIE_NAME, signSupplierPortalCookie(supplier.id), {
     httpOnly: true,
     sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
     maxAge: SUPPLIER_PORTAL_COOKIE_MAX_AGE,
     path: "/",
   });

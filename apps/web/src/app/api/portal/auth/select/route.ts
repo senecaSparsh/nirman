@@ -74,6 +74,7 @@ export const POST = async (req: NextRequest) => {
     res.cookies.set(PORTAL_COOKIE_NAME, signPortalCookie(customer.id), {
       httpOnly: true,
       sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
       maxAge: PORTAL_COOKIE_MAX_AGE,
       path: "/",
     });

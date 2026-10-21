@@ -54,6 +54,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
     res.cookies.set(PORTAL_PREAUTH_COOKIE_NAME, signPortalPreauthToken(phone), {
       httpOnly: true,
       sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
       maxAge: PORTAL_PREAUTH_MAX_AGE,
       path: "/",
     });
@@ -68,6 +69,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   res.cookies.set(SUPPLIER_PORTAL_COOKIE_NAME, signSupplierPortalCookie(supplier.id), {
     httpOnly: true,
     sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
     maxAge: SUPPLIER_PORTAL_COOKIE_MAX_AGE,
     path: "/",
   });
