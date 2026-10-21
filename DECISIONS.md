@@ -2079,6 +2079,17 @@ service tests, both typechecks):
 - **Self-service asks in THE approvals queue** — advance + punch-fix
   requests render on /approvals (desktop list + mobile queue), not just
   per-dossier; badge counts them (advanceRequest/correctionRequest).
+- **The ask loop is airtight end-to-end** — ask → ADVANCE_REQUESTED /
+  ATTENDANCE_CORRECTION_REQUESTED ping to hr.manage → queue + banner +
+  badge + 48h digest → decide (recovery input for advances,
+  payroll-lock for corrections) → notify worker → audit → withdraw-own
+  (REQUESTED only) → cancelled outcome visible on /m/me. Termination
+  auto-cancels open asks. H1 subject wall covers both entity types.
+- **'Needs login' flag** — managers/engineers (hierarchy≤3) without a
+  user account get an amber flag on the employees grid; a laborer
+  without a login is normal, an approver without one is an onboarding miss.
+- **Aging reports complete the affordance set** — stock-aging +
+  land-aging got the same print + CSV the other reports carry.
 
 **Still open (sized, honest):**
 
