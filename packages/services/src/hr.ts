@@ -3760,8 +3760,8 @@ export async function decideAttendanceCorrection(input: {
   }
 
   return withSerializableTransaction(async (tx) => {
-    const updated = await tx.attendanceCorrectionRequest.update({
-      where: { id: request.id },
+    const claimed = await tx.attendanceCorrectionRequest.updateMany({
+      where: { id: request.id, status: "REQUESTED" },
       data: {
         status: input.approve ? "APPROVED" : "REJECTED",
         reviewedById: input.actorUserId,
@@ -3769,6 +3769,10 @@ export async function decideAttendanceCorrection(input: {
         reviewNote: input.note ?? null,
       },
     });
+    if (claimed.count !== 1) {
+      throw new HrError("This request was already decided — refresh to see the current state", 409);
+    }
+    const updated = await tx.attendanceCorrectionRequest.findUniqueOrThrow({ where: { id: request.id } });
 
     if (input.approve) {
       // A processed/paid period is locked — correcting past payroll rewrites

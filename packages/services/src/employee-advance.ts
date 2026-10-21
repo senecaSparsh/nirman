@@ -128,14 +128,18 @@ export async function decideAdvanceRequest(input: {
 
   if (!input.approve) {
     return withSerializableTransaction(async (tx) => {
-      const updated = await tx.employeeAdvance.update({
-        where: { id: advance.id },
+      const claimed = await tx.employeeAdvance.updateMany({
+        where: { id: advance.id, status: "REQUESTED" },
         data: {
           status: "CANCELLED",
           notes: input.note ? `${advance.notes ?? ""}
 Rejected: ${input.note}`.trim() : advance.notes,
         },
       });
+      if (claimed.count !== 1) {
+        throw new HrError("This request was already decided — refresh to see the current state", 409);
+      }
+      const updated = await tx.employeeAdvance.findUniqueOrThrow({ where: { id: advance.id } });
       await logAction(tx, {
         userId: input.actorUserId,
         companyId: input.companyId,
@@ -157,8 +161,12 @@ Rejected: ${input.note}`.trim() : advance.notes,
   }
 
   return withSerializableTransaction(async (tx) => {
-    const updated = await tx.employeeAdvance.update({
-      where: { id: advance.id },
+    // Re-check inside the transaction — the pre-check read REQUESTED before
+    // the tx began, and a concurrent decide (double-click/two approvers)
+    // could post a second cash-out JE. A 0-count means it was decided
+    // meanwhile; the throw is not a retryable conflict.
+    const claimed = await tx.employeeAdvance.updateMany({
+      where: { id: advance.id, status: "REQUESTED" },
       data: {
         status: "ACTIVE",
         monthlyRecovery,
@@ -168,6 +176,10 @@ Rejected: ${input.note}`.trim() : advance.notes,
 Approved: ${input.note}`.trim() : advance.notes,
       },
     });
+    if (claimed.count !== 1) {
+      throw new HrError("This request was already decided — refresh to see the current state", 409);
+    }
+    const updated = await tx.employeeAdvance.findUniqueOrThrow({ where: { id: advance.id } });
 
     // Same JE as issueAdvance — the request just became a real advance.
     await ensureGlAccount(tx, input.companyId, ACCT.ADVANCE_TO_EMP);

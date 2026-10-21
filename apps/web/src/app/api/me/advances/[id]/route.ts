@@ -18,18 +18,15 @@ export const PATCH = apiHandler(async (_req: NextRequest, ctx: { params: Promise
   });
   if (!employee) return json({ error: "No employee record is linked to your account" }, { status: 404 });
 
-  const advance = await prisma.employeeAdvance.findFirst({
-    where: { id, employeeId: employee.id, companyId: company.id },
-    select: { id: true, status: true },
-  });
-  if (!advance) return json({ error: "Advance request not found" }, { status: 404 });
-  if (advance.status !== "REQUESTED") {
-    return json({ error: "HR has already decided this request — it can no longer be withdrawn" }, { status: 400 });
-  }
-
-  await prisma.employeeAdvance.update({
-    where: { id: advance.id },
+  // One conditional claim — a decide landing between the read and the
+  // write used to let a withdraw overwrite an ACTIVE advance (with its JE
+  // already posted) back to CANCELLED. updateMany returns 0 in that race.
+  const claimed = await prisma.employeeAdvance.updateMany({
+    where: { id, employeeId: employee.id, companyId: company.id, status: "REQUESTED" },
     data: { status: "CANCELLED", notes: "Withdrawn by the requester" },
   });
+  if (claimed.count === 0) {
+    return json({ error: "Request not found or already decided" }, { status: 404 });
+  }
   return json({ ok: true, status: "CANCELLED" });
 });
