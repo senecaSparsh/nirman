@@ -15,6 +15,7 @@ import type { ProjectFormValues } from "@/components/projects/project-form-dialo
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { SitePourFigure } from "@/components/figures/site-pour/figure";
 import { DataTable } from "@/components/ui/data-table";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { EmptyState } from "@/components/empty-state";
@@ -130,6 +131,7 @@ export type ProjectHubData = {
     progressPct: number;
     parentNodeName: string | null;
   }[];
+  sitePour?: { progress: number; bagsUsed: number } | null;
   workOrders: {
     id: string;
     woNumber: string;
@@ -627,6 +629,18 @@ function OverviewTab({ data }: { data: ProjectHubData }) {
 
         {/* Context sidebar — single card with divided sections */}
         <div className="space-y-4">
+          {/* Site pour — the slab's progress as a figure: wet band at the
+              real WBS position, cement-bag readout from issued stock. */}
+          {data.sitePour && (
+            <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
+              <SitePourFigure
+                progress={data.sitePour.progress}
+                bagsUsed={data.sitePour.bagsUsed}
+                title={`${project.name} — site progress`}
+                className="[&_.iso-plate]:border-0 [&_.iso-figure]:m-0 [&_.iso-plate]:rounded-none [&_.iso-plate]:py-6"
+              />
+            </div>
+          )}
           {/* Inventory */}
           <div className="rounded-lg border border-border bg-card p-4 shadow-raised">
             <h2 className="mb-3 text-label text-muted-foreground">Inventory</h2>

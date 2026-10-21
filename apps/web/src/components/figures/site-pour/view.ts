@@ -71,11 +71,21 @@ export const at = (p: [number, number, number]) => iso(p, P);
 // share of a bag of cement; the readout reports the current bay + bags used.
 export const POUR_PERIOD_S = 18;
 export const BAGS_PER_BAY = 7;
+
+/** The canonical mapping: progress ∈ [0,1] → which bay + how wet it is. */
+export function pourForProgress(progress: number) {
+  const fill = Math.min(Math.max(progress, 0), 1);
+  const bay = Math.min(Math.floor(fill * POUR_BAYS), POUR_BAYS - 1);
+  const within = Math.min(fill * POUR_BAYS - bay, 1);
+  return { fill, bay, within };
+}
+
+/** The canned loop — cycles the pour on a clock for surfaces with no
+    real progress to drive it (public empty states). */
 export function pourAt(t: number) {
   const cycle = (t % POUR_PERIOD_S) / POUR_PERIOD_S; // 0..1 across all bays
   const fill = Math.min(cycle * 1.15, 1);            // 87% pour, 13% rest
-  const bay = Math.min(Math.floor(fill * POUR_BAYS), POUR_BAYS - 1);
-  const within = Math.min(fill * POUR_BAYS - bay, 1);
+  const { bay, within } = pourForProgress(fill);
   const bags = Math.round((bay + within) * BAGS_PER_BAY * 10) / 10;
   return { fill, bay, within, bags };
 }

@@ -9,19 +9,18 @@ import {
   DECK_SEAMS, DECK_SOLID,
   KICKER_BARS, KICKER_TIES,
   DRUM_BANDS, DRUM_SOLID, DRUM_WATER, GRAVEL_DOTS, GROUND_SOLID,
-  OPEN_BAG, PALLET_SEAMS, PALLET_SOLID, pouredBayAt, pourBandAt,
+  OPEN_BAG, PALLET_SEAMS, PALLET_SOLID, pourBandAt,
   REBAR_BUNDLE, REBAR_BUNDLE_BANDS,
   PROP_COLLARS, PROP_FEET, PROP_INNERS, PROP_OUTERS, PROP_TOPS, PROP_WINGNUTS,
   REBAR_CHAIRS, REBAR_X, REBAR_Y, SAND_DISCS, SHOVEL_BLADE, SHOVEL_HANDLE,
   SILL_SOLID, SLUMP_BASE, SLUMP_CONE, TAG_PLATE, TAG_RULES,
 } from "./geometry";
-import { POUR_REST } from "./view";
+import { POUR_REST, pourForProgress } from "./view";
 import { SitePourLive } from "./live";
 
-const rest = pourBandAt(POUR_REST.bay, POUR_REST.within);
-const poured = [0].map(pouredBayAt); // bay 0 is already cast at rest
-
-export function SitePourArt() {
+export function SitePourArt({ progress, bagsUsed }: { progress?: number; bagsUsed?: number }) {
+  const restPose = progress != null ? pourForProgress(progress) : POUR_REST;
+  const rest = pourBandAt(restPose.bay, restPose.within);
   return (
     <>
       {/* ground + shadow sill */}
@@ -78,9 +77,8 @@ export function SitePourArt() {
       <Solid paths={SLUMP_BASE} tone="mid" />
       <Solid paths={SLUMP_CONE} tone="hi" />
 
-      {/* poured bays + the live pour band — the wet edge moves */}
-      {poured.map((p, i) => <g key={`pd${i}`} className="set-pour"><Solid paths={p} tone="mid" /></g>)}
-      <SitePourLive restPaths={rest} />
+      {/* the live pour band — cast bays behind it, wet edge at progress */}
+      <SitePourLive restPaths={rest} progress={progress} bagsUsed={bagsUsed} />
 
       {/* rebar mat on top of everything cast */}
       <Line d={REBAR_X} tone="hi" />

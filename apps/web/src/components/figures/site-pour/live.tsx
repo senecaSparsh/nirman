@@ -1,30 +1,52 @@
 "use client";
 
-// The wet pour band: creeps bay→bay along the deck on an eased loop.
-// The readout (bay + bags + %) comes from pourAt — the same model that
-// moves the band, so the caption and the drawing never disagree.
-// Reduced motion → the band rests mid-pour.
+// The wet pour band. Two modes:
+//   - target mode (progress prop): eases from 0 → the real progress once,
+//     then holds — a gauge, not a clock. The band's position IS the DPR
+//     number; bags comes from the cement actually issued to the project.
+//   - loop mode (no progress): the canned pour cycles for surfaces with no
+//     data (public empty states).
+// Reduced motion → the band rests at its target, no sweep.
 
 import { useRef } from "react";
 import { Solid } from "@/components/iso/react/draw";
 import { useInView, useLoop, useReadout } from "@/components/iso/react/live";
 import type { SolidPaths } from "@/components/iso/iso-kit";
 import { pouredBayAt, pourBandAt } from "./geometry";
-import { POUR_BAYS, POUR_PERIOD_S, POUR_REST, pourAt, readoutOf } from "./view";
+import { POUR_BAYS, POUR_PERIOD_S, POUR_REST, pourAt, pourForProgress, readoutOf } from "./view";
 
-export function SitePourLive({ restPaths }: { restPaths: SolidPaths }) {
+const REACH_S = 2.2; // seconds for the one-shot catch-up sweep
+
+export function SitePourLive({ restPaths, progress, bagsUsed }: {
+  restPaths: SolidPaths;
+  /** 0–1 — cumulative pour progress (DPR/WBS). Omit for the loop mode. */
+  progress?: number;
+  /** Real cement bags issued — shown instead of the model's estimate. */
+  bagsUsed?: number;
+}) {
   const bandRef = useRef<SVGGElement | null>(null);
   const { anchor, say } = useReadout<SVGGElement>();
   const inView = useInView(anchor);
+  const elapsed = useRef(0);
 
   useLoop((dt, calm) => {
-    if (calm) return inView;
-    const t = (performance.now() / 1000) % POUR_PERIOD_S;
-    const { bay, within } = pourAt(t);
     const live = bandRef.current;
     if (!live) return inView;
-    // Rebuild the band path at the current position — geometry is pure TS,
-    // and only the moving part ships to the client.
+
+    let bay: number, within: number, bags: number, done = false;
+    if (progress != null) {
+      // One-shot catch-up: sweep 0 → progress over REACH_S, then hold.
+      elapsed.current = calm ? REACH_S : Math.min(elapsed.current + dt, REACH_S);
+      const eased = 1 - Math.pow(1 - elapsed.current / REACH_S, 3);
+      const p = pourForProgress(eased * progress);
+      ({ bay, within } = p);
+      bags = bagsUsed ?? Math.round((bay + within) * 7 * 10) / 10;
+      done = elapsed.current >= REACH_S;
+    } else {
+      const p = pourAt((performance.now() / 1000) % POUR_PERIOD_S);
+      ({ bay, within, bags } = p);
+    }
+
     const paths = pourBandAt(bay, within);
     live.querySelectorAll("path").forEach((el, i) => {
       const next =
@@ -34,14 +56,13 @@ export function SitePourLive({ restPaths }: { restPaths: SolidPaths }) {
         : paths.shades[i - 1];
       if (next != null) el.setAttribute("d", next);
     });
-    // hide/show already-poured bays behind the band
     const bayCount = Math.min(bay, POUR_BAYS - 1);
-    live.querySelectorAll("[data-bay]").forEach((el) => {
+    live.parentElement?.querySelectorAll("[data-bay]").forEach((el) => {
       const b = Number(el.getAttribute("data-bay"));
       (el as SVGElement).style.display = b < bayCount ? "" : "none";
     });
-    say(readoutOf(pourAt(t)));
-    return inView;
+    say(readoutOf({ bay, within, bags }));
+    return progress == null ? inView : inView && !done;
   }, inView);
 
   return (
@@ -53,7 +74,7 @@ export function SitePourLive({ restPaths }: { restPaths: SolidPaths }) {
         </g>
       ))}
       {/* the moving wet band — ref-updated, no React render per frame.
-          iso-solid + data-lit makes it the one accent the eye follows. */}
+          .wet-pour is the one accent the eye follows. */}
       <g className="iso-solid wet-pour" ref={bandRef}>
         <path className="iso-fill" d={restPaths.fill} />
         {restPaths.shades.map((d, i) => (d ? <path key={i} className="iso-shade" data-shade={i} d={d} /> : null))}
