@@ -934,6 +934,27 @@ export async function recordDeposit(input: RecordDepositInput) {
       }
     }
 
+    // Double-submit guard — a cash/NEFT payment carries no unique
+    // reference, so the same UI double-click would post a duplicate JE.
+    // Same sale + amount + mode + actor within 15s is almost always a
+    // retry, not a genuinely separate collection.
+    const recentDupe = await tx.assetSalePayment.findFirst({
+      where: {
+        assetSaleId: sale.id,
+        amount: new Decimal(input.depositAmount),
+        mode: input.paymentMode,
+        status: { not: "VOID" },
+        createdAt: { gte: new Date(Date.now() - 15_000) },
+      },
+      select: { id: true },
+    });
+    if (recentDupe) {
+      throw new ServiceError(
+        "An identical payment on this sale was recorded moments ago — if this is a genuinely separate collection, wait a few seconds and retry.",
+        409,
+      );
+    }
+
     const depositAmount = new Decimal(input.depositAmount);
     if (!depositAmount.gt(0)) throw new ServiceError("Deposit amount must be > 0");
 
