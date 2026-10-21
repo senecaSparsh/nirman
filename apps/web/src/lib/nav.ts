@@ -162,6 +162,7 @@ export const NAV_PERMISSION: Record<string, string | string[]> = {
   "/material-sales": PERM.SALES_VIEW,
   "/sales?tab=bank-sms": PERM.FINANCE_VIEW,
   "/quotations": PERM.QUOTATION_VIEW,
+  "/reports/land-aging": PERM.ASSETS_VIEW,
   "/reports/real-estate-inventory": PERM.ASSETS_VIEW,
   "/reports/sales-revenue": PERM.SALES_VIEW,
   "/hr": PERM.HR_VIEW,
@@ -751,6 +752,16 @@ export const WORLDS: World[] = [
             keywords: ["quote", "quotation", "vendor quote", "comparative", "rate", "price", "tender", "bid", "rfq"],
           },
           // ── Sales reports (hidden from sidebar, on /reports) ──
+          {
+            label: "Land Aging",
+            href: "/reports/land-aging",
+            icon: Landmark,
+            hint: "Unsold parcels by years held — stale land is parked capital",
+            roles: [...OPS, "ACCOUNTANT"],
+            keywords: ["land aging", "unsold land", "parcel aging", "plot aging"],
+            hidden: true,
+            group: RG.STOCK,
+          },
           {
             label: "Real Estate Inventory",
             href: "/reports/real-estate-inventory",
