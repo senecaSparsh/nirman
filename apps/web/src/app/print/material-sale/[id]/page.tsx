@@ -79,7 +79,7 @@ export default async function MaterialSaleInvoicePage({
       </div>
 
       {/* Vehicle / dispatch info */}
-      {(sale.vehicleNumber || sale.driverName) && (
+      {(sale.vehicleNumber || sale.driverName || sale.ewayBillNo) && (
         <div className="mt-3 rounded-md border border-gray-300 p-2.5 text-sm">
           <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">Dispatch Details</div>
           <div className="grid grid-cols-3 gap-2">
@@ -95,6 +95,12 @@ export default async function MaterialSaleInvoicePage({
                 <span className="text-gray-600">Driver: </span>
                 <span className="font-medium">{sale.driverName}</span>
                 {sale.driverPhone && <span className="ml-1 text-xs text-gray-500">({sale.driverPhone})</span>}
+              </div>
+            )}
+            {sale.ewayBillNo && (
+              <div>
+                <span className="text-gray-600">E-way bill: </span>
+                <span className="font-mono font-medium">{sale.ewayBillNo}</span>
               </div>
             )}
             {sale.project && (

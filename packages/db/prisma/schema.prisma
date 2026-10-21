@@ -2524,6 +2524,7 @@ model MaterialIssue {
   vehiclePhotoUrl String?
   driverName     String?
   driverPhone    String?
+  ewayBillNo     String?   // e-way bill the supplier generates when the dispatch exceeds ₹50K
   notes          String?
   totalCost      Decimal  @default(0) @db.Decimal(14, 2)
   // Round-off to match physical bill totals (paper slip has "ROUNDOFF : 0.00")
@@ -3862,6 +3863,7 @@ model SupplierReturn {
   vehiclePhotoUrl String?
   driverName     String?
   driverPhone    String?
+  ewayBillNo     String?   // e-way bill the supplier generates when the dispatch exceeds ₹50K
   notes        String?
   createdById  String?
   createdAt    DateTime            @default(now())
@@ -3920,6 +3922,7 @@ model DirectPurchase {
   vehiclePhotoUrl String?
   driverName     String?
   driverPhone    String?
+  ewayBillNo     String?   // e-way bill the supplier generates when the dispatch exceeds ₹50K
   notes        String?
   createdById  String?
   createdAt    DateTime @default(now())
@@ -5432,6 +5435,7 @@ model MaterialSale {
   vehiclePhotoUrl String?
   driverName     String?
   driverPhone    String?
+  ewayBillNo     String?   // e-way bill the supplier generates when the dispatch exceeds ₹50K
   notes         String?
   // ── e-Invoicing (IRN + QR) — for B2B invoices per NIC e-Invoice API ──
   irn            String?   // Invoice Reference Number (64-char hash from NIC)

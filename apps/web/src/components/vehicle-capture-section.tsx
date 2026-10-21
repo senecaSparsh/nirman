@@ -29,6 +29,8 @@ export interface VehicleData {
   driverName?: string;
   driverPhone?: string;
   transporterName?: string;
+  // supplier-side e-way bill — shown only when showEwayBill is passed
+  ewayBillNo?: string;
 }
 
 export const EMPTY_VEHICLE: VehicleData = { vehicleNumber: "", vehicleType: "" };
@@ -46,9 +48,12 @@ export const EMPTY_VEHICLE: VehicleData = { vehicleNumber: "", vehicleType: "" }
 export function VehicleCaptureSection({
   value,
   onChange,
+  showEwayBill = false,
 }: {
   value: VehicleData;
   onChange: (v: VehicleData) => void;
+  /** B2B goods dispatch — capture the supplier-side e-way bill (>₹50K). */
+  showEwayBill?: boolean;
 }) {
   const [suggestions, setSuggestions] = useState<Array<{
     vehicleNumber: string;
@@ -183,6 +188,16 @@ export function VehicleCaptureSection({
             maxLength={20}
           />
         </Field>
+        {showEwayBill && (
+          <Field label="E-way Bill No." hint="Required for dispatches over ₹50,000">
+            <Input
+              value={value.ewayBillNo ?? ""}
+              onChange={(e) => onChange({ ...value, ewayBillNo: e.target.value })}
+              placeholder="12-digit EWB"
+              maxLength={100}
+            />
+          </Field>
+        )}
       </div>
 
       {/* Vehicle photo — even for cycle/bike/porter */}

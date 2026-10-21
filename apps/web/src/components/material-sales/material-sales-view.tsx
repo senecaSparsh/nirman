@@ -170,6 +170,7 @@ export type MaterialSaleRow = {
   notes: string | null;
   // Vehicle / dispatch
   vehicleNumber: string | null;
+  ewayBillNo?: string | null;
   vehicleType: string | null;
   driverName: string | null;
   driverPhone: string | null;
@@ -469,6 +470,7 @@ export function MaterialSalesView({
           vehiclePhotoUrl: fVehicle.photoUrl,
           driverName: fVehicle.driverName,
           driverPhone: fVehicle.driverPhone,
+          ewayBillNo: fVehicle.ewayBillNo?.trim() || undefined,
           requireGatePass: true,
         }),
       });
@@ -870,7 +872,7 @@ export function MaterialSalesView({
             <Textarea value={fNotes} onChange={(e) => setFNotes(e.target.value)} rows={2} />
           </div>
 
-          <VehicleCaptureSection value={fVehicle} onChange={setFVehicle} />
+          <VehicleCaptureSection value={fVehicle} onChange={setFVehicle} showEwayBill />
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setFormOpen(false)}>Cancel</Button>
@@ -1076,6 +1078,12 @@ function MaterialSaleDetailDialog({
                   <span className="text-muted-foreground">Driver: </span>
                   <span className="font-medium">{sale.driverName}</span>
                   {sale.driverPhone && <span className="ml-1 text-muted-foreground">({sale.driverPhone})</span>}
+                </div>
+              )}
+              {sale.ewayBillNo && (
+                <div>
+                  <span className="text-muted-foreground">E-way bill: </span>
+                  <span className="font-mono font-medium">{sale.ewayBillNo}</span>
                 </div>
               )}
             </div>

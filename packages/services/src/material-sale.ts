@@ -117,6 +117,8 @@ export interface CreateMaterialSaleInput {
   vehiclePhotoUrl?: string;
   driverName?: string;
   driverPhone?: string;
+  // E-way bill — supplier-side, required when the dispatch value exceeds ₹50K
+  ewayBillNo?: string;
   // Receiver accountability — who picked up the stock (when dispatchMode = PICKUP)
   receiverName?: string;
   receiverPhone?: string;
@@ -253,6 +255,7 @@ export async function createMaterialSale(input: CreateMaterialSaleInput) {
         vehiclePhotoUrl: input.vehiclePhotoUrl,
         driverName: input.driverName,
         driverPhone: input.driverPhone,
+        ewayBillNo: input.ewayBillNo,
         notes: input.notes,
         createdById: input.userId,
       },
@@ -438,6 +441,7 @@ export async function createMaterialSaleRequest(input: CreateMaterialSaleInput) 
         vehiclePhotoUrl: input.vehiclePhotoUrl,
         driverName: input.driverName,
         driverPhone: input.driverPhone,
+        ewayBillNo: input.ewayBillNo,
         notes: input.notes,
         createdById: input.userId,
       },

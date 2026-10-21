@@ -55,6 +55,7 @@ export const GET = apiHandler(async (req: NextRequest) => {
       notes: s.notes,
       // Vehicle / dispatch
       vehicleNumber: s.vehicleNumber,
+      ewayBillNo: s.ewayBillNo,
       vehicleType: s.vehicleType,
       driverName: s.driverName,
       driverPhone: s.driverPhone,
@@ -119,6 +120,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       vehiclePhotoUrl: parsed.data.vehiclePhotoUrl ?? undefined,
       driverName: parsed.data.driverName ?? undefined,
       driverPhone: parsed.data.driverPhone ?? undefined,
+      ewayBillNo: parsed.data.ewayBillNo ?? undefined,
       notes: parsed.data.notes ?? undefined,
       userId: user.id,
     };

@@ -815,6 +815,7 @@ export const materialSaleSchema = z.object({
   vehiclePhotoUrl: z.string().optional(),
   driverName: z.string().max(100).optional(),
   driverPhone: z.string().max(20).optional(),
+  ewayBillNo: z.string().max(100).optional(),
   requireGatePass: z.boolean().optional(),
   notes: z.string().optional().nullable(),
 });
