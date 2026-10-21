@@ -91,6 +91,7 @@ export enum NotificationEventType {
   LEAVE_SUBMITTED = "LEAVE_SUBMITTED",
   LEAVE_APPROVED = "LEAVE_APPROVED",
   LEAVE_REJECTED = "LEAVE_REJECTED",
+  ATTENDANCE_CORRECTION_DECIDED = "ATTENDANCE_CORRECTION_DECIDED",
   CLAIM_SUBMITTED = "CLAIM_SUBMITTED",
   CLAIM_APPROVED = "CLAIM_APPROVED",
   CLAIM_REJECTED = "CLAIM_REJECTED",
@@ -205,6 +206,7 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   [NotificationEventType.LEAVE_SUBMITTED]: "IMMEDIATE",
   [NotificationEventType.LEAVE_APPROVED]: "IMMEDIATE",
   [NotificationEventType.LEAVE_REJECTED]: "IMMEDIATE",
+  [NotificationEventType.ATTENDANCE_CORRECTION_DECIDED]: "IMMEDIATE",
   [NotificationEventType.CLAIM_SUBMITTED]: "IMMEDIATE",
   [NotificationEventType.CLAIM_APPROVED]: "IMMEDIATE",
   [NotificationEventType.CLAIM_REJECTED]: "IMMEDIATE",
@@ -331,6 +333,7 @@ const ENTITY_ROUTE_MAP: Record<string, string> = {
   SafetyIncident: "/m/safety/incidents",
   PayrollPeriod: "/m/books/payroll",
   LeaveRequest: "/m/hr/leaves",
+  AttendanceCorrectionRequest: "/m/me",
   LandPurchase: "/m/land",
   LandParcel: "/m/land",
   BuiltUnit: "/m/units",
@@ -991,6 +994,8 @@ const EVENT_MESSAGES: Partial<
     `Material issue ${s("issueNumber")}${s("projectName") ? ` to ${s("projectName")}` : ""} — stock went out.`,
   [NotificationEventType.MATERIAL_OVER_ISSUE]: ({ s }) =>
     `Over-issue: ${s("materialName")} on ${s("projectName")} just crossed its BOQ — ${s("issuedQty")} issued vs ${s("boqQty")} planned.`,
+  [NotificationEventType.ATTENDANCE_CORRECTION_DECIDED]: ({ s }) =>
+    `${s("decision") === "APPROVED" ? `Your ${s("date")} attendance was corrected to ${s("status")}` : `Your attendance correction for ${s("date")} was declined`}${s("note") ? ` — ${s("note")}` : ""}`,
   [NotificationEventType.STOCK_COUNT_DUE]: ({ s }) =>
     `Stock count due${s("locationName") ? ` at ${s("locationName")}` : ""}.`,
   [NotificationEventType.SCRAP_GENERATED]: ({ s }) =>

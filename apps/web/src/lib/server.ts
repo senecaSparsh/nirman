@@ -718,6 +718,7 @@ const EMPLOYEE_SUBJECT_RELATIONS: Record<string, string> = {
   PayrollLineComponent: "payrollLine.employee",
   SalaryHistory: "employee",
   EmployeeAdvance: "employee",
+  AttendanceCorrectionRequest: "employee",
   SalaryComponent: "employee",
   EmployeeResource: "employee",
   EmployeeExit: "employee",
@@ -773,6 +774,7 @@ export async function scopeWhere(
     // Salary advances scope through the employee (no own projectId) — same
     // path PayrollLine uses.
     EmployeeAdvance:      { department: "employee.departmentId", project: "employee.activeProjectId" },
+    AttendanceCorrectionRequest: { department: "employee.departmentId", project: "employee.activeProjectId" },
     // Inventory
     MaterialIssue:        { project: "projectId", department: "departmentId" },
     MaterialRequisition:  { project: "projectId", department: "departmentId" },

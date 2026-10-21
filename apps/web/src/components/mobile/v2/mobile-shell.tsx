@@ -600,6 +600,19 @@ function MobileShellInner({
   const [navSheetOpen, setNavSheetOpen] = useState(false);
   const [tabSwitcherOpen, setTabSwitcherOpen] = useState(false);
   const companySwitcherRef = useRef<HTMLDivElement>(null);
+  // Company-scoped remount key — a switch forces every page inside the
+  // shell to unmount + remount. router.refresh() alone keeps client state
+  // (raw-fetch useState, prop-seeded hooks, open sheets) holding the OLD
+  // company's data; a new key makes that impossible.
+  const [companyKey, setCompanyKey] = useState<string | null>(null);
+  useEffect(() => {
+    function onSwitched(e: Event) {
+      const detail = (e as CustomEvent).detail as { id: string } | undefined;
+      if (detail?.id) setCompanyKey(detail.id);
+    }
+    window.addEventListener("nirman-company-switched", onSwitched as EventListener);
+    return () => window.removeEventListener("nirman-company-switched", onSwitched as EventListener);
+  }, []);
   const { pending: offlineQueueCount, syncing: offlineSyncing, sync: _syncOfflineQueue } = useOfflineQueue();
   const { trackVisit } = useRecentPages();
 
@@ -1141,6 +1154,7 @@ function MobileShellInner({
         ) : null}
         {/* Centered content container — matches Nirman OS buyer/ops layout */}
         <div
+          key={companyKey ?? "init"}
           className="mx-auto w-full max-w-md px-3.5 py-3 overflow-x-hidden fade-in"
           style={swipeOffset > 0 ? { transform: `translateX(${swipeOffset * 0.3}px)` } : undefined}
         >

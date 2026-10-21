@@ -167,6 +167,9 @@
     "STORE_KEEPER": "permOnly",
     "SUPERVISOR": "permOnly"
   },
+  "/reports/cash-book": {
+    "PROCUREMENT_MANAGER": "permOnly"
+  },
   "/reports/cash-flow": {
     "PROCUREMENT_MANAGER": "permOnly"
   },
@@ -191,6 +194,11 @@
   },
   "/reports/job-costing": {
     "PROCUREMENT_MANAGER": "permOnly"
+  },
+  "/reports/land-aging": {
+    "FINANCE_HEAD": "permOnly",
+    "SALES_MANAGER": "permOnly",
+    "STORE_KEEPER": "listOnly"
   },
   "/reports/payroll-expense": {
     "HR_MANAGER": "permOnly",
@@ -239,6 +247,9 @@
   "/reports/sales-revenue": {
     "PROJECT_DIRECTOR": "listOnly",
     "PROJECT_MANAGER": "listOnly"
+  },
+  "/reports/stock-aging": {
+    "HR_MANAGER": "permOnly"
   },
   "/reports/stock-movement-summary": {
     "HR_MANAGER": "permOnly"

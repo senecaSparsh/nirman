@@ -972,6 +972,14 @@ export {
 } from "./employee-advance";
 
 export {
+  requestAttendanceCorrection,
+  decideAttendanceCorrection,
+  listMyAttendanceCorrections,
+  listPendingAttendanceCorrections,
+  type RequestAttendanceCorrectionInput,
+} from "./hr";
+
+export {
   RbacError,
   defaultScopeType,
   resolveScopeType,

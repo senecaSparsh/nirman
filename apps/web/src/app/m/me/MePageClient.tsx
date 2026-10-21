@@ -139,6 +139,10 @@ export interface MePageInitial {
     presentDaysThisMonth: number;
     /** Last 14 days at a glance — which days were marked what. */
     recentAttendance: { date: string; status: string }[];
+    /** Punch-correction asks — "did HR fix my day yet". */
+    corrections: {
+      id: string; date: string; status: string; requestedStatus: string; reason: string; reviewNote: string | null;
+    }[];
     /** Open advances/loans — what the worker still owes back via payroll. */
     advances: {
       id: string;
@@ -671,6 +675,24 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
                       </span>
                     );
                   })}
+                </div>
+              )}
+              {/* Fix a missed punch — the third self-service ask. The day
+                  lands in HR's queue; deciding edits the attendance row. */}
+              <AttendanceCorrectionForm hasPending={initial.hr.corrections.some((c) => c.status === "REQUESTED")} />
+              {initial.hr.corrections.length > 0 && (
+                <div className="mb-2 space-y-1">
+                  {initial.hr.corrections.map((c) => (
+                    <div key={c.id} className="flex items-baseline justify-between gap-2">
+                      <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                        {formatDate(c.date)} · {c.requestedStatus.replace(/_/g, " ").toLowerCase()}
+                        {c.reviewNote && c.status !== "REQUESTED" && <span> — {c.reviewNote}</span>}
+                      </p>
+                      <p className="text-m-caption font-semibold shrink-0" style={{ color: c.status === "APPROVED" ? "var(--color-go)" : c.status === "REJECTED" ? "var(--color-stop)" : "var(--color-warn)" }}>
+                        {c.status === "REQUESTED" ? "pending" : c.status.toLowerCase()}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               )}
               {/* Ask for an advance — the request that used to live in a
@@ -1275,6 +1297,117 @@ function AdvanceRequestForm({ hasPending }: { hasPending: boolean }) {
           style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
         >
           {busy ? "Sending…" : "Send request"}
+        </button>
+        <button
+          type="button" onClick={() => setOpen(false)} disabled={busy}
+          className="flex-1 rounded-lg py-2 text-m-caption font-bold"
+          style={{ border: "1px solid var(--color-line)", color: "var(--color-ink-700)" }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+/** "I forgot to punch" — posts to /api/me/attendance-corrections; HR deciding
+    upserts the day's WorkerAttendance row (the real fix). */
+function AttendanceCorrectionForm({ hasPending }: { hasPending: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [date, setDate] = useState("");
+  const [checkIn, setCheckIn] = useState("");
+  const [checkOut, setCheckOut] = useState("");
+  const [status, setStatus] = useState<"PRESENT" | "HALF_DAY" | "LATE" | "OVERTIME">("PRESENT");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const router = useRouter();
+
+  if (hasPending) {
+    return (
+      <p className="mb-2 text-m-caption" style={{ color: "var(--color-warn)" }}>
+        A punch-correction request is already with HR for that day.
+      </p>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mb-2 w-full rounded-lg py-2 text-m-caption font-bold"
+        style={{ border: "1px dashed var(--color-line-strong)", color: "var(--color-ink-700)" }}
+      >
+        Fix a missed punch
+      </button>
+    );
+  }
+
+  const submit = async () => {
+    if (!date) { toast.error("Pick the day to fix"); return; }
+    if (!reason.trim()) { toast.error("Give a reason — HR decides on it"); return; }
+    setBusy(true);
+    try {
+      const res = await fetch("/api/me/attendance-corrections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date,
+          status,
+          checkIn: checkIn ? new Date(`${date}T${checkIn}:00`).toISOString() : undefined,
+          checkOut: checkOut ? new Date(`${date}T${checkOut}:00`).toISOString() : undefined,
+          reason: reason.trim(),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        toast.success("Request sent — HR will fix the day if it checks out");
+        setOpen(false); setDate(""); setCheckIn(""); setCheckOut(""); setReason("");
+        router.refresh();
+      } else {
+        toast.error(data.error ?? "Could not send the request");
+      }
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="mb-2 space-y-2 rounded-lg p-2.5" style={{ border: "1px solid var(--color-line)" }}>
+      <input
+        type="date" value={date} onChange={(e) => setDate(e.target.value)}
+        max={new Date().toISOString().slice(0, 10)}
+        className="w-full rounded-md px-3 py-2 text-m-body"
+        style={{ border: "1px solid var(--color-line)", color: "var(--color-ink-950)" }}
+      />
+      <div className="grid grid-cols-2 gap-2">
+        <input type="time" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} placeholder="In"
+          className="rounded-md px-3 py-2 text-m-body" style={{ border: "1px solid var(--color-line)", color: "var(--color-ink-950)" }} />
+        <input type="time" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} placeholder="Out"
+          className="rounded-md px-3 py-2 text-m-body" style={{ border: "1px solid var(--color-line)", color: "var(--color-ink-950)" }} />
+      </div>
+      <select
+        value={status} onChange={(e) => setStatus(e.target.value as typeof status)}
+        className="w-full rounded-md px-3 py-2 text-m-body"
+        style={{ border: "1px solid var(--color-line)", color: "var(--color-ink-950)" }}
+      >
+        <option value="PRESENT">Full day</option>
+        <option value="HALF_DAY">Half day</option>
+        <option value="LATE">Late in</option>
+        <option value="OVERTIME">Overtime</option>
+      </select>
+      <input
+        type="text" placeholder="Reason (required — e.g. forgot to punch)"
+        value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200}
+        className="w-full rounded-md px-3 py-2 text-m-body"
+        style={{ border: "1px solid var(--color-line)", color: "var(--color-ink-950)" }}
+      />
+      <div className="flex gap-2">
+        <button
+          type="button" onClick={submit} disabled={busy}
+          className="flex-1 rounded-lg py-2 text-m-caption font-bold"
+          style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+        >
+          {busy ? "Sending…" : "Ask for correction"}
         </button>
         <button
           type="button" onClick={() => setOpen(false)} disabled={busy}

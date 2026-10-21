@@ -107,7 +107,7 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
     const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
     const stripStart = new Date(now.getTime() - 13 * 24 * 60 * 60 * 1000);
-    const [payslip, leaves, presentDays, recentAttendance, advances] = await Promise.all([
+    const [payslip, leaves, presentDays, recentAttendance, corrections, advances] = await Promise.all([
       // Latest PAID payslip — what the worker actually got last.
       prisma.payrollLine.findFirst({
         where: { employeeId: employee.id, payrollPeriod: { status: "PAID", year: { lte: now.getUTCFullYear() + 1 } } },
@@ -154,6 +154,13 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
         orderBy: { date: "desc" },
         take: 14,
         select: { date: true, status: true },
+      }),
+      // The worker's own punch-correction asks — "did HR fix my day yet".
+      prisma.attendanceCorrectionRequest.findMany({
+        where: { employeeId: employee.id },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+        select: { id: true, date: true, status: true, requestedStatus: true, reason: true, reviewNote: true },
       }),
       // Outstanding advances — "kitna udhaar bacha hai" — the worker's own
       // ledger: what was taken, what's recovered, what's still owed.
@@ -203,6 +210,14 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
       recentAttendance: recentAttendance.map((a) => ({
         date: a.date.toISOString().slice(0, 10),
         status: a.status,
+      })),
+      corrections: corrections.map((c) => ({
+        id: c.id,
+        date: c.date.toISOString().slice(0, 10),
+        status: c.status,
+        requestedStatus: c.requestedStatus,
+        reason: c.reason,
+        reviewNote: c.reviewNote,
       })),
       advances: advances.map((a) => ({
         id: a.id,

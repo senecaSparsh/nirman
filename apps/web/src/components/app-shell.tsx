@@ -134,6 +134,13 @@ export function AppShell({
   // the content area so the user never sees old-company data under a
   // new-company header.
   const [isCompanySwitching, setIsCompanySwitching] = useState(false);
+  // Company-scoped remount key — a company switch changes this key, forcing
+  // React to UNMOUNT and remount the entire page tree. router.refresh()
+  // alone keeps client state: raw-fetch useState hooks, prop-seeded state
+  // (useState(initial.rows)), open dialogs, and unsaved forms would all
+  // survive with the OLD company's data. A new key makes stale state
+  // impossible — for every current AND future component.
+  const [companyKey, setCompanyKey] = useState<string | null>(null);
 
   // ── Context data via SWR ─────────────────────────────────────
   // SWR dedupes + caches, so navigating between pages does NOT refetch
@@ -348,6 +355,10 @@ export function AppShell({
       // the dim is barely perceptible, but it eliminates the visual gap.
       setIsCompanySwitching(true);
       setTimeout(() => setIsCompanySwitching(false), 600);
+
+      // Remount the page under the new company — kills every piece of
+      // client-side state that refresh alone would preserve.
+      if (detail?.id) setCompanyKey(detail.id);
     }
 
     window.addEventListener("nirman-company-switched", onCompanySwitched as EventListener);
@@ -616,7 +627,7 @@ export function AppShell({
           first and last cell stop being readable as the same row.
         */}
         <main className="min-w-0 flex-1 px-4 py-6 lg:px-8 lg:py-7">
-          <div className="mx-auto w-full max-w-[1400px] pb-24">{children}</div>
+          <div key={companyKey ?? "init"} className="mx-auto w-full max-w-[1400px] pb-24">{children}</div>
         </main>
       </div>
 

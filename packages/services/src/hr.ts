@@ -2910,13 +2910,13 @@ export async function resubmitDpr(dprId: string, userId: string) {
  * Corrections after payment happen through the NEXT period (deduction or
  * adjustment line), not by rewriting history.
  */
-export async function assertAttendancePeriodOpen(
+export async function attendancePeriodLocked(
   companyId: string,
   date: Date,
   tx?: Prisma.TransactionClient,
-) {
+): Promise<{ month: number; year: number; status: string } | null> {
   const db = tx ?? prisma;
-  const locked = await db.payrollPeriod.findFirst({
+  return db.payrollPeriod.findFirst({
     where: {
       companyId,
       status: { in: ["PROCESSED", "PAID"] },
@@ -2925,6 +2925,14 @@ export async function assertAttendancePeriodOpen(
     },
     select: { month: true, year: true, status: true },
   });
+}
+
+export async function assertAttendancePeriodOpen(
+  companyId: string,
+  date: Date,
+  tx?: Prisma.TransactionClient,
+) {
+  const locked = await attendancePeriodLocked(companyId, date, tx);
   if (locked) {
     throw new HrError(
       `Attendance is locked — ${locked.month}/${locked.year} payroll is already ${locked.status.toLowerCase()}. Correct it with an adjustment in the next period.`,
@@ -3638,4 +3646,183 @@ export async function checkExpiringEmployeeDocs(daysAhead = 30): Promise<{
   }
 
   return { checked: docs.length, expiring: notified, notified };
+}
+
+// ─── Attendance regularization — the third self-service pillar ──────────
+// The worker says "I forgot to punch" — a real miss, not a payroll fraud.
+// The request is auditable intent; approving upserts the actual
+// WorkerAttendance row (one row per employee-day), rejecting closes the
+// loop with a note. Mirrors the advance-request lifecycle exactly.
+
+export interface RequestAttendanceCorrectionInput {
+  employeeId: string;
+  companyId: string;
+  date: string;                 // YYYY-MM-DD — the day being corrected
+  checkIn?: string | null;      // ISO — asked-for punch, null = no punch asked
+  checkOut?: string | null;
+  status: string;               // PRESENT | HALF_DAY | LATE | OVERTIME
+  reason: string;
+  actorUserId: string;
+}
+
+const CORRECTABLE_STATUSES = new Set(["PRESENT", "HALF_DAY", "LATE", "OVERTIME", "PAID_LEAVE"]);
+
+export async function requestAttendanceCorrection(input: RequestAttendanceCorrectionInput) {
+  if (!input.date) throw new HrError("Pick the day to correct", 400);
+  if (!CORRECTABLE_STATUSES.has(input.status)) {
+    throw new HrError("Attendance corrections can only ask for a worked status", 400);
+  }
+  if (!input.reason?.trim()) throw new HrError("Give a reason — HR decides on it", 400);
+
+  const employee = await prisma.employee.findFirst({
+    where: { id: input.employeeId, companyId: input.companyId, deletedAt: null },
+    select: { id: true, active: true },
+  });
+  if (!employee) throw new HrError("Employee not found in this company", 404);
+  if (!employee.active) throw new HrError("Inactive employees cannot request corrections", 400);
+
+  // Future dates can't be corrected — the day hasn't happened yet.
+  const day = new Date(input.date + "T00:00:00");
+  if (day.getTime() > Date.now()) throw new HrError("Can't correct a day that hasn't happened", 400);
+
+  // One open ask per day — "send it again" isn't a second correction.
+  const pending = await prisma.attendanceCorrectionRequest.count({
+    where: { employeeId: input.employeeId, date: day, status: "REQUESTED" },
+  });
+  if (pending > 0) {
+    throw new HrError("A correction for this day is already pending — wait for HR", 400);
+  }
+
+  return withSerializableTransaction(async (tx) => {
+    const request = await tx.attendanceCorrectionRequest.create({
+      data: {
+        companyId: input.companyId,
+        employeeId: input.employeeId,
+        date: day,
+        requestedCheckIn: input.checkIn ? new Date(input.checkIn) : null,
+        requestedCheckOut: input.checkOut ? new Date(input.checkOut) : null,
+        requestedStatus: input.status as never,
+        reason: input.reason.trim(),
+      },
+    });
+    await logAction(tx, {
+      userId: input.actorUserId,
+      companyId: input.companyId,
+      action: "ATTENDANCE_CORRECTION_REQUEST",
+      entityType: "AttendanceCorrectionRequest",
+      entityId: request.id,
+      after: { date: input.date, status: input.status, reason: input.reason.trim() },
+    });
+    return request;
+  });
+}
+
+/** HR decides: approve upserts the day's WorkerAttendance row (the real fix);
+    reject closes the request with a note. Both audit + notify. */
+export async function decideAttendanceCorrection(input: {
+  requestId: string;
+  companyId: string;
+  approve: boolean;
+  note?: string;
+  actorUserId: string;
+}) {
+  const request = await prisma.attendanceCorrectionRequest.findFirst({
+    where: { id: input.requestId, companyId: input.companyId },
+    include: { employee: { select: { name: true, userId: true } } },
+  });
+  if (!request) throw new HrError("Correction request not found", 404);
+  if (request.status !== "REQUESTED") {
+    throw new HrError(`This request was already ${request.status.toLowerCase()}`, 400);
+  }
+
+  return withSerializableTransaction(async (tx) => {
+    const updated = await tx.attendanceCorrectionRequest.update({
+      where: { id: request.id },
+      data: {
+        status: input.approve ? "APPROVED" : "REJECTED",
+        reviewedById: input.actorUserId,
+        reviewedAt: new Date(),
+        reviewNote: input.note ?? null,
+      },
+    });
+
+    if (input.approve) {
+      // The fix itself — one row per employee-day; upsert writes it cleanly
+      // whether the punch was missing entirely or just wrong.
+      await tx.workerAttendance.upsert({
+        where: { employeeId_date: { employeeId: request.employeeId, date: request.date } },
+        create: {
+          companyId: request.companyId,
+          employeeId: request.employeeId,
+          date: request.date,
+          status: request.requestedStatus,
+          checkIn: request.requestedCheckIn,
+          checkOut: request.requestedCheckOut,
+          notes: `Corrected via request ${request.id.slice(-6)}: ${request.reason}`,
+          recordedById: input.actorUserId,
+        },
+        update: {
+          status: request.requestedStatus,
+          checkIn: request.requestedCheckIn,
+          checkOut: request.requestedCheckOut,
+          notes: `Corrected via request ${request.id.slice(-6)}: ${request.reason}`,
+        },
+      });
+    }
+
+    await logAction(tx, {
+      userId: input.actorUserId,
+      companyId: input.companyId,
+      action: input.approve ? "ATTENDANCE_CORRECTION_APPROVE" : "ATTENDANCE_CORRECTION_REJECT",
+      entityType: "AttendanceCorrectionRequest",
+      entityId: request.id,
+      after: { note: input.note ?? null, employeeId: request.employeeId, date: request.date.toISOString().slice(0, 10) },
+    });
+
+    // Tell the worker — the ask had no channel before; the answer should.
+    if (request.employee.userId) {
+      const { emitNotificationEvent, NotificationEventType } = await import("./notification-event-bus");
+      await emitNotificationEvent({
+        eventType: NotificationEventType.ATTENDANCE_CORRECTION_DECIDED,
+        recipientIds: [request.employee.userId],
+        companyId: request.companyId,
+        entityType: "AttendanceCorrectionRequest",
+        entityId: request.id,
+        variables: {
+          decision: input.approve ? "APPROVED" : "REJECTED",
+          date: request.date.toISOString().slice(0, 10),
+          status: request.requestedStatus.replace(/_/g, " ").toLowerCase(),
+          note: input.note ?? "",
+        },
+        timestamp: new Date(),
+      }).catch(() => undefined); // notification loss shouldn't roll the decision back
+    }
+
+    return updated;
+  });
+}
+
+/** The worker's own request history — same list as advances/leaves on /m/me. */
+export async function listMyAttendanceCorrections(employeeId: string, companyId: string) {
+  return prisma.attendanceCorrectionRequest.findMany({
+    where: { employeeId, companyId },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+    include: { reviewedBy: { select: { name: true } } },
+  });
+}
+
+/** Pending queue for HR — the asks needing a decision. */
+export async function listPendingAttendanceCorrections(companyId: string, employeeIds?: string[]) {
+  return prisma.attendanceCorrectionRequest.findMany({
+    where: {
+      companyId,
+      status: "REQUESTED",
+      ...(employeeIds ? { employeeId: { in: employeeIds } } : {}),
+    },
+    orderBy: { createdAt: "asc" },
+    include: {
+      employee: { select: { id: true, name: true, designation: true } },
+    },
+  });
 }

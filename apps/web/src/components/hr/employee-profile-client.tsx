@@ -1771,6 +1771,8 @@ function AttendanceTab({ employee }: { employee: EmployeeProfileData }) {
         ]}
       />
 
+      <PendingAttendanceCorrections employeeId={employee.id} />
+
       {att.length === 0 ? (
         <EmptyState icon={<Clock className="h-5 w-5" />} title="No attendance records" description="This employee has no attendance entries yet." />
       ) : (
@@ -4116,5 +4118,71 @@ function AdvanceDecisionButtons({ employeeId, advanceId, amount, onDone }: {
         Reject
       </Button>
     </div>
+  );
+}
+
+
+/** Pending punch-correction asks on this employee — approve fixes the day
+    (upserts the attendance row), reject closes with a note. */
+function PendingAttendanceCorrections({ employeeId }: { employeeId: string }) {
+  const [requests, setRequests] = useState<{
+    id: string; date: string; status: string; requestedStatus: string;
+    checkIn: string | null; checkOut: string | null; reason: string;
+  }[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/employees/${employeeId}/attendance-corrections`);
+      const data = await res.json();
+      if (res.ok) setRequests((data.requests ?? []).filter((r: { status: string }) => r.status === "REQUESTED"));
+    } catch { /* queue stays hidden on fetch failure */ }
+  }, [employeeId]);
+  useEffect(() => { load(); }, [load]);
+
+  if (!requests || requests.length === 0) return null;
+
+  const decide = async (requestId: string, approve: boolean) => {
+    setBusy(requestId);
+    try {
+      const res = await fetch(`/api/employees/${employeeId}/attendance-corrections/${requestId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approve }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        toast.success(approve ? "Day corrected" : "Request declined");
+        await load();
+      } else {
+        toast.error(data.error ?? "Decision failed");
+      }
+    } finally { setBusy(null); }
+  };
+
+  return (
+    <SectionCard title="Punch-fix requests" icon={Clock}>
+      <div className="space-y-2">
+        {requests.map((r) => (
+          <div key={r.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-border bg-subtle px-3 py-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-body font-semibold text-foreground">{formatDate(r.date)}</span>
+                <Badge variant="warning">{r.requestedStatus.replace(/_/g, " ").toLowerCase()}</Badge>
+              </div>
+              <div className="mt-0.5 text-meta text-muted-foreground">
+                {r.checkIn && <>in {new Date(r.checkIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })} </>}
+                {r.checkOut && <>out {new Date(r.checkOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })} </>}
+                — {r.reason}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={busy === r.id} onClick={() => decide(r.id, true)}>Approve</Button>
+              <Button variant="ghost" size="sm" disabled={busy === r.id} onClick={() => decide(r.id, false)}>Reject</Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </SectionCard>
   );
 }

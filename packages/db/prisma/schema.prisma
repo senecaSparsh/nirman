@@ -119,6 +119,7 @@ model Company {
   employeeAdvances EmployeeAdvance[]
   dailyProgressReports DailyProgressReport[]
   attendances    WorkerAttendance[]
+  attendanceCorrectionRequests AttendanceCorrectionRequest[]
   userMemberships UserCompany[]
   users          User[]
   userPreferences UserPreference[]
@@ -541,6 +542,7 @@ model Employee {
   reportsTo       Employee?          @relation("EmployeeReportsTo", fields: [reportsToEmployeeId], references: [id], onDelete: SetNull)
   directReports   Employee[]         @relation("EmployeeReportsTo")
   attendances     WorkerAttendance[]
+  attendanceCorrectionRequests AttendanceCorrectionRequest[]
   payrollLines    PayrollLine[]
   dprLaborLines   DPRLaborLine[]
   leaveRequests   LeaveRequest[]
@@ -947,6 +949,7 @@ model User {
   subAdminApprovedDPRs DailyProgressReport[] @relation("DprSubAdminApprover")
   adminApprovedDPRs    DailyProgressReport[] @relation("DprAdminApprover")
   recordedAttendances  WorkerAttendance[]
+  reviewedAttendanceCorrections AttendanceCorrectionRequest[]
   processedPayrolls    PayrollPeriod[]
   employees            Employee[]
   issuedResources      EmployeeResource[] @relation("EmployeeResourceIssuedBy")
@@ -1899,6 +1902,34 @@ model WorkerAttendance {
   @@unique([employeeId, date]) // one attendance record per worker per day
   @@index([companyId, date])
   @@index([projectId, date])
+  @@index([employeeId, date])
+}
+
+// A worker's "I forgot to punch" — the ask that otherwise lives in a
+// WhatsApp message to HR. Deciding edits the real WorkerAttendance row
+// (upserted on approve); the request is the audit trail for why the day
+// changed. REQUESTED → APPROVED | REJECTED only.
+model AttendanceCorrectionRequest {
+  id                 String    @id @default(cuid())
+  companyId          String
+  employeeId         String
+  date               DateTime  @db.Date // the day being corrected
+  requestedCheckIn   DateTime?          // null = no punch asked (full-day fix)
+  requestedCheckOut  DateTime?
+  requestedStatus    AttendanceStatus   // PRESENT | HALF_DAY | … the truth
+  reason             String
+  status             String    @default("REQUESTED") // REQUESTED | APPROVED | REJECTED
+  reviewedById       String?
+  reviewedAt         DateTime?
+  reviewNote         String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  company    Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employee   Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  reviewedBy User?             @relation(fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([companyId, status])
   @@index([employeeId, date])
 }
 
