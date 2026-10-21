@@ -8,6 +8,8 @@ import { PageLoading } from "@/components/page-loading";
 import { NoAccess } from "@/components/no-access";
 import { ApprovalsView } from "@/components/approvals/approvals-view";
 import { ClaimApprovalList, type ApprovalClaimRow } from "@/components/approvals/claim-approval-list";
+import { LeaveApprovalList, type ApprovalLeaveRow } from "@/components/approvals/leave-approval-list";
+import { SelfServiceRequestList, type AdvanceRequestRow, type CorrectionRequestRow } from "@/components/approvals/self-service-requests";
 import type { ExpenseCategoryRow } from "@/lib/types";
 import type { ApprovalPORow, ApprovalReqRow, ApprovalGatePassRow, ApprovalDprRow, ApprovalExpenseRow, ApprovalRaBillRow } from "@/lib/types";
 
@@ -38,8 +40,9 @@ async function ApprovalsContent() {
   const canApproveDprAdmin = perms.has(PERM.DPR_APPROVE_ADMIN);
   const canApproveExpense = perms.has(PERM.EXPENSE_APPROVE);
   const canApproveRaBill = perms.has(PERM.RA_APPROVE);
+  const canApproveLeave = perms.has(PERM.HR_MANAGE);
 
-  if (!canApprovePo && !canApproveReq && !canApproveGatePass && !canApproveDprSubAdmin && !canApproveDprAdmin && !canApproveExpense && !canApproveRaBill) {
+  if (!canApprovePo && !canApproveReq && !canApproveGatePass && !canApproveDprSubAdmin && !canApproveDprAdmin && !canApproveExpense && !canApproveRaBill && !canApproveLeave) {
     return <NoAccess what="the approval queue" />;
   }
 
@@ -58,7 +61,7 @@ async function ApprovalsContent() {
   if (canApproveDprSubAdmin) dprApprovalStatuses.push("SUBMITTED");
   if (canApproveDprAdmin) dprApprovalStatuses.push("SUB_ADMIN_APPROVED");
 
-  const [purchaseOrders, requisitions, gatePasses, dprs, expenses, pendingClaims, claimCategories, raBills] = await Promise.all([
+  const [purchaseOrders, requisitions, gatePasses, dprs, expenses, pendingClaims, claimCategories, raBills, pendingLeaves, pendingAdvances, pendingCorrections] = await Promise.all([
     canApprovePo
       ? prisma.purchaseOrder.findMany({
           where: { companyId: company.id, status: "DRAFT", createdById: hideSelfPo ? { not: userId } : undefined, ...await scopeWhere("PurchaseOrder") },
@@ -162,6 +165,33 @@ async function ApprovalsContent() {
               include: { boqItem: { select: { description: true, unit: true } } },
             },
           },
+        })
+      : [],
+    canApproveLeave
+      ? prisma.leaveRequest.findMany({
+          where: { companyId: company.id, status: "PENDING", ...await scopeWhere("LeaveRequest") },
+          orderBy: { createdAt: "desc" },
+          take: 50,
+          include: { employee: { select: { name: true } } },
+        })
+      : [],
+    // Self-service asks — a worker's advance or punch-fix must surface in
+    // THE approvals queue, not only on the right dossier (nobody opens
+    // 40 dossiers looking for asks).
+    canApproveLeave
+      ? prisma.employeeAdvance.findMany({
+          where: { companyId: company.id, status: "REQUESTED", ...await scopeWhere("EmployeeAdvance") },
+          orderBy: { createdAt: "desc" },
+          take: 50,
+          include: { employee: { select: { name: true } } },
+        })
+      : [],
+    canApproveLeave
+      ? prisma.attendanceCorrectionRequest.findMany({
+          where: { companyId: company.id, status: "REQUESTED", ...await scopeWhere("AttendanceCorrectionRequest") },
+          orderBy: { createdAt: "desc" },
+          take: 50,
+          include: { employee: { select: { name: true } } },
         })
       : [],
   ]);
@@ -415,6 +445,36 @@ async function ApprovalsContent() {
   }));
   raBillRows.sort((a, b) => (URGENCY_ORDER[a.urgency] ?? 9) - (URGENCY_ORDER[b.urgency] ?? 9));
 
+  const leaveRows: ApprovalLeaveRow[] = pendingLeaves.map((l) => ({
+    id: l.id,
+    employeeName: l.employee?.name ?? "Unknown employee",
+    type: l.type,
+    days: toNum(l.days),
+    startDate: l.startDate.toISOString(),
+    endDate: l.endDate.toISOString(),
+    reason: l.reason,
+    createdAt: l.createdAt.toISOString(),
+  }));
+
+  const advanceRows: AdvanceRequestRow[] = pendingAdvances.map((a) => ({
+    id: a.id,
+    employeeId: a.employeeId,
+    employeeName: a.employee?.name ?? "Unknown employee",
+    amount: toNum(a.amount),
+    notes: a.notes,
+    createdAt: a.createdAt.toISOString(),
+  }));
+
+  const correctionRows: CorrectionRequestRow[] = pendingCorrections.map((c) => ({
+    id: c.id,
+    employeeId: c.employeeId,
+    employeeName: c.employee?.name ?? "Unknown employee",
+    date: c.date.toISOString().slice(0, 10),
+    requestedStatus: c.requestedStatus,
+    reason: c.reason,
+    createdAt: c.createdAt.toISOString(),
+  }));
+
   return (
     <div className="space-y-6">
       <ApprovalsView
@@ -425,9 +485,14 @@ async function ApprovalsContent() {
       expenses={expenseRows}
       raBills={raBillRows}
       pendingClaimsCount={claimRows.length}
+      pendingLeavesCount={leaveRows.length}
     />
     {claimRows.length > 0 && (
       <ClaimApprovalList claims={claimRows} categories={claimCategoryRows} />
+    )}
+    {leaveRows.length > 0 && <LeaveApprovalList leaves={leaveRows} />}
+    {(advanceRows.length > 0 || correctionRows.length > 0) && (
+      <SelfServiceRequestList advances={advanceRows} corrections={correctionRows} />
     )}
     </div>
   );
