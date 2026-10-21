@@ -933,3 +933,57 @@ export async function cancelTransfer(transferId: string, userId?: string) {
     return updated;
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stale in-transit sweep — a transfer dispatched >48h ago with no receive is
+// stock in no-man's-land: off the source location's books, not yet on the
+// destination's. Notify stock control once per day per transfer.
+// ─────────────────────────────────────────────────────────────────────────────
+const STALE_TRANSIT_HOURS = 48;
+
+export async function checkStaleTransfers(): Promise<{ checked: number; stale: number; notified: number }> {
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - STALE_TRANSIT_HOURS * 60 * 60 * 1000);
+  const dedupeSince = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+  const stale = await prisma.stockTransfer.findMany({
+    where: { status: "IN_TRANSIT", dispatchedAt: { lt: cutoff } },
+    select: {
+      id: true,
+      transferNumber: true,
+      dispatchedAt: true,
+      fromLocation: { select: { name: true, companyId: true } },
+      toLocation: { select: { name: true } },
+      lines: { select: { qty: true, material: { select: { name: true } } } },
+    },
+  });
+
+  let notified = 0;
+  for (const t of stale) {
+    const recent = await prisma.inAppNotification.findFirst({
+      where: {
+        companyId: t.fromLocation.companyId,
+        eventType: NotificationEventType.STOCK_TRANSFER_STALE,
+        createdAt: { gte: dedupeSince },
+        metadata: { path: ["stockTransferId"], equals: t.id },
+      },
+      select: { id: true },
+    });
+    if (recent) continue;
+    const totalQty = t.lines.reduce((s, l) => s.plus(l.qty), new Decimal(0));
+    void emitNotificationEvent({
+      eventType: NotificationEventType.STOCK_TRANSFER_STALE,
+      companyId: t.fromLocation.companyId,
+      entityType: "StockTransfer",
+      entityId: t.id,
+      variables: {
+        stockTransferId: t.id,
+        entityName: `${t.transferNumber} (${t.fromLocation.name} → ${t.toLocation.name})`,
+        amount: `${totalQty.toString()} units`,
+      },
+      timestamp: now,
+    });
+    notified++;
+  }
+  return { checked: stale.length, stale: stale.length, notified };
+}

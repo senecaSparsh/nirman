@@ -78,6 +78,7 @@ export {
   dispatchTransfer,
   completeTransfer,
   cancelTransfer,
+  checkStaleTransfers,
   returnTransferToSource,
   computeTransferPrice,
   type TransferPriceLineInput,
