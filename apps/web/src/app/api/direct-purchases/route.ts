@@ -25,6 +25,9 @@ const directPurchaseSchema = z.object({
   vehiclePhotoUrl: z.string().optional(),
   driverName: z.string().max(100).optional(),
   driverPhone: z.string().max(20).optional(),
+  // Supplier's e-way bill on the inbound delivery — needed for the goods
+  // inward proof when WE arranged the transport.
+  ewayBillNo: z.string().max(100).optional(),
   notes: z.string().max(2000).optional().nullable(),
   requisitionId: z.string().optional().nullable(),
   lines: z.array(directPurchaseLineSchema).optional().nullable(),
@@ -121,6 +124,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       vehiclePhotoUrl: parsed.data.vehiclePhotoUrl ?? undefined,
       driverName: parsed.data.driverName ?? undefined,
       driverPhone: parsed.data.driverPhone ?? undefined,
+      ewayBillNo: parsed.data.ewayBillNo ?? undefined,
       lines: parsed.data.lines
         ? parsed.data.lines.map((l) => ({
             materialId: l.materialId,

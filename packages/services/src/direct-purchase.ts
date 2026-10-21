@@ -94,6 +94,8 @@ interface CreateDirectPurchaseInput {
   vehiclePhotoUrl?: string;
   driverName?: string;
   driverPhone?: string;
+  /** Supplier-side e-way bill on the inbound delivery. */
+  ewayBillNo?: string;
   lines?: {
     materialId: string;
     qty: Decimal | number | string;
@@ -223,6 +225,7 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
           vehiclePhotoUrl: input.vehiclePhotoUrl,
           driverName: input.driverName,
           driverPhone: input.driverPhone,
+          ewayBillNo: input.ewayBillNo ?? null,
           subtotal,
           gstTotal,
           roundOff,
@@ -322,6 +325,7 @@ export async function createDirectPurchase(input: CreateDirectPurchaseInput) {
         vehiclePhotoUrl: input.vehiclePhotoUrl,
         driverName: input.driverName,
         driverPhone: input.driverPhone,
+        ewayBillNo: input.ewayBillNo ?? null,
         subtotal: new Decimal(0),
         gstTotal: new Decimal(0),
         roundOff: new Decimal(0),
