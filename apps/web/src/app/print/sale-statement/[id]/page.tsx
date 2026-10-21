@@ -131,14 +131,23 @@ export default async function SaleStatementPage({
           </tr>
         </thead>
         <tbody>
-          {clearedPayments.map((p) => (
-            <tr key={p.id} className="border-b border-slate-200">
-              <td className="py-1.5">{formatDate(p.paymentDate)}</td>
-              <td className="py-1.5">{formatEnumLabel(p.mode)}</td>
-              <td className="py-1.5">{p.reference ?? "—"}</td>
-              <td className="py-1.5 text-right">{formatCurrency(toNum(p.amount))}</td>
-            </tr>
-          ))}
+          {clearedPayments.map((p) => {
+            const interest = toNum(p.interestAmount);
+            const principal = toNum(p.amount) - interest;
+            return (
+              <tr key={p.id} className="border-b border-slate-200">
+                <td className="py-1.5">{formatDate(p.paymentDate)}</td>
+                <td className="py-1.5">{formatEnumLabel(p.mode)}</td>
+                <td className="py-1.5">
+                  {p.reference ?? "—"}
+                  {interest > 0 && (
+                    <span className="text-slate-500"> · principal {formatCurrency(principal)} + interest {formatCurrency(interest)}</span>
+                  )}
+                </td>
+                <td className="py-1.5 text-right">{formatCurrency(toNum(p.amount))}</td>
+              </tr>
+            );
+          })}
           {clearedPayments.length === 0 && (
             <tr><td colSpan={4} className="py-3 text-center text-slate-500">No payments received yet</td></tr>
           )}
