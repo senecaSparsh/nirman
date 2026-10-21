@@ -230,12 +230,18 @@ const employeeColumns: Column<EmployeeRow>[] = [
       <span className="flex items-center gap-1 text-micro font-medium text-green-600">
         <UserCircle className="h-3.5 w-3.5" /> Has login
       </span>
+    ) : (e.hierarchyLevel ?? 6) <= 3 ? (
+      // Managers/engineers NEED app access (approvals, DPRs, team views) —
+      // flag the gap in amber; a laborer without a login is normal.
+      <span className="flex items-center gap-1 text-micro font-medium text-amber-600">
+        <UserCircle className="h-3.5 w-3.5" /> Needs login
+      </span>
     ) : (
       <span className="flex items-center gap-1 text-micro text-muted-foreground">
         <UserCircle className="h-3.5 w-3.5" /> No login
       </span>
     ),
-    filterValue: (e) => (e.userId ? "Has login" : "No login"),
+    filterValue: (e) => (e.userId ? "Has login" : (e.hierarchyLevel ?? 6) <= 3 ? "Needs login" : "No login"),
     exportValue: (e) => (e.userId ? "Has login" : "No login"),
   },
   {
