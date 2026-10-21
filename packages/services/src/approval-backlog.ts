@@ -10,17 +10,19 @@ import { emitNotificationEvent, NotificationEventType } from "./notification-eve
  * Emitted as a single summary so the digest stays a digest, not a barrage.
  */
 
-const STALE_MS = 48 * 60 * 60 * 1000;
-
 export async function checkApprovalBacklog(): Promise<{ companies: number; flagged: number }> {
   const now = new Date();
-  const staleBefore = new Date(now.getTime() - STALE_MS);
   const dedupeSince = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
-  const companies = await prisma.company.findMany({ select: { id: true, name: true } });
+  const companies = await prisma.company.findMany({ select: { id: true, name: true, approvalAgingHours: true } });
   let flagged = 0;
 
   for (const company of companies) {
+    // Per-company threshold from settings (default 48h) — a company that sets
+    // 2 weeks of slack doesn't want a daily nag at 49 hours.
+    const staleBefore = new Date(
+      now.getTime() - (company.approvalAgingHours ?? 48) * 60 * 60 * 1000,
+    );
     const [pos, reqs, passes, raBills, expenses, claims, leaves] = await Promise.all([
       prisma.purchaseOrder.aggregate({
         where: { companyId: company.id, status: "DRAFT", createdAt: { lt: staleBefore } },
