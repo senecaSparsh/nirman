@@ -140,6 +140,7 @@ export function IssueMaterialsDialog({
           vehiclePhotoUrl: vehicle.photoUrl,
           driverName: vehicle.driverName,
           driverPhone: vehicle.driverPhone,
+        ewayBillNo: vehicle.ewayBillNo || undefined,
           lines: validLines.map((l) => ({ materialId: l.materialId, qty: Number(l.qty) })),
           requireGatePass: target === "PROJECT",
         }),
@@ -282,7 +283,7 @@ export function IssueMaterialsDialog({
           </Field>
         </div>
 
-        <VehicleCaptureSection value={vehicle} onChange={setVehicle} />
+        <VehicleCaptureSection value={vehicle} onChange={setVehicle} showEwayBill />
 
         {fromLocationId && (
           <div className="space-y-2">

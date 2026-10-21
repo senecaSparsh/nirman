@@ -263,6 +263,7 @@ export function IssueFormDialog({
           vehiclePhotoUrl: vehicle.photoUrl,
           driverName: vehicle.driverName,
           driverPhone: vehicle.driverPhone,
+        ewayBillNo: vehicle.ewayBillNo || undefined,
           roundOff: roundOff ? Number(roundOff) : null,
           lines: validLines.map((l) => ({ materialId: l.materialId, qty: Number(l.qty) })),
           requireGatePass: target === "PROJECT",
@@ -441,7 +442,7 @@ export function IssueFormDialog({
           </div>
         </div>
 
-        <VehicleCaptureSection value={vehicle} onChange={setVehicle} />
+        <VehicleCaptureSection value={vehicle} onChange={setVehicle} showEwayBill />
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">

@@ -254,6 +254,7 @@ function TransferDetailPanel({ transfer }: { transfer: TransferRow }) {
       driverName: vehicle.driverName || undefined,
       driverPhone: vehicle.driverPhone || undefined,
       transporterName: vehicle.transporterName || undefined,
+      ewayBillNo: vehicle.ewayBillNo || undefined,
       challanNumber: challanNumber || undefined,
       packageCount: packageCount ? Number(packageCount) : undefined,
     });
@@ -477,7 +478,7 @@ function TransferDetailPanel({ transfer }: { transfer: TransferRow }) {
         className="max-w-lg"
       >
         <div className="space-y-3">
-          <VehicleCaptureSection value={vehicle} onChange={setVehicle} />
+          <VehicleCaptureSection value={vehicle} onChange={setVehicle} showEwayBill />
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Challan Number</Label>

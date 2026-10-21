@@ -368,6 +368,7 @@ export const issueMaterialsSchema = z.object({
   vehiclePhotoUrl: z.string().optional(),
   driverName: z.string().max(100).optional(),
   driverPhone: z.string().max(20).optional(),
+  ewayBillNo: z.string().max(100).optional(),
   // Round-off to match physical bill totals
   roundOff: z.coerce.number().optional().nullable(),
   requireGatePass: z.boolean().optional(),

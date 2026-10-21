@@ -49,6 +49,8 @@ interface IssueMaterialsInput {
   vehiclePhotoUrl?: string;
   driverName?: string;
   driverPhone?: string;
+  /** Supplier-side e-way bill for a dispatch over ₹50K. */
+  ewayBillNo?: string;
   roundOff?: Decimal | number | string;
   builtUnitId?: string;
   // Link to the approved requisition that authorized this issue.
@@ -233,6 +235,7 @@ export async function issueMaterialsToProject(input: IssueMaterialsInput) {
         vehiclePhotoUrl: input.vehiclePhotoUrl,
         driverName: input.driverName,
         driverPhone: input.driverPhone,
+        ewayBillNo: input.ewayBillNo ?? null,
         lines: {
           create: lineResults.map((l, i) => ({
             materialId: l.materialId,
@@ -448,6 +451,7 @@ export async function createMaterialIssueRequest(input: IssueMaterialsInput) {
         vehiclePhotoUrl: input.vehiclePhotoUrl,
         driverName: input.driverName,
         driverPhone: input.driverPhone,
+        ewayBillNo: input.ewayBillNo ?? null,
         lines: {
           create: input.lines.map((l) => ({
             materialId: l.materialId,
@@ -599,6 +603,8 @@ interface IssueToDepartmentInput {
   vehiclePhotoUrl?: string;
   driverName?: string;
   driverPhone?: string;
+  /** Supplier-side e-way bill for a dispatch over ₹50K. */
+  ewayBillNo?: string;
   requisitionId?: string;
   lines: {
     materialId: string;
@@ -705,6 +711,7 @@ export async function issueMaterialsToDepartment(input: IssueToDepartmentInput) 
         vehiclePhotoUrl: input.vehiclePhotoUrl,
         driverName: input.driverName,
         driverPhone: input.driverPhone,
+        ewayBillNo: input.ewayBillNo ?? null,
         lines: {
           create: lineResults.map((l, i) => ({
             materialId: l.materialId,
