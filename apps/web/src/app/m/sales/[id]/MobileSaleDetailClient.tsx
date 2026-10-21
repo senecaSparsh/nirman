@@ -371,6 +371,7 @@ export function MobileSaleDetailClient({
           amount,
           mode: payMode,
           reference: payRef || undefined,
+          interestAmount: Number(payInterest) || 0,
           ...(payMode === "CHEQUE" ? {
             chequeNo: payCheque.chequeNo.trim() || undefined,
             chequeDate: payCheque.chequeDate || undefined,
@@ -1654,7 +1655,7 @@ export function MobileSaleDetailClient({
                   style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
                 />
               </div>
-              {payItem && (
+              {(payItem || (paymentSchedule?.items ?? []).some((it) => (it.accruedInterest ?? 0) > 0.01)) && (
                 <div>
                   <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                     Late Interest (MCLR+2%)
