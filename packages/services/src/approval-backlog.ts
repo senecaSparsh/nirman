@@ -92,3 +92,49 @@ export async function checkApprovalBacklog(): Promise<{ companies: number; flagg
 
   return { companies: companies.length, flagged };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Daily books-health sweep — runBookReconciliation is the fullest check of
+// ledger↔entity truth we have, but it only ran when a human opened the page.
+// GL drift found a week later is archaeology; found next morning it's a fix.
+// Emits one BOOKS_RECON_FAILED event per company per day while any check fails.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function checkBooksHealth(): Promise<{ companies: number; failed: number }> {
+  const { runBookReconciliation } = await import("./reconciliation-health");
+  const now = new Date();
+  const dedupeSince = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const companies = await prisma.company.findMany({ select: { id: true } });
+  let failed = 0;
+
+  for (const company of companies) {
+    const report = await runBookReconciliation(company.id).catch(() => null);
+    if (!report || report.allPass) continue;
+
+    const recent = await prisma.inAppNotification.findFirst({
+      where: {
+        companyId: company.id,
+        eventType: NotificationEventType.BOOKS_RECON_FAILED,
+        createdAt: { gte: dedupeSince },
+      },
+      select: { id: true },
+    });
+    if (recent) continue;
+
+    const failedChecks = report.checks.filter((c) => c.status === "FAIL").map((c) => c.name).slice(0, 4);
+    const warnedChecks = report.checks.filter((c) => c.status === "WARN").map((c) => c.name).slice(0, 2);
+    const parts = [...failedChecks.map((n) => `FAIL ${n}`), ...warnedChecks.map((n) => `WARN ${n}`)];
+    void emitNotificationEvent({
+      eventType: NotificationEventType.BOOKS_RECON_FAILED,
+      companyId: company.id,
+      entityType: "BooksHealth",
+      entityId: company.id,
+      variables: {
+        count: String(report.summary.failed + report.summary.warned),
+        breakdown: parts.join(", ") || "checks failed",
+      },
+      timestamp: now,
+    });
+    failed++;
+  }
+  return { companies: companies.length, failed };
+}

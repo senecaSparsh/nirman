@@ -86,7 +86,7 @@ export {
   type TransferPriceResult,
 } from "./transfer";
 
-export { checkApprovalBacklog } from "./approval-backlog";
+export { checkApprovalBacklog, checkBooksHealth } from "./approval-backlog";
 
 // Issue — material consumption into projects or departments (cost centers)
 export { issueMaterialsToProject, issueMaterialsToDepartment, cancelMaterialIssue, createMaterialIssueRequest, executeMaterialIssue, amountInWords } from "./issue";

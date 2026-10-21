@@ -3,7 +3,8 @@ import { toNum } from "@/lib/utils";
 import { prisma } from "@nirman/db";
 import { sendRentDueReminders, sendPaymentDueReminders, processDueEscalations, checkMilestonePayments, processPendingNotifications, generateDueRentSchedules, generateDueRecurringExpenses, checkExpiringLegalDocs, checkExpiringEmploymentTerms, checkExpiringEmployeeDocs, checkDueSupplierInvoices,
   checkStaleTransfers,
-  checkApprovalBacklog, checkOverdueCapas, checkStaleStockCounts, checkEquipmentMaintenanceDue } from "@nirman/services";
+  checkApprovalBacklog,
+  checkBooksHealth, checkOverdueCapas, checkStaleStockCounts, checkEquipmentMaintenanceDue } from "@nirman/services";
 import { apiHandler, json } from "@/lib/server";
 
 /**
@@ -49,7 +50,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   // 2-6. Run remaining sweeps in parallel
-  const [escalations, rentSchedule, rentReminders, saleReminders, notifications, recurringExpenses, legalDocs, employmentTerms, employeeDocs, supplierInvoices, overdueCapas, staleStockCounts, equipmentMaintenance, staleTransfers, approvalBacklog] = await Promise.all([
+  const [escalations, rentSchedule, rentReminders, saleReminders, notifications, recurringExpenses, legalDocs, employmentTerms, employeeDocs, supplierInvoices, overdueCapas, staleStockCounts, equipmentMaintenance, staleTransfers, approvalBacklog, booksHealth] = await Promise.all([
     processDueEscalations().catch(() => ({ checked: 0, escalated: 0 })),
     generateDueRentSchedules().catch(() => ({ checked: 0, created: 0 })),
     sendRentDueReminders().catch(() => ({ checked: 0, sent: 0 })),
@@ -80,6 +81,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
     checkStaleTransfers().catch(() => ({ checked: 0, stale: 0, notified: 0 })),
     // Approval queues stuck >48h — the truck waits at the gate otherwise
     checkApprovalBacklog().catch(() => ({ companies: 0, flagged: 0 })),
+    // Ledger drift found daily instead of at month-end
+    checkBooksHealth().catch(() => ({ companies: 0, failed: 0 })),
   ]);
 
   return json({
@@ -101,5 +104,6 @@ export const POST = apiHandler(async (req: NextRequest) => {
     equipmentMaintenance,
     staleTransfers,
     approvalBacklog,
+    booksHealth,
   });
 }, { skipSession: true, rateLimit: false });
