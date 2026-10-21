@@ -6,6 +6,7 @@ import { PERM, holdsPermission } from "@/lib/roles";
 import { MobilePageHeader } from "@/components/mobile/v2/primitives";
 import { MobileRefreshButton } from "@/components/mobile/v2/scaffold";
 import { MobileApprovalsQueue } from "@/components/mobile/mobile-approvals-queue";
+import { MobileSelfServiceQueue } from "@/components/mobile/mobile-self-service-queue";
 
 /**
  * Shared approvals queue — used by the Executive and Ops personas.
@@ -67,7 +68,7 @@ export async function MobileApprovals() {
   if (canApproveDprSubAdmin) dprApprovalStatuses.push("SUBMITTED");
   if (canApproveDprAdmin) dprApprovalStatuses.push("SUB_ADMIN_APPROVED");
 
-  const [draftPOs, pendingReqs, pendingGatePasses, pendingDprs, pendingExpenses, pendingRaBills, pendingClaims, pendingLeaves, pendingOffsite] = await Promise.all([
+  const [draftPOs, pendingReqs, pendingGatePasses, pendingDprs, pendingExpenses, pendingRaBills, pendingClaims, pendingLeaves, pendingAdvances, pendingCorrections, pendingOffsite] = await Promise.all([
     canApprovePo
       ? prisma.purchaseOrder.findMany({
           where: { companyId: company.id, status: "DRAFT", createdById: hideSelfPo ? { not: userId } : undefined, ...await scopeWhere("PurchaseOrder") },
@@ -183,6 +184,24 @@ export async function MobileApprovals() {
     canManageHr
       ? prisma.leaveRequest.findMany({
           where: { companyId: company.id, status: "PENDING", ...await scopeWhere("LeaveRequest") },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+          include: { employee: { select: { name: true } } },
+        })
+      : [],
+    // Self-service asks — the worker's advance + punch-fix requests belong
+    // in the same mobile queue; a field approver shouldn't need a desktop.
+    canManageHr
+      ? prisma.employeeAdvance.findMany({
+          where: { companyId: company.id, status: "REQUESTED", ...await scopeWhere("EmployeeAdvance") },
+          orderBy: { createdAt: "desc" },
+          take: 20,
+          include: { employee: { select: { name: true } } },
+        })
+      : [],
+    canManageHr
+      ? prisma.attendanceCorrectionRequest.findMany({
+          where: { companyId: company.id, status: "REQUESTED", ...await scopeWhere("AttendanceCorrectionRequest") },
           orderBy: { createdAt: "desc" },
           take: 20,
           include: { employee: { select: { name: true } } },
@@ -356,14 +375,33 @@ export async function MobileApprovals() {
     createdAt: l.createdAt.toISOString(),
   }));
 
+  const advanceRows = pendingAdvances.map((a) => ({
+    id: a.id,
+    employeeId: a.employeeId,
+    employeeName: a.employee?.name ?? "Worker",
+    amount: toNum(a.amount),
+    notes: a.notes,
+  }));
+  const correctionRows = pendingCorrections.map((c) => ({
+    id: c.id,
+    employeeId: c.employeeId,
+    employeeName: c.employee?.name ?? "Worker",
+    date: c.date.toISOString().slice(0, 10),
+    requestedStatus: c.requestedStatus,
+    reason: c.reason,
+  }));
+
   const offsiteCount = pendingOffsite.length;
   const offsiteNames = pendingOffsite.slice(0, 3).map((r) => r.employee?.name ?? "Worker");
 
   return (
     <div>
       {/* shell renders "Approvals" — the header carries the queue count */}
-      <MobilePageHeader subtitle={`${poRows.length + reqRows.length + gatePassRows.length + dprRows.length + expenseRows.length + raBillRows.length + claimRows.length + leaveRows.length + offsiteCount} awaiting approval`} right={<MobileRefreshButton />} />
+      <MobilePageHeader subtitle={`${poRows.length + reqRows.length + gatePassRows.length + dprRows.length + expenseRows.length + raBillRows.length + claimRows.length + leaveRows.length + offsiteCount + advanceRows.length + correctionRows.length} awaiting approval`} right={<MobileRefreshButton />} />
       <MobileApprovalsQueue purchaseOrders={poRows} requisitions={reqRows} gatePasses={gatePassRows} dprs={dprRows} expenses={expenseRows} raBills={raBillRows} expenseClaims={claimRows} leaves={leaveRows} offsiteCount={offsiteCount} offsiteNames={offsiteNames} />
+      {(advanceRows.length > 0 || correctionRows.length > 0) && (
+        <MobileSelfServiceQueue advances={advanceRows} corrections={correctionRows} />
+      )}
     </div>
   );
 }
