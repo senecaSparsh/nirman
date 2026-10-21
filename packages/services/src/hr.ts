@@ -3676,7 +3676,7 @@ export async function requestAttendanceCorrection(input: RequestAttendanceCorrec
 
   const employee = await prisma.employee.findFirst({
     where: { id: input.employeeId, companyId: input.companyId, deletedAt: null },
-    select: { id: true, active: true },
+    select: { id: true, active: true, name: true },
   });
   if (!employee) throw new HrError("Employee not found in this company", 404);
   if (!employee.active) throw new HrError("Inactive employees cannot request corrections", 400);
@@ -3698,7 +3698,7 @@ export async function requestAttendanceCorrection(input: RequestAttendanceCorrec
     throw new HrError("A correction for this day is already pending — wait for HR", 400);
   }
 
-  return withSerializableTransaction(async (tx) => {
+  const request = await withSerializableTransaction(async (tx) => {
     const request = await tx.attendanceCorrectionRequest.create({
       data: {
         companyId: input.companyId,
@@ -3720,6 +3720,25 @@ export async function requestAttendanceCorrection(input: RequestAttendanceCorrec
     });
     return request;
   });
+
+  // Tell the approvers — same hr.manage role-set as leave requests; the
+  // asker is excluded, the backlog digest is the 48h backstop.
+  if (!employee) throw new HrError("Employee not found in this company", 404);
+  void emitNotificationEvent({
+    eventType: NotificationEventType.ATTENDANCE_CORRECTION_REQUESTED,
+    companyId: input.companyId,
+    excludeIds: [input.actorUserId],
+    entityType: "AttendanceCorrectionRequest",
+    entityId: request.id,
+    variables: {
+      employeeName: employee.name ?? "Employee",
+      date: input.date,
+      status: input.status.replace(/_/g, " ").toLowerCase(),
+      reason: input.reason.trim(),
+    },
+    timestamp: new Date(),
+  });
+  return request;
 }
 
 /** HR decides: approve upserts the day's WorkerAttendance row (the real fix);

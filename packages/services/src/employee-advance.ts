@@ -20,6 +20,7 @@ import { prisma, type Prisma } from "@nirman/db";
 import { logAction } from "./audit";
 import { HrError } from "./hr";
 import { ACCT, ensureGlAccount, postJournalEntry } from "./gl-posting";
+import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { withSerializableTransaction } from "./transaction";
 
 export type AdvanceStatus = "REQUESTED" | "ACTIVE" | "PAUSED" | "SETTLED" | "CANCELLED";
@@ -46,7 +47,7 @@ export async function requestAdvance(input: RequestAdvanceInput) {
   }
   const employee = await prisma.employee.findFirst({
     where: { id: input.employeeId, companyId: input.companyId, deletedAt: null },
-    select: { id: true, active: true },
+    select: { id: true, active: true, name: true },
   });
   if (!employee) throw new HrError("Employee not found in this company", 404);
   if (!employee.active) throw new HrError("Inactive employees cannot request advances", 400);
@@ -60,7 +61,7 @@ export async function requestAdvance(input: RequestAdvanceInput) {
     throw new HrError("You already have an advance request pending — wait for HR to respond first", 400);
   }
 
-  return withSerializableTransaction(async (tx) => {
+  const advance = await withSerializableTransaction(async (tx) => {
     const advance = await tx.employeeAdvance.create({
       data: {
         companyId: input.companyId,
@@ -82,6 +83,23 @@ export async function requestAdvance(input: RequestAdvanceInput) {
     });
     return advance;
   });
+
+  // Tell the approvers — same role-set as LEAVE_SUBMITTED. The asker is
+  // excluded; the 48h backlog digest is the backstop, not the channel.
+  void emitNotificationEvent({
+    eventType: NotificationEventType.ADVANCE_REQUESTED,
+    companyId: input.companyId,
+    excludeIds: [input.actorUserId],
+    entityType: "EmployeeAdvance",
+    entityId: advance.id,
+    variables: {
+      employeeName: employee.name ?? "Employee",
+      amount: input.amount.toString(),
+      notes: input.notes ?? "",
+    },
+    timestamp: new Date(),
+  });
+  return advance;
 }
 
 /**
@@ -206,7 +224,7 @@ export async function issueAdvance(input: IssueAdvanceInput) {
   if (!employee) throw new HrError("Employee not found in this company", 404);
   if (!employee.active) throw new HrError("Cannot issue an advance to an inactive employee", 400);
 
-  return withSerializableTransaction(async (tx) => {
+  const advance = await withSerializableTransaction(async (tx) => {
     const advance = await tx.employeeAdvance.create({
       data: {
         companyId: input.companyId,
@@ -244,6 +262,7 @@ export async function issueAdvance(input: IssueAdvanceInput) {
     });
     return advance;
   });
+  return advance;
 }
 
 /** Advances for one employee (dossier view). */

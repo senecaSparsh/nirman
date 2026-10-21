@@ -92,6 +92,8 @@ export enum NotificationEventType {
   LEAVE_APPROVED = "LEAVE_APPROVED",
   LEAVE_REJECTED = "LEAVE_REJECTED",
   ATTENDANCE_CORRECTION_DECIDED = "ATTENDANCE_CORRECTION_DECIDED",
+  ATTENDANCE_CORRECTION_REQUESTED = "ATTENDANCE_CORRECTION_REQUESTED",
+  ADVANCE_REQUESTED = "ADVANCE_REQUESTED",
   CLAIM_SUBMITTED = "CLAIM_SUBMITTED",
   CLAIM_APPROVED = "CLAIM_APPROVED",
   CLAIM_REJECTED = "CLAIM_REJECTED",
@@ -207,6 +209,8 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   [NotificationEventType.LEAVE_APPROVED]: "IMMEDIATE",
   [NotificationEventType.LEAVE_REJECTED]: "IMMEDIATE",
   [NotificationEventType.ATTENDANCE_CORRECTION_DECIDED]: "IMMEDIATE",
+  [NotificationEventType.ATTENDANCE_CORRECTION_REQUESTED]: "IMMEDIATE",
+  [NotificationEventType.ADVANCE_REQUESTED]: "IMMEDIATE",
   [NotificationEventType.CLAIM_SUBMITTED]: "IMMEDIATE",
   [NotificationEventType.CLAIM_APPROVED]: "IMMEDIATE",
   [NotificationEventType.CLAIM_REJECTED]: "IMMEDIATE",
@@ -670,6 +674,20 @@ async function resolveProtectedEmployeeLevel(event: NotificationEvent): Promise<
         });
         return level(r?.employee);
       }
+      case "EmployeeAdvance": {
+        const r = await prisma.employeeAdvance.findUnique({
+          where: { id: entityId },
+          select: { employee: { select: { hierarchyLevel: true } } },
+        });
+        return level(r?.employee);
+      }
+      case "AttendanceCorrectionRequest": {
+        const r = await prisma.attendanceCorrectionRequest.findUnique({
+          where: { id: entityId },
+          select: { employee: { select: { hierarchyLevel: true } } },
+        });
+        return level(r?.employee);
+      }
       case "ExpenseClaim": {
         const r = await prisma.expenseClaim.findUnique({
           where: { id: entityId },
@@ -865,7 +883,13 @@ const GATE_PASS_GUARD_EVENTS = new Set([
 // Leave submissions go to the roles that can approve them (hr.manage lives
 // in tier-2/tier-3). Approval outcomes are always targeted directly at the
 // requesting employee via recipientIds, so they need no role-set entry.
-const LEAVE_EVENTS = new Set([NotificationEventType.LEAVE_SUBMITTED]);
+const LEAVE_EVENTS = new Set([
+  NotificationEventType.LEAVE_SUBMITTED,
+  // Self-service asks share the leave deciders — hr.manage holders
+  // act on all three from the same queue, so they hear all three.
+  NotificationEventType.ADVANCE_REQUESTED,
+  NotificationEventType.ATTENDANCE_CORRECTION_REQUESTED,
+]);
 // Claim submissions go to expense.approve holders (tier-2/3). Outcomes
 // are targeted at the claimant via recipientIds — never broadcast.
 const CLAIM_EVENTS = new Set([NotificationEventType.CLAIM_SUBMITTED]);
@@ -994,6 +1018,10 @@ const EVENT_MESSAGES: Partial<
     `Material issue ${s("issueNumber")}${s("projectName") ? ` to ${s("projectName")}` : ""} — stock went out.`,
   [NotificationEventType.MATERIAL_OVER_ISSUE]: ({ s }) =>
     `Over-issue: ${s("materialName")} on ${s("projectName")} just crossed its BOQ — ${s("issuedQty")} issued vs ${s("boqQty")} planned.`,
+  [NotificationEventType.ATTENDANCE_CORRECTION_REQUESTED]: ({ s }) =>
+    `${s("employeeName")} asked to fix ${s("date")} (${s("status")}) — ${s("reason")}`,
+  [NotificationEventType.ADVANCE_REQUESTED]: ({ s, money }) =>
+    `${s("employeeName")} asked for a ${money("amount")} advance${s("notes") ? ` — ${s("notes")}` : ""}`,
   [NotificationEventType.ATTENDANCE_CORRECTION_DECIDED]: ({ s }) =>
     `${s("decision") === "APPROVED" ? `Your ${s("date")} attendance was corrected to ${s("status")}` : `Your attendance correction for ${s("date")} was declined`}${s("note") ? ` — ${s("note")}` : ""}`,
   [NotificationEventType.STOCK_COUNT_DUE]: ({ s }) =>
