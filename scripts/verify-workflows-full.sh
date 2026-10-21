@@ -324,5 +324,41 @@ r=$(req PATCH "gate-passes/nonexistent-id" '{"action":"approve"}'); echo "$r" | 
 r=$(req PATCH "dprs/$DPR" '{"action":"approve"}'); echo "$r" | grep -qi "error\|invalid\|cannot" && { PASS=$((PASS+1)); echo "  PASS invalid-action 4xx"; } || { FAIL=$((FAIL+1)); echo "  FAIL invalid dpr action"; }
 r=$(req PATCH "expense-claims/$ADV" '{"action":"pay"}'); echo "$r" | grep -q "error" && { PASS=$((PASS+1)); echo "  PASS cross-entity 4xx"; } || { FAIL=$((FAIL+1)); echo "  FAIL cross-entity pay"; }
 
+echo "════════ 30. Self-service asks (advance + punch-fix + withdraw + race) ════════"
+# Worker's own ask via /api/me → HR decide via employee route → worker withdraw.
+SELF_EMP=$(P "SELECT id FROM \"Employee\" WHERE \"userId\"=(SELECT \"userId\" FROM \"UserCompany\" WHERE \"companyId\"='$C' AND role='OWNER' LIMIT 1) LIMIT 1")
+ADVREQ=$(req POST "me/advances" '{"amount":5000,"notes":"wf self-ask"}' | python3 -c "import json,sys; print(json.load(sys.stdin).get('advanceId',''))" 2>/dev/null)
+if [ -n "$ADVREQ" ]; then
+  st=$(P "SELECT status FROM \"EmployeeAdvance\" WHERE id='$ADVREQ'")
+  [ "$st" = "REQUESTED" ] && { PASS=$((PASS+1)); echo "  PASS self-ask → REQUESTED"; } || { FAIL=$((FAIL+1)); echo "  FAIL self-ask status: $st"; }
+  # Race guard — a second pending ask must 4xx
+  r2=$(req POST "me/advances" '{"amount":1000,"notes":"wf dup"}')
+  echo "$r2" | grep -qi "pending\|already" && { PASS=$((PASS+1)); echo "  PASS dup-ask blocked"; } || { FAIL=$((FAIL+1)); echo "  FAIL dup-ask: $r2"; }
+  # Withdraw own ask → CANCELLED; second withdraw → already decided
+  rw=$(req PATCH "me/advances/$ADVREQ" '{}')
+  echo "$rw" | grep -q "CANCELLED" && { PASS=$((PASS+1)); echo "  PASS withdraw own ask"; } || { FAIL=$((FAIL+1)); echo "  FAIL withdraw: $rw"; }
+  rw2=$(req PATCH "me/advances/$ADVREQ" '{}')
+  echo "$rw2" | grep -qi "already\|not found" && { PASS=$((PASS+1)); echo "  PASS re-withdraw blocked"; } || { FAIL=$((FAIL+1)); echo "  FAIL re-withdraw: $rw2"; }
+else
+  FAIL=$((FAIL+1)); echo "  FAIL self-ask create returned no id"
+fi
+# Punch-correction ask → HR approve → attendance row flips
+CORRDAY=$(date -v-14d +%Y-%m-%d 2>/dev/null || date -d "14 days ago" +%Y-%m-%d)
+CORR=$(req POST "me/attendance-corrections" "{\"date\":\"$CORRDAY\",\"status\":\"PRESENT\",\"reason\":\"wf forgot punch\"}" | python3 -c "import json,sys; print(json.load(sys.stdin).get('requestId',''))" 2>/dev/null)
+if [ -n "$CORR" ]; then
+  st=$(P "SELECT status FROM \"AttendanceCorrectionRequest\" WHERE id='$CORR'")
+  [ "$st" = "REQUESTED" ] && { PASS=$((PASS+1)); echo "  PASS punch-fix → REQUESTED"; } || { FAIL=$((FAIL+1)); echo "  FAIL punch-fix status: $st"; }
+  rapp=$(req POST "employees/$SELF_EMP/attendance-corrections/$CORR" '{"approve":true,"note":"wf approved"}')
+  st2=$(P "SELECT status FROM \"AttendanceCorrectionRequest\" WHERE id='$CORR'")
+  [ "$st2" = "APPROVED" ] && { PASS=$((PASS+1)); echo "  PASS punch-fix approve"; } || { FAIL=$((FAIL+1)); echo "  FAIL punch-fix approve: $st2 $rapp"; }
+  att=$(P "SELECT status FROM \"WorkerAttendance\" WHERE \"employeeId\"='$SELF_EMP' AND date='$CORRDAY'")
+  [ "$att" = "PRESENT" ] && { PASS=$((PASS+1)); echo "  PASS attendance row upserted"; } || { FAIL=$((FAIL+1)); echo "  FAIL attendance row: $att"; }
+  # same-day dup ask → 4xx
+  rdup=$(req POST "me/attendance-corrections" "{\"date\":\"$CORRDAY\",\"status\":\"LATE\",\"reason\":\"wf dup day\"}")
+  echo "$rdup" | grep -qi "already\|pending\|correction" && { PASS=$((PASS+1)); echo "  PASS same-day dup blocked"; } || { FAIL=$((FAIL+1)); echo "  FAIL same-day dup: $rdup"; }
+else
+  FAIL=$((FAIL+1)); echo "  FAIL punch-fix create returned no id"
+fi
+
 echo; echo "════════ RESULT: $PASS passed, $FAIL failed, $SKIP skipped ════════"
 [ "$FAIL" -eq 0 ]
