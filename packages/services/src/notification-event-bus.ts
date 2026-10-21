@@ -71,6 +71,7 @@ export enum NotificationEventType {
   APPROVAL_BACKLOG = "APPROVAL_BACKLOG",
   BOOKS_RECON_FAILED = "BOOKS_RECON_FAILED",
   RERA_VALIDITY_EXPIRING = "RERA_VALIDITY_EXPIRING",
+  RATE_CONTRACT_EXPIRING = "RATE_CONTRACT_EXPIRING",
   STOCK_TRANSFER_STALE = "STOCK_TRANSFER_STALE",
   STOCK_ISSUE_CREATED = "STOCK_ISSUE_CREATED",
   // Just-crossed signal: cumulative issues of a material to a project pushed
@@ -187,6 +188,7 @@ export const EVENT_URGENCY: Record<NotificationEventType, NotificationUrgency> =
   [NotificationEventType.APPROVAL_BACKLOG]: "DAILY",
   [NotificationEventType.BOOKS_RECON_FAILED]: "DAILY",
   [NotificationEventType.RERA_VALIDITY_EXPIRING]: "WEEKLY",
+  [NotificationEventType.RATE_CONTRACT_EXPIRING]: "WEEKLY",
   [NotificationEventType.STOCK_ISSUE_CREATED]: "DAILY",
   [NotificationEventType.MATERIAL_OVER_ISSUE]: "IMMEDIATE",
   [NotificationEventType.STOCK_COUNT_DUE]: "DAILY",
@@ -837,6 +839,7 @@ const INVENTORY_EVENTS = new Set([
   NotificationEventType.APPROVAL_BACKLOG,
   NotificationEventType.BOOKS_RECON_FAILED,
   NotificationEventType.RERA_VALIDITY_EXPIRING,
+  NotificationEventType.RATE_CONTRACT_EXPIRING,
   NotificationEventType.STOCK_ISSUE_CREATED,
   NotificationEventType.MATERIAL_OVER_ISSUE,
   NotificationEventType.STOCK_COUNT_DUE,
@@ -972,6 +975,8 @@ const EVENT_MESSAGES: Partial<
     `Unit listing ${s("unitNumber") || s("listingTitle")} synced to portal.`,
 
   // Inventory
+  [NotificationEventType.RATE_CONTRACT_EXPIRING]: ({ s }) =>
+    `Rate contract ${s("contractNumber")} (${s("supplierName")} — ${s("materialName")}) expires ${s("expiryDate")} — ${s("daysLeft")} days left. Renegotiate or POs buy at market rate.`,
   [NotificationEventType.RERA_VALIDITY_EXPIRING]: ({ s }) =>
     `RERA validity on ${s("projectName")} expires ${s("expiryDate")} — ${s("daysLeft")} days left. Renew before selling further.`,
   [NotificationEventType.BOOKS_RECON_FAILED]: ({ s }) =>

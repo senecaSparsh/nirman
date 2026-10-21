@@ -107,17 +107,13 @@ describe("SettingsPage (SettingsContent)", () => {
   // SettingsView is mocked above — the page-level contract we can verify here
   // is that SettingsContent passes canManageFinance (the flag that mounts
   // NotificationsPanel inside the Notifications tab) from the actor's role.
-  it("passes canManageFinance=true for roles with FINANCE_MANAGE", async () => {
+  // COMPANY_MANAGE (required to reach this page at all) only comes via "*"
+  // roles, which always carry FINANCE_MANAGE too — the flag is always true
+  // for anyone who can see this page.
+  it("passes canManageFinance=true for the superuser roles that reach settings", async () => {
     setSessionUser({ role: "OWNER" });
     const ui = await SettingsContent();
     render(ui);
     expect(screen.getByTestId("can-manage-finance").textContent).toBe("true");
-  });
-
-  it("passes canManageFinance=false for roles without FINANCE_MANAGE", async () => {
-    setSessionUser({ role: "EMPLOYEE" });
-    const ui = await SettingsContent();
-    // EMPLOYEE lacks COMPANY_MANAGE → NoAccess path; just verify no crash.
-    render(ui);
   });
 });

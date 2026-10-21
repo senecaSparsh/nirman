@@ -192,3 +192,67 @@ export async function checkReraValidity(): Promise<{ companies: number; flagged:
   }
   return { companies: 0, flagged };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Rate-contract expiry sweep — an ACTIVE contract whose validity lapses stops
+// protecting the PO rate: procurement keeps ordering at "the usual rate" while
+// the supplier quietly charges market. Warns at ≤30d (weekly cadence) and flips
+// the row to EXPIRED on the day it lapses so reports stop counting dead cover.
+// ─────────────────────────────────────────────────────────────────────────────
+export async function checkRateContractExpiry(): Promise<{ flagged: number; expired: number }> {
+  const now = new Date();
+  const thirtyDaysOut = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+  // Flip lapsed contracts to EXPIRED — the PO-time filter already excludes
+  // them by date, this is record hygiene for reports and lists.
+  const expired = await prisma.rateContract.updateMany({
+    where: { status: "ACTIVE", validTo: { lt: now } },
+    data: { status: "EXPIRED" },
+  });
+
+  const expiring = await prisma.rateContract.findMany({
+    where: { status: "ACTIVE", validTo: { gte: now, lte: thirtyDaysOut } },
+    select: {
+      id: true,
+      contractNumber: true,
+      validTo: true,
+      companyId: true,
+      supplier: { select: { name: true } },
+      material: { select: { name: true } },
+    },
+  });
+
+  let flagged = 0;
+  for (const c of expiring) {
+    const daysLeft = Math.ceil((c.validTo.getTime() - now.getTime()) / 86400000);
+    // One warning per contract per week — the buyer needs a nudge to
+    // renegotiate, not daily noise.
+    const recent = await prisma.inAppNotification.findFirst({
+      where: {
+        companyId: c.companyId,
+        eventType: NotificationEventType.RATE_CONTRACT_EXPIRING,
+        link: { contains: c.id },
+        createdAt: { gte: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) },
+      },
+      select: { id: true },
+    });
+    if (recent) continue;
+
+    void emitNotificationEvent({
+      eventType: NotificationEventType.RATE_CONTRACT_EXPIRING,
+      companyId: c.companyId,
+      entityType: "RateContract",
+      entityId: c.id,
+      variables: {
+        contractNumber: c.contractNumber,
+        supplierName: c.supplier.name,
+        materialName: c.material.name,
+        expiryDate: c.validTo.toISOString().slice(0, 10),
+        daysLeft: String(daysLeft),
+      },
+      timestamp: now,
+    });
+    flagged++;
+  }
+  return { flagged, expired: expired.count };
+}

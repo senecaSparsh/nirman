@@ -5,7 +5,7 @@ import { sendRentDueReminders, sendPaymentDueReminders, processDueEscalations, c
   checkStaleTransfers,
   checkApprovalBacklog,
   checkBooksHealth,
-  checkReraValidity, checkOverdueCapas, checkStaleStockCounts, checkEquipmentMaintenanceDue } from "@nirman/services";
+  checkReraValidity, checkOverdueCapas, checkStaleStockCounts, checkEquipmentMaintenanceDue, checkRateContractExpiry } from "@nirman/services";
 import { apiHandler, json } from "@/lib/server";
 
 /**
@@ -51,7 +51,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
   }
 
   // 2-6. Run remaining sweeps in parallel
-  const [escalations, rentSchedule, rentReminders, saleReminders, notifications, recurringExpenses, legalDocs, employmentTerms, employeeDocs, supplierInvoices, overdueCapas, staleStockCounts, equipmentMaintenance, staleTransfers, approvalBacklog, booksHealth, reraValidity] = await Promise.all([
+  const [escalations, rentSchedule, rentReminders, saleReminders, notifications, recurringExpenses, legalDocs, employmentTerms, employeeDocs, supplierInvoices, overdueCapas, staleStockCounts, equipmentMaintenance, staleTransfers, approvalBacklog, booksHealth, reraValidity, rateContracts] = await Promise.all([
     processDueEscalations().catch(() => ({ checked: 0, escalated: 0 })),
     generateDueRentSchedules().catch(() => ({ checked: 0, created: 0 })),
     sendRentDueReminders().catch(() => ({ checked: 0, sent: 0 })),
@@ -86,6 +86,8 @@ export const POST = apiHandler(async (req: NextRequest) => {
     checkBooksHealth().catch(() => ({ companies: 0, failed: 0 })),
     // RERA validity — selling past the registration date is a legal failure
     checkReraValidity().catch(() => ({ companies: 0, flagged: 0 })),
+    // Rate contracts lapsing silently = POs quietly buying at market rate
+    checkRateContractExpiry().catch(() => ({ flagged: 0, expired: 0 })),
   ]);
 
   return json({
@@ -109,5 +111,6 @@ export const POST = apiHandler(async (req: NextRequest) => {
     approvalBacklog,
     booksHealth,
     reraValidity,
+    rateContracts,
   });
 }, { skipSession: true, rateLimit: false });
