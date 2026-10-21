@@ -23,7 +23,7 @@ export async function checkApprovalBacklog(): Promise<{ companies: number; flagg
     const staleBefore = new Date(
       now.getTime() - (company.approvalAgingHours ?? 48) * 60 * 60 * 1000,
     );
-    const [pos, reqs, passes, raBills, expenses, claims, leaves] = await Promise.all([
+    const [pos, reqs, passes, raBills, expenses, claims, leaves, advances, corrections] = await Promise.all([
       prisma.purchaseOrder.aggregate({
         where: { companyId: company.id, status: "DRAFT", createdAt: { lt: staleBefore } },
         _count: { _all: true }, _sum: { total: true },
@@ -47,12 +47,20 @@ export async function checkApprovalBacklog(): Promise<{ companies: number; flagg
       prisma.leaveRequest.count({
         where: { companyId: company.id, status: "PENDING", createdAt: { lt: staleBefore } },
       }),
+      // Self-service asks — a worker's advance request or punch fix sits
+      // invisible until HR opens the right dossier. Same wait, same nag.
+      prisma.employeeAdvance.count({
+        where: { companyId: company.id, status: "REQUESTED", createdAt: { lt: staleBefore } },
+      }),
+      prisma.attendanceCorrectionRequest.count({
+        where: { companyId: company.id, status: "REQUESTED", createdAt: { lt: staleBefore } },
+      }),
     ]);
 
     const poN = pos._count._all ?? 0;
     const passN = passes ?? 0;
     const billN = raBills._count._all ?? 0;
-    const total = poN + reqs + passN + billN + expenses + claims + leaves;
+    const total = poN + reqs + passN + billN + expenses + claims + leaves + advances + corrections;
     if (total === 0) continue;
 
     const stuckValue = new Decimal(pos._sum.total ?? 0)
@@ -76,6 +84,8 @@ export async function checkApprovalBacklog(): Promise<{ companies: number; flagg
     if (expenses) parts.push(`${expenses} expense${expenses > 1 ? "s" : ""}`);
     if (claims) parts.push(`${claims} claim${claims > 1 ? "s" : ""}`);
     if (leaves) parts.push(`${leaves} leave request${leaves > 1 ? "s" : ""}`);
+    if (advances) parts.push(`${advances} advance request${advances > 1 ? "s" : ""}`);
+    if (corrections) parts.push(`${corrections} attendance correction${corrections > 1 ? "s" : ""}`);
 
     void emitNotificationEvent({
       eventType: NotificationEventType.APPROVAL_BACKLOG,

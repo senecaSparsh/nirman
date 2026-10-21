@@ -3682,8 +3682,13 @@ export async function requestAttendanceCorrection(input: RequestAttendanceCorrec
   if (!employee.active) throw new HrError("Inactive employees cannot request corrections", 400);
 
   // Future dates can't be corrected — the day hasn't happened yet.
-  const day = new Date(input.date + "T00:00:00");
-  if (day.getTime() > Date.now()) throw new HrError("Can't correct a day that hasn't happened", 400);
+  // dateOnlyUTC anchors the stored date to UTC-midnight (the @db.Date
+  // convention — local-midnight would shift back a day in IST); the
+  // guard compares against the IST business day, not UTC.
+  const day = dateOnlyUTC(input.date);
+  if (day.getTime() > todayISTUTC().getTime()) {
+    throw new HrError("Can't correct a day that hasn't happened", 400);
+  }
 
   // One open ask per day — "send it again" isn't a second correction.
   const pending = await prisma.attendanceCorrectionRequest.count({
