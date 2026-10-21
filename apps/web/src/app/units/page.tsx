@@ -363,6 +363,7 @@ async function BuiltUnitsContent() {
         portalUnitOptions={portalUnitOptions}
         portalProjects={portalProjects}
         portalPermissions={{ canManage: canManagePortals }}
+        publicListings={{ companyId: company.id, enabled: company.publicListingsEnabled }}
         canViewPortals={canViewPortals}
         renovationRows={renovationRows}
         renovationProjects={renovationProjects}

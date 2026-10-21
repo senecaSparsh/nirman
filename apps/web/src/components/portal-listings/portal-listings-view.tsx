@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { toast } from "sonner";
 import {
-  Globe, Plus, RefreshCw, ExternalLink, XCircle, Loader2,
+  Globe, Plus, RefreshCw, ExternalLink, XCircle, Loader2, Link2,
   CheckCircle2, AlertCircle, Clock, Pencil, Trash2,
   Zap, SearchX,
 } from "lucide-react";
@@ -114,11 +114,14 @@ export function PortalListingsView({
   unitOptions,
   projects: _projects = [],
   permissions,
+  publicListings,
 }: {
   listings: ListingRow[];
   unitOptions: UnitOption[];
   projects?: ProjectOption[];
   permissions?: { canManage?: boolean };
+  /** Public discovery page status — shows a copy-link when the company opted in. */
+  publicListings?: { companyId: string; enabled: boolean };
 }) {
   const canManage = permissions?.canManage ?? false;
   const now = useHydratedDate();
@@ -339,8 +342,26 @@ export function PortalListingsView({
     );
   }
 
+  const publicUrl = publicListings?.enabled ? `/properties/${publicListings.companyId}` : null;
+
+  async function copyPublicLink() {
+    if (!publicUrl) return;
+    const full = `${window.location.origin}${publicUrl}`;
+    try {
+      await navigator.clipboard.writeText(full);
+      toast.success("Public link copied", { description: full });
+    } catch {
+      toast.info(full);
+    }
+  }
+
   const trailingButtons = (
     <>
+      {publicUrl && (
+        <Button variant="outline" onClick={copyPublicLink} title="Copy the buyer-facing properties page link">
+          <Link2 className="h-4 w-4" /> Public page
+        </Button>
+      )}
       {canManage && pendingSyncCount > 0 && (
         <Button variant="outline" onClick={bulkSync} disabled={bulkSyncing}>
           {bulkSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}

@@ -55,6 +55,7 @@ export function UnitsHub({
   portalUnitOptions,
   portalProjects,
   portalPermissions,
+  publicListings,
   canViewPortals,
   renovationRows,
   renovationProjects,
@@ -71,6 +72,7 @@ export function UnitsHub({
   portalUnitOptions: PortalUnitOption[];
   portalProjects: { id: string; name: string }[];
   portalPermissions: { canManage: boolean };
+  publicListings?: { companyId: string; enabled: boolean };
   canViewPortals: boolean;
   renovationRows: RenovationRow[];
   renovationProjects: { id: string; name: string }[];
@@ -132,6 +134,7 @@ export function UnitsHub({
             unitOptions={portalUnitOptions}
             projects={portalProjects}
             permissions={portalPermissions}
+            publicListings={publicListings}
           />
         </TabsContent>
       )}
