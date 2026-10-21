@@ -604,7 +604,10 @@ describe("G10 — DESKTOP_ROUTES covers the desktop route tree exactly", () => {
           // Public/auth pages are never redirect targets — keep them out.
           // The portal/print alternatives are segment-anchored so staff pages
           // like /portal-listings are NOT swallowed by the "/portal" prefix.
-          if (/^(sign-in|sign-up|forgot-password|reset-password|consent|accept|portal|print)(\/|$)/.test(clean)) continue;
+          // properties/* and supplier-portal/* are public unauthenticated
+          // surfaces (public listing discovery, vendor OTP portal) — the same
+          // class as /portal and /accept, not staff desktop routes.
+          if (/^(sign-in|sign-up|forgot-password|reset-password|consent|accept|portal|print|properties|supplier-portal)(\/|$)/.test(clean)) continue;
           out.push(clean ? "/" + clean : "/");
         }
       }

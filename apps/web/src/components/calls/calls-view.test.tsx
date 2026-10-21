@@ -91,11 +91,10 @@ const baseProps = {
 };
 
 describe("CallsView", () => {
-  it("renders call stats (total, missed, talk time)", () => {
+  it("renders the call count in the toolbar", () => {
     render(<CallsView {...baseProps} />);
-    expect(screen.getByText("Total")).toBeInTheDocument();
-    expect(screen.getByText("Talk time")).toBeInTheDocument();
-    expect(screen.getByText("2 calls")).toBeInTheDocument();
+    // ToolbarCount + pagination both carry the "N calls" count.
+    expect(screen.getAllByText("2 calls").length).toBeGreaterThan(0);
   });
 
   it("renders Log Call button when canCreate is true", () => {

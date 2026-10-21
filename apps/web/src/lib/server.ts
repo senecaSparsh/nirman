@@ -783,6 +783,7 @@ export async function scopeWhere(
     // GRNs have no projectId — they scope via their PO's project or the
     // receiving location's project (site stores).
     GoodsReceipt:         { project: ["purchaseOrder.projectId", "location.projectId"] },
+    EscrowWithdrawal:     { project: ["projectId"] },
 
     // Projects / Construction
     // Task is intentionally not scopeable — see KNOWN_UNSCOPABLE below.

@@ -266,7 +266,7 @@ export async function ProjectDetailContent({ params }: { params: Promise<{ id: s
       OR: [{ chequeStatus: null }, { chequeStatus: { notIn: ["PENDING", "BOUNCED"] } }],
     },
   });
-  const escrowCollected = toNum(escrowAgg._sum.amount);
+  const escrowCollected = toNum(escrowAgg._sum?.amount);
 
   // Ledgered escrow balance — the actual 1060 account position for this
   // project's sale receipts. Computed collections tell you what SHOULD be

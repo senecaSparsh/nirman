@@ -90,6 +90,10 @@ export function isPublicRoute(pathname: string): boolean {
     pathname === "/portal" ||
     pathname.startsWith("/portal/") ||
     pathname.startsWith("/api/portal/") ||
+    // Supplier portal — own OTP auth via /api/supplier-portal/auth/*.
+    pathname === "/supplier-portal" ||
+    pathname.startsWith("/supplier-portal/") ||
+    pathname.startsWith("/api/supplier-portal/") ||
     // Public property discovery + enquiry — buyer-facing, no login.
     pathname === "/properties" ||
     pathname.startsWith("/properties/") ||
@@ -188,6 +192,7 @@ export function middleware(req: NextRequest) {
     // "/portal" = customer portal (surface-agnostic). "/portal-listings"
     // is a STAFF page — it must get the mobile redirect like any app route.
     !(pathname === "/portal" || pathname.startsWith("/portal/")) &&
+    !(pathname === "/supplier-portal" || pathname.startsWith("/supplier-portal/")) &&
     !pathname.startsWith("/api") &&
     !isPublicRoute(pathname) &&
     !searchParams.has("__surface") &&
@@ -264,6 +269,10 @@ export function middleware(req: NextRequest) {
     pathname === "/portal" ||
     pathname.startsWith("/portal/") ||
     pathname.startsWith("/api/portal/") ||
+    // Supplier portal — own OTP auth via /api/supplier-portal/auth/*.
+    pathname === "/supplier-portal" ||
+    pathname.startsWith("/supplier-portal/") ||
+    pathname.startsWith("/api/supplier-portal/") ||
     // Public property discovery + enquiry — buyer-facing, no login.
     pathname === "/properties" ||
     pathname.startsWith("/properties/") ||

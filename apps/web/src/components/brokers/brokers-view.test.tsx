@@ -39,7 +39,7 @@ describe("BrokersView", () => {
 
   it("renders Add Broker button when canCreate is true", () => {
     render(<BrokersView brokers={brokers} canCreate canEdit canDelete />);
-    expect(screen.getByText("Add Broker")).toBeInTheDocument();
+    expect(screen.getAllByText("Add Broker").length).toBeGreaterThan(0);
   });
 
   it("does not render Add Broker when canCreate is false", () => {

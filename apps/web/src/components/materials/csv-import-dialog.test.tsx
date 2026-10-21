@@ -48,10 +48,11 @@ describe("CsvImportDialog (materials)", () => {
   });
 
   it("renders a hidden file input with csv accept", () => {
-    const { container } = render(
+    render(
       <CsvImportDialog open onClose={vi.fn()} categories={categories} onSuccess={vi.fn()} />,
     );
-    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    // The dialog mounts in a portal — query document, not the render container.
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     expect(input).toBeInTheDocument();
     expect(input.accept).toBe(".csv,text/csv");
   });

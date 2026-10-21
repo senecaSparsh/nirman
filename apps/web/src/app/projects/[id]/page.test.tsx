@@ -13,6 +13,7 @@ vi.mock("next/server", async () => {
 
 vi.mock("@nirman/services", () => ({
   projectPnl: vi.fn(async () => ({ total: 100000, revenue: 150000, profit: 50000, margin: 33.33 })),
+  projectEscrowLedgerBalance: vi.fn(async () => ({ toNumber: () => 0 })),
   resolveUserScope: vi.fn(async () => null),
   logAction: vi.fn(async () => {}),
   ServiceError: class ServiceError extends Error {},

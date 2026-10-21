@@ -92,7 +92,8 @@ describe("VendorsView", () => {
 
   it("renders Add vendor button when canManage is true", () => {
     render(<VendorsView vendors={vendors} permissions={{ canManage: true }} />);
-    expect(screen.getByText("Add vendor")).toBeInTheDocument();
+    // Toolbar + table-footer affordances both carry the label.
+    expect(screen.getAllByText("Add vendor").length).toBeGreaterThan(0);
   });
 
   it("renders empty state when no vendors", () => {
@@ -113,7 +114,7 @@ describe("VendorsView", () => {
 
   it("opens create form dialog when Add vendor is clicked", () => {
     render(<VendorsView vendors={vendors} permissions={{ canManage: true }} />);
-    fireEvent.click(screen.getByText("Add vendor"));
+    fireEvent.click(screen.getAllByText("Add vendor")[0]!);
     // The form dialog should open with the Name field
     expect(screen.getByRole("heading", { name: "Add Vendor" })).toBeInTheDocument();
   });

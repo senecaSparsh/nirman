@@ -125,7 +125,7 @@ describe("GenericCsvImportDialog", () => {
   });
 
   it("renders a hidden file input", () => {
-    const { container } = render(
+    render(
       <GenericCsvImportDialog
         open
         onClose={vi.fn()}
@@ -137,7 +137,8 @@ describe("GenericCsvImportDialog", () => {
         onSuccess={vi.fn()}
       />,
     );
-    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    // The dialog mounts in a portal — query document, not the render container.
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     expect(input).toBeInTheDocument();
     expect(input.accept).toBe(".csv,text/csv");
   });

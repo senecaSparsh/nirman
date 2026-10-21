@@ -1,0 +1,186 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import type { PortalSupplier } from "@/lib/supplier-portal-auth";
+
+type OrderLine = { id: string; materialName: string; unit: string | null; qtyOrdered: number; qtyReceived: number; unitCost: number };
+type Order = { id: string; poNumber: string; status: string; orderDate: string; expectedDate: string | null; projectName: string | null; total: number; lines: OrderLine[] };
+type Invoice = { id: string; invoiceNumber: string; invoiceDate: string; dueDate: string | null; poNumber: string | null; totalAmount: number; status: string; matchStatus: string | null; paid: number; outstanding: number };
+type Payment = { id: string; paymentNumber: string; amount: number; tdsAmount: number; tdsSection: string | null; netPaidAmount: number; paymentDate: string; paymentMode: string; referenceNo: string | null; status: string; poNumber: string | null; invoiceNumber: string | null };
+
+const inr = (n: number) =>
+  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
+const fdate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—");
+
+const statusColors: Record<string, string> = {
+  ORDERED: "bg-blue-50 text-blue-700",
+  RECEIVED: "bg-green-50 text-green-700",
+  APPROVED: "bg-green-50 text-green-700",
+  PAID: "bg-green-50 text-green-700",
+  DRAFT: "bg-slate-100 text-slate-600",
+  PENDING: "bg-amber-50 text-amber-700",
+  MATCHED: "bg-blue-50 text-blue-700",
+  DISPUTED: "bg-red-50 text-red-700",
+  ACTIVE: "bg-green-50 text-green-700",
+  VOID: "bg-red-50 text-red-700",
+};
+
+export function SupplierPortalDashboard({ supplier }: { supplier: PortalSupplier }) {
+  const router = useRouter();
+  const [tab, setTab] = useState<"orders" | "invoices" | "payments">("orders");
+  const [orders, setOrders] = useState<Order[] | null>(null);
+  const [invoices, setInvoices] = useState<Invoice[] | null>(null);
+  const [payments, setPayments] = useState<Payment[] | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetch("/api/supplier-portal/purchase-orders")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Failed to load"))))
+      .then((d) => setOrders(d.orders))
+      .catch(() => setError("Couldn't load your orders"));
+    fetch("/api/supplier-portal/invoices")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Failed"))))
+      .then((d) => setInvoices(d.invoices))
+      .catch(() => {});
+    fetch("/api/supplier-portal/payments")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Failed"))))
+      .then((d) => setPayments(d.payments))
+      .catch(() => {});
+  }, []);
+
+  async function logout() {
+    await fetch("/api/supplier-portal/auth/logout", { method: "POST" });
+    router.push("/supplier-portal/login");
+    router.refresh();
+  }
+
+  const badge = (s: string) => (
+    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusColors[s] ?? "bg-slate-100 text-slate-600"}`}>
+      {s}
+    </span>
+  );
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-6">
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900">{supplier.name}</h1>
+          <p className="text-sm text-slate-500">{supplier.companyName}{supplier.gstin ? ` · GSTIN ${supplier.gstin}` : ""}</p>
+        </div>
+        <button onClick={logout} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-white">
+          Logout
+        </button>
+      </div>
+
+      {error && <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+
+      {/* Tabs */}
+      <div className="mb-4 flex gap-1 rounded-xl bg-slate-100 p-1">
+        {([["orders", "Orders"], ["invoices", "Invoices"], ["payments", "Payments"]] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${tab === key ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "orders" && (
+        <div className="space-y-3">
+          {orders == null ? <p className="text-sm text-slate-500">Loading…</p> : orders.length === 0 ? (
+            <p className="portal-card text-sm text-slate-500">No purchase orders yet.</p>
+          ) : orders.map((o) => (
+            <div key={o.id} className="portal-card">
+              <div className="mb-2 flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-slate-900">{o.poNumber}</p>
+                  <p className="text-xs text-slate-500">
+                    {fdate(o.orderDate)}{o.projectName ? ` · ${o.projectName}` : ""}
+                    {o.expectedDate ? ` · expected ${fdate(o.expectedDate)}` : ""}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-slate-900">{inr(o.total)}</p>
+                  {badge(o.status)}
+                </div>
+              </div>
+              <table className="w-full text-sm">
+                <tbody>
+                  {o.lines.map((l) => (
+                    <tr key={l.id} className="border-t border-slate-100">
+                      <td className="py-1.5 pr-2 text-slate-700">{l.materialName}</td>
+                      <td className="py-1.5 text-right text-slate-500">
+                        {l.qtyOrdered}{l.unit ? ` ${l.unit.toLowerCase()}` : ""}
+                        {l.qtyReceived > 0 && ` · rcvd ${l.qtyReceived}`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === "invoices" && (
+        <div className="space-y-3">
+          {invoices == null ? <p className="text-sm text-slate-500">Loading…</p> : invoices.length === 0 ? (
+            <p className="portal-card text-sm text-slate-500">No invoices on record.</p>
+          ) : invoices.map((i) => (
+            <div key={i.id} className="portal-card flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-slate-900">Invoice {i.invoiceNumber}</p>
+                <p className="text-xs text-slate-500">
+                  {fdate(i.invoiceDate)}{i.poNumber ? ` · ${i.poNumber}` : ""}
+                  {i.dueDate ? ` · due ${fdate(i.dueDate)}` : ""}
+                  {i.matchStatus ? ` · ${i.matchStatus.replace(/_/g, " ").toLowerCase()}` : ""}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="font-bold text-slate-900">{inr(i.totalAmount)}</p>
+                <p className="text-xs text-slate-500">
+                  {i.outstanding > 0 ? `due ${inr(i.outstanding)}` : "fully paid"} · {badge(i.status)}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === "payments" && (
+        <div className="space-y-3">
+          {payments == null ? <p className="text-sm text-slate-500">Loading…</p> : payments.length === 0 ? (
+            <p className="portal-card text-sm text-slate-500">No payments yet.</p>
+          ) : payments.map((p) => (
+            <div key={p.id} className="portal-card flex items-center justify-between">
+              <div>
+                <p className="font-semibold text-slate-900">{p.paymentNumber}</p>
+                <p className="text-xs text-slate-500">
+                  {fdate(p.paymentDate)} · {p.paymentMode}{p.referenceNo ? ` · ${p.referenceNo}` : ""}
+                  {p.invoiceNumber ? ` · inv ${p.invoiceNumber}` : ""}
+                  {p.poNumber ? ` · ${p.poNumber}` : ""}
+                </p>
+                {p.tdsAmount > 0 && (
+                  <p className="mt-0.5 text-xs text-amber-700">
+                    TDS {p.tdsSection ? `${p.tdsSection} ` : ""}{inr(p.tdsAmount)} — claim in Form 26AS
+                  </p>
+                )}
+              </div>
+              <div className="text-right">
+                <p className="font-bold text-slate-900">{inr(p.netPaidAmount || p.amount)}</p>
+                {badge(p.status)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <p className="mt-8 text-center text-xs text-slate-400">
+        Your orders, invoices and payments — as recorded by {supplier.companyName}
+      </p>
+    </div>
+  );
+}

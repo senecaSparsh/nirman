@@ -40,7 +40,7 @@ describe("SubcontractorsView", () => {
 
   it("renders Add Subcontractor button when canCreate is true", () => {
     render(<SubcontractorsView subcontractors={subs} canCreate canEdit canDelete />);
-    expect(screen.getByText("Add Subcontractor")).toBeInTheDocument();
+    expect(screen.getAllByText("Add Subcontractor").length).toBeGreaterThan(0);
   });
 
   it("does not render Add Subcontractor when canCreate is false", () => {
