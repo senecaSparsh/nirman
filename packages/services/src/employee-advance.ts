@@ -22,7 +22,161 @@ import { HrError } from "./hr";
 import { ACCT, ensureGlAccount, postJournalEntry } from "./gl-posting";
 import { withSerializableTransaction } from "./transaction";
 
-export type AdvanceStatus = "ACTIVE" | "PAUSED" | "SETTLED" | "CANCELLED";
+export type AdvanceStatus = "REQUESTED" | "ACTIVE" | "PAUSED" | "SETTLED" | "CANCELLED";
+
+export interface RequestAdvanceInput {
+  employeeId: string;
+  companyId: string;
+  amount: number;
+  notes?: string | null;
+  /** The employee's own userId — recorded as the requester, never the issuer. */
+  actorUserId: string;
+}
+
+/**
+ * Self-service: the employee asks for an advance. Creates a REQUESTED row —
+ * no cash moves, no GL posts, no payroll recovery yet. HR decides through
+ * decideAdvanceRequest: approve sets the recovery terms + posts the cash JE;
+ * reject cancels the request with a note. The status field is a String column,
+ * so REQUESTED slots in without a migration.
+ */
+export async function requestAdvance(input: RequestAdvanceInput) {
+  if (!Number.isFinite(input.amount) || input.amount <= 0) {
+    throw new HrError("Advance amount must be greater than 0", 400);
+  }
+  const employee = await prisma.employee.findFirst({
+    where: { id: input.employeeId, companyId: input.companyId, deletedAt: null },
+    select: { id: true, active: true },
+  });
+  if (!employee) throw new HrError("Employee not found in this company", 404);
+  if (!employee.active) throw new HrError("Inactive employees cannot request advances", 400);
+
+  // One open request at a time — a second ask while the first waits on HR is
+  // the "send it again" behaviour, not a second request.
+  const pending = await prisma.employeeAdvance.count({
+    where: { employeeId: input.employeeId, status: "REQUESTED" },
+  });
+  if (pending > 0) {
+    throw new HrError("You already have an advance request pending — wait for HR to respond first", 400);
+  }
+
+  return withSerializableTransaction(async (tx) => {
+    const advance = await tx.employeeAdvance.create({
+      data: {
+        companyId: input.companyId,
+        employeeId: input.employeeId,
+        amount: input.amount,
+        monthlyRecovery: 0,
+        notes: input.notes ?? null,
+        status: "REQUESTED",
+        issuedById: null,
+      },
+    });
+    await logAction(tx, {
+      userId: input.actorUserId,
+      companyId: input.companyId,
+      action: "ADVANCE_REQUEST",
+      entityType: "EmployeeAdvance",
+      entityId: advance.id,
+      after: { employeeId: input.employeeId, amount: input.amount, notes: input.notes ?? null },
+    });
+    return advance;
+  });
+}
+
+/**
+ * HR decides a REQUESTED advance.
+ *  approve: status → ACTIVE, sets monthlyRecovery + issueDate, books the same
+ *           cash-out JE issueAdvance posts (Dr ADVANCE_TO_EMP / Cr CASH).
+ *  reject:  status → CANCELLED with the reason appended to notes. No GL —
+ *           nothing was ever issued. A rejected row is terminal.
+ */
+export async function decideAdvanceRequest(input: {
+  advanceId: string;
+  companyId: string;
+  approve: boolean;
+  monthlyRecovery?: number;
+  note?: string;
+  actorUserId: string;
+}) {
+  const advance = await prisma.employeeAdvance.findFirst({
+    where: { id: input.advanceId, companyId: input.companyId },
+    include: { employee: { select: { name: true } } },
+  });
+  if (!advance) throw new HrError("Advance request not found", 404);
+  if (advance.status !== "REQUESTED") {
+    throw new HrError(`This advance is ${advance.status.toLowerCase()} — only pending requests can be decided`, 400);
+  }
+
+  if (!input.approve) {
+    return withSerializableTransaction(async (tx) => {
+      const updated = await tx.employeeAdvance.update({
+        where: { id: advance.id },
+        data: {
+          status: "CANCELLED",
+          notes: input.note ? `${advance.notes ?? ""}
+Rejected: ${input.note}`.trim() : advance.notes,
+        },
+      });
+      await logAction(tx, {
+        userId: input.actorUserId,
+        companyId: input.companyId,
+        action: "ADVANCE_REJECT",
+        entityType: "EmployeeAdvance",
+        entityId: advance.id,
+        after: { note: input.note ?? null },
+      });
+      return updated;
+    });
+  }
+
+  const monthlyRecovery = input.monthlyRecovery ?? 0;
+  if (!Number.isFinite(monthlyRecovery) || monthlyRecovery <= 0) {
+    throw new HrError("Set a monthly recovery amount before approving", 400);
+  }
+  if (monthlyRecovery > Number(advance.amount)) {
+    throw new HrError("Monthly recovery cannot exceed the advance amount", 400);
+  }
+
+  return withSerializableTransaction(async (tx) => {
+    const updated = await tx.employeeAdvance.update({
+      where: { id: advance.id },
+      data: {
+        status: "ACTIVE",
+        monthlyRecovery,
+        issueDate: new Date(),
+        issuedById: input.actorUserId,
+        notes: input.note ? `${advance.notes ?? ""}
+Approved: ${input.note}`.trim() : advance.notes,
+      },
+    });
+
+    // Same JE as issueAdvance — the request just became a real advance.
+    await ensureGlAccount(tx, input.companyId, ACCT.ADVANCE_TO_EMP);
+    await postJournalEntry(tx, {
+      companyId: input.companyId,
+      sourceType: "EMPLOYEE_ADVANCE",
+      sourceId: advance.id,
+      memo: `Salary advance issued to ${advance.employee.name} (self-requested, approved)`,
+      postedById: input.actorUserId,
+      lines: [
+        { accountCode: ACCT.ADVANCE_TO_EMP, debit: advance.amount, credit: 0, entityType: "Employee", entityId: advance.employeeId, memo: "Advance receivable from employee" },
+        { accountCode: ACCT.CASH, debit: 0, credit: advance.amount, entityType: "Employee", entityId: advance.employeeId, memo: "Cash paid out as advance" },
+      ],
+    });
+
+    await logAction(tx, {
+      userId: input.actorUserId,
+      companyId: input.companyId,
+      action: "ADVANCE_APPROVE",
+      entityType: "EmployeeAdvance",
+      entityId: advance.id,
+      after: { amount: advance.amount.toString(), monthlyRecovery },
+    });
+    return updated;
+  });
+}
+
 
 export interface IssueAdvanceInput {
   employeeId: string;

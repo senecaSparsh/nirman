@@ -157,8 +157,9 @@ async function resolveMePageInitial(): Promise<MePageInitial | null> {
       }),
       // Outstanding advances — "kitna udhaar bacha hai" — the worker's own
       // ledger: what was taken, what's recovered, what's still owed.
+      // REQUESTED included so the pending ask shows as "waiting on HR".
       prisma.employeeAdvance.findMany({
-        where: { employeeId: employee.id, status: { in: ["ACTIVE", "PAUSED"] } },
+        where: { employeeId: employee.id, status: { in: ["ACTIVE", "PAUSED", "REQUESTED"] } },
         orderBy: { createdAt: "desc" },
         select: { id: true, amount: true, recoveredAmount: true, monthlyRecovery: true, status: true, issueDate: true },
       }),

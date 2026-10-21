@@ -84,7 +84,18 @@ function getServerCacheVersion() {
 // Drop everything when the switch event fires. Sign-out needs no listener:
 // it hard-redirects, which drops the whole JS heap.
 if (typeof window !== "undefined") {
-  window.addEventListener("nirman-company-switched", () => memoryCache.clear());
+  window.addEventListener("nirman-company-switched", () => {
+    memoryCache.clear();
+    // Bump the version too — clearing the map alone leaves every mounted
+    // hook holding its old-company `data` state forever (the fetch effect
+    // only re-runs when this version changes). This is the "I switched
+    // business and the page still shows the old one" fix.
+    bumpCacheVersion();
+    // SWR holds a separate cache — revalidate every key, not just the
+    // three the shell remembers, so page-level hooks (employees, orders…)
+    // refetch under the new company too.
+    void import("swr").then(({ mutate }) => mutate(() => true, undefined, { revalidate: true })).catch(() => {});
+  });
 
   // Any successful write can invalidate any cached read — clear the whole
   // map rather than guessing which URLs the mutation touched. Over-eviction

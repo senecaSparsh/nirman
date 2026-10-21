@@ -247,6 +247,7 @@ const DPR_STATUS_CONFIG: Record<string, { label: string; variant: "warning" | "i
 };
 
 const ADVANCE_STATUS_CONFIG: Record<string, { label: string; variant: "info" | "warning" | "success" | "muted" }> = {
+  REQUESTED: { label: "Requested", variant: "warning" },
   ACTIVE: { label: "Recovering", variant: "info" },
   PAUSED: { label: "Paused", variant: "warning" },
   SETTLED: { label: "Settled", variant: "success" },
@@ -2122,7 +2123,7 @@ type AdvanceRow = {
   monthlyRecovery: number;
   recoveredAmount: number;
   outstanding: number;
-  status: "ACTIVE" | "PAUSED" | "SETTLED" | "CANCELLED";
+  status: "REQUESTED" | "ACTIVE" | "PAUSED" | "SETTLED" | "CANCELLED";
   issueDate: string;
   notes: string | null;
   issuedBy: string | null;
@@ -2156,6 +2157,7 @@ function AdvancesSection({ employeeId, canManagePayroll }: { employeeId: string;
     } finally { setActing(null); }
   };
 
+  const pending = (advances ?? []).filter((a) => a.status === "REQUESTED");
   const open = (advances ?? []).filter((a) => a.status === "ACTIVE" || a.status === "PAUSED");
   const outstandingTotal = open.reduce((s, a) => s + toNum(a.outstanding), 0);
 
@@ -2179,6 +2181,29 @@ function AdvancesSection({ employeeId, canManagePayroll }: { employeeId: string;
             <p className="text-meta text-muted-foreground">
               Outstanding <span className="tnum font-semibold text-foreground">{formatCurrency(outstandingTotal)}</span> across {open.length} advance{open.length === 1 ? "" : "s"} — recovered automatically from payroll.
             </p>
+          )}
+          {pending.length > 0 && (
+            <div className="space-y-2 rounded-md border border-amber-200 bg-amber-50/60 p-3">
+              <p className="text-meta font-semibold text-amber-800">
+                {pending.length} pending request{pending.length === 1 ? "" : "s"} — approve to start payroll recovery
+              </p>
+              {pending.map((a) => (
+                <div key={a.id} className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <div className="min-w-0 flex-1">
+                    <span className="tnum font-semibold text-foreground">{formatCurrency(a.amount)}</span>
+                    {a.notes && <span className="ml-2 text-meta text-muted-foreground">{a.notes}</span>}
+                  </div>
+                  {canManagePayroll && (
+                    <AdvanceDecisionButtons
+                      employeeId={employeeId}
+                      advanceId={a.id}
+                      amount={toNum(a.amount)}
+                      onDone={load}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
           )}
           <div className="space-y-2">
             {advances.map((a) => (
@@ -4044,5 +4069,52 @@ function PhoneStatusDialog({
         )}
       </div>
     </Dialog>
+  );
+}
+
+
+/** Approve / reject a REQUESTED advance. Approve needs the monthly
+    recovery — the deduction HR negotiates before releasing cash. */
+function AdvanceDecisionButtons({ employeeId, advanceId, amount, onDone }: {
+  employeeId: string; advanceId: string; amount: number; onDone: () => void;
+}) {
+  const [recovery, setRecovery] = useState("");
+  const [busy, setBusy] = useState<"approve" | "reject" | null>(null);
+
+  const decide = async (approve: boolean) => {
+    const rec = approve ? Number(recovery) : undefined;
+    if (approve && (!rec || rec <= 0)) { toast.error("Enter the monthly recovery first"); return; }
+    if (approve && rec! > amount) { toast.error("Recovery can't exceed the advance amount"); return; }
+    setBusy(approve ? "approve" : "reject");
+    try {
+      const res = await fetch(`/api/employees/${employeeId}/advances/${advanceId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approve, monthlyRecovery: rec }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        toast.success(approve ? `Approved — recovers ${formatCurrency(rec!)} / month` : "Request rejected");
+        onDone();
+      } else {
+        toast.error(data.error ?? "Decision failed");
+      }
+    } finally { setBusy(null); }
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <Input
+        type="number" min="1" placeholder="₹/month"
+        value={recovery} onChange={(e) => setRecovery(e.target.value)}
+        className="h-8 w-24"
+      />
+      <Button variant="outline" size="sm" disabled={busy !== null} onClick={() => decide(true)}>
+        {busy === "approve" ? "Approving…" : "Approve"}
+      </Button>
+      <Button variant="ghost" size="sm" disabled={busy !== null} onClick={() => decide(false)}>
+        Reject
+      </Button>
+    </div>
   );
 }

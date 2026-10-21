@@ -959,7 +959,9 @@ export {
 } from "./geometry";
 
 export {
+  decideAdvanceRequest,
   issueAdvance,
+  requestAdvance,
   listEmployeeAdvances,
   listCompanyAdvances,
   updateAdvanceStatus,

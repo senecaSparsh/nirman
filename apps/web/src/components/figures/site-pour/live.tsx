@@ -45,7 +45,7 @@ export function SitePourLive({ restPaths }: { restPaths: SolidPaths }) {
   }, inView);
 
   return (
-    <g ref={wrap} aria-hidden="true">
+    <g ref={anchor} aria-hidden="true">
       {/* pre-cast bays, toggled as the pour passes them */}
       {[0, 1, 2].map((b) => (
         <g key={b} className="set-pour" data-bay={b} style={{ display: b < POUR_REST.bay ? "" : "none" }}>

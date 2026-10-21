@@ -673,27 +673,43 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
                   })}
                 </div>
               )}
+              {/* Ask for an advance — the request that used to live in a
+                  WhatsApp message. REQUESTED rows appear below until HR decides. */}
+              <AdvanceRequestForm hasPending={initial.hr.advances.some((a) => a.status === "REQUESTED")} />
               {/* Open advances — the worker's own ledger ("kitna udhaar bacha
                   hai"): what was taken, recovered, and still being deducted. */}
               {initial.hr.advances.length > 0 && (
                 <div className="pt-2 mt-2 space-y-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
                   {initial.hr.advances.map((a) => (
                     <div key={a.id}>
-                      <div className="flex items-baseline justify-between gap-2">
-                        <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
-                          Advance · {formatDate(a.issueDate)}
-                          {a.status === "PAUSED" && <span style={{ color: "var(--color-warn)" }}> · paused</span>}
-                        </p>
-                        <p className="text-m-caption font-semibold tabular-nums shrink-0" style={{ color: "var(--color-ink-950)" }}>
-                          ₹{a.outstanding.toLocaleString("en-IN")} left
-                        </p>
-                      </div>
-                      <div className="mt-1 h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--color-ink-100)" }}>
-                        <div
-                          className="h-full rounded-full"
-                          style={{ width: `${Math.min(100, (a.recoveredAmount / Math.max(a.amount, 1)) * 100)}%`, backgroundColor: "var(--color-warn)" }}
-                        />
-                      </div>
+                      {a.status === "REQUESTED" ? (
+                        <div className="flex items-baseline justify-between gap-2">
+                          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                            Advance request · {formatDate(a.issueDate)}
+                          </p>
+                          <p className="text-m-caption font-semibold tabular-nums shrink-0" style={{ color: "var(--color-warn)" }}>
+                            ₹{a.amount.toLocaleString("en-IN")} · pending
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-baseline justify-between gap-2">
+                            <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
+                              Advance · {formatDate(a.issueDate)}
+                              {a.status === "PAUSED" && <span style={{ color: "var(--color-warn)" }}> · paused</span>}
+                            </p>
+                            <p className="text-m-caption font-semibold tabular-nums shrink-0" style={{ color: "var(--color-ink-950)" }}>
+                              ₹{a.outstanding.toLocaleString("en-IN")} left
+                            </p>
+                          </div>
+                          <div className="mt-1 h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--color-ink-100)" }}>
+                            <div
+                              className="h-full rounded-full"
+                              style={{ width: `${Math.min(100, (a.recoveredAmount / Math.max(a.amount, 1)) * 100)}%`, backgroundColor: "var(--color-warn)" }}
+                            />
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1181,6 +1197,92 @@ function LeaveRequestForm() {
         <Button className="flex-1" onClick={submit} disabled={saving}>
           {saving ? "Submitting…" : "Submit"}
         </Button>
+      </div>
+    </div>
+  );
+}
+
+
+/** Ask HR for a salary advance — posts to /api/me/advances; the row lands
+    REQUESTED on the dossier for HR to approve (with recovery terms) or reject. */
+function AdvanceRequestForm({ hasPending }: { hasPending: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const router = useRouter();
+
+  if (hasPending) {
+    return (
+      <p className="mb-2 text-m-caption" style={{ color: "var(--color-warn)" }}>
+        One advance request is already with HR — you can ask again once it&rsquo;s decided.
+      </p>
+    );
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mb-2 w-full rounded-lg py-2 text-m-caption font-bold"
+        style={{ border: "1px dashed var(--color-line-strong)", color: "var(--color-ink-700)" }}
+      >
+        Ask for an advance
+      </button>
+    );
+  }
+
+  const submit = async () => {
+    const amt = Number(amount);
+    if (!amt || amt <= 0) { toast.error("Enter a valid amount"); return; }
+    setBusy(true);
+    try {
+      const res = await fetch("/api/me/advances", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: amt, notes: reason.trim() || undefined }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        toast.success("Request sent — HR will decide the recovery terms");
+        setOpen(false); setAmount(""); setReason("");
+        router.refresh();
+      } else {
+        toast.error(data.error ?? "Could not send the request");
+      }
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div className="mb-2 space-y-2 rounded-lg p-2.5" style={{ border: "1px solid var(--color-line)" }}>
+      <input
+        type="number" inputMode="numeric" min="1" placeholder="Amount (₹)"
+        value={amount} onChange={(e) => setAmount(e.target.value)}
+        className="w-full rounded-md px-3 py-2 text-m-body"
+        style={{ border: "1px solid var(--color-line)", color: "var(--color-ink-950)" }}
+      />
+      <input
+        type="text" placeholder="Reason (optional — e.g. medical, school fees)"
+        value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200}
+        className="w-full rounded-md px-3 py-2 text-m-body"
+        style={{ border: "1px solid var(--color-line)", color: "var(--color-ink-950)" }}
+      />
+      <div className="flex gap-2">
+        <button
+          type="button" onClick={submit} disabled={busy}
+          className="flex-1 rounded-lg py-2 text-m-caption font-bold"
+          style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}
+        >
+          {busy ? "Sending…" : "Send request"}
+        </button>
+        <button
+          type="button" onClick={() => setOpen(false)} disabled={busy}
+          className="flex-1 rounded-lg py-2 text-m-caption font-bold"
+          style={{ border: "1px solid var(--color-line)", color: "var(--color-ink-700)" }}
+        >
+          Cancel
+        </button>
       </div>
     </div>
   );
