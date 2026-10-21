@@ -132,6 +132,8 @@ const eslintConfig = [
       "sentry.server.config.ts",
       "sentry.client.config.ts",
       "sentry.edge.config.ts",
+      // Vendored anatomy kit — upstream code, not ours to restyle
+      "src/components/iso/**",
     ],
   },
   {

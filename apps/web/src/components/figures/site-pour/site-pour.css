@@ -1,0 +1,27 @@
+/* Wet concrete — a grey wash between the pale plywood deck and the dark
+   ink of the rebar. The one accent: the band the eye follows. */
+.site-pour .wet-pour > .iso-fill {
+  fill: #b7b7b1;
+}
+.site-pour .wet-pour > .iso-top {
+  fill: #c7c7c0;
+}
+.site-pour .wet-pour > .iso-shade[data-shade="0"] {
+  fill: #a8a8a2;
+}
+.site-pour .wet-pour > .iso-shade[data-shade="1"] {
+  fill: #b0b0aa;
+}
+.site-pour .wet-pour > .iso-shade[data-shade="2"] {
+  fill: #b7b7b1;
+}
+.site-pour .wet-pour > .iso-shade[data-shade="3"] {
+  fill: #c0c0ba;
+}
+/* Poured-and-set bays — slightly lighter than the wet band */
+.site-pour .set-pour .iso-fill {
+  fill: #d5d5cf;
+}
+.site-pour .set-pour .iso-top {
+  fill: #e2e2dc;
+}

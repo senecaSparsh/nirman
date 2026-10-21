@@ -67,6 +67,10 @@ export default tseslint.config(
       "**/vitest.setup.ts",
       // Generated Prisma client — not hand-written code
       "packages/db/src/generated/**",
+      // Vendored anatomy kit (MIT — .devin/skills/anatomy) and the skill
+      // directory itself: upstream code, not ours to restyle.
+      "**/components/iso/**",
+      ".devin/skills/**",
     ],
   },
 

@@ -6,6 +6,7 @@ import { EnquiryForm } from "./enquiry-form";
 import Image from "next/image";
 import Link from "next/link";
 import { MapPin, Phone } from "lucide-react";
+import { SitePourFigure } from "@/components/figures/site-pour/figure";
 
 /**
  * Public property-discovery page — the buyer-facing catalogue. Renders a
@@ -74,8 +75,10 @@ export default async function PublicPropertiesPage({
         <p className="mt-1 text-sm text-slate-500">{listings.length} unit{listings.length !== 1 ? "s" : ""} currently open for booking.</p>
 
         {listings.length === 0 ? (
-          <div className="mt-8 rounded-lg border border-slate-200 bg-white p-8 text-center text-slate-500">
-            No properties listed right now. Check back soon.
+          <div className="mt-8 rounded-lg border border-slate-200 bg-white p-8 text-center">
+            <SitePourFigure className="mx-auto max-w-lg [&_.iso-plate]:border-0 [&_.iso-figure]:m-0 [&_.iso-plate]:rounded-none" />
+            <p className="mt-2 font-medium text-slate-700">Still pouring.</p>
+            <p className="mt-1 text-sm text-slate-500">No properties listed right now — check back soon, or call us and we&rsquo;ll tell you what&rsquo;s coming.</p>
           </div>
         ) : (
           <div className="mt-5 grid gap-5 sm:grid-cols-2">
