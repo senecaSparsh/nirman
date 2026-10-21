@@ -32,6 +32,11 @@ export function SupplierPortalDashboard({ supplier }: { supplier: PortalSupplier
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [invoices, setInvoices] = useState<Invoice[] | null>(null);
   const [payments, setPayments] = useState<Payment[] | null>(null);
+  const [showSubmit, setShowSubmit] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [submitOk, setSubmitOk] = useState("");
+  const [form, setForm] = useState({ invoiceNumber: "", invoiceDate: "", dueDate: "", subtotal: "", gstAmount: "", totalAmount: "", purchaseOrderId: "", hsnCode: "" });
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -48,6 +53,44 @@ export function SupplierPortalDashboard({ supplier }: { supplier: PortalSupplier
       .then((d) => setPayments(d.payments))
       .catch(() => {});
   }, []);
+
+  async function submitInvoice() {
+    setSubmitError("");
+    setSubmitOk("");
+    const subtotal = Number(form.subtotal);
+    const totalAmount = Number(form.totalAmount);
+    if (!form.invoiceNumber.trim()) return setSubmitError("Invoice number is required.");
+    if (!form.invoiceDate) return setSubmitError("Invoice date is required.");
+    if (!isFinite(subtotal) || !isFinite(totalAmount)) return setSubmitError("Subtotal and total must be numbers.");
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/supplier-portal/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invoiceNumber: form.invoiceNumber,
+          invoiceDate: form.invoiceDate,
+          dueDate: form.dueDate || undefined,
+          subtotal,
+          gstAmount: form.gstAmount ? Number(form.gstAmount) : undefined,
+          totalAmount,
+          purchaseOrderId: form.purchaseOrderId || undefined,
+          hsnCode: form.hsnCode || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Submit failed");
+      setSubmitOk(`Invoice ${data.invoice.invoiceNumber} submitted — ${data.invoice.status === "MATCHED" ? "matched and sent for approval" : "received, under review"}.`);
+      setForm({ invoiceNumber: "", invoiceDate: "", dueDate: "", subtotal: "", gstAmount: "", totalAmount: "", purchaseOrderId: "", hsnCode: "" });
+      setShowSubmit(false);
+      // Refresh the invoice list
+      fetch("/api/supplier-portal/invoices").then((r) => r.ok ? r.json() : null).then((d) => d && setInvoices(d.invoices)).catch(() => {});
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : "Submit failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function logout() {
     await fetch("/api/supplier-portal/auth/logout", { method: "POST" });
@@ -74,6 +117,46 @@ export function SupplierPortalDashboard({ supplier }: { supplier: PortalSupplier
       </div>
 
       {error && <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>}
+
+      {submitOk && <div className="mb-4 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{submitOk}</div>}
+
+      {/* Submit invoice */}
+      <div className="portal-card mb-4">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium text-slate-900">Sent us a bill?</p>
+          <button onClick={() => setShowSubmit((v) => !v)} className="rounded-lg bg-slate-900 px-3 py-1.5 text-sm text-white hover:bg-slate-700">
+            {showSubmit ? "Cancel" : "Submit an invoice"}
+          </button>
+        </div>
+        {showSubmit && (
+          <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
+            {submitError && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{submitError}</div>}
+            <div className="grid grid-cols-2 gap-3">
+              <input className="portal-input" placeholder="Invoice number *" value={form.invoiceNumber} onChange={(e) => setForm({ ...form, invoiceNumber: e.target.value })} />
+              <input className="portal-input" type="date" value={form.invoiceDate} onChange={(e) => setForm({ ...form, invoiceDate: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <input className="portal-input" type="date" placeholder="Due date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+              <select className="portal-input" value={form.purchaseOrderId} onChange={(e) => setForm({ ...form, purchaseOrderId: e.target.value })}>
+                <option value="">Against a PO? (optional)</option>
+                {orders?.filter((o) => o.status === "ORDERED" || o.status === "PARTIAL" || o.status === "RECEIVED").map((o) => (
+                  <option key={o.id} value={o.id}>{o.poNumber} · {inr(o.total)}</option>
+                ))}
+              </select>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <input className="portal-input" type="number" placeholder="Subtotal ₹ *" value={form.subtotal} onChange={(e) => setForm({ ...form, subtotal: e.target.value })} />
+              <input className="portal-input" type="number" placeholder="GST ₹" value={form.gstAmount} onChange={(e) => setForm({ ...form, gstAmount: e.target.value })} />
+              <input className="portal-input" type="number" placeholder="Total ₹ *" value={form.totalAmount} onChange={(e) => setForm({ ...form, totalAmount: e.target.value })} />
+            </div>
+            <input className="portal-input" placeholder="HSN/SAC code (optional)" value={form.hsnCode} onChange={(e) => setForm({ ...form, hsnCode: e.target.value })} />
+            <p className="text-xs text-slate-500">Total should equal subtotal + GST. We run the PO match at submission — a matched bill goes straight to approval.</p>
+            <button onClick={submitInvoice} disabled={submitting} className="portal-btn portal-btn-primary w-full">
+              {submitting ? "Submitting…" : "Submit invoice"}
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Tabs */}
       <div className="mb-4 flex gap-1 rounded-xl bg-slate-100 p-1">
