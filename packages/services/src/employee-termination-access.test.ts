@@ -42,9 +42,10 @@ function makeTx() {
     },
     phoneAssignment: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
     leaveRequest: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
+    attendanceCorrectionRequest: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
     workerAttendance: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
     employeeExit: { create: vi.fn().mockResolvedValue({}) },
-    employeeAdvance: { findMany: vi.fn().mockResolvedValue([]) },
+    employeeAdvance: { findMany: vi.fn().mockResolvedValue([]), updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
     projectAssignment: {
       findMany: vi.fn().mockResolvedValue([{ projectId: "p1", scopedRole: "PROJECT_MANAGER" }]),
       deleteMany: vi.fn().mockResolvedValue({ count: 1 }),
