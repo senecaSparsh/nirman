@@ -40,6 +40,7 @@ export function MobileMaterialSalePaymentDialog({
   const [payMode, setPayMode] = useState("CASH");
   const [payRef, setPayRef] = useState("");
   const [payTds, setPayTds] = useState("");
+  const [payTdsSection, setPayTdsSection] = useState("194Q");
   const [payCheque, setPayCheque] = useState<MobileChequeState>(EMPTY_MOBILE_CHEQUE);
   const [submitting, setSubmitting] = useState(false);
 
@@ -67,7 +68,7 @@ export function MobileMaterialSalePaymentDialog({
           amount,
           paymentMode: payMode,
           referenceNo: payRef || undefined,
-          ...(Number(payTds) > 0 ? { tdsAmount: Number(payTds) } : {}),
+          ...(Number(payTds) > 0 ? { tdsAmount: Number(payTds), tdsSection: payTdsSection || undefined } : {}),
           ...(payMode === "CHEQUE" ? {
             chequeNo: payCheque.chequeNo.trim() || undefined,
             chequeDate: payCheque.chequeDate || undefined,
@@ -165,6 +166,16 @@ export function MobileMaterialSalePaymentDialog({
               className={inputClass}
               style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
             />
+            {Number(payTds) > 0 && (
+              <div className="pl-2">
+                <EnumSelect
+                  label="TDS section"
+                  value={payTdsSection}
+                  onChange={(v) => setPayTdsSection(v)}
+                  options={["194Q", "194C", "other"].map((s) => ({ value: s, label: s === "194Q" ? "194Q (0.1% goods)" : s === "194C" ? "194C (1% works)" : s }))}
+                />
+              </div>
+            )}
             {Number(payTds) > 0 && (
               <p className="text-m-micro mt-0.5" style={{ color: "var(--color-ink-500)" }}>
                 Settles {formatCurrency(Number(payAmount) + Number(payTds))} of the sale — receivable for Form 26AS
