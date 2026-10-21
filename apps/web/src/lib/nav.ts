@@ -28,6 +28,7 @@ import {
   Building2,
   HardHat,
   Sun,
+  IndianRupee,
   Landmark,
   FileText,
   Layers,
@@ -174,6 +175,7 @@ export const NAV_PERMISSION: Record<string, string | string[]> = {
   "/reports/payroll-expense": PERM.PAYROLL_VIEW,
   "/finance": PERM.FINANCE_VIEW,
   "/reports/pending-payments": PERM.FINANCE_VIEW,
+  "/reports/cash-book": PERM.FINANCE_VIEW,
   "/reports/cash-flow": PERM.FINANCE_VIEW,
   "/reports/job-costing": PERM.FINANCE_VIEW,
   "/reports/expenses": PERM.FINANCE_VIEW,
@@ -916,6 +918,16 @@ export const WORLDS: World[] = [
             keywords: ["receivable", "payable", "outstanding", "overdue", "dues", "pending payment"],
           },
           // ── Finance reports (hidden from sidebar, on /reports) ──
+          {
+            label: "Cash Book",
+            href: "/reports/cash-book",
+            icon: IndianRupee,
+            hint: "Daily cash + escrow register — every rupee in and out, running balance",
+            roles: BOOKS,
+            keywords: ["cash book", "daybook", "cash register", "cash flow daily", "cashbook"],
+            hidden: true,
+            group: RG.BOOKS,
+          },
           {
             label: "Cash Flow",
             href: "/reports/cash-flow",
