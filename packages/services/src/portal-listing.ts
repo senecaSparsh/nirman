@@ -35,6 +35,10 @@ export interface PortalListingPayload {
 
 export interface PortalSyncResult {
   success: boolean;
+  /** true when the provider cannot publish — it produced a pre-filled portal
+   *  form URL for a human to finish by hand. The listing is NOT live; sync
+   *  keeps it DRAFT until staff paste back the real portal URL. */
+  manual?: boolean;
   portalListingId?: string;
   listingUrl?: string;
   error?: string;
@@ -86,16 +90,14 @@ export class ManualPortalProvider implements PortalProvider {
   async createListing(listing: PortalListingPayload): Promise<PortalSyncResult> {
     const url = this.buildListingUrl(listing);
     console.log(`[Portal Manual:${this.portalName}] Generated listing URL: ${url}`);
-    return {
-      success: true,
-      portalListingId: `MANUAL-${Date.now()}`,
-      listingUrl: url,
-    };
+    // manual:true — nothing was published. The URL is the portal's pre-filled
+    // posting form; the listing stays DRAFT until staff paste the real URL.
+    return { success: true, manual: true, listingUrl: url };
   }
 
   async updateListing(portalListingId: string, listing: PortalListingPayload): Promise<PortalSyncResult> {
     const url = this.buildListingUrl(listing);
-    return { success: true, portalListingId, listingUrl: url };
+    return { success: true, manual: true, portalListingId, listingUrl: url };
   }
 
   async delistListing(portalListingId: string): Promise<PortalSyncResult> {
@@ -560,22 +562,30 @@ export async function syncListingToPortal(listingId: string, userId?: string) {
     result = { success: false, error: err instanceof Error ? err.message : "Unknown error" };
   }
 
+  // A manual provider cannot publish — it hands back a pre-filled posting
+  // form. Keep the listing DRAFT (never fake a LISTED row) and store the
+  // form URL so staff can finish posting, then mark it listed with the real
+  // portal URL via markPortalListingListed.
+  const manual = result.success && result.manual === true;
+  const isLive = result.success && !manual;
   const updated = await prisma.portalListing.update({
     where: { id: listingId },
     data: {
-      status: result.success ? "LISTED" : "SYNC_FAILED",
+      status: isLive ? "LISTED" : manual ? listing.status : "SYNC_FAILED",
       listingId: result.portalListingId ?? listing.listingId,
       listingUrl: result.listingUrl ?? listing.listingUrl,
-      listedAt: result.success && !listing.listedAt ? new Date() : listing.listedAt,
+      listedAt: isLive && !listing.listedAt ? new Date() : listing.listedAt,
       lastSyncedAt: new Date(),
-      syncError: result.error ?? null,
+      syncError: manual
+        ? "Manual posting required — open the listing link to finish on the portal, then mark the listing as posted."
+        : (result.error ?? null),
     },
   });
 
   if (userId) {
     await logAction(prisma, {
       userId,
-      action: result.success ? "PORTAL_LISTING_SYNCED" : "PORTAL_LISTING_SYNC_FAILED",
+      action: isLive ? "PORTAL_LISTING_SYNCED" : manual ? "PORTAL_LISTING_MANUAL" : "PORTAL_LISTING_SYNC_FAILED",
       entityType: "PortalListing",
       entityId: listingId,
       after: { status: updated.status, portalListingId: updated.listingId },
@@ -583,8 +593,9 @@ export async function syncListingToPortal(listingId: string, userId?: string) {
   }
 
   // A unit went live on the portal — sales/ops want the confirmation.
-  // Role-routed to SALES + top-level; the actor is excluded.
-  if (result.success) {
+  // Role-routed to SALES + top-level; the actor is excluded. Manual
+  // providers publish nothing, so no confirmation goes out.
+  if (isLive) {
     const { emitNotificationEvent, NotificationEventType } = await import("./notification-event-bus");
     void emitNotificationEvent({
       eventType: NotificationEventType.UNIT_LISTING_SYNCED,
@@ -636,6 +647,51 @@ export async function delistPortalListing(listingId: string, userId?: string) {
       action: "PORTAL_LISTING_DELISTED",
       entityType: "PortalListing",
       entityId: listingId,
+    });
+  }
+
+  return updated;
+}
+
+/**
+ * Mark a manual-post listing as live after staff finished posting it on the
+ * portal themselves. Requires the real portal listing URL (and optionally the
+ * portal's own listing id) — the evidence that the unit is actually live.
+ */
+export async function markPortalListingListed(
+  listingId: string,
+  input: { listingUrl: string; listingId?: string },
+  userId?: string,
+) {
+  const listing = await prisma.portalListing.findUnique({ where: { id: listingId } });
+  if (!listing) throw new ServiceError("Portal listing not found", 404);
+  if (listing.status === "DELISTED") {
+    throw new ServiceError("Listing is delisted — create a new listing to repost it", 400);
+  }
+  if (!input.listingUrl?.trim()) {
+    throw new ServiceError("Paste the live listing URL from the portal — a listing can't be marked live without it", 400);
+  }
+
+  const updated = await prisma.portalListing.update({
+    where: { id: listingId },
+    data: {
+      status: "LISTED",
+      listingUrl: input.listingUrl.trim(),
+      listingId: input.listingId?.trim() || listing.listingId,
+      listedAt: listing.listedAt ?? new Date(),
+      delistedAt: null,
+      lastSyncedAt: new Date(),
+      syncError: null,
+    },
+  });
+
+  if (userId) {
+    await logAction(prisma, {
+      userId,
+      action: "PORTAL_LISTING_MARKED_LISTED",
+      entityType: "PortalListing",
+      entityId: listingId,
+      after: { status: "LISTED", listingUrl: input.listingUrl.trim(), listingId: updated.listingId },
     });
   }
 

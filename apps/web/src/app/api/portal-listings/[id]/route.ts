@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { syncListingToPortal, delistPortalListing, updatePortalListing, deletePortalListing } from "@nirman/services";
+import { syncListingToPortal, delistPortalListing, markPortalListingListed, updatePortalListing, deletePortalListing, ServiceError } from "@nirman/services";
 import { prisma } from "@nirman/db";
 import { apiHandler, getCompany, json, requirePermission, toNum } from "@/lib/server";
 import { PERM } from "@/lib/roles";
@@ -68,6 +68,8 @@ export const GET = apiHandler(async (_req: NextRequest, { params }: { params: Pr
 /**
  * POST /api/portal-listings/[id]?action=sync   — push listing to portal
  * POST /api/portal-listings/[id]?action=delist — remove listing from portal
+ * POST /api/portal-listings/[id]?action=mark-listed — manual postings: record the
+ * live portal URL after staff finished posting by hand.
  */
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requirePermission(PERM.SALES_MANAGE);
@@ -90,6 +92,25 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     return json({ id: listing.id, status: listing.status });
   }
 
+  // Manual-post path — the listing was pushed to a portal's pre-filled form;
+  // staff finished posting it by hand and paste back the live URL.
+  if (action === "mark-listed") {
+    const body = await req.json().catch(() => ({}));
+    const parsed = markListedSchema.safeParse(body);
+    if (!parsed.success) {
+      return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+    }
+    try {
+      const listing = await markPortalListingListed(id, parsed.data, user.id);
+      revalidatePath("/portal-listings");
+      revalidatePath("/m/portal-listings");
+      return json({ id: listing.id, status: listing.status, listingUrl: listing.listingUrl });
+    } catch (err: unknown) {
+      if (err instanceof ServiceError) return json({ error: err.message }, { status: err.status });
+      throw err;
+    }
+  }
+
   // Default: sync (push to portal)
   const listing = await syncListingToPortal(id, user.id);
   revalidatePath("/portal-listings");
@@ -101,6 +122,11 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
     listingUrl: listing.listingUrl,
     syncError: listing.syncError,
   });
+});
+
+const markListedSchema = z.object({
+  listingUrl: z.string().url("Paste the live listing URL from the portal").max(500),
+  listingId: z.string().max(120).optional(),
 });
 
 const updateSchema = z.object({

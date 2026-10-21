@@ -130,6 +130,10 @@ export function PortalListingsView({
   const [detailTarget, setDetailTarget] = useState<ListingRow | null>(null);
   const [delistTarget, setDelistTarget] = useState<ListingRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ListingRow | null>(null);
+  const [markTarget, setMarkTarget] = useState<ListingRow | null>(null);
+  const [markUrl, setMarkUrl] = useState("");
+  const [markListingId, setMarkListingId] = useState("");
+  const [markSaving, setMarkSaving] = useState(false);
   const [syncing, setSyncing] = useState<string | null>(null);
   const [bulkSyncing, setBulkSyncing] = useState(false);
   const router = useRouter();
@@ -145,7 +149,14 @@ export function PortalListingsView({
       const res = await fetch(`/api/portal-listings/${id}?action=sync`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Sync failed");
-      toast.success(data.status === "LISTED" ? "Listing pushed to portal" : "Sync attempted");
+      if (data.status === "LISTED") {
+        toast.success("Listing pushed to portal");
+      } else if (data.syncError) {
+        // Manual provider — the posting form URL was saved to the listing.
+        toast.info("Posting link generated", { description: data.syncError, duration: 10000 });
+      } else {
+        toast.info("Sync attempted");
+      }
       router.refresh();
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Sync failed");
@@ -163,7 +174,11 @@ export function PortalListingsView({
       if (data.total === 0) {
         toast.info("No pending listings to sync");
       } else {
-        toast.success(`${data.succeeded}/${data.total} synced successfully${data.failed > 0 ? `, ${data.failed} failed` : ""}`);
+        toast.success(
+          `${data.succeeded}/${data.total} pushed to the portal` +
+            (data.manual > 0 ? `, ${data.manual} need manual posting` : "") +
+            (data.failed > 0 ? `, ${data.failed} failed` : ""),
+        );
       }
       router.refresh();
     } catch (err: unknown) {
@@ -187,6 +202,27 @@ export function PortalListingsView({
       toast.error(err instanceof Error ? err.message : "Delist failed");
     } finally {
       setSyncing(null);
+    }
+  }
+
+  async function confirmMarkListed() {
+    if (!markTarget) return;
+    setMarkSaving(true);
+    try {
+      const res = await fetch(`/api/portal-listings/${markTarget.id}?action=mark-listed`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ listingUrl: markUrl.trim(), listingId: markListingId.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to mark listed");
+      toast.success("Marked as listed on the portal");
+      setMarkTarget(null);
+      router.refresh();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to mark listed");
+    } finally {
+      setMarkSaving(false);
     }
   }
 
@@ -328,6 +364,17 @@ export function PortalListingsView({
             <Pencil className="h-3.5 w-3.5" />
           </Button>
         )}
+        {canManage && l.status !== "LISTED" && l.status !== "DELISTED" && l.listingUrl && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 hover:text-success"
+            onClick={(e) => { e.stopPropagation(); setMarkUrl(l.listingUrl ?? ""); setMarkListingId(""); setMarkTarget(l); }}
+            title="Posted it manually? Mark as listed"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
         {canManage && l.status === "LISTED" && (
           <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-danger" onClick={(e) => { e.stopPropagation(); setDelistTarget(l); }} disabled={syncing === l.id} title="Delist from portal">
             <XCircle className="h-3.5 w-3.5" />
@@ -458,6 +505,30 @@ export function PortalListingsView({
         variant="destructive"
         onConfirm={confirmDelist}
       />
+
+      {/* Mark-as-listed (manual posting) */}
+      <Dialog open={!!markTarget} onOpenChange={(o) => !o && setMarkTarget(null)} title="Mark as listed">
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Paste the live {markTarget?.portalName} listing URL for &ldquo;{markTarget?.title}&rdquo;. The listing stays
+            draft until the real URL is recorded — this is the proof it&apos;s actually live.
+          </p>
+          <div className="space-y-1.5">
+            <Label>Live listing URL</Label>
+            <Input value={markUrl} onChange={(e) => setMarkUrl(e.target.value)} placeholder="https://www.99acres.com/..." />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Portal listing ID (optional)</Label>
+            <Input value={markListingId} onChange={(e) => setMarkListingId(e.target.value)} placeholder="e.g. the ID from the portal" />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setMarkTarget(null)} disabled={markSaving}>Cancel</Button>
+            <Button onClick={confirmMarkListed} disabled={markSaving || !markUrl.trim()}>
+              {markSaving ? "Saving…" : "Mark listed"}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
 
       {/* Delete confirmation */}
       <DeleteConfirmDialog

@@ -82,22 +82,25 @@ export const POST = apiHandler(async (req: NextRequest) => {
       select: { id: true, title: true, portalName: true },
     });
 
-    const results: { id: string; title: string; portalName: string; success: boolean; error?: string }[] = [];
+    const results: { id: string; title: string; portalName: string; success: boolean; manual?: boolean; error?: string }[] = [];
     for (const l of pending) {
       try {
         const updated = await syncListingToPortal(l.id, user.id);
-        results.push({ id: l.id, title: l.title, portalName: l.portalName, success: updated.status === "LISTED", error: updated.syncError ?? undefined });
+        // Manual providers leave the row DRAFT with a posting-form URL — not a failure.
+        const manual = updated.status === "DRAFT" && !!updated.listingUrl;
+        results.push({ id: l.id, title: l.title, portalName: l.portalName, success: updated.status === "LISTED", manual, error: updated.syncError ?? undefined });
       } catch (err: unknown) {
         results.push({ id: l.id, title: l.title, portalName: l.portalName, success: false, error: err instanceof Error ? err.message : "Unknown error" });
       }
     }
 
     const succeeded = results.filter((r) => r.success).length;
-    const failed = results.length - succeeded;
+    const manual = results.filter((r) => r.manual).length;
+    const failed = results.length - succeeded - manual;
 
     revalidatePath("/portal-listings");
     revalidatePath("/m/portal-listings");
-    return json({ total: results.length, succeeded, failed, results });
+    return json({ total: results.length, succeeded, manual, failed, results });
   }
 
   // ── Default: create a new listing ──

@@ -215,6 +215,7 @@ export {
   delistPortalListing,
   listPortalListings,
   updatePortalListing,
+  markPortalListingListed,
   deletePortalListing,
   getPortalListingStats,
   getUnitListings,
