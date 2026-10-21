@@ -420,6 +420,7 @@ export const POST = apiHandler(async (req: NextRequest, { params }: { params: Pr
         chequeDate: parsed.data.chequeDate ?? undefined,
         chequeBank: parsed.data.chequeBank ?? undefined,
         chequePhotoUrl: parsed.data.chequePhotoUrl ?? undefined,
+        interestAmount: parsed.data.interestAmount ?? undefined,
       });
       // Send WhatsApp payment confirmation to the customer
       await sendPaymentConfirmation(company.id, id, "payment", parsed.data.amount, parsed.data.reference ?? undefined);

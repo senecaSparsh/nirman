@@ -15,6 +15,7 @@ import {
   postBrokerCommission,
   postBrokerCommissionPaid,
   postWipCapitalization,
+  postLateInterestReceived,
   ACCT,
 } from "./gl-posting";
 import { ServiceError } from "./errors";
@@ -22,6 +23,7 @@ import { withSerializableTransaction } from "./transaction";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { autoSyncEntryToTally } from "./auto-sync";
 import { requiresSaleAgreement, advanceCapApplies, RERA_PRE_AGREEMENT_CAP } from "./sale-policy";
+import { computeLateInterest } from "./collections";
 
 /**
  * Principal realised on the sale — cleared, non-void payments minus their
@@ -1402,6 +1404,9 @@ export interface RecordPaymentInput {
   mode: string;
   reference?: string;
   userId?: string;
+  /** Late-payment interest collected with this payment — the income leg is
+   *  posted to 4450, capped at the sale's total accrued interest. */
+  interestAmount?: Decimal | number | string;
   // Cheque details
   chequeNo?: string;
   chequeDate?: string;
@@ -1472,10 +1477,27 @@ export async function recordPayment(input: RecordPaymentInput) {
     const clearedAfterPayment = sumClearedAssetSalePayments(sale.payments)
       .plus(input.mode === "CHEQUE" ? 0 : amount);
 
+    // Late interest collected alongside — capped at the sale's total accrued
+    // (Σ per-item accruals on overdue schedule items). Income leg only —
+    // it never counts toward principal.
+    const scheduleItems = await tx.paymentScheduleItem.findMany({
+      where: { paymentSchedule: { assetSaleId: input.assetSaleId }, status: { in: ["DUE", "PARTIAL"] } },
+      select: { totalAmount: true, paidAmount: true, dueDate: true },
+    });
+    const totalAccrued = scheduleItems.reduce(
+      (sum, i) => sum.plus(computeLateInterest({ totalAmount: i.totalAmount, paidAmount: i.paidAmount, dueDate: i.dueDate })?.interest ?? 0),
+      new Decimal(0),
+    );
+    const interestPaid = input.interestAmount && totalAccrued.gt(0)
+      ? Decimal.min(new Decimal(input.interestAmount), totalAccrued)
+      : new Decimal(0);
+    const totalReceived = amount.plus(interestPaid);
+
     const payment = await tx.assetSalePayment.create({
       data: {
         assetSaleId: input.assetSaleId,
-        amount,
+        amount: totalReceived,
+        interestAmount: interestPaid,
         mode: input.mode,
         reference: input.reference,
         // Cheque details
@@ -1519,6 +1541,18 @@ export async function recordPayment(input: RecordPaymentInput) {
         assetSaleId: input.assetSaleId,
         paymentId: payment.id,
         amount,
+        postedById: input.userId,
+      });
+    }
+    // Interest leg — income when collected, at any sale stage (same as the
+    // per-item path). GST-inclusive split at the sale's rate.
+    if (interestPaid.gt(0)) {
+      await postLateInterestReceived(tx, {
+        companyId: sale.companyId,
+        assetSaleId: input.assetSaleId,
+        paymentId: payment.id,
+        amount: interestPaid,
+        gstRate: sale.gstRate,
         postedById: input.userId,
       });
     }

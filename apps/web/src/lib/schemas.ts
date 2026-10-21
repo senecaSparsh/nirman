@@ -739,6 +739,9 @@ export const brokerSchema = z.object({
 
 export const paymentSchema = z.object({
   amount: z.coerce.number().finite().max(1e10, "Value exceeds system limit (1e10)").positive("Amount must be > 0"),
+  // Late-payment interest collected with this payment — income leg to 4450,
+  // capped server-side at the sale's accrued interest.
+  interestAmount: z.coerce.number().finite().min(0).optional().nullable(),
   mode: z.string().min(1, "Payment mode is required"),
   reference: z.string().optional().nullable(),
   // Cheque details
