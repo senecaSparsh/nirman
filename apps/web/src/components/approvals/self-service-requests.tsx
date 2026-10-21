@@ -7,6 +7,8 @@ import { Check, X, Loader2, Banknote, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Dialog } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { formatDate, formatCurrency } from "@/lib/utils";
 
 export type AdvanceRequestRow = {
@@ -44,6 +46,9 @@ export function SelfServiceRequestList({
   const router = useRouter();
   const [acting, setActing] = useState<string | null>(null);
   const [recoveries, setRecoveries] = useState<Record<string, string>>({});
+  // Reject sends "declined" to the worker — the reason is what they read.
+  const [rejecting, setRejecting] = useState<CorrectionRequestRow | null>(null);
+  const [rejectNote, setRejectNote] = useState("");
 
   if (advances.length === 0 && corrections.length === 0) return null;
 
@@ -75,13 +80,13 @@ export function SelfServiceRequestList({
     }
   }
 
-  async function decideCorrection(r: CorrectionRequestRow, approve: boolean) {
+  async function decideCorrection(r: CorrectionRequestRow, approve: boolean, note?: string) {
     setActing(r.id);
     try {
       const res = await fetch(`/api/employees/${r.employeeId}/attendance-corrections/${r.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ approve }),
+        body: JSON.stringify({ approve, ...(note ? { note } : {}) }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error ?? "Decision failed");
@@ -158,7 +163,7 @@ export function SelfServiceRequestList({
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-1.5">
-                  <Button size="sm" variant="outline" onClick={() => decideCorrection(r, false)} disabled={acting === r.id}>
+                  <Button size="sm" variant="outline" onClick={() => { setRejecting(r); setRejectNote(""); }} disabled={acting === r.id}>
                     <X className="h-3.5 w-3.5" /> Reject
                   </Button>
                   <Button size="sm" onClick={() => decideCorrection(r, true)} disabled={acting === r.id}>
@@ -170,6 +175,39 @@ export function SelfServiceRequestList({
             ))}
           </div>
         </div>
+      )}
+
+      {rejecting && (
+        <Dialog
+          open
+          onOpenChange={(o) => !o && setRejecting(null)}
+          title={`Decline correction — ${rejecting.employeeName}`}
+          description={`${formatDate(rejecting.date)} · ${rejecting.requestedStatus.replace(/_/g, " ").toLowerCase()}`}
+          className="max-w-md"
+        >
+          <div className="space-y-3">
+            <Textarea
+              value={rejectNote}
+              onChange={(e) => setRejectNote(e.target.value)}
+              rows={3}
+              placeholder="Why is this being declined? (the worker reads this)"
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setRejecting(null)}>Cancel</Button>
+              <Button
+                variant="destructive"
+                disabled={acting === rejecting.id || !rejectNote.trim()}
+                onClick={async () => {
+                  await decideCorrection(rejecting, false, rejectNote.trim());
+                  setRejecting(null);
+                }}
+              >
+                {acting === rejecting.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+                Decline
+              </Button>
+            </div>
+          </div>
+        </Dialog>
       )}
     </div>
   );

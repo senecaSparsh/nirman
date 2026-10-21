@@ -101,7 +101,12 @@ export function MobileSelfServiceQueue({ advances, corrections }: { advances: Ad
                   >Approve</button>
                   <button
                     type="button" disabled={busy === c.id}
-                    onClick={() => decide("correction", c, false)}
+                    onClick={() => {
+                      const note = window.prompt("Why is this being declined? (the worker reads this)");
+                      if (note === null) return;
+                      if (!note.trim()) { toast.error("Give the worker a reason"); return; }
+                      decide("correction", c, false, { note: note.trim() });
+                    }}
                     className="flex-1 rounded-lg py-1.5 text-m-caption font-bold"
                     style={{ border: "1px solid var(--color-line)", color: "var(--color-ink-700)" }}
                   >Reject</button>
