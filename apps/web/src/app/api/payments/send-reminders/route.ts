@@ -107,9 +107,19 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
   // 2. Land purchase payment schedules (pending installments)
   if (type === "ALL" || type === "LAND") {
-    const pendingLandPayments = await prisma.landPurchasePaymentScheduleItem.findMany({
+    // Same flip the sale sweep does — an item whose dueDate passed is DUE,
+    // not forever PENDING. Without this every land schedule view lies.
+    await prisma.landPurchasePaymentScheduleItem.updateMany({
       where: {
         status: "PENDING",
+        dueDate: { lte: now },
+        paymentSchedule: { landPurchase: { companyId: company.id } },
+      },
+      data: { status: "DUE" },
+    });
+    const pendingLandPayments = await prisma.landPurchasePaymentScheduleItem.findMany({
+      where: {
+        status: { in: ["PENDING", "DUE", "PARTIAL"] },
         dueDate: { lte: cutoff },
         paymentSchedule: {
           landPurchase: { companyId: company.id },
@@ -126,28 +136,15 @@ export const POST = apiHandler(async (req: NextRequest) => {
 
     for (const item of pendingLandPayments) {
       const land = item.paymentSchedule.landPurchase;
-      const recipients = land.sellerContact
-        ? [{ phone: land.sellerContact, email: null as string | null, name: land.sellerName }]
-        : [];
-      if (recipients.length > 0) {
-        await notifyPaymentDue(
-          company.id,
-          {
-            type: "LAND",
-            entityName: `Land: ${land.location ?? land.sellerName}`,
-            amount: Number(item.amount),
-            dueDate: item.dueDate?.toISOString().slice(0, 10) ?? null,
-          },
-          recipients,
-        );
-        reminders.push({
-          type: "LAND",
-          entityName: `Land: ${land.location ?? land.sellerName}`,
-          amount: Number(item.amount),
-          dueDate: item.dueDate?.toISOString().slice(0, 10) ?? null,
-          recipient: land.sellerName,
-        });
-      }
+      // Internal reminder only — this is a payable. Pinging the seller that
+      // we owe him money is both the wrong direction and a leaked receivable.
+      reminders.push({
+        type: "LAND",
+        entityName: `Land: ${land.location ?? land.sellerName}`,
+        amount: Number(item.amount),
+        dueDate: item.dueDate?.toISOString().slice(0, 10) ?? null,
+        recipient: "accounts team",
+      });
 
       void emitNotificationEvent({
         eventType: NotificationEventType.LAND_PAYMENT_DUE,
