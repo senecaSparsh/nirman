@@ -1997,11 +1997,11 @@ ledger once and fans out to compliance, collections, and reports:
   XML voucher export (CA coexistence), RERA quarterly pack, BOCW cess (D27)
 - P5 — Allottee portal + bank/CC statement pack (books banks lend against)
 
-- P6 — Trust packs (from the 2026-10 sweep, sized builds not yet shipped):
-  supplier portal (vendors see their bills/POs/payments — the allottee
-  portal pattern). Shipped: bank/CC statement import + auto-match recon;
-  vendor payment run (batch pay → bank file); buyer-side ATS
-  review+accept flow; public property-discovery + enquiry funnel.
+- P6 — Trust packs (from the 2026-10 sweep): all shipped — bank/CC
+  statement import + auto-match recon; vendor payment run (batch pay →
+  bank file); supplier portal at /supplier-portal (phone-OTP login,
+  vendor-scoped POs/invoices/payments incl. TDS for 26AS); buyer-side
+  ATS review+accept flow; public property-discovery + enquiry funnel.
 
 ## 93. Readiness sweep wave 2 (2026-10-21) — controls, sweeps, field parity
 
@@ -2055,6 +2055,4 @@ service tests, both typechecks):
 
 **Still open (sized, honest):**
 
-- Supplier portal (P6 — vendors see their bills/POs/payments; allottee
-  portal pattern). The remaining large trust-pack build.
 - BOCW cess accrual (1% of construction cost — deferred legal nuance, D27)
