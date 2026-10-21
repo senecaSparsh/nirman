@@ -17,11 +17,11 @@ const postSchema = z.object({
 export const POST = apiHandler(async (req: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
   const user = await requireEffectivePermission(PERM.FINANCE_MANAGE);
   const { id } = await params;
-  await getCompany();
+  const company = await getCompany();
   const body = await req.json();
   const parsed = postSchema.safeParse(body);
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
-  const w = await recordEscrowWithdrawal({ projectId: id, postedById: user.id, ...parsed.data });
+  const w = await recordEscrowWithdrawal({ companyId: company.id, projectId: id, postedById: user.id, ...parsed.data });
   return json(w, { status: 201 });
 });
 
@@ -30,9 +30,10 @@ const deleteSchema = z.object({ withdrawalId: z.string(), voidReason: z.string()
 /** DELETE — void a wrongly-recorded withdrawal (JE reverses, row stays). */
 export const DELETE = apiHandler(async (req: NextRequest) => {
   const user = await requireEffectivePermission(PERM.FINANCE_MANAGE);
+  const company = await getCompany();
   const body = await req.json();
   const parsed = deleteSchema.safeParse(body);
   if (!parsed.success) return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
-  const w = await voidEscrowWithdrawal({ withdrawalId: parsed.data.withdrawalId, voidReason: parsed.data.voidReason, postedById: user.id });
+  const w = await voidEscrowWithdrawal({ withdrawalId: parsed.data.withdrawalId, voidReason: parsed.data.voidReason, companyId: company.id, postedById: user.id });
   return json(w);
 });

@@ -71,6 +71,7 @@ describe("Escrow — designated-account ledgering + certified withdrawals", () =
       await postDepositReceived(tx, { companyId: fixture.company.id, assetSaleId: sale.id, amount: new Decimal(40000) });
     });
     const w = await recordEscrowWithdrawal({
+      companyId: fixture.company.id,
       projectId: fixture.project.id, amount: 25000,
       purpose: "certified cost", engineerName: "E", architectName: "A", caName: "C",
     });
@@ -88,6 +89,7 @@ describe("Escrow — designated-account ledgering + certified withdrawals", () =
       await postDepositReceived(tx, { companyId: fixture.company.id, assetSaleId: sale.id, amount: new Decimal(10000) });
     });
     await expect(recordEscrowWithdrawal({
+      companyId: fixture.company.id,
       projectId: fixture.project.id, amount: 10001,
       purpose: "x", engineerName: "E", architectName: "A", caName: "C",
     })).rejects.toThrow("exceeds");
@@ -96,6 +98,7 @@ describe("Escrow — designated-account ledgering + certified withdrawals", () =
   it("refuses a withdrawal when no escrow account is designated", async () => {
     const { fixture } = await setup(false);
     await expect(recordEscrowWithdrawal({
+      companyId: fixture.company.id,
       projectId: fixture.project.id, amount: 1000,
       purpose: "x", engineerName: "E", architectName: "A", caName: "C",
     })).rejects.toThrow("designated escrow");
@@ -107,11 +110,25 @@ describe("Escrow — designated-account ledgering + certified withdrawals", () =
       await postDepositReceived(tx, { companyId: fixture.company.id, assetSaleId: sale.id, amount: new Decimal(40000) });
     });
     const w = await recordEscrowWithdrawal({
+      companyId: fixture.company.id,
       projectId: fixture.project.id, amount: 40000,
       purpose: "certified cost", engineerName: "E", architectName: "A", caName: "C",
     });
-    await voidEscrowWithdrawal({ withdrawalId: w.id, voidReason: "entered twice" });
+    await voidEscrowWithdrawal({ withdrawalId: w.id, voidReason: "entered twice", companyId: fixture.company.id });
     const bal = await prisma.$transaction((tx) => projectEscrowLedgerBalance(tx, fixture.company.id, fixture.project.id));
     expect(bal.toNumber()).toBe(40000);
+  });
+
+  it("rejects a withdrawal attempted with a different companyId (tenant guard)", async () => {
+    const { fixture, sale } = await setup(true);
+    await prisma.$transaction(async (tx) => {
+      await postDepositReceived(tx, { companyId: fixture.company.id, assetSaleId: sale.id, amount: new Decimal(40000) });
+    });
+    const other = await prisma.company.create({ data: { name: `Other-${Date.now()}` } });
+    await expect(recordEscrowWithdrawal({
+      companyId: other.id,
+      projectId: fixture.project.id, amount: 1000,
+      purpose: "x", engineerName: "E", architectName: "A", caName: "C",
+    })).rejects.toThrow("not found");
   });
 });

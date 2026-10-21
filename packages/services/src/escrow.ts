@@ -66,6 +66,8 @@ export async function projectEscrowLedgerBalance(
  * exceed what the project's escrow ledger actually holds.
  */
 export async function recordEscrowWithdrawal(input: {
+  /** The caller's company — the project must belong to it (tenant guard). */
+  companyId: string;
   projectId: string;
   amount: Decimal | number | string;
   purpose: string;
@@ -77,7 +79,9 @@ export async function recordEscrowWithdrawal(input: {
 }) {
   return withSerializableTransaction(async (tx) => {
     const project = await tx.project.findUnique({ where: { id: input.projectId } });
-    if (!project) throw new ServiceError("Project not found", 404);
+    if (!project || project.companyId !== input.companyId) {
+      throw new ServiceError("Project not found", 404);
+    }
     if (!project.escrowAccountNo) {
       throw new ServiceError(
         "No designated escrow account on this project — withdrawals only exist against a RERA designated account.",
@@ -135,10 +139,10 @@ export async function recordEscrowWithdrawal(input: {
 }
 
 /** Void a wrongly-recorded withdrawal — the JE reverses, the row stays. */
-export async function voidEscrowWithdrawal(input: { withdrawalId: string; voidReason: string; postedById?: string }) {
+export async function voidEscrowWithdrawal(input: { withdrawalId: string; voidReason: string; companyId: string; postedById?: string }) {
   return withSerializableTransaction(async (tx) => {
     const w = await tx.escrowWithdrawal.findUnique({ where: { id: input.withdrawalId } });
-    if (!w) throw new ServiceError("Withdrawal not found", 404);
+    if (!w || w.companyId !== input.companyId) throw new ServiceError("Withdrawal not found", 404);
     if (w.status === "VOID") throw new ServiceError("Withdrawal already voided", 409);
     const je = await tx.journalEntry.findFirst({
       where: { sourceType: "ESCROW_WITHDRAWAL", sourceId: w.id, status: "POSTED" },
