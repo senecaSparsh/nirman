@@ -52,6 +52,13 @@ async function EquipmentContent() {
             project: { select: { id: true, name: true } },
           },
         },
+        // Last meter reading — the idle clock. An unlogged machine isn't idle,
+        // it's unadopted; only a real last-usage date starts the count.
+        usageLogs: {
+          orderBy: { logDate: "desc" },
+          take: 1,
+          select: { logDate: true },
+        },
       },
     }),
     prisma.stockLocation.findMany({
@@ -71,6 +78,7 @@ async function EquipmentContent() {
     }),
   ]);
 
+  const now = new Date();
   const equipmentRows: EquipmentRow[] = equipment.map((e) => {
     const active = e.assignments[0] ?? null;
     // Derive display status: if there's an active assignment, the equipment
@@ -98,6 +106,9 @@ async function EquipmentContent() {
             projectName: active.project?.name ?? null,
             assignedAt: active.assignedAt.toISOString(),
           }
+        : null,
+      idleDays: e.usageLogs[0]
+        ? Math.floor((now.getTime() - e.usageLogs[0].logDate.getTime()) / 86400000)
         : null,
     };
   });

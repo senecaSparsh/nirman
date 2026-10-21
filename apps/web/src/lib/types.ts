@@ -1071,6 +1071,9 @@ export type EquipmentRow = {
     projectName: string | null;
     assignedAt: string;
   } | null;
+  /** Days since the last usage log — null when the machine has never been
+   *  logged (unadopted, not idle). */
+  idleDays: number | null;
 };
 
 export type EquipmentAssignmentHistory = {

@@ -349,6 +349,14 @@ export function EquipmentView({
                         {/* Value */}
                         <div className="mt-2 text-body font-semibold tnum text-foreground">{formatCurrency(e.currentValue)}</div>
 
+                        {/* Idle clock — a machine that hasn't logged a meter in
+                            14+ days is capital doing nothing. */}
+                        {e.idleDays != null && e.idleDays >= 14 && (e.status === "AVAILABLE" || e.status === "ASSIGNED") && (
+                          <div className={`mt-1 text-caption font-medium ${e.idleDays >= 30 ? "text-danger" : "text-warning"}`}>
+                            Idle {e.idleDays}d
+                          </div>
+                        )}
+
                         {/* Assignment */}
                         {e.activeAssignment && (
                           <div className="mt-1.5 truncate text-caption text-muted-foreground">
