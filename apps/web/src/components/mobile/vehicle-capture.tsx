@@ -31,6 +31,8 @@ export interface VehicleData {
   driverName?: string;
   driverPhone?: string;
   transporterName?: string;
+  /** Supplier-side e-way bill for the dispatch (mandatory >₹50K). */
+  ewayBillNo?: string;
 }
 
 type VehicleListItem = {
@@ -57,10 +59,13 @@ export function VehicleCapture({
   value,
   onChange,
   compact = false,
+  showEwayBill = false,
 }: {
   value: VehicleData;
   onChange: (v: VehicleData) => void;
   compact?: boolean;
+  /** Outbound dispatches above ₹50K need the supplier-side EWB captured. */
+  showEwayBill?: boolean;
 }) {
   const { data: vehiclesData, loading: loadingVehicles } = useFetch<VehicleListItem[]>("/api/vehicles");
   const [vehicles, setVehicles] = useState<VehicleListItem[]>([]);
@@ -236,6 +241,28 @@ export function VehicleCapture({
             />
           </div>
         </div>
+        {showEwayBill && (
+          <div className="pl-2">
+            <div
+              className="flex items-center justify-between gap-1 pb-0.5 border-b focus-within:border-b-2 transition-colors"
+              style={{ borderColor: "var(--color-line)" }}
+            >
+              <span className="text-m-caption font-bold shrink-0" style={labelStyle}>
+                E-way Bill:
+              </span>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={100}
+                value={value.ewayBillNo ?? ""}
+                onChange={(e) => onChange({ ...value, ewayBillNo: e.target.value })}
+                placeholder="12-digit (dispatches >₹50K)"
+                className="flex-1 min-w-0 h-7 px-1 text-m-caption text-right outline-none"
+                style={{ backgroundColor: "transparent", color: "var(--color-ink-950)" }}
+              />
+            </div>
+          </div>
+        )}
       </div>
       </div>
 

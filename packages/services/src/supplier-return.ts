@@ -82,6 +82,8 @@ interface CreateSupplierReturnInput {
   vehiclePhotoUrl?: string;
   driverName?: string;
   driverPhone?: string;
+  /** Supplier-side e-way bill for the dispatch back to them (>₹50K). */
+  ewayBillNo?: string;
   lines: {
     materialId: string;
     qty: Decimal | number | string;
@@ -141,6 +143,7 @@ export async function createSupplierReturn(input: CreateSupplierReturnInput) {
         vehiclePhotoUrl: input.vehiclePhotoUrl,
         driverName: input.driverName,
         driverPhone: input.driverPhone,
+        ewayBillNo: input.ewayBillNo,
         status: "DRAFT",
         lines: {
           create: input.lines.map((l) => ({

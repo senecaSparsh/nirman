@@ -152,6 +152,7 @@ export default function MobileNewSupplierReturnClient({
         vehiclePhotoUrl: vehicle.photoUrl,
         driverName: vehicle.driverName?.trim() || undefined,
         driverPhone: vehicle.driverPhone?.trim() || undefined,
+        ewayBillNo: vehicle.ewayBillNo?.trim() || undefined,
         lines: validLines.map((l) => ({
           materialId: l.materialId,
           qty: Number(l.qty),
@@ -695,7 +696,7 @@ function ReturnForm({
             <p className="text-m-section font-extrabold tracking-tight mb-2" style={{ color: "var(--color-ink-700)" }}>
               Vehicle / Carrier
             </p>
-            <VehicleCapture value={vehicle} onChange={setVehicle} compact />
+            <VehicleCapture value={vehicle} onChange={setVehicle} compact showEwayBill />
           </div>
 
           {/* Notes */}

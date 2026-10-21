@@ -1266,6 +1266,7 @@ export const supplierReturnSchema = z.object({
   vehiclePhotoUrl: z.string().optional(),
   driverName: z.string().max(100).optional(),
   driverPhone: z.string().max(20).optional(),
+  ewayBillNo: z.string().max(100).optional(),
   notes: z.string().optional().nullable(),
   lines: z.array(supplierReturnLineSchema).min(1, "At least one line is required"),
   /** When true (default), the return is submitted right after creation —

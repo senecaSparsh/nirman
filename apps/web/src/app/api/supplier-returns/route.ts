@@ -94,6 +94,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       vehiclePhotoUrl: parsed.data.vehiclePhotoUrl ?? undefined,
       driverName: parsed.data.driverName ?? undefined,
       driverPhone: parsed.data.driverPhone ?? undefined,
+      ewayBillNo: parsed.data.ewayBillNo ?? undefined,
       lines: parsed.data.lines.map((l) => ({
         materialId: l.materialId,
         qty: l.qty,

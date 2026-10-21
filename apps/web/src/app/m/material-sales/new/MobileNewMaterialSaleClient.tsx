@@ -417,6 +417,7 @@ export default function MobileNewMaterialSaleClient({
         vehiclePhotoUrl: vehicle.photoUrl,
         driverName: vehicle.driverName,
         driverPhone: vehicle.driverPhone,
+        ewayBillNo: vehicle.ewayBillNo?.trim() || undefined,
         partyName: partyName.trim() || null,
         notes: notes || null,
         requireGatePass: true,
@@ -1432,7 +1433,7 @@ function SaleForm({
 
           {/* Vehicle / Carrier — how goods are dispatched */}
           <div>
-            <VehicleCapture value={vehicle} onChange={setVehicle} compact />
+            <VehicleCapture value={vehicle} onChange={setVehicle} compact showEwayBill />
           </div>
 
         {/* Notes — inline label, full-width underline */}
