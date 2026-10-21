@@ -2003,3 +2003,47 @@ ledger once and fans out to compliance, collections, and reports:
   pay → one approval → bank file); supplier portal (vendors see their
   bills/POs/payments — the allottee portal pattern); buyer-side ATS
   review+accept flow (the /accept/agreement pattern, for sales).
+
+## 93. Readiness sweep wave 2 (2026-10-21) — controls, sweeps, field parity
+
+**What shipped today** (all verified: 72/72 live workflow checks, 1810/1810
+service tests, both typechecks):
+
+- **GL period lock** — `Company.glLockedUntil`; `postJournalEntry` rejects any
+  backdated entry into a filed month (reversals post today-dated and pass).
+  Owner-only set/clear in settings. Verified live on the running app.
+- **Books-health daily cron** — the full reconciliation suite ran only when a
+  human opened the page; it now sweeps daily and notifies with the failing
+  check names, deep-linked to /health-books.
+- **RERA validity expiry sweep** — warns at ≤90d (weekly cadence, daily
+  inside the final week + after expiry). The `reraValidityDate` field now
+  actually protects the business.
+- **Approval backlog per-company** — the >48h digest honors
+  `Company.approvalAgingHours` instead of the hardcoded value.
+- **Escrow tenant guard** — the withdrawal record/void routes authenticated
+  but never checked the project belonged to the caller's company; service now
+  takes companyId and 404s on mismatch. Cross-tenant test added.
+- **Demand-all sweep** — one action dispatches every overdue installment's
+  formal demand (cooldown + WAIVED/PAID guards self-dedupe).
+- **Late-interest parity** — sale-level payments (API + desktop dialog +
+  mobile) carry `interestAmount` end-to-end: capped at sale's total accrued,
+  posts to 4450 (GST-inclusive at the sale's rate), persists on the payment
+  row, reverses on void.
+- **E-way bill everywhere** — capture + persist + print on all five dispatch
+  types: material sales, material issues (project/department), transfers,
+  supplier returns, direct purchases. Mobile vehicle component got the field.
+- **Equipment idle clock** — days-since-last-usage-log badge on desktop board
+  (14d amber/30d red) + mobile list; unlogged machines stay quiet.
+- **Buyer TDS on mobile collect** — amount + section picker on the mobile
+  material-sale payment dialog; "Pay Full" respects the deduction.
+- **Collections completeness** — payment-ledger rows on the allottee statement
+  split principal+interest like receipts do.
+
+**Still open (sized, honest):**
+
+- Bank/CC statement import + auto-match (P6 — the CA's monthly workflow;
+  SMS-parse only covers live credits today)
+- Vendor payment run (batch AP pay → one approval → bank file) (P6)
+- Supplier portal (P6), buyer-side ATS accept flow (P6)
+- Public property-discovery page (buyer browsing pre-login)
+- BOCW cess accrual (1% of construction cost — deferred legal nuance, D27)
