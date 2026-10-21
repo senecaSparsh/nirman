@@ -39,6 +39,7 @@ export function MobileMaterialSalePaymentDialog({
   const [payAmount, setPayAmount] = useState("");
   const [payMode, setPayMode] = useState("CASH");
   const [payRef, setPayRef] = useState("");
+  const [payTds, setPayTds] = useState("");
   const [payCheque, setPayCheque] = useState<MobileChequeState>(EMPTY_MOBILE_CHEQUE);
   const [submitting, setSubmitting] = useState(false);
 
@@ -66,6 +67,7 @@ export function MobileMaterialSalePaymentDialog({
           amount,
           paymentMode: payMode,
           referenceNo: payRef || undefined,
+          ...(Number(payTds) > 0 ? { tdsAmount: Number(payTds) } : {}),
           ...(payMode === "CHEQUE" ? {
             chequeNo: payCheque.chequeNo.trim() || undefined,
             chequeDate: payCheque.chequeDate || undefined,
@@ -119,7 +121,7 @@ export function MobileMaterialSalePaymentDialog({
               {outstandingBalance > 0 && (
                 <button
                   type="button"
-                  onClick={() => setPayAmount(String(outstandingBalance))}
+                  onClick={() => setPayAmount(String(Math.max(0, outstandingBalance - (Number(payTds) || 0))))}
                   className="text-m-caption font-bold press"
                   style={{ color: "var(--color-signal)" }}
                 >
@@ -149,6 +151,25 @@ export function MobileMaterialSalePaymentDialog({
                 options={PAYMENT_MODES.map((m) => ({ value: m, label: m }))}
               />
             </div>
+          </div>
+          <div>
+            <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
+              Buyer TDS deducted (optional)
+            </label>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={payTds}
+              onChange={(e) => setPayTds(e.target.value)}
+              placeholder="0 — only if the buyer deducted TDS"
+              className={inputClass}
+              style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
+            />
+            {Number(payTds) > 0 && (
+              <p className="text-m-micro mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+                Settles {formatCurrency(Number(payAmount) + Number(payTds))} of the sale — receivable for Form 26AS
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
