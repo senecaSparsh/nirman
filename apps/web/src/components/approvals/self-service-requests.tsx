@@ -47,10 +47,29 @@ export function SelfServiceRequestList({
   const [acting, setActing] = useState<string | null>(null);
   const [recoveries, setRecoveries] = useState<Record<string, string>>({});
   // Reject sends "declined" to the worker — the reason is what they read.
-  const [rejecting, setRejecting] = useState<CorrectionRequestRow | null>(null);
+  const [rejecting, setRejecting] = useState<CorrectionRequestRow | (AdvanceRequestRow & { kind: "advance" }) | null>(null);
   const [rejectNote, setRejectNote] = useState("");
 
   if (advances.length === 0 && corrections.length === 0) return null;
+
+  async function decideAdvanceNote(r: AdvanceRequestRow, note: string) {
+    setActing(r.id);
+    try {
+      const res = await fetch(`/api/employees/${r.employeeId}/advances/${r.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approve: false, note }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error ?? "Decision failed");
+      toast.success("Advance request rejected");
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Decision failed");
+    } finally {
+      setActing(null);
+    }
+  }
 
   async function decideAdvance(r: AdvanceRequestRow, approve: boolean) {
     const rec = approve ? Number(recoveries[r.id]) : undefined;
@@ -129,7 +148,7 @@ export function SelfServiceRequestList({
                     onChange={(e) => setRecoveries((s) => ({ ...s, [r.id]: e.target.value }))}
                     className="h-8 w-24"
                   />
-                  <Button size="sm" variant="outline" onClick={() => decideAdvance(r, false)} disabled={acting === r.id}>
+                  <Button size="sm" variant="outline" onClick={() => setRejecting({ ...r, kind: "advance" })} disabled={acting === r.id}>
                     <X className="h-3.5 w-3.5" /> Reject
                   </Button>
                   <Button size="sm" onClick={() => decideAdvance(r, true)} disabled={acting === r.id}>
@@ -181,8 +200,8 @@ export function SelfServiceRequestList({
         <Dialog
           open
           onOpenChange={(o) => !o && setRejecting(null)}
-          title={`Decline correction — ${rejecting.employeeName}`}
-          description={`${formatDate(rejecting.date)} · ${rejecting.requestedStatus.replace(/_/g, " ").toLowerCase()}`}
+          title={`Decline ${"kind" in rejecting && rejecting.kind === "advance" ? "advance" : "correction"} — ${rejecting.employeeName}`}
+          description={"kind" in rejecting && rejecting.kind === "advance" ? `${formatCurrency(rejecting.amount)}` : `${formatDate((rejecting as CorrectionRequestRow).date)} · ${(rejecting as CorrectionRequestRow).requestedStatus?.replace(/_/g, " ").toLowerCase()}`}
           className="max-w-md"
         >
           <div className="space-y-3">
@@ -198,7 +217,11 @@ export function SelfServiceRequestList({
                 variant="destructive"
                 disabled={acting === rejecting.id || !rejectNote.trim()}
                 onClick={async () => {
-                  await decideCorrection(rejecting, false, rejectNote.trim());
+                  if ("kind" in rejecting && rejecting.kind === "advance") {
+                    await decideAdvanceNote(rejecting, rejectNote.trim());
+                  } else {
+                    await decideCorrection(rejecting as CorrectionRequestRow, false, rejectNote.trim());
+                  }
                   setRejecting(null);
                 }}
               >
