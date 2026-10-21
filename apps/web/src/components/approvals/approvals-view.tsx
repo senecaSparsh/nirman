@@ -150,6 +150,8 @@ export function ApprovalsView({
   pendingClaimsCount?: number;
   /** Leaves render in their own section below; the count belongs in the total. */
   pendingLeavesCount?: number;
+  /** Self-service asks (advance + punch-fix) in their own section below. */
+  pendingSelfServiceCount?: number;
 }) {
   const router = useRouter();
   const [query, setQuery] = useUrlQuery("q");
