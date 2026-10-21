@@ -68,6 +68,7 @@ export default function HrHomePage() {
           absentToday,
           pendingDprCount,
           pendingLeaveCount,
+          pendingAsksCount,
           draftPayroll,
           todayProjectAttendance,
           orgTree,
@@ -125,6 +126,24 @@ export default function HrHomePage() {
                     status: "PENDING",
                     ...await scopeWhere("LeaveRequest"),
                     employee: { userId: { not: currentUser?.id }}}})
+                .catch(() => 0)
+            : Promise.resolve(0),
+          // Self-service asks (advance + punch-fix) — the same deciders as
+          // leaves, the same "field HR must see it today" reason to count.
+          perms.includes(PERM.HR_MANAGE)
+            ? Promise.all([
+                prisma.employeeAdvance.count({
+                  where: {
+                    companyId: company.id,
+                    status: "REQUESTED",
+                    ...await scopeWhere("EmployeeAdvance")}}),
+                prisma.attendanceCorrectionRequest.count({
+                  where: {
+                    companyId: company.id,
+                    status: "REQUESTED",
+                    ...await scopeWhere("AttendanceCorrectionRequest")}}),
+              ])
+                .then(([a, c]) => a + c)
                 .catch(() => 0)
             : Promise.resolve(0),
           prisma.payrollPeriod
@@ -190,6 +209,18 @@ export default function HrHomePage() {
             severity: "low",
             qtyText: "Draft",
             category: "Payroll"});
+        }
+
+        // Self-service asks — advance + punch-fix requests waiting on HR.
+        if (pendingAsksCount > 0) {
+          attentionBanners.push({
+            id: "self-service-asks",
+            title: `${pendingAsksCount} worker request${pendingAsksCount !== 1 ? "s" : ""} pending`,
+            subtitle: `Advance + punch-fix asks awaiting a decision`,
+            href: "/m/approvals",
+            severity: "low",
+            qtyText: String(pendingAsksCount),
+            category: "Worker Requests"});
         }
 
         // Pending leave requests
@@ -279,7 +310,7 @@ export default function HrHomePage() {
           }
         }
 
-        const totalPending = pendingDprCount + pendingLeaveCount + (draftPayroll ? 1 : 0);
+        const totalPending = pendingDprCount + pendingLeaveCount + pendingAsksCount + (draftPayroll ? 1 : 0);
 
         return (
           <div>
