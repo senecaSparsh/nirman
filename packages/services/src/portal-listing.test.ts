@@ -47,9 +47,41 @@ describe("createPortalProvider", () => {
 });
 
 describe("ManualPortalProvider", () => {
+  const payload = {
+    title: "2 BHK in Whitefield",
+    description: "Corner unit",
+    askingPrice: 1850000,
+    bedrooms: 2,
+    bathrooms: 2,
+    area: 108.5,
+    areaUnit: "SQFT",
+    floor: 4,
+    furnishing: "Semi-Furnished",
+    photos: [],
+  };
+
   it("can be instantiated with a portal name", () => {
     const provider = new ManualPortalProvider("99acres");
     expect(provider).toBeDefined();
+  });
+
+  it("createListing reports manual — never a fabricated live listing", async () => {
+    const provider = new ManualPortalProvider("99acres");
+    const result = await provider.createListing(payload);
+    expect(result.success).toBe(true);
+    expect(result.manual).toBe(true);
+    // No fabricated portal listing id — nothing was posted.
+    expect(result.portalListingId).toBeUndefined();
+    // The URL is the portal's pre-filled posting form, not a live listing.
+    expect(result.listingUrl).toContain("99acres.com/post-property");
+    expect(result.listingUrl).toContain("price=1850000");
+  });
+
+  it("manual delist is honest — reports it cannot auto-delist", async () => {
+    const provider = new ManualPortalProvider("MagicBricks");
+    const result = await provider.delistListing("SOME-ID");
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/manually/i);
   });
 });
 
