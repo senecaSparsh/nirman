@@ -2062,10 +2062,23 @@ service tests, both typechecks):
   shows pending requests with approve (sets monthlyRecovery → ACTIVE +
   the issue JE) / reject (CANCELLED + reason). Live-verified: request →
   approve → Dr 1650 / Cr 1000; reject → cancelled; dup + scope guards.
-- **Company-switch stale data (real bug)** — useFetch cleared the
-  memory cache on switch but never bumped cacheVersion, so mounted
-  hooks held the old company's `data` state forever; SWR revalidated
-  only 3 keys. Now: bump + revalidate-all on the switch event.
+- **Company-switch stale data (real bug)** — two layers: useFetch
+  cleared the cache map without bumping cacheVersion (mounted hooks
+  kept stale `data` state), AND router.refresh() preserves ALL client
+  state (raw-fetch useState, prop-seeded hooks, open dialogs, unsaved
+  forms). Now: bump + revalidate-all on the event AND a companyKey on
+  both shells — the whole page tree unmounts+remounts. Verified live
+  through the real switcher UI both directions.
+- **Attendance self-service (third pillar)** — AttendanceCorrectionRequest:
+  worker asks to fix a missed punch on /m/me; HR decides on the dossier
+  or the approvals queue (desktop + mobile) — approve upserts the day's
+  WorkerAttendance row (payroll-period-locked), reject closes with a
+  note + notifies the worker. Date anchored UTC-midnight; dup-per-day,
+  wrong-employee-404, hierarchy guards. Self-service asks count in the
+  approvals badge + the 48h backlog digest — they can't rot invisibly.
+- **Self-service asks in THE approvals queue** — advance + punch-fix
+  requests render on /approvals (desktop list + mobile queue), not just
+  per-dossier; badge counts them (advanceRequest/correctionRequest).
 
 **Still open (sized, honest):**
 
