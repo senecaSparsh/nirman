@@ -92,6 +92,7 @@ export function BarSeries({
           dataKey={horizontal ? undefined : "label"}
           tick={AXIS_STYLE}
           tickFormatter={horizontal ? fmt : undefined}
+          allowDecimals={currency}
         />
         <YAxis
           type={horizontal ? "category" : "number"}
@@ -99,6 +100,7 @@ export function BarSeries({
           tick={AXIS_STYLE}
           tickFormatter={horizontal ? undefined : fmt}
           width={horizontal ? 120 : currency ? 80 : 50}
+          allowDecimals={currency}
         />
         <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [fmt(v), name ?? ""]} />
         <Bar dataKey={dataKey} name={name} fill={color} radius={[4, 4, 0, 0]} maxBarSize={48} />

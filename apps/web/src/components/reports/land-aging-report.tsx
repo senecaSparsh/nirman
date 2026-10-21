@@ -96,8 +96,11 @@ export function LandAgingReport({ rows }: { rows: LandAgingRow[] }) {
         </div>
       )}
 
-      <div className="flex justify-end">
-        <Button variant="outline" size="sm" onClick={() => downloadCSV("land-aging.csv", exportRows(), exportCols)}>
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" size="sm" type="button" onClick={() => window.print()} className="print:hidden">
+          Print
+        </Button>
+        <Button variant="outline" size="sm" className="print:hidden" onClick={() => downloadCSV("land-aging.csv", exportRows(), exportCols)}>
           <Download className="mr-1.5 h-3.5 w-3.5" /> Export CSV
         </Button>
       </div>
