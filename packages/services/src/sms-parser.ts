@@ -358,7 +358,7 @@ interface MatchResult {
   reason: string;
 }
 
-async function matchPayment(
+export async function matchPayment(
   companyId: string,
   amount: Decimal,
   counterparty: string | null,

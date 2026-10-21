@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { MessageSquare, Plus, Link2, Check, X, AlertCircle, Loader2 } from "lucide-react";
+import { MessageSquare, Plus, Link2, Check, X, AlertCircle, Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
@@ -38,6 +38,7 @@ const STATUS_STYLES: Record<string, { color: string; label: string; icon: React.
 export function SmsView({ items, canCreate }: { items: SmsRow[]; canCreate: boolean }) {
   const router = useRouter();
   const [ingestOpen, setIngestOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [matchTarget, setMatchTarget] = useState<SmsRow | null>(null);
   const [filter, setFilter] = useState<string>("ALL");
   const [ignoring, setIgnoring] = useState<string | null>(null);
@@ -80,9 +81,14 @@ export function SmsView({ items, canCreate }: { items: SmsRow[]; canCreate: bool
           </button>
         ))}
         {canCreate && (
-          <Button size="sm" className="ml-auto" onClick={() => setIngestOpen(true)}>
-            <Plus className="h-3.5 w-3.5" /> Add SMS
-          </Button>
+          <div className="ml-auto flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="h-3.5 w-3.5" /> Import statement
+            </Button>
+            <Button size="sm" onClick={() => setIngestOpen(true)}>
+              <Plus className="h-3.5 w-3.5" /> Add SMS
+            </Button>
+          </div>
         )}
       </div>
 
@@ -178,6 +184,9 @@ export function SmsView({ items, canCreate }: { items: SmsRow[]; canCreate: bool
       {/* Ingest dialog */}
       {ingestOpen && (
         <IngestDialog open={ingestOpen} onOpenChange={setIngestOpen} onDone={() => router.refresh()} />
+      )}
+      {importOpen && (
+        <StatementImportDialog open={importOpen} onOpenChange={setImportOpen} onDone={() => router.refresh()} />
       )}
 
       {/* Manual match dialog */}
@@ -369,6 +378,82 @@ function MatchDialog({
           <Button type="submit" disabled={saving}>
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             {saving ? "Matching…" : "Create Payment"}
+          </Button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+
+// ── Statement import — the monthly CA workflow ──
+
+function StatementImportDialog({
+  open,
+  onOpenChange,
+  onDone,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onDone: () => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!file) {
+      toast.error("Choose a CSV/TSV statement file");
+      return;
+    }
+    setSaving(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/bank-statements/import", { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Import failed");
+      toast.success(
+        `${data.created} rows imported — ${data.credits} credits, ${data.matched} auto-matched`,
+        data.deduped > 0 ? { description: `${data.deduped} duplicates skipped` } : undefined,
+      );
+      setFile(null);
+      onOpenChange(false);
+      onDone();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Import Bank Statement"
+      description="Upload a CSV/TSV from the bank portal. Credit rows run through the same auto-matcher as bank SMS."
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Statement file</label>
+          <input
+            type="file"
+            accept=".csv,.tsv,.txt"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1 file:text-xs"
+            required
+          />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Columns: Date · Narration · Reference · Debit · Credit. Re-importing the same file skips duplicates.
+          </p>
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? "Importing…" : "Import"}
           </Button>
         </div>
       </form>
