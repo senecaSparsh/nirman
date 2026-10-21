@@ -24,12 +24,13 @@ import { postJournalEntry, reverseJournalEntry, ACCT } from "./gl-posting";
 import { ServiceError } from "./errors";
 import { logAction } from "./audit";
 
-export const STATUTORY_KINDS = ["PF", "ESI", "TDS", "GST", "TDS_REFUND"] as const;
+export const STATUTORY_KINDS = ["PF", "ESI", "PT", "TDS", "GST", "TDS_REFUND"] as const;
 export type StatutoryKind = (typeof STATUTORY_KINDS)[number];
 
 const KIND_ACCOUNT: Record<Exclude<StatutoryKind, "GST" | "TDS_REFUND">, string> = {
   PF: ACCT.PF_PAYABLE,
   ESI: ACCT.ESI_PAYABLE,
+  PT: ACCT.PROFESSION_TAX_PAYABLE,
   TDS: ACCT.TDS_PAYABLE,
 };
 

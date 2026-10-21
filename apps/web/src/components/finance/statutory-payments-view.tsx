@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/empty-state";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export type StatutoryOutstanding = {
-  kind: "PF" | "ESI" | "TDS" | "GST" | "TDS_REFUND";
+  kind: "PF" | "ESI" | "PT" | "TDS" | "GST" | "TDS_REFUND";
   outstanding: number;
   itcAvailable?: number;
   outputGst?: number;
@@ -50,6 +50,7 @@ export type TdsSaleRow = {
 const KIND_LABEL: Record<string, string> = {
   PF: "Provident Fund",
   ESI: "ESI",
+  PT: "Profession Tax",
   TDS: "TDS Payable",
   GST: "GST (net of ITC)",
   TDS_REFUND: "TDS Receivable",
