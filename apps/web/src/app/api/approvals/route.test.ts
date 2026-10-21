@@ -41,13 +41,33 @@ describe("GET /api/approvals", () => {
   it("badge count includes only the POs a project manager can approve", async () => {
     setSessionUser({ role: "PROJECT_MANAGER" });
     const res = await GET(makeRequest("/api/approvals?countOnly=1", { method: "GET" }), {});
-    expect(await getJson<{ count: number }>(res)).toEqual({ count: 1 });
+    const body = await getJson<{ count: number; byType: { po: number } }>(res);
+    expect(body.count).toBe(1);
+    expect(body.byType.po).toBe(1);
   });
 
   it("badge count includes every PO for the owner, who clears every value tier", async () => {
     setSessionUser({ role: "OWNER" });
     const res = await GET(makeRequest("/api/approvals?countOnly=1", { method: "GET" }), {});
-    expect(await getJson<{ count: number }>(res)).toEqual({ count: 2 });
+    const body = await getJson<{ count: number; byType: { po: number } }>(res);
+    expect(body.count).toBe(2);
+    expect(body.byType.po).toBe(2);
+  });
+
+  it("badge count sums every approval type the queue renders, not just procurement", async () => {
+    setSessionUser({ role: "OWNER" });
+    mockPrisma().expense!.count.mockResolvedValue(3);
+    mockPrisma().raBill!.count.mockResolvedValue(2);
+    mockPrisma().dailyProgressReport!.count.mockResolvedValue(4);
+    const res = await GET(makeRequest("/api/approvals?countOnly=1", { method: "GET" }), {});
+    const body = await getJson<{ count: number; byType: Record<string, number> }>(res);
+    // 2 POs + 3 expenses + 2 RA bills + 4 DPRs — the three extra types the
+    // badge used to drop, which is how approvals went unnoticed.
+    expect(body.byType.expense).toBe(3);
+    expect(body.byType.raBill).toBe(2);
+    expect(body.byType.dpr).toBe(4);
+    expect(body.count).toBe(11);
+    expect(body.count).toBe(body.byType.total);
   });
 
   it("badge count is zero for a role with no approval permission", async () => {

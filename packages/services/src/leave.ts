@@ -3,7 +3,7 @@ import Decimal from "decimal.js";
 import { logAction } from "./audit";
 import { ServiceError } from "./errors";
 import { canAutoApprove, holdsApprovalAuthority } from "./rbac";
-import { assertAttendancePeriodOpen } from "./hr";
+import { assertAttendancePeriodOpen, attendancePeriodLocked } from "./hr";
 import { emitNotificationEvent, NotificationEventType } from "./notification-event-bus";
 import { createInAppNotification } from "./notifications";
 import { withSerializableTransaction } from "./transaction";
@@ -287,11 +287,21 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
 
     // Approving/rejecting a leave that overlaps a processed/paid payroll
     // period would rewrite attendance inside locked days — the record would
-    // diverge from issued payslips. Handle those days as next-period
-    // adjustments instead.
+    // diverge from issued payslips. Those days are skipped here and handled
+    // as next-period adjustments instead.
+    //
+    // This used to throw, which made the approval permanently impossible:
+    // any leave request dated inside a month whose payroll had been run sat
+    // in /approvals forever with an Approve button that always returned 409.
+    // The leave decision is still a fact that must be recorded — only the
+    // attendance write is frozen — so locked days are skipped and the count
+    // is returned for the caller/audit trail.
+    const lockedDates: string[] = [];
     for (const d = new Date(cur); d <= last; d.setDate(d.getDate() + 1)) {
       if (d.getUTCDay() !== 0 && d.getUTCDay() !== 6) {
-        await assertAttendancePeriodOpen(input.companyId, new Date(d), tx);
+        if (await attendancePeriodLocked(input.companyId, new Date(d), tx)) {
+          lockedDates.push(d.toISOString().slice(0, 10));
+        }
       }
     }
 
@@ -303,7 +313,8 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
 
     while (cur <= last) {
       const dow = cur.getUTCDay();
-      if (dow !== 0 && dow !== 6 && (!joinDay || cur >= joinDay)) { // working days only, and not before joining
+      const isLocked = lockedDates.includes(cur.toISOString().slice(0, 10));
+      if (dow !== 0 && dow !== 6 && !isLocked && (!joinDay || cur >= joinDay)) { // working days only, unlocked, and not before joining
         await tx.workerAttendance.upsert({
           where: {
             employeeId_date: { employeeId: leave.employeeId, date: new Date(cur) },
@@ -335,7 +346,13 @@ export async function approveLeaveRequest(input: ApproveLeaveInput) {
       entityType: "LeaveRequest",
       entityId: leave.id,
       before: { status: leave.status },
-      after: { status: updated.status, rejectedReason: updated.rejectedReason },
+      after: {
+        status: updated.status,
+        rejectedReason: updated.rejectedReason,
+        // Days inside an already-paid payroll period: attendance is frozen,
+        // so the payroll effect lands as a next-period adjustment.
+        ...(lockedDates.length > 0 ? { attendanceAdjustmentDays: lockedDates } : {}),
+      },
     });
 
     return updated;

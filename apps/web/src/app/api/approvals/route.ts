@@ -4,7 +4,7 @@ import { apiHandler, getCompany, getUserPermissions, json, requireUser, toNum, s
 import { canAutoApprove, canSelfApprovePurchaseOrder, canWaiveSelfApproval } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { canApproveIndentRow, canApprovePoRow, companyRequisitionFilter, notCreatedBy, notSubmittedBy } from "@/lib/approval-queue";
-import { actionableApprovals, actionableGatePassWhere, gatesFor, poThresholds } from "@/lib/approval-actionable";
+import { actionableApprovalCounts, gatesFor, poThresholds } from "@/lib/approval-actionable";
 
 /**
  * GET /api/approvals — the procurement approval queue.
@@ -32,7 +32,18 @@ export const GET = apiHandler(async (req: NextRequest) => {
   // the number, and the full response returns an object whose .length
   // the badge fetcher can't read anyway).
   const countOnly = new URL(req.url).searchParams.get("countOnly") === "1";
-  if (!canApprovePo && !canApproveReq && !canApproveGatePass) {
+  // A finance-only or HR-only approver has a real queue too — the old guard
+  // checked just three permissions and handed them a permanent 0 badge.
+  const holdsAnyApproval =
+    hasPerm(PERM.PO_APPROVE) ||
+    hasPerm(PERM.REQUISITION_APPROVE) ||
+    hasPerm(PERM.GATE_PASS_APPROVE) ||
+    hasPerm(PERM.DPR_APPROVE_SUB_ADMIN) ||
+    hasPerm(PERM.DPR_APPROVE_ADMIN) ||
+    hasPerm(PERM.EXPENSE_APPROVE) ||
+    hasPerm(PERM.RA_APPROVE) ||
+    hasPerm(PERM.HR_MANAGE);
+  if (!holdsAnyApproval) {
     // Return an empty result instead of 403 — this endpoint is also used
     // as a badge endpoint by the nav system, which fetches it for all
     // users with the "Pending List" nav link. A 403 would show as a
@@ -59,11 +70,10 @@ export const GET = apiHandler(async (req: NextRequest) => {
 
   if (countOnly) {
     // Count only what THIS user can approve — a req-only approver must not
-    // get a badge inflated by POs they have no permission to touch.
-    const { pos, reqs } = await actionableApprovals(company.id);
-    const gpWhere = await actionableGatePassWhere(company.id);
-    const gpCount = gpWhere ? await prisma.gatePass.count({ where: gpWhere }) : 0;
-    return json({ count: pos.length + reqs.length + gpCount });
+    // get a badge inflated by POs they have no permission to touch. Covers
+    // every type the /approvals queue renders, so badge === queue.
+    const counts = await actionableApprovalCounts(company.id);
+    return json({ count: counts.total, byType: counts });
   }
 
   const [purchaseOrders, requisitions, gatePasses] = await Promise.all([

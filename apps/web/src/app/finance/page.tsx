@@ -14,6 +14,7 @@ import { getActingRole, getCompany, toNum, scopeWhere, getCurrentUser, getUserPe
 import { canAutoApprove } from "@nirman/services";
 import { PERM } from "@/lib/roles";
 import { formatCurrency } from "@/lib/utils";
+import { saleDuesSummary } from "@/lib/sale-dues";
 import { PageHeader } from "@/components/page-header";
 import { RefreshButton } from "@/components/refresh-button";
 import { FinanceView } from "@/components/finance/finance-view";
@@ -124,18 +125,20 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
   const sales = await prisma.assetSale.findMany({
     take: 200,
     where: {...await scopeWhere("AssetSale"),  companyId: company.id, status: "ACTIVE" },
-    select: { salePrice: true, tdsAmount: true, payments: { where: { status: { not: "VOID" } }, select: { amount: true } } }});
-  const totalRevenue = sales.reduce((s, sale) => s + toNum(sale.salePrice), 0);
-  const totalCollected = sales.reduce((s, sale) => s + sale.payments.reduce((ps, p) => ps + toNum(p.amount), 0), 0);
-  // 194-IA TDS withheld by buyers is discharged to the ITD, not owed by
-  // the customer — net it out of "outstanding" so PAID-net-of-TDS sales
-  // don't nag for the withheld amount. Per-sale floor at 0: overpaid
-  // sales are customer credits, not offsets against other dues.
-  const perSaleOutstanding = sales.map((sale) => {
-    const collected = sale.payments.reduce((ps, p) => ps + toNum(p.amount), 0);
-    return Math.max(0, toNum(sale.salePrice) - toNum(sale.tdsAmount) - collected);
-  });
-  const outstandingSaleCount = perSaleOutstanding.filter((o) => o > 0).length;
+    select: { salePrice: true, gstAmount: true, tdsAmount: true, payments: { where: { status: { not: "VOID" } }, select: { amount: true, interestAmount: true } } }});
+  // Single source of truth for booked/collected/dues — the Sales header,
+  // bookings board and this page previously each derived their own number.
+  const duesSummary = saleDuesSummary(
+    sales.map((sale) => ({
+      salePrice: toNum(sale.salePrice),
+      gstAmount: toNum(sale.gstAmount),
+      tdsAmount: toNum(sale.tdsAmount),
+      payments: sale.payments.map((p) => ({ amount: toNum(p.amount), interestAmount: toNum(p.interestAmount) })),
+    })),
+  );
+  const totalRevenue = duesSummary.booked;
+  const totalCollected = duesSummary.collected;
+  const outstandingSaleCount = duesSummary.salesWithDues;
 
   const projectCostRows: ProjectCostRow[] = projectCosts.map((c) => ({
     id: c.id,
@@ -176,7 +179,18 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
 
   const totalCosts = projectCostRows.reduce((s, c) => s + toNum(c.amount), 0);
   const totalExpenses = expenseRows.reduce((s, e) => s + toNum(e.amount), 0);
-  const outstanding = perSaleOutstanding.reduce((s, o) => s + o, 0);
+  const outstanding = duesSummary.dues;
+
+  // Cash actually available right now — the runway projection starts here,
+  // not from zero.
+  const cashAgg = await prisma.journalLine.aggregate({
+    _sum: { debit: true, credit: true },
+    where: {
+      journalEntry: { companyId: company.id, status: "POSTED", reversalOfId: null },
+      account: { code: "1000" },
+    },
+  });
+  const cashOnHand = toNum(cashAgg._sum.debit ?? 0) - toNum(cashAgg._sum.credit ?? 0);
 
   const perms = {
     canCreateExpense: __effPerms.includes(PERM.EXPENSE_CREATE),
@@ -329,13 +343,14 @@ async function FinanceContent({ searchParams }: { searchParams: Promise<{ tab?: 
           { label: "Unsold Assets", value: formatCurrency(toNum(unsoldAssets.total)), hint: "Book value of unsold land parcels and built units still in inventory." },
           { label: "Revenue", value: formatCurrency(totalRevenue), hint: "Total sale price across all active (non-cancelled) sales." },
           { label: "Collected", value: formatCurrency(totalCollected), hint: "Total payments received from customers across all active sales." },
-          { label: "Outstanding", value: formatCurrency(outstanding), tone: outstanding > 0 ? "warning" : "muted", hint: "Revenue minus collected — what customers still owe you." },
+          { label: "Outstanding", value: formatCurrency(outstanding), tone: outstanding > 0 ? "warning" : "muted", hint: "Contract value (incl. GST) minus TDS withheld by buyers and principal received — what customers still owe you." },
           { label: "Costs + Expenses", value: formatCurrency(totalCosts + totalExpenses), tone: "danger", hint: `${formatCurrency(totalCosts)} project costs + ${formatCurrency(totalExpenses)} operating expenses.` },
         ]}
         action={<RefreshButton />}
       />
       <DepartmentActivityFeed department="finance" />
       <CashRunwayCard
+        openingCash={cashOnHand}
         expectedIn={expectedIn30}
         committedOut={committedOut30}
         statutoryDue={statutoryDueTotal}

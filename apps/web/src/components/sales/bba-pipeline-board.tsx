@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { formatCurrency, formatDate, cn, toNum} from "@/lib/utils";
+import { saleDuesSummary } from "@/lib/sale-dues";
 import type { AssetSaleRow } from "@/lib/types";
 
 // ════════════════════════════════════════════════════════════════
@@ -136,9 +137,22 @@ export function BbaPipelineBoard({
 
   // Summary stats
   const stats = useMemo(() => {
-    const totalRevenue = filtered.reduce((s, x) => s + toNum(x.salePrice) + toNum(x.gstAmount), 0);
-    const totalCollected = filtered.reduce((s, x) => s + toNum(x.totalPaid), 0);
-    const totalOutstanding = filtered.reduce((s, x) => s + toNum(x.balanceDue), 0);
+    // Revenue/collected/outstanding come from the shared dues helper so this
+    // board, the Sales header and /finance can never quote different numbers.
+    // `balanceDue` was `price + GST − paid`, which billed customers for the
+    // 1% TDS they had already deposited with the ITD — a phantom ₹9.5L to
+    // chase on a book where only ₹49K was actually owed.
+    const dues = saleDuesSummary(
+      filtered.map((x) => ({
+        salePrice: x.salePrice,
+        gstAmount: x.gstAmount,
+        tdsAmount: x.tdsAmount,
+        principalPaid: x.totalPaid,
+      })),
+    );
+    const totalRevenue = dues.booked;
+    const totalCollected = dues.collected;
+    const totalOutstanding = dues.dues;
     const isBbaSigned = (s: AssetSaleRow) => Boolean(s.bbaNo) || Boolean(s.bbaDocumentUrl);
     // BBA is a unit-sale instrument — standalone land conveyance is ATS +
     // sale deed, so land rows and finished/cancelled sales must not count as
@@ -180,7 +194,7 @@ export function BbaPipelineBoard({
         <StatCard label="BBA Done" value={String(stats.bbaDone)} tone="success" />
         <StatCard label="BBA Pending" value={String(stats.bbaPending)} tone="warning" />
         <StatCard label="Overdue" value={String(stats.overduePayments)} tone={stats.overduePayments > 0 ? "danger" : "default"} />
-        <StatCard label="Revenue" value={formatCurrency(stats.totalRevenue)} tone="success" />
+        <StatCard label="Booked (ex-GST)" value={formatCurrency(stats.totalRevenue)} tone="success" />
         <StatCard label="Collected" value={formatCurrency(stats.totalCollected)} tone="success" />
         <StatCard label="Outstanding" value={formatCurrency(stats.totalOutstanding)} tone={stats.totalOutstanding > 0 ? "warning" : "default"} />
       </div>
@@ -222,12 +236,16 @@ export function BbaPipelineBoard({
       </div>
 
       {/* ── Kanban Board ───────────────────────────────────────── */}
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      {/* Grid, not a horizontally-scrolling flex row: at 1440px the fifth
+          column (Completed) sat past the viewport edge with no scroll cue,
+          so 32 completed deals were invisible while the stat card said
+          "Total Sales 33". */}
+      <div className="grid grid-cols-1 gap-3 pb-2 sm:grid-cols-2 xl:grid-cols-5">
         {columns.map((col) => {
           const colTotal = col.items.reduce((s, x) => s + toNum(x.salePrice) + toNum(x.gstAmount), 0);
           const colCollected = col.items.reduce((s, x) => s + toNum(x.totalPaid), 0);
           return (
-            <div key={col.stage} className="flex w-72 shrink-0 flex-col">
+            <div key={col.stage} className="flex min-w-0 flex-col">
               {/* Column header */}
               <div className="mb-2 rounded-md border border-border/60 bg-muted/30 px-3 py-2">
                 <div className="flex items-center gap-2">

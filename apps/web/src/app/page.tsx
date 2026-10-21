@@ -15,6 +15,7 @@ import { Page } from "@/components/page";
 import { PageHeader } from "@/components/page-header";
 import { CommandCenter } from "@/components/command-center";
 import { homeWorldFor } from "@/lib/nav";
+import { saleDues } from "@/lib/sale-dues";
 import { OwnerFinancialDashboard, type CashPositionData, type ProjectProfitRow } from "@/components/owner-financial-dashboard";
 import {
   type QueueData,
@@ -429,10 +430,17 @@ async function CommandCenterContent() {
   if (canSeeSales && salesWithBalance.length > 0) queues.push({
     key: "sales-balance", title: "Sales awaiting payment",
     consequence: "Collect outstanding balances from customers",
-    count: salesWithBalance.length, href: "/sales", cta: "Collect", urgency: "soon", icon: "dollarSign",
+    // Land on the bookings board (where the sale and its Record Payment action
+    // live) — `/sales` opens the leads pipeline, which is a different job.
+    count: salesWithBalance.length, href: "/sales?tab=sales", cta: "Collect", urgency: "soon", icon: "dollarSign",
     items: salesWithBalance.map((s) => {
-      const totalPaid = s.payments.reduce((sum, p) => sum + toNum(p.amount) - toNum(p.interestAmount), 0);
-      return { label: s.customer.name, sub: `${formatCurrency(Math.max(0, toNum(s.salePrice) - toNum(s.tdsAmount) - totalPaid))} balance due` };
+      const due = saleDues({
+        salePrice: toNum(s.salePrice),
+        gstAmount: toNum(s.gstAmount),
+        tdsAmount: toNum(s.tdsAmount),
+        payments: s.payments.map((p) => ({ amount: toNum(p.amount), interestAmount: toNum(p.interestAmount) })),
+      });
+      return { label: s.customer.name, sub: `${formatCurrency(due)} balance due` };
     })});
   // Overdue installments — past dueDate, still unpaid. Blocking urgency: every
   // day late accrues interest AND ages the receivable.
