@@ -3752,6 +3752,11 @@ export async function decideAttendanceCorrection(input: {
     });
 
     if (input.approve) {
+      // A processed/paid period is locked — correcting past payroll rewrites
+      // the record the payslip was computed on (attendance-vs-GL drift).
+      // Those corrections belong in the NEXT period as an adjustment line.
+      await assertAttendancePeriodOpen(request.companyId, request.date, tx);
+
       // The fix itself — one row per employee-day; upsert writes it cleanly
       // whether the punch was missing entirely or just wrong.
       await tx.workerAttendance.upsert({
