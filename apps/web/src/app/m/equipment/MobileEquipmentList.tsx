@@ -51,6 +51,8 @@ export type EquipmentItem = {
   assignmentId: string | null;
   assignedProjectName: string | null;
   assignedLocationName: string | null;
+  /** Days since last meter log — null when never logged. */
+  idleDays: number | null;
 };
 
 const FILTER_OPTIONS: { label: string; value: EquipmentFilter }[] = [
@@ -437,6 +439,22 @@ function EquipmentCard({ e, canEdit }: { e: EquipmentItem; canEdit?: boolean }) 
                     style={{ color: "var(--color-ink-950)" }}
                   >
                     {formatCurrencyCompact(e.currentValue)}
+                  </span>
+                </div>
+              )}
+              {e.idleDays != null && e.idleDays >= 14 && (e.status === "AVAILABLE" || e.status === "ASSIGNED") && (
+                <div className="mt-1.5 flex items-center justify-between">
+                  <span
+                    className="text-m-micro font-semibold"
+                    style={{ color: "var(--color-ink-500)" }}
+                  >
+                    Idle
+                  </span>
+                  <span
+                    className="text-m-micro font-bold tabular-nums"
+                    style={{ color: e.idleDays >= 30 ? "var(--color-danger)" : "var(--color-warning)" }}
+                  >
+                    {e.idleDays}d
                   </span>
                 </div>
               )}

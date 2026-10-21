@@ -39,6 +39,11 @@ export default function MobileEquipmentPage() {
                 location: { select: { id: true, name: true } },
               },
             },
+            usageLogs: {
+              orderBy: { logDate: "desc" },
+              take: 1,
+              select: { logDate: true },
+            },
           },
         });
 
@@ -49,6 +54,7 @@ export default function MobileEquipmentPage() {
         const totalValue = equipment.reduce((s, e) => s + toNum(e.currentValue), 0);
 
         // Serialize for the client component
+        const now = new Date();
         const serialized = equipment.map((e) => ({
           id: e.id,
           name: e.name,
@@ -60,6 +66,9 @@ export default function MobileEquipmentPage() {
           assignmentId: e.assignments[0]?.id ?? null,
           assignedProjectName: e.assignments[0]?.project?.name ?? null,
           assignedLocationName: e.assignments[0]?.location?.name ?? null,
+          idleDays: e.usageLogs[0]
+            ? Math.floor((now.getTime() - e.usageLogs[0].logDate.getTime()) / 86400000)
+            : null,
         }));
 
         return (
