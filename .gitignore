@@ -57,3 +57,4 @@ onboarding-queue.txt
 .stryker-tmp/
 packages/*/reports/
 **/probe/*.jsonl
+.freebuff/
