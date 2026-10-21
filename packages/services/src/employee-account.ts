@@ -806,6 +806,23 @@ export async function terminateEmployee(input: TerminateEmployeeInput) {
         await tx.session.deleteMany({ where: { userId: employee.userId } });
       }
 
+      // 2c. Cancel open self-service asks — a terminated worker's pending
+      //     advance/punch-fix/leave keeps counting in the approvals badge
+      //     and the 48h backlog digest for a person nobody can approve.
+      const cancelNote = { notes: { set: "Auto-cancelled — employment terminated" } };
+      await tx.employeeAdvance.updateMany({
+        where: { employeeId: input.employeeId, status: "REQUESTED" },
+        data: { status: "CANCELLED", ...cancelNote },
+      });
+      await tx.attendanceCorrectionRequest.updateMany({
+        where: { employeeId: input.employeeId, status: "REQUESTED" },
+        data: { status: "CANCELLED", reviewNote: "Auto-cancelled — employment terminated" },
+      });
+      await tx.leaveRequest.updateMany({
+        where: { employeeId: input.employeeId, status: "PENDING" },
+        data: { status: "CANCELLED", rejectedReason: "Auto-cancelled — employment terminated" },
+      });
+
       // 3. Recycle the assigned phone (if any)
       const phone = await tx.companyPhone.findFirst({
         where: { assignedToUserId: employee.userId, companyId: input.companyId, deletedAt: null },
