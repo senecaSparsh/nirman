@@ -440,7 +440,7 @@ export async function reconcileAccountSigns(
 ): Promise<ReconciliationCheck> {
   // asset codes → debit-normal; liability/contra codes → credit-normal.
   // Equity + P&L legitimately carry either sign — excluded.
-  const DEBIT_NORMAL = ["1000", "1050", "1200", "1300", "1400", "1500", "1600", "1650", "1660", "1700", "1800", "1900", "1950", "1960"];
+  const DEBIT_NORMAL = ["1000", "1050", "1060", "1200", "1300", "1400", "1500", "1600", "1650", "1660", "1700", "1800", "1900", "1950", "1960", "1961"];
   const CREDIT_NORMAL = ["1910", "2000", "2050", "2100", "2200", "2250", "2300", "2350", "2400", "2450", "2500", "2600", "2700", "2800"];
 
   const accounts = await prisma.glAccount.findMany({

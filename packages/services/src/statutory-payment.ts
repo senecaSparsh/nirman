@@ -59,7 +59,9 @@ export async function statutoryOutstanding(companyId: string, kind: StatutoryKin
   }
   if (kind === "TDS_REFUND") {
     // TDS receivable (1960) is debit-normal — the claimable balance.
-    return { outstanding: Decimal.max(0, (await accountBalance(prisma, companyId, ACCT.TDS_RECEIVABLE)).neg()) };
+    const rent = Decimal.max(0, (await accountBalance(prisma, companyId, ACCT.TDS_RECEIVABLE)).neg());
+    const sales = Decimal.max(0, (await accountBalance(prisma, companyId, ACCT.TDS_RECEIVABLE_SALES)).neg());
+    return { outstanding: rent.plus(sales) };
   }
   return { outstanding: Decimal.max(0, await accountBalance(prisma, companyId, KIND_ACCOUNT[kind])) };
 }
@@ -104,16 +106,23 @@ export async function recordStatutoryPayment(input: {
         lines.push({ accountCode: ACCT.INPUT_GST, debit: new Decimal(0), credit: itcUtilized, entityType: "StatutoryPayment", memo: "ITC utilized against output tax" });
       }
     } else if (input.kind === "TDS_REFUND") {
-      // TDS deducted by buyers/tenants (Dr 1960) is recovered when the
-      // refund/settlement lands in cash — credit the receivable back out.
-      const receivable = (await accountBalance(tx, input.companyId, ACCT.TDS_RECEIVABLE)).neg();
-      if (amount.gt(Decimal.max(0, receivable))) {
-        throw new ServiceError(`Refund ${amount} exceeds the TDS receivable balance of ${Decimal.max(0, receivable)}`, 400);
+      // TDS deducted by buyers/tenants (Dr 1960 + 1961) is recovered when
+      // the refund lands in cash — relieve rent-TDS first, then sales-TDS.
+      const rec1960 = Decimal.max(0, (await accountBalance(tx, input.companyId, ACCT.TDS_RECEIVABLE)).neg());
+      const rec1961 = Decimal.max(0, (await accountBalance(tx, input.companyId, ACCT.TDS_RECEIVABLE_SALES)).neg());
+      const receivable = rec1960.plus(rec1961);
+      if (amount.gt(receivable)) {
+        throw new ServiceError(`Refund ${amount} exceeds the TDS receivable balance of ${receivable}`, 400);
       }
-      lines.push(
-        { accountCode: ACCT.CASH, debit: amount, credit: new Decimal(0), entityType: "StatutoryPayment", memo: "TDS refund received" },
-        { accountCode: ACCT.TDS_RECEIVABLE, debit: new Decimal(0), credit: amount, entityType: "StatutoryPayment", memo: "TDS receivable relieved" },
-      );
+      const from1960 = Decimal.min(amount, rec1960);
+      const from1961 = amount.minus(from1960);
+      lines.push({ accountCode: ACCT.CASH, debit: amount, credit: new Decimal(0), entityType: "StatutoryPayment", memo: "TDS refund received" });
+      if (from1960.gt(0)) {
+        lines.push({ accountCode: ACCT.TDS_RECEIVABLE, debit: new Decimal(0), credit: from1960, entityType: "StatutoryPayment", memo: "TDS receivable relieved (rent)" });
+      }
+      if (from1961.gt(0)) {
+        lines.push({ accountCode: ACCT.TDS_RECEIVABLE_SALES, debit: new Decimal(0), credit: from1961, entityType: "StatutoryPayment", memo: "TDS receivable relieved (sales)" });
+      }
     } else {
       const acct = KIND_ACCOUNT[input.kind];
       const due = await accountBalance(tx, input.companyId, acct);

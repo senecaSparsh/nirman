@@ -21,7 +21,11 @@ export interface GlPreviewLine {
 
 const ACCOUNT_NAMES: Record<string, string> = {
   "1000": "Cash / Bank",
+  "1060": "RERA Escrow Account",
   "1200": "Accounts Receivable",
+  "1950": "Inter-Company Receivable",
+  "1960": "TDS Receivable - Rent",
+  "1961": "TDS Receivable - Sales",
   "1300": "Inventory - Materials",
   "1400": "Input GST / ITC",
   "1500": "WIP - Project Costs",
@@ -42,19 +46,17 @@ const ACCOUNT_NAMES: Record<string, string> = {
   "3000": "Retained Earnings",
   "4000": "Sales Revenue",
   "4100": "Cost Recovery",
+  "4200": "Inter-Company Sales Revenue",
+  "4450": "Late Payment Interest Income",
   "5000": "Cost of Goods Sold",
   "5500": "Inventory Shrinkage",
   "6000": "Operating Expenses",
   "6100": "Salaries Expense",
+  "6450": "Bad Debts Written Off",
 };
 
 function accountName(code: string): string {
   return ACCOUNT_NAMES[code] ?? `Account ${code}`;
-}
-
-function toNum(d: Decimal | number | string): number {
-  if (d instanceof Decimal) return d.toNumber();
-  return Number(d);
 }
 
 /**
