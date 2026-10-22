@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDate, formatCurrency } from "@/lib/utils";
+import { useHydratedDate } from "@/lib/use-hydrated-date";
 
 export type AdvanceRequestRow = {
   id: string;
@@ -30,6 +31,18 @@ export type CorrectionRequestRow = {
   createdAt: string;
 };
 
+/** "asked 3d ago" — plain until the 48h aging-digest threshold, then
+ *  amber. A stale ask must look stale; a date alone hides it. `now`
+ *  comes from useHydratedDate so SSR renders the plain date and the
+ *  relative age appears post-mount (no hydration mismatch, no impure
+ *  Date.now() inside render). */
+function AskAge({ createdAt, now }: { createdAt: string; now: Date | null }) {
+  if (!now) return <>{formatDate(createdAt)}</>;
+  const days = Math.max(0, Math.floor((now.getTime() - new Date(createdAt).getTime()) / 86_400_000));
+  const label = days === 0 ? "asked today" : `asked ${days}d ago`;
+  return days >= 2 ? <span className="font-semibold text-amber-600">{label}</span> : <>{label}</>;
+}
+
 /**
  * Self-service asks in the approvals queue — the worker's advance request
  * and punch-correction land here so they can't rot on a dossier nobody
@@ -44,6 +57,7 @@ export function SelfServiceRequestList({
   corrections: CorrectionRequestRow[];
 }) {
   const router = useRouter();
+  const now = useHydratedDate();
   const [acting, setActing] = useState<string | null>(null);
   const [recoveries, setRecoveries] = useState<Record<string, string>>({});
   // Reject sends "declined" to the worker — the reason is what they read.
@@ -136,7 +150,7 @@ export function SelfServiceRequestList({
                     <span className="tnum font-semibold text-foreground">{formatCurrency(r.amount)}</span>
                   </div>
                   <div className="mt-0.5 text-caption text-muted-foreground">
-                    {r.notes ?? "No reason given"} · asked {formatDate(r.createdAt)}
+                    {r.notes ?? "No reason given"} · <AskAge createdAt={r.createdAt} now={now} />
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -148,7 +162,7 @@ export function SelfServiceRequestList({
                     onChange={(e) => setRecoveries((s) => ({ ...s, [r.id]: e.target.value }))}
                     className="h-8 w-24"
                   />
-                  <Button size="sm" variant="outline" onClick={() => setRejecting({ ...r, kind: "advance" })} disabled={acting === r.id}>
+                  <Button size="sm" variant="outline" onClick={() => { setRejecting({ ...r, kind: "advance" }); setRejectNote(""); }} disabled={acting === r.id}>
                     <X className="h-3.5 w-3.5" /> Reject
                   </Button>
                   <Button size="sm" onClick={() => decideAdvance(r, true)} disabled={acting === r.id}>
@@ -178,7 +192,7 @@ export function SelfServiceRequestList({
                     <Badge variant="outline">{r.requestedStatus.replace(/_/g, " ").toLowerCase()}</Badge>
                   </div>
                   <div className="mt-0.5 text-caption text-muted-foreground">
-                    {formatDate(r.date)} · {r.reason}
+                    {formatDate(r.date)} · {r.reason} · <AskAge createdAt={r.createdAt} now={now} />
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-1.5">
