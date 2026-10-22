@@ -46,7 +46,7 @@ export function CashRunwayCard({
           <p className="text-caption text-muted-foreground">
             {formatCurrency(openingCash)} in hand · {formatCurrency(expectedIn)} expected in · {formatCurrency(committedOut)} committed out
           </p>
-          <p className="text-micro text-muted-foreground/80">
+          <p className="text-micro text-muted-foreground">
             Net movement {netFlow >= 0 ? "+" : ""}{formatCurrency(netFlow)}
             {posInFlight > 0 && ` · POs ${formatCurrency(posInFlight)}`}
             {draftPayroll > 0 && ` · payroll ${formatCurrency(draftPayroll)}`}

@@ -421,6 +421,7 @@ function PurchaseOrdersTab({
   const statusSelect = (
     <div className="relative shrink-0" style={{ width: 130 }}>
       <select
+        aria-label="Filter by status"
         value={statusFilter}
         onChange={(e) => setStatusFilter(e.target.value)}
         style={{ width: 130 }}
@@ -444,14 +445,14 @@ function PurchaseOrdersTab({
         value={dateFrom}
         onChange={(e) => setDateFrom(e.target.value)}
         className="h-8 shrink-0 rounded-md border border-input bg-card px-2.5 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
-        title="Filter from date"
+        aria-label="Filter from date"
       />
       <input
         type="date"
         value={dateTo}
         onChange={(e) => setDateTo(e.target.value)}
         className="h-8 shrink-0 rounded-md border border-input bg-card px-2.5 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
-        title="Filter to date"
+        aria-label="Filter to date"
       />
     </>
   );
@@ -476,6 +477,7 @@ function PurchaseOrdersTab({
           ])}
           disabled={filtered.length === 0}
           className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+          aria-label="Export CSV"
         >
           <Download className="size-3.5" />
         </button>
@@ -489,6 +491,7 @@ function PurchaseOrdersTab({
           onClick={() => downloadExcel("purchase-trends")}
           disabled={filtered.length === 0}
           className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+          aria-label="Export Excel"
         >
           <FileSpreadsheet className="size-3.5" />
         </button>
@@ -553,7 +556,7 @@ function PurchaseOrdersTab({
               {/* Column body */}
               <div className="flex-1 space-y-2">
                 {col.items.length === 0 && (
-                  <div className="rounded-md border border-dashed border-border/60 py-6 text-center text-micro text-muted-foreground/50">
+                  <div className="rounded-md border border-dashed border-border/60 py-6 text-center text-micro text-muted-foreground">
                     empty
                   </div>
                 )}

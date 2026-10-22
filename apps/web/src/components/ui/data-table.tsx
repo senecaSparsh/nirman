@@ -1139,7 +1139,7 @@ export function DataTable<T>({
                 </th>
               )}
               {visibleColumns.map(headerCell)}
-              {rowActions && <th className="w-px bg-subtle px-3" />}
+              {rowActions && <th className="w-px bg-subtle px-3"><span className="sr-only">Actions</span></th>}
             </tr>
           </thead>
 
