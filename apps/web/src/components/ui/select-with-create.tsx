@@ -44,6 +44,7 @@ export function SelectWithCreate({
   disabled,
   className,
   "aria-invalid": ariaInvalid,
+  "aria-label": ariaLabel,
   id,
   onBlur,
 }: {
@@ -66,6 +67,8 @@ export function SelectWithCreate({
   disabled?: boolean;
   className?: string;
   "aria-invalid"?: boolean;
+  /** Accessible name — falls back to the placeholder text when unset. */
+  "aria-label"?: string;
   id?: string;
   onBlur?: () => void;
 }) {
@@ -109,6 +112,7 @@ export function SelectWithCreate({
           required={required}
           disabled={disabled}
           aria-invalid={ariaInvalid}
+          aria-label={ariaLabel ?? placeholder}
           className={cn(
             "w-full h-11 appearance-none bg-none pl-3 pr-8 text-[14px] sm:h-8 sm:text-[13px]",
             "rounded-md border border-input bg-card text-foreground",

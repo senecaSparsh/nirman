@@ -249,7 +249,12 @@ function BoqTree({
             >
               <div className="flex items-center gap-1.5 min-w-0">
                 {hasChildren ? (
-                  <button onClick={() => toggle(node.id)} className="shrink-0 text-muted-foreground hover:text-foreground">
+                  <button
+                    onClick={() => toggle(node.id)}
+                    aria-expanded={isExpanded}
+                    aria-label={`${isExpanded ? "Collapse" : "Expand"} ${node.serialNo} ${node.description}`}
+                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                  >
                     {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                   </button>
                 ) : (

@@ -95,7 +95,7 @@ export function PageLoading({
   // Default — minimal centered label (no spinner, just text)
   return (
     <div className={cn("flex items-center justify-center py-20 text-meta text-muted-foreground", className)}>
-      <span className="animate-pulse">{label}</span>
+      <span>{label}</span>
     </div>
   );
 }

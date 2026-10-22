@@ -1033,14 +1033,14 @@ export function QuotationsTab({
     { key: "quoteCount", label: "Quotes", render: (r) => {
       const quotesMet = toNum(r.quoteCount) >= toNum(r.minQuotesRequired);
       return (
-        <span className={`inline-flex items-center gap-1 text-xs font-semibold ${quotesMet ? "text-green-600" : "text-amber-600"}`}>
+        <span className={`inline-flex items-center gap-1 text-xs font-semibold ${quotesMet ? "text-success" : "text-warning"}`}>
           {quotesMet ? <Check className="size-3" /> : <AlertCircle className="size-3" />}
           {r.quoteCount}/{r.minQuotesRequired}
         </span>
       );
     }, sortValue: (r) => r.quoteCount },
     { key: "cheapestLandedTotal", label: "Cheapest", render: (r) => r.cheapestLandedTotal != null ? (
-      <span className="flex items-center justify-end gap-1 font-semibold text-green-600">
+      <span className="flex items-center justify-end gap-1 font-semibold text-success">
         <Trophy className="size-3" />
         {formatCurrency(r.cheapestLandedTotal)}
       </span>
@@ -1049,7 +1049,7 @@ export function QuotationsTab({
       <div className="flex items-center gap-1.5">
         <StatusPill status={r.status} />
         {reportIds?.has(r.submittedByUserCompanyId ?? "") ? (
-          <span className="text-xs font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">Your approval</span>
+          <span className="text-xs font-bold text-warning bg-warning-soft px-1.5 py-0.5 rounded">Your approval</span>
         ) : null}
         {r.convertedPoNumber ? (
           <Link href={`/procurement?po=${r.convertedPoId}`} className="text-xs font-bold text-green-700" onClick={(e) => e.stopPropagation()}>{r.convertedPoNumber}</Link>
