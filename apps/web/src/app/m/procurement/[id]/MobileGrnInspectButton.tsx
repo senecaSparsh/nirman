@@ -48,7 +48,7 @@ export function MobileGrnInspectButton({ goodsReceiptId }: { goodsReceiptId: str
         disabled={busy}
         onClick={() => setOpen(true)}
         className="mt-1 inline-flex items-center gap-1 text-m-caption font-semibold rounded px-1.5 py-0.5 press active:scale-95 disabled:opacity-50"
-        style={{ color: "var(--color-signal)", backgroundColor: "var(--color-paper-2)" }}
+        style={{ color: "var(--color-signal-dark)", backgroundColor: "var(--color-paper-2)" }}
       >
         <ClipboardCheck className="size-3" />
         Inspect

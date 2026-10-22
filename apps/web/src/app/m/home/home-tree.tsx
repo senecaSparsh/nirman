@@ -222,7 +222,7 @@ export function HomeTree({ userName }: { userName: string | null }) {
       {/* ── Compact greeting header ── */}
       <div className="flex items-center justify-between mb-1.5">
         <div className="flex items-center gap-1.5">
-          <Sun className="size-4" style={{ color: "var(--color-signal)" }} />
+          <Sun className="size-4" style={{ color: "var(--color-signal-dark)" }} />
           <span className="text-m-title" style={{ color: "var(--color-ink-950)" }}>
             {greeting}, {firstName}
           </span>

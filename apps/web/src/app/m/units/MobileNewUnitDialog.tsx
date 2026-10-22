@@ -369,7 +369,7 @@ export function MobileNewUnitForm({
                 color: "var(--color-ink-600)",
               }}
             >
-              <Sparkles className="inline size-3 mr-1" style={{ color: "var(--color-signal)" }} />
+              <Sparkles className="inline size-3 mr-1" style={{ color: "var(--color-signal-dark)" }} />
               Preview:{" "}
               <span className="font-bold" style={{ color: "var(--color-ink-500)" }}>
                 {genPrefix}{genStart || "1"}

@@ -74,14 +74,14 @@ interface TenancyData {
 
 const STATUS_META: Record<string, { color: string; label: string }> = {
   ACTIVE: { color: "var(--color-steel)", label: "Active" },
-  PENDING: { color: "var(--color-signal)", label: "Pending" },
+  PENDING: { color: "var(--color-signal-dark)", label: "Pending" },
   EXPIRED: { color: "var(--color-stop)", label: "Expired" },
   TERMINATED: { color: "var(--color-stop)", label: "Terminated" },
 };
 
 const PAYMENT_STATUS_META: Record<string, { color: string; label: string; icon: React.ReactNode }> = {
   RECEIVED: { color: "var(--color-go)", label: "Received", icon: <CheckCircle2 className="size-2.5" /> },
-  PENDING: { color: "var(--color-signal)", label: "Pending", icon: <Clock className="size-2.5" /> },
+  PENDING: { color: "var(--color-signal-dark)", label: "Pending", icon: <Clock className="size-2.5" /> },
   OVERDUE: { color: "var(--color-stop)", label: "Overdue", icon: <AlertCircle className="size-2.5" /> },
   VOID: { color: "var(--color-ink-500)", label: "Void", icon: <AlertCircle className="size-2.5" /> },
 };
@@ -417,7 +417,7 @@ export function MobileRentalDetailClient({
               {collectionPct}% of {formatCurrencyCompact(data.totalExpectedRent)} expected
             </span>
             {data.overdueAmount > 0 ? (
-              <span className="flex items-center gap-0.5" style={{ color: "var(--color-signal)" }}>
+              <span className="flex items-center gap-0.5" style={{ color: "var(--color-signal-dark)" }}>
                 <AlertCircle className="size-2.5" />
                 {formatCurrencyCompact(data.overdueAmount)} overdue
               </span>

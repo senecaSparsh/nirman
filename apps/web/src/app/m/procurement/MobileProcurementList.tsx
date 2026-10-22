@@ -101,7 +101,7 @@ const STATUS_STYLE: Record<string, { color: string; label: string }> = {
 type Urgency = "late" | "action" | "transit" | "done";
 const URGENCY_SECTIONS: { key: Urgency; label: string; color: string }[] = [
   { key: "late", label: "Late", color: "var(--color-stop)" },
-  { key: "action", label: "Needs action", color: "var(--color-signal)" },
+  { key: "action", label: "Needs action", color: "var(--color-signal-dark)" },
   { key: "transit", label: "On the way", color: "var(--color-steel)" },
   { key: "done", label: "Done", color: "var(--color-go)" },
 ];

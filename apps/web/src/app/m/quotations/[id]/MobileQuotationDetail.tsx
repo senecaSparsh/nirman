@@ -1277,7 +1277,7 @@ function ComparativeSheet({
                       ) : q.validUntil ? (
                         <span className="flex flex-col items-center leading-tight">
                           <span className="font-bold" style={{ color: "var(--color-ink-950)" }}>{fmtDateShort(q.validUntil)}</span>
-                          {q.isExpired ? <span className="font-bold" style={{ fontSize: `${batchFs.micro}px`, color: "var(--color-stop)" }}>expired</span> : q.daysUntilExpiry !== null ? <span className={`font-semibold ${q.daysUntilExpiry <= 7 ? "" : ""}`} style={{ fontSize: `${batchFs.micro}px`, color: q.daysUntilExpiry <= 7 ? "var(--color-signal)" : "var(--color-ink-500)" }}>{q.daysUntilExpiry}d left</span> : null}
+                          {q.isExpired ? <span className="font-bold" style={{ fontSize: `${batchFs.micro}px`, color: "var(--color-stop)" }}>expired</span> : q.daysUntilExpiry !== null ? <span className={`font-semibold ${q.daysUntilExpiry <= 7 ? "" : ""}`} style={{ fontSize: `${batchFs.micro}px`, color: q.daysUntilExpiry <= 7 ? "var(--color-signal-dark)" : "var(--color-ink-500)" }}>{q.daysUntilExpiry}d left</span> : null}
                         </span>
                       ) : <span style={{ color: "var(--color-ink-400)" }}>—</span>}
                     </td>

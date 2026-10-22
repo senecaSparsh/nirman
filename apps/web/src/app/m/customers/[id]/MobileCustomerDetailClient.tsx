@@ -54,7 +54,7 @@ interface CustomerData {
 }
 
 const STAGE_META: Record<string, { color: string; label: string }> = {
-  PENDING: { color: "var(--color-signal)", label: "Pending" },
+  PENDING: { color: "var(--color-signal-dark)", label: "Pending" },
   DEPOSIT_RECEIVED: { color: "var(--color-steel)", label: "Deposit" },
   COMPLETED: { color: "var(--color-go)", label: "Completed" },
   CANCELLED: { color: "var(--color-stop)", label: "Cancelled" },
@@ -62,8 +62,8 @@ const STAGE_META: Record<string, { color: string; label: string }> = {
 };
 
 const PAYMENT_META: Record<string, { color: string; label: string }> = {
-  PENDING: { color: "var(--color-signal)", label: "Unpaid" },
-  PARTIAL: { color: "var(--color-signal)", label: "Partial" },
+  PENDING: { color: "var(--color-signal-dark)", label: "Unpaid" },
+  PARTIAL: { color: "var(--color-signal-dark)", label: "Partial" },
   PAID: { color: "var(--color-go)", label: "Paid" },
 };
 
@@ -184,7 +184,7 @@ export function MobileCustomerDetailClient({
               </p>
               <p
                 className="text-m-section font-bold tabular-nums leading-tight"
-                style={{ color: data.totals.totalOutstanding > 0 ? "var(--color-signal)" : "var(--color-ink-950)" }}
+                style={{ color: data.totals.totalOutstanding > 0 ? "var(--color-signal-dark)" : "var(--color-ink-950)" }}
               >
                 {formatCurrencyCompact(data.totals.totalOutstanding)}
               </p>
@@ -216,7 +216,7 @@ export function MobileCustomerDetailClient({
               {data.totals.saleCount} sales
             </span>
             {data.totals.activeDeals > 0 ? (
-              <span className="flex items-center gap-0.5" style={{ color: "var(--color-signal)" }}>
+              <span className="flex items-center gap-0.5" style={{ color: "var(--color-signal-dark)" }}>
                 <ShoppingCart className="size-2.5" />
                 {data.totals.activeDeals} active
               </span>
@@ -402,7 +402,7 @@ function SaleCard({ sale: s }: { sale: SaleItem }) {
                 <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
                   Balance
                 </p>
-                <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>
+                <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-signal-dark)" }}>
                   {formatCurrencyCompact(s.balance)}
                 </p>
               </div>

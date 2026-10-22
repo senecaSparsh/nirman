@@ -526,7 +526,7 @@ function PurchaseCard({
           {p.purchaseStage === "BOOKED" && (
             <span
               className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-m-caption font-bold"
-              style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 12%, transparent)", color: "var(--color-signal)" }}
+              style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 12%, transparent)", color: "var(--color-signal-dark)" }}
             >
               BOOKED
             </span>
@@ -607,7 +607,7 @@ function PurchaseCard({
           </span>
         ) : null}
         {p.holdCount > 0 ? (
-          <span className="flex items-center gap-0.5 text-m-caption font-semibold" style={{ color: "var(--color-signal)" }} title={`${p.holdCount} Hold`}>
+          <span className="flex items-center gap-0.5 text-m-caption font-semibold" style={{ color: "var(--color-signal-dark)" }} title={`${p.holdCount} Hold`}>
             <PauseCircle className="size-1.5" />
             {p.holdCount} Hold
           </span>

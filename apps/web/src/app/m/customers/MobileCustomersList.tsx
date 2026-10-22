@@ -56,8 +56,8 @@ interface Stats {
 type Filter = "all" | "dues" | "clear";
 
 const PAYMENT_BADGE: Record<string, { color: string; label: string }> = {
-  PENDING: { color: "var(--color-signal)", label: "Unpaid" },
-  PARTIAL: { color: "var(--color-signal)", label: "Partial" },
+  PENDING: { color: "var(--color-signal-dark)", label: "Unpaid" },
+  PARTIAL: { color: "var(--color-signal-dark)", label: "Partial" },
   PAID: { color: "var(--color-go)", label: "Clear" },
   NONE: { color: "var(--color-ink-400)", label: "No sales" },
 };
@@ -172,7 +172,7 @@ export function MobileCustomersList({
             </p>
             <p
               className="text-m-section font-bold tabular-nums leading-tight"
-              style={{ color: stats.totalOutstanding > 0 ? "var(--color-signal)" : "var(--color-ink-950)" }}
+              style={{ color: stats.totalOutstanding > 0 ? "var(--color-signal-dark)" : "var(--color-ink-950)" }}
             >
               {formatCurrencyCompact(stats.totalOutstanding)}
             </p>
@@ -191,7 +191,7 @@ export function MobileCustomersList({
             <Users className="size-2.5" />
             {stats.customerCount} customers
           </span>
-          <span className="flex items-center gap-0.5" style={{ color: "var(--color-signal)" }}>
+          <span className="flex items-center gap-0.5" style={{ color: "var(--color-signal-dark)" }}>
             <AlertCircle className="size-2.5" />
             {stats.withDues} with dues
           </span>
@@ -397,7 +397,7 @@ function CustomerCard({
                       <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
                         Outstanding
                       </p>
-                      <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>
+                      <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-signal-dark)" }}>
                         {formatCurrencyCompact(c.outstanding)}
                       </p>
                     </div>
@@ -426,8 +426,8 @@ function CustomerCard({
               className="flex items-center gap-1.5 px-2.5 py-1"
               style={{ borderTop: "1px solid var(--color-line)", backgroundColor: `color-mix(in srgb, var(--color-signal) 5%, transparent)` }}
             >
-              <AlertCircle className="size-2.5" style={{ color: "var(--color-signal)" }} />
-              <span className="text-m-caption font-semibold" style={{ color: "var(--color-signal)" }}>
+              <AlertCircle className="size-2.5" style={{ color: "var(--color-signal-dark)" }} />
+              <span className="text-m-caption font-semibold" style={{ color: "var(--color-signal-dark)" }}>
                 {c.dueCount} {c.dueCount === 1 ? "sale" : "sales"} with dues
               </span>
               <ChevronRight className="size-3 ml-auto" style={{ color: "var(--color-ink-500)" }} />

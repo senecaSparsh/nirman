@@ -226,9 +226,9 @@ const AREA_UNIT_SHORT: Record<string, string> = {
 
 const STATUS_META: Record<string, { color: string; label: string; icon: typeof CheckCircle2 }> = {
   AVAILABLE: { color: "var(--color-go)", label: "Available", icon: CheckCircle2 },
-  HOLD: { color: "var(--color-signal)", label: "Hold", icon: PauseCircle },
+  HOLD: { color: "var(--color-signal-dark)", label: "Hold", icon: PauseCircle },
   PARTITIONED: { color: "var(--color-ink-500)", label: "Partitioned", icon: Split },
-  RESERVED: { color: "var(--color-signal)", label: "Reserved", icon: Tag },
+  RESERVED: { color: "var(--color-signal-dark)", label: "Reserved", icon: Tag },
   SOLD: { color: "var(--color-go)", label: "Sold", icon: DollarSign },
   RENTED: { color: "var(--color-steel)", label: "Rented", icon: KeyRound },
 };
@@ -236,7 +236,7 @@ const STATUS_META: Record<string, { color: string; label: string; icon: typeof C
 const PURPOSE_META: Record<string, { color: string; label: string; icon: typeof Tag }> = {
   SELL: { color: "var(--color-go)", label: "Sell", icon: DollarSign },
   PROJECT: { color: "var(--color-steel)", label: "Project", icon: Hammer },
-  HOLD: { color: "var(--color-signal)", label: "Hold", icon: Ban },
+  HOLD: { color: "var(--color-signal-dark)", label: "Hold", icon: Ban },
 };
 
 const MODE_META: Record<string, { label: string }> = {
@@ -551,7 +551,7 @@ export function MobileLandDetailClient({
             {isBooked && (
               <span
                 className="text-m-caption font-bold uppercase px-1.5 py-0.5 rounded-full"
-                style={{ color: "var(--color-signal)", backgroundColor: "color-mix(in srgb, var(--color-signal) 12%, transparent)" }}
+                style={{ color: "var(--color-signal-dark)", backgroundColor: "color-mix(in srgb, var(--color-signal) 12%, transparent)" }}
               >
                 Booked — awaiting BBA/ATS
               </span>
@@ -618,7 +618,7 @@ export function MobileLandDetailClient({
             </div>
             <div>
               <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Balance</p>
-              <p className="text-m-body font-bold tabular-nums" style={{ color: balanceDue > 0 ? "var(--color-signal)" : "var(--color-go)" }}>{formatCurrencyCompact(balanceDue)}</p>
+              <p className="text-m-body font-bold tabular-nums" style={{ color: balanceDue > 0 ? "var(--color-signal-dark)" : "var(--color-go)" }}>{formatCurrencyCompact(balanceDue)}</p>
             </div>
           </div>
           {/* Progress bar */}
@@ -638,7 +638,7 @@ export function MobileLandDetailClient({
                 <ExternalLink className="size-2.5" /> Uploaded
               </a>
             ) : (
-              <span className="text-m-caption font-bold" style={{ color: "var(--color-signal)" }}>Required to complete</span>
+              <span className="text-m-caption font-bold" style={{ color: "var(--color-signal-dark)" }}>Required to complete</span>
             )}
           </div>
         </div>
@@ -726,7 +726,7 @@ export function MobileLandDetailClient({
                       {item.percentage}% of total
                       {item.dueDate ? ` · Due ${formatDate(item.dueDate)}` : ""}
                       {item.status === "PAID" && <span style={{ color: "var(--color-go)" }}> · Paid</span>}
-                      {item.status === "PARTIAL" && <span style={{ color: "var(--color-signal)" }}> · Partial ({formatCurrencyCompact(item.paidAmount)})</span>}
+                      {item.status === "PARTIAL" && <span style={{ color: "var(--color-signal-dark)" }}> · Partial ({formatCurrencyCompact(item.paidAmount)})</span>}
                       {item.status === "DUE" && <span style={{ color: "var(--color-stop)" }}> · Due</span>}
                     </p>
                   </div>
@@ -1037,7 +1037,7 @@ export function MobileLandDetailClient({
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
               {[
                 { label: "Available", color: "var(--color-go)", show: data.stats.availableCount > 0 },
-                { label: "Hold", color: "var(--color-signal)", show: data.stats.holdCount > 0 },
+                { label: "Hold", color: "var(--color-signal-dark)", show: data.stats.holdCount > 0 },
                 { label: "Sold", color: "var(--color-stop)", show: data.stats.soldCount > 0 },
                 { label: "Partitioned", color: "var(--color-steel)", show: sortedParcels.some((p) => p.status === "PARTITIONED") },
               ].filter((it) => it.show).map((it) => (
@@ -1056,7 +1056,7 @@ export function MobileLandDetailClient({
         <div className="flex items-center gap-2.5 mb-3 px-1">
           {[
             { label: "Available", color: "var(--color-go)", show: data.stats.availableCount > 0 },
-            { label: "Hold", color: "var(--color-signal)", show: data.stats.holdCount > 0 },
+            { label: "Hold", color: "var(--color-signal-dark)", show: data.stats.holdCount > 0 },
             { label: "Sold", color: "var(--color-stop)", show: data.stats.soldCount > 0 },
             { label: "Partitioned", color: "var(--color-steel)", show: sortedParcels.some((p) => p.status === "PARTITIONED") },
           ].filter((it) => it.show).map((it) => (
@@ -1217,7 +1217,7 @@ export function MobileLandDetailClient({
                     className="grid place-items-center size-6 rounded-full shrink-0"
                     style={{ backgroundColor: (p.status === "VOID" || p.chequeStatus === "BOUNCED") ? "color-mix(in srgb, var(--color-stop) 12%, transparent)" : p.chequeStatus === "PENDING" ? "color-mix(in srgb, var(--color-signal) 12%, transparent)" : "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
                   >
-                    <Banknote className="size-3" style={{ color: (p.status === "VOID" || p.chequeStatus === "BOUNCED") ? "var(--color-stop)" : p.chequeStatus === "PENDING" ? "var(--color-signal)" : "var(--color-go)" }} />
+                    <Banknote className="size-3" style={{ color: (p.status === "VOID" || p.chequeStatus === "BOUNCED") ? "var(--color-stop)" : p.chequeStatus === "PENDING" ? "var(--color-signal-dark)" : "var(--color-go)" }} />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>
@@ -1227,7 +1227,7 @@ export function MobileLandDetailClient({
                     </p>
                     <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                       {formatDate(p.paymentDate)}
-                      {p.chequeStatus === "PENDING" && p.status !== "VOID" && <span style={{ color: "var(--color-signal)" }}> · Cheque Pending</span>}
+                      {p.chequeStatus === "PENDING" && p.status !== "VOID" && <span style={{ color: "var(--color-signal-dark)" }}> · Cheque Pending</span>}
                       {p.chequeStatus === "CLEARED" && p.status !== "VOID" && <span style={{ color: "var(--color-go)" }}> · Cleared</span>}
                       {p.chequeStatus === "BOUNCED" && p.status !== "VOID" && <span style={{ color: "var(--color-stop)" }}> · Bounced</span>}
                     </p>
@@ -1341,7 +1341,7 @@ export function MobileLandDetailClient({
                 {data.registryDocumentUrl ? (
                   <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-go)" }}>Uploaded</span>
                 ) : (
-                  <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-signal)" }}>Required</span>
+                  <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-signal-dark)" }}>Required</span>
                 )}
               </div>
               {data.registryDocumentUrl ? (
@@ -1529,7 +1529,7 @@ export function MobileLandDetailClient({
               </div>
               <div>
                 <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Balance</p>
-                <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>{formatCurrencyCompact(balanceDue)}</p>
+                <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-signal-dark)" }}>{formatCurrencyCompact(balanceDue)}</p>
               </div>
             </div>
             <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
@@ -1610,7 +1610,7 @@ export function MobileLandDetailClient({
                 />
               </div>
               <div>
-                <label className="text-m-caption font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--color-signal)" }}>
+                <label className="text-m-caption font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--color-signal-dark)" }}>
                   Registry Document — required *
                 </label>
                 <MobileDocUploader
@@ -1622,7 +1622,7 @@ export function MobileLandDetailClient({
                   onRemove={() => setCompRegistryDocUrl("")}
                 />
                 {!data.registryDocumentUrl && !compRegistryDocUrl && (
-                  <p className="text-m-caption mt-1" style={{ color: "var(--color-signal)" }}>
+                  <p className="text-m-caption mt-1" style={{ color: "var(--color-signal-dark)" }}>
                     Purchase cannot be completed without the registry document.
                   </p>
                 )}
@@ -2008,7 +2008,7 @@ function ParcelCard({
                 disabled={acting === "status"}
                 className="flex items-center gap-0.5 text-m-label font-semibold px-2 py-1 rounded text-m-body press"
                 style={{
-                  color: isAvailable ? "var(--color-signal)" : "var(--color-go)",
+                  color: isAvailable ? "var(--color-signal-dark)" : "var(--color-go)",
                   backgroundColor: `color-mix(in srgb, ${isAvailable ? "var(--color-signal)" : "var(--color-go)"} 10%, transparent)`,
                 }}
               >
@@ -2123,7 +2123,7 @@ const UNIT_TYPE_LABEL: Record<string, string> = {
 
 const UNIT_STATUS_META: Record<string, { color: string; label: string }> = {
   AVAILABLE: { color: "var(--color-go)", label: "Available" },
-  BOOKED: { color: "var(--color-signal)", label: "Booked" },
+  BOOKED: { color: "var(--color-signal-dark)", label: "Booked" },
   SOLD: { color: "var(--color-stop)", label: "Sold" },
   UNDER_CONSTRUCTION: { color: "var(--color-steel)", label: "U/C" },
   READY: { color: "var(--color-go)", label: "Ready" },
@@ -2438,7 +2438,7 @@ function PartitionSheet({
           className="rounded-[0.5rem] p-2 flex items-center gap-1.5 text-m-caption"
           style={{
             backgroundColor: areaMatch ? `color-mix(in srgb, var(--color-go) 8%, transparent)` : `color-mix(in srgb, var(--color-signal) 8%, transparent)`,
-            color: areaMatch ? "var(--color-go)" : "var(--color-signal)",
+            color: areaMatch ? "var(--color-go)" : "var(--color-signal-dark)",
           }}
         >
           {areaMatch ? <CheckCircle2 className="size-3" /> : <AlertCircle className="size-3" />}

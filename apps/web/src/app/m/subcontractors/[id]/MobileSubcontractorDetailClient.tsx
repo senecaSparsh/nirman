@@ -393,7 +393,7 @@ function WorkOrderCard({ wo }: { wo: WorkOrderItem }) {
                 <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
                   Balance
                 </p>
-                <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>
+                <p className="text-m-body font-bold tabular-nums" style={{ color: "var(--color-signal-dark)" }}>
                   {formatCurrencyCompact(balance)}
                 </p>
               </div>

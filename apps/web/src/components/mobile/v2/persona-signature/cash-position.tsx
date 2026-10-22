@@ -118,7 +118,7 @@ export function CashPosition({ data }: { data: CashData }) {
             backgroundColor: "var(--color-paper-2)",
           }}
         >
-          <Clock3 className="size-3 shrink-0" style={{ color: "var(--color-signal)" }} />
+          <Clock3 className="size-3 shrink-0" style={{ color: "var(--color-signal-dark)" }} />
           <span className="text-m-caption" style={{ color: "var(--color-ink-700)" }}>
             <span className="font-bold tabular-nums">{pending.expenses}</span>{" "}
             {pending.expenses === 1 ? "expense" : "expenses"} awaiting your approval

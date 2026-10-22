@@ -379,7 +379,7 @@ export function MobileExpenseClaimDetailClient({
               type="button"
               onClick={() => setShowAddLine(true)}
               className="flex items-center gap-1 text-m-caption font-bold press"
-              style={{ color: "var(--color-signal)" }}
+              style={{ color: "var(--color-signal-dark)" }}
             >
               <Plus className="size-3.5" /> Add line
             </button>
@@ -423,7 +423,7 @@ export function MobileExpenseClaimDetailClient({
                         target="_blank"
                         rel="noreferrer"
                         className="mt-1 inline-flex items-center gap-1 text-m-caption font-semibold"
-                        style={{ color: "var(--color-signal)" }}
+                        style={{ color: "var(--color-signal-dark)" }}
                       >
                         <FileText className="size-3" /> Receipt
                       </a>
@@ -565,7 +565,7 @@ export function MobileExpenseClaimDetailClient({
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
                 className="flex items-center gap-1 text-m-caption font-semibold press"
-                style={{ color: "var(--color-signal)" }}
+                style={{ color: "var(--color-signal-dark)" }}
               >
                 <Camera className="size-3.5" />
                 {receiptFile ? "Receipt selected" : "Add receipt"}

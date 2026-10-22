@@ -1094,7 +1094,7 @@ function ConsentTab({ policy, company, canManage }: { policy: ConsentPolicy | nu
               type="button"
               onClick={() => { setPolicyText(policy?.policyText ?? ""); setShowEdit(!showEdit); }}
               className="text-m-caption font-semibold"
-              style={{ color: "var(--color-signal)" }}
+              style={{ color: "var(--color-signal-dark)" }}
             >
               {policy ? "Revise" : "Create"}
             </button>

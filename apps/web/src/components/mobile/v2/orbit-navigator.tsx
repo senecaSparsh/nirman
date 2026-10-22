@@ -440,6 +440,7 @@ export function OrbitNavigator({
                 )}
                 <button
                   onClick={() => handleBreadcrumbTap(step, i)}
+                  aria-label={`Back to ${step.title}`}
                   className="text-m-caption font-semibold whitespace-nowrap text-m-body press"
                   style={{
                     color:
@@ -603,7 +604,7 @@ export function OrbitNavigator({
                           opacity: cardExpanded ? 0 : 1,
                           color:
                             chip.count === 0
-                              ? "var(--color-ink-300)"
+                              ? "var(--color-ink-400)"
                               : "var(--color-ink-950)",
                           backgroundColor:
                             "color-mix(in srgb, var(--color-paper) 88%, transparent)",
@@ -628,12 +629,19 @@ export function OrbitNavigator({
                   transform: "translate(-50%, -50%)",
                 }}
               >
-                <button
-                  onClick={() => setCardExpanded((v) => !v)}
-                  className="block w-full h-full text-left text-m-body press"
-                >
-                  <CenterCard node={node} expanded={cardExpanded} />
-                </button>
+                {/* Stretched-button pattern: the expand target sits under
+                    the card content so its nested link stays legal. */}
+                <div className="relative h-full">
+                  <button
+                    onClick={() => setCardExpanded((v) => !v)}
+                    aria-label={cardExpanded ? "Collapse details" : "Expand details"}
+                    aria-expanded={cardExpanded}
+                    className="absolute inset-0 z-0 rounded-[0.75rem] press focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-steel/60"
+                  />
+                  <div className="pointer-events-none relative z-10">
+                    <CenterCard node={node} expanded={cardExpanded} />
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -817,7 +825,7 @@ function CenterCard({
         <Link
           href={node.href}
           prefetch
-          className="mt-1 inline-flex items-center gap-1 text-m-label font-semibold underline"
+          className="pointer-events-auto relative z-20 mt-1 inline-flex items-center gap-1 text-m-label font-semibold underline"
           style={{ color: "var(--color-steel)" }}
         >
           <ExternalLink className="size-2.5" />

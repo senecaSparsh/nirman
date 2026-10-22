@@ -401,7 +401,7 @@ export default function MobileNewProcurementClient({ data, initialProjectId, onC
           style={{ backgroundColor: isQueued ? "color-mix(in srgb, var(--color-signal) 12%, transparent)" : "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
         >
           {isQueued ? (
-            <WifiOff className="size-7" style={{ color: "var(--color-signal)" }} />
+            <WifiOff className="size-7" style={{ color: "var(--color-signal-dark)" }} />
           ) : (
             <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
           )}

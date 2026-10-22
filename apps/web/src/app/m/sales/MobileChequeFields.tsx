@@ -76,7 +76,7 @@ export function MobileChequeFields({
         <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
           Cheque Details
         </p>
-        <p className="text-m-caption font-bold" style={{ color: "var(--color-signal)" }}>
+        <p className="text-m-caption font-bold" style={{ color: "var(--color-signal-dark)" }}>
           Cheque Details — pending until cleared
         </p>
 

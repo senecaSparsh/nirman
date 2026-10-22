@@ -289,7 +289,7 @@ export function MobileNewExpenseClaimClient({
     return (
       <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
         <div className="grid place-items-center size-14 rounded-full mb-3" style={{ backgroundColor: success.submitted && !success.queued ? "color-mix(in srgb, var(--color-go) 12%, transparent)" : "color-mix(in srgb, var(--color-signal) 12%, transparent)" }}>
-          <CheckCircle2 className="size-7" style={{ color: success.submitted && !success.queued ? "var(--color-go)" : "var(--color-signal)" }} />
+          <CheckCircle2 className="size-7" style={{ color: success.submitted && !success.queued ? "var(--color-go)" : "var(--color-signal-dark)" }} />
         </div>
         <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
           {success.queued ? "Claim Queued" : success.submitted ? "Expense Claim Submitted" : "Expense Claim Saved as Draft"}
@@ -505,7 +505,7 @@ export function MobileNewExpenseClaimClient({
                     onClick={() => fileInputRefs.current[idx]?.click()}
                     disabled={uploading}
                     className="flex items-center gap-1 text-m-caption font-semibold press"
-                    style={{ color: "var(--color-signal)" }}
+                    style={{ color: "var(--color-signal-dark)" }}
                   >
                     <Camera className="size-3.5" />
                     {line.receiptFile ? "Receipt selected" : "Add receipt"}
@@ -531,7 +531,7 @@ export function MobileNewExpenseClaimClient({
             type="button"
             onClick={addLine}
             className="w-full flex items-center justify-center gap-1.5 py-2 text-m-caption font-bold press"
-            style={{ color: "var(--color-signal)" }}
+            style={{ color: "var(--color-signal-dark)" }}
           >
             <Plus className="size-3.5" />
             Add another line

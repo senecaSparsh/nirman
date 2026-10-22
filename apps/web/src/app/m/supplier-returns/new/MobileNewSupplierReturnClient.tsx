@@ -208,7 +208,7 @@ export default function MobileNewSupplierReturnClient({
           }}
         >
           {isQueued ? (
-            <WifiOff className="size-7" style={{ color: "var(--color-signal)" }} />
+            <WifiOff className="size-7" style={{ color: "var(--color-signal-dark)" }} />
           ) : (
             <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
           )}

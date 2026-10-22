@@ -89,9 +89,9 @@ export function MobileDocUploader({
         {uploading ? (
           <Loader2 className="size-3.5 animate-spin" style={{ color: "var(--color-ink-500)" }} />
         ) : (
-          <Camera className="size-3.5" style={{ color: required ? "var(--color-signal)" : "var(--color-ink-500)" }} />
+          <Camera className="size-3.5" style={{ color: required ? "var(--color-signal-dark)" : "var(--color-ink-500)" }} />
         )}
-        <span className="text-m-caption font-bold" style={{ color: required ? "var(--color-signal)" : "var(--color-ink-500)" }}>
+        <span className="text-m-caption font-bold" style={{ color: required ? "var(--color-signal-dark)" : "var(--color-ink-500)" }}>
           {uploading ? "Uploading…" : label}
         </span>
       </button>

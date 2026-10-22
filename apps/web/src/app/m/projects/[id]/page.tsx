@@ -581,7 +581,7 @@ export default function MobileProjectDetailPage({
                 <span
                   className="text-m-caption font-bold uppercase shrink-0"
                   style={{
-                    color: a.equipment.status === "IN_MAINTENANCE" ? "var(--color-signal)" : "var(--color-go)"}}
+                    color: a.equipment.status === "IN_MAINTENANCE" ? "var(--color-signal-dark)" : "var(--color-go)"}}
                 >
                   {a.equipment.status === "IN_MAINTENANCE" ? "In repair" : "Active"}
                 </span>

@@ -55,7 +55,7 @@ type TabKey = "all" | "mine" | "pending";
 
 const STATUS_STYLE: Record<string, { color: string; label: string }> = {
   OPEN: { color: "var(--color-ink-400)", label: "Open" },
-  QUOTES_COLLECTED: { color: "var(--color-signal)", label: "Quotes In" },
+  QUOTES_COLLECTED: { color: "var(--color-signal-dark)", label: "Quotes In" },
   APPROVED: { color: "var(--color-steel)", label: "Approved" },
   CLOSED: { color: "var(--color-go)", label: "Closed" },
   CANCELLED: { color: "var(--color-stop)", label: "Cancelled" },

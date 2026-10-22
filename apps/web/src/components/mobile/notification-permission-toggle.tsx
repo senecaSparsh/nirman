@@ -82,8 +82,8 @@ export function NotificationPermissionToggle() {
       className="flex w-full items-center gap-2 rounded-[0.5rem] border-2 px-3 py-2.5 text-m-caption font-semibold text-m-body press disabled:opacity-50"
       style={{ borderColor: "color-mix(in srgb, var(--color-signal) 30%, transparent)", backgroundColor: "color-mix(in srgb, var(--color-signal) 5%, transparent)" }}
     >
-      {loading ? <Loader2 className="size-3.5 animate-spin" /> : <Bell className="size-3.5" style={{ color: "var(--color-signal)" }} />}
-      <span style={{ color: "var(--color-signal)" }}>Enable push notifications</span>
+      {loading ? <Loader2 className="size-3.5 animate-spin" /> : <Bell className="size-3.5" style={{ color: "var(--color-signal-dark)" }} />}
+      <span style={{ color: "var(--color-signal-dark)" }}>Enable push notifications</span>
     </button>
   );
 }

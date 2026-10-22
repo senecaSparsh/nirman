@@ -111,7 +111,7 @@ export function MobileMaterialSalePaymentDialog({
         </p>
 
         {outstandingBalance > 0 ? (
-          <div className="text-m-caption rounded-[0.375rem] px-2 py-1.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 8%, transparent)", color: "var(--color-signal)" }}>
+          <div className="text-m-caption rounded-[0.375rem] px-2 py-1.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 8%, transparent)", color: "var(--color-signal-dark)" }}>
             Balance due: <span className="font-bold tabular-nums">{formatCurrency(outstandingBalance)}</span>
           </div>
         ) : null}
@@ -129,7 +129,7 @@ export function MobileMaterialSalePaymentDialog({
                   type="button"
                   onClick={() => setPayAmount(String(Math.max(0, outstandingBalance - (Number(payTds) || 0))))}
                   className="text-m-caption font-bold press"
-                  style={{ color: "var(--color-signal)" }}
+                  style={{ color: "var(--color-signal-dark)" }}
                 >
                   Pay Full
                 </button>

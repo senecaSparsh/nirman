@@ -181,7 +181,7 @@ export function MusterRing({ data }: { data: MusterData }) {
             backgroundColor: "var(--color-paper-2)",
           }}
         >
-          <CalendarCheck className="size-3 shrink-0" style={{ color: "var(--color-signal)" }} />
+          <CalendarCheck className="size-3 shrink-0" style={{ color: "var(--color-signal-dark)" }} />
           <span className="text-m-caption" style={{ color: "var(--color-ink-700)" }}>
             <span className="font-bold tabular-nums">{pending.leaves}</span> leave{" "}
             {pending.leaves === 1 ? "request" : "requests"} pending

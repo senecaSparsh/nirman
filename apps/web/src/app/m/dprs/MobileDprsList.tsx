@@ -59,7 +59,7 @@ const STATUS_INFO: Record<
   string,
   { color: string; label: string; step: number }
 > = {
-  SUBMITTED: { color: "var(--color-signal)", label: "Submitted", step: 1 },
+  SUBMITTED: { color: "var(--color-signal-dark)", label: "Submitted", step: 1 },
   SUB_ADMIN_APPROVED: {
     color: "var(--color-steel)",
     label: "Sub-Admin OK",

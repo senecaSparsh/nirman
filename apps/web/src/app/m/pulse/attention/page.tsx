@@ -206,7 +206,7 @@ async function AttentionContent() {
             className="grid place-items-center size-8 rounded-full shrink-0"
             style={{ backgroundColor: `color-mix(in srgb, var(--color-signal) 12%, transparent)` }}
           >
-            <AlertTriangle className="size-4" style={{ color: "var(--color-signal)" }} />
+            <AlertTriangle className="size-4" style={{ color: "var(--color-signal-dark)" }} />
           </div>
           <div>
             <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>

@@ -345,7 +345,7 @@ function PhoneStatusRow({ user, canManage }: { user: AccessSectionUser; canManag
           style={
             isVerified
               ? { color: "var(--color-go)", backgroundColor: "color-mix(in srgb, var(--color-go) 10%, transparent)" }
-              : { color: "var(--color-signal)", backgroundColor: "color-mix(in srgb, var(--color-signal) 10%, transparent)" }
+              : { color: "var(--color-signal-dark)", backgroundColor: "color-mix(in srgb, var(--color-signal) 10%, transparent)" }
           }
         >
           {sending
@@ -364,7 +364,7 @@ function PhoneStatusRow({ user, canManage }: { user: AccessSectionUser; canManag
           style={
             isSynced
               ? { color: "var(--color-go)", backgroundColor: "color-mix(in srgb, var(--color-go) 10%, transparent)" }
-              : { color: "var(--color-signal)", backgroundColor: "color-mix(in srgb, var(--color-signal) 10%, transparent)" }
+              : { color: "var(--color-signal-dark)", backgroundColor: "color-mix(in srgb, var(--color-signal) 10%, transparent)" }
           }
         >
           {syncing

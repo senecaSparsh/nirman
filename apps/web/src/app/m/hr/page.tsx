@@ -455,7 +455,7 @@ export default function HrHomePage() {
                 <Circle
                   className="size-2 shrink-0 fill-current"
                   style={{
-                    color: totalPending > 0 ? "var(--color-signal)" : "var(--color-go)"}}
+                    color: totalPending > 0 ? "var(--color-signal-dark)" : "var(--color-go)"}}
                 />
                 <Clock className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
                 <span className="flex-1 text-m-body" style={{ color: "var(--color-ink-950)" }}>

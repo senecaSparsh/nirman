@@ -311,7 +311,7 @@ export function MobileLandCostComponentDialog({
                     onClick={onDelete}
                     disabled={saving}
                     className="flex items-center gap-1 rounded-[0.5rem] border py-2 px-3 text-m-body font-bold press disabled:opacity-50"
-                    style={{ borderColor: "var(--color-signal)", color: "var(--color-signal)" }}
+                    style={{ borderColor: "var(--color-signal)", color: "var(--color-signal-dark)" }}
                   >
                     <Trash2 className="size-3.5" /> Delete
                   </button>

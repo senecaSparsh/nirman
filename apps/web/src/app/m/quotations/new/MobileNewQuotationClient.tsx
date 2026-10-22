@@ -577,7 +577,7 @@ export function MobileNewQuotationClient({
                         {` · GST ${m.gstRate}%`}
                       </p>
                     </div>
-                    <Plus className="size-4 shrink-0" style={{ color: "var(--color-signal)" }} />
+                    <Plus className="size-4 shrink-0" style={{ color: "var(--color-signal-dark)" }} />
                   </button>
                 ))}
               </div>

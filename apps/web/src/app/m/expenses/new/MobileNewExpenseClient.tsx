@@ -123,7 +123,7 @@ export function MobileNewExpenseClient({
             className="grid place-items-center size-14 rounded-full mb-3"
             style={{ backgroundColor: success.submitted ? "color-mix(in srgb, var(--color-go) 12%, transparent)" : "color-mix(in srgb, var(--color-signal) 12%, transparent)" }}
           >
-            <CheckCircle2 className="size-7" style={{ color: success.submitted ? "var(--color-go)" : "var(--color-signal)" }} />
+            <CheckCircle2 className="size-7" style={{ color: success.submitted ? "var(--color-go)" : "var(--color-signal-dark)" }} />
           </div>
           <p className="text-m-section font-extrabold tracking-tight mb-1" style={{ color: "var(--color-ink-950)" }}>
             {success.submitted ? "Expense Submitted" : "Expense Saved as Draft"}

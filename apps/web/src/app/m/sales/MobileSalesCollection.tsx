@@ -45,7 +45,7 @@ export interface CollectionStats {
 const PAYMENT_MODES = ["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"] as const;
 
 const STATUS_META: Record<string, { color: string; label: string }> = {
-  PENDING: { color: "var(--color-signal)", label: "Pending" },
+  PENDING: { color: "var(--color-signal-dark)", label: "Pending" },
   PARTIAL: { color: "var(--color-steel)", label: "Partial" },
   PAID: { color: "var(--color-go)", label: "Paid" },
 };
@@ -115,7 +115,7 @@ export function MobileSalesCollection({
           <span
             className="text-m-caption font-bold tabular-nums px-1.5 py-0.5 rounded-full"
             style={{
-              color: stats.collectionPct >= 80 ? "var(--color-go)" : "var(--color-signal)",
+              color: stats.collectionPct >= 80 ? "var(--color-go)" : "var(--color-signal-dark)",
               backgroundColor: `color-mix(in srgb, ${stats.collectionPct >= 80 ? "var(--color-go)" : "var(--color-signal)"} 10%, transparent)`,
             }}
           >
@@ -334,7 +334,7 @@ function OutstandingCard({
             <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>
               Outstanding
             </p>
-            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>
+            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-signal-dark)" }}>
               {formatCurrencyCompact(sale.balance)}
             </p>
           </div>
@@ -411,7 +411,7 @@ function OutstandingCard({
           </div>
           <div className="flex items-center justify-between mb-3 text-m-caption font-bold border-t pt-2" style={{ borderColor: "var(--color-line)" }}>
             <span style={{ color: "var(--color-ink-950)" }}>Balance</span>
-            <span className="tabular-nums" style={{ color: "var(--color-signal)" }}>
+            <span className="tabular-nums" style={{ color: "var(--color-signal-dark)" }}>
               {formatCurrencyCompact(sale.balance)}
             </span>
           </div>

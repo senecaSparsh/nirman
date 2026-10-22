@@ -460,7 +460,7 @@ async function AccountsOverviewContent() {
           <Circle
             className="size-2 shrink-0 fill-current"
             style={{
-              color: topPayable ? "var(--color-signal)" : "var(--color-go)"}}
+              color: topPayable ? "var(--color-signal-dark)" : "var(--color-go)"}}
           />
           <Users className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
           <span className="flex-1 text-m-body truncate" style={{ color: "var(--color-ink-950)" }}>

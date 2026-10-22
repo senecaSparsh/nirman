@@ -352,7 +352,7 @@ export function MobileMaterialSaleDetailClient({
             </p>
             <p
               className="text-m-section font-bold tabular-nums"
-              style={{ color: isCancelled ? "var(--color-stop)" : isPaid ? "var(--color-go)" : "var(--color-signal)" }}
+              style={{ color: isCancelled ? "var(--color-stop)" : isPaid ? "var(--color-go)" : "var(--color-signal-dark)" }}
             >
               {formatCurrency(isCancelled ? totalAmount : isPaid ? totalAmount : balanceDue)}
             </p>
@@ -761,7 +761,7 @@ export function MobileMaterialSaleDetailClient({
         <Modal onClose={() => setShowPayment(false)} title="Record Payment">
           <form onSubmit={handlePayment} className="flex flex-col gap-3">
             {balanceDue > 0 ? (
-              <div className="flex items-center justify-between gap-2 text-m-caption rounded-[0.375rem] px-2 py-1.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 8%, transparent)", color: "var(--color-signal)" }}>
+              <div className="flex items-center justify-between gap-2 text-m-caption rounded-[0.375rem] px-2 py-1.5" style={{ backgroundColor: "color-mix(in srgb, var(--color-signal) 8%, transparent)", color: "var(--color-signal-dark)" }}>
                 <span>Balance due: <span className="font-bold tabular-nums">{formatCurrency(balanceDue)}</span></span>
                 <button
                   type="button"

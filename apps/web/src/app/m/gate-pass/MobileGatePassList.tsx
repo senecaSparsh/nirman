@@ -79,7 +79,7 @@ type GatePassRow = {
 
 const STATUS_CONFIG: Record<GatePassRow["status"], { label: string; color: string; bg: string }> = {
   DRAFT: { label: "Draft", color: "var(--color-ink-500)", bg: "var(--color-paper-2)" },
-  PENDING: { label: "Pending", color: "var(--color-signal)", bg: "color-mix(in srgb, var(--color-signal) 10%, transparent)" },
+  PENDING: { label: "Pending", color: "var(--color-signal-dark)", bg: "color-mix(in srgb, var(--color-signal) 10%, transparent)" },
   APPROVED: { label: "Approved", color: "var(--color-steel)", bg: "color-mix(in srgb, var(--color-steel) 10%, transparent)" },
   REJECTED: { label: "Rejected", color: "var(--color-stop)", bg: "color-mix(in srgb, var(--color-stop) 10%, transparent)" },
   EXITED: { label: "Exited", color: "var(--color-ink-700)", bg: "color-mix(in srgb, var(--color-ink-700) 10%, transparent)" },

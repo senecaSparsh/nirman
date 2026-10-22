@@ -862,7 +862,7 @@ export function MobileEmployeeDetailClient({
                     {isComplete ? (
                       <CheckCircle2 className="size-4" style={{ color: "var(--color-go)" }} />
                     ) : (
-                      <ListChecks className="size-4" style={{ color: pct > 0 ? "var(--color-signal)" : "var(--color-ink-400)" }} />
+                      <ListChecks className="size-4" style={{ color: pct > 0 ? "var(--color-signal-dark)" : "var(--color-ink-400)" }} />
                     )}
                   </div>
                   <div>
@@ -877,7 +877,7 @@ export function MobileEmployeeDetailClient({
                 <span
                   className="text-m-caption font-bold px-2 py-0.5 rounded-full shrink-0"
                   style={{
-                    color: isComplete ? "var(--color-go)" : pct === 100 ? "var(--color-go)" : "var(--color-signal)",
+                    color: isComplete ? "var(--color-go)" : pct === 100 ? "var(--color-go)" : "var(--color-signal-dark)",
                     backgroundColor: `color-mix(in srgb, ${isComplete ? "var(--color-go)" : pct === 100 ? "var(--color-go)" : "var(--color-signal)"} 8%, transparent)`,
                   }}
                 >

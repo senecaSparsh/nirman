@@ -627,11 +627,11 @@ export function MobileStockOutClient({
           }}
         >
           {isQueued ? (
-            <WifiOff className="size-7" style={{ color: "var(--color-signal)" }} />
+            <WifiOff className="size-7" style={{ color: "var(--color-signal-dark)" }} />
           ) : isGatePass ? (
-            <ShieldCheck className="size-7" style={{ color: "var(--color-signal)" }} />
+            <ShieldCheck className="size-7" style={{ color: "var(--color-signal-dark)" }} />
           ) : isTransfer ? (
-            <Clock className="size-7" style={{ color: "var(--color-signal)" }} />
+            <Clock className="size-7" style={{ color: "var(--color-signal-dark)" }} />
           ) : (
             <CheckCircle2 className="size-7" style={{ color: "var(--color-go)" }} />
           )}

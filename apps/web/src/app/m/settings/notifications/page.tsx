@@ -51,7 +51,7 @@ const CHANNEL_ICONS: Record<string, typeof Bell> = {
 const STATUS_STYLES: Record<string, { color: string; icon: typeof CheckCircle2 }> = {
   SENT: { color: "var(--color-go)", icon: CheckCircle2 },
   FAILED: { color: "var(--color-stop)", icon: XCircle },
-  PENDING: { color: "var(--color-signal)", icon: Clock },
+  PENDING: { color: "var(--color-signal-dark)", icon: Clock },
 };
 
 const EVENT_LABELS: Record<string, string> = {

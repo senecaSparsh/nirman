@@ -136,7 +136,7 @@ function GreetingHeader({ userName }: { userName: string | null }) {
   const firstName = userName ? userName.split(" ")[0] : "there";
   return (
     <div className="flex items-start gap-1.5 min-w-0">
-      <Sun className="size-3.5 shrink-0 mt-0.5" style={{ color: "var(--color-signal)" }} />
+      <Sun className="size-3.5 shrink-0 mt-0.5" style={{ color: "var(--color-signal-dark)" }} />
       <div className="min-w-0">
         <div className="text-m-body font-bold truncate" style={{ color: "var(--color-ink-950)" }}>
           {greeting}, {firstName}

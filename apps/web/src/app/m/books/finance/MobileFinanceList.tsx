@@ -44,7 +44,7 @@ export type SupplierInvoiceListItem = {
 type FinanceTab = "expenses" | "invoices";
 
 const INVOICE_STATUS_STYLE: Record<string, { color: string; label: string }> = {
-  PENDING: { color: "var(--color-signal)", label: "Pending" },
+  PENDING: { color: "var(--color-signal-dark)", label: "Pending" },
   MATCHED: { color: "var(--color-go)", label: "Matched" },
   APPROVED: { color: "var(--color-go)", label: "Approved" },
   DISPUTED: { color: "var(--color-stop)", label: "Disputed" },

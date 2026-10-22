@@ -63,7 +63,7 @@ type Filter = "all" | "active" | "pending" | "overdue" | "expiring";
 
 const STATUS_META: Record<string, { color: string; label: string }> = {
   ACTIVE: { color: "var(--color-steel)", label: "Active" },
-  PENDING: { color: "var(--color-signal)", label: "Pending" },
+  PENDING: { color: "var(--color-signal-dark)", label: "Pending" },
   EXPIRED: { color: "var(--color-stop)", label: "Expired" },
   TERMINATED: { color: "var(--color-stop)", label: "Terminated" },
 };
@@ -164,7 +164,7 @@ export function MobileRentalsList({
         {stats.totalOverdue > 0 ? (
           <div
             className="rounded-[0.375rem] px-2 py-1.5 flex items-center gap-1.5 text-m-caption font-bold"
-            style={{ backgroundColor: `color-mix(in srgb, var(--color-signal) 8%, transparent)`, color: "var(--color-signal)" }}
+            style={{ backgroundColor: `color-mix(in srgb, var(--color-signal) 8%, transparent)`, color: "var(--color-signal-dark)" }}
           >
             <AlertCircle className="size-3" />
             {formatCurrencyCompact(stats.totalOverdue)} overdue across {overdueCount} {overdueCount === 1 ? "tenant" : "tenants"}
@@ -178,13 +178,13 @@ export function MobileRentalsList({
             {stats.activeCount} active
           </span>
           {stats.pendingCount > 0 ? (
-            <span className="flex items-center gap-0.5" style={{ color: "var(--color-signal)" }}>
+            <span className="flex items-center gap-0.5" style={{ color: "var(--color-signal-dark)" }}>
               <Clock className="size-2.5" />
               {stats.pendingCount} pending
             </span>
           ) : null}
           {stats.expiringCount > 0 ? (
-            <span className="flex items-center gap-0.5" style={{ color: "var(--color-signal)" }}>
+            <span className="flex items-center gap-0.5" style={{ color: "var(--color-signal-dark)" }}>
               <Calendar className="size-2.5" />
               {stats.expiringCount} expiring
             </span>
@@ -412,7 +412,7 @@ function TenancyCard({ tenancy: t }: { tenancy: RentalListItem }) {
                 </p>
                 <p
                   className="text-m-body font-bold tabular-nums"
-                  style={{ color: t.expiringSoon ? "var(--color-signal)" : "var(--color-ink-950)" }}
+                  style={{ color: t.expiringSoon ? "var(--color-signal-dark)" : "var(--color-ink-950)" }}
                 >
                   {formatDate(t.endDate)}
                 </p>
@@ -435,15 +435,15 @@ function TenancyCard({ tenancy: t }: { tenancy: RentalListItem }) {
             >
               {hasOverdue ? (
                 <>
-                  <AlertCircle className="size-2.5" style={{ color: "var(--color-signal)" }} />
-                  <span className="text-m-caption font-semibold" style={{ color: "var(--color-signal)" }}>
+                  <AlertCircle className="size-2.5" style={{ color: "var(--color-signal-dark)" }} />
+                  <span className="text-m-caption font-semibold" style={{ color: "var(--color-signal-dark)" }}>
                     {formatCurrencyCompact(t.overdueAmount)} overdue · {t.overdueCount} {t.overdueCount === 1 ? "payment" : "payments"}
                   </span>
                 </>
               ) : t.expiringSoon ? (
                 <>
-                  <Calendar className="size-2.5" style={{ color: "var(--color-signal)" }} />
-                  <span className="text-m-caption font-semibold" style={{ color: "var(--color-signal)" }}>
+                  <Calendar className="size-2.5" style={{ color: "var(--color-signal-dark)" }} />
+                  <span className="text-m-caption font-semibold" style={{ color: "var(--color-signal-dark)" }}>
                     Expires in {t.daysToExpiry} {t.daysToExpiry === 1 ? "day" : "days"}
                   </span>
                 </>

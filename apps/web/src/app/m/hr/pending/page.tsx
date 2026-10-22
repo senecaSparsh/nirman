@@ -188,7 +188,7 @@ async function MobilePendingListContent() {
       {pendingDprs.length > 0 && (
         <MobilePendingSection
           title="DPRs Pending Approval"
-          icon={<FileText className="size-3.5" style={{ color: "var(--color-signal)" }} />}
+          icon={<FileText className="size-3.5" style={{ color: "var(--color-signal-dark)" }} />}
           count={pendingDprs.length}
           tone="signal"
         >
@@ -251,7 +251,7 @@ async function MobilePendingListContent() {
       {pendingPurchaseOrders.length > 0 && (
         <MobilePendingSection
           title="POs Pending Approval"
-          icon={<ShoppingCart className="size-3.5" style={{ color: "var(--color-signal)" }} />}
+          icon={<ShoppingCart className="size-3.5" style={{ color: "var(--color-signal-dark)" }} />}
           count={pendingPurchaseOrders.length}
           tone="signal"
         >
@@ -272,7 +272,7 @@ async function MobilePendingListContent() {
       {pendingRequisitions.length > 0 && (
         <MobilePendingSection
           title="Indents Pending"
-          icon={<Hammer className="size-3.5" style={{ color: "var(--color-signal)" }} />}
+          icon={<Hammer className="size-3.5" style={{ color: "var(--color-signal-dark)" }} />}
           count={pendingRequisitions.length}
           tone="signal"
         >

@@ -299,7 +299,7 @@ function PermissionCard({ doc }: { doc: MobilePermissionRow; canManage: boolean 
             </span>
           )}
           {expiryStatus === "expiring" && (
-            <span className="text-m-caption font-bold" style={{ color: "var(--color-signal)" }}>
+            <span className="text-m-caption font-bold" style={{ color: "var(--color-signal-dark)" }}>
               · {days}d left
             </span>
           )}

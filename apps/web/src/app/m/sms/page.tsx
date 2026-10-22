@@ -63,7 +63,7 @@ export default function MobileSmsPage() {
                 <p className="text-m-caption uppercase font-semibold" style={{ color: "var(--color-ink-500)" }}>
                   Unmatched
                 </p>
-                <p className="text-m-section font-bold" style={{ color: "var(--color-signal)" }}>
+                <p className="text-m-section font-bold" style={{ color: "var(--color-signal-dark)" }}>
                   {unmatchedCount}
                 </p>
               </div>
@@ -104,7 +104,7 @@ export default function MobileSmsPage() {
                           {isMatched ? (
                             <Check className="size-3.5" style={{ color: "var(--color-go)" }} />
                           ) : isUnmatched ? (
-                            <AlertCircle className="size-3.5" style={{ color: "var(--color-signal)" }} />
+                            <AlertCircle className="size-3.5" style={{ color: "var(--color-signal-dark)" }} />
                           ) : (
                             <MessageSquare className="size-3.5" style={{ color: "var(--color-ink-400)" }} />
                           )}

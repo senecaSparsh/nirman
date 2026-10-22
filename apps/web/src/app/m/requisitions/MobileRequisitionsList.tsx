@@ -73,7 +73,7 @@ const FILTER_CHIPS: { label: string; value: ReqStatus }[] = [
 /* ── Status → accent color + label ── */
 const STATUS_STYLE: Record<string, { color: string; label: string }> = {
   DRAFT: { color: "var(--color-ink-500)", label: "Draft" },
-  SUBMITTED: { color: "var(--color-signal)", label: "Submitted" },
+  SUBMITTED: { color: "var(--color-signal-dark)", label: "Submitted" },
   APPROVED: { color: "var(--color-steel)", label: "Approved" },
   REJECTED: { color: "var(--color-stop)", label: "Rejected" },
   CONVERTED: { color: "var(--color-go)", label: "Converted" },
@@ -504,7 +504,7 @@ function ReqCard({ req, canApprove, currentUserId, canSelfApprove, onAction }: {
               />
               <span
                 className="text-m-caption font-semibold"
-                style={{ color: "var(--color-signal)" }}
+                style={{ color: "var(--color-signal-dark)" }}
               >
                 Needs approval
               </span>
@@ -531,7 +531,7 @@ function ReqCard({ req, canApprove, currentUserId, canSelfApprove, onAction }: {
                 />
                 <span
                   className="text-m-caption font-semibold"
-                  style={{ color: "var(--color-signal)" }}
+                  style={{ color: "var(--color-signal-dark)" }}
                 >
                   {req.quoteCount}/{req.minQuotesRequired} quotes
                 </span>

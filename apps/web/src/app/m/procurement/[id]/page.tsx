@@ -280,7 +280,7 @@ export default function MobilePoDetailPage({
               date: receipts[0]?.receiptDate ? formatDate(receipts[0].receiptDate) : undefined,
               detail: `${formatNumber(totalQtyReceived, 0)}/${formatNumber(totalQtyOrdered, 0)} units · ${pendingLines} pending`,
               state: "done",
-              color: "var(--color-signal)",
+              color: "var(--color-signal-dark)",
             });
           } else if (po.status === "ORDERED") {
             timelineSteps.push({
@@ -694,7 +694,7 @@ export default function MobilePoDetailPage({
                           {p.referenceNo ? ` · ${p.referenceNo}` : ""}
                         </p>
                         {p.tdsAmount > 0 ? (
-                          <p className="text-m-caption truncate" style={{ color: "var(--color-signal)" }}>
+                          <p className="text-m-caption truncate" style={{ color: "var(--color-signal-dark)" }}>
                             TDS: {formatCurrency(p.tdsAmount)}{p.tdsSection ? ` (${p.tdsSection})` : ""}
                           </p>
                         ) : null}

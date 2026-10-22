@@ -574,12 +574,12 @@ export default function MobileNewMaterialSaleClient({
           {isQueued ? (
             <WifiOff
               className="size-7"
-              style={{ color: "var(--color-signal)" }}
+              style={{ color: "var(--color-signal-dark)" }}
             />
           ) : isGatePass ? (
             <ShieldCheck
               className="size-7"
-              style={{ color: "var(--color-signal)" }}
+              style={{ color: "var(--color-signal-dark)" }}
             />
           ) : (
             <CheckCircle2
@@ -618,14 +618,14 @@ export default function MobileNewMaterialSaleClient({
         {isQueued ? (
           <p
             className="text-m-caption font-bold uppercase mb-4"
-            style={{ color: "var(--color-signal)" }}
+            style={{ color: "var(--color-signal-dark)" }}
           >
             Record Payments After Sync
           </p>
         ) : isGatePass ? (
           <p
             className="text-m-caption font-bold uppercase mb-4"
-            style={{ color: "var(--color-signal)" }}
+            style={{ color: "var(--color-signal-dark)" }}
           >
             Awaiting Gate Pass Approval
           </p>
@@ -639,7 +639,7 @@ export default function MobileNewMaterialSaleClient({
         ) : isPartial ? (
           <p
             className="text-m-caption font-bold uppercase mb-4"
-            style={{ color: "var(--color-signal)" }}
+            style={{ color: "var(--color-signal-dark)" }}
           >
             Partial ·{" "}
             {formatCurrency(success.totalAmount - (success.amountPaid ?? 0))}{" "}
@@ -648,7 +648,7 @@ export default function MobileNewMaterialSaleClient({
         ) : (
           <p
             className="text-m-caption font-bold uppercase mb-4"
-            style={{ color: "var(--color-signal)" }}
+            style={{ color: "var(--color-signal-dark)" }}
           >
             Unpaid · Credit
           </p>
@@ -1412,7 +1412,7 @@ function SaleForm({
               Sale will be created as{" "}
               <span
                 className="font-bold"
-                style={{ color: "var(--color-signal)" }}
+                style={{ color: "var(--color-signal-dark)" }}
               >
                 unpaid
               </span>

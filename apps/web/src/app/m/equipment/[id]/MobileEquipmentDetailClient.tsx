@@ -320,8 +320,8 @@ export function MobileEquipmentDetailClient({
       />
       {depreciation > 0 ? (
         <div className="flex items-center gap-1 -mt-1 mb-3 px-1">
-          <TrendingDown className="size-3" style={{ color: "var(--color-signal)" }} />
-          <span className="text-m-caption font-semibold" style={{ color: "var(--color-signal)" }}>
+          <TrendingDown className="size-3" style={{ color: "var(--color-signal-dark)" }} />
+          <span className="text-m-caption font-semibold" style={{ color: "var(--color-signal-dark)" }}>
             {depreciationPct}% depreciated
           </span>
           <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
@@ -442,7 +442,7 @@ export function MobileEquipmentDetailClient({
                   </span>
                   <span
                     className="text-m-caption font-bold uppercase"
-                    style={{ color: m.endDate ? "var(--color-go)" : "var(--color-signal)" }}
+                    style={{ color: m.endDate ? "var(--color-go)" : "var(--color-signal-dark)" }}
                   >
                     {m.endDate ? "Done" : "Active"}
                   </span>
@@ -510,7 +510,7 @@ export function MobileEquipmentDetailClient({
                           {perUnit.toFixed(1)} L/{l.meterKind === "KM" ? "km" : "hr"} · high
                         </span>
                       ) : (
-                        <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>
+                        <span className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-signal-dark)" }}>
                           {perUnit.toFixed(1)} L/{l.meterKind === "KM" ? "km" : "hr"}
                         </span>
                       )
@@ -1042,7 +1042,7 @@ function AssignModal({
                   backgroundColor: "var(--color-paper-2)",
                 }}
               >
-                <MapPin className="size-4 shrink-0" style={{ color: selectedLocation ? "var(--color-ink-700)" : "var(--color-signal)" }} />
+                <MapPin className="size-4 shrink-0" style={{ color: selectedLocation ? "var(--color-ink-700)" : "var(--color-signal-dark)" }} />
                 <div className="min-w-0 flex-1">
                   {selectedLocation ? (
                     <p className="text-m-section font-bold truncate" style={{ color: "var(--color-ink-950)" }}>

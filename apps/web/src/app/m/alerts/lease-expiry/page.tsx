@@ -72,7 +72,7 @@ async function LeaseExpiryContent() {
             <p className="text-m-caption uppercase" style={{ color: "var(--color-ink-500)" }}>≤30d</p>
           </div>
           <div className="text-center">
-            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-signal)" }}>
+            <p className="text-m-section font-bold tabular-nums" style={{ color: "var(--color-signal-dark)" }}>
               {warning.length}
             </p>
             <p className="text-m-caption uppercase" style={{ color: "var(--color-ink-500)" }}>≤60d</p>

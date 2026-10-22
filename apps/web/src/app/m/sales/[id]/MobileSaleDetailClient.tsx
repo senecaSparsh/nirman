@@ -47,8 +47,8 @@ type PaymentItem = {
 const PAYMENT_MODES = ["CASH", "BANK_TRANSFER", "CHEQUE", "UPI", "OTHER"] as const;
 
 const STAGE_META: Record<string, { color: string; label: string }> = {
-  PENDING: { color: "var(--color-signal)", label: "Pending" },
-  DEPOSIT_RECEIVED: { color: "var(--color-signal)", label: "Deposit" },
+  PENDING: { color: "var(--color-signal-dark)", label: "Pending" },
+  DEPOSIT_RECEIVED: { color: "var(--color-signal-dark)", label: "Deposit" },
   COMPLETED: { color: "var(--color-go)", label: "Completed" },
   CANCELLED: { color: "var(--color-stop)", label: "Cancelled" },
 };
@@ -309,7 +309,7 @@ export function MobileSaleDetailClient({
       ? "var(--color-go)"
       : "var(--color-signal)";
 
-  const stageMeta = STAGE_META[saleStage] ?? { color: "var(--color-signal)", label: "Pending" };
+  const stageMeta = STAGE_META[saleStage] ?? { color: "var(--color-signal-dark)", label: "Pending" };
   const totalAmount = salePrice + gstAmount;
   const balanceDue = Math.max(0, totalAmount - totalPaid);
 
@@ -650,7 +650,7 @@ export function MobileSaleDetailClient({
             </p>
             <p
               className="text-m-section font-bold tabular-nums"
-              style={{ color: isCancelled ? "var(--color-stop)" : isPaid ? "var(--color-go)" : "var(--color-signal)" }}
+              style={{ color: isCancelled ? "var(--color-stop)" : isPaid ? "var(--color-go)" : "var(--color-signal-dark)" }}
             >
               {formatCurrency(isCancelled ? totalAmount : isPaid ? totalAmount : balanceDue)}
             </p>
@@ -1242,7 +1242,7 @@ export function MobileSaleDetailClient({
                     className="grid place-items-center size-6 rounded-full shrink-0"
                     style={{ backgroundColor: p.chequeStatus === "BOUNCED" ? "color-mix(in srgb, var(--color-stop) 12%, transparent)" : p.chequeStatus === "PENDING" ? "color-mix(in srgb, var(--color-signal) 12%, transparent)" : "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
                   >
-                    <Banknote className="size-3" style={{ color: p.chequeStatus === "BOUNCED" ? "var(--color-stop)" : p.chequeStatus === "PENDING" ? "var(--color-signal)" : "var(--color-go)" }} />
+                    <Banknote className="size-3" style={{ color: p.chequeStatus === "BOUNCED" ? "var(--color-stop)" : p.chequeStatus === "PENDING" ? "var(--color-signal-dark)" : "var(--color-go)" }} />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="text-m-label font-bold" style={{ color: "var(--color-ink-950)" }}>
@@ -1252,7 +1252,7 @@ export function MobileSaleDetailClient({
                     <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                       {formatDate(p.paymentDate)}
                       {p.status === "VOID" && <span className="font-bold" style={{ color: "var(--color-stop)" }}> · Voided</span>}
-                      {p.chequeStatus === "PENDING" && <span style={{ color: "var(--color-signal)" }}> · Cheque Pending</span>}
+                      {p.chequeStatus === "PENDING" && <span style={{ color: "var(--color-signal-dark)" }}> · Cheque Pending</span>}
                       {p.chequeStatus === "CLEARED" && <span style={{ color: "var(--color-go)" }}> · Cheque Cleared</span>}
                       {p.chequeStatus === "BOUNCED" && <span style={{ color: "var(--color-stop)" }}> · Cheque Bounced</span>}
                     </p>
@@ -1335,7 +1335,7 @@ export function MobileSaleDetailClient({
               ) : bbaDocumentUrl || !agreementRequired ? (
                 <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-400)" }}>Optional</span>
               ) : (
-                <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-signal)" }}>One required</span>
+                <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-signal-dark)" }}>One required</span>
               )}
             </div>
             {atsDocumentUrl ? (
@@ -1365,7 +1365,7 @@ export function MobileSaleDetailClient({
               ) : atsDocumentUrl || !agreementRequired ? (
                 <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-ink-400)" }}>Optional</span>
               ) : (
-                <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-signal)" }}>One required</span>
+                <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-signal-dark)" }}>One required</span>
               )}
             </div>
             {bbaDocumentUrl ? (
@@ -1393,7 +1393,7 @@ export function MobileSaleDetailClient({
               {registryDocumentUrl ? (
                 <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-go)" }}>Uploaded</span>
               ) : (
-                <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-signal)" }}>Required</span>
+                <span className="text-m-caption font-bold uppercase" style={{ color: "var(--color-signal-dark)" }}>Required</span>
               )}
             </div>
             {registryDocumentUrl ? (
@@ -1412,7 +1412,7 @@ export function MobileSaleDetailClient({
               <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>Not uploaded</p>
             )}
             {!registryDocumentUrl && !isCompleted && (
-              <p className="text-m-caption mt-1" style={{ color: "var(--color-signal)" }}>
+              <p className="text-m-caption mt-1" style={{ color: "var(--color-signal-dark)" }}>
                 Registry document is required to complete the sale.
               </p>
             )}
@@ -1789,7 +1789,7 @@ export function MobileSaleDetailClient({
                 style={{ borderColor: "var(--color-line)", backgroundColor: "transparent" }}
               />
               {compFinalAmount && Number(compFinalAmount) < balanceDue ? (
-                <p className="text-m-caption mt-0.5" style={{ color: "var(--color-signal)" }}>
+                <p className="text-m-caption mt-0.5" style={{ color: "var(--color-signal-dark)" }}>
                   {formatCurrency(balanceDue - Number(compFinalAmount))} will remain as receivable.
                 </p>
               ) : null}
@@ -1927,7 +1927,7 @@ export function MobileSaleDetailClient({
                 />
               </div>
               <div>
-                <label className="text-m-caption font-semibold uppercase block mb-0.5" style={{ color: "var(--color-signal)" }}>
+                <label className="text-m-caption font-semibold uppercase block mb-0.5" style={{ color: "var(--color-signal-dark)" }}>
                   Registry Document — required *
                 </label>
                 <MobileDocUploader
@@ -1939,7 +1939,7 @@ export function MobileSaleDetailClient({
                   onRemove={() => { setCompRegistryDocUrl(""); setCompRegistryDocName(""); }}
                 />
                 {!registryDocumentUrl && !compRegistryDocUrl && (
-                  <p className="text-m-caption mt-1" style={{ color: "var(--color-signal)" }}>
+                  <p className="text-m-caption mt-1" style={{ color: "var(--color-signal-dark)" }}>
                     Sale cannot be completed without the registry document.
                   </p>
                 )}
@@ -2262,7 +2262,7 @@ function SaleLifecycleTimeline({
       </div>
       {/* Registry gate warning */}
       {!saleDeedNo && !registryDocumentUrl && !isCompleted && (
-        <p className="text-m-caption mt-2 pt-2" style={{ borderTop: "1px solid var(--color-line)", color: "var(--color-signal)" }}>
+        <p className="text-m-caption mt-2 pt-2" style={{ borderTop: "1px solid var(--color-line)", color: "var(--color-signal-dark)" }}>
           Registry document required to complete the sale.
         </p>
       )}

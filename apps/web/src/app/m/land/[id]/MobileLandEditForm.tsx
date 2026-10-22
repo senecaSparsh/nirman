@@ -596,7 +596,7 @@ export function MobileLandEditForm({
                     <strong style={{ color: "var(--color-ink-950)" }} className="tabular-nums">{formatCurrency(calculatedTotal)}</strong>
                   </div>
                   {calculatedTotal !== Number(totalCost) && (
-                    <div className="text-m-caption" style={{ color: "var(--color-signal)" }}>
+                    <div className="text-m-caption" style={{ color: "var(--color-signal-dark)" }}>
                       Differs from total cost above — update total to match?
                     </div>
                   )}

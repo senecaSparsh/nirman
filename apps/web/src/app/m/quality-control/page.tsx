@@ -106,7 +106,7 @@ export default function MobileQualityControlPage() {
                       className="flex items-center gap-2 rounded-[0.5rem] border p-2 press"
                       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
                     >
-                      <ClipboardCheck className="size-3.5 shrink-0" style={{ color: "var(--color-signal)" }} />
+                      <ClipboardCheck className="size-3.5 shrink-0" style={{ color: "var(--color-signal-dark)" }} />
                       <div className="flex-1 min-w-0">
                         <p className="text-m-body font-semibold truncate" style={{ color: "var(--color-ink-950)" }}>
                           {grn.purchaseOrder.poNumber}
@@ -116,7 +116,7 @@ export default function MobileQualityControlPage() {
                           {" · "}{formatDate(grn.receiptDate)}{grn.challanNumber ? ` · Challan ${grn.challanNumber}` : ""}
                         </p>
                       </div>
-                      <span className="text-m-caption font-bold shrink-0" style={{ color: "var(--color-signal)" }}>
+                      <span className="text-m-caption font-bold shrink-0" style={{ color: "var(--color-signal-dark)" }}>
                         Inspect
                       </span>
                     </a>
