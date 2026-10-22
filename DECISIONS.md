@@ -2145,3 +2145,34 @@ service tests, both typechecks):
 **Still open (sized, honest):**
 
 - BOCW cess accrual (1% of construction cost — deferred legal nuance, D27)
+
+### 2026-10-22 — Accessibility + readiness audit (contd.)
+
+**Proven today:**
+
+- 33 routes verified rendered at ZERO axe violations (desktop + mobile),
+  keyboard walk clean, dialog focus trap verified live (30 Tabs held,
+  Escape restores to trigger — real focus-leak bug found + fixed).
+- Backups proven, not just documented: today's prod dump restored to a
+  scratch DB — 178 tables, zero errors; B2 off-site sync confirmed.
+- WCAG 1.4.10 reflow clean at 640px/320px (≈200%/400% zoom).
+- Full onboarding machinery exists: bootstrap → company+owner, role-
+  hierarchy user invites, CSV imports (employees/materials/suppliers/
+  customers), opening-stock dialog (OPENING_BALANCE movement + paired
+  GL entry), opening-balance GL API, GL accounts auto-create on post.
+
+**Real gap logged — first-company setup guide:**
+No guided setup checklist exists. A new owner lands on empty dashboards.
+The 7-step order (locations → projects → imports → opening stock →
+opening GL → users → first PO) is implicit knowledge today. Candidate:
+setup checklist component keyed off empty entities per company.
+Sufficient for pilot: the human runbook in docs/PILOT-ONBOARDING.md.
+
+**Deferred systemic decision:**
+~225 `muted-foreground/NN` + ~124 `text-faint` usages across ~45 files —
+sub-AA hint tiers by design. Fixed on every audited surface; the global
+tier decision (darken tokens vs keep decorative-only) is a design call.
+
+**Audit-verdict honesty:** prod DB currently has 7 users / 1 company /
+0 business rows — a clean slate. Ready for one pilot company under a
+parallel-run agreement, not self-serve scale yet.
