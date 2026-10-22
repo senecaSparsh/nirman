@@ -897,12 +897,12 @@ function MobileShellInner({
             </button>
             {isDrillDown ? (
               <div className="min-w-0 flex flex-col justify-center">
-                <span
-                  className="text-m-body font-bold truncate leading-tight"
+                <h1
+                  className="text-m-body font-bold truncate leading-tight m-0"
                   style={{ color: "var(--color-ink-950)" }}
                 >
                   {drillDownTitle}
-                </span>
+                </h1>
                 {drillDownSubtitle && (
                   <span
                     className="text-m-caption truncate leading-tight"
@@ -913,7 +913,13 @@ function MobileShellInner({
                 )}
               </div>
             ) : (
+              /* Hub pages show the company name as chrome, not a page
+                 title — the page heading lives in the content (greeting,
+                 grid). A visually-hidden h1 carries the page name for
+                 assistive tech so every /m page still has a level-1
+                 landmark. */
               <div ref={companySwitcherRef} className="relative flex items-center min-w-0" data-tour="company">
+                <h1 className="sr-only">{drillDownTitle || activeTab?.title || "Nirman"}</h1>
                 <Link
                   href="/m/settings/company"
                   className="flex items-center gap-1 text-m-body font-bold truncate text-m-body press rounded-[0.25rem] px-0.5 py-0.5 min-w-0"
@@ -996,7 +1002,7 @@ function MobileShellInner({
                         )}
                         <p
                           className="px-3 pt-2 pb-1 text-m-caption font-bold uppercase tracking-wider"
-                          style={{ color: "var(--color-ink-400)" }}
+                          style={{ color: "var(--color-ink-500)" }}
                         >
                           Act as
                         </p>

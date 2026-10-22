@@ -168,8 +168,8 @@ export function DelegationCard() {
             {(!data?.mine || data.mine.expired) && (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px_1fr_auto] sm:items-end">
                 <div className="space-y-1">
-                  <Label>Delegate to</Label>
-                  <Select value={delegateId} onChange={(e) => setDelegateId(e.target.value)}>
+                  <Label htmlFor="delegation-delegate">Delegate to</Label>
+                  <Select id="delegation-delegate" value={delegateId} onChange={(e) => setDelegateId(e.target.value)}>
                     <option value="">Choose a member…</option>
                     {(data?.members ?? []).map((m) => (
                       <option key={m.membershipId} value={m.membershipId}>
@@ -179,12 +179,12 @@ export function DelegationCard() {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="flex items-center gap-1"><CalendarDays className="size-3.5" /> Until</Label>
-                  <Input type="date" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} min={new Date().toISOString().slice(0, 10)} />
+                  <Label htmlFor="delegation-until" className="flex items-center gap-1"><CalendarDays className="size-3.5" /> Until</Label>
+                  <Input id="delegation-until" type="date" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} min={new Date().toISOString().slice(0, 10)} />
                 </div>
                 <div className="space-y-1">
-                  <Label>Note (optional)</Label>
-                  <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="On site at Pune project…" />
+                  <Label htmlFor="delegation-note">Note (optional)</Label>
+                  <Input id="delegation-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="On site at Pune project…" />
                 </div>
                 <Button onClick={save} disabled={busy || !delegateId || !endsAt}>
                   {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowRight className="size-4" />}

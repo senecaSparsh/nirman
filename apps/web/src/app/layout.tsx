@@ -74,7 +74,11 @@ export const viewport: Viewport = {
   ],
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // 5x user-zoom allowed — maximumScale:1 locks out pinch-zoom entirely,
+  // which fails WCAG 1.4.4 on an app whose mobile text runs 8–11px (a
+  // field worker can't enlarge anything). The iOS input-focus auto-zoom
+  // this used to prevent is the milder cost.
+  maximumScale: 5,
   // Edge-to-edge — without this, env(safe-area-inset-*) is 0 inside the
   // Capacitor WebView and iOS standalone PWA, so the UI renders under the
   // notch/home indicator.
