@@ -363,7 +363,7 @@ export function SettingsView({
                   {/* Left column: Identity & Address */}
                   <div className="space-y-4">
                     <div>
-                      <h3 className="text-section text-foreground">Company Identity</h3>
+                      <h2 className="text-section text-foreground">Company Identity</h2>
                       <p className="text-caption text-muted-foreground">
                         Registered name, tax identifiers, and primary contact details.
                       </p>
@@ -374,21 +374,22 @@ export function SettingsView({
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <Label>GSTIN</Label>
-                        <Input value={companyForm.gstin ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, gstin: e.target.value }))} />
+                        <Label htmlFor="co-gstin">GSTIN</Label>
+                        <Input id="co-gstin" value={companyForm.gstin ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, gstin: e.target.value }))} />
                       </div>
                       <div className="space-y-1.5">
-                        <Label>PAN</Label>
-                        <Input value={companyForm.pan ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, pan: e.target.value }))} />
+                        <Label htmlFor="co-pan">PAN</Label>
+                        <Input id="co-pan" value={companyForm.pan ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, pan: e.target.value }))} />
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      <Label hint="Adds a tap-to-pay link to demand notices — e.g. company@hdfcbank">UPI ID</Label>
-                      <Input value={companyForm.upiId ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, upiId: e.target.value }))} placeholder="name@bank" />
+                      <Label htmlFor="co-upi" hint="Adds a tap-to-pay link to demand notices — e.g. company@hdfcbank">UPI ID</Label>
+                      <Input id="co-upi" value={companyForm.upiId ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, upiId: e.target.value }))} placeholder="name@bank" />
                     </div>
                     <div className="space-y-1.5">
-                      <Label hint="No journal entry can be dated on/before this — advance after each month's filings">Books locked through</Label>
+                      <Label htmlFor="co-lock" hint="No journal entry can be dated on/before this — advance after each month's filings">Books locked through</Label>
                       <Input
+                        id="co-lock"
                         type="date"
                         value={companyForm.glLockedUntil ? companyForm.glLockedUntil.slice(0, 10) : ""}
                         onChange={(e) => setCompanyForm((f) => ({ ...f, glLockedUntil: e.target.value || null }))}
@@ -437,17 +438,17 @@ export function SettingsView({
                     )}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <Label>Phone</Label>
-                        <Input value={companyForm.phone ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+91 98765 43210" />
+                        <Label htmlFor="co-phone">Phone</Label>
+                        <Input id="co-phone" value={companyForm.phone ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+91 98765 43210" />
                       </div>
                       <div className="space-y-1.5">
-                        <Label>Email</Label>
-                        <Input type="email" value={companyForm.email ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, email: e.target.value }))} placeholder="accounts@company.com" />
+                        <Label htmlFor="co-email">Email</Label>
+                        <Input id="co-email" type="email" value={companyForm.email ?? ""} onChange={(e) => setCompanyForm((f) => ({ ...f, email: e.target.value }))} placeholder="accounts@company.com" />
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      <Label>Currency</Label>
-                      <Select value={companyForm.currency} onChange={(e) => setCompanyForm((f) => ({ ...f, currency: e.target.value }))}>
+                      <Label htmlFor="co-currency">Currency</Label>
+                      <Select id="co-currency" value={companyForm.currency} onChange={(e) => setCompanyForm((f) => ({ ...f, currency: e.target.value }))}>
                         {["INR", "USD", "EUR", "GBP", "AED"].map((c) => <option key={c} value={c}>{c}</option>)}
                       </Select>
                     </div>

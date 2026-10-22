@@ -173,13 +173,13 @@ export function ExpensesView({
 
   const filterBar = (
     <div className="flex flex-wrap items-center gap-2">
-      <Select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className="h-8 w-auto text-[13px] min-w-[140px]">
+      <Select aria-label="Filter by project" value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className="h-8 w-auto text-[13px] min-w-[140px]">
         <option value="">All projects</option>
         {projects.map((p) => (
           <option key={p.id} value={p.id}>{p.name}</option>
         ))}
       </Select>
-      <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="h-8 w-auto text-[13px] min-w-[140px]">
+      <Select aria-label="Filter by category" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="h-8 w-auto text-[13px] min-w-[140px]">
         <option value="">All categories</option>
         {categories.filter((c) => c.isActive).map((c) => (
           <option key={c.id} value={c.id}>{c.name}</option>

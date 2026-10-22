@@ -679,7 +679,7 @@ export function DataTable<T>({
             col.align === "right" && "flex-row-reverse",
           )}
         >
-          {col.label}
+          {col.label || <span className="sr-only">{col.key}</span>}
           {col.sortable &&
             (isSorted ? (
               sort!.direction === "asc" ? (

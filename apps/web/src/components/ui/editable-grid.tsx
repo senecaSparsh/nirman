@@ -349,7 +349,7 @@ export function EditableGrid<R extends Record<string, unknown>>({
               <th
                 key={col.key}
                 className={cn(
-                  "h-8 whitespace-nowrap px-2 text-label font-medium text-muted-foreground/80 align-middle",
+                  "h-8 whitespace-nowrap px-2 text-label font-medium text-muted-foreground align-middle",
                   (col.align === "right" || col.type === "number" || col.type === "computed") && "text-right",
                 )}
                 style={col.width ? { width: col.width } : undefined}
@@ -357,9 +357,10 @@ export function EditableGrid<R extends Record<string, unknown>>({
                 {col.filterable && col.filterOptions ? (
                   <div className="relative inline-flex">
                     <select
+                      aria-label={`Filter by ${col.label}`}
                       value={col.filterValue ?? ""}
                       onChange={(e) => onFilterChange?.(col.key, e.target.value)}
-                      className="h-6 cursor-pointer appearance-none truncate rounded border border-transparent bg-transparent pr-5 text-label font-medium text-muted-foreground/80 hover:border-border hover:bg-card focus-visible:border-brand focus-visible:outline-none"
+                      className="h-6 cursor-pointer appearance-none truncate rounded border border-transparent bg-transparent pr-5 text-label font-medium text-muted-foreground hover:border-border hover:bg-card focus-visible:border-brand focus-visible:outline-none"
                     >
                       <option value="">{col.label}</option>
                       {col.filterOptions.map((opt) => (
@@ -374,7 +375,7 @@ export function EditableGrid<R extends Record<string, unknown>>({
               </th>
             ))}
             {actions && actions.length > 0 && (
-              <th className="h-8 px-1 text-label font-medium text-muted-foreground/80" style={{ width: `${actions.length * 28 + 8}px` }}>
+              <th className="h-8 px-1 text-label font-medium text-muted-foreground" style={{ width: `${actions.length * 28 + 8}px` }}>
                 <span className="sr-only">Actions</span>
               </th>
             )}
@@ -445,6 +446,7 @@ export function EditableGrid<R extends Record<string, unknown>>({
                       onClick={() => setSelected({ row: ri, col: ci })}
                     >
                       <select
+                        aria-label={`${col.label}, row ${ri + 1}`}
                         value={(val as string) ?? ""}
                         onChange={(e) => {
                           if (e.target.value === CREATE_OPT) {
@@ -459,7 +461,7 @@ export function EditableGrid<R extends Record<string, unknown>>({
                         className={cn(
                           "w-full h-8 px-2 bg-transparent border border-transparent rounded-sm outline-none cursor-cell text-body",
                           isSelected && "border-foreground/20 bg-accent",
-                          !val && "text-muted-foreground/40",
+                          !val && "text-muted-foreground",
                           "hover:border-border focus:border-foreground focus:ring-1 focus:ring-foreground/20",
                         )}
                       >
@@ -492,6 +494,7 @@ export function EditableGrid<R extends Record<string, unknown>>({
                     {isEditing ? (
                       <input
                         ref={inputRef}
+                        aria-label={`${col.label}, row ${ri + 1}`}
                         type={col.type === "number" ? "number" : "text"}
                         step={col.step}
                         min={col.min}
@@ -519,7 +522,7 @@ export function EditableGrid<R extends Record<string, unknown>>({
                           isRight && "justify-end",
                           isSelected && "bg-accent ring-1 ring-inset ring-foreground/20",
                           hasError && "text-danger",
-                          val == null || val === "" ? "text-muted-foreground/40" : "",
+                          val == null || val === "" ? "text-muted-foreground" : "",
                         )}
                       >
                         <span className="min-w-0 truncate">
@@ -544,6 +547,7 @@ export function EditableGrid<R extends Record<string, unknown>>({
                           key={ai}
                           type="button"
                           title={a.title}
+                          aria-label={a.title}
                           onClick={(e) => { e.stopPropagation(); a.onClick(row, ri); }}
                           className={cn("rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground", a.className)}
                         >
