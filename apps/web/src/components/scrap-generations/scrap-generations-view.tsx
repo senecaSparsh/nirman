@@ -168,6 +168,7 @@ export function ScrapGenerationsView({
                     ])
                   }
                   className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+                  aria-label="Export CSV"
                 >
                   <Download className="size-3.5" />
                 </button>

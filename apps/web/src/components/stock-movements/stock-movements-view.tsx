@@ -58,6 +58,7 @@ export function StockMovementsView({
   const typeSelect = (
     <div className="relative shrink-0" style={{ width: 150 }}>
       <select
+        aria-label="Filter by movement type"
         value={typeFilter}
         onChange={(e) => setTypeFilter(e.target.value)}
         style={{ width: 150 }}
@@ -81,6 +82,7 @@ export function StockMovementsView({
   const locationSelect = (
     <div className="relative shrink-0" style={{ width: 160 }}>
       <select
+        aria-label="Filter by location"
         value={locationFilter}
         onChange={(e) => setLocationFilter(e.target.value)}
         style={{ width: 160 }}
@@ -113,6 +115,7 @@ export function StockMovementsView({
             { key: "reason", label: "Reason" },
           ])}
           disabled={filtered.length === 0}
+          aria-label="Export CSV"
           className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
         >
           <Download className="size-3.5" />
@@ -126,6 +129,7 @@ export function StockMovementsView({
         <button
           onClick={() => downloadExcel("stock-movements")}
           disabled={filtered.length === 0}
+          aria-label="Export Excel"
           className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
         >
           <FileSpreadsheet className="size-3.5" />

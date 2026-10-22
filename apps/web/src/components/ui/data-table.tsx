@@ -784,7 +784,10 @@ export function DataTable<T>({
               toggleRow(absoluteIndex, e.shiftKey);
             }}
           >
-            <Checkbox checked={!!isSelected} />
+            <Checkbox
+              checked={!!isSelected}
+              label={isSelected ? `Deselect row ${absoluteIndex + 1}` : `Select row ${absoluteIndex + 1}`}
+            />
           </td>
         )}
         {visibleColumns.map((col, ci) => {

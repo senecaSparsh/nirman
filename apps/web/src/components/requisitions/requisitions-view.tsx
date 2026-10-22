@@ -348,6 +348,7 @@ export function RequisitionsView({
   const statusSelect = (
     <div className="relative shrink-0" style={{ width: 110 }}>
       <select
+        aria-label="Filter by indent status"
         value={statusFilter}
         onChange={(e) => setStatusFilter(e.target.value)}
         style={{ width: 110 }}
@@ -452,6 +453,7 @@ export function RequisitionsView({
                       <button
                         onClick={() => downloadExcel("purchase-trends")}
                         disabled={filtered.length === 0}
+                        aria-label="Export Excel"
                         className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
                       >
                         <FileSpreadsheet className="size-3.5" />
@@ -466,6 +468,7 @@ export function RequisitionsView({
                         <button
                           onClick={() => setAutoOpen(true)}
                           disabled={projects.length === 0}
+                          aria-label="Auto-generate indents"
                           className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
                         >
                           <Zap className="size-3.5" />
@@ -525,7 +528,7 @@ export function RequisitionsView({
                   {/* Column body */}
                   <div className="flex-1 space-y-2">
                     {items.length === 0 && (
-                      <div className="rounded-md border border-dashed border-border/60 py-6 text-center text-micro text-muted-foreground/50">
+                      <div className="rounded-md border border-dashed border-border/60 py-6 text-center text-micro text-muted-foreground">
                         empty
                       </div>
                     )}

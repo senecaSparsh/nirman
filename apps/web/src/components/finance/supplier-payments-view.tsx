@@ -145,6 +145,7 @@ export function SupplierPaymentsView({
           />
         </div>
         <select
+          aria-label="Filter by payment mode"
           value={modeFilter}
           onChange={(e) => setModeFilter(e.target.value)}
           className="h-9 rounded-md border border-input bg-background px-3 text-sm"

@@ -396,9 +396,11 @@ function SalesTab({
     onChange: (v: string) => void,
     width: number,
     options: { value: string; label: string }[],
+    ariaLabel?: string,
   ) => (
     <div className="relative shrink-0" style={{ width }}>
       <select
+        aria-label={ariaLabel}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         style={{ width }}
@@ -429,7 +431,7 @@ function SalesTab({
             }
           }}
           className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
-          title="Send payment due reminders"
+          aria-label="Send payment due reminders"
         >
           <Bell className="size-3.5" />
         </button>
@@ -453,6 +455,7 @@ function SalesTab({
             { key: "saleDate", label: "Date", format: (v) => v ? formatDate(String(v)) : "" },
           ])}
           disabled={filtered.length === 0}
+          aria-label="Export CSV"
           className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
         >
           <Download className="size-3.5" />
@@ -465,6 +468,7 @@ function SalesTab({
         <button
           onClick={() => downloadExcel("sales-revenue")}
           disabled={filtered.length === 0}
+          aria-label="Export Excel"
           className="inline-flex h-7 items-center justify-center rounded-md border border-input bg-card px-2 text-caption font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
         >
           <FileSpreadsheet className="size-3.5" />
@@ -558,38 +562,38 @@ function SalesTab({
                   { value: "", label: "All statuses" },
                   { value: "ACTIVE", label: "Active" },
                   { value: "CANCELLED", label: "Cancelled" },
-                ])}
+                ], "Filter by sale status")}
                 {filterSelect(stageFilter, setStageFilter, 150, [
                   { value: "", label: "All stages" },
                   { value: "PENDING", label: "Pending" },
                   { value: "DEPOSIT_RECEIVED", label: "Deposit Received" },
                   { value: "COMPLETED", label: "Completed" },
                   { value: "CANCELLED", label: "Cancelled" },
-                ])}
+                ], "Filter by sale stage")}
                 {filterSelect(payFilter, setPayFilter, 130, [
                   { value: "", label: "All payments" },
                   { value: "PENDING", label: "Pending" },
                   { value: "PARTIAL", label: "Partial" },
                   { value: "PAID", label: "Paid" },
-                ])}
+                ], "Filter by payment status")}
                 {filterSelect(bbaFilter, setBbaFilter, 120, [
                   { value: "", label: "All BBA" },
                   { value: "signed", label: "BBA Signed" },
                   { value: "pending", label: "BBA Pending" },
-                ])}
+                ], "Filter by BBA status")}
                 <input
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
                   className="h-8 shrink-0 rounded-md border border-input bg-card px-2.5 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
-                  title="Filter from date"
+                  aria-label="Filter sales from date"
                 />
                 <input
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
                   className="h-8 shrink-0 rounded-md border border-input bg-card px-2.5 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
-                  title="Filter to date"
+                  aria-label="Filter sales to date"
                 />
               </div>
             }
