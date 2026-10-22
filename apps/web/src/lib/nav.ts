@@ -1215,6 +1215,62 @@ export function linkForPath(pathname: string): (NavLink & { world: WorldKey }) |
   ).sort((a, b) => b.href.length - a.href.length)[0];
 }
 
+/* ── Sidebar active-state matching ─────────────────────────────────
+   Four nav hrefs carry a `?tab=` query (e.g. "/stock?tab=movements")
+   that deep-links into a hub's in-page tab. `usePathname()` never
+   includes the query, so the old `pathname.startsWith(href)` check
+   made those links *never* highlight — and lit the plain sibling
+   ("Stock Ledger") instead, so the sidebar and the open tab disagreed.
+
+   Match rule: split each href into path + query. A link is active iff
+     · its path part is the pathname or a path-prefix at a "/" boundary, AND
+     · it has no query — unless a *sibling* link with the same path part
+       matches the current query exactly, in which case the query link
+       wins (the specific match beats the page-level one), OR
+     · every query param in the href equals the current query.
+
+   On "/stock?tab=movements" → "Stock Movements" is active, "Stock
+   Ledger" yields. On "/stock" (default tab) → "Stock Ledger" is
+   active. On "/stock?tab=issues" (a tab with no sidebar link) →
+   "Stock Ledger" is active again, which is correct — it is the page.
+   ─────────────────────────────────────────────────────────────── */
+
+const NAV_ITEM_SPLIT = /^([^?]+)(?:\?(.*))?$/;
+
+function navHrefParts(href: string): { path: string; params: URLSearchParams | null } {
+  const m = NAV_ITEM_SPLIT.exec(href);
+  const path = m?.[1] ?? href;
+  const q = m?.[2];
+  return { path, params: q ? new URLSearchParams(q) : null };
+}
+
+function pathMatches(linkPath: string, pathname: string): boolean {
+  if (linkPath === "/") return pathname === "/";
+  return pathname === linkPath || pathname.startsWith(linkPath + "/");
+}
+
+function queryMatches(params: URLSearchParams, search: string): boolean {
+  const current = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  for (const [k, v] of params) {
+    if (current.get(k) !== v) return false;
+  }
+  return true;
+}
+
+export function navItemActive(item: Pick<NavLink, "href">, pathname: string, search: string): boolean {
+  const { path, params } = navHrefParts(item.href);
+  if (!pathMatches(path, pathname)) return false;
+  if (params) return queryMatches(params, search);
+  // Plain link: lose to a same-path sibling whose query matches now.
+  // Check BOTH registries — the telephony ?tab= link lives in
+  // SETTINGS_LINKS while its plain /calls sibling lives in ALL_LINKS.
+  return ![...ALL_LINKS, ...ALL_SETTINGS_LINKS].some((s) => {
+    if (s === item) return false;
+    const sp = navHrefParts(s.href);
+    return sp.path === path && sp.params !== null && queryMatches(sp.params, search);
+  });
+}
+
 /**
  * Where a role lands after sign-in. A supervisor's job starts on site,
  * not in a boardroom dashboard; an accountant's starts in the books.

@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronsLeft } from "lucide-react";
 import type { World, NavLink } from "@/lib/nav";
+import { navItemActive } from "@/lib/nav";
 import { cn, toNum} from "@/lib/utils";
 
 /**
@@ -26,6 +27,7 @@ import { cn, toNum} from "@/lib/utils";
 export function BuildNavPanel({
   world,
   pathname,
+  search,
   badgeCounts,
   onNavigate,
   onCollapse,
@@ -33,6 +35,7 @@ export function BuildNavPanel({
 }: {
   world: World;
   pathname: string;
+  search: string;
   badgeCounts: Record<string, number>;
   onNavigate?: () => void;
   onCollapse?: () => void;
@@ -53,14 +56,13 @@ export function BuildNavPanel({
       const section = sections[i];
       if (!section) continue;
       for (const item of section.items) {
-        const matches = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-        if (matches) return i;
+        if (navItemActive(item, pathname, search)) return i;
       }
     }
     // Also check if we're on /build itself
     if (pathname === "/build") return -1;
     return -1;
-  }, [sections, pathname]);
+  }, [sections, pathname, search]);
 
   const [expandedIndex, setExpandedIndex] = useState<number>(
     activeSectionIndex >= 0 ? activeSectionIndex : 0,
@@ -68,7 +70,7 @@ export function BuildNavPanel({
 
   // Render a single nav link — same styling as WorldPanel
   function renderItem(item: NavLink) {
-    const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+    const active = navItemActive(item, pathname, search);
     const Icon = item.icon;
     const badge = badgeCounts[item.href];
     return (

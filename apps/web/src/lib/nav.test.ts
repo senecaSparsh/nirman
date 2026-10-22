@@ -10,6 +10,7 @@ import {
   WORLDS,
   WORLD_BY_KEY,
   type WorldKey,
+  navItemActive,
 } from "@/lib/nav";
 
 // ─────────────────────────────────────────────────────────────────
@@ -442,4 +443,60 @@ describe("structural invariants", () => {
       expect(l.hidden).toBe(true);
     }
   });
+
+describe("navItemActive", () => {
+  const item = (href: string) => ({ href });
+
+  it("matches a plain href on the exact path", () => {
+    expect(navItemActive(item("/stock"), "/stock", "")).toBe(true);
+  });
+
+  it("matches a plain href on a child path", () => {
+    expect(navItemActive(item("/stock"), "/stock/abc", "")).toBe(true);
+  });
+
+  it("does NOT match a plain href on a sibling path (boundary bug)", () => {
+    // The old startsWith check lit /stock on /stock-locations.
+    expect(navItemActive(item("/stock"), "/stock-locations", "")).toBe(false);
+  });
+
+  it("does NOT match a plain href on a different path", () => {
+    expect(navItemActive(item("/stock"), "/materials", "")).toBe(false);
+  });
+
+  it("activates a ?tab= link only when the query matches", () => {
+    expect(navItemActive(item("/stock?tab=movements"), "/stock", "tab=movements")).toBe(true);
+  });
+
+  it("does NOT activate a ?tab= link on the bare path", () => {
+    expect(navItemActive(item("/stock?tab=movements"), "/stock", "")).toBe(false);
+  });
+
+  it("does NOT activate a ?tab= link on a different tab", () => {
+    expect(navItemActive(item("/stock?tab=movements"), "/stock", "tab=issues")).toBe(false);
+  });
+
+  it("the plain sibling yields to the matching ?tab= link", () => {
+    // On /stock?tab=movements, "Stock Ledger" (/stock) must not light —
+    // the specific link wins so sidebar and tab bar agree.
+    expect(navItemActive(item("/stock"), "/stock", "tab=movements")).toBe(false);
+  });
+
+  it("the plain sibling stays active on tabs with no sidebar link", () => {
+    // /stock?tab=issues has no nav entry — the page-level link lights.
+    expect(navItemActive(item("/stock"), "/stock", "tab=issues")).toBe(true);
+  });
+
+  it("both ?tab= links resolve independently (calls)", () => {
+    expect(navItemActive(item("/calls?tab=telephony"), "/calls", "tab=telephony")).toBe(true);
+    expect(navItemActive(item("/calls?tab=telephony"), "/calls", "tab=log")).toBe(false);
+    expect(navItemActive(item("/calls"), "/calls", "tab=telephony")).toBe(false);
+    expect(navItemActive(item("/calls"), "/calls", "tab=log")).toBe(true);
+  });
+
+  it("home stays exact-only", () => {
+    expect(navItemActive(item("/"), "/stock", "")).toBe(false);
+    expect(navItemActive(item("/"), "/", "")).toBe(true);
+  });
+});
 });

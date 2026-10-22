@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ChevronRight,
   ChevronsLeft,
@@ -23,6 +23,7 @@ import {
   badgeLinksFor,
   settingsLinksFor,
   isSettingsPath,
+  navItemActive,
   type World,
   type NavLink,
 } from "@/lib/nav";
@@ -127,6 +128,8 @@ export function AppShell({
   hasSession?: boolean;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const search = searchParams.toString();
   const router = useRouter();
   const { data: session, isPending: sessionLoading } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -443,6 +446,7 @@ export function AppShell({
         <SettingsPanel
           links={settingsLinks}
           pathname={pathname}
+          search={search}
           onCollapse={togglePanel}
           className="nav-panel fixed inset-y-0 left-16 z-30 w-56"
         />
@@ -450,6 +454,7 @@ export function AppShell({
         <BuildNavPanel
           world={activeWorld}
           pathname={pathname}
+          search={search}
           badgeCounts={badgeCounts}
           onCollapse={togglePanel}
           className="nav-panel fixed inset-y-0 left-16 z-30 w-56"
@@ -458,6 +463,7 @@ export function AppShell({
         <WorldPanel
           world={activeWorld}
           pathname={pathname}
+          search={search}
           badgeCounts={badgeCounts}
           onCollapse={togglePanel}
           className="nav-panel fixed inset-y-0 left-16 z-30 w-56"
@@ -487,6 +493,7 @@ export function AppShell({
               <SettingsPanel
                 links={settingsLinks}
                 pathname={pathname}
+                search={search}
                 onNavigate={() => setMobileOpen(false)}
                 className="flex w-60"
               />
@@ -494,6 +501,7 @@ export function AppShell({
               <BuildNavPanel
                 world={activeWorld}
                 pathname={pathname}
+                search={search}
                 badgeCounts={badgeCounts}
                 onNavigate={() => setMobileOpen(false)}
                 className="flex w-60"
@@ -502,6 +510,7 @@ export function AppShell({
               <WorldPanel
                 world={activeWorld}
                 pathname={pathname}
+                search={search}
                 badgeCounts={badgeCounts}
                 onNavigate={() => setMobileOpen(false)}
                 className="flex w-60"
@@ -811,6 +820,7 @@ function WorldRail({
 function WorldPanel({
   world,
   pathname,
+  search,
   badgeCounts,
   onNavigate,
   onCollapse,
@@ -818,6 +828,7 @@ function WorldPanel({
 }: {
   world: World;
   pathname: string;
+  search: string;
   badgeCounts: Record<string, number>;
   onNavigate?: () => void;
   onCollapse?: () => void;
@@ -825,7 +836,7 @@ function WorldPanel({
 }) {
   /** Renders one nav link — shared by the branching and flat layouts. */
   function renderItem(item: NavLink) {
-    const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+    const active = navItemActive(item, pathname, search);
     const Icon = item.icon;
     const badge = badgeCounts[item.href];
     return (
@@ -927,12 +938,14 @@ function WorldPanel({
 function SettingsPanel({
   links,
   pathname,
+  search,
   onNavigate,
   onCollapse,
   className,
 }: {
   links: NavLink[];
   pathname: string;
+  search: string;
   onNavigate?: () => void;
   onCollapse?: () => void;
   className?: string;
@@ -940,7 +953,7 @@ function SettingsPanel({
   const settingsColor = "var(--color-world-admin)";
 
   function renderItem(item: NavLink) {
-    const active = pathname.startsWith(item.href);
+    const active = navItemActive(item, pathname, search);
     const Icon = item.icon;
     return (
       <li key={item.href}>
