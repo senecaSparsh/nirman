@@ -74,6 +74,7 @@ export function EquipmentView({
   const statusSelect = (
     <div className="relative shrink-0" style={{ width: 130 }}>
       <select
+        aria-label="Filter by equipment status"
         value={statusFilter}
         onChange={(e) => setStatusFilter(e.target.value)}
         style={{ width: 130 }}
@@ -86,13 +87,14 @@ export function EquipmentView({
         <option value="RETIRED">Retired</option>
         <option value="SOLD">Sold</option>
       </select>
-      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
     </div>
   );
 
   const categorySelect = (
     <div className="relative shrink-0" style={{ width: 140 }}>
       <select
+        aria-label="Filter by equipment category"
         value={categoryFilter}
         onChange={(e) => setCategoryFilter(e.target.value)}
         style={{ width: 140 }}
@@ -103,7 +105,7 @@ export function EquipmentView({
           <option key={c} value={c}>{c}</option>
         ))}
       </select>
-      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
     </div>
   );
 
@@ -221,7 +223,7 @@ export function EquipmentView({
                       icon={<MapPin />}
                     />
                   ) : (
-                    <span className="text-faint">In yard</span>
+                    <span className="text-muted-foreground">In yard</span>
                   ),
               },
               { key: "serialNumber", label: "Serial", defaultHidden: true, sortable: true },
@@ -303,68 +305,77 @@ export function EquipmentView({
                   {/* Column body */}
                   <div className="flex-1 space-y-2">
                     {col.items.length === 0 && (
-                      <div className="rounded-md border border-dashed border-border/60 py-6 text-center text-micro text-muted-foreground/50">
+                      <div className="rounded-md border border-dashed border-border/60 py-6 text-center text-micro text-muted-foreground">
                         empty
                       </div>
                     )}
                     {col.items.map((e) => (
-                      <button
+                      <div
                         key={e.id}
-                        onClick={() => setSelected(e)}
-                        className="group block w-full rounded-lg border border-border bg-card p-3 text-left transition-all hover:border-foreground/20 hover:shadow-sm"
+                        className="group relative w-full rounded-lg border border-border bg-card p-3 text-left transition-all hover:border-foreground/20 hover:shadow-sm"
                       >
+                        {/* Card-wide open target — the whole card is one real
+                            button stretched under the content, so pointer and
+                            keyboard both work without nesting interactives. */}
+                        <button
+                          onClick={() => setSelected(e)}
+                          aria-label={`Open ${e.name}`}
+                          className="absolute inset-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
+                        />
                         {/* Asset tag + edit/delete on hover */}
-                        <div className="flex items-start justify-between gap-2">
+                        <div className="pointer-events-none relative flex items-start justify-between gap-2">
                           <span className="font-mono text-micro text-muted-foreground">{e.assetTag}</span>
-                          <div className="flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                          <div className="pointer-events-auto relative z-10 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                             {canEdit && (
-                              <span
-                                role="button"
-                                onClick={(ev) => { ev.stopPropagation(); setEditTarget(e); }}
+                              <button
+                                type="button"
+                                aria-label={`Edit ${e.name}`}
+                                onClick={() => setEditTarget(e)}
                                 className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                               >
                                 <Pencil className="h-3 w-3" />
-                              </span>
+                              </button>
                             )}
                             {canEdit && (
-                              <span
-                                role="button"
-                                onClick={(ev) => { ev.stopPropagation(); setDelTarget(e); }}
+                              <button
+                                type="button"
+                                aria-label={`Delete ${e.name}`}
+                                onClick={() => setDelTarget(e)}
                                 className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-danger"
                               >
                                 <Trash2 className="h-3 w-3" />
-                              </span>
+                              </button>
                             )}
                           </div>
                         </div>
 
                         {/* Name */}
-                        <div className="mt-0.5 truncate text-body font-medium text-foreground">{e.name}</div>
+                        <div className="pointer-events-none relative mt-0.5 truncate text-body font-medium text-foreground">{e.name}</div>
 
                         {/* Category */}
                         {e.category && (
-                          <div className="text-caption text-muted-foreground">{e.category}</div>
+                          <div className="pointer-events-none relative text-caption text-muted-foreground">{e.category}</div>
                         )}
 
                         {/* Value */}
-                        <div className="mt-2 text-body font-semibold tnum text-foreground">{formatCurrency(e.currentValue)}</div>
+                        <div className="pointer-events-none relative mt-2 text-body font-semibold tnum text-foreground">{formatCurrency(e.currentValue)}</div>
 
                         {/* Idle clock — a machine that hasn't logged a meter in
                             14+ days is capital doing nothing. */}
                         {e.idleDays != null && e.idleDays >= 14 && (e.status === "AVAILABLE" || e.status === "ASSIGNED") && (
-                          <div className={`mt-1 text-caption font-medium ${e.idleDays >= 30 ? "text-danger" : "text-warning"}`}>
+                          <div className={`pointer-events-none relative mt-1 text-caption font-medium ${e.idleDays >= 30 ? "text-danger" : "text-warning"}`}>
                             Idle {e.idleDays}d
                           </div>
                         )}
 
                         {/* Assignment */}
                         {e.activeAssignment && (
-                          <div className="mt-1.5 truncate text-caption text-muted-foreground">
+                          <div className="pointer-events-none relative mt-1.5 truncate text-caption text-muted-foreground">
                             → {e.activeAssignment.locationName}
                             {e.activeAssignment.projectName && ` · ${e.activeAssignment.projectName}`}
                           </div>
                         )}
-                      </button>
+                      </div>
                     ))}
                   </div>
                 </div>

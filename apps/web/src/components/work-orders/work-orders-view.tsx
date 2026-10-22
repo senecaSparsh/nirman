@@ -91,7 +91,7 @@ type RaBill = {
 const STATUS_CONFIG: Record<WorkOrder["status"], { label: string; color: string; dot: string }> = {
   DRAFT:     { label: "Draft",     color: "text-muted-foreground",  dot: "bg-slate-400" },
   ISSUED:    { label: "Issued",    color: "text-blue-600",          dot: "bg-blue-500" },
-  ACTIVE:    { label: "Active",    color: "text-emerald-600",       dot: "bg-emerald-500" },
+  ACTIVE:    { label: "Active",    color: "text-success",       dot: "bg-emerald-500" },
   COMPLETED: { label: "Completed", color: "text-indigo-600",        dot: "bg-indigo-500" },
   CLOSED:    { label: "Closed",    color: "text-slate-600",         dot: "bg-slate-500" },
   CANCELLED: { label: "Cancelled", color: "text-red-600",           dot: "bg-red-500" },
@@ -392,7 +392,7 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
           {stats.retentionHeld > 0 && (
             <>
               <span className="text-border">·</span>
-              <span className="text-amber-600"><strong className="tabular-nums">{formatCurrency(stats.retentionHeld)}</strong> retention held</span>
+              <span className="text-warning"><strong className="tabular-nums">{formatCurrency(stats.retentionHeld)}</strong> retention held</span>
             </>
           )}
         </div>
@@ -432,7 +432,7 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
                     <th className="px-3 py-2 text-right">Retention</th>
                     <th className="px-3 py-2 text-center">RA Bills</th>
                     <th className="px-3 py-2 text-left">Status</th>
-                    <th className="px-2 py-2"></th>
+                    <th className="px-2 py-2"><span className="sr-only">Actions</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -456,7 +456,7 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
                         <td className="px-3 py-2.5 text-right tabular-nums font-medium">{formatCurrency(wo.totalWorkDone)}</td>
                         <td className="px-3 py-2.5 text-right tabular-nums text-muted-foreground">{formatCurrency(wo.totalPaid)}</td>
                         <td className="px-3 py-2.5 text-right tabular-nums">
-                          {wo.retentionBalance > 0 ? <span className="text-amber-600">{formatCurrency(wo.retentionBalance)}</span> : <span className="text-muted-foreground">—</span>}
+                          {wo.retentionBalance > 0 ? <span className="text-warning">{formatCurrency(wo.retentionBalance)}</span> : <span className="text-muted-foreground">—</span>}
                         </td>
                         <td className="px-3 py-2.5 text-center tabular-nums text-muted-foreground">{wo._count.raBills}</td>
                         <td className="px-3 py-2.5">
@@ -481,7 +481,7 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
                               </button>
                             )}
                             {canCreate && wo.status === "COMPLETED" && (
-                              <button onClick={() => onAction(wo.id, "release-retention")} className="p-1 text-muted-foreground hover:text-emerald-600 rounded" title="Release retention">
+                              <button onClick={() => onAction(wo.id, "release-retention")} className="p-1 text-muted-foreground hover:text-success rounded" title="Release retention">
                                 <Lock className="h-3.5 w-3.5" />
                               </button>
                             )}
@@ -496,7 +496,7 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
                     <td className="px-3 py-2 font-medium" colSpan={3}>Total ({filteredWOs.length})</td>
                     <td className="px-3 py-2 text-right tabular-nums font-medium">{formatCurrency(filteredWOs.reduce((s, w) => s + toNum(w.totalWorkDone), 0))}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{formatCurrency(filteredWOs.reduce((s, w) => s + toNum(w.totalPaid), 0))}</td>
-                    <td className="px-3 py-2 text-right tabular-nums text-amber-600">{formatCurrency(filteredWOs.reduce((s, w) => s + toNum(w.retentionBalance), 0))}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-warning">{formatCurrency(filteredWOs.reduce((s, w) => s + toNum(w.retentionBalance), 0))}</td>
                     <td className="px-3 py-2 text-center tabular-nums text-muted-foreground">{filteredWOs.reduce((s, w) => s + w._count.raBills, 0)}</td>
                     <td colSpan={2}></td>
                   </tr>
@@ -667,7 +667,7 @@ function WorkOrderDetailDialog({
               </div>
               <div className="rounded-lg border border-border p-3">
                 <div className="text-[10px] uppercase text-muted-foreground tracking-wider mb-1">Retention Held</div>
-                <div className="text-base font-bold tabular-nums text-amber-600">{formatCurrency(detail.retentionBalance)}</div>
+                <div className="text-base font-bold tabular-nums text-warning">{formatCurrency(detail.retentionBalance)}</div>
               </div>
             </div>
 
@@ -757,7 +757,7 @@ function WorkOrderDetailDialog({
                           <td className="px-3 py-2 text-right tabular-nums text-xs font-medium whitespace-nowrap">
                             {formatCurrency(l.agreedRate)}
                             {rateDiff != null && rateDiff !== 0 && (
-                              <span className={cn("text-[9px] ml-1", rateDiff < 0 ? "text-emerald-600" : "text-red-600")}>
+                              <span className={cn("text-[9px] ml-1", rateDiff < 0 ? "text-success" : "text-red-600")}>
                                 {rateDiff < 0 ? "▼" : "▲"}{Math.abs(rateDiff).toFixed(0)}
                               </span>
                             )}
@@ -810,7 +810,7 @@ function WorkOrderDetailDialog({
                         <th className="px-3 py-2 text-right font-medium">Gross</th>
                         <th className="px-3 py-2 text-right font-medium">Net Payable</th>
                         <th className="px-3 py-2 text-left font-medium">Status</th>
-                        <th className="px-3 py-2"></th>
+                        <th className="px-3 py-2"><span className="sr-only">Actions</span></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -832,7 +832,7 @@ function WorkOrderDetailDialog({
                   </button>
                 )}
                 {canCreate && permissions.canApprove && rb.status === "SUBMITTED" && (
-                  <button disabled={actionLoading} onClick={() => onRaBillAction(rb.id, "approve", onRefresh)} className="p-1 text-muted-foreground hover:text-emerald-600 disabled:opacity-50" title="Approve">
+                  <button disabled={actionLoading} onClick={() => onRaBillAction(rb.id, "approve", onRefresh)} className="p-1 text-muted-foreground hover:text-success disabled:opacity-50" title="Approve">
                     <ShieldCheck className="h-3.5 w-3.5" />
                   </button>
                 )}
@@ -1146,7 +1146,7 @@ function RaBillDialog({
               <div className="rounded-md bg-muted/30 p-3 text-xs space-y-1">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Retention ({preview.retentionPct}%)</span>
-                  <span className="tabular-nums text-amber-600">−{formatCurrency(preview.summary.estimatedRetention)}</span>
+                  <span className="tabular-nums text-warning">−{formatCurrency(preview.summary.estimatedRetention)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">TDS ({preview.tdsPct}%)</span>
@@ -1160,7 +1160,7 @@ function RaBillDialog({
                 )}
                 <div className="flex justify-between border-t border-border/50 pt-1">
                   <span className="font-medium">Estimated Net Payable</span>
-                  <span className="tabular-nums font-bold text-emerald-600">{formatCurrency(estNet)}</span>
+                  <span className="tabular-nums font-bold text-success">{formatCurrency(estNet)}</span>
                 </div>
               </div>
 
@@ -1337,7 +1337,7 @@ function WorkOrderDialog({
               <option value="OTHER">Other (2%)</option>
             </Select>
             {!selectedSubHasPan && (
-              <p className="mt-1 text-micro text-amber-600">
+              <p className="mt-1 text-micro text-warning">
                 No PAN on this subcontractor — TDS will be deducted at 20% under Sec 206AA.
               </p>
             )}
@@ -1378,7 +1378,7 @@ function WorkOrderDialog({
                     <span>BOQ rate: <span className="tabular-nums text-foreground">{formatCurrency(boq.rate ?? 0)}</span></span>
                     <span>Est qty: <span className="tabular-nums text-foreground">{formatNumber(boq.estimatedQty ?? 0, 3)} {boq.unit ?? ""}</span></span>
                     {rateDiff != null && rateDiff !== 0 && (
-                      <span className={rateDiff < 0 ? "text-emerald-600" : "text-red-600"}>
+                      <span className={rateDiff < 0 ? "text-success" : "text-red-600"}>
                         {rateDiff < 0 ? "▼" : "▲"} {formatCurrency(Math.abs(rateDiff))} vs BOQ
                       </span>
                     )}
@@ -1538,7 +1538,7 @@ function RaBillDetailDialog({
                   <span className="text-muted-foreground">
                     Retention ({detail.workOrder.retentionPct}% of gross)
                   </span>
-                  <span className="tabular-nums text-amber-600">−{formatCurrency(detail.retentionAmount)}</span>
+                  <span className="tabular-nums text-warning">−{formatCurrency(detail.retentionAmount)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">
@@ -1562,7 +1562,7 @@ function RaBillDetailDialog({
                 )}
                 <div className="flex justify-between border-t border-border/50 pt-1">
                   <span className="font-medium">Net Payable</span>
-                  <span className="tabular-nums font-bold text-emerald-600">{formatCurrency(detail.netPayable)}</span>
+                  <span className="tabular-nums font-bold text-success">{formatCurrency(detail.netPayable)}</span>
                 </div>
               </div>
             )}
@@ -1582,7 +1582,7 @@ function RaBillDetailDialog({
             </div>
             <div className="rounded-md bg-emerald-50 dark:bg-emerald-900/10 p-2">
               <div className="text-[9px] uppercase text-muted-foreground tracking-wide">Net Payable</div>
-              <div className="text-xs font-bold tabular-nums text-emerald-600">{formatCurrency(detail.netPayable)}</div>
+              <div className="text-xs font-bold tabular-nums text-success">{formatCurrency(detail.netPayable)}</div>
             </div>
           </div>
 

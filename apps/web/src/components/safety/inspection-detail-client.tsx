@@ -186,6 +186,7 @@ export function InspectionDetailClient({ inspection, canManage }: { inspection: 
             <Field label="Result">
               <select
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                aria-label="Inspection result"
                 value={result}
                 onChange={(e) => setResult(e.target.value as typeof result)}
               >

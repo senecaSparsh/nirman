@@ -85,12 +85,12 @@ export function GstReportsPanel() {
         {/* Date range */}
         <div className="flex flex-wrap items-end gap-2">
           <div>
-            <Label>From</Label>
-            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" />
+            <Label htmlFor="gstr-from">From</Label>
+            <Input id="gstr-from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" />
           </div>
           <div>
-            <Label>To</Label>
-            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
+            <Label htmlFor="gstr-to">To</Label>
+            <Input id="gstr-to" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
           </div>
           <Button variant="outline" size="sm" className="h-8" onClick={() => fetchReport("gstr3b")} disabled={loading !== null}>
             {loading === "gstr3b" ? "Loading…" : "GSTR-3B Summary"}

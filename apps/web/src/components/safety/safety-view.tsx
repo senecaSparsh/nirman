@@ -89,7 +89,7 @@ export function SafetyView({
     : [["SCHEDULED", "Scheduled"], ["IN_PROGRESS", "In Progress"], ["COMPLETED", "Completed"], ["CANCELLED", "Cancelled"]];
 
   const statusSelect = (
-    <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-7 w-[150px] text-caption">
+    <Select aria-label="Filter by status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-7 w-[150px] text-caption">
       <option value="ALL">All Status</option>
       {statusOptions.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
     </Select>

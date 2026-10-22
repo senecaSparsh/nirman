@@ -322,7 +322,7 @@ export function GeneralLedgerView({
         <CardContent className="p-0">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
             <div className="flex items-center gap-4">
-              <h3 className="text-section text-foreground">Trial Balance</h3>
+              <h2 className="text-section text-foreground">Trial Balance</h2>
               <div className="flex items-center gap-3 text-caption text-muted-foreground">
                 <span>
                   Debit: <span className="tnum font-semibold text-foreground">{fmt(totalDebit)}</span>
