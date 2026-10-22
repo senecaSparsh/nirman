@@ -599,7 +599,7 @@ async function CommandCenterContent() {
       {hasHomeOverride && (
         <a
           href={homeWorld.href}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-caption font-medium text-brand hover:bg-brand/5 transition-colors"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-caption font-medium text-brand-strong hover:bg-brand/5 transition-colors"
         >
           Go to {homeWorld.label} →
         </a>

@@ -720,7 +720,7 @@ function WorldRail({
         {brandMark}
       </Link>
 
-      <nav className="flex w-full flex-1 flex-col items-center gap-0.5 px-1.5">
+      <nav aria-label="Worlds" className="flex w-full flex-1 flex-col items-center gap-0.5 px-1.5">
         {worlds.map((w) => {
           const active = w.key === activeKey;
           const Icon = w.icon;
@@ -754,7 +754,7 @@ function WorldRail({
               <span
                 className={cn(
                   "max-w-full truncate text-[9px] font-semibold uppercase leading-none tracking-wide",
-                  active ? "text-white/85" : "text-sidebar-muted/80",
+                  active ? "text-white/85" : "text-sidebar-muted",
                 )}
               >
                 {w.label}
@@ -884,7 +884,7 @@ function WorldPanel({
   }
 
   return (
-    <div className={cn("flex-col border-r border-border bg-card", className)}>
+    <aside aria-label={`${world.label} navigation`} className={cn("flex-col border-r border-border bg-card", className)}>
       {/* World identity — title + the one-line explanation of the world */}
       <div className="relative shrink-0 border-b border-border px-3.5 pb-3.5 pt-4">
         <span
@@ -911,7 +911,7 @@ function WorldPanel({
         </div>
       </div>
 
-      <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-3 scrollbar-thin">
+      <nav aria-label={`${world.label} navigation`} className="min-h-0 flex-1 overflow-y-auto px-2 py-3 scrollbar-thin">
         {world.sections
           .map((s) => ({ ...s, items: s.items.filter((i) => !i.hidden) }))
           .filter((s) => s.items.length > 0)
@@ -920,7 +920,7 @@ function WorldPanel({
               {/* A section label is only worth its space if the world has
                   more than one section — otherwise it's noise. */}
               {arr.length > 1 && (
-                <p className="mb-1.5 px-2.5 text-label text-faint">{section.label}</p>
+                <p className="mb-1.5 px-2.5 text-label text-muted-foreground">{section.label}</p>
               )}
               <ul className="space-y-0.5">{section.items.map((item) => renderItem(item))}</ul>
             </div>
@@ -929,7 +929,7 @@ function WorldPanel({
 
       {/* No ⌘K footer hint — the topbar already shows "Search or jump to… ⌘K"
           as a full-width field; repeating the shortcut here is redundant. */}
-    </div>
+    </aside>
   );
 }
 
@@ -986,7 +986,7 @@ function SettingsPanel({
   }
 
   return (
-    <div className={cn("flex-col border-r border-border bg-card", className)}>
+    <aside aria-label="Settings navigation" className={cn("flex-col border-r border-border bg-card", className)}>
       <div className="relative shrink-0 border-b border-border px-3.5 pb-3.5 pt-4">
         <span
           className="absolute left-0 top-0 h-[3px] w-full"
@@ -1014,9 +1014,9 @@ function SettingsPanel({
         </div>
       </div>
 
-      <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-3 scrollbar-thin">
+      <nav aria-label="Settings navigation" className="min-h-0 flex-1 overflow-y-auto px-2 py-3 scrollbar-thin">
         <ul className="space-y-0.5">{links.map((item) => renderItem(item))}</ul>
       </nav>
-    </div>
+    </aside>
   );
 }

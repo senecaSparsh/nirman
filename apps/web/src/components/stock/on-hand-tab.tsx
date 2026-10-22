@@ -77,6 +77,7 @@ export function OnHandTab({ stock, locations, canManage = false }: { stock: Stoc
   const categorySelect = (
     <div className="relative shrink-0" style={{ width: 160 }}>
       <select
+        aria-label="Filter by category"
         value={categoryFilter}
         onChange={(e) => setCategoryFilter(e.target.value)}
         style={{ width: 160 }}

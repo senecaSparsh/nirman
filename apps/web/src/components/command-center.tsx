@@ -127,7 +127,7 @@ export function CommandCenter(props: ProfileTabsProps) {
                 {s.done ? (
                   <span className="text-caption text-muted-foreground line-through">{s.label}</span>
                 ) : (
-                  <Link href={s.href} className="text-caption font-semibold text-brand hover:underline">
+                  <Link href={s.href} className="text-caption font-semibold text-brand-strong hover:underline">
                     {s.label}
                   </Link>
                 )}
@@ -145,7 +145,7 @@ export function CommandCenter(props: ProfileTabsProps) {
             {blockingQueues > 0 && props.canApprove && (
               <Link
                 href="/approvals"
-                className="flex items-center gap-1 text-caption font-medium text-brand transition-opacity hover:opacity-80"
+                className="flex items-center gap-1 text-caption font-medium text-brand-strong transition-opacity hover:opacity-80"
               >
                 Review approvals <ArrowRight className="h-3 w-3" />
               </Link>

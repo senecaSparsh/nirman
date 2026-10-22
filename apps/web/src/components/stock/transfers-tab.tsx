@@ -107,6 +107,7 @@ export function TransfersTab({ transfers, locations, projects, canTransfer }: { 
   const statusSelect = (
     <div className="relative shrink-0" style={{ width: 140 }}>
       <select
+        aria-label="Filter by transfer status"
         value={statusFilter}
         onChange={(e) => setStatusFilter(e.target.value)}
         style={{ width: 140 }}

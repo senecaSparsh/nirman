@@ -39,14 +39,14 @@ const STATUS_CONFIG = {
   PENDING: { label: "Pending", icon: Circle, color: "#64748b" },
   IN_PROGRESS: { label: "In Progress", icon: PlayCircle, color: "#2563eb" },
   COMPLETED: { label: "Completed", icon: CheckCircle2, color: "#16a34a" },
-  CANCELLED: { label: "Cancelled", icon: AlertCircle, color: "#ef4444" },
+  CANCELLED: { label: "Cancelled", icon: AlertCircle, color: "#dc2626" },
 } as const;
 
 const PRIORITY_CONFIG = {
   low: { label: "Low", color: "#64748b" },
-  medium: { label: "Medium", color: "#0ea5e9" },
-  high: { label: "High", color: "#f59e0b" },
-  urgent: { label: "Urgent", color: "#ef4444" },
+  medium: { label: "Medium", color: "#0369a1" },
+  high: { label: "High", color: "#b45309" },
+  urgent: { label: "Urgent", color: "#dc2626" },
 } as const;
 
 function getStatusCfg(status: string) {
@@ -64,9 +64,9 @@ function dueDateStatus(dueDateRaw: string | null): { label: string; color: strin
   due.setHours(0, 0, 0, 0);
   now.setHours(0, 0, 0, 0);
   const diffDays = Math.round((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays < 0) return { label: `${Math.abs(diffDays)}d overdue`, color: "#ef4444", overdue: true };
-  if (diffDays === 0) return { label: "Due today", color: "#f59e0b", overdue: false };
-  if (diffDays <= 3) return { label: `${diffDays}d left`, color: "#f59e0b", overdue: false };
+  if (diffDays < 0) return { label: `${Math.abs(diffDays)}d overdue`, color: "#dc2626", overdue: true };
+  if (diffDays === 0) return { label: "Due today", color: "#b45309", overdue: false };
+  if (diffDays <= 3) return { label: `${diffDays}d left`, color: "#b45309", overdue: false };
   return { label: `${diffDays}d left`, color: "#64748b", overdue: false };
 }
 

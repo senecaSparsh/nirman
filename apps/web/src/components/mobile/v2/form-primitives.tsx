@@ -103,7 +103,7 @@ export function SelectorCard({
           ) : null}
           <span
             className="min-w-0 flex-1 truncate font-bold"
-            style={{ color: hasValue ? "var(--color-ink-950)" : "var(--color-ink-400)" }}
+            style={{ color: hasValue ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
           >
             {hasValue ? (
               <>
@@ -233,7 +233,7 @@ export function TypeCard({
       {sublabel ? (
         <span
           className="text-m-caption font-normal truncate w-full text-center"
-          style={active ? { color: "var(--color-ink-700)" } : { color: "var(--color-ink-400)" }}
+          style={active ? { color: "var(--color-ink-700)" } : { color: "var(--color-ink-500)" }}
         >
           {sublabel}
         </span>
@@ -375,7 +375,7 @@ export function EnumSelect({
           ) : null}
           <span
             className={`flex-1 min-w-0 h-7 leading-7 px-1 text-m-caption font-bold truncate ${align === "right" ? "text-right" : "text-left"}`}
-            style={{ color: selected ? "var(--color-ink-950)" : "var(--color-ink-400)" }}
+            style={{ color: selected ? "var(--color-ink-950)" : "var(--color-ink-500)" }}
           >
             {displayValue}
           </span>
@@ -586,7 +586,7 @@ export function SelectorModal({
         {/* List */}
         <div className="flex-1 overflow-y-auto overscroll-contain">
           {loading ? (
-            <div className="flex items-center justify-center gap-2 py-8 text-m-caption" style={{ color: "var(--color-ink-400)" }}>
+            <div className="flex items-center justify-center gap-2 py-8 text-m-caption" style={{ color: "var(--color-ink-500)" }}>
               <Loader2 className="size-4 animate-spin" />
               Loading…
             </div>
@@ -598,7 +598,7 @@ export function SelectorModal({
                   {/* Empty catalog — not a search miss. Say so plainly and point
                       at the create action instead of implying "try another query". */}
                   <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-500)" }}>Nothing here yet</p>
-                  <p className="mt-1.5 text-m-caption" style={{ color: "var(--color-ink-400)" }}>
+                  <p className="mt-1.5 text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                     {emptyHint ??
                       (createLabel
                         ? `${createLabel.charAt(0).toUpperCase() + createLabel.slice(1)} below to add the first one.`
@@ -609,7 +609,7 @@ export function SelectorModal({
                 <>
                   <p className="text-m-body font-semibold" style={{ color: "var(--color-ink-500)" }}>No results</p>
                   {emptyHint && !query.trim() ? (
-                    <p className="mt-1.5 text-m-caption" style={{ color: "var(--color-ink-400)" }}>{emptyHint}</p>
+                    <p className="mt-1.5 text-m-caption" style={{ color: "var(--color-ink-500)" }}>{emptyHint}</p>
                   ) : null}
                 </>
               )}

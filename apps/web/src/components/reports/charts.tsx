@@ -192,27 +192,34 @@ export function PieSeries({
   showLegend?: boolean;
 }) {
   const fmt = currency ? (v: number) => formatCurrency(v) : (v: number) => formatNumber(v);
+  // Recharts renders raw SVG paths with no accessible name — the wrapper
+  // gives AT a text summary of every slice instead of silent geometry.
+  const summary = data.map((d) => `${d.label} ${fmt(d.value)}`).join(", ");
   return (
-    <ResponsiveContainer width="100%" height={height}>
-      <PieChart>
-        <Pie
-          data={data}
-          dataKey="value"
-          nameKey="label"
-          cx="50%"
-          cy="50%"
-          outerRadius={showLegend ? 80 : 100}
-          innerRadius={showLegend ? 40 : 50}
-          paddingAngle={2}
-        >
-          {data.map((d, i) => (
-            <Cell key={i} fill={d.color ?? STAGE_COLORS[i % STAGE_COLORS.length]} />
-          ))}
-        </Pie>
-        <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [fmt(v), ""]} />
-        {showLegend && <Legend wrapperStyle={{ fontSize: 11 }} />}
-      </PieChart>
-    </ResponsiveContainer>
+    <div role="img" aria-label={summary ? `Breakdown — ${summary}` : "Breakdown"}>
+      <div aria-hidden="true">
+      <ResponsiveContainer width="100%" height={height}>
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey="value"
+            nameKey="label"
+            cx="50%"
+            cy="50%"
+            outerRadius={showLegend ? 80 : 100}
+            innerRadius={showLegend ? 40 : 50}
+            paddingAngle={2}
+          >
+            {data.map((d, i) => (
+              <Cell key={i} fill={d.color ?? STAGE_COLORS[i % STAGE_COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip {...TOOLTIP_STYLE} formatter={(v: number) => [fmt(v), ""]} />
+          {showLegend && <Legend wrapperStyle={{ fontSize: 11 }} />}
+        </PieChart>
+      </ResponsiveContainer>
+      </div>
+    </div>
   );
 }
 

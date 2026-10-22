@@ -51,7 +51,7 @@ export function OwnerFinancialDashboard({
               <Wallet className="size-4 text-muted-foreground" />
               Cash Position
             </CardTitle>
-            <Link href="/gl" className="inline-flex items-center gap-1 text-caption font-medium text-brand hover:underline">
+            <Link href="/gl" className="inline-flex items-center gap-1 text-caption font-medium text-brand-strong hover:underline">
               View GL <ArrowRight className="size-3" />
             </Link>
           </CardToolbar>
@@ -100,7 +100,7 @@ export function OwnerFinancialDashboard({
               <Building2 className="size-4 text-muted-foreground" />
               Project Profitability
             </CardTitle>
-            <Link href="/finance" className="inline-flex items-center gap-1 text-caption font-medium text-brand hover:underline">
+            <Link href="/finance" className="inline-flex items-center gap-1 text-caption font-medium text-brand-strong hover:underline">
               View Finance <ArrowRight className="size-3" />
             </Link>
           </CardToolbar>
@@ -137,7 +137,7 @@ export function OwnerFinancialDashboard({
                   </div>
                 </div>
               </div>
-              <p className="text-micro text-muted-foreground/80">
+              <p className="text-micro text-muted-foreground">
                 Cost is recognised as work happens — early-stage projects read high until their full build cost lands.
               </p>
 
@@ -178,7 +178,7 @@ export function OwnerFinancialDashboard({
                       {projectProfits.length > 6 && (
                         <Link
                           href="/finance"
-                          className="block pt-1 text-center text-caption font-medium text-brand hover:underline"
+                          className="block pt-1 text-center text-caption font-medium text-brand-strong hover:underline"
                         >
                           View all {projectProfits.length} projects →
                         </Link>

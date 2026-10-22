@@ -95,7 +95,7 @@ export function BuildNavPanel({
             <span
               className={cn(
                 "shrink-0 rounded px-1.5 py-px text-micro font-semibold tnum",
-                active ? "bg-foreground text-background" : "bg-brand-soft text-brand",
+                active ? "bg-foreground text-background" : "bg-brand-soft text-brand-strong",
               )}
             >
               {badge > 99 ? "99+" : badge}
@@ -112,7 +112,7 @@ export function BuildNavPanel({
   }
 
   return (
-    <div className={cn("flex-col border-r border-border bg-card", className)}>
+    <aside aria-label={`${world.label} navigation`} className={cn("flex-col border-r border-border bg-card", className)}>
       {/* World identity — same header as WorldPanel */}
       <div className="relative border-b border-border px-4 pb-3 pt-3.5">
         <span
@@ -148,11 +148,11 @@ export function BuildNavPanel({
             : "text-muted-foreground hover:bg-muted hover:text-foreground",
         )}
       >
-        <span className="text-muted-foreground/60">Pipeline overview</span>
+        <span>Pipeline overview</span>
       </Link>
 
       {/* Accordion — 5 stage cards */}
-      <nav className="flex-1 overflow-y-auto px-2 py-2 scrollbar-thin">
+      <nav aria-label={`${world.label} navigation`} className="flex-1 overflow-y-auto px-2 py-2 scrollbar-thin">
         {sections.map((section, i) => {
           const isExpanded = expandedIndex === i;
           const isActive = activeSectionIndex === i;
@@ -182,7 +182,7 @@ export function BuildNavPanel({
                 <span className="min-w-0 flex-1 truncate text-left">{section.label}</span>
                 {/* Badge count for collapsed cards */}
                 {badgeTotal > 0 && !isExpanded && (
-                  <span className="shrink-0 rounded bg-brand-soft px-1.5 py-px text-micro font-semibold tnum text-brand">
+                  <span className="shrink-0 rounded bg-brand-soft px-1.5 py-px text-micro font-semibold tnum text-brand-strong">
                     {badgeTotal > 99 ? "99+" : badgeTotal}
                   </span>
                 )}
@@ -205,6 +205,6 @@ export function BuildNavPanel({
         })}
       </nav>
 
-    </div>
+    </aside>
   );
 }
