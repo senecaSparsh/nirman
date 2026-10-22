@@ -82,7 +82,7 @@ export function DepartmentActivityFeed({ department }: { department: DepartmentK
 
         {/* Latest action, loading state, or empty state */}
         {isLoading && !data ? (
-          <span className="min-w-0 flex-1 truncate text-caption text-faint">
+          <span className="min-w-0 flex-1 truncate text-caption text-muted-foreground">
             Loading {label.toLowerCase()} activity…
           </span>
         ) : latest ? (
@@ -91,7 +91,7 @@ export function DepartmentActivityFeed({ department }: { department: DepartmentK
               {latest.userName ?? "Someone"}
             </span>{" "}
             {humanizeAction(latest.action)}
-            <span className="ml-1 text-faint">· {relativeTime(latest.timestamp)}</span>
+            <span className="ml-1 text-muted-foreground">· {relativeTime(latest.timestamp)}</span>
           </span>
         ) : error ? (
           <span className="min-w-0 flex-1 truncate text-caption text-muted-foreground">
@@ -105,12 +105,12 @@ export function DepartmentActivityFeed({ department }: { department: DepartmentK
 
         {/* Count badge */}
         {rows.length > 0 && (
-          <span className="shrink-0 text-micro font-medium tabular-nums text-faint">
+          <span className="shrink-0 text-micro font-medium tabular-nums text-muted-foreground">
             {rows.length}
           </span>
         )}
 
-        <ChevronDown className="size-3.5 shrink-0 text-faint transition-transform group-hover:translate-y-0.5" />
+        <ChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform group-hover:translate-y-0.5" />
       </button>
     );
   }
@@ -159,19 +159,19 @@ export function DepartmentActivityFeed({ department }: { department: DepartmentK
           </span>
         </span>
 
-        <ChevronDown className="size-3.5 shrink-0 rotate-180 text-faint transition-transform" />
+        <ChevronDown className="size-3.5 shrink-0 rotate-180 text-muted-foreground transition-transform" />
       </button>
 
       {/* Feed list */}
       <div className="max-h-80 overflow-y-auto">
         {isLoading && !data ? (
           <div className="flex items-center gap-2.5 py-4 text-caption text-muted-foreground">
-            <Circle className="size-1.5 fill-current text-faint animate-pulse" />
+            <Circle className="size-1.5 fill-current text-muted-foreground animate-pulse" />
             Loading activity…
           </div>
         ) : rows.length === 0 ? (
           <div className="flex items-center gap-2.5 py-4 text-caption text-muted-foreground">
-            <Circle className="size-1.5 fill-current text-faint" />
+            <Circle className="size-1.5 fill-current text-muted-foreground" />
             {error ? "Could not load activity. Will retry automatically." : "Nothing here yet."}
           </div>
         ) : (
@@ -182,7 +182,7 @@ export function DepartmentActivityFeed({ department }: { department: DepartmentK
                 className="flex items-start gap-2.5 py-1"
               >
                 {/* Timestamp column (fixed width, tabular) */}
-                <span className="shrink-0 pt-px text-micro tabular-nums text-faint">
+                <span className="shrink-0 pt-px text-micro tabular-nums text-muted-foreground">
                   {relativeTime(row.timestamp)}
                 </span>
 

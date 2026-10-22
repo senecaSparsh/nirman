@@ -276,7 +276,7 @@ export function HrDashboard({
         <div className="flex flex-col rounded-lg border border-border bg-card shadow-raised">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <h2 className="text-section text-foreground">Today&apos;s Attendance</h2>
-            <Link href="/hr/attendance" className="flex items-center gap-0.5 text-caption font-medium text-brand hover:underline">
+            <Link href="/hr/attendance" className="flex items-center gap-0.5 text-caption font-medium text-brand-strong hover:underline">
               Log attendance <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
@@ -285,7 +285,7 @@ export function HrDashboard({
             <div>
               <div className="mb-2 flex items-center gap-1.5">
                 <TrendingUp className="h-3 w-3 text-muted-foreground" />
-                <span className="text-label text-muted-foreground/75">7-day trend</span>
+                <span className="text-label text-muted-foreground">7-day trend</span>
               </div>
               <AttendanceTrend days={attendanceTrend} />
             </div>
@@ -296,7 +296,7 @@ export function HrDashboard({
         <div className="flex flex-col rounded-lg border border-border bg-card shadow-raised">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <h2 className="text-section text-foreground">Headcount by Trade</h2>
-            <Link href="/hr/employees" className="flex items-center gap-0.5 text-caption font-medium text-brand hover:underline">
+            <Link href="/hr/employees" className="flex items-center gap-0.5 text-caption font-medium text-brand-strong hover:underline">
               All employees <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
@@ -314,7 +314,7 @@ export function HrDashboard({
             <h2 className="text-section text-foreground">Action Queue</h2>
             <Link
               href="/hr/pending"
-              className="flex items-center gap-0.5 text-caption font-medium text-brand hover:underline"
+              className="flex items-center gap-0.5 text-caption font-medium text-brand-strong hover:underline"
             >
               View all <ArrowRight className="h-3 w-3" />
             </Link>
@@ -379,7 +379,7 @@ export function HrDashboard({
             {filteredDprs.length === 0 ? (
               <p className="py-8 text-center text-body text-muted-foreground">
                 {recentDprs.length === 0 ? (
-                  <>No DPRs this week. <Link href="/hr/dprs" className="text-brand hover:underline">Create one →</Link></>
+                  <>No DPRs this week. <Link href="/hr/dprs" className="text-brand-strong underline underline-offset-2">Create one →</Link></>
                 ) : (
                   "No DPRs match the search."
                 )}
@@ -439,7 +439,7 @@ export function HrDashboard({
                   </div>
                   <div className="text-micro text-muted-foreground">{latestPayroll.employeeCount} employees</div>
                 </div>
-                <div className="mt-3 flex items-center gap-1 text-caption font-medium text-brand group-hover:underline">
+                <div className="mt-3 flex items-center gap-1 text-caption font-medium text-brand-strong group-hover:underline">
                   View details <ArrowRight className="h-3 w-3" />
                 </div>
               </Link>
@@ -449,7 +449,7 @@ export function HrDashboard({
                 icon={<Wallet />}
                 title="No payroll generated yet"
                 description="Generate payroll for the current period."
-                action={<Link href="/hr/payroll" className="text-caption text-brand hover:underline">Generate one →</Link>}
+                action={<Link href="/hr/payroll" className="text-caption text-brand-strong hover:underline">Generate one →</Link>}
               />
             )}
           </div>

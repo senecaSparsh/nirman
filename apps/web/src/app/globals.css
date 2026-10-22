@@ -98,7 +98,7 @@ input[type="number"] {
   /* ── Brand — amber. ONLY for: active nav, focus ring, the brand mark,
      and the single "act here" affordance per screen. ─────────────── */
   --color-brand: oklch(0.635 0.155 55);
-  --color-brand-strong: oklch(0.565 0.155 52);
+  --color-brand-strong: oklch(0.545 0.155 52);
   --color-brand-foreground: oklch(0.145 0.02 60);
   --color-brand-soft: oklch(0.958 0.038 72);
   --color-brand-border: oklch(0.855 0.075 68);
@@ -142,7 +142,7 @@ input[type="number"] {
      `-soft` is the tinted background, `-border` the tinted hairline,
      the base is the text/icon colour. Three tokens per state means a
      status chip is legible on any surface without alpha guesswork. */
-  --color-success: oklch(0.525 0.125 155);
+  --color-success: oklch(0.5 0.125 155);
   --color-success-soft: oklch(0.955 0.032 158);
   --color-success-border: oklch(0.865 0.06 158);
   --color-warning: oklch(0.53 0.125 68);
@@ -151,7 +151,7 @@ input[type="number"] {
   --color-danger: oklch(0.535 0.185 25);
   --color-danger-soft: oklch(0.958 0.03 25);
   --color-danger-border: oklch(0.872 0.06 25);
-  --color-info: oklch(0.545 0.135 250);
+  --color-info: oklch(0.51 0.135 250);
   --color-info-soft: oklch(0.958 0.028 250);
   --color-info-border: oklch(0.872 0.055 250);
 

@@ -110,7 +110,7 @@ export function LeadPipelineView({
       sortable: true,
       sortValue: (lead) => lead.nextFollowUpAt ? new Date(lead.nextFollowUpAt) : new Date(8640000000000000),
       render: (lead) => {
-        if (!lead.nextFollowUpAt) return <span className="text-muted-foreground/50">Not scheduled</span>;
+        if (!lead.nextFollowUpAt) return <span className="text-muted-foreground">Not scheduled</span>;
         const overdue = new Date(lead.nextFollowUpAt).getTime() < Date.now() && !["BOOKED", "LOST"].includes(lead.stage);
         return <span className={overdue ? "font-medium text-danger" : "text-muted-foreground"}>{formatDate(lead.nextFollowUpAt)}</span>;
       },

@@ -526,7 +526,7 @@ function POApprovalRow({ po }: { po: ApprovalPORow }) {
           )}
         </div>
         {done && (
-          <Link href={`/procurement?po=${po.id}`} className="text-caption text-brand hover:underline inline-flex items-center gap-1">
+          <Link href={`/procurement?po=${po.id}`} className="text-caption text-brand-strong hover:underline inline-flex items-center gap-1">
             View PO <ArrowRight className="h-3 w-3" />
           </Link>
         )}
@@ -608,7 +608,7 @@ function POApprovalRow({ po }: { po: ApprovalPORow }) {
           <button
             type="button"
             onClick={() => setShowDetails(!showDetails)}
-            className="flex items-center gap-1 text-caption text-brand hover:underline"
+            className="flex items-center gap-1 text-caption text-brand-strong hover:underline"
           >
             {showDetails ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             {showDetails ? "Hide line details" : `Show ${po.lineDetails.length} line${po.lineDetails.length === 1 ? "" : "s"} (qty & rates)`}
@@ -712,7 +712,7 @@ function ReqApprovalRow({ req }: { req: ApprovalReqRow }) {
           )}
         </div>
         {done && (
-          <Link href={`/requisitions?req=${req.id}`} className="text-caption text-brand hover:underline inline-flex items-center gap-1">
+          <Link href={`/requisitions?req=${req.id}`} className="text-caption text-brand-strong hover:underline inline-flex items-center gap-1">
             Collect Quotes <ArrowRight className="h-3 w-3" />
           </Link>
         )}
@@ -803,7 +803,7 @@ function ReqApprovalRow({ req }: { req: ApprovalReqRow }) {
           <button
             type="button"
             onClick={() => setShowDetails(!showDetails)}
-            className="flex items-center gap-1 text-caption text-brand hover:underline"
+            className="flex items-center gap-1 text-caption text-brand-strong hover:underline"
           >
             {showDetails ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             {showDetails ? "Hide line details" : `Show ${req.lineDetails.length} line${req.lineDetails.length === 1 ? "" : "s"} (stock & rates)`}
@@ -911,7 +911,7 @@ function GatePassApprovalRow({ gp }: { gp: ApprovalGatePassRow }) {
           )}
         </div>
         {done && (
-          <Link href={`/gate-passes`} className="text-caption text-brand hover:underline inline-flex items-center gap-1">
+          <Link href={`/gate-passes`} className="text-caption text-brand-strong hover:underline inline-flex items-center gap-1">
             View Gate Passes <ArrowRight className="h-3 w-3" />
           </Link>
         )}
@@ -968,7 +968,7 @@ function GatePassApprovalRow({ gp }: { gp: ApprovalGatePassRow }) {
           <button
             type="button"
             onClick={() => setShowDetails(!showDetails)}
-            className="flex items-center gap-1 text-caption text-brand hover:underline"
+            className="flex items-center gap-1 text-caption text-brand-strong hover:underline"
           >
             {showDetails ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             {showDetails ? "Hide contents" : `Show ${gp.lineDetails.length} line${gp.lineDetails.length === 1 ? "" : "s"} leaving`}
@@ -1045,7 +1045,7 @@ function DprApprovalRow({ dpr }: { dpr: ApprovalDprRow }) {
           )}
         </div>
         {done && (
-          <Link href={`/hr/dprs`} className="text-caption text-brand hover:underline inline-flex items-center gap-1">
+          <Link href={`/hr/dprs`} className="text-caption text-brand-strong hover:underline inline-flex items-center gap-1">
             View DPRs <ArrowRight className="h-3 w-3" />
           </Link>
         )}
@@ -1105,7 +1105,7 @@ function DprApprovalRow({ dpr }: { dpr: ApprovalDprRow }) {
           <button
             type="button"
             onClick={() => setShowDetails(!showDetails)}
-            className="flex items-center gap-1 text-caption text-brand hover:underline"
+            className="flex items-center gap-1 text-caption text-brand-strong hover:underline"
           >
             {showDetails ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             {showDetails
@@ -1217,7 +1217,7 @@ function RaBillApprovalRow({ raBill }: { raBill: ApprovalRaBillRow }) {
           )}
         </div>
         {done && (
-          <Link href="/work-orders" className="text-caption text-brand hover:underline inline-flex items-center gap-1">
+          <Link href="/work-orders" className="text-caption text-brand-strong hover:underline inline-flex items-center gap-1">
             View Work Orders <ArrowRight className="h-3 w-3" />
           </Link>
         )}
@@ -1293,7 +1293,7 @@ function RaBillApprovalRow({ raBill }: { raBill: ApprovalRaBillRow }) {
           <button
             type="button"
             onClick={() => setShowDetails(!showDetails)}
-            className="flex items-center gap-1 text-caption text-brand hover:underline"
+            className="flex items-center gap-1 text-caption text-brand-strong hover:underline"
           >
             {showDetails ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
             {showDetails ? "Hide billed lines" : `Show ${raBill.lines.length} billed line${raBill.lines.length === 1 ? "" : "s"} (qty & rates)`}
@@ -1388,7 +1388,7 @@ function ExpenseApprovalRow({ expense }: { expense: ApprovalExpenseRow }) {
           )}
         </div>
         {done && (
-          <Link href={`/expenses`} className="text-caption text-brand hover:underline inline-flex items-center gap-1">
+          <Link href={`/expenses`} className="text-caption text-brand-strong hover:underline inline-flex items-center gap-1">
             View Expenses <ArrowRight className="h-3 w-3" />
           </Link>
         )}
@@ -1424,7 +1424,7 @@ function ExpenseApprovalRow({ expense }: { expense: ApprovalExpenseRow }) {
           </div>
         )}
         {expense.receiptUrl && (
-          <a href={expense.receiptUrl} target="_blank" rel="noopener noreferrer" className="text-caption text-brand hover:underline inline-flex items-center gap-1">
+          <a href={expense.receiptUrl} target="_blank" rel="noopener noreferrer" className="text-caption text-brand-strong hover:underline inline-flex items-center gap-1">
             View receipt <ArrowRight className="h-3 w-3" />
           </a>
         )}

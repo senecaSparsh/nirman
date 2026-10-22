@@ -67,22 +67,22 @@ function CrewStatsBar({ crews }: { crews: CrewRow[] }) {
   return (
     <div className="grid grid-cols-2 divide-border overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-4 sm:divide-x divide-y sm:divide-y-0">
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Crews</span>
+        <span className="text-label text-muted-foreground">Crews</span>
         <span className="text-figure text-foreground">{total}</span>
         <span className="text-micro text-muted-foreground">{active} active</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Members</span>
+        <span className="text-label text-muted-foreground">Members</span>
         <span className="text-figure text-foreground">{totalMembers}</span>
         <span className="text-micro text-muted-foreground">{total > 0 ? (totalMembers / total).toFixed(1) : 0} avg / crew</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">On Project</span>
+        <span className="text-label text-muted-foreground">On Project</span>
         <span className="text-figure text-foreground">{assignedToProject}</span>
         <span className="text-micro text-muted-foreground">{total - assignedToProject} unassigned</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">With Supervisor</span>
+        <span className="text-label text-muted-foreground">With Supervisor</span>
         <span className="text-figure text-foreground">{withSupervisor}</span>
         <span className="text-micro text-muted-foreground">{total - withSupervisor} no lead</span>
       </div>

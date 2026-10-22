@@ -743,7 +743,7 @@ export function DataTable<T>({
                             {checked && <Check className="size-2.5" />}
                           </span>
                           <span className="truncate text-foreground">{v || "—"}</span>
-                          <span className="ml-auto text-micro text-faint tnum">{count}</span>
+                          <span className="ml-auto text-micro text-muted-foreground tnum">{count}</span>
                         </button>
                       );
                     })}

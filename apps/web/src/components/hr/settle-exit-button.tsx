@@ -17,7 +17,7 @@ export function SettleExitButton({ employeeId, suggestedAmount }: { employeeId: 
     <button
       type="button"
       disabled={busy}
-      className="rounded bg-emerald-600 px-2.5 py-0.5 text-micro font-medium text-white disabled:opacity-50"
+      className="rounded bg-emerald-700 px-2.5 py-0.5 text-micro font-medium text-white disabled:opacity-50"
       onClick={async () => {
         const raw = window.prompt("Settlement amount paid (₹):", suggestedAmount != null ? suggestedAmount.toFixed(0) : "");
         if (raw === null) return;
