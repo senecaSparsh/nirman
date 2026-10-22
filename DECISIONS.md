@@ -2123,6 +2123,25 @@ service tests, both typechecks):
   30 drives the whole ask lifecycle through real API calls, the same
   coverage every other state machine gets.
 
+- **Sidebar↔tab agreement (the "same thing in two places" bug)** — the
+  four ?tab= deep-links (All Tasks, Stock Movements, Bank SMS,
+  Telephony) never highlighted: usePathname strips the query so the
+  matcher lit the plain sibling instead. navItemActive now matches
+  path+query together; the specific link wins over its plain sibling
+  only when the tab matches, across BOTH link registries. Side effect:
+  /stock no longer lights on /stock-locations (boundary fix).
+- **Action-first mobile home** — field personas open the app to punch
+  in; the check-in card now leads before the briefing feed. Executives
+  keep feed-first (they punch rarely). One widget, position by persona.
+- **Mobile smoke warmup** — the all-/m-pages suite timed out on every
+  route because each cold Turbopack compile (cpus:1) takes 60-100s. A
+  bounded parallel beforeAll drains the compile queue once; the raised
+  nav timeout covers stragglers. Environmental, not product failures.
+- **Approvals-queue micro-fixes** — the advance-decline dialog kept a
+  cancelled correction's reason text (wrong reason could reach the
+  worker); asks now render relative age, amber at the 48h digest
+  threshold. useHydratedDate keeps SSR clean.
+
 **Still open (sized, honest):**
 
 - BOCW cess accrual (1% of construction cost — deferred legal nuance, D27)
