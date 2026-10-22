@@ -220,6 +220,7 @@ export default async function PortalSalesPage() {
                 <a
                   href={`/print/sale-statement/${sale.id}`}
                   target="_blank"
+                  rel="noopener noreferrer"
                   className="text-[11px] font-medium text-brand hover:underline"
                 >
                   Download statement ↓

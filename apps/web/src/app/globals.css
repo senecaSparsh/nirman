@@ -1658,6 +1658,28 @@ input[type="number"] {
   animation: hold-label-fade 2.2s ease-in-out infinite;
 }
 
+/* ── Skip link (WCAG 2.4.1) ──
+   Visually hidden until focused, then a floating banner above the shell.
+   Lives outside every panel so it works on any page that has one. */
+.skip-link {
+  position: fixed;
+  top: -48px;
+  left: 12px;
+  z-index: 100;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: var(--color-foreground);
+  color: var(--color-background);
+  font: 600 13px/1 var(--font-sans, system-ui);
+  text-decoration: none;
+  transition: top 150ms ease;
+}
+.skip-link:focus-visible {
+  top: 12px;
+  outline: 2px solid var(--color-background);
+  outline-offset: 2px;
+}
+
 /* ── Respect the user's motion preference ──
    Apple §14: reduced motion ≠ no feedback. It means a gentler,
    non-vestibular equivalent. Kill transforms/springs/parallax (the

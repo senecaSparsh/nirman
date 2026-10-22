@@ -426,6 +426,11 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen bg-background" data-surface="desktop" data-switching={isCompanySwitching ? "true" : undefined}>
+      {/* Bypass-block: the rail + panel hold ~25 tab stops before page
+          content. WCAG 2.4.1 — first focusable jumps straight to main. */}
+      <a href="#main-content" className="skip-link">
+        Skip to content
+      </a>
       {/* ── World rail — always visible, 64px, dark ──────────────── */}
       <WorldRail
         worlds={worlds}
@@ -635,7 +640,7 @@ export function AppShell({
           about 150 characters at our body size — past that a table row's
           first and last cell stop being readable as the same row.
         */}
-        <main className="min-w-0 flex-1 px-4 py-6 lg:px-8 lg:py-7">
+        <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 px-4 py-6 outline-none lg:px-8 lg:py-7">
           <div key={companyKey ?? "init"} className="mx-auto w-full max-w-[1400px] pb-24">{children}</div>
         </main>
       </div>

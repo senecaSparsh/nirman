@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 /**
@@ -45,6 +45,7 @@ export function MobileFabModal({
 }) {
   const [mounted, setMounted] = useState(open);
   const [visible, setVisible] = useState(false);
+  const [panelEl, setPanelEl] = useState<HTMLElement | null>(null);
   const prefersReducedMotion = usePrefersReducedMotion();
 
   // Mount/unmount with enter/exit animation
@@ -65,21 +66,55 @@ export function MobileFabModal({
     }
   }, [open]);
 
-  // Close on Escape
+  // Close on Escape + keep focus inside the sheet while it's open, and
+  // hand it back to the trigger on close — the same focus contract as
+  // the desktop Dialog.
+  const prevFocusRef = useRef<Element | null>(null);
+  // Same contract as the desktop Dialog — the onClose prop is typically
+  // an inline handler whose identity changes every render; a ref keeps
+  // the effect stable so cleanup only fires on real open→close.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
   useEffect(() => {
     if (!open) return;
+    prevFocusRef.current = document.activeElement;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
+      if (e.key === "Tab" && panelEl) {
+        const focusable = [...panelEl.querySelectorAll<HTMLElement>(
+          'a[href], button, input, select, textarea, [tabindex]',
+        )].filter(
+          (el) => !el.hasAttribute("disabled") && el.tabIndex >= 0 && el.offsetParent !== null,
+        );
+        if (focusable.length === 0) return;
+        e.preventDefault();
+        const idx = focusable.indexOf(document.activeElement as HTMLElement);
+        const next =
+          idx === -1
+            ? 0
+            : e.shiftKey
+              ? (idx - 1 + focusable.length) % focusable.length
+              : (idx + 1) % focusable.length;
+        focusable[next]!.focus();
+      }
     };
     window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [open, onClose]);
+    return () => {
+      window.removeEventListener("keydown", handler);
+      if (prevFocusRef.current instanceof HTMLElement) prevFocusRef.current.focus();
+    };
+    // panelEl is set by the ref callback once mounted — re-run when it lands.
+  }, [open, panelEl]);
 
   if (!mounted) return null;
 
   // Auto-focus the dialog on mount so keyboard / screen-reader users land
-  // inside it rather than on the backdrop or behind the modal.
+  // inside it rather than on the backdrop or behind the modal. Also stores
+  // the element so the Tab-trap effect above can scope to it.
   const dialogRef = (el: HTMLElement | null) => {
+    setPanelEl(el);
     if (el && open) el.focus();
   };
 

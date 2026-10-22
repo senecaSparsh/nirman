@@ -56,6 +56,15 @@ export function Dialog({
   className?: string;
 }) {
   const idRef = React.useRef(Symbol("dialog"));
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  const prevFocusRef = React.useRef<Element | null>(null);
+  // Callers pass inline `onOpenChange` handlers — the identity changes
+  // every render. A ref keeps the latest callback without re-running
+  // the open/close effect (which would yank focus back to the trigger).
+  const onOpenChangeRef = React.useRef(onOpenChange);
+  React.useEffect(() => {
+    onOpenChangeRef.current = onOpenChange;
+  });
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
 
@@ -63,18 +72,42 @@ export function Dialog({
     if (!open) return;
     const id = idRef.current;
     openDialogs.push(id);
+    // Focus must land inside the dialog (AT announces the title via
+    // aria-label), stay inside while it's open, and return to the
+    // trigger on close — the three halves of the modal focus contract.
+    prevFocusRef.current = document.activeElement;
+    const focusTimer = window.setTimeout(() => dialogRef.current?.focus(), 0);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && openDialogs[openDialogs.length - 1] === id) onOpenChange(false);
+      if (e.key === "Escape" && openDialogs[openDialogs.length - 1] === id) onOpenChangeRef.current(false);
+      if (e.key === "Tab" && dialogRef.current) {
+        const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button, input, select, textarea, [tabindex]',
+        )].filter(
+          (el) => !el.hasAttribute("disabled") && el.tabIndex >= 0 && el.offsetParent !== null,
+        );
+        if (focusable.length === 0) return;
+        e.preventDefault();
+        const idx = focusable.indexOf(document.activeElement as HTMLElement);
+        const next =
+          idx === -1
+            ? 0
+            : e.shiftKey
+              ? (idx - 1 + focusable.length) % focusable.length
+              : (idx + 1) % focusable.length;
+        focusable[next]!.focus();
+      }
     };
     document.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
     return () => {
+      window.clearTimeout(focusTimer);
       document.removeEventListener("keydown", onKey);
       const i = openDialogs.indexOf(id);
       if (i !== -1) openDialogs.splice(i, 1);
       if (openDialogs.length === 0) document.body.style.overflow = "";
+      if (prevFocusRef.current instanceof HTMLElement) prevFocusRef.current.focus();
     };
-  }, [open, onOpenChange]);
+  }, [open]);
 
   if (!open || !mounted) return null;
 
@@ -85,11 +118,13 @@ export function Dialog({
         onClick={() => onOpenChange(false)}
       />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        tabIndex={-1}
         className={cn(
-          "sheet-up relative z-10 flex max-h-[92dvh] w-full flex-col overflow-hidden",
+          "sheet-up relative z-10 flex max-h-[92dvh] w-full flex-col overflow-hidden outline-none",
           "rounded-t-xl border border-border bg-elevated shadow-overlay",
           "sm:overlay-in sm:my-8 sm:max-h-[86vh] sm:rounded-xl",
           SIZES[size],

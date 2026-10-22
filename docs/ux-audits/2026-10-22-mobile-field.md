@@ -157,3 +157,20 @@ Ran axe-core@4.12 on the three rendered pages.
   coverage remains env-limited (single-CPU Turbopack).
 - Perf gates (LCP/CLS/INP) + keyboard-only + scenario battery.
 - The 99+ notification pile-up (F3) + far-future seed data (F4).
+
+## Fourth pass — desktop route family (18 routes → all zero)
+
+Verified rendered at ZERO axe violations (OWNER persona):
+/, /stock, /my-tasks, /approvals, /projects, /sales, /hr,
+/tasks, /finance, /procurement, /stock-locations,
+/gate-passes, /suppliers, /transfers, /requisitions,
+/scrap-generations, /stock-movements, /supplier-payments.
+
+Systemic fixes: row-checkbox labels (every selectable table),
+sr-only Actions header, named filter selects/date pickers/
+icon-only exports across all major views, muted-foreground/NN
+→ full token on every flagged instance, kanban "empty" /50.
+
+Remaining known systemic classes (need a token-tier decision,
+not 200+ site edits): muted-foreground/NN on unaudited pages,
+text-faint on meaning-carrying text beyond audited surfaces.
