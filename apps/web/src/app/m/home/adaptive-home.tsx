@@ -69,26 +69,34 @@ function HomeContent({ data }: { data: HomeData }) {
   const checkOutDate = data.myAttendance?.checkOut ? new Date(data.myAttendance.checkOut) : null;
   const isExecutive = data.persona === "executive";
 
+  const checkIn = data.myEmployee ? (
+    <div className="mb-3">
+      <MobileSelfCheckIn
+        employeeId={data.myEmployee.id}
+        employeeName={data.myEmployee.name}
+        hasCheckedIn={!!data.myAttendance?.checkIn}
+        checkInTime={checkInDate?.toTimeString().slice(0, 5) ?? null}
+        hasCheckedOut={!!data.myAttendance?.checkOut}
+        checkOutTime={checkOutDate?.toTimeString().slice(0, 5) ?? null}
+        hoursWorked={data.myAttendance?.hoursWorked ?? null}
+        periodLocked={data.periodLocked ?? null}
+      />
+    </div>
+  ) : null;
+
   return (
     <>
+      {/* ── Self-check-in leads for field-facing personas — a site
+           worker opens the app at the gate to punch in; burying the
+           button under the briefing makes the one daily action two
+           scrolls away. Executives punch rarely, so their feed keeps
+           the top slot and the widget sits below it instead. ── */}
+      {!isExecutive && checkIn}
+
       {/* ── Home tree — briefing + recent in a file-system tree ── */}
       <HomeTree userName={data.userName} />
 
-      {/* ── Self-check-in widget (only for employees with an employee record) ── */}
-      {data.myEmployee && (
-        <div className="mb-3">
-          <MobileSelfCheckIn
-            employeeId={data.myEmployee.id}
-            employeeName={data.myEmployee.name}
-            hasCheckedIn={!!data.myAttendance?.checkIn}
-            checkInTime={checkInDate?.toTimeString().slice(0, 5) ?? null}
-            hasCheckedOut={!!data.myAttendance?.checkOut}
-            checkOutTime={checkOutDate?.toTimeString().slice(0, 5) ?? null}
-            hoursWorked={data.myAttendance?.hoursWorked ?? null}
-            periodLocked={data.periodLocked ?? null}
-          />
-        </div>
-      )}
+      {isExecutive && checkIn}
 
       {/* ── Executive: orbit navigator (enterprise wheel) ── */}
       {/* ── Other personas: persona-specific dashboard ── */}
