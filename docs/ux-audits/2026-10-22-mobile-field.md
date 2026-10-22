@@ -125,3 +125,35 @@ Ran axe-core@4.12 on the three rendered pages.
   WCAG 1.4.4 on 8-11px text. Now 5.
 - **F9 (moderate→fixed)** No h1 on mobile pages — drill-down title
   now h1, hubs get sr-only h1.
+
+## Third pass — axe on desktop / + /stock (OWNER)
+
+- `/` → **0 violations** (was 19 nodes)
+- `/stock` → **0 violations** (was 10 nodes)
+- `/m/home`, `/m/site` → **0 violations**
+- `/m/me` → all flagged nodes fixed in DOM (label/select-name,
+  12 contrast nodes, viewport, h1)
+
+### Systemic fixes this pass
+
+- `text-faint` (2.9:1) and `muted-foreground/60` (~3.2:1) are
+  sub-AA hint tiers used on meaning-carrying text across the app —
+  every audited instance bumped; a codebase-wide `muted-foreground/NN`
+  sweep is logged as follow-up (15+ usages in unaudited components).
+- `--color-warning` darkened 0.575→0.53 — every warning-on-soft
+  badge was ~4.3:1.
+- Priority/due-date hexes in my-tasks-panel darkened to AA
+  (#b45309 amber-700, #0369a1 sky-700, #dc2626 red-600).
+- Shell panels are `<aside>` landmarks; every `<nav>` labelled.
+- PieSeries: role="img" summary + MutationObserver tabindex strip
+  (recharts sectors are focusable-by-default paths).
+- Nav badges → filled brand/foreground (~4.9:1).
+- Mobile forms: ink-400 placeholder/sub text → ink-500 file-wide.
+- maximumScale 1→5 (pinch-zoom unblocked).
+
+### Still to audit (not reached)
+
+- ~290 desktop + ~76 mobile routes un-audited by axe; interactive
+  coverage remains env-limited (single-CPU Turbopack).
+- Perf gates (LCP/CLS/INP) + keyboard-only + scenario battery.
+- The 99+ notification pile-up (F3) + far-future seed data (F4).
