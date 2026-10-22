@@ -872,7 +872,7 @@ function WorldPanel({
               className={cn(
                 "inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full px-1",
                 "text-[10px] font-semibold tabular-nums leading-none",
-                active ? "bg-foreground text-background" : "bg-brand-soft text-brand-strong",
+                active ? "bg-foreground text-background" : "bg-brand text-brand-foreground",
               )}
             >
               {badge > 99 ? "99+" : badge}

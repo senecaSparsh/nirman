@@ -95,7 +95,7 @@ export function BuildNavPanel({
             <span
               className={cn(
                 "shrink-0 rounded px-1.5 py-px text-micro font-semibold tnum",
-                active ? "bg-foreground text-background" : "bg-brand-soft text-brand-strong",
+                active ? "bg-foreground text-background" : "bg-brand text-brand-foreground",
               )}
             >
               {badge > 99 ? "99+" : badge}
@@ -182,7 +182,7 @@ export function BuildNavPanel({
                 <span className="min-w-0 flex-1 truncate text-left">{section.label}</span>
                 {/* Badge count for collapsed cards */}
                 {badgeTotal > 0 && !isExpanded && (
-                  <span className="shrink-0 rounded bg-brand-soft px-1.5 py-px text-micro font-semibold tnum text-brand-strong">
+                  <span className="shrink-0 rounded bg-brand px-1.5 py-px text-micro font-semibold tnum text-brand-foreground">
                     {badgeTotal > 99 ? "99+" : badgeTotal}
                   </span>
                 )}

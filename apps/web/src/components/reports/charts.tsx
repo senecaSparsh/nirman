@@ -17,6 +17,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
+import { useEffect, useRef } from "react";
 import { formatCurrency, formatNumber } from "@/lib/utils";
 
 /**
@@ -195,8 +196,25 @@ export function PieSeries({
   // Recharts renders raw SVG paths with no accessible name — the wrapper
   // gives AT a text summary of every slice instead of silent geometry.
   const summary = data.map((d) => `${d.label} ${fmt(d.value)}`).join(", ");
+  // Sectors carry a hardcoded tabindex=-1 (programmatically focusable),
+  // which makes aria-hidden on the chart a WCAG violation — strip it so
+  // nothing inside the hidden subtree can take focus. ResponsiveContainer
+  // mounts its children only after measuring, so a MutationObserver keeps
+  // stripping as sectors appear; strip() is idempotent so the observer's
+  // own mutations terminate.
+  const wrapRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = wrapRef.current;
+    if (!root) return;
+    const strip = () =>
+      root.querySelectorAll("[tabindex]").forEach((el) => el.removeAttribute("tabindex"));
+    strip();
+    const mo = new MutationObserver(strip);
+    mo.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["tabindex"] });
+    return () => mo.disconnect();
+  }, [data]);
   return (
-    <div role="img" aria-label={summary ? `Breakdown — ${summary}` : "Breakdown"}>
+    <div ref={wrapRef} role="img" aria-label={summary ? `Breakdown — ${summary}` : "Breakdown"}>
       <div aria-hidden="true">
       <ResponsiveContainer width="100%" height={height}>
         <PieChart>
