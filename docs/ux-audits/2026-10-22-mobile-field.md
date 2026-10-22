@@ -101,3 +101,27 @@ Single-CPU Turbopack wedges under load: several routes exceeded
 5-minute compile windows this session and even /api/health timed
 out periodically. Per AGENTS.md, kill+restart clears it; the
 findings above come only from surfaces that rendered.
+
+## Follow-up pass — axe-core on the settled routes (same day)
+
+Ran axe-core@4.12 on the three rendered pages.
+
+- `/m/home` → **0 violations** (after fixes)
+- `/m/site` → **0 violations** (after fixes)
+- `/m/me` → was: 2 critical (label, select-name), 12 serious
+  contrast, 2 moderate → all addressed in `8cec78f4` + `54a12118`
+
+### Fixed in this pass
+
+- **F5 (critical→fixed)** Punch-correction form had zero labelled
+  controls; aria-labels on date/times/select/reason.
+- **F6 (critical→fixed)** DelegationCard labels were visual-only —
+  htmlFor/id pairs added (`.tnum` date input + member Select).
+- **F7 (serious→fixed)** `ink-400` (#898376, 3.76:1) used for
+  meaning-carrying text — eyebrows, rail subs, RegisterTabs
+  inactive labels, DelegationCard, "Act as". All → ink-500. True
+  placeholders keep ink-400.
+- **F8 (moderate→fixed)** `maximumScale: 1` blocked pinch-zoom —
+  WCAG 1.4.4 on 8-11px text. Now 5.
+- **F9 (moderate→fixed)** No h1 on mobile pages — drill-down title
+  now h1, hubs get sr-only h1.
