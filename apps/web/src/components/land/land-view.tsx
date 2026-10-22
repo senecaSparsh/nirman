@@ -51,7 +51,7 @@ const landPurchaseColumns: Column<LandPurchaseRowType>[] = [
             {isPartitioned && <Layers className="h-3 w-3 shrink-0 text-muted-foreground" />}
             {allSold && <StatusPill status="SOLD" />}
             {p.purchaseStage === "BOOKED" && (
-              <span className="rounded-full bg-warning/15 px-1.5 py-0.5 text-caption font-semibold text-warning">BOOKED</span>
+              <span className="rounded-full bg-warning-soft px-1.5 py-0.5 text-caption font-semibold text-warning">BOOKED</span>
             )}
             {p.purchaseStage === "BBA_SIGNED" && (
               <span className="rounded-full bg-info/15 px-1.5 py-0.5 text-caption font-semibold text-info">BBA SIGNED</span>
@@ -368,6 +368,7 @@ export function LandView({
             )}
             <div className="relative shrink-0" style={{ width: 150 }}>
               <select
+                aria-label="Filter by parcel status"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 style={{ width: 150 }}
@@ -425,6 +426,7 @@ export function LandView({
             )}
             <div className="relative shrink-0" style={{ width: 150 }}>
               <select
+                aria-label="Filter by parcel status"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 style={{ width: 150 }}
@@ -445,7 +447,7 @@ export function LandView({
           <div className="flex flex-col gap-3">
             <div className="flex h-8 items-center gap-2">
               <CircleDollarSign className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <h3 className="shrink-0 text-body font-medium text-foreground">Whole / Non-Divided</h3>
+              <h2 className="shrink-0 text-body font-medium text-foreground">Whole / Non-Divided</h2>
               <span className="shrink-0 text-caption text-muted-foreground tnum">({wholePurchases.length})</span>
               <span className="truncate text-caption text-muted-foreground">— single parcel, sell as-is</span>
             </div>
@@ -468,7 +470,7 @@ export function LandView({
           <div className="flex flex-col gap-3">
             <div className="flex h-8 items-center gap-2">
               <SplitSquareHorizontal className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <h3 className="shrink-0 text-body font-medium text-foreground">Sub-Divided</h3>
+              <h2 className="shrink-0 text-body font-medium text-foreground">Sub-Divided</h2>
               <span className="shrink-0 text-caption text-muted-foreground tnum">({subdividedPurchases.length})</span>
               <span className="truncate text-caption text-muted-foreground">— split into sellable plots</span>
             </div>

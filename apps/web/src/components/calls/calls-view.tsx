@@ -151,20 +151,20 @@ export function CallsView({
             />
           </div>
           <ToolbarDivider />
-          <Select value={filterDirection} onChange={(e) => setFilterDirection(e.target.value)} className="w-auto">
+          <Select aria-label="Filter by call direction" value={filterDirection} onChange={(e) => setFilterDirection(e.target.value)} className="w-auto">
             <option value="">All directions</option>
             <option value="INBOUND">Inbound</option>
             <option value="OUTBOUND">Outbound</option>
             <option value="INTERNAL">Internal</option>
           </Select>
-          <Select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-auto">
+          <Select aria-label="Filter by call status" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="w-auto">
             <option value="">All statuses</option>
             <option value="ANSWERED">Answered</option>
             <option value="MISSED">Missed</option>
             <option value="VOICEMAIL">Voicemail</option>
             <option value="FAILED">Failed</option>
           </Select>
-          <Select value={filterPhone} onChange={(e) => setFilterPhone(e.target.value)} className="w-auto">
+          <Select aria-label="Filter by phone number" value={filterPhone} onChange={(e) => setFilterPhone(e.target.value)} className="w-auto">
             <option value="">All numbers</option>
             {phoneNumbers.map((p) => (
               <option key={p.id} value={p.id}>
@@ -173,7 +173,7 @@ export function CallsView({
             ))}
           </Select>
           {tags.length > 0 && (
-            <Select value={filterTag} onChange={(e) => setFilterTag(e.target.value)} className="w-auto">
+            <Select aria-label="Filter by tag" value={filterTag} onChange={(e) => setFilterTag(e.target.value)} className="w-auto">
               <option value="">All tags</option>
               {tags.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}</option>
