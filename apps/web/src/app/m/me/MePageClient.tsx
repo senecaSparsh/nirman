@@ -484,7 +484,7 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
               <div>
                 <p className="text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>Phone</p>
                 <p className="text-m-body" style={{ color: "var(--color-ink-950)" }}>{userPhone || "—"}</p>
-                <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-400)" }}>
+                <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
                   Phone is your login ID — changes go through HR.
                 </p>
               </div>
@@ -509,7 +509,7 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
             <div className="px-3 pt-2.5 pb-1">
-              <p className="text-m-caption font-bold uppercase tracking-[0.04em]" style={{ color: "var(--color-ink-400)" }}>
+              <p className="text-m-caption font-bold uppercase tracking-[0.04em]" style={{ color: "var(--color-ink-500)" }}>
                 Account
               </p>
             </div>
@@ -615,12 +615,12 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
                           <p className="text-m-caption truncate" style={{ color: "var(--color-ink-500)" }}>
                             {c.label}
                             {c.calculationType === "UNIT_RATE" && c.quantity != null && (
-                              <span style={{ color: "var(--color-ink-400)" }}>
+                              <span style={{ color: "var(--color-ink-500)" }}>
                                 {" "}· {c.quantity} {(c.unitType === "CUSTOM" ? c.unitLabel : c.unitType?.toLowerCase()) ?? "units"} × ₹{c.rate}
                               </span>
                             )}
                             {c.calculationType === "PERCENTAGE_OF_BASIC" && (
-                              <span style={{ color: "var(--color-ink-400)" }}> · {c.rate}% of basic</span>
+                              <span style={{ color: "var(--color-ink-500)" }}> · {c.rate}% of basic</span>
                             )}
                           </p>
                           <p
@@ -707,7 +707,7 @@ export function MePageClient({ initial }: { initial: MePageInitial | null }) {
                     <div key={a.id}>
                       {a.status === "CANCELLED" ? (
                         <div className="flex items-baseline justify-between gap-2">
-                          <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
+                          <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
                             Advance request · {formatDate(a.issueDate)}
                           </p>
                           <p className="text-m-caption font-semibold tabular-nums shrink-0" style={{ color: "var(--color-stop)" }}>
@@ -1088,7 +1088,7 @@ function InfoField({
     <div className="min-w-0">
       <div
         className="flex items-center gap-1 text-m-caption font-bold uppercase tracking-[0.04em] mb-0.5"
-        style={{ color: "var(--color-ink-400)" }}
+        style={{ color: "var(--color-ink-500)" }}
       >
         {icon} {label}
       </div>
@@ -1386,17 +1386,21 @@ function AttendanceCorrectionForm({ pendingDates }: { pendingDates: string[] }) 
       <input
         type="date" value={date} onChange={(e) => setDate(e.target.value)}
         max={new Date().toISOString().slice(0, 10)}
+        aria-label="Date to correct"
         className="w-full rounded-md px-3 py-2 text-m-body"
         style={{ border: "1px solid var(--color-line)", color: "var(--color-ink-950)" }}
       />
       <div className="grid grid-cols-2 gap-2">
         <input type="time" value={checkIn} onChange={(e) => setCheckIn(e.target.value)} placeholder="In"
+          aria-label="Check-in time"
           className="rounded-md px-3 py-2 text-m-body" style={{ border: "1px solid var(--color-line)", color: "var(--color-ink-950)" }} />
         <input type="time" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} placeholder="Out"
+          aria-label="Check-out time"
           className="rounded-md px-3 py-2 text-m-body" style={{ border: "1px solid var(--color-line)", color: "var(--color-ink-950)" }} />
       </div>
       <select
         value={status} onChange={(e) => setStatus(e.target.value as typeof status)}
+        aria-label="Attendance status"
         className="w-full rounded-md px-3 py-2 text-m-body"
         style={{ border: "1px solid var(--color-line)", color: "var(--color-ink-950)" }}
       >
@@ -1407,6 +1411,7 @@ function AttendanceCorrectionForm({ pendingDates }: { pendingDates: string[] }) 
       </select>
       <input
         type="text" placeholder="Reason (required — e.g. forgot to punch)"
+        aria-label="Reason for correction"
         value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200}
         className="w-full rounded-md px-3 py-2 text-m-body"
         style={{ border: "1px solid var(--color-line)", color: "var(--color-ink-950)" }}

@@ -250,7 +250,10 @@ export function HomeTree({ userName }: { userName: string | null }) {
           <div className="py-3 text-center">
             <CheckCircle2 className="mx-auto size-4 mb-1" style={{ color: "var(--color-go)" }} />
             <p className="text-m-label font-semibold" style={{ color: "var(--color-ink-950)" }}>
-              All caught up!
+              Nothing new in your feed
+            </p>
+            <p className="text-m-micro mt-0.5" style={{ color: "var(--color-ink-500)" }}>
+              Open tasks and your day plan are on the rail above
             </p>
           </div>
         ) : (
@@ -613,7 +616,7 @@ function TreeRow({
       {sub ? (
         <span
           className="text-m-micro shrink-0 ml-1 truncate max-w-[35%]"
-          style={{ color: "var(--color-ink-400)" }}
+          style={{ color: "var(--color-ink-500)" }}
         >
           {sub}
         </span>

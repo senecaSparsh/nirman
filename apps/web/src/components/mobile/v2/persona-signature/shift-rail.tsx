@@ -306,7 +306,7 @@ function RailRow({
           {event.sub && (
             <p
               className="text-m-caption truncate first-letter:uppercase"
-              style={{ color: "var(--color-ink-400)" }}
+              style={{ color: "var(--color-ink-500)" }}
             >
               {event.sub}
             </p>
@@ -316,7 +316,7 @@ function RailRow({
           <span
             className="text-m-caption font-semibold tabular-nums shrink-0"
             style={{
-              color: state === "done" ? "var(--color-go)" : "var(--color-ink-400)",
+              color: state === "done" ? "var(--color-go)" : "var(--color-ink-500)",
             }}
           >
             {event.time}

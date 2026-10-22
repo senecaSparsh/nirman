@@ -8,7 +8,8 @@ import type { LucideIcon } from "lucide-react";
  *
  *  · No container, no track, no border — just typography.
  *  · Text-only tabs (icons dropped for cleaner mobile symmetry).
- *  · Active: ink-950 + bold. Inactive: ink-400, regular weight.
+ *  · Active: ink-950 + bold. Inactive: ink-500, regular weight — tab
+ *    names carry meaning, so they hold AA on paper (ink-400 fails 4.5:1).
  *  · Count shown as small superscript number, only when > 0.
  *  · A green underline slides between tabs on switch (CSS transition).
  *  · Sticky with transparent bg so it floats over content.
@@ -62,7 +63,7 @@ export function RegisterTabs<T extends string>({
                 <span
                   className="text-m-caption leading-tight truncate"
                   style={{
-                    color: active ? "var(--color-ink-950)" : "var(--color-ink-400)",
+                    color: active ? "var(--color-ink-950)" : "var(--color-ink-500)",
                     fontWeight: active ? 700 : 500,
                   }}
                 >
@@ -70,7 +71,7 @@ export function RegisterTabs<T extends string>({
                   {showCount ? (
                     <span
                       className="ml-0.5 text-micro tabular-nums align-super"
-                      style={{ color: active ? "var(--color-go)" : "var(--color-ink-400)" }}
+                      style={{ color: active ? "var(--color-go)" : "var(--color-ink-500)" }}
                     >
                       {tab.count}
                     </span>

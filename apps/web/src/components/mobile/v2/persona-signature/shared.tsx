@@ -66,7 +66,7 @@ export function SignatureShell({
         style={{ borderBottom: "1px solid var(--color-line)" }}
       >
         <div className="flex items-center gap-1.5 min-w-0">
-          <Icon className="size-3 shrink-0" style={{ color: "var(--color-ink-400)" }} />
+          <Icon className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
           <span
             className="text-m-micro font-bold uppercase tracking-[0.08em] truncate"
             style={{ color: "var(--color-ink-500)" }}
@@ -83,7 +83,7 @@ export function SignatureShell({
               {hero}
             </span>
             {heroLabel && (
-              <span className="text-m-micro" style={{ color: "var(--color-ink-400)" }}>
+              <span className="text-m-micro" style={{ color: "var(--color-ink-500)" }}>
                 {heroLabel}
               </span>
             )}
@@ -229,7 +229,7 @@ export function Stat({
       >
         {value}
       </p>
-      <p className="text-m-micro truncate" style={{ color: "var(--color-ink-400)" }}>
+      <p className="text-m-micro truncate" style={{ color: "var(--color-ink-500)" }}>
         {label}
       </p>
     </div>
@@ -268,7 +268,7 @@ export function SignatureNote({ children }: { children: React.ReactNode }) {
   return (
     <p
       className="px-3 py-3 text-m-caption text-center"
-      style={{ color: "var(--color-ink-400)" }}
+      style={{ color: "var(--color-ink-500)" }}
     >
       {children}
     </p>
