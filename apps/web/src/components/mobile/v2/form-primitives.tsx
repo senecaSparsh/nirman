@@ -364,8 +364,14 @@ export function EnumSelect({
       <>
         <div
           id={id}
+          role="button"
+          tabIndex={0}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-label={label ? `${label}${required ? " (required)" : ""}` : "Choose"}
           className="flex items-center justify-between gap-1 pb-0.5 border-b focus-within:border-b-2 transition-colors cursor-pointer press"
           style={{ borderColor: "var(--color-line)" }}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); haptic(10); setOpen(true); } }}
           onClick={() => { haptic(10); setOpen(true); }}
         >
           {label ? (

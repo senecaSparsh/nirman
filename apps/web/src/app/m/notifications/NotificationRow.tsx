@@ -38,6 +38,10 @@ export function NotificationRow({ id, href, children }: { id: string; href: stri
   }
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label="Mark notification as read"
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); markRead(); } }}
       onClick={markRead}
       className="block rounded-[0.625rem] border p-3"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}

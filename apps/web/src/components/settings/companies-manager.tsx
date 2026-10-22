@@ -263,8 +263,13 @@ export function CompaniesManager({
     return (
       <div key={c.id}>
         <div
+          role="button"
+          tabIndex={0}
+          aria-expanded={expanded === c.id}
+          aria-label={`Toggle ${c.name}`}
           className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-muted/40 cursor-pointer"
           style={{ paddingLeft: `${depth * 16 + 8}px` }}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleExpand(c.id); } }}
           onClick={() => toggleExpand(c.id)}
         >
           {c.hasChildren ? (

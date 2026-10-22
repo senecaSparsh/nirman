@@ -286,7 +286,14 @@ export function NotificationBell({ className, alertItems = [] }: { className?: s
                   );
                 }
                 return (
-                  <div key={n.id} onClick={() => { if (!n.isRead) markAsRead(n.id); }}>
+                  <div
+                    key={n.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={n.isRead ? "Notification (read)" : "Mark notification as read"}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!n.isRead) markAsRead(n.id); } }}
+                    onClick={() => { if (!n.isRead) markAsRead(n.id); }}
+                  >
                     {content}
                   </div>
                 );

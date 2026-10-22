@@ -759,8 +759,13 @@ function WbsTree({
             >
               {/* ── Name + code + actions ── */}
               <div
+                role={hasChildren ? "button" : undefined}
+                tabIndex={hasChildren ? 0 : undefined}
+                aria-expanded={hasChildren ? isExpanded : undefined}
+                aria-label={hasChildren ? `Toggle ${node.name}` : undefined}
                 className={cn("flex items-center gap-1.5 px-3 py-1.5 min-w-0", hasChildren && "cursor-pointer")}
                 style={{ paddingLeft: `${12 + depth * 18}px` }}
+                onKeyDown={hasChildren ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(node.id); } } : undefined}
                 onClick={hasChildren ? () => toggle(node.id) : undefined}
               >
                 {hasChildren ? (

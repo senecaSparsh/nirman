@@ -229,8 +229,12 @@ function LeaveCard({
   const insufficient = l.status === "PENDING" && entitlement > 0 && l.days > remaining;
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-expanded={expanded}
       className="rounded-[0.5rem] border p-2.5 press cursor-pointer"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}
       onClick={onToggle}
     >
       <div className="flex items-center justify-between mb-1">

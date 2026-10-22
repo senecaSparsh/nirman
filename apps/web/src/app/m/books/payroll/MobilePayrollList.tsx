@@ -166,7 +166,12 @@ export function MobilePayrollList({
             return (
               <div key={p.id} className="rounded-[0.625rem] border" style={{ borderColor: "var(--color-line)" }}>
                 <div
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={expanded}
+                  aria-label={`Payslip ${p.monthLabel}`}
                   className="press cursor-pointer"
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); haptic(5); toggleExpanded(p.id); } }}
                   onClick={() => { haptic(5); toggleExpanded(p.id); }}
                 >
                   <MobileRow

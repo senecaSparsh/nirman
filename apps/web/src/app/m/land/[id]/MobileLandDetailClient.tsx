@@ -948,7 +948,10 @@ export function MobileLandDetailClient({
               {data.costComponents?.map((c) => (
                 <div
                   key={c.id}
+                  role={canManage ? "button" : undefined}
+                  tabIndex={canManage ? 0 : undefined}
                   className="flex justify-between text-m-caption cursor-pointer"
+                  onKeyDown={canManage ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setEditingCostComp(c); setCostCompOpen(true); } } : undefined}
                   onClick={() => { if (canManage) { setEditingCostComp(c); setCostCompOpen(true); } }}
                 >
                   <span style={{ color: "var(--color-ink-500)" }}>

@@ -909,12 +909,16 @@ function UnitCard({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label={`Unit ${u.unitNumber} — edit valuation`}
       className={cn(
         "group relative flex cursor-pointer flex-col overflow-hidden rounded-lg border border-border bg-card transition-all hover:shadow-md hover:shadow-foreground/5",
         isSold
           ? "opacity-55 hover:opacity-75"
           : "hover:border-foreground/20 hover:-translate-y-0.5",
       )}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onValuate(u); } }}
       onClick={() => onValuate(u)}
     >
       {/* Status accent — left edge */}

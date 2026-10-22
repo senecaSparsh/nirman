@@ -492,6 +492,9 @@ function TaskCard({
         isDone && "opacity-50",
         isCancelled && "opacity-40",
       )}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onView(task); } }}
       onClick={() => onView(task)}
     >
       {/* Row 1: status dot + title */}
@@ -595,6 +598,9 @@ function TaskList({
               isDone && "opacity-50",
               isCancelled && "opacity-40",
             )}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onView(t); } }}
             onClick={() => onView(t)}
           >
             {/* Priority bar — left edge only */}

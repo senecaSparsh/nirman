@@ -652,7 +652,11 @@ export function LandHub({ data }: { data: LandHubData }) {
                 {purchase.costComponents?.map((c) => (
                   <div
                     key={c.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Edit cost ${c.label}`}
                     className="flex justify-between cursor-pointer hover:bg-muted/50 -mx-1 px-1 rounded"
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setEditingCostComponent(c); setCostComponentOpen(true); } }}
                     onClick={() => { setEditingCostComponent(c); setCostComponentOpen(true); }}
                     title="Click to edit"
                   >

@@ -172,7 +172,11 @@ export function PortalDashboard({ customer }: { customer: PortalCustomer }) {
           {sales.map((sale) => (
             <div
               key={sale.id}
+              role="button"
+              tabIndex={0}
+              aria-label={`Sale ${sale.unitLabel} — view details`}
               className="portal-card cursor-pointer hover:border-slate-300 transition-colors"
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedSale(sale); } }}
               onClick={() => setSelectedSale(sale)}
             >
               <div className="flex items-start justify-between">
