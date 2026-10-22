@@ -87,7 +87,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       },
     });
 
-    const [attendance, tasks] = await Promise.all([
+    const [attendance, tasks, lockedPeriod] = await Promise.all([
       employee
         ? prisma.workerAttendance.findFirst({
             where: {
@@ -120,6 +120,19 @@ export const GET = apiHandler(async (_req: NextRequest) => {
             },
           })
         : [],
+      // Same rule as assertAttendancePeriodOpen — the rail must say
+      // "locked" rather than point the worker at a dead check-in card.
+      employee
+        ? prisma.payrollPeriod.findFirst({
+            where: {
+              companyId: company.id,
+              status: { in: ["PROCESSED", "PAID"] },
+              startDate: { lte: startOfToday },
+              endDate: { gte: startOfToday },
+            },
+            select: { month: true, year: true, status: true },
+          })
+        : null,
     ]);
 
     // Today's DPR for the worker's active site — the single most important
@@ -171,6 +184,9 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       },
       site: employee?.activeProject
         ? { id: employee.activeProject.id, name: employee.activeProject.name }
+        : null,
+      periodLocked: lockedPeriod
+        ? `${lockedPeriod.month}/${lockedPeriod.year} payroll is already ${lockedPeriod.status.toLowerCase()}`
         : null,
       attendance: attendance
         ? {

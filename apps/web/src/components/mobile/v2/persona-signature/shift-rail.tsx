@@ -34,6 +34,11 @@ import { SignatureShell, SignatureNote, clock, type Tone } from "./shared";
 export interface ShiftData {
   employee: { id: string; name: string } | null;
   site: { id: string; name: string } | null;
+  /** Human-readable lock reason, e.g. "10/2026 payroll is already paid".
+   *  When set and the worker hasn't checked in, the check-in row must not
+   *  say "use the card above" — the card above is a lock banner with no
+   *  action. */
+  periodLocked?: string | null;
   /** Capability flags — which steps this user can actually take. Missing
    *  (e.g. older cached payloads) → show everything, matching old behaviour. */
   can?: { dpr: boolean; attendanceLog: boolean };
@@ -98,7 +103,9 @@ export function ShiftRail({ data }: { data: ShiftData }) {
     // mark other workers).
     sub: checkedIn
       ? (attendance?.location ?? site?.name ?? undefined)
-      : "Use the check-in card above",
+      : data.periodLocked
+        ? "Locked — payroll already processed"
+        : "Use the check-in card above",
     href: null,
     done: checkedIn,
   });
@@ -157,7 +164,11 @@ export function ShiftRail({ data }: { data: ShiftData }) {
       ? attendance?.hoursWorked != null
         ? `${attendance.hoursWorked.toFixed(1)} h on site`
         : undefined
-      : "Use the check-out card above",
+      : checkedIn
+        ? "Use the check-out card above"
+        : data.periodLocked
+          ? "Locked — payroll already processed"
+          : "Check in first — the card above handles both",
     href: null,
     done: checkedOut,
   });
