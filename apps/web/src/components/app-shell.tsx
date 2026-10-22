@@ -866,9 +866,13 @@ function WorldPanel({
             className={cn("size-4 shrink-0", !active && "text-faint group-hover:text-muted-foreground")}
             style={active ? { color: world.color } : undefined}
           />
-          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+          <span className="min-w-0 flex-1 truncate">
+            {item.label}
+            {badge != null && badge > 0 && <span className="sr-only"> ({badge > 99 ? "99+" : badge} pending)</span>}
+          </span>
           {badge != null && badge > 0 && (
             <span
+              aria-hidden="true"
               className={cn(
                 "inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full px-1",
                 "text-[10px] font-semibold tabular-nums leading-none",
