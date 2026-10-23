@@ -3070,7 +3070,7 @@ function BenefitEditor({
       />
       {isEdit && (
         <label className="flex items-center gap-2 py-1">
-          <button
+          <button role="switch" aria-checked={active} aria-label="Active"
             type="button"
             onClick={() => { haptic(10); setActive(!active); }}
             className="relative h-5 w-9 rounded-full transition-colors press"

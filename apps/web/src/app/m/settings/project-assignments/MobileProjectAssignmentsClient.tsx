@@ -327,7 +327,7 @@ function AssignmentFormDialog({
             <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-700)" }}>
               User *
             </label>
-            <button
+            <button aria-expanded={userPickerOpen}
               onClick={() => { setUserPickerOpen(!userPickerOpen); setProjectPickerOpen(false); }}
               className="w-full flex items-center justify-between h-11 rounded-[0.5rem] border px-3 press"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}
@@ -361,7 +361,7 @@ function AssignmentFormDialog({
             <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-700)" }}>
               Project *
             </label>
-            <button
+            <button aria-expanded={projectPickerOpen}
               onClick={() => { setProjectPickerOpen(!projectPickerOpen); setUserPickerOpen(false); }}
               className="w-full flex items-center justify-between h-11 rounded-[0.5rem] border px-3 press"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}

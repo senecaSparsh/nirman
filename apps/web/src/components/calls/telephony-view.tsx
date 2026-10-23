@@ -323,7 +323,7 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
               : "Phone numbers assigned to your team for call tracking"
           }
           action={
-            <Button size="sm" onClick={() => setShowAdd(!showAdd)}>
+            <Button aria-expanded={showAdd} size="sm" onClick={() => setShowAdd(!showAdd)}>
               <Plus className="h-4 w-4" />
               Add number
             </Button>
@@ -702,7 +702,7 @@ function ProvidersTab({ providers, canManage }: { providers: Provider[]; canMana
         title="Telephony Providers"
         description="Cloud providers that automatically track and record calls via webhooks"
         action={canManage ? (
-          <Button size="sm" onClick={() => setShowAdd(!showAdd)}>
+          <Button aria-expanded={showAdd} size="sm" onClick={() => setShowAdd(!showAdd)}>
             <Plus className="h-4 w-4" />
             Add provider
           </Button>
@@ -1043,7 +1043,7 @@ function ConsentTab({ policy, company, canManage }: { policy: ConsentPolicy | nu
         title="Call Monitoring Consent Policy"
         description="The legal text shown to all staff on login before call recording is enabled"
         action={canManage ? (
-          <Button size="sm" variant="outline" onClick={() => setShowEdit(!showEdit)}>
+          <Button aria-expanded={showEdit} size="sm" variant="outline" onClick={() => setShowEdit(!showEdit)}>
             <FileText className="h-3.5 w-3.5" />
             {policy ? "Revise" : "Create"}
           </Button>

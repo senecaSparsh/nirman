@@ -74,7 +74,7 @@ export function MobileProfitCenterClient({ projects }: { projects: ProjectOption
         style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
       >
         {/* Project selector */}
-        <button
+        <button aria-expanded={pickerOpen}
           onClick={() => setPickerOpen(!pickerOpen)}
           className="w-full flex items-center justify-between h-11 rounded-[0.5rem] border px-3 press"
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}

@@ -182,7 +182,7 @@ export function CallsView({
           )}
           <ToolbarCount>{total} {total === 1 ? "call" : "calls"}</ToolbarCount>
           {canCreate && (
-            <Button size="sm" onClick={() => setShowAddForm(!showAddForm)}>
+            <Button aria-expanded={showAddForm} size="sm" onClick={() => setShowAddForm(!showAddForm)}>
               <Plus className="size-3.5" />
               Log Call
             </Button>

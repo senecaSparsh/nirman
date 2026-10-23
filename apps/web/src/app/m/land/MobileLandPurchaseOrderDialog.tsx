@@ -365,7 +365,7 @@ export function MobileLandPurchaseOrderDialog({
           <div className={sectionBoxClass} style={sectionBoxStyle}>
             <p className={sectionHeadingClass} style={sectionHeadingStyle}>Payment Plan</p>
             <div>
-              <button
+              <button aria-expanded={showPlan}
                 type="button"
                 onClick={() => setShowPlan(!showPlan)}
                 className="w-full flex items-center justify-center gap-1.5 rounded-[0.5rem] border border-dashed py-2 text-m-label font-bold text-m-body press"

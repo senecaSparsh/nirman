@@ -410,7 +410,7 @@ export function MobileLandEditForm({
 
         {/* ── Cost Breakup (collapsible) ── */}
         <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <button
+          <button aria-expanded={showCostBreakup}
             type="button"
             onClick={() => setShowCostBreakup(!showCostBreakup)}
             className="flex w-full items-center justify-between text-m-section font-extrabold tracking-tight press"

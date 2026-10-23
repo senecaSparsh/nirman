@@ -146,7 +146,7 @@ export function CompanySwitcher({
         </Link>
         {/* Chevron — opens the switcher dropdown (only when multiple) */}
         {hasMultiple ? (
-          <button
+          <button aria-expanded={open}
             onClick={() => setOpen(!open)}
             disabled={isSwitching}
             className="flex items-center justify-center px-3 rounded-[0.625rem] border border-l-0 press disabled:opacity-60"

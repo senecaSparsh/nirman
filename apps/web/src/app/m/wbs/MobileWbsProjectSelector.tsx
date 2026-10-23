@@ -52,7 +52,7 @@ export function MobileWbsProjectSelector({
 
   return (
     <div ref={ref} className="relative">
-      <button
+      <button aria-expanded={open}
         onClick={() => setOpen(!open)}
         className="w-full flex items-center gap-2.5 rounded-[0.625rem] border p-2.5 text-m-body press"
         style={{

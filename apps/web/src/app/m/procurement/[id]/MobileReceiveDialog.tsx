@@ -918,7 +918,7 @@ export function MobileReceiveDialog({
                   >
                     <CheckCircle2 className="size-2.5" /> All Passed
                   </button>
-                  <button
+                  <button aria-expanded={showQuickAdd}
                     type="button"
                     onClick={() => { haptic(5); setShowQuickAdd(!showQuickAdd); loadCategories(); }}
                     className="flex items-center gap-1 text-m-caption font-bold text-m-body press"

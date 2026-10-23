@@ -605,7 +605,7 @@ function POApprovalRow({ po }: { po: ApprovalPORow }) {
           they're buying (same inspection affordance indents already had). */}
       {po.lineDetails.length > 0 && (
         <div className="mt-3">
-          <button
+          <button aria-expanded={showDetails}
             type="button"
             onClick={() => setShowDetails(!showDetails)}
             className="flex items-center gap-1 text-caption text-brand-strong hover:underline"
@@ -800,7 +800,7 @@ function ReqApprovalRow({ req }: { req: ApprovalReqRow }) {
       {/* Expandable line details with stock/rate context */}
       {req.lineDetails.length > 0 && (
         <div className="mt-3">
-          <button
+          <button aria-expanded={showDetails}
             type="button"
             onClick={() => setShowDetails(!showDetails)}
             className="flex items-center gap-1 text-caption text-brand-strong hover:underline"
@@ -965,7 +965,7 @@ function GatePassApprovalRow({ gp }: { gp: ApprovalGatePassRow }) {
       {/* What's actually leaving the gate — the approver should see it */}
       {gp.lineDetails.length > 0 && (
         <div className="mt-3">
-          <button
+          <button aria-expanded={showDetails}
             type="button"
             onClick={() => setShowDetails(!showDetails)}
             className="flex items-center gap-1 text-caption text-brand-strong hover:underline"
@@ -1102,7 +1102,7 @@ function DprApprovalRow({ dpr }: { dpr: ApprovalDprRow }) {
           workforce claimed for this date actually happened. */}
       {(dpr.laborLines.length > 0 || dpr.materialLines.length > 0) && (
         <div className="mt-3">
-          <button
+          <button aria-expanded={showDetails}
             type="button"
             onClick={() => setShowDetails(!showDetails)}
             className="flex items-center gap-1 text-caption text-brand-strong hover:underline"
@@ -1290,7 +1290,7 @@ function RaBillApprovalRow({ raBill }: { raBill: ApprovalRaBillRow }) {
           they should see the BOQ items and this-period quantities. */}
       {raBill.lines.length > 0 && (
         <div className="mt-3">
-          <button
+          <button aria-expanded={showDetails}
             type="button"
             onClick={() => setShowDetails(!showDetails)}
             className="flex items-center gap-1 text-caption text-brand-strong hover:underline"

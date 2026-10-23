@@ -93,7 +93,7 @@ export function OnHandTab({ stock, locations, canManage = false }: { stock: Stoc
   );
 
   const lowStockToggle = (
-    <button
+    <button aria-expanded={lowStockOnly}
       type="button"
       onClick={() => setLowStockOnly(!lowStockOnly)}
       className={`flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-[13px] font-medium transition-colors ${

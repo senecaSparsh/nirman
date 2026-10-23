@@ -1528,7 +1528,7 @@ function RaBillDetailDialog({
 
           {/* ── Deduction breakdown (toggle) ── */}
           <div className="border-t border-border pt-2.5">
-            <button
+            <button aria-expanded={showCalc}
               onClick={() => setShowCalc(!showCalc)}
               className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wide hover:text-foreground"
             >

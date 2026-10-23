@@ -86,7 +86,7 @@ export function ResetPasswordDialog({
               autoFocus
               className="pr-9"
             />
-            <button
+            <button aria-expanded={showPassword}
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"

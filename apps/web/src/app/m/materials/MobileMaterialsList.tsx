@@ -373,7 +373,7 @@ function FilterDropdown({
 
   return (
     <div className="relative shrink-0">
-      <button
+      <button aria-expanded={open}
         onClick={() => setOpen(!open)}
         aria-label="Filter"
         className="grid place-items-center size-8 rounded-[0.5rem] border press relative"
@@ -446,7 +446,7 @@ function SortDropdown({
 
   return (
     <div className="relative shrink-0">
-      <button
+      <button aria-expanded={open}
         onClick={() => setOpen(!open)}
         aria-label="Sort"
         className="grid place-items-center size-8 rounded-[0.5rem] border press"

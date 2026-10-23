@@ -370,7 +370,7 @@ function WorkflowBuilderInner({
         {canEdit && (
           <>
             <div className="relative">
-              <Button variant="outline" size="sm" onClick={() => setShowStepPalette(!showStepPalette)}>
+              <Button aria-expanded={showStepPalette} variant="outline" size="sm" onClick={() => setShowStepPalette(!showStepPalette)}>
                 <Plus className="h-3.5 w-3.5" /> Add Step
               </Button>
               {showStepPalette && (

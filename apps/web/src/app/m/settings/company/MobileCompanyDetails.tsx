@@ -475,7 +475,7 @@ function CollapsibleSection({
       className="rounded-[0.625rem] border overflow-hidden"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
-      <button
+      <button aria-expanded={open}
         onClick={() => { haptic(10); setOpen(!open); }}
         className="w-full flex items-center gap-2 p-3 press text-left"
       >
@@ -924,7 +924,7 @@ function MembersSection({
     <CollapsibleSection title="Members & Access" icon={Users} count={data.members.length}>
       {canManage && assignable.length > 0 && (
         <>
-          <button
+          <button aria-expanded={addOpen}
             onClick={() => setAddOpen(!addOpen)}
             className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold border-2 border-dashed text-m-body press"
             style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}
@@ -1779,7 +1779,7 @@ function ChildCompaniesSection({ data, canManage }: { data: CompanyProfileData; 
 
       {canManage && (
         <>
-          <button
+          <button aria-expanded={creating}
             onClick={() => setCreating(!creating)}
             className="flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-section font-bold border-2 border-dashed text-m-body press"
             style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}

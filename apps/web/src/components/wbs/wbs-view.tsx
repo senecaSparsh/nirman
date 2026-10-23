@@ -1560,7 +1560,7 @@ function WbsDetailDialog({ node, onClose, canEdit, allNodes, onReload, projectId
               Dependencies ({deps.length})
             </div>
             {canEdit && (
-              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setDepForm({ otherNodeId: "", depType: "FS", lagDays: "0", isPredecessor: "true" }); setShowAddDep(!showAddDep); }}>
+              <Button aria-expanded={showAddDep} size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setDepForm({ otherNodeId: "", depType: "FS", lagDays: "0", isPredecessor: "true" }); setShowAddDep(!showAddDep); }}>
                 {showAddDep ? "Cancel" : "+ Add"}
               </Button>
             )}

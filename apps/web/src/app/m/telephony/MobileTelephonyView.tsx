@@ -1090,7 +1090,7 @@ function ConsentTab({ policy, company, canManage }: { policy: ConsentPolicy | nu
         <SectionHead
           title="Consent Policy"
           action={canManage ? (
-            <button
+            <button aria-expanded={showEdit}
               type="button"
               onClick={() => { setPolicyText(policy?.policyText ?? ""); setShowEdit(!showEdit); }}
               className="text-m-caption font-semibold"

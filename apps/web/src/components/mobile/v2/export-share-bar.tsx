@@ -263,7 +263,7 @@ export function MobileExportShareBar({
           borderColor: "var(--color-line)",
         }}
       >
-        <button
+        <button aria-expanded={showMenu}
           onClick={() => setShowMenu(!showMenu)}
           disabled={downloading}
           className="flex items-center gap-1.5 rounded-[0.5rem] px-3 h-9 text-m-body press active:opacity-80 disabled:opacity-40"
@@ -469,7 +469,7 @@ export function MobileExportShareIcons({
   return (
     <div className="relative flex items-center gap-1 shrink-0">
       {/* Export icon */}
-      <button
+      <button aria-expanded={showMenu}
         onClick={() => setShowMenu(!showMenu)}
         disabled={downloading}
         aria-label="Export"
