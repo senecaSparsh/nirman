@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { ActionBar } from "@/components/mobile/v2/primitives";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 
 type Status = "DRAFT" | "ISSUED" | "ACTIVE" | "COMPLETED" | "CLOSED";
@@ -180,17 +181,14 @@ export function MobileWorkOrderActions({
       </ActionBar>
 
       {/* Pay advance sheet */}
-      {showAdvance ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-          onClick={() => setShowAdvance(false)}
-        >
-          <div
-            className="w-full rounded-t-[1rem] mx-auto max-w-md"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
+      <MobileModalSheet
+        open={showAdvance}
+        onClose={() => setShowAdvance(false)}
+        label="Pay advance"
+        className="rounded-t-[1rem]"
+        style={{ backgroundColor: "var(--color-paper)" }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+      >
             <div className="flex justify-center pt-2 pb-1">
               <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
             </div>
@@ -244,22 +242,17 @@ export function MobileWorkOrderActions({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileModalSheet>
 
       {/* Complete — unrecovered advance write-off confirmation */}
-      {showCompleteSheet ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-          onClick={() => setShowCompleteSheet(false)}
-        >
-          <div
-            className="w-full rounded-t-[1rem] mx-auto max-w-md"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
+      <MobileModalSheet
+        open={showCompleteSheet}
+        onClose={() => setShowCompleteSheet(false)}
+        label="Complete work order — unrecovered advance"
+        className="rounded-t-[1rem]"
+        style={{ backgroundColor: "var(--color-paper)" }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+      >
             <div className="flex justify-center pt-2 pb-1">
               <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
             </div>
@@ -292,22 +285,17 @@ export function MobileWorkOrderActions({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileModalSheet>
 
       {/* Release retention confirmation */}
-      {showRetention ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-          onClick={() => setShowRetention(false)}
-        >
-          <div
-            className="w-full rounded-t-[1rem] mx-auto max-w-md"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
+      <MobileModalSheet
+        open={showRetention}
+        onClose={() => setShowRetention(false)}
+        label="Release retention"
+        className="rounded-t-[1rem]"
+        style={{ backgroundColor: "var(--color-paper)" }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+      >
             <div className="flex justify-center pt-2 pb-1">
               <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
             </div>
@@ -333,22 +321,17 @@ export function MobileWorkOrderActions({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileModalSheet>
 
       {/* Delete draft confirmation */}
-      {showDelete ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-          onClick={() => setShowDelete(false)}
-        >
-          <div
-            className="w-full rounded-t-[1rem] mx-auto max-w-md"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
+      <MobileModalSheet
+        open={showDelete}
+        onClose={() => setShowDelete(false)}
+        label="Delete draft work order"
+        className="rounded-t-[1rem]"
+        style={{ backgroundColor: "var(--color-paper)" }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+      >
             <div className="flex justify-center pt-2 pb-1">
               <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
             </div>
@@ -374,9 +357,7 @@ export function MobileWorkOrderActions({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileModalSheet>
       <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
     </>
   );

@@ -32,6 +32,7 @@ import { downloadCSV } from "@/lib/export";
 import { useConfirm } from "@/lib/use-confirm";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
 import { MobileSupplierSelect } from "@/components/mobile/selectors";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 
 // Compact currency for table cells — drops ".00", drops ₹ symbol spacing
 // e.g. ₹5,700.00 → 5,700 · ₹1,234.50 → 1,234.5 · ₹9,356.00 → 9,356
@@ -1964,7 +1965,12 @@ function AddQuoteDialog({
   const inputStyle = { backgroundColor: "transparent" };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "var(--color-paper)" }}>
+    <MobileModalSheet
+      open
+      onClose={onClose}
+      label="Add supplier quote"
+      align="full"
+    >
       {/* Header */}
       <div className="flex items-center gap-2 p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
         <button onClick={onClose} aria-label="Close add supplier quote" className="p-1 press" style={{ color: "var(--color-ink-700)" }}>
@@ -2466,7 +2472,7 @@ function AddQuoteDialog({
           {saving ? "Saving…" : "Add Quote"}
         </button>
       </div>
-    </div>
+    </MobileModalSheet>
   );
 }
 
@@ -2498,7 +2504,12 @@ function ApproveDialog({
   const isOverride = selected && cheapestQuoteId && selected.id !== cheapestQuoteId;
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "var(--color-paper)" }}>
+    <MobileModalSheet
+      open
+      onClose={onCancel}
+      label="Select winning quote"
+      align="full"
+    >
       {/* Header */}
       <div className="flex items-center gap-2 p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
         <button onClick={onCancel} aria-label="Close select winning quote" className="p-1 press" style={{ color: "var(--color-ink-700)" }}>
@@ -2587,6 +2598,6 @@ function ApproveDialog({
           {approving ? "Approving…" : "Approve & Select Winner"}
         </button>
       </div>
-    </div>
+    </MobileModalSheet>
   );
 }

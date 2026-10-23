@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, ChevronDown, Search, X, Check } from "lucide-react";
 import { MobileNoResults } from "@/components/mobile/v2/scaffold";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 
 type ProjectItem = { id: string; name: string };
 
@@ -71,17 +72,15 @@ export function MobileBudgetVarianceProjectSelector({
         <ChevronDown className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
       </button>
 
-      {open ? (
-        <div
-          className="fixed inset-0 z-[60] flex items-end justify-center"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 60%, transparent)" }}
-          onClick={() => setOpen(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-t-[0.75rem] flex flex-col"
-            style={{ backgroundColor: "var(--color-paper)", maxHeight: "80vh" }}
-            onClick={(e) => e.stopPropagation()}
-          >
+      <MobileModalSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        label="Select project"
+        zIndex={60}
+        className="rounded-t-[0.75rem] flex flex-col"
+        style={{ backgroundColor: "var(--color-paper)", maxHeight: "80vh" }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 60%, transparent)" }}
+      >
             {/* Header */}
             <div
               className="flex items-center justify-between p-3 border-b"
@@ -151,9 +150,7 @@ export function MobileBudgetVarianceProjectSelector({
                 })
               )}
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileModalSheet>
     </>
   );
 }

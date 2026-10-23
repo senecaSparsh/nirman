@@ -9,6 +9,7 @@ import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCrea
 import { useCanCreate } from "@/components/mobile/mobile-perms";
 import { MobileFabModal } from "@/components/mobile/v2/fab-modal";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 import { MobileNewProjectDialog } from "@/app/m/projects/MobileNewProjectDialog";
 import { MobileNewMaterialDialog } from "@/app/m/materials/MobileNewMaterialDialog";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
@@ -509,9 +510,11 @@ export function MobileNewQuotationClient({
 
       {/* ── Material picker modal ── */}
       {showMaterialPicker ? (
-        <div
-          className="fixed inset-0 z-50 flex flex-col"
-          style={{ backgroundColor: "var(--color-paper)" }}
+        <MobileModalSheet
+          open
+          onClose={() => { setShowMaterialPicker(false); setMaterialSearch(""); }}
+          label="Pick a material"
+          align="full"
         >
           {/* Header */}
           <div
@@ -601,7 +604,7 @@ export function MobileNewQuotationClient({
             </button>
           </div>
           ) : null}
-        </div>
+        </MobileModalSheet>
       ) : null}
 
       {/* ── Inline material create dialog ── */}

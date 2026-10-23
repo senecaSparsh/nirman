@@ -6,6 +6,7 @@ import { Banknote, Share2, Hash, Calendar, Building2, IndianRupee, CreditCard, F
 import { formatCurrency, formatCurrencyCompact, formatDate, formatEnumLabel } from "@/lib/utils";
 import { toast } from "sonner";
 import { useLongPress } from "@/lib/use-long-press";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 import {
   MobileOverviewSheet,
   type OverviewRow,
@@ -248,9 +249,13 @@ function SupplierPaymentCard({ p, canManage, canViewProcurement }: { p: Supplier
       />
 
       {/* Void confirm */}
-      {voidOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={() => !voiding && setVoidOpen(false)}>
-          <div className="w-full max-w-md rounded-t-2xl bg-card p-4 pb-8 shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <MobileModalSheet
+        open={voidOpen}
+        onClose={() => { if (!voiding) setVoidOpen(false); }}
+        label={`Void payment ${p.paymentNumber}`}
+        className="rounded-t-2xl bg-card p-4 pb-8 shadow-xl"
+        contentStyle={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+      >
             <h3 className="text-section font-bold text-foreground">Void {p.paymentNumber}?</h3>
             <p className="mt-1 text-caption text-muted-foreground">
               The payment is marked void and its accounting entry reversed — the supplier&apos;s balance re-opens and any invoice it paid goes back to unpaid. The record stays for audit.
@@ -281,9 +286,7 @@ function SupplierPaymentCard({ p, canManage, canViewProcurement }: { p: Supplier
                 {voiding ? "Voiding…" : "Void payment"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </MobileModalSheet>
     </>
   );
 }

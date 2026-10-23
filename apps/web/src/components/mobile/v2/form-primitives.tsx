@@ -7,6 +7,7 @@ import { ChevronRight, Search, X, CheckCircle2, Plus, Loader2 } from "lucide-rea
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { useCanCreate, type CreateEntity } from "@/components/mobile/mobile-perms";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 
 /**
  * ═══════════════════════════════════════════════════════════════════
@@ -552,16 +553,15 @@ export function SelectorModal({
   const showSearch = items.length > 7;
 
   const sheet = (
-    <div
-      className="fixed inset-0 z-[60] flex items-end justify-center"
-      style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
-      onClick={onClose}
+    <MobileModalSheet
+      open
+      onClose={onClose}
+      label={title}
+      zIndex={60}
+      className="rounded-t-[0.75rem] flex flex-col sheet-in"
+      style={{ backgroundColor: "var(--color-paper)", maxHeight: "80vh" }}
+      contentStyle={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
     >
-      <div
-        className="w-full max-w-md rounded-t-[0.75rem] flex flex-col sheet-in"
-        style={{ backgroundColor: "var(--color-paper)", maxHeight: "80vh" }}
-        onClick={(e) => e.stopPropagation()}
-      >
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
           <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{title}</p>
@@ -703,8 +703,7 @@ export function SelectorModal({
             </button>
           </div>
         ) : null}
-      </div>
-    </div>
+    </MobileModalSheet>
   );
 
   // Render at document.body so the sheet is never caught inside a

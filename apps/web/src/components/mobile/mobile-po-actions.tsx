@@ -5,6 +5,7 @@ import { useFetch } from "@/lib/use-fetch";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, XCircle, Truck, Loader2, Plus, X, IndianRupee, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 import { cn, formatCurrencyCompact, formatCurrency } from "@/lib/utils";
 import { useTodayDateState } from "@/lib/use-today-date";
 import { haptic } from "@/lib/haptic";
@@ -346,16 +347,18 @@ function MobilePayDialog({
   const netPaid = parsedAmount - parsedTds;
 
   return (
-    <>
-      <div className="fixed inset-0 z-50" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={onClose} />
-      <div
-        className="fixed left-0 right-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto rounded-t-[1rem] border-t"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-          paddingBottom: "max(env(safe-area-inset-bottom), 1rem)",
-        }}
-      >
+    <MobileModalSheet
+      open
+      onClose={onClose}
+      label="Record payment"
+      className="max-h-[90vh] overflow-y-auto rounded-t-[1rem] border-t"
+      style={{
+        backgroundColor: "var(--color-paper)",
+        borderColor: "var(--color-line)",
+        paddingBottom: "max(env(safe-area-inset-bottom), 1rem)",
+      }}
+      contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+    >
         <div className="flex justify-center pt-2 pb-1">
           <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
         </div>
@@ -520,8 +523,7 @@ function MobilePayDialog({
             {submitting ? "Recording…" : "Record Payment"}
           </button>
         </form>
-      </div>
-    </>
+    </MobileModalSheet>
   );
 }
 
@@ -598,18 +600,18 @@ function MobileAddLineDialog({
   };
 
   return (
-    <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 z-50" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={onClose} />
-      {/* Bottom sheet */}
-      <div
-        className="fixed left-0 right-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto rounded-t-[1rem] border-t"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-          paddingBottom: "max(env(safe-area-inset-bottom), 1rem)",
-        }}
-      >
+    <MobileModalSheet
+      open
+      onClose={onClose}
+      label="Add purchase-order line"
+      className="max-h-[90vh] overflow-y-auto rounded-t-[1rem] border-t"
+      style={{
+        backgroundColor: "var(--color-paper)",
+        borderColor: "var(--color-line)",
+        paddingBottom: "max(env(safe-area-inset-bottom), 1rem)",
+      }}
+      contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+    >
         {/* Drag handle */}
         <div className="flex justify-center pt-2 pb-1">
           <div
@@ -755,8 +757,7 @@ function MobileAddLineDialog({
             {submitting ? "Adding…" : "Add Line"}
           </button>
         </form>
-      </div>
-    </>
+    </MobileModalSheet>
   );
 }
 

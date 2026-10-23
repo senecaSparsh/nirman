@@ -11,6 +11,7 @@ import { formatNumber, formatCurrency, toNum} from "@/lib/utils";
 import { useHydratedDate } from "@/lib/use-hydrated-date";
 import { useFetch } from "@/lib/use-fetch";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 import { DocumentViewer, useDocumentViewer } from "@/components/document-viewer/document-viewer";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
@@ -1313,8 +1314,15 @@ export function MobileReceiveDialog({
 
         {/* ── Confirmation overlay (receive mode only) ── */}
         {mode === "receive" && confirmLines ? (
-          <div className="absolute inset-0 z-10 flex flex-col justify-end" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }} onClick={() => { if (!submitting) setConfirmLines(null); }}>
-            <div className="rounded-t-[0.75rem] flex flex-col" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
+        <MobileModalSheet
+          open
+          onClose={() => { if (!submitting) setConfirmLines(null); }}
+          label="Confirm receipt"
+          zIndex={60}
+          className="rounded-t-[0.75rem] flex flex-col"
+          style={{ backgroundColor: "var(--color-paper)" }}
+          contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
+        >
               <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
                 <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Confirm Receipt</p>
                 <button onClick={() => { if (!submitting) setConfirmLines(null); }} aria-label="Close receipt confirmation" className="text-m-body press p-1"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
@@ -1350,14 +1358,19 @@ export function MobileReceiveDialog({
                   {submitting ? (<><div className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />Recording…</>) : (<><CheckCircle2 className="size-4" />Confirm — update stock</>)}
                 </button>
               </div>
-            </div>
-          </div>
+        </MobileModalSheet>
         ) : null}
 
         {/* ── Rejection confirmation overlay ── */}
-        {mode === "reject" && showRejectConfirm ? (
-          <div className="absolute inset-0 z-10 flex flex-col justify-end" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }} onClick={() => { if (!submitting) setShowRejectConfirm(false); }}>
-            <div className="rounded-t-[0.75rem] flex flex-col" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
+        <MobileModalSheet
+          open={mode === "reject" && showRejectConfirm}
+          onClose={() => { if (!submitting) setShowRejectConfirm(false); }}
+          label="Confirm rejection"
+          zIndex={60}
+          className="rounded-t-[0.75rem] flex flex-col"
+          style={{ backgroundColor: "var(--color-paper)" }}
+          contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
+        >
               <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
                 <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-stop)" }}>Confirm Rejection</p>
                 <button onClick={() => { if (!submitting) setShowRejectConfirm(false); }} aria-label="Close rejection confirmation" className="text-m-body press p-1"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
@@ -1386,9 +1399,7 @@ export function MobileReceiveDialog({
                   {submitting ? (<><div className="size-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />Recording…</>) : (<><XCircle className="size-4" />Confirm — reject delivery</>)}
                 </button>
               </div>
-            </div>
-          </div>
-        ) : null}
+        </MobileModalSheet>
       <DocumentViewer url={docViewer.docUrl} title={docViewer.docTitle} onClose={docViewer.closeDoc} />
     </MobileDialog>
   );

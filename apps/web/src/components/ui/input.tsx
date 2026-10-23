@@ -152,7 +152,7 @@ export function Field({
       )}
       {children}
       {error ? (
-        <p className="mt-1 text-caption font-medium text-danger">{error}</p>
+        <p role="alert" className="mt-1 text-caption font-medium text-danger">{error}</p>
       ) : help ? (
         <p className="mt-1 text-caption text-muted-foreground">{help}</p>
       ) : null}

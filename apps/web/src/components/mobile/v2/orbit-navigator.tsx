@@ -349,6 +349,16 @@ export function OrbitNavigator({
     }
   }, [open, inline]);
 
+  // Overlay mode: close on Escape so keyboard users aren't trapped in the nav.
+  React.useEffect(() => {
+    if (!open || inline || !onClose) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, inline, onClose]);
+
   const handleChipTap = (chip: OrbitChip) => {
     if (!node || chip.count === 0) return;
     fetchChildren(chip.id, node.type, node.id);
@@ -740,6 +750,9 @@ export function OrbitNavigator({
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Site navigation"
         className="relative w-full h-full max-w-[34rem] mx-auto flex flex-col sheet-in"
         style={{ backgroundColor: "var(--color-paper-2)" }}
         onClick={(e) => e.stopPropagation()}

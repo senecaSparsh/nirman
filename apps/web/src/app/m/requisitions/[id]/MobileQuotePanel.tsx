@@ -23,6 +23,7 @@ import { haptic } from "@/lib/haptic";
 import { quoteEntryTotals } from "@/lib/quote-pricing";
 import { usePrompt } from "@/lib/use-prompt";
 import { MobileNewSupplierDialog } from "@/app/m/suppliers/MobileNewSupplierDialog";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import type { ComparativeStatement, VendorQuoteRow } from "@/lib/types";
 
@@ -888,17 +889,13 @@ function MobileQuoteUploadDialog({
 
   return (
     <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 z-50" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={onClose} />
-      {/* Bottom sheet */}
-      <div
-        className="fixed left-0 right-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto rounded-t-[1rem] border-t"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-          paddingBottom: "max(env(safe-area-inset-bottom), 1rem)",
-        }}
-      >
+    <MobileModalSheet
+      open
+      onClose={onClose}
+      label="Add vendor quote"
+      className="max-h-[90vh] overflow-y-auto rounded-t-[1rem] border-t"
+      style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)", paddingBottom: "max(env(safe-area-inset-bottom), 1rem)" }}
+    >
         {/* Drag handle */}
         <div className="flex justify-center pt-2 pb-1">
           <div
@@ -1332,7 +1329,7 @@ function MobileQuoteUploadDialog({
             </div>
           </div>
         </form>
-      </div>
+    </MobileModalSheet>
 
       {/* Supplier picker modal */}
       {showSupplierPicker ? (
@@ -1391,16 +1388,13 @@ function SupplierPickerModal({
   onCreateNew: () => void;
 }) {
   return (
-    <>
-      <div className="fixed inset-0 z-50" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={onClose} />
-      <div
-        className="fixed left-0 right-0 bottom-0 z-50 max-h-[70vh] overflow-y-auto rounded-t-[1rem] border-t"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-          paddingBottom: "max(env(safe-area-inset-bottom), 1rem)",
-        }}
-      >
+    <MobileModalSheet
+      open
+      onClose={onClose}
+      label="Select supplier"
+      className="max-h-[70vh] overflow-y-auto rounded-t-[1rem] border-t"
+      style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)", paddingBottom: "max(env(safe-area-inset-bottom), 1rem)" }}
+    >
         <div className="flex justify-center pt-2 pb-1">
           <div
             className="w-10 h-1 rounded-full"
@@ -1486,8 +1480,7 @@ function SupplierPickerModal({
             <Plus className="size-3.5" /> Create New Supplier
           </button>
         </div>
-      </div>
-    </>
+    </MobileModalSheet>
   );
 }
 
@@ -1508,16 +1501,13 @@ function WaiveDialog({
   waiving: boolean;
 }) {
   return (
-    <>
-      <div className="fixed inset-0 z-50" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={onCancel} />
-      <div
-        className="fixed left-0 right-0 bottom-0 z-50 rounded-t-[1rem] border-t"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-          paddingBottom: "max(env(safe-area-inset-bottom), 1rem)",
-        }}
-      >
+    <MobileModalSheet
+      open
+      onClose={onCancel}
+      label="Waive this vendor's quote"
+      className="rounded-t-[1rem] border-t"
+      style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)", paddingBottom: "max(env(safe-area-inset-bottom), 1rem)" }}
+    >
         <div className="flex justify-center pt-2 pb-1">
           <div
             className="w-10 h-1 rounded-full"
@@ -1591,8 +1581,7 @@ function WaiveDialog({
             {waiving ? "Waiving…" : "Confirm Waive"}
           </button>
         </div>
-      </div>
-    </>
+    </MobileModalSheet>
   );
 }
 
@@ -1652,18 +1641,13 @@ function MobileEditQuoteDialog({
   };
 
   return (
-    <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 z-50" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={onClose} />
-      {/* Bottom sheet */}
-      <div
-        className="fixed left-0 right-0 bottom-0 z-50 max-h-[90vh] overflow-y-auto rounded-t-[1rem] border-t"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-          paddingBottom: "max(env(safe-area-inset-bottom), 1rem)",
-        }}
-      >
+    <MobileModalSheet
+      open
+      onClose={onClose}
+      label="Edit vendor quote"
+      className="max-h-[90vh] overflow-y-auto rounded-t-[1rem] border-t"
+      style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)", paddingBottom: "max(env(safe-area-inset-bottom), 1rem)" }}
+    >
         {/* Drag handle */}
         <div className="flex justify-center pt-2 pb-1">
           <div
@@ -1832,7 +1816,6 @@ function MobileEditQuoteDialog({
             </div>
           </div>
         </form>
-      </div>
-    </>
+    </MobileModalSheet>
   );
 }

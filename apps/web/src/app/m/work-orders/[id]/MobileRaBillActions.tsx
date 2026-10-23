@@ -6,6 +6,7 @@ import { Send, CheckCircle, XCircle, Banknote, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 
 type RaBillStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "PAID";
 
@@ -147,17 +148,14 @@ export function MobileRaBillActions({
       </div>
 
       {/* Reject sheet */}
-      {showReject ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-          onClick={() => setShowReject(false)}
-        >
-          <div
-            className="w-full rounded-t-[1rem] mx-auto max-w-md"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
+      <MobileModalSheet
+        open={showReject}
+        onClose={() => setShowReject(false)}
+        label="Reject RA Bill"
+        className="rounded-t-[1rem]"
+        style={{ backgroundColor: "var(--color-paper)" }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+      >
             <div className="flex justify-center pt-2 pb-1">
               <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
             </div>
@@ -197,22 +195,17 @@ export function MobileRaBillActions({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileModalSheet>
 
       {/* Pay sheet */}
-      {showPay ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-          onClick={() => setShowPay(false)}
-        >
-          <div
-            className="w-full rounded-t-[1rem] mx-auto max-w-md"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
+      <MobileModalSheet
+        open={showPay}
+        onClose={() => setShowPay(false)}
+        label={`Pay RA Bill ${billNumber}`}
+        className="rounded-t-[1rem]"
+        style={{ backgroundColor: "var(--color-paper)" }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+      >
             <div className="flex justify-center pt-2 pb-1">
               <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
             </div>
@@ -260,9 +253,7 @@ export function MobileRaBillActions({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileModalSheet>
     </>
   );
 }

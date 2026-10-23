@@ -18,6 +18,7 @@ import {
 } from "@/components/mobile/v2/export-share-bar";
 
 import { MobileQuotationDetail } from "./[id]/MobileQuotationDetail";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 
 export type QuotationListItem = {
   id: string;
@@ -636,9 +637,12 @@ function QuotationAnalysisOverlay({
   }, [data]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 overflow-y-auto p-3.5"
-      style={{ backgroundColor: "var(--color-paper)" }}
+    <MobileModalSheet
+      open
+      onClose={onClose}
+      label="Quotation analysis"
+      align="full"
+      className="overflow-y-auto p-3.5"
     >
       {!payload && !error ? (
         <div className="flex items-center justify-center py-16">
@@ -675,6 +679,6 @@ function QuotationAnalysisOverlay({
           onChanged={onChanged}
         />
       ) : null}
-    </div>
+    </MobileModalSheet>
   );
 }

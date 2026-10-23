@@ -23,6 +23,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { AttachmentList } from "@/components/attachments/attachment-list";
 import { MobileEmptyState, ActionBar } from "@/components/mobile/v2/primitives";
 import { EnumSelect, SectionCard, SelectorModal } from "@/components/mobile/v2/form-primitives";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 import {
   DetailHeroCard,
   DetailTimeline,
@@ -614,9 +615,13 @@ export function MobileExpenseClaimDetailClient({
       </div>
 
       {/* Reject dialog */}
-      {showReject && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-card p-4 shadow-xl">
+      <MobileModalSheet
+        open={showReject}
+        onClose={() => setShowReject(false)}
+        label="Reject claim"
+        align="center"
+        className="!max-w-sm rounded-2xl bg-card p-4 shadow-xl"
+      >
             <h3 className="text-m-section font-extrabold tracking-tight mb-2">Reject claim</h3>
             <textarea
               value={rejectReason}
@@ -641,14 +646,16 @@ export function MobileExpenseClaimDetailClient({
                 Reject
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </MobileModalSheet>
 
       {/* Pay dialog */}
-      {showPay && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-card p-4 shadow-xl">
+      <MobileModalSheet
+        open={showPay}
+        onClose={() => setShowPay(false)}
+        label="Mark claim as paid"
+        align="center"
+        className="!max-w-sm rounded-2xl bg-card p-4 shadow-xl"
+      >
             <h3 className="text-m-section font-extrabold tracking-tight mb-2">Mark as paid</h3>
             <div className="mb-3">
             <EnumSelect
@@ -689,9 +696,7 @@ export function MobileExpenseClaimDetailClient({
                 Mark as Paid
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </MobileModalSheet>
 
       <AttachmentList entityType="ExpenseClaim" entityId={id} />
 

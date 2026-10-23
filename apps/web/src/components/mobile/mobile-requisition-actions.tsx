@@ -16,6 +16,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 import { formatCurrencyCompact, formatNumber, toNum} from "@/lib/utils";
 import { haptic } from "@/lib/haptic";
 import { MobileSelectWithCreate } from "@/components/mobile/MobileSelectWithCreate";
@@ -237,21 +238,18 @@ export function MobileRequisitionActions({
           variant="outline"
         />
       )}
-      {showDeleteConfirm && (
-        <>
-          <div
-            className="fixed inset-0 z-50"
-            style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-            onClick={() => !busy && setShowDeleteConfirm(false)}
-          />
-          <div
-            className="fixed left-0 right-0 bottom-0 z-50 rounded-t-[1rem] border-t"
-            style={{
-              backgroundColor: "var(--color-paper)",
-              borderColor: "var(--color-line)",
-              paddingBottom: "max(env(safe-area-inset-bottom), 1rem)",
-            }}
-          >
+      <MobileModalSheet
+        open={showDeleteConfirm}
+        onClose={() => { if (!busy) setShowDeleteConfirm(false); }}
+        label="Delete indent"
+        className="rounded-t-[1rem] border-t"
+        style={{
+          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--color-line)",
+          paddingBottom: "max(env(safe-area-inset-bottom), 1rem)",
+        }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+      >
             <div className="flex justify-center pt-2 pb-1">
               <div
                 className="w-10 h-1 rounded-full"
@@ -313,24 +311,19 @@ export function MobileRequisitionActions({
                 </button>
               </div>
             </div>
-          </div>
-        </>
-      )}
-      {showReject && (
-        <>
-          <div
-            className="fixed inset-0 z-50"
-            style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-            onClick={() => !busy && setShowReject(false)}
-          />
-          <div
-            className="fixed left-0 right-0 bottom-0 z-50 rounded-t-[1rem] border-t"
-            style={{
-              backgroundColor: "var(--color-paper)",
-              borderColor: "var(--color-line)",
-              paddingBottom: "max(env(safe-area-inset-bottom), 1rem)",
-            }}
-          >
+      </MobileModalSheet>
+      <MobileModalSheet
+        open={showReject}
+        onClose={() => { if (!busy) setShowReject(false); }}
+        label="Reject indent"
+        className="rounded-t-[1rem] border-t"
+        style={{
+          backgroundColor: "var(--color-paper)",
+          borderColor: "var(--color-line)",
+          paddingBottom: "max(env(safe-area-inset-bottom), 1rem)",
+        }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+      >
             <div className="flex justify-center pt-2 pb-1">
               <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
             </div>
@@ -382,9 +375,7 @@ export function MobileRequisitionActions({
                 </button>
               </div>
             </div>
-          </div>
-        </>
-      )}
+      </MobileModalSheet>
     </div>
   );
 }

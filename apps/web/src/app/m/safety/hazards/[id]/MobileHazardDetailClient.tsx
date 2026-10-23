@@ -9,6 +9,7 @@ import { formatDate, actionPastTense } from "@/lib/utils";
 import { useConfirm } from "@/lib/use-confirm";
 import { ActionBar } from "@/components/mobile/v2/primitives";
 import { DetailHeroCard, DetailStatGrid, DetailTimeline, type TimelineStepData } from "@/components/mobile/v2/detail-primitives";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 
 interface HazardDetail {
   id: string; hazardNumber: string; title: string; description: string;
@@ -292,14 +293,19 @@ function ActionButton({ onClick, loading, icon: Icon, label, variant }: { onClic
 
 function BottomSheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}>
-      <div className="mt-auto rounded-t-[1rem] max-h-[70vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)", animation: "slideUp 0.25s ease-out" }}>
-        <div className="sticky top-0 flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
-          <h2 className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>{title}</h2>
-          <button onClick={onClose} aria-label="Close sheet" className="text-m-body press"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
-        </div>
-        <div className="p-4">{children}</div>
+    <MobileModalSheet
+      open
+      onClose={onClose}
+      label={title}
+      className="mt-auto rounded-t-[1rem] max-h-[70vh] overflow-y-auto"
+      style={{ backgroundColor: "var(--color-paper)", animation: "slideUp 0.25s ease-out" }}
+      contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+    >
+      <div className="sticky top-0 flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
+        <h2 className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>{title}</h2>
+        <button onClick={onClose} aria-label="Close sheet" className="text-m-body press"><X className="size-4" style={{ color: "var(--color-ink-500)" }} /></button>
       </div>
-    </div>
+      <div className="p-4">{children}</div>
+    </MobileModalSheet>
   );
 }

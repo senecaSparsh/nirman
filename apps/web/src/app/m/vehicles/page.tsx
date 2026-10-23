@@ -10,6 +10,7 @@ import { MobileNoResults, MobileSearchHeader } from "@/components/mobile/v2/scaf
 import { usePermissions } from "@/lib/permissions";
 import { PERM } from "@/lib/roles";
 import { MobileVehiclesFab } from "./MobileVehiclesFab";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 
 interface Vehicle {
   id: string;
@@ -145,8 +146,14 @@ export default function MobileVehiclesPage() {
 
       {/* ── Vehicle detail drawer ── */}
       {selected ? (
-        <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }} onClick={() => setSelected(null)}>
-          <div className="mt-auto rounded-t-[0.75rem] max-h-[80vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
+      <MobileModalSheet
+        open
+        onClose={() => setSelected(null)}
+        label={selected ? `Vehicle ${selected.vehicleNumber}` : "Vehicle"}
+        className="mt-auto rounded-t-[0.75rem] max-h-[80vh] overflow-y-auto"
+        style={{ backgroundColor: "var(--color-paper)" }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
+      >
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b sticky top-0" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
               <div>
@@ -215,8 +222,7 @@ export default function MobileVehiclesPage() {
                 <p className="text-m-caption text-center py-4" style={{ color: "var(--color-ink-400)" }}>No trips recorded</p>
               )}
             </div>
-          </div>
-        </div>
+      </MobileModalSheet>
       ) : null}
 
       {/* ── FAB: New Vehicle ── */}

@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useFetch } from "@/lib/use-fetch";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
-import { createPortal } from "react-dom";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 import { Loader2, X, Wallet } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
@@ -37,10 +37,7 @@ export function MobileSmsMatchSheet() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const smsId = searchParams.get("match");
-  const [mounted, setMounted] = useState(false);
-
   const [busy, setBusy] = useState<string | null>(null);
-  useEffect(() => setMounted(true), []);
 
   const { data: receivablesData, error: receivablesError } = useFetch<{ items?: Receivable[] }>(
     smsId ? "/api/sms/receivables" : null,
@@ -77,18 +74,15 @@ export function MobileSmsMatchSheet() {
   }
 
   const sheet = useMemo(() => {
-    if (!open) return null;
     return (
-      <div
-        className="fixed inset-0 z-[60] flex items-end justify-center"
-        style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
-        onClick={close}
+      <MobileModalSheet
+        open={open}
+        onClose={close}
+        label="Match to a payment"
+        zIndex={60}
+        className="!max-w-lg rounded-t-[0.875rem] overflow-hidden"
+        style={{ backgroundColor: "var(--color-paper)", maxHeight: "80dvh" }}
       >
-        <div
-          className="w-full max-w-lg rounded-t-[0.875rem] overflow-hidden"
-          style={{ backgroundColor: "var(--color-paper)", maxHeight: "80dvh" }}
-          onClick={(e) => e.stopPropagation()}
-        >
           {/* Header */}
           <div
             className="flex items-center justify-between px-4 py-3"
@@ -147,12 +141,10 @@ export function MobileSmsMatchSheet() {
               </div>
             )}
           </div>
-        </div>
-      </div>
+      </MobileModalSheet>
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, items, busy, smsId]);
 
-  if (!mounted) return null;
-  return createPortal(sheet, document.body);
+  return sheet;
 }

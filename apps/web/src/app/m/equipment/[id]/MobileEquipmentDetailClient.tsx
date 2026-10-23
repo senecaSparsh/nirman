@@ -14,6 +14,7 @@ import { haptic } from "@/lib/haptic";
 import { useConfirm } from "@/lib/use-confirm";
 import { MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 import { DetailStatGrid, DetailKeyValueCard } from "@/components/mobile/v2/detail-primitives";
 
 type EquipmentStatus = "AVAILABLE" | "ASSIGNED" | "IN_MAINTENANCE" | "RETIRED" | "SOLD";
@@ -1174,16 +1175,15 @@ function PickerSheet({
   }, [items, query]);
 
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-end justify-center"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 60%, transparent)" }}
-      onClick={onClose}
+    <MobileModalSheet
+      open
+      onClose={onClose}
+      label={title}
+      zIndex={60}
+      className="rounded-t-[0.75rem] flex flex-col"
+      style={{ backgroundColor: "var(--color-paper)", maxHeight: "80vh" }}
+      contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 60%, transparent)" }}
     >
-      <div
-        className="w-full max-w-md rounded-t-[0.75rem] flex flex-col"
-        style={{ backgroundColor: "var(--color-paper)", maxHeight: "80vh" }}
-        onClick={(e) => e.stopPropagation()}
-      >
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
           <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>{title}</p>
@@ -1252,8 +1252,7 @@ function PickerSheet({
             })
           )}
         </div>
-      </div>
-    </div>
+    </MobileModalSheet>
   );
 }
 

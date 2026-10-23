@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { MobileOnboardingTab, type OnboardingEmployeeData } from "./MobileOnboardingTab";
@@ -50,15 +50,39 @@ export function OnboardingModal({
     });
   }, []);
 
-  // Close on Escape
+  // Close on Escape + keep focus inside while open + restore on close —
+  // the same focus contract as MobileModalSheet / desktop Dialog.
+  const prevFocusRef = useRef<Element | null>(null);
+  const [panelEl, setPanelEl] = useState<HTMLElement | null>(null);
   useEffect(() => {
+    prevFocusRef.current = document.activeElement;
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") handleClose();
+      if (e.key === "Tab" && panelEl) {
+        const focusable = [...panelEl.querySelectorAll<HTMLElement>(
+          'a[href], button, input, select, textarea, [tabindex]',
+        )].filter(
+          (el) => !el.hasAttribute("disabled") && el.tabIndex >= 0 && el.offsetParent !== null,
+        );
+        if (focusable.length === 0) return;
+        e.preventDefault();
+        const idx = focusable.indexOf(document.activeElement as HTMLElement);
+        const next =
+          idx === -1
+            ? 0
+            : e.shiftKey
+              ? (idx - 1 + focusable.length) % focusable.length
+              : (idx + 1) % focusable.length;
+        focusable[next]!.focus();
+      }
     };
     window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    return () => {
+      window.removeEventListener("keydown", handler);
+      if (prevFocusRef.current instanceof HTMLElement) prevFocusRef.current.focus();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [panelEl]);
 
   function handleClose() {
     setClosing(true);
@@ -84,8 +108,16 @@ export function OnboardingModal({
       }}
     >
       <div
+        ref={(el) => {
+          setPanelEl(el);
+          if (el) el.focus();
+        }}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Onboarding — ${employee.name}`}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-md h-[100dvh] overflow-y-auto"
+        className="relative w-full max-w-md h-[100dvh] overflow-y-auto outline-none"
         style={{
           backgroundColor: "var(--color-paper)",
           transform: visible ? "translateY(0)" : "translateY(100%)",

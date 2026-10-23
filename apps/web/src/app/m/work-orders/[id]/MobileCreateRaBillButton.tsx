@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Loader2, X, FileText, IndianRupee } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 
 type PreviewLine = {
   boqItemId: string;
@@ -126,17 +127,14 @@ export function MobileCreateRaBillButton({
         Create RA Bill
       </button>
 
-      {open ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-          onClick={() => !saving && setOpen(false)}
-        >
-          <div
-            className="w-full rounded-t-[1rem] mx-auto max-w-md max-h-[85vh] overflow-y-auto"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
+      <MobileModalSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        label="Create RA Bill"
+        className="rounded-t-[1rem] max-h-[85vh] overflow-y-auto"
+        style={{ backgroundColor: "var(--color-paper)" }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+      >
             {/* Handle + header */}
             <div className="flex justify-center pt-2 pb-1 sticky top-0" style={{ backgroundColor: "var(--color-paper)" }}>
               <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
@@ -273,9 +271,7 @@ export function MobileCreateRaBillButton({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileModalSheet>
     </>
   );
 }

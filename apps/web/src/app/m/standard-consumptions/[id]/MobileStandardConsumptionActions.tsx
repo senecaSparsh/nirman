@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, Trash2, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 
 interface MaterialOption { id: string; name: string; unit: string; }
 
@@ -111,17 +112,14 @@ export function MobileStandardConsumptionActions({
       </div>
 
       {/* Edit sheet */}
-      {showEdit ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-          onClick={() => setShowEdit(false)}
-        >
-          <div
-            className="w-full rounded-t-[1rem] mx-auto max-w-md max-h-[85vh] overflow-y-auto"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
+      <MobileModalSheet
+        open={showEdit}
+        onClose={() => setShowEdit(false)}
+        label="Edit benchmark"
+        className="rounded-t-[1rem] max-h-[85vh] overflow-y-auto"
+        style={{ backgroundColor: "var(--color-paper)" }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+      >
             <div className="flex justify-center pt-2 pb-1">
               <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
             </div>
@@ -186,22 +184,17 @@ export function MobileStandardConsumptionActions({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileModalSheet>
 
       {/* Delete confirmation */}
-      {showDelete ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-          onClick={() => setShowDelete(false)}
-        >
-          <div
-            className="w-full rounded-t-[1rem] mx-auto max-w-md"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
+      <MobileModalSheet
+        open={showDelete}
+        onClose={() => setShowDelete(false)}
+        label="Delete benchmark"
+        className="w-full rounded-t-[1rem] mx-auto max-w-md"
+        style={{ backgroundColor: "var(--color-paper)" }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+      >
             <div className="flex justify-center pt-2 pb-1">
               <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
             </div>
@@ -222,9 +215,7 @@ export function MobileStandardConsumptionActions({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileModalSheet>
     </>
   );
 }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {Mic, MicOff, Send, X, Sparkles, MessageCircle, Volume2, VolumeX} from "lucide-react";
 import { ThinkingLoader } from "@/components/ui/ThinkingLoader";
 import { SUGGESTION_CHIPS } from "@/lib/assistant/nlu";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -419,7 +420,14 @@ export function AssistantChat({
 
       {/* ── Chat sheet ── */}
       {open && (
-        <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: "var(--color-paper-2)" }}>
+        <MobileModalSheet
+          open
+          onClose={close}
+          label="Nirman assistant"
+          align="full"
+          className="flex flex-col"
+          style={{ backgroundColor: "var(--color-paper-2)" }}
+        >
           {/* ── Header ── */}
           <div
             className="flex items-center gap-3 px-4 py-3 border-b"
@@ -590,7 +598,7 @@ export function AssistantChat({
               </button>
             </div>
           </div>
-        </div>
+        </MobileModalSheet>
       )}
     </>
   );

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ClipboardCheck, CheckCircle, XCircle } from "lucide-react";
 import { haptic } from "@/lib/haptic";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 
 /**
  * Post-receipt QC verdict on a GRN card — shown while the receipt's
@@ -54,14 +55,14 @@ export function MobileGrnInspectButton({ goodsReceiptId }: { goodsReceiptId: str
         Inspect
       </button>
 
-      {open ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setOpen(false)}>
-          <div className="absolute inset-0 bg-black/45" />
-          <div
-            className="relative w-full max-w-md rounded-t-[1rem] p-4 pb-6"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
+      <MobileModalSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        label="Inspect receipt"
+        className="relative rounded-t-[1rem] p-4 pb-6"
+        style={{ backgroundColor: "var(--color-paper)" }}
+        contentStyle={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+      >
             <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
               Inspect Receipt
             </p>
@@ -94,9 +95,7 @@ export function MobileGrnInspectButton({ goodsReceiptId }: { goodsReceiptId: str
                 Fail
               </button>
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileModalSheet>
     </>
   );
 }

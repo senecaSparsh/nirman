@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 
 type UnitStatus = "PLANNED" | "UNDER_CONSTRUCTION" | "AVAILABLE" | "HOLD" | "SOLD";
 type UnitType = "BHK_1" | "BHK_2" | "BHK_3" | "BHK_4" | "SHOP" | "OFFICE" | "WAREHOUSE_UNIT" | "VILLA" | "OTHER";
@@ -244,9 +245,14 @@ export function MobileUnitActions({
       </div>
 
       {/* Edit sheet */}
-      {showEdit ? (
-        <div className="fixed inset-0 z-50 flex items-end" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={() => setShowEdit(false)}>
-          <div className="w-full rounded-t-[1rem] mx-auto max-w-md max-h-[85vh] overflow-y-auto" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
+      <MobileModalSheet
+        open={showEdit}
+        onClose={() => setShowEdit(false)}
+        label="Edit unit"
+        className="rounded-t-[1rem] max-h-[85vh] overflow-y-auto"
+        style={{ backgroundColor: "var(--color-paper)" }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+      >
             <SheetHeader title="Edit Unit" onClose={() => setShowEdit(false)} />
             <div className="px-3 pb-4 flex flex-col gap-3">
               <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
@@ -330,14 +336,17 @@ export function MobileUnitActions({
               </div>
               <ConfirmButtons onCancel={() => setShowEdit(false)} onConfirm={saveEdit} confirmLabel="Save" busy={busy} />
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileModalSheet>
 
       {/* Status sheet */}
-      {showStatus ? (
-        <div className="fixed inset-0 z-50 flex items-end" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={() => setShowStatus(false)}>
-          <div className="w-full rounded-t-[1rem] mx-auto max-w-md" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
+      <MobileModalSheet
+        open={showStatus}
+        onClose={() => setShowStatus(false)}
+        label="Update status"
+        className="rounded-t-[1rem]"
+        style={{ backgroundColor: "var(--color-paper)" }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+      >
             <SheetHeader title="Update Status" onClose={() => setShowStatus(false)} />
             <div className="px-3 pb-4 flex flex-col gap-3">
               <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
@@ -354,14 +363,17 @@ export function MobileUnitActions({
               </div>
               <ConfirmButtons onCancel={() => setShowStatus(false)} onConfirm={saveStatus} confirmLabel="Update" busy={busy} />
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileModalSheet>
 
       {/* Valuation sheet */}
-      {showValuation ? (
-        <div className="fixed inset-0 z-50 flex items-end" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={() => setShowValuation(false)}>
-          <div className="w-full rounded-t-[1rem] mx-auto max-w-md" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
+      <MobileModalSheet
+        open={showValuation}
+        onClose={() => setShowValuation(false)}
+        label="Update valuation"
+        className="rounded-t-[1rem]"
+        style={{ backgroundColor: "var(--color-paper)" }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+      >
             <SheetHeader title="Update Valuation" onClose={() => setShowValuation(false)} />
             <div className="px-3 pb-4 flex flex-col gap-3">
               <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
@@ -381,14 +393,17 @@ export function MobileUnitActions({
               </div>
               <ConfirmButtons onCancel={() => setShowValuation(false)} onConfirm={saveValuation} confirmLabel="Update" busy={busy} />
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileModalSheet>
 
       {/* Delete confirmation */}
-      {showDelete ? (
-        <div className="fixed inset-0 z-50 flex items-end" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }} onClick={() => setShowDelete(false)}>
-          <div className="w-full rounded-t-[1rem] mx-auto max-w-md" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
+      <MobileModalSheet
+        open={showDelete}
+        onClose={() => setShowDelete(false)}
+        label="Archive unit"
+        className="rounded-t-[1rem]"
+        style={{ backgroundColor: "var(--color-paper)" }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+      >
             <SheetHeader title="Archive Unit?" onClose={() => setShowDelete(false)} />
             <div className="px-3 pb-4">
               <p className="text-m-label mb-3" style={{ color: "var(--color-ink-500)" }}>
@@ -401,9 +416,7 @@ export function MobileUnitActions({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileModalSheet>
     </>
   );
 }

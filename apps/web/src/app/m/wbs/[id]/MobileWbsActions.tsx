@@ -8,6 +8,7 @@ import { haptic } from "@/lib/haptic";
 import { useOptimisticAction } from "@/lib/use-optimistic-action";
 import { ActionBar } from "@/components/mobile/v2/primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 
 interface FormState {
   name: string;
@@ -357,21 +358,19 @@ export function MobileWbsDeleteConfirm({
     },
   });
 
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center "
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }} onClick={onClose}
+    <MobileModalSheet
+      open={open}
+      onClose={onClose}
+      label="Delete this WBS node"
+      align="center"
+      className="mx-4 rounded-[0.75rem] border p-5 shadow-xl"
+      style={{
+        backgroundColor: "var(--color-paper)",
+        borderColor: "var(--color-line)",
+      }}
+      contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
     >
-      <div
-        className="w-full max-w-md mx-4 rounded-[0.75rem] border p-5 shadow-xl"
-        style={{
-          backgroundColor: "var(--color-paper)",
-          borderColor: "var(--color-line)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
         <div className="flex items-start gap-3 mb-4">
           <div
             className="grid place-items-center size-10 rounded-full shrink-0"
@@ -430,8 +429,7 @@ export function MobileWbsDeleteConfirm({
             Delete
           </button>
         </div>
-      </div>
-    </div>
+    </MobileModalSheet>
   );
 }
 

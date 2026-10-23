@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mic, Loader2, Volume2, Check, X, Send } from "lucide-react";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 
 /* ═══════════════════════════════════════════════════════════════════════════
    VOICE AGENT BUTTON — header mic that listens + speaks, no chat sheet
@@ -718,20 +719,18 @@ export function VoiceAgentButton() {
 
       {/* ── Confirmation popup ── */}
       {pendingAction && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
-          style={{ backgroundColor: "rgba(0, 0, 0, 0.4)" }}
-          onClick={() => !executing && setPendingAction(null)}
+        <MobileModalSheet
+          open
+          onClose={() => { if (!executing) setPendingAction(null); }}
+          label="Confirm action"
+          className="!max-w-[30rem] rounded-t-[1rem] p-4 pb-safe animate-in slide-in-from-bottom"
+          style={{
+            backgroundColor: "var(--color-paper)",
+            border: "1px solid var(--color-line)",
+            borderBottom: "none",
+          }}
+          contentStyle={{ backgroundColor: "rgba(0, 0, 0, 0.4)" }}
         >
-          <div
-            className="w-full max-w-[30rem] rounded-t-[1rem] p-4 pb-safe animate-in slide-in-from-bottom"
-            style={{
-              backgroundColor: "var(--color-paper)",
-              border: "1px solid var(--color-line)",
-              borderBottom: "none",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
             {/* Drag handle */}
             <div className="mx-auto mb-3 h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
 
@@ -795,8 +794,7 @@ export function VoiceAgentButton() {
                 {executing ? "Executing..." : "Confirm"}
               </button>
             </div>
-          </div>
-        </div>
+        </MobileModalSheet>
       )}
     </>
   );

@@ -6,6 +6,7 @@ import { RefreshCw, XCircle, Loader2, AlertTriangle, Pencil, Trash2, X } from "l
 import { toast } from "sonner";
 import { haptic } from "@/lib/haptic";
 import { ActionBar } from "@/components/mobile/v2/primitives";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 
 interface ListingData {
   title: string;
@@ -198,13 +199,15 @@ export function MobilePortalListingActions({
       )}
 
       {/* Delist confirmation modal */}
-      {showDelistConfirm ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center " style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }} onClick={() => setShowDelistConfirm(false)}>
-          <div
-            className="w-full max-w-md mx-4 rounded-[0.75rem] border p-5 shadow-xl"
-            style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
+      <MobileModalSheet
+        open={showDelistConfirm}
+        onClose={() => setShowDelistConfirm(false)}
+        label="Delist this property"
+        align="center"
+        className="mx-4 rounded-[0.75rem] border p-5 shadow-xl"
+        style={{ backgroundColor: "var(--color-paper)", borderColor: "var(--color-line)" }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
+      >
             <div className="flex items-start gap-3 mb-4">
               <div
                 className="grid place-items-center size-10 rounded-full shrink-0"
@@ -242,22 +245,17 @@ export function MobilePortalListingActions({
                 {busy === "delist" ? <Loader2 className="size-4 animate-spin mx-auto" /> : "Delist"}
               </button>
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileModalSheet>
 
       {/* Edit sheet */}
-      {showEdit ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-          onClick={() => setShowEdit(false)}
-        >
-          <div
-            className="w-full rounded-t-[1rem] mx-auto max-w-md max-h-[85vh] overflow-y-auto"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
+      <MobileModalSheet
+        open={showEdit}
+        onClose={() => setShowEdit(false)}
+        label="Edit listing"
+        className="rounded-t-[1rem] max-h-[85vh] overflow-y-auto"
+        style={{ backgroundColor: "var(--color-paper)" }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+      >
             <div className="flex justify-center pt-2 pb-1">
               <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
             </div>
@@ -311,22 +309,17 @@ export function MobilePortalListingActions({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileModalSheet>
 
       {/* Delete confirmation */}
-      {showDelete ? (
-        <div
-          className="fixed inset-0 z-50 flex items-end"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-          onClick={() => setShowDelete(false)}
-        >
-          <div
-            className="w-full rounded-t-[1rem] mx-auto max-w-md"
-            style={{ backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
+      <MobileModalSheet
+        open={showDelete}
+        onClose={() => setShowDelete(false)}
+        label="Delete listing"
+        className="rounded-t-[1rem]"
+        style={{ backgroundColor: "var(--color-paper)" }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
+      >
             <div className="flex justify-center pt-2 pb-1">
               <div className="h-1 w-10 rounded-full" style={{ backgroundColor: "var(--color-line)" }} />
             </div>
@@ -347,9 +340,7 @@ export function MobilePortalListingActions({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileModalSheet>
     </>
   );
 }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Loader2, X } from "lucide-react";
 import { formatCurrencyCompact, formatEnumLabel } from "@/lib/utils";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 
 /**
  * Mobile SMS ingest — a bottom-sheet style dialog for pasting
@@ -71,16 +72,14 @@ export function MobileSmsIngest() {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end"
-      style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
-      onClick={() => !saving && setOpen(false)}
+    <MobileModalSheet
+      open={open}
+      onClose={() => { if (!saving) setOpen(false); }}
+      label="Paste Bank SMS"
+      className="rounded-t-[1rem] p-4 pb-6 space-y-3"
+      style={{ backgroundColor: "var(--color-paper)" }}
+      contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 40%, transparent)" }}
     >
-      <div
-        className="w-full rounded-t-[1rem] mx-auto max-w-md p-4 pb-6 space-y-3"
-        style={{ backgroundColor: "var(--color-paper)" }}
-        onClick={(e) => e.stopPropagation()}
-      >
         <div className="flex items-center justify-between">
           <h2 className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
             Paste Bank SMS
@@ -153,7 +152,6 @@ export function MobileSmsIngest() {
             {saving ? "Processing…" : "Parse & Match"}
           </button>
         </form>
-      </div>
-    </div>
+    </MobileModalSheet>
   );
 }

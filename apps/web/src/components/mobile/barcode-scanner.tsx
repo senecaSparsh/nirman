@@ -41,6 +41,20 @@ export function BarcodeScanner({
     }
   }, []);
 
+  // Escape closes the scanner (camera covers the viewport — without this
+  // there's no keyboard path out).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        stopCamera();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onClose]);
+
   // Try native BarcodeDetector first, then fall back to html5-qrcode
   useEffect(() => {
     let cancelled = false;
@@ -174,7 +188,7 @@ export function BarcodeScanner({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black">
+    <div className="fixed inset-0 z-50 flex flex-col bg-black" role="dialog" aria-modal="true" aria-label="Scan barcode">
       {/* Header */}
       <div className="flex items-center justify-between bg-black/80 px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))]">
         <div className="flex items-center gap-2 text-white">

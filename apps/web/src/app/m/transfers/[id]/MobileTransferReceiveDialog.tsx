@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 import {
   PhotoCapture, SignaturePad, GeoTagCapture, SelectField, TextField,
   WeighbridgeFields, GeoFenceStatus,
@@ -370,9 +371,15 @@ export function MobileTransferReceiveDialog({
         </div>
 
       {/* Return to source dialog */}
-      {showReturn ? (
-        <div className="absolute inset-0 z-10 flex items-end justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }} onClick={() => { if (!submitting) setShowReturn(false); }}>
-          <div className="w-full max-w-md rounded-t-[0.75rem] flex flex-col" style={{ backgroundColor: "var(--color-paper)" }} onClick={(e) => e.stopPropagation()}>
+      <MobileModalSheet
+        open={showReturn}
+        onClose={() => { if (!submitting) setShowReturn(false); }}
+        label={`Return transfer to ${fromLocationName}`}
+        zIndex={60}
+        className="rounded-t-[0.75rem] flex flex-col"
+        style={{ backgroundColor: "var(--color-paper)" }}
+        contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 50%, transparent)" }}
+      >
             <div className="flex items-center gap-2 p-3 border-b" style={{ borderColor: "var(--color-line)" }}>
               <AlertTriangle className="size-4 shrink-0" style={{ color: "var(--color-stop)" }} />
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Return to Source?</p>
@@ -392,9 +399,7 @@ export function MobileTransferReceiveDialog({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+      </MobileModalSheet>
     </MobileDialog>
   );
 }

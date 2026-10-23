@@ -21,6 +21,7 @@ import { formatCurrency, formatCurrencyCompact, formatNumber, formatDate, toNum}
 import { mobileStatusColor, ActionBar, MobileEmptyState } from "@/components/mobile/v2/primitives";
 import { DetailKeyValue, DetailAlertBanner } from "@/components/mobile/v2/detail-primitives";
 import { MobileDialog } from "@/components/mobile/v2/dialog";
+import { MobileModalSheet } from "@/components/mobile/v2/bottom-sheet";
 import { EnumSelect } from "@/components/mobile/v2/form-primitives";
 import { useConfirm } from "@/lib/use-confirm";
 import { usePrompt } from "@/lib/use-prompt";
@@ -1012,16 +1013,15 @@ export function MobileLandDetailClient({
 
       {/* ── Cadastre zoom popup — click to enlarge, click anywhere to close ── */}
       {cadastreZoom && sortedParcels.length > 0 ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-6"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 60%, transparent)" }}
-          onClick={() => setCadastreZoom(false)}
+        <MobileModalSheet
+          open
+          onClose={() => setCadastreZoom(false)}
+          label="Cadastre plan"
+          align="center"
+          className="rounded-[0.75rem] border p-4 !max-w-[20rem]"
+          style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
+          contentStyle={{ backgroundColor: "color-mix(in srgb, var(--color-ink-950) 60%, transparent)" }}
         >
-          <div
-            className="rounded-[0.75rem] border p-4 max-w-[20rem] w-full"
-            style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
             <div className="flex items-center justify-between mb-2">
               <p className="text-m-body font-bold uppercase tracking-wide" style={{ color: "var(--color-ink-600)" }}>
                 Cadastre Plan
@@ -1050,8 +1050,7 @@ export function MobileLandDetailClient({
                 </span>
               ))}
             </div>
-          </div>
-        </div>
+        </MobileModalSheet>
       ) : null}
 
       {/* ── Cadastre legend — compact row below the card ── */}
