@@ -268,9 +268,9 @@ export default function MobileProjectDetailPage({
             <DetailKeyValue label="Sold" value={formatNumber(soldUnits.length, 0)} tone="go" />
             <DetailKeyValue label="Cost" value={totalProjectCost ? formatCurrencyCompact(totalProjectCost) : "—"} />
             <DetailKeyValue label="₹/sqft" value={project.costPerSqft ? formatCurrencyCompact(toNum(project.costPerSqft)) : "—"} />
-</dl>
             <DetailKeyValue label="Land" value={landParcels > 0 ? `${landParcels} parcels` : "—"} />
             <DetailKeyValue label="Indents" value={`${requisitions} pending`} tone={requisitions > 0 ? "signal" : "default"} />
+          </dl>
           </div>
         </div>
 

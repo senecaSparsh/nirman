@@ -210,15 +210,11 @@ export default function MobileUnitDetailPage({
                   </p>
                 </div>
                 <dl className="divide-y" style={{ borderColor: "var(--color-line)" }}>
-<dl className="divide-y" style={{ borderColor: "var(--color-line)" }}>
                   <DetailKeyValue label="Buyer" value={sale.customer.name} />
                   {sale.customer.phone ? <DetailKeyValue label="Phone" value={sale.customer.phone} /> : null}
                   <DetailKeyValue label="Sale price" value={formatCurrency(toNum(sale.salePrice))} />
-</dl>
                   <DetailKeyValue label="Profit" value={formatCurrency(toNum(sale.profit))} tone={toNum(sale.profit) >= 0 ? "go" : "stop"} />
-<dl className="divide-y" style={{ borderColor: "var(--color-line)" }}>
                   <DetailKeyValue label="Date" value={formatDate(sale.saleDate)} />
-</dl>
                   <DetailKeyValue label="Payment" value={sale.paymentStatus.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase())} tone={sale.paymentStatus === "PAID" ? "go" : sale.paymentStatus === "PENDING" ? "signal" : "default"} />
                   <DetailKeyValue label="Stage" value={sale.saleStage.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase())} />
                 </dl>
