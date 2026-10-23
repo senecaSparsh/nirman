@@ -780,6 +780,7 @@ export function MobileLandDetailClient({
           {sortedParcels.length > 0 ? (
             <button
               onClick={() => setCadastreZoom(true)}
+              aria-label="Expand cadastre plan"
               className="shrink-0 border-r flex items-center justify-center text-m-body press relative"
               style={{
                 borderColor: "var(--color-line)",

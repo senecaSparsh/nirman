@@ -975,7 +975,7 @@ function PoForm({
                     </div>
                   </div>
                 </div>
-                <button
+                <button aria-label="Delete"
                   type="button"
                   onClick={() => setCharges(charges.filter((_, i) => i !== idx))}
                   className="self-end text-m-caption font-semibold text-m-body press"
@@ -1286,5 +1286,3 @@ function SelectorRow({
     </div>
   );
 }
-
-

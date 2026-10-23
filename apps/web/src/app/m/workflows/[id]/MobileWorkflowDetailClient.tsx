@@ -173,7 +173,7 @@ export function MobileWorkflowDetailClient({
               {running ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
               {running ? "Running…" : "Run Now"}
             </button>
-            <button
+            <button aria-label="Delete"
               onClick={() => setConfirmDelete(true)}
               disabled={deleting}
               className="h-11 px-4 rounded-[0.5rem] text-m-section font-bold flex items-center gap-1.5 press"

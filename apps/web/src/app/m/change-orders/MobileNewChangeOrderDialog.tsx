@@ -385,7 +385,7 @@ export function MobileNewChangeOrderForm({
               <div className="flex items-center justify-between">
                 <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-500)" }}>Line {i + 1}</span>
                 {lines.length > 1 && (
-                  <button type="button" onClick={() => removeLine(i)} className="text-m-body press">
+                  <button aria-label="Delete" type="button" onClick={() => removeLine(i)} className="text-m-body press">
                     <Trash2 className="size-3" style={{ color: "var(--color-stop)" }} />
                   </button>
                 )}

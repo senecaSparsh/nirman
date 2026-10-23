@@ -207,7 +207,7 @@ export function VehicleCaptureSection({
           <div className="relative rounded-md overflow-hidden border border-border" style={{ height: 80, maxWidth: 160 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={value.photoUrl} alt="vehicle" className="w-full h-full object-cover" />
-            <button
+            <button aria-label="Close"
               type="button"
               onClick={() => onChange({ ...value, photoUrl: undefined })}
               className="absolute top-1 right-1 grid place-items-center size-5 rounded-full bg-foreground/80 hover:bg-foreground"

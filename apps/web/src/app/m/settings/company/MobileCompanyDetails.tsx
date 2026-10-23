@@ -1763,7 +1763,7 @@ function ChildCompaniesSection({ data, canManage }: { data: CompanyProfileData; 
                 <Badge tone="neutral" className="shrink-0">{c.memberCount}m</Badge>
                 {c.hasChildren && <Badge tone="steel" className="shrink-0">parent</Badge>}
                 {canManage && !c.hasChildren && (
-                  <button
+                  <button aria-label="Delete"
                     onClick={() => deleteChild(c.id, c.name)}
                     className="press shrink-0"
                     style={{ color: "var(--color-stop)" }}
@@ -2289,6 +2289,7 @@ function ToggleRow({
         type="button"
         role="switch"
         aria-checked={checked}
+        aria-label={label}
         disabled={disabled}
         onClick={() => !disabled && onChange(!checked)}
         className="relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors press disabled:opacity-50"

@@ -122,6 +122,8 @@ export function ParcelsTree({
             <button
               onClick={(e) => { e.stopPropagation(); toggleExpand(p.id); }}
               className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label={expanded.has(p.id) ? `Collapse ${p.number}` : `Expand ${p.number}`}
+              aria-expanded={expanded.has(p.id)}
             >
               <svg width="10" height="10" viewBox="0 0 10 10" className={expanded.has(p.id) ? "" : "rotate-[-90deg]"}>
                 <path d="M 2 3 L 5 7 L 8 3" fill="none" stroke="currentColor" strokeWidth={1.5} />

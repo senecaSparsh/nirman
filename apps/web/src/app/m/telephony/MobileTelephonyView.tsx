@@ -343,7 +343,7 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
                           <UserMinus className="size-4" />
                           Unassign from {n.assignedTo.name}
                         </Button>
-                        <Button
+                        <Button aria-label="Delete"
                           variant="danger"
                           size="md"
                           onClick={() => deleteNumber(n.id)}
@@ -736,7 +736,7 @@ function ProvidersTab({ providers, canManage }: { providers: Provider[]; canMana
                   {busyId === p.id ? <Loader2 className="size-4 animate-spin" /> : null}
                   {p.active ? "Deactivate" : "Activate"}
                 </Button>
-                <Button
+                <Button aria-label="Delete"
                   variant="danger"
                   size="md"
                   onClick={() => removeProvider(p)}

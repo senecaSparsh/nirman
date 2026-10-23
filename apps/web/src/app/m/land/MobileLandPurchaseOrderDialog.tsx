@@ -388,7 +388,7 @@ export function MobileLandPurchaseOrderDialog({
                     <div key={idx} className="rounded-[0.5rem] border p-2.5" style={{ borderColor: "var(--color-line)" }}>
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="text-m-caption font-bold" style={{ color: "var(--color-steel)" }}>Installment {idx + 1}</span>
-                        <button type="button" onClick={() => setPlanItems(planItems.filter((_, i) => i !== idx))} className="text-m-body press">
+                        <button aria-label="Delete" type="button" onClick={() => setPlanItems(planItems.filter((_, i) => i !== idx))} className="text-m-body press">
                           <Trash2 className="size-3" style={{ color: "var(--color-stop)" }} />
                         </button>
                       </div>

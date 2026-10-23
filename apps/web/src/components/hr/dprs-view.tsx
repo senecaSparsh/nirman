@@ -414,7 +414,7 @@ export function DprsView({
             <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); openEdit(d); }} disabled={loadingEdit}>
               <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
             </Button>
-            <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setDelTarget(d); }}>
+            <Button aria-label="Delete" size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); setDelTarget(d); }}>
               <Trash2 className="mr-1 h-3.5 w-3.5" />
             </Button>
           </>

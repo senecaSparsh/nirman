@@ -415,7 +415,7 @@ function NewChangeOrderDialog({
                   className="h-8 text-xs tabular-nums"
                 />
                 {lines.length > 1 && (
-                  <button type="button" onClick={() => removeLine(i)} className="text-muted-foreground hover:text-destructive">
+                  <button aria-label="Delete" type="button" onClick={() => removeLine(i)} className="text-muted-foreground hover:text-destructive">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 )}

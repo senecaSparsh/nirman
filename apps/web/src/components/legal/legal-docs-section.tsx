@@ -810,7 +810,7 @@ function LegalDocFormDialog({
                 <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <span className="truncate">{form.documentName ?? "View document"}</span>
               </a>
-              <button type="button" onClick={() => { setField("documentUrl", null); setField("documentName", null); }}
+              <button aria-label="Close" type="button" onClick={() => { setField("documentUrl", null); setField("documentName", null); }}
                 className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-danger">
                 <X className="h-4 w-4" />
               </button>

@@ -504,7 +504,7 @@ export function WbsView({ projects, canEdit }: { projects: Project[]; canEdit: b
                 className="h-7 w-48 pl-7 pr-7 text-xs rounded-md border border-border bg-background focus:outline-none focus:ring-1 focus:ring-ring"
               />
               {search && (
-                <button
+                <button aria-label="Close"
                   onClick={() => setSearch("")}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
@@ -1589,7 +1589,7 @@ function WbsDetailDialog({ node, onClose, canEdit, allNodes, onReload, projectId
                   )}
                   {d.lagDays !== 0 && <span className="text-xs text-muted-foreground">{d.lagDays > 0 ? "+" : ""}{d.lagDays}d</span>}
                   {canEdit && (
-                    <Button
+                    <Button aria-label="Delete"
                       size="sm"
                       variant="ghost"
                       className="h-6 px-1.5 text-muted-foreground hover:text-danger"

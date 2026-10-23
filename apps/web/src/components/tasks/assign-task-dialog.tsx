@@ -217,7 +217,7 @@ export function AssignTaskDialog({
                 <div key={i} className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5">
                   <span className="text-caption font-semibold text-muted-foreground tnum">{i + 1}.</span>
                   <span className="min-w-0 flex-1 truncate text-body">{step}</span>
-                  <button
+                  <button aria-label="Close"
                     type="button"
                     onClick={() => setSteps(steps.filter((_, idx) => idx !== i))}
                     className="rounded p-0.5 text-muted-foreground hover:text-danger"

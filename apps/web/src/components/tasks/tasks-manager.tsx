@@ -229,7 +229,7 @@ export function TasksManager({ tasks, users, canAssign = true, canManage = false
               <List className="h-3.5 w-3.5" />
             </button>
           </div>
-          <Button variant="outline" size="sm" className="h-9"
+          <Button aria-label="Download" variant="outline" size="sm" className="h-9"
             onClick={() => downloadCSV(`tasks-${localDateISO()}.csv`, filtered as unknown as Record<string, unknown>[], [
               { key: "title", label: "Title" },
               { key: "status", label: "Status" },

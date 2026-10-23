@@ -1080,7 +1080,7 @@ function PolicyTab({
                 <div className="text-caption font-medium">Require special characters</div>
                 <div className="text-micro text-muted-foreground">Off keeps passwords simple for field staff.</div>
               </div>
-              <Toggle checked={pw.passwordRequireSpecial} disabled={!canManage} onChange={(v) => setPw((f) => ({ ...f, passwordRequireSpecial: v }))} />
+              <Toggle label="Require special character in passwords" checked={pw.passwordRequireSpecial} disabled={!canManage} onChange={(v) => setPw((f) => ({ ...f, passwordRequireSpecial: v }))} />
             </div>
             {canManage && (
               <Button type="submit" size="sm" disabled={savingPw}>{savingPw ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Save policy</Button>
@@ -1130,14 +1130,14 @@ function PolicyTab({
                 <div className="text-caption font-medium">Play consent beep</div>
                 <div className="text-micro text-muted-foreground">“Calls may be recorded” notice at call start.</div>
               </div>
-              <Toggle checked={rec.recordingConsentBeep} disabled={!canManageTelephony} onChange={(v) => setRec((f) => ({ ...f, recordingConsentBeep: v }))} />
+              <Toggle label="Recording consent beep" checked={rec.recordingConsentBeep} disabled={!canManageTelephony} onChange={(v) => setRec((f) => ({ ...f, recordingConsentBeep: v }))} />
             </div>
             <div className="flex items-center justify-between rounded-md border border-border p-3">
               <div>
                 <div className="text-caption font-medium">Auto-delete after retention</div>
                 <div className="text-micro text-muted-foreground">Automatically purge recordings past the retention window.</div>
               </div>
-              <Toggle checked={rec.recordingAutoDelete} disabled={!canManageTelephony} onChange={(v) => setRec((f) => ({ ...f, recordingAutoDelete: v }))} />
+              <Toggle label="Auto-delete recordings" checked={rec.recordingAutoDelete} disabled={!canManageTelephony} onChange={(v) => setRec((f) => ({ ...f, recordingAutoDelete: v }))} />
             </div>
             {canManageTelephony && (
               <Button type="submit" size="sm" disabled={savingRec}>{savingRec ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Save recording config</Button>
@@ -1149,10 +1149,10 @@ function PolicyTab({
   );
 }
 
-function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+function Toggle({ checked, onChange, disabled, label }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean; label: string }) {
   return (
     <button
-      type="button" role="switch" aria-checked={checked} disabled={disabled}
+      type="button" role="switch" aria-checked={checked} aria-label={label} disabled={disabled}
       onClick={() => !disabled && onChange(!checked)}
       className={cn("relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors", checked ? "bg-primary" : "bg-input", disabled && "opacity-50 cursor-not-allowed")}
     >

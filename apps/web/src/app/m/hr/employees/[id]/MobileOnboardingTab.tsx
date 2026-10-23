@@ -1411,7 +1411,7 @@ function SalarySubTab({
                       {formatCurrency(c.amount)}{variable ? unitSuffix(c.unitType, c.unitLabel) : ""}
                     </span>
                     {editing && (
-                      <button
+                      <button aria-label="Delete"
                         onClick={() => handleRemove(displayComponents.indexOf(c))}
                         className="ml-2 p-0.5"
                         style={{ color: "var(--color-stop)" }}
@@ -1453,7 +1453,7 @@ function SalarySubTab({
                       -{formatCurrency(c.amount)}{compCalc(c) === "UNIT_RATE" ? unitSuffix(c.unitType, c.unitLabel) : ""}
                     </span>
                     {editing && (
-                      <button
+                      <button aria-label="Delete"
                         onClick={() => handleRemove(displayComponents.indexOf(c))}
                         className="ml-2 p-0.5"
                         style={{ color: "var(--color-stop)" }}

@@ -1052,7 +1052,7 @@ function SaleForm({
                       <Plus className="size-3" />
                     </button>
                     {lines.length > 1 ? (
-                      <button
+                      <button aria-label="Delete"
                         type="button"
                         onClick={() => onRemoveLine(idx)}
                         className="flex items-center text-m-caption press"
@@ -1294,7 +1294,7 @@ function SaleForm({
                       />
                     </div>
                     {/* Add payment — plus button next to selector */}
-                    <button
+                    <button aria-label="Add"
                       type="button"
                       onClick={() =>
                         setPaymentSplits((prev) => [
@@ -1311,7 +1311,7 @@ function SaleForm({
                       <Plus className="size-2.5" />
                     </button>
                     {paymentSplits.length > 1 ? (
-                      <button
+                      <button aria-label="Delete"
                         type="button"
                         onClick={() =>
                           setPaymentSplits((prev) =>
@@ -1695,4 +1695,3 @@ function SaleForm({
     </div>
   );
 }
-

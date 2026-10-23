@@ -248,7 +248,7 @@ export function ScopeEditorDialog({
                           ))}
                       </Select>
                       {canEdit && entries.length > 1 && (
-                        <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeEntry(idx)}>
+                        <Button aria-label="Delete" type="button" variant="ghost" size="icon-sm" onClick={() => removeEntry(idx)}>
                           <Trash2 className="size-3.5" />
                         </Button>
                       )}
@@ -288,7 +288,7 @@ export function ScopeEditorDialog({
                           ))}
                       </Select>
                       {canEdit && entries.length > 1 && (
-                        <Button type="button" variant="ghost" size="icon-sm" onClick={() => removeEntry(idx)}>
+                        <Button aria-label="Delete" type="button" variant="ghost" size="icon-sm" onClick={() => removeEntry(idx)}>
                           <Trash2 className="size-3.5" />
                         </Button>
                       )}

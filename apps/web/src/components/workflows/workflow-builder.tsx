@@ -599,7 +599,7 @@ function StepEditor({
           </div>
           <span className="text-body font-medium">{def.label}</span>
         </div>
-        <button onClick={onClose} className="rounded-md p-1 hover:bg-accent">
+        <button onClick={onClose} className="rounded-md p-1 hover:bg-accent" aria-label="Close">
           <X className="h-4 w-4" />
         </button>
       </div>

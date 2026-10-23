@@ -637,7 +637,7 @@ function ProfileHero({
             >
               <Pencil className="h-3.5 w-3.5" /> Edit
             </Button>
-            <Button
+            <Button aria-label="Delete"
               size="sm"
               className="bg-white/15 backdrop-blur-md border border-white/20 text-white hover:bg-red-500/40 shadow-lg"
               onClick={onDelete}
@@ -2016,7 +2016,7 @@ function SalaryStructureSection({ employeeId, canManage }: { employeeId: string;
         {c.isDeduction ? "−" : ""}{formatCurrency(c.amount)}
       </span>
       {editing && (
-        <Button variant="outline" size="sm" onClick={() => setEditComponents((prev) => prev.filter((_, i) => i !== idx))}>
+        <Button aria-label="Delete" variant="outline" size="sm" onClick={() => setEditComponents((prev) => prev.filter((_, i) => i !== idx))}>
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
       )}

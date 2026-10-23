@@ -471,7 +471,7 @@ export function ExpenseFormDialog({
                   {receiptName ?? "View receipt"}
                 </a>
                 {!isLocked && (
-                  <button type="button" onClick={() => { setReceiptUrl(null); setReceiptName(null); }} className="text-muted-foreground hover:text-danger">
+                  <button aria-label="Close" type="button" onClick={() => { setReceiptUrl(null); setReceiptName(null); }} className="text-muted-foreground hover:text-danger">
                     <X className="h-3.5 w-3.5" />
                   </button>
                 )}

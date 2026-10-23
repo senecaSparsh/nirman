@@ -811,7 +811,7 @@ function MobileLegalDocForm({
                   <FileText className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
                   <span className="truncate">{form.documentName ?? "View"}</span>
                 </a>
-                <button type="button" onClick={() => { setField("documentUrl", null); setField("documentName", null); }} className="press shrink-0">
+                <button aria-label="Close" type="button" onClick={() => { setField("documentUrl", null); setField("documentName", null); }} className="press shrink-0">
                   <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
                 </button>
               </div>

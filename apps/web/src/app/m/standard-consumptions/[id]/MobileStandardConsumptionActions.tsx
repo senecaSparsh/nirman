@@ -125,7 +125,7 @@ export function MobileStandardConsumptionActions({
             </div>
             <div className="flex items-center justify-between px-3 pb-2">
               <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Edit Benchmark</p>
-              <button onClick={() => setShowEdit(false)} className="text-m-body press p-1">
+              <button aria-label="Close" onClick={() => setShowEdit(false)} className="text-m-body press p-1">
                 <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
               </button>
             </div>
@@ -200,7 +200,7 @@ export function MobileStandardConsumptionActions({
             </div>
             <div className="flex items-center justify-between px-3 pb-2">
               <p className="text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>Delete Benchmark?</p>
-              <button onClick={() => setShowDelete(false)} className="text-m-body press p-1">
+              <button aria-label="Close" onClick={() => setShowDelete(false)} className="text-m-body press p-1">
                 <X className="size-4" style={{ color: "var(--color-ink-500)" }} />
               </button>
             </div>

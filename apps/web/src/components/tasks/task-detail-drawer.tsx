@@ -835,7 +835,7 @@ function CommentNode({
                     <span className="text-caption font-medium">{reply.user.name}</span>
                     <span className="text-micro text-muted-foreground">{relativeTime(reply.createdAt)}</span>
                     {replyMine && (
-                      <button onClick={() => onDelete(reply.id)} className="ml-auto rounded p-0.5 text-muted-foreground hover:text-danger">
+                      <button aria-label="Delete" onClick={() => onDelete(reply.id)} className="ml-auto rounded p-0.5 text-muted-foreground hover:text-danger">
                         <Trash2 className="h-3 w-3" />
                       </button>
                     )}
@@ -863,7 +863,7 @@ function CommentNode({
           />
           <div className="flex gap-1">
             <Button size="sm" variant="ghost" onClick={onCancelReply}>Cancel</Button>
-            <Button size="sm" onClick={() => onReply(replyBody)} disabled={posting || !replyBody.trim()}>
+            <Button aria-label="Send" size="sm" onClick={() => onReply(replyBody)} disabled={posting || !replyBody.trim()}>
               <Send className="h-3.5 w-3.5" />
             </Button>
           </div>

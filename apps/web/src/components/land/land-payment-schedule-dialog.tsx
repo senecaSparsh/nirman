@@ -157,7 +157,7 @@ export function LandPaymentScheduleDialog({
                   value={it.dueDate}
                   onChange={(e) => updateItem(idx, "dueDate", e.target.value)}
                 />
-                <Button
+                <Button aria-label="Delete"
                   type="button"
                   variant="ghost"
                   size="sm"

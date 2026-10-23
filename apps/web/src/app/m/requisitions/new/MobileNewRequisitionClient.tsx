@@ -445,7 +445,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
                       </div>
                     )}
                     {lines.length > 1 ? (
-                      <button
+                      <button aria-label="Delete"
                         type="button"
                         onClick={() => removeLine(idx)}
                         className="p-1.5 text-m-body press active:scale-95 shrink-0"

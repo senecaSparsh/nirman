@@ -169,6 +169,82 @@ const requireAccessibleSelectPlugin = {
   },
 };
 
+// ── Custom plugin: require-accessible-icon-button ────────────────
+// Flags <button>/<Button> with no accessible name whose children are
+// icon-only (all JSX elements, no text/expression). Buttons carrying
+// any text node or expression are skipped — can't prove they're
+// icon-only statically. The axe sweep only sees rendered dialogs; this
+// catches them at author time.
+const requireAccessibleIconButtonPlugin = {
+  meta: {
+    type: "problem",
+    docs: {
+      description:
+        "Require icon-only buttons to have an accessible name",
+    },
+    schema: [],
+    messages: {
+      missingName:
+        "Icon-only <button> has no accessible name — add aria-label or title.",
+    },
+  },
+  create(context) {
+    const filename = context.filename ?? context.getFilename();
+    if (/components[\\/]ui[\\/]/.test(filename) || /\.test\.tsx?$/.test(filename)) return {};
+    return {
+      JSXElement(node) {
+        const name = node.openingElement?.name?.name;
+        if (name !== "button" && name !== "Button") return;
+        const attrs = node.openingElement?.attributes ?? [];
+        const named = attrs.some(
+          (a) =>
+            a.type === "JSXAttribute" &&
+            ["aria-label", "aria-labelledby", "title"].includes(a.name?.name),
+        );
+        if (named) return;
+        // Buttons inside a <label> inherit the label's text as their name.
+        let anc = node.parent;
+        while (anc) {
+          if (anc.type === "JSXElement" && anc.openingElement?.name?.name === "label") return;
+          anc = anc.parent;
+        }
+        const children = node.children ?? [];
+        // icon-only ⇔ every child is icon-like — a JSXElement/svg whose own
+        // children are also icon-like or empty (a <span>{name}</span> carries
+        // text and disqualifies the button). Any text node or expression at
+        // any depth means real content.
+        function iconLike(el) {
+          // An element carrying its own accessible name counts as labeled
+          // content, not an icon (e.g. <Link title="Open"> inside <Button asChild>).
+          const elAttrs = el.openingElement?.attributes ?? [];
+          const selfNamed = elAttrs.some(
+            (a) =>
+              a.type === "JSXAttribute" &&
+              ["aria-label", "aria-labelledby", "title"].includes(a.name?.name),
+          );
+          if (selfNamed) return false;
+          const kids = el.children ?? [];
+          return kids.every((c) => {
+            if (c.type === "JSXText") return c.value.trim() === "";
+            if (c.type === "JSXElement" || c.type === "JSXFragment") return iconLike(c);
+            return false;
+          });
+        }
+        const iconOnly =
+          children.length > 0 &&
+          children.every((c) => {
+            if (c.type === "JSXText") return c.value.trim() === "";
+            if (c.type === "JSXElement" || c.type === "JSXFragment") return iconLike(c);
+            return false;
+          });
+        if (iconOnly) {
+          context.report({ node: node.openingElement, messageId: "missingName" });
+        }
+      },
+    };
+  },
+};
+
 const eslintConfig = [
   ...nextCoreWebVitals,
   ...nextTypescript,
@@ -199,6 +275,7 @@ const eslintConfig = [
           "no-process-env-node-env-in-client": noProcessEnvInClientPlugin,
           "no-raw-employee-row-response": noRawEmployeeRowPlugin,
           "require-accessible-select": requireAccessibleSelectPlugin,
+          "require-accessible-icon-button": requireAccessibleIconButtonPlugin,
         },
       },
     },
@@ -247,6 +324,9 @@ const eslintConfig = [
       // Native selects need a real accessible name — decorative <Label>
       // siblings without htmlFor don't count (axe select-name).
       "nirman/require-accessible-select": "warn",
+      // Icon-only buttons (close/clear/add glyphs) need an accessible name —
+      // axe can only catch them when the dialog happens to be open.
+      "nirman/require-accessible-icon-button": "warn",
       // This rule is for the Pages Router — this app uses the App Router
       // exclusively (no /pages directory). Without disabling it, every lint
       // run prints "Pages directory cannot be found at .../pages or .../src/pages".

@@ -421,7 +421,7 @@ export function MobileNewWorkOrderForm({
                           <p className="text-m-caption font-bold tabular-nums" style={{ color: "var(--color-ink-500)" }}>{l.serialNo}</p>
                           <p className="text-m-body font-semibold leading-tight truncate" style={{ color: "var(--color-ink-950)" }}>{l.description}</p>
                         </div>
-                        <button type="button" onClick={() => removeLine(i)} className="text-m-body press shrink-0" style={{ color: "var(--color-ink-300)" }}>
+                        <button aria-label="Delete" type="button" onClick={() => removeLine(i)} className="text-m-body press shrink-0" style={{ color: "var(--color-ink-300)" }}>
                           <Trash2 className="size-3.5" />
                         </button>
                       </div>

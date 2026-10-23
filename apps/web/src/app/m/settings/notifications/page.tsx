@@ -340,6 +340,9 @@ function PreferencesTab({
                   <button
                     onClick={() => onToggle(pref)}
                     disabled={toggling === pref.id}
+                    role="switch"
+                    aria-checked={pref.enabled}
+                    aria-label={`${EVENT_LABELS[pref.eventType] ?? pref.eventType} — ${pref.channel}`}
                     className="relative w-10 h-5 rounded-full transition-colors text-m-body press"
                     style={{
                       backgroundColor: pref.enabled ? "var(--color-go)" : "var(--color-concrete)",

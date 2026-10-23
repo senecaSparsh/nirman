@@ -1368,7 +1368,7 @@ function WorkOrderDialog({
                   </Select>
                   <Input type="number" step="0.01" placeholder="Rate ₹" value={line.agreedRate} onChange={(e) => setLine(idx, "agreedRate", e.target.value)} />
                   {lines.length > 1 && (
-                    <button type="button" onClick={() => removeLine(idx)} className="text-muted-foreground hover:text-destructive">
+                    <button aria-label="Clear" type="button" onClick={() => removeLine(idx)} className="text-muted-foreground hover:text-destructive">
                       <XCircle className="h-4 w-4" />
                     </button>
                   )}

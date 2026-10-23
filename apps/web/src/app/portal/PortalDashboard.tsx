@@ -313,7 +313,7 @@ function SaleDetailModal({ sale, onClose }: { sale: PortalSale; onClose: () => v
             <h2 className="text-lg font-bold text-slate-900">{sale.unitLabel}</h2>
             <p className="text-xs text-slate-500">{sale.projectName} · {sale.saleNumber}</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600" aria-label="Close">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
           </button>
         </div>

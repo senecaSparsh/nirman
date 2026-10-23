@@ -513,7 +513,7 @@ export function MobileNewExpenseClaimClient({
                   {uploading && <Loader2 className="size-3 animate-spin" />}
                 </div>
                 {lines.length > 1 && (
-                  <button
+                  <button aria-label="Delete"
                     type="button"
                     onClick={() => removeLine(idx)}
                     className="flex items-center gap-1 text-m-caption font-semibold press"

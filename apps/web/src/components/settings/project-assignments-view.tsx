@@ -142,7 +142,7 @@ export function ProjectAssignmentsView({
                 </div>
               </div>
               {canManage && (
-                <Button size="sm" variant="ghost" onClick={() => setDelTarget(a.id)} disabled={submitting}>
+                <Button aria-label="Delete" size="sm" variant="ghost" onClick={() => setDelTarget(a.id)} disabled={submitting}>
                   <Trash2 className="h-3.5 w-3.5 text-danger" />
                 </Button>
               )}

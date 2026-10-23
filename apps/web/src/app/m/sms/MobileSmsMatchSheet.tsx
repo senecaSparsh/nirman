@@ -91,7 +91,7 @@ export function MobileSmsMatchSheet() {
             <p className="text-m-section font-extrabold" style={{ color: "var(--color-ink-950)" }}>
               Match to a payment
             </p>
-            <button onClick={close} className="grid place-items-center size-8 rounded-full press" style={{ backgroundColor: "var(--color-concrete)" }}>
+            <button onClick={close} className="grid place-items-center size-8 rounded-full press" style={{ backgroundColor: "var(--color-concrete)" }} aria-label="Close">
               <X className="size-4" style={{ color: "var(--color-ink-700)" }} />
             </button>
           </div>

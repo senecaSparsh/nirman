@@ -202,7 +202,7 @@ function landColumnsWithActions(
               </Button>
             )}
             <Button asChild variant="ghost" size="sm">
-              <Link href={`/land/${p.id}`}>
+              <Link href={`/land/${p.id}`} title="Open purchase" aria-label="Open purchase">
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </Button>

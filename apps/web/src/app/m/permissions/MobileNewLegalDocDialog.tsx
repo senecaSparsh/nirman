@@ -416,7 +416,7 @@ export function MobileNewLegalDocForm({
                 <FileText className="size-4 shrink-0" style={{ color: "var(--color-ink-500)" }} />
                 <span className="truncate">{form.documentName ?? "View"}</span>
               </a>
-              <button
+              <button aria-label="Close"
                 type="button"
                 onClick={() => setForm((f) => ({ ...f, documentUrl: null, documentName: null }))}
                 className="press shrink-0"

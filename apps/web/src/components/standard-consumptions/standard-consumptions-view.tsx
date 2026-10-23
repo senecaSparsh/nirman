@@ -117,10 +117,10 @@ export function StandardConsumptionsView({
                     </div>
                     {canManage && (
                       <div className="flex items-center gap-1">
-                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditTarget(b); setFormOpen(true); }}>
+                        <Button aria-label="Edit" size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditTarget(b); setFormOpen(true); }}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-danger" onClick={() => setDelTarget(b)}>
+                        <Button aria-label="Delete" size="sm" variant="ghost" className="h-7 w-7 p-0 text-danger" onClick={() => setDelTarget(b)}>
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>

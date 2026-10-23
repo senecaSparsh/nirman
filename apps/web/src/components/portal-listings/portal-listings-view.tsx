@@ -899,7 +899,7 @@ function ListingForm({
               placeholder="https://example.com/photo.jpg"
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addPhoto(); } }}
             />
-            <Button type="button" variant="outline" size="sm" onClick={addPhoto} disabled={!photoInput.trim()}>
+            <Button type="button" variant="outline" size="sm" onClick={addPhoto} disabled={!photoInput.trim()} aria-label="Add photo">
               <Plus className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -908,7 +908,7 @@ function ListingForm({
               {photos.map((url, i) => (
                 <div key={i} className="relative h-16 w-16 overflow-hidden rounded-md border border-border bg-muted">
                   <Image src={url} alt={`Photo ${i + 1}`} fill className="object-cover" sizes="64px" />
-                  <button
+                  <button aria-label="Clear"
                     type="button"
                     onClick={() => removePhoto(i)}
                     className="absolute right-0 top-0 rounded-bl-md bg-foreground/70 px-1 text-white transition-colors hover:bg-danger"

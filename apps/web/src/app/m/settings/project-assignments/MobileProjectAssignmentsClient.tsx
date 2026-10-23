@@ -196,7 +196,7 @@ export function MobileProjectAssignmentsClient({
 
                 {/* Delete button */}
                 {canManage && (
-                  <button
+                  <button aria-label="Delete"
                     onClick={() => setDelTarget(a)}
                     disabled={submitting}
                     className="text-m-body press p-1.5 -mr-1"

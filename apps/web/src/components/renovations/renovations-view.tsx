@@ -329,7 +329,7 @@ export function RenovationsView({
         align: "right",
         noExport: true,
         render: (c) => (
-          <Button size="sm" variant="ghost" onClick={() => setCostDeleteTarget({ renovationId: renovation.id, costId: c.id, label: c.costType })} disabled={submitting}>
+          <Button aria-label="Delete" size="sm" variant="ghost" onClick={() => setCostDeleteTarget({ renovationId: renovation.id, costId: c.id, label: c.costType })} disabled={submitting}>
             <Trash2 className="h-3 w-3 text-danger" />
           </Button>
         ),

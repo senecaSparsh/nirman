@@ -251,7 +251,7 @@ export function QuoteUploadDialog({
                 <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="flex-1 truncate text-body text-primary hover:underline">
                   {fileName}
                 </a>
-                <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={clearFile}>
+                <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={clearFile} aria-label="Clear file">
                   <X className="h-3.5 w-3.5" />
                 </Button>
               </div>

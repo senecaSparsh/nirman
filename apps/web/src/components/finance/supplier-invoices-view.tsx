@@ -1013,7 +1013,7 @@ function SupplierInvoiceFormDialog({
             <div className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-3 py-2">
               <FileText className="size-4 shrink-0 text-muted-foreground" />
               <span className="text-sm truncate flex-1">{docFile.name}</span>
-              <button type="button" onClick={() => setDocFile(null)} className="text-muted-foreground hover:text-danger">
+              <button aria-label="Close" type="button" onClick={() => setDocFile(null)} className="text-muted-foreground hover:text-danger">
                 <X className="size-3.5" />
               </button>
             </div>
