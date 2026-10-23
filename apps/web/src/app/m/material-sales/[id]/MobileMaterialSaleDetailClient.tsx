@@ -204,6 +204,11 @@ export function MobileMaterialSaleDetailClient({
     : isPending || isPartial
       ? "var(--color-signal)"
       : "var(--color-go)";
+  const accentTextColor = isCancelled
+    ? "var(--color-stop-active)"
+    : isPending || isPartial
+      ? "var(--color-signal-dark)"
+      : "var(--color-go-active)";
 
   const statusLabel = isCancelled ? "Cancelled" : isPartial ? "Partial" : isPending ? "Unpaid" : "Paid";
   const totalPaid = payments.reduce((s, p) => s + toNum((p.status === "VOID" ? 0 : p.amount)), 0);
@@ -304,7 +309,7 @@ export function MobileMaterialSaleDetailClient({
         }}>
           <ShieldCheck className="size-3.5 shrink-0" style={{
             color: gatePass.status === "APPROVED" || gatePass.status === "EXITED"
-              ? "var(--color-go)" : "var(--color-signal-dark)",
+              ? "var(--color-go-active)" : "var(--color-signal-dark)",
           }} />
           <span className="text-m-caption flex-1" style={{ color: "var(--color-ink-700)" }}>
             Gate pass <span className="font-mono font-semibold">{gatePass.gatePassNumber}</span> —{" "}
@@ -325,7 +330,7 @@ export function MobileMaterialSaleDetailClient({
         <span
           className="text-m-caption font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
           style={{
-            color: accentColor,
+            color: accentTextColor,
             backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)`,
           }}
         >
@@ -352,7 +357,7 @@ export function MobileMaterialSaleDetailClient({
             </p>
             <p
               className="text-m-section font-bold tabular-nums"
-              style={{ color: isCancelled ? "var(--color-stop)" : isPaid ? "var(--color-go)" : "var(--color-signal-dark)" }}
+              style={{ color: isCancelled ? "var(--color-stop-active)" : isPaid ? "var(--color-go-active)" : "var(--color-signal-dark)" }}
             >
               {formatCurrency(isCancelled ? totalAmount : isPaid ? totalAmount : balanceDue)}
             </p>
@@ -371,7 +376,7 @@ export function MobileMaterialSaleDetailClient({
         {!isCancelled && payments.length > 0 ? (
           <div className="mt-1.5 pt-1.5 flex items-center justify-between text-m-caption" style={{ borderTop: "1px solid var(--color-line)" }}>
             <span style={{ color: "var(--color-ink-500)" }}>Paid so far</span>
-            <span className="font-bold tabular-nums" style={{ color: "var(--color-go)" }}>
+            <span className="font-bold tabular-nums" style={{ color: "var(--color-go-active)" }}>
               {formatCurrency(totalPaid)}
             </span>
           </div>
@@ -406,7 +411,7 @@ export function MobileMaterialSaleDetailClient({
             className="flex flex-col items-center rounded-[0.5rem] border py-1.5 text-m-body press"
             style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
           >
-            <Banknote className="size-3.5 mb-0.5" style={{ color: "var(--color-go)" }} />
+            <Banknote className="size-3.5 mb-0.5" style={{ color: "var(--color-go-active)" }} />
             <span className="text-m-caption font-bold" style={{ color: "var(--color-ink-950)" }}>Payment</span>
           </button>
         ) : (
@@ -607,7 +612,7 @@ export function MobileMaterialSaleDetailClient({
                 <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
                   {formatNumber(l.qty, 0)} {l.materialUnit}
                 </p>
-                <p className="text-m-caption font-semibold tabular-nums" style={{ color: "var(--color-go)" }}>
+                <p className="text-m-caption font-semibold tabular-nums" style={{ color: "var(--color-go-active)" }}>
                   {formatCurrencyCompact(l.lineTotal)}
                 </p>
               </div>

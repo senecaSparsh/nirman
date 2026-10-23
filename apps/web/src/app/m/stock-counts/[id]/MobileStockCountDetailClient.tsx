@@ -80,7 +80,7 @@ export function MobileStockCountDetailClient({
 
   const StatusIcon = isDraft ? Clock : isCounted ? AlertTriangle : CheckCircle2;
   const accentColor = isDraft ? "var(--color-signal)" : isCounted ? "var(--color-steel)" : "var(--color-go)";
-  const accentTextColor = isDraft ? "var(--color-signal-dark)" : accentColor;
+  const accentTextColor = isDraft ? "var(--color-signal-dark)" : isCounted ? accentColor : "var(--color-go-active)";
   const statusLabel = isDraft ? "Draft" : isCounted ? "Counted" : "Reconciled";
 
   const handleAction = async (action: "confirm" | "reconcile") => {

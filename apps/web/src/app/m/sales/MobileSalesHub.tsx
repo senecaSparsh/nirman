@@ -196,33 +196,36 @@ function MobileLeadPipeline({
           return (
             <div
               key={lead.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => setSelected(lead)}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(lead); } }}
-              className="w-full rounded-[0.625rem] border p-3 text-left text-m-body press"
+              className="w-full rounded-[0.625rem] border text-left text-m-body"
               style={{ borderColor: overdue ? "var(--color-stop)" : lead.priority === "HOT" ? "var(--color-signal)" : "var(--color-line)", backgroundColor: "var(--color-paper)" }}
             >
-              <div className="mb-1.5 flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="truncate text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{lead.name}</p>
-                  <p className="mt-0.5 truncate text-m-caption" style={{ color: "var(--color-ink-500)" }}>{lead.projectName ?? "Any project"} · {lead.interestedUnitLabel ?? lead.interestedUnitType ?? "Unit not selected"}</p>
+              <button
+                type="button"
+                onClick={() => setSelected(lead)}
+                className="w-full p-3 pb-0 text-left press"
+                aria-label={`View lead ${lead.name}`}
+              >
+                <div className="mb-1.5 flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-m-section font-bold" style={{ color: "var(--color-ink-950)" }}>{lead.name}</p>
+                    <p className="mt-0.5 truncate text-m-caption" style={{ color: "var(--color-ink-500)" }}>{lead.projectName ?? "Any project"} · {lead.interestedUnitLabel ?? lead.interestedUnitType ?? "Unit not selected"}</p>
+                  </div>
+                  <span className="shrink-0 rounded-full px-1.5 py-0.5 text-m-caption font-bold uppercase" style={{ backgroundColor: lead.stage === "BOOKED" ? "var(--color-go-wash)" : "var(--color-concrete)", color: lead.stage === "BOOKED" ? "var(--color-go-active)" : "var(--color-ink-600)" }}>{lead.stage.replaceAll("_", " ")}</span>
                 </div>
-                <span className="shrink-0 rounded-full px-1.5 py-0.5 text-m-caption font-bold uppercase" style={{ backgroundColor: lead.stage === "BOOKED" ? "var(--color-go-wash)" : "var(--color-concrete)", color: lead.stage === "BOOKED" ? "var(--color-go)" : "var(--color-ink-600)" }}>{lead.stage.replaceAll("_", " ")}</span>
-              </div>
-              <div className="flex items-end justify-between gap-2">
-                <div>
-                  <p className="text-m-caption uppercase" style={{ color: "var(--color-ink-500)" }}>Score</p>
-                  <p className="text-m-section font-bold tabular-nums" style={{ color: lead.score >= 70 ? "var(--color-go)" : "var(--color-ink-950)" }}>{lead.score}/100</p>
+                <div className="flex items-end justify-between gap-2">
+                  <div>
+                    <p className="text-m-caption uppercase" style={{ color: "var(--color-ink-500)" }}>Score</p>
+                    <p className="text-m-section font-bold tabular-nums" style={{ color: lead.score >= 70 ? "var(--color-go-active)" : "var(--color-ink-950)" }}>{lead.score}/100</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-m-caption font-semibold" style={{ color: overdue ? "var(--color-stop-active)" : "var(--color-ink-600)" }}>{lead.nextFollowUpAt ? `${overdue ? "Overdue · " : "Follow up · "}${formatDate(lead.nextFollowUpAt)}` : "No follow-up"}</p>
+                    <p className="mt-0.5 text-m-caption" style={{ color: "var(--color-ink-400)" }}>{lead.assignedToName ?? "Unassigned"} · {lead.source.replaceAll("_", " ")}</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-m-caption font-semibold" style={{ color: overdue ? "var(--color-stop)" : "var(--color-ink-600)" }}>{lead.nextFollowUpAt ? `${overdue ? "Overdue · " : "Follow up · "}${formatDate(lead.nextFollowUpAt)}` : "No follow-up"}</p>
-                  <p className="mt-0.5 text-m-caption" style={{ color: "var(--color-ink-400)" }}>{lead.assignedToName ?? "Unassigned"} · {lead.source.replaceAll("_", " ")}</p>
-                </div>
-              </div>
-              <div className="mt-2 flex items-center justify-between border-t pt-2" style={{ borderColor: "var(--color-line)" }}>
+              </button>
+              <div className="mx-3 mb-3 mt-2 flex items-center justify-between border-t pt-2" style={{ borderColor: "var(--color-line)" }}>
                 <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>{lead.latestActivity?.outcome ?? `${lead.activityCount} activities`}</span>
-                <a href={`tel:${lead.phone}`} onClick={(event) => event.stopPropagation()} className="flex items-center gap-1 text-m-caption font-bold" style={{ color: "var(--color-steel)" }}><Phone className="size-3" /> Call</a>
+                <a href={`tel:${lead.phone}`} className="flex items-center gap-1 text-m-caption font-bold" style={{ color: "var(--color-steel)" }}><Phone className="size-3" /> Call</a>
               </div>
             </div>
           );
