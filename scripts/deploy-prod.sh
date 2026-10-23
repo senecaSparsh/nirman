@@ -64,6 +64,17 @@ fi
 # signal is the container being recreated (per-deploy name suffix) healthy.
 OLD_WEB=$(ssh "$VPS_SSH_HOST" 'docker ps --format "{{.Names}}" | grep -E "^web-" | head -1' 2>/dev/null || echo "")
 
+# ── Disk-space guard ──
+# The 2026-10-23 deploy failed with "no space left on device" mid-COPY
+# (95% disk — unused images + build cache accumulated). Check free space
+# and prune when the root volume has < 4GB free before triggering.
+FREE_MB=$(ssh "$VPS_SSH_HOST" 'df -m / | tail -1 | awk "{print \$4}"' 2>/dev/null || echo "0")
+if [ "${FREE_MB:-0}" -lt 4096 ]; then
+  log "Disk at ${FREE_MB}MB free — pruning unused images + build cache..."
+  ssh "$VPS_SSH_HOST" 'docker image prune -a -f >/dev/null 2>&1; docker builder prune -f >/dev/null 2>&1; df -m / | tail -1 | awk "{print \$4}"' 2>/dev/null | tail -1 | \
+    xargs -I{} log "Post-prune free: {}MB"
+fi
+
 # ── Trigger deploy via Coolify API ──
 log "Triggering deploy via Coolify API..."
 DEPLOY_RESPONSE=$(curl -sS -m 15 \
