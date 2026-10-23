@@ -205,6 +205,7 @@ function SubcontractorFormDialog({
   const router = useRouter();
   const [name, setName] = useState("");
   const [gstin, setGstin] = useState("");
+  const [pan, setPan] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
@@ -215,6 +216,7 @@ function SubcontractorFormDialog({
     if (open) {
       setName(subcontractor?.name ?? "");
       setGstin(subcontractor?.gstin ?? "");
+      setPan(subcontractor?.pan ?? "");
       setPhone(subcontractor?.phone ?? "");
       setEmail(subcontractor?.email ?? "");
       setAddress(subcontractor?.address ?? "");
@@ -233,6 +235,7 @@ function SubcontractorFormDialog({
       const payload = {
         name: name.trim(),
         gstin: gstin.trim() || null,
+        pan: pan.trim() || null,
         phone: phone.trim() || null,
         email: email.trim() || null,
         address: address.trim() || null,
@@ -278,6 +281,9 @@ function SubcontractorFormDialog({
             <Input value={gstin} onChange={(e) => setGstin(e.target.value)} placeholder="22AAAAA0000A1Z5" className="font-mono" />
           </Field>
         </div>
+        <Field label="PAN" hint="Needed for TDS filing — unregistered subs have no GSTIN to infer it from; absent PAN → 20% u/s 206AA.">
+          <Input value={pan} onChange={(e) => setPan(e.target.value.toUpperCase())} placeholder="ABCDE1234F" maxLength={10} className="font-mono" />
+        </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Phone">
             <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" />

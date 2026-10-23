@@ -113,9 +113,11 @@ export async function createWorkOrder(input: CreateWorkOrderInput) {
     }
 
     // TDS rate based on category; s.206AA overrides when the
-    // subcontractor has no PAN (PAN is chars 3-12 of their GSTIN).
+    // subcontractor has no PAN. An explicit pan wins; GSTIN is the fallback
+    // (PAN is chars 3-12 of it) — an unregistered sub has no GSTIN to
+    // infer from, so without the field they were wrongly floored at 20%.
     const tdsCategory = input.tdsCategory ?? "COMPANY";
-    const hasPan = Boolean(sub.gstin && sub.gstin.length >= 12);
+    const hasPan = Boolean(sub.pan?.trim() || (sub.gstin && sub.gstin.length >= 12));
     const tdsPct = !hasPan
       ? new Decimal(20)
       : tdsCategory === "INDIVIDUAL"

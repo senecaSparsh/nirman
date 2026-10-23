@@ -19,6 +19,7 @@ export const GET = apiHandler(async () => {
       id: s.id,
       name: s.name,
       gstin: s.gstin,
+      pan: s.pan,
       phone: s.phone,
       email: s.email,
       address: s.address,
@@ -40,6 +41,7 @@ export const POST = apiHandler(async (req: NextRequest) => {
       data: {
         name: parsed.data.name,
         gstin: parsed.data.gstin ?? null,
+        pan: parsed.data.pan ?? null,
         phone: parsed.data.phone ?? null,
         email: parsed.data.email ?? null,
         address: parsed.data.address ?? null,

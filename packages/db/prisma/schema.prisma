@@ -1770,6 +1770,7 @@ model Subcontractor {
   companyId   String
   name        String
   gstin       String?
+  pan         String?  // for TDS filings + Sec 206AA — unregistered subs have no GSTIN to infer it from
   phone       String?
   email       String?
   address     String?

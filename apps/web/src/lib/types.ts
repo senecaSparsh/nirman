@@ -1327,6 +1327,7 @@ export type SubcontractorRow = {
   id: string;
   name: string;
   gstin: string | null;
+  pan?: string | null;
   phone: string | null;
   email: string | null;
   address: string | null;

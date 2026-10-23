@@ -36,6 +36,7 @@ export const PATCH = apiHandler(async (req: NextRequest, { params }: { params: P
     data: {
       ...(parsed.data.name ? { name: parsed.data.name } : {}),
       ...(parsed.data.gstin !== undefined ? { gstin: parsed.data.gstin ?? null } : {}),
+      ...(parsed.data.pan !== undefined ? { pan: parsed.data.pan ?? null } : {}),
       ...(parsed.data.phone !== undefined ? { phone: parsed.data.phone ?? null } : {}),
       ...(parsed.data.email !== undefined ? { email: parsed.data.email ?? null } : {}),
       ...(parsed.data.address !== undefined ? { address: parsed.data.address ?? null } : {}),

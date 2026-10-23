@@ -1022,6 +1022,7 @@ export const requisitionSchema = z.object({
 export const subcontractorSchema = z.object({
   name: z.string().min(1, "Name is required"),
   gstin: z.string().optional().nullable(),
+  pan: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, "PAN must be 5 letters + 4 digits + 1 letter (e.g. ABCDE1234F)").optional().nullable().or(z.literal("").transform(() => null)),
   phone: z.string().optional().nullable(),
   email: optionalEmail,
   address: z.string().optional().nullable(),
