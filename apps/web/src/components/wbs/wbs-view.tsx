@@ -108,7 +108,7 @@ const STATUS_CONFIG: Record<Status, { label: string; dot: string; text: string }
   "in-progress": { label: "In Progress", dot: "bg-blue-500", text: "text-blue-600" },
   completed: { label: "Completed", dot: "bg-emerald-500", text: "text-emerald-600" },
   overdue: { label: "Overdue", dot: "bg-red-500", text: "text-red-600" },
-  "no-schedule": { label: "No Schedule", dot: "bg-slate-300", text: "text-slate-400" },
+  "no-schedule": { label: "No Schedule", dot: "bg-slate-300", text: "text-muted-foreground" },
 };
 
 // ── Rollup: compute aggregated progress + date range + budget from children ──
@@ -916,7 +916,7 @@ function GanttBar({
   todayPct: number | null;
   monthMarkers: { label: string; pos: number; major: boolean }[];
 }) {
-  if (!dateRange) return <div className="px-2 text-[10px] text-muted-foreground/40">No schedule</div>;
+  if (!dateRange) return <div className="px-2 text-[10px] text-muted-foreground">No schedule</div>;
 
   const start = parseDate(node.plannedStart);
   const end = parseDate(node.plannedEnd);
@@ -1613,8 +1613,9 @@ function WbsDetailDialog({ node, onClose, canEdit, allNodes, onReload, projectId
             <div className="mt-2 rounded-md border border-dashed p-2.5 space-y-2">
               <div className="grid grid-cols-[1fr_80px_60px] gap-2 items-end">
                 <div className="space-y-1">
-                  <label className="text-[10px] uppercase text-muted-foreground">Link to</label>
+                  <label htmlFor="wbs-dep-node" className="text-[10px] uppercase text-muted-foreground">Link to</label>
                   <select
+                    id="wbs-dep-node"
                     className="w-full h-8 rounded-md border border-border bg-background px-2 text-sm"
                     value={depForm.otherNodeId}
                     onChange={(e) => setDepForm((f) => ({ ...f, otherNodeId: e.target.value }))}
@@ -1626,8 +1627,9 @@ function WbsDetailDialog({ node, onClose, canEdit, allNodes, onReload, projectId
                   </select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] uppercase text-muted-foreground">Type</label>
+                  <label htmlFor="wbs-dep-type" className="text-[10px] uppercase text-muted-foreground">Type</label>
                   <select
+                    id="wbs-dep-type"
                     className="w-full h-8 rounded-md border border-border bg-background px-2 text-sm"
                     value={depForm.depType}
                     onChange={(e) => setDepForm((f) => ({ ...f, depType: e.target.value }))}

@@ -116,7 +116,7 @@ export function AuditTrailView({ users }: { users: { id: string; name: string }[
         return url ? (
           <Link
             href={url}
-            className="inline-flex items-center gap-1 text-brand hover:underline"
+            className="inline-flex items-center gap-1 text-brand-strong hover:underline"
           >
             {e.entityType}
             <ExternalLink className="h-3 w-3" />
@@ -166,8 +166,9 @@ export function AuditTrailView({ users }: { users: { id: string; name: string }[
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             <div className="space-y-1">
-              <Label className="text-caption">Entity Type</Label>
+              <Label className="text-caption" htmlFor="audit-f-entity">Entity Type</Label>
               <Select
+                id="audit-f-entity"
                 value={filters.entityType}
                 onChange={(e) => setFilters((f) => ({ ...f, entityType: e.target.value }))}
               >
@@ -178,8 +179,9 @@ export function AuditTrailView({ users }: { users: { id: string; name: string }[
               </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-caption">Action</Label>
+              <Label className="text-caption" htmlFor="audit-f-action">Action</Label>
               <Select
+                id="audit-f-action"
                 value={filters.action}
                 onChange={(e) => setFilters((f) => ({ ...f, action: e.target.value }))}
               >
@@ -190,8 +192,9 @@ export function AuditTrailView({ users }: { users: { id: string; name: string }[
               </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-caption">User</Label>
+              <Label className="text-caption" htmlFor="audit-f-user">User</Label>
               <Select
+                id="audit-f-user"
                 value={filters.userId}
                 onChange={(e) => setFilters((f) => ({ ...f, userId: e.target.value }))}
               >
@@ -202,16 +205,18 @@ export function AuditTrailView({ users }: { users: { id: string; name: string }[
               </Select>
             </div>
             <div className="space-y-1">
-              <Label className="text-caption">Start Date</Label>
+              <Label className="text-caption" htmlFor="audit-f-start">Start Date</Label>
               <Input
+                id="audit-f-start"
                 type="date"
                 value={filters.startDate}
                 onChange={(e) => setFilters((f) => ({ ...f, startDate: e.target.value }))}
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-caption">End Date</Label>
+              <Label className="text-caption" htmlFor="audit-f-end">End Date</Label>
               <Input
+                id="audit-f-end"
                 type="date"
                 value={filters.endDate}
                 onChange={(e) => setFilters((f) => ({ ...f, endDate: e.target.value }))}

@@ -241,9 +241,9 @@ export function PermissionsView({ docs, canManage }: { docs: PermissionRow[]; ca
               <div key={stage} className="space-y-2">
                 <div className="flex items-center gap-2 pb-1 border-b border-border">
                   <StageIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                  <h3 className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
+                  <h2 className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">
                     {STAGE_LABELS[stage]}
-                  </h3>
+                  </h2>
                   <span className="text-caption text-faint">{stageDocs.length}</span>
                 </div>
                 <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
@@ -273,7 +273,7 @@ export function PermissionsView({ docs, canManage }: { docs: PermissionRow[]; ca
             <div className="space-y-2">
               <div className="flex items-center gap-2 pb-1 border-b border-border">
                 <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                <h3 className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Other</h3>
+                <h2 className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Other</h2>
                 <span className="text-caption text-faint">{byStage.OTHER.length}</span>
               </div>
               <div className="overflow-hidden rounded-lg border border-border bg-card shadow-raised">
@@ -350,7 +350,7 @@ function PermissionTableRow({ doc, canManage: _canManage }: { doc: PermissionRow
       <td className="px-3 py-2.5">
         {doc.documentUrl ? (
           <a href={doc.documentUrl} target="_blank" rel="noreferrer"
-            className="inline-flex items-center gap-1 text-caption text-brand hover:underline">
+            className="inline-flex items-center gap-1 text-caption text-brand-strong hover:underline">
             <Download className="h-3 w-3" /> View
           </a>
         ) : (
@@ -364,14 +364,14 @@ function PermissionTableRow({ doc, canManage: _canManage }: { doc: PermissionRow
 function EntityLink({ doc }: { doc: PermissionRow }) {
   if (doc.projectId && doc.projectName) {
     return (
-      <Link href={`/projects/${doc.projectId}?tab=legal`} className="inline-flex items-center gap-1 text-caption text-brand hover:underline">
+      <Link href={`/projects/${doc.projectId}?tab=legal`} className="inline-flex items-center gap-1 text-caption text-brand-strong hover:underline">
         <Building2 className="h-3 w-3" /> {doc.projectName}
       </Link>
     );
   }
   if (doc.landPurchaseId && doc.landSellerName) {
     return (
-      <Link href={`/land/${doc.landPurchaseId}?tab=legal`} className="inline-flex items-center gap-1 text-caption text-brand hover:underline">
+      <Link href={`/land/${doc.landPurchaseId}?tab=legal`} className="inline-flex items-center gap-1 text-caption text-brand-strong hover:underline">
         <MapPin className="h-3 w-3" /> {doc.landSellerName}
         {doc.landLocation && <span className="text-muted-foreground"> · {doc.landLocation}</span>}
       </Link>

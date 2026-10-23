@@ -1122,7 +1122,7 @@ export function DataTable<T>({
       )}
 
       {/* ── Grid ──────────────────────────────────────────────── */}
-      <div className="relative w-full flex-1 overflow-auto scrollbar-thin">
+      <div className="relative w-full flex-1 overflow-auto scrollbar-thin" role="group" aria-label="Scrollable data table" tabIndex={0}>
         <table
           className={cn(
             "w-full caption-bottom border-collapse text-body",

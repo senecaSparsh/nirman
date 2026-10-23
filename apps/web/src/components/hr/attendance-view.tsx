@@ -531,7 +531,7 @@ export function AttendanceView({
               onClick={() => setTab("log")}
               className={cn(
                 "rounded-md px-3 py-1.5 text-body font-medium transition-colors",
-                tab === "log" ? "bg-[var(--color-world-hr)]/10 text-[var(--color-world-hr)]" : "text-muted-foreground hover:bg-muted/40",
+                tab === "log" ? "bg-[var(--color-world-hr)]/10 text-[color-mix(in_oklch,var(--color-world-hr)_60%,black)]" : "text-muted-foreground hover:bg-muted/40",
               )}
             >
               Log Attendance
@@ -540,7 +540,7 @@ export function AttendanceView({
               onClick={() => setTab("history")}
               className={cn(
                 "rounded-md px-3 py-1.5 text-body font-medium transition-colors",
-                tab === "history" ? "bg-[var(--color-world-hr)]/10 text-[var(--color-world-hr)]" : "text-muted-foreground hover:bg-muted/40",
+                tab === "history" ? "bg-[var(--color-world-hr)]/10 text-[color-mix(in_oklch,var(--color-world-hr)_60%,black)]" : "text-muted-foreground hover:bg-muted/40",
               )}
             >
               History
@@ -566,8 +566,8 @@ export function AttendanceView({
               {/* Date + project selector */}
               <div className="flex flex-wrap items-end gap-3">
                 <div>
-                  <Label>Date</Label>
-                  <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-auto" />
+                  <Label htmlFor="att-date">Date</Label>
+                  <Input id="att-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-auto" />
                 </div>
                 <div>
                   <Label>Project (optional)</Label>

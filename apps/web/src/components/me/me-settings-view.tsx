@@ -130,12 +130,13 @@ export function MeSettingsView({ user, roleLabel, roleDescription, memberships }
       <section className="rounded-lg border border-border bg-card p-6">
         <div className="mb-4 flex items-center gap-2">
           <User className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-body font-semibold text-foreground">Profile</h3>
+          <h2 className="text-body font-semibold text-foreground">Profile</h2>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <Label>Name</Label>
+            <Label htmlFor="me-name">Name</Label>
             <Input
+              id="me-name"
               value={profileForm.name}
               onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))}
               disabled={isDevBypass || savingProfile}
@@ -143,8 +144,9 @@ export function MeSettingsView({ user, roleLabel, roleDescription, memberships }
             />
           </div>
           <div>
-            <Label>Email</Label>
+            <Label htmlFor="me-email">Email</Label>
             <Input
+              id="me-email"
               value={user.email.endsWith("@nirman.internal") ? "—" : user.email}
               disabled
               className="bg-muted/50"
@@ -156,8 +158,9 @@ export function MeSettingsView({ user, roleLabel, roleDescription, memberships }
             </p>
           </div>
           <div>
-            <Label>Phone</Label>
+            <Label htmlFor="me-phone">Phone</Label>
             <Input
+              id="me-phone"
               value={profileForm.phone || "—"}
               disabled
               className="bg-muted/50"
@@ -167,8 +170,8 @@ export function MeSettingsView({ user, roleLabel, roleDescription, memberships }
             </p>
           </div>
           <div>
-            <Label>Role</Label>
-            <Input value={roleLabel} disabled className="bg-muted/50" />
+            <Label htmlFor="me-role">Role</Label>
+            <Input id="me-role" value={roleLabel} disabled className="bg-muted/50" />
             <p className="mt-1 text-micro text-muted-foreground">{roleDescription}</p>
           </div>
         </div>
@@ -211,7 +214,7 @@ export function MeSettingsView({ user, roleLabel, roleDescription, memberships }
         <section className="rounded-lg border border-border bg-card p-6">
           <div className="mb-4 flex items-center gap-2">
             <Lock className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-body font-semibold text-foreground">Change Password</h3>
+            <h2 className="text-body font-semibold text-foreground">Change Password</h2>
           </div>
           <div className="grid gap-4 sm:max-w-md">
             <div>
@@ -271,7 +274,7 @@ export function MeSettingsView({ user, roleLabel, roleDescription, memberships }
       <section className="rounded-lg border border-border bg-card p-6">
         <div className="mb-4 flex items-center gap-2">
           <Building2 className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-body font-semibold text-foreground">Companies</h3>
+          <h2 className="text-body font-semibold text-foreground">Companies</h2>
         </div>
         <div className="divide-y divide-border">
           {memberships.map((m) => (
@@ -299,7 +302,7 @@ export function MeSettingsView({ user, roleLabel, roleDescription, memberships }
                 <button
                   onClick={() => handleSwitchCompany(m.company.id, m.company.name)}
                   disabled={switchingCompanyId === m.company.id}
-                  className="shrink-0 text-micro font-medium text-brand transition-opacity hover:opacity-80 disabled:opacity-50"
+                  className="shrink-0 text-micro font-medium text-brand-strong transition-opacity hover:opacity-80 disabled:opacity-50"
                 >
                   {switchingCompanyId === m.company.id ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
@@ -413,7 +416,7 @@ function PasskeysSection() {
     <section className="rounded-lg border border-border bg-card p-6">
       <div className="mb-4 flex items-center gap-2">
         <Fingerprint className="h-4 w-4 text-muted-foreground" />
-        <h3 className="text-body font-semibold text-foreground">Biometric Login</h3>
+        <h2 className="text-body font-semibold text-foreground">Biometric Login</h2>
       </div>
       <p className="mb-4 text-micro leading-relaxed text-muted-foreground">
         Register this device&apos;s Face ID, Touch ID, Windows Hello, or fingerprint
@@ -512,7 +515,7 @@ function SessionsSection() {
     <section className="rounded-lg border border-border bg-card p-6">
       <div className="mb-4 flex items-center gap-2">
         <ShieldAlert className="h-4 w-4 text-muted-foreground" />
-        <h3 className="text-body font-semibold text-foreground">Security</h3>
+        <h2 className="text-body font-semibold text-foreground">Security</h2>
       </div>
 
       {confirmOpen ? (

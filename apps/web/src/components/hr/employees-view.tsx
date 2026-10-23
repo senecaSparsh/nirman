@@ -83,7 +83,7 @@ const AVATAR_COLORS = [
   "bg-success/15 text-success",
   "bg-info/15 text-info",
   "bg-warning/15 text-warning",
-  "bg-brand/15 text-brand",
+  "bg-brand/15 text-brand-strong",
   "bg-primary/10 text-primary",
 ];
 
@@ -138,7 +138,7 @@ const employeeColumns: Column<EmployeeRow>[] = [
       <span className={cn(
         "rounded px-1.5 py-0.5 text-micro font-medium",
         e.wageType === "DAILY" && "bg-info/10 text-info",
-        e.wageType === "MONTHLY" && "bg-brand/10 text-brand",
+        e.wageType === "MONTHLY" && "bg-brand/10 text-brand-strong",
         e.wageType === "FIXED" && "bg-warning/10 text-warning",
       )}>
         {e.wageType}
@@ -227,7 +227,7 @@ const employeeColumns: Column<EmployeeRow>[] = [
     filterable: true,
     sortValue: (e) => (e.userId ? "YES" : "NO"),
     render: (e) => e.userId ? (
-      <span className="flex items-center gap-1 text-micro font-medium text-green-600">
+      <span className="flex items-center gap-1 text-micro font-medium text-success">
         <UserCircle className="h-3.5 w-3.5" /> Has login
       </span>
     ) : (e.hierarchyLevel ?? 6) <= 3 ? (
@@ -257,7 +257,7 @@ const employeeColumns: Column<EmployeeRow>[] = [
       return (
         <span className={cn(
           "rounded px-1.5 py-0.5 text-micro font-medium",
-          e.hierarchyLevel <= 2 && "bg-brand/10 text-brand",
+          e.hierarchyLevel <= 2 && "bg-brand/10 text-brand-strong",
           e.hierarchyLevel >= 3 && e.hierarchyLevel <= 4 && "bg-info/10 text-info",
           e.hierarchyLevel >= 5 && "bg-muted text-muted-foreground",
         )}>

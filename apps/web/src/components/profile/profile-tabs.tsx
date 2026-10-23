@@ -344,7 +344,7 @@ export function ProfileTabs(props: ProfileTabsProps) {
                 Not scoped to any projects.
                 {props.canManageCompany && (
                   <>{" "}
-                    <Link href="/settings/project-assignments" className="text-brand hover:underline">
+                    <Link href="/settings/project-assignments" className="text-brand-strong hover:underline">
                       Assign projects →
                     </Link>
                   </>

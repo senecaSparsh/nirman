@@ -889,7 +889,7 @@ function PoForm({
                         Total
                       </span>
                       <div className="flex items-center gap-1">
-                        <span className="text-m-caption font-bold tabular-nums" style={{ color: lineTotal > 0 ? "var(--color-ink-500)" : "var(--color-ink-300)" }}>
+                        <span className="text-m-caption font-bold tabular-nums" style={{ color: lineTotal > 0 ? "var(--color-ink-500)" : "var(--color-ink-400)" }}>
                           {lineTotal > 0 ? formatCurrency(lineTotal + lineGst) : "—"}
                         </span>
                         {lineGstRate > 0 ? (
@@ -1057,7 +1057,7 @@ function PoForm({
                   </span>
                   {gstTotal > 0 ? (
                     <>
-                      <span className="text-m-caption" style={{ color: "var(--color-ink-300)" }}>+</span>
+                      <span className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>+</span>
                       <span className="text-m-caption font-semibold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
                         {formatCurrency(gstTotal)}
                       </span>
@@ -1065,7 +1065,7 @@ function PoForm({
                   ) : null}
                   {miscChargesTotal > 0 ? (
                     <>
-                      <span className="text-m-caption" style={{ color: "var(--color-ink-300)" }}>+</span>
+                      <span className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>+</span>
                       <span className="text-m-caption font-semibold tabular-nums" style={{ color: "var(--color-ink-500)" }}>
                         {formatCurrency(miscChargesTotal)}
                       </span>
@@ -1077,7 +1077,7 @@ function PoForm({
                 </span>
               </>
             ) : (
-              <span className="text-m-caption" style={{ color: "var(--color-ink-300)" }}>
+              <span className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>
                 Add items to see total
               </span>
             )}

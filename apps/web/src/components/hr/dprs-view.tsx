@@ -485,6 +485,7 @@ export function DprsView({
                   onChange={(e) => setDateFrom(e.target.value)}
                   className="h-8 shrink-0 rounded-md border border-input bg-card px-2.5 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
                   title="Filter from date"
+                  aria-label="Filter from date"
                 />
                 <input
                   type="date"
@@ -492,6 +493,7 @@ export function DprsView({
                   onChange={(e) => setDateTo(e.target.value)}
                   className="h-8 shrink-0 rounded-md border border-input bg-card px-2.5 text-[13px] text-foreground transition-[border-color,box-shadow] hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
                   title="Filter to date"
+                  aria-label="Filter to date"
                 />
               </div>
             }

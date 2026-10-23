@@ -618,7 +618,7 @@ function SignInForm({ showDevLogin, otpEnabled }: { showDevLogin: boolean; otpEn
   const busy = loading || oneClickRole !== null || passkeyLoading;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
       <div className="w-full max-w-[22rem]">
         <div className="mb-7 flex flex-col items-center gap-3 text-center">
           <span className="flex h-11 w-11 items-center justify-center rounded-lg bg-brand font-mono text-xl font-bold text-brand-foreground">
@@ -644,7 +644,7 @@ function SignInForm({ showDevLogin, otpEnabled }: { showDevLogin: boolean; otpEn
               type="button"
               variant="outline"
               size="touch"
-              className="w-full gap-2 border-brand/30 bg-brand-soft/40 font-medium text-brand hover:bg-brand-soft"
+              className="w-full gap-2 border-brand/30 bg-brand-soft/40 font-medium text-brand-strong hover:bg-brand-soft"
               disabled={busy}
               onClick={() => handlePasskeySignIn(false)}
             >
@@ -1190,7 +1190,7 @@ function SignInForm({ showDevLogin, otpEnabled }: { showDevLogin: boolean; otpEn
           <a href="/terms" className="underline-offset-2 hover:underline">Terms</a>
         </p>
       </div>
-    </div>
+    </main>
   );
 }
 
@@ -1198,9 +1198,9 @@ export function SignInPage({ showDevLogin, otpEnabled }: { showDevLogin: boolean
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-background">
+        <main className="flex min-h-screen items-center justify-center bg-background">
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        </div>
+        </main>
       }
     >
       <SignInForm showDevLogin={showDevLogin} otpEnabled={otpEnabled} />

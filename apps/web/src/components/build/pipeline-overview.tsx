@@ -223,7 +223,7 @@ function DefaultStageCard({ stage, onClick }: { stage: StageData; onClick: () =>
           <div className="mt-0.5 text-micro text-muted-foreground">{stage.metric.sub}</div>
         )}
       </div>
-      <div className="mt-3 flex items-center gap-1 text-caption text-muted-foreground/50 transition-colors group-hover:text-brand">
+      <div className="mt-3 flex items-center gap-1 text-caption text-muted-foreground transition-colors group-hover:text-brand">
         Expand <ChevronRight className="size-3 transition-transform group-hover:translate-x-0.5" />
       </div>
     </button>

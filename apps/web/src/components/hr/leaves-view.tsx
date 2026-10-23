@@ -50,8 +50,8 @@ const TYPE_COLORS: Record<string, string> = {
   SICK: "bg-danger/10 text-danger",
   EARNED: "bg-success/10 text-success",
   UNPAID: "bg-muted text-muted-foreground",
-  MATERNITY: "bg-brand/10 text-brand",
-  PATERNITY: "bg-brand/10 text-brand",
+  MATERNITY: "bg-brand/10 text-brand-strong",
+  PATERNITY: "bg-brand/10 text-brand-strong",
 };
 
 const STATUS_CONFIG: Record<string, { label: string; class: string; dotClass: string }> = {
@@ -62,11 +62,11 @@ const STATUS_CONFIG: Record<string, { label: string; class: string; dotClass: st
 };
 
 const AVATAR_COLORS = [
-  "bg-[var(--color-world-hr)]/15 text-[var(--color-world-hr)]",
+  "bg-[var(--color-world-hr)]/15 text-[color-mix(in_oklch,var(--color-world-hr)_60%,black)]",
   "bg-success/15 text-success",
   "bg-info/15 text-info",
   "bg-warning/15 text-warning",
-  "bg-brand/15 text-brand",
+  "bg-brand/15 text-brand-strong",
   "bg-primary/10 text-primary",
 ];
 
