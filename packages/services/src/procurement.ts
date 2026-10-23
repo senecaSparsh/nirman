@@ -930,7 +930,13 @@ export async function addLineToPurchaseOrder(input: {
     if (cost.lt(0)) throw new ServiceError("unitCost must be >= 0");
 
     const gstRate = new Decimal(material.gstRate ?? 0);
-    const lineTotal = qty.times(cost);
+    // Same landed semantics as createPurchaseOrder: unitLandedCost carries
+    // GST (top-up lines take no per-unit charges) and lineTotal = qty ×
+    // unitLandedCost. Writing ex-GST here corrupts every downstream reader
+    // (header recompute, committed-value rollups) that treats lineTotal as
+    // landed.
+    const unitLandedCost = cost.times(new Decimal(1).plus(gstRate.div(100)));
+    const lineTotal = qty.times(unitLandedCost);
 
     // Rate contracts apply to top-up lines too — the agreed rate and
     // maxQty cap are real controls regardless of when the line was added.
@@ -949,25 +955,67 @@ export async function addLineToPurchaseOrder(input: {
         unitCost: cost,
         gstRate,
         qtyReceived: 0,
+        unitLandedCost,
         lineTotal,
       },
     });
 
-    // Recompute PO header totals so they stay in sync with lines
+    // Recompute PO header totals so they stay in sync with lines.
+    // Mirror createPurchaseOrder's aggregate formulas exactly — subtotal is
+    // Σ(qty × unitCost) ex-GST and GST applies to the taxable base
+    // (unitCost − discount + packing), never to lineTotal (which is landed).
     const allLines = await tx.purchaseOrderLine.findMany({
       where: { purchaseOrderId: input.poId },
-      select: { qtyOrdered: true, unitCost: true, gstRate: true, lineTotal: true },
+      select: {
+        qtyOrdered: true,
+        unitCost: true,
+        gstRate: true,
+        freightPerUnit: true,
+        loadingPerUnit: true,
+        packingPerUnit: true,
+        insurancePerUnit: true,
+        discountPerUnit: true,
+      },
     });
-    const subtotal = allLines.reduce((s, l) => s.plus(new Decimal(l.lineTotal)), new Decimal(0));
-    const gstTotal = allLines.reduce((s, l) => {
-      const lt = new Decimal(l.lineTotal);
-      const gr = new Decimal(l.gstRate);
-      return s.plus(lt.times(gr).div(100));
-    }, new Decimal(0));
-    const total = subtotal.plus(gstTotal);
+    const poHeader = await tx.purchaseOrder.findUniqueOrThrow({
+      where: { id: input.poId },
+      select: { miscChargesTotal: true },
+    });
+    let subtotal = new Decimal(0);
+    let gstTotal = new Decimal(0);
+    let freightTotal = new Decimal(0);
+    let loadingTotal = new Decimal(0);
+    let packingTotal = new Decimal(0);
+    let insuranceTotal = new Decimal(0);
+    let discountTotal = new Decimal(0);
+    for (const l of allLines) {
+      const lq = new Decimal(l.qtyOrdered);
+      const lc = new Decimal(l.unitCost);
+      const ld = new Decimal(l.discountPerUnit);
+      const lp = new Decimal(l.packingPerUnit);
+      const taxablePU = lc.minus(ld).plus(lp);
+      subtotal = subtotal.plus(lq.times(lc));
+      gstTotal = gstTotal.plus(lq.times(taxablePU).times(new Decimal(l.gstRate)).div(100));
+      freightTotal = freightTotal.plus(lq.times(new Decimal(l.freightPerUnit)));
+      loadingTotal = loadingTotal.plus(lq.times(new Decimal(l.loadingPerUnit)));
+      packingTotal = packingTotal.plus(lq.times(lp));
+      insuranceTotal = insuranceTotal.plus(lq.times(new Decimal(l.insurancePerUnit)));
+      discountTotal = discountTotal.plus(lq.times(ld));
+    }
+    const total = subtotal
+      .plus(gstTotal)
+      .plus(freightTotal)
+      .plus(loadingTotal)
+      .plus(packingTotal)
+      .plus(insuranceTotal)
+      .plus(new Decimal(poHeader.miscChargesTotal))
+      .minus(discountTotal);
     await tx.purchaseOrder.update({
       where: { id: input.poId },
-      data: { subtotal, gstTotal, total },
+      data: {
+        subtotal, gstTotal, freightTotal, loadingTotal, packingTotal,
+        insuranceTotal, discountTotal, total,
+      },
     });
 
     await logAction(tx, {

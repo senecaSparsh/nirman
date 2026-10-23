@@ -148,12 +148,23 @@ expect "equipment sell" Equipment "$EQSELL" status SOLD
 echo "════════ 13. Purchase order mutations (eta/addLine/shortClose) ════════"
 PO=$(uid); POL=$(uid)
 P "INSERT INTO \"PurchaseOrder\" (id,\"poNumber\",\"supplierId\",\"procurementScope\",\"companyId\",\"destinationLocationId\",status,\"updatedAt\",\"createdAt\") VALUES ('$PO','PO-VFY-$RANDOM','$SUP','COMPANY','$C','$LOC_WH','DRAFT',now(),now())"
-P "INSERT INTO \"PurchaseOrderLine\" (id,\"purchaseOrderId\",\"materialId\",\"qtyOrdered\",\"unitCost\") VALUES ('$POL','$PO','$MAT',10,100)"
-req PATCH "purchase-orders/$PO" '{"action":"addLine","materialId":"cmv0qacbt006kvlt7yyxfaahr","qty":2,"unitCost":50}' >/dev/null
-expect_count "po addLine" "SELECT count(*) FROM \"PurchaseOrderLine\" WHERE \"purchaseOrderId\"='$PO'"
+# Seeded line carries 18% GST so the landed/ex-GST bases diverge — this
+# discriminates correct math from the old bug where landed lineTotal was
+# summed into the ex-GST subtotal and GST was re-computed on it.
+P "INSERT INTO \"PurchaseOrderLine\" (id,\"purchaseOrderId\",\"materialId\",\"qtyOrdered\",\"unitCost\",\"gstRate\",\"unitLandedCost\",\"lineTotal\") VALUES ('$POL','$PO','$MAT',10,100,18,118,1180)"
+P "UPDATE \"PurchaseOrder\" SET subtotal=1000, \"gstTotal\"=180, total=1180 WHERE id='$PO'"
 req PATCH "purchase-orders/$PO" '{"action":"approve"}' >/dev/null
 req PATCH "purchase-orders/$PO" '{"action":"order"}' >/dev/null
 expect "po order" PurchaseOrder "$PO" status ORDERED
+# addLine is a top-up on ORDERED/PARTIAL POs. Stone Aggregate is 5% GST, so
+# 2×50 → unitLandedCost 52.50, lineTotal 105; header must land at
+# subtotal 1100 / gst 185 / total 1285.
+r=$(req PATCH "purchase-orders/$PO" '{"action":"addLine","materialId":"cmv0qacbt006kvlt7yyxfaahr","qtyOrdered":2,"unitCost":50}')
+echo "$r" | grep -q '"ok":true' && { PASS=$((PASS+1)); echo "  PASS po addLine"; } || { FAIL=$((FAIL+1)); echo "  FAIL po addLine: $r"; }
+r=$(P "SELECT \"lineTotal\"::text FROM \"PurchaseOrderLine\" WHERE \"purchaseOrderId\"='$PO' AND \"qtyOrdered\"=2")
+[ "$r" = "105.00" ] && { PASS=$((PASS+1)); echo "  PASS addLine lineTotal (landed) $r"; } || { FAIL=$((FAIL+1)); echo "  FAIL addLine lineTotal: $r (want 105.00)"; }
+r=$(P "SELECT subtotal::text||'/'||\"gstTotal\"::text||'/'||total::text FROM \"PurchaseOrder\" WHERE id='$PO'")
+[ "$r" = "1100.00/185.00/1285.00" ] && { PASS=$((PASS+1)); echo "  PASS addLine header math $r"; } || { FAIL=$((FAIL+1)); echo "  FAIL addLine header math: $r (want 1100.00/185.00/1285.00)"; }
 req PATCH "purchase-orders/$PO" '{"action":"updateEta","expectedDate":"2027-01-15"}' >/dev/null
 r=$(P "SELECT \"expectedDate\"::date::text FROM \"PurchaseOrder\" WHERE id='$PO'")
 [ "$r" = "2027-01-15" ] && { PASS=$((PASS+1)); echo "  PASS po updateEta"; } || { FAIL=$((FAIL+1)); echo "  FAIL po eta: $r"; }
