@@ -129,7 +129,7 @@ export function QualityControlView({
 
   const filters = (
     <div className="flex items-center gap-2">
-      <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-7 w-[140px] text-caption">
+      <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-7 w-[140px] text-caption" aria-label="Status filter">
         <option value="ALL">All Status</option>
         <option value="OPEN">Open</option>
         <option value="UNDER_REVIEW">Under Review</option>
@@ -139,7 +139,7 @@ export function QualityControlView({
         <option value="CLOSED">Closed</option>
         <option value="CANCELLED">Cancelled</option>
       </Select>
-      <Select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)} className="h-7 w-[130px] text-caption">
+      <Select value={severityFilter} onChange={(e) => setSeverityFilter(e.target.value)} className="h-7 w-[130px] text-caption" aria-label="Severity filter">
         <option value="ALL">All Severity</option>
         <option value="CRITICAL">Critical</option>
         <option value="MAJOR">Major</option>
