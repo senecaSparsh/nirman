@@ -481,7 +481,7 @@ function TaskCard({
   return (
     <div
       className={cn(
-        "group cursor-pointer rounded-lg border bg-card p-2.5 transition-all hover:shadow-sm",
+        "group rounded-lg border bg-card p-2.5 transition-all hover:shadow-sm",
         isPending && "border-dashed border-border",
         !isPending && "border-border",
         // Priority — left border only, no separate bar
@@ -492,11 +492,14 @@ function TaskCard({
         isDone && "opacity-50",
         isCancelled && "opacity-40",
       )}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onView(task); } }}
-      onClick={() => onView(task)}
     >
+      <div
+        role="button"
+        tabIndex={0}
+        className="cursor-pointer"
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onView(task); } }}
+        onClick={() => onView(task)}
+      >
       {/* Row 1: status dot + title */}
       <div className="flex items-start gap-2">
         <div className="mt-1 shrink-0">
@@ -549,8 +552,10 @@ function TaskCard({
         )}
       </div>
 
-      {/* Hover actions — subtle, no border-t */}
-      <div className="mt-1.5 flex gap-0.5 pl-5 opacity-0 transition-opacity group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+      </div>
+
+      {/* Hover actions — siblings of the interactive region, not nested */}
+      <div className="mt-1.5 flex gap-0.5 pl-5 opacity-0 transition-opacity group-hover:opacity-100">
         {task.status !== "COMPLETED" && (
           <button onClick={() => onComplete(task)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-success" title="Mark completed">
             <CheckCircle2 className="h-3 w-3" />
@@ -593,16 +598,19 @@ function TaskList({
           <div
             key={t.id}
             className={cn(
-              "group flex cursor-pointer items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/30",
+              "group flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-muted/30",
               isOverdue && "bg-danger/5",
               isDone && "opacity-50",
               isCancelled && "opacity-40",
             )}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onView(t); } }}
-            onClick={() => onView(t)}
           >
+            <div
+              role="button"
+              tabIndex={0}
+              className="flex min-w-0 flex-1 cursor-pointer items-center gap-3"
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onView(t); } }}
+              onClick={() => onView(t)}
+            >
             {/* Priority bar — left edge only */}
             <div className={cn(
               "h-6 w-0.5 shrink-0 rounded-full",
@@ -647,8 +655,9 @@ function TaskList({
               </span>
             )}
 
-            {/* Hover actions */}
-            <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100" onClick={(e) => e.stopPropagation()}>
+            </div>
+            {/* Hover actions — siblings of the interactive region */}
+            <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
               {t.status !== "COMPLETED" && (
                 <button onClick={() => onComplete(t)} className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-success" title="Mark completed">
                   <CheckCircle2 className="h-3 w-3" />

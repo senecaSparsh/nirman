@@ -263,32 +263,39 @@ export function CompaniesManager({
     return (
       <div key={c.id}>
         <div
-          role="button"
-          tabIndex={0}
-          aria-expanded={expanded === c.id}
-          aria-label={`Toggle ${c.name}`}
-          className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-muted/40 cursor-pointer"
+          className="flex items-center gap-2 rounded-md px-2 py-2 hover:bg-muted/40"
           style={{ paddingLeft: `${depth * 16 + 8}px` }}
-          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleExpand(c.id); } }}
-          onClick={() => toggleExpand(c.id)}
         >
-          {c.hasChildren ? (
-            <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${expanded === c.id ? "rotate-90" : ""}`} />
-          ) : (
-            <span className="w-3.5 shrink-0" />
-          )}
-          <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <div className="min-w-0 flex-1">
-            <div className="truncate font-medium">{c.name}</div>
-            {c.businessType && <div className="truncate text-micro text-muted-foreground">{c.businessType}</div>}
+          {/* The expander is the interactive region; action buttons are
+              siblings — real <button>s nested in a role=button would be
+              invisible to some AT and fire the expander on activation. */}
+          <div
+            role="button"
+            tabIndex={0}
+            aria-expanded={expanded === c.id}
+            aria-label={`Toggle ${c.name}`}
+            className="flex min-w-0 flex-1 cursor-pointer items-center gap-2"
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleExpand(c.id); } }}
+            onClick={() => toggleExpand(c.id)}
+          >
+            {c.hasChildren ? (
+              <ChevronRight className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${expanded === c.id ? "rotate-90" : ""}`} />
+            ) : (
+              <span className="w-3.5 shrink-0" />
+            )}
+            <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-medium">{c.name}</div>
+              {c.businessType && <div className="truncate text-micro text-muted-foreground">{c.businessType}</div>}
+            </div>
+            <Badge variant="muted" className="shrink-0">{c.memberCount} member{c.memberCount !== 1 ? "s" : ""}</Badge>
+            {c.hasChildren && <Badge variant="outline" className="shrink-0">parent</Badge>}
           </div>
-          <Badge variant="muted" className="shrink-0">{c.memberCount} member{c.memberCount !== 1 ? "s" : ""}</Badge>
-          {c.hasChildren && <Badge variant="outline" className="shrink-0">parent</Badge>}
           <Button
             variant="ghost"
             size="sm"
             className="shrink-0"
-            onClick={(e) => { e.stopPropagation(); switchTo(c.id); }}
+            onClick={() => switchTo(c.id)}
           >
             Switch to
           </Button>
@@ -297,7 +304,7 @@ export function CompaniesManager({
               variant="ghost"
               size="icon-sm"
               className="shrink-0 text-muted-foreground hover:text-danger"
-              onClick={(e) => { e.stopPropagation(); deleteCompany(c); }}
+              onClick={() => deleteCompany(c)}
               title="Delete company"
             >
               <Trash2 className="h-3.5 w-3.5" />
