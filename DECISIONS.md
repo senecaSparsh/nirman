@@ -2177,6 +2177,40 @@ tier decision (darken tokens vs keep decorative-only) is a design call.
 0 business rows — a clean slate. Ready for one pilot company under a
 parallel-run agreement, not self-serve scale yet.
 
+## 96. Full-surface axe coverage — detail + site-worker + form layers (2026-10-23)
+
+Extended the sweep beyond list pages to every surface class, all
+verified on fresh production builds (`next build` + `next start:3400`,
+real sign-in, entity-level routes on live seed data):
+
+- **~125 routes at zero violations**: ~60 mobile hubs, ~30 mobile [id]
+  details, ~13 desktop details, ~20 create forms, the /m/site worker
+  family, /m/hr sub-pages, 33 desktop hubs.
+- **Detail-layer classes fixed**: badge-text-on-tint (stop/go/signal →
+  -active/-dark variants on 8-12% color-mix washes, ~4.3→≥5), go-fill
+  buttons ink-950→paper, nested-interactive cards (material-sales
+  payment rows, sales lead cards, leaves cards — restructured to
+  sibling buttons, not role=button wrappers), dl-wrapping for
+  DetailKeyValue runs, dialog <header>→div (duplicate banner landmark),
+  muted-foreground/{60-80}→full across 31 files, anatomy-muted token,
+  ~15 unlabeled selects/inputs, m-shell-content tabIndex, iso.css
+  caption tier, asides aria-labels, heading skips →h2.
+- **Site-worker surface** (field persona's daily driver): signal-fill
+  buttons were white-on-amber (1.82) → signal-foreground; field-receive
+  PO picker named; attendance chip strips scrollable-focusable; dpr
+  section headers.
+- **Regression**: 81/81 workflow checks green on the production build.
+- **Lesson logged**: several early 'missing h1' flags were
+  soft-deleted-entity 404 renders — detail-route sweeps now require
+  live-id verification, not just axe-clean (a 404 page passes axe).
+- **Codemod bug caught**: the dl-wrap regex split runs on JSX '>'/'}' —
+  repaired all 4 files; verified clean on rebuild.
+
+**Still open**: desktop hub long-tail (~250 unaudited routes — systemic
+fixes cover most by inheritance); real-device field verification;
+CA-parallel GST/TDS validation; deployed build on nirman.life trails
+main (Coolify picks up each push).
+
 ## 95. Mobile axe sweep at production scale + workflow regression (2026-10-23)
 
 Ran `scripts/axe-sweep.mjs` (new — reusable: real sign-in, route warm,
