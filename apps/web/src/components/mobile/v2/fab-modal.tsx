@@ -79,7 +79,6 @@ export function MobileFabModal({
   });
   useEffect(() => {
     if (!open) return;
-    prevFocusRef.current = document.activeElement;
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onCloseRef.current();
       if (e.key === "Tab" && panelEl) {
@@ -107,6 +106,7 @@ export function MobileFabModal({
       window.removeEventListener("keydown", handler);
       document.body.style.overflow = prevOverflow;
       if (prevFocusRef.current instanceof HTMLElement) prevFocusRef.current.focus();
+      prevFocusRef.current = null;
     };
     // panelEl is set by the ref callback once mounted — re-run when it lands.
   }, [open, panelEl]);
@@ -117,8 +117,17 @@ export function MobileFabModal({
   // inside it rather than on the backdrop or behind the modal. Also stores
   // the element so the Tab-trap effect above can scope to it.
   const dialogRef = (el: HTMLElement | null) => {
-    setPanelEl(el);
-    if (el && open) el.focus();
+    if (el) {
+      // Capture before moving focus into the panel — guarded so a
+      // StrictMode double-mount can't overwrite the trigger with the panel.
+      if (prevFocusRef.current === null || el.contains(prevFocusRef.current)) {
+        prevFocusRef.current = document.activeElement;
+      }
+      setPanelEl(el);
+      if (open) el.focus();
+    } else {
+      setPanelEl(null);
+    }
   };
 
   // Compute transform-origin from the FAB's position.

@@ -56,8 +56,8 @@ export function MobileSmsIngest() {
     }
   }
 
-  if (!open) {
-    return (
+  return (
+    <>
       <button
         onClick={() => setOpen(true)}
         className="ml-auto flex items-center gap-1 rounded-[0.375rem] px-2 py-1 text-m-caption font-semibold press"
@@ -68,11 +68,7 @@ export function MobileSmsIngest() {
       >
         <Plus className="size-3" /> Add SMS
       </button>
-    );
-  }
-
-  return (
-    <MobileModalSheet
+      <MobileModalSheet
       open={open}
       onClose={() => { if (!saving) setOpen(false); }}
       label="Paste Bank SMS"
@@ -152,6 +148,7 @@ export function MobileSmsIngest() {
             {saving ? "Processing…" : "Parse & Match"}
           </button>
         </form>
-    </MobileModalSheet>
+      </MobileModalSheet>
+    </>
   );
 }

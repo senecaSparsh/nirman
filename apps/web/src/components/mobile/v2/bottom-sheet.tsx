@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
@@ -55,9 +55,25 @@ export function MobileModalSheet({
     onCloseRef.current = onClose;
   });
 
+  // The ref callback fires during commit, before the lifecycle effect —
+  // capture prevFocus here (before we move focus into the panel) or the
+  // effect would store the dialog itself and focus restore lands on body.
+  // Guarded: StrictMode double-mounts refs in dev — a second pass would
+  // otherwise overwrite the trigger with the already-focused panel.
+  const panelRef = useCallback((el: HTMLElement | null) => {
+    if (el) {
+      // Capture once — only when empty or when the stored element is inside
+      // the panel already (stale capture from a StrictMode double-mount).
+      if (prevFocusRef.current === null || el.contains(prevFocusRef.current)) {
+        prevFocusRef.current = document.activeElement;
+      }
+      setPanelEl(el);
+      el.focus();
+    }
+  }, []);
+
   useEffect(() => {
     if (!open) return;
-    prevFocusRef.current = document.activeElement;
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") onCloseRef.current();
       if (e.key === "Tab" && panelEl) {
@@ -85,6 +101,7 @@ export function MobileModalSheet({
       window.removeEventListener("keydown", handler);
       document.body.style.overflow = prevOverflow;
       if (prevFocusRef.current instanceof HTMLElement) prevFocusRef.current.focus();
+      prevFocusRef.current = null;
     };
     // panelEl arrives via ref callback after mount — re-run once it lands.
   }, [open, panelEl]);
@@ -98,10 +115,7 @@ export function MobileModalSheet({
       onClick={onClose}
     >
       <div
-        ref={(el) => {
-          setPanelEl(el);
-          if (el) el.focus();
-        }}
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={label}

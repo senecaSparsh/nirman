@@ -55,7 +55,6 @@ export function OnboardingModal({
   const prevFocusRef = useRef<Element | null>(null);
   const [panelEl, setPanelEl] = useState<HTMLElement | null>(null);
   useEffect(() => {
-    prevFocusRef.current = document.activeElement;
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") handleClose();
       if (e.key === "Tab" && panelEl) {
@@ -109,8 +108,15 @@ export function OnboardingModal({
     >
       <div
         ref={(el) => {
-          setPanelEl(el);
-          if (el) el.focus();
+          if (el) {
+            // Capture before moving focus in — guarded so a StrictMode
+            // double-mount can't overwrite the trigger with the panel.
+            if (prevFocusRef.current === null || el.contains(prevFocusRef.current)) {
+              prevFocusRef.current = document.activeElement;
+            }
+            setPanelEl(el);
+            el.focus();
+          }
         }}
         role="dialog"
         aria-modal="true"
