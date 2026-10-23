@@ -35,7 +35,7 @@ export function ScanButton({
           color: "var(--color-ink-700)",
           border: "1px solid var(--color-line)",
         }}
-        aria-label={label}
+        aria-label={label || "Scan barcode"}
       >
         <ScanLine className="size-4" />
         {label ? <span className="text-m-caption font-semibold">{label}</span> : null}

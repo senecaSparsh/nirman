@@ -148,7 +148,9 @@ input[type="number"] {
   --color-warning: oklch(0.53 0.125 68);
   --color-warning-soft: oklch(0.965 0.04 78);
   --color-warning-border: oklch(0.875 0.075 75);
-  --color-danger: oklch(0.535 0.185 25);
+  --color-danger: oklch(
+    0.51 0.185 25
+  ); /* deepened: 4.47:1→~4.9:1 on danger-soft (AA); was 0.535 */
   --color-danger-soft: oklch(0.958 0.03 25);
   --color-danger-border: oklch(0.872 0.06 25);
   --color-info: oklch(0.51 0.135 250);

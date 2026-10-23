@@ -271,7 +271,7 @@ export function MobileRow({
             {meta}
           </p>
           {metaSub && (
-            <p className="text-m-caption mt-0.5 truncate" style={{ color: "var(--color-ink-300)" }}>
+            <p className="text-m-caption mt-0.5 truncate" style={{ color: "var(--color-ink-500)" }}>
               {metaSub}
             </p>
           )}

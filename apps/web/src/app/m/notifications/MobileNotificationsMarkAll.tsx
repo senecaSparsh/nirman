@@ -36,7 +36,7 @@ export function MobileNotificationsMarkAll() {
       onClick={markAll}
       disabled={busy}
       className="inline-flex items-center gap-1.5 rounded-[0.5rem] px-3 py-1.5 text-m-caption font-bold press disabled:opacity-50"
-      style={{ color: "var(--color-brand)", backgroundColor: "color-mix(in srgb, var(--color-brand) 10%, transparent)" }}
+      style={{ color: "var(--color-brand-strong)", backgroundColor: "color-mix(in srgb, var(--color-brand) 10%, transparent)" }}
     >
       <CheckCheck className="size-3.5" />
       {busy ? "…" : "Mark all read"}
