@@ -442,7 +442,14 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
                       <tr
                         key={wo.id}
                         className="group border-t border-border/30 hover:bg-muted/20 transition-colors cursor-pointer"
+                        tabIndex={0}
                         onClick={() => setDetailWO(wo)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setDetailWO(wo);
+                          }
+                        }}
                       >
                         <td className="px-3 py-2.5 font-mono text-xs font-semibold text-foreground whitespace-nowrap">
                           <span className={cn("inline-block h-1.5 w-1.5 rounded-full mr-1.5 align-middle", cfg.dot)} />
@@ -816,7 +823,7 @@ function WorkOrderDetailDialog({
                     <tbody>
                       {detail.raBills.map((rb) => {
                         return (
-                          <tr key={rb.id} className="border-t border-border/40 hover:bg-muted/20 cursor-pointer" onClick={() => setRaBillDetail({ id: rb.id, number: rb.raBillNumber })}>
+                          <tr key={rb.id} className="border-t border-border/40 hover:bg-muted/20 cursor-pointer" tabIndex={0} onClick={() => setRaBillDetail({ id: rb.id, number: rb.raBillNumber })} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setRaBillDetail({ id: rb.id, number: rb.raBillNumber }); } }}>
                             <td className="px-3 py-2 font-mono text-[11px] whitespace-nowrap">{rb.raBillNumber}</td>
                             <td className="px-3 py-2 tabular-nums text-[11px] text-muted-foreground whitespace-nowrap">{formatDate(rb.billDate)}</td>
                             <td className="px-3 py-2 text-right tabular-nums text-xs whitespace-nowrap">{formatCurrency(rb.grossAmount)}</td>

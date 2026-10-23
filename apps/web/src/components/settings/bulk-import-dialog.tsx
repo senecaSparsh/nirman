@@ -255,7 +255,15 @@ export function BulkImportDialog({
         <div className="space-y-4">
           <div
             className="rounded-lg border-2 border-dashed border-border p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
+            role="button"
+            tabIndex={0}
             onClick={() => fileInputRef.current?.click()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                fileInputRef.current?.click();
+              }
+            }}
           >
             <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
             <p className="text-body font-medium text-foreground">Click to select a CSV file</p>

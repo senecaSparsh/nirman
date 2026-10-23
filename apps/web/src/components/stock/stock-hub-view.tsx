@@ -281,6 +281,13 @@ function CrossCompanyTab() {
                 <Fragment key={m.materialId}>
                   <tr
                     className="border-t border-border hover:bg-muted/30 cursor-pointer"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        (e.currentTarget as HTMLElement).click();
+                      }
+                    }}
                     onClick={() => {
                       setExpanded((prev) => {
                         const next = new Set(prev);
