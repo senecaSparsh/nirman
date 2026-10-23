@@ -213,11 +213,13 @@ async function AssetReceiptView({ id, companyId, companyName }: { id: string; co
           Account Summary
         </p>
         <dl className="divide-y" style={{ borderColor: "var(--color-line)" }}>
+<dl className="divide-y" style={{ borderColor: "var(--color-line)" }}>
           <DetailKeyValue label="Sale Value" value={formatCurrency(salePrice)} />
           {gstAmount > 0 && <DetailKeyValue label={`GST @ ${gstRate}%`} value={formatCurrency(gstAmount)} />}
           <DetailKeyValue label="Total Payable (incl. GST)" value={formatCurrency(total)} />
           <DetailKeyValue label="Total Received Till Date" value={formatCurrency(totalPaid)} />
           <DetailKeyValue label="Balance Due" value={formatCurrency(balanceDue)} tone="stop" />
+</dl>
         </dl>
         <DetailProgress
           label="Payment Progress"
@@ -369,11 +371,13 @@ async function MaterialReceiptView({ id, companyId, companyName }: { id: string;
           Account Summary
         </p>
         <dl className="divide-y" style={{ borderColor: "var(--color-line)" }}>
+<dl className="divide-y" style={{ borderColor: "var(--color-line)" }}>
           <DetailKeyValue label="Subtotal" value={formatCurrency(subtotal)} />
           {gstTotal > 0 && <DetailKeyValue label="GST" value={formatCurrency(gstTotal)} />}
           <DetailKeyValue label="Total Sale Value (incl. GST)" value={formatCurrency(total)} />
           <DetailKeyValue label="Total Received Till Date" value={formatCurrency(totalPaid)} />
           <DetailKeyValue label="Balance Due" value={formatCurrency(balanceDue)} tone="stop" />
+</dl>
         </dl>
         <DetailProgress
           label="Payment Progress"

@@ -238,7 +238,7 @@ export function UnitValuationDialog({
       {/* ── Status transitions ── */}
       {canEdit && transitions.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-label text-muted-foreground/70">Move to:</span>
+          <span className="text-label text-muted-foreground">Move to:</span>
           {transitions.map((s) => {
             const cfg = TRANSITION_BUTTON_CONFIG[s];
             const Icon = cfg.icon;
@@ -438,7 +438,7 @@ function SummaryCell({
     "text-foreground";
   return (
     <div className="bg-card p-2.5">
-      <div className="flex items-center gap-1 text-label text-muted-foreground/70">
+      <div className="flex items-center gap-1 text-label text-muted-foreground">
         {icon}
         {label}
       </div>

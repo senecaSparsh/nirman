@@ -381,7 +381,7 @@ function EntityLink({ doc }: { doc: PermissionRow }) {
 }
 
 function FilterSelect({
-  label: _label, value, onChange, options,
+  label, value, onChange, options,
 }: {
   label: string;
   value: string;
@@ -391,6 +391,7 @@ function FilterSelect({
   return (
     <div className="relative">
       <select
+        aria-label={label}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="h-9 rounded-md border border-border bg-card pl-3 pr-7 text-caption text-foreground transition-colors hover:border-border-strong focus:outline-none focus:ring-2 focus:ring-brand/20"

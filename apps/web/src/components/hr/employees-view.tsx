@@ -284,22 +284,22 @@ function EmployeeStatsBar({ employees }: { employees: EmployeeRow[] }) {
   return (
     <div className="grid grid-cols-2 divide-border overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-4 sm:divide-x divide-y sm:divide-y-0">
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Total</span>
+        <span className="text-label text-muted-foreground">Total</span>
         <span className="text-figure text-foreground">{total}</span>
         <span className="text-micro text-muted-foreground">{active} active</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Trades</span>
+        <span className="text-label text-muted-foreground">Trades</span>
         <span className="text-figure text-foreground">{trades}</span>
         <span className="text-micro text-muted-foreground">{total - trades} unspecified</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Wage Mix</span>
+        <span className="text-label text-muted-foreground">Wage Mix</span>
         <span className="text-body font-semibold text-foreground">{dailyWage}D · {monthlyWage}M · {fixedWage}F</span>
         <span className="text-micro text-muted-foreground">daily / monthly / fixed</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Deployed</span>
+        <span className="text-label text-muted-foreground">Deployed</span>
         <span className="text-figure text-foreground">{assignedToProject}</span>
         <span className="text-micro text-muted-foreground">{inCrews} in crews</span>
       </div>
@@ -721,7 +721,7 @@ function EmployeeFormDialog({
         <div className="space-y-3">
           <div className="flex items-center gap-1.5 border-b border-border pb-1.5">
             <Users className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-label text-muted-foreground/75">IDENTITY</span>
+            <span className="text-label text-muted-foreground">IDENTITY</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="col-span-2">
@@ -773,7 +773,7 @@ function EmployeeFormDialog({
         <div className="space-y-3">
           <div className="flex items-center gap-1.5 border-b border-border pb-1.5">
             <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-label text-muted-foreground/75">CONTACT</span>
+            <span className="text-label text-muted-foreground">CONTACT</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -791,7 +791,7 @@ function EmployeeFormDialog({
         <div className="space-y-3">
           <div className="flex items-center gap-1.5 border-b border-border pb-1.5">
             <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-label text-muted-foreground/75">COMPENSATION</span>
+            <span className="text-label text-muted-foreground">COMPENSATION</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -824,7 +824,7 @@ function EmployeeFormDialog({
         <div className="space-y-3">
           <div className="flex items-center gap-1.5 border-b border-border pb-1.5">
             <Briefcase className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-label text-muted-foreground/75">EMPLOYMENT TERMS</span>
+            <span className="text-label text-muted-foreground">EMPLOYMENT TERMS</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -865,7 +865,7 @@ function EmployeeFormDialog({
         <div className="space-y-3">
           <div className="flex items-center gap-1.5 border-b border-border pb-1.5">
             <UsersRound className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-label text-muted-foreground/75">ASSIGNMENT</span>
+            <span className="text-label text-muted-foreground">ASSIGNMENT</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -912,7 +912,7 @@ function EmployeeFormDialog({
         <div className="space-y-3">
           <div className="flex items-center gap-1.5 border-b border-border pb-1.5">
             <Landmark className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-label text-muted-foreground/75">BANK & PAYROLL</span>
+            <span className="text-label text-muted-foreground">BANK & PAYROLL</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -946,7 +946,7 @@ function EmployeeFormDialog({
         <div className="space-y-3">
           <div className="flex items-center gap-1.5 border-b border-border pb-1.5">
             <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-label text-muted-foreground/75">STATUTORY IDs</span>
+            <span className="text-label text-muted-foreground">STATUTORY IDs</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -976,7 +976,7 @@ function EmployeeFormDialog({
         <div className="space-y-3">
           <div className="flex items-center gap-1.5 border-b border-border pb-1.5">
             <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-label text-muted-foreground/75">EMERGENCY CONTACT</span>
+            <span className="text-label text-muted-foreground">EMERGENCY CONTACT</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
@@ -998,7 +998,7 @@ function EmployeeFormDialog({
         <div className="space-y-3">
           <div className="flex items-center gap-1.5 border-b border-border pb-1.5">
             <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-label text-muted-foreground/75">ADDRESS</span>
+            <span className="text-label text-muted-foreground">ADDRESS</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>

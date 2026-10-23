@@ -342,7 +342,7 @@ export function PurchaseOrderDetailPanel({
                               {r.deliveryMode && <div className="text-micro">{r.deliveryMode.replaceAll("_", " ").toLowerCase()}</div>}
                               {r.vehicleNumber && <div className="font-mono text-micro">{r.vehicleNumber}</div>}
                               {r.driverName && <div className="text-micro">{r.driverName}</div>}
-                              {r.transporterName && <div className="text-micro text-muted-foreground/70">{r.transporterName}</div>}
+                              {r.transporterName && <div className="text-micro text-muted-foreground">{r.transporterName}</div>}
                             </div>
                           ) : "—"}
                         </TD>

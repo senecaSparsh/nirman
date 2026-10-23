@@ -686,6 +686,7 @@ export function MobileEmployeeDetailClient({
                 <p className="text-m-caption" style={{ color: "var(--color-ink-400)" }}>Reports to</p>
                 {editingReportsTo ? (
                   <select
+                    aria-label="Reports to"
                     value={reportsToDraft}
                     onChange={(e) => setReportsToDraft(e.target.value)}
                     disabled={savingReportsTo}

@@ -334,7 +334,7 @@ export function CreateAccountDialog({
           </p>
           {tempPassword && (
             <div className="rounded-lg border border-border bg-subtle p-3 space-y-1">
-              <p className="text-label text-muted-foreground/75 font-medium">TEMPORARY PASSWORD</p>
+              <p className="text-label text-muted-foreground font-medium">TEMPORARY PASSWORD</p>
               <p className="text-body font-mono font-semibold">{tempPassword}</p>
               <p className="text-caption text-muted-foreground">
                 Share this once with the employee — they sign in with their phone
@@ -343,7 +343,7 @@ export function CreateAccountDialog({
             </div>
           )}
           <div className="rounded-lg border border-border bg-subtle p-3 space-y-2">
-            <p className="text-label text-muted-foreground/75 font-medium">NEXT STEPS</p>
+            <p className="text-label text-muted-foreground font-medium">NEXT STEPS</p>
             <div className="space-y-1.5">
               <div className="flex items-start gap-2 text-caption">
                 <span className="text-muted-foreground">1.</span>
@@ -494,7 +494,7 @@ export function CreateAccountDialog({
                   <span
                     key={rl.key}
                     title="Requires a higher-tier role to grant"
-                    className="inline-flex items-center gap-1 rounded-md bg-muted/30 px-2 py-1 text-caption font-semibold text-muted-foreground/60 cursor-not-allowed"
+                    className="inline-flex items-center gap-1 rounded-md bg-muted/30 px-2 py-1 text-caption font-semibold text-muted-foreground cursor-not-allowed"
                   >
                     {rl.label}
                   </span>

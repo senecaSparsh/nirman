@@ -137,7 +137,7 @@ export function SupplierPortalDashboard({ supplier }: { supplier: PortalSupplier
             </div>
             <div className="grid grid-cols-2 gap-3">
               <input className="portal-input" type="date" placeholder="Due date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
-              <select className="portal-input" value={form.purchaseOrderId} onChange={(e) => setForm({ ...form, purchaseOrderId: e.target.value })}>
+              <select aria-label="Against a PO (optional)" className="portal-input" value={form.purchaseOrderId} onChange={(e) => setForm({ ...form, purchaseOrderId: e.target.value })}>
                 <option value="">Against a PO? (optional)</option>
                 {orders?.filter((o) => o.status === "ORDERED" || o.status === "PARTIAL" || o.status === "RECEIVED").map((o) => (
                   <option key={o.id} value={o.id}>{o.poNumber} · {inr(o.total)}</option>

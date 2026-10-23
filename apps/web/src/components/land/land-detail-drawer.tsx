@@ -90,7 +90,7 @@ export function LandDetailDrawer({
           {purchase.parcels.length > 0 && (
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-label text-muted-foreground/70">Plan View</span>
+                <span className="text-label text-muted-foreground">Plan View</span>
                 <CadastreLegend />
               </div>
               <div className="rounded-lg border border-border bg-muted/20 p-2">
@@ -102,13 +102,13 @@ export function LandDetailDrawer({
           {/* Inline stats — label + tnum, no tiles */}
           <div className="space-y-2">
             <div className="flex items-baseline justify-between border-b border-border/60 pb-1.5">
-              <span className="text-label text-muted-foreground/70">Total Area</span>
+              <span className="text-label text-muted-foreground">Total Area</span>
               <span className="tnum text-body font-semibold text-foreground">
                 {formatNumber(purchase.totalArea, 0)} {purchase.areaUnit}
               </span>
             </div>
             <div className="flex items-baseline justify-between border-b border-border/60 pb-1.5">
-              <span className="text-label text-muted-foreground/70">Cost Basis</span>
+              <span className="text-label text-muted-foreground">Cost Basis</span>
               <span className="tnum text-body font-semibold text-foreground">
                 {formatCurrency(purchase.totalCost)}
                 <span className="ml-1.5 text-micro text-muted-foreground">
@@ -117,18 +117,18 @@ export function LandDetailDrawer({
               </span>
             </div>
             <div className="flex items-baseline justify-between border-b border-border/60 pb-1.5">
-              <span className="text-label text-muted-foreground/70">Unsold Value</span>
+              <span className="text-label text-muted-foreground">Unsold Value</span>
               <span className="tnum text-body font-semibold text-foreground">{formatCurrency(purchase.unsoldValue)}</span>
             </div>
             <div className="flex items-baseline justify-between border-b border-border/60 pb-1.5">
-              <span className="text-label text-muted-foreground/70">Unrealized Gain</span>
+              <span className="text-label text-muted-foreground">Unrealized Gain</span>
               <span className={`tnum text-body font-semibold ${gainPositive ? "text-success" : "text-danger"}`}>
                 {gainPositive ? "+" : ""}{formatCurrency(purchase.valuationGain)}
               </span>
             </div>
             {purchase.soldRevenue > 0 && (
               <div className="flex items-baseline justify-between border-b border-border/60 pb-1.5">
-                <span className="text-label text-muted-foreground/70">Sold Revenue</span>
+                <span className="text-label text-muted-foreground">Sold Revenue</span>
                 <span className="tnum text-body font-semibold text-foreground">
                   {formatCurrency(purchase.soldRevenue)}
                   <span className="ml-1.5 text-micro text-muted-foreground">
@@ -141,7 +141,7 @@ export function LandDetailDrawer({
 
           {/* Parcel breakdown */}
           <div>
-            <div className="mb-2 text-label text-muted-foreground/70">Parcels</div>
+            <div className="mb-2 text-label text-muted-foreground">Parcels</div>
             {purchase.parcels.length === 0 ? (
               <p className="rounded-md border border-dashed border-border p-4 text-center text-caption text-muted-foreground">
                 No parcels under this purchase.

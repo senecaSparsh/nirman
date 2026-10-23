@@ -923,6 +923,7 @@ export function MobileLandDetailClient({
             <div className="rounded-[0.375rem] border p-2 space-y-0.5"
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}>
               <p className="text-m-caption font-bold uppercase mb-0.5" style={{ color: "var(--color-ink-500)" }}>Cost Breakup</p>
+<dl className="divide-y" style={{ borderColor: "var(--color-line)" }}>
               <DetailKeyValue label="Base" value={formatCurrency(data.baseCost)} />
               {data.leaseRentAmount != null && data.leaseRentAmount > 0 && (
                 <DetailKeyValue label={`Rent (${data.leaseRentPercent}%)`} value={formatCurrency(data.leaseRentAmount)} />
@@ -945,6 +946,7 @@ export function MobileLandDetailClient({
               {data.otherCharges != null && data.otherCharges > 0 && (
                 <DetailKeyValue label="Other Charges" value={formatCurrency(data.otherCharges)} />
               )}
+</dl>
               {/* Cost components — arbitrary / recurring / future costs */}
               {data.costComponents?.map((c) => (
                 <div

@@ -1084,6 +1084,7 @@ function ComparativeSheet({
                         ) : (
                           <select
                             autoFocus
+                            aria-label="Edit field"
                             value={isKnownOption ? cellValue : "__custom"}
                             onChange={(e) => {
                               const val = e.target.value === "__custom" ? "__custom" : e.target.value;
@@ -1226,6 +1227,7 @@ function ComparativeSheet({
                         ) : (
                           <select
                             autoFocus
+                            aria-label="Edit field"
                             value={isKnownOption ? cellValue : "__custom"}
                             onChange={(e) => {
                               const val = e.target.value === "__custom" ? "__custom" : e.target.value;

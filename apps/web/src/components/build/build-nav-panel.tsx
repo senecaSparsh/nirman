@@ -87,7 +87,7 @@ export function BuildNavPanel({
           )}
         >
           <Icon
-            className={cn("h-4 w-4 shrink-0", active ? "" : "text-muted-foreground/60")}
+            className={cn("h-4 w-4 shrink-0", active ? "" : "text-muted-foreground")}
             style={active ? { color: world.color } : undefined}
           />
           <span className="min-w-0 flex-1 truncate">{item.label}</span>

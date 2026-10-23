@@ -202,6 +202,7 @@ export function StockCountsView({
   const statusSelect = (
     <div className="relative shrink-0" style={{ width: 140 }}>
       <select
+        aria-label="Filter by status"
         value={statusFilter}
         onChange={(e) => setStatusFilter(e.target.value)}
         style={{ width: 140 }}

@@ -131,27 +131,27 @@ export function SupplierCockpit({ data }: { data: SupplierCockpitData }) {
       {/* Stats strip */}
       <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 border-b border-border pb-3">
         <div className="flex items-baseline gap-1.5">
-          <span className="text-label text-muted-foreground/70">Total POs</span>
+          <span className="text-label text-muted-foreground">Total POs</span>
           <span className="tnum text-body font-semibold text-foreground">{stats.totalPOs}</span>
         </div>
         <div className="flex items-baseline gap-1.5">
-          <span className="text-label text-muted-foreground/70">Open</span>
+          <span className="text-label text-muted-foreground">Open</span>
           <span className="tnum text-body font-semibold text-foreground">{stats.openPOCount}</span>
         </div>
         <div className="flex items-baseline gap-1.5">
-          <span className="text-label text-muted-foreground/70">Total Ordered</span>
+          <span className="text-label text-muted-foreground">Total Ordered</span>
           <span className="tnum text-body font-semibold text-foreground">{formatCurrency(stats.totalOrdered)}</span>
         </div>
         <div className="flex items-baseline gap-1.5">
-          <span className="text-label text-muted-foreground/70">Received</span>
+          <span className="text-label text-muted-foreground">Received</span>
           <span className="tnum text-body font-semibold text-success">{formatCurrency(stats.totalReceived)}</span>
         </div>
         <div className="flex items-baseline gap-1.5">
-          <span className="text-label text-muted-foreground/70">Returns</span>
+          <span className="text-label text-muted-foreground">Returns</span>
           <span className="tnum text-body font-semibold text-danger">{formatCurrency(stats.totalReturns)}</span>
         </div>
         <div className="ml-auto flex items-baseline gap-1.5">
-          <span className="text-label text-muted-foreground/70">Balance Owed</span>
+          <span className="text-label text-muted-foreground">Balance Owed</span>
           <span className={`tnum text-body font-semibold ${stats.balanceOwed > 0 ? "text-danger" : "text-foreground"}`}>{formatCurrency(stats.balanceOwed)}</span>
         </div>
       </div>
@@ -325,7 +325,7 @@ function OverviewTab({ data }: { data: SupplierCockpitData }) {
 function ActionLink({ href, label, icon }: { href: string; label: string; icon: React.ReactNode }) {
   return (
     <Link href={href} className="group flex items-center gap-2.5 rounded-md px-3 py-2 text-body text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground">
-      <span className="text-muted-foreground/60 transition-colors group-hover:text-foreground">{icon}</span>
+      <span className="text-muted-foreground transition-colors group-hover:text-foreground">{icon}</span>
       <span>{label}</span>
       <ArrowRight className="ml-auto h-3 w-3 text-muted-foreground/0 transition-all group-hover:text-muted-foreground" />
     </Link>
@@ -468,11 +468,11 @@ function InvoicesTab({ data }: { data: SupplierCockpitData }) {
       {invoices.length > 0 && (
         <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 border-b border-border pb-3">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-label text-muted-foreground/70">Total Invoiced</span>
+            <span className="text-label text-muted-foreground">Total Invoiced</span>
             <span className="tnum text-body font-semibold">{formatCurrency(totalInv)}</span>
           </div>
           <div className="flex items-baseline gap-1.5">
-            <span className="text-label text-muted-foreground/70">Outstanding</span>
+            <span className="text-label text-muted-foreground">Outstanding</span>
             <span className={`tnum text-body font-semibold ${totalOutstanding > 0 ? "text-warning" : "text-success"}`}>{formatCurrency(totalOutstanding)}</span>
           </div>
         </div>
@@ -532,15 +532,15 @@ function PaymentsTab({ data }: { data: SupplierCockpitData }) {
       {payments.length > 0 && (
         <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 border-b border-border pb-3">
           <div className="flex items-baseline gap-1.5">
-            <span className="text-label text-muted-foreground/70">Total Gross</span>
+            <span className="text-label text-muted-foreground">Total Gross</span>
             <span className="tnum text-body font-semibold">{formatCurrency(totalGross)}</span>
           </div>
           <div className="flex items-baseline gap-1.5">
-            <span className="text-label text-muted-foreground/70">TDS Deducted</span>
+            <span className="text-label text-muted-foreground">TDS Deducted</span>
             <span className="tnum text-body font-semibold text-muted-foreground">{formatCurrency(totalTds)}</span>
           </div>
           <div className="flex items-baseline gap-1.5">
-            <span className="text-label text-muted-foreground/70">Net Paid</span>
+            <span className="text-label text-muted-foreground">Net Paid</span>
             <span className="tnum text-body font-semibold text-success">{formatCurrency(totalNet)}</span>
           </div>
         </div>

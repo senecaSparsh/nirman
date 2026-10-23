@@ -376,7 +376,7 @@ export function ProjectHub({
                 </div>
               );
             })()}
-            <div className="text-muted-foreground/80">
+            <div className="text-muted-foreground">
               Withdrawals require engineer + architect + CA certification (Sec. 4(2)(l)(D))
             </div>
             {(project.escrowWithdrawals ?? []).length > 0 && (
@@ -443,7 +443,7 @@ export function ProjectHub({
                 welfare board. Ledgered spend is the running proxy; the cess is
                 actually assessed on the sanctioned estimate, so flag both. */}
             {(project.escrowSpent ?? 0) > 0 && (
-              <div className="text-muted-foreground/80">
+              <div className="text-muted-foreground">
                 Est. BOCW cess {formatCurrency(Math.round((project.escrowSpent ?? 0) * 0.01 * 100) / 100)} (1% of construction cost to date)
               </div>
             )}
@@ -457,7 +457,7 @@ export function ProjectHub({
           className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-caption font-medium"
           style={{
             backgroundColor: project.isPossessed ? "color-mix(in srgb, var(--color-go, #22c55e) 10%, transparent)" : "color-mix(in srgb, var(--color-signal, #f59e0b) 10%, transparent)",
-            color: project.isPossessed ? "var(--color-go, #22c55e)" : "var(--color-signal, #f59e0b)",
+            color: project.isPossessed ? "var(--color-go, #22c55e)" : "var(--color-signal-dark, #f59e0b)",
           }}
         >
           <KeyRound className="h-3 w-3" />
@@ -663,7 +663,7 @@ function OverviewTab({ data }: { data: ProjectHubData }) {
                   <p className="text-caption text-muted-foreground">
                     {formatCurrency(actualCost - budget)} over the {formatCurrency(budget)} budget.
                   </p>
-                  <Link href="/finance" className="mt-1 inline-flex items-center gap-1 text-caption font-medium text-brand hover:underline">
+                  <Link href="/finance" className="mt-1 inline-flex items-center gap-1 text-caption font-medium text-brand-strong hover:underline">
                     Review costs <ArrowRight className="h-3 w-3" />
                   </Link>
                 </div>
@@ -1329,7 +1329,7 @@ function LandTab({ data }: { data: ProjectHubData }) {
                   <div className="min-w-0">
                     <span className="font-mono text-caption font-medium text-foreground">{p.number}</span>
                     {p.parentParcelNumber && (
-                      <span className="ml-2 text-micro text-muted-foreground/60">from {p.parentParcelNumber}</span>
+                      <span className="ml-2 text-micro text-muted-foreground">from {p.parentParcelNumber}</span>
                     )}
                   </div>
                 ),
@@ -1565,17 +1565,17 @@ function FinanceTab({ data }: { data: ProjectHubData }) {
           </div>
           <div className="mt-4 grid flex-1 grid-cols-3 content-center gap-4">
             <div className="text-center">
-              <div className="text-label text-muted-foreground/70">Sold</div>
+              <div className="text-label text-muted-foreground">Sold</div>
               <div className="text-section font-semibold tnum text-foreground">{soldUnits.length}</div>
               <div className="text-caption tnum text-muted-foreground">{soldPct.toFixed(0)}% of {units.length}</div>
             </div>
             <div className="text-center">
-              <div className="text-label text-muted-foreground/70">Available</div>
+              <div className="text-label text-muted-foreground">Available</div>
               <div className="text-section font-semibold tnum text-foreground">{availableUnits.length}</div>
               <div className="text-caption tnum text-muted-foreground">&nbsp;</div>
             </div>
             <div className="text-center">
-              <div className="text-label text-muted-foreground/70">Avg Sale</div>
+              <div className="text-label text-muted-foreground">Avg Sale</div>
               <div className="text-section font-semibold tnum text-success">{avgSalePrice > 0 ? formatCurrency(avgSalePrice) : "—"}</div>
               <div className="text-caption tnum text-muted-foreground">{revPerSqft > 0 ? `${formatCurrency(revPerSqft)}/sq.ft` : "\u00a0"}</div>
             </div>
@@ -1590,17 +1590,17 @@ function FinanceTab({ data }: { data: ProjectHubData }) {
           </div>
           <div className="mt-4 grid flex-1 grid-cols-3 content-center gap-4">
             <div className="text-center">
-              <div className="text-label text-muted-foreground/70">Total POs</div>
+              <div className="text-label text-muted-foreground">Total POs</div>
               <div className="text-section font-semibold tnum text-foreground">{formatCurrency(poTotal)}</div>
               <div className="text-caption tnum text-muted-foreground">{pos.length} orders</div>
             </div>
             <div className="text-center">
-              <div className="text-label text-muted-foreground/70">Open</div>
+              <div className="text-label text-muted-foreground">Open</div>
               <div className="text-section font-semibold tnum text-warning">{openPOs.length}</div>
               <div className="text-caption tnum text-muted-foreground">{receivedPOs.length} received</div>
             </div>
             <div className="text-center">
-              <div className="text-label text-muted-foreground/70">Top Supplier</div>
+              <div className="text-label text-muted-foreground">Top Supplier</div>
               <div className="text-body font-semibold text-foreground truncate">{topSupplier ? topSupplier[0] : "—"}</div>
               <div className="text-caption tnum text-muted-foreground">{topSupplier ? formatCurrency(topSupplier[1]) : "\u00a0"}</div>
             </div>
@@ -1615,17 +1615,17 @@ function FinanceTab({ data }: { data: ProjectHubData }) {
           </div>
           <div className="mt-4 grid flex-1 grid-cols-3 content-center gap-4">
             <div className="text-center">
-              <div className="text-label text-muted-foreground/70">Total Value</div>
+              <div className="text-label text-muted-foreground">Total Value</div>
               <div className="text-section font-semibold tnum text-foreground">{formatCurrency(woTotal)}</div>
               <div className="text-caption tnum text-muted-foreground">{wos.length} orders</div>
             </div>
             <div className="text-center">
-              <div className="text-label text-muted-foreground/70">Active</div>
+              <div className="text-label text-muted-foreground">Active</div>
               <div className="text-section font-semibold tnum text-warning">{activeWOs.length}</div>
               <div className="text-caption tnum text-muted-foreground">{completedWOs.length} completed</div>
             </div>
             <div className="text-center">
-              <div className="text-label text-muted-foreground/70">RA Bills</div>
+              <div className="text-label text-muted-foreground">RA Bills</div>
               <div className="text-section font-semibold tnum text-foreground">{totalRABills}</div>
               <div className="text-caption tnum text-muted-foreground">&nbsp;</div>
             </div>

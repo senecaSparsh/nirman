@@ -749,8 +749,8 @@ export function BuiltUnitsView({
                 <div key={floor.floorLabel} className="space-y-2">
                   {/* Floor label — always show for spatial context */}
                   <div className="flex items-center gap-2 px-1">
-                    <Layers className="h-3 w-3 text-muted-foreground/60" />
-                    <span className="text-label text-muted-foreground/70">{floor.floorLabel}</span>
+                    <Layers className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-label text-muted-foreground">{floor.floorLabel}</span>
                     <span className="text-micro text-muted-foreground/50 tnum">{floor.units.length}</span>
                     <div className="ml-1 h-px flex-1 bg-border/40" />
                   </div>
@@ -955,7 +955,7 @@ function UnitCard({
 
         {/* Asking price — the hero number, compact */}
         <div className="mt-2 flex items-baseline justify-between">
-          <span className="text-label text-muted-foreground/60">Asking</span>
+          <span className="text-label text-muted-foreground">Asking</span>
           {u.askingPrice != null ? (
             <span className="tnum text-body font-bold tracking-tight text-foreground">
               {formatCurrency(u.askingPrice)}
@@ -987,7 +987,7 @@ function UnitCard({
 
         {/* Industrial / warehouse specs */}
         {(u.clearHeight != null || u.hasLoadingDock) && (
-          <div className="mt-0.5 flex items-center gap-2 text-micro text-muted-foreground/70">
+          <div className="mt-0.5 flex items-center gap-2 text-micro text-muted-foreground">
             {u.clearHeight != null && (
               <span title="Floor-to-ceiling clear height">
                 Clear height: {formatNumber(u.clearHeight, 1)} m
@@ -1002,7 +1002,7 @@ function UnitCard({
         {/* Margin — compact, only if available */}
         {marginVal != null && u.productionCost > 0 && (
           <div className="mt-1 flex items-baseline justify-between">
-            <span className="text-micro text-muted-foreground/60">Margin</span>
+            <span className="text-micro text-muted-foreground">Margin</span>
             <span className={cn("tnum text-micro font-semibold", marginVal >= 0 ? "text-success" : "text-danger")}>
               {marginVal >= 0 ? "+" : ""}{formatCurrency(marginVal)}
               <span className="ml-0.5 opacity-70">({((marginVal / u.productionCost) * 100).toFixed(0)}%)</span>

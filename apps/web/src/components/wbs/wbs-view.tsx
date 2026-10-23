@@ -798,7 +798,7 @@ function WbsTree({
                     ) : null}
                   </div>
                   {node.description && (
-                    <p className="truncate text-[10px] text-muted-foreground/60 mt-0.5">{node.description}</p>
+                    <p className="truncate text-[10px] text-muted-foreground mt-0.5">{node.description}</p>
                   )}
                 </div>
                 <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>

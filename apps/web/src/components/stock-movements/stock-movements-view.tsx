@@ -302,52 +302,52 @@ function MovementDetailPanel({ movement }: { movement: StockMovementRow }) {
 
       <div className="space-y-2">
         <div className="flex items-baseline justify-between border-b border-border/60 pb-1.5">
-          <span className="text-label text-muted-foreground/70">Quantity</span>
+          <span className="text-label text-muted-foreground">Quantity</span>
           <span className={`tnum text-body font-semibold ${isIn ? "text-success" : isOut ? "text-foreground" : "text-muted-foreground"}`}>
             {isIn ? "+" : isOut ? "−" : ""}{formatNumber(movement.qty, 3)} {movement.unit}
           </span>
         </div>
         <div className="flex items-baseline justify-between border-b border-border/60 pb-1.5">
-          <span className="text-label text-muted-foreground/70">Unit Cost</span>
+          <span className="text-label text-muted-foreground">Unit Cost</span>
           <span className="tnum text-body font-semibold text-foreground">{formatCurrency(movement.unitCost)}</span>
         </div>
         <div className="flex items-baseline justify-between border-b border-border/60 pb-1.5">
-          <span className="text-label text-muted-foreground/70">Total Value</span>
+          <span className="text-label text-muted-foreground">Total Value</span>
           <span className="tnum text-body font-semibold text-foreground">{formatCurrency(movement.unitCost * movement.qty)}</span>
         </div>
         <div className="flex items-baseline justify-between border-b border-border/60 pb-1.5">
-          <span className="text-label text-muted-foreground/70">From Location</span>
+          <span className="text-label text-muted-foreground">From Location</span>
           <span className="text-body text-foreground">{movement.fromLocationName ?? "—"}</span>
         </div>
         <div className="flex items-baseline justify-between border-b border-border/60 pb-1.5">
-          <span className="text-label text-muted-foreground/70">To Location</span>
+          <span className="text-label text-muted-foreground">To Location</span>
           <span className="text-body text-foreground">{movement.toLocationName ?? "—"}</span>
         </div>
         <div className="flex items-baseline justify-between border-b border-border/60 pb-1.5">
-          <span className="text-label text-muted-foreground/70">Balance After</span>
+          <span className="text-label text-muted-foreground">Balance After</span>
           <span className="tnum text-body font-semibold text-foreground">{formatNumber(movement.balanceAfter, 3)} {movement.unit}</span>
         </div>
         {movement.reason && (
           <div className="flex items-baseline justify-between border-b border-border/60 pb-1.5">
-            <span className="text-label text-muted-foreground/70">Reason</span>
+            <span className="text-label text-muted-foreground">Reason</span>
             <span className="text-body text-foreground">{movement.reason}</span>
           </div>
         )}
         {movement.refType && (
           <div className="flex items-baseline justify-between border-b border-border/60 pb-1.5">
-            <span className="text-label text-muted-foreground/70">Reference</span>
+            <span className="text-label text-muted-foreground">Reference</span>
             <span className="text-body text-foreground">{movement.refType}</span>
           </div>
         )}
         {movement.userName && (
           <div className="flex items-baseline justify-between border-b border-border/60 pb-1.5">
-            <span className="text-label text-muted-foreground/70">Recorded By</span>
+            <span className="text-label text-muted-foreground">Recorded By</span>
             <span className="text-body text-foreground">{movement.userName}</span>
           </div>
         )}
         {movement.latitude != null && movement.longitude != null && (
           <div className="flex items-baseline justify-between border-b border-border/60 pb-1.5">
-            <span className="text-label text-muted-foreground/70">GPS Location</span>
+            <span className="text-label text-muted-foreground">GPS Location</span>
             <a
               href={`https://www.google.com/maps?q=${movement.latitude},${movement.longitude}`}
               target="_blank"

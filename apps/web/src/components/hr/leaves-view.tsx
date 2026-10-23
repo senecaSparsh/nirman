@@ -93,21 +93,21 @@ function LeaveStatsBar({ leaves }: { leaves: LeaveRow[] }) {
   return (
     <div className="grid grid-cols-2 divide-border overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-4 sm:divide-x divide-y sm:divide-y-0">
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Total Requests</span>
+        <span className="text-label text-muted-foreground">Total Requests</span>
         <span className="text-figure text-foreground">{total}</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Pending</span>
+        <span className="text-label text-muted-foreground">Pending</span>
         <span className="text-figure text-warning">{pending}</span>
         <span className="text-micro text-muted-foreground">awaiting action</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Approved</span>
+        <span className="text-label text-muted-foreground">Approved</span>
         <span className="text-figure text-success">{approved}</span>
         <span className="text-micro text-muted-foreground">{rejected} rejected</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Days Off Granted</span>
+        <span className="text-label text-muted-foreground">Days Off Granted</span>
         <span className="text-figure text-foreground">{totalDays}</span>
         <span className="text-micro text-muted-foreground">approved leave days</span>
       </div>

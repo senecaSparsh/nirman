@@ -126,6 +126,7 @@ export function MaterialReconciliationView({ projects }: { projects: Project[] }
   const projectSelect = (
     <div className="relative shrink-0" style={{ width: 200 }}>
       <select
+        aria-label="Project"
         value={projectId}
         onChange={(e) => setProjectId(e.target.value)}
         style={{ width: 200 }}

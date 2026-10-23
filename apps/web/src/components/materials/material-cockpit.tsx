@@ -167,26 +167,26 @@ export function MaterialCockpit({ data, suppliers, locations }: { data: Material
       {/* Stats strip */}
       <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 border-b border-border pb-3">
         <div className="flex items-baseline gap-1.5">
-          <span className="text-label text-muted-foreground/70">Total Stock</span>
+          <span className="text-label text-muted-foreground">Total Stock</span>
           <span className="tnum text-body font-semibold text-foreground">{formatNumber(totalQty, 3)} {material.unit}</span>
         </div>
         <div className="flex items-baseline gap-1.5">
-          <span className="text-label text-muted-foreground/70">Stock Value</span>
+          <span className="text-label text-muted-foreground">Stock Value</span>
           <span className="tnum text-body font-semibold text-foreground">{formatCurrency(totalValue)}</span>
         </div>
         <div className="flex items-baseline gap-1.5">
-          <span className="text-label text-muted-foreground/70">Current Cost</span>
+          <span className="text-label text-muted-foreground">Current Cost</span>
           <span className="tnum text-body font-semibold text-foreground">{formatCurrency(aggregateMac)}/{material.unit}</span>
         </div>
         {material.reorderPoint != null && (
           <div className="flex items-baseline gap-1.5">
-            <span className="text-label text-muted-foreground/70">Reorder At</span>
+            <span className="text-label text-muted-foreground">Reorder At</span>
             <span className={`tnum text-body font-semibold ${isLowStock ? "text-danger" : "text-foreground"}`}>{formatNumber(material.reorderPoint, 3)} {material.unit}</span>
           </div>
         )}
         {material.economicOrderQty != null && (
           <div className="flex items-baseline gap-1.5">
-            <span className="text-label text-muted-foreground/70">EOQ</span>
+            <span className="text-label text-muted-foreground">EOQ</span>
             <span className="tnum text-body font-semibold text-foreground">{formatNumber(material.economicOrderQty, 3)} {material.unit}</span>
           </div>
         )}
@@ -382,7 +382,7 @@ function OverviewTab({ data }: { data: MaterialCockpitData; totalQty: number; to
 function ActionLink({ href, label, icon }: { href: string; label: string; icon: React.ReactNode }) {
   return (
     <Link href={href} className="group flex items-center gap-2.5 rounded-md px-3 py-2 text-body text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground">
-      <span className="text-muted-foreground/60 transition-colors group-hover:text-foreground">{icon}</span>
+      <span className="text-muted-foreground transition-colors group-hover:text-foreground">{icon}</span>
       <span>{label}</span>
       <ArrowRight className="ml-auto h-3 w-3 text-muted-foreground/0 transition-all group-hover:text-muted-foreground" />
     </Link>

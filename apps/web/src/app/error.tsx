@@ -39,7 +39,7 @@ export default function RootError({
             : "An unexpected error occurred. Your data is safe — try again."}
         </p>
         {error.digest && (
-          <p className="mt-1 text-xs text-muted-foreground/60">
+          <p className="mt-1 text-xs text-muted-foreground">
             Error ID: {error.digest}
           </p>
         )}

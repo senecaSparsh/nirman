@@ -204,6 +204,7 @@ export function BbaPipelineBoard({
         <div className="flex items-center gap-2">
           {/* Project filter */}
           <select
+            aria-label="Filter by project"
             value={projectFilter}
             onChange={(e) => setProjectFilter(e.target.value)}
             className="h-8 appearance-none rounded-md border border-input bg-card pl-2.5 pr-7 text-[13px] text-foreground hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
@@ -223,7 +224,7 @@ export function BbaPipelineBoard({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search customer, unit, sale…"
-              className="h-8 w-56 rounded-md border border-input bg-card pl-7 pr-3 text-[13px] text-foreground placeholder:text-muted-foreground/60 hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
+              className="h-8 w-56 rounded-md border border-input bg-card pl-7 pr-3 text-[13px] text-foreground placeholder:text-muted-foreground hover:border-border-strong focus-visible:border-brand focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-brand/20"
             />
           </div>
         </div>
@@ -422,7 +423,7 @@ function BbaSaleCard({
       </div>
 
       {/* Next-action hint — guides the user on how to progress this sale */}
-      <div className="mt-2 flex items-center gap-1 text-micro text-muted-foreground/70 group-hover:text-brand">
+      <div className="mt-2 flex items-center gap-1 text-micro text-muted-foreground group-hover:text-brand">
         <ArrowRight className="h-2.5 w-2.5 shrink-0" />
         <span className="truncate">
           {stage === "BOOKED" && !sale.bbaNo && !sale.bbaDocumentUrl && "Upload BBA to advance"}

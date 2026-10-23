@@ -83,7 +83,7 @@ function AttendanceStatsBar({ employees, getStatus, isMarked }: { employees: { i
   return (
     <div className="grid grid-cols-2 divide-border overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-5 sm:divide-x divide-y sm:divide-y-0">
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Attendance Rate</span>
+        <span className="text-label text-muted-foreground">Attendance Rate</span>
         {rate === null ? (
           <span className="text-figure-lg text-muted-foreground">—</span>
         ) : (
@@ -96,20 +96,20 @@ function AttendanceStatsBar({ employees, getStatus, isMarked }: { employees: { i
         </span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Present</span>
+        <span className="text-label text-muted-foreground">Present</span>
         <span className="text-figure text-success">{present}</span>
         <span className="text-micro text-muted-foreground">incl. overtime</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Half Day</span>
+        <span className="text-label text-muted-foreground">Half Day</span>
         <span className="text-figure text-warning">{halfDay}</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Absent</span>
+        <span className="text-label text-muted-foreground">Absent</span>
         <span className="text-figure text-danger">{absent}</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Leave</span>
+        <span className="text-label text-muted-foreground">Leave</span>
         <span className="text-figure text-muted-foreground">{leave}</span>
       </div>
     </div>

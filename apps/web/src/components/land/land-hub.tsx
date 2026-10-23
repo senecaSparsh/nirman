@@ -416,7 +416,7 @@ export function LandHub({ data }: { data: LandHubData }) {
         <div className="relative pl-5 pr-5 py-4">
           {/* Document header — eyebrow + registry reference, like a deed's top line */}
           <div className="flex items-center justify-between gap-4">
-            <span className="text-label text-muted-foreground/80">Land Purchase</span>
+            <span className="text-label text-muted-foreground">Land Purchase</span>
             <span className="flex items-center gap-1.5 font-mono text-caption text-muted-foreground tnum">
               <ScrollText className="h-3 w-3" />
               {purchase.registryNo ? `REGISTRY № ${purchase.registryNo}` : "REGISTRY —"}
@@ -434,7 +434,7 @@ export function LandHub({ data }: { data: LandHubData }) {
                     {purchase.projectName}
                   </span>
                 ) : (
-                  <span className="text-caption text-muted-foreground/70">Standalone land</span>
+                  <span className="text-caption text-muted-foreground">Standalone land</span>
                 )}
                 {purchase.mode && (
                   <span className="inline-flex items-center gap-1 rounded-sm border border-border bg-muted/40 px-1.5 py-0.5 text-caption text-muted-foreground">
@@ -663,13 +663,13 @@ export function LandHub({ data }: { data: LandHubData }) {
                     <span className="text-muted-foreground">
                       {c.label}
                       {c.frequency === "RECURRING" && c.interval && (
-                        <span className="text-muted-foreground/70"> ({INTERVAL_LABELS[c.interval]})</span>
+                        <span className="text-muted-foreground"> ({INTERVAL_LABELS[c.interval]})</span>
                       )}
                     </span>
                     <strong className="text-foreground tabular-nums text-right">
                       {formatCurrency(c.postedAmount)}
                       {c.frequency === "RECURRING" && c.scheduledTotal > 0 && c.postedAmount !== c.scheduledTotal && (
-                        <span className="text-muted-foreground/70 font-normal"> / {formatCurrency(c.scheduledTotal)}</span>
+                        <span className="text-muted-foreground font-normal"> / {formatCurrency(c.scheduledTotal)}</span>
                       )}
                     </strong>
                   </div>
@@ -741,7 +741,7 @@ export function LandHub({ data }: { data: LandHubData }) {
         {/* Left: Cadastre plan — sticky, the map IS the header */}
         <div className="lg:sticky lg:top-4 lg:self-start">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-label text-muted-foreground/70">Cadastre Plan</span>
+            <span className="text-label text-muted-foreground">Cadastre Plan</span>
             <CadastreLegend />
           </div>
           <div className="rounded-lg border border-border bg-card p-2">
@@ -1145,7 +1145,7 @@ function FieldItem({
 }) {
   return (
     <div className="min-w-0 text-center">
-      <div className="flex items-center justify-center gap-1 text-label leading-none text-muted-foreground/60">
+      <div className="flex items-center justify-center gap-1 text-label leading-none text-muted-foreground">
         {icon}
         {label}
       </div>
@@ -1179,7 +1179,7 @@ function KpiItem({
 }) {
   return (
     <div className="min-w-0 text-center" title={title}>
-      <div className="text-label leading-none text-muted-foreground/60">{label}</div>
+      <div className="text-label leading-none text-muted-foreground">{label}</div>
       <div className={`mt-1.5 tnum text-body font-semibold leading-none ${tone === "positive" ? "text-success" : tone === "negative" ? "text-danger" : "text-foreground"}`}>
         {value}
       </div>

@@ -433,7 +433,7 @@ function DrawerHeader({
             </span>
           </span>
         ) : (
-          <span className="text-muted-foreground/60">Unassigned</span>
+          <span className="text-muted-foreground">Unassigned</span>
         )}
         <span>·</span>
         <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{formatDuration(totalLogged)} logged</span>
@@ -610,7 +610,7 @@ function StepsTab({ detail, canEdit, onChanged }: {
           <p className="py-6 text-center text-caption text-muted-foreground">No steps defined for this task.</p>
         )}
         {detail.subtasks.length === 0 && canEdit && (
-          <p className="py-4 text-center text-caption text-muted-foreground/60">
+          <p className="py-4 text-center text-caption text-muted-foreground">
             No steps yet. Break this task into checkable steps below to track progress.
           </p>
         )}
@@ -641,7 +641,7 @@ function StepsTab({ detail, canEdit, onChanged }: {
               {sub.title}
             </span>
             {sub.completedBy && sub.completed && (
-              <span className="shrink-0 text-micro text-muted-foreground/60">by {sub.completedBy.name}</span>
+              <span className="shrink-0 text-micro text-muted-foreground">by {sub.completedBy.name}</span>
             )}
             {canEdit && (
               <button
@@ -894,7 +894,7 @@ function ActivityTab({ detail }: { detail: TaskDetail }) {
     <div className="p-4">
       {groups.map((group) => (
         <div key={group.label} className="mb-4 last:mb-0">
-          <p className="mb-2 text-micro font-semibold uppercase tracking-wide text-muted-foreground/60">{group.label}</p>
+          <p className="mb-2 text-micro font-semibold uppercase tracking-wide text-muted-foreground">{group.label}</p>
           <div className="relative space-y-3 border-l border-border pl-4">
             {group.items.map((a) => {
               const Icon = ACTIVITY_ICON[a.kind] ?? Activity;
@@ -904,7 +904,7 @@ function ActivityTab({ detail }: { detail: TaskDetail }) {
                     <Icon className="h-3 w-3 text-muted-foreground" />
                   </span>
                   <p className="text-body text-foreground/90">{a.message}</p>
-                  <p className="text-micro text-muted-foreground/60">
+                  <p className="text-micro text-muted-foreground">
                     {a.user?.name ?? "System"} · {new Date(a.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" })}
                   </p>
                 </div>
@@ -968,7 +968,7 @@ function DependenciesTab({ detail, canManage, tasks, onChanged }: {
           <AlertCircle className="h-3.5 w-3.5" /> Blocked by
         </p>
         {detail.blockedBy.length === 0 ? (
-          <p className="text-caption text-muted-foreground/60">No blockers — this task is ready to start.</p>
+          <p className="text-caption text-muted-foreground">No blockers — this task is ready to start.</p>
         ) : (
           <div className="space-y-1.5">
             {detail.blockedBy.map((dep) => {
@@ -1033,7 +1033,7 @@ function DependenciesTab({ detail, canManage, tasks, onChanged }: {
             </Button>
           </div>
           {availableTasks.length === 0 && (
-            <p className="mt-1.5 text-micro text-muted-foreground/60">No other tasks available to link.</p>
+            <p className="mt-1.5 text-micro text-muted-foreground">No other tasks available to link.</p>
           )}
         </div>
       )}

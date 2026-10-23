@@ -282,7 +282,7 @@ export function ProfileTabs(props: ProfileTabsProps) {
                     key={c.label}
                     className="flex items-center gap-1 rounded-md bg-subtle px-2 py-1 text-caption font-medium text-foreground"
                   >
-                    <CapIcon className="h-3 w-3 text-muted-foreground/60" />
+                    <CapIcon className="h-3 w-3 text-muted-foreground" />
                     {c.label}
                   </span>
                   );
@@ -435,7 +435,7 @@ export function ProfileTabs(props: ProfileTabsProps) {
                     <span className="shrink-0 text-caption text-muted-foreground">
                       {log.entityType}
                     </span>
-                    <span className="shrink-0 text-micro tnum text-muted-foreground/70">
+                    <span className="shrink-0 text-micro tnum text-muted-foreground">
                       {timeAgo(new Date(log.timestamp), now)}
                     </span>
                   </div>
@@ -650,14 +650,14 @@ function PermissionMatrix({ modules }: { modules: PermModule[] }) {
       <div className="min-w-full overflow-hidden rounded-md border border-border">
         {/* Header row */}
         <div className="flex border-b border-border bg-subtle/50">
-          <div className="w-32 shrink-0 px-3 py-1.5 text-label text-muted-foreground/70">
+          <div className="w-32 shrink-0 px-3 py-1.5 text-label text-muted-foreground">
             Module
           </div>
           <div className="flex flex-1 divide-x divide-border">
             {Array.from({ length: maxActions }).map((_, i) => (
               <div
                 key={i}
-                className="flex-1 px-2 py-1.5 text-center text-micro text-muted-foreground/60"
+                className="flex-1 px-2 py-1.5 text-center text-micro text-muted-foreground"
               >
                 {modules[0]?.actions[i]?.label ?? ""}
               </div>

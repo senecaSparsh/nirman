@@ -1024,7 +1024,7 @@ export function SaleDetailDialog({
                         <TH>Mode</TH>
                         <TH>Reference</TH>
                         <TH>Status</TH>
-                        <TH></TH>
+                        <TH><span className="sr-only">Actions</span></TH>
                       </TR>
                     </THead>
                     <TBody>

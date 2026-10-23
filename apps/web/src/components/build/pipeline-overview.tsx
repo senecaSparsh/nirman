@@ -136,7 +136,7 @@ export function PipelineOverview({ stages }: { stages: StageData[] }) {
           {/* Collapsed rail of other stages */}
           {stages.length > 2 && (
             <div className="mt-4">
-              <div className="mb-2 text-label text-muted-foreground/70">Other stages</div>
+              <div className="mb-2 text-label text-muted-foreground">Other stages</div>
               <div className="flex flex-wrap gap-2">
                 {stages
                   .filter((s) => s.key !== pinnedKey && s.key !== expandedKey)
@@ -207,7 +207,7 @@ function DefaultStageCard({ stage, onClick }: { stage: StageData; onClick: () =>
         <div className="mt-1 text-caption text-muted-foreground">{stage.tagline}</div>
       </div>
       <div className="mt-4">
-        <div className="text-label text-muted-foreground/70">{stage.metric.label}</div>
+        <div className="text-label text-muted-foreground">{stage.metric.label}</div>
         <div
           className={cn(
             "text-figure tnum",
@@ -291,7 +291,7 @@ function ExpandedStageCard({
       {/* Metric strip */}
       <div className="flex items-baseline gap-4 border-b border-border px-4 py-3">
         <div>
-          <div className="text-label text-muted-foreground/70">{stage.metric.label}</div>
+          <div className="text-label text-muted-foreground">{stage.metric.label}</div>
           <div
             className={cn(
               "text-figure tnum",
@@ -366,7 +366,7 @@ function CollapsedRailCard({
       style={{ boxShadow: `inset 2px 0 0 ${accent}` }}
     >
       <div className="text-label font-medium text-foreground">{stage.label}</div>
-      <div className="text-micro text-muted-foreground/70">{stage.metric.label}</div>
+      <div className="text-micro text-muted-foreground">{stage.metric.label}</div>
       <div
         className={cn(
           "text-body font-semibold tnum",

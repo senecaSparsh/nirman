@@ -263,10 +263,12 @@ export default function MobileProjectDetailPage({
             </p>
           </div>
           <div>
+<dl className="divide-y" style={{ borderColor: "var(--color-line)" }}>
             <DetailKeyValue label="Units" value={units.length === 0 ? "0" : `${formatNumber(units.length, 0)} · ${availableUnits.length} avail`} />
             <DetailKeyValue label="Sold" value={formatNumber(soldUnits.length, 0)} tone="go" />
             <DetailKeyValue label="Cost" value={totalProjectCost ? formatCurrencyCompact(totalProjectCost) : "—"} />
             <DetailKeyValue label="₹/sqft" value={project.costPerSqft ? formatCurrencyCompact(toNum(project.costPerSqft)) : "—"} />
+</dl>
             <DetailKeyValue label="Land" value={landParcels > 0 ? `${landParcels} parcels` : "—"} />
             <DetailKeyValue label="Indents" value={`${requisitions} pending`} tone={requisitions > 0 ? "signal" : "default"} />
           </div>
@@ -291,11 +293,13 @@ export default function MobileProjectDetailPage({
             </p>
           </div>
           <div>
+<dl className="divide-y" style={{ borderColor: "var(--color-line)" }}>
             <DetailKeyValue label="Budget" value={project.totalBudget ? formatCurrencyCompact(toNum(project.totalBudget)) : "—"} />
             <DetailKeyValue label="Area" value={project.totalSellableArea ? `${formatNumber(toNum(project.totalSellableArea), 0)} sqft` : "—"} />
             <DetailKeyValue label="Type" value={typeLabel} />
             {project.startDate ? <DetailKeyValue label="Start" value={formatDate(project.startDate)} /> : null}
             {project.endDate ? <DetailKeyValue label="End" value={formatDate(project.endDate)} /> : null}
+</dl>
           </div>
         </div>
       </div>

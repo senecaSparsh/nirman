@@ -1184,7 +1184,7 @@ function SignInForm({ showDevLogin, otpEnabled }: { showDevLogin: boolean; otpEn
         <p className="mt-5 text-center text-caption text-muted-foreground">
           Need an account? Contact your administrator.
         </p>
-        <p className="mt-3 text-center text-[11px] text-muted-foreground/70">
+        <p className="mt-3 text-center text-[11px] text-muted-foreground">
           <a href="/privacy" className="underline-offset-2 hover:underline">Privacy</a>
           {" · "}
           <a href="/terms" className="underline-offset-2 hover:underline">Terms</a>

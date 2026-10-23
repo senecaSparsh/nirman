@@ -167,22 +167,22 @@ function PayrollStatsBar({ periods }: { periods: PayrollRow[] }) {
   return (
     <div className="grid grid-cols-2 divide-border overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-4 sm:divide-x divide-y sm:divide-y-0">
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Total Periods</span>
+        <span className="text-label text-muted-foreground">Total Periods</span>
         <span className="text-figure text-foreground">{total}</span>
         <span className="text-micro text-muted-foreground">{drafts} draft · {processed} processed · {paid} paid</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Avg Net / Period</span>
+        <span className="text-label text-muted-foreground">Avg Net / Period</span>
         <span className="text-figure text-foreground">{formatCurrency(avgNet)}</span>
         <span className="text-micro text-muted-foreground">across all periods</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Total Paid Out</span>
+        <span className="text-label text-muted-foreground">Total Paid Out</span>
         <span className="text-figure text-success">{formatCurrency(totalNetPaid)}</span>
         <span className="text-micro text-muted-foreground">{paid} settled periods</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Pending Action</span>
+        <span className="text-label text-muted-foreground">Pending Action</span>
         <span className={cn("text-figure", drafts + processed > 0 ? "text-warning" : "text-success")}>
           {drafts + processed}
         </span>
@@ -424,7 +424,7 @@ export function PayrollView({
         <div className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            <span className="text-label text-muted-foreground/75">NET PAY TREND</span>
+            <span className="text-label text-muted-foreground">NET PAY TREND</span>
           </div>
           <PayrollTrend periods={periods} />
         </div>

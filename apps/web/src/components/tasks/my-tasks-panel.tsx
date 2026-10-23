@@ -122,7 +122,7 @@ export function MyTasksPanel({ limit }: { limit?: number }) {
         <CardContent className="flex flex-col items-center justify-center gap-2 py-10 text-center">
           <CheckCircle2 className="h-6 w-6 text-muted-foreground/40" />
           <p className="text-body text-muted-foreground">No tasks assigned to you.</p>
-          <p className="text-caption text-muted-foreground/60">Tasks assigned by your manager will appear here.</p>
+          <p className="text-caption text-muted-foreground">Tasks assigned by your manager will appear here.</p>
         </CardContent>
       </Card>
     );

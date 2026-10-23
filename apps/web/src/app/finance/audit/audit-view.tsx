@@ -267,7 +267,7 @@ function AuditDiff({ before, after }: { before: Record<string, unknown> | null; 
           </div>
         ))}
         {Object.keys(after).length > 4 && (
-          <div className="text-micro text-muted-foreground/60">+{Object.keys(after).length - 4} more</div>
+          <div className="text-micro text-muted-foreground">+{Object.keys(after).length - 4} more</div>
         )}
       </div>
     );
@@ -291,7 +291,7 @@ function AuditDiff({ before, after }: { before: Record<string, unknown> | null; 
           </div>
         ))}
         {Object.keys(after).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k])).length > 4 && (
-          <div className="text-micro text-muted-foreground/60">
+          <div className="text-micro text-muted-foreground">
             +{Object.keys(after).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k])).length - 4} more
           </div>
         )}

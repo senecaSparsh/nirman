@@ -135,7 +135,7 @@ export function Dialog({
             rule already says "this panel ends here". */}
         <div className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-border-strong sm:hidden" />
 
-        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-border px-5 py-3.5">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border px-5 py-3.5">
           <div className="min-w-0">
             <h2 className="text-section text-foreground">{title}</h2>
             {description && (
@@ -153,7 +153,7 @@ export function Dialog({
               <X className="size-4" />
             </button>
           </div>
-        </header>
+        </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 scrollbar-thin">{children}</div>
 

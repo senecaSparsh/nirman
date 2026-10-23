@@ -274,7 +274,7 @@ function BoqTree({
                     </span>
                   )}
                   {node.notes && (
-                    <p className="truncate text-micro text-muted-foreground/70">{node.notes}</p>
+                    <p className="truncate text-micro text-muted-foreground">{node.notes}</p>
                   )}
                 </div>
                 {node._count?.mbEntries ? (

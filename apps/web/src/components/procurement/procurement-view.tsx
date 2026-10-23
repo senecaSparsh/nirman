@@ -929,6 +929,7 @@ function DirectPurchasesTab({
             <div className="flex items-center gap-2">
               <div className="relative shrink-0" style={{ width: 150 }}>
                 <select
+                  aria-label="Filter by status"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
                   style={{ width: 150 }}

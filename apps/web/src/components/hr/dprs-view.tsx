@@ -52,31 +52,31 @@ function DprStatsBar({ dprs }: { dprs: DprRow[] }) {
   return (
     <div className="grid grid-cols-2 divide-border overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-6 sm:divide-x divide-y sm:divide-y-0">
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Total DPRs</span>
+        <span className="text-label text-muted-foreground">Total DPRs</span>
         <span className="text-figure text-foreground">{total}</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Pending</span>
+        <span className="text-label text-muted-foreground">Pending</span>
         <span className="text-figure text-warning">{pending}</span>
         <span className="text-micro text-muted-foreground">awaiting sub-admin</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Sub-Approved</span>
+        <span className="text-label text-muted-foreground">Sub-Approved</span>
         <span className="text-figure text-info">{subApproved}</span>
         <span className="text-micro text-muted-foreground">awaiting admin</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Approved</span>
+        <span className="text-label text-muted-foreground">Approved</span>
         <span className="text-figure text-success">{approved}</span>
         <span className="text-micro text-muted-foreground">fully approved</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Rejected</span>
+        <span className="text-label text-muted-foreground">Rejected</span>
         <span className="text-figure text-danger">{rejected}</span>
         <span className="text-micro text-muted-foreground">needs revision</span>
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <span className="text-label text-muted-foreground/75">Avg Progress</span>
+        <span className="text-label text-muted-foreground">Avg Progress</span>
         <span className="text-figure text-foreground">{avgProgress.toFixed(1)}%</span>
         <div className="mt-0.5 h-1 overflow-hidden rounded-full bg-muted">
           <div className="h-full rounded-full bg-[var(--color-world-hr)]" style={{ width: `${Math.min(avgProgress, 100)}%` }} />

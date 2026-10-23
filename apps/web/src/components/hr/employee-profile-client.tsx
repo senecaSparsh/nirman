@@ -696,9 +696,9 @@ function ProfileHero({
             <p className="mt-1 text-[14px] text-muted-foreground">
               {subtitle}
               {employee.hierarchyLevel != null && (
-                <> · <span className="text-muted-foreground/80">H{employee.hierarchyLevel} — {HIERARCHY_LABELS[employee.hierarchyLevel - 1] ?? `Level ${employee.hierarchyLevel}`}</span></>
+                <> · <span className="text-muted-foreground">H{employee.hierarchyLevel} — {HIERARCHY_LABELS[employee.hierarchyLevel - 1] ?? `Level ${employee.hierarchyLevel}`}</span></>
               )}
-              {employee.trade && <> · <span className="text-muted-foreground/80">{employee.trade}</span></>}
+              {employee.trade && <> · <span className="text-muted-foreground">{employee.trade}</span></>}
             </p>
 
             {/* Contact pills — inline, dense */}
@@ -846,7 +846,7 @@ function HeroStatTile({
           <div className={cn("text-[15px] font-bold tnum leading-tight truncate", c.text)}>{value}</div>
         </div>
       </div>
-      {hint && <div className="mt-1 text-micro text-muted-foreground/70 truncate pl-9">{hint}</div>}
+      {hint && <div className="mt-1 text-micro text-muted-foreground truncate pl-9">{hint}</div>}
     </div>
   );
 }
@@ -1530,13 +1530,13 @@ function SidebarCard({ title, icon: Icon, children }: { title: string; icon: Rea
 function SidebarRow({ icon: Icon, label, value, hint }: { icon: React.ElementType; label: string; value: string | null | undefined; hint?: string }) {
   return (
     <div className="flex items-start gap-2.5 py-2.5">
-      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       <div className="min-w-0 flex-1">
         <div className="text-label text-muted-foreground">{label}</div>
         <div className={cn("truncate text-body", !value ? "text-muted-foreground/50" : "text-foreground")}>
           {value || "—"}
         </div>
-        {hint && <div className="text-micro text-muted-foreground/60 truncate">{hint}</div>}
+        {hint && <div className="text-micro text-muted-foreground truncate">{hint}</div>}
       </div>
     </div>
   );
@@ -1545,7 +1545,7 @@ function SidebarRow({ icon: Icon, label, value, hint }: { icon: React.ElementTyp
 function SidebarLink({ icon: Icon, label, value, href }: { icon: React.ElementType; label: string; value: string | null | undefined; href: string | null }) {
   return (
     <div className="flex items-start gap-2.5 py-2.5">
-      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+      <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       <div className="min-w-0 flex-1">
         <div className="text-label text-muted-foreground">{label}</div>
         {value && href ? (
@@ -1571,7 +1571,7 @@ function StatBand({ items }: { items: { label: string; value: string | number; t
     <div className="grid grid-cols-2 divide-border overflow-hidden rounded-lg border border-border bg-card sm:grid-cols-4 sm:divide-x divide-y sm:divide-y-0">
       {items.map((s, i) => (
         <div key={i} className="flex flex-col gap-0.5 p-3">
-          <span className="text-label text-muted-foreground/75">{s.label}</span>
+          <span className="text-label text-muted-foreground">{s.label}</span>
           <span className={cn("text-figure", s.tone ?? "text-foreground")}>{s.value}</span>
           {s.hint && <span className="text-micro text-muted-foreground">{s.hint}</span>}
         </div>
@@ -1619,7 +1619,7 @@ function OverviewTab({ employee }: { employee: EmployeeProfileData }) {
                 <div key={a.id} className="flex items-center justify-between rounded-md bg-subtle px-2.5 py-1.5">
                   <div className="min-w-0">
                     <span className="text-body text-foreground">{formatDate(a.date)}</span>
-                    {a.projectName && <span className="ml-1.5 text-micro text-muted-foreground/70 truncate">{a.projectName}</span>}
+                    {a.projectName && <span className="ml-1.5 text-micro text-muted-foreground truncate">{a.projectName}</span>}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     {a.hoursWorked != null && <span className="text-micro tnum text-muted-foreground">{a.hoursWorked.toFixed(1)}h</span>}
@@ -1696,7 +1696,7 @@ function OverviewTab({ employee }: { employee: EmployeeProfileData }) {
                   <div key={l.id} className="flex items-center justify-between rounded-md bg-subtle px-2.5 py-1.5">
                     <div className="min-w-0">
                       <span className="text-body text-foreground">{l.type.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())}</span>
-                      <span className="ml-1.5 text-micro text-muted-foreground/70">{formatDate(l.startDate)} → {formatDate(l.endDate)}</span>
+                      <span className="ml-1.5 text-micro text-muted-foreground">{formatDate(l.startDate)} → {formatDate(l.endDate)}</span>
                     </div>
                     {statusBadge(LEAVE_STATUS_CONFIG, l.status)}
                   </div>
@@ -3865,7 +3865,7 @@ function OnboardingChecklist({
               {step.label}
             </div>
             {step.hint && canManage && (
-              <div className="text-meta text-muted-foreground/70">{step.hint}</div>
+              <div className="text-meta text-muted-foreground">{step.hint}</div>
             )}
           </div>
         </div>

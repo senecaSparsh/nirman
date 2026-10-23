@@ -324,7 +324,7 @@ function ProjectHealthCard({ project, typeLabel }: { project: ProjectHealth; typ
 
         {/* Profit — the big number */}
         <div className="shrink-0 text-right">
-          <div className="text-label text-muted-foreground/70">Profit</div>
+          <div className="text-label text-muted-foreground">Profit</div>
           <div className={`text-title tnum ${isProfitable ? "text-success" : "text-danger"}`}>
             {isProfitable ? "+" : ""}{formatCurrency(profit)}
           </div>
@@ -342,7 +342,7 @@ function ProjectHealthCard({ project, typeLabel }: { project: ProjectHealth; typ
         {budget > 0 && (
           <div>
             <div className="mb-1 flex items-baseline justify-between">
-              <span className="text-label text-muted-foreground/70">Budget Burn</span>
+              <span className="text-label text-muted-foreground">Budget Burn</span>
               <span className={`text-caption tnum ${isOverBudget ? "text-danger font-semibold" : "text-muted-foreground"}`}>
                 {budgetBurnPct.toFixed(0)}%
               </span>
@@ -363,7 +363,7 @@ function ProjectHealthCard({ project, typeLabel }: { project: ProjectHealth; typ
         {project.unitCount > 0 && (
           <div>
             <div className="mb-1 flex items-baseline justify-between">
-              <span className="text-label text-muted-foreground/70">Units Sold</span>
+              <span className="text-label text-muted-foreground">Units Sold</span>
               <span className="text-caption tnum text-muted-foreground">
                 {salesPct.toFixed(0)}%
               </span>
@@ -384,7 +384,7 @@ function ProjectHealthCard({ project, typeLabel }: { project: ProjectHealth; typ
         {start && end && (
           <div>
             <div className="mb-1 flex items-baseline justify-between">
-              <span className="text-label text-muted-foreground/70">Timeline</span>
+              <span className="text-label text-muted-foreground">Timeline</span>
               <span className="text-caption tnum text-muted-foreground">
                 {timelinePct.toFixed(0)}%
               </span>

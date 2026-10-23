@@ -184,7 +184,7 @@ export function NotificationBell({ className, alertItems = [] }: { className?: s
 
           {alertItems.length > 0 && (
             <div className="border-b border-border">
-              <p className="px-3 pt-2.5 pb-1 text-caption font-medium text-muted-foreground/70">
+              <p className="px-3 pt-2.5 pb-1 text-caption font-medium text-muted-foreground">
                 Needs attention
               </p>
               <div className="max-h-44 overflow-y-auto scrollbar-thin">
@@ -217,7 +217,7 @@ export function NotificationBell({ className, alertItems = [] }: { className?: s
           ) : notifications.length === 0 ? null : (
             <>
               {alertItems.length > 0 && (
-                <p className="px-3 pt-2.5 pb-1 text-caption font-medium text-muted-foreground/70">
+                <p className="px-3 pt-2.5 pb-1 text-caption font-medium text-muted-foreground">
                   Recent
                 </p>
               )}
@@ -245,7 +245,7 @@ export function NotificationBell({ className, alertItems = [] }: { className?: s
                     <div className="min-w-0 flex-1">
                       <p className="text-meta font-medium text-foreground">{n.title}</p>
                       <p className="mt-0.5 text-caption text-muted-foreground line-clamp-2">{n.message}</p>
-                      <p className="mt-1 text-micro text-muted-foreground/60">
+                      <p className="mt-1 text-micro text-muted-foreground">
                         {formatRelativeTime(new Date(n.createdAt))}
                       </p>
                     </div>

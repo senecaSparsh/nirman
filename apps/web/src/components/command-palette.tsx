@@ -459,7 +459,7 @@ export function CommandPalette({ userRole = "PROJECT_MANAGER", permissions }: { 
                   <div className="truncate text-body font-medium text-foreground">{label}</div>
                   <div className="truncate text-caption text-muted-foreground">{sublabel}</div>
                 </div>
-                <span className="shrink-0 text-micro text-muted-foreground/60">{tag}</span>
+                <span className="shrink-0 text-micro text-muted-foreground">{tag}</span>
                 {isSelected && <CornerDownLeft className="h-3 w-3 shrink-0 text-muted-foreground" />}
               </button>
             );
