@@ -74,6 +74,7 @@ export function BudgetVarianceView({ projects }: { projects: Project[] }) {
         value={projectId}
         onChange={(e) => setProjectId(e.target.value)}
         className="h-7 w-auto min-w-[180px] text-caption"
+        aria-label="Project"
       >
         {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
       </Select>
@@ -113,7 +114,7 @@ export function BudgetVarianceView({ projects }: { projects: Project[] }) {
           {data.items.length > 0 && (
             <Card className="p-4 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-body font-semibold">Budget vs Actual — Side by Side</h3>
+                <h2 className="text-body font-semibold">Budget vs Actual — Side by Side</h2>
                 <div className="flex items-center gap-3 text-caption">
                   <span className="flex items-center gap-1.5">
                     <span className="h-2.5 w-2.5 rounded-sm bg-brand/40" /> Budget
@@ -123,7 +124,7 @@ export function BudgetVarianceView({ projects }: { projects: Project[] }) {
                   </span>
                 </div>
               </div>
-              <div className="space-y-2.5 max-h-80 overflow-y-auto">
+              <div className="space-y-2.5 max-h-80 overflow-y-auto" tabIndex={0} role="region" aria-label="Budget vs actual items">
                 {data.items
                   .filter((i) => i.budgetedAmount > 0 || i.actualAmount > 0)
                   .slice(0, 15)

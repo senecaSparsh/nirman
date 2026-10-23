@@ -120,7 +120,7 @@ export function RealEstateInventoryView() {
       <Card className="p-4 space-y-3">
         <div className="flex items-center gap-2">
           <LandPlot className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-body font-semibold">Plots (Whole)</h3>
+          <h2 className="text-body font-semibold">Plots (Whole)</h2>
         </div>
         <div className="grid gap-2 sm:grid-cols-4">
           <MiniStat label="Total Parcels" value={formatNumber(data.totalParcels)} />
@@ -134,7 +134,7 @@ export function RealEstateInventoryView() {
       <Card className="p-4 space-y-3">
         <div className="flex items-center gap-2">
           <CalendarPlus className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-body font-semibold">Monthly New Additions</h3>
+          <h2 className="text-body font-semibold">Monthly New Additions</h2>
         </div>
         {data.monthlyAdditions.every((m) => m.total === 0) ? (
           <EmptyState
@@ -188,7 +188,7 @@ export function RealEstateInventoryView() {
 
       {/* ── Per-project breakdown ── */}
       <Card className="p-4 space-y-3">
-        <h3 className="text-body font-semibold">Per-Project Breakdown</h3>
+        <h2 className="text-body font-semibold">Per-Project Breakdown</h2>
         {data.projects.length === 0 ? (
           <EmptyState
             icon={<Building2 className="h-5 w-5" />}

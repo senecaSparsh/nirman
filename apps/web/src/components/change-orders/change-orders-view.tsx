@@ -123,7 +123,7 @@ export function ChangeOrdersView({
   ];
 
   const statusSelect = (
-    <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-7 w-[140px] text-caption">
+    <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-7 w-[140px] text-caption" aria-label="Status filter">
       <option value="ALL">All Status</option>
       <option value="DRAFT">Draft</option>
       <option value="SUBMITTED">Submitted</option>

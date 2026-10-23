@@ -37,7 +37,7 @@ export function ProfitCenterView({ projects }: { projects: Project[] }) {
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <Select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="h-7 w-auto min-w-[180px] text-caption">
+        <Select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="h-7 w-auto min-w-[180px] text-caption" aria-label="Project">
           {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </Select>
       </header>

@@ -69,7 +69,7 @@ export function StandardConsumptionsView({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
-        <Select value={workTypeFilter} onChange={(e) => setWorkTypeFilter(e.target.value)} className="w-auto">
+        <Select value={workTypeFilter} onChange={(e) => setWorkTypeFilter(e.target.value)} className="w-auto" aria-label="Work type filter">
           <option value="">All work types</option>
           {workTypes.map((w) => <option key={w} value={w}>{w}</option>)}
         </Select>

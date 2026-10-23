@@ -69,7 +69,7 @@ export function ProjectControlView({ projects }: { projects: Project[] }) {
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <Select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="h-7 w-auto min-w-[180px] text-caption">
+        <Select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="h-7 w-auto min-w-[180px] text-caption" aria-label="Project">
           {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </Select>
       </header>
@@ -81,7 +81,7 @@ export function ProjectControlView({ projects }: { projects: Project[] }) {
           {/* EVM Metrics */}
           {evm && (
             <div className="space-y-3">
-              <h3 className="text-label text-muted-foreground">Earned Value Management</h3>
+              <h2 className="text-label text-muted-foreground">Earned Value Management</h2>
               <MetricGrid cols={4}>
                 <Metric label="Planned Value (PV)" value={formatCurrency(evm.pv)} />
                 <Metric label="Earned Value (EV)" value={formatCurrency(evm.ev)} />
@@ -117,7 +117,7 @@ export function ProjectControlView({ projects }: { projects: Project[] }) {
           {/* Commitments */}
           {commitments && (
             <div className="space-y-3">
-              <h3 className="text-label text-muted-foreground">Commitments</h3>
+              <h2 className="text-label text-muted-foreground">Commitments</h2>
               <MetricGrid cols={3}>
                 <Metric
                   label="Open Indents"
@@ -141,7 +141,7 @@ export function ProjectControlView({ projects }: { projects: Project[] }) {
           {/* Cost Overrun Forecast */}
           {overruns.length > 0 && (
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Cost Overrun Forecast</h3>
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Cost Overrun Forecast</h2>
               <div className="rounded-lg border border-border overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 border-b border-border">
@@ -186,7 +186,7 @@ export function ProjectControlView({ projects }: { projects: Project[] }) {
           {/* Material Take-Off */}
           {mto.length > 0 && (
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Material Take-Off & Procurement Gap</h3>
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Material Take-Off & Procurement Gap</h2>
               <div className="rounded-lg border border-border overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 border-b border-border">
