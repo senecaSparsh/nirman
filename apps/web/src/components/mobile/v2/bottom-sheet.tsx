@@ -79,10 +79,11 @@ export function MobileModalSheet({
       }
     };
     window.addEventListener("keydown", handler);
+    const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       window.removeEventListener("keydown", handler);
-      document.body.style.overflow = "";
+      document.body.style.overflow = prevOverflow;
       if (prevFocusRef.current instanceof HTMLElement) prevFocusRef.current.focus();
     };
     // panelEl arrives via ref callback after mount — re-run once it lands.

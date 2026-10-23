@@ -101,8 +101,11 @@ export function MobileFabModal({
       }
     };
     window.addEventListener("keydown", handler);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
     return () => {
       window.removeEventListener("keydown", handler);
+      document.body.style.overflow = prevOverflow;
       if (prevFocusRef.current instanceof HTMLElement) prevFocusRef.current.focus();
     };
     // panelEl is set by the ref callback once mounted — re-run when it lands.
