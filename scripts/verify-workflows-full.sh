@@ -343,15 +343,22 @@ else
   FAIL=$((FAIL+1)); echo "  FAIL self-ask create returned no id"
 fi
 # Punch-correction ask → HR approve → attendance row flips
-CORRDAY=$(date -v-14d +%Y-%m-%d 2>/dev/null || date -d "14 days ago" +%Y-%m-%d)
+# The OWNER's own self-ask is exercised above; self-approve must 403
+# (H1 wall — approving your own punch-fix is a fraud vector), so the
+# approve step runs on a DIFFERENT employee's request seeded via SQL.
+CORRDAY=$(date -v-$((RANDOM % 8000 + 200))d +%Y-%m-%d 2>/dev/null || date -d "$((RANDOM % 8000 + 200)) days ago" +%Y-%m-%d)
 CORR=$(req POST "me/attendance-corrections" "{\"date\":\"$CORRDAY\",\"status\":\"PRESENT\",\"reason\":\"wf forgot punch\"}" | python3 -c "import json,sys; print(json.load(sys.stdin).get('requestId',''))" 2>/dev/null)
 if [ -n "$CORR" ]; then
   st=$(P "SELECT status FROM \"AttendanceCorrectionRequest\" WHERE id='$CORR'")
   [ "$st" = "REQUESTED" ] && { PASS=$((PASS+1)); echo "  PASS punch-fix → REQUESTED"; } || { FAIL=$((FAIL+1)); echo "  FAIL punch-fix status: $st"; }
-  rapp=$(req POST "employees/$SELF_EMP/attendance-corrections/$CORR" '{"approve":true,"note":"wf approved"}')
-  st2=$(P "SELECT status FROM \"AttendanceCorrectionRequest\" WHERE id='$CORR'")
+  rself=$(req POST "employees/$SELF_EMP/attendance-corrections/$CORR" '{"approve":true,"note":"wf self"}')
+  echo "$rself" | grep -qi "cannot manage" && { PASS=$((PASS+1)); echo "  PASS self-approve 403"; } || { FAIL=$((FAIL+1)); echo "  FAIL self-approve allowed: $rself"; }
+  CORR2="vfy$(date +%s)$RANDOM"
+  P "INSERT INTO \"AttendanceCorrectionRequest\" (id,\"companyId\",\"employeeId\",date,\"requestedStatus\",reason,status,\"createdAt\",\"updatedAt\") VALUES ('$CORR2','$C','$EMP','$CORRDAY','PRESENT','wf sub ask','REQUESTED',now(),now())" >/dev/null
+  rapp=$(req POST "employees/$EMP/attendance-corrections/$CORR2" '{"approve":true,"note":"wf approved"}')
+  st2=$(P "SELECT status FROM \"AttendanceCorrectionRequest\" WHERE id='$CORR2'")
   [ "$st2" = "APPROVED" ] && { PASS=$((PASS+1)); echo "  PASS punch-fix approve"; } || { FAIL=$((FAIL+1)); echo "  FAIL punch-fix approve: $st2 $rapp"; }
-  att=$(P "SELECT status FROM \"WorkerAttendance\" WHERE \"employeeId\"='$SELF_EMP' AND date='$CORRDAY'")
+  att=$(P "SELECT status FROM \"WorkerAttendance\" WHERE \"employeeId\"='$EMP' AND date='$CORRDAY'")
   [ "$att" = "PRESENT" ] && { PASS=$((PASS+1)); echo "  PASS attendance row upserted"; } || { FAIL=$((FAIL+1)); echo "  FAIL attendance row: $att"; }
   # same-day dup ask → 4xx
   rdup=$(req POST "me/attendance-corrections" "{\"date\":\"$CORRDAY\",\"status\":\"LATE\",\"reason\":\"wf dup day\"}")
