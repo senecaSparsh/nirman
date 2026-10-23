@@ -174,3 +174,62 @@ icon-only exports across all major views, muted-foreground/NN
 Remaining known systemic classes (need a token-tier decision,
 not 200+ site edits): muted-foreground/NN on unaudited pages,
 text-faint on meaning-carrying text beyond audited surfaces.
+
+---
+
+## Round 3 — mobile modal primitive (Oct 23)
+
+**Finding class:** every mobile screen hand-rolled `fixed inset-0`
+overlays — ~35 sheets across 28 files — with no Escape, no focus trap,
+no `role="dialog"`, no focus restore. Verified live before the fix:
+Tab inside any open sheet walked off to background content.
+
+**Fix — `MobileModalSheet`** in `components/mobile/v2/bottom-sheet.tsx`
+now owns the contract: `role="dialog"`, `aria-modal`, labelled, focus
+entry on open, index-walking Tab trap, Escape, backdrop close, body
+scroll-lock (prev-value restore for nesting), focus restore to trigger,
+portal to body. `BottomSheet` delegates to it — every legacy consumer
+inherits. `align: bottom | center | full` covers sheets, alert cards,
+and full-screen takeovers (assistant chat, quote entry, onboarding).
+
+**Verified live (`/m/sms`, Paste Bank SMS sheet):**
+
+- `role=dialog` + `aria-modal=true` + `aria-label="Paste Bank SMS"`
+- focus enters panel on open; Tab cycles close→input→textarea→submit
+  for 20 presses, never escapes
+- Escape closes; focus restores to the "Add SMS" trigger (verified —
+  required two real fixes: capture prevFocus in the ref callback before
+  el.focus(), and guard against StrictMode's dev double-mount
+  overwriting it with the panel)
+- `MobileSmsIngest` restructured so the trigger stays mounted — the
+  alternate-render pattern (`if (!open) return <button/>`) left nothing
+  to restore to
+
+**Migrated (36 files):** work orders (new/RAs/WO actions), requisitions
+
+- PO actions, quote panel (4), units (4), portal listings (3),
+  standard-consumptions, MB actions, hazard, WBS, equipment picker,
+  land cadastre popup, supplier payments void, expense claims reject/pay,
+  GRN receive confirm + reject, transfer return, vehicles, SMS ingest +
+  match, quotation detail ×2 + list preview + new-quote picker,
+  budget-variance selector, BOQ delete, `form-primitives` SelectorModal
+  (every picker in the app), `assistant-chat`, `voice-agent-button`,
+  `mobile-requisition-actions` ×2, `mobile-po-actions` ×2.
+
+**Inline (own patterns kept):** OnboardingModal, orbit-navigator,
+barcode-scanner — gained Escape + dialog semantics.
+
+**Nested-dialog fixes:** `zIndex` prop for stacked sheets (GRN
+confirm inside receive dialog, selector inside dialogs); scroll-lock
+restores prior `body.overflow` so a sheet closing inside a parent
+dialog doesn't unlock the parent's scroll. `MobileFabModal` gained the
+missing scroll-lock entirely (MobileDialog delegates to it).
+
+**Not migrated (correct):** `mobile-overview-sheet`, `nav-sheet`,
+`mobile-context-menu`, `dept-fab`, `tab-switcher`, `product-tour` —
+already wire Escape+focus; dropdown backdrops in `export-share-bar`,
+`scaffold`, `quick-actions-bar`, `snooze-button`, `MobileMaterialsList`
+are `aria-hidden` menu dismissals with real buttons in tab order.
+
+Commits: `e484ab83` (migration), `435dcd35` (scroll-lock), `721f47d5`
+(focus-restore fix, verified live).
