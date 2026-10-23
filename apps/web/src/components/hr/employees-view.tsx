@@ -79,11 +79,11 @@ const WAGE_TYPES = ["DAILY", "MONTHLY", "FIXED"] as const;
 
 /** Deterministic avatar color from name hash. */
 const AVATAR_COLORS = [
-  "bg-[var(--color-world-hr)]/15 text-[var(--color-world-hr)]",
+  "bg-[var(--color-world-hr)]/15 text-[color-mix(in_oklch,var(--color-world-hr)_60%,black)]",
   "bg-success/15 text-success",
   "bg-info/15 text-info",
   "bg-warning/15 text-warning",
-  "bg-brand/15 text-brand-strong",
+  "bg-brand/15 text-[color-mix(in_oklch,var(--color-brand)_55%,black)]",
   "bg-primary/10 text-primary",
 ];
 

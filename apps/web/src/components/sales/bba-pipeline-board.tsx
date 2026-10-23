@@ -388,7 +388,7 @@ function BbaSaleCard({
           <span
             className={cn(
               "shrink-0 rounded px-1.5 py-0.5 text-micro font-semibold",
-              nextDue.status === "DUE" ? "bg-warning/15 text-warning" : "bg-brand/15 text-brand",
+              nextDue.status === "DUE" ? "bg-warning/15 text-warning" : "bg-brand/15 text-[color-mix(in_oklch,var(--color-brand)_55%,black)]",
             )}
           >
             {nextDue.status === "DUE" ? "DUE" : "PARTIAL"}

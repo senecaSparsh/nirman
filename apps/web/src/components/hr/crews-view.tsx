@@ -36,11 +36,11 @@ export type CrewRow = {
 };
 
 const AVATAR_COLORS = [
-  "bg-[var(--color-world-hr)]/15 text-[var(--color-world-hr)]",
+  "bg-[var(--color-world-hr)]/15 text-[color-mix(in_oklch,var(--color-world-hr)_60%,black)]",
   "bg-success/15 text-success",
   "bg-info/15 text-info",
   "bg-warning/15 text-warning",
-  "bg-brand/15 text-brand",
+  "bg-brand/15 text-[color-mix(in_oklch,var(--color-brand)_55%,black)]",
   "bg-primary/10 text-primary",
 ];
 
@@ -118,7 +118,7 @@ export function CrewsView({
       render: (c) => (
         <div className="flex items-center gap-2.5">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[var(--color-world-hr)]/10">
-            <UsersRound className="h-3.5 w-3.5 text-[var(--color-world-hr)]" />
+            <UsersRound className="h-3.5 w-3.5 text-[color-mix(in_oklch,var(--color-world-hr)_60%,black)]" />
           </span>
           <div className="min-w-0">
             <div className="font-medium text-foreground">{c.name}</div>

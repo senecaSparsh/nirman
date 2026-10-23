@@ -124,7 +124,7 @@ const AVATAR_COLORS = [
   "bg-success/15 text-success",
   "bg-info/15 text-info",
   "bg-warning/15 text-warning",
-  "bg-brand/15 text-brand",
+  "bg-brand/15 text-[color-mix(in_oklch,var(--color-brand)_55%,black)]",
 ];
 function avatarColor(name: string): string {
   let hash = 0;

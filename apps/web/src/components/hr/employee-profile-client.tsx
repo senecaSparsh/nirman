@@ -262,11 +262,11 @@ function statusBadge<T extends Record<string, { label: string; variant: string }
 
 /** Deterministic avatar color from name hash. */
 const AVATAR_COLORS = [
-  "bg-[var(--color-world-hr)]/15 text-[var(--color-world-hr)]",
+  "bg-[var(--color-world-hr)]/15 text-[color-mix(in_oklch,var(--color-world-hr)_60%,black)]",
   "bg-success/15 text-success",
   "bg-info/15 text-info",
   "bg-warning/15 text-warning",
-  "bg-brand/15 text-brand",
+  "bg-brand/15 text-[color-mix(in_oklch,var(--color-brand)_55%,black)]",
   "bg-primary/10 text-primary",
 ];
 
@@ -830,7 +830,7 @@ function HeroStatTile({
     danger: { bg: "bg-danger-soft/40", text: "text-danger", chip: "bg-danger/15 text-danger" },
     warning: { bg: "bg-warning-soft/40", text: "text-warning", chip: "bg-warning/15 text-warning" },
     info: { bg: "bg-info-soft/40", text: "text-info", chip: "bg-info/15 text-info" },
-    brand: { bg: "bg-brand-soft/40", text: "text-brand-strong", chip: "bg-brand/15 text-brand-strong" },
+    brand: { bg: "bg-brand-soft/40", text: "text-brand-strong", chip: "bg-brand/15 text-[color-mix(in_oklch,var(--color-brand)_55%,black)]" },
     muted: { bg: "bg-muted/50", text: "text-muted-foreground", chip: "bg-muted text-muted-foreground" },
   };
   const c = colors[color] ?? colors.default!;

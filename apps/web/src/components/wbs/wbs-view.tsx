@@ -484,6 +484,7 @@ export function WbsView({ projects, canEdit }: { projects: Project[]; canEdit: b
       <header className="flex flex-wrap items-center justify-between gap-3 min-w-0">
         <div className="flex items-center gap-3 min-w-0">
           <Select
+            aria-label="Project"
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
             className="h-7 w-auto min-w-[180px] text-caption"
