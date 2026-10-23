@@ -403,7 +403,7 @@ export function CallDetailView({
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
               <Label className="mb-1 block text-micro">Disposition</Label>
-              <Select value={disposition} onChange={(e) => setDisposition(e.target.value)}>
+              <Select aria-label="Disposition" value={disposition} onChange={(e) => setDisposition(e.target.value)}>
                 <option value="">—</option>
                 <option value="CONNECTED">Connected</option>
                 <option value="VOICEMAIL_LEFT">Voicemail left</option>

@@ -215,7 +215,7 @@ export function QuoteUploadDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Quote Source *</Label>
-            <Select
+            <Select aria-label="Quote Source"
               value={quoteSource}
               onChange={(e) => setQuoteSource(e.target.value as "DOCUMENT" | "EMAIL" | "VERBAL" | "WHATSAPP" | "LETTER" | "EXCEL")}
             >
@@ -358,7 +358,7 @@ export function QuoteUploadDialog({
         {/* Delivery basis — determines who bears transport cost */}
         <div className="space-y-1.5">
           <Label>Delivery Basis *</Label>
-          <Select
+          <Select aria-label="Delivery Basis"
             value={deliveryTermsType}
             onChange={(e) => {
               const next = e.target.value as "DELIVERED_SITE" | "EX_WORKS" | "FOR_STATION" | "CUSTOM";

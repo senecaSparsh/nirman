@@ -360,7 +360,7 @@ function ManualCallForm({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label>Direction</Label>
-            <Select value={direction} onChange={(e) => setDirection(e.target.value)}>
+            <Select aria-label="Direction" value={direction} onChange={(e) => setDirection(e.target.value)}>
               <option value="OUTBOUND">Outbound</option>
               <option value="INBOUND">Inbound</option>
               <option value="INTERNAL">Internal (staff-to-staff)</option>
@@ -378,7 +378,7 @@ function ManualCallForm({
           </div>
           <div className="space-y-1.5">
             <Label>Company number (optional)</Label>
-            <Select value={companyPhoneId} onChange={(e) => setCompanyPhoneId(e.target.value)}>
+            <Select aria-label="Company number (optional)" value={companyPhoneId} onChange={(e) => setCompanyPhoneId(e.target.value)}>
               <option value="">—</option>
               {phoneNumbers.map((p) => (
                 <option key={p.id} value={p.id}>{p.phoneNumber}</option>
@@ -397,7 +397,7 @@ function ManualCallForm({
           </div>
           <div className="space-y-1.5">
             <Label>Disposition</Label>
-            <Select value={disposition} onChange={(e) => setDisposition(e.target.value)}>
+            <Select aria-label="Disposition" value={disposition} onChange={(e) => setDisposition(e.target.value)}>
               <option value="">—</option>
               <option value="CONNECTED">Connected</option>
               <option value="VOICEMAIL_LEFT">Voicemail left</option>

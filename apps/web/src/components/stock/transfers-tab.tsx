@@ -512,7 +512,7 @@ function TransferDetailPanel({ transfer }: { transfer: TransferRow }) {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Delivery Mode</Label>
-              <Select value={deliveryMode} onChange={(e) => setDeliveryMode(e.target.value)}>
+              <Select aria-label="Delivery Mode" value={deliveryMode} onChange={(e) => setDeliveryMode(e.target.value)}>
                 <option value="">—</option>
                 <option value="ROAD">Road</option>
                 <option value="HAND">Hand carry</option>

@@ -263,7 +263,7 @@ function SupplierReturnFormDialog({
           </div>
           <div className="space-y-1.5">
             <Label>From Location *</Label>
-            <Select value={locationId} onChange={(e) => setLocationId(e.target.value)}>
+            <Select aria-label="From Location" value={locationId} onChange={(e) => setLocationId(e.target.value)}>
               <option value="">Select…</option>
               {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </Select>

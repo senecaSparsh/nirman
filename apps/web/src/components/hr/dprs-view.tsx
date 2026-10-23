@@ -895,7 +895,7 @@ function DprFormDialog({
             </div>
             {materialLines.map((line, i) => (
               <div key={i} className="mb-1.5 flex gap-1.5">
-                <Select
+                <Select aria-label="Materials Consumed"
                   value={line.materialId}
                   onChange={(e) => setMaterialLines((l) => l.map((x, j) => j === i ? { ...x, materialId: e.target.value, unitCost: materials.find((m) => m.id === e.target.value)?.standardCost.toString() ?? x.unitCost } : x))}
                   className="flex-1"
@@ -1357,7 +1357,7 @@ function DprDetailDialog({
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label>Scrap Destination *</Label>
-                <Select value={scrapLocationId} onChange={(e) => setScrapLocationId(e.target.value)}>
+                <Select aria-label="Scrap Destination" value={scrapLocationId} onChange={(e) => setScrapLocationId(e.target.value)}>
                   <option value="">Select location…</option>
                   {locations.map((l) => <option key={l.id} value={l.id}>{l.name} ({l.type})</option>)}
                 </Select>

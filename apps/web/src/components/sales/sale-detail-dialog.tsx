@@ -1275,7 +1275,7 @@ function CollectInstallmentDialog({
         )}
         <div className="space-y-1.5">
           <label className="text-label text-muted-foreground">Payment Mode</label>
-          <Select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)}>
+          <Select aria-label="Payment Mode" value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)}>
             <option value="CASH">Cash</option>
             <option value="BANK_TRANSFER">Bank Transfer</option>
             <option value="CHEQUE">Cheque</option>

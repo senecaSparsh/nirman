@@ -402,7 +402,7 @@ export function LeavesView({
         <div className="space-y-4">
           <div>
             <Label>Employee</Label>
-            <Select value={fEmployee} onChange={(e) => setFEmployee(e.target.value)}>
+            <Select aria-label="Employee" value={fEmployee} onChange={(e) => setFEmployee(e.target.value)}>
               <option value="">Select employee…</option>
               {employees.map((e) => (
                 <option key={e.id} value={e.id}>
@@ -413,7 +413,7 @@ export function LeavesView({
           </div>
           <div>
             <Label>Leave type</Label>
-            <Select value={fType} onChange={(e) => setFType(e.target.value)}>
+            <Select aria-label="Leave type" value={fType} onChange={(e) => setFType(e.target.value)}>
               {Object.entries(TYPE_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
               ))}

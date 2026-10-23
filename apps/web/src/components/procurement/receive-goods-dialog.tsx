@@ -453,7 +453,7 @@ export function ReceiveGoodsDialog({
               {/* Delivery mode */}
               <div>
                 <Label className="text-xs">Delivery Mode</Label>
-                <Select
+                <Select aria-label="Delivery Mode"
                   value={deliveryMode}
                   onChange={(e) => setDeliveryMode(e.target.value)}
                   className="mt-1"
@@ -480,7 +480,7 @@ export function ReceiveGoodsDialog({
                   </div>
                   <div>
                     <Label className="text-xs">Vehicle Type</Label>
-                    <Select
+                    <Select aria-label="Vehicle Type"
                       value={vehicleType}
                       onChange={(e) => setVehicleType(e.target.value)}
                       className="mt-1"

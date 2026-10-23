@@ -160,7 +160,7 @@ export function ProjectAssignmentsView({
         <div className="space-y-3">
           <div>
             <Label>User *</Label>
-            <Select value={fUser} onChange={(e) => setFUser(e.target.value)}>
+            <Select aria-label="User" value={fUser} onChange={(e) => setFUser(e.target.value)}>
               <option value="">Select user…</option>
               {users.map((u) => (
                 <option key={u.id} value={u.id}>{u.name} ({roleLabel(u.role)})</option>
@@ -182,7 +182,7 @@ export function ProjectAssignmentsView({
           </div>
           <div>
             <Label>Scoped role</Label>
-            <Select value={fScopedRole} onChange={(e) => setFScopedRole(e.target.value)}>
+            <Select aria-label="Scoped role" value={fScopedRole} onChange={(e) => setFScopedRole(e.target.value)}>
               <option value="SUPERVISOR">Supervisor</option>
               <option value="QAQC_ENGINEER">QA/QC Engineer</option>
               <option value="SECURITY_GUARD">Security Guard</option>

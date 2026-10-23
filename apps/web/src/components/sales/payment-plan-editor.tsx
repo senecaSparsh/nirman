@@ -198,7 +198,7 @@ export function PaymentPlanEditor({
       <div className="flex items-center justify-between">
         <Label>Payment Plan</Label>
         <div className="flex items-center gap-2">
-          <Select
+          <Select aria-label="Payment Plan"
             value={scheduleType}
             onChange={(e) => onScheduleTypeChange(e.target.value as "TLP" | "DPP" | "CLP")}
             className="text-sm w-32"
@@ -271,6 +271,7 @@ export function PaymentPlanEditor({
             />
             {isCLP ? (
               <Select
+                aria-label="WBS node"
                 value={item.wbsNodeId ?? ""}
                 onChange={(e) => update(i, "wbsNodeId", e.target.value)}
                 className="text-sm"

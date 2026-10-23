@@ -303,7 +303,7 @@ export function IssueMaterialsDialog({
                   const stock = available.find((a) => a.materialId === l.materialId);
                   return (
                     <div key={l.key} className="grid grid-cols-1 gap-2 rounded-md border p-2 sm:grid-cols-[1fr_100px_36px]">
-                      <Select value={l.materialId} onChange={(e) => updateLine(l.key, { materialId: e.target.value })}>
+                      <Select aria-label="Materials" value={l.materialId} onChange={(e) => updateLine(l.key, { materialId: e.target.value })}>
                         <option value="" disabled>Material…</option>
                         {available.map((a) => (
                           <option key={a.materialId} value={a.materialId}>

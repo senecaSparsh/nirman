@@ -344,6 +344,7 @@ export function CompaniesManager({
                           <TD>
                             {canManageCompanies && canAssignRole(actorRole, m.role) ? (
                               <Select
+                                aria-label={`Role for ${m.name}`}
                                 value={m.role}
                                 onChange={(e) => changeMemberRole(c.id, m.id, e.target.value)}
                                 className="h-8 w-32 text-caption"
@@ -405,7 +406,7 @@ export function CompaniesManager({
                     </div>
                     <div className="space-y-1">
                       <Label className="text-micro">Role</Label>
-                      <Select value={addMemberRole} onChange={(e) => setAddMemberRole(e.target.value as Role)} className="h-8 w-32">
+                      <Select aria-label="Role" value={addMemberRole} onChange={(e) => setAddMemberRole(e.target.value as Role)} className="h-8 w-32">
                         {assignable.length === 0 ? (
                           <option value="" disabled>Your role cannot create accounts</option>
                         ) : (
@@ -485,14 +486,14 @@ export function CompaniesManager({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Parent Company</Label>
-              <Select value={form.parentCompanyId} onChange={(e) => setForm((f) => ({ ...f, parentCompanyId: e.target.value }))}>
+              <Select aria-label="Parent Company" value={form.parentCompanyId} onChange={(e) => setForm((f) => ({ ...f, parentCompanyId: e.target.value }))}>
                 <option value="">None (top-level)</option>
                 {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Currency</Label>
-              <Select value={form.currency} onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}>
+              <Select aria-label="Currency" value={form.currency} onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}>
                 {["INR", "USD", "EUR", "GBP", "AED"].map((c) => <option key={c} value={c}>{c}</option>)}
               </Select>
             </div>

@@ -240,7 +240,7 @@ export function DirectPurchaseFormDialog({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label className={errors.supplierName ? "text-danger" : undefined}>Supplier *</Label>
-            <Select
+            <Select aria-label="Supplier"
               value={supplierId}
               onChange={(e) => {
                 setSupplierId(e.target.value);
@@ -270,7 +270,7 @@ export function DirectPurchaseFormDialog({
           </div>
           <div className="space-y-1.5">
             <Label className={errors.locationId ? "text-danger" : undefined}>Receive Location *</Label>
-            <Select
+            <Select aria-label="Receive Location"
               value={locationId}
               onChange={(e) => { setLocationId(e.target.value); clearError("locationId"); }}
               onBlur={() => onBlur("locationId", { supplierId, supplierName, locationId, billDate, notes, lines })}

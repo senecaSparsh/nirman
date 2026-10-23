@@ -111,7 +111,7 @@ export function RolePermissionsDialog({
       {/* Role selector */}
       <div className="flex items-center gap-3 mb-3">
         <Shield className="h-4 w-4 text-primary shrink-0" />
-        <Select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value as Role)} className="max-w-xs">
+        <Select value={selectedRole} onChange={(e) => setSelectedRole(e.target.value as Role)} className="max-w-xs" aria-label="Role">
           {/* DEVELOPER hidden — internal role, overrides never apply to it. */}
           {ROLE_LIST.filter((r) => r.key !== "DEVELOPER").map((r) => (
             <option key={r.key} value={r.key}>{r.label} — {r.description}</option>

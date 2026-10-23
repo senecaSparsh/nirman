@@ -467,14 +467,14 @@ function CrewFormDialog({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label>Project</Label>
-            <Select value={form.projectId} onChange={(e) => setForm((f) => ({ ...f, projectId: e.target.value }))}>
+            <Select aria-label="Project" value={form.projectId} onChange={(e) => setForm((f) => ({ ...f, projectId: e.target.value }))}>
               <option value="">None</option>
               {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </Select>
           </div>
           <div>
             <Label>Supervisor</Label>
-            <Select value={form.supervisorId} onChange={(e) => setForm((f) => ({ ...f, supervisorId: e.target.value }))}>
+            <Select aria-label="Supervisor" value={form.supervisorId} onChange={(e) => setForm((f) => ({ ...f, supervisorId: e.target.value }))}>
               <option value="">None</option>
               {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
             </Select>

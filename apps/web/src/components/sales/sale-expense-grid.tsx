@@ -77,7 +77,7 @@ export function SaleExpenseGrid({
         {rows.map((row, i) => (
           <div key={i} className="grid grid-cols-[1fr_100px_90px_24px] gap-2 items-center">
             <div className="space-y-0">
-              <Select
+              <Select aria-label="Expense Heads"
                 value={row.head}
                 onChange={(e) => {
                   const head = e.target.value as SaleExpenseRow["head"];
@@ -110,6 +110,7 @@ export function SaleExpenseGrid({
               className="text-sm tnum"
             />
             <Select
+              aria-label="Borne by"
               value={row.borneBy}
               onChange={(e) => update(i, "borneBy", e.target.value as SaleExpenseRow["borneBy"])}
               className="text-sm"

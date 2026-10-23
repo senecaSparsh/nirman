@@ -139,7 +139,7 @@ export function ErrorConsole({ bare = false }: { bare?: boolean }) {
             </button>
           ))}
         </div>
-        <Select
+        <Select aria-label="All types"
           value={type}
           onChange={(e) => setType(e.target.value)}
           className="w-40"

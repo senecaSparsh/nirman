@@ -141,7 +141,7 @@ export function MobileStandardConsumptionActions({
                   </div>
                   <div className="pl-2">
                     <label className={labelClass} style={labelStyle}>Material *</label>
-                    <select value={materialId} onChange={(e) => setMaterialId(e.target.value)} className={inputClass} style={inputStyle}>
+                    <select value={materialId} onChange={(e) => setMaterialId(e.target.value)} className={inputClass} style={inputStyle} aria-label="Material">
                       {materials.map((m) => (
                         <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
                       ))}

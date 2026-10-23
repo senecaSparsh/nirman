@@ -729,7 +729,7 @@ function LegalDocFormDialog({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Document Type *</Label>
-            <Select value={form.type} onChange={(e) => handleTypeChange(e.target.value as LegalDocType)}>
+            <Select aria-label="Document Type" value={form.type} onChange={(e) => handleTypeChange(e.target.value as LegalDocType)}>
               {LEGAL_DOC_FLOW.map((s) => (
                 <option key={s.type} value={s.type}>{s.label}</option>
               ))}
@@ -737,7 +737,7 @@ function LegalDocFormDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Status</Label>
-            <Select value={form.status} onChange={(e) => setField("status", e.target.value as LegalDocStatus)}>
+            <Select aria-label="Status" value={form.status} onChange={(e) => setField("status", e.target.value as LegalDocStatus)}>
               {(Object.keys(STATUS_CONFIG) as LegalDocStatus[]).map((s) => (
                 <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
               ))}

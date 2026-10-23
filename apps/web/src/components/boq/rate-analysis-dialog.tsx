@@ -304,7 +304,7 @@ export function RateAnalysisDialog({
               const isPct = line.basis === "PERCENTAGE";
               return (
                 <div key={i} className="grid grid-cols-[100px_1fr_90px_90px_90px_100px_40px] gap-1 border-b border-border/50 px-2 py-1.5 text-sm items-center">
-                  <Select
+                  <Select aria-label="Current BOQ Rate"
                     value={line.componentType}
                     onChange={(e) => updateLine(i, { componentType: e.target.value as ComponentType })}
                     className="h-8 text-xs"
@@ -316,6 +316,7 @@ export function RateAnalysisDialog({
                   <div className="flex items-center gap-1">
                     {line.componentType === "MATERIAL" && (
                       <Select
+                        aria-label="Material"
                         value={line.materialId ?? ""}
                         onChange={(e) => {
                           const mat = materials.find((m) => m.id === e.target.value);

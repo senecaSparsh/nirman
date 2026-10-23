@@ -579,7 +579,7 @@ export function BuiltUnitFormDialog({
                 <div className="grid grid-cols-12 gap-2 items-end">
                   <div className="col-span-4 space-y-1">
                     <Label className="text-caption">Type</Label>
-                    <Select
+                    <Select aria-label="Type"
                       value={row.unitType}
                       onChange={(e) => updateRow(idx, "unitType", e.target.value as BuiltUnitType)}
                       className="h-8 text-xs"
@@ -653,7 +653,7 @@ export function BuiltUnitFormDialog({
                   {projectPhases.length > 0 && (
                     <div className="col-span-4 space-y-1">
                       <Label className="text-caption">Phase</Label>
-                      <Select
+                      <Select aria-label="Phase"
                         value={row.phaseId}
                         onChange={(e) => updateRow(idx, "phaseId", e.target.value)}
                         className="h-8 text-xs"
@@ -677,7 +677,7 @@ export function BuiltUnitFormDialog({
                         className="h-8 text-xs"
                         required
                       />
-                      <Select
+                      <Select aria-label="Area"
                         value={row.areaUnit}
                         onChange={(e) => updateRow(idx, "areaUnit", e.target.value as AreaUnit)}
                         className="h-8 w-20 shrink-0 text-xs"

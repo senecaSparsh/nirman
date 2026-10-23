@@ -642,7 +642,7 @@ function JournalVoucherDialog({
           </div>
           {lines.map((l, i) => (
             <div key={i} className="grid grid-cols-[1fr_6rem_6rem_7rem_2rem] gap-2 items-center">
-              <Select value={l.accountCode} onChange={(e) => setLine(i, { accountCode: e.target.value })} required>
+              <Select aria-label="Date" value={l.accountCode} onChange={(e) => setLine(i, { accountCode: e.target.value })} required>
                 <option value="">Pick account…</option>
                 {accounts.map((a) => (
                   <option key={a.code} value={a.code}>{a.code} — {a.name}</option>

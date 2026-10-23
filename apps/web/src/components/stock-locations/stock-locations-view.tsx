@@ -292,7 +292,7 @@ export function StockLocationsView({
         <div className="space-y-3">
           <div>
             <Label required>Type</Label>
-            <Select value={fType} onChange={(e) => setFType(e.target.value as StockLocationRow["type"])} disabled={!!editTarget}>
+            <Select aria-label="Type" value={fType} onChange={(e) => setFType(e.target.value as StockLocationRow["type"])} disabled={!!editTarget}>
               <option value="COMPANY_WAREHOUSE">Company Warehouse</option>
               <option value="CENTRAL_WAREHOUSE">Central Warehouse</option>
               <option value="PROJECT_SITE">Project Site</option>
@@ -306,7 +306,7 @@ export function StockLocationsView({
           {fType === "PROJECT_SITE" && (
             <div>
               <Label required>Project</Label>
-              <Select value={fProjectId} onChange={(e) => setFProjectId(e.target.value)}>
+              <Select aria-label="Project" value={fProjectId} onChange={(e) => setFProjectId(e.target.value)}>
                 <option value="">Select project…</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>

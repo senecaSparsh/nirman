@@ -738,7 +738,7 @@ function EmployeeFormDialog({
             </div>
             <div className="col-span-2">
               <Label>Hierarchy Level</Label>
-              <Select value={form.hierarchyLevel} onChange={(e) => set("hierarchyLevel", e.target.value)}>
+              <Select aria-label="Hierarchy Level" value={form.hierarchyLevel} onChange={(e) => set("hierarchyLevel", e.target.value)}>
                 <option value="">Unassigned</option>
                 <option value="1">H1 — Management</option>
                 <option value="2">H2 — Manager</option>
@@ -754,7 +754,7 @@ function EmployeeFormDialog({
             </div>
             <div>
               <Label>Blood Group</Label>
-              <Select value={form.bloodGroup} onChange={(e) => set("bloodGroup", e.target.value)}>
+              <Select aria-label="Blood Group" value={form.bloodGroup} onChange={(e) => set("bloodGroup", e.target.value)}>
                 <option value="">— Select —</option>
                 <option value="A+">A+</option>
                 <option value="A-">A-</option>
@@ -796,7 +796,7 @@ function EmployeeFormDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Wage Type</Label>
-              <Select value={form.wageType} onChange={(e) => set("wageType", e.target.value)}>
+              <Select aria-label="Wage Type" value={form.wageType} onChange={(e) => set("wageType", e.target.value)}>
                 {WAGE_TYPES.map((w) => <option key={w} value={w}>{w}</option>)}
               </Select>
             </div>
@@ -829,7 +829,7 @@ function EmployeeFormDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Employment Type</Label>
-              <Select value={form.employmentType} onChange={(e) => set("employmentType", e.target.value)}>
+              <Select aria-label="Employment Type" value={form.employmentType} onChange={(e) => set("employmentType", e.target.value)}>
                 <option value="">— Select —</option>
                 <option value="PERMANENT">Permanent</option>
                 <option value="CONTRACT">Contract</option>
@@ -870,14 +870,14 @@ function EmployeeFormDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Crew</Label>
-              <Select value={form.crewId} onChange={(e) => set("crewId", e.target.value)}>
+              <Select aria-label="Crew" value={form.crewId} onChange={(e) => set("crewId", e.target.value)}>
                 <option value="">None</option>
                 {crews.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </Select>
             </div>
             <div>
               <Label>Active Project</Label>
-              <Select value={form.activeProjectId} onChange={(e) => set("activeProjectId", e.target.value)}>
+              <Select aria-label="Active Project" value={form.activeProjectId} onChange={(e) => set("activeProjectId", e.target.value)}>
                 <option value="">None</option>
                 {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </Select>
@@ -885,7 +885,7 @@ function EmployeeFormDialog({
           </div>
           <div>
             <Label hint={hqLabel ? "Unassigned staff check in against the company HQ geo-fence" : undefined}>Attendance Site (GPS)</Label>
-            <Select value={form.reportingLocationId} onChange={(e) => set("reportingLocationId", e.target.value)}>
+            <Select aria-label="Attendance Site (GPS)" value={form.reportingLocationId} onChange={(e) => set("reportingLocationId", e.target.value)}>
               <option value="">{hqLabel ? `${hqLabel} (default)` : "None — manual attendance"}</option>
               {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </Select>
@@ -893,7 +893,7 @@ function EmployeeFormDialog({
           {employee?.userId && (
             <div>
               <Label>Reports To</Label>
-              <Select value={form.reportsToMembershipId} onChange={(e) => set("reportsToMembershipId", e.target.value)}>
+              <Select aria-label="Reports To" value={form.reportsToMembershipId} onChange={(e) => set("reportsToMembershipId", e.target.value)}>
                 <option value="">None — top of chain</option>
                 {potentialManagers.map((m) => (
                   <option key={m.membershipId} value={m.membershipId}>

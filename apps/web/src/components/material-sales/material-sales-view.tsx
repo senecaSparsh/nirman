@@ -860,7 +860,7 @@ export function MaterialSalesView({
 
           <div>
             <Label>Payment mode</Label>
-            <Select value={fPaymentMode} onChange={(e) => setFPaymentMode(e.target.value)}>
+            <Select aria-label="Payment mode" value={fPaymentMode} onChange={(e) => setFPaymentMode(e.target.value)}>
               <option value="BANK">Bank</option>
               <option value="CASH">Cash</option>
               <option value="UPI">UPI</option>

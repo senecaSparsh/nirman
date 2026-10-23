@@ -171,7 +171,7 @@ export function PartitionCanvasDialog({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1">
             <Label className="text-caption text-muted-foreground">Allocation Model</Label>
-            <Select
+            <Select aria-label="Allocation Model"
               value={allocationModel}
               onChange={(e) => setAllocationModel(e.target.value as AllocationModel)}
             >

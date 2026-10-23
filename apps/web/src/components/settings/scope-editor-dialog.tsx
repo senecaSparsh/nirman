@@ -233,7 +233,7 @@ export function ScopeEditorDialog({
                 <>
                   {entries.map((entry, idx) => (
                     <div key={idx} className="flex items-center gap-2">
-                      <Select
+                      <Select aria-label="Departments"
                         value={entry.departmentId ?? ""}
                         onChange={(e) => updateEntry(idx, "departmentId", e.target.value)}
                         disabled={!canEdit}
@@ -273,7 +273,7 @@ export function ScopeEditorDialog({
                 <>
                   {entries.map((entry, idx) => (
                     <div key={idx} className="flex items-center gap-2">
-                      <Select
+                      <Select aria-label="Projects"
                         value={entry.projectId ?? ""}
                         onChange={(e) => updateEntry(idx, "projectId", e.target.value)}
                         disabled={!canEdit}
@@ -310,7 +310,7 @@ export function ScopeEditorDialog({
           {canEdit && potentialManagers.length > 0 && (
             <div className="space-y-2 border-t border-border pt-3">
               <Label>Reports To (optional)</Label>
-              <Select value={reportsTo} onChange={(e) => setReportsTo(e.target.value)}>
+              <Select aria-label="Reports To (optional)" value={reportsTo} onChange={(e) => setReportsTo(e.target.value)}>
                 <option value="">No reporting line (top of chain)</option>
                 {potentialManagers.map((m) => (
                   <option key={m.membershipId} value={m.membershipId}>

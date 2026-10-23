@@ -289,14 +289,14 @@ export function ConvertToPoDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Procurement Scope</Label>
-            <Select value={scope} onChange={(e) => onScopeChange(e.target.value as "COMPANY" | "PROJECT")}>
+            <Select aria-label="Procurement Scope" value={scope} onChange={(e) => onScopeChange(e.target.value as "COMPANY" | "PROJECT")}>
               <option value="PROJECT">Project (direct to site)</option>
               <option value="COMPANY">Company (central warehouse)</option>
             </Select>
           </div>
           <div className="space-y-1.5">
             <Label>Destination Location *</Label>
-            <Select value={locationId} onChange={(e) => setLocationId(e.target.value)} required>
+            <Select aria-label="Destination Location" value={locationId} onChange={(e) => setLocationId(e.target.value)} required>
               <option value="" disabled>Select location…</option>
               {availableLocations.map((l) => (
                 <option key={l.id} value={l.id}>{l.name}</option>

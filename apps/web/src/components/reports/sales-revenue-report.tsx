@@ -139,7 +139,7 @@ export function SalesRevenueReport({
         </div>
         <div className="w-48">
           <label className="text-micro text-muted-foreground">Project</label>
-          <Select
+          <Select aria-label="Project"
             value={projectFilter}
             onChange={(e) => setProjectFilter(e.target.value)}
             className="h-8 w-full text-caption"
@@ -152,7 +152,7 @@ export function SalesRevenueReport({
         </div>
         <div className="w-40">
           <label className="text-micro text-muted-foreground">Unit Type</label>
-          <Select
+          <Select aria-label="Unit Type"
             value={unitTypeFilter}
             onChange={(e) => setUnitTypeFilter(e.target.value)}
             className="h-8 w-full text-caption"

@@ -837,7 +837,7 @@ function PaymentRunDialog({
           <div className="flex items-end justify-between gap-3">
             <div>
               <Label>Payment mode</Label>
-              <Select value={mode} onChange={(e) => setMode(e.target.value)}>
+              <Select aria-label="Payment mode" value={mode} onChange={(e) => setMode(e.target.value)}>
                 <option value="NEFT">NEFT</option>
                 <option value="RTGS">RTGS</option>
                 <option value="UPI">UPI</option>

@@ -358,7 +358,7 @@ export function IssueFormDialog({
                 )}
               />
             ) : (
-              <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} onBlur={() => onBlur("targetId")} aria-invalid={!!errors.targetId} className={errors.targetId ? errorBorder : undefined}>
+              <Select value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} onBlur={() => onBlur("targetId")} aria-invalid={!!errors.targetId} className={errors.targetId ? errorBorder : undefined} aria-label="Department">
                 <option value="">Select…</option>
                 {departments.map((d) => <option key={d.id} value={d.id}>{d.code} — {d.name}</option>)}
               </Select>
@@ -388,7 +388,7 @@ export function IssueFormDialog({
         {target === "PROJECT" && projectId && builtUnits.length > 0 && (
           <div className="space-y-1.5">
             <Label>Built Unit (optional)</Label>
-            <Select value={builtUnitId} onChange={(e) => setBuiltUnitId(e.target.value)}>
+            <Select aria-label="Built Unit (optional)" value={builtUnitId} onChange={(e) => setBuiltUnitId(e.target.value)}>
               <option value="">— Area-allocated (default) —</option>
               {builtUnits.map((u) => (
                 <option key={u.id} value={u.id}>
@@ -405,7 +405,7 @@ export function IssueFormDialog({
         {requisitions.length > 0 && (
           <div className="space-y-1.5">
             <Label>Requisition (optional)</Label>
-            <Select value={requisitionId} onChange={(e) => setRequisitionId(e.target.value)}>
+            <Select aria-label="Requisition (optional)" value={requisitionId} onChange={(e) => setRequisitionId(e.target.value)}>
               <option value="">Ad-hoc issue (no authorization)</option>
               {requisitions.map((r) => (
                 <option key={r.id} value={r.id}>

@@ -1020,7 +1020,7 @@ function DependenciesTab({ detail, canManage, tasks, onChanged }: {
           <Label>Add a blocker</Label>
           <p className="mb-2 text-micro text-muted-foreground">Select a task that must be completed before this one can start.</p>
           <div className="flex gap-2">
-            <Select value={blockerId} onChange={(e) => setBlockerId(e.target.value)} className="flex-1">
+            <Select aria-label="Add a blocker" value={blockerId} onChange={(e) => setBlockerId(e.target.value)} className="flex-1">
               <option value="">Select a task…</option>
               {availableTasks.map((t) => (
                 <option key={t.id} value={t.id}>

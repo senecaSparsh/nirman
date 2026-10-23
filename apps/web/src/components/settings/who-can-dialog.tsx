@@ -47,7 +47,7 @@ export function WhoCanDialog({ onClose }: { onClose: () => void }) {
       description="Everyone in this company who holds a permission, and how they got it."
       className="max-w-2xl"
     >
-      <Select value={permission} onChange={(e) => setPermission(e.target.value)} className="max-w-sm">
+      <Select aria-label="Choose a permission" value={permission} onChange={(e) => setPermission(e.target.value)} className="max-w-sm">
         <option value="">Choose a permission</option>
         {PERMISSION_MODULES.map((mod) => (
           <optgroup key={mod.key} label={mod.label}>

@@ -201,7 +201,7 @@ export function CreateUserDialog({
           <p className="text-caption text-muted-foreground">Either email or phone is required for login.</p>
           <div className="space-y-1.5">
             <Label>Role *</Label>
-            <Select value={role} onChange={(e) => setRole(e.target.value)}>
+            <Select aria-label="Role" value={role} onChange={(e) => setRole(e.target.value)}>
               {allAssignable.map((r) => {
                 const def = ROLE_LIST.find((rl) => rl.key === r.key);
                 return <option key={r.key} value={r.key}>{def?.label ?? r.label}</option>;
@@ -254,7 +254,7 @@ export function CreateUserDialog({
           {managers.length > 0 && (
             <div className="space-y-2">
               <Label>Reports To (optional)</Label>
-              <Select value={reportsTo} onChange={(e) => setReportsTo(e.target.value)}>
+              <Select aria-label="Reports To (optional)" value={reportsTo} onChange={(e) => setReportsTo(e.target.value)}>
                 <option value="">No manager — top of chain</option>
                 {managers.map((m) => (
                   <option key={m.membershipId} value={m.membershipId}>

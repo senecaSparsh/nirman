@@ -740,14 +740,14 @@ export function RentalsView({
         <div className="space-y-3">
           <div>
             <Label>Asset type</Label>
-            <Select value={fAssetType} onChange={(e) => { setFAssetType(e.target.value as "BUILT_UNIT" | "LAND"); setFAssetId(""); }}>
+            <Select aria-label="Asset type" value={fAssetType} onChange={(e) => { setFAssetType(e.target.value as "BUILT_UNIT" | "LAND"); setFAssetId(""); }}>
               <option value="BUILT_UNIT">Built Unit</option>
               <option value="LAND">Land Parcel</option>
             </Select>
           </div>
           <div>
             <Label>Asset</Label>
-            <Select value={fAssetId} onChange={(e) => setFAssetId(e.target.value)}>
+            <Select aria-label="Asset" value={fAssetId} onChange={(e) => setFAssetId(e.target.value)}>
               <option value="">Select {fAssetType === "LAND" ? "parcel" : "unit"}…</option>
               {assets.map((a) => (
                 <option key={a.id} value={a.id}>{a.label}</option>
@@ -818,7 +818,7 @@ export function RentalsView({
           </div>
           <div>
             <Label>SAC Code (GST on rent)</Label>
-            <Select value={fSacCode} onChange={(e) => setFSacCode(e.target.value)}>
+            <Select aria-label="SAC Code (GST on rent)" value={fSacCode} onChange={(e) => setFSacCode(e.target.value)}>
               <option value="997313">997313 — Construction equipment rental (18%)</option>
               <option value="997314">997314 — Office machinery rental (18%)</option>
               <option value="997317">997317 — Other machinery rental (18%)</option>
@@ -871,7 +871,7 @@ export function RentalsView({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Payment mode</Label>
-              <Select value={pMode} onChange={(e) => setPMode(e.target.value)}>
+              <Select aria-label="Payment mode" value={pMode} onChange={(e) => setPMode(e.target.value)}>
                 <option value="BANK">Bank</option>
                 <option value="CASH">Cash</option>
                 <option value="UPI">UPI</option>
@@ -1080,7 +1080,7 @@ export function RentalsView({
           </div>
           <div>
             <Label>SAC Code (GST on rent)</Label>
-            <Select value={eSacCode} onChange={(e) => setESacCode(e.target.value)}>
+            <Select aria-label="SAC Code (GST on rent)" value={eSacCode} onChange={(e) => setESacCode(e.target.value)}>
               <option value="">— None —</option>
               <option value="997313">997313 — Construction equipment rental (18%)</option>
               <option value="997314">997314 — Office machinery rental (18%)</option>

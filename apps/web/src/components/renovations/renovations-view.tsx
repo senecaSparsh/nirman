@@ -641,7 +641,7 @@ export function RenovationsView({
               <div className="rounded-md border border-border bg-muted/20 p-3 space-y-2">
                 <div className="text-body font-medium">Add Cost</div>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <Select value={cCostType} onChange={(e) => setCCostType(e.target.value)}>
+                  <Select value={cCostType} onChange={(e) => setCCostType(e.target.value)} aria-label="Cost type">
                     {COST_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                   </Select>
                   <Input type="number" placeholder="Amount" value={cAmount} onChange={(e) => setCAmount(e.target.value)} />
@@ -700,7 +700,7 @@ export function RenovationsView({
         <div className="space-y-3">
           <div>
             <Label>Type *</Label>
-            <Select value={fType} onChange={(e) => setFType(e.target.value)}>
+            <Select aria-label="Type" value={fType} onChange={(e) => setFType(e.target.value)}>
               <option value="RENOVATION">Renovation (structural/cosmetic upgrade)</option>
               <option value="ADDITION">Addition (floor/room/extension)</option>
               <option value="VALUE_ADD">Value-Add (landscaping, amenities, fixtures)</option>
@@ -732,14 +732,14 @@ export function RenovationsView({
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label>Built Unit</Label>
-                <Select value={fUnit} onChange={(e) => { setFUnit(e.target.value); if (e.target.value) setFParcel(""); }}>
+                <Select aria-label="Built Unit" value={fUnit} onChange={(e) => { setFUnit(e.target.value); if (e.target.value) setFParcel(""); }}>
                   <option value="">None</option>
                   {filteredUnits.map((u) => <option key={u.id} value={u.id}>{u.unitNumber} ({u.unitType})</option>)}
                 </Select>
               </div>
               <div>
                 <Label>Land Parcel</Label>
-                <Select value={fParcel} onChange={(e) => { setFParcel(e.target.value); if (e.target.value) setFUnit(""); }}>
+                <Select aria-label="Land Parcel" value={fParcel} onChange={(e) => { setFParcel(e.target.value); if (e.target.value) setFUnit(""); }}>
                   <option value="">None</option>
                   {landParcels.map((p) => <option key={p.id} value={p.id}>{p.number}</option>)}
                 </Select>

@@ -823,14 +823,14 @@ function ListingForm({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Built Unit *</Label>
-              <Select value={builtUnitId} onChange={(e) => onUnitChange(e.target.value)} required>
+              <Select aria-label="Built Unit" value={builtUnitId} onChange={(e) => onUnitChange(e.target.value)} required>
                 <option value="" disabled>Select a unit…</option>
                 {unitOptions.map((u) => <option key={u.id} value={u.id}>{u.label}</option>)}
               </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Portal *</Label>
-              <Select value={portalName} onChange={(e) => setPortalName(e.target.value)}>
+              <Select aria-label="Portal" value={portalName} onChange={(e) => setPortalName(e.target.value)}>
                 {PORTAL_NAMES.map((p) => <option key={p} value={p}>{p}</option>)}
               </Select>
             </div>
@@ -880,7 +880,7 @@ function ListingForm({
         {/* Furnishing */}
         <div className="space-y-1.5">
           <Label>Furnishing</Label>
-          <Select value={furnishing} onChange={(e) => setFurnishing(e.target.value)}>
+          <Select aria-label="Furnishing" value={furnishing} onChange={(e) => setFurnishing(e.target.value)}>
             <option value="">Select…</option>
             <option value="Furnished">Furnished</option>
             <option value="Semi-Furnished">Semi-Furnished</option>

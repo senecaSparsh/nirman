@@ -165,20 +165,20 @@ export function TasksManager({ tasks, users, canAssign = true, canManage = false
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search tasks…" className="h-9 pl-8" />
           </div>
-          <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-9 w-[130px]">
+          <Select aria-label="All statuses" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-9 w-[130px]">
             <option value="">All statuses</option>
             <option value="PENDING">Pending</option>
             <option value="IN_PROGRESS">In Progress</option>
             <option value="COMPLETED">Completed</option>
             <option value="CANCELLED">Cancelled</option>
           </Select>
-          <Select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="h-9 w-[140px]">
+          <Select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} className="h-9 w-[140px]" aria-label="Assignee filter">
             <option value="">Everyone</option>
             {users.map((u) => (
               <option key={u.id} value={u.id}>{u.name}</option>
             ))}
           </Select>
-          <Select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="h-9 w-[120px]">
+          <Select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="h-9 w-[120px]" aria-label="Priority filter">
             <option value="">Any priority</option>
             <option value="low">Low</option>
             <option value="medium">Medium</option>
@@ -318,7 +318,7 @@ export function TasksManager({ tasks, users, canAssign = true, canManage = false
             </div>
             <div className="space-y-1.5">
               <Label>New Assignee</Label>
-              <Select value={reassignTo} onChange={(e) => setReassignTo(e.target.value)}>
+              <Select aria-label="New Assignee" value={reassignTo} onChange={(e) => setReassignTo(e.target.value)}>
                 <option value="">Select user…</option>
                 {users.map((u) => (
                   <option key={u.id} value={u.id}>{u.name} ({u.role})</option>

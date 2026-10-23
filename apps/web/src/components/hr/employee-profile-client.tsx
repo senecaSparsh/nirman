@@ -2067,16 +2067,16 @@ function SalaryStructureSection({ employeeId, canManage }: { employeeId: string;
             <div className="rounded-md border border-dashed border-border p-3 space-y-2">
               <p className="text-meta font-semibold uppercase tracking-wide text-muted-foreground">Add component</p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                <Select value={newType} onChange={(e) => setNewType(e.target.value)}>
+                <Select value={newType} onChange={(e) => setNewType(e.target.value)} aria-label="Component type">
                   <option value="">Component type…</option>
                   {SALARY_COMPONENT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </Select>
-                <Select value={newCalc} onChange={(e) => setNewCalc(e.target.value as SalaryComponentCalc)}>
+                <Select value={newCalc} onChange={(e) => setNewCalc(e.target.value as SalaryComponentCalc)} aria-label="Calculation">
                   <option value="FIXED">Fixed amount</option>
                   <option value="PERCENTAGE_OF_BASIC">% of basic</option>
                   <option value="UNIT_RATE">Per unit (rate)</option>
                 </Select>
-                <Select value={newFrequency} onChange={(e) => setNewFrequency(e.target.value)}>
+                <Select value={newFrequency} onChange={(e) => setNewFrequency(e.target.value)} aria-label="Frequency">
                   {SALARY_FREQUENCY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </Select>
               </div>
@@ -2094,7 +2094,7 @@ function SalaryStructureSection({ employeeId, canManage }: { employeeId: string;
                 )}
                 {newCalc === "UNIT_RATE" && (
                   <>
-                    <Select value={newUnit} onChange={(e) => setNewUnit(e.target.value)}>
+                    <Select value={newUnit} onChange={(e) => setNewUnit(e.target.value)} aria-label="Unit">
                       {SALARY_UNIT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </Select>
                     {newUnit === "CUSTOM" && (
@@ -2846,7 +2846,7 @@ function ResourcesTab({ employee, canManage }: { employee: EmployeeProfileData; 
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label>Condition at return</Label>
-            <Select value={returnCondition} onChange={(e) => setReturnCondition(e.target.value)}>
+            <Select aria-label="Condition at return" value={returnCondition} onChange={(e) => setReturnCondition(e.target.value)}>
               <option value="">— Select —</option>
               <option value="NEW">New</option>
               <option value="GOOD">Good</option>
@@ -2934,7 +2934,7 @@ function IssueResourceDialog({ employeeId, onClose, onIssued }: { employeeId: st
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Category</Label>
-            <Select value={category} onChange={(e) => setCategory(e.target.value)}>
+            <Select aria-label="Category" value={category} onChange={(e) => setCategory(e.target.value)}>
               {Object.entries(RESOURCE_CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </Select>
           </div>
@@ -2960,7 +2960,7 @@ function IssueResourceDialog({ employeeId, onClose, onIssued }: { employeeId: st
           </div>
           <div className="space-y-1.5">
             <Label>Condition at issue</Label>
-            <Select value={conditionAtIssue} onChange={(e) => setConditionAtIssue(e.target.value)}>
+            <Select aria-label="Condition at issue" value={conditionAtIssue} onChange={(e) => setConditionAtIssue(e.target.value)}>
               <option value="">—</option>
               <option value="NEW">New</option>
               <option value="GOOD">Good</option>
@@ -3276,7 +3276,7 @@ function DossierTab({ employee, canManage, departments }: { employee: EmployeePr
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label>Employment Type</Label>
-                <Select value={termsForm.employmentType} onChange={(e) => setTermsForm((f) => ({ ...f, employmentType: e.target.value }))}>
+                <Select aria-label="Employment Type" value={termsForm.employmentType} onChange={(e) => setTermsForm((f) => ({ ...f, employmentType: e.target.value }))}>
                   <option value="">— Select —</option>
                   <option value="PERMANENT">Permanent</option>
                   <option value="CONTRACT">Contract</option>

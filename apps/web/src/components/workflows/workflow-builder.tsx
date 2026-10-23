@@ -662,7 +662,7 @@ function CreateTaskConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: (u
       </div>
       <div className="space-y-1.5">
         <Label>Assign To</Label>
-        <Select
+        <Select aria-label="Assign To"
           value={String(step.config.assignedToId ?? "")}
           onChange={(e) => onUpdate({ config: { ...step.config, assignedToId: e.target.value } })}
         >
@@ -674,7 +674,7 @@ function CreateTaskConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: (u
       </div>
       <div className="space-y-1.5">
         <Label>Priority</Label>
-        <Select
+        <Select aria-label="Priority"
           value={String(step.config.priority ?? "medium")}
           onChange={(e) => onUpdate({ config: { ...step.config, priority: e.target.value } })}
         >
@@ -709,7 +709,7 @@ function NotificationConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: 
       <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Notification Config</p>
       <div className="space-y-1.5">
         <Label>Recipient</Label>
-        <Select
+        <Select aria-label="Recipient"
           value={String(step.config.assignedToId ?? "")}
           onChange={(e) => onUpdate({ config: { ...step.config, assignedToId: e.target.value } })}
         >
@@ -763,7 +763,7 @@ function UpdateStatusConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: 
       <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Update Status Config</p>
       <div className="space-y-1.5">
         <Label>Entity Type</Label>
-        <Select
+        <Select aria-label="Entity Type"
           value={String(step.config.entityType ?? "")}
           onChange={(e) => onUpdate({ config: { ...step.config, entityType: e.target.value } })}
         >
@@ -801,7 +801,7 @@ function ConditionConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: (u:
       <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Condition Config</p>
       <div className="space-y-1.5">
         <Label>Predicate (what to check)</Label>
-        <Select
+        <Select aria-label="Predicate (what to check)"
           value={String(step.config.predicate ?? "low_stock")}
           onChange={(e) => onUpdate({ config: { ...step.config, predicate: e.target.value } })}
         >
@@ -846,7 +846,7 @@ function AutoRequisitionConfig({ step, onUpdate }: { step: WorkflowStep; onUpdat
       <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Auto Indent Config</p>
       <div className="space-y-1.5">
         <Label>Project</Label>
-        <Select
+        <Select aria-label="Project"
           value={String(step.config.projectId ?? "")}
           onChange={(e) => onUpdate({ config: { ...step.config, projectId: e.target.value } })}
         >
@@ -870,7 +870,7 @@ function CreateRecordConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: 
       <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Create Record Config</p>
       <div className="space-y-1.5">
         <Label>Record Type</Label>
-        <Select
+        <Select aria-label="Record Type"
           value={String(step.config.recordType ?? "task")}
           onChange={(e) => onUpdate({ config: { ...step.config, recordType: e.target.value } })}
         >

@@ -634,7 +634,7 @@ export function SettingsView({
         <form onSubmit={saveLocation} className="space-y-4">
           <div className="space-y-1.5">
             <Label>Type</Label>
-            <Select value={locForm.type} onChange={(e) => setLocForm((f) => ({ ...f, type: e.target.value, projectId: "" }))}>
+            <Select aria-label="Type" value={locForm.type} onChange={(e) => setLocForm((f) => ({ ...f, type: e.target.value, projectId: "" }))}>
               <option value="CENTRAL_WAREHOUSE">Central Warehouse (Parent)</option>
               <option value="COMPANY_WAREHOUSE">Company Warehouse</option>
               <option value="PROJECT_SITE">Project Site</option>
@@ -1220,6 +1220,7 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
                     <div className="flex items-center gap-1.5">
                     {canManage && canManageUserRole(u.role) ? (
                       <Select
+                        aria-label={`Role for ${u.name}`}
                         value={u.role}
                         onChange={(e) => handleRoleChange(u.id, e.target.value as Role)}
                         disabled={saving === u.id}
@@ -1762,7 +1763,7 @@ function CreateCustomRoleDialog({
         {mode === "inherit" ? (
           <div className="space-y-1.5">
             <Label>Base Role (inherits tier + permissions)</Label>
-            <Select value={baseRole} onChange={(e) => setBaseRole(e.target.value)}>
+            <Select aria-label="Base Role (inherits tier + permissions)" value={baseRole} onChange={(e) => setBaseRole(e.target.value)}>
               {baseRoles.map((r) => (
                 <option key={r.key} value={r.key}>
                   {r.label} (Tier {r.tier})
@@ -1773,7 +1774,7 @@ function CreateCustomRoleDialog({
         ) : (
           <div className="space-y-1.5">
             <Label>Access Level *</Label>
-            <Select value={tier} onChange={(e) => setTier(Number(e.target.value))}>
+            <Select aria-label="Access Level" value={tier} onChange={(e) => setTier(Number(e.target.value))}>
               {tierOptions.map((t) => (
                 <option key={t} value={t}>
                   Tier {t} — {t === 2 ? "senior leadership" : t === 3 ? "department head" : t === 4 ? "staff" : "field"}

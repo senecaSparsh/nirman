@@ -737,7 +737,7 @@ function GeneratePayrollDialog({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label>Month</Label>
-            <Select value={month} onChange={(e) => setMonth(parseInt(e.target.value))}>
+            <Select aria-label="Month" value={month} onChange={(e) => setMonth(parseInt(e.target.value))}>
               {MONTHS.map((m, i) => i > 0 && <option key={i} value={i}>{m}</option>)}
             </Select>
           </div>
@@ -1119,7 +1119,7 @@ function PayrollDetailDialog({
                             <div className="flex flex-wrap items-end gap-2 pt-1 border-t border-border/50">
                               <div>
                                 <div className="text-micro text-muted-foreground mb-0.5">Type</div>
-                                <Select value={addType} onChange={(e) => setAddType(e.target.value)} className="h-7 w-36 text-caption">
+                                <Select value={addType} onChange={(e) => setAddType(e.target.value)} className="h-7 w-36 text-caption" aria-label="Component type">
                                   {LINE_COMPONENT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                                 </Select>
                               </div>
@@ -1131,7 +1131,7 @@ function PayrollDetailDialog({
                               )}
                               <div>
                                 <div className="text-micro text-muted-foreground mb-0.5">Priced as</div>
-                                <Select value={addCalc} onChange={(e) => setAddCalc(e.target.value as typeof addCalc)} className="h-7 w-32 text-caption">
+                                <Select value={addCalc} onChange={(e) => setAddCalc(e.target.value as typeof addCalc)} className="h-7 w-32 text-caption" aria-label="Priced as">
                                   <option value="FIXED">Fixed amount</option>
                                   <option value="PERCENTAGE_OF_BASIC">% of basic</option>
                                   <option value="UNIT_RATE">Per unit (rate)</option>
@@ -1145,7 +1145,7 @@ function PayrollDetailDialog({
                                 <>
                                   <div>
                                     <div className="text-micro text-muted-foreground mb-0.5">Unit</div>
-                                    <Select value={addUnit} onChange={(e) => setAddUnit(e.target.value)} className="h-7 w-24 text-caption">
+                                    <Select value={addUnit} onChange={(e) => setAddUnit(e.target.value)} className="h-7 w-24 text-caption" aria-label="Unit">
                                       <option value="DAY">per day</option>
                                       <option value="KM">per km</option>
                                       <option value="TRIP">per trip</option>
@@ -1174,7 +1174,7 @@ function PayrollDetailDialog({
                           {canManage && period.status !== "DRAFT" && (
                             <div className="flex flex-wrap items-center gap-2 pt-1.5 border-t border-border/50">
                               <span className="text-micro font-medium text-muted-foreground">Payout:</span>
-                              <Select
+                              <Select aria-label="Deduct"
                                 value={payModeByLine[l.id] ?? l.paymentMode ?? "NEFT"}
                                 onChange={(e) => setPayModeByLine((prev) => ({ ...prev, [l.id]: e.target.value }))}
                                 className="h-7 w-24 text-caption"

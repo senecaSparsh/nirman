@@ -113,6 +113,62 @@ const noRawEmployeeRowPlugin = {
   },
 };
 
+// ── Custom plugin: require-accessible-select ─────────────────────
+// Flags <select>/<Select> JSX elements with no accessible name. An axe
+// sweep found 15+ bare selects (filter bars, status pickers, project
+// selectors) — decorative <Label> siblings without htmlFor don't count.
+// Passes if the element has aria-label / aria-labelledby / an id an
+// external label can bind to, OR sits inside a <Field label="…"> (the
+// Field component clones an id onto its child and renders htmlFor).
+const requireAccessibleSelectPlugin = {
+  meta: {
+    type: "problem",
+    docs: {
+      description:
+        "Require <select>/<Select> elements to have an accessible name",
+    },
+    schema: [],
+    messages: {
+      missingName:
+        "<select> has no accessible name — add aria-label, aria-labelledby, an id bound by a <label htmlFor>, or wrap it in <Field label=\"…\">.",
+    },
+  },
+  create(context) {
+    // ui/input.tsx defines the Select primitive itself (callers supply the
+    // name via props); test fixtures aren't shipped UI.
+    const filename = context.filename ?? context.getFilename();
+    if (/components[\\/]ui[\\/]/.test(filename) || /\.test\.tsx?$/.test(filename)) return {};
+    function hasAttr(el, names) {
+      return el.openingElement?.attributes?.some(
+        (a) =>
+          a.type === "JSXAttribute" &&
+          names.includes(a.name?.name),
+      );
+    }
+    function insideLabeledField(node) {
+      let p = node.parent;
+      while (p) {
+        if (p.type === "JSXElement") {
+          const name = p.openingElement?.name?.name;
+          if (name === "Field" && hasAttr(p, ["label"])) return true;
+          if (name === "Field") return false;
+        }
+        p = p.parent;
+      }
+      return false;
+    }
+    return {
+      JSXElement(node) {
+        const name = node.openingElement?.name?.name;
+        if (name !== "select" && name !== "Select") return;
+        if (hasAttr(node, ["aria-label", "aria-labelledby", "id", "title"])) return;
+        if (insideLabeledField(node)) return;
+        context.report({ node: node.openingElement, messageId: "missingName" });
+      },
+    };
+  },
+};
+
 const eslintConfig = [
   ...nextCoreWebVitals,
   ...nextTypescript,
@@ -142,6 +198,7 @@ const eslintConfig = [
         rules: {
           "no-process-env-node-env-in-client": noProcessEnvInClientPlugin,
           "no-raw-employee-row-response": noRawEmployeeRowPlugin,
+          "require-accessible-select": requireAccessibleSelectPlugin,
         },
       },
     },
@@ -187,6 +244,9 @@ const eslintConfig = [
       // Prevent returning raw Prisma Employee rows from API routes — bypasses
       // the field-visibility policy (lib/employee-visibility.ts).
       "nirman/no-raw-employee-row-response": "warn",
+      // Native selects need a real accessible name — decorative <Label>
+      // siblings without htmlFor don't count (axe select-name).
+      "nirman/require-accessible-select": "warn",
       // This rule is for the Pages Router — this app uses the App Router
       // exclusively (no /pages directory). Without disabling it, every lint
       // run prints "Pages directory cannot be found at .../pages or .../src/pages".

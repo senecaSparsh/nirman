@@ -264,7 +264,7 @@ export function CsvImportDialog({
           {/* Default category */}
           <div>
             <Label>Default Category (applies to all rows without a categoryName column)</Label>
-            <Select value={defaultCategoryId} onChange={(e) => setDefaultCategoryId(e.target.value)}>
+            <Select aria-label="Select category" value={defaultCategoryId} onChange={(e) => setDefaultCategoryId(e.target.value)}>
               <option value="">Select category…</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>

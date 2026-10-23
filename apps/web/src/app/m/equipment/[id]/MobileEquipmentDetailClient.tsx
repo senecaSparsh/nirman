@@ -733,7 +733,7 @@ export function MobileEquipmentDetailClient({
             {projects.length > 0 ? (
               <div>
                 <label className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Site (optional)</label>
-                <select
+                <select aria-label="Site (optional)"
                   value={usageForm.projectId}
                   onChange={(e) => setUsageForm((f) => ({ ...f, projectId: e.target.value }))}
                   className="mt-1 w-full rounded-[0.5rem] border px-2.5 py-2 text-m-body"

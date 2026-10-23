@@ -717,7 +717,7 @@ export function RequisitionsView({
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label>Project</Label>
-            <Select value={autoProjectId} onChange={(e) => setAutoProjectId(e.target.value)}>
+            <Select aria-label="Project" value={autoProjectId} onChange={(e) => setAutoProjectId(e.target.value)}>
               <option value="">Select a project…</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
@@ -887,7 +887,7 @@ function RequisitionFormDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Phase</Label>
-            <Select value={form.phaseId} onChange={(e) => setForm((f) => ({ ...f, phaseId: e.target.value }))} disabled={filteredPhases.length === 0}>
+            <Select aria-label="Phase" value={form.phaseId} onChange={(e) => setForm((f) => ({ ...f, phaseId: e.target.value }))} disabled={filteredPhases.length === 0}>
               <option value="">None</option>
               {filteredPhases.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </Select>
@@ -1077,7 +1077,7 @@ function ConvertDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Procurement Scope</Label>
-            <Select value={form.procurementScope} onChange={(e) => setForm((f) => ({ ...f, procurementScope: e.target.value as "COMPANY" | "PROJECT" }))}>
+            <Select aria-label="Procurement Scope" value={form.procurementScope} onChange={(e) => setForm((f) => ({ ...f, procurementScope: e.target.value as "COMPANY" | "PROJECT" }))}>
               <option value="PROJECT">Project</option>
               <option value="COMPANY">Company</option>
             </Select>

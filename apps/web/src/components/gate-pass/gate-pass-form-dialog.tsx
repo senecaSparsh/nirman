@@ -231,7 +231,7 @@ export function GatePassFormDialog({
                 {lines.map((l) => (
                   <tr key={l.id} className="border-t border-border/40">
                     <td className="px-2 py-1.5">
-                      <Select value={l.materialId} onChange={(e) => setLine(l.id, "materialId", e.target.value)} className="h-8 text-caption">
+                      <Select aria-label="Items" value={l.materialId} onChange={(e) => setLine(l.id, "materialId", e.target.value)} className="h-8 text-caption">
                         <option value="">— Select material or type description below —</option>
                         {materials.map((m) => (
                           <option key={m.id} value={m.id}>{m.code} · {m.name}</option>

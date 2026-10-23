@@ -1362,7 +1362,7 @@ function WorkOrderDialog({
             return (
               <div key={idx} className="space-y-1">
                 <div className="grid grid-cols-[1fr_120px_auto] gap-2">
-                  <Select value={line.boqItemId} onChange={(e) => onBoqSelect(idx, e.target.value)}>
+                  <Select aria-label="Advance Recovery %" value={line.boqItemId} onChange={(e) => onBoqSelect(idx, e.target.value)}>
                     <option value="">— Select BOQ item —</option>
                     {boqItems.map((b) => <option key={b.id} value={b.id}>{b.serialNo} — {b.description}</option>)}
                   </Select>

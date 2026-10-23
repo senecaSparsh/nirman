@@ -568,7 +568,7 @@ export function LandPurchaseWizardDialog({
             </div>
             <div className="space-y-1.5">
               <Label>Unit</Label>
-              <Select value={land.areaUnit} onChange={(e) => setLandField("areaUnit", e.target.value)}>
+              <Select aria-label="Unit" value={land.areaUnit} onChange={(e) => setLandField("areaUnit", e.target.value)}>
                 {AREA_UNITS.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
               </Select>
             </div>
@@ -789,14 +789,14 @@ export function LandPurchaseWizardDialog({
                   </div>
                   <div className="space-y-1">
                     <Label className="text-caption">Frequency</Label>
-                    <Select value={c.frequency} onChange={(e) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, frequency: e.target.value as "ONE_TIME" | "RECURRING" } : x))} className="h-8 text-caption">
+                    <Select aria-label="Frequency" value={c.frequency} onChange={(e) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, frequency: e.target.value as "ONE_TIME" | "RECURRING" } : x))} className="h-8 text-caption">
                       <option value="ONE_TIME">One-time</option>
                       <option value="RECURRING">Recurring</option>
                     </Select>
                   </div>
                   <div className="space-y-1">
                     <Label className="text-caption">Interval</Label>
-                    <Select value={c.interval} disabled={c.frequency !== "RECURRING"} onChange={(e) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, interval: e.target.value as typeof c.interval } : x))} className="h-8 text-caption">
+                    <Select aria-label="Interval" value={c.interval} disabled={c.frequency !== "RECURRING"} onChange={(e) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, interval: e.target.value as typeof c.interval } : x))} className="h-8 text-caption">
                       <option value="MONTHLY">Monthly</option>
                       <option value="QUARTERLY">Quarterly</option>
                       <option value="HALF_YEARLY">Half-Yearly</option>

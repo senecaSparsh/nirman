@@ -245,13 +245,13 @@ function TemplateForm({ onOpenChange, onSaved }: { onOpenChange: (o: boolean) =>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Event Type *</Label>
-            <Select value={eventType} onChange={(e) => setEventType(e.target.value)}>
+            <Select aria-label="Event Type" value={eventType} onChange={(e) => setEventType(e.target.value)}>
               {EVENT_TYPES.map((e) => <option key={e.value} value={e.value}>{e.label}</option>)}
             </Select>
           </div>
           <div className="space-y-1.5">
             <Label>Channel *</Label>
-            <Select value={channel} onChange={(e) => setChannel(e.target.value)}>
+            <Select aria-label="Channel" value={channel} onChange={(e) => setChannel(e.target.value)}>
               {CHANNELS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
             </Select>
           </div>

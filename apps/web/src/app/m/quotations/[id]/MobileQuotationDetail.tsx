@@ -1129,6 +1129,7 @@ function ComparativeSheet({
                       {isThisEditing ? (
                         <select
                           autoFocus
+                          aria-label="Delivery terms"
                           value={cellValue}
                           onChange={(e) => { syncCellValue(e.target.value); saveTermCell(q.id, "deliveryTermsType", e.target.value); }}
                           onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); setEditingTerm(null); } }}

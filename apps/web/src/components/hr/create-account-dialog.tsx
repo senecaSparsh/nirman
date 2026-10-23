@@ -425,7 +425,7 @@ export function CreateAccountDialog({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Role *</Label>
-                <Select value={role} onChange={(e) => setRole(e.target.value as Role)}>
+                <Select aria-label="Role" value={role} onChange={(e) => setRole(e.target.value as Role)}>
                   {roles.map((r) => {
                     const roleDef = ROLE_LIST.find((rl) => rl.key === r);
                     return (
@@ -541,7 +541,7 @@ export function CreateAccountDialog({
                     No available company numbers. Add one in Telephony or use a new number.
                   </p>
                 ) : (
-                  <Select value={selectedPhoneId} onChange={(e) => setSelectedPhoneId(e.target.value)}>
+                  <Select aria-label="Company Number" value={selectedPhoneId} onChange={(e) => setSelectedPhoneId(e.target.value)}>
                     {availableNumbers.map((n) => (
                       <option key={n.id} value={n.id}>
                         {n.phoneNumber}

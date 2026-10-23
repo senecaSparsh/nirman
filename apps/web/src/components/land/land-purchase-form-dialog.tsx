@@ -230,7 +230,7 @@ export function LandPurchaseFormDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Unit</Label>
-            <Select value={form.areaUnit} onChange={(e) => set("areaUnit", e.target.value)}>
+            <Select aria-label="Unit" value={form.areaUnit} onChange={(e) => set("areaUnit", e.target.value)}>
               <option value="SQFT">Sq.Ft</option>
               <option value="SQM">Sq.Mtr</option>
               <option value="SQYD">Sq.Yard</option>

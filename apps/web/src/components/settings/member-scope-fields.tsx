@@ -79,7 +79,7 @@ export function MemberScopeFields({
         <div className="flex flex-col gap-2">
           {value.entries.map((entry, idx) => (
             <div key={idx} className="flex items-center gap-2">
-              <Select value={entry[key] ?? ""} onChange={(e) => setEntry(idx, e.target.value)} className="flex-1">
+              <Select value={entry[key] ?? ""} onChange={(e) => setEntry(idx, e.target.value)} className="flex-1" aria-label={byDepartment ? "Department" : "Project"}>
                 <option value="">{byDepartment ? "Select department…" : "Select project…"}</option>
                 {options.filter((o) => o.id === entry[key] || !chosen.has(o.id)).map((o) => (
                   <option key={o.id} value={o.id}>{o.label}</option>

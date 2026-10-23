@@ -408,7 +408,7 @@ function OverviewTab({ data, canManage }: { data: CompanyProfileData; canManage:
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5"><Label>Currency</Label>
-                <Select value={form.currency} onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}>
+                <Select aria-label="Currency" value={form.currency} onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}>
                   {["INR", "USD", "EUR", "GBP", "AED"].map((c) => <option key={c} value={c}>{c}</option>)}
                 </Select>
               </div>
@@ -583,7 +583,7 @@ function MembersTab({
             </div>
             <div className="space-y-1">
               <Label className="text-micro">Role</Label>
-              <Select value={addRole} onChange={(e) => setAddRole(e.target.value as Role)} className="h-8 w-40">
+              <Select aria-label="Role" value={addRole} onChange={(e) => setAddRole(e.target.value as Role)} className="h-8 w-40">
                 {assignable.map((r) => {
                   const def = roleOptions.find((o) => o.key === r);
                   return <option key={r} value={r}>{def?.label ?? r}</option>;
@@ -628,7 +628,7 @@ function MembersTab({
                     <TD className="text-muted-foreground text-caption">{m.phone ?? "—"}</TD>
                     <TD>
                       {canManage && canManageMemberRole(m.role) ? (
-                        <Select value={m.role} onChange={(e) => changeRole(m.id, e.target.value)} className="h-8 w-36 text-caption">
+                        <Select value={m.role} onChange={(e) => changeRole(m.id, e.target.value)} className="h-8 w-36 text-caption" aria-label={`Role for ${m.name}`}>
                           {[m.role, ...assignable].filter((r, i, arr) => arr.indexOf(r) === i).map((r) => {
                             const def = roleOptions.find((o) => o.key === r);
                             return <option key={r} value={r}>{def?.label ?? r}</option>;
@@ -837,7 +837,7 @@ function HierarchyTab({ data, canManage }: { data: CompanyProfileData; canManage
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5"><Label>Business Type</Label><Input value={form.businessType} onChange={(e) => setForm((f) => ({ ...f, businessType: e.target.value }))} /></div>
               <div className="space-y-1.5"><Label>Currency</Label>
-                <Select value={form.currency} onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}>
+                <Select aria-label="Currency" value={form.currency} onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}>
                   {["INR", "USD", "EUR", "GBP", "AED"].map((c) => <option key={c} value={c}>{c}</option>)}
                 </Select>
               </div>
@@ -1119,7 +1119,7 @@ function PolicyTab({
               </div>
               <div className="space-y-1.5">
                 <Label>Storage provider</Label>
-                <Select value={rec.recordingStorageProvider} disabled={!canManageTelephony}
+                <Select aria-label="Storage provider" value={rec.recordingStorageProvider} disabled={!canManageTelephony}
                   onChange={(e) => setRec((f) => ({ ...f, recordingStorageProvider: e.target.value }))}>
                   {["local", "s3"].map((p) => <option key={p} value={p}>{p}</option>)}
                 </Select>

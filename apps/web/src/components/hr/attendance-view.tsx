@@ -710,7 +710,7 @@ export function AttendanceView({
             <div className="space-y-3">
               <div>
                 <Label>Status</Label>
-                <Select value={editStatus} onChange={(e) => setEditStatus(e.target.value as AttendanceStatus)} className="w-full">
+                <Select aria-label="Status" value={editStatus} onChange={(e) => setEditStatus(e.target.value as AttendanceStatus)} className="w-full">
                   {(Object.keys(STATUS_CONFIG) as AttendanceStatus[]).map((s) => (
                     <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
                   ))}
