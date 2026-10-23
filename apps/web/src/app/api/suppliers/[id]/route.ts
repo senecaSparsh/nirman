@@ -43,7 +43,8 @@ export const PATCH = apiHandler(async (req: NextRequest, ctx: { params: Promise<
   const { id } = await ctx.params;
   const body = await req.json();
   const expectedVersion = extractVersion(body);
-  const parsed = supplierSchema.safeParse(body);
+  // PATCH semantics — every field optional; only sent fields change.
+  const parsed = supplierSchema.partial().safeParse(body);
   if (!parsed.success) {
     return json({ error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
   }
