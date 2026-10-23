@@ -389,7 +389,7 @@ export function MobileNewQuotationClient({
             <label className={labelClass} style={labelStyle}>
               Notes (optional)
             </label>
-            <textarea
+            <textarea aria-label="Any special instructions for suppliers"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}

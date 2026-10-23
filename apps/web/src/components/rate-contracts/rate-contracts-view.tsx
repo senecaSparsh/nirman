@@ -328,7 +328,7 @@ function RateContractDialog({
           </Field>
         </div>
         <Field label="Notes">
-          <Textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2} />
+          <Textarea aria-label="Notes" value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2} />
         </Field>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>

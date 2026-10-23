@@ -292,7 +292,7 @@ export function MobileNewExpenseClient({
 
         {/* Notes */}
         <SectionCard title="Notes">
-          <textarea
+          <textarea aria-label="What was this expense for?"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="What was this expense for?"

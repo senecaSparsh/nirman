@@ -860,7 +860,7 @@ export function MobileReceiveDialog({
                   <label className="text-m-caption font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--color-ink-500)" }}>
                     Rejection Reason <span style={{ color: "var(--color-stop)" }}>*</span>
                   </label>
-                  <textarea
+                  <textarea aria-label="Reason"
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
                     placeholder="e.g. Damaged packaging, wrong material, expired stock..."

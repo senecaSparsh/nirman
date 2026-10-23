@@ -543,7 +543,7 @@ export function MobileGatePassList({
       {rejectTarget && (
         <MobileDialog open={true} onClose={() => setRejectTarget(null)} title={`Reject ${rejectTarget.gatePassNumber}`}>
             <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Provide a reason for rejection</div>
-            <textarea
+            <textarea aria-label="Why is this gate pass being rejected?"
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
               rows={2}
@@ -606,7 +606,7 @@ export function MobileGatePassList({
             </div>
             <div className="space-y-1.5">
               <label className="text-m-caption font-semibold" style={{ color: "var(--color-ink-600)" }}>Exit Notes</label>
-              <textarea
+              <textarea aria-label="Exit Notes"
                 value={exitNotes}
                 onChange={(e) => setExitNotes(e.target.value)}
                 rows={2}
@@ -968,7 +968,7 @@ export function MobileGatePassFormDialog({
               <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                 Notes
               </label>
-              <textarea
+              <textarea aria-label="Additional notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}

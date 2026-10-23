@@ -869,7 +869,7 @@ export function MaterialSalesView({
           </div>
           <div>
             <Label>Notes</Label>
-            <Textarea value={fNotes} onChange={(e) => setFNotes(e.target.value)} rows={2} />
+            <Textarea aria-label="F Notes" value={fNotes} onChange={(e) => setFNotes(e.target.value)} rows={2} />
           </div>
 
           <VehicleCaptureSection value={fVehicle} onChange={setFVehicle} showEwayBill />

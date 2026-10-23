@@ -253,7 +253,7 @@ export function MobileNewRateContractForm({
           <label className={labelClass} style={labelStyle}>
             Notes (optional)
           </label>
-          <textarea
+          <textarea aria-label="Additional terms"
             value={form.notes}
             onChange={(e) => set("notes", e.target.value)}
             rows={2}

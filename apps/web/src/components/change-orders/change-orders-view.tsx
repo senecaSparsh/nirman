@@ -341,7 +341,7 @@ function NewChangeOrderDialog({
           <Input aria-label="Title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Additional waterproofing for basement" required />
         </Field>
         <Field label="Description" required>
-          <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} placeholder="Detailed description of the change…" required />
+          <Textarea aria-label="Detailed description of the change" value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} placeholder="Detailed description of the change…" required />
         </Field>
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label="Type">

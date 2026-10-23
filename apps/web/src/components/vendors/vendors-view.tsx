@@ -492,7 +492,7 @@ export function VendorsView({
           </div>
           <div>
             <Label>Address</Label>
-            <Textarea value={fAddress} onChange={(e) => setFAddress(e.target.value)} rows={2} />
+            <Textarea aria-label="F Address" value={fAddress} onChange={(e) => setFAddress(e.target.value)} rows={2} />
           </div>
           {!editTarget && (
             <div>

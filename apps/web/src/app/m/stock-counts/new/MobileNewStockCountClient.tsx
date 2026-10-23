@@ -508,7 +508,7 @@ export default function MobileNewStockCountClient({ onClose, onCreated, canCreat
         <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
           Notes (optional)
         </label>
-        <textarea
+        <textarea aria-label="Notes"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="e.g. Monthly verification — cement bags damaged"

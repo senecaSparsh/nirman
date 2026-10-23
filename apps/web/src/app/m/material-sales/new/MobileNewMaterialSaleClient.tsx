@@ -1447,7 +1447,7 @@ function SaleForm({
           >
             Notes:
           </span>
-          <textarea
+          <textarea aria-label="Notes"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="e.g. Surplus cement sold to local contractor"

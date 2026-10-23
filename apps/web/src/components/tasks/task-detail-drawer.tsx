@@ -759,7 +759,7 @@ function DiscussionTab({ detail, currentUserId, onChanged }: {
 
       {/* New comment composer */}
       <div className="mt-4 border-t border-border pt-4">
-        <Textarea
+        <Textarea aria-label="Body"
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder="Write a comment…  (Cmd+Enter to send)"
@@ -851,7 +851,7 @@ function CommentNode({
       {/* Inline reply composer */}
       {replyTo === comment.id && (
         <div className="ml-9 flex items-end gap-2 border-l border-border pl-3">
-          <Textarea
+          <Textarea aria-label="Reply Body"
             value={replyBody}
             onChange={(e) => onReplyBodyChange(e.target.value)}
             placeholder={`Reply to ${comment.user.name}…`}

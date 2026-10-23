@@ -149,7 +149,7 @@ export function MobileNewBrokerClient({
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Notes
             </label>
-            <textarea
+            <textarea aria-label="Any notes about this broker"
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}

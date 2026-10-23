@@ -429,7 +429,7 @@ export default function MobileNewScrapGenerationClient({ onClose, onCreated }: {
         {/* Notes */}
         <SectionCard title="Notes">
           <FormField label="Notes (optional)">
-            <textarea
+            <textarea aria-label="Notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. Broken tiles from Tower A flooring"

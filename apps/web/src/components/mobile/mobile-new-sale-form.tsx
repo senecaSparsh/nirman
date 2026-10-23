@@ -915,7 +915,7 @@ export function MobileNewSaleForm({
             {/* Notes */}
             <div className="pt-1.5" style={{ borderTop: "1px solid var(--color-line)" }}>
               <FormFieldSm label="Notes">
-                <textarea
+                <textarea aria-label="Sale notes"
                   rows={2}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -1024,7 +1024,7 @@ export function MobileNewSaleForm({
               {terms.map((term, i) => (
                 <div key={i} className="space-y-1 rounded-[0.375rem] border p-1.5" style={{ borderColor: "var(--color-line)" }}>
                   <div className="flex items-start gap-1">
-                    <textarea
+                    <textarea aria-label="Condition"
                       rows={2}
                       value={term.description}
                       onChange={(e) => {

@@ -273,7 +273,7 @@ export function MobileExpenseDetailClient(props: Props) {
           <p className="text-m-caption mb-2" style={{ color: "var(--color-ink-500)" }}>
             Provide a reason for rejecting this expense.
           </p>
-          <textarea
+          <textarea aria-label="Why is this expense being rejected?"
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
             rows={3}

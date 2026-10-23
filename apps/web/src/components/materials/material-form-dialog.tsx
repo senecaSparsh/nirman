@@ -561,7 +561,7 @@ export function MaterialFormDialog({
         </div>
         </details>
         <Field label="Description">
-          <Textarea
+          <Textarea aria-label="Optional notes about grade, brand, specs"
             value={form.description}
             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => set("description", e.target.value)}
             placeholder="Optional notes about grade, brand, specs…"

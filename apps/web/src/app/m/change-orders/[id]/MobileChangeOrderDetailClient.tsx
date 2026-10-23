@@ -405,7 +405,7 @@ export function MobileChangeOrderDetailClient({
               </p>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Reason</label>
-                <textarea
+                <textarea aria-label="Why is this change order being rejected?"
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
                   rows={2}
@@ -485,7 +485,7 @@ export function MobileChangeOrderDetailClient({
               </div>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Description</label>
-                <textarea
+                <textarea aria-label="Description"
                   value={editForm.description}
                   onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                   rows={2}
@@ -545,7 +545,7 @@ export function MobileChangeOrderDetailClient({
               </div>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Notes</label>
-                <textarea
+                <textarea aria-label="Optional notes"
                   value={editForm.notes}
                   onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
                   rows={1}

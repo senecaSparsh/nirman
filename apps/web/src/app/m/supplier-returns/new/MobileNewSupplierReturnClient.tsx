@@ -704,7 +704,7 @@ function ReturnForm({
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Notes
             </label>
-            <textarea
+            <textarea aria-label="Notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. Goods damaged in transit"

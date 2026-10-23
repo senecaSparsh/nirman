@@ -600,7 +600,7 @@ export function DprsView({
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label>Reason *</Label>
-              <Textarea
+              <Textarea aria-label="Why is this DPR being rejected?"
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 rows={3}
@@ -872,16 +872,16 @@ function DprFormDialog({
           </div>
           <div>
             <Label>Work Summary *</Label>
-            <Textarea value={form.workSummary} onChange={(e) => set("workSummary", e.target.value)} rows={3} placeholder="What work was done today?" required />
+            <Textarea aria-label="What work was done today?" value={form.workSummary} onChange={(e) => set("workSummary", e.target.value)} rows={3} placeholder="What work was done today?" required />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Blockers</Label>
-              <Textarea value={form.blockers} onChange={(e) => set("blockers", e.target.value)} rows={2} placeholder="Any issues or delays?" />
+              <Textarea aria-label="Any issues or delays?" value={form.blockers} onChange={(e) => set("blockers", e.target.value)} rows={2} placeholder="Any issues or delays?" />
             </div>
             <div>
               <Label>Tomorrow&apos;s Plan</Label>
-              <Textarea value={form.tomorrowPlan} onChange={(e) => set("tomorrowPlan", e.target.value)} rows={2} placeholder="Planned work for tomorrow" />
+              <Textarea aria-label="Planned work for tomorrow" value={form.tomorrowPlan} onChange={(e) => set("tomorrowPlan", e.target.value)} rows={2} placeholder="Planned work for tomorrow" />
             </div>
           </div>
 
@@ -940,7 +940,7 @@ function DprFormDialog({
 
           <div>
             <Label>Notes</Label>
-            <Textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2} placeholder="Additional notes…" />
+            <Textarea aria-label="Additional notes" value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2} placeholder="Additional notes…" />
           </div>
 
           <div>

@@ -143,7 +143,7 @@ export function DepartmentFormDialog({
           </Field>
         </div>
         <Field label="Description">
-          <Textarea
+          <Textarea aria-label="Description"
             value={form.description}
             onChange={(e) => set("description", e.target.value)}
             placeholder="Optional — what this cost centre is for"

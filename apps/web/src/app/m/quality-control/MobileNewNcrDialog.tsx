@@ -179,7 +179,7 @@ export function MobileNewNcrForm({
 
       {/* Description */}
       <SectionCard title="Description">
-        <textarea
+        <textarea aria-label="What is non-conforming? Be specific"
           value={form.description}
           onChange={(e) => set("description", e.target.value)}
           rows={3}

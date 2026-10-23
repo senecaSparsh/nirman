@@ -686,7 +686,7 @@ function CreateTaskConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: (u
       </div>
       <div className="space-y-1.5">
         <Label>Instructions</Label>
-        <Textarea
+        <Textarea aria-label="Step-by-step guidance for the assignee"
           value={String(step.config.instructions ?? "")}
           onChange={(e) => onUpdate({ config: { ...step.config, instructions: e.target.value } })}
           placeholder="Step-by-step guidance for the assignee"
@@ -729,7 +729,7 @@ function NotificationConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: 
       </div>
       <div className="space-y-1.5">
         <Label>Message</Label>
-        <Textarea
+        <Textarea aria-label="Notification message"
           value={String(step.config.message ?? "")}
           onChange={(e) => onUpdate({ config: { ...step.config, message: e.target.value } })}
           placeholder="Notification message"

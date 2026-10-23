@@ -1003,7 +1003,7 @@ function EmployeeFormDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Permanent Address</Label>
-              <textarea
+              <textarea aria-label="Permanent Address"
                 className="w-full rounded-md border border-border bg-background px-3 py-2 text-body min-h-[60px]"
                 value={form.permanentAddress}
                 onChange={(e) => set("permanentAddress", e.target.value)}
@@ -1011,7 +1011,7 @@ function EmployeeFormDialog({
             </div>
             <div>
               <Label>Current Address</Label>
-              <textarea
+              <textarea aria-label="Address"
                 className="w-full rounded-md border border-border bg-background px-3 py-2 text-body min-h-[60px]"
                 value={form.currentAddress}
                 onChange={(e) => set("currentAddress", e.target.value)}

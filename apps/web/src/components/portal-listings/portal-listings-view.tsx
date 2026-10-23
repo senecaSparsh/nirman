@@ -855,7 +855,7 @@ function ListingForm({
         {/* Description */}
         <div className="space-y-1.5">
           <Label>Description</Label>
-          <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Describe the property — location, amenities, highlights…" />
+          <Textarea aria-label="Description" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Describe the property — location, amenities, highlights…" />
         </div>
 
         {/* Price + bedrooms + bathrooms */}

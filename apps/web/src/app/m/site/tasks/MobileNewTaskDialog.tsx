@@ -164,7 +164,7 @@ export function MobileNewTaskForm({
           <label className={labelClass} style={labelStyle}>
             Description
           </label>
-          <textarea
+          <textarea aria-label="What needs to be done?"
             value={form.description}
             onChange={(e) => set("description", e.target.value)}
             rows={2}
@@ -177,7 +177,7 @@ export function MobileNewTaskForm({
           <label className={labelClass} style={labelStyle}>
             Step-by-step Guidance (optional)
           </label>
-          <textarea
+          <textarea aria-label="Numbered steps the assignee should follow"
             value={form.instructions}
             onChange={(e) => set("instructions", e.target.value)}
             rows={3}

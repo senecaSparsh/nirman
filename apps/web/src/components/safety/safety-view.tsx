@@ -517,7 +517,7 @@ function NewHazardDialog({ open, onOpenChange, projects, onSaved }: { open: bool
           </div>
         </div>
         <Field label="Location"><Input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Tower B, east side" /></Field>
-        <Field label="Mitigation Plan (optional)"><Textarea value={form.mitigationPlan} onChange={(e) => set("mitigationPlan", e.target.value)} rows={2} placeholder="How will the hazard be controlled?" /></Field>
+        <Field label="Mitigation Plan (optional)"><Textarea aria-label="How will the hazard be controlled?" value={form.mitigationPlan} onChange={(e) => set("mitigationPlan", e.target.value)} rows={2} placeholder="How will the hazard be controlled?" /></Field>
         <Field label="Target Resolution Date"><Input type="date" value={form.targetResolutionDate} onChange={(e) => set("targetResolutionDate", e.target.value)} /></Field>
         <div>
           <p className="text-sm font-medium mb-1.5">Photo Evidence</p>

@@ -270,7 +270,7 @@ export function LandPurchaseFormDialog({
         </div>
         <div className="space-y-1.5">
           <Label>Location</Label>
-          <Textarea value={form.location} onChange={(e) => set("location", e.target.value)} rows={2} placeholder="Village, tehsil, district, state" />
+          <Textarea aria-label="Village, tehsil, district, state" value={form.location} onChange={(e) => set("location", e.target.value)} rows={2} placeholder="Village, tehsil, district, state" />
         </div>
         <div className="space-y-1.5">
           <Label>Document</Label>

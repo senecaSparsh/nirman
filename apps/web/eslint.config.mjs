@@ -267,7 +267,7 @@ const requireAccessibleInputPlugin = {
     return {
       JSXElement(node) {
         const name = node.openingElement?.name?.name;
-        if (name !== "input" && name !== "Input") return;
+        if (name !== "input" && name !== "Input" && name !== "textarea" && name !== "Textarea") return;
         const attrs = node.openingElement?.attributes ?? [];
         const attr = (n) =>
           attrs.find(

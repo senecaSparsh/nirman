@@ -657,7 +657,7 @@ function LogActivityForm({ leadId }: { leadId: string }) {
             <label className="text-m-caption font-bold uppercase mb-0 block" style={{ color: "var(--color-ink-700)" }}>
               Notes — what was discussed
             </label>
-            <textarea
+            <textarea aria-label="Note"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={2}

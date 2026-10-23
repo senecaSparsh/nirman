@@ -171,7 +171,7 @@ export function MobileRaBillActions({
               </p>
               <div>
                 <label className={labelClass} style={labelStyle}>Reason *</label>
-                <textarea
+                <textarea aria-label="Why is this bill being rejected?"
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
                   placeholder="Why is this bill being rejected?"

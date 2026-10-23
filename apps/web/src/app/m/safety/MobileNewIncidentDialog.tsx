@@ -126,7 +126,7 @@ export function MobileNewIncidentForm({ onClose, projects }: { onClose: () => vo
       <SectionCard title="Description">
         <div>
           <label className={labelClass} style={labelStyle}>What happened?</label>
-          <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={3} placeholder="Be specific…" className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors" style={inputStyle} />
+          <textarea aria-label="Be specific" value={form.description} onChange={(e) => set("description", e.target.value)} rows={3} placeholder="Be specific…" className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors" style={inputStyle} />
         </div>
       </SectionCard>
 

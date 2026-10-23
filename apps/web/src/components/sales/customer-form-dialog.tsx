@@ -141,7 +141,7 @@ export function CustomerFormDialog({
           <Input value={form.gstin} onChange={(e) => set("gstin", e.target.value)} onBlur={() => onBlur("gstin", form)} aria-invalid={!!errors.gstin} placeholder="29ABCDE1234F1Z5" />
         </Field>
         <Field label="Address">
-          <Textarea value={form.address} onChange={(e) => set("address", e.target.value)} rows={2} placeholder="Flat/house no, street, area, city, PIN" />
+          <Textarea aria-label="Flat/house no, street, area, city, PIN" value={form.address} onChange={(e) => set("address", e.target.value)} rows={2} placeholder="Flat/house no, street, area, city, PIN" />
         </Field>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>

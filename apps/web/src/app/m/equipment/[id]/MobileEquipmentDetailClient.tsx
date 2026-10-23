@@ -934,7 +934,7 @@ function EditEquipmentModal({
             />
           </Field>
           <Field label="Notes">
-            <textarea
+            <textarea aria-label="Notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
@@ -1097,7 +1097,7 @@ function AssignModal({
               <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                 Notes (optional)
               </label>
-              <textarea
+              <textarea aria-label="Notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="e.g. Deployed for foundation work"
@@ -1378,7 +1378,7 @@ function MaintenanceModal({
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Notes (optional)
             </label>
-            <textarea
+            <textarea aria-label="Notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. Oil change + filter replacement"

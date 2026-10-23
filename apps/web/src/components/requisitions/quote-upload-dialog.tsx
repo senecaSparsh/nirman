@@ -441,7 +441,7 @@ export function QuoteUploadDialog({
 
         <div className="space-y-1.5">
           <Label>Notes</Label>
-          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+          <Textarea aria-label="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
         </div>
 
         <div className="flex justify-end gap-2 pt-2">

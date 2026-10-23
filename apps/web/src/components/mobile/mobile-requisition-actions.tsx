@@ -343,7 +343,7 @@ export function MobileRequisitionActions({
               <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
                 Provide a reason for rejecting <span className="font-bold font-mono" style={{ color: "var(--color-ink-950)" }}>{requisition.reqNumber}</span>.
               </p>
-              <textarea
+              <textarea aria-label="Reason"
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="e.g. Wrong quantity, duplicate request, not approved by site lead…"
@@ -696,7 +696,7 @@ function ConvertForm({
         <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
           Notes (optional)
         </label>
-        <textarea
+        <textarea aria-label="PO notes"
           rows={2}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}

@@ -1137,7 +1137,7 @@ function ConsentTab({ policy, company, canManage }: { policy: ConsentPolicy | nu
               Revising creates a new version. All staff must re-accept on next login.
             </p>
           )}
-          <textarea
+          <textarea aria-label="Policy Text"
             value={policyText}
             onChange={(e) => setPolicyText(e.target.value)}
             placeholder="Enter the full consent policy text. This will be shown to all staff on login…"

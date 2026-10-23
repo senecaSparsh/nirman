@@ -713,7 +713,7 @@ export function RenovationsView({
           </div>
           <div>
             <Label>Description</Label>
-            <Textarea value={fDesc} onChange={(e) => setFDesc(e.target.value)} rows={2} placeholder="Scope of work, materials, timeline…" />
+            <Textarea aria-label="Scope of work, materials, timeline" value={fDesc} onChange={(e) => setFDesc(e.target.value)} rows={2} placeholder="Scope of work, materials, timeline…" />
           </div>
           <div>
             <Label>Project *</Label>
@@ -818,7 +818,7 @@ export function RenovationsView({
           </div>
           <div>
             <Label>Description</Label>
-            <Textarea value={eDesc} onChange={(e) => setEDesc(e.target.value)} rows={2} placeholder="Scope of work, materials, timeline…" />
+            <Textarea aria-label="Scope of work, materials, timeline" value={eDesc} onChange={(e) => setEDesc(e.target.value)} rows={2} placeholder="Scope of work, materials, timeline…" />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>

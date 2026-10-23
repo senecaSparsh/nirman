@@ -336,7 +336,7 @@ export function MobileNewLeadClient({
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Notes
             </label>
-            <textarea
+            <textarea aria-label="Any context about this lead"
               rows={3}
               value={form.notes}
               onChange={(e) => set("notes", e.target.value)}

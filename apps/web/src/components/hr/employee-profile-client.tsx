@@ -2857,7 +2857,7 @@ function ResourcesTab({ employee, canManage }: { employee: EmployeeProfileData; 
           </div>
           <div className="space-y-1.5">
             <Label>Return notes</Label>
-            <Textarea rows={2} value={returnNotes} onChange={(e) => setReturnNotes(e.target.value)} />
+            <Textarea aria-label="Return Notes" rows={2} value={returnNotes} onChange={(e) => setReturnNotes(e.target.value)} />
           </div>
           <label className="flex items-center gap-2 text-body">
             <input type="checkbox" checked={depositRefunded} onChange={(e) => setDepositRefunded(e.target.checked)} className="accent-brand-strong" />
@@ -2975,7 +2975,7 @@ function IssueResourceDialog({ employeeId, onClose, onIssued }: { employeeId: st
         </div>
         <div className="space-y-1.5">
           <Label>Notes</Label>
-          <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any additional notes" />
+          <Textarea aria-label="Any additional notes" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any additional notes" />
         </div>
         <div className="flex gap-2 pt-2">
           <Button variant="outline" size="sm" onClick={onClose} disabled={submitting} className="flex-1">Cancel</Button>
@@ -3411,7 +3411,7 @@ function DossierTab({ employee, canManage, departments }: { employee: EmployeePr
           <div className="space-y-3 py-1">
             <div className="space-y-2">
               <Label>Permanent Address</Label>
-              <textarea
+              <textarea aria-label="House no, street, city, state, PIN"
                 value={addressForm.permanentAddress}
                 onChange={(e) => setAddressForm((f) => ({ ...f, permanentAddress: e.target.value }))}
                 rows={2}
@@ -3421,7 +3421,7 @@ function DossierTab({ employee, canManage, departments }: { employee: EmployeePr
             </div>
             <div className="space-y-2">
               <Label>Current Address</Label>
-              <textarea
+              <textarea aria-label="House no, street, city, state, PIN"
                 value={addressForm.currentAddress}
                 onChange={(e) => setAddressForm((f) => ({ ...f, currentAddress: e.target.value }))}
                 rows={2}

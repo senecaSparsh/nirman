@@ -283,7 +283,7 @@ function BrokerFormDialog({
           />
         </Field>
         <Field label="Notes">
-          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Any notes about this broker…" />
+          <Textarea aria-label="Any notes about this broker" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Any notes about this broker…" />
         </Field>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>

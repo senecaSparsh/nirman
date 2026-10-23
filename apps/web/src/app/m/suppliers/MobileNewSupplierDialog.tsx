@@ -134,7 +134,7 @@ export function MobileNewSupplierForm({
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Address
             </label>
-            <textarea
+            <textarea aria-label="Ress"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder="Shop 12, Market Road, City"

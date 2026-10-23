@@ -502,7 +502,7 @@ export function NcrDetailClient({ ncr, canManage }: { ncr: NcrDetail; canManage:
         <Dialog open={showEditCapa} onOpenChange={setShowEditCapa} title="Edit CAPA" description="Update the corrective and preventive action plan." size="lg">
           <div className="space-y-3">
             <Field label="Root Cause" required>
-              <Textarea value={editCapaForm.rootCause} onChange={(e) => setEditCapaForm((f) => ({ ...f, rootCause: e.target.value }))} rows={2} />
+              <Textarea aria-label="Root Cause" value={editCapaForm.rootCause} onChange={(e) => setEditCapaForm((f) => ({ ...f, rootCause: e.target.value }))} rows={2} />
             </Field>
             <Field label="Corrective Action" required>
               <Textarea value={editCapaForm.correctiveAction} onChange={(e) => setEditCapaForm((f) => ({ ...f, correctiveAction: e.target.value }))} rows={2} />

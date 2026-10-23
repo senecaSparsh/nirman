@@ -491,7 +491,7 @@ export default function MobileNewMaterialClient({
         </p>
 
       <FormField label="Description">
-        <textarea
+        <textarea aria-label="Brand, specs, storage instructions"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Brand, specs, storage instructions…"

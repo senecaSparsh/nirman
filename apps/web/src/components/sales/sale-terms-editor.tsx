@@ -49,7 +49,7 @@ export function SaleTermsEditor({
         {terms.map((term, i) => (
           <div key={i} className="space-y-1.5 rounded-md border border-border p-2">
             <div className="flex items-start gap-2">
-              <Textarea
+              <Textarea aria-label="Description"
                 value={term.description}
                 onChange={(e) => update(i, "description", e.target.value)}
                 placeholder="e.g. Fire NOC to be obtained by seller before possession"

@@ -227,7 +227,7 @@ export function MaterialSalePaymentFormDialog({
         </details>
 
         <Field label="Notes">
-          <textarea
+          <textarea aria-label="Optional notes"
             className="w-full rounded-md border border-border bg-background px-3 py-2 text-body outline-none focus:ring-2 focus:ring-ring"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}

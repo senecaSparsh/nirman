@@ -297,7 +297,7 @@ function BenchmarkForm({
         </p>
         <div className="space-y-1.5">
           <Label>Notes</Label>
-          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Optional context…" />
+          <Textarea aria-label="Optional context" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Optional context…" />
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>

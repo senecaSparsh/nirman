@@ -1490,7 +1490,7 @@ async function approveGp(gp: GatePassRow) {
  Rejection Reason
  </p>
  <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Provide a reason for rejection</div>
- <textarea
+ <textarea aria-label="Why is this gate pass being rejected?"
  value={gpRejectReason}
  onChange={(e) => setGpRejectReason(e.target.value)}
  rows={3}
@@ -1530,7 +1530,7 @@ async function approveGp(gp: GatePassRow) {
  Rejection Reason
  </p>
  <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Provide a reason for rejection</div>
- <textarea
+ <textarea aria-label="Why is this DPR being rejected?"
  value={dprRejectReason}
  onChange={(e) => setDprRejectReason(e.target.value)}
  rows={3}
@@ -1570,7 +1570,7 @@ async function approveGp(gp: GatePassRow) {
  Rejection Reason
  </p>
  <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Provide a reason for rejection</div>
- <textarea
+ <textarea aria-label="Why is this PO being rejected?"
  value={poRejectReason}
  onChange={(e) => setPoRejectReason(e.target.value)}
  rows={3}
@@ -1610,7 +1610,7 @@ async function approveGp(gp: GatePassRow) {
  Rejection Reason
  </p>
  <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Provide a reason for rejection</div>
- <textarea
+ <textarea aria-label="Why is this expense being rejected?"
  value={expenseRejectReason}
  onChange={(e) => setExpenseRejectReason(e.target.value)}
  rows={3}
@@ -1650,7 +1650,7 @@ async function approveGp(gp: GatePassRow) {
  Rejection Reason
  </p>
  <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Provide a reason for rejection</div>
- <textarea
+ <textarea aria-label="Why is this RA bill being rejected?"
  value={raBillRejectReason}
  onChange={(e) => setRaBillRejectReason(e.target.value)}
  rows={3}
@@ -1690,7 +1690,7 @@ async function approveGp(gp: GatePassRow) {
  Rejection Reason
  </p>
  <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Provide a reason for rejection</div>
- <textarea
+ <textarea aria-label="Why is this claim being rejected?"
  value={claimRejectReason}
  onChange={(e) => setClaimRejectReason(e.target.value)}
  rows={3}
@@ -1730,7 +1730,7 @@ async function approveGp(gp: GatePassRow) {
  Rejection Reason
  </p>
  <div className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>The employee will see this reason</div>
- <textarea
+ <textarea aria-label="Why is this leave being rejected?"
  value={leaveRejectReason}
  onChange={(e) => setLeaveRejectReason(e.target.value)}
  rows={3}

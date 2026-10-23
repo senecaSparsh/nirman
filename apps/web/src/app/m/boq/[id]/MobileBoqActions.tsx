@@ -226,7 +226,7 @@ export function MobileBoqEditDialog({
               <label className={labelClass} style={labelStyle}>
                 Notes
               </label>
-              <textarea
+              <textarea aria-label="Notes"
                 value={form.notes}
                 onChange={(e) => set("notes", e.target.value)}
                 rows={1}

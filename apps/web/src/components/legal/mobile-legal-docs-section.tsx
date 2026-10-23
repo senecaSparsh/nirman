@@ -837,7 +837,7 @@ function MobileLegalDocForm({
             </p>
             <div>
               <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Notes</label>
-              <textarea
+              <textarea aria-label="Conditions, remarks, or additional details"
                 value={form.notes}
                 onChange={(e) => setField("notes", e.target.value)}
                 rows={2}

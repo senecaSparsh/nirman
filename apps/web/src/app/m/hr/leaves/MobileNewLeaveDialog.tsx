@@ -204,7 +204,7 @@ export function MobileNewLeaveForm({
           <label className={labelClass} style={labelStyle}>
             Reason (optional)
           </label>
-          <textarea
+          <textarea aria-label="Reason"
             value={form.reason}
             onChange={(e) => set("reason", e.target.value)}
             rows={2}

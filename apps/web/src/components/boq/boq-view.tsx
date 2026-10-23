@@ -536,7 +536,7 @@ export function BoqFormDialog({
           </div>
         )}
         <Field label="Notes">
-          <Textarea value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2} placeholder="Optional notes" />
+          <Textarea aria-label="Optional notes" value={form.notes} onChange={(e) => set("notes", e.target.value)} rows={2} placeholder="Optional notes" />
         </Field>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>

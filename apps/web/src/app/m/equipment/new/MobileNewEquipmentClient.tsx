@@ -276,7 +276,7 @@ export default function MobileNewEquipmentClient({
       <div className="mb-3">
         <SectionCard title="Notes">
           <div>
-            <textarea
+            <textarea aria-label="Notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. Purchased from ABC Suppliers, warranty 2 years"

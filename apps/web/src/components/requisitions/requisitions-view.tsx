@@ -747,7 +747,7 @@ export function RequisitionsView({
         <div className="space-y-4">
           <div className="space-y-1.5">
             <Label>Reason</Label>
-            <Textarea
+            <Textarea aria-label="Reason"
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
               placeholder="e.g. Insufficient budget, duplicate request, wrong material spec…"
@@ -957,7 +957,7 @@ function RequisitionFormDialog({
 
         <div className="space-y-1.5">
           <Label>Notes</Label>
-          <Textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={2} />
+          <Textarea aria-label="Notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={2} />
         </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
@@ -1155,7 +1155,7 @@ function ConvertDialog({
 
         <div className="space-y-1.5">
           <Label>Notes</Label>
-          <Textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={2} />
+          <Textarea aria-label="Notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={2} />
         </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>

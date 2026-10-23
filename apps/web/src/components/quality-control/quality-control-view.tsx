@@ -297,7 +297,7 @@ function NewNcrDialog({
           <Input aria-label="Title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Uneven plaster in flat 302" required />
         </Field>
         <Field label="Description" required>
-          <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={3} placeholder="What is non-conforming? Be specific…" required />
+          <Textarea aria-label="What is non-conforming? Be specific" value={form.description} onChange={(e) => set("description", e.target.value)} rows={3} placeholder="What is non-conforming? Be specific…" required />
         </Field>
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label="Category">

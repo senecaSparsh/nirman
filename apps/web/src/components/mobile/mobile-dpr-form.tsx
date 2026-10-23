@@ -892,15 +892,15 @@ export function MobileDprForm({
       </FormField>
 
       <FormField label="Work summary" required>
-        <textarea value={fWorkSummary} onChange={(e) => setFWorkSummary(e.target.value)} rows={2} placeholder="What work was done today?" className="w-full px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
+        <textarea aria-label="What work was done today?" value={fWorkSummary} onChange={(e) => setFWorkSummary(e.target.value)} rows={2} placeholder="What work was done today?" className="w-full px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
       </FormField>
 
       <FormField label="Blockers">
-        <textarea value={fBlockers} onChange={(e) => setFBlockers(e.target.value)} rows={1} placeholder="Any delays or issues?" className="w-full px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
+        <textarea aria-label="Any delays or issues?" value={fBlockers} onChange={(e) => setFBlockers(e.target.value)} rows={1} placeholder="Any delays or issues?" className="w-full px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
       </FormField>
 
       <FormField label="Tomorrow's plan">
-        <textarea value={fTomorrow} onChange={(e) => setFTomorrow(e.target.value)} rows={1} placeholder="What's planned for tomorrow?" className="w-full px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
+        <textarea aria-label="What's planned for tomorrow?" value={fTomorrow} onChange={(e) => setFTomorrow(e.target.value)} rows={1} placeholder="What's planned for tomorrow?" className="w-full px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
       </FormField>
       </SectionCard>
 
@@ -1111,7 +1111,7 @@ export function MobileDprForm({
       </div>
 
       <SectionCard title="Notes">
-        <textarea value={fNotes} onChange={(e) => setFNotes(e.target.value)} rows={1} placeholder="Additional notes…" className="w-full px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
+        <textarea aria-label="Additional notes" value={fNotes} onChange={(e) => setFNotes(e.target.value)} rows={1} placeholder="Additional notes…" className="w-full px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
       </SectionCard>
 
       <div>

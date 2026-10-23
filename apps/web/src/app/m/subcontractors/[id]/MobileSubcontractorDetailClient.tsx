@@ -551,7 +551,7 @@ function SubcontractorEditSheet({
             </div>
             <div>
               <label className={labelClass} style={labelStyle}>Address</label>
-              <textarea rows={1} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Office address…" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
+              <textarea aria-label="Office address" rows={1} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Office address…" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
             </div>
           </div>
           <div className="flex gap-2 pt-1">

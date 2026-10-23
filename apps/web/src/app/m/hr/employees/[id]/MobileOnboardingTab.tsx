@@ -2804,7 +2804,7 @@ function AddressesEditor({ employee, onClose, onSaved }: { employee: OnboardingE
     <div className="space-y-3 py-1">
       <div>
         <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Permanent Address</label>
-        <textarea
+        <textarea aria-label="House, Street, City, State, PIN"
           value={permanent}
           onChange={(e) => setPermanent(e.target.value)}
           placeholder="House, Street, City, State, PIN"
@@ -2815,7 +2815,7 @@ function AddressesEditor({ employee, onClose, onSaved }: { employee: OnboardingE
       </div>
       <div>
         <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Current Address</label>
-        <textarea
+        <textarea aria-label="House, Street, City, State, PIN"
           value={current}
           onChange={(e) => setCurrent(e.target.value)}
           placeholder="House, Street, City, State, PIN"

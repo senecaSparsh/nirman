@@ -244,7 +244,7 @@ export function PurchaseOrderDetailPanel({
           {detail.status === "DRAFT" && canApprove && (po.createdById !== currentUserId || canSelfApprove) && showApproveField && (
             <div className="flex flex-col gap-2 rounded-lg border border-border/60 p-3">
               <label className="text-meta text-muted-foreground">Approval notes (optional)</label>
-              <textarea
+              <textarea aria-label="Approval Notes"
                 className="w-full rounded-md border border-border bg-background px-3 py-2 text-body outline-none focus:ring-2 focus:ring-ring"
                 value={approvalNotes}
                 onChange={(e) => setApprovalNotes(e.target.value)}

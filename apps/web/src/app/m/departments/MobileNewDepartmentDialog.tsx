@@ -102,7 +102,7 @@ export function MobileNewDepartmentForm({
           <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
             Description
           </label>
-          <textarea
+          <textarea aria-label="What this department does"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}

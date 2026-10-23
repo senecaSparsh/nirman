@@ -193,7 +193,7 @@ export function MobileNewPortalListingClient({ units }: { units: UnitOption[] })
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Description
             </label>
-            <textarea
+            <textarea aria-label="Describe the property"
               value={form.description}
               onChange={(e) => set("description", e.target.value)}
               rows={2}

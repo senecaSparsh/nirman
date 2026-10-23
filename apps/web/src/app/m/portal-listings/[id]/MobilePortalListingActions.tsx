@@ -276,7 +276,7 @@ export function MobilePortalListingActions({
                 </div>
                 <div>
                   <label className={labelClass} style={labelStyle}>Description</label>
-                  <textarea rows={2} value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
+                  <textarea aria-label="Desc" rows={2} value={editDesc} onChange={(e) => setEditDesc(e.target.value)} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
                 </div>
                 <div>
                   <label className={labelClass} style={labelStyle}>Asking Price (₹) *</label>

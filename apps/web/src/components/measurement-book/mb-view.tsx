@@ -473,7 +473,7 @@ function MbEntryDialog({
           </Field>
         </div>
         <Field label="Description of Work" required>
-          <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} placeholder="e.g. Excavation for foundation, Unit 101" required />
+          <Textarea aria-label="Description" value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} placeholder="e.g. Excavation for foundation, Unit 101" required />
         </Field>
         <Field label="Location Reference">
           <Input aria-label="Location Ref" value={form.locationRef} onChange={(e) => set("locationRef", e.target.value)} placeholder="e.g. Unit 101, Floor 2, Wing A" />

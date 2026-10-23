@@ -371,7 +371,7 @@ function BrokerEditSheet({
                 </div>
                 <div>
                   <label className={labelClass} style={labelStyle}>Notes</label>
-                  <textarea rows={1} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any notes about this broker…" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
+                  <textarea aria-label="Any notes about this broker" rows={1} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any notes about this broker…" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={inputStyle} />
                 </div>
               </div>
               <div className="flex gap-2 pt-1">

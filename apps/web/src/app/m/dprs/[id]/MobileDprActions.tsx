@@ -260,7 +260,7 @@ export function MobileDprActions({
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              <textarea
+              <textarea aria-label="Reason for rejection"
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="Reason for rejection (required)..."

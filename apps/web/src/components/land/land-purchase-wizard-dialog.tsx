@@ -822,7 +822,7 @@ export function LandPurchaseWizardDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Location</Label>
-            <Textarea value={land.location} onChange={(e) => setLandField("location", e.target.value)} rows={2} placeholder="Village, tehsil, district, state" />
+            <Textarea aria-label="Village, tehsil, district, state" value={land.location} onChange={(e) => setLandField("location", e.target.value)} rows={2} placeholder="Village, tehsil, district, state" />
           </div>
           <div className="space-y-1.5">
             <Label>Document</Label>

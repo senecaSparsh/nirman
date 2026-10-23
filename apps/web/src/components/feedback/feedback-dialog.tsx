@@ -426,7 +426,7 @@ export function FeedbackDialog({ open, onOpenChange }: FeedbackDialogProps) {
             <label className="mb-1.5 block text-label text-faint">
               Your feedback <span className="normal-case text-danger">*</span>
             </label>
-            <Textarea
+            <Textarea aria-label="Message"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder="What's on your mind? Describe the issue, suggestion, or what you like…"

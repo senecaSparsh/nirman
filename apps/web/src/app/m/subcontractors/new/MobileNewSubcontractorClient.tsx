@@ -144,7 +144,7 @@ export function MobileNewSubcontractorClient({
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Address
             </label>
-            <textarea
+            <textarea aria-label="Office address"
               rows={2}
               value={address}
               onChange={(e) => setAddress(e.target.value)}

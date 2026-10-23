@@ -840,12 +840,12 @@ export function RentalsView({
             </div>
             <div>
               <Label>Draft / LOI notes</Label>
-              <Textarea value={fDraftNotes} onChange={(e) => setFDraftNotes(e.target.value)} rows={3} placeholder="Informal terms discussed — what was agreed verbally (e.g. possession date, work tenant will do, escalation terms)…" />
+              <Textarea aria-label="F Draft Notes" value={fDraftNotes} onChange={(e) => setFDraftNotes(e.target.value)} rows={3} placeholder="Informal terms discussed — what was agreed verbally (e.g. possession date, work tenant will do, escalation terms)…" />
             </div>
           </div>
           <div>
             <Label>Notes (optional)</Label>
-            <Textarea value={fNotes} onChange={(e) => setFNotes(e.target.value)} rows={2} />
+            <Textarea aria-label="F Notes" value={fNotes} onChange={(e) => setFNotes(e.target.value)} rows={2} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setFormOpen(false)}>Cancel</Button>
@@ -1004,7 +1004,7 @@ export function RentalsView({
           </div>
           <div>
             <Label>Notes (optional)</Label>
-            <Textarea value={ctNotes} onChange={(e) => setCtNotes(e.target.value)} rows={2} />
+            <Textarea aria-label="Ct Notes" value={ctNotes} onChange={(e) => setCtNotes(e.target.value)} rows={2} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setChangeTenantTarget(null)}>Cancel</Button>
@@ -1101,12 +1101,12 @@ export function RentalsView({
             </div>
             <div>
               <Label>Draft / LOI notes</Label>
-              <Textarea value={eDraftNotes} onChange={(e) => setEDraftNotes(e.target.value)} rows={3} placeholder="Informal terms discussed before the formal agreement…" />
+              <Textarea aria-label="Informal terms discussed before the formal agreement" value={eDraftNotes} onChange={(e) => setEDraftNotes(e.target.value)} rows={3} placeholder="Informal terms discussed before the formal agreement…" />
             </div>
           </div>
           <div>
             <Label>Notes (optional)</Label>
-            <Textarea value={eNotes} onChange={(e) => setENotes(e.target.value)} rows={2} />
+            <Textarea aria-label="E Notes" value={eNotes} onChange={(e) => setENotes(e.target.value)} rows={2} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setEditTarget(null)}>Cancel</Button>

@@ -2033,7 +2033,7 @@ function AddQuoteDialog({
                 className={inputClass}
                 style={inputStyle}
               />
-              <textarea
+              <textarea aria-label="Address"
                 value={newSupplier.address}
                 onChange={(e) => setNewSupplier((s) => ({ ...s, address: e.target.value }))}
                 placeholder="Address (optional)"
@@ -2158,7 +2158,7 @@ function AddQuoteDialog({
               <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                 Source note <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
-              <textarea
+              <textarea aria-label="Source Note"
                 value={sourceNote}
                 onChange={(e) => setSourceNote(e.target.value)}
                 rows={2}
@@ -2452,7 +2452,7 @@ function AddQuoteDialog({
           <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
             Notes (optional)
           </label>
-          <textarea
+          <textarea aria-label="Any other remarks"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
@@ -2577,7 +2577,7 @@ function ApproveDialog({
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Reason for override *
             </label>
-            <textarea
+            <textarea aria-label="Reason"
               value={reason}
               onChange={(e) => onReasonChange(e.target.value)}
               rows={3}

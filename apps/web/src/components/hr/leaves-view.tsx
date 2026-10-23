@@ -431,7 +431,7 @@ export function LeavesView({
           </div>
           <div>
             <Label>Reason (optional)</Label>
-            <Textarea value={fReason} onChange={(e) => setFReason(e.target.value)} rows={2} placeholder="Reason for leave…" />
+            <Textarea aria-label="Reason for leave" value={fReason} onChange={(e) => setFReason(e.target.value)} rows={2} placeholder="Reason for leave…" />
           </div>
           <div className="flex justify-end gap-2 pt-2 border-t border-border">
             <Button variant="outline" onClick={() => setFormOpen(false)}>Cancel</Button>
@@ -452,7 +452,7 @@ export function LeavesView({
         <div className="space-y-3">
           <div>
             <Label>Reason for rejection (optional)</Label>
-            <Textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} rows={3} placeholder="Explain why this leave is rejected…" />
+            <Textarea aria-label="Explain why this leave is rejected" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} rows={3} placeholder="Explain why this leave is rejected…" />
           </div>
           <div className="flex justify-end gap-2 pt-2 border-t border-border">
             <Button variant="outline" onClick={() => setRejectTarget(null)}>Cancel</Button>

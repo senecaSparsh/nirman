@@ -284,7 +284,7 @@ export function MobileLandCostComponentDialog({
 
             <div>
               <label className={labelCls} style={labelStyle}>Notes</label>
-              <textarea
+              <textarea aria-label="Optional"
                 value={form.notes}
                 onChange={(e) => set("notes", e.target.value)}
                 rows={1}

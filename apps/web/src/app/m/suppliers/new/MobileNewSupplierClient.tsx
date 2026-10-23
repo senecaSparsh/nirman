@@ -249,7 +249,7 @@ export function MobileNewSupplierClient({
             <label className={labelClass} style={labelStyle}>
               Address
             </label>
-            <textarea
+            <textarea aria-label="Warehouse / office address"
               value={form.address}
               onChange={(e) => set("address", e.target.value)}
               rows={2}

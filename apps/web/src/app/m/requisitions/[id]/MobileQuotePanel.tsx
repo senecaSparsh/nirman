@@ -1009,7 +1009,7 @@ function MobileQuoteUploadDialog({
                 >
                   Source Note *
                 </label>
-                <textarea
+                <textarea aria-label="Source Note"
                   rows={2}
                   value={sourceNote}
                   onChange={(e) => setSourceNote(e.target.value)}
@@ -1290,7 +1290,7 @@ function MobileQuoteUploadDialog({
               >
                 Notes (optional)
               </label>
-              <textarea
+              <textarea aria-label="Any special terms"
                 rows={2}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -1552,7 +1552,7 @@ function WaiveDialog({
               >
                 Reason *
               </label>
-              <textarea
+              <textarea aria-label="Reason"
                 rows={3}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
@@ -1777,7 +1777,7 @@ function MobileEditQuoteDialog({
               >
                 Notes
               </label>
-              <textarea
+              <textarea aria-label="Any special terms"
                 rows={2}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}

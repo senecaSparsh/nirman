@@ -827,7 +827,7 @@ function LegalDocFormDialog({
 
         <div className="space-y-1.5">
           <Label>Notes</Label>
-          <Textarea value={form.notes} onChange={(e) => setField("notes", e.target.value)} rows={2}
+          <Textarea aria-label="Conditions, remarks, or additional details" value={form.notes} onChange={(e) => setField("notes", e.target.value)} rows={2}
             placeholder="Conditions, remarks, or additional details" />
         </div>
       </div>

@@ -623,7 +623,7 @@ export function MobileExpenseClaimDetailClient({
         className="!max-w-sm rounded-2xl bg-card p-4 shadow-xl"
       >
             <h3 className="text-m-section font-extrabold tracking-tight mb-2">Reject claim</h3>
-            <textarea
+            <textarea aria-label="Reason for rejection"
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
               placeholder="Reason for rejection (required)…"

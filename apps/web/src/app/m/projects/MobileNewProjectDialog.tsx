@@ -357,7 +357,7 @@ export function MobileNewProjectDialog({
             <label className={labelClass} style={labelStyle}>
               Description <span className="font-normal" style={{ color: "var(--color-ink-400)" }}>opt.</span>
             </label>
-            <textarea
+            <textarea aria-label="Optional notes"
               value={form.description}
               onChange={(e) => set("description", e.target.value)}
               rows={2}

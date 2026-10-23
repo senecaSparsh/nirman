@@ -301,7 +301,7 @@ export function MobileEditProjectDialog({
               <label className={labelClass} style={labelStyle}>
                 Description
               </label>
-              <textarea
+              <textarea aria-label="Optional notes"
                 value={form.description}
                 onChange={(e) => set("description", e.target.value)}
                 rows={1}

@@ -1209,7 +1209,7 @@ function WbsFormDialog({
           <Input aria-label="Name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Excavation" required />
         </Field>
         <Field label="Description">
-          <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} />
+          <Textarea aria-label="Description" value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} />
         </Field>
 
         {/* Schedule */}

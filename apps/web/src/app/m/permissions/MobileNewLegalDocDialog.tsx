@@ -452,7 +452,7 @@ export function MobileNewLegalDocForm({
           <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
             Notes (optional)
           </label>
-          <textarea
+          <textarea aria-label="Conditions, remarks, or additional details"
             value={form.notes}
             onChange={(e) => set("notes", e.target.value)}
             rows={2}

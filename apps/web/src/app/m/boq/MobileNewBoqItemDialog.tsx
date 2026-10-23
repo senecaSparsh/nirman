@@ -319,7 +319,7 @@ export function MobileNewBoqItemDialog({
               <label className={labelClass} style={labelStyle}>
                 Notes (optional)
               </label>
-              <textarea
+              <textarea aria-label="Additional context"
                 value={form.notes}
                 onChange={(e) => set("notes", e.target.value)}
                 rows={2}

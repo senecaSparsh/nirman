@@ -158,7 +158,7 @@ export function MobileMbActions({
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
                 Rejection Reason
               </p>
-              <textarea
+              <textarea aria-label="Reason"
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 rows={2}

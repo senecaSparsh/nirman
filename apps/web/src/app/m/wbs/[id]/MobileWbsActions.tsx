@@ -159,7 +159,7 @@ export function MobileWbsEditDialog({
               <label className={labelClass} style={labelStyle}>
                 Description
               </label>
-              <textarea
+              <textarea aria-label="Description"
                 value={form.description}
                 onChange={(e) => set("description", e.target.value)}
                 rows={1}

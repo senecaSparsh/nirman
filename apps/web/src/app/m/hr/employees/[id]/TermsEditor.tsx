@@ -130,7 +130,7 @@ export function TermsEditor({
               )
             ) : (
               <div className="space-y-2">
-                <textarea
+                <textarea aria-label="Enter custom terms & conditions"
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   placeholder="Enter custom terms & conditions…"

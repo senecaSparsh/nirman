@@ -205,7 +205,7 @@ export function InspectionDetailClient({ inspection, canManage }: { inspection: 
               />
             </Field>
             <Field label="Compliance Notes (optional)">
-              <Textarea
+              <Textarea aria-label="Any compliance observations?"
                 value={complianceNotes}
                 onChange={(e) => setComplianceNotes(e.target.value)}
                 rows={3}
@@ -213,7 +213,7 @@ export function InspectionDetailClient({ inspection, canManage }: { inspection: 
               />
             </Field>
             <Field label="Follow-up Actions (optional)">
-              <Textarea
+              <Textarea aria-label="What needs to happen next?"
                 value={followUpActions}
                 onChange={(e) => setFollowUpActions(e.target.value)}
                 rows={3}

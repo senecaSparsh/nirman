@@ -503,7 +503,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
           <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-700)" }}>
             Indent notes
           </label>
-          <textarea
+          <textarea aria-label="Notes"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}

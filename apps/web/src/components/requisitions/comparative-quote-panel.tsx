@@ -804,7 +804,7 @@ export function ComparativeQuotePanel({
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label>Reason *</Label>
-            <Textarea
+            <Textarea aria-label="Waive Reason"
               value={waiveReason}
               onChange={(e) => setWaiveReason(e.target.value)}
               rows={3}
@@ -926,7 +926,7 @@ function EditQuoteDialog({
         </div>
         <div className="space-y-1.5">
           <Label>Notes</Label>
-          <Textarea
+          <Textarea aria-label="Notes"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}

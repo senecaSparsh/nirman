@@ -118,7 +118,7 @@ export function MobileSmsIngest() {
               >
                 SMS Message
               </label>
-              <textarea
+              <textarea aria-label="Paste the full SMS text"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Paste the full SMS text…"

@@ -291,7 +291,7 @@ export function MobileNewChangeOrderForm({
           <label className={labelClass} style={labelStyle}>
             Description
           </label>
-          <textarea
+          <textarea aria-label="Detailed description of the change"
             value={form.description}
             onChange={(e) => set("description", e.target.value)}
             rows={2}
@@ -484,7 +484,7 @@ export function MobileNewChangeOrderForm({
           <label className={labelClass} style={labelStyle}>
             Notes (optional)
           </label>
-          <textarea
+          <textarea aria-label="Additional notes"
             value={form.notes}
             onChange={(e) => set("notes", e.target.value)}
             rows={2}

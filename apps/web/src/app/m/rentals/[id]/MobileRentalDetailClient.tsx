@@ -1393,7 +1393,7 @@ function EditSheet({
         <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
           Notes
         </label>
-        <textarea
+        <textarea aria-label="Notes"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={3}
@@ -1546,7 +1546,7 @@ function UploadDraftSheet({
         <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
           Draft Notes
         </label>
-        <textarea
+        <textarea aria-label="Terms, conditions, LOI details"
           value={draftNotes}
           onChange={(e) => setDraftNotes(e.target.value)}
           rows={3}
@@ -1696,7 +1696,7 @@ function ChangeTenantSheet({
         <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
           Notes
         </label>
-        <textarea
+        <textarea aria-label="Notes"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           rows={2}

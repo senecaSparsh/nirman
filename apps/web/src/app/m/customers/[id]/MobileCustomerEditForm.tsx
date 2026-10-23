@@ -132,7 +132,7 @@ export function MobileCustomerEditForm({
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Address
             </label>
-            <textarea
+            <textarea aria-label="Billing address"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               rows={1}

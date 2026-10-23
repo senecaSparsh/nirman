@@ -62,7 +62,7 @@ export function EnquiryForm({
     <form onSubmit={submit} className="mt-3 space-y-2">
       <input aria-label="Your name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" className={input} required />
       <input aria-label="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone number" inputMode="tel" className={input} required />
-      <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any question? (optional)" rows={2} className={input} />
+      <textarea aria-label="Any question?" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any question? (optional)" rows={2} className={input} />
       {error && <p className="text-xs text-red-600">{error}</p>}
       <button type="submit" disabled={saving} className="w-full rounded-md bg-emerald-600 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
         {saving ? "Sending…" : "Request callback"}

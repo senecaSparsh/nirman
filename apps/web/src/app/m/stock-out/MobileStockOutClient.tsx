@@ -1240,7 +1240,7 @@ export function MobileStockOutClient({
             <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
               Notes
             </p>
-            <textarea
+            <textarea aria-label="Notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder={mode === "transfer"

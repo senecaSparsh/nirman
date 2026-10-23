@@ -306,7 +306,7 @@ export function MobileNewWorkOrderForm({
             />
             <div>
               <label className={labelClass} style={labelStyle}>Description</label>
-              <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} placeholder="Scope details…" className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors" style={inputStyle} />
+              <textarea aria-label="Scope details" value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} placeholder="Scope details…" className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors" style={inputStyle} />
             </div>
           </SectionCard>
 

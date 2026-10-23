@@ -257,7 +257,7 @@ export function MobileNewWbsNodeDialog({
               <label className={labelClass} style={labelStyle}>
                 Description (optional)
               </label>
-              <textarea
+              <textarea aria-label="Additional context"
                 value={form.description}
                 onChange={(e) => set("description", e.target.value)}
                 rows={1}

@@ -219,7 +219,7 @@ export function SelfServiceRequestList({
           className="max-w-md"
         >
           <div className="space-y-3">
-            <Textarea
+            <Textarea aria-label="Why is this being declined? (the worker reads this)"
               value={rejectNote}
               onChange={(e) => setRejectNote(e.target.value)}
               rows={3}

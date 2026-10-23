@@ -400,7 +400,7 @@ export function ReceiveGoodsDialog({
           )}
           <div className="space-y-1.5">
             <Label>GRN notes</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Optional — any additional remarks" />
+            <Textarea aria-label="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Optional — any additional remarks" />
           </div>
 
           {/* ── Delivery details (collapsible) ── */}
@@ -620,7 +620,7 @@ export function ReceiveGoodsDialog({
                 </div>
                 <div className="mt-2">
                   <Label className="text-xs">Unloading Remarks</Label>
-                  <Textarea
+                  <Textarea aria-label="Damage during unloading, stacking notes"
                     placeholder="Damage during unloading, stacking notes…"
                     value={unloadingRemarks}
                     onChange={(e) => setUnloadingRemarks(e.target.value)}
@@ -630,7 +630,7 @@ export function ReceiveGoodsDialog({
                 </div>
                 <div className="mt-2">
                   <Label className="text-xs">Shortage Remarks</Label>
-                  <Textarea
+                  <Textarea aria-label="Shortages, missing items, quantity discrepancies"
                     placeholder="Shortages, missing items, quantity discrepancies…"
                     value={shortageRemarks}
                     onChange={(e) => setShortageRemarks(e.target.value)}

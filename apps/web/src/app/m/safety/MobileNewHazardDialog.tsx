@@ -112,7 +112,7 @@ export function MobileNewHazardForm({
 
       {/* Description */}
       <SectionCard title="Description">
-        <textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} placeholder="What is the hazard?" className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors" style={inputStyle} />
+        <textarea aria-label="What is the hazard?" value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} placeholder="What is the hazard?" className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors" style={inputStyle} />
       </SectionCard>
 
       {/* Risk Assessment */}
@@ -139,7 +139,7 @@ export function MobileNewHazardForm({
       <SectionCard title="Mitigation">
         <div>
           <label className={labelClass} style={labelStyle}>Mitigation Plan (optional)</label>
-          <textarea value={form.mitigationPlan} onChange={(e) => set("mitigationPlan", e.target.value)} rows={2} placeholder="How will the hazard be controlled?" className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors" style={inputStyle} />
+          <textarea aria-label="How will the hazard be controlled?" value={form.mitigationPlan} onChange={(e) => set("mitigationPlan", e.target.value)} rows={2} placeholder="How will the hazard be controlled?" className="w-full px-1 py-1 text-m-caption outline-none border-b focus:border-b-2 resize-none transition-colors" style={inputStyle} />
         </div>
         <UnderlineInput
           label="Target Resolution Date"

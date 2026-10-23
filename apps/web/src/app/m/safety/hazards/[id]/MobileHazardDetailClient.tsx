@@ -193,7 +193,7 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
               </p>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Mitigation Plan (optional)</label>
-                <textarea value={mitigationPlan} onChange={(e) => setMitigationPlan(e.target.value)} rows={2} placeholder="How will the hazard be controlled?" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                <textarea aria-label="How will the hazard be controlled?" value={mitigationPlan} onChange={(e) => setMitigationPlan(e.target.value)} rows={2} placeholder="How will the hazard be controlled?" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
               </div>
             </div>
             <button onClick={() => doAction("mitigate", mitigationPlan ? { mitigationPlan } : {})} disabled={acting === "mitigate"} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>
@@ -213,7 +213,7 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
               </p>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Resolution Notes</label>
-                <textarea value={resolutionNotes} onChange={(e) => setResolutionNotes(e.target.value)} rows={2} placeholder="How was the hazard eliminated/controlled?" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                <textarea aria-label="How was the hazard eliminated/controlled?" value={resolutionNotes} onChange={(e) => setResolutionNotes(e.target.value)} rows={2} placeholder="How was the hazard eliminated/controlled?" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
               </div>
             </div>
             <button onClick={() => { if (!resolutionNotes.trim()) { toast.error("Resolution notes required"); return; } doAction("resolve", { resolutionNotes }); }} disabled={acting === "resolve"} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press" style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}>
@@ -236,7 +236,7 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
               </div>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Description</label>
-                <textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} rows={2} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                <textarea aria-label="Description" value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} rows={2} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
               </div>
               <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
@@ -259,7 +259,7 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
               </div>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Mitigation Plan</label>
-                <textarea value={editForm.mitigationPlan} onChange={(e) => setEditForm({ ...editForm, mitigationPlan: e.target.value })} rows={1} placeholder="How will the hazard be controlled?" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                <textarea aria-label="How will the hazard be controlled?" value={editForm.mitigationPlan} onChange={(e) => setEditForm({ ...editForm, mitigationPlan: e.target.value })} rows={1} placeholder="How will the hazard be controlled?" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
               </div>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Target Resolution Date</label>

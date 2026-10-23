@@ -385,7 +385,7 @@ export function MobileNewFinanceDialog({
                   <label className={labelClass} style={labelStyle}>
                     Notes (optional)
                   </label>
-                  <textarea
+                  <textarea aria-label="Additional context"
                     value={expenseForm.notes}
                     onChange={(e) => setExpense("notes", e.target.value)}
                     rows={2}
@@ -549,7 +549,7 @@ export function MobileNewFinanceDialog({
                   <label className={labelClass} style={labelStyle}>
                     Notes (optional)
                   </label>
-                  <textarea
+                  <textarea aria-label="Additional context"
                     value={costForm.notes}
                     onChange={(e) => setCost("notes", e.target.value)}
                     rows={2}

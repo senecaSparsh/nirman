@@ -569,7 +569,7 @@ export function MobileNewTenancyDialog({
                 <label className={labelClass} style={labelStyle}>
                   Draft / LOI Notes
                 </label>
-                <textarea
+                <textarea aria-label="Notes"
                   value={form.draftNotes}
                   onChange={(e) => set("draftNotes", e.target.value)}
                   placeholder="Informal terms discussed before the formal agreement — what was agreed verbally (e.g. possession date, work tenant will do, escalation terms)…"
