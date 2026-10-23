@@ -170,7 +170,7 @@ export function MobileLandList({
               style={{
                 bottom: "calc(8.25rem + max(env(safe-area-inset-bottom), 0px))",
                 backgroundColor: "var(--color-signal)",
-                color: "var(--color-paper)",
+                color: "var(--color-signal-foreground)",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
               }}
               aria-label="Book land with token"
@@ -365,7 +365,7 @@ export function MobileLandList({
             style={{
               bottom: "calc(8.25rem + max(env(safe-area-inset-bottom), 0px))",
               backgroundColor: "var(--color-signal)",
-              color: "var(--color-paper)",
+              color: "var(--color-signal-foreground)",
               boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
             }}
             aria-label="Book land with token"

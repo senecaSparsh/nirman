@@ -233,7 +233,7 @@ export function CashFlowSnapshot({
                   </div>
                   <span
                     className="tabular-nums text-m-label font-bold shrink-0"
-                    style={{ color: "var(--color-ink-950)" }}
+                    style={{ color: "var(--color-signal-foreground)" }}
                   >
                     {formatCurrency(p.balanceOwed)}
                   </span>

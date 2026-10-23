@@ -102,7 +102,7 @@ export function WorkforceBreakdown({
                   </div>
                   <span
                     className="tabular-nums w-6 text-right text-m-label font-bold"
-                    style={{ color: "var(--color-ink-950)" }}
+                    style={{ color: "var(--color-signal-foreground)" }}
                   >
                     {t.count}
                   </span>

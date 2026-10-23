@@ -857,7 +857,7 @@ export function MobileStockOutClient({
         {modeDowngraded && (
           <div
             className="rounded-[0.5rem] border px-3 py-2 text-m-caption font-medium"
-            style={{ borderColor: "var(--color-stop)", backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)" }}
+            style={{ borderColor: "var(--color-stop)", backgroundColor: "var(--color-signal)", color: "var(--color-signal-foreground)" }}
           >
             Stock transfers need the <strong>stock.transfer</strong> permission — showing issue mode. Ask a manager for access.
           </div>

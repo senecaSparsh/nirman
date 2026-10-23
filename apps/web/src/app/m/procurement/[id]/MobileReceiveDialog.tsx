@@ -948,13 +948,13 @@ export function MobileReceiveDialog({
                       options={categories.map((c) => ({ value: c.id, label: c.name }))}
                     />
                     <div className="flex gap-1">
-                      <input type="text" placeholder="Unit" value={quickAddUnit} onChange={(e) => setQuickAddUnit(e.target.value)} className="w-16 h-8 rounded-[0.375rem] border px-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
-                      <input type="number" inputMode="decimal" placeholder="Cost" value={quickAddCost} onChange={(e) => setQuickAddCost(e.target.value)} className="flex-1 h-8 rounded-[0.375rem] border px-2 text-m-body text-right tabular-nums outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
+                      <input type="text" placeholder="Unit" value={quickAddUnit} onChange={(e) => setQuickAddUnit(e.target.value)} className="w-16 h-8 rounded-[0.375rem] border px-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-signal-foreground)" }} />
+                      <input type="number" inputMode="decimal" placeholder="Cost" value={quickAddCost} onChange={(e) => setQuickAddCost(e.target.value)} className="flex-1 h-8 rounded-[0.375rem] border px-2 text-m-body text-right tabular-nums outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-signal-foreground)" }} />
                     </div>
                   </div>
                   <div className="flex gap-2">
                     <button type="button" onClick={() => setShowQuickAdd(false)} className="flex-1 h-7 rounded-[0.25rem] text-m-caption font-bold border press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-500)" }}>Cancel</button>
-                    <button type="button" onClick={handleQuickAdd} disabled={quickAddLoading} className="flex-1 h-7 rounded-[0.25rem] text-m-caption font-bold press" style={{ backgroundColor: "var(--color-signal)", color: "var(--color-paper)" }}>
+                    <button type="button" onClick={handleQuickAdd} disabled={quickAddLoading} className="flex-1 h-7 rounded-[0.25rem] text-m-caption font-bold press" style={{ backgroundColor: "var(--color-signal)", color: "var(--color-signal-foreground)" }}>
                       {quickAddLoading ? "Creating…" : "Create + auto-fill HSN/GST"}
                     </button>
                   </div>

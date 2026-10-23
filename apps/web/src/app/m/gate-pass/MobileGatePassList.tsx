@@ -443,7 +443,7 @@ export function MobileGatePassList({
                       disabled={actionLoading === gp.id}
                       onClick={() => handleAction(gp.id, "submit")}
                       className="flex items-center gap-1 rounded-[0.375rem] px-2 py-1 text-m-caption font-semibold press"
-                      style={{ backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)" }}
+                      style={{ backgroundColor: "var(--color-signal)", color: "var(--color-signal-foreground)" }}
                     >
                       {actionLoading === gp.id ? <Loader2 className="size-3 animate-spin" /> : <Send className="size-3" />}
                       Submit
@@ -1001,7 +1001,7 @@ export function MobileGatePassFormDialog({
               disabled={submitting}
               onClick={handleSubmit}
               className="flex items-center gap-1.5 rounded-[0.375rem] px-3 py-1.5 text-m-caption font-semibold press active:scale-95 disabled:opacity-50"
-              style={{ backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)" }}
+              style={{ backgroundColor: "var(--color-signal)", color: "var(--color-signal-foreground)" }}
             >
               {submitting ? <Loader2 className="size-3.5 animate-spin" /> : <Plus className="size-3.5" />}
               {autoSubmit ? "Create & Submit" : "Create Draft"}

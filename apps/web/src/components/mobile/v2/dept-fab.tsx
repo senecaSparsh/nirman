@@ -125,7 +125,7 @@ export function DeptFab({ items, badges, onOpenAll }: DeptFabProps) {
         className="press absolute left-1/2 top-0 z-10 grid size-14 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full"
         style={{
           backgroundColor: "var(--color-signal)",
-          color: "var(--color-ink-950)",
+          color: "var(--color-signal-foreground)",
           boxShadow:
             "0 6px 18px rgba(0, 0, 0, 0.28), 0 0 0 1px var(--color-line)",
         }}
@@ -180,14 +180,14 @@ export function DeptFab({ items, badges, onOpenAll }: DeptFabProps) {
                     >
                       <Icon
                         className="size-[18px]"
-                        style={{ color: "var(--color-ink-950)" }}
+                        style={{ color: "var(--color-signal-foreground)" }}
                       />
                       {badge != null && badge > 0 ? (
                         <span
                           className="badge-pulse absolute -top-1.5 -right-2 min-w-[1rem] h-4 rounded-full px-1 text-m-caption font-bold grid place-items-center tabular-nums"
                           style={{
                             backgroundColor: "var(--color-signal)",
-                            color: "var(--color-ink-950)",
+                            color: "var(--color-signal-foreground)",
                           }}
                         >
                           {badge > 9 ? "9+" : badge}

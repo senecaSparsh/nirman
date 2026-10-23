@@ -704,7 +704,7 @@ export function VoiceAgentButton() {
               }}
               aria-label="Send"
               className="press grid place-items-center size-9 rounded-[0.5rem]"
-              style={{ backgroundColor: "var(--color-signal)", color: "var(--color-paper)" }}
+              style={{ backgroundColor: "var(--color-signal)", color: "var(--color-signal-foreground)" }}
             >
               <Send className="size-4" />
             </button>

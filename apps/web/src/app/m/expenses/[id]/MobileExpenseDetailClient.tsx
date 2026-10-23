@@ -221,7 +221,7 @@ export function MobileExpenseDetailClient(props: Props) {
               disabled={acting !== null}
               onClick={() => handleAction("submit")}
               className="flex items-center justify-center gap-1.5 h-11 rounded-[0.5rem] text-m-section font-bold press"
-              style={{ backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)" }}
+              style={{ backgroundColor: "var(--color-signal)", color: "var(--color-signal-foreground)" }}
             >
               {acting === "submit" ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
               {isRejected ? "Fix & Resubmit" : "Submit for Approval"}

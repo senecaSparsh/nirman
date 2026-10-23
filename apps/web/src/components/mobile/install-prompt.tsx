@@ -234,7 +234,7 @@ export function InstallAppRow() {
       </div>
       <span
         className="shrink-0 rounded-[0.375rem] px-2 py-1 text-m-caption font-bold uppercase tracking-wide"
-        style={{ backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)" }}
+        style={{ backgroundColor: "var(--color-signal)", color: "var(--color-signal-foreground)" }}
       >
         Install
       </span>

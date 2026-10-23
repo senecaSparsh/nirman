@@ -58,3 +58,5 @@ onboarding-queue.txt
 packages/*/reports/
 **/probe/*.jsonl
 .freebuff/
+# local dev axe-core injection file — never deployed
+apps/web/public/axe.min.js

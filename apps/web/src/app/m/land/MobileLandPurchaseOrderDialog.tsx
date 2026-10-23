@@ -459,7 +459,7 @@ export function MobileLandPurchaseOrderDialog({
                 type="button"
                 onClick={onClose}
                 className="flex-1 rounded-[0.5rem] border py-2 text-m-body font-bold text-m-body press"
-                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
+                style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-signal-foreground)" }}
               >
                 Cancel
               </button>
@@ -467,7 +467,7 @@ export function MobileLandPurchaseOrderDialog({
                 type="submit"
                 disabled={saving}
                 className="flex-1 rounded-[0.5rem] py-2 text-m-body font-bold text-m-body press disabled:opacity-50"
-                style={{ backgroundColor: "var(--color-signal)", color: "var(--color-paper)" }}
+                style={{ backgroundColor: "var(--color-signal)", color: "var(--color-signal-foreground)" }}
               >
                 {saving ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Book Land"}
               </button>

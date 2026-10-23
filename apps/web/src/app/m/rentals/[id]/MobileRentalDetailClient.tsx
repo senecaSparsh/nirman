@@ -1444,7 +1444,7 @@ function EscalateSheet({
               onClick={onConfirm}
               disabled={acting}
               className="flex-1 h-9 rounded-[0.5rem] text-m-label font-bold text-m-body press disabled:opacity-50"
-              style={{ backgroundColor: "var(--color-signal)", color: "var(--color-paper)" }}
+              style={{ backgroundColor: "var(--color-signal)", color: "var(--color-signal-foreground)" }}
             >
               {acting ? <Loader2 className="size-3.5 animate-spin mx-auto" /> : "Escalate"}
             </button>

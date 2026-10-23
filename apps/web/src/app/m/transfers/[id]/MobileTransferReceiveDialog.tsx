@@ -523,7 +523,7 @@ export function MobileTransferDispatchDialog({
           setOpen(true);
         }}
         className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] font-bold text-m-section text-m-body press active:scale-95"
-        style={{ backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)" }}
+        style={{ backgroundColor: "var(--color-signal)", color: "var(--color-signal-foreground)" }}
       >
         <Truck className="size-4" />
         Dispatch
@@ -603,7 +603,7 @@ export function MobileTransferDispatchDialog({
 
         {/* Footer */}
         <div className="border-t p-3" style={{ borderColor: "var(--color-line)" }}>
-          <button type="button" onClick={confirmDispatch} disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-3 text-m-section font-bold text-m-body press" style={{ backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)" }}>
+          <button type="button" onClick={confirmDispatch} disabled={submitting} className="w-full flex items-center justify-center gap-2 rounded-[0.5rem] py-3 text-m-section font-bold text-m-body press" style={{ backgroundColor: "var(--color-signal)", color: "var(--color-signal-foreground)" }}>
             {submitting ? (<><div className="size-4 rounded-full border-2 border-ink-950/30 border-t-ink-950 animate-spin" />Dispatching…</>) : (<><Truck className="size-4" />Dispatch — mark as in transit</>)}
           </button>
         </div>

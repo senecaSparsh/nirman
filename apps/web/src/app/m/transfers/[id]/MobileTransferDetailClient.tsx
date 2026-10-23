@@ -1275,7 +1275,7 @@ export function MobileTransferDetailClient({
                   className="shrink-0 rounded-[0.375rem] px-2.5 py-1.5 text-m-caption font-bold text-m-body press"
                   style={{
                     backgroundColor: "var(--color-signal)",
-                    color: "var(--color-paper)",
+                    color: "var(--color-signal-foreground)",
                   }}
                 >
                   Switch
@@ -1374,7 +1374,7 @@ export function MobileTransferDetailClient({
                       disabled
                       title={`Gate pass ${transfer.gatePass.gatePassNumber} is ${formatEnumLabel(transfer.gatePass.status)} — dispatch is blocked until it's approved`}
                       className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] font-bold text-m-section opacity-60 cursor-not-allowed"
-                      style={{ backgroundColor: "var(--color-signal)", color: "var(--color-ink-950)" }}
+                      style={{ backgroundColor: "var(--color-signal)", color: "var(--color-signal-foreground)" }}
                     >
                       <ShieldCheck className="size-4" />
                       Awaiting GP approval

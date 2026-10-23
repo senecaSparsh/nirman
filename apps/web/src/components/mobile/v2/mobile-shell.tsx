@@ -840,7 +840,7 @@ function MobileShellInner({
               className="flex items-center gap-1 rounded px-1.5 py-0.5 text-m-caption font-bold uppercase tracking-wide active:opacity-80"
               style={{
                 backgroundColor: "var(--color-signal)",
-                color: "var(--color-ink-950)",
+                color: "var(--color-signal-foreground)",
               }}
             >
               {offlineSyncing ? (
@@ -1289,7 +1289,7 @@ function TabButton({ tab, active, badge }: { tab: RouteEntry; active: boolean; b
             className="badge-pulse absolute -top-1.5 -right-2 min-w-[1rem] h-4 rounded-full px-1 text-m-caption font-bold grid place-items-center tabular-nums"
             style={{
               backgroundColor: "var(--color-signal)",
-              color: "var(--color-ink-950)",
+              color: "var(--color-signal-foreground)",
             }}
           >
             {badge > 9 ? "9+" : badge}

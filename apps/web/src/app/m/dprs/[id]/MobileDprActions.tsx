@@ -192,7 +192,7 @@ export function MobileDprActions({
               className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-[0.625rem] font-bold text-m-section text-m-body press active:scale-95 disabled:opacity-50"
               style={{
                 backgroundColor: "var(--color-signal)",
-                color: "var(--color-ink-950)",
+                color: "var(--color-signal-foreground)",
               }}
             >
               {resubmitAction.isPending ? (
