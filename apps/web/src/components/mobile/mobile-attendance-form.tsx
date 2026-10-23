@@ -376,7 +376,7 @@ export function MobileAttendanceForm({
         className="flex items-center justify-between rounded-[0.625rem] border p-2.5 mb-3"
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
-        <div className="flex items-center gap-2 text-m-caption font-semibold overflow-x-auto scrollbar-hide">
+        <div className="flex items-center gap-2 text-m-caption font-semibold overflow-x-auto scrollbar-hide" role="region" aria-label="Status legend" tabIndex={0}>
           {/* Full-word labels matching the per-row status chips below —
               single letters were ambiguous (L meant both Late and Leave)
               and `title` tooltips don't exist on touch. */}
@@ -613,7 +613,7 @@ export function MobileAttendanceForm({
                 </div>
 
                 {/* Status chips — always visible, one tap to change */}
-                <div className="mt-2 flex gap-1.5 overflow-x-auto scrollbar-hide">
+                <div className="mt-2 flex gap-1.5 overflow-x-auto scrollbar-hide" role="region" aria-label="Set attendance status" tabIndex={0}>
                   <div className="flex gap-1.5 w-max items-center">
                     {ALL_STATUSES.map((s) => {
                       const sCfg = STATUS_CONFIG[s];

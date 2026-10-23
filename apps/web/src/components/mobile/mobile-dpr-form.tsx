@@ -102,12 +102,12 @@ function SectionCard({
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
     >
       <div className="flex items-center justify-between">
-        <h3
+        <h2
           className="text-m-section font-extrabold tracking-tight"
           style={{ color: "var(--color-ink-950)" }}
         >
           {title}
-        </h3>
+        </h2>
         {action}
       </div>
       {children}
@@ -910,12 +910,12 @@ export function MobileDprForm({
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div className="flex items-center justify-between">
-          <h3
+          <h2
             className="text-m-section font-extrabold tracking-tight"
             style={{ color: "var(--color-ink-950)" }}
           >
             Materials used
-          </h3>
+          </h2>
           <div className="flex items-center gap-1.5">
             {yesterdayDpr && !editingDprId && (
               <button
@@ -1032,12 +1032,12 @@ export function MobileDprForm({
         style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
       >
         <div className="flex items-center justify-between">
-          <h3
+          <h2
             className="text-m-section font-extrabold tracking-tight"
             style={{ color: "var(--color-ink-950)" }}
           >
             Labour utilised
-          </h3>
+          </h2>
           <div className="flex items-center gap-1.5">
             {fProject && (
               <button

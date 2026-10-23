@@ -821,7 +821,7 @@ export function MobileStockOutClient({
                 style={{
                   borderColor: mode === "issue" ? "var(--color-signal)" : "var(--color-line)",
                   backgroundColor: mode === "issue" ? "var(--color-signal)" : "var(--color-paper)",
-                  color: mode === "issue" ? "var(--color-paper)" : "var(--color-ink-700)",
+                  color: mode === "issue" ? "var(--color-signal-foreground)" : "var(--color-ink-700)",
                   touchAction: "none",
                 }}
               >
@@ -844,9 +844,9 @@ export function MobileStockOutClient({
             {mode === "transfer" ? (
               <ArrowLeftRight className="size-4" style={{ color: "var(--color-paper)" }} />
             ) : (
-              <Package className="size-4" style={{ color: "var(--color-paper)" }} />
+              <Package className="size-4" style={{ color: "var(--color-signal-foreground)" }} />
             )}
-            <span className="text-m-body font-bold" style={{ color: "var(--color-paper)" }}>
+            <span className="text-m-body font-bold" style={{ color: mode === "transfer" ? "var(--color-paper)" : "var(--color-signal-foreground)" }}>
               {mode === "transfer" ? "Stock Transfer" : "Material Issue"}
             </span>
           </div>
@@ -1286,7 +1286,7 @@ export function MobileStockOutClient({
             className="flex-1 flex items-center justify-center gap-1.5 rounded-[0.5rem] py-2.5 text-m-body font-bold text-m-body press disabled:opacity-50 select-none"
             style={{
               backgroundColor: mode === "issue" ? "var(--color-signal)" : "var(--color-ink-950)",
-              color: "var(--color-paper)",
+              color: mode === "issue" ? "var(--color-signal-foreground)" : "var(--color-paper)",
               touchAction: "none",
             }}
           >
