@@ -2196,8 +2196,19 @@ API path and walked every setup step a new company takes:
 | POST /api/employees ×3 (roles)                  | ✅ storekeeper + site engineer + accountant                                                       |
 
 **Verdict:** the machinery is complete — a pilot company can onboard
-end-to-end today. The remaining gap is _discoverability_: every step
-worked first-try via the API, but a nontechnical owner has no in-app
-guide to the order. Confirmed the setup-checklist gap logged in round
-92 — docs/PILOT-ONBOARDING.md covers it for pilot-scale; the in-app
-checklist remains the right build for self-serve.
+end-to-end today.
+
+**Correction to round-92 finding:** the "no guided setup checklist"
+claim was wrong — it contradicts the round-89/90 verification (line
+~1873: "fresh tenant shows the 6-step checklist"). Two checklists
+already exist: `setupSteps` on the desktop CommandCenter ("Get your
+business set up", N-of-6 progress cards, OWNER/ADMIN only) and
+`briefing.setup` on the mobile home tree ("Set up your company"
+folder, same six steps, auto-hidden once all done). Also verified: a
+`PROJECT_SITE` stock location auto-creates with each project —
+location setup needs no step.
+
+**Real gap fixed this round:** no step covered _opening stock_ — an
+owner could finish all six with zero quantities loaded. Added a 7th
+step (`hasOpeningStock` = any `StockLocationItem` row) on both
+surfaces: "Load opening stock" → /stock + /m/stock.
