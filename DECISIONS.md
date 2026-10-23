@@ -2177,6 +2177,40 @@ tier decision (darken tokens vs keep decorative-only) is a design call.
 0 business rows — a clean slate. Ready for one pilot company under a
 parallel-run agreement, not self-serve scale yet.
 
+## 95. Mobile axe sweep at production scale + workflow regression (2026-10-23)
+
+Ran `scripts/axe-sweep.mjs` (new — reusable: real sign-in, route warm,
+per-page axe-core report) across **~60 mobile routes** including a pass
+against a fresh `next build` served on :3400 (fast path that dodges the
+dev cold-compile tax). All now report **zero violations**. Fixes shipped:
+
+- **signal-as-text class** (recurring): `--color-signal` is a hi-vis amber
+  _fill_ (1.82:1 as text). Split fill vs text everywhere it fed `color:` —
+  WBS progress, equipment status badges, stock-count variance/accent,
+  project-control CPI/SPI/EvmCard, orbit navigator.
+- **ink-300 as real text** (recurring): disabled-tier color on live
+  captions — BOQ "amount", MobileRow metaSub (shared primitive), settings
+  group headers → ink-500.
+- **Badge tints**: danger token deepened 0.535→0.51 L (approvals 4.47→~4.9),
+  signal-dark #9a5e00→#8f5600 (customer badges 4.49→5.1), notifications
+  brand→brand-strong, sms brand-fill buttons → brand-foreground.
+- **Semantics**: units h1→h3 skip → h2; sales lead card <button> wrapping
+  a tel: link → div[role=button]; ScanButton empty-label → fallback
+  aria-label.
+- **Onboarding**: corrected the round-92 claim — checklists existed on
+  both surfaces; added the missing 7th step "Load opening stock"
+  (hasOpeningStock = any StockLocationItem row) on mobile briefing +
+  desktop CommandCenter.
+
+**Workflow regression:** `verify-workflows-full.sh` = **81/81 on the
+production build**. Fixed a stale test: owner self-approving a punch-fix
+correctly 403s (H1 wall); the suite now asserts the 403 plus the real
+approve path on a subordinate.
+
+**Pending:** `/m/project-control` EvmCard fix verifies on the next prod
+build (landed after the :3400 artifact); detail `/m/*/[id]` routes not
+yet swept (need live entity ids).
+
 ## 94. First-company onboarding walk — driven as a real user (2026-10-23)
 
 Created "Pilot Buildwell Constructions Pvt Ltd" (PILOT1) via the real
