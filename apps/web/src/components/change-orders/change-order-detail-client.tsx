@@ -196,7 +196,7 @@ export function ChangeOrderDetailClient({
 
       {/* Timeline */}
       <div className="rounded-lg border border-border p-4">
-        <h3 className="text-sm font-semibold mb-3">Approval Timeline</h3>
+        <h2 className="text-sm font-semibold mb-3">Approval Timeline</h2>
         <div className="space-y-2">
           <TimelineRow label="Created" date={co.createdAt} />
           {co.submittedAt && <TimelineRow label="Submitted" date={co.submittedAt} name={co.submittedByName} />}

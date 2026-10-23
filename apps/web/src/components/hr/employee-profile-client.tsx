@@ -396,7 +396,7 @@ export function EmployeeProfileClient({
       {/* ── Two-column: sticky sidebar + tabbed content ── */}
       <div className="grid gap-5 lg:grid-cols-[280px_1fr]">
         {/* Sidebar — identity details, sticky on desktop */}
-        <aside className="lg:sticky lg:top-4 lg:self-start">
+        <aside aria-label="Employee profile" className="lg:sticky lg:top-4 lg:self-start">
           <ProfileSidebar
             employee={employee}
             onOpenPhoneDialog={() => setShowPhoneDialog(true)}

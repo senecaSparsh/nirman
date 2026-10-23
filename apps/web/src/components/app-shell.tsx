@@ -707,6 +707,7 @@ function WorldRail({
    */
   return (
     <aside
+      aria-label="Primary navigation"
       className={cn(
         "w-16 flex-col items-center gap-1 border-r border-sidebar-border bg-sidebar py-2.5",
         className,

@@ -108,7 +108,7 @@ export function IncidentDetailClient({ incident, canManage }: { incident: Incide
       {/* Investigation */}
       {incident.rootCause && (
         <div className="rounded-lg border border-border p-4 space-y-3">
-          <h3 className="text-sm font-semibold">Investigation</h3>
+          <h2 className="text-sm font-semibold">Investigation</h2>
           <div><p className="text-xs font-medium text-muted-foreground mb-1">Root Cause</p><p className="text-sm">{incident.rootCause}</p></div>
           <div><p className="text-xs font-medium text-muted-foreground mb-1">Corrective Actions</p><p className="text-sm">{incident.correctiveActions}</p></div>
         </div>
@@ -117,7 +117,7 @@ export function IncidentDetailClient({ incident, canManage }: { incident: Incide
       {/* Closure */}
       {incident.closureNotes && (
         <div className="rounded-lg border border-border p-4 space-y-2">
-          <h3 className="text-sm font-semibold">Closure Notes</h3>
+          <h2 className="text-sm font-semibold">Closure Notes</h2>
           <p className="text-sm">{incident.closureNotes}</p>
         </div>
       )}
@@ -174,7 +174,7 @@ export function IncidentDetailClient({ incident, canManage }: { incident: Incide
 function DetailCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-border p-4 space-y-2">
-      <h3 className="text-sm font-semibold">{title}</h3>
+      <h2 className="text-sm font-semibold">{title}</h2>
       <div className="space-y-1.5">{children}</div>
     </div>
   );
