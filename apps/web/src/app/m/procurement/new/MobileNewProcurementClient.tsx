@@ -1014,6 +1014,7 @@ function PoForm({
               </label>
               <input
                 type="date"
+                aria-label="Expected date"
                 value={expectedDate}
                 onChange={(e) => setExpectedDate(e.target.value)}
                 className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"

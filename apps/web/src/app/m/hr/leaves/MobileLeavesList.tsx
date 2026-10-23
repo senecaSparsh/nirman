@@ -229,18 +229,12 @@ function LeaveCard({
   const insufficient = l.status === "PENDING" && entitlement > 0 && l.days > remaining;
   return (
     <div
-      role="button"
-      tabIndex={0}
-      aria-expanded={expanded}
-      className="rounded-[0.5rem] border p-2.5 press cursor-pointer"
+      className="rounded-[0.5rem] border p-2.5"
       style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onToggle(); } }}
-      onClick={onToggle}
     >
       <div className="flex items-center justify-between mb-1">
         <Link
           href={`/m/hr/employees/${l.employeeId}`}
-          onClick={(e) => e.stopPropagation()}
           className="text-m-section font-bold leading-tight truncate"
           style={{ color: "var(--color-ink-950)" }}
         >
@@ -248,40 +242,56 @@ function LeaveCard({
         </Link>
         <span className="flex items-center gap-1 shrink-0">
           <MobileStatusBadge status={l.status} />
-          <ChevronDown
-            className="size-3.5 transition-transform"
-            style={{
-              color: "var(--color-ink-300)",
-              transform: expanded ? "rotate(180deg)" : undefined,
-            }}
-          />
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={expanded}
+            aria-label={expanded ? "Collapse leave details" : "Expand leave details"}
+            className="grid place-items-center size-6 press"
+          >
+            <ChevronDown
+              className="size-3.5 transition-transform"
+              style={{
+                color: "var(--color-ink-500)",
+                transform: expanded ? "rotate(180deg)" : undefined,
+              }}
+            />
+          </button>
         </span>
       </div>
-      <p className="text-m-caption truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>
-        {l.employeeTrade ?? "—"} · {LEAVE_TYPE_LABELS[l.type] ?? l.type}
-      </p>
-      <div className="flex items-center gap-3">
-        <div>
-          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Dates</p>
-          <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-            {formatDate(l.startDate)} → {formatDate(l.endDate)}
-          </p>
-        </div>
-        <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
-        <div>
-          <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Days</p>
-          <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
-            {l.days}
-          </p>
-        </div>
-      </div>
-      {l.reason && (
-        <p className="text-m-caption mt-1.5" style={{ color: "var(--color-ink-500)" }}>
-          {l.reason}
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={expanded}
+        className="w-full text-left press"
+        aria-label={`${expanded ? "Collapse" : "Expand"} leave details for ${l.employeeName}`}
+      >
+        <p className="text-m-caption truncate mb-1.5" style={{ color: "var(--color-ink-500)" }}>
+          {l.employeeTrade ?? "—"} · {LEAVE_TYPE_LABELS[l.type] ?? l.type}
         </p>
-      )}
+        <div className="flex items-center gap-3">
+          <div>
+            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Dates</p>
+            <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+              {formatDate(l.startDate)} → {formatDate(l.endDate)}
+            </p>
+          </div>
+          <div className="w-px h-6" style={{ backgroundColor: "var(--color-line)" }} />
+          <div>
+            <p className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Days</p>
+            <p className="text-m-label font-bold tabular-nums" style={{ color: "var(--color-ink-950)" }}>
+              {l.days}
+            </p>
+          </div>
+        </div>
+        {l.reason && (
+          <p className="text-m-caption mt-1.5" style={{ color: "var(--color-ink-500)" }}>
+            {l.reason}
+          </p>
+        )}
+      </button>
       {expanded ? (
-        <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+        <div className="mt-2">
           {/* Balance context — an approver should see the employee's used-vs-
               entitled days for this type before approving (entitlement 0 →
               uncapped, e.g. UNPAID). */}
