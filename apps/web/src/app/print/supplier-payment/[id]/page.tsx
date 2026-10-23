@@ -47,7 +47,7 @@ export default async function SupplierPaymentPrintPage({
 
   return (<>
           <PrintToolbar title="Payment Voucher" />
-    <div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
+    <main><div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
       <PrintHeader
         company={company}
         title="Payment Voucher"
@@ -58,13 +58,13 @@ export default async function SupplierPaymentPrintPage({
       {/* Payee info */}
       <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <div className="rounded-md border border-gray-300 p-2.5">
-          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Payee</div>
+          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Payee</div>
           <div className="font-semibold">{payment.supplier.name}</div>
           {payment.supplier.gstin && <div className="text-xs text-gray-500">GSTIN: {payment.supplier.gstin}</div>}
           {payment.supplier.phone && <div className="text-xs text-gray-500">Ph: {payment.supplier.phone}</div>}
         </div>
         <div className="rounded-md border border-gray-300 p-2.5">
-          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">References</div>
+          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">References</div>
           {payment.purchaseOrder && (
             <div className="text-xs text-gray-500">PO: <span className="font-mono">{payment.purchaseOrder.poNumber}</span></div>
           )}
@@ -150,7 +150,7 @@ export default async function SupplierPaymentPrintPage({
         <div className="border-t border-black pt-1">Accounts Officer</div>
       </div>
 
-    </div>
+    </div></main>
     </>
   );
 }

@@ -52,7 +52,7 @@ export default async function UnitSpecSheetPage({
 
   return (<>
           <PrintToolbar title={`Unit ${unit.unitNumber} — ${unit.project.name}`} />
-    <div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
+    <main><div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
       <PrintHeader
         company={company}
         title="Unit Specification Sheet"
@@ -180,11 +180,11 @@ export default async function UnitSpecSheetPage({
         {company.gstin && <div>GSTIN: {company.gstin}</div>}
       </div>
 
-      <div className="mt-4 text-center text-xs text-gray-400">
+      <div className="mt-4 text-center text-xs text-gray-500">
         Generated on {new Date().toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" })}
       </div>
 
-    </div>
+    </div></main>
     </>
   );
 }

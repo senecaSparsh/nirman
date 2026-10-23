@@ -69,7 +69,7 @@ export default async function SaleInvoicePage({
 
   return (<>
           <PrintToolbar title={`Invoice ${sale.saleNumber}`} />
-    <div className="print-page mx-auto max-w-3xl bg-white p-8 text-black print:p-4">
+    <main><div className="print-page mx-auto max-w-3xl bg-white p-8 text-black print:p-4">
       <PrintHeader
         company={company}
         title={sale.assetType === "LAND" ? "Land Allotment Letter" : "Unit Allotment Letter"}
@@ -80,7 +80,7 @@ export default async function SaleInvoicePage({
       {/* Company + Customer info */}
       <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <div className="rounded-md border border-gray-300 p-2.5">
-          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">From</div>
+          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">From</div>
           <div className="font-semibold">{company.name}</div>
           {company.email && <div className="text-xs text-gray-500">{company.email}</div>}
           <div className="text-xs text-gray-500">
@@ -89,7 +89,7 @@ export default async function SaleInvoicePage({
           </div>
         </div>
         <div className="rounded-md border border-gray-300 p-2.5">
-          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Bill To</div>
+          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Bill To</div>
           <div className="font-semibold">{sale.customer.name}</div>
           {sale.customer.address && <div className="text-xs text-gray-500">{sale.customer.address}</div>}
           {sale.customer.phone && <div className="text-xs text-gray-500">Ph: {sale.customer.phone}</div>}
@@ -336,7 +336,7 @@ export default async function SaleInvoicePage({
         </div>
       </div>
 
-    </div>
+    </div></main>
     </>
   );
 }

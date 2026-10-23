@@ -59,7 +59,7 @@ export default async function StockCountPrintPage({ params }: { params: Promise<
   return (
     <>
       <PrintToolbar title="Stock Count Sheet" />
-      <div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
+      <main><div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
         <PrintHeader
           company={company}
           title="Stock Count Sheet"
@@ -70,14 +70,14 @@ export default async function StockCountPrintPage({ params }: { params: Promise<
         {/* Count details */}
         <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
           <div className="rounded-md border border-gray-300 p-2.5">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Location</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Location</div>
             <div className="font-semibold">{count.location.name}</div>
             <div className="text-xs text-gray-500">
               {count.location.type.replace(/_/g, " ").toLowerCase()}
             </div>
           </div>
           <div className="rounded-md border border-gray-300 p-2.5">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Status</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Status</div>
             <div className="font-semibold">{formatEnumLabel(count.status)}</div>
             <div className="text-xs text-gray-500">{formatDate(count.countDate)}</div>
           </div>
@@ -164,7 +164,7 @@ export default async function StockCountPrintPage({ params }: { params: Promise<
           </div>
           <div className="border-t border-black pt-1">Authorised Signatory</div>
         </div>
-      </div>
+      </div></main>
     </>
   );
 }

@@ -80,7 +80,7 @@ export default async function StockTransferNotePage({
   return (
     <>
       <PrintToolbar title="Stock Transfer Note" />
-      <div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
+      <main><div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
         <PrintHeader
           company={company}
           title="Stock Transfer Note"
@@ -92,7 +92,7 @@ export default async function StockTransferNotePage({
         {/* From → To */}
         <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
           <div className="rounded-md border border-gray-300 p-2.5">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">From</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">From</div>
             <div className="font-semibold">{transfer.fromLocation.name}</div>
             <div className="text-xs text-gray-500">{transfer.fromLocation.type}</div>
             {transfer.fromLocation.address && (
@@ -100,7 +100,7 @@ export default async function StockTransferNotePage({
             )}
           </div>
           <div className="rounded-md border border-gray-300 p-2.5">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">To</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">To</div>
             <div className="font-semibold">{transfer.toLocation.name}</div>
             <div className="text-xs text-gray-500">{transfer.toLocation.type}</div>
             {transfer.toLocation.address && (
@@ -230,7 +230,7 @@ export default async function StockTransferNotePage({
           </div>
           <div className="border-t border-black pt-1">Authorised Signatory</div>
         </div>
-      </div>
+      </div></main>
     </>
   );
 }

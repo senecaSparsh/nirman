@@ -243,7 +243,7 @@ export default async function SaleDraftPage({
       </section>
 
       {/* Footer */}
-      <footer className="mt-8 border-t border-gray-200 pt-2 text-center text-xs text-gray-400">
+      <footer className="mt-8 border-t border-gray-200 pt-2 text-center text-xs text-gray-500">
         Draft generated on {formatDate(new Date())} · {company.name}
       </footer>
     </div>

@@ -58,7 +58,7 @@ export default async function DemandSlipPage({ params }: { params: Promise<{ id:
 
   return (<>
           <PrintToolbar title="Material Demand Slip" />
-    <div className="print-page mx-auto max-w-3xl bg-white p-8 text-black print:p-4">
+    <main><div className="print-page mx-auto max-w-3xl bg-white p-8 text-black print:p-4">
       <PrintHeader
         company={company}
         title="Demand Slip"
@@ -162,7 +162,7 @@ export default async function DemandSlipPage({ params }: { params: Promise<{ id:
         <div className="border-t border-black pt-1">For MD / Authorised Signatory</div>
       </div>
 
-    </div>
+    </div></main>
     </>
   );
 }

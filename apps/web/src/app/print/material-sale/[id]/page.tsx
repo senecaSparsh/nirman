@@ -53,7 +53,7 @@ export default async function MaterialSaleInvoicePage({
 
   return (<>
           <PrintToolbar title="Material Sale Invoice" />
-    <div className="print-page mx-auto max-w-3xl bg-white p-8 text-black print:p-4">
+    <main><div className="print-page mx-auto max-w-3xl bg-white p-8 text-black print:p-4">
       <PrintHeader
         company={company}
         title="Material Sale Invoice"
@@ -64,13 +64,13 @@ export default async function MaterialSaleInvoicePage({
       {/* Customer info */}
       <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
         <div className="rounded-md border border-gray-300 p-2.5">
-          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">From</div>
+          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">From</div>
           <div className="font-semibold">{company.name}</div>
           {company.gstin && <div className="text-xs text-gray-500">GSTIN: {company.gstin}</div>}
           {company.phone && <div className="text-xs text-gray-500">Ph: {company.phone}</div>}
         </div>
         <div className="rounded-md border border-gray-300 p-2.5">
-          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Bill To</div>
+          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Bill To</div>
           <div className="font-semibold">{sale.customer.name}</div>
           {sale.customer.address && <div className="text-xs text-gray-500">{sale.customer.address}</div>}
           {sale.customer.phone && <div className="text-xs text-gray-500">Ph: {sale.customer.phone}</div>}
@@ -81,7 +81,7 @@ export default async function MaterialSaleInvoicePage({
       {/* Vehicle / dispatch info */}
       {(sale.vehicleNumber || sale.driverName || sale.ewayBillNo) && (
         <div className="mt-3 rounded-md border border-gray-300 p-2.5 text-sm">
-          <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">Dispatch Details</div>
+          <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-gray-500">Dispatch Details</div>
           <div className="grid grid-cols-3 gap-2">
             {sale.vehicleNumber && (
               <div>
@@ -208,7 +208,7 @@ export default async function MaterialSaleInvoicePage({
         <div className="border-t border-black pt-1">For {company.name}</div>
       </div>
 
-    </div>
+    </div></main>
     </>
   );
 }

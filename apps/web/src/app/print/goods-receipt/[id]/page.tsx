@@ -72,7 +72,7 @@ export default async function GoodsReceiptChallanPage({
 
   return (<>
           <PrintToolbar title="Delivery Challan" />
-    <div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
+    <main><div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
       <PrintHeader
         company={company}
         title="Delivery Challan"
@@ -83,13 +83,13 @@ export default async function GoodsReceiptChallanPage({
       {/* Supplier + receipt info */}
       <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
         <div className="rounded-md border border-gray-300 p-2.5">
-          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Supplier</div>
+          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Supplier</div>
           <div className="font-semibold">{supplier?.name ?? "—"}</div>
           {supplier?.gstin && <div className="text-xs text-gray-500">GSTIN: {supplier.gstin}</div>}
           {supplier?.phone && <div className="text-xs text-gray-500">Ph: {supplier.phone}</div>}
         </div>
         <div className="rounded-md border border-gray-300 p-2.5">
-          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Received At</div>
+          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Received At</div>
           <div className="font-semibold">{receipt.location.name}</div>
           <div className="text-xs text-gray-500">PO: {receipt.purchaseOrder?.poNumber ?? "Direct"}</div>
           <div className="text-xs text-gray-500">By: {receipt.receivedBy?.name ?? "—"}</div>
@@ -288,7 +288,7 @@ export default async function GoodsReceiptChallanPage({
         <div className="border-t border-black pt-1">Authorised Signatory</div>
       </div>
 
-    </div>
+    </div></main>
     </>
   );
 }

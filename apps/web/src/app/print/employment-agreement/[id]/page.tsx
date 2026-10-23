@@ -137,7 +137,7 @@ export default async function EmploymentAgreementPage({
   return (
     <>
       <PrintToolbar title="Employment Agreement" />
-      <div className="print-page mx-auto my-8 max-w-3xl bg-white p-8 shadow-lg print:my-0 print:shadow-none print:p-6">
+      <main><div className="print-page mx-auto my-8 max-w-3xl bg-white p-8 shadow-lg print:my-0 print:shadow-none print:p-6">
         <PrintHeader
           company={{
             name: companyDetails?.name ?? company.name,
@@ -356,20 +356,20 @@ export default async function EmploymentAgreementPage({
             <div className="border-t border-gray-400 pt-1">
               <p className="text-xs font-semibold text-gray-700">For {companyDetails?.name ?? company.name}</p>
               <p className="text-xs text-gray-500">Authorised Signatory</p>
-              <p className="mt-2 text-xs text-gray-400">Date: ____________________</p>
+              <p className="mt-2 text-xs text-gray-500">Date: ____________________</p>
             </div>
           </div>
           <div>
             <div className="border-t border-gray-400 pt-1">
               <p className="text-xs font-semibold text-gray-700">{employeeName}</p>
               <p className="text-xs text-gray-500">Employee Signature</p>
-              <p className="mt-2 text-xs text-gray-400">Date: ____________________</p>
+              <p className="mt-2 text-xs text-gray-500">Date: ____________________</p>
             </div>
           </div>
         </div>
 
         {/* ── Footer ── */}
-        <div className="mt-8 border-t border-gray-200 pt-2 text-center text-xs text-gray-400">
+        <div className="mt-8 border-t border-gray-200 pt-2 text-center text-xs text-gray-500">
           <p>
             This is a system-generated employment agreement ({agreementNo}) issued on {formatDate(issueDate)}.
             {employee.contractStatus === "CONFIRMED" && employee.contractConfirmedAt && (
@@ -377,7 +377,7 @@ export default async function EmploymentAgreementPage({
             )}
           </p>
         </div>
-      </div>
+      </div></main>
     </>
   );
 }

@@ -94,7 +94,7 @@ export default async function EscrowStatementPage({
           </tr>
         </thead>
         <tbody>
-          {payments.length === 0 && <tr><td colSpan={5} className="py-3 text-center text-gray-400">No collections in the period</td></tr>}
+          {payments.length === 0 && <tr><td colSpan={5} className="py-3 text-center text-gray-500">No collections in the period</td></tr>}
           {payments.map((p, i) => (
             <tr key={i} className="border-b border-gray-100">
               <td className="py-1">{formatDate(p.paymentDate)}</td>
@@ -121,7 +121,7 @@ export default async function EscrowStatementPage({
           </tr>
         </thead>
         <tbody>
-          {withdrawals.length === 0 && <tr><td colSpan={4} className="py-3 text-center text-gray-400">No withdrawals in the period</td></tr>}
+          {withdrawals.length === 0 && <tr><td colSpan={4} className="py-3 text-center text-gray-500">No withdrawals in the period</td></tr>}
           {withdrawals.map((w) => (
             <tr key={w.id} className="border-b border-gray-100">
               <td className="py-1 font-mono text-xs">{w.withdrawalNo}</td>

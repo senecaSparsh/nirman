@@ -103,7 +103,7 @@ export default async function PayslipPage({ params }: { params: Promise<{ id: st
         : "";
 
   return (
-    <div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
+    <main><div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
       <PrintToolbar title="Payslip" />
 
       <PrintHeader
@@ -223,9 +223,9 @@ export default async function PayslipPage({ params }: { params: Promise<{ id: st
         <div className="w-40 border-t border-gray-400 pt-1 text-center">Authorised signatory</div>
       </div>
 
-      <p className="mt-6 text-center text-[10px] text-gray-400">
+      <p className="mt-6 text-center text-[10px] text-gray-500">
         This is a system-generated payslip from Nirman OS · {company.name}
       </p>
-    </div>
+    </div></main>
   );
 }

@@ -334,7 +334,7 @@ export default async function AllotmentLetterPage({
       </section>
 
       {/* Footer */}
-      <footer className="mt-8 border-t border-gray-200 pt-2 text-center text-xs text-gray-400">
+      <footer className="mt-8 border-t border-gray-200 pt-2 text-center text-xs text-gray-500">
         This is a computer-generated allotment letter · {company.name} · {formatDate(new Date())}
       </footer>
     </div>

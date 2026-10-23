@@ -53,7 +53,7 @@ export default async function DirectPurchaseVoucherPage({
 
   return (<>
           <PrintToolbar title="Cash Purchase Voucher" />
-    <div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
+    <main><div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
       <PrintHeader
         company={company}
         title="Cash Purchase Voucher"
@@ -64,13 +64,13 @@ export default async function DirectPurchaseVoucherPage({
       {/* Supplier + receipt info */}
       <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <div className="rounded-md border border-gray-300 p-2.5">
-          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Supplier</div>
+          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Supplier</div>
           <div className="font-semibold">{supplierName}</div>
           {purchase.supplier?.gstin && <div className="text-xs text-gray-500">GSTIN: {purchase.supplier.gstin}</div>}
           {purchase.supplier?.phone && <div className="text-xs text-gray-500">Ph: {purchase.supplier.phone}</div>}
         </div>
         <div className="rounded-md border border-gray-300 p-2.5">
-          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Received At</div>
+          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Received At</div>
           <div className="font-semibold">{purchase.location.name}</div>
         </div>
       </div>
@@ -78,7 +78,7 @@ export default async function DirectPurchaseVoucherPage({
       {/* Vehicle / transport info */}
       {(purchase.vehicleNumber || purchase.driverName) && (
         <div className="mt-3 rounded-md border border-gray-300 p-2.5 text-sm">
-          <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">Transport</div>
+          <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-gray-500">Transport</div>
           <div className="grid grid-cols-3 gap-2">
             {purchase.vehicleNumber && (
               <div>
@@ -199,7 +199,7 @@ export default async function DirectPurchaseVoucherPage({
         <div className="border-t border-black pt-1">Authorised Signatory</div>
       </div>
 
-    </div>
+    </div></main>
     </>
   );
 }

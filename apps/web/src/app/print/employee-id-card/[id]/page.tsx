@@ -82,7 +82,8 @@ export default async function EmployeeIdCardPage({
         `}</style>
 
         {/* ════════ FRONT SIDE ════════ */}
-        <div className="flex flex-col items-center gap-6">
+        <main className="flex flex-col items-center gap-6">
+          <h1 className="sr-only">Employee ID card — {employeeName}</h1>
           <div
             className="id-card relative overflow-hidden rounded-xl border-2 shadow-xl"
             style={{
@@ -136,7 +137,7 @@ export default async function EmployeeIdCardPage({
                         {employeeName.charAt(0).toUpperCase()}
                       </span>
                     </div>
-                    <p className="text-[5px] text-gray-400">PHOTO</p>
+                    <p className="text-[5px] text-gray-500">PHOTO</p>
                   </div>
                 )}
               </div>
@@ -174,7 +175,7 @@ export default async function EmployeeIdCardPage({
                     )}
                   </div>
                 </div>
-                <div className="flex justify-between text-[5px] text-gray-400">
+                <div className="flex justify-between text-[5px] text-gray-500">
                   <span>Issued: {formatDate(issueDate)}</span>
                   <span>Valid thru: {formatDate(validThru)}</span>
                 </div>
@@ -232,7 +233,7 @@ export default async function EmployeeIdCardPage({
                     )}
                   </>
                 ) : (
-                  <p className="text-gray-400">Not configured</p>
+                  <p className="text-gray-500">Not configured</p>
                 )}
               </div>
             </div>
@@ -331,11 +332,11 @@ export default async function EmployeeIdCardPage({
               </p>
             </div>
           </div>
-        </div>
+        </main>
       </div>
 
       {/* ── Screen-only instructions ── */}
-      <div className="mx-auto mt-4 max-w-2xl text-center text-sm text-gray-500 print:hidden">
+      <div className="mx-auto mt-4 max-w-2xl text-center text-sm text-gray-600 print:hidden">
         <p>
           Print on 85mm × 54mm card stock (standard ID card size). Use the print button above,
           then cut along the card borders and laminate.

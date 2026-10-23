@@ -57,7 +57,7 @@ export default async function ScrapGenerationPrintPage({
 
   return (<>
           <PrintToolbar title="Scrap Generation Slip" />
-    <div className="print-page mx-auto max-w-3xl bg-white p-8 text-black print:p-4">
+    <main><div className="print-page mx-auto max-w-3xl bg-white p-8 text-black print:p-4">
       <PrintHeader
         company={company}
         title="Scrap Generation Slip"
@@ -68,7 +68,7 @@ export default async function ScrapGenerationPrintPage({
       {/* Slip info */}
       <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
         <div className="rounded-md border border-gray-300 p-2.5">
-          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Destination</div>
+          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Destination</div>
           <div className="font-semibold">{scrap.toLocation.name}</div>
           {scrap.project && (
             <div className="text-xs text-gray-500">Project: {scrap.project.name}</div>
@@ -165,7 +165,7 @@ export default async function ScrapGenerationPrintPage({
         <div className="border-t border-black pt-1">For {company.name}</div>
       </div>
 
-    </div>
+    </div></main>
     </>
   );
 }

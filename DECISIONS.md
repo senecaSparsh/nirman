@@ -2177,6 +2177,36 @@ tier decision (darken tokens vs keep decorative-only) is a design call.
 0 business rows — a clean slate. Ready for one pilot company under a
 parallel-run agreement, not self-serve scale yet.
 
+## 98. A11y systemic kills — select + icon-button classes closed at the lint layer (2026-10-23)
+
+The axe sweep could only see rendered pages; the real inventory of
+unnamed controls lived inside dialogs/drawers it never opened. Two new
+custom rules in eslint.config.mjs now make the classes un-shippable:
+
+- `nirman/require-accessible-select` — 136 sites found, all labeled
+  (114 auto-inferred from Field/label/option context, 19 hand-labeled,
+  3 excluded: the Select primitive + tests). Dialog-internal selects
+  were the hidden bulk — status/severity/type filters, per-member role
+  pickers, TDS/expense pickers.
+- `nirman/require-accessible-icon-button` — 229 candidates; recursive
+  icon-likeness (nested <span>{text}</span> disqualifies), <label>
+  ancestors and self-named children skip. ~50 bulk labels on
+  text-bearing buttons stripped again — the survivors are true
+  icon-only controls (row deletes, closes, switch toggles). Hand-rolled
+  switches got role=switch + aria-checked; Toggle components gained a
+  required label prop.
+- Nested-interactive restructures: companies-manager expander +
+  TaskCard/TaskList hover actions moved to siblings of role=button.
+- PageHeader stats-strip dl: hint tooltip moved inside <dd> (dl>div
+  groups may only hold dt/dd) — fixed /finance + /reports.
+- Console-error sweep (scripts/console-sweep.mjs): pageerrors +
+  console.error + app-5xx per route — 15 desktop hubs + 10 mobile hubs
+  clean.
+- e2e smoke in progress on :3100 — 111+ checks passing, 0 failures.
+- Corrupted .next artifact diagnosed + documented: running `next build`
+  while `next start` serves the same dir → missing route manifests →
+  500s on unaffected code. Kill the server BEFORE building.
+
 ## 97. Statutory + money-path audit — one real corruption found & fixed (2026-10-23)
 
 Audited every write path that derives money columns, hunting

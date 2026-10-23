@@ -52,7 +52,7 @@ export default async function MeasurementBookPrintPage({ params }: { params: Pro
   return (
     <>
       <PrintToolbar title="Measurement Book Entry" />
-      <div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
+      <main><div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
         <PrintHeader
           company={company}
           title="Measurement Book"
@@ -63,7 +63,7 @@ export default async function MeasurementBookPrintPage({ params }: { params: Pro
         {/* Entry details */}
         <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
           <div className="rounded-md border border-gray-300 p-2.5">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Project</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Project</div>
             <div className="font-semibold">{entry.project.name}</div>
             {entry.phase && (
               <div className="text-xs text-gray-500">Phase: {entry.phase.name}</div>
@@ -75,7 +75,7 @@ export default async function MeasurementBookPrintPage({ params }: { params: Pro
             )}
           </div>
           <div className="rounded-md border border-gray-300 p-2.5">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">BOQ Item</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">BOQ Item</div>
             <div className="font-semibold">{entry.boqItem.serialNo}</div>
             <div className="text-xs text-gray-500">{entry.boqItem.description}</div>
           </div>
@@ -86,13 +86,13 @@ export default async function MeasurementBookPrintPage({ params }: { params: Pro
           <div className="mt-3 rounded-md border border-gray-300 p-2.5 text-sm">
             {entry.description && (
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Description of Work: </span>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Description of Work: </span>
                 <span>{entry.description}</span>
               </div>
             )}
             {entry.locationRef && (
               <div className="mt-1">
-                <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Location: </span>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Location: </span>
                 <span>{entry.locationRef}</span>
               </div>
             )}
@@ -171,7 +171,7 @@ export default async function MeasurementBookPrintPage({ params }: { params: Pro
             <div className="mt-0.5 font-medium">{entry.approvedBy?.name ?? "—"}</div>
           </div>
         </div>
-      </div>
+      </div></main>
     </>
   );
 }

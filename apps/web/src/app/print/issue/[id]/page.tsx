@@ -58,7 +58,7 @@ export default async function IssueSlipPage({ params }: { params: Promise<{ id: 
   return (
     <>
       <PrintToolbar title="Material Issue Slip" />
-      <div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
+      <main><div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
         <PrintHeader
           company={company}
           title="Material Issue Slip"
@@ -69,7 +69,7 @@ export default async function IssueSlipPage({ params }: { params: Promise<{ id: 
         {/* Issue details */}
         <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
           <div className="rounded-md border border-gray-300 p-2.5">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Issued To</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Issued To</div>
             <div className="font-semibold">{targetName}</div>
             {issue.builtUnit && (
               <div className="text-xs text-gray-500">Unit: {issue.builtUnit.unitNumber}</div>
@@ -88,7 +88,7 @@ export default async function IssueSlipPage({ params }: { params: Promise<{ id: 
             )}
           </div>
           <div className="rounded-md border border-gray-300 p-2.5">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">From Store</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">From Store</div>
             <div className="font-semibold">{issue.fromLocation.name}</div>
             <div className="text-xs text-gray-500">Issued by: {issue.issuedBy?.name ?? "—"}</div>
           </div>
@@ -97,7 +97,7 @@ export default async function IssueSlipPage({ params }: { params: Promise<{ id: 
         {/* Vehicle / transport info */}
         {(issue.vehicleNumber || issue.driverName) && (
           <div className="mt-3 rounded-md border border-gray-300 p-2.5 text-sm">
-            <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">Transport</div>
+            <div className="mb-1 text-[10px] font-bold uppercase tracking-wide text-gray-500">Transport</div>
             <div className="grid grid-cols-3 gap-2">
               {issue.vehicleNumber && (
                 <div>
@@ -206,7 +206,7 @@ export default async function IssueSlipPage({ params }: { params: Promise<{ id: 
           </div>
           <div className="border-t border-black pt-1">Authorised Signatory</div>
         </div>
-      </div>
+      </div></main>
     </>
   );
 }

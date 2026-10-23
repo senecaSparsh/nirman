@@ -50,7 +50,7 @@ export default async function SupplierInvoicePrintPage({
 
   return (<>
           <PrintToolbar title="Supplier Invoice" />
-    <div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
+    <main><div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
       <PrintHeader
         company={company}
         title="Supplier Invoice / Bill"
@@ -62,14 +62,14 @@ export default async function SupplierInvoicePrintPage({
       {/* Supplier info */}
       <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
         <div className="rounded-md border border-gray-300 p-2.5">
-          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Supplier</div>
+          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Supplier</div>
           <div className="font-semibold">{invoice.supplier.name}</div>
           {invoice.supplier.gstin && <div className="text-xs text-gray-500">GSTIN: {invoice.supplier.gstin}</div>}
           {invoice.supplier.phone && <div className="text-xs text-gray-500">Ph: {invoice.supplier.phone}</div>}
           {invoice.supplier.address && <div className="text-xs text-gray-500">{invoice.supplier.address}</div>}
         </div>
         <div className="rounded-md border border-gray-300 p-2.5">
-          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Linked PO</div>
+          <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Linked PO</div>
           <div className="font-mono font-semibold">{invoice.purchaseOrder?.poNumber ?? "—"}</div>
           {invoice.receivedBy && (
             <div className="text-xs text-gray-500">Received by: {invoice.receivedBy.name}</div>
@@ -190,7 +190,7 @@ export default async function SupplierInvoicePrintPage({
         <div className="border-t border-black pt-1">Authorised Signatory</div>
       </div>
 
-    </div>
+    </div></main>
     </>
   );
 }

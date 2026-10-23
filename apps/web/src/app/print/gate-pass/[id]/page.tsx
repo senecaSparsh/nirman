@@ -50,7 +50,7 @@ export default async function GatePassPrintPage({ params }: { params: Promise<{ 
   return (
     <>
       <PrintToolbar title="Gate Pass" />
-      <div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
+      <main><div className="print-page mx-auto max-w-2xl bg-white p-8 text-black print:p-4">
         <PrintHeader
           company={company}
           title="GATE PASS"
@@ -67,13 +67,13 @@ export default async function GatePassPrintPage({ params }: { params: Promise<{ 
         {/* Gate pass details */}
         <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
           <div className="rounded-md border border-gray-300 p-2.5">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">From (Gate / Location)</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">From (Gate / Location)</div>
             <div className="font-semibold">{gp.location.name}</div>
             <div className="text-xs text-gray-500">{gp.location.type === "COMPANY_WAREHOUSE" ? "Warehouse" : "Site"}</div>
             {gp.project && <div className="text-xs text-gray-500">Project: {gp.project.name}</div>}
           </div>
           <div className="rounded-md border border-gray-300 p-2.5">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Category</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Category</div>
             <div className="font-semibold">{CATEGORY_LABELS[gp.category] ?? gp.category}</div>
             <div className="text-xs text-gray-500">Destination: {gp.destination ?? "—"}</div>
             {gp.purpose && <div className="text-xs text-gray-500">Purpose: {gp.purpose}</div>}
@@ -83,16 +83,16 @@ export default async function GatePassPrintPage({ params }: { params: Promise<{ 
         {/* Vehicle details */}
         <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
           <div className="rounded-md border border-gray-300 p-2.5">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Vehicle Number</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Vehicle Number</div>
             <div className="font-semibold">{gp.vehicleNumber ?? "—"}</div>
           </div>
           <div className="rounded-md border border-gray-300 p-2.5">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Driver Name</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Driver Name</div>
             <div className="font-semibold">{gp.driverName ?? "—"}</div>
             <div className="text-xs text-gray-500">{gp.driverPhone ?? ""}</div>
           </div>
           <div className="rounded-md border border-gray-300 p-2.5">
-            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Transporter</div>
+            <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Transporter</div>
             <div className="font-semibold">{gp.transporterName ?? "—"}</div>
           </div>
         </div>
@@ -129,7 +129,7 @@ export default async function GatePassPrintPage({ params }: { params: Promise<{ 
             <div className="text-xs text-gray-500">
               {gp.approvedAt ? new Date(gp.approvedAt).toLocaleString() : ""}
             </div>
-            <div className="text-[10px] text-gray-400 mt-1">Signature</div>
+            <div className="text-[10px] text-gray-500 mt-1">Signature</div>
           </div>
           <div className="border-t border-black pt-1">
             <div className="text-[10px] font-bold uppercase tracking-wide text-gray-500">Exit Confirmed By (Security)</div>
@@ -137,7 +137,7 @@ export default async function GatePassPrintPage({ params }: { params: Promise<{ 
             <div className="text-xs text-gray-500">
               {gp.exitedAt ? new Date(gp.exitedAt).toLocaleString() : ""}
             </div>
-            <div className="text-[10px] text-gray-400 mt-1">Signature</div>
+            <div className="text-[10px] text-gray-500 mt-1">Signature</div>
           </div>
         </div>
 
@@ -156,7 +156,7 @@ export default async function GatePassPrintPage({ params }: { params: Promise<{ 
           {gp.rejectionReason && ` · Rejected: ${gp.rejectionReason}`}
           {gp.approvalNotes && ` · Approval Notes: ${gp.approvalNotes}`}
         </div>
-      </div>
+      </div></main>
     </>
   );
 }

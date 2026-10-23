@@ -259,7 +259,7 @@ export default async function AppointmentLetterPage({
         </div>
 
         {/* ── Footer ── */}
-        <div className="mt-10 border-t border-gray-200 pt-2 text-center text-xs text-gray-400">
+        <div className="mt-10 border-t border-gray-200 pt-2 text-center text-xs text-gray-500">
           <p>
             This is a system-generated appointment letter ({apptNo}) issued on{" "}
             {formatDate(issueDate)}. This letter is subject to the terms and
