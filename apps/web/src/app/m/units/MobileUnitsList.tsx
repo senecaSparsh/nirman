@@ -300,9 +300,9 @@ function FlatList({ items, projectFiltered }: { items: UnitListItem[]; projectFi
   }
   return (
     <div>
-      <h3 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+      <h2 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
         Results ({items.length})
-      </h3>
+      </h2>
       <MobileCardGrid cols={2}>
         {items.map((u) => (
           <UnitCard key={u.id} u={u} showProject={!projectFiltered} />
@@ -332,9 +332,9 @@ function GroupedList({ items, projectFiltered }: { items: UnitListItem[]; projec
       {/* Available + pipeline — the sellable units */}
       {pipeline.length > 0 ? (
         <div>
-          <h3 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+          <h2 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
             Sellable ({pipeline.length})
-          </h3>
+          </h2>
           <MobileCardGrid cols={2}>
             {pipeline.map((u) => (
               <UnitCard key={u.id} u={u} showProject={!projectFiltered} />
@@ -346,9 +346,9 @@ function GroupedList({ items, projectFiltered }: { items: UnitListItem[]; projec
       {/* Sold */}
       {sold.length > 0 ? (
         <div>
-          <h3 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+          <h2 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
             Sold ({sold.length})
-          </h3>
+          </h2>
           <MobileCardGrid cols={2}>
             {sold.map((u) => (
               <UnitCard key={u.id} u={u} showProject={!projectFiltered} />
@@ -360,9 +360,9 @@ function GroupedList({ items, projectFiltered }: { items: UnitListItem[]; projec
       {/* Reserved */}
       {reserved.length > 0 ? (
         <div>
-          <h3 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+          <h2 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
             Reserved ({reserved.length})
-          </h3>
+          </h2>
           <MobileCardGrid cols={2}>
             {reserved.map((u) => (
               <UnitCard key={u.id} u={u} showProject={!projectFiltered} />
@@ -374,9 +374,9 @@ function GroupedList({ items, projectFiltered }: { items: UnitListItem[]; projec
       {/* Hold */}
       {hold.length > 0 ? (
         <div>
-          <h3 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+          <h2 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
             On Hold ({hold.length})
-          </h3>
+          </h2>
           <MobileCardGrid cols={2}>
             {hold.map((u) => (
               <UnitCard key={u.id} u={u} showProject={!projectFiltered} />
@@ -388,9 +388,9 @@ function GroupedList({ items, projectFiltered }: { items: UnitListItem[]; projec
       {/* Rented */}
       {rented.length > 0 ? (
         <div>
-          <h3 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+          <h2 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
             Rented ({rented.length})
-          </h3>
+          </h2>
           <MobileCardGrid cols={2}>
             {rented.map((u) => (
               <UnitCard key={u.id} u={u} showProject={!projectFiltered} />

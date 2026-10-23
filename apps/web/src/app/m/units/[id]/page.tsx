@@ -183,9 +183,9 @@ export default function MobileUnitDetailPage({
             {/* ── RERA areas — compact section only if any exist ── */}
             {hasRera ? (
               <>
-                <h3 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+                <h2 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
                   RERA Areas
-                </h3>
+                </h2>
                 <DetailStatGrid stats={reraStats} cols={2} />
               </>
             ) : null}

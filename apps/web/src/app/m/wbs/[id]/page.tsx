@@ -161,6 +161,12 @@ export default function MobileWbsDetailPage({
                         : childProgress > 0
                           ? "var(--color-signal)"
                           : "var(--color-concrete)";
+                    const childTextColor =
+                      childProgress >= 100
+                        ? "var(--color-go)"
+                        : childProgress > 0
+                          ? "var(--color-signal-dark)"
+                          : "var(--color-concrete)";
                     return (
                       <Link
                         key={child.id}
@@ -176,7 +182,7 @@ export default function MobileWbsDetailPage({
                           <p className="text-m-section font-semibold truncate flex-1" style={{ color: "var(--color-ink-950)" }}>
                             {child.name}
                           </p>
-                          <span className="text-m-body font-bold tabular-nums shrink-0" style={{ color: childColor }}>
+                          <span className="text-m-body font-bold tabular-nums shrink-0" style={{ color: childTextColor }}>
                             {formatNumber(childProgress, 0)}%
                           </span>
                         </div>

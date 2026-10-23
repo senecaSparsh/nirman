@@ -176,6 +176,12 @@ function WbsNodeRow({ node, depth }: { node: WbsTreeNode; depth: number }) {
       : progress > 0
         ? "var(--color-signal)"
         : "var(--color-concrete)";
+  const progressTextColor =
+    progress >= 100
+      ? "var(--color-go)"
+      : progress > 0
+        ? "var(--color-signal-dark)"
+        : "var(--color-concrete)";
 
   return (
     <div>
@@ -214,7 +220,7 @@ function WbsNodeRow({ node, depth }: { node: WbsTreeNode; depth: number }) {
           </p>
           <span
             className="text-m-body font-bold tabular-nums shrink-0"
-            style={{ color: progressColor }}
+            style={{ color: progressTextColor }}
           >
             {formatNumber(progress, 0)}%
           </span>

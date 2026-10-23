@@ -210,7 +210,7 @@ input[type="number"] {
   /* ── Signal amber — hi-vis, survives sunlight ──────────────────── */
   --color-signal: #ffb020;
   --color-signal-active: #f0a416; /* pressed/active state           */
-  --color-signal-dark: #9a5e00; /* amber text on light bg — 4.9:1 on signal-wash (AA); was #b87400 (3.5:1) */
+  --color-signal-dark: #8f5600; /* amber text on light bg — ≥5.1:1 on signal-wash/12% tint (AA); was #9a5e00 (4.49:1 on the customer badge mix, hair under AA) */
   --color-signal-foreground: #12110d; /* fixed dark text ON signal fill — never theme-flips (ink-950 inverts to near-white in dark, 1.6:1 on amber) */
   --color-signal-wash: #fff6e3;
 

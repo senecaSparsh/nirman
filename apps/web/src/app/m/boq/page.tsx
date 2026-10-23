@@ -255,7 +255,7 @@ function BoqRowCard({ row }: { row: BoqRow }) {
             >
               {formatCurrencyCompact(row.estimatedAmount)}
             </p>
-            <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-300)" }}>
+            <p className="text-m-caption mt-0.5" style={{ color: "var(--color-ink-500)" }}>
               amount
             </p>
           </div>
