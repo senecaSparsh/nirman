@@ -276,7 +276,7 @@ export function CallDetailView({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* Parties */}
         <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-          <h3 className="text-body font-medium text-foreground">Parties</h3>
+          <h2 className="text-body font-medium text-foreground">Parties</h2>
           <div className="space-y-2 text-caption">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">From</span>
@@ -301,7 +301,7 @@ export function CallDetailView({
 
         {/* Status & timing */}
         <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-          <h3 className="text-body font-medium text-foreground">Status & Timing</h3>
+          <h2 className="text-body font-medium text-foreground">Status & Timing</h2>
           <div className="space-y-2 text-caption">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Status</span>
@@ -337,7 +337,7 @@ export function CallDetailView({
       {call.recording && (
         <div className="rounded-lg border border-border bg-card p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-body font-medium text-foreground">Recording</h3>
+            <h2 className="text-body font-medium text-foreground">Recording</h2>
             {canListenRecording && (
               <span className="text-micro text-muted-foreground">
                 {call.recording.accessCount} plays · Expires {call.recording.expiresAt ? formatDateTime(call.recording.expiresAt) : "never"}
@@ -379,7 +379,7 @@ export function CallDetailView({
         <div className="rounded-lg border border-border bg-card p-4 space-y-3">
           <div className="flex items-center gap-2">
             <Voicemail className="h-4 w-4 text-brand" />
-            <h3 className="text-body font-medium text-foreground">Voicemail</h3>
+            <h2 className="text-body font-medium text-foreground">Voicemail</h2>
             <span className="text-micro text-muted-foreground">{formatDuration(call.voicemail.durationSec)}</span>
           </div>
           {canListenRecording && (
@@ -399,7 +399,7 @@ export function CallDetailView({
       {/* Disposition & notes (editable) */}
       {canEdit && (
         <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-          <h3 className="text-body font-medium text-foreground">Disposition & Notes</h3>
+          <h2 className="text-body font-medium text-foreground">Disposition & Notes</h2>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
               <Label className="mb-1 block text-micro">Disposition</Label>
@@ -434,7 +434,7 @@ export function CallDetailView({
 
       {/* Tags */}
       <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-        <h3 className="text-body font-medium text-foreground">Tags</h3>
+        <h2 className="text-body font-medium text-foreground">Tags</h2>
         <div className="flex flex-wrap gap-2">
           {tags.length === 0 && <span className="text-caption text-muted-foreground">No tags yet.</span>}
           {tags.map((t) => (
@@ -472,7 +472,7 @@ export function CallDetailView({
 
       {/* Notes timeline */}
       <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-        <h3 className="text-body font-medium text-foreground">Notes ({notes.length})</h3>
+        <h2 className="text-body font-medium text-foreground">Notes ({notes.length})</h2>
         {notes.length === 0 && <p className="text-caption text-muted-foreground">No notes yet.</p>}
         <div className="space-y-2">
           {notes.map((n) => (
@@ -506,7 +506,7 @@ export function CallDetailView({
       {/* Admin actions */}
       {canManage && (
         <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-          <h3 className="text-body font-medium text-foreground">Admin Actions</h3>
+          <h2 className="text-body font-medium text-foreground">Admin Actions</h2>
           <Button size="sm" variant="outline" onClick={toggleLegalHold} disabled={loading}>
             <ShieldAlert className="h-3.5 w-3.5" />
             {legalHold ? "Release legal hold" : "Place legal hold"}
