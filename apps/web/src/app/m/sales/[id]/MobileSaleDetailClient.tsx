@@ -623,7 +623,7 @@ export function MobileSaleDetailClient({
         <span
           className="text-m-caption font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
           style={{
-            color: accentColor,
+            color: isCancelled ? "var(--color-danger)" : accentColor,
             backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)`,
           }}
         >
@@ -992,7 +992,7 @@ export function MobileSaleDetailClient({
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-m-caption font-semibold mt-1"
-                  style={{ color: "var(--color-brand)" }}
+                  style={{ color: "var(--color-brand-strong)" }}
                 >
                   <ExternalLink className="size-2.5" /> {draftDocumentName ?? "View draft document"}
                 </a>
@@ -1006,7 +1006,7 @@ export function MobileSaleDetailClient({
               type="button"
               onClick={() => docViewer.openDoc(`/m/print/sale-draft/${saleId}`, "Sale Draft / LOI")}
               className="inline-flex items-center gap-1 text-m-caption font-semibold"
-              style={{ color: "var(--color-brand)" }}
+              style={{ color: "var(--color-brand-strong)" }}
             >
               <Printer className="size-3" /> Print Draft / LOI
             </button>
@@ -1132,7 +1132,7 @@ export function MobileSaleDetailClient({
                 type="button"
                 onClick={() => setShowSchedule(true)}
                 className="flex items-center gap-1 text-m-caption font-bold press"
-                style={{ color: "var(--color-brand)" }}
+                style={{ color: "var(--color-brand-strong)" }}
               >
                 <CalendarClock className="size-3" />
                 <span>Edit</span>

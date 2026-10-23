@@ -196,7 +196,7 @@ export function MobileStockCountDetailClient({
             const variance = l.variance;
             const hasVariance = variance > 0.001 || variance < -0.001;
             const VarianceIcon = variance > 0 ? TrendingUp : variance < 0 ? TrendingDown : Minus;
-            const varianceColor = variance < 0 ? "var(--color-stop)" : variance > 0 ? "var(--color-signal)" : "var(--color-go)";
+            const varianceColor = variance < 0 ? "var(--color-stop-active)" : variance > 0 ? "var(--color-signal-dark)" : "var(--color-go-active)";
             const varianceStr = variance > 0 ? `+${formatNumber(variance, 0)}` : formatNumber(variance, 0);
 
             return (

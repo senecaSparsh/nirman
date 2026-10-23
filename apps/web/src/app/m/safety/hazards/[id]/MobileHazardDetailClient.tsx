@@ -216,7 +216,7 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
                 <textarea value={resolutionNotes} onChange={(e) => setResolutionNotes(e.target.value)} rows={2} placeholder="How was the hazard eliminated/controlled?" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
               </div>
             </div>
-            <button onClick={() => { if (!resolutionNotes.trim()) { toast.error("Resolution notes required"); return; } doAction("resolve", { resolutionNotes }); }} disabled={acting === "resolve"} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press" style={{ backgroundColor: "var(--color-go)", color: "var(--color-ink-950)" }}>
+            <button onClick={() => { if (!resolutionNotes.trim()) { toast.error("Resolution notes required"); return; } doAction("resolve", { resolutionNotes }); }} disabled={acting === "resolve"} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press" style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}>
               {acting === "resolve" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Confirm Resolution
             </button>
           </div>
@@ -280,7 +280,7 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
 function ActionButton({ onClick, loading, icon: Icon, label, variant }: { onClick: () => void; loading: boolean; icon: React.ComponentType<{ className?: string }>; label: string; variant: "primary" | "go" | "danger" | "secondary" }) {
   const styles: Record<string, React.CSSProperties> = {
     primary: { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", borderColor: "var(--color-ink-950)" },
-    go: { backgroundColor: "var(--color-go)", color: "var(--color-ink-950)", borderColor: "var(--color-go-active)" },
+    go: { backgroundColor: "var(--color-go)", color: "var(--color-paper)", borderColor: "var(--color-go-active)" },
     danger: { backgroundColor: "var(--color-stop)", color: "var(--color-paper)", borderColor: "var(--color-stop-active)" },
     secondary: { backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)", borderColor: "var(--color-line)" },
   };

@@ -169,7 +169,7 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
                 <textarea value={completeForm.followUpActions} onChange={(e) => setCompleteForm((f) => ({ ...f, followUpActions: e.target.value }))} rows={1} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors resize-none" style={{ backgroundColor: "transparent" }} />
               </div>
             </div>
-            <button onClick={() => { if (!completeForm.findings.trim()) { toast.error("Findings required"); return; } doAction("complete", completeForm); }} disabled={acting === "complete"} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press" style={{ backgroundColor: "var(--color-go)", color: "var(--color-ink-950)" }}>
+            <button onClick={() => { if (!completeForm.findings.trim()) { toast.error("Findings required"); return; } doAction("complete", completeForm); }} disabled={acting === "complete"} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press" style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}>
               {acting === "complete" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Submit Result
             </button>
           </div>
@@ -183,7 +183,7 @@ export function MobileInspectionDetailClient({ inspection, canManage }: { inspec
 function ActionButton({ onClick, loading, icon: Icon, label, variant }: { onClick: () => void; loading: boolean; icon: React.ComponentType<{ className?: string }>; label: string; variant: "primary" | "go" | "danger" | "secondary" }) {
   const styles: Record<string, React.CSSProperties> = {
     primary: { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", borderColor: "var(--color-ink-950)" },
-    go: { backgroundColor: "var(--color-go)", color: "var(--color-ink-950)", borderColor: "var(--color-go-active)" },
+    go: { backgroundColor: "var(--color-go)", color: "var(--color-paper)", borderColor: "var(--color-go-active)" },
     danger: { backgroundColor: "var(--color-stop)", color: "var(--color-paper)", borderColor: "var(--color-stop-active)" },
     secondary: { backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)", borderColor: "var(--color-line)" },
   };

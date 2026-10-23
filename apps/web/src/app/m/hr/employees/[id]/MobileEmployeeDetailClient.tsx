@@ -712,8 +712,8 @@ export function MobileEmployeeDetailClient({
                     {employee.reportsTo.name}
                   </Link>
                 ) : (
-                  <p className="text-m-body" style={{ color: "var(--color-ink-300)" }}>
-                    No manager assigned
+                  <p className="text-m-body" style={{ color: "var(--color-ink-500)" }}>
+No manager assigned
                   </p>
                 )}
               </div>

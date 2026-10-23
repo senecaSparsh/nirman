@@ -539,9 +539,9 @@ export default function MobilePoDetailPage({
             {/* ── Lines — full-width rows so material names aren't cut off ── */}
             <div className="mb-3">
               <div className="flex items-baseline justify-between mb-1.5">
-                <h3 className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
+                <h2 className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
                   Items ({lines.length})
-                </h3>
+                </h2>
                 <span className="text-m-caption tabular-nums" style={{ color: "var(--color-ink-500)" }}>
                   {formatCurrencyCompact(subtotal)}
                 </span>
@@ -585,9 +585,9 @@ export default function MobilePoDetailPage({
             {/* ── Receipts ── */}
             <div className="mb-3">
               <div className="flex flex-col gap-1.5">
-                <h3 className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
+                <h2 className="text-m-body font-bold" style={{ color: "var(--color-ink-950)" }}>
                   Deliveries received ({receipts.length})
-                </h3>
+                </h2>
                 {receipts.length > 0 ? (
                   receipts.map((r) => {
                     const inspTone =
@@ -629,9 +629,9 @@ export default function MobilePoDetailPage({
             {/* ── Itemized charges (from quotation or manual) ── */}
             {hasCharges ? (
               <div className="mb-3">
-                <h3 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+                <h2 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
                   Charges & Freight
-                </h3>
+                </h2>
                 <div className="flex flex-col gap-1.5">
                   {charges.map((c) => (
                     <div
@@ -672,9 +672,9 @@ export default function MobilePoDetailPage({
             {/* ── Payments ── */}
             {payments.length > 0 ? (
               <div className="mb-3">
-                <h3 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
+                <h2 className="text-m-body font-bold mb-1.5" style={{ color: "var(--color-ink-950)" }}>
                   Payments ({payments.length})
-                </h3>
+                </h2>
                 <div className="flex flex-col gap-1.5">
                   {payments.map((p) => (
                     <div

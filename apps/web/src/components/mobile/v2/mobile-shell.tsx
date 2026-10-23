@@ -1089,6 +1089,7 @@ function MobileShellInner({
       {/* ══ CONTENT — scrollable, clears bottom nav ══ */}
       <main
         className="m-shell-content relative flex-1 overflow-y-auto pb-nav"
+        tabIndex={0}
         data-switching={isCompanySwitching ? "true" : undefined}
         {...mergedTouchHandlers}
       >

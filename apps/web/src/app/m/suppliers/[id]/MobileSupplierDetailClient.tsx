@@ -125,7 +125,7 @@ export function MobileSupplierDetailClient({
     }
   }
   const hasDues = balanceOwed > 0;
-  const accentColor = hasDues ? "var(--color-stop)" : "var(--color-go)";
+  const accentColor = hasDues ? "var(--color-stop-active)" : "var(--color-go)";
 
   return (
     <div>
@@ -147,7 +147,7 @@ export function MobileSupplierDetailClient({
               disabled={deleting}
               aria-label="Delete supplier"
               className="flex items-center justify-center h-7 w-7 rounded-[0.375rem] text-m-body press"
-              style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-stop)" }}
+              style={{ backgroundColor: "var(--color-paper-2)", color: "var(--color-stop-active)" }}
             >
               {deleting ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
             </button>
@@ -172,7 +172,7 @@ export function MobileSupplierDetailClient({
             </p>
             <p
               className="text-m-section font-bold tabular-nums"
-              style={{ color: hasDues ? "var(--color-stop)" : "var(--color-ink-950)" }}
+              style={{ color: hasDues ? "var(--color-stop-active)" : "var(--color-ink-950)" }}
             >
               {formatCurrency(balanceOwed)}
             </p>

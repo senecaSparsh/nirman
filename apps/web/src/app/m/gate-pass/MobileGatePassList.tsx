@@ -469,7 +469,7 @@ export function MobileGatePassList({
                         disabled={actionLoading === gp.id}
                         onClick={() => handleAction(gp.id, "approve")}
                         className="flex items-center gap-1 rounded-[0.375rem] px-2 py-1 text-m-caption font-semibold press"
-                        style={{ backgroundColor: "var(--color-go)", color: "var(--color-ink-950)" }}
+                        style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
                       >
                         {actionLoading === gp.id ? <Loader2 className="size-3 animate-spin" /> : <CheckCircle className="size-3" />}
                         Approve

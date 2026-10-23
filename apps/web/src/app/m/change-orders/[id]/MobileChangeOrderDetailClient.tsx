@@ -457,7 +457,7 @@ export function MobileChangeOrderDetailClient({
               }}
               disabled={acting === "approve"}
               className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press"
-              style={{ backgroundColor: "var(--color-go)", color: "var(--color-ink-950)" }}
+              style={{ backgroundColor: "var(--color-go)", color: "var(--color-paper)" }}
             >
               {acting === "approve" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
               Confirm Approval & Implement
@@ -601,7 +601,7 @@ function ActionButton({
 }) {
   const styles: Record<string, React.CSSProperties> = {
     primary: { backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)", borderColor: "var(--color-ink-950)" },
-    go: { backgroundColor: "var(--color-go)", color: "var(--color-ink-950)", borderColor: "var(--color-go-active)" },
+    go: { backgroundColor: "var(--color-go)", color: "var(--color-paper)", borderColor: "var(--color-go-active)" },
     danger: { backgroundColor: "var(--color-stop)", color: "var(--color-paper)", borderColor: "var(--color-stop-active)" },
     secondary: { backgroundColor: "var(--color-paper)", color: "var(--color-ink-700)", borderColor: "var(--color-line)" },
   };

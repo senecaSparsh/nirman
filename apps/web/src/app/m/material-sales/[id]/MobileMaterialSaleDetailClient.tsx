@@ -629,13 +629,15 @@ export function MobileMaterialSaleDetailClient({
             {payments.map((p, i) => (
               <div
                 key={p.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => docViewer.openDoc(`/m/print/material-sale-receipt/${p.id}`, "Sale Receipt")}
-                onKeyDown={(e) => { if (e.key === "Enter") docViewer.openDoc(`/m/print/material-sale-receipt/${p.id}`, "Sale Receipt"); }}
-                className="w-full flex items-center gap-2 px-2.5 py-2 text-m-body press text-left cursor-pointer"
+                className="w-full flex items-center gap-2 px-2.5 py-2 text-m-body press text-left"
                 style={i > 0 ? { borderTop: "1px solid var(--color-line)" } : undefined}
               >
+                <button
+                  type="button"
+                  onClick={() => docViewer.openDoc(`/m/print/material-sale-receipt/${p.id}`, "Sale Receipt")}
+                  className="flex items-center gap-2 flex-1 min-w-0 text-left press cursor-pointer"
+                  aria-label={`Print receipt for ${formatPaymentMode(p.paymentMode)} payment of ${formatCurrencyCompact(p.amount)}`}
+                >
                 <span
                   className="grid place-items-center size-6 rounded-full shrink-0"
                   style={{ backgroundColor: p.status === "VOID" ? "color-mix(in srgb, var(--color-stop) 12%, transparent)" : "color-mix(in srgb, var(--color-go) 12%, transparent)" }}
@@ -658,15 +660,16 @@ export function MobileMaterialSaleDetailClient({
                     </p>
                   )}
                 </div>
-                <p className="text-m-label font-bold tabular-nums shrink-0" style={{ color: p.status === "VOID" ? "var(--color-ink-500)" : "var(--color-go)", textDecoration: p.status === "VOID" ? "line-through" : "none" }}>
+                <p className="text-m-label font-bold tabular-nums shrink-0" style={{ color: p.status === "VOID" ? "var(--color-ink-500)" : "var(--color-go-active)", textDecoration: p.status === "VOID" ? "line-through" : "none" }}>
                   {formatCurrencyCompact(p.amount)}
                 </p>
+                </button>
                 {canManage && p.status !== "VOID" && !isCancelled ? (
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); setVoidPaymentId(p.id); }}
+                    onClick={() => setVoidPaymentId(p.id)}
                     className="shrink-0 rounded-full px-2 py-1 text-m-caption font-bold"
-                    style={{ color: "var(--color-stop)", backgroundColor: "color-mix(in srgb, var(--color-stop) 10%, transparent)" }}
+                    style={{ color: "var(--color-stop-active)", backgroundColor: "color-mix(in srgb, var(--color-stop) 10%, transparent)" }}
                   >
                     Void
                   </button>

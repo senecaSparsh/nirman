@@ -75,14 +75,14 @@ interface TenancyData {
 const STATUS_META: Record<string, { color: string; label: string }> = {
   ACTIVE: { color: "var(--color-steel)", label: "Active" },
   PENDING: { color: "var(--color-signal-dark)", label: "Pending" },
-  EXPIRED: { color: "var(--color-stop)", label: "Expired" },
-  TERMINATED: { color: "var(--color-stop)", label: "Terminated" },
+  EXPIRED: { color: "var(--color-stop-active)", label: "Expired" },
+  TERMINATED: { color: "var(--color-stop-active)", label: "Terminated" },
 };
 
 const PAYMENT_STATUS_META: Record<string, { color: string; label: string; icon: React.ReactNode }> = {
-  RECEIVED: { color: "var(--color-go)", label: "Received", icon: <CheckCircle2 className="size-2.5" /> },
+  RECEIVED: { color: "var(--color-go-active)", label: "Received", icon: <CheckCircle2 className="size-2.5" /> },
   PENDING: { color: "var(--color-signal-dark)", label: "Pending", icon: <Clock className="size-2.5" /> },
-  OVERDUE: { color: "var(--color-stop)", label: "Overdue", icon: <AlertCircle className="size-2.5" /> },
+  OVERDUE: { color: "var(--color-stop-active)", label: "Overdue", icon: <AlertCircle className="size-2.5" /> },
   VOID: { color: "var(--color-ink-500)", label: "Void", icon: <AlertCircle className="size-2.5" /> },
 };
 
@@ -591,7 +591,7 @@ export function MobileRentalDetailClient({
             type="button"
             onClick={() => docViewer.openDoc(`/m/print/tenancy-draft/${data.id}`, "Tenancy Draft")}
             className="inline-flex items-center gap-1 text-m-caption font-semibold"
-            style={{ color: "var(--color-brand)" }}
+            style={{ color: "var(--color-brand-strong)" }}
           >
             <Printer className="size-3" /> Print Draft / LOI
           </button>

@@ -185,9 +185,9 @@ export default function MobileMaterialDetailPage({
             <div className="grid grid-cols-2 gap-2 mb-3 items-start">
               {/* Stock by location column */}
               <div className="flex flex-col gap-1.5">
-                <h3 className="text-m-body font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
+                <h2 className="text-m-body font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
                   By Location ({stockItems.length})
-                </h3>
+                </h2>
                 {stockItems.length === 0 ? (
                   <MobileEmptyState
                     icon={Package}
@@ -224,9 +224,9 @@ export default function MobileMaterialDetailPage({
 
               {/* Recent movements column */}
               <div className="flex flex-col gap-1.5">
-                <h3 className="text-m-body font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
+                <h2 className="text-m-body font-bold mb-0.5" style={{ color: "var(--color-ink-950)" }}>
                   Movements ({movements.length})
-                </h3>
+                </h2>
                 {movements.length === 0 ? (
                   <MobileEmptyState
                     icon={ArrowLeftRight}
@@ -238,6 +238,7 @@ export default function MobileMaterialDetailPage({
                     const isIn = m.toLocation?.name != null && m.fromLocation?.name == null;
                     const isOut = m.fromLocation?.name != null && m.toLocation?.name == null;
                     const moveTone = isIn ? "var(--color-go)" : isOut ? "var(--color-signal)" : "var(--color-steel)";
+                    const moveTextTone = isIn ? "var(--color-go-active)" : isOut ? "var(--color-signal-dark)" : "var(--color-steel)";
                     return (
                       <div
                         key={m.id}
@@ -251,7 +252,7 @@ export default function MobileMaterialDetailPage({
                         <p className="text-m-caption mb-1" style={{ color: "var(--color-ink-500)" }}>
                           {formatDate(m.timestamp)}
                         </p>
-                        <p className="text-m-caption font-bold tabular-nums" style={{ color: moveTone }}>
+                        <p className="text-m-caption font-bold tabular-nums" style={{ color: moveTextTone }}>
                           {isIn ? "+" : isOut ? "−" : ""}{formatNumber(toNum(m.qty), 0)} {material.unit}
                         </p>
                       </div>
