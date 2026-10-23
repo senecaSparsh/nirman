@@ -2176,3 +2176,28 @@ tier decision (darken tokens vs keep decorative-only) is a design call.
 **Audit-verdict honesty:** prod DB currently has 7 users / 1 company /
 0 business rows — a clean slate. Ready for one pilot company under a
 parallel-run agreement, not self-serve scale yet.
+
+## 94. First-company onboarding walk — driven as a real user (2026-10-23)
+
+Created "Pilot Buildwell Constructions Pvt Ltd" (PILOT1) via the real
+API path and walked every setup step a new company takes:
+
+| Step                                            | Result                                                                                            |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| POST /api/companies                             | ✅ auto-OWNER + full category seed (~50 construction categories)                                  |
+| POST /api/companies/switch                      | ✅ tenant scope flips cleanly                                                                     |
+| POST /api/projects (Skyline Residency Ph-1)     | ✅ RESIDENTIAL, defaults sane                                                                     |
+| POST /api/stock-locations ×2                    | ✅ CENTRAL_WAREHOUSE + PROJECT_SITE; warehouse ignores projectId (by design — it's company-scope) |
+| PUT /api/materials {15 items}                   | ✅ 15/15 created, dedup + HSN/GST autofill working                                                |
+| POST /api/materials/:id/adjust-stock (opening)  | ✅ OPENING movement + MAC compute (500 @380)                                                      |
+| POST /api/suppliers                             | ✅                                                                                                |
+| POST /api/purchase-orders (3 lines, mixed GST)  | ✅ PO-PILOT1-…-0001 auto-numbered, ₹4.11L, per-line GST totals correct (28/18/5%)                 |
+| POST /api/purchase-orders/:id/receive (partial) | ✅ GRN recorded → PO flips PARTIAL → stock shows 100 CEM-OPC53 @385 beside opening stock          |
+| POST /api/employees ×3 (roles)                  | ✅ storekeeper + site engineer + accountant                                                       |
+
+**Verdict:** the machinery is complete — a pilot company can onboard
+end-to-end today. The remaining gap is _discoverability_: every step
+worked first-try via the API, but a nontechnical owner has no in-app
+guide to the order. Confirmed the setup-checklist gap logged in round
+92 — docs/PILOT-ONBOARDING.md covers it for pilot-scale; the in-app
+checklist remains the right build for self-serve.
