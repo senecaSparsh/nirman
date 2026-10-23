@@ -2177,6 +2177,40 @@ tier decision (darken tokens vs keep decorative-only) is a design call.
 0 business rows — a clean slate. Ready for one pilot company under a
 parallel-run agreement, not self-serve scale yet.
 
+## 97. Statutory + money-path audit — one real corruption found & fixed (2026-10-23)
+
+Audited every write path that derives money columns, hunting
+dual-path semantics divergence:
+
+- **FIXED — addLineToPurchaseOrder**: wrote `lineTotal = qty×unitCost`
+  (ex-GST) vs create's `qty×unitLandedCost` (landed). Its header
+  recompute summed the mixed column into `subtotal` and re-computed
+  `gstTotal` on already-GST-inclusive bases → +₹212.40 on a ₹2230 PO
+  (~9.5%), freight/loading/packing/discount aggregates dropped,
+  `unitLandedCost=0` on added lines. Since GRN posts `Dr INVENTORY
+subtotal / Dr INPUT_GST gst`, a corrupted header would also book
+  inventory at GST-inclusive cost AND claim ITC on top. Fixed to
+  landed semantics + full aggregate recompute; verified live
+  (1100/185/1285 on the discriminating 18% fixture).
+- **FIXED — vacuous test**: the suite's addLine check sent `qty` (API
+  wants `qtyOrdered`) against a DRAFT PO (guard needs ORDERED/PARTIAL)
+  — it never ran; `expect_count` passed on the seeded line alone.
+  Rewritten to assert exact money math on a GST-bearing fixture.
+- **SHIPPED — Supplier PAN + TDS defaults**: `pan` (26Q-mandatory,
+  AAAAA9999A), `tdsSection` (canonical codes), `tdsRate` (override);
+  `suggestSupplierTds` (section default → rate override → 206AA 20%
+  floor); payment dialog prefills + warns, fully editable.
+- **FIXED — Subcontractor PAN**: 206AA inferred PAN from GSTIN chars
+  3-12 → every unregistered sub got 20% even with a real PAN.
+  Dedicated field now takes precedence.
+- **Verified clean**: 194-IA (max(SP,SDV) base, dual-AND threshold),
+  194H (2%/₹20k current), supplier-invoice invariants (₹1 tolerance +
+  variance flagging), 43B(h) aging (per-invoice cliff alerts),
+  subcontractor 194C (1%/2% + ₹30k/₹1L thresholds), material-sale
+  single-computation, property-sale TDS netting + RERA 10% cap,
+  journal balance enforcement, single-sourced recordMovement MAC.
+- Payroll `tax` = deliberate manual field (CA computes regime-wise).
+
 ## 96. Full-surface axe coverage — detail + site-worker + form layers (2026-10-23)
 
 Extended the sweep beyond list pages to every surface class, all
