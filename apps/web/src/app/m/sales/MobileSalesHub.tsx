@@ -194,10 +194,12 @@ function MobileLeadPipeline({
         {filtered.map((lead) => {
           const overdue = Boolean(lead.nextFollowUpAt && new Date(lead.nextFollowUpAt).getTime() < nowMs && !["BOOKED", "LOST"].includes(lead.stage));
           return (
-            <button
+            <div
               key={lead.id}
-              type="button"
+              role="button"
+              tabIndex={0}
               onClick={() => setSelected(lead)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(lead); } }}
               className="w-full rounded-[0.625rem] border p-3 text-left text-m-body press"
               style={{ borderColor: overdue ? "var(--color-stop)" : lead.priority === "HOT" ? "var(--color-signal)" : "var(--color-line)", backgroundColor: "var(--color-paper)" }}
             >
@@ -222,7 +224,7 @@ function MobileLeadPipeline({
                 <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>{lead.latestActivity?.outcome ?? `${lead.activityCount} activities`}</span>
                 <a href={`tel:${lead.phone}`} onClick={(event) => event.stopPropagation()} className="flex items-center gap-1 text-m-caption font-bold" style={{ color: "var(--color-steel)" }}><Phone className="size-3" /> Call</a>
               </div>
-            </button>
+            </div>
           );
         })}
       </div>

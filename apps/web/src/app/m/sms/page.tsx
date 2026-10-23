@@ -157,7 +157,7 @@ export default function MobileSmsPage() {
                             <Link
                               href={`/m/sms?match=${sms.id}`}
                               className="mt-1.5 inline-flex items-center gap-1 text-m-caption font-semibold"
-                              style={{ color: "var(--color-brand)" }}
+                              style={{ color: "var(--color-brand-strong)" }}
                             >
                               <Link2 className="size-3" /> Match to sale
                             </Link>

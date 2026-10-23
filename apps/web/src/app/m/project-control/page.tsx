@@ -103,8 +103,8 @@ export default function MobileProjectControlPage({
         }
         const boqIncomplete = ev > pv;
 
-        const cpiColor = cpi >= 1 ? "var(--color-go)" : cpi >= 0.9 ? "var(--color-signal)" : "var(--color-stop)";
-        const spiColor = spi >= 1 ? "var(--color-go)" : spi >= 0.9 ? "var(--color-signal)" : "var(--color-stop)";
+        const cpiColor = cpi >= 1 ? "var(--color-go)" : cpi >= 0.9 ? "var(--color-signal-dark)" : "var(--color-stop)";
+        const spiColor = spi >= 1 ? "var(--color-go)" : spi >= 0.9 ? "var(--color-signal-dark)" : "var(--color-stop)";
         const cvColor = cv >= 0 ? "var(--color-go)" : "var(--color-stop)";
         const svColor = sv >= 0 ? "var(--color-go)" : "var(--color-stop)";
 
@@ -207,7 +207,7 @@ export default function MobileProjectControlPage({
 }
 
 function EvmCard({ label, sublabel, value, icon: Icon, tone }: { label: string; sublabel: string; value: string; icon: ComponentType<{ className?: string; style?: CSSProperties }>; tone?: string }) {
-  const color = tone === "go" ? "var(--color-go)" : tone === "signal" ? "var(--color-signal)" : "var(--color-ink-950)";
+  const color = tone === "go" ? "var(--color-go)" : tone === "signal" ? "var(--color-signal-dark)" : "var(--color-ink-950)";
   return (
     <div
       className="rounded-[0.625rem] border p-2"

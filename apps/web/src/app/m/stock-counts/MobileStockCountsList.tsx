@@ -177,6 +177,8 @@ function CountCard({ c }: { c: StockCountItem }) {
     : isCounted
       ? "var(--color-steel)"
       : "var(--color-go)";
+  // Text variant — raw signal amber reads 1.8:1 as text (fails AA); fills keep it.
+  const accentTextColor = isDraft ? "var(--color-signal-dark)" : accentColor;
 
   const StatusIcon = isDraft ? Clock : isCounted ? AlertTriangle : CheckCircle2;
   const statusLabel = isDraft ? "Draft" : isCounted ? "Counted" : "Reconciled";
@@ -186,7 +188,7 @@ function CountCard({ c }: { c: StockCountItem }) {
     c.totalVariance < 0
       ? "var(--color-stop)"
       : c.totalVariance > 0
-        ? "var(--color-signal)"
+        ? "var(--color-signal-dark)"
         : "var(--color-go)";
 
   // ── Long-press overview sheet (data already in the list item — no fetch) ──
@@ -203,7 +205,7 @@ function CountCard({ c }: { c: StockCountItem }) {
       : "No variances";
 
   const overviewRows: OverviewRow[] = [
-    { icon: StatusIcon, label: "Status", value: statusLabel, valueColor: accentColor },
+    { icon: StatusIcon, label: "Status", value: statusLabel, valueColor: accentTextColor },
     { icon: Calendar, label: "Date", value: formatDate(c.countDate) },
     { icon: MapPin, label: "Location", value: c.locationName },
     { icon: ClipboardList, label: "Items Counted", value: String(c.lineCount) },
@@ -253,7 +255,7 @@ function CountCard({ c }: { c: StockCountItem }) {
             <div className="flex items-center justify-between gap-1">
               <span
                 className="flex items-center gap-0.5 text-m-caption font-bold uppercase shrink-0"
-                style={{ color: accentColor }}
+                style={{ color: accentTextColor }}
               >
                 <StatusIcon className="size-2.5" />
                 {statusLabel}

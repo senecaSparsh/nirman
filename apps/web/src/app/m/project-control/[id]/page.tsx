@@ -85,8 +85,8 @@ export default function MobileProjectControlDetailPage({
         }
         const boqIncomplete = ev > pv;
 
-        const cpiColor = cpi >= 1 ? "var(--color-go)" : cpi >= 0.9 ? "var(--color-signal)" : "var(--color-stop)";
-        const spiColor = spi >= 1 ? "var(--color-go)" : spi >= 0.9 ? "var(--color-signal)" : "var(--color-stop)";
+        const cpiColor = cpi >= 1 ? "var(--color-go)" : cpi >= 0.9 ? "var(--color-signal-dark)" : "var(--color-stop)";
+        const spiColor = spi >= 1 ? "var(--color-go)" : spi >= 0.9 ? "var(--color-signal-dark)" : "var(--color-stop)";
         const cvColor = cv >= 0 ? "var(--color-go)" : "var(--color-stop)";
         const svColor = sv >= 0 ? "var(--color-go)" : "var(--color-stop)";
 

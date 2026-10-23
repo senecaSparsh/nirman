@@ -370,7 +370,7 @@ export default function SettingsPage() {
 
             <p
               className="text-center text-m-caption mb-4"
-              style={{ color: "var(--color-ink-300)" }}
+              style={{ color: "var(--color-ink-500)" }}
             >
               Nirman Inventory OS v1.0
             </p>
@@ -393,7 +393,7 @@ function ZoneDivider({ label }: { label: string }) {
     >
       <span
         className="text-m-caption font-bold uppercase tracking-[0.1em]"
-        style={{ color: "var(--color-ink-300)" }}
+        style={{ color: "var(--color-ink-500)" }}
       >
         {label}
       </span>
@@ -498,7 +498,7 @@ function DuesRow({
       </span>
       <ChevronRight
         className="size-3.5 shrink-0"
-        style={{ color: "var(--color-ink-300)" }}
+        style={{ color: "var(--color-ink-500)" }}
       />
     </Link>
   );

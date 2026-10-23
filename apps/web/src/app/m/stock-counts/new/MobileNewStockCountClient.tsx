@@ -416,7 +416,7 @@ export default function MobileNewStockCountClient({ onClose, onCreated, canCreat
             const hasVariance = variance !== null && (variance > 0.001 || variance < -0.001);
             const varianceColor = variance === null ? "var(--color-ink-500)"
               : variance < 0 ? "var(--color-stop)"
-              : variance > 0 ? "var(--color-signal)"
+              : variance > 0 ? "var(--color-signal-dark)"
               : "var(--color-go)";
             const VarianceIcon = variance === null ? null
               : variance > 0 ? TrendingUp
@@ -537,7 +537,7 @@ export default function MobileNewStockCountClient({ onClose, onCreated, canCreat
               className="text-m-section font-bold tabular-nums"
               style={{
                 color: varianceSummary.mismatches > 0
-                  ? (varianceSummary.netVariance < 0 ? "var(--color-stop)" : "var(--color-signal)")
+                  ? (varianceSummary.netVariance < 0 ? "var(--color-stop)" : "var(--color-signal-dark)")
                   : "var(--color-go)",
               }}
             >

@@ -23,14 +23,22 @@ const browser = await chromium.launch();
 const ctx = await browser.newContext();
 const page = await ctx.newPage();
 
-// Sign in like a real user: demo-login returns credentials → sign-in/email.
-const creds = await page.request.post(`${BASE}/api/auth/demo-login`, {
-  data: { role: "OWNER" },
-});
-const { email, password } = await creds.json();
-await page.request.post(`${BASE}/api/auth/sign-in/email`, {
+// Sign in like a real user. demo-login is disabled in production
+// builds — fall back to the seeded OWNER credentials in that case.
+let email = process.env.SWEEP_EMAIL, password = process.env.SWEEP_PASSWORD;
+if (!email) {
+  const creds = await page.request.post(`${BASE}/api/auth/demo-login`, {
+    data: { role: "OWNER" },
+  });
+  if (creds.ok()) ({ email, password } = await creds.json());
+}
+if (!email) { email = "phone+917017988293@nirman.internal"; password = "nirman123"; }
+const signin = await page.request.post(`${BASE}/api/auth/sign-in/email`, {
   data: { email, password },
 });
+if (!signin.ok()) throw new Error("sign-in failed: " + (await signin.text()));
+// land once so the session cookie is stored in the context
+await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded", timeout: 90_000 }).catch(() => {});
 
 for (const route of routes) {
   try {

@@ -80,6 +80,7 @@ export function MobileStockCountDetailClient({
 
   const StatusIcon = isDraft ? Clock : isCounted ? AlertTriangle : CheckCircle2;
   const accentColor = isDraft ? "var(--color-signal)" : isCounted ? "var(--color-steel)" : "var(--color-go)";
+  const accentTextColor = isDraft ? "var(--color-signal-dark)" : accentColor;
   const statusLabel = isDraft ? "Draft" : isCounted ? "Counted" : "Reconciled";
 
   const handleAction = async (action: "confirm" | "reconcile") => {
@@ -132,7 +133,7 @@ export function MobileStockCountDetailClient({
         </div>
         <span
           className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
-          style={{ color: accentColor, backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)` }}
+          style={{ color: accentTextColor, backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)` }}
         >
           <StatusIcon className="size-2.5" />
           {statusLabel}

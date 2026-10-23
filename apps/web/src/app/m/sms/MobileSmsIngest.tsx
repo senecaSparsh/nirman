@@ -63,7 +63,7 @@ export function MobileSmsIngest() {
         className="ml-auto flex items-center gap-1 rounded-[0.375rem] px-2 py-1 text-m-caption font-semibold press"
         style={{
           backgroundColor: "var(--color-brand)",
-          color: "var(--color-paper)",
+          color: "var(--color-brand-foreground)",
         }}
       >
         <Plus className="size-3" /> Add SMS
@@ -140,7 +140,7 @@ export function MobileSmsIngest() {
             className="flex w-full items-center justify-center gap-2 rounded-[0.375rem] py-2.5 text-m-body font-semibold press"
             style={{
               backgroundColor: "var(--color-brand)",
-              color: "var(--color-paper)",
+              color: "var(--color-brand-foreground)",
               opacity: saving ? 0.6 : 1,
             }}
           >

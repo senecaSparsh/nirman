@@ -252,6 +252,13 @@ function EquipmentCard({ e, canEdit }: { e: EquipmentItem; canEdit?: boolean }) 
         : isSold
           ? "var(--color-ink-400)"
           : "var(--color-go)";
+  // Text variant — the fill accents are chosen for fills; raw signal
+  // amber reads 1.8:1 as text, so text uses the AA-tuned pair.
+  const accentTextColor = isMaintenance
+    ? "var(--color-signal-dark)"
+    : isSold
+      ? "var(--color-ink-500)"
+      : accentColor;
 
   const StatusIcon = isAvailable
     ? CheckCircle2
@@ -318,7 +325,7 @@ function EquipmentCard({ e, canEdit }: { e: EquipmentItem; canEdit?: boolean }) 
           icon: TrendingDown,
           label: "Current Value",
           value: formatCurrency(details.currentValue),
-          valueColor: accentColor,
+          valueColor: accentTextColor,
         },
         ...(details.purchaseDate
           ? [{ icon: Calendar, label: "Purchase Date", value: formatDate(details.purchaseDate) }]
@@ -382,7 +389,7 @@ function EquipmentCard({ e, canEdit }: { e: EquipmentItem; canEdit?: boolean }) 
             <div className="flex items-center justify-between gap-0.5">
               <span
                 className="flex items-center gap-0.5 text-m-micro font-bold uppercase shrink-0"
-                style={{ color: accentColor }}
+                style={{ color: accentTextColor }}
               >
                 <StatusIcon className="size-2" />
                 {statusLabel}

@@ -215,6 +215,9 @@ export function MobileEquipmentDetailClient({
     : isAssigned ? "var(--color-steel)"
     : isSold ? "var(--color-ink-400)"
     : "var(--color-go)";
+  const accentTextColor = isMaintenance ? "var(--color-signal-dark)"
+    : isSold ? "var(--color-ink-500)"
+    : accentColor;
 
   const StatusIcon = isAvailable ? CheckCircle2 : isAssigned ? MapPin : isMaintenance ? Settings : isSold ? IndianRupee : Archive;
   const statusLabel = isAvailable ? "Available" : isAssigned ? "Assigned" : isMaintenance ? "In Maintenance" : isSold ? "Sold" : "Retired";
@@ -283,7 +286,7 @@ export function MobileEquipmentDetailClient({
         <div className="flex-1 min-w-0" />
         <span
           className="flex items-center gap-0.5 text-m-caption font-bold uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
-          style={{ color: accentColor, backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)` }}
+          style={{ color: accentTextColor, backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)` }}
         >
           <StatusIcon className="size-2.5" />
           {statusLabel}
