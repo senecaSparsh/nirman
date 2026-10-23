@@ -99,7 +99,7 @@ export function PageHeader({
                   <dt className="text-label leading-none text-muted-foreground">{s.label}</dt>
                   <dd
                     className={cn(
-                      "mt-1 text-[14px] font-semibold leading-none tnum",
+                      "relative mt-1 text-[14px] font-semibold leading-none tnum",
                       s.tone === "warning" && "text-warning",
                       s.tone === "danger" && "text-danger",
                       s.tone === "success" && "text-success",
@@ -108,12 +108,12 @@ export function PageHeader({
                     )}
                   >
                     {s.value}
+                    {s.hint && (
+                      <span className="pointer-events-none absolute right-0 top-full z-50 mt-2 hidden w-max max-w-xs rounded-md border border-border bg-elevated px-3 py-2 text-caption leading-relaxed text-muted-foreground shadow-overlay group-hover/stat:block">
+                        {s.hint}
+                      </span>
+                    )}
                   </dd>
-                  {s.hint && (
-                    <div className="pointer-events-none absolute right-0 top-full z-50 mt-2 hidden w-max max-w-xs rounded-md border border-border bg-elevated px-3 py-2 text-caption leading-relaxed text-muted-foreground shadow-overlay group-hover/stat:block">
-                      {s.hint}
-                    </div>
-                  )}
                 </div>
               ))}
             </dl>

@@ -359,7 +359,7 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
                     </div>
                     <div className="space-y-1.5">
                       <Label>Type</Label>
-                      <Select value={newType} onChange={(e) => setNewType(e.target.value)}>
+                      <Select value={newType} onChange={(e) => setNewType(e.target.value)} aria-label="Number type">
                         <option value="VIRTUAL">Virtual</option>
                         <option value="MOBILE">Mobile (SIM)</option>
                         <option value="LANDLINE">Landline</option>
@@ -368,7 +368,7 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
                     </div>
                     <div className="space-y-1.5">
                       <Label>Provider</Label>
-                      <Select value={newProvider} onChange={(e) => setNewProvider(e.target.value)}>
+                      <Select value={newProvider} onChange={(e) => setNewProvider(e.target.value)} aria-label="Provider">
                         <option value="MANUAL">Manual</option>
                         <option value="EXOTEL">Exotel</option>
                         <option value="KNOWLARITY">Knowlarity</option>
@@ -400,7 +400,7 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
                   <div className="flex gap-3 items-end">
                     <div className="space-y-1.5">
                       <Label>Country</Label>
-                      <Select value={twCountry} onChange={(e) => setTwCountry(e.target.value)}>
+                      <Select value={twCountry} onChange={(e) => setTwCountry(e.target.value)} aria-label="Country">
                         <option value="IN">India</option>
                         <option value="US">USA</option>
                         <option value="GB">UK</option>
@@ -409,7 +409,7 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
                     </div>
                     <div className="space-y-1.5">
                       <Label>Kind</Label>
-                      <Select value={twKind} onChange={(e) => setTwKind(e.target.value as typeof twKind)}>
+                      <Select value={twKind} onChange={(e) => setTwKind(e.target.value as typeof twKind)} aria-label="Number kind">
                         <option value="local">Local</option>
                         <option value="mobile">Mobile</option>
                         <option value="tollFree">Toll-free</option>
@@ -495,6 +495,7 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
                           value=""
                           onChange={(e) => assignNumber(n.id, e.target.value)}
                           className="text-caption"
+                          aria-label={`Assign ${n.phoneNumber}`}
                         >
                           <option value="">Unassigned — assign…</option>
                           {members.map((m) => (
@@ -611,7 +612,7 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
           </div>
           <div className="space-y-1.5">
             <Label>Status</Label>
-            <Select value={editStatus} onChange={(e) => setEditStatus(e.target.value)}>
+            <Select value={editStatus} onChange={(e) => setEditStatus(e.target.value)} aria-label="Number status">
               <option value="ACTIVE">Active</option>
               <option value="INACTIVE">Inactive</option>
               <option value="SUSPENDED">Suspended</option>
@@ -713,7 +714,7 @@ function ProvidersTab({ providers, canManage }: { providers: Provider[]; canMana
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label>Provider</Label>
-                <Select value={provider} onChange={(e) => setProvider(e.target.value)}>
+                <Select value={provider} onChange={(e) => setProvider(e.target.value)} aria-label="Provider">
                   <option value="EXOTEL">Exotel</option>
                   <option value="KNOWLARITY">Knowlarity</option>
                   <option value="TWILIO">Twilio</option>

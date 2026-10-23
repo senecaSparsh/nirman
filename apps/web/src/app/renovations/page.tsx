@@ -124,18 +124,13 @@ async function RenovationsContent() {
                     <p className="truncate text-[13px] font-medium text-foreground">{r.title}</p>
                     <p className="truncate text-caption text-muted-foreground">{r.renovationNumber}</p>
                   </div>
-                  {/* Project */}
+                  {/* Project — plain text here; <summary> is interactive so a
+                      nested <Link> would be illegal. The link lives in the
+                      expanded details body below. */}
                   <div className="min-w-0">
-                    {r.projectName ? (
-                      <Link
-                        href={`/projects/${r.projectId}`}
-                        className="truncate text-[13px] text-foreground transition-colors hover:text-brand-strong hover:underline"
-                      >
-                        {r.projectName}
-                      </Link>
-                    ) : (
-                      <span className="text-caption text-faint">—</span>
-                    )}
+                    <span className="truncate text-[13px] text-foreground">
+                      {r.projectName ?? <span className="text-caption text-faint">—</span>}
+                    </span>
                   </div>
                   {/* Type */}
                   <div className="hidden text-caption text-muted-foreground md:block">
@@ -163,6 +158,14 @@ async function RenovationsContent() {
                     doesn't exist yet. Native <details> keeps this a pure
                     server component (no client JS / state needed). */}
                 <div className="border-t border-border/60 bg-subtle/50 px-4 py-3">
+                  {r.projectName && r.projectId && (
+                    <Link
+                      href={`/projects/${r.projectId}`}
+                      className="mb-2 inline-flex items-center gap-1 text-caption font-medium text-brand-strong hover:underline"
+                    >
+                      Open project: {r.projectName} →
+                    </Link>
+                  )}
                   <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-caption sm:grid-cols-3 lg:grid-cols-4">
                     <div>
                       <dt className="text-faint">Asset</dt>
