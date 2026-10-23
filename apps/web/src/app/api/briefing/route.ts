@@ -265,9 +265,9 @@ export const GET = apiHandler(async (_req: NextRequest) => {
   // First-run setup state — a fresh company logs into empty pages with no
   // idea where to start. Surface the checklist to OWNER/ADMIN (the roles
   // that can act on it) while any step is incomplete; everyone else gets null.
-  let setup: { hasProjects: boolean; hasMembers: boolean; hasMaterials: boolean; hasSuppliers: boolean; hasCustomers: boolean; hasOpeningBalance: boolean } | null = null;
+  let setup: { hasProjects: boolean; hasMembers: boolean; hasMaterials: boolean; hasSuppliers: boolean; hasCustomers: boolean; hasOpeningBalance: boolean; hasOpeningStock: boolean } | null = null;
   if (["OWNER", "ADMIN", "DEVELOPER"].includes(user.role)) {
-    const [memberCount, materialCount, supplierCount, customerCount, openingCash, cashActivity] = await Promise.all([
+    const [memberCount, materialCount, supplierCount, customerCount, openingCash, cashActivity, stockLocationItemCount] = await Promise.all([
       prisma.userCompany.count({ where: { companyId: company.id, active: true, user: { isHidden: { not: true } } } }),
       prisma.material.count({ where: { companyId: company.id, deletedAt: null } }),
       prisma.supplier.count({ where: { companyId: company.id, deletedAt: null } }),
@@ -280,6 +280,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
         _sum: { debit: true, credit: true },
         where: { journalEntry: { companyId: company.id, status: "POSTED", reversalOfId: null }, account: { code: "1000" } },
       }),
+      prisma.stockLocationItem.count({ where: { location: { companyId: company.id } } }),
     ]);
     const cashBal = Number(cashActivity._sum.debit ?? 0) - Number(cashActivity._sum.credit ?? 0);
     setup = {
@@ -291,6 +292,7 @@ export const GET = apiHandler(async (_req: NextRequest) => {
       // Set via the opening-balance entry, or cash already holds a balance
       // (imports/seeding arrive funded) — either way the nag is done.
       hasOpeningBalance: openingCash !== null || cashBal !== 0,
+      hasOpeningStock: stockLocationItemCount > 0,
     };
     if (Object.values(setup).every(Boolean)) setup = null; // fully provisioned
   }

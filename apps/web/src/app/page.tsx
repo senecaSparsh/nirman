@@ -249,7 +249,7 @@ async function CommandCenterContent() {
   let setupSteps: { label: string; href: string; done: boolean }[] = [];
 
   if (isOwnerOrAdmin) {
-    const [tb, projects, invVal, employeeCount, materialCount, supplierCount, customerCount, openingCash] = await Promise.all([
+    const [tb, projects, invVal, employeeCount, materialCount, supplierCount, customerCount, openingCash, stockLocationItemCount] = await Promise.all([
       trialBalance(company.id),
       prisma.project.findMany({
         take: 200,
@@ -265,6 +265,7 @@ async function CommandCenterContent() {
         where: { companyId: company.id, sourceType: "OPENING", sourceId: "cash-bank", status: "POSTED", reversalOfId: null },
         select: { id: true },
       }),
+      prisma.stockLocationItem.count({ where: { location: { companyId: company.id } } }),
     ]);
 
     // Opening balance counts as set whenever cash actually has a balance —
@@ -280,6 +281,7 @@ async function CommandCenterContent() {
       { label: "Add your suppliers", href: "/suppliers", done: supplierCount > 0 },
       { label: "Add your customers", href: "/customers", done: customerCount > 0 },
       { label: "Set opening bank balance", href: "/gl", done: openingCash !== null || cashAlreadyFunded },
+      { label: "Load opening stock", href: "/stock", done: stockLocationItemCount > 0 },
     ];
 
     // Extract key account balances from trial balance

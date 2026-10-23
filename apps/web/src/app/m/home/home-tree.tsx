@@ -96,7 +96,7 @@ type BriefingData = {
   deliveriesToday: Array<{ poNumber: string; supplierName: string; projectName: string | null; total: number }>;
   paymentsDue: Array<{ description: string; amount: number; dueDate: string; type: string }>;
   sitePresence?: { checkedIn: number; onLeave: number } | null;
-  setup?: { hasProjects: boolean; hasMembers: boolean; hasMaterials: boolean; hasSuppliers: boolean; hasCustomers: boolean; hasOpeningBalance: boolean } | null;
+  setup?: { hasProjects: boolean; hasMembers: boolean; hasMaterials: boolean; hasSuppliers: boolean; hasCustomers: boolean; hasOpeningBalance: boolean; hasOpeningStock: boolean } | null;
 };
 
 export function HomeTree({ userName }: { userName: string | null }) {
@@ -321,6 +321,7 @@ export function HomeTree({ userName }: { userName: string | null }) {
                     briefing.setup.hasSuppliers,
                     briefing.setup.hasCustomers,
                     briefing.setup.hasOpeningBalance,
+                    briefing.setup.hasOpeningStock,
                   ].filter((s) => !s).length}
                   defaultOpen={true}
                 >
@@ -331,6 +332,7 @@ export function HomeTree({ userName }: { userName: string | null }) {
                     { done: briefing.setup.hasSuppliers, name: "Add suppliers", sub: "who you buy from", href: "/m/suppliers" },
                     { done: briefing.setup.hasCustomers, name: "Add customers", sub: "who you sell to", href: "/m/customers" },
                     { done: briefing.setup.hasOpeningBalance, name: "Set opening bank balance", sub: "cash on hand at go-live", href: "/m/books/gl" },
+                    { done: briefing.setup.hasOpeningStock, name: "Load opening stock", sub: "materials already on site", href: "/m/stock" },
                   ].map((step, i, arr) => (
                     <TreeLeaf
                       key={step.name}
