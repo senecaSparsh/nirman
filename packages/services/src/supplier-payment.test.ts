@@ -5,7 +5,7 @@
  *   wouldExceedPoTotal              — check if payment would exceed PO total
  */
 import { describe, it, expect } from "vitest";
-import { validateSupplierPaymentAmounts, wouldExceedPoTotal } from "./supplier-payment";
+import { validateSupplierPaymentAmounts, wouldExceedPoTotal, suggestSupplierTds, TDS_SECTION_DEFAULTS } from "./supplier-payment";
 import { ServiceError } from "./errors";
 import Decimal from "decimal.js";
 
@@ -65,5 +65,48 @@ describe("wouldExceedPoTotal", () => {
 
   it("returns false when nothing has been paid yet", () => {
     expect(wouldExceedPoTotal(new Decimal(0), new Decimal(1000), new Decimal(1000))).toBe(false);
+  });
+});
+
+
+describe("suggestSupplierTds", () => {
+  it("suggests section default rate when PAN present", () => {
+    const r = suggestSupplierTds({ amount: 100000, pan: "ABCDE1234F", tdsSection: "194C" });
+    expect(r).not.toBeNull();
+    expect(r!.rate).toBe(2);
+    expect(r!.amount.toNumber()).toBe(2000);
+  });
+
+  it("applies the 206AA 20% floor when PAN absent", () => {
+    const r = suggestSupplierTds({ amount: 100000, pan: null, tdsSection: "194C" });
+    expect(r!.rate).toBe(20);
+    expect(r!.amount.toNumber()).toBe(20000);
+    expect(r!.reason).toContain("206AA");
+  });
+
+  it("supplier tdsRate override beats the section default", () => {
+    const r = suggestSupplierTds({ amount: 100000, pan: "ABCDE1234F", tdsSection: "194C", tdsRate: 1 });
+    expect(r!.rate).toBe(1);
+    expect(r!.amount.toNumber()).toBe(1000);
+  });
+
+  it("206AA does not lower a rate already above 20", () => {
+    // e.g. a 197 LDC scenario would never see this; but a non-PAN 194J with a
+    // hypothetical 25% override stays 25, not 20.
+    const r = suggestSupplierTds({ amount: 1000, pan: "", tdsRate: 25 });
+    expect(r!.rate).toBe(25);
+  });
+
+  it("returns null when no section and no rate are configured", () => {
+    expect(suggestSupplierTds({ amount: 100000, pan: "ABCDE1234F" })).toBeNull();
+  });
+
+  it("returns null on zero/negative amount", () => {
+    expect(suggestSupplierTds({ amount: 0, tdsSection: "194C" })).toBeNull();
+  });
+
+  it("rounds to 2dp", () => {
+    const r = suggestSupplierTds({ amount: 33333, tdsSection: "194C", tdsRate: 1, pan: "X" });
+    expect(r!.amount.toNumber()).toBe(333.33);
   });
 });

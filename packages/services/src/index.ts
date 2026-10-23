@@ -260,7 +260,7 @@ export {
 export { createDirectPurchase, cancelDirectPurchase, listDirectPurchases } from "./direct-purchase";
 
 // Supplier Payment — pay down accounts payable
-export { createSupplierPayment, voidSupplierPayment, getSupplierPayments, getSupplierOutstanding, createPaymentRun } from "./supplier-payment";
+export { createSupplierPayment, voidSupplierPayment, getSupplierPayments, getSupplierOutstanding, createPaymentRun, suggestSupplierTds, TDS_SECTION_DEFAULTS } from "./supplier-payment";
 
 // Supplier Invoice — three-way matching (invoice ↔ PO ↔ GRN) before payment
 export {

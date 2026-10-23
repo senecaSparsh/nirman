@@ -15,12 +15,27 @@ import type { SupplierRow } from "@/lib/types";
 type FormState = {
   name: string;
   gstin: string;
+  pan: string;
+  tdsSection: string;
+  tdsRate: string;
   phone: string;
   email: string;
   address: string;
   leadTimeDays: string;
   openingBalance: string;
 };
+
+const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+
+// Kept in sync with TDS_SECTION_DEFAULTS in @nirman/services — duplicated
+// here because the dialog is a client component and the service barrel pulls
+// in server-only deps.
+const TDS_SECTIONS: { value: string; label: string; rate: number }[] = [
+  { value: "194C", label: "194C — Contractor (2% others / 1% ind.·HUF)", rate: 2 },
+  { value: "194J", label: "194J — Professional/technical fees · 10%", rate: 10 },
+  { value: "194I", label: "194I — Rent · 10%", rate: 10 },
+  { value: "194A", label: "194A — Interest · 10%", rate: 10 },
+];
 
 export function SupplierFormDialog({
   open,
@@ -42,6 +57,9 @@ export function SupplierFormDialog({
   const [form, setForm] = useState<FormState>({
     name: supplier?.name ?? "",
     gstin: supplier?.gstin ?? "",
+    pan: supplier?.pan ?? "",
+    tdsSection: supplier?.tdsSection ?? "",
+    tdsRate: supplier?.tdsRate != null ? String(supplier.tdsRate) : "",
     phone: supplier?.phone ?? "",
     email: supplier?.email ?? "",
     address: supplier?.address ?? "",
@@ -54,6 +72,11 @@ export function SupplierFormDialog({
     phone: (v) => phone(v as string),
     email: (v) => email(v as string),
     gstin: (v) => gstin(v as string),
+    pan: (v) => {
+      const s = (v as string).trim();
+      return !s || PAN_RE.test(s) ? undefined : "PAN must be 5 letters + 4 digits + 1 letter (e.g. ABCDE1234F)";
+    },
+    tdsRate: (v) => nonNegativeNumber(v as string, "TDS rate"),
     leadTimeDays: (v) => nonNegativeNumber(v as string, "Lead Time"),
     openingBalance: (v) => nonNegativeNumber(v as string, "Opening Balance"),
   };
@@ -66,6 +89,9 @@ export function SupplierFormDialog({
     setForm({
       name: supplier?.name ?? "",
       gstin: supplier?.gstin ?? "",
+      pan: supplier?.pan ?? "",
+      tdsSection: supplier?.tdsSection ?? "",
+      tdsRate: supplier?.tdsRate != null ? String(supplier.tdsRate) : "",
       phone: supplier?.phone ?? "",
       email: supplier?.email ?? "",
       address: supplier?.address ?? "",
@@ -90,6 +116,9 @@ export function SupplierFormDialog({
       const payload = {
         name: form.name.trim(),
         gstin: form.gstin.trim() || null,
+        pan: form.pan.trim() || null,
+        tdsSection: form.tdsSection || null,
+        tdsRate: form.tdsRate.trim() === "" ? null : Number(form.tdsRate),
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
         address: form.address.trim() || null,
@@ -145,6 +174,38 @@ export function SupplierFormDialog({
             <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} onBlur={() => onBlur("phone", form)} aria-invalid={!!errors.phone} placeholder="98765 43210" />
           </Field>
         </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="PAN" error={errors.pan} hint="Required for TDS filings — payments deduct 20% u/s 206AA when absent.">
+            <Input value={form.pan} onChange={(e) => set("pan", e.target.value.toUpperCase())} onBlur={() => onBlur("pan", form)} aria-invalid={!!errors.pan} placeholder="ABCDE1234F" maxLength={10} />
+          </Field>
+          <Field label="TDS Section" hint="Default deduction for payments to this supplier.">
+            <select
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+              value={form.tdsSection}
+              onChange={(e) => {
+                const sec = e.target.value;
+                set("tdsSection", sec);
+                // Auto-fill the section's statutory rate unless the user has
+                // typed a custom override they want to keep.
+                if (sec && !form.tdsRate) {
+                  const def = TDS_SECTIONS.find((t) => t.value === sec);
+                  if (def) set("tdsRate", String(def.rate));
+                }
+              }}
+              aria-label="TDS section"
+            >
+              <option value="">No TDS default</option>
+              {TDS_SECTIONS.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        {form.tdsSection && (
+          <Field label="TDS Rate (%)" error={errors.tdsRate} hint="Override the statutory rate when the supplier's facts differ (e.g. lower-deduction certificate u/s 197).">
+            <Input type="number" min="0" max="100" step="0.01" value={form.tdsRate} onChange={(e) => set("tdsRate", e.target.value)} onBlur={() => onBlur("tdsRate", form)} aria-invalid={!!errors.tdsRate} placeholder="e.g. 2" />
+          </Field>
+        )}
         <div className="grid grid-cols-2 gap-3">
           <Field label="Email" error={errors.email}>
             <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} onBlur={() => onBlur("email", form)} aria-invalid={!!errors.email} placeholder="supplier@example.com" />

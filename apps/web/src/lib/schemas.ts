@@ -124,6 +124,11 @@ export const supplierSchema = z.object({
   // MSME flag — Section 43B(h) makes >45-day dues to an MSME non-deductible.
   isMsme: z.boolean().optional(),
   udyamNo: z.string().max(30).optional().nullable(),
+  // Tax identity — PAN drives Form 26Q filings and the Sec 206AA 20% floor
+  // when absent. Format: AAAAA9999A.
+  pan: z.string().regex(/^[A-Z]{5}[0-9]{4}[A-Z]$/, "PAN must be 5 letters + 4 digits + 1 letter (e.g. ABCDE1234F)").optional().nullable().or(z.literal("").transform(() => null)),
+  tdsSection: z.string().max(20).optional().nullable(),
+  tdsRate: z.coerce.number().finite().min(0).max(100, "TDS rate must be 0–100%").optional().nullable(),
   // Disbursement coordinates — needed for NEFT/RTGS payment runs and
   // cheque reconciliation. Plain text, not secrets.
   bankName: z.string().max(120).optional().nullable(),

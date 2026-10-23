@@ -95,16 +95,43 @@ export function SupplierPaymentFormDialog({
   // Failed-inspection warn — the supplier can be paid even with rejected
   // material on the gate (warn-not-block); the flag keeps the risk visible.
   const [failedInspectionLines, setFailedInspectionLines] = useState(0);
+  const [supplierTds, setSupplierTds] = useState<{ pan: string | null; tdsSection: string | null; tdsRate: number | null } | null>(null);
   useEffect(() => {
     setFailedInspectionLines(0);
+    setSupplierTds(null);
     if (!supplierId) return;
     let live = true;
     fetch(`/api/suppliers/${supplierId}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (live && d?.failedInspectionLines) setFailedInspectionLines(d.failedInspectionLines); })
+      .then((d) => {
+        if (!live || !d) return;
+        setFailedInspectionLines(d.failedInspectionLines ?? 0);
+        setSupplierTds({ pan: d.pan ?? null, tdsSection: d.tdsSection ?? null, tdsRate: d.tdsRate != null ? Number(d.tdsRate) : null });
+      })
       .catch(() => {});
     return () => { live = false; };
   }, [supplierId]);
+
+  // TDS suggestion — mirrors suggestSupplierTds in @nirman/services (the
+  // dialog is a client component; the service barrel pulls server deps).
+  // Supplier defaults prefill the section; the statutory rate resolves to
+  // supplier.tdsRate ?? section default; missing PAN triggers the 206AA
+  // 20% floor. Always editable — the payer keeps final say.
+  const TDS_SUGGEST: Record<string, number> = { "194C": 2, "194J": 10, "194I": 10, "194A": 10 };
+  useEffect(() => {
+    if (!supplierTds || parsedAmount <= 0) return;
+    // Only prefill while the user hasn't typed their own figures.
+    if (tdsAmount !== "" || tdsSection !== "") return;
+    if (supplierTds.tdsSection) setTdsSection(supplierTds.tdsSection);
+    const base = supplierTds.tdsRate ?? (supplierTds.tdsSection ? TDS_SUGGEST[supplierTds.tdsSection] : undefined);
+    if (base == null) return;
+    const rate = supplierTds.pan ? base : Math.max(base, 20);
+    setTdsAmount(((parsedAmount * rate) / 100).toFixed(2));
+    if (!supplierTds.pan && rate === 20) {
+      toast.warning("Supplier PAN not on file — TDS suggested at 20% u/s 206AA");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supplierTds, parsedAmount]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -299,7 +326,12 @@ export function SupplierPaymentFormDialog({
 
         {/* TDS Section */}
         <div className="rounded-md border border-border/60 bg-muted/20 p-3 space-y-3">
-          <p className="text-label font-medium text-muted-foreground">TDS Deduction (optional)</p>
+          <div className="flex items-center justify-between">
+            <p className="text-label font-medium text-muted-foreground">TDS Deduction (optional)</p>
+            {supplierTds && !supplierTds.pan && (
+              <p className="text-caption text-warning">No PAN on file — 206AA applies 20%</p>
+            )}
+          </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="TDS Amount">
               <div className="relative">

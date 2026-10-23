@@ -122,6 +122,57 @@ export function validateSupplierPaymentAmounts(
 }
 
 /**
+ * Statutory TDS section defaults for supplier payments (FY 2025-26 rates).
+ * Keys are the canonical Form 26Q section codes. 194C's payee-type split
+ * (1% individual/HUF vs 2% others) resolves through the supplier's tdsRate
+ * override — the section default uses 2%, the common case for companies.
+ */
+export const TDS_SECTION_DEFAULTS: Record<string, { rate: number; label: string }> = {
+  "194C": { rate: 2, label: "194C — contractor (2% others / 1% individual·HUF)" },
+  "194J": { rate: 10, label: "194J — professional/technical fees" },
+  "194I": { rate: 10, label: "194I — rent" },
+  "194A": { rate: 10, label: "194A — interest other than securities" },
+};
+
+/**
+ * Suggested TDS for a supplier payment — mirrors computePropertyTds's role on
+ * the sales side. Pure function; the payment dialog prefills the result and
+ * the payer can always override.
+ *
+ *   effectiveRate = supplier.tdsRate ?? TDS_SECTION_DEFAULTS[section].rate
+ *   if (!pan)     → Sec 206AA: deduct at max(effectiveRate, 20)
+ *
+ * Returns the suggested amount, the effective rate %, and a human reason so
+ * the UI can say *why* (206AA warning vs section rate). null when nothing can
+ * be suggested (no section and no rate configured on the supplier).
+ */
+export function suggestSupplierTds(input: {
+  amount: Decimal | number | string;
+  pan?: string | null;
+  tdsSection?: string | null;
+  tdsRate?: Decimal | number | string | null;
+}): { amount: Decimal; rate: number; section: string | null; reason: string } | null {
+  const amount = new Decimal(input.amount);
+  if (!amount.gt(0)) return null;
+
+  const section = input.tdsSection?.trim() || null;
+  const sectionDefault = section ? TDS_SECTION_DEFAULTS[section]?.rate : undefined;
+  let rate: number | null = input.tdsRate != null ? Number(input.tdsRate) : (sectionDefault ?? null);
+  if (rate == null) return null;
+
+  const noPan = !input.pan?.trim();
+  let reason: string;
+  if (noPan && rate < 20) {
+    // Sec 206AA — PAN not furnished: higher of section rate or 20%.
+    rate = 20;
+    reason = `206AA — supplier PAN not furnished; deducted at 20% (was ${section ?? "configured"} rate)`;
+  } else {
+    reason = `${section ?? "configured"} rate ${rate}%`;
+  }
+  return { amount: amount.times(rate).div(100).toDecimalPlaces(2), rate, section, reason };
+}
+
+/**
  * Check if a payment would exceed the PO total.
  * Pure function — no DB access.
  */

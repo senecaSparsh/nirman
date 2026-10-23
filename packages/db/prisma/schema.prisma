@@ -1725,6 +1725,11 @@ model Supplier {
   // beyond 45 days (15 without a written agreement) to an MSME supplier.
   isMsme      Boolean  @default(false)
   udyamNo     String?  // Udyam registration number — proof of MSME status
+  // Tax identity — PAN is mandatory on Form 26Q TDS filings; its absence
+  // triggers Sec 206AA (deduct at the higher of the section rate or 20%).
+  pan         String?
+  tdsSection  String?  // default TDS section for payments, e.g. "194C", "194J"
+  tdsRate     Decimal? @db.Decimal(5, 2) // override rate %; null → section default
   // Bank details — needed for NEFT/RTGS disbursement files and cheque
   // reconciliation. Plain text, not secrets.
   bankName    String?

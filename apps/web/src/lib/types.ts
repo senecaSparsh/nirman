@@ -100,6 +100,9 @@ export type SupplierRow = {
   id: string;
   name: string;
   gstin: string | null;
+  pan?: string | null;
+  tdsSection?: string | null;
+  tdsRate?: number | null;
   phone: string | null;
   email: string | null;
   address: string | null;
