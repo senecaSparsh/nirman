@@ -120,7 +120,7 @@ export function DepartmentFormDialog({
       <form onSubmit={onSubmit} className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Code" required error={errors.code}>
-            <Input
+            <Input aria-label="BOILER"
               value={form.code}
               onChange={(e) => set("code", e.target.value)}
               onBlur={() => onBlur("code", form)}
@@ -132,7 +132,7 @@ export function DepartmentFormDialog({
             />
           </Field>
           <Field label="Name" required error={errors.name}>
-            <Input
+            <Input aria-label="Boiler House"
               value={form.name}
               onChange={(e) => set("name", e.target.value)}
               onBlur={() => onBlur("name", form)}

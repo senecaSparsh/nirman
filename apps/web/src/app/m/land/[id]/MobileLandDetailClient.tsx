@@ -1544,7 +1544,7 @@ export function MobileLandDetailClient({
               <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
                   <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>Amount *</label>
-                  <input
+                  <input aria-label="Pay Amount"
                     type="number" inputMode="decimal" step="0.01" min="0" max={balanceDue}
                     value={payAmount} onChange={(e) => setPayAmount(e.target.value)}
                     placeholder={balanceDue.toFixed(2)} required autoFocus
@@ -1569,7 +1569,7 @@ export function MobileLandDetailClient({
               </div>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Reference</label>
-                <input
+                <input aria-label="Cheque / UTR no"
                   type="text" value={payRef} onChange={(e) => setPayRef(e.target.value)}
                   placeholder="Cheque / UTR no."
                   className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
@@ -1607,7 +1607,7 @@ export function MobileLandDetailClient({
               </p>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Registry No.</label>
-                <input
+                <input aria-label="Omp Registry No"
                   type="text" value={compRegistryNo} onChange={(e) => setCompRegistryNo(e.target.value)}
                   placeholder="e.g. SR-1234/2025"
                   className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
@@ -1679,7 +1679,7 @@ export function MobileLandDetailClient({
           <p className="text-m-body mb-3" style={{ color: "var(--color-ink-700)" }}>
             The payment is marked void and its accounting entry reversed — the amount comes back as still due. The record stays for audit.
           </p>
-          <input
+          <input aria-label="Void Reason"
             type="text"
             value={voidReason}
             onChange={(e) => setVoidReason(e.target.value)}
@@ -2400,7 +2400,7 @@ function PartitionSheet({
                 ) : null}
               </div>
               <div className="grid grid-cols-3 gap-1.5">
-                <input
+                <input aria-label="Number"
                   type="text"
                   placeholder="Number"
                   value={c.number}
@@ -2408,7 +2408,7 @@ function PartitionSheet({
                   className="h-8 rounded border px-2 text-m-label outline-none"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 />
-                <input
+                <input aria-label="Area"
                   type="text" inputMode="decimal"
                   placeholder={`Area (${unitShort})`}
                   value={c.area}
@@ -2416,7 +2416,7 @@ function PartitionSheet({
                   className="h-8 rounded border px-2 text-m-label tabular-nums outline-none"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 />
-                <input
+                <input aria-label="Asking Price"
                   type="text" inputMode="decimal"
                   placeholder="Asking ₹"
                   value={c.askingPrice}
@@ -2557,7 +2557,7 @@ function SellSheet({
             <div>
               <div className="relative mb-2">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5" style={{ color: "var(--color-ink-500)" }} />
-                <input
+                <input aria-label="Search customers"
                   type="search"
                   value={customerSearch}
                   onChange={(e) => setCustomerSearch(e.target.value)}
@@ -2615,7 +2615,7 @@ function SellSheet({
               <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
                 Sale Price (₹)
               </p>
-              <input
+              <input aria-label="Enter sale price"
                 type="text" inputMode="decimal"
                 value={salePrice}
                 onChange={(e) => setSalePrice(e.target.value)}
@@ -2634,7 +2634,7 @@ function SellSheet({
               <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
                 Initial Payment (₹) <span style={{ color: "var(--color-ink-500)" }}>(optional)</span>
               </p>
-              <input
+              <input aria-label="Token / deposit amount"
                 type="text" inputMode="decimal"
                 value={initialPayment}
                 onChange={(e) => setInitialPayment(e.target.value)}
@@ -2724,7 +2724,7 @@ function ValuationSheet({
             <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
               Current Valuation (₹)
             </p>
-            <input
+            <input aria-label="Valuation"
               type="text" inputMode="decimal"
               value={valuation}
               onChange={(e) => setValuation(e.target.value)}
@@ -2741,7 +2741,7 @@ function ValuationSheet({
             <p className="text-m-label font-bold uppercase mb-1" style={{ color: "var(--color-ink-600)" }}>
               Asking Price (₹) <span style={{ color: "var(--color-ink-500)" }}>(optional)</span>
             </p>
-            <input
+            <input aria-label="List price for sale"
               type="text" inputMode="decimal"
               value={askingPrice}
               onChange={(e) => setAskingPrice(e.target.value)}
@@ -3045,7 +3045,7 @@ function LandPaymentScheduleModal({
                       <Trash2 className="size-3" style={{ color: "var(--color-stop)" }} />
                     </button>
                   </div>
-                  <input
+                  <input aria-label="Description"
                     type="text"
                     value={item.description}
                     onChange={(e) => updateItem(idx, "description", e.target.value)}
@@ -3056,7 +3056,7 @@ function LandPaymentScheduleModal({
                   <div className="flex flex-col gap-2">
                     <div className="flex-1">
                       <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>% of Balance</label>
-                      <input
+                      <input aria-label="Percentage"
                         type="number"
                         value={item.percentage}
                         onChange={(e) => updateItem(idx, "percentage", e.target.value)}
@@ -3066,7 +3066,7 @@ function LandPaymentScheduleModal({
                     </div>
                     <div className="flex-1">
                       <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Due Date</label>
-                      <input
+                      <input aria-label="Due Date"
                         type="date"
                         value={item.dueDate}
                         onChange={(e) => updateItem(idx, "dueDate", e.target.value)}

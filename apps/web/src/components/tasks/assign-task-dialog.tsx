@@ -229,7 +229,7 @@ export function AssignTaskDialog({
             </div>
           )}
           <div className="flex gap-2">
-            <Input
+            <Input aria-label="Step"
               value={newStep}
               onChange={(e) => setNewStep(e.target.value)}
               onKeyDown={(e) => {

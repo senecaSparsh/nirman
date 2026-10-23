@@ -682,7 +682,7 @@ export function VoiceAgentButton() {
             </button>
           </div>
           <div className="flex gap-1.5">
-            <input
+            <input aria-label="Type your question"
               value={textQuery}
               onChange={(e) => setTextQuery(e.target.value)}
               onKeyDown={(e) => {

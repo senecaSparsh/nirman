@@ -271,25 +271,25 @@ function SubcontractorFormDialog({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="Name" required>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Sharma Construction" required />
+          <Input aria-label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Sharma Construction" required />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Trade">
-            <Input value={trade} onChange={(e) => setTrade(e.target.value)} placeholder="Masonry, Plumbing, Electrical…" />
+            <Input aria-label="Masonry, Plumbing, Electrical" value={trade} onChange={(e) => setTrade(e.target.value)} placeholder="Masonry, Plumbing, Electrical…" />
           </Field>
           <Field label="GSTIN">
-            <Input value={gstin} onChange={(e) => setGstin(e.target.value)} placeholder="22AAAAA0000A1Z5" className="font-mono" />
+            <Input aria-label="GSTIN" value={gstin} onChange={(e) => setGstin(e.target.value)} placeholder="22AAAAA0000A1Z5" className="font-mono" />
           </Field>
         </div>
         <Field label="PAN" hint="Needed for TDS filing — unregistered subs have no GSTIN to infer it from; absent PAN → 20% u/s 206AA.">
-          <Input value={pan} onChange={(e) => setPan(e.target.value.toUpperCase())} placeholder="ABCDE1234F" maxLength={10} className="font-mono" />
+          <Input aria-label="An" value={pan} onChange={(e) => setPan(e.target.value.toUpperCase())} placeholder="ABCDE1234F" maxLength={10} className="font-mono" />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Phone">
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" />
+            <Input aria-label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" />
           </Field>
           <Field label="Email">
-            <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="contact@firm.com" />
+            <Input aria-label="Mail" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="contact@firm.com" />
           </Field>
         </div>
         <Field label="Address">

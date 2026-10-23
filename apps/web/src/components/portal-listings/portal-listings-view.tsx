@@ -515,11 +515,11 @@ export function PortalListingsView({
           </p>
           <div className="space-y-1.5">
             <Label>Live listing URL</Label>
-            <Input value={markUrl} onChange={(e) => setMarkUrl(e.target.value)} placeholder="https://www.99acres.com/..." />
+            <Input aria-label="Mark Url" value={markUrl} onChange={(e) => setMarkUrl(e.target.value)} placeholder="https://www.99acres.com/..." />
           </div>
           <div className="space-y-1.5">
             <Label>Portal listing ID (optional)</Label>
-            <Input value={markListingId} onChange={(e) => setMarkListingId(e.target.value)} placeholder="e.g. the ID from the portal" />
+            <Input aria-label="Mark Listing Id" value={markListingId} onChange={(e) => setMarkListingId(e.target.value)} placeholder="e.g. the ID from the portal" />
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setMarkTarget(null)} disabled={markSaving}>Cancel</Button>
@@ -849,7 +849,7 @@ function ListingForm({
         {/* Title */}
         <div className="space-y-1.5">
           <Label>Listing Title *</Label>
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. 2 BHK Apartment for sale in Skyline Residency" required />
+          <Input aria-label="Title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. 2 BHK Apartment for sale in Skyline Residency" required />
         </div>
 
         {/* Description */}
@@ -862,18 +862,18 @@ function ListingForm({
         <div className="grid grid-cols-3 gap-3">
           <div className="space-y-1.5">
             <Label>Asking Price *</Label>
-            <Input type="number" min="0" step="0.01" value={askingPrice} onChange={(e) => setAskingPrice(e.target.value)} required />
+            <Input aria-label="Asking Price" type="number" min="0" step="0.01" value={askingPrice} onChange={(e) => setAskingPrice(e.target.value)} required />
             {pps != null && (
               <p className="text-micro text-muted-foreground">{formatCurrency(pps)}/{selectedUnit!.areaUnit.replace(/_/g, " ").toLowerCase()}</p>
             )}
           </div>
           <div className="space-y-1.5">
             <Label>Bedrooms</Label>
-            <Input type="number" min="0" max="10" value={bedrooms} onChange={(e) => setBedrooms(e.target.value)} />
+            <Input aria-label="Bedrooms" type="number" min="0" max="10" value={bedrooms} onChange={(e) => setBedrooms(e.target.value)} />
           </div>
           <div className="space-y-1.5">
             <Label>Bathrooms</Label>
-            <Input type="number" min="0" max="10" value={bathrooms} onChange={(e) => setBathrooms(e.target.value)} />
+            <Input aria-label="Bathrooms" type="number" min="0" max="10" value={bathrooms} onChange={(e) => setBathrooms(e.target.value)} />
           </div>
         </div>
 
@@ -892,7 +892,7 @@ function ListingForm({
         <div className="space-y-1.5">
           <Label>Photos ({photos.length})</Label>
           <div className="flex gap-1.5">
-            <Input
+            <Input aria-label="Hoto Input"
               type="url"
               value={photoInput}
               onChange={(e) => setPhotoInput(e.target.value)}

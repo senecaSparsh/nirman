@@ -137,7 +137,7 @@ export function LocationFormDialog({
           </Select>
         </Field>
         <Field label="Name" required error={errors.name}>
-          <Input
+          <Input aria-label="Name"
             value={form.name}
             onChange={(e) => set("name", e.target.value)}
             onBlur={() => onBlur("name", form)}
@@ -177,7 +177,7 @@ export function LocationFormDialog({
         </Field>
         {form.lat && form.lng && (
           <Field label="Geo-fence radius (m)" hint="Default: 500m — receipts + attendance clock-ins inside this radius are marked on-site.">
-            <Input
+            <Input aria-label="Geo Radius"
               type="number"
               min="10"
               value={form.geoRadius}

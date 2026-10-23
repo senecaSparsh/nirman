@@ -121,7 +121,7 @@ export function MobileNewCustomerDialog({
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               GSTIN
             </label>
-            <input
+            <input aria-label="GSTIN"
               type="text"
               value={gstin}
               onChange={(e) => setGstin(e.target.value.toUpperCase())}

@@ -718,7 +718,7 @@ export function AttendanceView({
               </div>
               <div>
                 <Label>Hours worked</Label>
-                <Input type="number" step="0.5" value={editHours} onChange={(e) => setEditHours(e.target.value)} placeholder="0" />
+                <Input aria-label="Hours" type="number" step="0.5" value={editHours} onChange={(e) => setEditHours(e.target.value)} placeholder="0" />
               </div>
               <div>
                 <Label>Project</Label>
@@ -736,7 +736,7 @@ export function AttendanceView({
               </div>
               <div>
                 <Label>Notes</Label>
-                <Input value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Optional notes" />
+                <Input aria-label="Optional notes" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Optional notes" />
               </div>
               <div className="flex justify-end gap-2 pt-2 border-t border-border">
                 <Button variant="outline" onClick={() => setEditTarget(null)}>Cancel</Button>

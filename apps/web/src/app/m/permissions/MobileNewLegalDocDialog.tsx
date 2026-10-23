@@ -435,7 +435,7 @@ export function MobileNewLegalDocForm({
               {uploading ? "Uploading…" : "Upload certificate / NOC / document"}
             </button>
           )}
-          <input
+          <input aria-hidden="true" tabIndex={-1}
             ref={fileInputRef}
             type="file"
             className="hidden"

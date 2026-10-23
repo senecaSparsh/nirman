@@ -163,7 +163,7 @@ export function TasksManager({ tasks, users, canAssign = true, canManage = false
         <div className="flex flex-1 flex-wrap items-center gap-2">
           <div className="relative min-w-[180px] flex-1 lg:max-w-xs">
             <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search tasks…" className="h-9 pl-8" />
+            <Input aria-label="Search tasks" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search tasks…" className="h-9 pl-8" />
           </div>
           <Select aria-label="All statuses" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-9 w-[130px]">
             <option value="">All statuses</option>

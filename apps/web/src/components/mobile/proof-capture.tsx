@@ -132,7 +132,7 @@ export function PhotoCapture({
           )}
         </button>
       </div>
-      <input
+      <input aria-hidden="true" tabIndex={-1}
         ref={inputRef}
         type="file"
         accept="image/*"
@@ -399,7 +399,7 @@ export function TextField({
       <label className="text-m-caption font-semibold uppercase tracking-wide block mb-1" style={{ color: "var(--color-ink-500)" }}>
         {label} {required ? <span style={{ color: "var(--color-stop)" }}>*</span> : null}
       </label>
-      <input
+      <input aria-label="Value"
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -489,23 +489,23 @@ export function WeighbridgeFields({
         <label className="text-m-caption font-bold block mb-0" style={{ color: labelColor }}>
           Slip No{required ? " *" : ""}
         </label>
-        <input type="text" value={ticketNo} onChange={(e) => onTicketNoChange(e.target.value)} placeholder="KP-001" className="w-full h-7 px-1 text-m-caption font-mono outline-none border-b focus:border-b-2 transition-colors" style={{ backgroundColor: "transparent" }} />
+        <input aria-label="Ticket No" type="text" value={ticketNo} onChange={(e) => onTicketNoChange(e.target.value)} placeholder="KP-001" className="w-full h-7 px-1 text-m-caption font-mono outline-none border-b focus:border-b-2 transition-colors" style={{ backgroundColor: "transparent" }} />
       </div>
       <div>
         <label className="text-m-caption font-bold block mb-0" style={{ color: labelColor }}>
           Gross{required ? " *" : ""}
         </label>
-        <input type="number" inputMode="decimal" step="0.001" value={grossWeight} onChange={(e) => { onGrossChange(e.target.value); calcNet(e.target.value, tareWeight); }} placeholder="0" className="w-full h-7 px-1 text-m-caption text-right tabular-nums outline-none border-b focus:border-b-2 transition-colors" style={{ backgroundColor: "transparent" }} />
+        <input aria-label="Gross Weight" type="number" inputMode="decimal" step="0.001" value={grossWeight} onChange={(e) => { onGrossChange(e.target.value); calcNet(e.target.value, tareWeight); }} placeholder="0" className="w-full h-7 px-1 text-m-caption text-right tabular-nums outline-none border-b focus:border-b-2 transition-colors" style={{ backgroundColor: "transparent" }} />
       </div>
       <div>
         <label className="text-m-caption font-bold block mb-0" style={{ color: labelColor }}>
           Tare{required ? " *" : ""}
         </label>
-        <input type="number" inputMode="decimal" step="0.001" value={tareWeight} onChange={(e) => { onTareChange(e.target.value); calcNet(grossWeight, e.target.value); }} placeholder="0" className="w-full h-7 px-1 text-m-caption text-right tabular-nums outline-none border-b focus:border-b-2 transition-colors" style={{ backgroundColor: "transparent" }} />
+        <input aria-label="Tare Weight" type="number" inputMode="decimal" step="0.001" value={tareWeight} onChange={(e) => { onTareChange(e.target.value); calcNet(grossWeight, e.target.value); }} placeholder="0" className="w-full h-7 px-1 text-m-caption text-right tabular-nums outline-none border-b focus:border-b-2 transition-colors" style={{ backgroundColor: "transparent" }} />
       </div>
       <div>
         <label className="text-m-caption font-bold block mb-0" style={{ color: "var(--color-go)" }}>Net (kg)</label>
-        <input type="number" readOnly value={netWeight} placeholder="0" className="w-full h-7 px-1 text-m-caption text-right tabular-nums font-bold outline-none border-b focus:border-b-2 transition-colors" style={{ backgroundColor: "transparent" }} />
+        <input aria-label="Net Weight" type="number" readOnly value={netWeight} placeholder="0" className="w-full h-7 px-1 text-m-caption text-right tabular-nums font-bold outline-none border-b focus:border-b-2 transition-colors" style={{ backgroundColor: "transparent" }} />
       </div>
     </div>
     </div>
@@ -585,7 +585,7 @@ export function ReceivingPhotoUpload({
           </>
         )}
       </button>
-      <input
+      <input aria-label="Upload receiving photo"
         ref={inputRef}
         type="file"
         accept="image/*"

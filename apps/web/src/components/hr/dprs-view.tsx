@@ -835,15 +835,15 @@ function DprFormDialog({
             </div>
             <div>
               <Label>Date *</Label>
-              <Input type="date" value={form.date} onChange={(e) => set("date", e.target.value)} required />
+              <Input aria-label="Date" type="date" value={form.date} onChange={(e) => set("date", e.target.value)} required />
             </div>
             <div>
               <Label>Weather</Label>
-              <Input value={form.weather} onChange={(e) => set("weather", e.target.value)} placeholder="Sunny, 32°C" />
+              <Input aria-label="Weather" value={form.weather} onChange={(e) => set("weather", e.target.value)} placeholder="Sunny, 32°C" />
             </div>
             <div>
               <Label>Work Type</Label>
-              <Input value={form.workType} onChange={(e) => set("workType", e.target.value)} placeholder="e.g. Foundation, Slab, Brickwork" list="work-types" />
+              <Input aria-label="Work Type" value={form.workType} onChange={(e) => set("workType", e.target.value)} placeholder="e.g. Foundation, Slab, Brickwork" list="work-types" />
               <datalist id="work-types">
                 {workTypes.map((w) => <option key={w} value={w} />)}
               </datalist>
@@ -851,11 +851,11 @@ function DprFormDialog({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
                 <Label>Work Qty</Label>
-                <Input type="number" step="0.001" min="0" value={form.workQty} onChange={(e) => set("workQty", e.target.value)} placeholder="e.g. 500" />
+                <Input aria-label="Work Qty" type="number" step="0.001" min="0" value={form.workQty} onChange={(e) => set("workQty", e.target.value)} placeholder="e.g. 500" />
               </div>
               <div>
                 <Label>Work Unit</Label>
-                <Input value={form.workUnit} onChange={(e) => set("workUnit", e.target.value)} placeholder="e.g. sqft" list="work-units" />
+                <Input aria-label="Work Unit" value={form.workUnit} onChange={(e) => set("workUnit", e.target.value)} placeholder="e.g. sqft" list="work-units" />
                 <datalist id="work-units">
                   <option value="sqft" />
                   <option value="sqm" />
@@ -867,7 +867,7 @@ function DprFormDialog({
             </div>
             <div>
               <Label>Progress %</Label>
-              <Input type="number" min="0" max="100" step="0.1" value={form.progressPct} onChange={(e) => set("progressPct", e.target.value)} />
+              <Input aria-label="Progress Pct" type="number" min="0" max="100" step="0.1" value={form.progressPct} onChange={(e) => set("progressPct", e.target.value)} />
             </div>
           </div>
           <div>
@@ -903,8 +903,8 @@ function DprFormDialog({
                   <option value="">Material…</option>
                   {materials.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>)}
                 </Select>
-                <Input type="number" step="0.001" min="0" placeholder="Qty" value={line.qty} onChange={(e) => setMaterialLines((l) => l.map((x, j) => j === i ? { ...x, qty: e.target.value } : x))} className="w-20" />
-                <Input type="number" step="0.01" min="0" placeholder="Cost" value={line.unitCost} onChange={(e) => setMaterialLines((l) => l.map((x, j) => j === i ? { ...x, unitCost: e.target.value } : x))} className="w-20" />
+                <Input aria-label="Qty" type="number" step="0.001" min="0" placeholder="Qty" value={line.qty} onChange={(e) => setMaterialLines((l) => l.map((x, j) => j === i ? { ...x, qty: e.target.value } : x))} className="w-20" />
+                <Input aria-label="Cost" type="number" step="0.01" min="0" placeholder="Cost" value={line.unitCost} onChange={(e) => setMaterialLines((l) => l.map((x, j) => j === i ? { ...x, unitCost: e.target.value } : x))} className="w-20" />
                 <button type="button" onClick={() => setMaterialLines((l) => l.filter((_, j) => j !== i))} className="rounded p-1 text-muted-foreground hover:text-danger">×</button>
               </div>
             ))}
@@ -931,8 +931,8 @@ function DprFormDialog({
                     <EmployeeQuickCreateDialog open={o} onOpenChange={onClose} onCreated={(e) => { setLocalEmployees((p) => [...p, { id: e.id, name: e.label ?? "" }]); onCreated(e); }} />
                   )}
                 />
-                <Input type="number" step="0.5" min="0" placeholder="Hrs" value={line.hoursWorked} onChange={(e) => setLaborLines((l) => l.map((x, j) => j === i ? { ...x, hoursWorked: e.target.value } : x))} className="w-16" />
-                <Input placeholder="Task description" value={line.taskDescription} onChange={(e) => setLaborLines((l) => l.map((x, j) => j === i ? { ...x, taskDescription: e.target.value } : x))} className="flex-1" />
+                <Input aria-label="Hrs" type="number" step="0.5" min="0" placeholder="Hrs" value={line.hoursWorked} onChange={(e) => setLaborLines((l) => l.map((x, j) => j === i ? { ...x, hoursWorked: e.target.value } : x))} className="w-16" />
+                <Input aria-label="Task description" placeholder="Task description" value={line.taskDescription} onChange={(e) => setLaborLines((l) => l.map((x, j) => j === i ? { ...x, taskDescription: e.target.value } : x))} className="flex-1" />
                 <button type="button" onClick={() => setLaborLines((l) => l.filter((_, j) => j !== i))} className="rounded p-1 text-muted-foreground hover:text-danger">×</button>
               </div>
             ))}
@@ -1364,7 +1364,7 @@ function DprDetailDialog({
               </div>
               <div className="space-y-1.5">
                 <Label>Scrap Valuation (% of issue cost)</Label>
-                <Input
+                <Input aria-label="Scrap Valuation Pct"
                   type="number"
                   min="0"
                   max="100"

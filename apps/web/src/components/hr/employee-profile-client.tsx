@@ -2082,15 +2082,15 @@ function SalaryStructureSection({ employeeId, canManage }: { employeeId: string;
               </div>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {newCalc === "PERCENTAGE_OF_BASIC" ? (
-                  <Input type="number" min={0} value={newPercentage} onChange={(e) => setNewPercentage(e.target.value)} placeholder="%" />
+                  <Input aria-label="Percentage" type="number" min={0} value={newPercentage} onChange={(e) => setNewPercentage(e.target.value)} placeholder="%" />
                 ) : (
-                  <Input type="number" min={0} value={newAmount} onChange={(e) => setNewAmount(e.target.value)} placeholder="Amount ₹" />
+                  <Input aria-label="Amount" type="number" min={0} value={newAmount} onChange={(e) => setNewAmount(e.target.value)} placeholder="Amount ₹" />
                 )}
                 {newCalc === "PERCENTAGE_OF_BASIC" && (
-                  <Input type="number" min={0} value={newWageCap} onChange={(e) => setNewWageCap(e.target.value)} placeholder="Cap basic at ₹ (PF: 15000)" title="Statutory wage cap — percentage applies to the lower of basic and this amount" />
+                  <Input aria-label="Wage Cap" type="number" min={0} value={newWageCap} onChange={(e) => setNewWageCap(e.target.value)} placeholder="Cap basic at ₹ (PF: 15000)" title="Statutory wage cap — percentage applies to the lower of basic and this amount" />
                 )}
                 {(newType === "EMPLOYEE_ESI" || newType === "EMPLOYER_ESI") && (
-                  <Input type="number" min={0} value={newWageCeiling} onChange={(e) => setNewWageCeiling(e.target.value)} placeholder="Skip if basic > ₹ (ESI: 21000)" title="Eligibility ceiling — component applies only while monthly basic stays under this amount" />
+                  <Input aria-label="New Wage Ceiling" type="number" min={0} value={newWageCeiling} onChange={(e) => setNewWageCeiling(e.target.value)} placeholder="Skip if basic > ₹ (ESI: 21000)" title="Eligibility ceiling — component applies only while monthly basic stays under this amount" />
                 )}
                 {newCalc === "UNIT_RATE" && (
                   <>
@@ -2098,7 +2098,7 @@ function SalaryStructureSection({ employeeId, canManage }: { employeeId: string;
                       {SALARY_UNIT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </Select>
                     {newUnit === "CUSTOM" && (
-                      <Input value={newUnitLabel} onChange={(e) => setNewUnitLabel(e.target.value)} placeholder="Unit name (bag, shift…)" />
+                      <Input aria-label="Unit Label" value={newUnitLabel} onChange={(e) => setNewUnitLabel(e.target.value)} placeholder="Unit name (bag, shift…)" />
                     )}
                   </>
                 )}
@@ -2279,15 +2279,15 @@ function IssueAdvanceDialog({ employeeId, onClose, onIssued }: { employeeId: str
       <div className="space-y-3">
         <div className="space-y-1.5">
           <label className="text-label font-medium text-foreground">Amount (₹)</label>
-          <Input type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="5000" />
+          <Input aria-label="Amount" type="number" min={0} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="5000" />
         </div>
         <div className="space-y-1.5">
           <label className="text-label font-medium text-foreground">Monthly recovery (₹)</label>
-          <Input type="number" min={0} value={monthlyRecovery} onChange={(e) => setMonthlyRecovery(e.target.value)} placeholder="500" />
+          <Input aria-label="Monthly Recovery" type="number" min={0} value={monthlyRecovery} onChange={(e) => setMonthlyRecovery(e.target.value)} placeholder="500" />
         </div>
         <div className="space-y-1.5">
           <label className="text-label font-medium text-foreground">Notes</label>
-          <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional — reason, agreed terms…" />
+          <Input aria-label="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional — reason, agreed terms…" />
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
@@ -2929,7 +2929,7 @@ function IssueResourceDialog({ employeeId, onClose, onIssued }: { employeeId: st
       <div className="space-y-3">
         <div className="space-y-1.5">
           <Label required>Resource name</Label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Dell Latitude Laptop" />
+          <Input aria-label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Dell Latitude Laptop" />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
@@ -2940,23 +2940,23 @@ function IssueResourceDialog({ employeeId, onClose, onIssued }: { employeeId: st
           </div>
           <div className="space-y-1.5">
             <Label>Quantity</Label>
-            <Input type="number" min={1} value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} />
+            <Input aria-label="Quantity" type="number" min={1} value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Asset tag</Label>
-            <Input value={assetTag} onChange={(e) => setAssetTag(e.target.value)} placeholder="QR / tag" />
+            <Input aria-label="QR / tag" value={assetTag} onChange={(e) => setAssetTag(e.target.value)} placeholder="QR / tag" />
           </div>
           <div className="space-y-1.5">
             <Label>Serial number</Label>
-            <Input value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} />
+            <Input aria-label="Serial Number" value={serialNumber} onChange={(e) => setSerialNumber(e.target.value)} />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Expected return</Label>
-            <Input type="date" value={expectedReturnAt} onChange={(e) => setExpectedReturnAt(e.target.value)} />
+            <Input aria-label="Expected Return At" type="date" value={expectedReturnAt} onChange={(e) => setExpectedReturnAt(e.target.value)} />
           </div>
           <div className="space-y-1.5">
             <Label>Condition at issue</Label>
@@ -2971,7 +2971,7 @@ function IssueResourceDialog({ employeeId, onClose, onIssued }: { employeeId: st
         </div>
         <div className="space-y-1.5">
           <Label>Security deposit (₹)</Label>
-          <Input type="number" min={0} value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} placeholder="0" />
+          <Input aria-label="Deposit Amount" type="number" min={0} value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} placeholder="0" />
         </div>
         <div className="space-y-1.5">
           <Label>Notes</Label>
@@ -3287,27 +3287,27 @@ function DossierTab({ employee, canManage, departments }: { employee: EmployeePr
               </div>
               <div>
                 <Label>Notice Period (days)</Label>
-                <Input type="number" min="0" value={termsForm.noticePeriodDays} onChange={(e) => setTermsForm((f) => ({ ...f, noticePeriodDays: e.target.value }))} />
+                <Input aria-label="Notice Period Days" type="number" min="0" value={termsForm.noticePeriodDays} onChange={(e) => setTermsForm((f) => ({ ...f, noticePeriodDays: e.target.value }))} />
               </div>
               <div>
                 <Label>Paid Leave Quota (days/yr)</Label>
-                <Input type="number" min="0" max="365" value={termsForm.paidLeaveQuota} onChange={(e) => setTermsForm((f) => ({ ...f, paidLeaveQuota: e.target.value }))} placeholder="Default entitlement" />
+                <Input aria-label="Default entitlement" type="number" min="0" max="365" value={termsForm.paidLeaveQuota} onChange={(e) => setTermsForm((f) => ({ ...f, paidLeaveQuota: e.target.value }))} placeholder="Default entitlement" />
               </div>
               <div>
                 <Label>Contract Start Date</Label>
-                <Input type="date" value={termsForm.contractStartDate} onChange={(e) => setTermsForm((f) => ({ ...f, contractStartDate: e.target.value }))} />
+                <Input aria-label="Contract Start Date" type="date" value={termsForm.contractStartDate} onChange={(e) => setTermsForm((f) => ({ ...f, contractStartDate: e.target.value }))} />
               </div>
               <div>
                 <Label>Contract End Date</Label>
-                <Input type="date" value={termsForm.contractEndDate} onChange={(e) => setTermsForm((f) => ({ ...f, contractEndDate: e.target.value }))} />
+                <Input aria-label="Contract End Date" type="date" value={termsForm.contractEndDate} onChange={(e) => setTermsForm((f) => ({ ...f, contractEndDate: e.target.value }))} />
               </div>
               <div>
                 <Label>Probation End Date</Label>
-                <Input type="date" value={termsForm.probationEndDate} onChange={(e) => setTermsForm((f) => ({ ...f, probationEndDate: e.target.value }))} />
+                <Input aria-label="Probation End Date" type="date" value={termsForm.probationEndDate} onChange={(e) => setTermsForm((f) => ({ ...f, probationEndDate: e.target.value }))} />
               </div>
               <div>
                 <Label>Confirmation Date</Label>
-                <Input type="date" value={termsForm.confirmationDate} onChange={(e) => setTermsForm((f) => ({ ...f, confirmationDate: e.target.value }))} />
+                <Input aria-label="Confirmation Date" type="date" value={termsForm.confirmationDate} onChange={(e) => setTermsForm((f) => ({ ...f, confirmationDate: e.target.value }))} />
               </div>
             </div>
             <div className="flex justify-end gap-2">
@@ -3342,11 +3342,11 @@ function DossierTab({ employee, canManage, departments }: { employee: EmployeePr
         {editingIds ? (
           <div className="space-y-3 py-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div><Label>PAN Number</Label><Input value={idsForm.panNumber} onChange={(e) => setIdsForm((f) => ({ ...f, panNumber: e.target.value }))} placeholder="ABCDE1234F" /></div>
-              <div><Label>Aadhaar Number</Label><Input value={idsForm.aadhaarNumber} onChange={(e) => setIdsForm((f) => ({ ...f, aadhaarNumber: e.target.value }))} placeholder="XXXX XXXX XXXX" /></div>
-              <div><Label>PF Number</Label><Input value={idsForm.pfNumber} onChange={(e) => setIdsForm((f) => ({ ...f, pfNumber: e.target.value }))} placeholder="PF account number" /></div>
-              <div><Label>ESI Number</Label><Input value={idsForm.esiNumber} onChange={(e) => setIdsForm((f) => ({ ...f, esiNumber: e.target.value }))} placeholder="ESI insurance number" /></div>
-              <div><Label>UAN</Label><Input value={idsForm.uan} onChange={(e) => setIdsForm((f) => ({ ...f, uan: e.target.value }))} placeholder="Universal Account Number" /></div>
+              <div><Label>PAN Number</Label><Input aria-label="Ids Form" value={idsForm.panNumber} onChange={(e) => setIdsForm((f) => ({ ...f, panNumber: e.target.value }))} placeholder="ABCDE1234F" /></div>
+              <div><Label>Aadhaar Number</Label><Input aria-label="XXXX XXXX XXXX" value={idsForm.aadhaarNumber} onChange={(e) => setIdsForm((f) => ({ ...f, aadhaarNumber: e.target.value }))} placeholder="XXXX XXXX XXXX" /></div>
+              <div><Label>PF Number</Label><Input aria-label="PF account number" value={idsForm.pfNumber} onChange={(e) => setIdsForm((f) => ({ ...f, pfNumber: e.target.value }))} placeholder="PF account number" /></div>
+              <div><Label>ESI Number</Label><Input aria-label="ESI insurance number" value={idsForm.esiNumber} onChange={(e) => setIdsForm((f) => ({ ...f, esiNumber: e.target.value }))} placeholder="ESI insurance number" /></div>
+              <div><Label>UAN</Label><Input aria-label="Universal Account Number" value={idsForm.uan} onChange={(e) => setIdsForm((f) => ({ ...f, uan: e.target.value }))} placeholder="Universal Account Number" /></div>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" size="sm" onClick={() => setEditingIds(false)} disabled={savingIds}>Cancel</Button>
@@ -3378,9 +3378,9 @@ function DossierTab({ employee, canManage, departments }: { employee: EmployeePr
         {editingEmergency ? (
           <div className="space-y-3 py-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div><Label>Contact Name</Label><Input value={emergencyForm.emergencyContactName} onChange={(e) => setEmergencyForm((f) => ({ ...f, emergencyContactName: e.target.value }))} /></div>
-              <div><Label>Contact Phone</Label><Input value={emergencyForm.emergencyContactPhone} onChange={(e) => setEmergencyForm((f) => ({ ...f, emergencyContactPhone: e.target.value }))} placeholder="Mobile number" /></div>
-              <div className="col-span-2"><Label>Relation</Label><Input value={emergencyForm.emergencyContactRelation} onChange={(e) => setEmergencyForm((f) => ({ ...f, emergencyContactRelation: e.target.value }))} placeholder="Spouse, Parent, Sibling…" /></div>
+              <div><Label>Contact Name</Label><Input aria-label="Emergency Contact Name" value={emergencyForm.emergencyContactName} onChange={(e) => setEmergencyForm((f) => ({ ...f, emergencyContactName: e.target.value }))} /></div>
+              <div><Label>Contact Phone</Label><Input aria-label="Mobile number" value={emergencyForm.emergencyContactPhone} onChange={(e) => setEmergencyForm((f) => ({ ...f, emergencyContactPhone: e.target.value }))} placeholder="Mobile number" /></div>
+              <div className="col-span-2"><Label>Relation</Label><Input aria-label="Spouse, Parent, Sibling" value={emergencyForm.emergencyContactRelation} onChange={(e) => setEmergencyForm((f) => ({ ...f, emergencyContactRelation: e.target.value }))} placeholder="Spouse, Parent, Sibling…" /></div>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" size="sm" onClick={() => setEditingEmergency(false)} disabled={savingEmergency}>Cancel</Button>
@@ -3571,7 +3571,7 @@ function TerminateDialog({
       <div className="space-y-3">
         <div className="space-y-1.5">
           <label className="text-label font-medium text-foreground">Reason</label>
-          <input
+          <input aria-label="Reason"
             type="text"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
@@ -3580,7 +3580,7 @@ function TerminateDialog({
         </div>
         <div className="space-y-1.5">
           <label className="text-label font-medium text-foreground">Final settlement paid (₹, optional)</label>
-          <input
+          <input aria-label="Leave blank if settling later"
             type="number"
             min="0"
             step="0.01"
@@ -3693,7 +3693,7 @@ function SetupDepositDialog({
       <div className="space-y-3">
         <div className="space-y-1.5">
           <label className="text-label font-medium text-foreground">Account Holder Name *</label>
-          <input
+          <input aria-label="Name as per bank record"
             type="text"
             value={holder}
             onChange={(e) => setHolder(e.target.value)}
@@ -3704,7 +3704,7 @@ function SetupDepositDialog({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <label className="text-label font-medium text-foreground">Account Number *</label>
-            <input
+            <input aria-label="Account Number"
               type="text"
               value={accountNumber}
               onChange={(e) => setAccountNumber(e.target.value)}
@@ -3714,7 +3714,7 @@ function SetupDepositDialog({
           </div>
           <div className="space-y-1.5">
             <label className="text-label font-medium text-foreground">IFSC Code *</label>
-            <input
+            <input aria-label="IFSC"
               type="text"
               value={ifsc}
               onChange={(e) => setIfsc(e.target.value.toUpperCase())}
@@ -3726,7 +3726,7 @@ function SetupDepositDialog({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <label className="text-label font-medium text-foreground">Bank Name *</label>
-            <input
+            <input aria-label="HDFC Bank"
               type="text"
               value={bankName}
               onChange={(e) => setBankName(e.target.value)}
@@ -3736,7 +3736,7 @@ function SetupDepositDialog({
           </div>
           <div className="space-y-1.5">
             <label className="text-label font-medium text-foreground">Branch</label>
-            <input
+            <input aria-label="Connaught Place"
               type="text"
               value={branch}
               onChange={(e) => setBranch(e.target.value)}
@@ -3747,7 +3747,7 @@ function SetupDepositDialog({
         </div>
         <div className="space-y-1.5">
           <label className="text-label font-medium text-foreground">Pay Day (1-31) *</label>
-          <input
+          <input aria-label="Ay Day"
             type="number"
             min={1}
             max={31}
@@ -4040,7 +4040,7 @@ function PhoneStatusDialog({
               <div className="flex flex-col gap-2">
                 <div className="text-caption text-muted-foreground">Enter the 6-digit code sent to {phone}</div>
                 <div className="flex items-center gap-2">
-                  <input
+                  <input aria-label="OTP Code"
                     type="text"
                     inputMode="numeric"
                     maxLength={6}
@@ -4106,7 +4106,7 @@ function AdvanceDecisionButtons({ employeeId, advanceId, amount, onDone }: {
 
   return (
     <div className="flex items-center gap-2">
-      <Input
+      <Input aria-label="Recovery"
         type="number" min="1" placeholder="₹/month"
         value={recovery} onChange={(e) => setRecovery(e.target.value)}
         className="h-8 w-24"

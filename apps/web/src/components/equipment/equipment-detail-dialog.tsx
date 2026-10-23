@@ -507,15 +507,15 @@ export function EquipmentDetailDialog({
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label>Sale Price *</Label>
-                <Input type="number" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} placeholder="0.00" />
+                <Input aria-label="Sell Price" type="number" value={sellPrice} onChange={(e) => setSellPrice(e.target.value)} placeholder="0.00" />
               </div>
               <div className="space-y-1.5">
                 <Label>Buyer Name</Label>
-                <Input value={sellBuyer} onChange={(e) => setSellBuyer(e.target.value)} placeholder="Optional" />
+                <Input aria-label="Sell Buyer" value={sellBuyer} onChange={(e) => setSellBuyer(e.target.value)} placeholder="Optional" />
               </div>
               <div className="space-y-1.5">
                 <Label>Notes</Label>
-                <Input value={sellNotes} onChange={(e) => setSellNotes(e.target.value)} placeholder="Optional" />
+                <Input aria-label="Sell Notes" value={sellNotes} onChange={(e) => setSellNotes(e.target.value)} placeholder="Optional" />
               </div>
               <div className="flex justify-end gap-2 border-t border-border pt-3">
                 <Button type="button" variant="outline" onClick={() => setSellOpen(false)} disabled={acting}>

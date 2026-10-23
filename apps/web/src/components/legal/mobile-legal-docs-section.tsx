@@ -710,7 +710,7 @@ function MobileLegalDocForm({
             {/* Title */}
             <div>
               <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Title *</label>
-              <input
+              <input aria-label="Title"
                 type="text"
                 value={form.title}
                 onChange={(e) => setField("title", e.target.value)}
@@ -724,7 +724,7 @@ function MobileLegalDocForm({
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
               <div>
                 <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Authority</label>
-                <input
+                <input aria-label="Authority"
                   type="text"
                   value={form.authority}
                   onChange={(e) => setField("authority", e.target.value)}
@@ -735,7 +735,7 @@ function MobileLegalDocForm({
               </div>
               <div className="pl-2">
                 <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Ref. No.</label>
-                <input
+                <input aria-label="Doc Number"
                   type="text"
                   value={form.docNumber}
                   onChange={(e) => setField("docNumber", e.target.value)}
@@ -755,15 +755,15 @@ function MobileLegalDocForm({
             <div className="grid grid-cols-3 gap-2">
               <div>
                 <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Issue Date</label>
-                <input type="date" value={form.issueDate} onChange={(e) => setField("issueDate", e.target.value)} className={inputClass} style={inputStyle} />
+                <input aria-label="Issue Date" type="date" value={form.issueDate} onChange={(e) => setField("issueDate", e.target.value)} className={inputClass} style={inputStyle} />
               </div>
               <div>
                 <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Valid From</label>
-                <input type="date" value={form.validFrom} onChange={(e) => setField("validFrom", e.target.value)} className={inputClass} style={inputStyle} />
+                <input aria-label="Valid From" type="date" value={form.validFrom} onChange={(e) => setField("validFrom", e.target.value)} className={inputClass} style={inputStyle} />
               </div>
               <div>
                 <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Valid Till</label>
-                <input type="date" value={form.validTill} onChange={(e) => setField("validTill", e.target.value)} className={inputClass} style={inputStyle} />
+                <input aria-label="Valid Till" type="date" value={form.validTill} onChange={(e) => setField("validTill", e.target.value)} className={inputClass} style={inputStyle} />
               </div>
             </div>
           </div>
@@ -779,11 +779,11 @@ function MobileLegalDocForm({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Reg. Amount (₹)</label>
-                  <input type="number" min={0} step="any" value={form.amount} onChange={(e) => setField("amount", e.target.value)} placeholder="5000000" className={inputClass} style={inputStyle} />
+                  <input aria-label="Amount" type="number" min={0} step="any" value={form.amount} onChange={(e) => setField("amount", e.target.value)} placeholder="5000000" className={inputClass} style={inputStyle} />
                 </div>
                 <div>
                   <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Expected Registry</label>
-                  <input type="date" value={form.expectedRegistryDate} onChange={(e) => setField("expectedRegistryDate", e.target.value)} className={inputClass} style={inputStyle} />
+                  <input aria-label="Expected Registry Date" type="date" value={form.expectedRegistryDate} onChange={(e) => setField("expectedRegistryDate", e.target.value)} className={inputClass} style={inputStyle} />
                 </div>
               </div>
               <p className="text-m-label" style={{ color: "var(--color-ink-500)" }}>
@@ -793,7 +793,7 @@ function MobileLegalDocForm({
           ) : (
             <div>
               <label className="text-m-label font-semibold uppercase mb-1 block" style={{ color: "var(--color-ink-500)" }}>Fee / Amount (₹) — optional</label>
-              <input type="number" min={0} step="any" value={form.amount} onChange={(e) => setField("amount", e.target.value)} placeholder="50000" className={inputClass} style={inputStyle} />
+              <input aria-label="Amount" type="number" min={0} step="any" value={form.amount} onChange={(e) => setField("amount", e.target.value)} placeholder="50000" className={inputClass} style={inputStyle} />
             </div>
           )}
           </div>
@@ -826,7 +826,7 @@ function MobileLegalDocForm({
                 {uploading ? "Uploading…" : "Upload certificate / NOC / document"}
               </button>
             )}
-            <input ref={fileInputRef} type="file" className="hidden" onChange={handleUpload} disabled={uploading} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip" />
+            <input aria-hidden="true" tabIndex={-1} ref={fileInputRef} type="file" className="hidden" onChange={handleUpload} disabled={uploading} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip" />
           </div>
           </div>
 

@@ -1211,7 +1211,7 @@ function LeaveRequestForm() {
           />
         </label>
       </div>
-      <input
+      <input aria-label="Reason"
         type="text"
         value={reason}
         onChange={(e) => setReason(e.target.value)}
@@ -1291,13 +1291,13 @@ function AdvanceRequestForm({ hasPending }: { hasPending: boolean }) {
 
   return (
     <div className="mb-2 space-y-2 rounded-lg p-2.5" style={{ border: "1px solid var(--color-line)" }}>
-      <input
+      <input aria-label="Amount"
         type="number" inputMode="numeric" min="1" placeholder="Amount (₹)"
         value={amount} onChange={(e) => setAmount(e.target.value)}
         className="w-full rounded-md px-3 py-2 text-m-body"
         style={{ border: "1px solid var(--color-line)", color: "var(--color-ink-950)" }}
       />
-      <input
+      <input aria-label="Reason"
         type="text" placeholder="Reason (optional — e.g. medical, school fees)"
         value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200}
         className="w-full rounded-md px-3 py-2 text-m-body"

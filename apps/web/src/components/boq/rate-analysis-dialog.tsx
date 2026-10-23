@@ -277,10 +277,10 @@ export function RateAnalysisDialog({
           {/* Header fields */}
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Per Unit" required>
-              <Input value={perUnit} onChange={(e) => setPerUnit(e.target.value)} placeholder="CUM, SQM, NOS" />
+              <Input aria-label="CUM, SQM, NOS" value={perUnit} onChange={(e) => setPerUnit(e.target.value)} placeholder="CUM, SQM, NOS" />
             </Field>
             <Field label="Wastage %">
-              <Input type="number" step="0.01" value={wastagePct} onChange={(e) => setWastagePct(e.target.value)} placeholder="0" />
+              <Input aria-label="Wastage Pct" type="number" step="0.01" value={wastagePct} onChange={(e) => setWastagePct(e.target.value)} placeholder="0" />
             </Field>
             <Field label="Current BOQ Rate">
               <div className="flex h-9 items-center rounded-md border border-border bg-muted/50 px-3 text-sm text-muted-foreground">
@@ -334,7 +334,7 @@ export function RateAnalysisDialog({
                         ))}
                       </Select>
                     )}
-                    <Input
+                    <Input aria-label="Description"
                       value={line.description}
                       onChange={(e) => updateLine(i, { description: e.target.value })}
                       placeholder="Description"
@@ -343,7 +343,7 @@ export function RateAnalysisDialog({
                   </div>
                   {isPct ? (
                     <>
-                      <Input
+                      <Input aria-label="Percentage"
                         type="number"
                         step="0.01"
                         value={line.percentage}
@@ -356,7 +356,7 @@ export function RateAnalysisDialog({
                     </>
                   ) : (
                     <>
-                      <Input
+                      <Input aria-label="Quantity"
                         type="number"
                         step="0.001"
                         value={line.quantity}
@@ -364,13 +364,13 @@ export function RateAnalysisDialog({
                         placeholder="0"
                         className="h-8 text-xs text-right"
                       />
-                      <Input
+                      <Input aria-label="bag"
                         value={line.unit}
                         onChange={(e) => updateLine(i, { unit: e.target.value })}
                         placeholder="bag"
                         className="h-8 text-xs"
                       />
-                      <Input
+                      <Input aria-label="Rate"
                         type="number"
                         step="0.01"
                         value={line.rate}

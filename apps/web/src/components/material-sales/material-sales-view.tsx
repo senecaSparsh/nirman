@@ -804,7 +804,7 @@ export function MaterialSalesView({
 
           <div>
             <Label>Party name (override)</Label>
-            <Input value={fPartyName} onChange={(e) => setFPartyName(e.target.value)} placeholder="Walk-in / cash customer name on invoice (optional)" />
+            <Input aria-label="F Party Name" value={fPartyName} onChange={(e) => setFPartyName(e.target.value)} placeholder="Walk-in / cash customer name on invoice (optional)" />
             <p className="text-caption text-muted-foreground mt-0.5">Overrides the customer name on the printed invoice — for walk-in sales without a CRM record.</p>
           </div>
 
@@ -1261,7 +1261,7 @@ function MaterialSaleReturnDialog({
                     <td className="p-2 font-medium">{l.materialName}</td>
                     <td className="p-2 text-right tnum">{l.qty} {l.materialUnit}</td>
                     <td className="p-2">
-                      <Input
+                      <Input aria-label="Return Lines"
                         type="number"
                         step="0.001"
                         min="0"
@@ -1276,7 +1276,7 @@ function MaterialSaleReturnDialog({
                       />
                     </td>
                     <td className="p-2">
-                      <Input
+                      <Input aria-label="Rl"
                         value={rl?.reason ?? ""}
                         onChange={(e) => setReturnLines((prev) => ({
                           ...prev,
@@ -1303,11 +1303,11 @@ function MaterialSaleReturnDialog({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label>Overall reason</Label>
-            <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Customer returned damaged goods" />
+            <Input aria-label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Customer returned damaged goods" />
           </div>
           <div>
             <Label>Notes</Label>
-            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
+            <Input aria-label="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
           </div>
         </div>
 

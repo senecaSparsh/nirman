@@ -215,7 +215,7 @@ export function MobileNewMaterialForm({
             >
               Name <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
-            <input
+            <input aria-label="Name"
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -244,7 +244,7 @@ export function MobileNewMaterialForm({
                 </span>
               </div>
             ) : (
-              <input
+              <input aria-label="Material code"
                 type="text"
                 value={code}
                 onChange={(e) => setCode(e.target.value.toUpperCase())}
@@ -279,7 +279,7 @@ export function MobileNewMaterialForm({
             >
               Grade
             </label>
-            <input
+            <input aria-label="Grade"
               type="text"
               value={grade}
               onChange={(e) => setGrade(e.target.value)}
@@ -299,7 +299,7 @@ export function MobileNewMaterialForm({
             >
               Specification
             </label>
-            <input
+            <input aria-label="Specification"
               type="text"
               value={specification}
               onChange={(e) => setSpecification(e.target.value)}
@@ -428,7 +428,7 @@ export function MobileNewMaterialForm({
                 — opt.
               </span>
             </label>
-            <input
+            <input aria-label="Standard Cost"
               type="text"
               inputMode="decimal"
               value={standardCost}
@@ -456,7 +456,7 @@ export function MobileNewMaterialForm({
               </span>
             </label>
             <div className="relative">
-            <input
+            <input aria-label="Reorder Point"
               type="text"
               inputMode="decimal"
               value={reorderPoint}
@@ -547,7 +547,7 @@ export function MobileNewMaterialForm({
                       Qty on hand
                     </label>
                     <div className="relative">
-                    <input
+                    <input aria-label="Opening Quantity"
                       type="number"
                       min="0"
                       step="any"
@@ -572,7 +572,7 @@ export function MobileNewMaterialForm({
                     <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                       Unit cost
                     </label>
-                    <input
+                    <input aria-label="Opening Unit Cost"
                       type="number"
                       min="0"
                       step="0.01"

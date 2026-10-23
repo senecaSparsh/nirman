@@ -62,9 +62,9 @@ export function FinanceView({
   // Date range filter UI for the Money Flow tab
   const dateRangeFilter = (
     <div className="flex items-center gap-1.5">
-      <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 w-auto text-[13px]" title="From date" />
+      <Input aria-label="Date From" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 w-auto text-[13px]" title="From date" />
       <span className="text-muted-foreground text-xs">—</span>
-      <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 w-auto text-[13px]" title="To date" />
+      <Input aria-label="Date To" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 w-auto text-[13px]" title="To date" />
       {(dateFrom || dateTo) && (
         <button
           type="button"

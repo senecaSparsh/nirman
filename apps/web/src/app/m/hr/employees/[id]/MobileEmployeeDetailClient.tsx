@@ -1465,18 +1465,18 @@ No manager assigned
             {showAdvanceForm && (
               <div className="rounded-[0.5rem] p-2.5 mb-2 space-y-2" style={{ backgroundColor: "var(--color-paper)" }}>
                 <div className="flex gap-2">
-                  <input
+                  <input aria-label="Adv Amount"
                     type="number" inputMode="decimal" placeholder="Amount ₹"
                     value={advAmount} onChange={(e) => setAdvAmount(e.target.value)}
                     className="flex-1 rounded-[0.5rem] px-2.5 py-2 text-m-body border border-border bg-card"
                   />
-                  <input
+                  <input aria-label="Adv Recovery"
                     type="number" inputMode="decimal" placeholder="Recover ₹/mo"
                     value={advRecovery} onChange={(e) => setAdvRecovery(e.target.value)}
                     className="flex-1 rounded-[0.5rem] px-2.5 py-2 text-m-body border border-border bg-card"
                   />
                 </div>
-                <input
+                <input aria-label="Note"
                   type="text" placeholder="Note (optional)"
                   value={advNotes} onChange={(e) => setAdvNotes(e.target.value)}
                   className="w-full rounded-[0.5rem] px-2.5 py-2 text-m-body border border-border bg-card"
@@ -2002,7 +2002,7 @@ function PayrollHistoryRow({ p, canManagePayroll, _employeeId }: { p: PayrollIte
       {/* Mark as paid form */}
       {showMarkPaid && (
         <div className="mt-2 space-y-1.5">
-          <input
+          <input aria-label="Ayment Ref"
             type="text"
             value={paymentRef}
             onChange={(e) => setPaymentRef(e.target.value)}
@@ -2246,7 +2246,7 @@ function PhoneStatusDialog({
                   Enter the 6-digit code sent to {phone}
                 </div>
                 <div className="flex items-center gap-2">
-                  <input
+                  <input aria-label="OTP Code"
                     type="text"
                     inputMode="numeric"
                     maxLength={6}
@@ -2563,26 +2563,26 @@ function EmployeeEditSheet({
             </p>
             <div>
               <label className={labelClass} style={labelStyle}>Name *</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} style={inputStyle} />
+              <input aria-label="Name" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} style={inputStyle} />
             </div>
             <div className="grid grid-cols-4 gap-1.5">
               <div>
                 <label className={labelClass} style={labelStyle}>Trade</label>
-                <input value={trade} onChange={(e) => setTrade(e.target.value)} placeholder="e.g. Mason" className={inputClass} style={inputStyle} />
+                <input aria-label="Trade" value={trade} onChange={(e) => setTrade(e.target.value)} placeholder="e.g. Mason" className={inputClass} style={inputStyle} />
               </div>
               <div>
                 <label className={labelClass} style={labelStyle}>Designation</label>
-                <input value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="e.g. Site Engineer" className={inputClass} style={inputStyle} />
+                <input aria-label="Designation" value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="e.g. Site Engineer" className={inputClass} style={inputStyle} />
               </div>
             </div>
             <div className="grid grid-cols-4 gap-1.5">
               <div>
                 <label className={labelClass} style={labelStyle}>Phone</label>
-                <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" inputMode="tel" className={inputClass} style={inputStyle} />
+                <input aria-label="Phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" inputMode="tel" className={inputClass} style={inputStyle} />
               </div>
               <div>
                 <label className={labelClass} style={labelStyle}>Email</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@firm.com" className={inputClass} style={inputStyle} />
+                <input aria-label="Mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@firm.com" className={inputClass} style={inputStyle} />
               </div>
             </div>
           </div>
@@ -2617,19 +2617,19 @@ function EmployeeEditSheet({
             {wageType === "DAILY" ? (
               <div>
                 <label className={labelClass} style={labelStyle}>Daily Rate (₹)</label>
-                <input type="number" min="0" step="any" inputMode="numeric" value={dailyRate} onChange={(e) => setDailyRate(e.target.value)} placeholder="0" className={inputClass} style={inputStyle} />
+                <input aria-label="Daily Rate" type="number" min="0" step="any" inputMode="numeric" value={dailyRate} onChange={(e) => setDailyRate(e.target.value)} placeholder="0" className={inputClass} style={inputStyle} />
               </div>
             ) : (
               <div>
                 <label className={labelClass} style={labelStyle}>Monthly Salary (₹)</label>
-                <input type="number" min="0" step="any" inputMode="numeric" value={monthlySalary} onChange={(e) => setMonthlySalary(e.target.value)} placeholder="0" className={inputClass} style={inputStyle} />
+                <input aria-label="Monthly Salary" type="number" min="0" step="any" inputMode="numeric" value={monthlySalary} onChange={(e) => setMonthlySalary(e.target.value)} placeholder="0" className={inputClass} style={inputStyle} />
               </div>
             )}
 
             <div className="grid grid-cols-4 gap-1.5">
               <div>
                 <label className={labelClass} style={labelStyle}>Join Date</label>
-                <input type="date" value={joinDate} onChange={(e) => setJoinDate(e.target.value)} className={inputClass} style={inputStyle} />
+                <input aria-label="Join Date" type="date" value={joinDate} onChange={(e) => setJoinDate(e.target.value)} className={inputClass} style={inputStyle} />
               </div>
               <div>
                 <EnumSelect

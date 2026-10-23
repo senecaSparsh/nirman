@@ -329,7 +329,7 @@ export function MobileNewFinanceDialog({
                   <label className={labelClass} style={labelStyle}>
                     Category <span style={{ color: "var(--color-stop)" }}>*</span>
                   </label>
-                  <input
+                  <input aria-label="Category"
                     type="text"
                     list="expense-categories"
                     value={expenseForm.category}
@@ -354,7 +354,7 @@ export function MobileNewFinanceDialog({
                       Amount (₹){" "}
                       <span style={{ color: "var(--color-stop)" }}>*</span>
                     </label>
-                    <input
+                    <input aria-label="Expense"
                       type="number"
                       min={0.01}
                       step="any"
@@ -370,7 +370,7 @@ export function MobileNewFinanceDialog({
                     <label className={labelClass} style={labelStyle}>
                       Date
                     </label>
-                    <input
+                    <input aria-label="Date"
                       type="date"
                       value={expenseForm.date}
                       onChange={(e) => setExpense("date", e.target.value)}
@@ -471,7 +471,7 @@ export function MobileNewFinanceDialog({
                       Amount (₹){" "}
                       <span style={{ color: "var(--color-stop)" }}>*</span>
                     </label>
-                    <input
+                    <input aria-label="Cost"
                       type="number"
                       min={0.01}
                       step="any"
@@ -488,7 +488,7 @@ export function MobileNewFinanceDialog({
                     <label className={labelClass} style={labelStyle}>
                       Date
                     </label>
-                    <input
+                    <input aria-label="Date"
                       type="date"
                       value={costForm.date}
                       onChange={(e) => setCost("date", e.target.value)}
@@ -503,7 +503,7 @@ export function MobileNewFinanceDialog({
                   <label className={labelClass} style={labelStyle}>
                     Vendor (optional)
                   </label>
-                  <input
+                  <input aria-label="Cost"
                     type="text"
                     value={costForm.vendor}
                     onChange={(e) => setCost("vendor", e.target.value)}

@@ -471,11 +471,11 @@ export function MobileNcrDetailClient({
               <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
                   <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Corrective Due</label>
-                  <input type="date" value={capaForm.correctiveDueDate} onChange={(e) => setCapaForm((f) => ({ ...f, correctiveDueDate: e.target.value }))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                  <input aria-label="Corrective Due Date" type="date" value={capaForm.correctiveDueDate} onChange={(e) => setCapaForm((f) => ({ ...f, correctiveDueDate: e.target.value }))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
                 </div>
                 <div className="pl-2">
                   <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Preventive Due</label>
-                  <input type="date" value={capaForm.preventiveDueDate} onChange={(e) => setCapaForm((f) => ({ ...f, preventiveDueDate: e.target.value }))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                  <input aria-label="Preventive Due Date" type="date" value={capaForm.preventiveDueDate} onChange={(e) => setCapaForm((f) => ({ ...f, preventiveDueDate: e.target.value }))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
                 </div>
               </div>
             </div>
@@ -497,7 +497,7 @@ export function MobileNcrDetailClient({
               </p>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Verification Method</label>
-                <input value={verifyForm.verificationMethod} onChange={(e) => setVerifyForm((f) => ({ ...f, verificationMethod: e.target.value }))} placeholder="e.g. Site inspection, test report" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                <input aria-label="Verify Form" value={verifyForm.verificationMethod} onChange={(e) => setVerifyForm((f) => ({ ...f, verificationMethod: e.target.value }))} placeholder="e.g. Site inspection, test report" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
               </div>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Verification Notes</label>
@@ -593,5 +593,3 @@ function ActionButton({ onClick, loading, icon: Icon, label, variant }: { onClic
     </button>
   );
 }
-
-

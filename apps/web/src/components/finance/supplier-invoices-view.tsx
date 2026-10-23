@@ -618,7 +618,7 @@ function InvoiceDocumentSection({
         <label className="flex items-center gap-2 rounded-md border border-dashed border-border px-3 py-2.5 text-sm text-muted-foreground cursor-pointer hover:bg-muted/20">
           {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
           {uploading ? "Uploading…" : "Upload the supplier's original bill (PDF / image)"}
-          <input type="file" className="hidden" onChange={handleUpload} accept="image/*,.pdf" disabled={uploading} />
+          <input aria-hidden="true" tabIndex={-1} type="file" className="hidden" onChange={handleUpload} accept="image/*,.pdf" disabled={uploading} />
         </label>
       )}
     </div>
@@ -912,7 +912,7 @@ function SupplierInvoiceFormDialog({
                           {l.unit && <span className="text-muted-foreground"> /{l.unit}</span>}
                         </td>
                         <td className="px-2 py-1.5">
-                          <input
+                          <input aria-label="Quantity"
                             type="number"
                             min="0"
                             step="any"
@@ -926,7 +926,7 @@ function SupplierInvoiceFormDialog({
                           />
                         </td>
                         <td className="px-2 py-1.5">
-                          <input
+                          <input aria-label="Unit Price"
                             type="number"
                             min="0"
                             step="0.01"

@@ -648,8 +648,8 @@ function JournalVoucherDialog({
                   <option key={a.code} value={a.code}>{a.code} — {a.name}</option>
                 ))}
               </Select>
-              <Input type="number" min="0" step="0.01" value={l.debit} onChange={(e) => setLine(i, { debit: e.target.value, credit: e.target.value ? "" : l.credit })} placeholder="0" />
-              <Input type="number" min="0" step="0.01" value={l.credit} onChange={(e) => setLine(i, { credit: e.target.value, debit: e.target.value ? "" : l.debit })} placeholder="0" />
+              <Input aria-label="Line" type="number" min="0" step="0.01" value={l.debit} onChange={(e) => setLine(i, { debit: e.target.value, credit: e.target.value ? "" : l.credit })} placeholder="0" />
+              <Input aria-label="Line" type="number" min="0" step="0.01" value={l.credit} onChange={(e) => setLine(i, { credit: e.target.value, debit: e.target.value ? "" : l.debit })} placeholder="0" />
               <Select value={l.projectId} onChange={(e) => setLine(i, { projectId: e.target.value })} title="Optional — allocate this line to a project (e.g. WIP write-off)">
                 <option value="">—</option>
                 {(projects ?? []).map((p) => (

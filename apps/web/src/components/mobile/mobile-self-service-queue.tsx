@@ -52,7 +52,7 @@ export function MobileSelfServiceQueue({ advances, corrections }: { advances: Ad
                 </div>
                 {a.notes && <p className="mt-0.5 text-m-caption" style={{ color: "var(--color-ink-500)" }}>{a.notes}</p>}
                 <div className="mt-2 flex gap-2">
-                  <input
+                  <input aria-label="Recovery"
                     type="number" inputMode="numeric" min="1" placeholder="₹/month"
                     value={recovery[a.id] ?? ""}
                     onChange={(e) => setRecovery((s) => ({ ...s, [a.id]: e.target.value }))}

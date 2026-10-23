@@ -154,7 +154,7 @@ export function SelfServiceRequestList({
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <Input
+                  <Input aria-label="Recoveries"
                     type="number"
                     min="1"
                     placeholder="₹/month"

@@ -133,7 +133,7 @@ export function MobileGeneratePayrollDialog({
                 <label className={labelClass} style={labelStyle}>
                   Year <span style={{ color: "var(--color-stop)" }}>*</span>
                 </label>
-                <input
+                <input aria-label="Year"
                   type="number"
                   min={2000}
                   max={2100}

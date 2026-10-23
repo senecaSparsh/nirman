@@ -273,7 +273,7 @@ export function MobileNewSupplierPaymentClient({
               <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                 Date
               </label>
-              <input
+              <input aria-label="Payment Date"
                 type="date"
                 value={paymentDate}
                 onChange={(e) => setPaymentDate(e.target.value)}
@@ -337,7 +337,7 @@ export function MobileNewSupplierPaymentClient({
                   </span>
                 </button>
               )}
-              <input
+              <input aria-hidden="true" tabIndex={-1}
                 ref={fileRef}
                 type="file"
                 accept="image/*,application/pdf"

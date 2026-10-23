@@ -368,7 +368,7 @@ export function TabSwitcher({ open, onCollapse, onExpand }: TabSwitcherProps) {
                     className="size-3.5 shrink-0"
                     style={{ color: "var(--color-ink-400)" }}
                   />
-                  <input
+                  <input aria-label="Search pages"
                     type="text"
                     value={pickerQuery}
                     onChange={(e) => setPickerQuery(e.target.value)}

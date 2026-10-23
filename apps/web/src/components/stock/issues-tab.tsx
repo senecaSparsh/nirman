@@ -100,7 +100,7 @@ export function IssuesTab({
         <div className="flex flex-1 flex-col gap-2 sm:flex-row">
           <div className="relative sm:max-w-xs">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search project, location, slip no…" className="pl-8" />
+            <Input aria-label="Search project, location, slip no" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search project, location, slip no…" className="pl-8" />
           </div>
           <Select aria-label="All projects" value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className="sm:max-w-[180px]">
             <option value="">All projects</option>

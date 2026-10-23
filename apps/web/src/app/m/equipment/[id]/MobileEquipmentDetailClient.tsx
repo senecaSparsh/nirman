@@ -769,7 +769,7 @@ export function MobileEquipmentDetailClient({
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Opening</label>
-                <input
+                <input aria-label="Usage Form"
                   type="number" inputMode="decimal" value={usageForm.openingMeter}
                   onChange={(e) => setUsageForm((f) => ({ ...f, openingMeter: e.target.value }))}
                   placeholder="0"
@@ -779,7 +779,7 @@ export function MobileEquipmentDetailClient({
               </div>
               <div>
                 <label className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Closing</label>
-                <input
+                <input aria-label="Usage Form"
                   type="number" inputMode="decimal" value={usageForm.closingMeter}
                   onChange={(e) => setUsageForm((f) => ({ ...f, closingMeter: e.target.value }))}
                   placeholder="0"
@@ -792,7 +792,7 @@ export function MobileEquipmentDetailClient({
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Fuel added (L)</label>
-                <input
+                <input aria-label="Usage Form"
                   type="number" inputMode="decimal" value={usageForm.fuelLitres}
                   onChange={(e) => setUsageForm((f) => ({ ...f, fuelLitres: e.target.value }))}
                   placeholder="e.g. 20"
@@ -802,7 +802,7 @@ export function MobileEquipmentDetailClient({
               </div>
               <div>
                 <label className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Fuel cost ₹</label>
-                <input
+                <input aria-label="optional"
                   type="number" inputMode="decimal" value={usageForm.fuelCost}
                   onChange={(e) => setUsageForm((f) => ({ ...f, fuelCost: e.target.value }))}
                   placeholder="optional"
@@ -814,7 +814,7 @@ export function MobileEquipmentDetailClient({
 
             <div>
               <label className="text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Operator</label>
-              <input
+              <input aria-label="Who ran it"
                 type="text" value={usageForm.operatorName}
                 onChange={(e) => setUsageForm((f) => ({ ...f, operatorName: e.target.value }))}
                 placeholder="Who ran it"
@@ -918,7 +918,7 @@ function EditEquipmentModal({
             />
           </Field>
           <Field label="Serial Number">
-            <input
+            <input aria-label="Serial Number"
               value={serialNumber}
               onChange={(e) => setSerialNumber(e.target.value)}
               className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
@@ -926,7 +926,7 @@ function EditEquipmentModal({
             />
           </Field>
           <Field label="Category">
-            <input
+            <input aria-label="Category"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
@@ -1202,7 +1202,7 @@ function PickerSheet({
               className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5"
               style={{ color: "var(--color-ink-500)" }}
             />
-            <input
+            <input aria-label="Search"
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -1346,7 +1346,7 @@ function MaintenanceModal({
               </label>
               <div className="relative">
                 <IndianRupee className="absolute left-2 top-1/2 -translate-y-1/2 size-3" style={{ color: "var(--color-ink-500)" }} />
-                <input
+                <input aria-label="Ost"
                   type="text" inputMode="decimal"
                   step="any"
                   min="0"
@@ -1362,7 +1362,7 @@ function MaintenanceModal({
               <label className="text-m-caption font-bold block mb-0" style={{ color: "var(--color-ink-500)" }}>
                 Vendor (optional)
               </label>
-              <input
+              <input aria-label="Vendor"
                 type="text"
                 value={vendor}
                 onChange={(e) => setVendor(e.target.value)}

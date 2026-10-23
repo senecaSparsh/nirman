@@ -313,15 +313,15 @@ function SupplierReturnFormDialog({
         <div className="grid grid-cols-3 gap-3">
           <div className="space-y-1.5">
             <Label>Vehicle No</Label>
-            <Input value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="Optional" />
+            <Input aria-label="Vehicle Number" value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="Optional" />
           </div>
           <div className="space-y-1.5">
             <Label>Driver Name</Label>
-            <Input value={driverName} onChange={(e) => setDriverName(e.target.value)} placeholder="Optional" />
+            <Input aria-label="Driver Name" value={driverName} onChange={(e) => setDriverName(e.target.value)} placeholder="Optional" />
           </div>
           <div className="space-y-1.5">
             <Label>Driver Phone</Label>
-            <Input value={driverPhone} onChange={(e) => setDriverPhone(e.target.value)} placeholder="Optional" />
+            <Input aria-label="Driver Phone" value={driverPhone} onChange={(e) => setDriverPhone(e.target.value)} placeholder="Optional" />
           </div>
         </div>
 
@@ -473,7 +473,7 @@ function SupplierReturnDetailDialog({
           <div className="space-y-2">
             <div className="space-y-1.5">
               <Label>Credit Note Number</Label>
-              <Input
+              <Input aria-label="Redit Note No"
                 value={creditNoteNo}
                 onChange={(e) => setCreditNoteNo(e.target.value)}
                 placeholder="Enter credit note number from supplier"

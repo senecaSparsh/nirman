@@ -587,7 +587,7 @@ export function MobileCallDetailClient({
           </div>
           {canEdit && (
             <div className="flex gap-2">
-              <input
+              <input aria-label="Add a tag"
                 type="text"
                 value={newTag}
                 onChange={(e) => setNewTag(e.target.value)}
@@ -639,7 +639,7 @@ export function MobileCallDetailClient({
           ))}
           {canEdit && (
             <div className="flex gap-2 mt-1">
-              <input
+              <input aria-label="Add a note"
                 type="text"
                 value={newNote}
                 onChange={(e) => setNewNote(e.target.value)}
@@ -775,7 +775,7 @@ export function MobileCallDetailClient({
                 <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
                   Primary note
                 </label>
-                <input
+                <input aria-label="Call summary"
                   type="text"
                   value={notes2}
                   onChange={(e) => setNotes2(e.target.value)}

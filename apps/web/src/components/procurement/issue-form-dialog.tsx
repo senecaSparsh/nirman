@@ -425,7 +425,7 @@ export function IssueFormDialog({
             <Label>
               Receiver Name {target === "DEPARTMENT" ? "*" : ""}
             </Label>
-            <Input
+            <Input aria-label="Receiver Name"
               value={receiverName}
               onChange={(e) => setReceiverName(e.target.value)}
               placeholder="Who is picking up the stock"
@@ -433,7 +433,7 @@ export function IssueFormDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Receiver Mobile</Label>
-            <Input
+            <Input aria-label="Contact number"
               value={receiverMobile}
               onChange={(e) => setReceiverMobile(e.target.value)}
               placeholder="Contact number"
@@ -498,7 +498,7 @@ export function IssueFormDialog({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Round Off</Label>
-            <Input
+            <Input aria-label="Round Off"
               type="number"
               step="0.01"
               value={roundOff}
@@ -508,7 +508,7 @@ export function IssueFormDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Notes</Label>
-            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
+            <Input aria-label="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
           </div>
         </div>
 

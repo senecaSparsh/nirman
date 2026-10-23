@@ -284,6 +284,7 @@ export function MobileNewWbsNodeDialog({
                 </label>
                 <input
                   type="date"
+                  aria-label="Planned end"
                   value={isMilestone ? form.plannedStart : form.plannedEnd}
                   onChange={(e) => set("plannedEnd", e.target.value)}
                   disabled={isMilestone}

@@ -746,7 +746,7 @@ export function MobileRentalDetailClient({
             <p className="text-m-body" style={{ color: "var(--color-ink-700)" }}>
               The receipt is marked void and its accounting entry reversed — the tenant owes the amount again. The record stays for audit.
             </p>
-            <input
+            <input aria-label="Void Reason"
               type="text"
               value={voidReason}
               onChange={(e) => setVoidReason(e.target.value)}
@@ -953,7 +953,7 @@ function PaymentSheet({
               <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
                 Amount (₹)
               </label>
-              <input
+              <input aria-label="Amount"
                 type="text" inputMode="decimal"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
@@ -968,7 +968,7 @@ function PaymentSheet({
                 <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
                   Payment Date
                 </label>
-                <input
+                <input aria-label="Payment Date"
                   type="date"
                   value={paymentDate}
                   onChange={(e) => setPaymentDate(e.target.value)}
@@ -980,7 +980,7 @@ function PaymentSheet({
                 <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
                   Due Date
                 </label>
-                <input
+                <input aria-label="Due Date"
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
@@ -1018,7 +1018,7 @@ function PaymentSheet({
               <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
                 Reference (optional)
               </label>
-              <input
+              <input aria-label="Reference"
                 type="text"
                 value={reference}
                 onChange={(e) => setReference(e.target.value)}
@@ -1040,7 +1040,7 @@ function PaymentSheet({
                 <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
                   TDS Deducted (₹)
                 </label>
-                <input
+                <input aria-label="TDS Amount"
                   type="text" inputMode="decimal"
                   value={tdsAmount}
                   onChange={(e) => setTdsAmount(e.target.value)}
@@ -1053,7 +1053,7 @@ function PaymentSheet({
                 <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
                   TDS Cert. No.
                 </label>
-                <input
+                <input aria-label="TDS Cert"
                   type="text"
                   value={tdsCert}
                   onChange={(e) => setTdsCert(e.target.value)}
@@ -1070,7 +1070,7 @@ function PaymentSheet({
                 <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
                   Period Start
                 </label>
-                <input
+                <input aria-label="Period Start"
                   type="date"
                   value={periodStart}
                   onChange={(e) => setPeriodStart(e.target.value)}
@@ -1082,7 +1082,7 @@ function PaymentSheet({
                 <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
                   Period End
                 </label>
-                <input
+                <input aria-label="Period End"
                   type="date"
                   value={periodEnd}
                   onChange={(e) => setPeriodEnd(e.target.value)}
@@ -1259,7 +1259,7 @@ function EditSheet({
         <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
           Tenant Name
         </label>
-        <input
+        <input aria-label="Tenant Name"
           type="text"
           value={tenantName}
           onChange={(e) => setTenantName(e.target.value)}
@@ -1273,7 +1273,7 @@ function EditSheet({
           <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
             Phone
           </label>
-          <input
+          <input aria-label="Tenant Phone"
             type="text"
             value={tenantPhone}
             onChange={(e) => setTenantPhone(e.target.value)}
@@ -1285,7 +1285,7 @@ function EditSheet({
           <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
             Email
           </label>
-          <input
+          <input aria-label="Tenant Email"
             type="email"
             value={tenantEmail}
             onChange={(e) => setTenantEmail(e.target.value)}
@@ -1300,7 +1300,7 @@ function EditSheet({
           <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
             Start Date
           </label>
-          <input
+          <input aria-label="Start Date"
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
@@ -1312,7 +1312,7 @@ function EditSheet({
           <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
             End Date
           </label>
-          <input
+          <input aria-label="End Date"
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
@@ -1327,7 +1327,7 @@ function EditSheet({
           <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
             Monthly Rent (₹)
           </label>
-          <input
+          <input aria-label="Monthly Rent"
             type="text" inputMode="decimal"
             value={monthlyRent}
             onChange={(e) => setMonthlyRent(e.target.value)}
@@ -1339,7 +1339,7 @@ function EditSheet({
           <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
             Deposit (₹)
           </label>
-          <input
+          <input aria-label="Security Deposit"
             type="text" inputMode="decimal"
             value={securityDeposit}
             onChange={(e) => setSecurityDeposit(e.target.value)}
@@ -1354,7 +1354,7 @@ function EditSheet({
           <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
             Escalation %
           </label>
-          <input
+          <input aria-label="Scalation Percent"
             type="text" inputMode="decimal"
             value={escalationPercent}
             onChange={(e) => setEscalationPercent(e.target.value)}
@@ -1367,7 +1367,7 @@ function EditSheet({
           <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
             Rent-free Days
           </label>
-          <input
+          <input aria-label="Rent Free Days"
             type="text" inputMode="numeric"
             value={rentFreeDays}
             onChange={(e) => setRentFreeDays(e.target.value)}
@@ -1379,7 +1379,7 @@ function EditSheet({
           <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
             Agreement No
           </label>
-          <input
+          <input aria-label="Rent Agreement No"
             type="text"
             value={rentAgreementNo}
             onChange={(e) => setRentAgreementNo(e.target.value)}
@@ -1473,7 +1473,7 @@ function GenerateScheduleSheet({
         <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
           Months Ahead
         </label>
-        <input
+        <input aria-label="Months Ahead"
           type="text" inputMode="numeric"
           value={monthsAhead}
           onChange={(e) => setMonthsAhead(e.target.value)}
@@ -1534,7 +1534,7 @@ function UploadDraftSheet({
         <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
           Draft Date
         </label>
-        <input
+        <input aria-label="Draft Date"
           type="date"
           value={draftDate}
           onChange={(e) => setDraftDate(e.target.value)}
@@ -1604,7 +1604,7 @@ function ChangeTenantSheet({
         <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
           New Tenant Name
         </label>
-        <input
+        <input aria-label="New Tenant Name"
           type="text"
           value={newTenantName}
           onChange={(e) => setNewTenantName(e.target.value)}
@@ -1617,7 +1617,7 @@ function ChangeTenantSheet({
           <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
             Phone
           </label>
-          <input
+          <input aria-label="New Tenant Phone"
             type="text"
             value={newTenantPhone}
             onChange={(e) => setNewTenantPhone(e.target.value)}
@@ -1629,7 +1629,7 @@ function ChangeTenantSheet({
           <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
             Email
           </label>
-          <input
+          <input aria-label="New Tenant Email"
             type="email"
             value={newTenantEmail}
             onChange={(e) => setNewTenantEmail(e.target.value)}
@@ -1643,7 +1643,7 @@ function ChangeTenantSheet({
           <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
             New Start Date
           </label>
-          <input
+          <input aria-label="New Start Date"
             type="date"
             value={newStartDate}
             onChange={(e) => setNewStartDate(e.target.value)}
@@ -1655,7 +1655,7 @@ function ChangeTenantSheet({
           <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
             New End Date
           </label>
-          <input
+          <input aria-label="New End Date"
             type="date"
             value={newEndDate}
             onChange={(e) => setNewEndDate(e.target.value)}
@@ -1669,7 +1669,7 @@ function ChangeTenantSheet({
           <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
             Monthly Rent (₹)
           </label>
-          <input
+          <input aria-label="Same as before"
             type="text" inputMode="decimal"
             value={newMonthlyRent}
             onChange={(e) => setNewMonthlyRent(e.target.value)}
@@ -1682,7 +1682,7 @@ function ChangeTenantSheet({
           <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
             Deposit (₹)
           </label>
-          <input
+          <input aria-label="Same as before"
             type="text" inputMode="decimal"
             value={newSecurityDeposit}
             onChange={(e) => setNewSecurityDeposit(e.target.value)}

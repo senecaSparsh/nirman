@@ -98,7 +98,7 @@ export function MobileSmsIngest() {
               >
                 Sender ID
               </label>
-              <input
+              <input aria-label="Sender"
                 value={sender}
                 onChange={(e) => setSender(e.target.value)}
                 placeholder="e.g. HD-FBANK"

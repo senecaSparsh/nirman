@@ -241,7 +241,7 @@ export function PurchaseUnitDialog({
             />
           </Field>
           <Field label="Purchase Date (all units)">
-            <Input type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} />
+            <Input aria-label="Purchase Date" type="date" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} />
           </Field>
         </div>
 
@@ -270,15 +270,15 @@ export function PurchaseUnitDialog({
               <div className="grid grid-cols-3 gap-2">
                 <div className="space-y-1">
                   <Label className="text-caption">Prefix</Label>
-                  <Input value={genPrefix} onChange={(e) => setGenPrefix(e.target.value)} placeholder="U-" className="h-8 text-xs" />
+                  <Input aria-label="U-" value={genPrefix} onChange={(e) => setGenPrefix(e.target.value)} placeholder="U-" className="h-8 text-xs" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-caption">Start No.</Label>
-                  <Input type="number" value={genStart} onChange={(e) => setGenStart(e.target.value)} placeholder="1" className="h-8 text-xs" />
+                  <Input aria-label="Gen Start" type="number" value={genStart} onChange={(e) => setGenStart(e.target.value)} placeholder="1" className="h-8 text-xs" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-caption">Count</Label>
-                  <Input type="number" value={genCount} onChange={(e) => setGenCount(e.target.value)} placeholder="5" className="h-8 text-xs" />
+                  <Input aria-label="Gen Count" type="number" value={genCount} onChange={(e) => setGenCount(e.target.value)} placeholder="5" className="h-8 text-xs" />
                 </div>
               </div>
               <div className="mt-2.5 flex items-center justify-between">
@@ -321,7 +321,7 @@ export function PurchaseUnitDialog({
                   </div>
                   <div className="col-span-3 space-y-1">
                     <Label className="text-caption">Unit No. *</Label>
-                    <Input
+                    <Input aria-label="Unit No."
                       value={row.unitNumber}
                       onChange={(e) => updateRow(idx, "unitNumber", e.target.value)}
                       placeholder="A-101"
@@ -330,7 +330,7 @@ export function PurchaseUnitDialog({
                   </div>
                   <div className="col-span-2 space-y-1">
                     <Label className="text-caption">Floor</Label>
-                    <Input
+                    <Input aria-label="Floor"
                       type="number"
                       value={row.floor}
                       onChange={(e) => updateRow(idx, "floor", e.target.value)}
@@ -340,7 +340,7 @@ export function PurchaseUnitDialog({
                   </div>
                   <div className="col-span-2 space-y-1">
                     <Label className="text-caption">Wing</Label>
-                    <Input
+                    <Input aria-label="Wing"
                       value={row.wing}
                       onChange={(e) => updateRow(idx, "wing", e.target.value)}
                       placeholder="A"
@@ -364,7 +364,7 @@ export function PurchaseUnitDialog({
                   <div className="col-span-5 space-y-1">
                     <Label className="text-caption">Area *</Label>
                     <div className="flex gap-1">
-                      <Input
+                      <Input aria-label="Area"
                         type="number"
                         step="0.01"
                         value={row.area}
@@ -385,7 +385,7 @@ export function PurchaseUnitDialog({
                   </div>
                   <div className="col-span-4 space-y-1">
                     <Label className="text-caption">Acquisition Cost *</Label>
-                    <Input
+                    <Input aria-label="Acquisition Cost"
                       type="number"
                       step="0.01"
                       value={row.acquisitionCost}
@@ -396,7 +396,7 @@ export function PurchaseUnitDialog({
                   </div>
                   <div className="col-span-3 space-y-1">
                     <Label className="text-caption">Asking Price</Label>
-                    <Input
+                    <Input aria-label="Asking Price"
                       type="number"
                       step="0.01"
                       value={row.askingPrice}

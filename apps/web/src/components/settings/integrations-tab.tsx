@@ -310,7 +310,7 @@ export function IntegrationsTab() {
                             <Input
                               type={field.type === "password" ? "password" : field.type === "number" ? "number" : "text"}
                               value={isMasked ? "" : String(value)}
-                              placeholder={isMasked ? "•••••••• (unchanged)" : field.placeholder ?? ""}
+                              aria-label={field.label} placeholder={isMasked ? "•••••••• (unchanged)" : field.placeholder ?? ""}
                               onChange={(e) => updateField(integ.key, field.name, e.target.value)}
                               className="h-8 text-xs"
                             />

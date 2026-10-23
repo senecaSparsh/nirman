@@ -426,7 +426,7 @@ function OutstandingCard({
                 className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3"
                 style={{ color: "var(--color-ink-400)" }}
               />
-              <input
+              <input aria-label="Amount"
                 type="text"
                 inputMode="decimal"
                 min="0"
@@ -472,7 +472,7 @@ function OutstandingCard({
             <label className="text-m-caption font-semibold uppercase block mb-1" style={{ color: "var(--color-ink-500)" }}>
               Reference (optional)
             </label>
-            <input
+            <input aria-label="Cheque no, UPI ID"
               type="text"
               value={reference}
               onChange={(e) => setReference(e.target.value)}

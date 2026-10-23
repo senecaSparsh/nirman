@@ -461,7 +461,7 @@ function MbEntryDialog({
             )}
           </Field>
           <Field label={`Measured Quantity${selectedBoq ? ` (${selectedBoq.unit ?? "units"})` : ""}`} required>
-            <Input type="number" step="0.001" value={form.measuredQty} onChange={(e) => set("measuredQty", e.target.value)} placeholder="0.000" required />
+            <Input aria-label="Measured Quantity" type="number" step="0.001" value={form.measuredQty} onChange={(e) => set("measuredQty", e.target.value)} placeholder="0.000" required />
             {selectedBoq && selectedBoq.estimatedQty != null && form.measuredQty && (
               <p className="text-[11px] text-muted-foreground mt-1">
                 BOQ est: {formatNumber(selectedBoq.estimatedQty, 3)} {selectedBoq.unit ?? ""}
@@ -476,7 +476,7 @@ function MbEntryDialog({
           <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} placeholder="e.g. Excavation for foundation, Unit 101" required />
         </Field>
         <Field label="Location Reference">
-          <Input value={form.locationRef} onChange={(e) => set("locationRef", e.target.value)} placeholder="e.g. Unit 101, Floor 2, Wing A" />
+          <Input aria-label="Location Ref" value={form.locationRef} onChange={(e) => set("locationRef", e.target.value)} placeholder="e.g. Unit 101, Floor 2, Wing A" />
         </Field>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>

@@ -157,18 +157,18 @@ export function MobileCreateRaBillButton({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className={labelClass} style={labelStyle}>Period From *</label>
-                  <input type="date" value={periodFrom} onChange={(e) => setPeriodFrom(e.target.value)} className={inputClass} style={inputStyle} />
+                  <input aria-label="Period From" type="date" value={periodFrom} onChange={(e) => setPeriodFrom(e.target.value)} className={inputClass} style={inputStyle} />
                 </div>
                 <div>
                   <label className={labelClass} style={labelStyle}>Period To *</label>
-                  <input type="date" value={periodTo} onChange={(e) => setPeriodTo(e.target.value)} className={inputClass} style={inputStyle} />
+                  <input aria-label="Period To" type="date" value={periodTo} onChange={(e) => setPeriodTo(e.target.value)} className={inputClass} style={inputStyle} />
                 </div>
               </div>
 
               {/* Notes */}
               <div>
                 <label className={labelClass} style={labelStyle}>Notes (optional)</label>
-                <input
+                <input aria-label="Notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="e.g. RA Bill 1 — Ground floor brickwork"

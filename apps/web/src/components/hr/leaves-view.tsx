@@ -422,11 +422,11 @@ export function LeavesView({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Start date</Label>
-              <Input type="date" value={fStart} onChange={(e) => setFStart(e.target.value)} />
+              <Input aria-label="F Start" type="date" value={fStart} onChange={(e) => setFStart(e.target.value)} />
             </div>
             <div>
               <Label>End date</Label>
-              <Input type="date" value={fEnd} onChange={(e) => setFEnd(e.target.value)} />
+              <Input aria-label="F End" type="date" value={fEnd} onChange={(e) => setFEnd(e.target.value)} />
             </div>
           </div>
           <div>

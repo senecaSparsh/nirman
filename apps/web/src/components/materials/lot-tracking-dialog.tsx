@@ -176,19 +176,19 @@ export function LotTrackingDialog({
                     <Input value={form.lotNumber} onChange={(e) => set("lotNumber", e.target.value)} placeholder="LOT-001" required />
                   </Field>
                   <Field label="Batch Code">
-                    <Input value={form.batchCode} onChange={(e) => set("batchCode", e.target.value)} placeholder="Optional" />
+                    <Input aria-label="Batch Code" value={form.batchCode} onChange={(e) => set("batchCode", e.target.value)} placeholder="Optional" />
                   </Field>
                   <Field label="Received Date" required>
                     <Input type="date" value={form.receivedDate} onChange={(e) => set("receivedDate", e.target.value)} required />
                   </Field>
                   <Field label="Expiry Date">
-                    <Input type="date" value={form.expiryDate} onChange={(e) => set("expiryDate", e.target.value)} />
+                    <Input aria-label="Expiry Date" type="date" value={form.expiryDate} onChange={(e) => set("expiryDate", e.target.value)} />
                   </Field>
                   <Field label="Initial Quantity" required>
-                    <Input type="number" step="0.001" min="0" value={form.initialQty} onChange={(e) => set("initialQty", e.target.value)} placeholder="0" required />
+                    <Input aria-label="Initial Quantity" type="number" step="0.001" min="0" value={form.initialQty} onChange={(e) => set("initialQty", e.target.value)} placeholder="0" required />
                   </Field>
                   <Field label="Unit Cost">
-                    <Input type="number" step="0.01" min="0" value={form.unitCost} onChange={(e) => set("unitCost", e.target.value)} placeholder="0.00" />
+                    <Input aria-label="Unit Cost" type="number" step="0.01" min="0" value={form.unitCost} onChange={(e) => set("unitCost", e.target.value)} placeholder="0.00" />
                   </Field>
                   <Field label="Supplier">
                     <Select value={form.supplierId} onChange={(e) => set("supplierId", e.target.value)}>
@@ -199,7 +199,7 @@ export function LotTrackingDialog({
                     </Select>
                   </Field>
                   <Field label="Notes">
-                    <Input value={form.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Optional" />
+                    <Input aria-label="Notes" value={form.notes} onChange={(e) => set("notes", e.target.value)} placeholder="Optional" />
                   </Field>
                 </div>
                 <div className="flex justify-end gap-2">

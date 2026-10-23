@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Landmark, Loader2 } from "lucide-react";
+import { Landmark } from "lucide-react";
 import { BottomSheet } from "@/components/mobile/v2/bottom-sheet";
 
 /**
@@ -57,7 +57,7 @@ export function MobileOpeningBalanceButton() {
             </p>
             <label className="block space-y-1">
               <span className="text-m-caption font-medium" style={{ color: "var(--color-ink-700)" }}>Amount (₹) *</span>
-              <input
+              <input aria-label="Amount"
                 type="number"
                 inputMode="decimal"
                 min="0.01"

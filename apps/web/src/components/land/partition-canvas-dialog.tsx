@@ -181,7 +181,7 @@ export function PartitionCanvasDialog({
           </div>
           <div className="space-y-1">
             <Label className="text-caption text-muted-foreground">Development Cost (optional)</Label>
-            <Input
+            <Input aria-label="Development Cost"
               type="number"
               min={0}
               step="any"
@@ -213,7 +213,7 @@ export function PartitionCanvasDialog({
                         <Input
                           value={forms[idx]?.number ?? ""}
                           onChange={(e) => updateForm(idx, "number", e.target.value)}
-                          placeholder={`PLOT-${idx + 1}`}
+                          aria-label={`Plot ${idx + 1} number`} placeholder={`PLOT-${idx + 1}`}
                           required
                         />
                       </div>
@@ -225,7 +225,7 @@ export function PartitionCanvasDialog({
                       </div>
                       <div className="w-28 space-y-1">
                         <Label className="text-caption text-muted-foreground">Asking Price</Label>
-                        <Input
+                        <Input aria-label="S"
                           type="number"
                           min={0}
                           step="any"
@@ -238,7 +238,7 @@ export function PartitionCanvasDialog({
                       {allocationModel === "MARKET_VALUE" && !isInfra && (
                         <div className="w-20 space-y-1">
                           <Label className="text-caption text-muted-foreground">Weight</Label>
-                          <Input
+                          <Input aria-label="Weight"
                             type="number"
                             min={0}
                             step="any"

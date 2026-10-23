@@ -145,7 +145,7 @@ export function MobileWbsEditDialog({
               <label className={labelClass} style={labelStyle}>
                 Name <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
-              <input
+              <input aria-label="Name"
                 type="text"
                 value={form.name}
                 onChange={(e) => set("name", e.target.value)}
@@ -180,7 +180,7 @@ export function MobileWbsEditDialog({
                 <label className={labelClass} style={labelStyle}>
                   Planned Start
                 </label>
-                <input
+                <input aria-label="Planned Start"
                   type="date"
                   value={form.plannedStart}
                   onChange={(e) => set("plannedStart", e.target.value)}
@@ -192,7 +192,7 @@ export function MobileWbsEditDialog({
                 <label className={labelClass} style={labelStyle}>
                   Planned End
                 </label>
-                <input
+                <input aria-label="Planned End"
                   type="date"
                   value={form.plannedEnd}
                   onChange={(e) => set("plannedEnd", e.target.value)}
@@ -214,7 +214,7 @@ export function MobileWbsEditDialog({
                 <label className={labelClass} style={labelStyle}>
                   Actual Start
                 </label>
-                <input
+                <input aria-label="Actual Start"
                   type="date"
                   value={form.actualStart}
                   onChange={(e) => set("actualStart", e.target.value)}
@@ -226,7 +226,7 @@ export function MobileWbsEditDialog({
                 <label className={labelClass} style={labelStyle}>
                   Actual End
                 </label>
-                <input
+                <input aria-label="Actual End"
                   type="date"
                   value={form.actualEnd}
                   onChange={(e) => set("actualEnd", e.target.value)}
@@ -248,7 +248,7 @@ export function MobileWbsEditDialog({
                 <label className={labelClass} style={labelStyle}>
                   Progress %
                 </label>
-                <input
+                <input aria-label="Progress %"
                   type="number"
                   min={0}
                   max={100}

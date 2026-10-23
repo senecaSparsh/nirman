@@ -295,7 +295,7 @@ function MobileOnHandList({
 
       {/* ── Search + low-stock filter ── */}
       <div className="px-4 py-2 flex gap-2">
-        <input
+        <input aria-label="Search materials"
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}

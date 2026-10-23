@@ -452,7 +452,7 @@ export function BuiltUnitFormDialog({
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <div className="space-y-1">
                       <Label className="text-caption">Prefix</Label>
-                      <Input
+                      <Input aria-label="A-"
                         value={genPrefix}
                         onChange={(e) => setGenPrefix(e.target.value)}
                         placeholder="A-"
@@ -461,7 +461,7 @@ export function BuiltUnitFormDialog({
                     </div>
                     <div className="space-y-1">
                       <Label className="text-caption">Start No.</Label>
-                      <Input
+                      <Input aria-label="Gen Start"
                         type="number"
                         value={genStart}
                         onChange={(e) => setGenStart(e.target.value)}
@@ -471,7 +471,7 @@ export function BuiltUnitFormDialog({
                     </div>
                     <div className="space-y-1">
                       <Label className="text-caption">Count</Label>
-                      <Input
+                      <Input aria-label="Gen Count"
                         type="number"
                         value={genCount}
                         onChange={(e) => setGenCount(e.target.value)}
@@ -481,7 +481,7 @@ export function BuiltUnitFormDialog({
                     </div>
                     <div className="space-y-1">
                       <Label className="text-caption">Units / floor</Label>
-                      <Input
+                      <Input aria-label="Gen Floor Per Floor"
                         type="number"
                         value={genFloorPerFloor}
                         onChange={(e) => setGenFloorPerFloor(e.target.value)}
@@ -509,7 +509,7 @@ export function BuiltUnitFormDialog({
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <div className="space-y-1">
                       <Label className="text-caption">Wings</Label>
-                      <Input
+                      <Input aria-label="A,B,C"
                         value={genWings}
                         onChange={(e) => setGenWings(e.target.value)}
                         placeholder="A,B,C"
@@ -518,7 +518,7 @@ export function BuiltUnitFormDialog({
                     </div>
                     <div className="space-y-1">
                       <Label className="text-caption">Floor from</Label>
-                      <Input
+                      <Input aria-label="Gen Floor From"
                         type="number"
                         value={genFloorFrom}
                         onChange={(e) => setGenFloorFrom(e.target.value)}
@@ -528,7 +528,7 @@ export function BuiltUnitFormDialog({
                     </div>
                     <div className="space-y-1">
                       <Label className="text-caption">Floor to</Label>
-                      <Input
+                      <Input aria-label="Gen Floor To"
                         type="number"
                         value={genFloorTo}
                         onChange={(e) => setGenFloorTo(e.target.value)}
@@ -538,7 +538,7 @@ export function BuiltUnitFormDialog({
                     </div>
                     <div className="space-y-1">
                       <Label className="text-caption">Units / floor</Label>
-                      <Input
+                      <Input aria-label="Gen Units Per Floor"
                         type="number"
                         value={genUnitsPerFloor}
                         onChange={(e) => setGenUnitsPerFloor(e.target.value)}
@@ -591,7 +591,7 @@ export function BuiltUnitFormDialog({
                   </div>
                   <div className="col-span-3 space-y-1">
                     <Label className="text-caption">Unit No. *</Label>
-                    <Input
+                    <Input aria-label="Unit No."
                       value={row.unitNumber}
                       onChange={(e) => updateRow(idx, "unitNumber", e.target.value)}
                       placeholder="A-101"
@@ -601,7 +601,7 @@ export function BuiltUnitFormDialog({
                   </div>
                   <div className="col-span-2 space-y-1">
                     <Label className="text-caption">Floor</Label>
-                    <Input
+                    <Input aria-label="Floor"
                       type="number"
                       value={row.floor}
                       onChange={(e) => updateRow(idx, "floor", e.target.value)}
@@ -611,7 +611,7 @@ export function BuiltUnitFormDialog({
                   </div>
                   <div className="col-span-2 space-y-1">
                     <Label className="text-caption">Wing</Label>
-                    <Input
+                    <Input aria-label="Wing"
                       value={row.wing}
                       onChange={(e) => updateRow(idx, "wing", e.target.value)}
                       placeholder="A"
@@ -668,7 +668,7 @@ export function BuiltUnitFormDialog({
                   <div className={projectPhases.length > 0 ? "col-span-4 space-y-1" : "col-span-6 space-y-1"}>
                     <Label className="text-caption">Area *</Label>
                     <div className="flex gap-1">
-                      <Input
+                      <Input aria-label="Area"
                         type="number"
                         step="0.01"
                         value={row.area}
@@ -690,7 +690,7 @@ export function BuiltUnitFormDialog({
                   </div>
                   <div className={projectPhases.length > 0 ? "col-span-4 space-y-1" : "col-span-6 space-y-1"}>
                     <Label className="text-caption">Asking Price</Label>
-                    <Input
+                    <Input aria-label="Asking Price"
                       type="number"
                       step="0.01"
                       value={row.askingPrice}
@@ -709,7 +709,7 @@ export function BuiltUnitFormDialog({
                   <div className="mt-2 grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-3 space-y-1">
                       <Label className="text-caption">Carpet Area</Label>
-                      <Input
+                      <Input aria-label="RERA carpet"
                         type="number"
                         step="0.01"
                         value={row.carpetArea}
@@ -720,7 +720,7 @@ export function BuiltUnitFormDialog({
                     </div>
                     <div className="col-span-3 space-y-1">
                       <Label className="text-caption">Super Built-Up</Label>
-                      <Input
+                      <Input aria-label="Saleable area"
                         type="number"
                         step="0.01"
                         value={row.superBuiltUpArea}
@@ -731,7 +731,7 @@ export function BuiltUnitFormDialog({
                     </div>
                     <div className="col-span-3 space-y-1">
                       <Label className="text-caption">Balcony Area</Label>
-                      <Input
+                      <Input aria-label="Balcony Area"
                         type="number"
                         step="0.01"
                         value={row.balconyArea}
@@ -742,7 +742,7 @@ export function BuiltUnitFormDialog({
                     </div>
                     <div className="col-span-2 space-y-1">
                       <Label className="text-caption">Clear Height</Label>
-                      <Input
+                      <Input aria-label="Clear Height"
                         type="number"
                         step="0.01"
                         value={row.clearHeight}

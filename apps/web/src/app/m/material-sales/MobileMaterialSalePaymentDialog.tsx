@@ -135,7 +135,7 @@ export function MobileMaterialSalePaymentDialog({
                 </button>
               )}
             </div>
-            <input
+            <input aria-label="Pay Amount"
               type="text"
               inputMode="decimal"
               step="any"
@@ -162,7 +162,7 @@ export function MobileMaterialSalePaymentDialog({
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Buyer TDS deducted (optional)
             </label>
-            <input
+            <input aria-label="Ay TDS"
               type="text"
               inputMode="decimal"
               value={payTds}
@@ -191,7 +191,7 @@ export function MobileMaterialSalePaymentDialog({
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Reference no (optional)
             </label>
-            <input
+            <input aria-label="UTR / cheque no"
               type="text"
               value={payRef}
               onChange={(e) => setPayRef(e.target.value)}

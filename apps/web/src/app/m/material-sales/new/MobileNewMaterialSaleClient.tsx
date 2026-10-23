@@ -992,7 +992,7 @@ function SaleForm({
           >
             Party name (optional)
           </label>
-          <input
+          <input aria-label="Walk-in customer name on invoice"
             type="text"
             value={partyName}
             onChange={(e) => setPartyName(e.target.value)}
@@ -1119,7 +1119,7 @@ function SaleForm({
                           {`Qty${mat ? ` (${mat.unit})` : ""}`}
                         </span>
                       )}
-                      <input
+                      <input aria-label="Quantity"
                         type="text"
                         inputMode="decimal"
                         enterKeyHint="next"
@@ -1147,7 +1147,7 @@ function SaleForm({
                           Price
                         </span>
                       )}
-                      <input
+                      <input aria-label="Unit Price"
                         type="text"
                         inputMode="decimal"
                         enterKeyHint="next"
@@ -1245,7 +1245,7 @@ function SaleForm({
                     >
                       Payment{paymentSplits.length > 1 ? ` ${idx + 1}` : ""}:
                     </span>
-                    <input
+                    <input aria-label="Payment Splits"
                       type="text"
                       inputMode="decimal"
                       enterKeyHint="done"

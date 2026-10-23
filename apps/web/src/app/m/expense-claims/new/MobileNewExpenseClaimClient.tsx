@@ -395,7 +395,7 @@ export function MobileNewExpenseClaimClient({
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Category <span style={{ color: "var(--color-stop)" }}>*</span>
                 </label>
-                <input
+                <input aria-label="Category"
                   type="text"
                   list={`claim-categories-${idx}`}
                   value={line.category}
@@ -428,7 +428,7 @@ export function MobileNewExpenseClaimClient({
                   </label>
                   <div className="flex items-center border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)" }}>
                     <IndianRupee className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
-                    <input
+                    <input aria-label="Amount"
                       type="number"
                       min="0"
                       step="0.01"
@@ -445,7 +445,7 @@ export function MobileNewExpenseClaimClient({
                   <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                     Date
                   </label>
-                  <input
+                  <input aria-label="Date"
                     type="date"
                     value={line.date}
                     onChange={(e) => updateLine(idx, { date: e.target.value })}
@@ -461,7 +461,7 @@ export function MobileNewExpenseClaimClient({
                   <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                     GST %
                   </label>
-                  <input
+                  <input aria-label="GST %"
                     type="number"
                     min="0"
                     max="28"
@@ -478,7 +478,7 @@ export function MobileNewExpenseClaimClient({
                   <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                     Notes
                   </label>
-                  <input
+                  <input aria-label="Notes"
                     type="text"
                     value={line.notes}
                     onChange={(e) => updateLine(idx, { notes: e.target.value })}
@@ -492,7 +492,7 @@ export function MobileNewExpenseClaimClient({
               {/* Receipt photo */}
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <input
+                  <input aria-hidden="true" tabIndex={-1}
                     ref={(el) => { fileInputRefs.current[idx] = el; }}
                     type="file"
                     accept="image/*,application/pdf"

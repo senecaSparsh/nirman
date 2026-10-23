@@ -479,7 +479,7 @@ export function MobileLeadDetailClient({
                     <label className="text-m-caption font-bold block mb-0" style={{ color: "var(--color-ink-700)" }}>
                       Lost Reason *
                     </label>
-                    <input
+                    <input aria-label="Budget, location, competitor"
                       value={lostReason}
                       onChange={(e) => setLostReason(e.target.value)}
                       placeholder="Budget, location, competitor…"
@@ -677,7 +677,7 @@ function LogActivityForm({ leadId }: { leadId: string }) {
               <label className="text-m-caption font-bold uppercase mb-0 block" style={{ color: "var(--color-ink-700)" }}>
                 Outcome
               </label>
-              <input
+              <input aria-label="Outcome"
                 type="text"
                 value={outcome}
                 onChange={(e) => setOutcome(e.target.value)}
@@ -694,7 +694,7 @@ function LogActivityForm({ leadId }: { leadId: string }) {
               <label className="text-m-caption font-bold uppercase mb-0 block" style={{ color: "var(--color-ink-700)" }}>
                 Next Follow-up
               </label>
-              <input
+              <input aria-label="Next Follow Up"
                 type="date"
                 value={nextFollowUp}
                 onChange={(e) => setNextFollowUp(e.target.value)}

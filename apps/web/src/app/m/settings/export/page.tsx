@@ -204,7 +204,7 @@ export default function MobileExportPage() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-m-caption font-bold block mb-0" style={{ color: "var(--color-ink-700)" }}>From</label>
-                  <input
+                  <input aria-label="From"
                     type="date"
                     value={from}
                     onChange={(e) => setFrom(e.target.value)}
@@ -214,7 +214,7 @@ export default function MobileExportPage() {
                 </div>
                 <div>
                   <label className="text-m-caption font-bold block mb-0" style={{ color: "var(--color-ink-700)" }}>To</label>
-                  <input
+                  <input aria-label="To"
                     type="date"
                     value={to}
                     onChange={(e) => setTo(e.target.value)}

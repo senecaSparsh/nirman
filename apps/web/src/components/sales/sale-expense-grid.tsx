@@ -92,7 +92,7 @@ export function SaleExpenseGrid({
                 ))}
               </Select>
               {row.head === "OTHER" && (
-                <Input
+                <Input aria-label="Custom label (e.g. Fire NOC)"
                   className="mt-1 text-sm"
                   placeholder="Custom label (e.g. Fire NOC)"
                   value={row.label ?? ""}
@@ -100,7 +100,7 @@ export function SaleExpenseGrid({
                 />
               )}
             </div>
-            <Input
+            <Input aria-label="Amount"
               type="number"
               min="0"
               step="0.01"

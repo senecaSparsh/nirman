@@ -313,7 +313,7 @@ export function StatutoryPaymentsView({
               </Select>
             </Field>
             <Field label={kind === "TDS_REFUND" ? "Refund Received" : "Cash Paid"} required>
-              <Input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" required />
+              <Input aria-label="Amount" type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" required />
             </Field>
           </div>
           {selected && (
@@ -329,11 +329,11 @@ export function StatutoryPaymentsView({
               <Input type="month" value={period} onChange={(e) => setPeriod(e.target.value)} />
             </Field>
             <Field label="Reference No.">
-              <Input value={referenceNo} onChange={(e) => setReferenceNo(e.target.value)} placeholder="Challan / UTR" />
+              <Input aria-label="Challan / UTR" value={referenceNo} onChange={(e) => setReferenceNo(e.target.value)} placeholder="Challan / UTR" />
             </Field>
           </div>
           <Field label="Notes">
-            <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
+            <Input aria-label="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
           </Field>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setPayOpen(false)}>Cancel</Button>

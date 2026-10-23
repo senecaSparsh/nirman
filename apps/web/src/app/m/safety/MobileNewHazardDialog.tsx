@@ -120,12 +120,12 @@ export function MobileNewHazardForm({
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label className={labelClass} style={labelStyle}>Likelihood (1-5)</label>
-            <input type="range" min="1" max="5" value={form.likelihood} onChange={(e) => set("likelihood", e.target.value)} className="w-full" />
+            <input aria-label="Likelihood" type="range" min="1" max="5" value={form.likelihood} onChange={(e) => set("likelihood", e.target.value)} className="w-full" />
             <p className="text-m-caption text-center tabular-nums" style={{ color: "var(--color-ink-950)" }}>{lk} — {["", "Rare", "Unlikely", "Possible", "Likely", "Certain"][lk]}</p>
           </div>
           <div>
             <label className={labelClass} style={labelStyle}>Severity (1-5)</label>
-            <input type="range" min="1" max="5" value={form.severity} onChange={(e) => set("severity", e.target.value)} className="w-full" />
+            <input aria-label="Severity" type="range" min="1" max="5" value={form.severity} onChange={(e) => set("severity", e.target.value)} className="w-full" />
             <p className="text-m-caption text-center tabular-nums" style={{ color: "var(--color-ink-950)" }}>{sv} — {["", "Minor", "Moderate", "Serious", "Major", "Catastrophic"][sv]}</p>
           </div>
         </div>

@@ -483,11 +483,11 @@ function TransferDetailPanel({ transfer }: { transfer: TransferRow }) {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Challan Number</Label>
-              <Input value={challanNumber} onChange={(e) => setChallanNumber(e.target.value)} placeholder="Optional" />
+              <Input aria-label="Challan Number" value={challanNumber} onChange={(e) => setChallanNumber(e.target.value)} placeholder="Optional" />
             </div>
             <div className="space-y-1.5">
               <Label>Package Count</Label>
-              <Input type="number" value={packageCount} onChange={(e) => setPackageCount(e.target.value)} placeholder="Optional" />
+              <Input aria-label="Package Count" type="number" value={packageCount} onChange={(e) => setPackageCount(e.target.value)} placeholder="Optional" />
             </div>
           </div>
           <div className="flex justify-end gap-2 border-t border-border pt-3">
@@ -522,11 +522,11 @@ function TransferDetailPanel({ transfer }: { transfer: TransferRow }) {
           </div>
           <div className="space-y-1.5">
             <Label>Shortage Remarks</Label>
-            <Input value={shortageRemarks} onChange={(e) => setShortageRemarks(e.target.value)} placeholder="Any quantity shortages?" />
+            <Input aria-label="Shortage Remarks" value={shortageRemarks} onChange={(e) => setShortageRemarks(e.target.value)} placeholder="Any quantity shortages?" />
           </div>
           <div className="space-y-1.5">
             <Label>Damage Remarks</Label>
-            <Input value={damageRemarks} onChange={(e) => setDamageRemarks(e.target.value)} placeholder="Any damage during transit?" />
+            <Input aria-label="Damage Remarks" value={damageRemarks} onChange={(e) => setDamageRemarks(e.target.value)} placeholder="Any damage during transit?" />
           </div>
           <div className="flex justify-end gap-2 border-t border-border pt-3">
             <Button variant="outline" size="sm" onClick={() => setShowComplete(false)}>Cancel</Button>

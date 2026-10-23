@@ -247,13 +247,13 @@ export function PaymentPlanEditor({
         {items.map((item, i) => (
           <div key={i} className={isCLP ? "grid grid-cols-[24px_1fr_60px_100px_140px_24px] gap-2 items-center" : "grid grid-cols-[24px_1fr_60px_100px_120px_24px] gap-2 items-center"}>
             <span className="text-caption text-muted-foreground tnum text-right">{item.installmentNo}.</span>
-            <Input
+            <Input aria-label="Description"
               placeholder="Description"
               value={item.description}
               onChange={(e) => update(i, "description", e.target.value)}
               className="text-sm"
             />
-            <Input
+            <Input aria-label="Percentage"
               type="number"
               step="0.01"
               placeholder="%"
@@ -261,7 +261,7 @@ export function PaymentPlanEditor({
               onChange={(e) => update(i, "percentage", e.target.value)}
               className="text-sm tnum"
             />
-            <Input
+            <Input aria-label="Amount"
               type="number"
               step="0.01"
               placeholder="Amount"
@@ -284,7 +284,7 @@ export function PaymentPlanEditor({
                 ))}
               </Select>
             ) : (
-              <Input
+              <Input aria-label="Due Date"
                 type="date"
                 value={item.dueDate}
                 onChange={(e) => update(i, "dueDate", e.target.value)}

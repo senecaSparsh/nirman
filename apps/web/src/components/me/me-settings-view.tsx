@@ -219,7 +219,7 @@ export function MeSettingsView({ user, roleLabel, roleDescription, memberships }
           <div className="grid gap-4 sm:max-w-md">
             <div>
               <Label>Current Password</Label>
-              <Input
+              <Input aria-label="Password Form"
                 type="password"
                 value={passwordForm.currentPassword}
                 onChange={(e) => setPasswordForm((f) => ({ ...f, currentPassword: e.target.value }))}
@@ -229,7 +229,7 @@ export function MeSettingsView({ user, roleLabel, roleDescription, memberships }
             </div>
             <div>
               <Label>New Password</Label>
-              <Input
+              <Input aria-label="Password Form"
                 type="password"
                 value={passwordForm.newPassword}
                 onChange={(e) => setPasswordForm((f) => ({ ...f, newPassword: e.target.value }))}
@@ -239,7 +239,7 @@ export function MeSettingsView({ user, roleLabel, roleDescription, memberships }
             </div>
             <div>
               <Label>Confirm New Password</Label>
-              <Input
+              <Input aria-label="Password Form"
                 type="password"
                 value={passwordForm.confirmPassword}
                 onChange={(e) => setPasswordForm((f) => ({ ...f, confirmPassword: e.target.value }))}

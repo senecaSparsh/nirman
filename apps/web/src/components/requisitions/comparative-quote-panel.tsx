@@ -890,7 +890,7 @@ function EditQuoteDialog({
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="space-y-1.5">
           <Label>Landed Total (₹) *</Label>
-          <Input
+          <Input aria-label="Landed Total"
             type="number"
             min={0}
             step="0.01"
@@ -901,7 +901,7 @@ function EditQuoteDialog({
         </div>
         <div className="space-y-1.5">
           <Label>Valid Until</Label>
-          <Input
+          <Input aria-label="Valid Until"
             type="date"
             value={validUntil}
             onChange={(e) => setValidUntil(e.target.value)}
@@ -909,7 +909,7 @@ function EditQuoteDialog({
         </div>
         <div className="space-y-1.5">
           <Label>Lead Time (days)</Label>
-          <Input
+          <Input aria-label="Lead Time Days"
             type="number"
             min={0}
             value={leadTimeDays}
@@ -918,7 +918,7 @@ function EditQuoteDialog({
         </div>
         <div className="space-y-1.5">
           <Label>Payment Terms</Label>
-          <Input
+          <Input aria-label="Ayment Terms"
             value={paymentTerms}
             onChange={(e) => setPaymentTerms(e.target.value)}
             placeholder="e.g. 30 days credit"

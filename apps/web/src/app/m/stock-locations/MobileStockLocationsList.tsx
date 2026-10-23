@@ -404,7 +404,7 @@ function EditLocationDialog({
             <label className="text-m-caption font-medium" style={{ color: "var(--color-ink-600)" }}>
               Name *
             </label>
-            <input
+            <input aria-label="Name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className="w-full rounded-[0.625rem] border px-3 py-2.5 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
@@ -444,7 +444,7 @@ function EditLocationDialog({
             <label className="text-m-caption font-medium" style={{ color: "var(--color-ink-600)" }}>
               Geo-fence radius (m)
             </label>
-            <input
+            <input aria-label="Geo Radius"
               type="number"
               min="0"
               value={geoRadius}

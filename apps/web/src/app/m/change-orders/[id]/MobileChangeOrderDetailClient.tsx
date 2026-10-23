@@ -441,7 +441,7 @@ export function MobileChangeOrderDetailClient({
               </p>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Client Approval By *</label>
-                <input
+                <input aria-label="Client name (who approved)"
                   value={clientApprovedBy}
                   onChange={(e) => setClientApprovedBy(e.target.value)}
                   placeholder="Client name (who approved)"
@@ -476,7 +476,7 @@ export function MobileChangeOrderDetailClient({
               </p>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Title</label>
-                <input
+                <input aria-label="Title"
                   value={editForm.title}
                   onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
                   className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
@@ -525,7 +525,7 @@ export function MobileChangeOrderDetailClient({
               </p>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Schedule Delta (days)</label>
-                <input
+                <input aria-label="Schedule Delta Days"
                   type="number"
                   value={editForm.scheduleDeltaDays}
                   onChange={(e) => setEditForm({ ...editForm, scheduleDeltaDays: Number(e.target.value) })}
@@ -535,7 +535,7 @@ export function MobileChangeOrderDetailClient({
               </div>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Initiated By</label>
-                <input
+                <input aria-label="Who initiated this change order"
                   value={editForm.initiatedBy}
                   onChange={(e) => setEditForm({ ...editForm, initiatedBy: e.target.value })}
                   placeholder="Who initiated this change order"

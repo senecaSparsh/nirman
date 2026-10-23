@@ -216,7 +216,7 @@ export function MobileNewCompanyForm({
             <label className={labelClass} style={labelStyle}>
               GSTIN
             </label>
-            <input
+            <input aria-label="GSTIN"
               type="text"
               value={form.gstin}
               onChange={(e) => set("gstin", e.target.value.toUpperCase())}
@@ -230,7 +230,7 @@ export function MobileNewCompanyForm({
             <label className={labelClass} style={labelStyle}>
               PAN
             </label>
-            <input
+            <input aria-label="PAN"
               type="text"
               value={form.pan}
               onChange={(e) => set("pan", e.target.value.toUpperCase())}

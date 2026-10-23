@@ -164,7 +164,7 @@ export function MaterialSalePaymentFormDialog({
           <Field label="Amount" required error={errors.amount}>
             <div className="relative">
               <IndianRupee className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
+              <Input aria-label="Amount"
                 type="number"
                 step="0.01"
                 min="0"
@@ -179,7 +179,7 @@ export function MaterialSalePaymentFormDialog({
             </div>
           </Field>
           <Field label="Payment Date" required error={errors.paymentDate}>
-            <Input
+            <Input aria-label="Payment Date"
               type="date"
               value={paymentDate}
               onChange={(e) => { setPaymentDate(e.target.value); clearError("paymentDate"); }}
@@ -200,7 +200,7 @@ export function MaterialSalePaymentFormDialog({
             </Select>
           </Field>
           <Field label="Reference No.">
-            <Input
+            <Input aria-label="Reference No"
               value={referenceNo}
               onChange={(e) => setReferenceNo(e.target.value)}
               placeholder="UTR / Cheque no / Transaction ID"
@@ -212,7 +212,7 @@ export function MaterialSalePaymentFormDialog({
           <summary className="cursor-pointer text-caption text-muted-foreground">Buyer deducted TDS (B2B — 194Q/194C)? Tap to record</summary>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <Field label="TDS amount (₹)">
-              <Input type="number" step="0.01" min="0" value={tdsAmount} onChange={(e) => setTdsAmount(e.target.value)} placeholder="0.00" className="tnum" />
+              <Input aria-label="TDS Amount" type="number" step="0.01" min="0" value={tdsAmount} onChange={(e) => setTdsAmount(e.target.value)} placeholder="0.00" className="tnum" />
             </Field>
             <Field label="Section">
               <Select value={tdsSection} onChange={(e) => setTdsSection(e.target.value)}>

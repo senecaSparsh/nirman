@@ -261,18 +261,18 @@ function BrokerFormDialog({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="Name" required>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Rajesh Sharma" required />
+          <Input aria-label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Rajesh Sharma" required />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Phone">
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" />
+            <Input aria-label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" />
           </Field>
           <Field label="Agency">
-            <Input value={agency} onChange={(e) => setAgency(e.target.value)} placeholder="Sharma Properties" />
+            <Input aria-label="Sharma Properties" value={agency} onChange={(e) => setAgency(e.target.value)} placeholder="Sharma Properties" />
           </Field>
         </div>
         <Field label="Default Commission %" hint="Auto-fills commission on new deals using this broker">
-          <Input
+          <Input aria-label="Default Commission Percent"
             type="number"
             step="0.01"
             min="0"

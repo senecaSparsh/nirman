@@ -417,7 +417,7 @@ export function CallDetailView({
             </div>
             <div>
               <Label className="mb-1 block text-micro">Primary note</Label>
-              <Input
+              <Input aria-label="Call summary"
                 type="text"
                 value={notes2}
                 onChange={(e) => setNotes2(e.target.value)}
@@ -454,7 +454,7 @@ export function CallDetailView({
         </div>
         {canEdit && (
           <div className="flex gap-2">
-            <Input
+            <Input aria-label="Add a tag"
               type="text"
               value={newTag}
               onChange={(e) => setNewTag(e.target.value)}
@@ -487,7 +487,7 @@ export function CallDetailView({
         </div>
         {canEdit && (
           <div className="flex gap-2">
-            <Input
+            <Input aria-label="Add a note"
               type="text"
               value={newNote}
               onChange={(e) => setNewNote(e.target.value)}

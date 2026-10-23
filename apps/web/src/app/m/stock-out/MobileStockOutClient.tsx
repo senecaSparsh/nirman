@@ -952,7 +952,7 @@ export function MobileStockOutClient({
                     <label className={labelClass} style={labelStyle}>
                       Freight
                     </label>
-                    <input
+                    <input aria-label="Amount"
                       type="text"
                       inputMode="decimal"
                       value={freight}
@@ -966,7 +966,7 @@ export function MobileStockOutClient({
                     <label className={labelClass} style={labelStyle}>
                       Handling
                     </label>
-                    <input
+                    <input aria-label="Amount"
                       type="text"
                       inputMode="decimal"
                       value={handlingFee}
@@ -980,7 +980,7 @@ export function MobileStockOutClient({
                     <label className={labelClass} style={labelStyle}>
                       Markup %
                     </label>
-                    <input
+                    <input aria-label="Markup Pct"
                       type="text"
                       inputMode="decimal"
                       value={markupPct}
@@ -1029,7 +1029,7 @@ export function MobileStockOutClient({
                     <label className={labelClass} style={labelStyle}>
                       Name
                     </label>
-                    <input
+                    <input aria-label="Receiver Name"
                       type="text"
                       value={receiverName}
                       onChange={(e) => setReceiverName(e.target.value)}
@@ -1042,7 +1042,7 @@ export function MobileStockOutClient({
                     <label className={labelClass} style={labelStyle}>
                       Mobile
                     </label>
-                    <input
+                    <input aria-label="Receiver Mobile"
                       type="tel"
                       value={receiverMobile}
                       onChange={(e) => setReceiverMobile(e.target.value)}
@@ -1078,7 +1078,7 @@ export function MobileStockOutClient({
                 <label className={labelClass} style={labelStyle}>
                   e-Way Bill
                 </label>
-                <input
+                <input aria-label="Way Bill No"
                   type="text"
                   value={ewayBillNo}
                   onChange={(e) => setEwayBillNo(e.target.value)}
@@ -1175,7 +1175,7 @@ export function MobileStockOutClient({
                         <label className={labelClass} style={labelStyle}>
                           Qty{mat ? ` (${mat.unit})` : ""} <span style={{ color: "var(--color-stop)" }}>*</span>
                         </label>
-                        <input
+                        <input aria-label="Qty"
                           type="text"
                           inputMode="decimal"
                           enterKeyHint="next"

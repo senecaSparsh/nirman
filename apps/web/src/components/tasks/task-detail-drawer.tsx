@@ -659,7 +659,7 @@ function StepsTab({ detail, canEdit, onChanged }: {
       {/* Add step */}
       {canEdit && (
         <div className="mt-3 flex items-center gap-2">
-          <Input
+          <Input aria-label="Add a step"
             value={newStep}
             onChange={(e) => setNewStep(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") addStep(); }}

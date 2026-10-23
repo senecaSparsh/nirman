@@ -376,11 +376,11 @@ function OverviewTab({ data, canManage }: { data: CompanyProfileData; canManage:
           <form onSubmit={save} className="space-y-4 max-w-lg">
             <div className="space-y-1.5">
               <Label>Company Name *</Label>
-              <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
+              <Input aria-label="Name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5"><Label>GSTIN</Label><Input value={form.gstin} onChange={(e) => setForm((f) => ({ ...f, gstin: e.target.value }))} /></div>
-              <div className="space-y-1.5"><Label>PAN</Label><Input value={form.pan} onChange={(e) => setForm((f) => ({ ...f, pan: e.target.value }))} /></div>
+              <div className="space-y-1.5"><Label>GSTIN</Label><Input aria-label="GSTIN" value={form.gstin} onChange={(e) => setForm((f) => ({ ...f, gstin: e.target.value }))} /></div>
+              <div className="space-y-1.5"><Label>PAN</Label><Input aria-label="PAN" value={form.pan} onChange={(e) => setForm((f) => ({ ...f, pan: e.target.value }))} /></div>
             </div>
             <div className="space-y-1.5">
               <Label hint="Pick a suggestion or use GPS — verified addresses only">Address</Label>
@@ -399,12 +399,12 @@ function OverviewTab({ data, canManage }: { data: CompanyProfileData; canManage:
             {(form.lat != null && form.lng != null) && (
               <div className="space-y-1.5">
                 <Label hint="Default: 500m — used as the check-in geo-fence for staff without an assigned site">Geo-fence radius (m)</Label>
-                <Input type="number" min="10" value={form.geoRadius} onChange={(e) => setForm((f) => ({ ...f, geoRadius: e.target.value }))} placeholder="500" />
+                <Input aria-label="Geo-fence radius (m)" type="number" min="10" value={form.geoRadius} onChange={(e) => setForm((f) => ({ ...f, geoRadius: e.target.value }))} placeholder="500" />
               </div>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5"><Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+91 98765 43210" /></div>
-              <div className="space-y-1.5"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} /></div>
+              <div className="space-y-1.5"><Label>Phone</Label><Input aria-label="Phone" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+91 98765 43210" /></div>
+              <div className="space-y-1.5"><Label>Email</Label><Input aria-label="Email" type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} /></div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5"><Label>Currency</Label>
@@ -412,7 +412,7 @@ function OverviewTab({ data, canManage }: { data: CompanyProfileData; canManage:
                   {["INR", "USD", "EUR", "GBP", "AED"].map((c) => <option key={c} value={c}>{c}</option>)}
                 </Select>
               </div>
-              <div className="space-y-1.5"><Label>Business Type</Label><Input value={form.businessType} onChange={(e) => setForm((f) => ({ ...f, businessType: e.target.value }))} placeholder="Real Estate, Rice Milling…" /></div>
+              <div className="space-y-1.5"><Label>Business Type</Label><Input aria-label="Real Estate, Rice Milling" value={form.businessType} onChange={(e) => setForm((f) => ({ ...f, businessType: e.target.value }))} placeholder="Real Estate, Rice Milling…" /></div>
             </div>
             <div className="flex gap-2">
               <Button type="submit" disabled={saving}>{saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />} Save</Button>
@@ -579,7 +579,7 @@ function MembersTab({
           <form onSubmit={addMember} className="flex flex-wrap items-end gap-2 rounded-md border border-dashed p-3">
             <div className="space-y-1">
               <Label className="text-micro">Email</Label>
-              <Input type="email" value={addEmail} onChange={(e) => setAddEmail(e.target.value)} placeholder="user@example.com" className="h-8 w-56" />
+              <Input aria-label="Email" type="email" value={addEmail} onChange={(e) => setAddEmail(e.target.value)} placeholder="user@example.com" className="h-8 w-56" />
             </div>
             <div className="space-y-1">
               <Label className="text-micro">Role</Label>
@@ -833,9 +833,9 @@ function HierarchyTab({ data, canManage }: { data: CompanyProfileData; canManage
         {creating && (
           <form onSubmit={createChild} className="rounded-md border border-dashed p-4 space-y-3 max-w-lg">
             <div className="text-caption font-medium">New child company under {data.name}</div>
-            <div className="space-y-1.5"><Label>Name *</Label><Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required /></div>
+            <div className="space-y-1.5"><Label>Name *</Label><Input aria-label="Name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5"><Label>Business Type</Label><Input value={form.businessType} onChange={(e) => setForm((f) => ({ ...f, businessType: e.target.value }))} /></div>
+              <div className="space-y-1.5"><Label>Business Type</Label><Input aria-label="Business Type" value={form.businessType} onChange={(e) => setForm((f) => ({ ...f, businessType: e.target.value }))} /></div>
               <div className="space-y-1.5"><Label>Currency</Label>
                 <Select aria-label="Currency" value={form.currency} onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}>
                   {["INR", "USD", "EUR", "GBP", "AED"].map((c) => <option key={c} value={c}>{c}</option>)}
@@ -843,8 +843,8 @@ function HierarchyTab({ data, canManage }: { data: CompanyProfileData; canManage
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5"><Label>GSTIN</Label><Input value={form.gstin} onChange={(e) => setForm((f) => ({ ...f, gstin: e.target.value }))} /></div>
-              <div className="space-y-1.5"><Label>PAN</Label><Input value={form.pan} onChange={(e) => setForm((f) => ({ ...f, pan: e.target.value }))} /></div>
+              <div className="space-y-1.5"><Label>GSTIN</Label><Input aria-label="GSTIN" value={form.gstin} onChange={(e) => setForm((f) => ({ ...f, gstin: e.target.value }))} /></div>
+              <div className="space-y-1.5"><Label>PAN</Label><Input aria-label="PAN" value={form.pan} onChange={(e) => setForm((f) => ({ ...f, pan: e.target.value }))} /></div>
             </div>
             <div className="space-y-1.5">
               <Label hint="Pick a suggestion or use GPS">Address</Label>
@@ -1056,22 +1056,22 @@ function PolicyTab({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Minimum length</Label>
-                <Input type="number" min={4} max={128} value={pw.passwordMinLength} disabled={!canManage}
+                <Input aria-label="Password Min Length" type="number" min={4} max={128} value={pw.passwordMinLength} disabled={!canManage}
                   onChange={(e) => setPw((f) => ({ ...f, passwordMinLength: Number(e.target.value) }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>Expiry (days, 0 = never)</Label>
-                <Input type="number" min={0} value={pw.passwordExpiryDays} disabled={!canManage}
+                <Input aria-label="Password Expiry Days" type="number" min={0} value={pw.passwordExpiryDays} disabled={!canManage}
                   onChange={(e) => setPw((f) => ({ ...f, passwordExpiryDays: Number(e.target.value) }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>Lockout threshold (failed attempts)</Label>
-                <Input type="number" min={1} max={50} value={pw.accountLockoutThreshold} disabled={!canManage}
+                <Input aria-label="Account Lockout Threshold" type="number" min={1} max={50} value={pw.accountLockoutThreshold} disabled={!canManage}
                   onChange={(e) => setPw((f) => ({ ...f, accountLockoutThreshold: Number(e.target.value) }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>Lockout duration (minutes)</Label>
-                <Input type="number" min={1} max={1440} value={pw.accountLockoutDurationMin} disabled={!canManage}
+                <Input aria-label="Account Lockout Duration Min" type="number" min={1} max={1440} value={pw.accountLockoutDurationMin} disabled={!canManage}
                   onChange={(e) => setPw((f) => ({ ...f, accountLockoutDurationMin: Number(e.target.value) }))} />
               </div>
             </div>
@@ -1114,7 +1114,7 @@ function PolicyTab({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Retention (days)</Label>
-                <Input type="number" min={0} value={rec.recordingRetentionDays} disabled={!canManageTelephony}
+                <Input aria-label="Recording Retention Days" type="number" min={0} value={rec.recordingRetentionDays} disabled={!canManageTelephony}
                   onChange={(e) => setRec((f) => ({ ...f, recordingRetentionDays: Number(e.target.value) }))} />
               </div>
               <div className="space-y-1.5">
@@ -1222,7 +1222,7 @@ function ProcurementTab({ data, canManage }: { data: CompanyProfileData; canMana
         <form onSubmit={save} className="space-y-4">
           <div className="space-y-1.5">
             <Label>LCI Threshold Default (%)</Label>
-            <Input type="number" min={0} max={100} step="any" value={form.lciThresholdDefault || ""} disabled={!canManage}
+            <Input aria-label="LCI threshold default" type="number" min={0} max={100} step="any" value={form.lciThresholdDefault || ""} disabled={!canManage}
               onChange={(e) => setForm((f) => ({ ...f, lciThresholdDefault: e.target.value === "" ? 0 : Number(e.target.value) }))}
               placeholder="e.g. 2" />
             <p className="text-caption text-muted-foreground">Default Low-Cost Item threshold for projects without an explicit override. Items below this % of project budget are auto-procured without a PO.</p>
@@ -1230,14 +1230,14 @@ function ProcurementTab({ data, canManage }: { data: CompanyProfileData; canMana
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>PO Approval — Manager Threshold ({data.currency})</Label>
-              <Input type="number" min={0} value={form.poApprovalThresholdManager || ""} disabled={!canManage}
+              <Input aria-label="None" type="number" min={0} value={form.poApprovalThresholdManager || ""} disabled={!canManage}
                 onChange={(e) => setForm((f) => ({ ...f, poApprovalThresholdManager: e.target.value === "" ? 0 : Number(e.target.value) }))}
                 placeholder="50000" />
               <p className="text-caption text-muted-foreground">POs below this can be approved by a Manager.</p>
             </div>
             <div className="space-y-1.5">
               <Label>PO Approval — Admin Threshold ({data.currency})</Label>
-              <Input type="number" min={0} value={form.poApprovalThresholdAdmin || ""} disabled={!canManage}
+              <Input aria-label="None" type="number" min={0} value={form.poApprovalThresholdAdmin || ""} disabled={!canManage}
                 onChange={(e) => setForm((f) => ({ ...f, poApprovalThresholdAdmin: e.target.value === "" ? 0 : Number(e.target.value) }))}
                 placeholder="500000" />
               <p className="text-caption text-muted-foreground">POs at or above this require the Owner.</p>
@@ -1257,7 +1257,7 @@ function ProcurementTab({ data, canManage }: { data: CompanyProfileData; canMana
           <div className="flex items-end gap-2">
             <div className="flex-1 space-y-1.5">
               <Label>PO Amount</Label>
-              <Input type="number" min={0} value={previewAmount} onChange={(e) => setPreviewAmount(e.target.value)} placeholder="75000" />
+              <Input aria-label="Review Amount" type="number" min={0} value={previewAmount} onChange={(e) => setPreviewAmount(e.target.value)} placeholder="75000" />
             </div>
           </div>
           {amount > 0 && (

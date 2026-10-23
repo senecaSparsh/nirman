@@ -236,7 +236,7 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
               </p>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Title</label>
-                <input value={editForm.title} onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                <input aria-label="Title" value={editForm.title} onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
               </div>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Description</label>
@@ -263,11 +263,11 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
               <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
                   <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Date</label>
-                  <input type="date" value={editForm.incidentDate} onChange={(e) => setEditForm((f) => ({ ...f, incidentDate: e.target.value }))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                  <input aria-label="Incident Date" type="date" value={editForm.incidentDate} onChange={(e) => setEditForm((f) => ({ ...f, incidentDate: e.target.value }))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
                 </div>
                 <div className="pl-2">
                   <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Time</label>
-                  <input type="time" value={editForm.incidentTime} onChange={(e) => setEditForm((f) => ({ ...f, incidentTime: e.target.value }))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                  <input aria-label="Incident Time" type="time" value={editForm.incidentTime} onChange={(e) => setEditForm((f) => ({ ...f, incidentTime: e.target.value }))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
                 </div>
               </div>
             </div>
@@ -277,24 +277,24 @@ export function MobileIncidentDetailClient({ incident, canManage }: { incident: 
               </p>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Location</label>
-                <input value={editForm.location} onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))} placeholder="Where did it happen?" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                <input aria-label="Edit Form" value={editForm.location} onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))} placeholder="Where did it happen?" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
               </div>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>People Involved</label>
-                <input value={editForm.peopleInvolved} onChange={(e) => setEditForm((f) => ({ ...f, peopleInvolved: e.target.value }))} placeholder="Names of people involved" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                <input aria-label="Names of people involved" value={editForm.peopleInvolved} onChange={(e) => setEditForm((f) => ({ ...f, peopleInvolved: e.target.value }))} placeholder="Names of people involved" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
               </div>
               <div className="grid grid-cols-3 gap-1.5">
                 <div>
                   <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Injured</label>
-                  <input type="number" min={0} value={editForm.injuredCount} onChange={(e) => setEditForm((f) => ({ ...f, injuredCount: e.target.value }))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                  <input aria-label="Injured Count" type="number" min={0} value={editForm.injuredCount} onChange={(e) => setEditForm((f) => ({ ...f, injuredCount: e.target.value }))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
                 </div>
                 <div>
                   <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Fatalities</label>
-                  <input type="number" min={0} value={editForm.fatalities} onChange={(e) => setEditForm((f) => ({ ...f, fatalities: e.target.value }))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                  <input aria-label="Fatalities" type="number" min={0} value={editForm.fatalities} onChange={(e) => setEditForm((f) => ({ ...f, fatalities: e.target.value }))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
                 </div>
                 <div>
                   <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Damage ₹</label>
-                  <input type="number" min={0} value={editForm.propertyDamageEstimate} onChange={(e) => setEditForm((f) => ({ ...f, propertyDamageEstimate: e.target.value }))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                  <input aria-label="Property Damage Estimate" type="number" min={0} value={editForm.propertyDamageEstimate} onChange={(e) => setEditForm((f) => ({ ...f, propertyDamageEstimate: e.target.value }))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
                 </div>
               </div>
             </div>
@@ -322,5 +322,3 @@ function ActionButton({ onClick, loading, icon: Icon, label, variant }: { onClic
     </button>
   );
 }
-
-

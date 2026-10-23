@@ -48,13 +48,13 @@ export function AcceptButton({ token }: { token: string }) {
 
   return (
     <div className="space-y-2">
-      <input
+      <input aria-label="Full name (signature)"
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Full name (signature)"
         className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-green-500"
       />
-      <input
+      <input aria-label="Phone number"
         value={phone}
         onChange={(e) => setPhone(e.target.value)}
         placeholder="Phone number (optional)"

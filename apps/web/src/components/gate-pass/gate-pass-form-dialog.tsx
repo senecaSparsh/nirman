@@ -237,7 +237,7 @@ export function GatePassFormDialog({
                           <option key={m.id} value={m.id}>{m.code} · {m.name}</option>
                         ))}
                       </Select>
-                      <Input
+                      <Input aria-label="Description (for non-material items)"
                         value={l.description}
                         onChange={(e) => setLine(l.id, "description", e.target.value)}
                         placeholder="Description (for non-material items)"
@@ -245,10 +245,10 @@ export function GatePassFormDialog({
                       />
                     </td>
                     <td className="px-2 py-1.5">
-                      <Input type="number" min="0" step="any" value={l.qty} onChange={(e) => setLine(l.id, "qty", e.target.value)} className="h-8 text-caption text-right" placeholder="0" />
+                      <Input aria-label="Line" type="number" min="0" step="any" value={l.qty} onChange={(e) => setLine(l.id, "qty", e.target.value)} className="h-8 text-caption text-right" placeholder="0" />
                     </td>
                     <td className="px-2 py-1.5">
-                      <Input value={l.unit} onChange={(e) => setLine(l.id, "unit", e.target.value)} className="h-8 text-caption" placeholder="unit" />
+                      <Input aria-label="unit" value={l.unit} onChange={(e) => setLine(l.id, "unit", e.target.value)} className="h-8 text-caption" placeholder="unit" />
                     </td>
                     <td className="px-2 py-1.5 text-center">
                       <button type="button" onClick={() => removeLine(l.id)} className="text-muted-foreground hover:text-danger" title="Remove">

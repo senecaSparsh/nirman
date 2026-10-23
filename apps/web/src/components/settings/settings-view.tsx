@@ -427,7 +427,7 @@ export function SettingsView({
                     {companyForm.lat != null && companyForm.lng != null && (
                       <div className="space-y-1.5">
                         <Label hint="Default: 500m — check-in geo-fence for staff without an assigned site">Geo-fence radius (m)</Label>
-                        <Input
+                        <Input aria-label="Company Form"
                           type="number"
                           min="10"
                           value={companyForm.geoRadius != null ? String(companyForm.geoRadius) : ""}
@@ -465,7 +465,7 @@ export function SettingsView({
                       </div>
                       <div className="space-y-1.5">
                         <Label>LCI Threshold Default (%)</Label>
-                        <Input
+                        <Input aria-label="Company Form"
                           type="number"
                           min={0}
                           max={100}
@@ -481,7 +481,7 @@ export function SettingsView({
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                           <Label>PO Approval — Manager Threshold (₹)</Label>
-                          <Input
+                          <Input aria-label="Company Form"
                             type="number"
                             min={0}
                             value={companyForm.poApprovalThresholdManager ?? ""}
@@ -492,7 +492,7 @@ export function SettingsView({
                         </div>
                         <div className="space-y-1.5">
                           <Label>PO Approval — Admin Threshold (₹)</Label>
-                          <Input
+                          <Input aria-label="Company Form"
                             type="number"
                             min={0}
                             value={companyForm.poApprovalThresholdAdmin ?? ""}
@@ -504,7 +504,7 @@ export function SettingsView({
                       </div>
                       <div className="space-y-1.5">
                         <Label>Approval aging threshold (hours)</Label>
-                        <Input
+                        <Input aria-label="Company Form"
                           type="number"
                           min={1}
                           max={336}
@@ -528,7 +528,7 @@ export function SettingsView({
                       <div className="flex items-end gap-2">
                         <div className="flex-1 space-y-1.5">
                           <Label>PO Amount</Label>
-                          <Input
+                          <Input aria-label="Review Amount"
                             type="number"
                             min={0}
                             value={previewAmount}
@@ -642,7 +642,7 @@ export function SettingsView({
           </div>
           <div className="space-y-1.5">
             <Label>Name *</Label>
-            <Input value={locForm.name} onChange={(e) => setLocForm((f) => ({ ...f, name: e.target.value }))} required />
+            <Input aria-label="Name" value={locForm.name} onChange={(e) => setLocForm((f) => ({ ...f, name: e.target.value }))} required />
           </div>
           {locForm.type === "PROJECT_SITE" && (
             <div className="space-y-1.5">
@@ -675,7 +675,7 @@ export function SettingsView({
           </div>
           <div className="space-y-1.5">
             <Label>Geo-fence Radius (metres)</Label>
-            <Input type="number" min="0" value={locForm.geoRadius} onChange={(e) => setLocForm((f) => ({ ...f, geoRadius: e.target.value }))} placeholder="Default: 500" />
+            <Input aria-label="Loc Form" type="number" min="0" value={locForm.geoRadius} onChange={(e) => setLocForm((f) => ({ ...f, geoRadius: e.target.value }))} placeholder="Default: 500" />
             <p className="text-caption text-muted-foreground">GPS-tagged receipts are flagged if received outside this radius from the location center.</p>
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -706,29 +706,29 @@ export function SettingsView({
         <form onSubmit={saveSubcontractor} className="space-y-3">
           <div className="space-y-1.5">
             <Label>Name *</Label>
-            <Input value={subForm.name} onChange={(e) => setSubForm((f) => ({ ...f, name: e.target.value }))} required />
+            <Input aria-label="Name" value={subForm.name} onChange={(e) => setSubForm((f) => ({ ...f, name: e.target.value }))} required />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Trade</Label>
-              <Input value={subForm.trade} onChange={(e) => setSubForm((f) => ({ ...f, trade: e.target.value }))} placeholder="Plumbing" />
+              <Input aria-label="Plumbing" value={subForm.trade} onChange={(e) => setSubForm((f) => ({ ...f, trade: e.target.value }))} placeholder="Plumbing" />
             </div>
             <div className="space-y-1.5">
               <Label>Phone</Label>
-              <Input value={subForm.phone} onChange={(e) => setSubForm((f) => ({ ...f, phone: e.target.value }))} />
+              <Input aria-label="Phone" value={subForm.phone} onChange={(e) => setSubForm((f) => ({ ...f, phone: e.target.value }))} />
             </div>
           </div>
           <div className="space-y-1.5">
             <Label>Email</Label>
-            <Input value={subForm.email} onChange={(e) => setSubForm((f) => ({ ...f, email: e.target.value }))} />
+            <Input aria-label="Email" value={subForm.email} onChange={(e) => setSubForm((f) => ({ ...f, email: e.target.value }))} />
           </div>
           <div className="space-y-1.5">
             <Label>GSTIN</Label>
-            <Input value={subForm.gstin} onChange={(e) => setSubForm((f) => ({ ...f, gstin: e.target.value }))} />
+            <Input aria-label="GSTIN" value={subForm.gstin} onChange={(e) => setSubForm((f) => ({ ...f, gstin: e.target.value }))} />
           </div>
           <div className="space-y-1.5">
             <Label>Address</Label>
-            <Input value={subForm.address} onChange={(e) => setSubForm((f) => ({ ...f, address: e.target.value }))} />
+            <Input aria-label="Address" value={subForm.address} onChange={(e) => setSubForm((f) => ({ ...f, address: e.target.value }))} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => setSubFormOpen(false)}>Cancel</Button>
@@ -758,26 +758,26 @@ export function SettingsView({
         <form onSubmit={saveEmployee} className="space-y-3">
           <div className="space-y-1.5">
             <Label>Name *</Label>
-            <Input value={empForm.name} onChange={(e) => setEmpForm((f) => ({ ...f, name: e.target.value }))} required />
+            <Input aria-label="Name" value={empForm.name} onChange={(e) => setEmpForm((f) => ({ ...f, name: e.target.value }))} required />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Trade</Label>
-              <Input value={empForm.trade} onChange={(e) => setEmpForm((f) => ({ ...f, trade: e.target.value }))} placeholder="Masonry" />
+              <Input aria-label="Masonry" value={empForm.trade} onChange={(e) => setEmpForm((f) => ({ ...f, trade: e.target.value }))} placeholder="Masonry" />
             </div>
             <div className="space-y-1.5">
               <Label>Phone</Label>
-              <Input value={empForm.phone} onChange={(e) => setEmpForm((f) => ({ ...f, phone: e.target.value }))} />
+              <Input aria-label="Phone" value={empForm.phone} onChange={(e) => setEmpForm((f) => ({ ...f, phone: e.target.value }))} />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Email</Label>
-              <Input value={empForm.email} onChange={(e) => setEmpForm((f) => ({ ...f, email: e.target.value }))} />
+              <Input aria-label="Email" value={empForm.email} onChange={(e) => setEmpForm((f) => ({ ...f, email: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
               <Label>Daily Rate</Label>
-              <Input type="number" min="0" step="0.01" value={empForm.dailyRate} onChange={(e) => setEmpForm((f) => ({ ...f, dailyRate: e.target.value }))} placeholder="0" />
+              <Input aria-label="Emp Form" type="number" min="0" step="0.01" value={empForm.dailyRate} onChange={(e) => setEmpForm((f) => ({ ...f, dailyRate: e.target.value }))} placeholder="0" />
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -1124,7 +1124,7 @@ function UsersManager({ users, actorRole, companyId, projects, departments, mana
       {users.length > 10 && (
         <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
+          <Input aria-label="Ser Search"
             type="text"
             placeholder="Search by name, email, phone, role, unit…"
             value={userSearch}
@@ -1584,30 +1584,30 @@ function EditUserProfileDialog({
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="space-y-1.5">
           <Label>Name *</Label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} required />
+          <Input aria-label="Name" value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
         <div className="space-y-1.5">
           <Label>Phone</Label>
-          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-digit mobile" />
+          <Input aria-label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-digit mobile" />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Designation</Label>
-            <Input value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="e.g. Site Engineer" />
+            <Input aria-label="Designation" value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="e.g. Site Engineer" />
           </div>
           <div className="space-y-1.5">
             <Label>Org Unit</Label>
-            <Input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. Construction" />
+            <Input aria-label="Department" value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. Construction" />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Employee Code</Label>
-            <Input value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} placeholder="e.g. SRG-FIN-0001" />
+            <Input aria-label="Mployee Code" value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} placeholder="e.g. SRG-FIN-0001" />
           </div>
           <div className="space-y-1.5">
             <Label>Joining Date</Label>
-            <Input type="date" value={joiningDate} onChange={(e) => setJoiningDate(e.target.value)} />
+            <Input aria-label="Joining Date" type="date" value={joiningDate} onChange={(e) => setJoiningDate(e.target.value)} />
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">
@@ -1731,7 +1731,7 @@ function CreateCustomRoleDialog({
 
         <div className="space-y-1.5">
           <Label>Role Key *</Label>
-          <Input
+          <Input aria-label="Key"
             value={key}
             onChange={(e) => setKey(e.target.value)}
             placeholder="e.g. SALES_LEAD"
@@ -1744,7 +1744,7 @@ function CreateCustomRoleDialog({
 
         <div className="space-y-1.5">
           <Label>Display Label *</Label>
-          <Input
+          <Input aria-label="Label"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="e.g. Sales Lead"
@@ -1753,7 +1753,7 @@ function CreateCustomRoleDialog({
 
         <div className="space-y-1.5">
           <Label>Description</Label>
-          <Input
+          <Input aria-label="Optional description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Optional description"

@@ -175,7 +175,7 @@ export function MobileNewSupplierClient({
             <label className={labelClass} style={labelStyle}>
               Name <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
-            <input
+            <input aria-label="Name"
               type="text"
               value={form.name}
               onChange={(e) => set("name", e.target.value)}
@@ -198,7 +198,7 @@ export function MobileNewSupplierClient({
             <label className={labelClass} style={labelStyle}>
               GSTIN
             </label>
-            <input
+            <input aria-label="GSTIN"
               type="text"
               value={form.gstin}
               onChange={(e) => set("gstin", e.target.value.toUpperCase())}
@@ -216,7 +216,7 @@ export function MobileNewSupplierClient({
               <label className={labelClass} style={labelStyle}>
                 Phone
               </label>
-              <input
+              <input aria-label="Phone"
                 type="tel"
                 value={form.phone}
                 onChange={(e) => set("phone", e.target.value)}

@@ -743,7 +743,7 @@ function GeneratePayrollDialog({
           </div>
           <div>
             <Label>Year</Label>
-            <Input type="number" value={year} onChange={(e) => setYear(parseInt(e.target.value))} min="2000" max="2100" />
+            <Input aria-label="Year" type="number" value={year} onChange={(e) => setYear(parseInt(e.target.value))} min="2000" max="2100" />
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-2 border-t border-border">
@@ -1014,7 +1014,7 @@ function PayrollDetailDialog({
                     <TD className="tnum">{formatCurrency(l.basicAmount)}</TD>
                     <TD className="tnum">
                       {isEditing ? (
-                        <Input type="number" value={editOvertime} onChange={(e) => setEditOvertime(e.target.value)} className="h-7 w-16 px-1 text-caption" step="0.01" min="0" />
+                        <Input aria-label="Edit Overtime" type="number" value={editOvertime} onChange={(e) => setEditOvertime(e.target.value)} className="h-7 w-16 px-1 text-caption" step="0.01" min="0" />
                       ) : formatCurrency(l.overtimeAmount)}
                     </TD>
                     <TD className="tnum">{formatCurrency(isEditing ? preview.allowance : l.allowance)}</TD>
@@ -1076,6 +1076,7 @@ function PayrollDetailDialog({
                                         <div className="flex items-center gap-1">
                                           <Input
                                             type="number"
+                                            aria-label="Quantity"
                                             value={c.quantity ?? 0}
                                             onChange={(e) => setEditComponents((prev) => prev.map((p, i) => i === idx ? { ...p, quantity: parseFloat(e.target.value) || 0 } : p))}
                                             className="h-6 w-16 px-1 text-micro"
@@ -1087,7 +1088,7 @@ function PayrollDetailDialog({
                                         <span className="text-muted-foreground">× {c.quantity ?? 0} {(c.unitType === "CUSTOM" ? c.unitLabel : c.unitType?.toLowerCase()) ?? "units"}</span>
                                       ) : isEditing ? (
                                         <div className="flex items-center gap-1">
-                                          <Input
+                                          <Input aria-label="Rate"
                                             type="number"
                                             value={c.rate}
                                             onChange={(e) => setEditComponents((prev) => prev.map((p, i) => i === idx ? { ...p, rate: parseFloat(e.target.value) || 0 } : p))}
@@ -1126,7 +1127,7 @@ function PayrollDetailDialog({
                               {addType === "OTHER" && (
                                 <div>
                                   <div className="text-micro text-muted-foreground mb-0.5">Label</div>
-                                  <Input value={addLabel} onChange={(e) => setAddLabel(e.target.value)} placeholder="e.g. Site allowance" className="h-7 w-32 text-caption" />
+                                  <Input aria-label="Label" value={addLabel} onChange={(e) => setAddLabel(e.target.value)} placeholder="e.g. Site allowance" className="h-7 w-32 text-caption" />
                                 </div>
                               )}
                               <div>
@@ -1139,7 +1140,7 @@ function PayrollDetailDialog({
                               </div>
                               <div>
                                 <div className="text-micro text-muted-foreground mb-0.5">{addCalc === "PERCENTAGE_OF_BASIC" ? "%" : addCalc === "UNIT_RATE" ? "Rate ₹" : "Amount ₹"}</div>
-                                <Input type="number" value={addRate} onChange={(e) => setAddRate(e.target.value)} className="h-7 w-20 text-caption" step="0.01" min="0" />
+                                <Input aria-label="Add Rate" type="number" value={addRate} onChange={(e) => setAddRate(e.target.value)} className="h-7 w-20 text-caption" step="0.01" min="0" />
                               </div>
                               {addCalc === "UNIT_RATE" && (
                                 <>
@@ -1155,7 +1156,7 @@ function PayrollDetailDialog({
                                   </div>
                                   <div>
                                     <div className="text-micro text-muted-foreground mb-0.5">Qty</div>
-                                    <Input type="number" value={addQty} onChange={(e) => setAddQty(e.target.value)} className="h-7 w-16 text-caption" step="0.01" min="0" />
+                                    <Input aria-label="Add Quantity" type="number" value={addQty} onChange={(e) => setAddQty(e.target.value)} className="h-7 w-16 text-caption" step="0.01" min="0" />
                                   </div>
                                 </>
                               )}
@@ -1185,7 +1186,7 @@ function PayrollDetailDialog({
                                 <option value="CHEQUE">Cheque</option>
                                 <option value="CASH">Cash</option>
                               </Select>
-                              <Input
+                              <Input aria-label="Pay Ref By Line"
                                 value={payRefByLine[l.id] ?? l.paymentReference ?? ""}
                                 onChange={(e) => setPayRefByLine((prev) => ({ ...prev, [l.id]: e.target.value }))}
                                 placeholder="UTR / Cheque / Ref no."

@@ -490,7 +490,7 @@ export function MobileExpenseClaimDetailClient({
                 </label>
                 <div className="flex items-center border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)" }}>
                   <IndianRupee className="size-3 shrink-0" style={{ color: "var(--color-ink-500)" }} />
-                  <input
+                  <input aria-label="Line Form"
                     type="number"
                     min="0"
                     step="0.01"
@@ -507,7 +507,7 @@ export function MobileExpenseClaimDetailClient({
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Date
                 </label>
-                <input
+                <input aria-label="Date"
                   type="date"
                   value={lineForm.date}
                   onChange={(e) => setLineForm((f) => ({ ...f, date: e.target.value }))}
@@ -523,7 +523,7 @@ export function MobileExpenseClaimDetailClient({
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   GST %
                 </label>
-                <input
+                <input aria-label="Line Form"
                   type="number"
                   min="0"
                   max="28"
@@ -540,7 +540,7 @@ export function MobileExpenseClaimDetailClient({
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Notes
                 </label>
-                <input
+                <input aria-label="Notes"
                   type="text"
                   value={lineForm.notes}
                   onChange={(e) => setLineForm((f) => ({ ...f, notes: e.target.value }))}
@@ -553,7 +553,7 @@ export function MobileExpenseClaimDetailClient({
 
             {/* Receipt photo */}
             <div className="flex items-center gap-2 mb-3">
-              <input
+              <input aria-hidden="true" tabIndex={-1}
                 ref={fileInputRef}
                 type="file"
                 accept="image/*,application/pdf"
@@ -674,7 +674,7 @@ export function MobileExpenseClaimDetailClient({
             <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-steel)" }}>
               Reference no. (optional)
             </label>
-            <input
+            <input aria-label="UTR / cheque no"
               value={payRef}
               onChange={(e) => setPayRef(e.target.value)}
               placeholder="UTR / cheque no."

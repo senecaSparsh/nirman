@@ -137,7 +137,7 @@ export function MobileStandardConsumptionActions({
                 <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
                     <label className={labelClass} style={labelStyle}>Work Type *</label>
-                    <input value={workType} onChange={(e) => setWorkType(e.target.value)} placeholder="e.g. Foundation, Plastering" className={inputClass} style={inputStyle} />
+                    <input aria-label="Work Type" value={workType} onChange={(e) => setWorkType(e.target.value)} placeholder="e.g. Foundation, Plastering" className={inputClass} style={inputStyle} />
                   </div>
                   <div className="pl-2">
                     <label className={labelClass} style={labelStyle}>Material *</label>
@@ -156,16 +156,16 @@ export function MobileStandardConsumptionActions({
                 <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
                     <label className={labelClass} style={labelStyle}>Standard Qty</label>
-                    <input type="number" step="any" inputMode="decimal" value={standardQty} onChange={(e) => setStandardQty(e.target.value)} className={inputClass} style={inputStyle} />
+                    <input aria-label="Standard Quantity" type="number" step="any" inputMode="decimal" value={standardQty} onChange={(e) => setStandardQty(e.target.value)} className={inputClass} style={inputStyle} />
                   </div>
                   <div className="pl-2">
                     <label className={labelClass} style={labelStyle}>Base Qty</label>
-                    <input type="number" step="any" inputMode="decimal" value={baseQty} onChange={(e) => setBaseQty(e.target.value)} className={inputClass} style={inputStyle} />
+                    <input aria-label="Base Quantity" type="number" step="any" inputMode="decimal" value={baseQty} onChange={(e) => setBaseQty(e.target.value)} className={inputClass} style={inputStyle} />
                   </div>
                 </div>
                 <div>
                   <label className={labelClass} style={labelStyle}>Unit of Measure</label>
-                  <input value={unitOfMeasure} onChange={(e) => setUnitOfMeasure(e.target.value)} placeholder="e.g. sqft, cum, rmt" className={inputClass} style={inputStyle} />
+                  <input aria-label="Nit Of Measure" value={unitOfMeasure} onChange={(e) => setUnitOfMeasure(e.target.value)} placeholder="e.g. sqft, cum, rmt" className={inputClass} style={inputStyle} />
                 </div>
               </div>
               <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>

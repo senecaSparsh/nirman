@@ -496,7 +496,7 @@ export function WbsView({ projects, canEdit }: { projects: Project[]; canEdit: b
           {tree.length > 0 && (
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <input
+              <input aria-label="Search code or name"
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -1206,7 +1206,7 @@ function WbsFormDialog({
           </Field>
         </div>
         <Field label="Name" required>
-          <Input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Excavation" required />
+          <Input aria-label="Name" value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Excavation" required />
         </Field>
         <Field label="Description">
           <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} />
@@ -1217,10 +1217,10 @@ function WbsFormDialog({
           <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2">Schedule</div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Planned Start">
-              <Input type="date" value={form.plannedStart} onChange={(e) => set("plannedStart", e.target.value)} />
+              <Input aria-label="Planned Start" type="date" value={form.plannedStart} onChange={(e) => set("plannedStart", e.target.value)} />
             </Field>
             <Field label="Planned End">
-              <Input type="date" value={form.plannedEnd} onChange={(e) => set("plannedEnd", e.target.value)} />
+              <Input aria-label="Planned End" type="date" value={form.plannedEnd} onChange={(e) => set("plannedEnd", e.target.value)} />
             </Field>
           </div>
           {form.plannedStart && form.plannedEnd && (
@@ -1643,7 +1643,7 @@ function WbsDetailDialog({ node, onClose, canEdit, allNodes, onReload, projectId
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] uppercase text-muted-foreground">Lag</label>
-                  <input
+                  <input aria-label="Lag Days"
                     type="number"
                     className="w-full h-8 rounded-md border border-border bg-background px-2 text-sm"
                     value={depForm.lagDays}

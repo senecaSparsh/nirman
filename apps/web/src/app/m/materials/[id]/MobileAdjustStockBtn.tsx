@@ -320,7 +320,7 @@ export function MobileAdjustStockBtn({
                 >
                   Quantity
                 </label>
-                <input
+                <input aria-label="Quantity"
                   type="number"
                   step="any"
                   min="0"
@@ -340,7 +340,7 @@ export function MobileAdjustStockBtn({
                   >
                     Unit Cost
                   </label>
-                  <input
+                  <input aria-label="Unit Cost"
                     type="number"
                     step="0.01"
                     min="0"
@@ -404,7 +404,7 @@ export function MobileAdjustStockBtn({
               >
                 Reason
               </label>
-              <input
+              <input aria-label="Reason"
                 type="text"
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}

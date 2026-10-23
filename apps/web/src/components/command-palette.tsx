@@ -391,7 +391,7 @@ export function CommandPalette({ userRole = "PROJECT_MANAGER", permissions }: { 
       <div className="relative w-full max-w-lg overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
         <div className="flex items-center gap-3 border-b border-border px-4 py-3.5">
           <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <input
+          <input aria-label="Search or jump to"
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}

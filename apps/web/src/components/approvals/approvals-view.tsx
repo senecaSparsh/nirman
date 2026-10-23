@@ -292,7 +292,7 @@ export function ApprovalsView({
       <Toolbar attached={false}>
         <div className="relative flex-1 sm:max-w-xs">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by no, supplier, project…" className="pl-8" />
+          <Input aria-label="Search by no, supplier, project" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by no, supplier, project…" className="pl-8" />
         </div>
         <Button variant="outline" size="icon" onClick={() => router.refresh()} title="Refresh">
           <RefreshCw className="h-4 w-4" />

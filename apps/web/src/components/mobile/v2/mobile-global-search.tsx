@@ -281,7 +281,7 @@ export function MobileGlobalSearch({ open, onClose }: { open: boolean; onClose: 
             className="absolute left-3 top-1/2 -translate-y-1/2 size-4"
             style={{ color: "var(--color-ink-400)" }}
           />
-          <input
+          <input aria-label="Query"
             ref={inputRef}
             type="text"
             value={query}

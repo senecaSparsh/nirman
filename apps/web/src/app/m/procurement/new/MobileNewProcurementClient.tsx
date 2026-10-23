@@ -830,7 +830,7 @@ function PoForm({
                       <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                         Qty{mat ? ` (${mat.unit})` : ""}
                       </label>
-                      <input
+                      <input aria-label="Qty"
                         type="text" inputMode="decimal"
                         step="any"
                         min="0"
@@ -845,7 +845,7 @@ function PoForm({
                       <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                         Unit Cost
                       </label>
-                      <input
+                      <input aria-label="Cost"
                         type="text" inputMode="decimal"
                         step="any"
                         min="0"
@@ -873,7 +873,7 @@ function PoForm({
                       <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                         GST %
                       </label>
-                      <input
+                      <input aria-label="GST %"
                         type="text" inputMode="decimal"
                         step="any"
                         min="0"
@@ -940,7 +940,7 @@ function PoForm({
                     <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                       Heading
                     </label>
-                    <input
+                    <input aria-label="Charges"
                       type="text"
                       value={charge.heading}
                       onChange={(e) => {
@@ -959,7 +959,7 @@ function PoForm({
                     </label>
                     <div className="flex items-center gap-1">
                       <span className="text-m-caption font-bold shrink-0" style={{ color: "var(--color-ink-700)" }}>₹</span>
-                      <input
+                      <input aria-label="Amount"
                         type="text"
                         inputMode="decimal"
                         value={charge.amount}

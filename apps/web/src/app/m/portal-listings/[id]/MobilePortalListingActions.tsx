@@ -272,7 +272,7 @@ export function MobilePortalListingActions({
                 </p>
                 <div>
                   <label className={labelClass} style={labelStyle}>Title *</label>
-                  <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className={inputClass} style={inputStyle} />
+                  <input aria-label="Edit Title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className={inputClass} style={inputStyle} />
                 </div>
                 <div>
                   <label className={labelClass} style={labelStyle}>Description</label>
@@ -280,7 +280,7 @@ export function MobilePortalListingActions({
                 </div>
                 <div>
                   <label className={labelClass} style={labelStyle}>Asking Price (₹) *</label>
-                  <input type="number" min="0" inputMode="numeric" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} className={inputClass} style={inputStyle} />
+                  <input aria-label="Edit Price" type="number" min="0" inputMode="numeric" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} className={inputClass} style={inputStyle} />
                 </div>
               </div>
               <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
@@ -290,16 +290,16 @@ export function MobilePortalListingActions({
                 <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
                     <label className={labelClass} style={labelStyle}>Bedrooms</label>
-                    <input type="number" min="0" max="10" inputMode="numeric" value={editBeds} onChange={(e) => setEditBeds(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                    <input aria-label="Beds" type="number" min="0" max="10" inputMode="numeric" value={editBeds} onChange={(e) => setEditBeds(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
                   </div>
                   <div className="pl-2">
                     <label className={labelClass} style={labelStyle}>Bathrooms</label>
-                    <input type="number" min="0" max="10" inputMode="numeric" value={editBaths} onChange={(e) => setEditBaths(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                    <input aria-label="Baths" type="number" min="0" max="10" inputMode="numeric" value={editBaths} onChange={(e) => setEditBaths(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
                   </div>
                 </div>
                 <div>
                   <label className={labelClass} style={labelStyle}>Furnishing</label>
-                  <input value={editFurnishing} onChange={(e) => setEditFurnishing(e.target.value)} placeholder="e.g. Semi-furnished" className={inputClass} style={inputStyle} />
+                  <input aria-label="Furnishing" value={editFurnishing} onChange={(e) => setEditFurnishing(e.target.value)} placeholder="e.g. Semi-furnished" className={inputClass} style={inputStyle} />
                 </div>
               </div>
               <div className="flex gap-2 pt-1">

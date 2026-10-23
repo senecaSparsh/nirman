@@ -140,7 +140,7 @@ export function MobileBoqEditDialog({
                 <label className={labelClass} style={labelStyle}>
                   Serial No. <span style={{ color: "var(--color-stop)" }}>*</span>
                 </label>
-                <input
+                <input aria-label="Serial No"
                   type="text"
                   value={form.serialNo}
                   onChange={(e) => set("serialNo", e.target.value)}
@@ -152,7 +152,7 @@ export function MobileBoqEditDialog({
                 <label className={labelClass} style={labelStyle}>
                   Description <span style={{ color: "var(--color-stop)" }}>*</span>
                 </label>
-                <input
+                <input aria-label="Description"
                   type="text"
                   value={form.description}
                   onChange={(e) => set("description", e.target.value)}
@@ -174,7 +174,7 @@ export function MobileBoqEditDialog({
                   <label className={labelClass} style={labelStyle}>
                     Unit <span style={{ color: "var(--color-stop)" }}>*</span>
                   </label>
-                  <input
+                  <input aria-label="CUM"
                     type="text"
                     value={form.unit}
                     onChange={(e) => set("unit", e.target.value)}
@@ -187,7 +187,7 @@ export function MobileBoqEditDialog({
                   <label className={labelClass} style={labelStyle}>
                     Qty <span style={{ color: "var(--color-stop)" }}>*</span>
                   </label>
-                  <input
+                  <input aria-label="Estimated Quantity"
                     type="number"
                     min={0.001}
                     step="any"
@@ -202,7 +202,7 @@ export function MobileBoqEditDialog({
                   <label className={labelClass} style={labelStyle}>
                     Rate (₹) <span style={{ color: "var(--color-stop)" }}>*</span>
                   </label>
-                  <input
+                  <input aria-label="Rate"
                     type="number"
                     min={0}
                     step="any"

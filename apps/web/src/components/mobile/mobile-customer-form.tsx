@@ -144,7 +144,7 @@ export function MobileCustomerForm({
       <form onSubmit={onSubmit} className="flex flex-col gap-3">
         {/* ── Name ── */}
         <FormField label="Customer name" required>
-          <input
+          <input aria-label="Name"
             type="text"
             value={form.name}
             onChange={(e) => set("name", e.target.value)}
@@ -161,7 +161,7 @@ export function MobileCustomerForm({
         {/* ── Phone + Email ── */}
         <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
           <FormField label="Phone" required>
-            <input
+            <input aria-label="Phone"
               type="tel"
               value={form.phone}
               onChange={(e) => set("phone", e.target.value)}
@@ -183,7 +183,7 @@ export function MobileCustomerForm({
             )}
           </FormField>
           <FormField label="Email">
-            <input
+            <input aria-label="Email"
               type="email"
               value={form.email}
               onChange={(e) => set("email", e.target.value)}
@@ -198,7 +198,7 @@ export function MobileCustomerForm({
 
         {/* ── GSTIN ── */}
         <FormField label="GSTIN">
-          <input
+          <input aria-label="GSTIN"
             type="text"
             value={form.gstin}
             onChange={(e) => set("gstin", e.target.value.toUpperCase())}
@@ -359,7 +359,7 @@ export function MobileCreateCustomerButton({
         <BottomSheet title="New Customer" onClose={close}>
           <form onSubmit={onSubmit} className="flex flex-col gap-3">
             <FormField label="Name" required>
-              <input
+              <input aria-label="Name"
                 type="text"
                 value={form.name}
                 onChange={(e) => set("name", e.target.value)}
@@ -374,7 +374,7 @@ export function MobileCreateCustomerButton({
             </FormField>
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
               <FormField label="Phone" required>
-                <input
+                <input aria-label="Phone"
                   type="tel"
                   value={form.phone}
                   onChange={(e) => set("phone", e.target.value)}
@@ -396,7 +396,7 @@ export function MobileCreateCustomerButton({
                 )}
               </FormField>
               <FormField label="Email">
-                <input
+                <input aria-label="Email"
                   type="email"
                   value={form.email}
                   onChange={(e) => set("email", e.target.value)}
@@ -409,7 +409,7 @@ export function MobileCreateCustomerButton({
               </FormField>
             </div>
             <FormField label="GSTIN">
-              <input
+              <input aria-label="GSTIN"
                 type="text"
                 value={form.gstin}
                 onChange={(e) => set("gstin", e.target.value.toUpperCase())}

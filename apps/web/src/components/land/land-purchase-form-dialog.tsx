@@ -215,17 +215,17 @@ export function LandPurchaseFormDialog({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Seller Name *</Label>
-            <Input value={form.sellerName} onChange={(e) => set("sellerName", e.target.value)} placeholder="e.g. Suresh Patel" required />
+            <Input aria-label="Seller Name" value={form.sellerName} onChange={(e) => set("sellerName", e.target.value)} placeholder="e.g. Suresh Patel" required />
           </div>
           <div className="space-y-1.5">
             <Label>Seller Contact</Label>
-            <Input value={form.sellerContact} onChange={(e) => set("sellerContact", e.target.value)} placeholder="98765 43210" />
+            <Input aria-label="Seller Contact" value={form.sellerContact} onChange={(e) => set("sellerContact", e.target.value)} placeholder="98765 43210" />
           </div>
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div className="col-span-2 space-y-1.5">
             <Label className={errors.totalArea ? "text-danger" : undefined}>Total Area *</Label>
-            <Input type="number" min={0} step="any" value={form.totalArea} onChange={(e) => set("totalArea", e.target.value)} onBlur={() => onBlur("totalArea")} placeholder="e.g. 12000" required aria-invalid={!!errors.totalArea} className={errors.totalArea ? errorBorder : undefined} />
+            <Input aria-label="Total Area" type="number" min={0} step="any" value={form.totalArea} onChange={(e) => set("totalArea", e.target.value)} onBlur={() => onBlur("totalArea")} placeholder="e.g. 12000" required aria-invalid={!!errors.totalArea} className={errors.totalArea ? errorBorder : undefined} />
             {errors.totalArea && <p className="text-caption text-danger" role="alert">{errors.totalArea}</p>}
           </div>
           <div className="space-y-1.5">
@@ -243,7 +243,7 @@ export function LandPurchaseFormDialog({
         </div>
         <div className="space-y-1.5">
           <Label className={errors.totalCost ? "text-danger" : undefined}>Total Cost (₹) *</Label>
-          <Input type="number" min={0} step="any" value={form.totalCost} onChange={(e) => set("totalCost", e.target.value)} onBlur={() => onBlur("totalCost")} placeholder="e.g. 5000000" required aria-invalid={!!errors.totalCost} className={errors.totalCost ? errorBorder : undefined} />
+          <Input aria-label="Total Cost (₹)" type="number" min={0} step="any" value={form.totalCost} onChange={(e) => set("totalCost", e.target.value)} onBlur={() => onBlur("totalCost")} placeholder="e.g. 5000000" required aria-invalid={!!errors.totalCost} className={errors.totalCost ? errorBorder : undefined} />
           {errors.totalCost && <p className="text-caption text-danger" role="alert">{errors.totalCost}</p>}
           {/* Compact impact strip — cost per sqft + GL destination */}
           {Number(form.totalCost) > 0 && Number(form.totalArea) > 0 && (
@@ -261,11 +261,11 @@ export function LandPurchaseFormDialog({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Registry No.</Label>
-            <Input value={form.registryNo} onChange={(e) => set("registryNo", e.target.value)} placeholder="Sale deed / registry number" />
+            <Input aria-label="Sale deed / registry number" value={form.registryNo} onChange={(e) => set("registryNo", e.target.value)} placeholder="Sale deed / registry number" />
           </div>
           <div className="space-y-1.5">
             <Label>Purchase Date</Label>
-            <Input type="date" value={form.purchaseDate} onChange={(e) => set("purchaseDate", e.target.value)} />
+            <Input aria-label="Purchase Date" type="date" value={form.purchaseDate} onChange={(e) => set("purchaseDate", e.target.value)} />
           </div>
         </div>
         <div className="space-y-1.5">
@@ -295,7 +295,7 @@ export function LandPurchaseFormDialog({
         {!editing && (
           <div className="space-y-1.5">
             <Label className={errors.initialParcelNumber ? "text-danger" : undefined}>Initial Parcel Number</Label>
-            <Input value={form.initialParcelNumber} onChange={(e) => set("initialParcelNumber", e.target.value)} onBlur={() => onBlur("initialParcelNumber")} placeholder="PLOT-1 (default)" aria-invalid={!!errors.initialParcelNumber} className={errors.initialParcelNumber ? errorBorder : undefined} />
+            <Input aria-label="Initial Parcel Number" value={form.initialParcelNumber} onChange={(e) => set("initialParcelNumber", e.target.value)} onBlur={() => onBlur("initialParcelNumber")} placeholder="PLOT-1 (default)" aria-invalid={!!errors.initialParcelNumber} className={errors.initialParcelNumber ? errorBorder : undefined} />
             {errors.initialParcelNumber && <p className="text-caption text-danger" role="alert">{errors.initialParcelNumber}</p>}
           </div>
         )}

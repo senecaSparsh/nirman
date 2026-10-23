@@ -252,7 +252,7 @@ export function SupplierPaymentFormDialog({
           <Field label="Amount" required error={errors.amount}>
             <div className="relative">
               <IndianRupee className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
+              <Input aria-label="Amount"
                 type="number"
                 step="0.01"
                 min="0"
@@ -276,7 +276,7 @@ export function SupplierPaymentFormDialog({
             )}
           </Field>
           <Field label="Payment Date" required error={errors.paymentDate}>
-            <Input
+            <Input aria-label="Payment Date"
               type="date"
               value={paymentDate}
               onChange={(e) => setPaymentDate(e.target.value)}
@@ -300,7 +300,7 @@ export function SupplierPaymentFormDialog({
             </Select>
           </Field>
           <Field label="Reference No.">
-            <Input
+            <Input aria-label="Reference No"
               value={referenceNo}
               onChange={(e) => setReferenceNo(e.target.value)}
               placeholder="UTR / Cheque no / Transaction ID"
@@ -336,7 +336,7 @@ export function SupplierPaymentFormDialog({
             <Field label="TDS Amount">
               <div className="relative">
                 <IndianRupee className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
+                <Input aria-label="TDS Amount"
                   type="number"
                   step="0.01"
                   min="0"

@@ -395,7 +395,7 @@ function MobilePayDialog({
             <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
               Amount (₹) *
             </label>
-            <input
+            <input aria-label="Amount"
               type="number"
               step="0.01"
               min="0"
@@ -422,7 +422,7 @@ function MobilePayDialog({
               <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
                 Payment Date *
               </label>
-              <input
+              <input aria-label="Payment Date"
                 type="date"
                 value={paymentDate}
                 onChange={(e) => setPaymentDate(e.target.value)}
@@ -453,7 +453,7 @@ function MobilePayDialog({
             <label className="text-m-caption font-semibold block mb-1" style={{ color: "var(--color-ink-500)" }}>
               Reference No.
             </label>
-            <input
+            <input aria-label="UTR / Cheque no"
               type="text"
               value={referenceNo}
               onChange={(e) => setReferenceNo(e.target.value)}
@@ -473,7 +473,7 @@ function MobilePayDialog({
               TDS Deduction (optional)
             </p>
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-              <input
+              <input aria-label="TDS amount"
                 type="number"
                 step="0.01"
                 min="0"
@@ -690,7 +690,7 @@ function MobileAddLineDialog({
               >
                 Quantity *
               </label>
-              <input
+              <input aria-label="Quantity"
                 type="number"
                 step="0.001"
                 min="0"
@@ -709,7 +709,7 @@ function MobileAddLineDialog({
               >
                 Unit cost (₹) *
               </label>
-              <input
+              <input aria-label="Nit Cost"
                 type="number"
                 step="0.01"
                 min="0"

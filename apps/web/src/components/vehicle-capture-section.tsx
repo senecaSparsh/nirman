@@ -126,7 +126,7 @@ export function VehicleCaptureSection({
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="relative">
           <Field label="Vehicle Number">
-            <input
+            <input aria-label="Show Suggestions"
               ref={inputRef}
               type="text"
               value={value.vehicleNumber}
@@ -172,7 +172,7 @@ export function VehicleCaptureSection({
       {/* Driver + phone */}
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Driver Name">
-          <Input
+          <Input aria-label="Driver name"
             type="text"
             value={value.driverName ?? ""}
             onChange={(e) => onChange({ ...value, driverName: e.target.value })}
@@ -180,7 +180,7 @@ export function VehicleCaptureSection({
           />
         </Field>
         <Field label="Driver Phone">
-          <Input
+          <Input aria-label="Driver phone"
             type="tel"
             value={value.driverPhone ?? ""}
             onChange={(e) => onChange({ ...value, driverPhone: e.target.value })}
@@ -246,7 +246,7 @@ function VehiclePhotoButton({ uploading, onUpload }: { uploading: boolean; onUpl
           </>
         )}
       </Button>
-      <input
+      <input aria-label="Upload vehicle photo"
         ref={inputRef}
         type="file"
         accept="image/*"

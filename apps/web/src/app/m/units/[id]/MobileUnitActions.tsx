@@ -271,7 +271,7 @@ export function MobileUnitActions({
                   </div>
                   <div className="pl-2">
                     <label className={labelClass} style={labelStyle}>Area *</label>
-                    <input type="number" step="any" min="0" inputMode="decimal" value={area} onChange={(e) => setArea(e.target.value)} className={inputClass} style={inputStyle} />
+                    <input aria-label="Area" type="number" step="any" min="0" inputMode="decimal" value={area} onChange={(e) => setArea(e.target.value)} className={inputClass} style={inputStyle} />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
@@ -288,12 +288,12 @@ export function MobileUnitActions({
                   </div>
                   <div className="pl-2">
                     <label className={labelClass} style={labelStyle}>Floor</label>
-                    <input type="number" inputMode="numeric" value={floor} onChange={(e) => setFloor(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                    <input aria-label="Floor" type="number" inputMode="numeric" value={floor} onChange={(e) => setFloor(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
                   </div>
                 </div>
                 <div>
                   <label className={labelClass} style={labelStyle}>Wing</label>
-                  <input value={wing} onChange={(e) => setWing(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                  <input aria-label="Wing" value={wing} onChange={(e) => setWing(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
                 </div>
               </div>
               <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
@@ -302,7 +302,7 @@ export function MobileUnitActions({
                 </p>
                 <div>
                   <label className={labelClass} style={labelStyle}>Asking Price (₹)</label>
-                  <input type="number" min="0" inputMode="numeric" value={askingPrice} onChange={(e) => setAskingPrice(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                  <input aria-label="Asking Price" type="number" min="0" inputMode="numeric" value={askingPrice} onChange={(e) => setAskingPrice(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
                 </div>
               </div>
               <div className="rounded-[0.625rem] border p-3 flex flex-col gap-3" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}>
@@ -312,21 +312,21 @@ export function MobileUnitActions({
                 <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
                     <label className={labelClass} style={labelStyle}>Carpet Area</label>
-                    <input type="number" step="any" min="0" inputMode="decimal" value={carpetArea} onChange={(e) => setCarpetArea(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                    <input aria-label="Arpet Area" type="number" step="any" min="0" inputMode="decimal" value={carpetArea} onChange={(e) => setCarpetArea(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
                   </div>
                   <div className="pl-2">
                     <label className={labelClass} style={labelStyle}>Super Built-Up</label>
-                    <input type="number" step="any" min="0" inputMode="decimal" value={superBuiltUpArea} onChange={(e) => setSuperBuiltUpArea(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                    <input aria-label="Super Built Up Area" type="number" step="any" min="0" inputMode="decimal" value={superBuiltUpArea} onChange={(e) => setSuperBuiltUpArea(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
                     <label className={labelClass} style={labelStyle}>Balcony Area</label>
-                    <input type="number" step="any" min="0" inputMode="decimal" value={balconyArea} onChange={(e) => setBalconyArea(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                    <input aria-label="Balcony Area" type="number" step="any" min="0" inputMode="decimal" value={balconyArea} onChange={(e) => setBalconyArea(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
                   </div>
                   <div className="pl-2">
                     <label className={labelClass} style={labelStyle}>Clear Height</label>
-                    <input type="number" step="any" min="0" inputMode="decimal" value={clearHeight} onChange={(e) => setClearHeight(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                    <input aria-label="Lear Height" type="number" step="any" min="0" inputMode="decimal" value={clearHeight} onChange={(e) => setClearHeight(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
                   </div>
                 </div>
                 <label className="flex items-center gap-2 text-m-body" style={{ color: "var(--color-ink-700)" }}>
@@ -383,11 +383,11 @@ export function MobileUnitActions({
                 <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
                     <label className={labelClass} style={labelStyle}>Asking Price (₹)</label>
-                    <input type="number" min="0" inputMode="numeric" value={valAskingPrice} onChange={(e) => setValAskingPrice(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
+                    <input aria-label="Val Asking Price" type="number" min="0" inputMode="numeric" value={valAskingPrice} onChange={(e) => setValAskingPrice(e.target.value)} placeholder="—" className={inputClass} style={inputStyle} />
                   </div>
                   <div className="pl-2">
                     <label className={labelClass} style={labelStyle}>Current Valuation (₹)</label>
-                    <input type="number" min="0" inputMode="numeric" value={valCurrentValuation} onChange={(e) => setValCurrentValuation(e.target.value)} className={inputClass} style={inputStyle} />
+                    <input aria-label="Val Current Valuation" type="number" min="0" inputMode="numeric" value={valCurrentValuation} onChange={(e) => setValCurrentValuation(e.target.value)} className={inputClass} style={inputStyle} />
                   </div>
                 </div>
               </div>

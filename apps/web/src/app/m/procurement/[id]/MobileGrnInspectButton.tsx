@@ -66,7 +66,7 @@ export function MobileGrnInspectButton({ goodsReceiptId }: { goodsReceiptId: str
             <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>
               Inspect Receipt
             </p>
-            <input
+            <input aria-label="Remarks"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Remarks (optional)"

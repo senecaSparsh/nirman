@@ -564,7 +564,7 @@ export function LandPurchaseWizardDialog({
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2 space-y-1.5">
               <Label>Total Area *</Label>
-              <Input type="number" min={0} step="any" value={land.totalArea} onChange={(e) => setLandField("totalArea", e.target.value)} placeholder="e.g. 12000" required />
+              <Input aria-label="Total Area" type="number" min={0} step="any" value={land.totalArea} onChange={(e) => setLandField("totalArea", e.target.value)} placeholder="e.g. 12000" required />
             </div>
             <div className="space-y-1.5">
               <Label>Unit</Label>
@@ -636,15 +636,15 @@ export function LandPurchaseWizardDialog({
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <Label>Lease Period (years)</Label>
-                  <Input type="number" min={0} step="any" value={land.leasePeriodYears} onChange={(e) => setLandField("leasePeriodYears", e.target.value)} placeholder="e.g. 99" />
+                  <Input aria-label="Lease Period Years" type="number" min={0} step="any" value={land.leasePeriodYears} onChange={(e) => setLandField("leasePeriodYears", e.target.value)} placeholder="e.g. 99" />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Lease Start</Label>
-                  <Input type="date" value={land.leaseStartDate} onChange={(e) => setLandField("leaseStartDate", e.target.value)} />
+                  <Input aria-label="Lease Start Date" type="date" value={land.leaseStartDate} onChange={(e) => setLandField("leaseStartDate", e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Lease End</Label>
-                  <Input type="date" value={land.leaseEndDate} onChange={(e) => setLandField("leaseEndDate", e.target.value)} />
+                  <Input aria-label="Lease End Date" type="date" value={land.leaseEndDate} onChange={(e) => setLandField("leaseEndDate", e.target.value)} />
                 </div>
               </div>
             </div>
@@ -655,7 +655,7 @@ export function LandPurchaseWizardDialog({
             <div className="text-body font-semibold">Cost Breakup</div>
             <div className="space-y-1.5">
               <Label>Base Cost (₹) — land price *</Label>
-              <Input type="number" min={0} step="any" value={land.baseCost} onChange={(e) => setLandField("baseCost", e.target.value)} placeholder="e.g. 5000000" required />
+              <Input aria-label="Base Cost" type="number" min={0} step="any" value={land.baseCost} onChange={(e) => setLandField("baseCost", e.target.value)} placeholder="e.g. 5000000" required />
             </div>
 
             {/* Lease rent (leasehold only) */}
@@ -663,7 +663,7 @@ export function LandPurchaseWizardDialog({
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>Lease Rent (%)</Label>
-                  <Input type="number" min={0} step="any" value={land.leaseRentPercent} onChange={(e) => setLandField("leaseRentPercent", e.target.value)} placeholder="e.g. 10" />
+                  <Input aria-label="Lease Rent Percent" type="number" min={0} step="any" value={land.leaseRentPercent} onChange={(e) => setLandField("leaseRentPercent", e.target.value)} placeholder="e.g. 10" />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Lease Rent Amount (₹){isYearlyLease ? " /year" : ""}</Label>
@@ -685,7 +685,7 @@ export function LandPurchaseWizardDialog({
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>GST on Lease Rent (%)</Label>
-                  <Input type="number" min={0} step="any" value={land.gstPercent} onChange={(e) => setLandField("gstPercent", e.target.value)} placeholder="e.g. 18" />
+                  <Input aria-label="GST Percent" type="number" min={0} step="any" value={land.gstPercent} onChange={(e) => setLandField("gstPercent", e.target.value)} placeholder="e.g. 18" />
                 </div>
                 <div className="space-y-1.5">
                   <Label>GST Amount (₹)</Label>
@@ -700,7 +700,7 @@ export function LandPurchaseWizardDialog({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Registration Charge (%)</Label>
-                <Input type="number" min={0} step="any" value={land.registrationPercent} onChange={(e) => setLandField("registrationPercent", e.target.value)} placeholder="e.g. 1" />
+                <Input aria-label="Registration Percent" type="number" min={0} step="any" value={land.registrationPercent} onChange={(e) => setLandField("registrationPercent", e.target.value)} placeholder="e.g. 1" />
               </div>
               <div className="space-y-1.5">
                 <Label>Registration Amount (₹)</Label>
@@ -714,7 +714,7 @@ export function LandPurchaseWizardDialog({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Stamp Duty (%)</Label>
-                <Input type="number" min={0} step="any" value={land.stampDutyPercent} onChange={(e) => setLandField("stampDutyPercent", e.target.value)} placeholder="e.g. 5" />
+                <Input aria-label="Stamp Duty Percent" type="number" min={0} step="any" value={land.stampDutyPercent} onChange={(e) => setLandField("stampDutyPercent", e.target.value)} placeholder="e.g. 5" />
               </div>
               <div className="space-y-1.5">
                 <Label>Stamp Duty Amount (₹)</Label>
@@ -728,7 +728,7 @@ export function LandPurchaseWizardDialog({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Transfer Duty (%) <span className="text-xs text-muted-foreground">(authority land)</span></Label>
-                <Input type="number" min={0} step="any" value={land.transferDutyPercent} onChange={(e) => setLandField("transferDutyPercent", e.target.value)} placeholder="0" />
+                <Input aria-label="Transfer Duty Percent" type="number" min={0} step="any" value={land.transferDutyPercent} onChange={(e) => setLandField("transferDutyPercent", e.target.value)} placeholder="0" />
               </div>
               <div className="space-y-1.5">
                 <Label>Transfer Duty Amount (₹)</Label>
@@ -742,15 +742,15 @@ export function LandPurchaseWizardDialog({
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label>Brokerage (₹)</Label>
-                <Input type="number" min={0} step="0.01" value={land.brokerageAmount} onChange={(e) => setLandField("brokerageAmount", e.target.value)} placeholder="0" />
+                <Input aria-label="Brokerage Amount" type="number" min={0} step="0.01" value={land.brokerageAmount} onChange={(e) => setLandField("brokerageAmount", e.target.value)} placeholder="0" />
               </div>
               <div className="space-y-1.5">
                 <Label>Legal Fees (₹)</Label>
-                <Input type="number" min={0} step="0.01" value={land.legalFees} onChange={(e) => setLandField("legalFees", e.target.value)} placeholder="0" />
+                <Input aria-label="Legal Fees" type="number" min={0} step="0.01" value={land.legalFees} onChange={(e) => setLandField("legalFees", e.target.value)} placeholder="0" />
               </div>
               <div className="space-y-1.5">
                 <Label>Other Charges (₹)</Label>
-                <Input type="number" min={0} step="0.01" value={land.otherCharges} onChange={(e) => setLandField("otherCharges", e.target.value)} placeholder="EDC/IDC, etc." />
+                <Input aria-label="EDC/IDC, etc" type="number" min={0} step="0.01" value={land.otherCharges} onChange={(e) => setLandField("otherCharges", e.target.value)} placeholder="EDC/IDC, etc." />
               </div>
             </div>
 
@@ -781,11 +781,11 @@ export function LandPurchaseWizardDialog({
                 <div key={i} className="grid grid-cols-[1fr_100px_120px_120px_28px] gap-2 items-end">
                   <div className="space-y-1">
                     <Label className="text-caption">Label</Label>
-                    <Input value={c.label} onChange={(e) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} placeholder="e.g. Yearly Lease Rent" className="h-8 text-caption" />
+                    <Input aria-label="Extra Costs" value={c.label} onChange={(e) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} placeholder="e.g. Yearly Lease Rent" className="h-8 text-caption" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-caption">Amount (₹)</Label>
-                    <Input type="number" min="0" step="any" value={c.amount} onChange={(e) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))} placeholder="500000" className="h-8 text-caption" />
+                    <Input aria-label="Extra Costs" type="number" min="0" step="any" value={c.amount} onChange={(e) => setExtraCosts((arr) => arr.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))} placeholder="500000" className="h-8 text-caption" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-caption">Frequency</Label>
@@ -813,11 +813,11 @@ export function LandPurchaseWizardDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Registry No.</Label>
-              <Input value={land.registryNo} onChange={(e) => setLandField("registryNo", e.target.value)} placeholder="Sale deed / registry number" />
+              <Input aria-label="Sale deed / registry number" value={land.registryNo} onChange={(e) => setLandField("registryNo", e.target.value)} placeholder="Sale deed / registry number" />
             </div>
             <div className="space-y-1.5">
               <Label>Purchase Date</Label>
-              <Input type="date" value={land.purchaseDate} onChange={(e) => setLandField("purchaseDate", e.target.value)} />
+              <Input aria-label="Purchase Date" type="date" value={land.purchaseDate} onChange={(e) => setLandField("purchaseDate", e.target.value)} />
             </div>
           </div>
           <div className="space-y-1.5">
@@ -846,7 +846,7 @@ export function LandPurchaseWizardDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Parent Parcel Number</Label>
-            <Input value={land.parentParcelNumber} onChange={(e) => setLandField("parentParcelNumber", e.target.value)} placeholder="PLOT-1 (default)" />
+            <Input aria-label="Parent Parcel Number" value={land.parentParcelNumber} onChange={(e) => setLandField("parentParcelNumber", e.target.value)} placeholder="PLOT-1 (default)" />
           </div>
 
           {/* Mode selection */}
@@ -1077,12 +1077,12 @@ function SectionEditor({
       <div className={cn("gap-3", isWhole ? "space-y-2" : "grid grid-cols-2")}>
         <div className="space-y-1">
           <Label>Parcel Number *</Label>
-          <Input value={section.number} onChange={(e) => onUpdate({ number: e.target.value })} placeholder="e.g. PLOT-01" />
+          <Input aria-label="Parcel Number" value={section.number} onChange={(e) => onUpdate({ number: e.target.value })} placeholder="e.g. PLOT-01" />
         </div>
         {!isWhole && (
           <div className="space-y-1">
             <Label>Area ({areaUnit}) *</Label>
-            <Input type="number" min={0} step="any" value={section.area} onChange={(e) => onUpdate({ area: e.target.value })} placeholder="0" />
+            <Input aria-label="Area (" type="number" min={0} step="any" value={section.area} onChange={(e) => onUpdate({ area: e.target.value })} placeholder="0" />
           </div>
         )}
         {isWhole && (
@@ -1129,7 +1129,7 @@ function SectionEditor({
       {section.purpose === "SELL" && (
         <div className="space-y-1">
           <Label>Asking Price (₹) — optional</Label>
-          <Input type="number" min={0} step="any" value={section.askingPrice} onChange={(e) => onUpdate({ askingPrice: e.target.value })} placeholder="e.g. 2000000" />
+          <Input aria-label="Asking Price (₹) — optional" type="number" min={0} step="any" value={section.askingPrice} onChange={(e) => onUpdate({ askingPrice: e.target.value })} placeholder="e.g. 2000000" />
         </div>
       )}
 

@@ -726,15 +726,15 @@ function EmployeeFormDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="col-span-2">
               <Label>Name *</Label>
-              <Input value={form.name} onChange={(e) => set("name", e.target.value)} required />
+              <Input aria-label="Name" value={form.name} onChange={(e) => set("name", e.target.value)} required />
             </div>
             <div>
               <Label>Trade</Label>
-              <Input value={form.trade} onChange={(e) => set("trade", e.target.value)} placeholder="Masonry, Electrical…" />
+              <Input aria-label="Masonry, Electrical" value={form.trade} onChange={(e) => set("trade", e.target.value)} placeholder="Masonry, Electrical…" />
             </div>
             <div>
               <Label>Designation</Label>
-              <Input value={form.designation} onChange={(e) => set("designation", e.target.value)} placeholder="Site Engineer…" />
+              <Input aria-label="Site Engineer" value={form.designation} onChange={(e) => set("designation", e.target.value)} placeholder="Site Engineer…" />
             </div>
             <div className="col-span-2">
               <Label>Hierarchy Level</Label>
@@ -750,7 +750,7 @@ function EmployeeFormDialog({
             </div>
             <div>
               <Label>Date of Birth</Label>
-              <Input type="date" value={form.dateOfBirth} onChange={(e) => set("dateOfBirth", e.target.value)} />
+              <Input aria-label="Date Of Birth" type="date" value={form.dateOfBirth} onChange={(e) => set("dateOfBirth", e.target.value)} />
             </div>
             <div>
               <Label>Blood Group</Label>
@@ -778,11 +778,11 @@ function EmployeeFormDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Phone</Label>
-              <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="Mobile number" />
+              <Input aria-label="Mobile number" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="Mobile number" />
             </div>
             <div>
               <Label>Email</Label>
-              <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="Email address" />
+              <Input aria-label="Email address" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="Email address" />
             </div>
           </div>
         </div>
@@ -802,19 +802,19 @@ function EmployeeFormDialog({
             </div>
             <div>
               <Label>Join Date</Label>
-              <Input type="date" value={form.joinDate} onChange={(e) => set("joinDate", e.target.value)} />
+              <Input aria-label="Join Date" type="date" value={form.joinDate} onChange={(e) => set("joinDate", e.target.value)} />
             </div>
             <div>
               <Label>Daily Rate (₹)</Label>
-              <Input type="number" min="0" step="0.01" value={form.dailyRate} onChange={(e) => set("dailyRate", e.target.value)} />
+              <Input aria-label="Daily Rate" type="number" min="0" step="0.01" value={form.dailyRate} onChange={(e) => set("dailyRate", e.target.value)} />
             </div>
             <div>
               <Label>Monthly Salary (₹)</Label>
-              <Input type="number" min="0" step="0.01" value={form.monthlySalary} onChange={(e) => set("monthlySalary", e.target.value)} placeholder="For MONTHLY/FIXED" />
+              <Input aria-label="For MONTHLY/FIXED" type="number" min="0" step="0.01" value={form.monthlySalary} onChange={(e) => set("monthlySalary", e.target.value)} placeholder="For MONTHLY/FIXED" />
             </div>
             <div className="sm:col-span-2">
               <Label>Overtime multiplier (×)</Label>
-              <Input type="number" min="1" max="10" step="0.5" value={form.overtimeMultiplier} onChange={(e) => set("overtimeMultiplier", e.target.value)} placeholder="Default 1.5" />
+              <Input aria-label="Overtime multiplier (×)" type="number" min="1" max="10" step="0.5" value={form.overtimeMultiplier} onChange={(e) => set("overtimeMultiplier", e.target.value)} placeholder="Default 1.5" />
               <p className="mt-1 text-[0.6875rem] text-muted-foreground">Leave blank for the 1.5× company default. Site labour covered by the BOCW Act are entitled to 2× ordinary wages — set 2 for them.</p>
             </div>
           </div>
@@ -840,21 +840,21 @@ function EmployeeFormDialog({
             </div>
             <div>
               <Label>Notice Period (days)</Label>
-              <Input type="number" min="0" value={form.noticePeriodDays} onChange={(e) => set("noticePeriodDays", e.target.value)} placeholder="e.g. 30" />
+              <Input aria-label="Notice Period (days)" type="number" min="0" value={form.noticePeriodDays} onChange={(e) => set("noticePeriodDays", e.target.value)} placeholder="e.g. 30" />
             </div>
             <div>
               <Label>Paid Leave Quota (days/yr)</Label>
-              <Input type="number" min="0" max="365" value={form.paidLeaveQuota} onChange={(e) => set("paidLeaveQuota", e.target.value)} placeholder="e.g. 4 or 12 (default)" />
+              <Input aria-label="Paid Leave Quota (days/yr)" type="number" min="0" max="365" value={form.paidLeaveQuota} onChange={(e) => set("paidLeaveQuota", e.target.value)} placeholder="e.g. 4 or 12 (default)" />
             </div>
             {(form.employmentType === "CONTRACT" || form.employmentType === "PROBATION") && (
               <>
                 <div>
                   <Label>Contract Start Date</Label>
-                  <Input type="date" value={form.contractStartDate} onChange={(e) => set("contractStartDate", e.target.value)} />
+                  <Input aria-label="Contract Start Date" type="date" value={form.contractStartDate} onChange={(e) => set("contractStartDate", e.target.value)} />
                 </div>
                 <div>
                   <Label>Contract End Date</Label>
-                  <Input type="date" value={form.contractEndDate} onChange={(e) => set("contractEndDate", e.target.value)} />
+                  <Input aria-label="Contract End Date" type="date" value={form.contractEndDate} onChange={(e) => set("contractEndDate", e.target.value)} />
                 </div>
               </>
             )}
@@ -917,27 +917,27 @@ function EmployeeFormDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Account Holder Name</Label>
-              <Input value={form.bankAccountHolder} onChange={(e) => set("bankAccountHolder", e.target.value)} placeholder="As per bank record" />
+              <Input aria-label="As per bank record" value={form.bankAccountHolder} onChange={(e) => set("bankAccountHolder", e.target.value)} placeholder="As per bank record" />
             </div>
             <div>
               <Label>Account Number</Label>
-              <Input value={form.bankAccountNumber} onChange={(e) => set("bankAccountNumber", e.target.value)} />
+              <Input aria-label="Bank Account Number" value={form.bankAccountNumber} onChange={(e) => set("bankAccountNumber", e.target.value)} />
             </div>
             <div>
               <Label>IFSC Code</Label>
-              <Input value={form.bankIfsc} onChange={(e) => set("bankIfsc", e.target.value.toUpperCase())} placeholder="HDFC0001234" />
+              <Input aria-label="IFSC Code" value={form.bankIfsc} onChange={(e) => set("bankIfsc", e.target.value.toUpperCase())} placeholder="HDFC0001234" />
             </div>
             <div>
               <Label>Bank Name</Label>
-              <Input value={form.bankName} onChange={(e) => set("bankName", e.target.value)} placeholder="HDFC, SBI, etc." />
+              <Input aria-label="HDFC, SBI, etc" value={form.bankName} onChange={(e) => set("bankName", e.target.value)} placeholder="HDFC, SBI, etc." />
             </div>
             <div>
               <Label>Branch</Label>
-              <Input value={form.bankBranch} onChange={(e) => set("bankBranch", e.target.value)} />
+              <Input aria-label="Bank Branch" value={form.bankBranch} onChange={(e) => set("bankBranch", e.target.value)} />
             </div>
             <div>
               <Label>Pay Day (1–31)</Label>
-              <Input type="number" min={1} max={31} value={form.payDay} onChange={(e) => set("payDay", e.target.value)} placeholder="7" />
+              <Input aria-label="Pay Day (1–31)" type="number" min={1} max={31} value={form.payDay} onChange={(e) => set("payDay", e.target.value)} placeholder="7" />
             </div>
           </div>
         </div>
@@ -951,23 +951,23 @@ function EmployeeFormDialog({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>PAN Number</Label>
-              <Input value={form.panNumber} onChange={(e) => set("panNumber", e.target.value.toUpperCase())} placeholder="ABCDE1234F" />
+              <Input aria-label="PAN Number" value={form.panNumber} onChange={(e) => set("panNumber", e.target.value.toUpperCase())} placeholder="ABCDE1234F" />
             </div>
             <div>
               <Label>Aadhaar Number</Label>
-              <Input value={form.aadhaarNumber} onChange={(e) => set("aadhaarNumber", e.target.value)} placeholder="1234 5678 9012" />
+              <Input aria-label="Aadhaar Number" value={form.aadhaarNumber} onChange={(e) => set("aadhaarNumber", e.target.value)} placeholder="1234 5678 9012" />
             </div>
             <div>
               <Label>PF Number</Label>
-              <Input value={form.pfNumber} onChange={(e) => set("pfNumber", e.target.value)} />
+              <Input aria-label="PF Number" value={form.pfNumber} onChange={(e) => set("pfNumber", e.target.value)} />
             </div>
             <div>
               <Label>ESI Number</Label>
-              <Input value={form.esiNumber} onChange={(e) => set("esiNumber", e.target.value)} />
+              <Input aria-label="ESI Number" value={form.esiNumber} onChange={(e) => set("esiNumber", e.target.value)} />
             </div>
             <div>
               <Label>UAN</Label>
-              <Input value={form.uan} onChange={(e) => set("uan", e.target.value)} />
+              <Input aria-label="UAN" value={form.uan} onChange={(e) => set("uan", e.target.value)} />
             </div>
           </div>
         </div>
@@ -981,15 +981,15 @@ function EmployeeFormDialog({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <Label>Contact Name</Label>
-              <Input value={form.emergencyContactName} onChange={(e) => set("emergencyContactName", e.target.value)} />
+              <Input aria-label="Emergency Contact Name" value={form.emergencyContactName} onChange={(e) => set("emergencyContactName", e.target.value)} />
             </div>
             <div>
               <Label>Contact Phone</Label>
-              <Input value={form.emergencyContactPhone} onChange={(e) => set("emergencyContactPhone", e.target.value)} placeholder="+91..." />
+              <Input aria-label="Contact Phone" value={form.emergencyContactPhone} onChange={(e) => set("emergencyContactPhone", e.target.value)} placeholder="+91..." />
             </div>
             <div>
               <Label>Relation</Label>
-              <Input value={form.emergencyContactRelation} onChange={(e) => set("emergencyContactRelation", e.target.value)} placeholder="Spouse, Parent, etc." />
+              <Input aria-label="Spouse, Parent, etc" value={form.emergencyContactRelation} onChange={(e) => set("emergencyContactRelation", e.target.value)} placeholder="Spouse, Parent, etc." />
             </div>
           </div>
         </div>

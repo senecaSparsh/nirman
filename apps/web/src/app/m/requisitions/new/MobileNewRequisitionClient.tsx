@@ -423,7 +423,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
                       />
                     </div>
                     <div className="shrink-0 flex items-center gap-1">
-                      <input
+                      <input aria-label="Qty"
                         type="text"
                         inputMode="decimal"
                         step="any"
@@ -482,7 +482,7 @@ export function MobileNewRequisitionClient({ data, onClose, onCreated }: { data:
                       />
                     </div>
                     <div>
-                      <input
+                      <input aria-label="Line note"
                         type="text"
                         value={line.notes}
                         onChange={(e) => updateLine(idx, "notes", e.target.value)}

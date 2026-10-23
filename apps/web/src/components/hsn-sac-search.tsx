@@ -234,7 +234,7 @@ export function HsnSacSearch({
 
   return (
     <div ref={containerRef} className={cn("relative", className)}>
-      <Input
+      <Input aria-label="Query"
         value={query}
         onChange={(e) => {
           setManuallySet(true);

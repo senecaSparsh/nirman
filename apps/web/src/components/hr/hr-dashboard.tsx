@@ -372,7 +372,7 @@ export function HrDashboard({
             <h2 className="text-section text-foreground">Recent Daily Progress Reports</h2>
             <div className="relative ml-auto sm:max-w-xs">
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search…" className="h-7 pl-8 text-caption" />
+              <Input aria-label="Search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search…" className="h-7 pl-8 text-caption" />
             </div>
           </div>
           <div className="flex-1 p-2">

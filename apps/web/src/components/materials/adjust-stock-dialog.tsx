@@ -272,7 +272,7 @@ export function AdjustStockDialog({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={`Quantity (${material.unit})`} required>
-            <Input
+            <Input aria-label="Quantity"
               type="number"
               step="any"
               min="0"
@@ -313,7 +313,7 @@ export function AdjustStockDialog({
         )}
 
         <Field label="Reason" required hint="Recorded in the audit trail and stock movement history.">
-          <Input
+          <Input aria-label="Reason"
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder={

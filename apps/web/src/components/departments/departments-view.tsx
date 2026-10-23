@@ -248,7 +248,7 @@ function DepartmentFormDialog({
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Code" required>
-            <Input
+            <Input aria-label="Code"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="BOILER, MP-2, WORKSHOP…"
@@ -258,7 +258,7 @@ function DepartmentFormDialog({
             />
           </Field>
           <Field label="Name" required>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Boiler House" required />
+            <Input aria-label="Boiler House" value={name} onChange={(e) => setName(e.target.value)} placeholder="Boiler House" required />
           </Field>
         </div>
         <Field label="Description">

@@ -239,7 +239,7 @@ export function MobileNewProjectDialog({
               <label className={labelClass} style={labelStyle}>
                 Project Name <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
-              <input
+              <input aria-label="Project Name"
                 type="text"
                 value={form.name}
                 onChange={(e) => set("name", e.target.value)}
@@ -285,7 +285,7 @@ export function MobileNewProjectDialog({
               <label className={labelClass} style={labelStyle}>
                 LCI % <span className="font-normal" style={{ color: "var(--color-ink-400)" }}>opt.</span>
               </label>
-              <input
+              <input aria-label="Default"
                 type="number"
                 min="0"
                 max="100"

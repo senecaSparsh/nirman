@@ -320,7 +320,7 @@ export function ChangeOrderDetailClient({
         >
           <div className="space-y-3">
             <Field label="Client Approval By" required>
-              <Input
+              <Input aria-label="Client name (who approved)"
                 value={clientApprovedBy}
                 onChange={(e) => setClientApprovedBy(e.target.value)}
                 placeholder="Client name (who approved)"

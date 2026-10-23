@@ -294,7 +294,7 @@ function NewNcrDialog({
           </Field>
         </div>
         <Field label="Title" required>
-          <Input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Uneven plaster in flat 302" required />
+          <Input aria-label="Title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Uneven plaster in flat 302" required />
         </Field>
         <Field label="Description" required>
           <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={3} placeholder="What is non-conforming? Be specific…" required />
@@ -320,14 +320,14 @@ function NewNcrDialog({
             </Select>
           </Field>
           <Field label="Responsible Party">
-            <Input value={form.responsibleParty} onChange={(e) => set("responsibleParty", e.target.value)} placeholder="e.g. In-house team" />
+            <Input aria-label="Observation" value={form.responsibleParty} onChange={(e) => set("responsibleParty", e.target.value)} placeholder="e.g. In-house team" />
           </Field>
         </div>
         <Field label="Location">
-          <Input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Tower A, 3rd floor, flat 302" />
+          <Input aria-label="Observation" value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Tower A, 3rd floor, flat 302" />
         </Field>
         <Field label="Work Type">
-          <Input value={form.workType} onChange={(e) => set("workType", e.target.value)} placeholder="e.g. Plastering, Concrete Pour" />
+          <Input aria-label="Observation" value={form.workType} onChange={(e) => set("workType", e.target.value)} placeholder="e.g. Plastering, Concrete Pour" />
         </Field>
         <div>
           <p className="text-sm font-medium mb-1.5">Photo Evidence</p>

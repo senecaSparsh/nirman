@@ -286,7 +286,7 @@ export function MobileTransferReceiveDialog({
                     </p>
                   </div>
                   <div className="shrink-0 flex flex-col items-end gap-0.5">
-                    <input
+                    <input aria-label="Recv Quantity"
                       type="number"
                       inputMode="decimal"
                       step="0.001"

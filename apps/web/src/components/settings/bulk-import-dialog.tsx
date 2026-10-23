@@ -262,7 +262,7 @@ export function BulkImportDialog({
             <p className="text-caption text-muted-foreground mt-1">
               or drag and drop — max 500 rows
             </p>
-            <input
+            <input aria-label="Click to select a CSV file"
               ref={fileInputRef}
               type="file"
               accept=".csv,text/csv"

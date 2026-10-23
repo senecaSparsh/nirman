@@ -512,7 +512,7 @@ export function BoqFormDialog({
           </Field>
         </div>
         <Field label="Description" required>
-          <Input value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="e.g. Excavation for foundation" required />
+          <Input aria-label="Description" value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="e.g. Excavation for foundation" required />
         </Field>
         {form.type === "LINE_ITEM" && (
           <div className="grid gap-3 sm:grid-cols-2">
@@ -525,13 +525,13 @@ export function BoqFormDialog({
               </Select>
             </Field>
             <Field label="Unit" required>
-              <Input value={form.unit} onChange={(e) => set("unit", e.target.value)} placeholder="CUM, SQM, NOS, KG" required />
+              <Input aria-label="CUM, SQM, NOS, KG" value={form.unit} onChange={(e) => set("unit", e.target.value)} placeholder="CUM, SQM, NOS, KG" required />
             </Field>
             <Field label="Estimated Qty" required>
-              <Input type="number" step="0.001" value={form.estimatedQty} onChange={(e) => set("estimatedQty", e.target.value)} placeholder="0.000" required />
+              <Input aria-label="Estimated Quantity" type="number" step="0.001" value={form.estimatedQty} onChange={(e) => set("estimatedQty", e.target.value)} placeholder="0.000" required />
             </Field>
             <Field label="Rate (₹)" required>
-              <Input type="number" step="0.01" value={form.rate} onChange={(e) => set("rate", e.target.value)} placeholder="0.00" required />
+              <Input aria-label="Rate" type="number" step="0.01" value={form.rate} onChange={(e) => set("rate", e.target.value)} placeholder="0.00" required />
             </Field>
           </div>
         )}

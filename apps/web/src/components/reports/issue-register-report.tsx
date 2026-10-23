@@ -80,11 +80,11 @@ export function IssueRegisterReport({ report }: { report: IssueRegisterReportDat
       >
         <div className="space-y-1">
           <label className="text-caption text-muted-foreground">From</label>
-          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-auto" />
+          <Input aria-label="From" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-auto" />
         </div>
         <div className="space-y-1">
           <label className="text-caption text-muted-foreground">To</label>
-          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-auto" />
+          <Input aria-label="To" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-auto" />
         </div>
         <Button type="submit" size="sm">
           <Calendar className="h-4 w-4" /> Apply

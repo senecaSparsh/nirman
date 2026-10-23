@@ -301,7 +301,7 @@ export function StockLocationsView({
           </div>
           <div>
             <Label required>Name</Label>
-            <Input value={fName} onChange={(e) => setFName(e.target.value)} placeholder="e.g. Main Warehouse, Site Store" />
+            <Input aria-label="F Name" value={fName} onChange={(e) => setFName(e.target.value)} placeholder="e.g. Main Warehouse, Site Store" />
           </div>
           {fType === "PROJECT_SITE" && (
             <div>
@@ -330,7 +330,7 @@ export function StockLocationsView({
           </div>
           <div>
             <Label hint="Default: 500m">Geo-fence radius (m)</Label>
-            <Input type="number" min="10" value={fGeoRadius} onChange={(e) => setFGeoRadius(e.target.value)} placeholder="500" />
+            <Input aria-label="F Geo Radius" type="number" min="10" value={fGeoRadius} onChange={(e) => setFGeoRadius(e.target.value)} placeholder="500" />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setFormOpen(false)}>Cancel</Button>

@@ -267,14 +267,14 @@ export function IssueMaterialsDialog({
         {/* Receiver accountability — who physically picked up the stock */}
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={`Receiver Name${target === "DEPARTMENT" ? " *" : ""}`}>
-            <Input
+            <Input aria-label="Receiver Name"
               value={receiverName}
               onChange={(e) => setReceiverName(e.target.value)}
               placeholder="Who is picking up the stock"
             />
           </Field>
           <Field label="Receiver Mobile">
-            <Input
+            <Input aria-label="Contact number"
               value={receiverMobile}
               onChange={(e) => setReceiverMobile(e.target.value)}
               placeholder="Contact number"
@@ -311,7 +311,7 @@ export function IssueMaterialsDialog({
                           </option>
                         ))}
                       </Select>
-                      <Input type="number" step="0.001" min="0" max={stock?.qty} placeholder="Qty" value={l.qty} onChange={(e) => updateLine(l.key, { qty: e.target.value })} />
+                      <Input aria-label="Qty" type="number" step="0.001" min="0" max={stock?.qty} placeholder="Qty" value={l.qty} onChange={(e) => updateLine(l.key, { qty: e.target.value })} />
                       <Button type="button" variant="ghost" size="icon" onClick={() => removeLine(l.key)} disabled={lines.length === 1} aria-label="Remove line" className="text-muted-foreground hover:text-danger">
                         <Trash2 className="h-4 w-4" />
                       </Button>

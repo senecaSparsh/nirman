@@ -194,7 +194,7 @@ export function MobileLandPurchaseOrderDialog({
                 options={localSellers.map((s) => ({ value: s.id, label: s.name }))}
                 placeholder="— Select seller —"
               />
-              <input
+              <input aria-label="Seller name"
                 type="text"
                 value={sellerName}
                 onChange={(e) => { setSellerName(e.target.value); setSellerId(""); }}
@@ -206,7 +206,7 @@ export function MobileLandPurchaseOrderDialog({
             </div>
             <div>
               <label className={labelClass} style={labelStyle}>Seller Contact</label>
-              <input
+              <input aria-label="Phone / address"
                 type="text"
                 value={sellerContact}
                 onChange={(e) => setSellerContact(e.target.value)}
@@ -233,7 +233,7 @@ export function MobileLandPurchaseOrderDialog({
             <p className={sectionHeadingClass} style={sectionHeadingStyle}>Purchase Details</p>
             <div>
               <label className={labelClass} style={labelStyle}>Purchase Date *</label>
-              <input
+              <input aria-label="Purchase Date"
                 type="date"
                 value={purchaseDate}
                 onChange={(e) => setPurchaseDate(e.target.value)}
@@ -245,7 +245,7 @@ export function MobileLandPurchaseOrderDialog({
             <div className="grid grid-cols-3 gap-1.5">
               <div className="col-span-2">
                 <label className={labelClass} style={labelStyle}>Total Area *</label>
-                <input
+                <input aria-label="Total Area"
                   type="number" inputMode="decimal" step="0.01" min="0"
                   value={totalArea}
                   onChange={(e) => setTotalArea(e.target.value)}
@@ -267,7 +267,7 @@ export function MobileLandPurchaseOrderDialog({
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
               <div>
                 <label className={labelClass} style={labelStyle}>Total Cost (₹) *</label>
-                <input
+                <input aria-label="Total Cost"
                   type="number" inputMode="decimal" step="0.01" min="0"
                   value={totalCost}
                   onChange={(e) => setTotalCost(e.target.value)}
@@ -279,7 +279,7 @@ export function MobileLandPurchaseOrderDialog({
               </div>
               <div className="pl-2">
                 <label className={labelClass} style={labelStyle}>Registry No.</label>
-                <input
+                <input aria-label="Registry No"
                   type="text"
                   value={registryNo}
                   onChange={(e) => setRegistryNo(e.target.value)}
@@ -291,7 +291,7 @@ export function MobileLandPurchaseOrderDialog({
             </div>
             <div>
               <label className={labelClass} style={labelStyle}>Location</label>
-              <input
+              <input aria-label="Village, city, district"
                 type="text"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
@@ -307,7 +307,7 @@ export function MobileLandPurchaseOrderDialog({
             <p className={sectionHeadingClass} style={sectionHeadingStyle}>Token Payment</p>
             <div>
               <label className={labelClass} style={labelStyle}>Token Amount (₹) *</label>
-              <input
+              <input aria-label="Token Amount"
                 type="number" inputMode="decimal" step="0.01" min="0"
                 value={tokenAmount}
                 onChange={(e) => setTokenAmount(e.target.value)}
@@ -392,7 +392,7 @@ export function MobileLandPurchaseOrderDialog({
                           <Trash2 className="size-3" style={{ color: "var(--color-stop)" }} />
                         </button>
                       </div>
-                      <input
+                      <input aria-label="Plan Items"
                         type="text"
                         value={item.description}
                         onChange={(e) => setPlanItems(planItems.map((it, i) => i === idx ? { ...it, description: e.target.value } : it))}
@@ -403,7 +403,7 @@ export function MobileLandPurchaseOrderDialog({
                       <div className="flex gap-2">
                         <div className="flex-1">
                           <label className={labelClass} style={labelStyle}>% of Balance</label>
-                          <input
+                          <input aria-label="Percentage"
                             type="number"
                             value={item.percentage}
                             onChange={(e) => setPlanItems(planItems.map((it, i) => i === idx ? { ...it, percentage: e.target.value } : it))}
@@ -413,7 +413,7 @@ export function MobileLandPurchaseOrderDialog({
                         </div>
                         <div className="flex-1">
                           <label className={labelClass} style={labelStyle}>Due Date</label>
-                          <input
+                          <input aria-label="Due Date"
                             type="date"
                             value={item.dueDate}
                             onChange={(e) => setPlanItems(planItems.map((it, i) => i === idx ? { ...it, dueDate: e.target.value } : it))}

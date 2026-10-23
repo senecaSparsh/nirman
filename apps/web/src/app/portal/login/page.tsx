@@ -111,7 +111,7 @@ export default function PortalLoginPage() {
                 <label className="mb-1.5 block text-sm font-medium text-slate-700">
                   Phone Number
                 </label>
-                <input
+                <input aria-label="Phone number"
                   className="portal-input"
                   type="tel"
                   placeholder="+91 98XXX XXXXX"
@@ -137,7 +137,7 @@ export default function PortalLoginPage() {
                 <p className="mb-3 text-sm text-slate-600">
                   Enter the 6-digit code sent to <strong>{phone}</strong>
                 </p>
-                <input
+                <input aria-label="One-time passcode"
                   className="portal-input text-center text-lg tracking-widest"
                   type="text"
                   inputMode="numeric"

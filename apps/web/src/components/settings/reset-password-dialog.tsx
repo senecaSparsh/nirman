@@ -78,7 +78,7 @@ export function ResetPasswordDialog({
         <div className="space-y-1.5">
           <Label>New Password *</Label>
           <div className="relative">
-            <Input
+            <Input aria-label="Assword"
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}

@@ -357,7 +357,7 @@ function WorkflowBuilderInner({
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-1 items-center gap-2">
-          <Input
+          <Input aria-label="Workflow name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Workflow name…"
@@ -422,7 +422,7 @@ function WorkflowBuilderInner({
       </div>
 
       {description !== undefined && canEdit && (
-        <Input
+        <Input aria-label="Description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           placeholder="Description (optional)…"
@@ -517,7 +517,7 @@ function WorkflowBuilderInner({
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label>Interval (minutes)</Label>
-            <Input
+            <Input aria-label="Schedule Interval"
               type="number"
               value={scheduleInterval}
               onChange={(e) => setScheduleInterval(e.target.value)}
@@ -528,7 +528,7 @@ function WorkflowBuilderInner({
 
           <div className="space-y-1.5">
             <Label>Cron Expression (advanced)</Label>
-            <Input
+            <Input aria-label="Schedule Cron"
               value={scheduleCron}
               onChange={(e) => setScheduleCron(e.target.value)}
               placeholder="e.g. 0 9 * * 1 (every Monday 9am)"
@@ -606,7 +606,7 @@ function StepEditor({
 
       <div className="space-y-1.5">
         <Label>Step Label</Label>
-        <Input
+        <Input aria-label="Step Label"
           value={step.label}
           onChange={(e) => onUpdate({ label: e.target.value })}
           placeholder="e.g. Send reminder to supervisor"
@@ -654,7 +654,7 @@ function CreateTaskConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: (u
       <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Task Config</p>
       <div className="space-y-1.5">
         <Label>Task Title</Label>
-        <Input
+        <Input aria-label="Task title"
           value={String(step.config.title ?? "")}
           onChange={(e) => onUpdate({ config: { ...step.config, title: e.target.value } })}
           placeholder="Task title"
@@ -721,7 +721,7 @@ function NotificationConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: 
       </div>
       <div className="space-y-1.5">
         <Label>Notification Title</Label>
-        <Input
+        <Input aria-label="Notification title"
           value={String(step.config.title ?? "")}
           onChange={(e) => onUpdate({ config: { ...step.config, title: e.target.value } })}
           placeholder="Notification title"
@@ -746,7 +746,7 @@ function WaitConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: (u: Part
       <p className="text-caption font-semibold uppercase tracking-wide text-muted-foreground">Wait Config</p>
       <div className="space-y-1.5">
         <Label>Wait Duration (minutes)</Label>
-        <Input
+        <Input aria-label="Wait Duration (minutes)"
           type="number"
           value={String(step.config.minutes ?? "")}
           onChange={(e) => onUpdate({ config: { ...step.config, minutes: Number(e.target.value) } })}
@@ -777,7 +777,7 @@ function UpdateStatusConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: 
       </div>
       <div className="space-y-1.5">
         <Label>Entity ID</Label>
-        <Input
+        <Input aria-label="Record ID"
           value={String(step.config.entityId ?? "")}
           onChange={(e) => onUpdate({ config: { ...step.config, entityId: e.target.value } })}
           placeholder="Record ID"
@@ -785,7 +785,7 @@ function UpdateStatusConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: 
       </div>
       <div className="space-y-1.5">
         <Label>New Status</Label>
-        <Input
+        <Input aria-label="New Status"
           value={String(step.config.newStatus ?? "")}
           onChange={(e) => onUpdate({ config: { ...step.config, newStatus: e.target.value } })}
           placeholder="e.g. COMPLETED"
@@ -819,7 +819,7 @@ function ConditionConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: (u:
       {String(step.config.predicate) === "task_count" && (
         <div className="space-y-1.5">
           <Label>Threshold (open tasks)</Label>
-          <Input
+          <Input aria-label="Threshold (open tasks)"
             type="number"
             value={String(step.config.threshold ?? "0")}
             onChange={(e) => onUpdate({ config: { ...step.config, threshold: Number(e.target.value) } })}
@@ -882,7 +882,7 @@ function CreateRecordConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: 
       {String(step.config.recordType) !== "task" && (
         <div className="space-y-1.5">
           <Label>Description</Label>
-          <Input
+          <Input aria-label="Description"
             value={String(step.config.description ?? "")}
             onChange={(e) => onUpdate({ config: { ...step.config, description: e.target.value } })}
             placeholder="e.g. Monthly overhead allocation"
@@ -892,7 +892,7 @@ function CreateRecordConfig({ step, onUpdate }: { step: WorkflowStep; onUpdate: 
       {String(step.config.recordType) !== "task" && (
         <div className="space-y-1.5">
           <Label>Amount (₹)</Label>
-          <Input
+          <Input aria-label="Amount (₹)"
             type="number"
             value={String(step.config.amount ?? "")}
             onChange={(e) => onUpdate({ config: { ...step.config, amount: Number(e.target.value) } })}

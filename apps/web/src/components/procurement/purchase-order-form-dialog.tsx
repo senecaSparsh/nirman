@@ -350,7 +350,7 @@ export function PurchaseOrderFormDialog({
             />
           </Field>
           <Field label="Expected Date" hint="Auto-filled from the supplier's lead time — the site plans receiving off this.">
-            <Input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
+            <Input aria-label="Expected Date" type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
           </Field>
         </div>
 

@@ -127,7 +127,7 @@ export function SellerFormDialog({
             <Input value={form.gstin ?? ""} onChange={(e) => set("gstin", e.target.value)} onBlur={() => onBlur("gstin", form)} aria-invalid={!!errors.gstin} placeholder="22AAAAA0000A1Z5" />
           </Field>
           <Field label="Address">
-            <Input value={form.address ?? ""} onChange={(e) => set("address", e.target.value)} placeholder="Village, district, state" />
+            <Input aria-label="Village, district, state" value={form.address ?? ""} onChange={(e) => set("address", e.target.value)} placeholder="Village, district, state" />
           </Field>
         </div>
         <Field label="Notes">

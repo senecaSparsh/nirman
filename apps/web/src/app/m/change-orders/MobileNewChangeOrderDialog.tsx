@@ -279,7 +279,7 @@ export function MobileNewChangeOrderForm({
           <label className={labelClass} style={labelStyle}>
             Title
           </label>
-          <input
+          <input aria-label="Title"
             value={form.title}
             onChange={(e) => set("title", e.target.value)}
             placeholder="e.g. Additional waterproofing for basement"
@@ -336,7 +336,7 @@ export function MobileNewChangeOrderForm({
             <label className={labelClass} style={labelStyle}>
               Schedule change (days)
             </label>
-            <input
+            <input aria-label="Schedule change (days)"
               type="number"
               value={form.scheduleDeltaDays}
               onChange={(e) => set("scheduleDeltaDays", e.target.value)}
@@ -349,7 +349,7 @@ export function MobileNewChangeOrderForm({
             <label className={labelClass} style={labelStyle}>
               Initiated By
             </label>
-            <input
+            <input aria-label="Client / Architect /"
               value={form.initiatedBy}
               onChange={(e) => set("initiatedBy", e.target.value)}
               placeholder="Client / Architect / …"
@@ -417,7 +417,7 @@ export function MobileNewChangeOrderForm({
                 compact
                 disabled={loadingBoq || !form.projectId}
               />
-              <input
+              <input aria-label="Description"
                 value={l.description}
                 onChange={(e) => updateLine(i, { description: e.target.value })}
                 placeholder="Description"
@@ -425,7 +425,7 @@ export function MobileNewChangeOrderForm({
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
               />
               <div className="grid grid-cols-4 gap-1.5">
-                <input
+                <input aria-label="Old Qty"
                   type="number"
                   value={l.originalQty}
                   onChange={(e) => updateLine(i, { originalQty: e.target.value })}
@@ -433,7 +433,7 @@ export function MobileNewChangeOrderForm({
                   className="h-8 rounded-[0.375rem] border px-1.5 text-m-label tabular-nums"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 />
-                <input
+                <input aria-label="New Qty"
                   type="number"
                   value={l.revisedQty}
                   onChange={(e) => updateLine(i, { revisedQty: e.target.value })}
@@ -441,14 +441,14 @@ export function MobileNewChangeOrderForm({
                   className="h-8 rounded-[0.375rem] border px-1.5 text-m-label tabular-nums"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 />
-                <input
+                <input aria-label="Unit"
                   value={l.unit}
                   onChange={(e) => updateLine(i, { unit: e.target.value })}
                   placeholder="Unit"
                   className="h-8 rounded-[0.375rem] border px-1.5 text-m-label"
                   style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)", color: "var(--color-ink-950)" }}
                 />
-                <input
+                <input aria-label="Rate"
                   type="number"
                   value={l.rate}
                   onChange={(e) => updateLine(i, { rate: e.target.value })}

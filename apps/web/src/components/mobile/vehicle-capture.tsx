@@ -213,7 +213,7 @@ export function VehicleCapture({
             <span className="text-m-caption font-bold shrink-0" style={labelStyle}>
               Driver:
             </span>
-            <input
+            <input aria-label="Name"
               type="text"
               value={value.driverName ?? ""}
               onChange={(e) => onChange({ ...value, driverName: e.target.value })}
@@ -231,7 +231,7 @@ export function VehicleCapture({
             <span className="text-m-caption font-bold shrink-0" style={labelStyle}>
               Phone:
             </span>
-            <input
+            <input aria-label="Number"
               type="tel"
               value={value.driverPhone ?? ""}
               onChange={(e) => onChange({ ...value, driverPhone: e.target.value })}
@@ -256,6 +256,7 @@ export function VehicleCapture({
                 maxLength={100}
                 value={value.ewayBillNo ?? ""}
                 onChange={(e) => onChange({ ...value, ewayBillNo: e.target.value })}
+                aria-label="E-way Bill"
                 placeholder="12-digit (dispatches >₹50K)"
                 className="flex-1 min-w-0 h-7 px-1 text-m-caption text-right outline-none"
                 style={{ backgroundColor: "transparent", color: "var(--color-ink-950)" }}
@@ -328,7 +329,7 @@ export function VehicleCapture({
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Vehicle Number <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
-            <input
+            <input aria-label="Vehicle Number"
               type="text"
               value={newVehicleNumber}
               onChange={(e) => setNewVehicleNumber(e.target.value.toUpperCase())}
@@ -382,7 +383,7 @@ export function VehicleCapture({
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Type name <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
-            <input
+            <input aria-label="Ustom Type"
               type="text"
               value={customType}
               onChange={(e) => setCustomType(e.target.value)}
@@ -428,7 +429,7 @@ function VehiclePhotoButton({ uploading, onUpload, compact }: { uploading: boole
           </>
         )}
       </button>
-      <input
+      <input aria-label="Upload vehicle photo"
         ref={inputRef}
         type="file"
         accept="image/*"

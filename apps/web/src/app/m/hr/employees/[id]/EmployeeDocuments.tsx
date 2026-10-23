@@ -318,7 +318,7 @@ export function EmployeeDocuments({
                     ) : (
                       <Plus className="size-3.5" style={{ color: "var(--color-paper)" }} />
                     )}
-                    <input
+                    <input aria-hidden="true" tabIndex={-1}
                       ref={(el) => { fileRefs.current[docType.category] = el; }}
                       type="file"
                       className="hidden"

@@ -354,7 +354,7 @@ export function ReceiveGoodsDialog({
                     <div key={l.lineId} className="flex items-center gap-2">
                       <span className="text-sm text-foreground min-w-0 flex-1 truncate">{l.materialName}</span>
                       <span className="text-xs text-muted-foreground tnum">{l.qtyToReceive} {l.unit}</span>
-                      <Input
+                      <Input aria-label="Lines"
                         type="text"
                         placeholder="Lot/Batch #"
                         value={l.lotNumber}
@@ -423,7 +423,7 @@ export function ReceiveGoodsDialog({
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <Label className="text-xs">Gate Entry No.</Label>
-                  <Input
+                  <Input aria-label="Gate Entry No"
                     placeholder="GE-2026-081"
                     value={gateEntryNo}
                     onChange={(e) => setGateEntryNo(e.target.value)}
@@ -432,7 +432,7 @@ export function ReceiveGoodsDialog({
                 </div>
                 <div>
                   <Label className="text-xs">Challan No.</Label>
-                  <Input
+                  <Input aria-label="Supplier dispatch no"
                     placeholder="Supplier dispatch no."
                     value={challanNo}
                     onChange={(e) => setChallanNo(e.target.value)}
@@ -441,7 +441,7 @@ export function ReceiveGoodsDialog({
                 </div>
                 <div>
                   <Label className="text-xs">Invoice No.</Label>
-                  <Input
+                  <Input aria-label="Supplier invoice no"
                     placeholder="Supplier invoice no."
                     value={invoiceNo}
                     onChange={(e) => setInvoiceNo(e.target.value)}
@@ -471,7 +471,7 @@ export function ReceiveGoodsDialog({
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <Label className="text-xs">Vehicle No.</Label>
-                    <Input
+                    <Input aria-label="Vehicle Number"
                       placeholder="MH-12-AB-1234"
                       value={vehicleNumber}
                       onChange={(e) => setVehicleNumber(e.target.value)}
@@ -496,7 +496,7 @@ export function ReceiveGoodsDialog({
                   </div>
                   <div>
                     <Label className="text-xs">Driver Name</Label>
-                    <Input
+                    <Input aria-label="Driver name"
                       placeholder="Driver name"
                       value={driverName}
                       onChange={(e) => setDriverName(e.target.value)}
@@ -505,7 +505,7 @@ export function ReceiveGoodsDialog({
                   </div>
                   <div>
                     <Label className="text-xs">Driver Phone</Label>
-                    <Input
+                    <Input aria-label="Driver Phone"
                       placeholder="9876543210"
                       value={driverPhone}
                       onChange={(e) => setDriverPhone(e.target.value)}
@@ -515,7 +515,7 @@ export function ReceiveGoodsDialog({
                   {deliveryMode === "THIRD_PARTY" && (
                     <div className="col-span-2">
                       <Label className="text-xs">Transporter Name</Label>
-                      <Input
+                      <Input aria-label="Transport company name"
                         placeholder="Transport company name"
                         value={transporterName}
                         onChange={(e) => setTransporterName(e.target.value)}
@@ -536,7 +536,7 @@ export function ReceiveGoodsDialog({
                 <div className="grid grid-cols-4 gap-2">
                   <div>
                     <Label className="text-xs">Slip No.</Label>
-                    <Input
+                    <Input aria-label="Wb Ticket No"
                       placeholder="KP-001"
                       value={wbTicketNo}
                       onChange={(e) => setWbTicketNo(e.target.value)}
@@ -545,7 +545,7 @@ export function ReceiveGoodsDialog({
                   </div>
                   <div>
                     <Label className="text-xs">Gross (kg)</Label>
-                    <Input
+                    <Input aria-label="Wb Gross"
                       type="number"
                       step="0.001"
                       min="0"
@@ -562,7 +562,7 @@ export function ReceiveGoodsDialog({
                   </div>
                   <div>
                     <Label className="text-xs">Tare (kg)</Label>
-                    <Input
+                    <Input aria-label="Wb Tare"
                       type="number"
                       step="0.001"
                       min="0"
@@ -579,7 +579,7 @@ export function ReceiveGoodsDialog({
                   </div>
                   <div>
                     <Label className="text-xs">Net (kg)</Label>
-                    <Input
+                    <Input aria-label="Wb Net"
                       type="number"
                       step="0.001"
                       min="0"
@@ -601,7 +601,7 @@ export function ReceiveGoodsDialog({
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <Label className="text-xs">Unloading Slip No.</Label>
-                    <Input
+                    <Input aria-label="Nloading Slip No"
                       placeholder="US-2024-001"
                       value={unloadingSlipNo}
                       onChange={(e) => setUnloadingSlipNo(e.target.value)}
@@ -610,7 +610,7 @@ export function ReceiveGoodsDialog({
                   </div>
                   <div>
                     <Label className="text-xs">Unloading Location</Label>
-                    <Input
+                    <Input aria-label="Nloading Location"
                       placeholder="Bay 1, Yard A…"
                       value={unloadingLocation}
                       onChange={(e) => setUnloadingLocation(e.target.value)}
@@ -640,7 +640,7 @@ export function ReceiveGoodsDialog({
                 </div>
                 <div className="mt-2">
                   <Label className="text-xs">Receiving Photo URL</Label>
-                  <Input
+                  <Input aria-label="Receiving Photo Url"
                     placeholder="https://… (photo of receiving slip when no gate pass)"
                     value={receivingPhotoUrl}
                     onChange={(e) => setReceivingPhotoUrl(e.target.value)}

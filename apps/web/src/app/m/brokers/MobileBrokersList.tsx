@@ -353,21 +353,21 @@ function BrokerEditSheet({
                 </p>
                 <div>
                   <label className={labelClass} style={labelStyle}>Name *</label>
-                  <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} style={inputStyle} />
+                  <input aria-label="Name" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} style={inputStyle} />
                 </div>
                 <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
                     <label className={labelClass} style={labelStyle}>Phone</label>
-                    <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" inputMode="tel" className={inputClass} style={inputStyle} />
+                    <input aria-label="Phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" inputMode="tel" className={inputClass} style={inputStyle} />
                   </div>
                   <div className="pl-2">
                     <label className={labelClass} style={labelStyle}>Agency</label>
-                    <input value={agency} onChange={(e) => setAgency(e.target.value)} placeholder="Sharma Properties" className={inputClass} style={inputStyle} />
+                    <input aria-label="Sharma Properties" value={agency} onChange={(e) => setAgency(e.target.value)} placeholder="Sharma Properties" className={inputClass} style={inputStyle} />
                   </div>
                 </div>
                 <div>
                   <label className={labelClass} style={labelStyle}>Default Commission %</label>
-                  <input type="number" min="0" max="100" step="0.01" inputMode="decimal" value={commission} onChange={(e) => setCommission(e.target.value)} placeholder="e.g. 2.5" className={inputClass} style={inputStyle} />
+                  <input aria-label="Ommission" type="number" min="0" max="100" step="0.01" inputMode="decimal" value={commission} onChange={(e) => setCommission(e.target.value)} placeholder="e.g. 2.5" className={inputClass} style={inputStyle} />
                 </div>
                 <div>
                   <label className={labelClass} style={labelStyle}>Notes</label>

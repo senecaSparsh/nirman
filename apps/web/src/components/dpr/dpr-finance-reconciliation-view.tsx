@@ -100,11 +100,11 @@ export function DprFinanceReconciliationView() {
       <div className="flex flex-wrap items-end gap-3">
         <div>
           <label className="text-caption text-muted-foreground">From</label>
-          <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-8 w-auto" />
+          <Input aria-label="Start Date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="h-8 w-auto" />
         </div>
         <div>
           <label className="text-caption text-muted-foreground">To</label>
-          <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-8 w-auto" />
+          <Input aria-label="End Date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-8 w-auto" />
         </div>
         <Button size="sm" variant="outline" onClick={fetchReconciliation} disabled={loading}>
           {loading ? "Loading…" : "Apply filter"}

@@ -310,21 +310,21 @@ function RateContractDialog({
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label="Agreed Rate (₹)" required>
-            <Input type="number" step="0.01" value={form.agreedRate} onChange={(e) => set("agreedRate", e.target.value)} required />
+            <Input aria-label="Agreed Rate" type="number" step="0.01" value={form.agreedRate} onChange={(e) => set("agreedRate", e.target.value)} required />
           </Field>
           <Field label="Valid From" required>
-            <Input type="date" value={form.validFrom} onChange={(e) => set("validFrom", e.target.value)} required />
+            <Input aria-label="Valid From" type="date" value={form.validFrom} onChange={(e) => set("validFrom", e.target.value)} required />
           </Field>
           <Field label="Valid To" required>
-            <Input type="date" value={form.validTo} onChange={(e) => set("validTo", e.target.value)} required />
+            <Input aria-label="Valid To" type="date" value={form.validTo} onChange={(e) => set("validTo", e.target.value)} required />
           </Field>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Min Qty per Release (optional)">
-            <Input type="number" step="0.001" value={form.minQty} onChange={(e) => set("minQty", e.target.value)} />
+            <Input aria-label="Min Quantity" type="number" step="0.001" value={form.minQty} onChange={(e) => set("minQty", e.target.value)} />
           </Field>
           <Field label="Max Total Qty (optional)">
-            <Input type="number" step="0.001" value={form.maxQty} onChange={(e) => set("maxQty", e.target.value)} />
+            <Input aria-label="Max Quantity" type="number" step="0.001" value={form.maxQty} onChange={(e) => set("maxQty", e.target.value)} />
           </Field>
         </div>
         <Field label="Notes">

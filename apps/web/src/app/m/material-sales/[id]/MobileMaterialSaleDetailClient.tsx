@@ -735,7 +735,7 @@ export function MobileMaterialSaleDetailClient({
           <p className="text-m-body mb-3" style={{ color: "var(--color-ink-700)" }}>
             The payment is marked void and its accounting entry reversed — the customer owes the amount again. The record stays for audit.
           </p>
-          <input
+          <input aria-label="Void Reason"
             type="text"
             value={voidReason}
             onChange={(e) => setVoidReason(e.target.value)}
@@ -785,7 +785,7 @@ export function MobileMaterialSaleDetailClient({
               <p className="text-m-section font-extrabold tracking-tight" style={{ color: "var(--color-ink-950)" }}>Payment Details</p>
               <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <FormField label="Amount" required>
-                  <input
+                  <input aria-label="Pay Amount"
                     type="text" inputMode="decimal"
                     step="any"
                     min="0"
@@ -808,7 +808,7 @@ export function MobileMaterialSaleDetailClient({
                 </div>
               </div>
               <FormField label="Reference no (optional)">
-                <input
+                <input aria-label="UTR / cheque no"
                   type="text"
                   value={payRef}
                   onChange={(e) => setPayRef(e.target.value)}

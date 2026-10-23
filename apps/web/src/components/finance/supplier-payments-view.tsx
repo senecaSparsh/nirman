@@ -137,7 +137,7 @@ export function SupplierPaymentsView({
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
+          <Input aria-label="Search"
             placeholder="Search by supplier, payment #, reference, PO, invoice..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}

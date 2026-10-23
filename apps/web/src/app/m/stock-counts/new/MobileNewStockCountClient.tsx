@@ -458,7 +458,7 @@ export default function MobileNewStockCountClient({ onClose, onCreated, canCreat
                       <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                         Counted ({line.unit})
                       </label>
-                      <input
+                      <input aria-label="Counted Quantity"
                         type="text" inputMode="decimal"
                         step="any"
                         min="0"

@@ -145,7 +145,7 @@ export function MobileCrewForm({
               className="absolute left-1 top-1/2 -translate-y-1/2 size-3.5"
               style={{ color: "var(--color-ink-500)" }}
             />
-            <input
+            <input aria-label="Search workers"
               type="search"
               value={memberQuery}
               onChange={(e) => setMemberQuery(e.target.value)}

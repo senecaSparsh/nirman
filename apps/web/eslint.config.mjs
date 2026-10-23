@@ -245,6 +245,61 @@ const requireAccessibleIconButtonPlugin = {
   },
 };
 
+// ── Custom plugin: require-accessible-input ──────────────────────
+// Flags <input>/<Input> with no accessible name — no aria-label,
+// aria-labelledby, or id (for an external <label htmlFor>). Skips
+// types that don't take names (hidden/submit/button/image/file —
+// visually-hidden file inputs should be aria-hidden instead) and
+// inputs inside <label> elements or <Field label> wrappers.
+const requireAccessibleInputPlugin = {
+  meta: {
+    type: "problem",
+    docs: { description: "Require text inputs to have an accessible name" },
+    schema: [],
+    messages: {
+      missingName:
+        "<input> has no accessible name — add aria-label, aria-labelledby, an id bound by a <label htmlFor>, or wrap it in <Field label=\"…\">",
+    },
+  },
+  create(context) {
+    const filename = context.filename ?? context.getFilename();
+    if (/components[\\/]ui[\\/]/.test(filename) || /\.test\.tsx?$/.test(filename)) return {};
+    return {
+      JSXElement(node) {
+        const name = node.openingElement?.name?.name;
+        if (name !== "input" && name !== "Input") return;
+        const attrs = node.openingElement?.attributes ?? [];
+        const attr = (n) =>
+          attrs.find(
+            (a) => a.type === "JSXAttribute" && a.name?.name === n,
+          );
+        const typeAttr = attr("type");
+        const typeVal =
+          typeAttr?.value?.type === "Literal" ? typeAttr.value.value : undefined;
+        if (["hidden", "submit", "button", "image", "file", "checkbox", "radio", "reset"].includes(typeVal)) return;
+        const named = ["aria-label", "aria-labelledby", "id", "title"].some((n) => attr(n));
+        if (named) return;
+        // inside <label> or <Field label="…">
+        let anc = node.parent;
+        while (anc) {
+          if (anc.type === "JSXElement") {
+            const n2 = anc.openingElement?.name?.name;
+            if (n2 === "label") return;
+            if (n2 === "Field" || n2 === "FormFieldSm") {
+              const hasLabel = (anc.openingElement?.attributes ?? []).some(
+                (a) => a.type === "JSXAttribute" && a.name?.name === "label",
+              );
+              if (hasLabel) return;
+            }
+          }
+          anc = anc.parent;
+        }
+        context.report({ node: node.openingElement, messageId: "missingName" });
+      },
+    };
+  },
+};
+
 const eslintConfig = [
   ...nextCoreWebVitals,
   ...nextTypescript,
@@ -276,6 +331,7 @@ const eslintConfig = [
           "no-raw-employee-row-response": noRawEmployeeRowPlugin,
           "require-accessible-select": requireAccessibleSelectPlugin,
           "require-accessible-icon-button": requireAccessibleIconButtonPlugin,
+          "require-accessible-input": requireAccessibleInputPlugin,
         },
       },
     },
@@ -327,6 +383,8 @@ const eslintConfig = [
       // Icon-only buttons (close/clear/add glyphs) need an accessible name —
       // axe can only catch them when the dialog happens to be open.
       "nirman/require-accessible-icon-button": "warn",
+      // Text inputs without an accessible name — placeholder is NOT a name.
+      "nirman/require-accessible-input": "warn",
       // This rule is for the Pages Router — this app uses the App Router
       // exclusively (no /pages directory). Without disabling it, every lint
       // run prints "Pages directory cannot be found at .../pages or .../src/pages".

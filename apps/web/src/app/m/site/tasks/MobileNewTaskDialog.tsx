@@ -258,7 +258,7 @@ export function MobileNewTaskForm({
       <SectionCard title="Checklist">
         {/* Subtask input has onKeyDown Enter — stays inline */}
         <div className="flex gap-1.5">
-          <input
+          <input aria-label="Add a step"
             type="text"
             value={newSubtask}
             onChange={(e) => setNewSubtask(e.target.value)}

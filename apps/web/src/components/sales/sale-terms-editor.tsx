@@ -67,7 +67,7 @@ export function SaleTermsEditor({
             </div>
             <div className="flex items-center gap-3">
               <div className="flex-1">
-                <Input
+                <Input aria-label="Extra charge"
                   type="number"
                   min="0"
                   step="0.01"

@@ -143,7 +143,7 @@ export function MobileNewStockLocationForm({
                 Location name{" "}
                 <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
-              <input
+              <input aria-label="Name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -244,7 +244,7 @@ export function MobileNewStockLocationForm({
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Radius (m)
                 </label>
-                <input
+                <input aria-label="Geo Radius"
                   type="number"
                   inputMode="numeric"
                   min="10"

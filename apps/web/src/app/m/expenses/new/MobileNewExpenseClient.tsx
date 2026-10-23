@@ -177,7 +177,7 @@ export function MobileNewExpenseClient({
                   </span>
                 </button>
               ) : (
-                <input
+                <input aria-label="Ategory"
                   value={category}
                   onChange={(e) => { setCategory(e.target.value); setCategoryId(""); }}
                   placeholder="e.g. Transport, Fuel"
@@ -193,7 +193,7 @@ export function MobileNewExpenseClient({
                 style={{ borderColor: "var(--color-line)" }}
               >
                 <IndianRupee className="size-3.5 shrink-0" style={{ color: "var(--color-ink-500)" }} />
-                <input
+                <input aria-label="Amount"
                   type="number"
                   min="0"
                   step="any"
@@ -227,7 +227,7 @@ export function MobileNewExpenseClient({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <span className={labelClass} style={labelStyle}>Payee</span>
-              <input
+              <input aria-label="Ayee Name"
                 value={payeeName}
                 onChange={(e) => setPayeeName(e.target.value)}
                 placeholder="Who was paid?"
@@ -269,7 +269,7 @@ export function MobileNewExpenseClient({
             </div>
             <div>
               <span className={labelClass} style={labelStyle}>Date</span>
-              <input
+              <input aria-label="Date"
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
@@ -280,7 +280,7 @@ export function MobileNewExpenseClient({
           </div>
           <div>
             <span className={labelClass} style={labelStyle}>Reference No.</span>
-            <input
+            <input aria-label="UTR / Cheque no"
               value={referenceNo}
               onChange={(e) => setReferenceNo(e.target.value)}
               placeholder="UTR / Cheque no."

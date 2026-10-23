@@ -134,7 +134,7 @@ export function CustomerFormDialog({
             <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} onBlur={() => onBlur("phone", form)} aria-invalid={!!errors.phone} placeholder="98765 43210" />
           </Field>
           <Field label="Email" error={errors.email}>
-            <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} onBlur={() => onBlur("email", form)} aria-invalid={!!errors.email} placeholder="customer@example.com" />
+            <Input aria-label="Email" type="email" value={form.email} onChange={(e) => set("email", e.target.value)} onBlur={() => onBlur("email", form)} aria-invalid={!!errors.email} placeholder="customer@example.com" />
           </Field>
         </div>
         <Field label="GSTIN" error={errors.gstin}>

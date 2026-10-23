@@ -326,7 +326,7 @@ export function ExpenseFormDialog({
               <Input id="e-category" value={form.category} onChange={(e) => set("category", e.target.value)} onBlur={() => onBlur("category", form)} aria-invalid={!!errors.category} placeholder="e.g. Office Supplies" required />
             )}
             {categories.length > 0 && (
-              <Input
+              <Input aria-label="Category"
                 value={form.category}
                 onChange={(e) => set("category", e.target.value)}
                 onBlur={() => onBlur("category", form)}

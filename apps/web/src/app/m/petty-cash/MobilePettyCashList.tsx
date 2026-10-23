@@ -280,7 +280,7 @@ function PettyCashCard({ f, canManage, canSpend, currentUserId }: { f: PettyCash
           </p>
           <div>
             <label className="block text-m-caption font-bold mb-1" style={{ color: "var(--color-ink-700)" }}>Amount <span style={{ color: "var(--color-stop)" }}>*</span></label>
-            <input
+            <input aria-label="Spend Form"
               type="number" min="0" step="0.01" inputMode="decimal"
               value={spendForm.amount}
               onChange={(e) => setSpendForm((s) => ({ ...s, amount: e.target.value }))}
@@ -292,7 +292,7 @@ function PettyCashCard({ f, canManage, canSpend, currentUserId }: { f: PettyCash
           </div>
           <div>
             <label className="block text-m-caption font-bold mb-1" style={{ color: "var(--color-ink-700)" }}>Category <span style={{ color: "var(--color-stop)" }}>*</span></label>
-            <input
+            <input aria-label="Spend Form"
               type="text"
               value={spendForm.category}
               onChange={(e) => setSpendForm((s) => ({ ...s, category: e.target.value }))}
@@ -303,7 +303,7 @@ function PettyCashCard({ f, canManage, canSpend, currentUserId }: { f: PettyCash
           </div>
           <div>
             <label className="block text-m-caption font-bold mb-1" style={{ color: "var(--color-ink-700)" }}>Notes</label>
-            <input
+            <input aria-label="Notes"
               type="text"
               value={spendForm.notes}
               onChange={(e) => setSpendForm((s) => ({ ...s, notes: e.target.value }))}
@@ -342,7 +342,7 @@ function PettyCashCard({ f, canManage, canSpend, currentUserId }: { f: PettyCash
           </p>
           <div>
             <label className="block text-m-caption font-bold mb-1" style={{ color: "var(--color-ink-700)" }}>Amount <span style={{ color: "var(--color-stop)" }}>*</span></label>
-            <input
+            <input aria-label="Top Up Form"
               type="number" min="0" step="0.01" inputMode="decimal"
               value={topUpForm.amount}
               onChange={(e) => setTopUpForm((s) => ({ ...s, amount: e.target.value }))}
@@ -354,7 +354,7 @@ function PettyCashCard({ f, canManage, canSpend, currentUserId }: { f: PettyCash
           </div>
           <div>
             <label className="block text-m-caption font-bold mb-1" style={{ color: "var(--color-ink-700)" }}>Reference No</label>
-            <input
+            <input aria-label="Top Up Form"
               type="text"
               value={topUpForm.referenceNo}
               onChange={(e) => setTopUpForm((s) => ({ ...s, referenceNo: e.target.value }))}
@@ -365,7 +365,7 @@ function PettyCashCard({ f, canManage, canSpend, currentUserId }: { f: PettyCash
           </div>
           <div>
             <label className="block text-m-caption font-bold mb-1" style={{ color: "var(--color-ink-700)" }}>Notes</label>
-            <input
+            <input aria-label="Notes"
               type="text"
               value={topUpForm.notes}
               onChange={(e) => setTopUpForm((s) => ({ ...s, notes: e.target.value }))}

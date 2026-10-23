@@ -644,9 +644,9 @@ export function RenovationsView({
                   <Select value={cCostType} onChange={(e) => setCCostType(e.target.value)} aria-label="Cost type">
                     {COST_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                   </Select>
-                  <Input type="number" placeholder="Amount" value={cAmount} onChange={(e) => setCAmount(e.target.value)} />
-                  <Input placeholder="Vendor" value={cVendor} onChange={(e) => setCVendor(e.target.value)} />
-                  <Input placeholder="Notes" value={cNotes} onChange={(e) => setCNotes(e.target.value)} />
+                  <Input aria-label="Amount" type="number" placeholder="Amount" value={cAmount} onChange={(e) => setCAmount(e.target.value)} />
+                  <Input aria-label="Vendor" placeholder="Vendor" value={cVendor} onChange={(e) => setCVendor(e.target.value)} />
+                  <Input aria-label="Notes" placeholder="Notes" value={cNotes} onChange={(e) => setCNotes(e.target.value)} />
                 </div>
                 <div className="flex justify-end gap-2">
                   <Button size="sm" variant="ghost" onClick={() => setCostFormOpen(false)}>Cancel</Button>
@@ -709,7 +709,7 @@ export function RenovationsView({
           </div>
           <div>
             <Label>Title *</Label>
-            <Input value={fTitle} onChange={(e) => setFTitle(e.target.value)} placeholder="e.g. Kitchen renovation, 2nd floor addition" />
+            <Input aria-label="F Title" value={fTitle} onChange={(e) => setFTitle(e.target.value)} placeholder="e.g. Kitchen renovation, 2nd floor addition" />
           </div>
           <div>
             <Label>Description</Label>
@@ -749,11 +749,11 @@ export function RenovationsView({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label>Budget</Label>
-              <Input type="number" value={fBudget} onChange={(e) => setFBudget(e.target.value)} placeholder="0" />
+              <Input aria-label="F Budget" type="number" value={fBudget} onChange={(e) => setFBudget(e.target.value)} placeholder="0" />
             </div>
             <div>
               <Label>Start date</Label>
-              <Input type="date" value={fStartDate} onChange={(e) => setFStartDate(e.target.value)} />
+              <Input aria-label="F Start Date" type="date" value={fStartDate} onChange={(e) => setFStartDate(e.target.value)} />
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -788,7 +788,7 @@ export function RenovationsView({
         <div className="space-y-3">
           <div>
             <Label>New valuation (optional)</Label>
-            <Input
+            <Input aria-label="Complete Valuation"
               type="number"
               value={completeValuation}
               onChange={(e) => setCompleteValuation(e.target.value)}
@@ -814,7 +814,7 @@ export function RenovationsView({
         <div className="space-y-3">
           <div>
             <Label>Title *</Label>
-            <Input value={eTitle} onChange={(e) => setETitle(e.target.value)} placeholder="e.g. Kitchen renovation, 2nd floor addition" />
+            <Input aria-label="Title" value={eTitle} onChange={(e) => setETitle(e.target.value)} placeholder="e.g. Kitchen renovation, 2nd floor addition" />
           </div>
           <div>
             <Label>Description</Label>
@@ -823,11 +823,11 @@ export function RenovationsView({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label>Budget</Label>
-              <Input type="number" value={eBudget} onChange={(e) => setEBudget(e.target.value)} placeholder="0" />
+              <Input aria-label="Budget" type="number" value={eBudget} onChange={(e) => setEBudget(e.target.value)} placeholder="0" />
             </div>
             <div>
               <Label>Start date</Label>
-              <Input type="date" value={eStartDate} onChange={(e) => setEStartDate(e.target.value)} />
+              <Input aria-label="E Start Date" type="date" value={eStartDate} onChange={(e) => setEStartDate(e.target.value)} />
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">

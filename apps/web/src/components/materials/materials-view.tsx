@@ -333,7 +333,7 @@ function CatalogTab({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative min-w-40 flex-1 sm:max-w-64">
           <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-faint" />
-          <input
+          <input aria-label="Search by name or code"
             ref={searchRef}
             type="text"
             value={query}

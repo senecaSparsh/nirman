@@ -464,7 +464,7 @@ export function MobileAttendanceForm({
           </div>
           <div className="relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5" style={{ color: "var(--color-ink-500)" }} />
-            <input
+            <input aria-label="Search workers"
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -540,7 +540,7 @@ export function MobileAttendanceForm({
         </button>
         {addOpen && (
           <div className="mt-2 rounded-[0.625rem] border p-2.5 flex flex-col gap-2" style={{ borderColor: "var(--color-line)", backgroundColor: "color-mix(in srgb, var(--color-accent) 4%, transparent)" }}>
-            <input
+            <input aria-label="Worker name"
               value={nwName}
               onChange={(e) => setNwName(e.target.value)}
               placeholder="Worker name *"
@@ -548,14 +548,14 @@ export function MobileAttendanceForm({
               style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
             />
             <div className="flex gap-2">
-              <input
+              <input aria-label="Nw Trade"
                 value={nwTrade}
                 onChange={(e) => setNwTrade(e.target.value)}
                 placeholder="Trade (beldar, mason…)"
                 className="h-9 flex-1 rounded-md border px-2.5 text-m-body font-medium outline-none"
                 style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
               />
-              <input
+              <input aria-label="Nw Rate"
                 value={nwRate}
                 onChange={(e) => setNwRate(e.target.value)}
                 placeholder="₹/day"
@@ -642,7 +642,7 @@ export function MobileAttendanceForm({
                   <div className="mt-2.5 grid grid-cols-3 gap-1.5">
                     <div>
                       <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>In</label>
-                      <input
+                      <input aria-label="Check In"
                         type="time"
                         disabled={!!periodLocked}
                         value={r.checkIn}
@@ -653,7 +653,7 @@ export function MobileAttendanceForm({
                     </div>
                     <div>
                       <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Out</label>
-                      <input
+                      <input aria-label="Check Out"
                         type="time"
                         disabled={!!periodLocked}
                         value={r.checkOut}
@@ -664,7 +664,7 @@ export function MobileAttendanceForm({
                     </div>
                     <div>
                       <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Hrs</label>
-                      <input
+                      <input aria-label="Hrs"
                         type="number"
                         inputMode="decimal"
                         enterKeyHint="done"

@@ -118,7 +118,7 @@ export function MobileSellerDialog({
                   label="Address"
                   value={form.address}
                   onChange={(v) => set("address", v)}
-                  placeholder="Village, district"
+                  aria-label="Village / district" placeholder="Village, district"
                 />
               </div>
             </div>

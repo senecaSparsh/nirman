@@ -303,7 +303,7 @@ export function MaterialFormDialog({
             </div>
           </Field>
           <Field label="Name" required error={errors.name}>
-            <Input
+            <Input aria-label="Name"
               value={form.name}
               onChange={(e) => set("name", e.target.value)}
               onBlur={() => onBlur("name", form)}
@@ -313,14 +313,14 @@ export function MaterialFormDialog({
             />
           </Field>
           <Field label="Grade" hint="Used for auto-code generation (e.g. Fe500D, OPC 53, 20mm)">
-            <Input
+            <Input aria-label="Grade"
               value={form.grade}
               onChange={(e) => set("grade", e.target.value)}
               placeholder="Fe500D / OPC 53 / 20mm"
             />
           </Field>
           <Field label="Specification">
-            <Input
+            <Input aria-label="Specification"
               value={form.specification}
               onChange={(e) => set("specification", e.target.value)}
               placeholder="IS 1786 / IS 269"
@@ -356,7 +356,7 @@ export function MaterialFormDialog({
             />
           </Field>
           <Field label="Unit of Measure" required error={errors.unit}>
-            <Input
+            <Input aria-label="Unit"
               value={form.unit}
               onChange={(e) => set("unit", e.target.value)}
               onBlur={() => onBlur("unit", form)}
@@ -382,7 +382,7 @@ export function MaterialFormDialog({
             />
           </Field>
           <Field label="GST Rate (%)" error={errors.gstRate}>
-            <Input
+            <Input aria-label="GST Rate"
               type="number"
               step="0.01"
               min="0"
@@ -395,7 +395,7 @@ export function MaterialFormDialog({
           </Field>
           <Field label="Standard Cost (₹)" error={errors.standardCost}>
             <div className="flex gap-2">
-              <Input
+              <Input aria-label="Standard Cost"
                 type="number"
                 step="0.01"
                 min="0"
@@ -486,7 +486,7 @@ export function MaterialFormDialog({
             />
           </Field>
           <Field label="Volumetric Density (V/W ratio)" error={errors.volumetricDensity} hint="Volume/weight score — feeds the logistics (LCI) recommendation for central vs site buying">
-            <Input
+            <Input aria-label="LCI logistics input"
               type="number"
               step="0.01"
               min="0"
@@ -498,7 +498,7 @@ export function MaterialFormDialog({
             />
           </Field>
           <Field label="Bulk Discount (%)" error={errors.bulkDiscountPct}>
-            <Input
+            <Input aria-label="Corporate volume discount"
               type="number"
               step="0.01"
               min="0"
@@ -549,13 +549,13 @@ export function MaterialFormDialog({
           <p className="text-xs text-muted-foreground mb-2">Convert between base and secondary units (e.g. 1 BAG = 50 KG). Enables quantity entry in either unit during goods receipt.</p>
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Base Unit">
-              <Input value={form.baseUnit} onChange={(e) => set("baseUnit", e.target.value)} placeholder="e.g. KG" list="material-units" />
+              <Input aria-label="UOM Conversion (optional)" value={form.baseUnit} onChange={(e) => set("baseUnit", e.target.value)} placeholder="e.g. KG" list="material-units" />
             </Field>
             <Field label="Secondary Unit">
-              <Input value={form.secondaryUnit} onChange={(e) => set("secondaryUnit", e.target.value)} placeholder="e.g. BAG" list="material-units" />
+              <Input aria-label="UOM Conversion (optional)" value={form.secondaryUnit} onChange={(e) => set("secondaryUnit", e.target.value)} placeholder="e.g. BAG" list="material-units" />
             </Field>
             <Field label="1 secondary = N base" error={errors.uomConversionFactor}>
-              <Input type="number" step="0.000001" min="0" value={form.uomConversionFactor} onChange={(e) => set("uomConversionFactor", e.target.value)} onBlur={() => onBlur("uomConversionFactor", form)} aria-invalid={!!errors.uomConversionFactor} placeholder="e.g. 50" />
+              <Input aria-label="UOM Conversion (optional)" type="number" step="0.000001" min="0" value={form.uomConversionFactor} onChange={(e) => set("uomConversionFactor", e.target.value)} onBlur={() => onBlur("uomConversionFactor", form)} aria-invalid={!!errors.uomConversionFactor} placeholder="e.g. 50" />
             </Field>
           </div>
         </div>

@@ -132,11 +132,11 @@ export function SupplierPortalDashboard({ supplier }: { supplier: PortalSupplier
           <div className="mt-4 space-y-3 border-t border-slate-100 pt-4">
             {submitError && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{submitError}</div>}
             <div className="grid grid-cols-2 gap-3">
-              <input className="portal-input" placeholder="Invoice number *" value={form.invoiceNumber} onChange={(e) => setForm({ ...form, invoiceNumber: e.target.value })} />
-              <input className="portal-input" type="date" value={form.invoiceDate} onChange={(e) => setForm({ ...form, invoiceDate: e.target.value })} />
+              <input aria-label="Invoice number" className="portal-input" placeholder="Invoice number *" value={form.invoiceNumber} onChange={(e) => setForm({ ...form, invoiceNumber: e.target.value })} />
+              <input aria-label="Invoice Date" className="portal-input" type="date" value={form.invoiceDate} onChange={(e) => setForm({ ...form, invoiceDate: e.target.value })} />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <input className="portal-input" type="date" placeholder="Due date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+              <input aria-label="Due date" className="portal-input" type="date" placeholder="Due date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
               <select aria-label="Against a PO (optional)" className="portal-input" value={form.purchaseOrderId} onChange={(e) => setForm({ ...form, purchaseOrderId: e.target.value })}>
                 <option value="">Against a PO? (optional)</option>
                 {orders?.filter((o) => o.status === "ORDERED" || o.status === "PARTIAL" || o.status === "RECEIVED").map((o) => (
@@ -145,11 +145,11 @@ export function SupplierPortalDashboard({ supplier }: { supplier: PortalSupplier
               </select>
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <input className="portal-input" type="number" placeholder="Subtotal ₹ *" value={form.subtotal} onChange={(e) => setForm({ ...form, subtotal: e.target.value })} />
-              <input className="portal-input" type="number" placeholder="GST ₹" value={form.gstAmount} onChange={(e) => setForm({ ...form, gstAmount: e.target.value })} />
-              <input className="portal-input" type="number" placeholder="Total ₹ *" value={form.totalAmount} onChange={(e) => setForm({ ...form, totalAmount: e.target.value })} />
+              <input aria-label="Subtotal" className="portal-input" type="number" placeholder="Subtotal ₹ *" value={form.subtotal} onChange={(e) => setForm({ ...form, subtotal: e.target.value })} />
+              <input aria-label="GST" className="portal-input" type="number" placeholder="GST ₹" value={form.gstAmount} onChange={(e) => setForm({ ...form, gstAmount: e.target.value })} />
+              <input aria-label="Total" className="portal-input" type="number" placeholder="Total ₹ *" value={form.totalAmount} onChange={(e) => setForm({ ...form, totalAmount: e.target.value })} />
             </div>
-            <input className="portal-input" placeholder="HSN/SAC code (optional)" value={form.hsnCode} onChange={(e) => setForm({ ...form, hsnCode: e.target.value })} />
+            <input aria-label="HSN/SAC code" className="portal-input" placeholder="HSN/SAC code (optional)" value={form.hsnCode} onChange={(e) => setForm({ ...form, hsnCode: e.target.value })} />
             <p className="text-xs text-slate-500">Total should equal subtotal + GST. We run the PO match at submission — a matched bill goes straight to approval.</p>
             <button onClick={submitInvoice} disabled={submitting} className="portal-btn portal-btn-primary w-full">
               {submitting ? "Submitting…" : "Submit invoice"}

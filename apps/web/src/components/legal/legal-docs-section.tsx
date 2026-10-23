@@ -747,43 +747,43 @@ function LegalDocFormDialog({
 
         <div className="space-y-1.5">
           <Label>Title *</Label>
-          <Input value={form.title} onChange={(e) => setField("title", e.target.value)} placeholder="e.g. Map Approval — Tower A" />
+          <Input aria-label="Title" value={form.title} onChange={(e) => setField("title", e.target.value)} placeholder="e.g. Map Approval — Tower A" />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Issuing Authority</Label>
-            <Input value={form.authority} onChange={(e) => setField("authority", e.target.value)} placeholder="e.g. DDA, Fire Dept, UPPCB" />
+            <Input aria-label="Authority" value={form.authority} onChange={(e) => setField("authority", e.target.value)} placeholder="e.g. DDA, Fire Dept, UPPCB" />
           </div>
           <div className="space-y-1.5">
             <Label>Reference / Document No.</Label>
-            <Input value={form.docNumber} onChange={(e) => setField("docNumber", e.target.value)} placeholder="e.g. DDA/LU/2024/123" />
+            <Input aria-label="Doc Number" value={form.docNumber} onChange={(e) => setField("docNumber", e.target.value)} placeholder="e.g. DDA/LU/2024/123" />
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-3">
           <div className="space-y-1.5">
             <Label>Application Date</Label>
-            <Input type="date" value={form.applicationDate} onChange={(e) => setField("applicationDate", e.target.value)} />
+            <Input aria-label="Application Date" type="date" value={form.applicationDate} onChange={(e) => setField("applicationDate", e.target.value)} />
           </div>
           <div className="space-y-1.5">
             <Label>Issue Date</Label>
-            <Input type="date" value={form.issueDate} onChange={(e) => setField("issueDate", e.target.value)} />
+            <Input aria-label="Issue Date" type="date" value={form.issueDate} onChange={(e) => setField("issueDate", e.target.value)} />
           </div>
           <div className="space-y-1.5">
             <Label>Valid From</Label>
-            <Input type="date" value={form.validFrom} onChange={(e) => setField("validFrom", e.target.value)} />
+            <Input aria-label="Valid From" type="date" value={form.validFrom} onChange={(e) => setField("validFrom", e.target.value)} />
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Valid Till</Label>
-            <Input type="date" value={form.validTill} onChange={(e) => setField("validTill", e.target.value)} />
+            <Input aria-label="Valid Till" type="date" value={form.validTill} onChange={(e) => setField("validTill", e.target.value)} />
           </div>
           <div className="space-y-1.5">
             <Label>{amountLabel} (₹)</Label>
-            <Input type="number" min={0} step="any" value={form.amount} onChange={(e) => setField("amount", e.target.value)} placeholder="e.g. 50000" />
+            <Input aria-label="Amount" type="number" min={0} step="any" value={form.amount} onChange={(e) => setField("amount", e.target.value)} placeholder="e.g. 50000" />
           </div>
         </div>
 
@@ -792,7 +792,7 @@ function LegalDocFormDialog({
             <div className="text-body font-semibold text-brand">Agreement to Sell Details</div>
             <div className="space-y-1.5">
               <Label>Expected Registry Date</Label>
-              <Input type="date" value={form.expectedRegistryDate} onChange={(e) => setField("expectedRegistryDate", e.target.value)} />
+              <Input aria-label="Expected Registry Date" type="date" value={form.expectedRegistryDate} onChange={(e) => setField("expectedRegistryDate", e.target.value)} />
             </div>
             <div className="text-caption text-muted-foreground">
               ATS is a legal substitute for registry — used when the seller cannot registry immediately.

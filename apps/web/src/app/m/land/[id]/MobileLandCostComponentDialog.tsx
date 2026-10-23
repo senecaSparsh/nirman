@@ -186,7 +186,7 @@ export function MobileLandCostComponentDialog({
             </p>
             <div>
               <label className={labelCls} style={labelStyle}>Label *</label>
-              <input
+              <input aria-label="Label"
                 value={form.label}
                 onChange={(e) => set("label", e.target.value)}
                 placeholder="e.g. Yearly Lease Rent, EDC/IDC, Maintenance"
@@ -200,7 +200,7 @@ export function MobileLandCostComponentDialog({
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
               <div>
                 <label className={labelCls} style={labelStyle}>Amount (₹) *</label>
-                <input
+                <input aria-label="Amount (₹)"
                   type="number"
                   inputMode="decimal"
                   min="0"
@@ -240,7 +240,7 @@ export function MobileLandCostComponentDialog({
                 </div>
                 <div className="pl-2">
                   <label className={labelCls} style={labelStyle}>Occurrences</label>
-                  <input
+                  <input aria-label="Occurrences"
                     type="number"
                     inputMode="numeric"
                     min="1"
@@ -258,7 +258,7 @@ export function MobileLandCostComponentDialog({
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
               <div>
                 <label className={labelCls} style={labelStyle}>Start Date *</label>
-                <input
+                <input aria-label="Start Date"
                   type="date"
                   value={form.startDate}
                   onChange={(e) => set("startDate", e.target.value)}
@@ -270,7 +270,7 @@ export function MobileLandCostComponentDialog({
               {form.frequency === "RECURRING" && (
                 <div className="pl-2">
                   <label className={labelCls} style={labelStyle}>End Date</label>
-                  <input
+                  <input aria-label="End Date"
                     type="date"
                     value={form.endDate}
                     onChange={(e) => set("endDate", e.target.value)}

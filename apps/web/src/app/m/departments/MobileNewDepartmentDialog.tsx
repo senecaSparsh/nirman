@@ -74,7 +74,7 @@ export function MobileNewDepartmentForm({
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Code *
             </label>
-            <input
+            <input aria-label="BOILER"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder="BOILER"
@@ -87,7 +87,7 @@ export function MobileNewDepartmentForm({
             <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
               Name *
             </label>
-            <input
+            <input aria-label="Boiler House"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Boiler House"

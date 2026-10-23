@@ -181,7 +181,7 @@ export function PermissionsView({ docs, canManage }: { docs: PermissionRow[]; ca
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
+          <Input aria-label="Search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by title, authority, ref no, project, land…"

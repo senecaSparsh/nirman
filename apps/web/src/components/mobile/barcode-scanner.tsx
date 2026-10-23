@@ -248,7 +248,7 @@ export function BarcodeScanner({
       {/* Manual entry fallback */}
       <div className="space-y-2 bg-black/90 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
         <div className="flex gap-2">
-          <input
+          <input aria-label="Enter barcode manually"
             type="text"
             value={manualCode}
             onChange={(e) => setManualCode(e.target.value)}

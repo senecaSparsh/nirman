@@ -171,12 +171,12 @@ export function SupplierFormDialog({
             )}
           </Field>
           <Field label="Phone" error={errors.phone}>
-            <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} onBlur={() => onBlur("phone", form)} aria-invalid={!!errors.phone} placeholder="98765 43210" />
+            <Input aria-label="Phone" value={form.phone} onChange={(e) => set("phone", e.target.value)} onBlur={() => onBlur("phone", form)} aria-invalid={!!errors.phone} placeholder="98765 43210" />
           </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Field label="PAN" error={errors.pan} hint="Required for TDS filings — payments deduct 20% u/s 206AA when absent.">
-            <Input value={form.pan} onChange={(e) => set("pan", e.target.value.toUpperCase())} onBlur={() => onBlur("pan", form)} aria-invalid={!!errors.pan} placeholder="ABCDE1234F" maxLength={10} />
+            <Input aria-label="PAN" value={form.pan} onChange={(e) => set("pan", e.target.value.toUpperCase())} onBlur={() => onBlur("pan", form)} aria-invalid={!!errors.pan} placeholder="ABCDE1234F" maxLength={10} />
           </Field>
           <Field label="TDS Section" hint="Default deduction for payments to this supplier.">
             <select
@@ -203,7 +203,7 @@ export function SupplierFormDialog({
         </div>
         {form.tdsSection && (
           <Field label="TDS Rate (%)" error={errors.tdsRate} hint="Override the statutory rate when the supplier's facts differ (e.g. lower-deduction certificate u/s 197).">
-            <Input type="number" min="0" max="100" step="0.01" value={form.tdsRate} onChange={(e) => set("tdsRate", e.target.value)} onBlur={() => onBlur("tdsRate", form)} aria-invalid={!!errors.tdsRate} placeholder="e.g. 2" />
+            <Input aria-label="No TDS default" type="number" min="0" max="100" step="0.01" value={form.tdsRate} onChange={(e) => set("tdsRate", e.target.value)} onBlur={() => onBlur("tdsRate", form)} aria-invalid={!!errors.tdsRate} placeholder="e.g. 2" />
           </Field>
         )}
         <div className="grid grid-cols-2 gap-3">
@@ -211,7 +211,7 @@ export function SupplierFormDialog({
             <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} onBlur={() => onBlur("email", form)} aria-invalid={!!errors.email} placeholder="supplier@example.com" />
           </Field>
           <Field label="Lead Time (days)" error={errors.leadTimeDays} hint="Average vendor lead time — used by the Logistics Decision Engine (S_lead).">
-            <Input type="number" min="0" value={form.leadTimeDays} onChange={(e) => set("leadTimeDays", e.target.value)} onBlur={() => onBlur("leadTimeDays", form)} aria-invalid={!!errors.leadTimeDays} placeholder="e.g. 7" />
+            <Input aria-label="Lead Time Days" type="number" min="0" value={form.leadTimeDays} onChange={(e) => set("leadTimeDays", e.target.value)} onBlur={() => onBlur("leadTimeDays", form)} aria-invalid={!!errors.leadTimeDays} placeholder="e.g. 7" />
           </Field>
         </div>
         <Field label="Address">
@@ -219,7 +219,7 @@ export function SupplierFormDialog({
         </Field>
         {!isEdit && (
           <Field label="Opening Balance Owed (₹)" error={errors.openingBalance} hint="Unpaid bills carried in at go-live — posts Cr Accounts Payable / Dr Opening Balance Equity.">
-            <Input type="number" min="0" step="0.01" value={form.openingBalance} onChange={(e) => set("openingBalance", e.target.value)} onBlur={() => onBlur("openingBalance", form)} aria-invalid={!!errors.openingBalance} placeholder="Optional" />
+            <Input aria-label="Opening Balance" type="number" min="0" step="0.01" value={form.openingBalance} onChange={(e) => set("openingBalance", e.target.value)} onBlur={() => onBlur("openingBalance", form)} aria-invalid={!!errors.openingBalance} placeholder="Optional" />
           </Field>
         )}
         <div className="flex justify-end gap-2 pt-2">

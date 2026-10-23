@@ -249,7 +249,7 @@ export function PartitionDialog({
           </div>
           <div className="space-y-1">
             <Label className="text-caption text-muted-foreground">Development Cost (optional)</Label>
-            <Input
+            <Input aria-label="Development Cost"
               type="number"
               min={0}
               step="any"
@@ -278,7 +278,7 @@ export function PartitionDialog({
                 <div className="flex items-end gap-2">
                   <div className="flex-1 space-y-1">
                     <Label className="text-caption text-muted-foreground">Number</Label>
-                    <Input
+                    <Input aria-label="Number"
                       value={child.number}
                       onChange={(e) => updateChild(idx, "number", e.target.value)}
                       placeholder={`PLOT-${idx + 1}A`}
@@ -287,7 +287,7 @@ export function PartitionDialog({
                   </div>
                   <div className="w-24 space-y-1">
                     <Label className="text-caption text-muted-foreground">Area ({parcel.areaUnit})</Label>
-                    <Input
+                    <Input aria-label="Area ("
                       type="number"
                       min={0}
                       step="any"
@@ -299,7 +299,7 @@ export function PartitionDialog({
                   </div>
                   <div className="w-28 space-y-1">
                     <Label className="text-caption text-muted-foreground">Asking Price</Label>
-                    <Input
+                    <Input aria-label="Asking Price"
                       type="number"
                       min={0}
                       step="any"
@@ -312,7 +312,7 @@ export function PartitionDialog({
                   {allocationModel === "MARKET_VALUE" && !child.isInfrastructure && (
                     <div className="w-20 space-y-1">
                       <Label className="text-caption text-muted-foreground">Weight</Label>
-                      <Input
+                      <Input aria-label="Weight"
                         type="number"
                         min={0}
                         step="any"
@@ -351,7 +351,7 @@ export function PartitionDialog({
                   {!child.isInfrastructure && (
                     <div className="flex items-center gap-1.5 text-caption text-muted-foreground">
                       <span>Market Value:</span>
-                      <input
+                      <input aria-label="Market Value"
                         type="number"
                         min={0}
                         step="any"

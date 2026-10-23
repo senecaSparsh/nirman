@@ -233,7 +233,7 @@ export function QuoteUploadDialog({
         {!isDocumentSource ? (
           <div className="space-y-1.5">
             <Label>Source Note *</Label>
-            <Input
+            <Input aria-label="Source Note"
               type="text"
               value={sourceNote}
               onChange={(e) => setSourceNote(e.target.value)}
@@ -372,7 +372,7 @@ export function QuoteUploadDialog({
             <option value="CUSTOM">Custom (specify below)</option>
           </Select>
           {deliveryTermsType === "CUSTOM" ? (
-            <Input
+            <Input aria-label="Describe delivery terms"
               type="text"
               value={deliveryTermsNote}
               onChange={(e) => setDeliveryTermsNote(e.target.value)}
@@ -390,7 +390,7 @@ export function QuoteUploadDialog({
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label>Landed Total (including GST) *</Label>
-            <Input
+            <Input aria-label="Landed Total"
               type="number"
               step="0.01"
               min="0"
@@ -402,7 +402,7 @@ export function QuoteUploadDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Valid Until</Label>
-            <Input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
+            <Input aria-label="Valid Until" type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
           </div>
         </div>
 
@@ -410,7 +410,7 @@ export function QuoteUploadDialog({
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="space-y-1.5">
             <Label>Payment Terms *</Label>
-            <Input
+            <Input aria-label="Ayment Terms"
               type="text"
               value={paymentTerms}
               onChange={(e) => setPaymentTerms(e.target.value)}
@@ -419,7 +419,7 @@ export function QuoteUploadDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Lead Time (days) *</Label>
-            <Input
+            <Input aria-label="Lead Time Days"
               type="number"
               min="0"
               max="365"
@@ -430,7 +430,7 @@ export function QuoteUploadDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Warranty (optional)</Label>
-            <Input
+            <Input aria-label="Warranty"
               type="text"
               value={warranty}
               onChange={(e) => setWarranty(e.target.value)}
@@ -461,7 +461,7 @@ function LandedCostInput({ label, value, onChange }: { label: string; value: str
   return (
     <div className="space-y-0.5">
       <label className="text-micro text-muted-foreground block">{label}</label>
-      <Input
+      <Input aria-label="Value"
         type="number"
         step="0.01"
         min="0"

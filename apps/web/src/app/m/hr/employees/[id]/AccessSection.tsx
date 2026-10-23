@@ -379,7 +379,7 @@ function PhoneStatusRow({ user, canManage }: { user: AccessSectionUser; canManag
       {/* OTP verification input */}
       {showVerify && (
         <div className="flex items-center gap-1.5 mt-1">
-          <input
+          <input aria-label="OTP Code"
             type="text"
             inputMode="numeric"
             maxLength={6}
@@ -943,7 +943,7 @@ function CreateCustomRoleDialog({
           <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-400)" }}>
             Role Name *
           </label>
-          <input
+          <input aria-label="Label"
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="e.g. Sales Lead"
@@ -956,7 +956,7 @@ function CreateCustomRoleDialog({
           <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-400)" }}>
             Description
           </label>
-          <input
+          <input aria-label="Optional description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Optional description"
@@ -1229,7 +1229,7 @@ function ChangePhoneDialog({
           <p className="text-m-caption font-bold mb-1" style={{ color: "var(--color-ink-700)" }}>
             {availableNumbers.length > 0 ? "Or enter a new number" : "New phone number"}
           </p>
-          <input
+          <input aria-label="Phone"
             type="tel"
             value={newPhone}
             onChange={(e) => { setNewPhone(e.target.value); setSelectedPhoneId(""); }}

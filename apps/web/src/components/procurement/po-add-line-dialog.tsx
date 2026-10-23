@@ -97,7 +97,7 @@ export function PoAddLineDialog({
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Quantity" required>
-            <Input
+            <Input aria-label="Quantity"
               type="number"
               step="0.001"
               min="0"
@@ -108,7 +108,7 @@ export function PoAddLineDialog({
             />
           </Field>
           <Field label="Unit cost (₹)" required>
-            <Input
+            <Input aria-label="Nit Cost"
               type="number"
               step="0.01"
               min="0"

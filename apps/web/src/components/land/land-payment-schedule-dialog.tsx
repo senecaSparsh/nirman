@@ -135,13 +135,13 @@ export function LandPaymentScheduleDialog({
             return (
               <div key={idx} className="grid grid-cols-[2rem_1fr_80px_120px_2rem] items-center gap-2">
                 <span className="tnum text-caption text-muted-foreground">{it.installmentNo}</span>
-                <Input
+                <Input aria-label="Due date"
                   value={it.description}
                   onChange={(e) => updateItem(idx, "description", e.target.value)}
                   placeholder="e.g. Token, Registry…"
                   required
                 />
-                <Input
+                <Input aria-label="Percentage"
                   type="number"
                   step="0.01"
                   min="0"
@@ -152,7 +152,7 @@ export function LandPaymentScheduleDialog({
                   className="text-right"
                   required
                 />
-                <Input
+                <Input aria-label="Due Date"
                   type="date"
                   value={it.dueDate}
                   onChange={(e) => updateItem(idx, "dueDate", e.target.value)}

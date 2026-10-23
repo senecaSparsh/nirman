@@ -437,7 +437,7 @@ function StatementImportDialog({
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Statement file</label>
-          <input
+          <input aria-label="Statement file"
             type="file"
             accept=".csv,.tsv,.txt"
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}

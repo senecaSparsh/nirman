@@ -567,7 +567,7 @@ export function AssistantChat({
               </button>
 
               {/* Text input */}
-              <input
+              <input aria-label="Type karo ya bol lo"
                 ref={inputRef}
                 type="text"
                 value={input}

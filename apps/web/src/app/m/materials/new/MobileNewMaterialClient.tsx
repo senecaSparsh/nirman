@@ -242,7 +242,7 @@ export default function MobileNewMaterialClient({
       {/* Name + Code — side by side */}
       <div className="grid grid-cols-2 gap-2">
         <FormField label="Material name" required error={errors.name}>
-          <input
+          <input aria-label="Name"
             type="text"
             value={name}
             onChange={(e) => { setName(e.target.value); clearError("name"); }}
@@ -280,7 +280,7 @@ export default function MobileNewMaterialClient({
               </button>
             </div>
           ) : (
-            <input
+            <input aria-label="Material code"
               type="text"
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
@@ -296,7 +296,7 @@ export default function MobileNewMaterialClient({
 
       <div className="grid grid-cols-2 gap-2">
         <FormField label="Grade">
-          <input
+          <input aria-label="Grade"
             type="text"
             value={grade}
             onChange={(e) => setGrade(e.target.value)}
@@ -308,7 +308,7 @@ export default function MobileNewMaterialClient({
           />
         </FormField>
         <FormField label="Specification">
-          <input
+          <input aria-label="Specification"
             type="text"
             value={specification}
             onChange={(e) => setSpecification(e.target.value)}
@@ -388,7 +388,7 @@ export default function MobileNewMaterialClient({
           />
         </FormField>
         <FormField label="GST rate (%)" error={errors.gstRate}>
-          <input
+          <input aria-label="GST Rate"
             type="number"
             min="0"
             max="100"
@@ -407,7 +407,7 @@ export default function MobileNewMaterialClient({
       <div className="grid grid-cols-2 gap-2">
         <FormField label="Std. cost (₹)" error={errors.standardCost}>
           <div className="flex gap-1">
-            <input
+            <input aria-label="Standard Cost"
               type="number"
               min="0"
               step="0.01"
@@ -448,7 +448,7 @@ export default function MobileNewMaterialClient({
         </FormField>
         <FormField label="Reorder pt." error={errors.reorderPoint}>
           <div className="relative">
-            <input
+            <input aria-label="Reorder Point"
               type="number"
               min="0"
               step="0.01"
@@ -521,7 +521,7 @@ export default function MobileNewMaterialClient({
           <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
             <FormField label="Qty on hand" error={errors.openingQty}>
               <div className="relative">
-                <input
+                <input aria-label="Opening Quantity"
                   type="number"
                   min="0"
                   step="any"
@@ -545,7 +545,7 @@ export default function MobileNewMaterialClient({
               <label className="block text-m-caption font-bold mb-0" style={{ color: errors.openingUnitCost ? "var(--color-stop)" : "var(--color-ink-700)" }}>
                 Unit cost
               </label>
-              <input
+              <input aria-label="Opening Unit Cost"
                 type="number"
                 min="0"
                 step="0.01"

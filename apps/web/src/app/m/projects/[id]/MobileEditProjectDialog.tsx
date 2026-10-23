@@ -180,7 +180,7 @@ export function MobileEditProjectDialog({
               <label className={labelClass} style={labelStyle}>
                 Project Name <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
-              <input
+              <input aria-label="Name"
                 type="text"
                 value={form.name}
                 onChange={(e) => set("name", e.target.value)}
@@ -222,7 +222,7 @@ export function MobileEditProjectDialog({
               <label className={labelClass} style={labelStyle}>
                 Address
               </label>
-              <input
+              <input aria-label="Plot no, area, city, PIN"
                 type="text"
                 value={form.address}
                 onChange={(e) => set("address", e.target.value)}
@@ -239,7 +239,7 @@ export function MobileEditProjectDialog({
                 <label className={labelClass} style={labelStyle}>
                   Start Date
                 </label>
-                <input
+                <input aria-label="Start Date"
                   type="date"
                   value={form.startDate}
                   onChange={(e) => set("startDate", e.target.value)}
@@ -251,7 +251,7 @@ export function MobileEditProjectDialog({
                 <label className={labelClass} style={labelStyle}>
                   End Date
                 </label>
-                <input
+                <input aria-label="End Date"
                   type="date"
                   value={form.endDate}
                   onChange={(e) => set("endDate", e.target.value)}
@@ -267,7 +267,7 @@ export function MobileEditProjectDialog({
                 <label className={labelClass} style={labelStyle}>
                   Budget (₹)
                 </label>
-                <input
+                <input aria-label="Budget (₹)"
                   type="number"
                   min={0}
                   value={form.totalBudget}
@@ -282,7 +282,7 @@ export function MobileEditProjectDialog({
                 <label className={labelClass} style={labelStyle}>
                   Sellable Area (sq.ft)
                 </label>
-                <input
+                <input aria-label="Sellable Area (sq.ft)"
                   type="number"
                   min={0}
                   step="any"
@@ -327,7 +327,7 @@ export function MobileEditProjectDialog({
                 <label className={labelClass} style={labelStyle}>
                   RERA Number
                 </label>
-                <input
+                <input aria-label="RERA Number"
                   type="text"
                   value={form.reraNumber}
                   onChange={(e) => set("reraNumber", e.target.value)}
@@ -340,7 +340,7 @@ export function MobileEditProjectDialog({
                 <label className={labelClass} style={labelStyle}>
                   Reg. Date
                 </label>
-                <input
+                <input aria-label="RERA Registration Date"
                   type="date"
                   value={form.reraRegistrationDate}
                   onChange={(e) => set("reraRegistrationDate", e.target.value)}
@@ -354,7 +354,7 @@ export function MobileEditProjectDialog({
                 <label className={labelClass} style={labelStyle}>
                   Validity Date
                 </label>
-                <input
+                <input aria-label="RERA Validity Date"
                   type="date"
                   value={form.reraValidityDate}
                   onChange={(e) => set("reraValidityDate", e.target.value)}
@@ -366,7 +366,7 @@ export function MobileEditProjectDialog({
                 <label className={labelClass} style={labelStyle}>
                   RERA URL
                 </label>
-                <input
+                <input aria-label="RERA URL"
                   type="text"
                   value={form.reraWebsiteUrl}
                   onChange={(e) => set("reraWebsiteUrl", e.target.value)}
@@ -387,7 +387,7 @@ export function MobileEditProjectDialog({
               <label className={labelClass} style={labelStyle}>
                 LCI Threshold % (optional)
               </label>
-              <input
+              <input aria-label="Company default"
                 type="number"
                 min="0"
                 max="100"

@@ -257,7 +257,7 @@ export function DirectPurchaseFormDialog({
               {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </Select>
             {!supplierId && (
-              <Input
+              <Input aria-label="Supplier name (ad-hoc)"
                 value={supplierName}
                 onChange={(e) => { setSupplierName(e.target.value); clearError("supplierName"); }}
                 onBlur={() => onBlur("supplierName", { supplierId, supplierName, locationId, billDate, notes, lines })}
@@ -283,7 +283,7 @@ export function DirectPurchaseFormDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Bill Date</Label>
-            <Input type="date" value={billDate} onChange={(e) => setBillDate(e.target.value)} />
+            <Input aria-label="Bill Date" type="date" value={billDate} onChange={(e) => setBillDate(e.target.value)} />
           </div>
         </div>
 

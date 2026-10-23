@@ -402,10 +402,10 @@ export function NcrDetailClient({ ncr, canManage }: { ncr: NcrDetail; canManage:
             </Field>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Corrective Due Date">
-                <Input type="date" value={capaForm.correctiveDueDate} onChange={(e) => setCapaForm((f) => ({ ...f, correctiveDueDate: e.target.value }))} />
+                <Input aria-label="Corrective Due Date" type="date" value={capaForm.correctiveDueDate} onChange={(e) => setCapaForm((f) => ({ ...f, correctiveDueDate: e.target.value }))} />
               </Field>
               <Field label="Preventive Due Date">
-                <Input type="date" value={capaForm.preventiveDueDate} onChange={(e) => setCapaForm((f) => ({ ...f, preventiveDueDate: e.target.value }))} />
+                <Input aria-label="Preventive Due Date" type="date" value={capaForm.preventiveDueDate} onChange={(e) => setCapaForm((f) => ({ ...f, preventiveDueDate: e.target.value }))} />
               </Field>
             </div>
             <div className="flex justify-end gap-2">
@@ -422,7 +422,7 @@ export function NcrDetailClient({ ncr, canManage }: { ncr: NcrDetail; canManage:
         <Dialog open={showVerify} onOpenChange={setShowVerify} title="Verify CAPA" description="Check if the corrective and preventive actions were effective.">
           <div className="space-y-3">
             <Field label="Verification Method" required>
-              <Input value={verifyForm.verificationMethod} onChange={(e) => setVerifyForm((f) => ({ ...f, verificationMethod: e.target.value }))} placeholder="e.g. Site inspection, test report" />
+              <Input aria-label="Verify Form" value={verifyForm.verificationMethod} onChange={(e) => setVerifyForm((f) => ({ ...f, verificationMethod: e.target.value }))} placeholder="e.g. Site inspection, test report" />
             </Field>
             <Field label="Verification Notes" required>
               <Textarea value={verifyForm.verificationNotes} onChange={(e) => setVerifyForm((f) => ({ ...f, verificationNotes: e.target.value }))} rows={3} placeholder="Was the corrective action effective?" />
@@ -482,10 +482,10 @@ export function NcrDetailClient({ ncr, canManage }: { ncr: NcrDetail; canManage:
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Location">
-                <Input value={editNcrForm.location} onChange={(e) => setEditNcrForm((f) => ({ ...f, location: e.target.value }))} placeholder="e.g. Block A, 3rd floor" />
+                <Input aria-label="Edit Ncr Form" value={editNcrForm.location} onChange={(e) => setEditNcrForm((f) => ({ ...f, location: e.target.value }))} placeholder="e.g. Block A, 3rd floor" />
               </Field>
               <Field label="Responsible Party">
-                <Input value={editNcrForm.responsibleParty} onChange={(e) => setEditNcrForm((f) => ({ ...f, responsibleParty: e.target.value }))} placeholder="e.g. ABC Contractors" />
+                <Input aria-label="Edit Ncr Form" value={editNcrForm.responsibleParty} onChange={(e) => setEditNcrForm((f) => ({ ...f, responsibleParty: e.target.value }))} placeholder="e.g. ABC Contractors" />
               </Field>
             </div>
             <div className="flex justify-end gap-2">

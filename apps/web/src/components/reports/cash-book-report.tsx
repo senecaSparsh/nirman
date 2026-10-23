@@ -82,11 +82,11 @@ export function CashBookView({
       <form onSubmit={apply} className="flex flex-wrap items-end gap-2">
         <div>
           <label className="mb-1 block text-caption text-muted-foreground">From</label>
-          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-auto" />
+          <Input aria-label="From" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-auto" />
         </div>
         <div>
           <label className="mb-1 block text-caption text-muted-foreground">To</label>
-          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-auto" />
+          <Input aria-label="To" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-auto" />
         </div>
         <Button type="submit" size="sm">Apply</Button>
         <Button variant="outline" size="sm" type="button" onClick={() => downloadCSV("cash-book.csv", exportRows(), exportCols)}>

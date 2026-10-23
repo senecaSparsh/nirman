@@ -153,7 +153,7 @@ export function LeadForm({
 
       <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
         <Field className="space-y-3.5" label="Email" error={errors.email}>
-          <Input type="email" value={form.email} onChange={(event) => set("email", event.target.value)} onBlur={() => onBlur("email", form)} aria-invalid={!!errors.email} />
+          <Input aria-label="Email" type="email" value={form.email} onChange={(event) => set("email", event.target.value)} onBlur={() => onBlur("email", form)} aria-invalid={!!errors.email} />
         </Field>
         <div className="space-y-3.5">
           <Label htmlFor="lead-source">Source *</Label>

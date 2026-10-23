@@ -339,7 +339,7 @@ export function MobileNewUnitForm({
                 <label className={labelClass} style={labelStyle}>
                   Count <span style={{ color: "var(--color-stop)" }}>*</span>
                 </label>
-                <input
+                <input aria-label="Gen Count"
                   type="number"
                   value={genCount}
                   onChange={(e) => setGenCount(e.target.value)}
@@ -389,7 +389,7 @@ export function MobileNewUnitForm({
                   Unit Number{" "}
                   <span style={{ color: "var(--color-stop)" }}>*</span>
                 </label>
-                <input
+                <input aria-label="Unit Number"
                   type="text"
                   value={form.unitNumber}
                   onChange={(e) => set("unitNumber", e.target.value)}
@@ -439,7 +439,7 @@ export function MobileNewUnitForm({
                 <label className={labelClass} style={labelStyle}>
                   Area <span style={{ color: "var(--color-stop)" }}>*</span>
                 </label>
-                <input
+                <input aria-label="Area"
                   type="number"
                   min={0}
                   step="any"

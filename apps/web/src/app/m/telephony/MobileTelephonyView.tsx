@@ -527,14 +527,14 @@ function AddNumberPanel({ twilioCount }: { twilioCount: number }) {
           <p className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>
             Add a number you already have — calls get logged manually and the number is assignable to staff.
           </p>
-          <input
+          <input aria-label="Own Number"
             value={ownNumber}
             onChange={(e) => setOwnNumber(e.target.value)}
             placeholder="+91 98765 43210"
             className="w-full rounded-lg px-3 py-2.5 text-m-body"
             style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-950)" }}
           />
-          <input
+          <input aria-label="Own Label"
             value={ownLabel}
             onChange={(e) => setOwnLabel(e.target.value)}
             placeholder="Label — e.g. Site office, Sales line"
@@ -809,14 +809,14 @@ function AddProviderPanel() {
         onChange={setProvider}
         options={["EXOTEL", "KNOWLARITY", "TWILIO"].map((v) => ({ value: v, label: v.charAt(0) + v.slice(1).toLowerCase() }))}
       />
-      <input
+      <input aria-label="API key / SID"
         value={apiKey}
         onChange={(e) => setApiKey(e.target.value)}
         placeholder="API key / SID"
         className="w-full rounded-lg px-3 py-2.5 text-m-body"
         style={{ backgroundColor: "var(--color-concrete)", color: "var(--color-ink-950)" }}
       />
-      <input
+      <input aria-label="API secret / token"
         type="password"
         value={apiSecret}
         onChange={(e) => setApiSecret(e.target.value)}

@@ -303,7 +303,7 @@ export function PurchaseOrderDetailView({
           <label className="text-meta text-muted-foreground">
             New expected delivery date — the supplier&rsquo;s committed date after your call
           </label>
-          <input
+          <input aria-label="Eta Value"
             type="date"
             className="w-full max-w-56 rounded-md border border-border bg-background px-3 py-2 text-body outline-none focus:ring-2 focus:ring-ring"
             value={etaValue}

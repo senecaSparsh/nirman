@@ -227,7 +227,7 @@ function BenchmarkForm({
       <form onSubmit={save} className="space-y-3">
         <div className="space-y-1.5">
           <Label>Work Type *</Label>
-          <Input
+          <Input aria-label="Work Type"
             value={workType}
             onChange={(e) => setWorkType(e.target.value)}
             placeholder="e.g. Foundation, Slab Casting, Brickwork, Plastering"
@@ -260,7 +260,7 @@ function BenchmarkForm({
         <div className="grid grid-cols-3 gap-3">
           <div className="space-y-1.5">
             <Label>Standard Qty *</Label>
-            <Input
+            <Input aria-label="Standard Quantity"
               type="number"
               step="0.001"
               min="0"
@@ -272,7 +272,7 @@ function BenchmarkForm({
           </div>
           <div className="space-y-1.5">
             <Label>Per (Base Qty) *</Label>
-            <Input
+            <Input aria-label="Base Quantity"
               type="number"
               step="0.001"
               min="0"
@@ -284,7 +284,7 @@ function BenchmarkForm({
           </div>
           <div className="space-y-1.5">
             <Label>Work Unit *</Label>
-            <Input
+            <Input aria-label="Nit Of Measure"
               value={unitOfMeasure}
               onChange={(e) => setUnitOfMeasure(e.target.value)}
               placeholder="e.g. sqft"

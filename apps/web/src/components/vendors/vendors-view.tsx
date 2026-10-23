@@ -432,26 +432,26 @@ export function VendorsView({
         <div className="space-y-3">
           <div>
             <Label>Name *</Label>
-            <Input value={fName} onChange={(e) => setFName(e.target.value)} placeholder="Supplier / vendor name" />
+            <Input aria-label="Supplier / vendor name" value={fName} onChange={(e) => setFName(e.target.value)} placeholder="Supplier / vendor name" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>GSTIN</Label>
-              <Input value={fGstin} onChange={(e) => setFGstin(e.target.value)} placeholder="22AAAAA0000A1Z5" />
+              <Input aria-label="F GSTIN" value={fGstin} onChange={(e) => setFGstin(e.target.value)} placeholder="22AAAAA0000A1Z5" />
             </div>
             <div>
               <Label>Lead time (days)</Label>
-              <Input type="number" value={fLeadTime} onChange={(e) => setFLeadTime(e.target.value)} placeholder="7" />
+              <Input aria-label="F Lead Time" type="number" value={fLeadTime} onChange={(e) => setFLeadTime(e.target.value)} placeholder="7" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Phone</Label>
-              <Input value={fPhone} onChange={(e) => setFPhone(e.target.value)} placeholder="Optional" />
+              <Input aria-label="F Phone" value={fPhone} onChange={(e) => setFPhone(e.target.value)} placeholder="Optional" />
             </div>
             <div>
               <Label>Email</Label>
-              <Input type="email" value={fEmail} onChange={(e) => setFEmail(e.target.value)} placeholder="Optional" />
+              <Input aria-label="F Email" type="email" value={fEmail} onChange={(e) => setFEmail(e.target.value)} placeholder="Optional" />
             </div>
           </div>
           <div className="flex items-center gap-3 rounded-md border border-border px-3 py-2">
@@ -464,7 +464,7 @@ export function VendorsView({
           {fIsMsme && (
             <div>
               <Label>Udyam Registration No.</Label>
-              <Input value={fUdyamNo} onChange={(e) => setFUdyamNo(e.target.value)} placeholder="UDYAM-XX-00-0000000" />
+              <Input aria-label="F UDYAM No" value={fUdyamNo} onChange={(e) => setFUdyamNo(e.target.value)} placeholder="UDYAM-XX-00-0000000" />
             </div>
           )}
           <div className="rounded-md border border-border px-3 py-2 space-y-2">
@@ -472,21 +472,21 @@ export function VendorsView({
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label>Bank name</Label>
-                <Input value={fBankName} onChange={(e) => setFBankName(e.target.value)} placeholder="HDFC Bank" />
+                <Input aria-label="HDFC Bank" value={fBankName} onChange={(e) => setFBankName(e.target.value)} placeholder="HDFC Bank" />
               </div>
               <div>
                 <Label>IFSC</Label>
-                <Input value={fBankIfsc} onChange={(e) => setFBankIfsc(e.target.value.toUpperCase())} placeholder="HDFC0001234" maxLength={15} />
+                <Input aria-label="F Bank IFSC" value={fBankIfsc} onChange={(e) => setFBankIfsc(e.target.value.toUpperCase())} placeholder="HDFC0001234" maxLength={15} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label>Account number</Label>
-                <Input value={fBankAccount} onChange={(e) => setFBankAccount(e.target.value)} placeholder="50100XXXXXXX" className="tnum" />
+                <Input aria-label="F Bank Account" value={fBankAccount} onChange={(e) => setFBankAccount(e.target.value)} placeholder="50100XXXXXXX" className="tnum" />
               </div>
               <div>
                 <Label>UPI ID</Label>
-                <Input value={fUpiId} onChange={(e) => setFUpiId(e.target.value)} placeholder="vendor@bank" />
+                <Input aria-label="F UPI Id" value={fUpiId} onChange={(e) => setFUpiId(e.target.value)} placeholder="vendor@bank" />
               </div>
             </div>
           </div>
@@ -497,7 +497,7 @@ export function VendorsView({
           {!editTarget && (
             <div>
               <Label>Opening balance owed (₹)</Label>
-              <Input
+              <Input aria-label="F Opening Balance"
                 type="number"
                 min="0"
                 step="0.01"

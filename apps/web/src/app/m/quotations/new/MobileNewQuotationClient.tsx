@@ -223,7 +223,7 @@ export function MobileNewQuotationClient({
               <label className={labelClass} style={labelStyle}>
                 Title <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
-              <input
+              <input aria-label="Title"
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -261,7 +261,7 @@ export function MobileNewQuotationClient({
               <label className={labelClass} style={labelStyle}>
                 Min quotes
               </label>
-              <input
+              <input aria-label="Min Quotes"
                 type="number"
                 inputMode="numeric"
                 min="1"
@@ -276,7 +276,7 @@ export function MobileNewQuotationClient({
               <label className={labelClass} style={labelStyle}>
                 Required by <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
-              <input
+              <input aria-label="Required By Date"
                 type="date"
                 value={requiredByDate}
                 onChange={(e) => setRequiredByDate(e.target.value)}
@@ -292,7 +292,7 @@ export function MobileNewQuotationClient({
             <label className={labelClass} style={labelStyle}>
               Work activity (optional)
             </label>
-            <input
+            <input aria-label="Work Activity"
               type="text"
               value={workActivity}
               onChange={(e) => setWorkActivity(e.target.value)}
@@ -438,7 +438,7 @@ export function MobileNewQuotationClient({
                       </p>
                     </div>
                     <div className="shrink-0 flex items-center gap-1">
-                      <input
+                      <input aria-label="Qty"
                         type="number"
                         inputMode="decimal"
                         min="0.001"
@@ -538,7 +538,7 @@ export function MobileNewQuotationClient({
                 className="absolute left-3 top-1/2 -translate-y-1/2 size-4"
                 style={{ color: "var(--color-ink-500)" }}
               />
-              <input
+              <input aria-label="Search materials"
                 type="search"
                 value={materialSearch}
                 onChange={(e) => setMaterialSearch(e.target.value)}

@@ -440,15 +440,15 @@ function NewIncidentDialog({ open, onOpenChange, projects, onSaved }: { open: bo
           </Field>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Date" required><Input type="date" value={form.incidentDate} onChange={(e) => set("incidentDate", e.target.value)} required /></Field>
-          <Field label="Time"><Input type="time" value={form.incidentTime} onChange={(e) => set("incidentTime", e.target.value)} /></Field>
+          <Field label="Date" required><Input aria-label="Incident Date" type="date" value={form.incidentDate} onChange={(e) => set("incidentDate", e.target.value)} required /></Field>
+          <Field label="Time"><Input aria-label="Incident Time" type="time" value={form.incidentTime} onChange={(e) => set("incidentTime", e.target.value)} /></Field>
         </div>
-        <Field label="Location"><Input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Tower B, 5th floor" /></Field>
-        <Field label="People Involved"><Input value={form.peopleInvolved} onChange={(e) => set("peopleInvolved", e.target.value)} placeholder="Names or description" /></Field>
+        <Field label="Location"><Input aria-label="Property Only" value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Tower B, 5th floor" /></Field>
+        <Field label="People Involved"><Input aria-label="Names or description" value={form.peopleInvolved} onChange={(e) => set("peopleInvolved", e.target.value)} placeholder="Names or description" /></Field>
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Injured"><Input type="number" value={form.injuredCount} onChange={(e) => set("injuredCount", e.target.value)} /></Field>
-          <Field label="Fatalities"><Input type="number" value={form.fatalities} onChange={(e) => set("fatalities", e.target.value)} /></Field>
-          <Field label="Property Damage ₹"><Input type="number" value={form.propertyDamageEstimate} onChange={(e) => set("propertyDamageEstimate", e.target.value)} placeholder="0" /></Field>
+          <Field label="Injured"><Input aria-label="Injured Count" type="number" value={form.injuredCount} onChange={(e) => set("injuredCount", e.target.value)} /></Field>
+          <Field label="Fatalities"><Input aria-label="Fatalities" type="number" value={form.fatalities} onChange={(e) => set("fatalities", e.target.value)} /></Field>
+          <Field label="Property Damage ₹"><Input aria-label="Property Only" type="number" value={form.propertyDamageEstimate} onChange={(e) => set("propertyDamageEstimate", e.target.value)} placeholder="0" /></Field>
         </div>
         <div>
           <p className="text-sm font-medium mb-1.5">Photo Evidence</p>
@@ -505,7 +505,7 @@ function NewHazardDialog({ open, onOpenChange, projects, onSaved }: { open: bool
           <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">Risk Assessment</p>
           <div className="grid gap-3 sm:grid-cols-2 mb-2">
             <Field label={`Likelihood: ${lk} — ${["", "Rare", "Unlikely", "Possible", "Likely", "Certain"][lk]}`}>
-              <input type="range" min="1" max="5" value={form.likelihood} onChange={(e) => set("likelihood", e.target.value)} className="w-full" />
+              <input aria-label="Likelihood" type="range" min="1" max="5" value={form.likelihood} onChange={(e) => set("likelihood", e.target.value)} className="w-full" />
             </Field>
             <Field label={`Severity: ${sv} — ${["", "Minor", "Moderate", "Serious", "Major", "Catastrophic"][sv]}`}>
               <input type="range" min="1" max="5" value={form.severity} onChange={(e) => set("severity", e.target.value)} className="w-full" />
@@ -561,7 +561,7 @@ function NewInspectionDialog({ open, onOpenChange, projects, onSaved }: { open: 
         </Field>
         <Field label="Title" required><Input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Weekly safety walkthrough" required /></Field>
         <Field label="Scheduled Date" required><Input type="date" value={form.scheduledDate} onChange={(e) => set("scheduledDate", e.target.value)} required /></Field>
-        <Field label="Inspector Name (optional)"><Input value={form.inspectorName} onChange={(e) => set("inspectorName", e.target.value)} placeholder="e.g. External safety auditor" /></Field>
+        <Field label="Inspector Name (optional)"><Input aria-label="Inspector Name" value={form.inspectorName} onChange={(e) => set("inspectorName", e.target.value)} placeholder="e.g. External safety auditor" /></Field>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button type="submit" disabled={saving}>{saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Plus className="mr-1 h-4 w-4" />}{saving ? "Scheduling…" : "Schedule"}</Button>

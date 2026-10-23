@@ -232,7 +232,7 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
               </p>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Title</label>
-                <input value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                <input aria-label="Title" value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
               </div>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Description</label>
@@ -241,11 +241,11 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
               <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
                   <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Likelihood (1-5)</label>
-                  <input type="number" min={1} max={5} value={editForm.likelihood} onChange={(e) => setEditForm({ ...editForm, likelihood: e.target.value })} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                  <input aria-label="Likelihood" type="number" min={1} max={5} value={editForm.likelihood} onChange={(e) => setEditForm({ ...editForm, likelihood: e.target.value })} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
                 </div>
                 <div className="pl-2">
                   <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Severity (1-5)</label>
-                  <input type="number" min={1} max={5} value={editForm.severity} onChange={(e) => setEditForm({ ...editForm, severity: e.target.value })} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                  <input aria-label="Severity" type="number" min={1} max={5} value={editForm.severity} onChange={(e) => setEditForm({ ...editForm, severity: e.target.value })} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
                 </div>
               </div>
             </div>
@@ -255,7 +255,7 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
               </p>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Location</label>
-                <input value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} placeholder="Where on site?" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                <input aria-label="Edit Form" value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} placeholder="Where on site?" className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
               </div>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Mitigation Plan</label>
@@ -263,7 +263,7 @@ export function MobileHazardDetailClient({ hazard, canManage }: { hazard: Hazard
               </div>
               <div>
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>Target Resolution Date</label>
-                <input type="date" value={editForm.targetResolutionDate} onChange={(e) => setEditForm({ ...editForm, targetResolutionDate: e.target.value })} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
+                <input aria-label="Target Resolution Date" type="date" value={editForm.targetResolutionDate} onChange={(e) => setEditForm({ ...editForm, targetResolutionDate: e.target.value })} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors tabular-nums" style={{ borderColor: "var(--color-line)", backgroundColor: "transparent", color: "var(--color-ink-950)" }} />
               </div>
             </div>
             <button onClick={saveEdit} disabled={acting === "edit"} className="w-full h-11 rounded-[0.5rem] text-m-section font-bold flex items-center justify-center gap-1.5 text-m-body press" style={{ backgroundColor: "var(--color-ink-950)", color: "var(--color-paper)" }}>

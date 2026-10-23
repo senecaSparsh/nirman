@@ -403,7 +403,7 @@ export function CompaniesManager({
                   <div className="flex flex-wrap items-end gap-2 rounded-md border border-dashed p-2">
                     <div className="space-y-1">
                       <Label className="text-micro">Email</Label>
-                      <Input
+                      <Input aria-label="Member Email"
                         type="email"
                         value={addMemberEmail}
                         onChange={(e) => setAddMemberEmail(e.target.value)}
@@ -479,15 +479,15 @@ export function CompaniesManager({
         <form onSubmit={createCompany} className="space-y-3">
           <div className="space-y-1.5">
             <Label>Name *</Label>
-            <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
+            <Input aria-label="Name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
           </div>
           <div className="space-y-1.5">
             <Label>Business Type</Label>
-            <Input value={form.businessType} onChange={(e) => setForm((f) => ({ ...f, businessType: e.target.value }))} placeholder="Rice Milling & Export, Real Estate…" />
+            <Input aria-label="Business type" value={form.businessType} onChange={(e) => setForm((f) => ({ ...f, businessType: e.target.value }))} placeholder="Rice Milling & Export, Real Estate…" />
           </div>
           <div className="space-y-1.5">
             <Label>Document Code</Label>
-            <Input value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) }))} placeholder="e.g. SRG → PO-SRG-260914-0001" />
+            <Input aria-label="Document Code" value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10) }))} placeholder="e.g. SRG → PO-SRG-260914-0001" />
             <p className="text-caption text-muted-foreground">Used in document numbers so each entity keeps its own series (needed for GST invoice continuity). Leave blank to share the global series.</p>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -508,11 +508,11 @@ export function CompaniesManager({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>GSTIN</Label>
-              <Input value={form.gstin} onChange={(e) => setForm((f) => ({ ...f, gstin: e.target.value }))} />
+              <Input aria-label="GSTIN" value={form.gstin} onChange={(e) => setForm((f) => ({ ...f, gstin: e.target.value }))} />
             </div>
             <div className="space-y-1.5">
               <Label>PAN</Label>
-              <Input value={form.pan} onChange={(e) => setForm((f) => ({ ...f, pan: e.target.value }))} />
+              <Input aria-label="PAN" value={form.pan} onChange={(e) => setForm((f) => ({ ...f, pan: e.target.value }))} />
             </div>
           </div>
           <div className="space-y-1.5">

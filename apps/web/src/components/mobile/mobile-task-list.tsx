@@ -141,7 +141,7 @@ export function MobileTaskList({ tasks }: { tasks: TaskItem[] }) {
                 className="absolute left-3 top-1/2 -translate-y-1/2 size-4"
                 style={{ color: "var(--color-ink-500)" }}
               />
-              <input
+              <input aria-label="Search by title"
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}

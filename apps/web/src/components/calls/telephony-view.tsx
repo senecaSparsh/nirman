@@ -351,11 +351,11 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
                     <div className="space-y-1.5">
                       <Label>Phone number</Label>
-                      <Input type="tel" value={newNumber} onChange={(e) => setNewNumber(e.target.value)} placeholder="+91 98765 43210" />
+                      <Input aria-label="Number" type="tel" value={newNumber} onChange={(e) => setNewNumber(e.target.value)} placeholder="+91 98765 43210" />
                     </div>
                     <div className="space-y-1.5">
                       <Label>Label (optional)</Label>
-                      <Input type="text" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Reception, Site office…" />
+                      <Input aria-label="Reception, Site office" type="text" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Reception, Site office…" />
                     </div>
                     <div className="space-y-1.5">
                       <Label>Type</Label>
@@ -603,11 +603,11 @@ function NumbersTab({ numbers, members, canManage }: { numbers: PhoneNumber[]; m
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Label</Label>
-              <Input value={editLabel} onChange={(e) => setEditLabel(e.target.value)} placeholder="Reception, Site office…" />
+              <Input aria-label="Reception, Site office" value={editLabel} onChange={(e) => setEditLabel(e.target.value)} placeholder="Reception, Site office…" />
             </div>
             <div className="space-y-1.5">
               <Label>Department</Label>
-              <Input value={editDepartment} onChange={(e) => setEditDepartment(e.target.value)} placeholder="Sales, Support…" />
+              <Input aria-label="Sales, Support" value={editDepartment} onChange={(e) => setEditDepartment(e.target.value)} placeholder="Sales, Support…" />
             </div>
           </div>
           <div className="space-y-1.5">
@@ -722,11 +722,11 @@ function ProvidersTab({ providers, canManage }: { providers: Provider[]; canMana
               </div>
               <div className="space-y-1.5">
                 <Label>API Key / SID</Label>
-                <Input type="text" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Your provider API key" />
+                <Input aria-label="Your provider API key" type="text" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Your provider API key" />
               </div>
               <div className="space-y-1.5 sm:col-span-2">
                 <Label>API Secret / Token</Label>
-                <Input type="password" value={apiSecret} onChange={(e) => setApiSecret(e.target.value)} placeholder="Your provider API secret" />
+                <Input aria-label="Your provider API secret" type="password" value={apiSecret} onChange={(e) => setApiSecret(e.target.value)} placeholder="Your provider API secret" />
               </div>
             </div>
             {error && (

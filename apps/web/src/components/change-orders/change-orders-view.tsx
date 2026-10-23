@@ -338,7 +338,7 @@ function NewChangeOrderDialog({
           </Field>
         </div>
         <Field label="Title" required>
-          <Input value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Additional waterproofing for basement" required />
+          <Input aria-label="Title" value={form.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g. Additional waterproofing for basement" required />
         </Field>
         <Field label="Description" required>
           <Textarea value={form.description} onChange={(e) => set("description", e.target.value)} rows={2} placeholder="Detailed description of the change…" required />
@@ -366,7 +366,7 @@ function NewChangeOrderDialog({
             </Select>
           </Field>
           <Field label="Initiated By">
-            <Input value={form.initiatedBy} onChange={(e) => set("initiatedBy", e.target.value)} placeholder="Client / Architect / …" />
+            <Input aria-label="Client / Architect /" value={form.initiatedBy} onChange={(e) => set("initiatedBy", e.target.value)} placeholder="Client / Architect / …" />
           </Field>
         </div>
 
@@ -381,33 +381,33 @@ function NewChangeOrderDialog({
           <div className="space-y-2">
             {lines.map((l, i) => (
               <div key={l.id} className="grid grid-cols-[1fr_80px_80px_60px_100px_32px] gap-2 items-center">
-                <Input
+                <Input aria-label="Description"
                   value={l.description}
                   onChange={(e) => updateLine(i, { description: e.target.value })}
                   placeholder="Description"
                   className="h-8 text-xs"
                 />
-                <Input
+                <Input aria-label="Old Qty"
                   type="number"
                   value={l.originalQty}
                   onChange={(e) => updateLine(i, { originalQty: e.target.value })}
                   placeholder="Old Qty"
                   className="h-8 text-xs tabular-nums"
                 />
-                <Input
+                <Input aria-label="New Qty"
                   type="number"
                   value={l.revisedQty}
                   onChange={(e) => updateLine(i, { revisedQty: e.target.value })}
                   placeholder="New Qty"
                   className="h-8 text-xs tabular-nums"
                 />
-                <Input
+                <Input aria-label="Unit"
                   value={l.unit}
                   onChange={(e) => updateLine(i, { unit: e.target.value })}
                   placeholder="Unit"
                   className="h-8 text-xs"
                 />
-                <Input
+                <Input aria-label="Rate"
                   type="number"
                   value={l.rate}
                   onChange={(e) => updateLine(i, { rate: e.target.value })}

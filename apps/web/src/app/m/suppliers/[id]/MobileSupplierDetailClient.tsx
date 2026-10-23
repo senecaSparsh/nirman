@@ -531,16 +531,16 @@ function SupplierEditSheet({
             </p>
             <div>
               <label className={labelClass} style={labelStyle}>Name *</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} style={inputStyle} />
+              <input aria-label="Name" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} style={inputStyle} />
             </div>
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
               <div>
                 <label className={labelClass} style={labelStyle}>GSTIN</label>
-                <input value={gstin} onChange={(e) => setGstin(e.target.value.toUpperCase())} placeholder="22AAAAA0000A1Z5" className={`${inputClass} font-mono`} style={inputStyle} />
+                <input aria-label="GSTIN" value={gstin} onChange={(e) => setGstin(e.target.value.toUpperCase())} placeholder="22AAAAA0000A1Z5" className={`${inputClass} font-mono`} style={inputStyle} />
               </div>
               <div className="pl-2">
                 <label className={labelClass} style={labelStyle}>Lead Time (days)</label>
-                <input type="number" min="0" step="1" inputMode="numeric" value={leadTimeDays} onChange={(e) => setLeadTimeDays(e.target.value)} placeholder="0" className={inputClass} style={inputStyle} />
+                <input aria-label="Lead Time Days" type="number" min="0" step="1" inputMode="numeric" value={leadTimeDays} onChange={(e) => setLeadTimeDays(e.target.value)} placeholder="0" className={inputClass} style={inputStyle} />
               </div>
             </div>
           </div>
@@ -551,11 +551,11 @@ function SupplierEditSheet({
             <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
               <div>
                 <label className={labelClass} style={labelStyle}>Phone</label>
-                <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" inputMode="tel" className={inputClass} style={inputStyle} />
+                <input aria-label="Phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="9876543210" inputMode="tel" className={inputClass} style={inputStyle} />
               </div>
               <div className="pl-2">
                 <label className={labelClass} style={labelStyle}>Email</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="contact@firm.com" className={inputClass} style={inputStyle} />
+                <input aria-label="Mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="contact@firm.com" className={inputClass} style={inputStyle} />
               </div>
             </div>
             <div>

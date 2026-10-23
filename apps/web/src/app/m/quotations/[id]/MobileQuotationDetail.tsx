@@ -1065,7 +1065,7 @@ function ComparativeSheet({
                     >
                       {isThisEditing ? (
                         cellValue === "__custom" || (!isKnownOption && cellValue !== "" && !PAYMENT_OPTIONS.includes(cellValue)) ? (
-                          <input
+                          <input aria-label="Type custom"
                             type="text"
                             autoFocus
                             onFocus={(e) => e.target.select()}
@@ -1166,7 +1166,7 @@ function ComparativeSheet({
                       style={{ fontSize: `${batchFs.sub}px` }}
                     >
                       {isThisEditing ? (
-                        <input
+                        <input aria-label="Cell Value"
                           type="text"
                           inputMode="numeric"
                           autoFocus
@@ -1209,7 +1209,7 @@ function ComparativeSheet({
                     >
                       {isThisEditing ? (
                         cellValue === "__custom" || (!isKnownOption && cellValue !== "" && !WARRANTY_OPTIONS.includes(cellValue)) ? (
-                          <input
+                          <input aria-label="Type custom"
                             type="text"
                             autoFocus
                             onFocus={(e) => e.target.select()}
@@ -1269,7 +1269,7 @@ function ComparativeSheet({
                       style={{ fontSize: `${batchFs.sub}px` }}
                     >
                       {isThisEditing ? (
-                        <input
+                        <input aria-label="Cell Value"
                           type="date"
                           autoFocus
                           value={cellValue}
@@ -1580,7 +1580,7 @@ function MatSection({
                     className="border border-dashed px-1 py-0.5 overflow-hidden editing-bg"
                     style={{ fontSize: `${fs.sub}px` }}
                   >
-                    <input
+                    <input aria-label="Cell Value"
                       type="text"
                       inputMode="decimal"
                       autoFocus
@@ -1997,7 +1997,7 @@ function AddQuoteDialog({
 
           {showNewSupplier ? (
             <div className="space-y-2">
-              <input
+              <input aria-label="Supplier name"
                 type="text"
                 value={newSupplier.name}
                 onChange={(e) => setNewSupplier((s) => ({ ...s, name: e.target.value }))}
@@ -2007,7 +2007,7 @@ function AddQuoteDialog({
                 autoFocus
               />
               <div className="grid grid-cols-2 gap-2">
-                <input
+                <input aria-label="GSTIN"
                   type="text"
                   value={newSupplier.gstin}
                   onChange={(e) => setNewSupplier((s) => ({ ...s, gstin: e.target.value.toUpperCase() }))}
@@ -2016,7 +2016,7 @@ function AddQuoteDialog({
                   className={`${inputClass} font-mono`}
                   style={inputStyle}
                 />
-                <input
+                <input aria-label="Phone"
                   type="tel"
                   value={newSupplier.phone}
                   onChange={(e) => setNewSupplier((s) => ({ ...s, phone: e.target.value }))}
@@ -2025,7 +2025,7 @@ function AddQuoteDialog({
                   style={inputStyle}
                 />
               </div>
-              <input
+              <input aria-label="Email"
                 type="email"
                 value={newSupplier.email}
                 onChange={(e) => setNewSupplier((s) => ({ ...s, email: e.target.value }))}
@@ -2146,7 +2146,7 @@ function AddQuoteDialog({
                 <label className="flex flex-col items-center justify-center gap-1 rounded-[0.5rem] border-2 border-dashed py-4 cursor-pointer text-m-body press" style={{ borderColor: "var(--color-line)" }}>
                   {uploading ? <Loader2 className="size-5 animate-spin" style={{ color: "var(--color-steel)" }} /> : <Upload className="size-5" style={{ color: "var(--color-steel)" }} />}
                   <span className="text-m-caption font-semibold" style={{ color: "var(--color-ink-700)" }}>File</span>
-                  <input type="file" accept="image/*,application/pdf,.xlsx,.xls,.csv" onChange={handleFileUpload} className="hidden" disabled={uploading} />
+                  <input aria-label="File" type="file" accept="image/*,application/pdf,.xlsx,.xls,.csv" onChange={handleFileUpload} className="hidden" disabled={uploading} />
                 </label>
               </div>
             )
@@ -2180,7 +2180,7 @@ function AddQuoteDialog({
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Valid until <span style={{ color: "var(--color-stop)" }}>*</span></label>
-              <input
+              <input aria-label="Valid Until"
                 type="date"
                 value={validUntil}
                 onChange={(e) => setValidUntil(e.target.value)}
@@ -2190,7 +2190,7 @@ function AddQuoteDialog({
             </div>
             <div>
               <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Lead time (days) <span style={{ color: "var(--color-stop)" }}>*</span></label>
-              <input
+              <input aria-label="Lead Time Days"
                 type="number"
                 inputMode="numeric"
                 min="0"
@@ -2203,7 +2203,7 @@ function AddQuoteDialog({
             </div>
             <div>
               <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Payment terms <span style={{ color: "var(--color-stop)" }}>*</span></label>
-              <input
+              <input aria-label="Ayment Terms"
                 type="text"
                 value={paymentTerms}
                 onChange={(e) => setPaymentTerms(e.target.value)}
@@ -2226,7 +2226,7 @@ function AddQuoteDialog({
                 ]}
               />
               {deliveryTermsType === "CUSTOM" ? (
-                <input
+                <input aria-label="Describe delivery terms"
                   type="text"
                   value={deliveryTerms}
                   onChange={(e) => setDeliveryTerms(e.target.value)}
@@ -2243,7 +2243,7 @@ function AddQuoteDialog({
             </div>
             <div className="col-span-2">
               <label className="block text-m-caption font-semibold mb-0.5" style={{ color: "var(--color-ink-500)" }}>Warranty (optional)</label>
-              <input
+              <input aria-label="Warranty"
                 type="text"
                 value={warranty}
                 onChange={(e) => setWarranty(e.target.value)}
@@ -2307,7 +2307,7 @@ function AddQuoteDialog({
                 <div className="grid grid-cols-2 gap-2 items-end">
                   <div>
                     <label className="block text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Rate/{l.unit} <span style={{ color: "var(--color-stop)" }}>*</span></label>
-                    <input
+                    <input aria-label="Rate/"
                       type="number"
                       inputMode="decimal"
                       step="any"
@@ -2340,7 +2340,7 @@ function AddQuoteDialog({
                   <div className="grid grid-cols-3 gap-1.5 pt-1 border-t" style={{ borderColor: "var(--color-line)" }}>
                     <div>
                       <label className="block text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Disc/{l.unit}</label>
-                      <input
+                      <input aria-label="Disc/"
                         type="number" inputMode="decimal" step="any"
                         value={d.discount}
                         onChange={(e) => updateLine(l.materialId, "discount", e.target.value)}
@@ -2352,7 +2352,7 @@ function AddQuoteDialog({
                     </div>
                     <div>
                       <label className="block text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>P&F/{l.unit}</label>
-                      <input
+                      <input aria-label="P&F/"
                         type="number" inputMode="decimal" step="any"
                         value={d.packing}
                         onChange={(e) => updateLine(l.materialId, "packing", e.target.value)}
@@ -2364,7 +2364,7 @@ function AddQuoteDialog({
                     </div>
                     <div>
                       <label className="block text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Freight</label>
-                      <input
+                      <input aria-label="Freight"
                         type="number" inputMode="decimal" step="any"
                         value={d.freight}
                         onChange={(e) => updateLine(l.materialId, "freight", e.target.value)}
@@ -2376,7 +2376,7 @@ function AddQuoteDialog({
                     </div>
                     <div>
                       <label className="block text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Loading</label>
-                      <input
+                      <input aria-label="Loading"
                         type="number" inputMode="decimal" step="any"
                         value={d.loading}
                         onChange={(e) => updateLine(l.materialId, "loading", e.target.value)}
@@ -2388,7 +2388,7 @@ function AddQuoteDialog({
                     </div>
                     <div>
                       <label className="block text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Insurance</label>
-                      <input
+                      <input aria-label="Insurance"
                         type="number" inputMode="decimal" step="any"
                         value={d.insurance}
                         onChange={(e) => updateLine(l.materialId, "insurance", e.target.value)}
@@ -2400,7 +2400,7 @@ function AddQuoteDialog({
                     </div>
                     <div>
                       <label className="block text-m-caption font-semibold" style={{ color: "var(--color-ink-500)" }}>Handling</label>
-                      <input
+                      <input aria-label="Handling"
                         type="number" inputMode="decimal" step="any"
                         value={d.handling}
                         onChange={(e) => updateLine(l.materialId, "handling", e.target.value)}
@@ -2415,7 +2415,7 @@ function AddQuoteDialog({
                         <label className="block text-m-caption font-semibold" style={{ color: "var(--color-signal-dark)" }}>
                           Buyer transport per {l.unit} <span style={{ color: "var(--color-stop)" }}>*</span>
                         </label>
-                        <input
+                        <input aria-label="Buyer transport per"
                           type="number" inputMode="decimal" step="any"
                           value={d.buyerTransport}
                           onChange={(e) => updateLine(l.materialId, "buyerTransport", e.target.value)}

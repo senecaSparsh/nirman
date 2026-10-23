@@ -443,17 +443,17 @@ export function CreateAccountDialog({
               </div>
               <div className="space-y-1.5">
                 <Label>Employee Code</Label>
-                <Input value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} placeholder="SRG-FIN-0001" />
+                <Input aria-label="Mployee Code" value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} placeholder="SRG-FIN-0001" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Designation</Label>
-                <Input value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="Site Engineer" />
+                <Input aria-label="Site Engineer" value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="Site Engineer" />
               </div>
               <div className="space-y-1.5">
                 <Label>Org Unit</Label>
-                <Input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="Construction" />
+                <Input aria-label="Construction" value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="Construction" />
               </div>
             </div>
             {/* Multi-role: additional hats — the employee can switch into
@@ -560,7 +560,7 @@ export function CreateAccountDialog({
               <div className="space-y-2">
                 <div className="space-y-1.5">
                   <Label>Phone Number *</Label>
-                  <Input
+                  <Input aria-label="Phone"
                     type="tel"
                     value={newPhone}
                     onChange={(e) => setNewPhone(e.target.value)}
@@ -570,11 +570,11 @@ export function CreateAccountDialog({
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label>Label (optional)</Label>
-                    <Input value={newPhoneLabel} onChange={(e) => setNewPhoneLabel(e.target.value)} placeholder="Site office" />
+                    <Input aria-label="Site office" value={newPhoneLabel} onChange={(e) => setNewPhoneLabel(e.target.value)} placeholder="Site office" />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Monthly Cost (₹)</Label>
-                    <Input type="number" min="0" step="any" value={newPhoneCost} onChange={(e) => setNewPhoneCost(e.target.value)} placeholder="0" />
+                    <Input aria-label="Phone Cost" type="number" min="0" step="any" value={newPhoneCost} onChange={(e) => setNewPhoneCost(e.target.value)} placeholder="0" />
                   </div>
                 </div>
                 {/* Phone availability check */}
@@ -628,7 +628,7 @@ export function CreateAccountDialog({
             <div className="space-y-1.5">
               <Label>Password</Label>
               <div className="relative">
-                <Input
+                <Input aria-label="Assword"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

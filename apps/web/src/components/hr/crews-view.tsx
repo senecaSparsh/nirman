@@ -462,7 +462,7 @@ function CrewFormDialog({
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <Label>Crew Name *</Label>
-          <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Masonry Crew A" required />
+          <Input aria-label="Crew name" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="e.g. Masonry Crew A" required />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>

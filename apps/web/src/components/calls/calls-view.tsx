@@ -142,7 +142,7 @@ export function CallsView({
         <Toolbar>
           <div className="relative flex-1 min-w-[180px]">
             <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
+            <Input aria-label="Search"
               type="text"
               placeholder="Search by number, name, or notes…"
               value={search}
@@ -368,7 +368,7 @@ function ManualCallForm({
           </div>
           <div className="space-y-1.5">
             <Label>Other party number</Label>
-            <Input
+            <Input aria-label="Other Number"
               type="tel"
               value={otherNumber}
               onChange={(e) => setOtherNumber(e.target.value)}
@@ -387,7 +387,7 @@ function ManualCallForm({
           </div>
           <div className="space-y-1.5">
             <Label>Duration (seconds)</Label>
-            <Input
+            <Input aria-label="Duration Sec"
               type="number"
               value={durationSec}
               onChange={(e) => setDurationSec(e.target.value)}
@@ -411,7 +411,7 @@ function ManualCallForm({
           </div>
           <div className="space-y-1.5 sm:col-span-2">
             <Label>Notes</Label>
-            <Input
+            <Input aria-label="Call summary"
               type="text"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}

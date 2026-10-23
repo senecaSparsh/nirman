@@ -535,7 +535,7 @@ export function MobileNewSaleForm({
                   className="absolute left-1.5 top-1/2 -translate-y-1/2 size-3"
                   style={{ color: "var(--color-ink-500)" }}
                 />
-                <input
+                <input aria-label="Sale Price"
                   type="number"
                   min="0"
                   step="0.01"
@@ -551,7 +551,7 @@ export function MobileNewSaleForm({
             {/* GST + Total */}
             <div className="grid grid-cols-2 gap-2">
               <FormFieldSm label="GST %">
-                <input
+                <input aria-label="GST Rate"
                   type="number"
                   min="0"
                   max="28"
@@ -581,7 +581,7 @@ export function MobileNewSaleForm({
             {/* Maturity + Payment cycle */}
             <div className="grid grid-cols-2 gap-2">
               <FormFieldSm label="Maturity (mo)">
-                <input
+                <input aria-label="Deal Maturity Months"
                   type="number"
                   inputMode="numeric"
                   min="0"
@@ -593,7 +593,7 @@ export function MobileNewSaleForm({
                 />
               </FormFieldSm>
               <FormFieldSm label="Cycle">
-                <input
+                <input aria-label="Ayment Cycle"
                   type="text"
                   value={paymentCycle}
                   onChange={(e) => setPaymentCycle(e.target.value)}
@@ -679,7 +679,7 @@ export function MobileNewSaleForm({
                 </FormFieldSm>
                 <div className="grid grid-cols-2 gap-2">
                   <FormFieldSm label="Broker Name">
-                    <input
+                    <input aria-label="Name"
                       type="text"
                       value={brokerName}
                       onChange={(e) => { setBrokerName(e.target.value); setBrokerId(""); }}
@@ -689,7 +689,7 @@ export function MobileNewSaleForm({
                     />
                   </FormFieldSm>
                   <FormFieldSm label="Phone">
-                    <input
+                    <input aria-label="Phone"
                       type="tel"
                       value={brokerPhone}
                       onChange={(e) => { setBrokerPhone(e.target.value); setBrokerId(""); }}
@@ -700,7 +700,7 @@ export function MobileNewSaleForm({
                   </FormFieldSm>
                 </div>
                 <FormFieldSm label="Commission">
-                  <input
+                  <input aria-label="Ommission Amount"
                     type="number"
                     inputMode="decimal"
                     min="0"
@@ -759,7 +759,7 @@ export function MobileNewSaleForm({
                   className="absolute left-1.5 top-1/2 -translate-y-1/2 size-3"
                   style={{ color: "var(--color-ink-500)" }}
                 />
-                <input
+                <input aria-label="Initial Payment"
                   type="number"
                   min="0"
                   step="0.01"
@@ -815,19 +815,19 @@ export function MobileNewSaleForm({
                 <div className="space-y-1.5 mt-1.5">
                   <div className="grid grid-cols-2 gap-2">
                     <FormFieldSm label="ATS Reg. No.">
-                      <input type="text" value={atsNo}
+                      <input aria-label="Ats No" type="text" value={atsNo}
                         onChange={(e) => setAtsNo(e.target.value)}
                         placeholder="ATS-1234/2025"
                         className={inputClassSm} style={inputStyleSm} />
                     </FormFieldSm>
                     <FormFieldSm label="ATS Date">
-                      <input type="date" value={atsDate}
+                      <input aria-label="Ats Date" type="date" value={atsDate}
                         onChange={(e) => setAtsDate(e.target.value)}
                         className={inputClassSm} style={inputStyleSm} />
                     </FormFieldSm>
                   </div>
                   <FormFieldSm label="Exp. Registry">
-                    <input type="date" value={expectedRegistryDate}
+                    <input aria-label="Expected Registry Date" type="date" value={expectedRegistryDate}
                       onChange={(e) => setExpectedRegistryDate(e.target.value)}
                       className={inputClassSm} style={inputStyleSm} />
                   </FormFieldSm>
@@ -840,7 +840,7 @@ export function MobileNewSaleForm({
                 </div>
               ) : (
                 <FormFieldSm label="Deed / Registry No.">
-                  <input type="text" value={saleDeedNo}
+                  <input aria-label="Sale Deed No" type="text" value={saleDeedNo}
                     onChange={(e) => setSaleDeedNo(e.target.value)}
                     placeholder="SR-1234/2025"
                     className={inputClassSm} style={inputStyleSm} />
@@ -884,13 +884,13 @@ export function MobileNewSaleForm({
               <>
                 <div className="grid grid-cols-2 gap-2">
                   <FormFieldSm label="Bank">
-                    <input type="text" value={homeLoanBank}
+                    <input aria-label="HDFC, SBI" type="text" value={homeLoanBank}
                       onChange={(e) => setHomeLoanBank(e.target.value)}
                       placeholder="HDFC, SBI"
                       className={inputClassSm} style={inputStyleSm} />
                   </FormFieldSm>
                   <FormFieldSm label="Amount">
-                    <input type="number" min="0" step="0.01" value={homeLoanAmount}
+                    <input aria-label="Home Loan Amount" type="number" min="0" step="0.01" value={homeLoanAmount}
                       onChange={(e) => setHomeLoanAmount(e.target.value)}
                       placeholder="0"
                       className={`${inputClassSm} tabular-nums`} style={inputStyleSm} />
@@ -898,13 +898,13 @@ export function MobileNewSaleForm({
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <FormFieldSm label="Sanction No.">
-                    <input type="text" value={homeLoanSanctionNo}
+                    <input aria-label="Home Loan Sanction No" type="text" value={homeLoanSanctionNo}
                       onChange={(e) => setHomeLoanSanctionNo(e.target.value)}
                       placeholder="HDFC-001"
                       className={inputClassSm} style={inputStyleSm} />
                   </FormFieldSm>
                   <FormFieldSm label="Sanction Date">
-                    <input type="date" value={homeLoanSanctionDate}
+                    <input aria-label="Home Loan Sanction Date" type="date" value={homeLoanSanctionDate}
                       onChange={(e) => setHomeLoanSanctionDate(e.target.value)}
                       className={inputClassSm} style={inputStyleSm} />
                   </FormFieldSm>
@@ -976,7 +976,7 @@ export function MobileNewSaleForm({
                       className="absolute left-1.5 top-1/2 -translate-y-1/2 size-2.5"
                       style={{ color: "var(--color-ink-500)" }}
                     />
-                    <input
+                    <input aria-label="Expenses"
                       type="number"
                       inputMode="decimal"
                       min="0"
@@ -1047,7 +1047,7 @@ export function MobileNewSaleForm({
                     </button>
                   </div>
                   <div className="flex items-center gap-1">
-                    <input
+                    <input aria-label="Terms"
                       type="number"
                       inputMode="decimal"
                       min="0"
@@ -1105,7 +1105,7 @@ export function MobileNewSaleForm({
               {schedule.map((item, i) => (
                 <div key={i} className="space-y-1 rounded-[0.375rem] border p-1.5" style={{ borderColor: "var(--color-line)" }}>
                   <div className="flex items-center gap-1">
-                    <input
+                    <input aria-label="Description"
                       type="text"
                       value={item.description}
                       onChange={(e) => {
@@ -1128,7 +1128,7 @@ export function MobileNewSaleForm({
                     </button>
                   </div>
                   <div className="grid grid-cols-3 gap-1.5">
-                    <input
+                    <input aria-label="Schedule"
                       type="number"
                       inputMode="decimal"
                       min="0"
@@ -1142,7 +1142,7 @@ export function MobileNewSaleForm({
                       className={`${inputClassSm} tabular-nums`}
                       style={inputStyleSm}
                     />
-                    <input
+                    <input aria-label="Schedule"
                       type="number"
                       inputMode="decimal"
                       min="0"
@@ -1156,7 +1156,7 @@ export function MobileNewSaleForm({
                       className={`${inputClassSm} tabular-nums`}
                       style={inputStyleSm}
                     />
-                    <input
+                    <input aria-label="Due Date"
                       type="date"
                       value={item.dueDate}
                       onChange={(e) => {

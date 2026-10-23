@@ -173,7 +173,7 @@ export function MobileNewCategoryDialog({
               <span className="block text-m-caption font-bold mb-0.5" style={{ color: "var(--color-ink-700)" }}>
                 GST %
               </span>
-              <input
+              <input aria-label="Auto"
                 type="number"
                 min="0"
                 max="100"

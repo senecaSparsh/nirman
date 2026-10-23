@@ -1246,7 +1246,7 @@ function CollectInstallmentDialog({
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="space-y-1.5">
           <label className="text-label text-muted-foreground">Amount (₹)</label>
-          <Input
+          <Input aria-label="Amount"
             type="number"
             min={0}
             max={balanceDue}
@@ -1260,7 +1260,7 @@ function CollectInstallmentDialog({
         {accrued > 0 && (
           <div className="space-y-1.5">
             <label className="text-label text-muted-foreground">Late interest (₹) — SBI MCLR + 2% accrued</label>
-            <Input
+            <Input aria-label="Interest"
               type="number"
               min={0}
               max={accrued}

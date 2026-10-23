@@ -95,7 +95,7 @@ export function MobileDocUploader({
           {uploading ? "Uploading…" : label}
         </span>
       </button>
-      <input
+      <input aria-hidden="true" tabIndex={-1}
         ref={fileRef}
         type="file"
         accept="image/*,application/pdf"

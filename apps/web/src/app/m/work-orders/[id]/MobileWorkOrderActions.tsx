@@ -206,7 +206,7 @@ export function MobileWorkOrderActions({
                 <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                   <div>
                     <label className={labelClass} style={labelStyle}>Amount (₹) *</label>
-                    <input type="number" min="0" step="any" inputMode="numeric" value={advanceAmount} onChange={(e) => setAdvanceAmount(e.target.value)} placeholder="0" className={inputClass} style={inputStyle} />
+                    <input aria-label="Advance Amount" type="number" min="0" step="any" inputMode="numeric" value={advanceAmount} onChange={(e) => setAdvanceAmount(e.target.value)} placeholder="0" className={inputClass} style={inputStyle} />
                   </div>
                   <div className="pl-2">
                     <EnumSelect
@@ -224,7 +224,7 @@ export function MobileWorkOrderActions({
                 </div>
                 <div>
                   <label className={labelClass} style={labelStyle}>Reference No.</label>
-                  <input value={advanceRef} onChange={(e) => setAdvanceRef(e.target.value)} placeholder="UTR / Cheque no." className={inputClass} style={inputStyle} />
+                  <input aria-label="UTR / Cheque no" value={advanceRef} onChange={(e) => setAdvanceRef(e.target.value)} placeholder="UTR / Cheque no." className={inputClass} style={inputStyle} />
                 </div>
               </div>
               <div className="flex gap-2 pt-1">
@@ -268,7 +268,7 @@ export function MobileWorkOrderActions({
               </p>
               <div>
                 <label className={labelClass} style={labelStyle}>Write-off reason *</label>
-                <input value={forgiveReason} onChange={(e) => setForgiveReason(e.target.value)} placeholder="e.g. Contractor abandoned mid-work" className={inputClass} style={inputStyle} />
+                <input aria-label="Forgive Reason" value={forgiveReason} onChange={(e) => setForgiveReason(e.target.value)} placeholder="e.g. Contractor abandoned mid-work" className={inputClass} style={inputStyle} />
               </div>
               <div className="flex gap-2 pt-1">
                 <button onClick={() => setShowCompleteSheet(false)} disabled={acting !== null} className="flex-1 h-9 rounded-[0.5rem] border text-m-label font-bold text-m-body press" style={{ borderColor: "var(--color-line)", color: "var(--color-ink-700)" }}>Back</button>

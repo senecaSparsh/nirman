@@ -243,7 +243,7 @@ export function ConvertToPoDialog({
                 </Button>
               ) : (
                 <div className="flex items-center gap-2 w-full">
-                  <Input
+                  <Input aria-label="Reason for waiving quote requirement"
                     placeholder="Reason for waiving quote requirement…"
                     value={waiveReason}
                     onChange={(e) => setWaiveReason(e.target.value)}
@@ -305,7 +305,7 @@ export function ConvertToPoDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Expected Date</Label>
-            <Input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
+            <Input aria-label="Expected Date" type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} />
           </div>
         </div>
 
@@ -344,7 +344,7 @@ export function ConvertToPoDialog({
                       </TD>
                       <TD className="text-right tnum">{formatNumber(l.qtyRequested, 3)} {l.unit}</TD>
                       <TD className="text-right">
-                        <Input
+                        <Input aria-label="Line Costs"
                           type="number"
                           step="0.01"
                           min="0"

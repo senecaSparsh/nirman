@@ -237,7 +237,7 @@ export function MobileRaBillActions({
                   </div>
                   <div className="pl-2">
                     <label className={labelClass} style={labelStyle}>Reference No.</label>
-                    <input value={payRef} onChange={(e) => setPayRef(e.target.value)} placeholder="UTR / Cheque no." className={inputClass} style={inputStyle} />
+                    <input aria-label="UTR / Cheque no" value={payRef} onChange={(e) => setPayRef(e.target.value)} placeholder="UTR / Cheque no." className={inputClass} style={inputStyle} />
                   </div>
                 </div>
               </div>

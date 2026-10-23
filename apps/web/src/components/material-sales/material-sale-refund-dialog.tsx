@@ -85,7 +85,7 @@ export function MaterialSaleRefundDialog({
           <Field label="Refund Amount" required>
             <div className="relative">
               <IndianRupee className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
+              <Input aria-label="Amount"
                 type="number"
                 step="0.01"
                 min="0"
@@ -108,14 +108,14 @@ export function MaterialSaleRefundDialog({
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Reference No.">
-            <Input
+            <Input aria-label="UTR / Transaction ID"
               value={referenceNo}
               onChange={(e) => setReferenceNo(e.target.value)}
               placeholder="UTR / Transaction ID"
             />
           </Field>
           <Field label="Notes">
-            <Input
+            <Input aria-label="Notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="e.g. Refund for returned material"

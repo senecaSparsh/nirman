@@ -114,7 +114,7 @@ export function CategoryFormDialog({
     >
       <form onSubmit={onSubmit} className="space-y-3">
         <Field label="Name" required error={errors.name}>
-          <Input
+          <Input aria-label="Name"
             value={name}
             onChange={(e) => { setName(e.target.value); clearError("name"); }}
             onBlur={() => onBlur("name", validationForm)}
@@ -125,7 +125,7 @@ export function CategoryFormDialog({
           />
         </Field>
         <Field label="Default Unit" required error={errors.unit}>
-          <Input
+          <Input aria-label="BAG / KG / NOS"
             value={unit}
             onChange={(e) => { setUnit(e.target.value); clearError("unit"); }}
             onBlur={() => onBlur("unit", validationForm)}
@@ -158,7 +158,7 @@ export function CategoryFormDialog({
           </p>
         </Field>
         <Field label="Default GST Rate (%)" error={errors.gstRate}>
-          <Input
+          <Input aria-label="Auto-filled from HSN"
             type="number"
             min="0"
             max="100"

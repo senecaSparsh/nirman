@@ -382,7 +382,7 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
             <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/50">
               <div>
                 <Label className="text-m-body">Gate Entry No.</Label>
-                <Input
+                <Input aria-label="Gate Entry Number"
                   placeholder="e.g. GE-2026-081"
                   value={gateEntryNumber}
                   onChange={(e) => setGateEntryNumber(e.target.value)}
@@ -391,7 +391,7 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
               </div>
               <div>
                 <Label className="text-m-body">Challan No.</Label>
-                <Input
+                <Input aria-label="Supplier dispatch no"
                   placeholder="Supplier dispatch no."
                   value={challanNumber}
                   onChange={(e) => setChallanNumber(e.target.value)}
@@ -465,7 +465,7 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
             {/* Receipt remarks */}
             <div>
               <Label className="text-m-body">Receipt Remarks</Label>
-              <Input
+              <Input aria-label="Any additional notes"
                 placeholder="Any additional notes"
                 value={receiptNotes}
                 onChange={(e) => setReceiptNotes(e.target.value)}
@@ -499,7 +499,7 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
               </div>
             </div>
             <div className="flex gap-2">
-              <input
+              <input aria-hidden="true" tabIndex={-1}
                 ref={challanInputRef}
                 type="file"
                 accept="image/*"
@@ -546,7 +546,7 @@ export function FieldReceive({ purchaseOrders, initialPoId }: { purchaseOrders: 
                       {remaining > 0 && <span className="ml-1 text-warning">· {formatNumber(remaining)} left</span>}
                     </div>
                   </div>
-                  <Input
+                  <Input aria-label="Qty"
                     type="number"
                     inputMode="decimal"
                     enterKeyHint="done"

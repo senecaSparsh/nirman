@@ -806,7 +806,7 @@ function PaymentRunDialog({
                 {rows.map((r) => (
                   <tr key={r.id} className="border-t border-border">
                     <td className="px-2 py-1.5">
-                      <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggle(r.id)} className="rounded" />
+                      <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggle(r.id)} className="rounded" aria-label={`Select ${r.supplier}`} />
                     </td>
                     <td className="px-2 py-1.5">
                       <div className="font-medium">{r.supplier}</div>
@@ -814,7 +814,7 @@ function PaymentRunDialog({
                     </td>
                     <td className="px-2 py-1.5 text-right tnum">{formatCurrency(r.payable)}</td>
                     <td className="px-2 py-1.5">
-                      <input
+                      <input aria-label="TDS"
                         type="number"
                         min="0"
                         step="0.01"

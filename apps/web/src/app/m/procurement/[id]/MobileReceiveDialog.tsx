@@ -938,7 +938,7 @@ export function MobileReceiveDialog({
                       New material — code + HSN/GST auto-generated
                     </p>
                   </div>
-                  <input type="text" placeholder="Material name" value={quickAddName} onChange={(e) => setQuickAddName(e.target.value)} className="w-full h-8 rounded-[0.375rem] border px-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
+                  <input aria-label="Material name" type="text" placeholder="Material name" value={quickAddName} onChange={(e) => setQuickAddName(e.target.value)} className="w-full h-8 rounded-[0.375rem] border px-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
                   <div className="grid grid-cols-2 gap-2">
                     <MobileSelectWithCreate
                       label="Category"
@@ -948,8 +948,8 @@ export function MobileReceiveDialog({
                       options={categories.map((c) => ({ value: c.id, label: c.name }))}
                     />
                     <div className="flex gap-1">
-                      <input type="text" placeholder="Unit" value={quickAddUnit} onChange={(e) => setQuickAddUnit(e.target.value)} className="w-16 h-8 rounded-[0.375rem] border px-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-signal-foreground)" }} />
-                      <input type="number" inputMode="decimal" placeholder="Cost" value={quickAddCost} onChange={(e) => setQuickAddCost(e.target.value)} className="flex-1 h-8 rounded-[0.375rem] border px-2 text-m-body text-right tabular-nums outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-signal-foreground)" }} />
+                      <input aria-label="Unit" type="text" placeholder="Unit" value={quickAddUnit} onChange={(e) => setQuickAddUnit(e.target.value)} className="w-16 h-8 rounded-[0.375rem] border px-2 text-m-body outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-signal-foreground)" }} />
+                      <input aria-label="Cost" type="number" inputMode="decimal" placeholder="Cost" value={quickAddCost} onChange={(e) => setQuickAddCost(e.target.value)} className="flex-1 h-8 rounded-[0.375rem] border px-2 text-m-body text-right tabular-nums outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-signal-foreground)" }} />
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -1039,7 +1039,7 @@ export function MobileReceiveDialog({
                           <div className="flex items-center rounded-[0.375rem] border overflow-hidden" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)" }}>
                             {byWeight && canConvert ? (
                               <>
-                                <input
+                                <input aria-label="Wt"
                                   type="number"
                                   inputMode="decimal"
                                   step="0.001"
@@ -1054,13 +1054,13 @@ export function MobileReceiveDialog({
                               </>
                             ) : (
                               <>
-                                <input type="number" inputMode="decimal" step="0.001" min="0" max={remaining} placeholder="Qty" value={receipts[l.id] ?? ""} onChange={(e) => setQty(l.id, e.target.value)} className="w-full h-8 px-1 text-m-label text-right tabular-nums outline-none bg-transparent" style={{ color: "var(--color-ink-950)" }} />
+                                <input aria-label="Qty" type="number" inputMode="decimal" step="0.001" min="0" max={remaining} placeholder="Qty" value={receipts[l.id] ?? ""} onChange={(e) => setQty(l.id, e.target.value)} className="w-full h-8 px-1 text-m-label text-right tabular-nums outline-none bg-transparent" style={{ color: "var(--color-ink-950)" }} />
                                 <span className="text-m-caption font-bold shrink-0 px-0.5" style={{ color: "var(--color-ink-500)" }}>{l.unit}</span>
                               </>
                             )}
                           </div>
                           {/* Lot/Batch */}
-                          <input type="text" placeholder="Lot/Batch" value={lineLots[l.id] ?? ""} onChange={(e) => setLineLots((s) => ({ ...s, [l.id]: e.target.value }))} className="h-8 rounded-[0.25rem] border px-1.5 text-m-caption outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
+                          <input aria-label="Lot/Batch" type="text" placeholder="Lot/Batch" value={lineLots[l.id] ?? ""} onChange={(e) => setLineLots((s) => ({ ...s, [l.id]: e.target.value }))} className="h-8 rounded-[0.25rem] border px-1.5 text-m-caption outline-none" style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper-2)", color: "var(--color-ink-950)" }} />
                           {/* Inspection */}
                           <EnumSelect
                             label=""
@@ -1077,7 +1077,7 @@ export function MobileReceiveDialog({
                           <div className="grid grid-cols-2 gap-2 mb-1">
                             <div>
                               <label className="text-m-caption font-semibold uppercase tracking-wide block mb-0.5" style={{ color: "var(--color-ink-500)" }}>Expiry</label>
-                              <input
+                              <input aria-label="Expiry"
                                 type="date"
                                 value={lineExpiryDate[l.id] ?? ""}
                                 onChange={(e) => setLineExpiryDate((s) => ({ ...s, [l.id]: e.target.value }))}
@@ -1087,7 +1087,7 @@ export function MobileReceiveDialog({
                             </div>
                             <div>
                               <label className="text-m-caption font-semibold uppercase tracking-wide block mb-0.5" style={{ color: "var(--color-ink-500)" }}>Mfg Date</label>
-                              <input
+                              <input aria-label="Mfg Date"
                                 type="date"
                                 value={lineMfgDate[l.id] ?? ""}
                                 onChange={(e) => setLineMfgDate((s) => ({ ...s, [l.id]: e.target.value }))}
@@ -1101,7 +1101,7 @@ export function MobileReceiveDialog({
                         {/* Inspection remarks — show when inspection is FAILED or RETEST */}
                         {(lineInspection[l.id] === "FAILED" || lineInspection[l.id] === "RETEST") ? (
                           <div className="mb-1">
-                            <input
+                            <input aria-label="Line Inspection Remarks"
                               type="text"
                               placeholder="Inspection remarks (defect / retest reason)"
                               value={lineInspectionRemarks[l.id] ?? ""}
@@ -1235,7 +1235,7 @@ export function MobileReceiveDialog({
                   </button>
                 </div>
                 {gatePassMode === "gatePass" ? (
-                  <input
+                  <input aria-label="Supplier gate pass no"
                     type="text"
                     value={gatePassNo}
                     onChange={(e) => setGatePassNo(e.target.value)}

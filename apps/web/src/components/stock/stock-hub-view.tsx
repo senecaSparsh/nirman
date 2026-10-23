@@ -253,7 +253,7 @@ function CrossCompanyTab() {
 
       {/* Search */}
       <div className="relative max-w-xs">
-        <input
+        <input aria-label="Search material"
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}

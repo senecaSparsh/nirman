@@ -1067,7 +1067,7 @@ function MobileQuoteUploadDialog({
                       <Upload className="size-4" />
                     )}
                     <span>{uploading ? "Uploading…" : "Choose file"}</span>
-                    <input
+                    <input aria-hidden="true" tabIndex={-1}
                       type="file"
                       accept=".pdf,image/*"
                       className="hidden"
@@ -1211,7 +1211,7 @@ function MobileQuoteUploadDialog({
                 >
                   Valid Until
                 </label>
-                <input
+                <input aria-label="Valid Until"
                   type="date"
                   value={validUntil}
                   onChange={(e) => setValidUntil(e.target.value)}
@@ -1235,7 +1235,7 @@ function MobileQuoteUploadDialog({
               >
                 Payment Terms *
               </label>
-              <input
+              <input aria-label="Ayment Terms"
                 type="text"
                 value={paymentTerms}
                 onChange={(e) => setPaymentTerms(e.target.value)}
@@ -1252,7 +1252,7 @@ function MobileQuoteUploadDialog({
                 >
                   Lead Time (days) *
                 </label>
-                <input
+                <input aria-label="Lead Time Days"
                   type="number"
                   min="0"
                   max="365"
@@ -1271,7 +1271,7 @@ function MobileQuoteUploadDialog({
                 >
                   Warranty (optional)
                 </label>
-                <input
+                <input aria-label="Warranty"
                   type="text"
                   value={warranty}
                   onChange={(e) => setWarranty(e.target.value)}
@@ -1421,7 +1421,7 @@ function SupplierPickerModal({
           </button>
         </div>
         <div className="px-4 py-2">
-          <input
+          <input aria-label="Search suppliers"
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -1700,7 +1700,7 @@ function MobileEditQuoteDialog({
                 >
                   Landed Total (₹) *
                 </label>
-                <input
+                <input aria-label="Landed Total"
                   type="number"
                   min={0}
                   step="0.01"
@@ -1718,7 +1718,7 @@ function MobileEditQuoteDialog({
                 >
                   Valid Until
                 </label>
-                <input
+                <input aria-label="Valid Until"
                   type="date"
                   value={validUntil}
                   onChange={(e) => setValidUntil(e.target.value)}
@@ -1743,7 +1743,7 @@ function MobileEditQuoteDialog({
                 >
                   Lead Time (days)
                 </label>
-                <input
+                <input aria-label="Lead Time Days"
                   type="number"
                   min={0}
                   value={leadTimeDays}
@@ -1759,7 +1759,7 @@ function MobileEditQuoteDialog({
                 >
                   Payment Terms
                 </label>
-                <input
+                <input aria-label="Ayment Terms"
                   value={paymentTerms}
                   onChange={(e) => setPaymentTerms(e.target.value)}
                   placeholder="e.g. 30 days credit"

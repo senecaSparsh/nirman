@@ -248,7 +248,7 @@ export default function MobileNewEquipmentClient({
                   className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5"
                   style={{ color: "var(--color-ink-700)" }}
                 />
-                <input
+                <input aria-label="Acquisition Cost"
                   type="text" inputMode="decimal"
                   step="any"
                   min="0"

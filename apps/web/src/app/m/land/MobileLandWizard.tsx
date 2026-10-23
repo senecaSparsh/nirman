@@ -730,7 +730,7 @@ export function MobileLandWizard({
                   <label className={labelClass} style={labelStyle}>
                     Location
                   </label>
-                  <input
+                  <input aria-label="Village, tehsil, district"
                     type="text"
                     value={land.location}
                     onChange={(e) => setLandField("location", e.target.value)}
@@ -746,7 +746,7 @@ export function MobileLandWizard({
                       Total Area{" "}
                       <span style={{ color: "var(--color-stop)" }}>*</span>
                     </label>
-                    <input
+                    <input aria-label="Total Area"
                       type="number"
                       min={0}
                       step="any"
@@ -913,7 +913,7 @@ export function MobileLandWizard({
                       <label className={labelClass} style={labelStyle}>
                         Period (yrs)
                       </label>
-                      <input
+                      <input aria-label="Lease Period Years"
                         type="number"
                         min={0}
                         step="any"
@@ -931,7 +931,7 @@ export function MobileLandWizard({
                       <label className={labelClass} style={labelStyle}>
                         Start
                       </label>
-                      <input
+                      <input aria-label="Lease Start Date"
                         type="date"
                         value={land.leaseStartDate}
                         onChange={(e) =>
@@ -945,7 +945,7 @@ export function MobileLandWizard({
                       <label className={labelClass} style={labelStyle}>
                         End
                       </label>
-                      <input
+                      <input aria-label="Lease End Date"
                         type="date"
                         value={land.leaseEndDate}
                         onChange={(e) =>
@@ -969,7 +969,7 @@ export function MobileLandWizard({
                     Base Cost (₹){" "}
                     <span style={{ color: "var(--color-stop)" }}>*</span>
                   </label>
-                  <input
+                  <input aria-label="Base Cost"
                     type="number"
                     min={0}
                     step="any"
@@ -988,7 +988,7 @@ export function MobileLandWizard({
                       <label className={labelClass} style={labelStyle}>
                         Lease Rent (%)
                       </label>
-                      <input
+                      <input aria-label="Lease Rent Percent"
                         type="number"
                         min={0}
                         step="any"
@@ -1040,7 +1040,7 @@ export function MobileLandWizard({
                       <label className={labelClass} style={labelStyle}>
                         GST on Rent (%)
                       </label>
-                      <input
+                      <input aria-label="GST Percent"
                         type="number"
                         min={0}
                         step="any"
@@ -1077,7 +1077,7 @@ export function MobileLandWizard({
                     <label className={labelClass} style={labelStyle}>
                       Registration (%)
                     </label>
-                    <input
+                    <input aria-label="Registration Percent"
                       type="number"
                       min={0}
                       step="any"
@@ -1115,7 +1115,7 @@ export function MobileLandWizard({
                     <label className={labelClass} style={labelStyle}>
                       Stamp Duty (%)
                     </label>
-                    <input
+                    <input aria-label="Stamp Duty Percent"
                       type="number"
                       min={0}
                       step="any"
@@ -1154,7 +1154,7 @@ export function MobileLandWizard({
                     <label className={labelClass} style={labelStyle}>
                       Transfer Duty (%)
                     </label>
-                    <input
+                    <input aria-label="Transfer Duty Percent"
                       type="number"
                       min={0}
                       step="any"
@@ -1193,7 +1193,7 @@ export function MobileLandWizard({
                     <label className={labelClass} style={labelStyle}>
                       Brokerage (₹)
                     </label>
-                    <input
+                    <input aria-label="Brokerage Amount"
                       type="number"
                       min={0}
                       step="0.01"
@@ -1211,7 +1211,7 @@ export function MobileLandWizard({
                     <label className={labelClass} style={labelStyle}>
                       Legal Fees (₹)
                     </label>
-                    <input
+                    <input aria-label="Legal Fees"
                       type="number"
                       min={0}
                       step="0.01"
@@ -1229,7 +1229,7 @@ export function MobileLandWizard({
                     <label className={labelClass} style={labelStyle}>
                       Other (₹)
                     </label>
-                    <input
+                    <input aria-label="EDC/IDC"
                       type="number"
                       min={0}
                       step="0.01"
@@ -1287,7 +1287,7 @@ export function MobileLandWizard({
                 {extraCosts.map((c, i) => (
                   <div key={i} className="rounded-[0.375rem] border p-2 space-y-3" style={{ borderColor: "var(--color-line)" }}>
                     <div className="flex items-start gap-1">
-                      <input
+                      <input aria-label="Label (e.g. Yearly Lease Rent)"
                         className={inputClass}
                         style={inputStyle}
                         value={c.label}
@@ -1299,7 +1299,7 @@ export function MobileLandWizard({
                       </button>
                     </div>
                     <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-                      <input
+                      <input aria-label="Extra Costs"
                         type="number"
                         min="0"
                         step="any"
@@ -1346,7 +1346,7 @@ export function MobileLandWizard({
                     <label className={labelClass} style={labelStyle}>
                       Registry No.
                     </label>
-                    <input
+                    <input aria-label="Registry No"
                       type="text"
                       value={land.registryNo}
                       onChange={(e) => setLandField("registryNo", e.target.value)}
@@ -1360,7 +1360,7 @@ export function MobileLandWizard({
                     <label className={labelClass} style={labelStyle}>
                       Purchase Date
                     </label>
-                    <input
+                    <input aria-label="Purchase Date"
                       type="date"
                       value={land.purchaseDate}
                       onChange={(e) =>
@@ -1438,7 +1438,7 @@ export function MobileLandWizard({
                   <label className={labelClass} style={labelStyle}>
                     Parent Parcel Number
                   </label>
-                  <input
+                  <input aria-label="Parent Parcel Number"
                     type="text"
                     value={land.parentParcelNumber}
                     onChange={(e) =>
@@ -2050,7 +2050,7 @@ function MobileSectionEditor({
           <label className={labelClass} style={labelStyle}>
             Parcel No. *
           </label>
-          <input
+          <input aria-label="Parcel No. *"
             type="text"
             value={section.number}
             onChange={(e) => onUpdate({ number: e.target.value })}
@@ -2064,7 +2064,7 @@ function MobileSectionEditor({
             <label className={labelClass} style={labelStyle}>
               Area ({areaUnit}) *
             </label>
-            <input
+            <input aria-label="Area ("
               type="number"
               min={0}
               step="any"
@@ -2165,7 +2165,7 @@ function MobileSectionEditor({
           <label className={labelClass} style={labelStyle}>
             Asking Price (₹) — optional
           </label>
-          <input
+          <input aria-label="Asking Price (₹) — optional"
             type="number"
             min={0}
             step="any"

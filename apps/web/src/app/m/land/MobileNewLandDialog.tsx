@@ -156,7 +156,7 @@ export function MobileNewLandDialog({
               <label className={labelClass} style={labelStyle}>
                 Seller Name <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
-              <input
+              <input aria-label="Seller Name"
                 type="text"
                 value={form.sellerName}
                 onChange={(e) => set("sellerName", e.target.value)}
@@ -173,7 +173,7 @@ export function MobileNewLandDialog({
               <label className={labelClass} style={labelStyle}>
                 Seller Contact
               </label>
-              <input
+              <input aria-label="Seller Contact"
                 type="tel"
                 value={form.sellerContact}
                 onChange={(e) => set("sellerContact", e.target.value)}
@@ -215,7 +215,7 @@ export function MobileNewLandDialog({
               <label className={labelClass} style={labelStyle}>
                 Location
               </label>
-              <input
+              <input aria-label="Village, tehsil, district, state"
                 type="text"
                 value={form.location}
                 onChange={(e) => set("location", e.target.value)}
@@ -231,7 +231,7 @@ export function MobileNewLandDialog({
               <label className={labelClass} style={labelStyle}>
                 Purchase Date
               </label>
-              <input
+              <input aria-label="Purchase Date"
                 type="date"
                 value={form.purchaseDate}
                 onChange={(e) => set("purchaseDate", e.target.value)}
@@ -246,7 +246,7 @@ export function MobileNewLandDialog({
                 <label className={labelClass} style={labelStyle}>
                   Total Area <span style={{ color: "var(--color-stop)" }}>*</span>
                 </label>
-                <input
+                <input aria-label="Total Area"
                   type="number"
                   min={0}
                   step="any"
@@ -274,7 +274,7 @@ export function MobileNewLandDialog({
                 Total Cost (₹){" "}
                 <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
-              <input
+              <input aria-label="Total Cost (₹)"
                 type="number"
                 min={0}
                 step="0.01"
@@ -292,7 +292,7 @@ export function MobileNewLandDialog({
               <label className={labelClass} style={labelStyle}>
                 Registry / Sale Deed No.
               </label>
-              <input
+              <input aria-label="Registry / Sale Deed No."
                 type="text"
                 value={form.registryNo}
                 onChange={(e) => set("registryNo", e.target.value)}
@@ -309,7 +309,7 @@ export function MobileNewLandDialog({
                 Parcel Number{" "}
                 <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
-              <input
+              <input aria-label="Parcel Number"
                 type="text"
                 value={form.initialParcelNumber}
                 onChange={(e) => set("initialParcelNumber", e.target.value)}

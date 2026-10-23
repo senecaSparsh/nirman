@@ -1531,7 +1531,7 @@ export function MobileSaleDetailClient({
           <p className="text-m-body mb-2" style={{ color: "var(--color-ink-700)" }}>
             The payment will be marked void and its accounting entry reversed — the amount comes back as still due. The record stays for audit.
           </p>
-          <input
+          <input aria-label="Void Reason"
             type="text"
             value={voidReason}
             onChange={(e) => setVoidReason(e.target.value)}
@@ -1616,7 +1616,7 @@ export function MobileSaleDetailClient({
                 <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                   Amount *
                 </label>
-                <input
+                <input aria-label="Pay Amount"
                   type="number"
                   inputMode="decimal"
                   step="0.01"
@@ -1652,7 +1652,7 @@ export function MobileSaleDetailClient({
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Reference
                 </label>
-                <input
+                <input aria-label="Cheque / UTR no"
                   type="text"
                   value={payRef}
                   onChange={(e) => setPayRef(e.target.value)}
@@ -1666,7 +1666,7 @@ export function MobileSaleDetailClient({
                   <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
                     Late Interest (MCLR+2%)
                   </label>
-                  <input
+                  <input aria-label="Pay Interest"
                     type="number"
                     inputMode="decimal"
                     step="0.01"
@@ -1719,7 +1719,7 @@ export function MobileSaleDetailClient({
                 <label className="text-m-caption font-bold uppercase mb-1 block" style={{ color: "var(--color-ink-600)" }}>
                   Deposit Amount
                 </label>
-                <input
+                <input aria-label="Dep Amount"
                   type="number"
                   value={depAmount}
                   onChange={(e) => setDepAmount(e.target.value)}
@@ -1742,7 +1742,7 @@ export function MobileSaleDetailClient({
                 <label className="text-m-caption font-bold uppercase mb-1 block" style={{ color: "var(--color-ink-600)" }}>
                   Reference (optional)
                 </label>
-                <input
+                <input aria-label="Cheque / UTR no"
                   type="text"
                   value={depRef}
                   onChange={(e) => setDepRef(e.target.value)}
@@ -1777,7 +1777,7 @@ export function MobileSaleDetailClient({
               <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                 Final payment received now (₹) — leave blank to record full balance
               </label>
-              <input
+              <input aria-label="Comp Final Amount"
                 type="number"
                 inputMode="decimal"
                 min="0"
@@ -1803,7 +1803,7 @@ export function MobileSaleDetailClient({
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Sale Deed / Registry No.
                 </label>
-                <input
+                <input aria-label="Omp Sale Deed No"
                   type="text"
                   value={compSaleDeedNo}
                   onChange={(e) => setCompSaleDeedNo(e.target.value)}
@@ -1826,7 +1826,7 @@ export function MobileSaleDetailClient({
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Reference
                 </label>
-                <input
+                <input aria-label="Cheque / UTR no"
                   type="text"
                   value={compRef}
                   onChange={(e) => setCompRef(e.target.value)}
@@ -1842,7 +1842,7 @@ export function MobileSaleDetailClient({
                     <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                       Cheque No.
                     </label>
-                    <input
+                    <input aria-label="Cheque number"
                       type="text"
                       value={compChequeNo}
                       onChange={(e) => setCompChequeNo(e.target.value)}
@@ -1855,7 +1855,7 @@ export function MobileSaleDetailClient({
                     <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                       Cheque Date
                     </label>
-                    <input
+                    <input aria-label="Comp Cheque Date"
                       type="date"
                       value={compChequeDate}
                       onChange={(e) => setCompChequeDate(e.target.value)}
@@ -1867,7 +1867,7 @@ export function MobileSaleDetailClient({
                     <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                       Cheque Bank
                     </label>
-                    <input
+                    <input aria-label="Bank name"
                       type="text"
                       value={compChequeBank}
                       onChange={(e) => setCompChequeBank(e.target.value)}
@@ -1953,7 +1953,7 @@ export function MobileSaleDetailClient({
               <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
                   <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Allotment Letter No.</label>
-                  <input type="text" value={compAllotmentNo}
+                  <input aria-label="Omp Allotment No" type="text" value={compAllotmentNo}
                     onChange={(e) => setCompAllotmentNo(e.target.value)}
                     placeholder="AL-001"
                     className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
@@ -1961,7 +1961,7 @@ export function MobileSaleDetailClient({
                 </div>
                 <div className="pl-2">
                   <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Allotment Date</label>
-                  <input type="date" value={compAllotmentDate}
+                  <input aria-label="Comp Allotment Date" type="date" value={compAllotmentDate}
                     onChange={(e) => setCompAllotmentDate(e.target.value)}
                     className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
                     style={{ backgroundColor: "transparent" }} />
@@ -1970,7 +1970,7 @@ export function MobileSaleDetailClient({
               <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
                   <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>BBA No.</label>
-                  <input type="text" value={compBbaNo}
+                  <input aria-label="Omp Bba No" type="text" value={compBbaNo}
                     onChange={(e) => setCompBbaNo(e.target.value)}
                     placeholder="BBA-001"
                     className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
@@ -1978,7 +1978,7 @@ export function MobileSaleDetailClient({
                 </div>
                 <div className="pl-2">
                   <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>BBA Date</label>
-                  <input type="date" value={compBbaDate}
+                  <input aria-label="Comp Bba Date" type="date" value={compBbaDate}
                     onChange={(e) => setCompBbaDate(e.target.value)}
                     className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
                     style={{ backgroundColor: "transparent" }} />
@@ -1987,7 +1987,7 @@ export function MobileSaleDetailClient({
               <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
                   <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>TDS Amount (₹)</label>
-                  <input type="number" min="0" step="0.01" value={compTdsAmount}
+                  <input aria-label="Comp TDS Amount" type="number" min="0" step="0.01" value={compTdsAmount}
                     onChange={(e) => setCompTdsAmount(e.target.value)}
                     placeholder="1% if > ₹50L"
                     className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
@@ -1995,7 +1995,7 @@ export function MobileSaleDetailClient({
                 </div>
                 <div className="pl-2">
                   <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>TDS Certificate No.</label>
-                  <input type="text" value={compTdsCertNo}
+                  <input aria-label="Omp TDS Cert No" type="text" value={compTdsCertNo}
                     onChange={(e) => setCompTdsCertNo(e.target.value)}
                     placeholder="Form 16B no."
                     className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
@@ -2007,7 +2007,7 @@ export function MobileSaleDetailClient({
               <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
                   <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Bank / Lender</label>
-                  <input type="text" value={compLoanBank}
+                  <input aria-label="HDFC, SBI" type="text" value={compLoanBank}
                     onChange={(e) => setCompLoanBank(e.target.value)}
                     placeholder="HDFC, SBI…"
                     className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
@@ -2015,7 +2015,7 @@ export function MobileSaleDetailClient({
                 </div>
                 <div className="pl-2">
                   <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Loan Amount (₹)</label>
-                  <input type="number" min="0" step="0.01" value={compLoanAmount}
+                  <input aria-label="Omp Loan Amount" type="number" min="0" step="0.01" value={compLoanAmount}
                     onChange={(e) => setCompLoanAmount(e.target.value)}
                     placeholder="0"
                     className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors"
@@ -2025,7 +2025,7 @@ export function MobileSaleDetailClient({
               <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
                 <div>
                   <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Sanction No.</label>
-                  <input type="text" value={compLoanSanctionNo}
+                  <input aria-label="Sanction letter no" type="text" value={compLoanSanctionNo}
                     onChange={(e) => setCompLoanSanctionNo(e.target.value)}
                     placeholder="Sanction letter no."
                     className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
@@ -2033,7 +2033,7 @@ export function MobileSaleDetailClient({
                 </div>
                 <div className="pl-2">
                   <label className="text-m-caption font-semibold uppercase" style={{ color: "var(--color-ink-500)" }}>Sanction Date</label>
-                  <input type="date" value={compLoanSanctionDate}
+                  <input aria-label="Comp Loan Sanction Date" type="date" value={compLoanSanctionDate}
                     onChange={(e) => setCompLoanSanctionDate(e.target.value)}
                     className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors"
                     style={{ backgroundColor: "transparent" }} />
@@ -2361,7 +2361,7 @@ function EditSaleModal({
             <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Expected Registry Date
             </label>
-            <input
+            <input aria-label="Expected Registry Date"
               type="date"
               value={expectedRegistryDate}
               onChange={(e) => setExpectedRegistryDate(e.target.value)}
@@ -2378,7 +2378,7 @@ function EditSaleModal({
             <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Broker Name
             </label>
-            <input
+            <input aria-label="Broker Name"
               value={brokerName}
               onChange={(e) => setBrokerName(e.target.value)}
               className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
@@ -2389,7 +2389,7 @@ function EditSaleModal({
             <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Broker Phone
             </label>
-            <input
+            <input aria-label="Broker Phone"
               value={brokerPhone}
               onChange={(e) => setBrokerPhone(e.target.value)}
               className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
@@ -2400,7 +2400,7 @@ function EditSaleModal({
             <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Broker Agency
             </label>
-            <input
+            <input aria-label="Broker Agency"
               value={brokerAgency}
               onChange={(e) => setBrokerAgency(e.target.value)}
               className="w-full rounded-[0.375rem] border px-2.5 py-1.5 text-m-section"
@@ -2411,7 +2411,7 @@ function EditSaleModal({
             <label className="text-m-caption font-semibold uppercase tracking-wide" style={{ color: "var(--color-ink-500)" }}>
               Commission Amount
             </label>
-            <input
+            <input aria-label="Commission Amount"
               type="number"
               step="0.01"
               value={commissionAmount}
@@ -2566,7 +2566,7 @@ function ScheduleEditorModal({
               <label className="text-m-caption font-bold uppercase tracking-wide block mb-1" style={{ color: "var(--color-steel)" }}>
                 Advance %
               </label>
-              <input
+              <input aria-label="Advance Pct"
                 type="number"
                 value={advancePct}
                 onChange={(e) => setAdvancePct(e.target.value)}
@@ -2580,7 +2580,7 @@ function ScheduleEditorModal({
               <label className="text-m-caption font-bold uppercase tracking-wide block mb-1" style={{ color: "var(--color-steel)" }}>
                 Deal maturity (months)
               </label>
-              <input
+              <input aria-label="Maturity Months"
                 type="number"
                 value={maturityMonths}
                 onChange={(e) => setMaturityMonths(e.target.value)}

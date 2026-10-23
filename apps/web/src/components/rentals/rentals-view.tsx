@@ -757,11 +757,11 @@ export function RentalsView({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Tenant name</Label>
-              <Input value={fTenantName} onChange={(e) => setFTenantName(e.target.value)} placeholder="Tenant / company name" />
+              <Input aria-label="Tenant / company name" value={fTenantName} onChange={(e) => setFTenantName(e.target.value)} placeholder="Tenant / company name" />
             </div>
             <div>
               <Label>Tenant phone</Label>
-              <Input value={fTenantPhone} onChange={(e) => setFTenantPhone(e.target.value)} placeholder="Optional" />
+              <Input aria-label="F Tenant Phone" value={fTenantPhone} onChange={(e) => setFTenantPhone(e.target.value)} placeholder="Optional" />
             </div>
           </div>
           <div>
@@ -780,40 +780,40 @@ export function RentalsView({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Start date</Label>
-              <Input type="date" value={fStart} onChange={(e) => setFStart(e.target.value)} />
+              <Input aria-label="F Start" type="date" value={fStart} onChange={(e) => setFStart(e.target.value)} />
             </div>
             <div>
               <Label>End date</Label>
-              <Input type="date" value={fEnd} onChange={(e) => setFEnd(e.target.value)} />
+              <Input aria-label="F End" type="date" value={fEnd} onChange={(e) => setFEnd(e.target.value)} />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Monthly rent (₹)</Label>
-              <Input type="number" value={fRent} onChange={(e) => setFRent(e.target.value)} placeholder="0" />
+              <Input aria-label="F Rent" type="number" value={fRent} onChange={(e) => setFRent(e.target.value)} placeholder="0" />
             </div>
             <div>
               <Label>Security deposit (₹)</Label>
-              <Input type="number" value={fDeposit} onChange={(e) => setFDeposit(e.target.value)} placeholder="0" />
+              <Input aria-label="F Deposit" type="number" value={fDeposit} onChange={(e) => setFDeposit(e.target.value)} placeholder="0" />
             </div>
           </div>
           <div>
             <Label>Rent agreement no. (optional)</Label>
-            <Input value={fAgreementNo} onChange={(e) => setFAgreementNo(e.target.value)} placeholder="e.g. RA-2026-001" />
+            <Input aria-label="F Agreement No" value={fAgreementNo} onChange={(e) => setFAgreementNo(e.target.value)} placeholder="e.g. RA-2026-001" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Yearly escalation % (optional)</Label>
-              <Input type="number" value={fEscalationPct} onChange={(e) => setFEscalationPct(e.target.value)} placeholder="e.g. 5 for 5% yearly" />
+              <Input aria-label="F Escalation Pct" type="number" value={fEscalationPct} onChange={(e) => setFEscalationPct(e.target.value)} placeholder="e.g. 5 for 5% yearly" />
             </div>
             <div>
               <Label>Escalation interval (months)</Label>
-              <Input type="number" value={fEscalationInterval} onChange={(e) => setFEscalationInterval(e.target.value)} placeholder="12" />
+              <Input aria-label="F Escalation Interval" type="number" value={fEscalationInterval} onChange={(e) => setFEscalationInterval(e.target.value)} placeholder="12" />
             </div>
           </div>
           <div>
             <Label>Rent-free / fit-out period (days)</Label>
-            <Input type="number" value={fRentFreeDays} onChange={(e) => setFRentFreeDays(e.target.value)} placeholder="0 — days before rent billing starts" />
+            <Input aria-label="F Rent Free Days" type="number" value={fRentFreeDays} onChange={(e) => setFRentFreeDays(e.target.value)} placeholder="0 — days before rent billing starts" />
             <p className="text-caption text-muted-foreground mt-1">Tenant moves in and sets up without paying rent. Billing starts after this many days.</p>
           </div>
           <div>
@@ -836,7 +836,7 @@ export function RentalsView({
             <p className="text-caption text-muted-foreground">Informal terms discussed before the formal registered agreement. Printable on company letterhead — like a PO for rentals.</p>
             <div>
               <Label>Draft date</Label>
-              <Input type="date" value={fDraftDate} onChange={(e) => setFDraftDate(e.target.value)} />
+              <Input aria-label="F Draft Date" type="date" value={fDraftDate} onChange={(e) => setFDraftDate(e.target.value)} />
             </div>
             <div>
               <Label>Draft / LOI notes</Label>
@@ -866,7 +866,7 @@ export function RentalsView({
         <div className="space-y-3">
           <div>
             <Label>Amount (₹)</Label>
-            <Input type="number" value={pAmount} onChange={(e) => setPAmount(e.target.value)} />
+            <Input aria-label="P Amount" type="number" value={pAmount} onChange={(e) => setPAmount(e.target.value)} />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
@@ -880,31 +880,31 @@ export function RentalsView({
             </div>
             <div>
               <Label>Payment date</Label>
-              <Input type="date" value={pDate} onChange={(e) => setPDate(e.target.value)} />
+              <Input aria-label="P Date" type="date" value={pDate} onChange={(e) => setPDate(e.target.value)} />
             </div>
           </div>
           <div>
             <Label>Reference (optional)</Label>
-            <Input value={pRef} onChange={(e) => setPRef(e.target.value)} placeholder="UTR / cheque no." />
+            <Input aria-label="UTR / cheque no" value={pRef} onChange={(e) => setPRef(e.target.value)} placeholder="UTR / cheque no." />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>TDS deducted (₹, optional)</Label>
-              <Input type="number" value={pTds} onChange={(e) => setPTds(e.target.value)} placeholder="0" />
+              <Input aria-label="TDS" type="number" value={pTds} onChange={(e) => setPTds(e.target.value)} placeholder="0" />
             </div>
             <div>
               <Label>TDS certificate no. (optional)</Label>
-              <Input value={pTdsCert} onChange={(e) => setPTdsCert(e.target.value)} placeholder="Form 16C no." />
+              <Input aria-label="TDS Cert" value={pTdsCert} onChange={(e) => setPTdsCert(e.target.value)} placeholder="Form 16C no." />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Rent period start (optional)</Label>
-              <Input type="date" value={pPeriodStart} onChange={(e) => setPPeriodStart(e.target.value)} />
+              <Input aria-label="P Period Start" type="date" value={pPeriodStart} onChange={(e) => setPPeriodStart(e.target.value)} />
             </div>
             <div>
               <Label>Rent period end (optional)</Label>
-              <Input type="date" value={pPeriodEnd} onChange={(e) => setPPeriodEnd(e.target.value)} />
+              <Input aria-label="P Period End" type="date" value={pPeriodEnd} onChange={(e) => setPPeriodEnd(e.target.value)} />
             </div>
           </div>
           {pTds && Number(pTds) > 0 && pAmount && (
@@ -954,16 +954,16 @@ export function RentalsView({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>New tenant name</Label>
-              <Input value={ctName} onChange={(e) => setCtName(e.target.value)} placeholder="Tenant / company name" />
+              <Input aria-label="Tenant / company name" value={ctName} onChange={(e) => setCtName(e.target.value)} placeholder="Tenant / company name" />
             </div>
             <div>
               <Label>New tenant phone</Label>
-              <Input value={ctPhone} onChange={(e) => setCtPhone(e.target.value)} placeholder="Optional" />
+              <Input aria-label="Ct Phone" value={ctPhone} onChange={(e) => setCtPhone(e.target.value)} placeholder="Optional" />
             </div>
           </div>
           <div>
             <Label>New tenant email (optional)</Label>
-            <Input type="email" value={ctEmail} onChange={(e) => setCtEmail(e.target.value)} placeholder="Optional" />
+            <Input aria-label="Ct Email" type="email" value={ctEmail} onChange={(e) => setCtEmail(e.target.value)} placeholder="Optional" />
           </div>
           <div>
             <Label>Link to customer (optional)</Label>
@@ -981,25 +981,25 @@ export function RentalsView({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>New monthly rent (₹)</Label>
-              <Input type="number" value={ctRent} onChange={(e) => setCtRent(e.target.value)} />
+              <Input aria-label="Ct Rent" type="number" value={ctRent} onChange={(e) => setCtRent(e.target.value)} />
             </div>
             <div>
               <Label>New security deposit (₹)</Label>
-              <Input type="number" value={ctDeposit} onChange={(e) => setCtDeposit(e.target.value)} />
+              <Input aria-label="Ct Deposit" type="number" value={ctDeposit} onChange={(e) => setCtDeposit(e.target.value)} />
             </div>
           </div>
           <div>
             <Label>New rent agreement no. (optional)</Label>
-            <Input value={ctAgreementNo} onChange={(e) => setCtAgreementNo(e.target.value)} placeholder="e.g. RA-2026-002" />
+            <Input aria-label="T Agreement No" value={ctAgreementNo} onChange={(e) => setCtAgreementNo(e.target.value)} placeholder="e.g. RA-2026-002" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>New start date (optional)</Label>
-              <Input type="date" value={ctStart} onChange={(e) => setCtStart(e.target.value)} />
+              <Input aria-label="Ct Start" type="date" value={ctStart} onChange={(e) => setCtStart(e.target.value)} />
             </div>
             <div>
               <Label>New end date (optional)</Label>
-              <Input type="date" value={ctEnd} onChange={(e) => setCtEnd(e.target.value)} />
+              <Input aria-label="Ct End" type="date" value={ctEnd} onChange={(e) => setCtEnd(e.target.value)} />
             </div>
           </div>
           <div>
@@ -1026,11 +1026,11 @@ export function RentalsView({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Tenant name</Label>
-              <Input value={eTenantName} onChange={(e) => setETenantName(e.target.value)} placeholder="Tenant / company name" />
+              <Input aria-label="Tenant / company name" value={eTenantName} onChange={(e) => setETenantName(e.target.value)} placeholder="Tenant / company name" />
             </div>
             <div>
               <Label>Tenant phone</Label>
-              <Input value={eTenantPhone} onChange={(e) => setETenantPhone(e.target.value)} placeholder="Optional" />
+              <Input aria-label="E Tenant Phone" value={eTenantPhone} onChange={(e) => setETenantPhone(e.target.value)} placeholder="Optional" />
             </div>
           </div>
           <div>
@@ -1049,34 +1049,34 @@ export function RentalsView({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Start date</Label>
-              <Input type="date" value={eStart} onChange={(e) => setEStart(e.target.value)} />
+              <Input aria-label="E Start" type="date" value={eStart} onChange={(e) => setEStart(e.target.value)} />
             </div>
             <div>
               <Label>End date</Label>
-              <Input type="date" value={eEnd} onChange={(e) => setEEnd(e.target.value)} />
+              <Input aria-label="E End" type="date" value={eEnd} onChange={(e) => setEEnd(e.target.value)} />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Monthly rent (₹)</Label>
-              <Input type="number" value={eRent} onChange={(e) => setERent(e.target.value)} placeholder="0" />
+              <Input aria-label="Rent" type="number" value={eRent} onChange={(e) => setERent(e.target.value)} placeholder="0" />
             </div>
             <div>
               <Label>Security deposit (₹)</Label>
-              <Input type="number" value={eDeposit} onChange={(e) => setEDeposit(e.target.value)} placeholder="0" />
+              <Input aria-label="Deposit" type="number" value={eDeposit} onChange={(e) => setEDeposit(e.target.value)} placeholder="0" />
             </div>
           </div>
           <div>
             <Label>Rent agreement no. (optional)</Label>
-            <Input value={eAgreementNo} onChange={(e) => setEAgreementNo(e.target.value)} placeholder="e.g. RA-2026-001" />
+            <Input aria-label="Agreement No" value={eAgreementNo} onChange={(e) => setEAgreementNo(e.target.value)} placeholder="e.g. RA-2026-001" />
           </div>
           <div>
             <Label>Yearly escalation % (optional)</Label>
-            <Input type="number" value={eEscalationPct} onChange={(e) => setEEscalationPct(e.target.value)} placeholder="e.g. 5 for 5% yearly" />
+            <Input aria-label="Escalation Pct" type="number" value={eEscalationPct} onChange={(e) => setEEscalationPct(e.target.value)} placeholder="e.g. 5 for 5% yearly" />
           </div>
           <div>
             <Label>Rent-free / fit-out period (days)</Label>
-            <Input type="number" value={eRentFreeDays} onChange={(e) => setERentFreeDays(e.target.value)} placeholder="0 — days before rent billing starts" />
+            <Input aria-label="Rent Free Days" type="number" value={eRentFreeDays} onChange={(e) => setERentFreeDays(e.target.value)} placeholder="0 — days before rent billing starts" />
           </div>
           <div>
             <Label>SAC Code (GST on rent)</Label>
@@ -1097,7 +1097,7 @@ export function RentalsView({
             <p className="text-label font-semibold text-muted-foreground">Draft / LOI (optional)</p>
             <div>
               <Label>Draft date</Label>
-              <Input type="date" value={eDraftDate} onChange={(e) => setEDraftDate(e.target.value)} />
+              <Input aria-label="E Draft Date" type="date" value={eDraftDate} onChange={(e) => setEDraftDate(e.target.value)} />
             </div>
             <div>
               <Label>Draft / LOI notes</Label>

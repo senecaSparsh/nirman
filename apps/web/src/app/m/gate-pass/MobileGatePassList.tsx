@@ -815,7 +815,7 @@ export function MobileGatePassFormDialog({
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Destination
                 </label>
-                <input
+                <input aria-label="Destination"
                   type="text"
                   value={destination}
                   onChange={(e) => setDestination(e.target.value)}
@@ -827,7 +827,7 @@ export function MobileGatePassFormDialog({
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Purpose
                 </label>
-                <input
+                <input aria-label="Urpose"
                   type="text"
                   value={purpose}
                   onChange={(e) => setPurpose(e.target.value)}
@@ -843,7 +843,7 @@ export function MobileGatePassFormDialog({
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Vehicle Number
                 </label>
-                <input
+                <input aria-label="Vehicle Number"
                   type="text"
                   value={vehicleNumber}
                   onChange={(e) => setVehicleNumber(e.target.value)}
@@ -867,7 +867,7 @@ export function MobileGatePassFormDialog({
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Driver Name
                 </label>
-                <input
+                <input aria-label="Driver name"
                   type="text"
                   value={driverName}
                   onChange={(e) => setDriverName(e.target.value)}
@@ -879,7 +879,7 @@ export function MobileGatePassFormDialog({
                 <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                   Driver Phone
                 </label>
-                <input
+                <input aria-label="Driver Phone"
                   type="tel"
                   value={driverPhone}
                   onChange={(e) => setDriverPhone(e.target.value)}
@@ -894,7 +894,7 @@ export function MobileGatePassFormDialog({
               <label className="block text-m-caption font-bold mb-0" style={{ color: "var(--color-ink-700)" }}>
                 Transporter
               </label>
-              <input
+              <input aria-label="Transporter name"
                 type="text"
                 value={transporterName}
                 onChange={(e) => setTransporterName(e.target.value)}
@@ -924,7 +924,7 @@ export function MobileGatePassFormDialog({
               {lines.map((line, i) => (
                 <div key={i} className="flex gap-2 items-end">
                   <div className="flex-1 min-w-0">
-                    <input
+                    <input aria-label="Description"
                       type="text"
                       value={line.description}
                       onChange={(e) => setLines(lines.map((l, idx) => idx === i ? { ...l, description: e.target.value } : l))}
@@ -933,7 +933,7 @@ export function MobileGatePassFormDialog({
                     />
                   </div>
                   <div className="w-16 shrink-0">
-                    <input
+                    <input aria-label="Qty"
                       type="number"
                       value={line.qty}
                       onChange={(e) => setLines(lines.map((l, idx) => idx === i ? { ...l, qty: e.target.value } : l))}
@@ -942,7 +942,7 @@ export function MobileGatePassFormDialog({
                     />
                   </div>
                   <div className="w-16 shrink-0">
-                    <input
+                    <input aria-label="Unit"
                       type="text"
                       value={line.unit}
                       onChange={(e) => setLines(lines.map((l, idx) => idx === i ? { ...l, unit: e.target.value } : l))}

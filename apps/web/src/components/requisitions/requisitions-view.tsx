@@ -895,7 +895,7 @@ function RequisitionFormDialog({
         </div>
         <div className="space-y-1.5">
           <Label>Needed By Date</Label>
-          <Input type="date" value={form.neededByDate} onChange={(e) => setForm((f) => ({ ...f, neededByDate: e.target.value }))} />
+          <Input aria-label="Needed By Date" type="date" value={form.neededByDate} onChange={(e) => setForm((f) => ({ ...f, neededByDate: e.target.value }))} />
         </div>
 
         <div className="space-y-2">
@@ -914,7 +914,7 @@ function RequisitionFormDialog({
                     <MaterialFormDialog open={o} onOpenChange={onClose} categories={categories} material={null} onCreated={(e) => { setLocalMaterials((p) => [...p, { id: e.id, code: "", name: e.label ?? "", unit: "" }]); onCreated(e); }} />
                   )}
                 />
-                <Input type="number" placeholder="Qty" value={line.qty} onChange={(e) => setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, qty: e.target.value } : l))} className="w-24" />
+                <Input aria-label="Qty" type="number" placeholder="Qty" value={line.qty} onChange={(e) => setLines((ls) => ls.map((l, idx) => idx === i ? { ...l, qty: e.target.value } : l))} className="w-24" />
                 <Button type="button" variant="ghost" size="icon" onClick={() => setLines((ls) => ls.filter((_, idx) => idx !== i))} disabled={lines.length === 1} aria-label="Remove line">
                   <X className="h-4 w-4" />
                 </Button>
@@ -1102,7 +1102,7 @@ function ConvertDialog({
           </div>
           <div className="space-y-1.5">
             <Label>Expected Date</Label>
-            <Input type="date" value={form.expectedDate} onChange={(e) => setForm((f) => ({ ...f, expectedDate: e.target.value }))} />
+            <Input aria-label="Expected Date" type="date" value={form.expectedDate} onChange={(e) => setForm((f) => ({ ...f, expectedDate: e.target.value }))} />
           </div>
         </div>
 
@@ -1141,7 +1141,7 @@ function ConvertDialog({
               <div key={line.id} className="flex items-center gap-2">
                 <span className="flex-1 text-body">{line.materialName} ({line.materialCode})</span>
                 <span className="tnum text-body text-muted-foreground">{formatNumber(line.qtyRequested, 3)} {line.unit}</span>
-                <Input
+                <Input aria-label="Unit cost"
                   type="number"
                   placeholder="Unit cost"
                   value={lineCosts[line.materialId] ?? ""}

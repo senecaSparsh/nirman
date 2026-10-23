@@ -288,13 +288,13 @@ export function TransferFormDialog({
           </p>
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Freight (₹)" error={errors.freight}>
-              <Input type="number" step="0.01" min="0" value={freight} onChange={(e) => { setFreight(e.target.value); clearError("freight"); }} onBlur={() => onBlur("freight", formValues)} aria-invalid={!!errors.freight} placeholder="0" disabled={!isInterCompany} />
+              <Input aria-label="Freight" type="number" step="0.01" min="0" value={freight} onChange={(e) => { setFreight(e.target.value); clearError("freight"); }} onBlur={() => onBlur("freight", formValues)} aria-invalid={!!errors.freight} placeholder="0" disabled={!isInterCompany} />
             </Field>
             <Field label="Handling Fee (₹)" error={errors.handlingFee}>
-              <Input type="number" step="0.01" min="0" value={handlingFee} onChange={(e) => { setHandlingFee(e.target.value); clearError("handlingFee"); }} onBlur={() => onBlur("handlingFee", formValues)} aria-invalid={!!errors.handlingFee} placeholder="0" disabled={!isInterCompany} />
+              <Input aria-label="Handling Fee" type="number" step="0.01" min="0" value={handlingFee} onChange={(e) => { setHandlingFee(e.target.value); clearError("handlingFee"); }} onBlur={() => onBlur("handlingFee", formValues)} aria-invalid={!!errors.handlingFee} placeholder="0" disabled={!isInterCompany} />
             </Field>
             <Field label="Markup (%)" error={errors.markupPct}>
-              <Input type="number" step="0.01" min="0" max="100" value={markupPct} onChange={(e) => { setMarkupPct(e.target.value); clearError("markupPct"); }} onBlur={() => onBlur("markupPct", formValues)} aria-invalid={!!errors.markupPct} placeholder="0" disabled={!isInterCompany} />
+              <Input aria-label="Markup Pct" type="number" step="0.01" min="0" max="100" value={markupPct} onChange={(e) => { setMarkupPct(e.target.value); clearError("markupPct"); }} onBlur={() => onBlur("markupPct", formValues)} aria-invalid={!!errors.markupPct} placeholder="0" disabled={!isInterCompany} />
             </Field>
           </div>
         </div>
@@ -307,7 +307,7 @@ export function TransferFormDialog({
           </p>
           <div className="grid gap-3 sm:grid-cols-3">
             <Field label="Vehicle Number">
-              <Input value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="UP32 AB 1234" />
+              <Input aria-label="Vehicle Number" value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="UP32 AB 1234" />
             </Field>
             <Field label="Vehicle Type">
               <Select value={vehicleType} onChange={(e) => setVehicleType(e.target.value)}>
@@ -318,13 +318,13 @@ export function TransferFormDialog({
               </Select>
             </Field>
             <Field label="Transporter">
-              <Input value={transporterName} onChange={(e) => setTransporterName(e.target.value)} placeholder="Optional" />
+              <Input aria-label="Transporter Name" value={transporterName} onChange={(e) => setTransporterName(e.target.value)} placeholder="Optional" />
             </Field>
             <Field label="Driver Name">
-              <Input value={driverName} onChange={(e) => setDriverName(e.target.value)} placeholder="Optional" />
+              <Input aria-label="Driver Name" value={driverName} onChange={(e) => setDriverName(e.target.value)} placeholder="Optional" />
             </Field>
             <Field label="Driver Phone">
-              <Input type="tel" value={driverPhone} onChange={(e) => setDriverPhone(e.target.value)} placeholder="Optional" />
+              <Input aria-label="Driver Phone" type="tel" value={driverPhone} onChange={(e) => setDriverPhone(e.target.value)} placeholder="Optional" />
             </Field>
           </div>
         </div>

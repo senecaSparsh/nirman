@@ -133,7 +133,7 @@ export function BackupSettings() {
             Download a backup first before restoring.
           </p>
         </div>
-        <input
+        <input aria-hidden="true" tabIndex={-1}
           ref={fileRef}
           type="file"
           accept="application/json,.json"

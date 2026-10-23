@@ -86,7 +86,7 @@ export function MobileChequeFields({
           <label className={labelClass} style={labelStyle}>
             Cheque No.
           </label>
-          <input
+          <input aria-label="Cheque No."
             type="text"
             value={value.chequeNo}
             onChange={(e) => set("chequeNo", e.target.value)}
@@ -99,7 +99,7 @@ export function MobileChequeFields({
           <label className={labelClass} style={labelStyle}>
             Cheque Date
           </label>
-          <input
+          <input aria-label="Cheque Date"
             type="date"
             value={value.chequeDate}
             onChange={(e) => set("chequeDate", e.target.value)}
@@ -114,7 +114,7 @@ export function MobileChequeFields({
         <label className={labelClass} style={labelStyle}>
           Bank
         </label>
-        <input
+        <input aria-label="HDFC, SBI, ICICI"
           type="text"
           value={value.chequeBank}
           onChange={(e) => set("chequeBank", e.target.value)}
@@ -165,7 +165,7 @@ export function MobileChequeFields({
             </span>
           </button>
         )}
-        <input
+        <input aria-hidden="true" tabIndex={-1}
           ref={fileRef}
           type="file"
           accept="image/*,application/pdf"

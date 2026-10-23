@@ -186,16 +186,16 @@ export function CreateUserDialog({
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label>Full Name *</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Rajesh Kumar" autoFocus />
+            <Input aria-label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Rajesh Kumar" autoFocus />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Email</Label>
-              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="user@example.com" />
+              <Input aria-label="Mail" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="user@example.com" />
             </div>
             <div className="space-y-1.5">
               <Label>Phone</Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-digit mobile" />
+              <Input aria-label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-digit mobile" />
             </div>
           </div>
           <p className="text-caption text-muted-foreground">Either email or phone is required for login.</p>
@@ -219,21 +219,21 @@ export function CreateUserDialog({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Employee Code</Label>
-              <Input value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} placeholder="e.g. SRG-FIN-0001" />
+              <Input aria-label="Mployee Code" value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} placeholder="e.g. SRG-FIN-0001" />
             </div>
             <div className="space-y-1.5">
               <Label>Designation</Label>
-              <Input value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="e.g. Site Engineer" />
+              <Input aria-label="Designation" value={designation} onChange={(e) => setDesignation(e.target.value)} placeholder="e.g. Site Engineer" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Org Unit</Label>
-              <Input value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. Construction" />
+              <Input aria-label="Department" value={department} onChange={(e) => setDepartment(e.target.value)} placeholder="e.g. Construction" />
             </div>
             <div className="space-y-1.5">
               <Label>Joining Date</Label>
-              <Input type="date" value={joiningDate} onChange={(e) => setJoiningDate(e.target.value)} />
+              <Input aria-label="Joining Date" type="date" value={joiningDate} onChange={(e) => setJoiningDate(e.target.value)} />
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">

@@ -192,7 +192,7 @@ export function MobileLandEditForm({
             <label className={labelClass} style={labelStyle}>
               Seller Name <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
-            <input
+            <input aria-label="Seller name"
               type="text"
               value={sellerName}
               onChange={(e) => setSellerName(e.target.value)}
@@ -205,7 +205,7 @@ export function MobileLandEditForm({
           {/* Seller Contact */}
           <div>
             <label className={labelClass} style={labelStyle}>Seller Contact</label>
-            <input
+            <input aria-label="Seller Contact"
               type="tel"
               value={sellerContact}
               onChange={(e) => setSellerContact(e.target.value)}
@@ -218,7 +218,7 @@ export function MobileLandEditForm({
           {/* Purchase Date */}
           <div>
             <label className={labelClass} style={labelStyle}>Purchase Date</label>
-            <input
+            <input aria-label="Purchase Date"
               type="date"
               value={purchaseDate}
               onChange={(e) => setPurchaseDate(e.target.value)}
@@ -233,7 +233,7 @@ export function MobileLandEditForm({
               <label className={labelClass} style={labelStyle}>
                 Total Area <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
-              <input
+              <input aria-label="Total Area"
                 type="text" inputMode="decimal"
                 step="any"
                 value={totalArea}
@@ -258,7 +258,7 @@ export function MobileLandEditForm({
             <label className={labelClass} style={labelStyle}>
               Total Cost <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
-            <input
+            <input aria-label="Total Cost"
               type="text" inputMode="decimal"
               step="any"
               value={totalCost}
@@ -272,7 +272,7 @@ export function MobileLandEditForm({
           {/* Registry No */}
           <div>
             <label className={labelClass} style={labelStyle}>Registry No</label>
-            <input
+            <input aria-label="Registry document number"
               type="text"
               value={registryNo}
               onChange={(e) => setRegistryNo(e.target.value)}
@@ -285,7 +285,7 @@ export function MobileLandEditForm({
           {/* Location */}
           <div>
             <label className={labelClass} style={labelStyle}>Location</label>
-            <input
+            <input aria-label="Village, district, state"
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
@@ -298,7 +298,7 @@ export function MobileLandEditForm({
           {/* Document URL */}
           <div>
             <label className={labelClass} style={labelStyle}>Document URL (optional)</label>
-            <input
+            <input aria-label="Document Url"
               type="text"
               value={documentUrl}
               onChange={(e) => setDocumentUrl(e.target.value)}
@@ -371,7 +371,7 @@ export function MobileLandEditForm({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className={labelClass} style={labelStyle}>Lease Period (years)</label>
-                  <input
+                  <input aria-label="Lease Period Years"
                     type="text" inputMode="numeric"
                     value={leasePeriodYears}
                     onChange={(e) => setLeasePeriodYears(e.target.value)}
@@ -385,7 +385,7 @@ export function MobileLandEditForm({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className={labelClass} style={labelStyle}>Lease Start</label>
-                  <input
+                  <input aria-label="Lease Start Date"
                     type="date"
                     value={leaseStartDate}
                     onChange={(e) => setLeaseStartDate(e.target.value)}
@@ -395,7 +395,7 @@ export function MobileLandEditForm({
                 </div>
                 <div>
                   <label className={labelClass} style={labelStyle}>Lease End</label>
-                  <input
+                  <input aria-label="Lease End Date"
                     type="date"
                     value={leaseEndDate}
                     onChange={(e) => setLeaseEndDate(e.target.value)}
@@ -425,7 +425,7 @@ export function MobileLandEditForm({
               {/* Base Cost */}
               <div>
                 <label className={labelClass} style={labelStyle}>Base Cost (₹) — land price</label>
-                <input
+                <input aria-label="Base Cost"
                   type="text" inputMode="decimal"
                   step="any"
                   value={baseCost}
@@ -441,7 +441,7 @@ export function MobileLandEditForm({
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className={labelClass} style={labelStyle}>Lease Rent (%)</label>
-                    <input
+                    <input aria-label="Lease Rent Percent"
                       type="text" inputMode="decimal"
                       step="any"
                       value={leaseRentPercent}
@@ -465,7 +465,7 @@ export function MobileLandEditForm({
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className={labelClass} style={labelStyle}>GST on Rent (%)</label>
-                    <input
+                    <input aria-label="GST Percent"
                       type="text" inputMode="decimal"
                       step="any"
                       value={gstPercent}
@@ -488,7 +488,7 @@ export function MobileLandEditForm({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className={labelClass} style={labelStyle}>Registration (%)</label>
-                  <input
+                  <input aria-label="Registration Percent"
                     type="text" inputMode="decimal"
                     step="any"
                     value={registrationPercent}
@@ -510,7 +510,7 @@ export function MobileLandEditForm({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className={labelClass} style={labelStyle}>Stamp Duty (%)</label>
-                  <input
+                  <input aria-label="Stamp Duty Percent"
                     type="text" inputMode="decimal"
                     step="any"
                     value={stampDutyPercent}
@@ -532,7 +532,7 @@ export function MobileLandEditForm({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className={labelClass} style={labelStyle}>Transfer Duty (%)</label>
-                  <input
+                  <input aria-label="Transfer Duty Percent"
                     type="text" inputMode="decimal"
                     step="any"
                     value={transferDutyPercent}
@@ -553,7 +553,7 @@ export function MobileLandEditForm({
               {/* Additional costs */}
               <div>
                 <label className={labelClass} style={labelStyle}>Brokerage (₹)</label>
-                <input
+                <input aria-label="Brokerage Amount"
                   type="text" inputMode="decimal"
                   step="any"
                   value={brokerageAmount}
@@ -565,7 +565,7 @@ export function MobileLandEditForm({
               </div>
               <div>
                 <label className={labelClass} style={labelStyle}>Legal Fees (₹)</label>
-                <input
+                <input aria-label="Legal Fees"
                   type="text" inputMode="decimal"
                   step="any"
                   value={legalFees}
@@ -577,7 +577,7 @@ export function MobileLandEditForm({
               </div>
               <div>
                 <label className={labelClass} style={labelStyle}>Other Charges (₹)</label>
-                <input
+                <input aria-label="Other Charges"
                   type="text" inputMode="decimal"
                   step="any"
                   value={otherCharges}

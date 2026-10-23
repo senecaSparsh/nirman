@@ -753,7 +753,7 @@ export function MobileDprForm({
           <label className="text-m-label font-bold" style={{ color: "var(--color-ink-700)" }}>
             Override reason (required to submit into a closed period)
           </label>
-          <input
+          <input aria-label="Lock Override Reason"
             type="text"
             value={lockOverrideReason}
             onChange={(e) => setLockOverrideReason(e.target.value)}
@@ -847,7 +847,7 @@ export function MobileDprForm({
 
       <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
         <FormField label="Work Qty">
-          <input
+          <input aria-label="F Work Quantity"
             type="number"
             step="any"
             min="0"
@@ -880,15 +880,15 @@ export function MobileDprForm({
 
       <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
         <FormField label="Date" required>
-          <input type="date" value={fDate} max={today} onChange={(e) => setFDate(e.target.value)} className={inputClass} style={inputStyle} />
+          <input aria-label="F Date" type="date" value={fDate} max={today} onChange={(e) => setFDate(e.target.value)} className={inputClass} style={inputStyle} />
         </FormField>
         <FormField label="Progress %">
-          <input type="text" inputMode="decimal" enterKeyHint="done" min="0" max="100" value={fProgress} onChange={(e) => setFProgress(e.target.value)} placeholder="0-100" className={`${inputClass} tabular-nums`} style={inputStyle} />
+          <input aria-label="F Progress" type="text" inputMode="decimal" enterKeyHint="done" min="0" max="100" value={fProgress} onChange={(e) => setFProgress(e.target.value)} placeholder="0-100" className={`${inputClass} tabular-nums`} style={inputStyle} />
         </FormField>
       </div>
 
       <FormField label="Weather">
-        <input value={fWeather} onChange={(e) => setFWeather(e.target.value)} placeholder="Sunny, 28°C" enterKeyHint="next" className={inputClass} style={inputStyle} />
+        <input aria-label="F Weather" value={fWeather} onChange={(e) => setFWeather(e.target.value)} placeholder="Sunny, 28°C" enterKeyHint="next" className={inputClass} style={inputStyle} />
       </FormField>
 
       <FormField label="Work summary" required>
@@ -1000,8 +1000,8 @@ export function MobileDprForm({
                 }}
               />
               <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-                <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Qty" value={l.qty} onChange={(e) => setMaterialLines(materialLines.map((m, i) => i === idx ? { ...m, qty: e.target.value } : m))} className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors" style={inputStyle} />
-                <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Unit cost" value={l.unitCost} onChange={(e) => setMaterialLines(materialLines.map((m, i) => i === idx ? { ...m, unitCost: e.target.value } : m))} className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors" style={inputStyle} />
+                <input aria-label="Qty" type="text" inputMode="decimal" enterKeyHint="next" placeholder="Qty" value={l.qty} onChange={(e) => setMaterialLines(materialLines.map((m, i) => i === idx ? { ...m, qty: e.target.value } : m))} className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors" style={inputStyle} />
+                <input aria-label="Unit cost" type="text" inputMode="decimal" enterKeyHint="next" placeholder="Unit cost" value={l.unitCost} onChange={(e) => setMaterialLines(materialLines.map((m, i) => i === idx ? { ...m, unitCost: e.target.value } : m))} className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors" style={inputStyle} />
               </div>
               {l.qty && l.unitCost && Number(l.qty) > 0 && Number(l.unitCost) > 0 ? (
                 <p className="text-right text-m-caption font-semibold tabular-nums mt-1" style={{ color: "var(--color-ink-500)" }}>
@@ -1102,8 +1102,8 @@ export function MobileDprForm({
                 compact
               />
               <div className="grid grid-cols-2 gap-2 divide-x" style={{ borderColor: "var(--color-line)" }}>
-                <input type="text" inputMode="decimal" enterKeyHint="next" placeholder="Hours" value={l.hoursWorked} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, hoursWorked: e.target.value } : m))} className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors" style={inputStyle} />
-                <input placeholder="Task description" value={l.taskDescription} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, taskDescription: e.target.value } : m))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={inputStyle} />
+                <input aria-label="Hours" type="text" inputMode="decimal" enterKeyHint="next" placeholder="Hours" value={l.hoursWorked} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, hoursWorked: e.target.value } : m))} className="w-full h-7 px-1 text-m-caption tabular-nums outline-none border-b focus:border-b-2 transition-colors" style={inputStyle} />
+                <input aria-label="Task description" placeholder="Task description" value={l.taskDescription} onChange={(e) => setLaborLines(laborLines.map((m, i) => i === idx ? { ...m, taskDescription: e.target.value } : m))} className="w-full h-7 px-1 text-m-caption outline-none border-b focus:border-b-2 transition-colors" style={inputStyle} />
               </div>
             </div>
           ))}

@@ -260,7 +260,7 @@ function SupplierPaymentCard({ p, canManage, canViewProcurement }: { p: Supplier
             <p className="mt-1 text-caption text-muted-foreground">
               The payment is marked void and its accounting entry reversed — the supplier&apos;s balance re-opens and any invoice it paid goes back to unpaid. The record stays for audit.
             </p>
-            <input
+            <input aria-label="Void Reason"
               type="text"
               value={voidReason}
               onChange={(e) => setVoidReason(e.target.value)}

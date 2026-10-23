@@ -116,6 +116,8 @@ export function HsnMasterAdmin() {
                 type="file"
                 accept=".csv,text/csv"
                 className="hidden"
+                aria-hidden="true"
+                tabIndex={-1}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file) handleImportCsv(file);

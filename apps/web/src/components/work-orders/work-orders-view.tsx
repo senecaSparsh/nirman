@@ -925,7 +925,7 @@ function WorkOrderDetailDialog({
           className="space-y-3"
         >
           <Field label="Advance amount (₹)" required>
-            <Input
+            <Input aria-label="Advance Amount"
               type="number"
               min="1"
               step="0.01"
@@ -952,7 +952,7 @@ function WorkOrderDetailDialog({
             </select>
           </Field>
           <Field label="Payment reference">
-            <Input
+            <Input aria-label="Advance Ref"
               value={advanceRef}
               onChange={(e) => setAdvanceRef(e.target.value)}
               placeholder="e.g. NEFT-ADV-001, Cheque No. 123456"
@@ -1328,7 +1328,7 @@ function WorkOrderDialog({
         </Field>
         <div className="grid gap-3 sm:grid-cols-4">
           <Field label="Retention %">
-            <Input type="number" step="0.01" value={form.retentionPct} onChange={(e) => set("retentionPct", e.target.value)} />
+            <Input aria-label="Retention Pct" type="number" step="0.01" value={form.retentionPct} onChange={(e) => set("retentionPct", e.target.value)} />
           </Field>
           <Field label="TDS Category">
             <Select value={form.tdsCategory} onChange={(e) => set("tdsCategory", e.target.value)}>
@@ -1343,10 +1343,10 @@ function WorkOrderDialog({
             )}
           </Field>
           <Field label="Advance Amount">
-            <Input type="number" step="0.01" value={form.advanceAmount} onChange={(e) => set("advanceAmount", e.target.value)} />
+            <Input aria-label="Advance Amount" type="number" step="0.01" value={form.advanceAmount} onChange={(e) => set("advanceAmount", e.target.value)} />
           </Field>
           <Field label="Advance Recovery %">
-            <Input type="number" step="0.01" value={form.advanceRecoveryPct} onChange={(e) => set("advanceRecoveryPct", e.target.value)} />
+            <Input aria-label="Advance Recovery Pct" type="number" step="0.01" value={form.advanceRecoveryPct} onChange={(e) => set("advanceRecoveryPct", e.target.value)} />
           </Field>
         </div>
 
@@ -1366,7 +1366,7 @@ function WorkOrderDialog({
                     <option value="">— Select BOQ item —</option>
                     {boqItems.map((b) => <option key={b.id} value={b.id}>{b.serialNo} — {b.description}</option>)}
                   </Select>
-                  <Input type="number" step="0.01" placeholder="Rate ₹" value={line.agreedRate} onChange={(e) => setLine(idx, "agreedRate", e.target.value)} />
+                  <Input aria-label="Line" type="number" step="0.01" placeholder="Rate ₹" value={line.agreedRate} onChange={(e) => setLine(idx, "agreedRate", e.target.value)} />
                   {lines.length > 1 && (
                     <button aria-label="Clear" type="button" onClick={() => removeLine(idx)} className="text-muted-foreground hover:text-destructive">
                       <XCircle className="h-4 w-4" />
@@ -1701,7 +1701,7 @@ function RaBillDetailDialog({
             </select>
           </Field>
           <Field label="Payment reference (optional)">
-            <input
+            <input aria-label="Ayment Reference"
               value={paymentReference}
               onChange={(e) => setPaymentReference(e.target.value)}
               placeholder="e.g. UTR, cheque no, transaction ID…"

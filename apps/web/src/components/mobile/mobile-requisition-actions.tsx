@@ -634,7 +634,7 @@ function ConvertForm({
         <label className="block text-m-caption font-semibold mb-1" style={{ color: "var(--color-ink-500)" }}>
           Expected date (optional)
         </label>
-        <input
+        <input aria-label="Expected Date"
           type="date"
           value={expectedDate}
           onChange={(e) => setExpectedDate(e.target.value)}
@@ -667,6 +667,7 @@ function ConvertForm({
                   inputMode="decimal"
                   min="0"
                   step="0.01"
+                  aria-label={`Rate for ${l.materialName ?? "material"}`}
                   value={lineCosts[l.materialId] ?? 0}
                   onChange={(e) =>
                     setLineCosts((c) => ({ ...c, [l.materialId]: Number(e.target.value) || 0 }))

@@ -91,7 +91,7 @@ export function InventoryValueReport({
       >
         <div className="space-y-1">
           <label className="text-caption text-muted-foreground">As on date (optional)</label>
-          <Input
+          <Input aria-label="Leave empty for live balance"
             type="date"
             value={asOn}
             onChange={(e) => setAsOn(e.target.value)}

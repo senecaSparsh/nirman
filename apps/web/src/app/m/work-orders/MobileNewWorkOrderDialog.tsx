@@ -429,7 +429,7 @@ export function MobileNewWorkOrderForm({
                         <span className="text-m-caption" style={{ color: "var(--color-ink-500)" }}>Agreed rate:</span>
                         <div className="relative flex-1">
                           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-m-caption font-bold" style={{ color: "var(--color-ink-500)" }}>₹</span>
-                          <input
+                          <input aria-label="Agreed Rate"
                             type="number"
                             min={0}
                             step="any"

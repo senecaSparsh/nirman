@@ -279,7 +279,7 @@ export function MobileNewTenancyDialog({
             <label className={labelClass} style={labelStyle}>
               Tenant Name <span style={{ color: "var(--color-stop)" }}>*</span>
             </label>
-            <input
+            <input aria-label="Tenant Name"
               type="text"
               value={form.tenantName}
               onChange={(e) => set("tenantName", e.target.value)}
@@ -297,7 +297,7 @@ export function MobileNewTenancyDialog({
               <label className={labelClass} style={labelStyle}>
                 Tenant Phone
               </label>
-              <input
+              <input aria-label="Tenant Phone"
                 type="tel"
                 value={form.tenantPhone}
                 onChange={(e) => set("tenantPhone", e.target.value)}
@@ -311,7 +311,7 @@ export function MobileNewTenancyDialog({
               <label className={labelClass} style={labelStyle}>
                 Tenant Email
               </label>
-              <input
+              <input aria-label="Tenant Email"
                 type="email"
                 value={form.tenantEmail}
                 onChange={(e) => set("tenantEmail", e.target.value)}
@@ -383,7 +383,7 @@ export function MobileNewTenancyDialog({
               <label className={labelClass} style={labelStyle}>
                 Start Date <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
-              <input
+              <input aria-label="Start Date"
                 type="date"
                 value={form.startDate}
                 onChange={(e) => set("startDate", e.target.value)}
@@ -395,7 +395,7 @@ export function MobileNewTenancyDialog({
               <label className={labelClass} style={labelStyle}>
                 End Date <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
-              <input
+              <input aria-label="End Date"
                 type="date"
                 value={form.endDate}
                 onChange={(e) => set("endDate", e.target.value)}
@@ -412,7 +412,7 @@ export function MobileNewTenancyDialog({
                 Monthly Rent (₹){" "}
                 <span style={{ color: "var(--color-stop)" }}>*</span>
               </label>
-              <input
+              <input aria-label="Monthly Rent (₹)"
                 type="number"
                 min={0}
                 step="any"
@@ -428,7 +428,7 @@ export function MobileNewTenancyDialog({
               <label className={labelClass} style={labelStyle}>
                 Security Deposit (₹)
               </label>
-              <input
+              <input aria-label="Security Deposit (₹)"
                 type="number"
                 min={0}
                 step="any"
@@ -447,7 +447,7 @@ export function MobileNewTenancyDialog({
             <label className={labelClass} style={labelStyle}>
               Agreement Reference No.
             </label>
-            <input
+            <input aria-label="Agreement Reference No."
               type="text"
               value={form.rentAgreementNo}
               onChange={(e) => set("rentAgreementNo", e.target.value)}
@@ -463,7 +463,7 @@ export function MobileNewTenancyDialog({
             <label className={labelClass} style={labelStyle}>
               Rent-free / fit-out period (days)
             </label>
-            <input
+            <input aria-label="Rent-free / fit-out period (days)"
               type="number"
               min={0}
               value={form.rentFreeDays}
@@ -481,7 +481,7 @@ export function MobileNewTenancyDialog({
               <label className={labelClass} style={labelStyle}>
                 Yearly Escalation (%)
               </label>
-              <input
+              <input aria-label="Yearly Escalation (%)"
                 type="number"
                 min={0}
                 step="any"
@@ -497,7 +497,7 @@ export function MobileNewTenancyDialog({
               <label className={labelClass} style={labelStyle}>
                 Every (months)
               </label>
-              <input
+              <input aria-label="Every (months)"
                 type="number"
                 min={1}
                 value={form.escalationIntervalMonths}
@@ -557,7 +557,7 @@ export function MobileNewTenancyDialog({
                 <label className={labelClass} style={labelStyle}>
                   Draft / LOI Date
                 </label>
-                <input
+                <input aria-label="Draft Date"
                   type="date"
                   value={form.draftDate}
                   onChange={(e) => set("draftDate", e.target.value)}

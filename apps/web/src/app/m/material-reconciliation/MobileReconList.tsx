@@ -58,7 +58,7 @@ export function MobileReconList({
           style={{ borderColor: "var(--color-line)", backgroundColor: "var(--color-paper)" }}
         >
           <Search className="size-3.5 shrink-0" style={{ color: "var(--color-ink-500)" }} />
-          <input
+          <input aria-label="Search materials"
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
