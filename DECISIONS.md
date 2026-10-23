@@ -2344,3 +2344,58 @@ location setup needs no step.
 owner could finish all six with zero quantities loaded. Added a 7th
 step (`hasOpeningStock` = any `StockLocationItem` row) on both
 surfaces: "Load opening stock" → /stock + /m/stock.
+
+---
+
+## Round 98 — Form-control naming, PATCH semantics, print landmarks
+
+**Form-control accessible names (three siblings closed):**
+
+- ~1,150 text `<input>`s labeled — placeholder text is not an accessible
+  name. Name-like placeholders copied to `aria-label` ("Seller Name"),
+  example/value placeholders ("e.g. 2.5", "PLOT-01") labeled from
+  `value={x}`/`setX`/label-sibling context, no-placeholder inputs
+  labeled from value paths. ~40 edge cases (dotted `land.X`,
+  `form.X`, OTP/phone, table checkboxes) labeled by hand.
+- 189 `<textarea>`s labeled the same way.
+- 14 hidden `type=file` inputs → `aria-hidden` + `tabIndex=-1` (the
+  visible trigger button carries the interaction).
+- New ESLint rule `nirman/require-accessible-input` covers
+  `<input>/<Input>/<textarea>/<Textarea>` — skips hidden/file/
+  checkbox/radio types, `<label>`/`<Field label>`/`FormFieldSm`
+  ancestors, `title`-named controls, ui/ primitives + tests. Zero
+  remaining violations.
+- 4 clickable non-focusable surfaces got keyboard activation
+  (work-order/RA-bill/stock-expandable `<tr>`s + CSV dropzone).
+  `<tr>` keeps table semantics (tabIndex + Enter/Space keydown, no
+  role=button).
+
+**API correctness:** `PATCH /api/suppliers/[id]` required every
+create-time field — partial updates 400'd with "Required". Now
+`supplierSchema.partial()`. Audited all 40 PATCH routes: safety
+entities already use dedicated partial update-schemas, brokers
+intentionally requires full schema (its update maps each field with
+`?? null` — partial would wipe columns), the rest are POST-create
+spreads or action-schemas. This was the only gap.
+
+**Print pages:** 22 lacked `<main>` landmarks and the ID-card an h1;
+section captions sat at gray-400 (2.6:1 — unreadable on paper, not
+just screen). All print-page roots wrapped in `<main>`, sr-only h1 on
+the ID card, gray-400→500 across 50 sites (all on light stock).
+
+**Money-path audit (unchanged ledger):** GRN over-delivery correctly
+guarded (`cumulative ≤ qtyOrdered`, procurement.ts:1201) + invariant #7
+audits it. Supplier-payment overpayment guarded across PO-total,
+invoice-total, and balanceOwed paths. No new defects.
+
+**Bad evidence caught:** my own codemods — the `=>` inside
+`onClick={(e) =>` truncated multi-line tags at `s.find('>')` producing
+184 phantom "untyped button" hits (real count: 0 — codebase was
+already disciplined) and a runaway offset-stale write that bloated
+sign-in-client.tsx +62k lines before revert. Depth-aware tag
+extraction + collect-then-apply-back-to-front is the correct pattern.
+
+**Verify:** 81/81 workflow checks green earlier; mobile smoke
+re-running on a fresh :3100 (earlier run died on the known dev-only
+Turbopack mass-compile wedge — ~350-file diff invalidated every
+mobile chunk). Desktop smoke: 100+ routes + role-scoping all green.
