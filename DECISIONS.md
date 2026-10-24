@@ -2776,3 +2776,19 @@ Round 109 — Trust audit sweep: gate-pass guard, /dprs redirect, dates, low-sto
   (F14 render sites handle zero-budget + null).
 - paymentStatus repair verified canonical on dev — prod AssetSale empty,
   nothing to repair.
+
+Round 110 — WO deep links + command-palette bounds
+
+- **`/work-orders/[id]`**: desktop WO detail was drawer-only — the
+  project hub's `/work-orders/<id>` row link 404'd. New [id] page
+  redirects to `/work-orders?wo=<id>`; the view auto-opens the detail
+  dialog (fetches the WO individually for cross-project links).
+  `?project=<id>` (hub's existing links) now also honoured — projectId
+  was hardcoded to the first project. Route manifest fallback already
+  mapped `/m/work-orders/[id]` → desktop via prefix strip, so the
+  notification-link chain works end-to-end. Verified live locally
+  (200 + streamed `?wo=` redirect) and on prod (route exists).
+- **Command palette** (F16): records + actions already shipped via the
+  unified `/api/search`; the real gap was clipping — card anchored at
+  15vh with unbounded height could push the footer off short viewports.
+  Card is now `max-h-[80vh]` flex-col with flexing results region.
