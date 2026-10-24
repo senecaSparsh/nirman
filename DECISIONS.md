@@ -2608,3 +2608,27 @@ Continued `WO-261024-0001` through the money cycle:
   (31,25,265 + 21,58,000 + 2,98,025).
 - Same guard class also blocks completion while approved-unbilled MB
   entries exist on the WO's BOQ items (no stranded measurements).
+
+Round 105 — DPR verified; owner-filed DPRs silently skipped material issue
+
+Drove the field DPR flow (mobile `/m/dprs` → submit with labor + material
+lines) on apex center:
+
+- **Guards verified**: payroll-locked period refuses back-dated filing
+  without an admin `lockOverrideReason`; a DPR with no labor/material
+  data refuses outright ("no-work day needs skipAttendanceCheck").
+  Both correct — site truth can't be filed empty.
+- **2-tier approval**: OWNER submission auto-completes sub-admin + admin
+  tiers (no higher reviewer), matching the RA-bill waiver pattern.
+- **Bug fixed**: the POST auto-approve path never called
+  `generateMaterialIssueFromDPR` — the PATCH adminApprove path did. An
+  owner-filed DPR with material lines silently never issued stock.
+  Now both paths run the bridge (non-fatal, logged).
+- **Verified on real data**: generated `SA-261024-0002` for the DPR —
+  2,400 bricks issued from Apex Site Store (15,000→12,600), ₹22,800,
+  GL Dr 1500 WIP / Cr inventory, DPR↔issue linked via `sourceDprId`.
+- Cost posting is a separate finance step (`markCostPosted` +
+  `/api/dprs/finance-reconciliation` compares recorded vs GL-posted).
+
+Small cleanups noted: duplicated `revalidatePath("/m/dprs")` calls in
+`dprs/[id]/route.ts` (harmless).

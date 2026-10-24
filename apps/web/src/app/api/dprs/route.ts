@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@nirman/db";
-import { submitDPR, subAdminApproveDpr, adminApproveDpr, canWaiveSelfApproval } from "@nirman/services";
+import { submitDPR, subAdminApproveDpr, adminApproveDpr, generateMaterialIssueFromDPR, canWaiveSelfApproval } from "@nirman/services";
 import { jsonBody, apiHandler, getCompany, json, dprSchema, toNum, scopeWhere, assertScopeAllows, getActingRole, requireEffectivePermission, getEffectivePermissions } from "@/lib/server";
 import { PERM } from "@/lib/roles";
 import { parseCursorParams, cursorToWhere, buildCursorResponse } from "@/lib/cursor-pagination";
@@ -140,6 +140,14 @@ export const POST = apiHandler(async (req: NextRequest) => {
       try {
         await subAdminApproveDpr(dpr.id, user.id, undefined, await getActingRole());
         await adminApproveDpr(dpr.id, user.id, undefined, await getActingRole());
+        // Match the PATCH adminApprove path — an approved DPR with material
+        // lines must generate its stock issue either way, or owner-filed
+        // DPRs silently skip stock + WIP postings.
+        try {
+          await generateMaterialIssueFromDPR(dpr.id, user.id);
+        } catch (e) {
+          console.warn("DPR material-issue generation failed:", e);
+        }
       } catch (e) {
         // Non-fatal — the DPR is submitted; a manager can still approve it.
         console.warn("DPR auto-approve failed:", e);
