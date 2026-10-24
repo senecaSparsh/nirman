@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useFetch } from "@/lib/use-fetch";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -249,7 +249,11 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
   permissions: { canManage: boolean; canSubmit: boolean; canApprove: boolean; canPay: boolean };
 }) {
   const router = useRouter();
-  const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
+  const searchParams = useSearchParams();
+  const [projectId, setProjectId] = useState(() => {
+    const p = searchParams.get("project");
+    return p && projects.some((pr) => pr.id === p) ? p : (projects[0]?.id ?? "");
+  });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailWO, setDetailWO] = useState<WorkOrder | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -270,6 +274,22 @@ export function WorkOrdersView({ projects, canCreate, permissions }: {
   useEffect(() => {
     if (error) toast.error("Failed to load work orders");
   }, [error]);
+
+  // Deep link: /work-orders?wo=<id> opens the detail dialog. If the WO isn't
+  // in this project's list (cross-project link), fetch it individually.
+  const deepLinkWoId = searchParams.get("wo");
+  useEffect(() => {
+    if (!deepLinkWoId || loading || detailWO) return;
+    const found = workOrders.find((w) => w.id === deepLinkWoId);
+    if (found) { setDetailWO(found); return; }
+    if (workOrders.length === 0 && !woData) return; // still hydrating
+    let cancelled = false;
+    fetch(`/api/work-orders/${deepLinkWoId}`).then((r) => (r.ok ? r.json() : null)).then((d) => {
+      if (!cancelled && d) setDetailWO(d as WorkOrder);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deepLinkWoId, loading, workOrders]);
 
   // ── Stats ──
   const stats = useMemo(() => {
